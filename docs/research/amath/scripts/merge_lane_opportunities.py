@@ -1,7 +1,10 @@
 """Merge the five AMATH lane opportunity files into one ranked, deduplicated matrix.
 
-Run from the wt-amath worktree root:  python -I <this file> <worktree>
-Writes docs/research/amath/evidence/sitewide_opportunities_merged.json
+ARTIFACT GENERATOR (the one deliberate exception to "diagnostics write nothing"): it
+regenerates docs/research/amath/evidence/sitewide_opportunities_merged.json from the five
+lane files, deterministically, and writes nothing else.
+
+Run from the repository root:  python -I <this file> <repo-root>
 """
 
 from __future__ import annotations

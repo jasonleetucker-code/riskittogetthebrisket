@@ -14,7 +14,7 @@ registry or identity in depth, so this lane does not duplicate them. AMATH-3 (di
 source ensemble) is the weekly/ROS analogue of AM-VALUATION-02 and stays separate: dynasty
 market value is never pooled with weekly or ROS projections.
 **Evidence:** `evidence/valuation_opportunities.json` (17 rows, exact schema in the shared brief).
-**Worktree basis:** `C:\Users\jason\code\wt-amath` at `d1c649da2` (branch
+**Worktree basis:** the research branch at `d1c649da2` (branch
 `research/amath-sitewide-2026-11-01`), read-only.
 
 **Evidence labels:** DEMONSTRATED-IN-REPO (file cited), PUBLISHED-EXTERNAL, PLAUSIBLE

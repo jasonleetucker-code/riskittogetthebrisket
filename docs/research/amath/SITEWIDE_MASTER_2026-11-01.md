@@ -63,14 +63,14 @@ new: each is quoted from a lane report or a committed repository record, with it
    Found independently by two lanes. → AMATH-S12. [TRADES B9, FRONTIER #5; DEMONSTRATED-IN-REPO]
 3. **The playoff/title simulator has no season-level team-strength uncertainty, and its calibration gates are
    mis-sized.** Weekly scores are drawn around a fixed per-team mean, so season variance omits the n²τ² term. A
-   perfectly calibrated model passes SC-G4 0.2% and SC-G1 16% of the time at week-7 sizes, so the gates could not
-   have passed a good model either. The D11 record already names a "per-draw team shock" as the follow-up its failed
+   perfectly calibrated model passes SC-G4 0.2% and SC-G1 16% of the time at week-7 sizes, so the gates were very
+   unlikely to pass even a good model. The D11 record already names a "per-draw team shock" as the follow-up its failed
    G4 points to. → AMATH-S01, S03. [ROSTER §0.1–0.2; DEMONSTRATED-IN-REPO structure; magnitude HYPOTHESIS]
 4. **Every Game Day probability runs on fallback dispersion constants, independent draws, and an in-progress
    variance that shrinks too fast.** Production uses `FALLBACK_CV_BY_POSITION` (QB 0.32 … TE 0.65) because the
    calibrated artifact was never built (RPA-F-021). Remaining SD scales with the remaining fraction f instead of √f
    (0.50× at f = 0.25). Same-NFL-team pair dependence measured at τ² ≈ 0.0169 vs ≈ 0.0088 roster-wide (2,646 pairs)
-   is ignored. The true weekly-projection CV is **unmeasured**; V3's 0.73–1.20 is an upper reference only. →
+   is ignored. The true weekly-projection CV is **unmeasured**; V3's 0.74–1.20 is an upper reference only. →
    AMATH-S04, S03. [PROJECTIONS §0.1–0.3, FRONTIER F1]
 5. **Streaming's binding constraint is the forecast, not the optimizer (reverses #2053's sequencing).** Relaxing
    every point-in-time guard moves the strict optimizer from +0.40 to +3.71 points per decision-week; hindsight

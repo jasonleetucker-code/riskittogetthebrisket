@@ -24,7 +24,7 @@ SPECULATION. Opportunity JSON: `docs/research/amath/evidence/projections_opportu
    draws `max(0, N(μ, max(0.5, μ·cv)))` with `FALLBACK_CV_BY_POSITION` (QB 0.32, RB 0.55, WR 0.60, TE 0.65, DL 0.55,
    LB 0.45, DB 0.50, K → default 0.55). RPA-F-021 (`docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md`)
    confirms production runs `fallback-constants` because the calibrated artifact was never built. The V3 study
-   measured prediction-error CVs of 0.73–1.20 for rosValue-based means
+   measured prediction-error CVs of 0.74–1.20 for rosValue-based means
    (`docs/league-intelligence/evidence/sim_calibration_v3/evaluation_v3.json → fits.week{5..8}.V3.cv`). **Caveat:**
    Game Day's means come from weekly provider projections, whose error CV is *probably smaller* than ROS-based
    error — so the V3 number is an upper reference, not the right Game Day value. The right value is **unmeasured**
