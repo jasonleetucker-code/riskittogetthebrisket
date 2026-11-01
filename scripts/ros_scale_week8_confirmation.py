@@ -19,7 +19,9 @@ import argparse
 import hashlib
 import json
 import math
+import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -33,6 +35,9 @@ from src.ros_calibration import conversion as cv  # noqa: E402
 # The Git blob SHA of #2010's frozen fits, not an outcome-derived estimate.
 # Changing the content intentionally requires independent review of this pin.
 PINNED_FROZEN_BLOB = "cbed086e21deca852f8db9abf3ef1de26656158d"
+# The commit that first published those fits (#2010).  Its commit time is the
+# evidence that the model was frozen BEFORE the confirmation week kicked off.
+PINNED_FREEZE_COMMIT = "0726dbd0967a266da68ef73b20ab80dbcfc18d33"
 FROZEN_PATH = (
     REPO
     / "docs"
@@ -59,7 +64,10 @@ def load_frozen_models(
 ) -> tuple[dict[str, cv.ConversionModel], dict[str, str]]:
     """Load and validate preregistered model parameters without fitting anything."""
     raw_bytes = path.read_bytes()
-    observed_blob = git_blob_sha(raw_bytes)
+    # Git stores the blob with LF endings; a Windows checkout (core.autocrlf)
+    # writes CRLF to disk.  Hash what Git hashes, so the pin identifies the
+    # committed content on every platform.  Any other byte change still refuses.
+    observed_blob = git_blob_sha(raw_bytes.replace(b"\r\n", b"\n"))
     if observed_blob != expected_blob:
         _refuse(f"frozen-fit Git blob changed: {observed_blob} != {expected_blob}")
     raw = json.loads(raw_bytes)
@@ -103,9 +111,7 @@ def load_frozen_models(
                 or not source
             ):
                 _refuse(f"invalid frozen fit coefficient: {model_id}/{family}")
-            fits[family] = cv.LinearFit(
-                a=float(a), b=float(b), n=n, source=source
-            )
+            fits[family] = cv.LinearFit(a=float(a), b=float(b), n=n, source=source)
         model = cv.ConversionModel(model_id=model_id, fits=fits)
         if model.to_dict() != block:
             _refuse(f"frozen model failed lossless roundtrip: {model_id}")
@@ -116,23 +122,66 @@ def load_frozen_models(
     }
 
 
+def _git(*args: str) -> str:
+    return subprocess.run(
+        ["git", *args],
+        cwd=REPO,
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    ).stdout.strip()
+
+
+def verify_freeze(
+    first_kickoff_utc: datetime,
+    *,
+    commit: str = PINNED_FREEZE_COMMIT,
+    expected_blob: str = PINNED_FROZEN_BLOB,
+    git=_git,
+) -> dict[str, str]:
+    """Prove the pinned fits existed in history before the week's first kickoff.
+
+    Refuses when the freeze commit is unavailable, when it does not hold the
+    pinned blob at ``FROZEN_PATH``, or when it is not strictly older than the
+    first kickoff.  A model frozen after kickoff could have seen the outcome.
+    """
+    rel = FROZEN_PATH.relative_to(REPO).as_posix()
+    try:
+        blob = git("rev-parse", f"{commit}:{rel}")
+        committed = git("show", "-s", "--format=%cI", commit)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        _refuse(f"freeze commit {commit} unavailable; cannot prove a pre-kickoff freeze ({exc})")
+    if blob != expected_blob:
+        _refuse(f"freeze commit {commit} holds blob {blob}, not the pinned {expected_blob}")
+    committed_at = datetime.fromisoformat(committed)
+    if committed_at >= first_kickoff_utc:
+        _refuse(
+            f"frozen fits committed {committed_at.isoformat()} at or after first kickoff "
+            f"{first_kickoff_utc.isoformat()}"
+        )
+    return {
+        "commit": commit,
+        "committedAt": committed_at.isoformat(),
+        "firstKickoffUtc": first_kickoff_utc.isoformat(),
+    }
+
+
 def run_confirmation(*, offline: bool = False) -> dict[str, Any]:
     """Confirm once against finalized week 8 without refitting or changing gates."""
     models, frozen_receipt = load_frozen_models()
     source = study_mod.Study(offline=offline)
     if not source.is_final(study_mod.CONFIRM_WEEK):
         _refuse(f"week {study_mod.CONFIRM_WEEK} is not final; no partial-week evaluation")
+    freeze = verify_freeze(source.sched[study_mod.CONFIRM_WEEK].first_kickoff_utc)
     wd = source.week(study_mod.CONFIRM_WEEK)
 
-    reconciled_rows = [
-        r for r in wd.rows if r.points is not None and r.host_points is not None
-    ]
+    # Scored player-weeks Sleeper reports no points for are counted, not hidden.
+    without_host = sum(1 for r in wd.rows if r.points is not None and r.host_points is None)
+    reconciled_rows = [r for r in wd.rows if r.points is not None and r.host_points is not None]
     if not reconciled_rows:
         _refuse("no comparable host-scored roster rows in confirmation week")
-    mismatched = sum(
-        abs(float(r.points) - float(r.host_points)) > 0.02
-        for r in reconciled_rows
-    )
+    mismatched = sum(abs(float(r.points) - float(r.host_points)) > 0.02 for r in reconciled_rows)
     if mismatched:
         _refuse(f"host scoring does not reconcile: {mismatched} player-weeks")
 
@@ -153,7 +202,7 @@ def run_confirmation(*, offline: bool = False) -> dict[str, Any]:
         "week": study_mod.CONFIRM_WEEK,
         "trainingWeeks": list(study_mod.FINAL_FIT_WEEKS),
         "preregistration": study_mod.PREREGISTRATION,
-        "frozenFits": frozen_receipt,
+        "frozenFits": {**frozen_receipt, "freeze": freeze},
         "code": study_mod.v1.code_identity(),
         "cardFingerprint": source.fingerprint,
         "snapshot": wd.snapshot.relative_to(REPO).as_posix(),
@@ -161,6 +210,7 @@ def run_confirmation(*, offline: bool = False) -> dict[str, Any]:
         "hostPointsReconciled": {
             "match": len(reconciled_rows),
             "of": len(reconciled_rows),
+            "scoredWithoutHostPoints": without_host,
             "tolerance": 0.02,
         },
         "accuracy": accuracy,

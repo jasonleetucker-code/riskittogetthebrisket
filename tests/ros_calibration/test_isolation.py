@@ -1,8 +1,9 @@
 """Shadow isolation: nothing live imports ``src.ros_calibration``.
 
-The only permitted importer is the research study script.  The package imports
-only an allow-listed set of read-only owners — never feature flags, the server,
-the data contract, or any writer of ``data/ros``.
+The only permitted importers are the research study script and its frozen
+Week 8 confirmation runner.  The package imports only an allow-listed set of
+read-only owners — never feature flags, the server, the data contract, or any
+writer of ``data/ros``.
 """
 
 from __future__ import annotations
@@ -12,7 +13,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 PACKAGE = REPO / "src" / "ros_calibration"
-ALLOWED_IMPORTERS = {"scripts/ros_scale_calibration_study.py"}
+ALLOWED_IMPORTERS = {
+    "scripts/ros_scale_calibration_study.py",
+    # Research-only frozen Week 8 confirmation (PR #2035).  Nothing live imports
+    # it: pinned by test_no_live_module_imports_the_confirmation_runner below.
+    "scripts/ros_scale_week8_confirmation.py",
+}
+RESEARCH_SCRIPTS = ("ros_scale_calibration_study", "ros_scale_week8_confirmation")
 ALLOWED_SRC_IMPORTS = {
     "src.ros.lineup": {"lineup_position"},
     "src.league_intel.replacement": {"compute_replacement_levels", "normalize_base_position"},
@@ -47,6 +54,19 @@ def test_no_live_module_imports_the_package():
             if _is_pkg(module) or (module == "src" and "ros_calibration" in names):
                 if rel not in ALLOWED_IMPORTERS:
                     offenders.append(rel)
+    assert offenders == []
+
+
+def test_no_live_module_imports_the_confirmation_runner():
+    offenders = []
+    files = [p for p in (REPO / "src").rglob("*.py")] + [REPO / "server.py"]
+    for path in files:
+        for module, names in _imports(path):
+            hit = any(s in module for s in RESEARCH_SCRIPTS) or (
+                module == "scripts" and names & set(RESEARCH_SCRIPTS)
+            )
+            if hit:
+                offenders.append(path.relative_to(REPO).as_posix())
     assert offenders == []
 
 
