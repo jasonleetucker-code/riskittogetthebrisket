@@ -14,6 +14,7 @@ Exit codes: 0 = evaluated; 2 = required data unavailable (nothing evaluated);
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import urllib.request
@@ -58,6 +59,25 @@ def _load_card(args: argparse.Namespace) -> tuple[dict[str, Any], str]:
     with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310
         league = json.loads(resp.read().decode("utf-8"))
     return dict(league.get("scoring_settings") or {}), f"sleeper_api:league/{args.league_id}"
+
+
+def _code_provenance() -> dict[str, Any]:
+    """Pinned code identity: HEAD SHA plus whether the tree was dirty (CLAUDE.md §3.5)."""
+    import subprocess
+
+    def _git(*a: str) -> str | None:
+        try:
+            return subprocess.run(
+                ["git", *a], cwd=ROOT, capture_output=True, text=True, check=True, encoding="utf-8"
+            ).stdout.strip()
+        except Exception:  # noqa: BLE001
+            return None
+
+    status = _git("status", "--porcelain", "--", "src", "scripts", "tests")
+    return {
+        "codeSha": _git("rev-parse", "HEAD"),
+        "codeDirty": None if status is None else bool(status),
+    }
 
 
 def _head(url: str) -> str:
@@ -167,9 +187,13 @@ def main(argv: list[str] | None = None) -> int:
         "shadowOnly": True,
         "preregistration": "docs/projections/IDP_OPPORTUNITY_CHALLENGERS_PREREGISTRATION_2026-11-01.md",
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        **_code_provenance(),
         "card": {
             "source": card_source,
             "fingerprint": scoring_fingerprint(settings),
+            "settingsSha256": hashlib.sha256(
+                json.dumps(settings, sort_keys=True).encode("utf-8")
+            ).hexdigest(),
             "idpRates": {k: card.rates[k] for k in card.idp_keys},
         },
         "inputs": {},
