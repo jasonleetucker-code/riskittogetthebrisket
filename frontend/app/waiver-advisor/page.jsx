@@ -65,6 +65,7 @@ import styles from "@/app/waivers/waivers.module.css";
 // Paints the .psi-editorial canvas (cream surface, full-bleed); scoping the
 // tokens alone leaves editorial ink on the dark app background.
 import advisorStyles from "./waiver-advisor.module.css";
+import RelatedLinks from "@/components/shell/RelatedLinks";
 
 // The per-pair bid desk is the existing FAAB v2 desk (/api/waiver/faab-recommend),
 // loaded only when a user asks for it so it costs this page's chunk nothing.
@@ -435,6 +436,7 @@ export default function WaiverAdvisorPage() {
         title="Waiver Advisor"
         description="Best available players for your team — value, roster fit, the drop it costs and what to bid. Advice only; nothing here submits a claim."
       />
+      <RelatedLinks hrefs={["/waivers"]} />
 
       <Panel dense>
         <div className={styles.controls}>

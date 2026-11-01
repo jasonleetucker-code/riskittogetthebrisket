@@ -33,9 +33,9 @@
  *   renderExtra optional node appended after the items (e.g. sign out)
  */
 import Link from "next/link";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Icon } from "@/components/ds";
-import { isNavActive } from "@/lib/nav-model";
+import { isNavActive, sectionRuns } from "@/lib/nav-model";
 
 export default function NavMenu({
   label,
@@ -104,7 +104,20 @@ export default function NavMenu({
     }
   }, []);
 
-  let lastSection = null;
+  const menuId = useId();
+
+  const renderItem = (item) => (
+    <Link
+      key={item.href}
+      href={item.href}
+      role="menuitem"
+      className="shell-menu-item"
+      aria-current={isNavActive(item.href, pathname) ? "page" : undefined}
+    >
+      <span>{item.label}</span>
+      {item.hint ? <span className="shell-menu-item-hint">{item.hint}</span> : null}
+    </Link>
+  );
 
   return (
     <span
@@ -159,30 +172,28 @@ export default function NavMenu({
           aria-label={label}
           className={`shell-menu${align === "right" ? " shell-menu--right" : ""}`}
         >
-          {items.map((item) => {
-            const sectionHeader =
-              item.section && item.section !== lastSection ? (
-                <div key={`sec-${item.section}`} className="shell-menu-section">
-                  {item.section}
-                </div>
-              ) : null;
-            lastSection = item.section || lastSection;
-            const current = isNavActive(item.href, pathname);
+          {/* Section headings are a labelled role="group", the ARIA
+              structure a menu may own; a bare heading div inside
+              role="menu" was an unnamed, unowned child (UX audit
+              2026-11-01, A11Y-02).  Runs come from nav-model so the
+              drawer and /more show the same headings. */}
+          {sectionRuns(items).map((run, i) => {
+            if (!run.section) {
+              return run.items.map(renderItem);
+            }
+            const headingId = `${menuId}-sec-${i}`;
             return (
-              <Fragment key={item.href}>
-                {sectionHeader}
-                <Link
-                  href={item.href}
-                  role="menuitem"
-                  className="shell-menu-item"
-                  aria-current={current ? "page" : undefined}
-                >
-                  <span>{item.label}</span>
-                  {item.hint ? (
-                    <span className="shell-menu-item-hint">{item.hint}</span>
-                  ) : null}
-                </Link>
-              </Fragment>
+              <div
+                key={`sec-${run.section}-${i}`}
+                role="group"
+                aria-labelledby={headingId}
+                className="shell-menu-group"
+              >
+                <div id={headingId} className="shell-menu-section">
+                  {run.section}
+                </div>
+                {run.items.map(renderItem)}
+              </div>
             );
           })}
           {renderExtra}
