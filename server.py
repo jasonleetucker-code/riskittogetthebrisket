@@ -14421,6 +14421,45 @@ def _draft_valuation_health() -> list[dict] | None:
         return None
 
 
+def _roster_construction_health() -> list[dict] | None:
+    """The current season of the default league when Roster Construction
+    withholds it as lineup-rules-unverified (ops alerts).
+
+    ``[]`` = checked and fine, or the feature is off (nothing is served, so
+    nothing is withheld); ``None`` = could not be checked (unknown, never
+    "recovered").  Reads the same memoized statuses the route serves.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    try:
+        if not is_enabled("roster_construction"):
+            return []
+        cfg = _league_registry.get_default_league()
+        snapshot = _get_public_snapshot()
+        if cfg is None or snapshot is None or not snapshot.seasons:
+            return None
+        if str(cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return None
+        target = snapshot.current_season
+        status = _roster_construction_season_statuses(snapshot, False).get(str(target.season))
+        if status is None:
+            return None
+        if status.get("available"):
+            return []
+        return [
+            {
+                "leagueKey": cfg.key,
+                "season": str(target.season),
+                "reason": status.get("reason"),
+                "contradictions": list(status.get("contradictions") or []),
+                "contradictedWeeks": list(status.get("contradictedWeeks") or []),
+            }
+        ]
+    except Exception as exc:  # noqa: BLE001 — unknown, never a crash of the sweep
+        log.warning("roster construction health check failed: %s", exc)
+        return None
+
+
 def _pregame_archive_health() -> list[dict] | None:
     """Game Day weeks whose pregame-projections archive build failed (ops alerts).
 
@@ -20747,6 +20786,7 @@ async def run_signal_alerts(request: Request):
             scrape_interval_hours=float(SCRAPE_INTERVAL_HOURS),
             draft_valuation=await run_in_threadpool(_draft_valuation_health),
             pregame_archive=await run_in_threadpool(_pregame_archive_health),
+            roster_construction=await run_in_threadpool(_roster_construction_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )

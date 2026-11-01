@@ -126,8 +126,9 @@ def census_season(snapshot, season, *, tolerance: float, include_playoffs: bool)
                 classification, label = C_MISMATCH, sol.reason
             row = {
                 "week": wk,
+                # Keyed by rosterId only: the evidence is committed to a
+                # public repository, so no manager display name is written.
                 "rosterId": team.roster_id,
-                "team": si.team_labels.get(team.roster_id, f"Team {team.roster_id}"),
                 "sleeperPoints": host,
                 "recomputedPoints": recomputed,
                 "absDiscrepancy": diff,

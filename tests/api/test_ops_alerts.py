@@ -249,3 +249,39 @@ def test_missing_sample_total_does_not_suppress_a_real_rate():
     assert a.severity == "critical"
     # No sample size claimed in the title, because none is known.
     assert "run(s)" not in a.title
+
+
+# ── Roster Construction: current season withheld (owner decision D2) ─────
+_RC_ROW = {
+    "leagueKey": "dynasty_main",
+    "season": "2026",
+    "reason": "lineup_config_unverified",
+    "contradictions": ["starter_count_differs_from_configured_slots"],
+    "contradictedWeeks": [9],
+}
+
+
+def test_roster_construction_current_season_withheld_warns():
+    (a,) = oa._check_roster_construction([_RC_ROW])  # noqa: SLF001
+    assert a.severity == "warning"
+    assert a.category == "roster_construction:dynasty_main:2026"
+    assert "lineup_config_unverified" in a.detail and "[9]" in a.detail
+    assert oa._check_roster_construction([]) == []  # noqa: SLF001
+
+
+def test_roster_construction_unknown_is_not_recovery(kv):
+    def _send(to, subj, body):
+        return True
+
+    s1 = oa.check_and_alert(
+        roster_construction=[_RC_ROW], delivery=_send, to_email="a@b.com", kv_path=kv
+    )
+    assert s1["fired"] == 1
+    # Not checked this sweep: UNKNOWN, so no recovery notice.
+    s2 = oa.check_and_alert(
+        roster_construction=None, delivery=_send, to_email="a@b.com", kv_path=kv
+    )
+    assert s2["recovered"] == 0
+    # Checked and fine: the recovery notice fires once.
+    s3 = oa.check_and_alert(roster_construction=[], delivery=_send, to_email="a@b.com", kv_path=kv)
+    assert s3["recovered"] == 1

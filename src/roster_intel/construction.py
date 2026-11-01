@@ -61,6 +61,7 @@ from typing import Any
 
 from src.ros.lineup import (
     OBJECTIVE_REALIZED_POINTS,
+    POSITION_ORDER,
     RosterPlayer,
     lineup_position,
     ordered_positions,
@@ -196,8 +197,9 @@ class ValueInput:
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
-#: Base families a lineup slot can seat (offense, kicker, team defense, IDP).
-_FAMILIES = frozenset({"QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"})
+#: Base families a lineup slot can seat, derived from the canonical lineup
+#: vocabulary (``src.ros.lineup``) rather than kept as a private table.
+_FAMILIES = frozenset(lineup_position(p) for p in POSITION_ORDER)
 
 
 def group_of(meta: PlayerMeta | None) -> str:

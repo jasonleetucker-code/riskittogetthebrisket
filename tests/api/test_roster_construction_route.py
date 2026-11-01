@@ -255,6 +255,33 @@ def test_contradicted_historical_season_is_an_explicit_unavailable_state(env, mo
         assert r.headers["cache-control"] == "private, no-store"
 
 
+def test_ops_health_reports_a_withheld_current_season(env, monkeypatch):
+    from tests.roster_intel.rc_support import DYNASTY_MAIN_SLOTS
+
+    # Fine: the default (current) season is verified.
+    assert server._roster_construction_health() == []
+    # The CURRENT season's league object now contradicts its matchups.
+    snap = _two_season_snapshot()
+    snap.seasons[0].league["roster_positions"] = DYNASTY_MAIN_SLOTS[:17] + ["BN"] * 10
+    monkeypatch.setattr(server, "_get_public_snapshot", lambda *a, **k: snap)
+    server._rc_season_status_cache.clear()
+    (row,) = server._roster_construction_health()
+    assert row["leagueKey"] == "main" and row["season"] == "2026"
+    assert row["reason"] == "lineup_config_unverified"
+    assert row["contradictions"] == ["starter_count_differs_from_configured_slots"]
+    # Flag off: nothing served, nothing withheld.
+    env.state["on"] = False
+    assert server._roster_construction_health() == []
+
+
+def test_ops_health_is_unknown_when_it_cannot_check(env, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(server, "_roster_construction_season_statuses", boom)
+    assert server._roster_construction_health() is None
+
+
 def test_post_refresh_warm_prebuilds_the_default_view_only_when_on(env):
     env.state["on"] = False
     server._warm_roster_construction_after_refresh()

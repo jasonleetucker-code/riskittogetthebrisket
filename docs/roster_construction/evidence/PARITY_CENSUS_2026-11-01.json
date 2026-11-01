@@ -1,6 +1,6 @@
 {
  "schema": "roster_construction_parity_census.v1",
- "generatedAt": "2026-11-01T15:35:31+00:00",
+ "generatedAt": "2026-11-01T16:27:30+00:00",
  "snapshotGeneratedAt": "2026-11-01T15:23:27+00:00",
  "leagueKey": "dynasty_main",
  "tolerance": 0.011,
@@ -83,7 +83,6 @@
     {
      "week": 1,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 404.46,
      "recomputedPoints": 404.46,
      "absDiscrepancy": 0.0,
@@ -101,7 +100,6 @@
     {
      "week": 1,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 312.87,
      "recomputedPoints": 312.87,
      "absDiscrepancy": 0.0,
@@ -119,7 +117,6 @@
     {
      "week": 1,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 279.96,
      "recomputedPoints": 279.96,
      "absDiscrepancy": 0.0,
@@ -137,7 +134,6 @@
     {
      "week": 1,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 363.78,
      "recomputedPoints": 363.78,
      "absDiscrepancy": 0.0,
@@ -155,7 +151,6 @@
     {
      "week": 1,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 393.44,
      "recomputedPoints": 393.44,
      "absDiscrepancy": 0.0,
@@ -173,7 +168,6 @@
     {
      "week": 1,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 473.3,
      "recomputedPoints": 473.3,
      "absDiscrepancy": 0.0,
@@ -191,7 +185,6 @@
     {
      "week": 1,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 274.7,
      "recomputedPoints": 274.7,
      "absDiscrepancy": 0.0,
@@ -209,7 +202,6 @@
     {
      "week": 1,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 452.3,
      "recomputedPoints": 452.3,
      "absDiscrepancy": 0.0,
@@ -227,7 +219,6 @@
     {
      "week": 1,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 453.37,
      "recomputedPoints": 453.37,
      "absDiscrepancy": 0.0,
@@ -245,7 +236,6 @@
     {
      "week": 1,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 315.67,
      "recomputedPoints": 315.67,
      "absDiscrepancy": 0.0,
@@ -263,7 +253,6 @@
     {
      "week": 1,
      "rosterId": 11,
-     "team": "John",
      "sleeperPoints": 319.11,
      "recomputedPoints": 319.11,
      "absDiscrepancy": 0.0,
@@ -281,7 +270,6 @@
     {
      "week": 1,
      "rosterId": 12,
-     "team": "schoeppeya",
      "sleeperPoints": 303.97,
      "recomputedPoints": 303.97,
      "absDiscrepancy": 0.0,
@@ -299,7 +287,6 @@
     {
      "week": 2,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 325.17,
      "recomputedPoints": 325.17,
      "absDiscrepancy": 0.0,
@@ -317,7 +304,6 @@
     {
      "week": 2,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 341.75,
      "recomputedPoints": 341.75,
      "absDiscrepancy": 0.0,
@@ -335,7 +321,6 @@
     {
      "week": 2,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 353.46,
      "recomputedPoints": 353.46,
      "absDiscrepancy": 0.0,
@@ -353,7 +338,6 @@
     {
      "week": 2,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 278.12,
      "recomputedPoints": 278.12,
      "absDiscrepancy": 0.0,
@@ -371,7 +355,6 @@
     {
      "week": 2,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 323.23,
      "recomputedPoints": 323.23,
      "absDiscrepancy": 0.0,
@@ -389,7 +372,6 @@
     {
      "week": 2,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 307.85,
      "recomputedPoints": 307.85,
      "absDiscrepancy": 0.0,
@@ -407,7 +389,6 @@
     {
      "week": 2,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 310.64,
      "recomputedPoints": 310.64,
      "absDiscrepancy": 0.0,
@@ -425,7 +406,6 @@
     {
      "week": 2,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 360.4,
      "recomputedPoints": 360.4,
      "absDiscrepancy": 0.0,
@@ -443,7 +423,6 @@
     {
      "week": 2,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 461.18,
      "recomputedPoints": 461.18,
      "absDiscrepancy": 0.0,
@@ -461,7 +440,6 @@
     {
      "week": 2,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 415.16,
      "recomputedPoints": 415.16,
      "absDiscrepancy": 0.0,
@@ -479,7 +457,6 @@
     {
      "week": 2,
      "rosterId": 11,
-     "team": "John",
      "sleeperPoints": 325.79,
      "recomputedPoints": 325.79,
      "absDiscrepancy": 0.0,
@@ -497,7 +474,6 @@
     {
      "week": 2,
      "rosterId": 12,
-     "team": "schoeppeya",
      "sleeperPoints": 305.02,
      "recomputedPoints": 305.02,
      "absDiscrepancy": 0.0,
@@ -515,7 +491,6 @@
     {
      "week": 3,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 401.21,
      "recomputedPoints": 401.21,
      "absDiscrepancy": 0.0,
@@ -533,7 +508,6 @@
     {
      "week": 3,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 327.37,
      "recomputedPoints": 327.37,
      "absDiscrepancy": 0.0,
@@ -551,7 +525,6 @@
     {
      "week": 3,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 346.85,
      "recomputedPoints": 346.85,
      "absDiscrepancy": 0.0,
@@ -569,7 +542,6 @@
     {
      "week": 3,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 355.35,
      "recomputedPoints": 355.35,
      "absDiscrepancy": 0.0,
@@ -587,7 +559,6 @@
     {
      "week": 3,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 391.71,
      "recomputedPoints": 391.71,
      "absDiscrepancy": 0.0,
@@ -605,7 +576,6 @@
     {
      "week": 3,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 414.69,
      "recomputedPoints": 414.69,
      "absDiscrepancy": 0.0,
@@ -623,7 +593,6 @@
     {
      "week": 3,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 269.59,
      "recomputedPoints": 269.59,
      "absDiscrepancy": 0.0,
@@ -641,7 +610,6 @@
     {
      "week": 3,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 442.5,
      "recomputedPoints": 442.5,
      "absDiscrepancy": 0.0,
@@ -659,7 +627,6 @@
     {
      "week": 3,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 418.88,
      "recomputedPoints": 418.88,
      "absDiscrepancy": 0.0,
@@ -677,7 +644,6 @@
     {
      "week": 3,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 446.17,
      "recomputedPoints": 446.17,
      "absDiscrepancy": 0.0,
@@ -695,7 +661,6 @@
     {
      "week": 3,
      "rosterId": 11,
-     "team": "John",
      "sleeperPoints": 314.27,
      "recomputedPoints": 314.27,
      "absDiscrepancy": 0.0,
@@ -713,7 +678,6 @@
     {
      "week": 3,
      "rosterId": 12,
-     "team": "schoeppeya",
      "sleeperPoints": 225.92,
      "recomputedPoints": 225.92,
      "absDiscrepancy": 0.0,
@@ -731,7 +695,6 @@
     {
      "week": 4,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 433.64,
      "recomputedPoints": 433.64,
      "absDiscrepancy": 0.0,
@@ -749,7 +712,6 @@
     {
      "week": 4,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 294.3,
      "recomputedPoints": 294.3,
      "absDiscrepancy": 0.0,
@@ -767,7 +729,6 @@
     {
      "week": 4,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 386.18,
      "recomputedPoints": 386.18,
      "absDiscrepancy": 0.0,
@@ -785,7 +746,6 @@
     {
      "week": 4,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 459.36,
      "recomputedPoints": 459.36,
      "absDiscrepancy": 0.0,
@@ -803,7 +763,6 @@
     {
      "week": 4,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 417.9,
      "recomputedPoints": 417.9,
      "absDiscrepancy": 0.0,
@@ -821,7 +780,6 @@
     {
      "week": 4,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 397.26,
      "recomputedPoints": 397.26,
      "absDiscrepancy": 0.0,
@@ -839,7 +797,6 @@
     {
      "week": 4,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 226.57,
      "recomputedPoints": 226.57,
      "absDiscrepancy": 0.0,
@@ -859,7 +816,6 @@
     {
      "week": 4,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 351.58,
      "recomputedPoints": 351.58,
      "absDiscrepancy": 0.0,
@@ -877,7 +833,6 @@
     {
      "week": 4,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 441.38,
      "recomputedPoints": 441.38,
      "absDiscrepancy": 0.0,
@@ -895,7 +850,6 @@
     {
      "week": 4,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 375.04,
      "recomputedPoints": 375.04,
      "absDiscrepancy": 0.0,
@@ -913,7 +867,6 @@
     {
      "week": 4,
      "rosterId": 11,
-     "team": "John",
      "sleeperPoints": 293.86,
      "recomputedPoints": 293.86,
      "absDiscrepancy": 0.0,
@@ -931,7 +884,6 @@
     {
      "week": 4,
      "rosterId": 12,
-     "team": "schoeppeya",
      "sleeperPoints": 284.71,
      "recomputedPoints": 284.71,
      "absDiscrepancy": 0.0,
@@ -949,7 +901,6 @@
     {
      "week": 5,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 456.87,
      "recomputedPoints": 456.87,
      "absDiscrepancy": 0.0,
@@ -967,7 +918,6 @@
     {
      "week": 5,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 296.38,
      "recomputedPoints": 296.38,
      "absDiscrepancy": 0.0,
@@ -985,7 +935,6 @@
     {
      "week": 5,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 370.35,
      "recomputedPoints": 370.35,
      "absDiscrepancy": 0.0,
@@ -1003,7 +952,6 @@
     {
      "week": 5,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 436.14,
      "recomputedPoints": 436.14,
      "absDiscrepancy": 0.0,
@@ -1021,7 +969,6 @@
     {
      "week": 5,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 445.69,
      "recomputedPoints": 445.69,
      "absDiscrepancy": 0.0,
@@ -1039,7 +986,6 @@
     {
      "week": 5,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 326.18,
      "recomputedPoints": 326.18,
      "absDiscrepancy": 0.0,
@@ -1057,7 +1003,6 @@
     {
      "week": 5,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 272.87,
      "recomputedPoints": 272.87,
      "absDiscrepancy": 0.0,
@@ -1075,7 +1020,6 @@
     {
      "week": 5,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 461.23,
      "recomputedPoints": 461.23,
      "absDiscrepancy": 0.0,
@@ -1093,7 +1037,6 @@
     {
      "week": 5,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 417.38,
      "recomputedPoints": 417.38,
      "absDiscrepancy": 0.0,
@@ -1111,7 +1054,6 @@
     {
      "week": 5,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 336.87,
      "recomputedPoints": 336.87,
      "absDiscrepancy": 0.0,
@@ -1129,7 +1071,6 @@
     {
      "week": 5,
      "rosterId": 11,
-     "team": "John",
      "sleeperPoints": 221.33,
      "recomputedPoints": 221.33,
      "absDiscrepancy": 0.0,
@@ -1149,7 +1090,6 @@
     {
      "week": 5,
      "rosterId": 12,
-     "team": "schoeppeya",
      "sleeperPoints": 243.14,
      "recomputedPoints": 243.14,
      "absDiscrepancy": 0.0,
@@ -1167,7 +1107,6 @@
     {
      "week": 6,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 330.96,
      "recomputedPoints": 330.96,
      "absDiscrepancy": 0.0,
@@ -1185,7 +1124,6 @@
     {
      "week": 6,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 351.36,
      "recomputedPoints": 351.36,
      "absDiscrepancy": 0.0,
@@ -1203,7 +1141,6 @@
     {
      "week": 6,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 291.78,
      "recomputedPoints": 291.78,
      "absDiscrepancy": 0.0,
@@ -1221,7 +1158,6 @@
     {
      "week": 6,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 383.6,
      "recomputedPoints": 383.6,
      "absDiscrepancy": 0.0,
@@ -1239,7 +1175,6 @@
     {
      "week": 6,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 291.47,
      "recomputedPoints": 291.47,
      "absDiscrepancy": 0.0,
@@ -1257,7 +1192,6 @@
     {
      "week": 6,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 375.87,
      "recomputedPoints": 375.87,
      "absDiscrepancy": 0.0,
@@ -1275,7 +1209,6 @@
     {
      "week": 6,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 205.66,
      "recomputedPoints": 205.66,
      "absDiscrepancy": 0.0,
@@ -1293,7 +1226,6 @@
     {
      "week": 6,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 335.05,
      "recomputedPoints": 335.05,
      "absDiscrepancy": 0.0,
@@ -1311,7 +1243,6 @@
     {
      "week": 6,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 388.94,
      "recomputedPoints": 388.94,
      "absDiscrepancy": 0.0,
@@ -1329,7 +1260,6 @@
     {
      "week": 6,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 374.79,
      "recomputedPoints": 374.79,
      "absDiscrepancy": 0.0,
@@ -1347,7 +1277,6 @@
     {
      "week": 6,
      "rosterId": 11,
-     "team": "John",
      "sleeperPoints": 265.39,
      "recomputedPoints": 265.39,
      "absDiscrepancy": 0.0,
@@ -1365,7 +1294,6 @@
     {
      "week": 6,
      "rosterId": 12,
-     "team": "schoeppeya",
      "sleeperPoints": 207.73,
      "recomputedPoints": 207.73,
      "absDiscrepancy": 0.0,
@@ -1383,7 +1311,6 @@
     {
      "week": 7,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 357.71,
      "recomputedPoints": 357.71,
      "absDiscrepancy": 0.0,
@@ -1401,7 +1328,6 @@
     {
      "week": 7,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 344.27,
      "recomputedPoints": 344.27,
      "absDiscrepancy": 0.0,
@@ -1419,7 +1345,6 @@
     {
      "week": 7,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 223.17,
      "recomputedPoints": 223.17,
      "absDiscrepancy": 0.0,
@@ -1437,7 +1362,6 @@
     {
      "week": 7,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 357.48,
      "recomputedPoints": 357.48,
      "absDiscrepancy": 0.0,
@@ -1455,7 +1379,6 @@
     {
      "week": 7,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 352.01,
      "recomputedPoints": 352.01,
      "absDiscrepancy": 0.0,
@@ -1473,7 +1396,6 @@
     {
      "week": 7,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 383.05,
      "recomputedPoints": 383.05,
      "absDiscrepancy": 0.0,
@@ -1491,7 +1413,6 @@
     {
      "week": 7,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 165.97,
      "recomputedPoints": 165.97,
      "absDiscrepancy": 0.0,
@@ -1509,7 +1430,6 @@
     {
      "week": 7,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 341.4,
      "recomputedPoints": 341.4,
      "absDiscrepancy": 0.0,
@@ -1527,7 +1447,6 @@
     {
      "week": 7,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 434.28,
      "recomputedPoints": 434.28,
      "absDiscrepancy": 0.0,
@@ -1545,7 +1464,6 @@
     {
      "week": 7,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 402.01,
      "recomputedPoints": 402.01,
      "absDiscrepancy": 0.0,
@@ -1563,7 +1481,6 @@
     {
      "week": 7,
      "rosterId": 11,
-     "team": "John",
      "sleeperPoints": 336.9,
      "recomputedPoints": 336.9,
      "absDiscrepancy": 0.0,
@@ -1581,7 +1498,6 @@
     {
      "week": 7,
      "rosterId": 12,
-     "team": "schoeppeya",
      "sleeperPoints": 217.24,
      "recomputedPoints": 217.24,
      "absDiscrepancy": 0.0,
@@ -1698,7 +1614,6 @@
     {
      "week": 1,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 361.05,
      "recomputedPoints": 308.97,
      "absDiscrepancy": 52.08,
@@ -1749,7 +1664,6 @@
     {
      "week": 1,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 344.9,
      "recomputedPoints": 318.14,
      "absDiscrepancy": 26.76,
@@ -1800,7 +1714,6 @@
     {
      "week": 1,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 413.41,
      "recomputedPoints": 344.39,
      "absDiscrepancy": 69.02,
@@ -1851,7 +1764,6 @@
     {
      "week": 1,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 410.82,
      "recomputedPoints": 350.68,
      "absDiscrepancy": 60.14,
@@ -1902,7 +1814,6 @@
     {
      "week": 1,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 381.64,
      "recomputedPoints": 349.31,
      "absDiscrepancy": 32.33,
@@ -1953,7 +1864,6 @@
     {
      "week": 1,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 326.99,
      "recomputedPoints": 289.13,
      "absDiscrepancy": 37.86,
@@ -2004,7 +1914,6 @@
     {
      "week": 1,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 399.89,
      "recomputedPoints": 335.35,
      "absDiscrepancy": 64.54,
@@ -2055,7 +1964,6 @@
     {
      "week": 1,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 398.9,
      "recomputedPoints": 354.9,
      "absDiscrepancy": 44.0,
@@ -2106,7 +2014,6 @@
     {
      "week": 1,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 345.6,
      "recomputedPoints": 288.01,
      "absDiscrepancy": 57.59,
@@ -2157,7 +2064,6 @@
     {
      "week": 1,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 363.86,
      "recomputedPoints": 311.77,
      "absDiscrepancy": 52.09,
@@ -2208,7 +2114,6 @@
     {
      "week": 2,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 388.84,
      "recomputedPoints": 321.33,
      "absDiscrepancy": 67.51,
@@ -2259,7 +2164,6 @@
     {
      "week": 2,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 371.67,
      "recomputedPoints": 328.82,
      "absDiscrepancy": 42.85,
@@ -2310,7 +2214,6 @@
     {
      "week": 2,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 338.43,
      "recomputedPoints": 288.49,
      "absDiscrepancy": 49.94,
@@ -2361,7 +2264,6 @@
     {
      "week": 2,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 330.4,
      "recomputedPoints": 283.14,
      "absDiscrepancy": 47.26,
@@ -2412,7 +2314,6 @@
     {
      "week": 2,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 404.61,
      "recomputedPoints": 350.94,
      "absDiscrepancy": 53.67,
@@ -2463,7 +2364,6 @@
     {
      "week": 2,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 396.23,
      "recomputedPoints": 348.91,
      "absDiscrepancy": 47.32,
@@ -2514,7 +2414,6 @@
     {
      "week": 2,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 425.83,
      "recomputedPoints": 365.73,
      "absDiscrepancy": 60.1,
@@ -2565,7 +2464,6 @@
     {
      "week": 2,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 441.91,
      "recomputedPoints": 377.72,
      "absDiscrepancy": 64.19,
@@ -2616,7 +2514,6 @@
     {
      "week": 2,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 434.55,
      "recomputedPoints": 372.94,
      "absDiscrepancy": 61.61,
@@ -2667,7 +2564,6 @@
     {
      "week": 2,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 399.0,
      "recomputedPoints": 364.75,
      "absDiscrepancy": 34.25,
@@ -2718,7 +2614,6 @@
     {
      "week": 3,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 444.04,
      "recomputedPoints": 378.82,
      "absDiscrepancy": 65.22,
@@ -2769,7 +2664,6 @@
     {
      "week": 3,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 365.18,
      "recomputedPoints": 305.7,
      "absDiscrepancy": 59.48,
@@ -2820,7 +2714,6 @@
     {
      "week": 3,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 393.44,
      "recomputedPoints": 344.68,
      "absDiscrepancy": 48.76,
@@ -2871,7 +2764,6 @@
     {
      "week": 3,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 388.02,
      "recomputedPoints": 350.19,
      "absDiscrepancy": 37.83,
@@ -2922,7 +2814,6 @@
     {
      "week": 3,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 334.49,
      "recomputedPoints": 292.35,
      "absDiscrepancy": 42.14,
@@ -2973,7 +2864,6 @@
     {
      "week": 3,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 400.68,
      "recomputedPoints": 337.64,
      "absDiscrepancy": 63.04,
@@ -3024,7 +2914,6 @@
     {
      "week": 3,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 290.8,
      "recomputedPoints": 258.36,
      "absDiscrepancy": 32.44,
@@ -3075,7 +2964,6 @@
     {
      "week": 3,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 380.97,
      "recomputedPoints": 324.14,
      "absDiscrepancy": 56.83,
@@ -3126,7 +3014,6 @@
     {
      "week": 3,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 453.35,
      "recomputedPoints": 367.54,
      "absDiscrepancy": 85.81,
@@ -3177,7 +3064,6 @@
     {
      "week": 3,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 375.3,
      "recomputedPoints": 334.57,
      "absDiscrepancy": 40.73,
@@ -3228,7 +3114,6 @@
     {
      "week": 4,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 415.74,
      "recomputedPoints": 356.49,
      "absDiscrepancy": 59.25,
@@ -3279,7 +3164,6 @@
     {
      "week": 4,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 413.38,
      "recomputedPoints": 364.01,
      "absDiscrepancy": 49.37,
@@ -3330,7 +3214,6 @@
     {
      "week": 4,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 427.94,
      "recomputedPoints": 372.4,
      "absDiscrepancy": 55.54,
@@ -3381,7 +3264,6 @@
     {
      "week": 4,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 344.19,
      "recomputedPoints": 303.41,
      "absDiscrepancy": 40.78,
@@ -3432,7 +3314,6 @@
     {
      "week": 4,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 451.61,
      "recomputedPoints": 387.61,
      "absDiscrepancy": 64.0,
@@ -3483,7 +3364,6 @@
     {
      "week": 4,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 361.53,
      "recomputedPoints": 319.13,
      "absDiscrepancy": 42.4,
@@ -3534,7 +3414,6 @@
     {
      "week": 4,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 365.37,
      "recomputedPoints": 305.56,
      "absDiscrepancy": 59.81,
@@ -3585,7 +3464,6 @@
     {
      "week": 4,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 381.14,
      "recomputedPoints": 324.51,
      "absDiscrepancy": 56.63,
@@ -3636,7 +3514,6 @@
     {
      "week": 4,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 447.08,
      "recomputedPoints": 380.86,
      "absDiscrepancy": 66.22,
@@ -3687,7 +3564,6 @@
     {
      "week": 4,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 378.8,
      "recomputedPoints": 319.84,
      "absDiscrepancy": 58.96,
@@ -3738,7 +3614,6 @@
     {
      "week": 5,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 340.31,
      "recomputedPoints": 287.89,
      "absDiscrepancy": 52.42,
@@ -3789,7 +3664,6 @@
     {
      "week": 5,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 376.26,
      "recomputedPoints": 337.62,
      "absDiscrepancy": 38.64,
@@ -3840,7 +3714,6 @@
     {
      "week": 5,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 393.92,
      "recomputedPoints": 347.49,
      "absDiscrepancy": 46.43,
@@ -3891,7 +3764,6 @@
     {
      "week": 5,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 306.08,
      "recomputedPoints": 291.9,
      "absDiscrepancy": 14.18,
@@ -3942,7 +3814,6 @@
     {
      "week": 5,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 333.4,
      "recomputedPoints": 293.78,
      "absDiscrepancy": 39.62,
@@ -3993,7 +3864,6 @@
     {
      "week": 5,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 360.37,
      "recomputedPoints": 314.61,
      "absDiscrepancy": 45.76,
@@ -4044,7 +3914,6 @@
     {
      "week": 5,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 402.07,
      "recomputedPoints": 336.69,
      "absDiscrepancy": 65.38,
@@ -4095,7 +3964,6 @@
     {
      "week": 5,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 349.3,
      "recomputedPoints": 306.72,
      "absDiscrepancy": 42.58,
@@ -4146,7 +4014,6 @@
     {
      "week": 5,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 475.01,
      "recomputedPoints": 391.66,
      "absDiscrepancy": 83.35,
@@ -4197,7 +4064,6 @@
     {
      "week": 5,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 443.03,
      "recomputedPoints": 378.24,
      "absDiscrepancy": 64.79,
@@ -4248,7 +4114,6 @@
     {
      "week": 6,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 360.91,
      "recomputedPoints": 311.42,
      "absDiscrepancy": 49.49,
@@ -4299,7 +4164,6 @@
     {
      "week": 6,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 413.4,
      "recomputedPoints": 365.18,
      "absDiscrepancy": 48.22,
@@ -4350,7 +4214,6 @@
     {
      "week": 6,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 273.85,
      "recomputedPoints": 232.38,
      "absDiscrepancy": 41.47,
@@ -4401,7 +4264,6 @@
     {
      "week": 6,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 354.34,
      "recomputedPoints": 304.2,
      "absDiscrepancy": 50.14,
@@ -4452,7 +4314,6 @@
     {
      "week": 6,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 420.74,
      "recomputedPoints": 364.15,
      "absDiscrepancy": 56.59,
@@ -4503,7 +4364,6 @@
     {
      "week": 6,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 407.82,
      "recomputedPoints": 344.56,
      "absDiscrepancy": 63.26,
@@ -4554,7 +4414,6 @@
     {
      "week": 6,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 387.67,
      "recomputedPoints": 335.16,
      "absDiscrepancy": 52.51,
@@ -4605,7 +4464,6 @@
     {
      "week": 6,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 317.22,
      "recomputedPoints": 283.66,
      "absDiscrepancy": 33.56,
@@ -4656,7 +4514,6 @@
     {
      "week": 6,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 357.24,
      "recomputedPoints": 308.27,
      "absDiscrepancy": 48.97,
@@ -4707,7 +4564,6 @@
     {
      "week": 6,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 338.72,
      "recomputedPoints": 292.46,
      "absDiscrepancy": 46.26,
@@ -4758,7 +4614,6 @@
     {
      "week": 7,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 309.87,
      "recomputedPoints": 269.56,
      "absDiscrepancy": 40.31,
@@ -4809,7 +4664,6 @@
     {
      "week": 7,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 467.15,
      "recomputedPoints": 402.0,
      "absDiscrepancy": 65.15,
@@ -4860,7 +4714,6 @@
     {
      "week": 7,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 344.01,
      "recomputedPoints": 297.61,
      "absDiscrepancy": 46.4,
@@ -4911,7 +4764,6 @@
     {
      "week": 7,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 395.7,
      "recomputedPoints": 343.68,
      "absDiscrepancy": 52.02,
@@ -4962,7 +4814,6 @@
     {
      "week": 7,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 445.7,
      "recomputedPoints": 394.2,
      "absDiscrepancy": 51.5,
@@ -5013,7 +4864,6 @@
     {
      "week": 7,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 343.94,
      "recomputedPoints": 304.96,
      "absDiscrepancy": 38.98,
@@ -5064,7 +4914,6 @@
     {
      "week": 7,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 405.56,
      "recomputedPoints": 348.71,
      "absDiscrepancy": 56.85,
@@ -5115,7 +4964,6 @@
     {
      "week": 7,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 392.8,
      "recomputedPoints": 343.99,
      "absDiscrepancy": 48.81,
@@ -5166,7 +5014,6 @@
     {
      "week": 7,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 474.7,
      "recomputedPoints": 413.28,
      "absDiscrepancy": 61.42,
@@ -5217,7 +5064,6 @@
     {
      "week": 7,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 391.01,
      "recomputedPoints": 353.73,
      "absDiscrepancy": 37.28,
@@ -5268,7 +5114,6 @@
     {
      "week": 8,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 193.79,
      "recomputedPoints": 156.65,
      "absDiscrepancy": 37.14,
@@ -5318,7 +5163,6 @@
     {
      "week": 8,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 366.6,
      "recomputedPoints": 330.46,
      "absDiscrepancy": 36.14,
@@ -5369,7 +5213,6 @@
     {
      "week": 8,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 380.01,
      "recomputedPoints": 341.27,
      "absDiscrepancy": 38.74,
@@ -5420,7 +5263,6 @@
     {
      "week": 8,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 352.95,
      "recomputedPoints": 316.95,
      "absDiscrepancy": 36.0,
@@ -5471,7 +5313,6 @@
     {
      "week": 8,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 411.84,
      "recomputedPoints": 358.76,
      "absDiscrepancy": 53.08,
@@ -5522,7 +5363,6 @@
     {
      "week": 8,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 390.74,
      "recomputedPoints": 335.06,
      "absDiscrepancy": 55.68,
@@ -5573,7 +5413,6 @@
     {
      "week": 8,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 368.77,
      "recomputedPoints": 320.97,
      "absDiscrepancy": 47.8,
@@ -5624,7 +5463,6 @@
     {
      "week": 8,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 315.56,
      "recomputedPoints": 272.6,
      "absDiscrepancy": 42.96,
@@ -5675,7 +5513,6 @@
     {
      "week": 8,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 375.97,
      "recomputedPoints": 321.86,
      "absDiscrepancy": 54.11,
@@ -5726,7 +5563,6 @@
     {
      "week": 8,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 294.44,
      "recomputedPoints": 265.41,
      "absDiscrepancy": 29.03,
@@ -5777,7 +5613,6 @@
     {
      "week": 9,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 406.91,
      "recomputedPoints": 336.52,
      "absDiscrepancy": 70.39,
@@ -5827,7 +5662,6 @@
     {
      "week": 9,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 324.69,
      "recomputedPoints": 288.14,
      "absDiscrepancy": 36.55,
@@ -5878,7 +5712,6 @@
     {
      "week": 9,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 321.63,
      "recomputedPoints": 287.24,
      "absDiscrepancy": 34.39,
@@ -5929,7 +5762,6 @@
     {
      "week": 9,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 390.18,
      "recomputedPoints": 339.16,
      "absDiscrepancy": 51.02,
@@ -5980,7 +5812,6 @@
     {
      "week": 9,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 354.34,
      "recomputedPoints": 316.12,
      "absDiscrepancy": 38.22,
@@ -6031,7 +5862,6 @@
     {
      "week": 9,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 388.64,
      "recomputedPoints": 351.95,
      "absDiscrepancy": 36.69,
@@ -6082,7 +5912,6 @@
     {
      "week": 9,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 392.93,
      "recomputedPoints": 348.31,
      "absDiscrepancy": 44.62,
@@ -6133,7 +5962,6 @@
     {
      "week": 9,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 353.74,
      "recomputedPoints": 323.38,
      "absDiscrepancy": 30.36,
@@ -6184,7 +6012,6 @@
     {
      "week": 9,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 448.81,
      "recomputedPoints": 374.51,
      "absDiscrepancy": 74.3,
@@ -6235,7 +6062,6 @@
     {
      "week": 9,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 410.19,
      "recomputedPoints": 354.46,
      "absDiscrepancy": 55.73,
@@ -6286,7 +6112,6 @@
     {
      "week": 10,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 271.26,
      "recomputedPoints": 228.63,
      "absDiscrepancy": 42.63,
@@ -6336,7 +6161,6 @@
     {
      "week": 10,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 374.8,
      "recomputedPoints": 331.05,
      "absDiscrepancy": 43.75,
@@ -6387,7 +6211,6 @@
     {
      "week": 10,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 350.03,
      "recomputedPoints": 312.37,
      "absDiscrepancy": 37.66,
@@ -6438,7 +6261,6 @@
     {
      "week": 10,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 363.14,
      "recomputedPoints": 310.72,
      "absDiscrepancy": 52.42,
@@ -6489,7 +6311,6 @@
     {
      "week": 10,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 413.64,
      "recomputedPoints": 355.14,
      "absDiscrepancy": 58.5,
@@ -6540,7 +6361,6 @@
     {
      "week": 10,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 437.97,
      "recomputedPoints": 384.92,
      "absDiscrepancy": 53.05,
@@ -6591,7 +6411,6 @@
     {
      "week": 10,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 321.41,
      "recomputedPoints": 280.12,
      "absDiscrepancy": 41.29,
@@ -6642,7 +6461,6 @@
     {
      "week": 10,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 449.83,
      "recomputedPoints": 397.42,
      "absDiscrepancy": 52.41,
@@ -6693,7 +6511,6 @@
     {
      "week": 10,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 460.43,
      "recomputedPoints": 386.19,
      "absDiscrepancy": 74.24,
@@ -6744,7 +6561,6 @@
     {
      "week": 10,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 359.1,
      "recomputedPoints": 307.17,
      "absDiscrepancy": 51.93,
@@ -6795,7 +6611,6 @@
     {
      "week": 11,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 331.73,
      "recomputedPoints": 283.51,
      "absDiscrepancy": 48.22,
@@ -6845,7 +6660,6 @@
     {
      "week": 11,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 415.99,
      "recomputedPoints": 367.05,
      "absDiscrepancy": 48.94,
@@ -6896,7 +6710,6 @@
     {
      "week": 11,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 349.17,
      "recomputedPoints": 316.0,
      "absDiscrepancy": 33.17,
@@ -6947,7 +6760,6 @@
     {
      "week": 11,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 352.15,
      "recomputedPoints": 298.15,
      "absDiscrepancy": 54.0,
@@ -6998,7 +6810,6 @@
     {
      "week": 11,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 314.22,
      "recomputedPoints": 282.44,
      "absDiscrepancy": 31.78,
@@ -7049,7 +6860,6 @@
     {
      "week": 11,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 297.67,
      "recomputedPoints": 249.31,
      "absDiscrepancy": 48.36,
@@ -7100,7 +6910,6 @@
     {
      "week": 11,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 296.74,
      "recomputedPoints": 267.61,
      "absDiscrepancy": 29.13,
@@ -7151,7 +6960,6 @@
     {
      "week": 11,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 345.59,
      "recomputedPoints": 309.39,
      "absDiscrepancy": 36.2,
@@ -7202,7 +7010,6 @@
     {
      "week": 11,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 407.55,
      "recomputedPoints": 343.56,
      "absDiscrepancy": 63.99,
@@ -7253,7 +7060,6 @@
     {
      "week": 11,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 378.45,
      "recomputedPoints": 330.59,
      "absDiscrepancy": 47.86,
@@ -7304,7 +7110,6 @@
     {
      "week": 12,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 233.58,
      "recomputedPoints": 187.78,
      "absDiscrepancy": 45.8,
@@ -7354,7 +7159,6 @@
     {
      "week": 12,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 375.82,
      "recomputedPoints": 331.11,
      "absDiscrepancy": 44.71,
@@ -7405,7 +7209,6 @@
     {
      "week": 12,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 392.82,
      "recomputedPoints": 353.39,
      "absDiscrepancy": 39.43,
@@ -7456,7 +7259,6 @@
     {
      "week": 12,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 341.58,
      "recomputedPoints": 309.57,
      "absDiscrepancy": 32.01,
@@ -7507,7 +7309,6 @@
     {
      "week": 12,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 320.76,
      "recomputedPoints": 280.12,
      "absDiscrepancy": 40.64,
@@ -7558,7 +7359,6 @@
     {
      "week": 12,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 326.47,
      "recomputedPoints": 273.41,
      "absDiscrepancy": 53.06,
@@ -7609,7 +7409,6 @@
     {
      "week": 12,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 330.64,
      "recomputedPoints": 282.93,
      "absDiscrepancy": 47.71,
@@ -7660,7 +7459,6 @@
     {
      "week": 12,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 402.75,
      "recomputedPoints": 363.13,
      "absDiscrepancy": 39.62,
@@ -7711,7 +7509,6 @@
     {
      "week": 12,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 441.82,
      "recomputedPoints": 367.08,
      "absDiscrepancy": 74.74,
@@ -7762,7 +7559,6 @@
     {
      "week": 12,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 382.11,
      "recomputedPoints": 331.47,
      "absDiscrepancy": 50.64,
@@ -7813,7 +7609,6 @@
     {
      "week": 13,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 267.87,
      "recomputedPoints": 236.57,
      "absDiscrepancy": 31.3,
@@ -7863,7 +7658,6 @@
     {
      "week": 13,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 426.27,
      "recomputedPoints": 354.66,
      "absDiscrepancy": 71.61,
@@ -7914,7 +7708,6 @@
     {
      "week": 13,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 374.32,
      "recomputedPoints": 331.69,
      "absDiscrepancy": 42.63,
@@ -7965,7 +7758,6 @@
     {
      "week": 13,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 382.34,
      "recomputedPoints": 331.28,
      "absDiscrepancy": 51.06,
@@ -8016,7 +7808,6 @@
     {
      "week": 13,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 412.93,
      "recomputedPoints": 358.63,
      "absDiscrepancy": 54.3,
@@ -8067,7 +7858,6 @@
     {
      "week": 13,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 339.44,
      "recomputedPoints": 300.38,
      "absDiscrepancy": 39.06,
@@ -8118,7 +7908,6 @@
     {
      "week": 13,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 331.85,
      "recomputedPoints": 284.98,
      "absDiscrepancy": 46.87,
@@ -8169,7 +7958,6 @@
     {
      "week": 13,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 475.86,
      "recomputedPoints": 402.83,
      "absDiscrepancy": 73.03,
@@ -8220,7 +8008,6 @@
     {
      "week": 13,
      "rosterId": 9,
-     "team": "Brent",
      "sleeperPoints": 458.9,
      "recomputedPoints": 389.93,
      "absDiscrepancy": 68.97,
@@ -8271,7 +8058,6 @@
     {
      "week": 13,
      "rosterId": 10,
-     "team": "Kich",
      "sleeperPoints": 348.48,
      "recomputedPoints": 299.67,
      "absDiscrepancy": 48.81,
@@ -8420,7 +8206,6 @@
     {
      "week": 1,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 240.44,
      "recomputedPoints": 341.19,
      "absDiscrepancy": 100.75,
@@ -8465,7 +8250,6 @@
     {
      "week": 1,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 265.55,
      "recomputedPoints": 299.8,
      "absDiscrepancy": 34.25,
@@ -8510,7 +8294,6 @@
     {
      "week": 1,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 353.72,
      "recomputedPoints": 383.22,
      "absDiscrepancy": 29.5,
@@ -8555,7 +8338,6 @@
     {
      "week": 1,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 289.55,
      "recomputedPoints": 355.73,
      "absDiscrepancy": 66.18,
@@ -8600,7 +8382,6 @@
     {
      "week": 1,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 247.18,
      "recomputedPoints": 276.68,
      "absDiscrepancy": 29.5,
@@ -8645,7 +8426,6 @@
     {
      "week": 1,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 192.48,
      "recomputedPoints": 249.35,
      "absDiscrepancy": 56.87,
@@ -8690,7 +8470,6 @@
     {
      "week": 1,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 290.8,
      "recomputedPoints": 351.58,
      "absDiscrepancy": 60.78,
@@ -8735,7 +8514,6 @@
     {
      "week": 1,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 214.21,
      "recomputedPoints": 286.92,
      "absDiscrepancy": 72.71,
@@ -8780,7 +8558,6 @@
     {
      "week": 1,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 270.99,
      "recomputedPoints": 337.45,
      "absDiscrepancy": 66.46,
@@ -8825,7 +8602,6 @@
     {
      "week": 1,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 238.62,
      "recomputedPoints": 347.92,
      "absDiscrepancy": 109.3,
@@ -8870,7 +8646,6 @@
     {
      "week": 2,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 299.25,
      "recomputedPoints": 345.78,
      "absDiscrepancy": 46.53,
@@ -8915,7 +8690,6 @@
     {
      "week": 2,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 278.2,
      "recomputedPoints": 293.4,
      "absDiscrepancy": 15.2,
@@ -8960,7 +8734,6 @@
     {
      "week": 2,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 320.7,
      "recomputedPoints": 374.35,
      "absDiscrepancy": 53.65,
@@ -9005,7 +8778,6 @@
     {
      "week": 2,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 261.98,
      "recomputedPoints": 307.51,
      "absDiscrepancy": 45.53,
@@ -9050,7 +8822,6 @@
     {
      "week": 2,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 258.41,
      "recomputedPoints": 326.48,
      "absDiscrepancy": 68.07,
@@ -9095,7 +8866,6 @@
     {
      "week": 2,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 243.31,
      "recomputedPoints": 313.59,
      "absDiscrepancy": 70.28,
@@ -9140,7 +8910,6 @@
     {
      "week": 2,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 285.52,
      "recomputedPoints": 351.47,
      "absDiscrepancy": 65.95,
@@ -9185,7 +8954,6 @@
     {
      "week": 2,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 250.91,
      "recomputedPoints": 332.48,
      "absDiscrepancy": 81.57,
@@ -9230,7 +8998,6 @@
     {
      "week": 2,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 277.9,
      "recomputedPoints": 338.37,
      "absDiscrepancy": 60.47,
@@ -9275,7 +9042,6 @@
     {
      "week": 2,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 213.24,
      "recomputedPoints": 331.98,
      "absDiscrepancy": 118.74,
@@ -9320,7 +9086,6 @@
     {
      "week": 3,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 286.41,
      "recomputedPoints": 392.19,
      "absDiscrepancy": 105.78,
@@ -9365,7 +9130,6 @@
     {
      "week": 3,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 196.4,
      "recomputedPoints": 265.75,
      "absDiscrepancy": 69.35,
@@ -9410,7 +9174,6 @@
     {
      "week": 3,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 315.41,
      "recomputedPoints": 348.01,
      "absDiscrepancy": 32.6,
@@ -9455,7 +9218,6 @@
     {
      "week": 3,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 345.33,
      "recomputedPoints": 411.29,
      "absDiscrepancy": 65.96,
@@ -9500,7 +9262,6 @@
     {
      "week": 3,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 222.44,
      "recomputedPoints": 356.83,
      "absDiscrepancy": 134.39,
@@ -9545,7 +9306,6 @@
     {
      "week": 3,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 287.49,
      "recomputedPoints": 329.87,
      "absDiscrepancy": 42.38,
@@ -9590,7 +9350,6 @@
     {
      "week": 3,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 221.5,
      "recomputedPoints": 265.56,
      "absDiscrepancy": 44.06,
@@ -9635,7 +9394,6 @@
     {
      "week": 3,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 260.92,
      "recomputedPoints": 341.27,
      "absDiscrepancy": 80.35,
@@ -9680,7 +9438,6 @@
     {
      "week": 3,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 254.52,
      "recomputedPoints": 311.57,
      "absDiscrepancy": 57.05,
@@ -9725,7 +9482,6 @@
     {
      "week": 3,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 242.28,
      "recomputedPoints": 353.49,
      "absDiscrepancy": 111.21,
@@ -9770,7 +9526,6 @@
     {
      "week": 4,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 252.5,
      "recomputedPoints": 281.86,
      "absDiscrepancy": 29.36,
@@ -9815,7 +9570,6 @@
     {
      "week": 4,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 247.87,
      "recomputedPoints": 310.84,
      "absDiscrepancy": 62.97,
@@ -9860,7 +9614,6 @@
     {
      "week": 4,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 263.03,
      "recomputedPoints": 326.2,
      "absDiscrepancy": 63.17,
@@ -9905,7 +9658,6 @@
     {
      "week": 4,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 298.02,
      "recomputedPoints": 386.76,
      "absDiscrepancy": 88.74,
@@ -9950,7 +9702,6 @@
     {
      "week": 4,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 259.09,
      "recomputedPoints": 380.61,
      "absDiscrepancy": 121.52,
@@ -9995,7 +9746,6 @@
     {
      "week": 4,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 253.92,
      "recomputedPoints": 307.34,
      "absDiscrepancy": 53.42,
@@ -10040,7 +9790,6 @@
     {
      "week": 4,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 348.42,
      "recomputedPoints": 379.57,
      "absDiscrepancy": 31.15,
@@ -10085,7 +9834,6 @@
     {
      "week": 4,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 221.33,
      "recomputedPoints": 301.8,
      "absDiscrepancy": 80.47,
@@ -10130,7 +9878,6 @@
     {
      "week": 4,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 251.77,
      "recomputedPoints": 305.17,
      "absDiscrepancy": 53.4,
@@ -10175,7 +9922,6 @@
     {
      "week": 4,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 256.09,
      "recomputedPoints": 351.75,
      "absDiscrepancy": 95.66,
@@ -10220,7 +9966,6 @@
     {
      "week": 5,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 292.37,
      "recomputedPoints": 386.38,
      "absDiscrepancy": 94.01,
@@ -10265,7 +10010,6 @@
     {
      "week": 5,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 195.49,
      "recomputedPoints": 346.72,
      "absDiscrepancy": 151.23,
@@ -10310,7 +10054,6 @@
     {
      "week": 5,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 296.37,
      "recomputedPoints": 331.72,
      "absDiscrepancy": 35.35,
@@ -10355,7 +10098,6 @@
     {
      "week": 5,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 271.28,
      "recomputedPoints": 336.35,
      "absDiscrepancy": 65.07,
@@ -10400,7 +10142,6 @@
     {
      "week": 5,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 304.31,
      "recomputedPoints": 374.05,
      "absDiscrepancy": 69.74,
@@ -10445,7 +10186,6 @@
     {
      "week": 5,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 344.9,
      "recomputedPoints": 361.21,
      "absDiscrepancy": 16.31,
@@ -10490,7 +10230,6 @@
     {
      "week": 5,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 332.99,
      "recomputedPoints": 367.49,
      "absDiscrepancy": 34.5,
@@ -10535,7 +10274,6 @@
     {
      "week": 5,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 334.61,
      "recomputedPoints": 388.85,
      "absDiscrepancy": 54.24,
@@ -10580,7 +10318,6 @@
     {
      "week": 5,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 203.04,
      "recomputedPoints": 229.04,
      "absDiscrepancy": 26.0,
@@ -10625,7 +10362,6 @@
     {
      "week": 5,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 263.14,
      "recomputedPoints": 375.95,
      "absDiscrepancy": 112.81,
@@ -10670,7 +10406,6 @@
     {
      "week": 6,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 224.03,
      "recomputedPoints": 293.74,
      "absDiscrepancy": 69.71,
@@ -10715,7 +10450,6 @@
     {
      "week": 6,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 241.23,
      "recomputedPoints": 323.68,
      "absDiscrepancy": 82.45,
@@ -10760,7 +10494,6 @@
     {
      "week": 6,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 339.38,
      "recomputedPoints": 414.2,
      "absDiscrepancy": 74.82,
@@ -10805,7 +10538,6 @@
     {
      "week": 6,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 302.64,
      "recomputedPoints": 339.97,
      "absDiscrepancy": 37.33,
@@ -10850,7 +10582,6 @@
     {
      "week": 6,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 224.98,
      "recomputedPoints": 303.48,
      "absDiscrepancy": 78.5,
@@ -10895,7 +10626,6 @@
     {
      "week": 6,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 210.44,
      "recomputedPoints": 280.28,
      "absDiscrepancy": 69.84,
@@ -10940,7 +10670,6 @@
     {
      "week": 6,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 279.18,
      "recomputedPoints": 327.9,
      "absDiscrepancy": 48.72,
@@ -10985,7 +10714,6 @@
     {
      "week": 6,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 354.51,
      "recomputedPoints": 425.84,
      "absDiscrepancy": 71.33,
@@ -11030,7 +10758,6 @@
     {
      "week": 6,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 282.1,
      "recomputedPoints": 296.95,
      "absDiscrepancy": 14.85,
@@ -11075,7 +10802,6 @@
     {
      "week": 6,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 276.99,
      "recomputedPoints": 312.89,
      "absDiscrepancy": 35.9,
@@ -11120,7 +10846,6 @@
     {
      "week": 7,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 268.18,
      "recomputedPoints": 343.23,
      "absDiscrepancy": 75.05,
@@ -11165,7 +10890,6 @@
     {
      "week": 7,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 211.57,
      "recomputedPoints": 251.64,
      "absDiscrepancy": 40.07,
@@ -11210,7 +10934,6 @@
     {
      "week": 7,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 278.95,
      "recomputedPoints": 381.86,
      "absDiscrepancy": 102.91,
@@ -11255,7 +10978,6 @@
     {
      "week": 7,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 260.65,
      "recomputedPoints": 351.6,
      "absDiscrepancy": 90.95,
@@ -11300,7 +11022,6 @@
     {
      "week": 7,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 313.66,
      "recomputedPoints": 321.29,
      "absDiscrepancy": 7.63,
@@ -11345,7 +11066,6 @@
     {
      "week": 7,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 195.88,
      "recomputedPoints": 255.31,
      "absDiscrepancy": 59.43,
@@ -11390,7 +11110,6 @@
     {
      "week": 7,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 218.21,
      "recomputedPoints": 278.61,
      "absDiscrepancy": 60.4,
@@ -11435,7 +11154,6 @@
     {
      "week": 7,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 307.63,
      "recomputedPoints": 355.7,
      "absDiscrepancy": 48.07,
@@ -11480,7 +11198,6 @@
     {
      "week": 7,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 195.37,
      "recomputedPoints": 263.55,
      "absDiscrepancy": 68.18,
@@ -11525,7 +11242,6 @@
     {
      "week": 7,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 302.27,
      "recomputedPoints": 383.46,
      "absDiscrepancy": 81.19,
@@ -11570,7 +11286,6 @@
     {
      "week": 8,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 271.82,
      "recomputedPoints": 313.42,
      "absDiscrepancy": 41.6,
@@ -11615,7 +11330,6 @@
     {
      "week": 8,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 282.41,
      "recomputedPoints": 380.46,
      "absDiscrepancy": 98.05,
@@ -11660,7 +11374,6 @@
     {
      "week": 8,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 393.44,
      "recomputedPoints": 473.22,
      "absDiscrepancy": 79.78,
@@ -11705,7 +11418,6 @@
     {
      "week": 8,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 252.61,
      "recomputedPoints": 338.71,
      "absDiscrepancy": 86.1,
@@ -11750,7 +11462,6 @@
     {
      "week": 8,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 299.27,
      "recomputedPoints": 324.23,
      "absDiscrepancy": 24.96,
@@ -11795,7 +11506,6 @@
     {
      "week": 8,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 271.34,
      "recomputedPoints": 326.6,
      "absDiscrepancy": 55.26,
@@ -11840,7 +11550,6 @@
     {
      "week": 8,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 307.74,
      "recomputedPoints": 373.16,
      "absDiscrepancy": 65.42,
@@ -11885,7 +11594,6 @@
     {
      "week": 8,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 274.36,
      "recomputedPoints": 359.05,
      "absDiscrepancy": 84.69,
@@ -11930,7 +11638,6 @@
     {
      "week": 8,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 278.75,
      "recomputedPoints": 336.47,
      "absDiscrepancy": 57.72,
@@ -11975,7 +11682,6 @@
     {
      "week": 8,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 305.75,
      "recomputedPoints": 378.9,
      "absDiscrepancy": 73.15,
@@ -12020,7 +11726,6 @@
     {
      "week": 9,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 245.57,
      "recomputedPoints": 313.26,
      "absDiscrepancy": 67.69,
@@ -12065,7 +11770,6 @@
     {
      "week": 9,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 274.34,
      "recomputedPoints": 289.1,
      "absDiscrepancy": 14.76,
@@ -12110,7 +11814,6 @@
     {
      "week": 9,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 336.79,
      "recomputedPoints": 454.63,
      "absDiscrepancy": 117.84,
@@ -12155,7 +11858,6 @@
     {
      "week": 9,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 271.05,
      "recomputedPoints": 320.53,
      "absDiscrepancy": 49.48,
@@ -12200,7 +11902,6 @@
     {
      "week": 9,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 325.04,
      "recomputedPoints": 360.66,
      "absDiscrepancy": 35.62,
@@ -12245,7 +11946,6 @@
     {
      "week": 9,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 258.4,
      "recomputedPoints": 304.35,
      "absDiscrepancy": 45.95,
@@ -12290,7 +11990,6 @@
     {
      "week": 9,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 290.43,
      "recomputedPoints": 338.21,
      "absDiscrepancy": 47.78,
@@ -12335,7 +12034,6 @@
     {
      "week": 9,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 301.55,
      "recomputedPoints": 374.58,
      "absDiscrepancy": 73.03,
@@ -12380,7 +12078,6 @@
     {
      "week": 9,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 272.74,
      "recomputedPoints": 315.99,
      "absDiscrepancy": 43.25,
@@ -12425,7 +12122,6 @@
     {
      "week": 9,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 271.82,
      "recomputedPoints": 369.02,
      "absDiscrepancy": 97.2,
@@ -12470,7 +12166,6 @@
     {
      "week": 10,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 206.0,
      "recomputedPoints": 280.4,
      "absDiscrepancy": 74.4,
@@ -12515,7 +12210,6 @@
     {
      "week": 10,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 268.49,
      "recomputedPoints": 355.46,
      "absDiscrepancy": 86.97,
@@ -12560,7 +12254,6 @@
     {
      "week": 10,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 229.95,
      "recomputedPoints": 307.25,
      "absDiscrepancy": 77.3,
@@ -12605,7 +12298,6 @@
     {
      "week": 10,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 221.68,
      "recomputedPoints": 233.12,
      "absDiscrepancy": 11.44,
@@ -12650,7 +12342,6 @@
     {
      "week": 10,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 279.63,
      "recomputedPoints": 324.25,
      "absDiscrepancy": 44.62,
@@ -12695,7 +12386,6 @@
     {
      "week": 10,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 323.88,
      "recomputedPoints": 355.49,
      "absDiscrepancy": 31.61,
@@ -12740,7 +12430,6 @@
     {
      "week": 10,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 288.75,
      "recomputedPoints": 343.08,
      "absDiscrepancy": 54.33,
@@ -12785,7 +12474,6 @@
     {
      "week": 10,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 256.7,
      "recomputedPoints": 306.95,
      "absDiscrepancy": 50.25,
@@ -12830,7 +12518,6 @@
     {
      "week": 10,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 229.29,
      "recomputedPoints": 258.04,
      "absDiscrepancy": 28.75,
@@ -12875,7 +12562,6 @@
     {
      "week": 10,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 248.01,
      "recomputedPoints": 321.31,
      "absDiscrepancy": 73.3,
@@ -12920,7 +12606,6 @@
     {
      "week": 11,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 368.45,
      "recomputedPoints": 415.58,
      "absDiscrepancy": 47.13,
@@ -12965,7 +12650,6 @@
     {
      "week": 11,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 224.95,
      "recomputedPoints": 315.5,
      "absDiscrepancy": 90.55,
@@ -13010,7 +12694,6 @@
     {
      "week": 11,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 367.43,
      "recomputedPoints": 452.85,
      "absDiscrepancy": 85.42,
@@ -13055,7 +12738,6 @@
     {
      "week": 11,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 260.69,
      "recomputedPoints": 306.46,
      "absDiscrepancy": 45.77,
@@ -13100,7 +12782,6 @@
     {
      "week": 11,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 177.25,
      "recomputedPoints": 301.75,
      "absDiscrepancy": 124.5,
@@ -13145,7 +12826,6 @@
     {
      "week": 11,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 262.49,
      "recomputedPoints": 315.65,
      "absDiscrepancy": 53.16,
@@ -13190,7 +12870,6 @@
     {
      "week": 11,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 287.65,
      "recomputedPoints": 372.82,
      "absDiscrepancy": 85.17,
@@ -13235,7 +12914,6 @@
     {
      "week": 11,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 297.27,
      "recomputedPoints": 323.92,
      "absDiscrepancy": 26.65,
@@ -13280,7 +12958,6 @@
     {
      "week": 11,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 305.1,
      "recomputedPoints": 353.9,
      "absDiscrepancy": 48.8,
@@ -13325,7 +13002,6 @@
     {
      "week": 11,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 164.79,
      "recomputedPoints": 233.59,
      "absDiscrepancy": 68.8,
@@ -13370,7 +13046,6 @@
     {
      "week": 12,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 269.77,
      "recomputedPoints": 371.02,
      "absDiscrepancy": 101.25,
@@ -13415,7 +13090,6 @@
     {
      "week": 12,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 369.16,
      "recomputedPoints": 396.77,
      "absDiscrepancy": 27.61,
@@ -13460,7 +13134,6 @@
     {
      "week": 12,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 273.6,
      "recomputedPoints": 318.3,
      "absDiscrepancy": 44.7,
@@ -13505,7 +13178,6 @@
     {
      "week": 12,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 329.04,
      "recomputedPoints": 351.04,
      "absDiscrepancy": 22.0,
@@ -13550,7 +13222,6 @@
     {
      "week": 12,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 277.81,
      "recomputedPoints": 358.97,
      "absDiscrepancy": 81.16,
@@ -13595,7 +13266,6 @@
     {
      "week": 12,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 274.88,
      "recomputedPoints": 313.24,
      "absDiscrepancy": 38.36,
@@ -13640,7 +13310,6 @@
     {
      "week": 12,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 257.25,
      "recomputedPoints": 323.62,
      "absDiscrepancy": 66.37,
@@ -13685,7 +13354,6 @@
     {
      "week": 12,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 230.55,
      "recomputedPoints": 265.83,
      "absDiscrepancy": 35.28,
@@ -13730,7 +13398,6 @@
     {
      "week": 12,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 236.61,
      "recomputedPoints": 261.35,
      "absDiscrepancy": 24.74,
@@ -13775,7 +13442,6 @@
     {
      "week": 12,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 220.06,
      "recomputedPoints": 252.13,
      "absDiscrepancy": 32.07,
@@ -13820,7 +13486,6 @@
     {
      "week": 13,
      "rosterId": 1,
-     "team": "Jason",
      "sleeperPoints": 268.26,
      "recomputedPoints": 326.76,
      "absDiscrepancy": 58.5,
@@ -13864,7 +13529,6 @@
     {
      "week": 13,
      "rosterId": 2,
-     "team": "Ed",
      "sleeperPoints": 316.19,
      "recomputedPoints": 394.65,
      "absDiscrepancy": 78.46,
@@ -13909,7 +13573,6 @@
     {
      "week": 13,
      "rosterId": 3,
-     "team": "Ty",
      "sleeperPoints": 360.67,
      "recomputedPoints": 420.28,
      "absDiscrepancy": 59.61,
@@ -13954,7 +13617,6 @@
     {
      "week": 13,
      "rosterId": 4,
-     "team": "Collin",
      "sleeperPoints": 280.22,
      "recomputedPoints": 311.05,
      "absDiscrepancy": 30.83,
@@ -13999,7 +13661,6 @@
     {
      "week": 13,
      "rosterId": 5,
-     "team": "MaKayla",
      "sleeperPoints": 278.98,
      "recomputedPoints": 362.3,
      "absDiscrepancy": 83.32,
@@ -14044,7 +13705,6 @@
     {
      "week": 13,
      "rosterId": 6,
-     "team": "Eric",
      "sleeperPoints": 258.21,
      "recomputedPoints": 356.0,
      "absDiscrepancy": 97.79,
@@ -14089,7 +13749,6 @@
     {
      "week": 13,
      "rosterId": 7,
-     "team": "Roy",
      "sleeperPoints": 329.41,
      "recomputedPoints": 376.96,
      "absDiscrepancy": 47.55,
@@ -14134,7 +13793,6 @@
     {
      "week": 13,
      "rosterId": 8,
-     "team": "Joey",
      "sleeperPoints": 317.77,
      "recomputedPoints": 425.98,
      "absDiscrepancy": 108.21,
@@ -14179,7 +13837,6 @@
     {
      "week": 13,
      "rosterId": 9,
-     "team": "Bwalk903",
      "sleeperPoints": 255.51,
      "recomputedPoints": 310.1,
      "absDiscrepancy": 54.59,
@@ -14224,7 +13881,6 @@
     {
      "week": 13,
      "rosterId": 10,
-     "team": "SheriffB",
      "sleeperPoints": 252.75,
      "recomputedPoints": 287.0,
      "absDiscrepancy": 34.25,
