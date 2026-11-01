@@ -173,6 +173,23 @@ export const NAV_MODEL = [
         hint: "Every team ranked, with position breakdowns",
         keywords: ["depth", "roster dashboard", "power"],
       },
+      // Roster Construction V1 (owner decision D1, 2026-11-01): private,
+      // signed-in.  CAPABILITY-GATED on the `roster_construction` flag so a
+      // switched-off deployment never offers a page whose API answers 503.
+      {
+        href: "/roster-construction",
+        label: "Roster Construction",
+        hint: "Positional production versus dynasty value, starts and depth",
+        keywords: [
+          "roster construction",
+          "positional production",
+          "depth",
+          "starts",
+          "flex",
+          "dynasty value",
+        ],
+        capability: "rosterConstruction",
+      },
       {
         href: "/waivers",
         label: "Waivers",
