@@ -158,6 +158,11 @@ def test_failed_nginx_t_restores_the_previous_file(tmp_path):
             "    client_max_body_size 10m;\n",
             "    client_max_body_size 10m;\n    add_header X-Frame-Options DENY;\n",
         ),
+        # a one-line location carrying its own header
+        (
+            "    location = /favicon.ico { proxy_pass http://dynasty_frontend; }",
+            "    location = /favicon.ico { proxy_pass http://dynasty_frontend; add_header X-A b; }",
+        ),
     ],
 )
 def test_refuses_configs_it_cannot_reason_about(tmp_path, mutation):

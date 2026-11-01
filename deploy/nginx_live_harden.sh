@@ -58,10 +58,13 @@ die() { printf '[nginx-live-harden][ERROR] %s\n' "$*" >&2; exit 1; }
 [[ -r "${LIVE_SITE}" ]] || die "cannot read live site ${LIVE_SITE}"
 [[ -r "${SNIPPET_SRC}" ]] || die "missing snippet source ${SNIPPET_SRC}"
 
-LIVE_SHA="$(sha256sum "${LIVE_SITE}" | cut -d' ' -f1)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
 CANDIDATE="${WORK}/candidate.conf"
+# One read of the live file: everything below hashes and patches this copy.
+SNAPSHOT="${WORK}/live.snapshot"
+cp "${LIVE_SITE}" "${SNAPSHOT}"
+LIVE_SHA="$(sha256sum "${SNAPSHOT}" | cut -d' ' -f1)"
 
 # --- preflight: refuse configs this patcher cannot reason about --------
 # Depth-aware scan.  Comments are stripped before counting braces.
@@ -69,8 +72,11 @@ awk -v domain="${DOMAIN}" '
     function strip(s) { sub(/#.*/, "", s); return s }
     {
         line = strip($0)
-        if (depth >= 2 && line ~ /^[ \t]*add_header[ \t]/) {
-            printf "location-level add_header at line %d would mask server-level headers\n", NR > "/dev/stderr"; bad = 1
+        # A nested add_header / proxy_hide_header (including on a one-line
+        # `location ... { ... }`) replaces the inherited server-level set.
+        if ((depth >= 2 && line ~ /^[ \t]*(add_header|proxy_hide_header)[ \t]/) ||
+            (line ~ /^[ \t]*(location|if)[ \t].*\{.*(add_header|proxy_hide_header)[ \t]/)) {
+            printf "nested add_header/proxy_hide_header at line %d would mask server-level headers\n", NR > "/dev/stderr"; bad = 1
         }
         if (depth == 1 && line ~ /^[ \t]*add_header[ \t]/ && inchase) {
             printf "server-level add_header already present at line %d (would duplicate)\n", NR > "/dev/stderr"; bad = 1
@@ -85,11 +91,11 @@ awk -v domain="${DOMAIN}" '
         if (chase == 0) { print "no server block names " domain > "/dev/stderr"; bad = 1 }
         exit bad
     }
-' "${LIVE_SITE}" || die "preflight refused ${LIVE_SITE}; nothing changed"
+' "${SNAPSHOT}" || die "preflight refused ${LIVE_SITE}; nothing changed"
 
 # --- candidate: insert the include after each chaseupside server_name ---
-if grep -qF "include ${SNIPPET_DEST};" "${LIVE_SITE}"; then
-    cp "${LIVE_SITE}" "${CANDIDATE}"
+if grep -qF "include ${SNIPPET_DEST};" "${SNAPSHOT}"; then
+    cp "${SNAPSHOT}" "${CANDIDATE}"
     ALREADY=1
 else
     awk -v domain="${DOMAIN}" -v inc="${INCLUDE_LINE}" '
@@ -101,20 +107,20 @@ else
             o = gsub(/\{/, "{", line); c = gsub(/\}/, "}", line)
             depth += o - c
         }
-    ' "${LIVE_SITE}" > "${CANDIDATE}"
+    ' "${SNAPSHOT}" > "${CANDIDATE}"
     ALREADY=0
 fi
 
 # --- proof: the only difference is the inserted include lines ----------
-if ! diff -q <(grep -vF "include ${SNIPPET_DEST};" "${CANDIDATE}") <(grep -vF "include ${SNIPPET_DEST};" "${LIVE_SITE}") >/dev/null; then
+if ! diff -q <(grep -vF "include ${SNIPPET_DEST};" "${CANDIDATE}") <(grep -vF "include ${SNIPPET_DEST};" "${SNAPSHOT}") >/dev/null; then
     die "candidate differs from the live file by more than the include lines; refusing"
 fi
 for pat in 'listen ' 'ssl_certificate' 'letsencrypt' 'server_name ' 'location ' 'return ' 'proxy_pass '; do
-    if [[ "$(grep -cF "${pat}" "${CANDIDATE}")" != "$(grep -cF "${pat}" "${LIVE_SITE}")" ]]; then
+    if [[ "$(grep -cF "${pat}" "${CANDIDATE}")" != "$(grep -cF "${pat}" "${SNAPSHOT}")" ]]; then
         die "line count for '${pat}' changed; refusing"
     fi
 done
-ADDED="$(diff "${LIVE_SITE}" "${CANDIDATE}" | grep -c '^>' || true)"
+ADDED="$(diff "${SNAPSHOT}" "${CANDIDATE}" | grep -c '^>' || true)"
 
 log "mode: ${MODE}"
 log "live site: ${LIVE_SITE}"
@@ -123,7 +129,7 @@ if [[ "${ALREADY}" == 1 ]]; then
     log "include already present — site file unchanged"
 else
     log "lines to insert: ${ADDED} (one per ${DOMAIN} server block); listeners, certificates, locations: unchanged"
-    diff -u "${LIVE_SITE}" "${CANDIDATE}" || true
+    diff -u --label "${LIVE_SITE}" --label "${LIVE_SITE} (candidate)" "${SNAPSHOT}" "${CANDIDATE}" || true
 fi
 if [[ -f "${SNIPPET_DEST}" ]] && cmp -s "${SNIPPET_SRC}" "${SNIPPET_DEST}"; then
     log "snippet up to date: ${SNIPPET_DEST}"
@@ -158,6 +164,7 @@ restore() {
     "${NGINX_BIN}" -t && "${SYSTEMCTL_BIN}" reload nginx || log "restore: nginx -t failed — manual attention required"
 }
 
+[[ "$(sha256sum "${LIVE_SITE}" | cut -d' ' -f1)" == "${LIVE_SHA}" ]] || die "live file changed during this run; nothing installed"
 cp -p "${LIVE_SITE}" "${BACKUP}"
 log "backed up live site to ${BACKUP}"
 install -m 0644 "${SNIPPET_SRC}" "${SNIPPET_DEST}"
@@ -174,11 +181,12 @@ log "nginx reloaded"
 
 if [[ "${SKIP_PROBE:-0}" == 1 ]]; then exit 0; fi
 # Probe through a pinned :443 listener of the live file itself.
-V4="$(grep -oE 'listen[[:space:]]+([0-9]{1,3}\.){3}[0-9]{1,3}:443' "${LIVE_SITE}" | head -1 | awk '{print $2}' | cut -d: -f1)"
+V4="$(grep -oE 'listen[[:space:]]+([0-9]{1,3}\.){3}[0-9]{1,3}:443' "${LIVE_SITE}" | head -1 | awk '{print $2}' | cut -d: -f1 || true)"
 RESOLVE=(); [[ -n "${V4}" ]] && RESOLVE=(--resolve "${DOMAIN}:443:${V4}")
 HDRS="$(curl -sS -o /dev/null -D - -m 15 "${RESOLVE[@]}" "https://${DOMAIN}/" || true)"
-if [[ -z "${HDRS}" ]]; then
-    log "probe: site did not answer after reload — rolling back"
+STATUS="$(printf '%s\n' "${HDRS}" | awk 'NR==1{print $2}')"
+if [[ -z "${HDRS}" || "${STATUS}" =~ ^5 ]]; then
+    log "probe: site answered '${STATUS:-nothing}' after reload — rolling back"
     restore
     die "rolled back"
 fi
