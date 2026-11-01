@@ -237,6 +237,68 @@ test("roster construction: a manual-lineup league is labelled hypothetical optim
   expect(axe.violations).toEqual([]);
 });
 
+test("roster construction: verified 2026 first, an unverified 2025 is a stated unavailable state, axe clean", async ({
+  authedPage: page,
+}, testInfo) => {
+  // Owner decision D2 (2026-11-01): 2025's league object (17 starters) is
+  // contradicted by its own matchups (21-22 seated), so the backend answers
+  // available=false and the page states it instead of rendering numbers.
+  const availability = {
+    availableSeasons: ["2026", "2025"],
+    seasonAvailability: [
+      { season: "2026", available: true, reason: null },
+      { season: "2025", available: false, reason: "historical_lineup_config_unverified" },
+    ],
+  };
+  await page.route(
+    (url) => url.pathname === "/api/roster-construction",
+    (route) => {
+      const url = new URL(route.request().url());
+      const leagueKey = url.searchParams.get("leagueKey") || BEST_BALL.leagueKey;
+      if (url.searchParams.get("season") === "2025") {
+        return json(route, 200, {
+          schemaVersion: BEST_BALL.schemaVersion,
+          leagueKey,
+          season: "2025",
+          available: false,
+          unavailableReason: "historical_lineup_config_unverified",
+          teams: [],
+          ...availability,
+        });
+      }
+      return json(route, 200, {
+        ...overviewOf(BEST_BALL),
+        leagueKey,
+        season: "2026",
+        available: true,
+        ...availability,
+      });
+    },
+  );
+  const root = await openPage(page);
+  const season = root.getByLabel("Season");
+  await expect(season).toHaveValue("2026");
+  await expect(root.getByLabel("Team")).toBeVisible();
+  await season.selectOption("2025");
+  const notice = page.getByTestId("roster-construction-season-unavailable");
+  await expect(notice).toBeVisible({ timeout: 30_000 });
+  await expect(notice).toContainText("No verified lineup rules for 2025");
+  await expect(page.locator("#rc-team")).toHaveCount(0);
+  await expect(page.getByTestId("roster-construction-panel")).toHaveCount(0);
+  await noPageOverflow(page);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await settleSurfaces(page);
+  const axe = await new AxeBuilder({ page })
+    .withTags(TAGS)
+    .include('[data-testid="roster-construction"]')
+    .analyze();
+  await testInfo.attach("roster-construction-season-unavailable-axe", {
+    body: JSON.stringify(axe.violations, null, 2),
+    contentType: "application/json",
+  });
+  expect(axe.violations).toEqual([]);
+});
+
 test("roster construction: no page while its flag is off", async ({ authedPage: page }) => {
   await mockEndpoint(page, { off: true });
   const probed = page.waitForResponse(

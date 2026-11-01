@@ -32,6 +32,15 @@ R_VALUE_CONTRACT_MISSING = "contract_not_loaded"
 R_VALUE_LEAGUE_MISMATCH = "contract_league_mismatch"
 R_VALUE_NO_TEAMS = "contract_has_no_rosters"
 
+#: Season-level refusal (owner decision D2, 2026-11-01): the host's own
+#: matchups contradict the season's recorded starting-lineup configuration, so
+#: its lineup rules are not verified and NOTHING lineup-derived is served for it
+#: (no partial weeks, no inferred slot layout).  Measured on dynasty_main: the
+#: 2025 league object lists 17 starters while every matchup seats 21-22; the
+#: 2024 object says best ball while no team-week's lineup is its roster optimum.
+R_LINEUP_CONFIG_UNVERIFIED_HISTORICAL = "historical_lineup_config_unverified"
+R_LINEUP_CONFIG_UNVERIFIED = "lineup_config_unverified"
+
 
 @lru_cache(maxsize=1)
 def _priors_cached(path: str) -> str:
@@ -244,3 +253,70 @@ def build_payload(
     if roster_id is not None:
         payload.update(rc.build_team_view(ls, roster_id, value, posture=posture))
     return payload
+
+
+def lineup_config_status(si: rc.SeasonInput, *, is_current: bool) -> dict[str, Any]:
+    """Is this season's starting-lineup configuration VERIFIED by the host?
+
+    Verified = no finalized week is contradicted by the host's own matchups
+    (``player_impact.detect_contradictions``, the one owner of that test).  A
+    single contradicted week means the season's league object does not
+    describe how lineups were actually seated, so the whole season is refused
+    rather than computed under a configuration the host contradicts or served
+    with the contradicted weeks silently dropped.  A season with no slots at
+    all is refused the same way.  Inferring the real configuration from the
+    matchups is deliberately NOT done (owner decision D2, 2026-11-01).
+    """
+    reasons = sorted({r for rs in si.contradicted.values() for r in rs})
+    if si.slots and not reasons:
+        return {"available": True, "reason": None}
+    if not si.slots:
+        reasons = reasons or [rc.X_SLOTS_UNKNOWN]
+    return {
+        "available": False,
+        "reason": (
+            R_LINEUP_CONFIG_UNVERIFIED if is_current else R_LINEUP_CONFIG_UNVERIFIED_HISTORICAL
+        ),
+        "contradictions": reasons,
+        "contradictedWeeks": sorted(si.contradicted),
+        "recordedStarterSlotCount": len(si.slots),
+        "slotSource": si.slot_source,
+    }
+
+
+def season_availability(statuses: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """``availableSeasons`` (newest first) + per-season availability rows."""
+    order = sorted(statuses, key=lambda y: (len(str(y)), str(y)), reverse=True)
+    return {
+        "availableSeasons": order,
+        "seasonAvailability": [
+            {
+                "season": y,
+                "available": bool(statuses[y].get("available")),
+                "reason": statuses[y].get("reason"),
+            }
+            for y in order
+        ],
+    }
+
+
+def unavailable_payload(
+    *,
+    league_key: str,
+    season: str,
+    status: Mapping[str, Any],
+    statuses: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    """The explicit unavailable answer for a season whose lineup rules are
+    unverified.  Carries no team, no lineup and no number derived from one."""
+    return {
+        "schemaVersion": rc.SCHEMA_VERSION,
+        "methodVersion": rc.METHOD_VERSION,
+        "leagueKey": league_key,
+        "season": season,
+        "available": False,
+        "unavailableReason": status.get("reason"),
+        "lineupConfig": dict(status),
+        "teams": [],
+        **season_availability(statuses),
+    }

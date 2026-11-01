@@ -19,8 +19,10 @@ import { useEffect, useState } from "react";
 export const ROSTER_CONSTRUCTION_GATE_ENDPOINT = "/api/roster-construction";
 
 /**
- * Returns {gate, overview, failure}.  gate is "unknown" until answered, then
- * "open" or "closed".  An open gate with a failure is a stated state (data
+ * Returns {gate, overview, failure, loading}.  gate is "unknown" until answered,
+ * then "open" or "closed".  `loading` is true while a season switch in the same
+ * league is in flight; `overview` is then the PREVIOUS season's and must not be
+ * used to request team data.  An open gate with a failure is a stated state (data
  * not ready, offline), never "not available".
  */
 export function useRosterConstructionGate({ leagueKey, season, enabled = true } = {}) {
@@ -91,7 +93,22 @@ export function useRosterConstructionGate({ leagueKey, season, enabled = true } 
       ctl.abort();
     };
   }, [enabled, leagueKey, season, key]);
-  return state.key === key
-    ? { gate: state.gate, overview: state.overview, failure: state.failure }
-    : { gate: "unknown", overview: null, failure: null };
+  if (state.key === key) {
+    return { gate: state.gate, overview: state.overview, failure: state.failure, loading: false };
+  }
+  // A SEASON switch inside the same league keeps the page mounted: the gate is
+  // already known to be open, so the previous overview stays on screen
+  // (flagged `loading`) instead of the whole page collapsing to a skeleton and
+  // remounting.  That remount recreated every control — the Season select
+  // the user just changed lost focus — and every panel surface, which headless
+  // WebKit left on its first-paint background (E2E run 41326580134).  A
+  // LEAGUE switch is different data and still starts from "unknown".
+  const sameLeague =
+    state.gate === "open" &&
+    enabled &&
+    typeof state.key === "string" &&
+    state.key.split("|")[0] === String(leagueKey || "");
+  return sameLeague
+    ? { gate: "open", overview: state.overview, failure: null, loading: true }
+    : { gate: "unknown", overview: null, failure: null, loading: false };
 }

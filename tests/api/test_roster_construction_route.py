@@ -74,6 +74,7 @@ def env(tmp_path: Path, monkeypatch):
         server._rc_league_cache,
         server._rc_snapshot_cache,
         server._player_impact_cache,
+        server._rc_season_status_cache,
     ):
         cache.clear()
     real = feature_flags.is_enabled
@@ -211,3 +212,99 @@ def test_posture_owner_import_failure_degrades_instead_of_503(env, monkeypatch):
     r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "1"}, headers=AS)
     assert r.status_code == 200
     assert r.json()["team"]["posture"] == {"label": None, "reason": "posture_lookup_failed"}
+
+
+# ── D2 (owner decision 2026-11-01): unverified historical lineup rules ──────
+def _two_season_snapshot():
+    """2026 verified; 2025's league object lists 17 starters while every
+    matchup seats 21 (the real dynasty_main 2025 shape)."""
+    from tests.roster_intel.rc_support import DYNASTY_MAIN_SLOTS
+
+    teams = league_of(4)
+    cur = build_snapshot(teams, league_id="RCMAIN", season="2026")
+    old = build_snapshot(teams, league_id="RCMAIN25", season="2025")
+    old.seasons[0].league["roster_positions"] = DYNASTY_MAIN_SLOTS[:17] + ["BN"] * 10
+    cur.seasons = cur.seasons + old.seasons
+    return cur
+
+
+def test_contradicted_historical_season_is_an_explicit_unavailable_state(env, monkeypatch):
+    snap = _two_season_snapshot()
+    monkeypatch.setattr(server, "_get_public_snapshot", lambda *a, **k: snap)
+    r = env.client.get(URL, params={"leagueKey": "main"}, headers=AS)
+    body = r.json()
+    assert r.status_code == 200 and body["season"] == "2026" and body["available"] is True
+    assert body["availableSeasons"] == ["2026", "2025"]
+    assert body["seasonAvailability"] == [
+        {"season": "2026", "available": True, "reason": None},
+        {"season": "2025", "available": False, "reason": "historical_lineup_config_unverified"},
+    ]
+    for params in ({"season": "2025"}, {"season": "2025", "rosterId": "1"}):
+        r = env.client.get(URL, params={"leagueKey": "main", **params}, headers=AS)
+        body = r.json()
+        assert r.status_code == 200, params
+        assert body["available"] is False
+        assert body["unavailableReason"] == "historical_lineup_config_unverified"
+        assert body["lineupConfig"]["contradictions"] == [
+            "starter_count_differs_from_configured_slots"
+        ]
+        assert body["lineupConfig"]["recordedStarterSlotCount"] == 17
+        # Nothing lineup-derived is served: no teams, no team view, no ranks.
+        assert body["teams"] == [] and "team" not in body and "players" not in body
+        assert "coverage" not in body and "rules" not in body
+        assert r.headers["cache-control"] == "private, no-store"
+
+
+def test_ops_health_reports_a_withheld_current_season(env, monkeypatch):
+    from tests.roster_intel.rc_support import DYNASTY_MAIN_SLOTS
+
+    # Fine: the default (current) season is verified.
+    assert server._roster_construction_health() == []
+    # The CURRENT season's league object now contradicts its matchups.
+    snap = _two_season_snapshot()
+    snap.seasons[0].league["roster_positions"] = DYNASTY_MAIN_SLOTS[:17] + ["BN"] * 10
+    monkeypatch.setattr(server, "_get_public_snapshot", lambda *a, **k: snap)
+    server._rc_season_status_cache.clear()
+    (row,) = server._roster_construction_health()
+    assert row["leagueKey"] == "main" and row["season"] == "2026"
+    assert row["reason"] == "lineup_config_unverified"
+    assert row["contradictions"] == ["starter_count_differs_from_configured_slots"]
+    # Flag off: nothing served, nothing withheld.
+    env.state["on"] = False
+    assert server._roster_construction_health() == []
+
+
+def test_ops_health_is_unknown_when_it_cannot_check(env, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(server, "_roster_construction_season_statuses", boom)
+    assert server._roster_construction_health() is None
+
+
+def test_post_refresh_warm_prebuilds_the_default_view_only_when_on(env):
+    env.state["on"] = False
+    server._warm_roster_construction_after_refresh()
+    assert not server._rc_league_cache and not server._rc_season_status_cache
+    env.state["on"] = True
+    server._warm_roster_construction_after_refresh()
+    assert len(server._rc_league_cache) == 1 and len(server._rc_season_status_cache) == 1
+    # The route then answers from the warmed league-season.
+    (key,) = server._rc_league_cache
+    warmed = server._rc_league_cache[key]
+    r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "1"}, headers=AS)
+    assert r.status_code == 200 and server._rc_league_cache[key] is warmed
+
+
+def test_post_refresh_warm_never_raises(env, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(server, "_roster_construction_season_statuses", boom)
+    server._warm_roster_construction_after_refresh()  # logged, not raised
+
+
+def test_unknown_team_never_answers_with_another_teams_data(env):
+    r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "77"}, headers=AS)
+    assert r.status_code == 404
+    assert r.json() == {"error": "unknown_team", "rosterId": 77, "season": "2025"}

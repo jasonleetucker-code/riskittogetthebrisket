@@ -121,6 +121,54 @@ describe("gate", () => {
     expect(calls[0].searchParams.get("leagueKey")).toBe("dynasty_main");
   });
 
+  it("shows the verified season first and an unverified season as a stated unavailable state", async () => {
+    // Owner decision D2 (2026-11-01): 2025's lineup rules are contradicted by
+    // the host's own matchups, so the backend answers available=false.
+    const availability = {
+      availableSeasons: ["2026", "2025"],
+      seasonAvailability: [
+        { season: "2026", available: true, reason: null },
+        { season: "2025", available: false, reason: "historical_lineup_config_unverified" },
+      ],
+    };
+    const current = { ...overviewOf(BEST_BALL), season: "2026", available: true, ...availability };
+    const unavailable = {
+      schemaVersion: BEST_BALL.schemaVersion,
+      leagueKey: BEST_BALL.leagueKey,
+      season: "2025",
+      available: false,
+      unavailableReason: "historical_lineup_config_unverified",
+      teams: [],
+      ...availability,
+    };
+    global.fetch = vi.fn((url) => {
+      const u = new URL(String(url), "http://x");
+      return jsonResponse(200, u.searchParams.get("season") === "2025" ? unavailable : current);
+    });
+    render(<RosterConstructionPage />);
+    const seasonSelect = await screen.findByLabelText("Season");
+    expect(seasonSelect.value).toBe("2026");
+    expect(within(seasonSelect).getByRole("option", { name: "2025 (unavailable)" })).toBeTruthy();
+    expect(screen.getByLabelText("Team")).toBeTruthy();
+    const root = screen.getByTestId("roster-construction");
+    fireEvent.change(seasonSelect, { target: { value: "2025" } });
+    // In flight: the page stays mounted (no remount to a bare skeleton) and
+    // offers no team from the previous season's list.
+    expect(screen.getByTestId("roster-construction")).toBe(root);
+    expect(root.getAttribute("aria-busy")).toBe("true");
+    expect(screen.queryByLabelText("Team")).toBeNull();
+    const notice = await screen.findByTestId("roster-construction-season-unavailable");
+    // The control the user just changed is the SAME element (focus survives).
+    expect(screen.getByLabelText("Season")).toBe(seasonSelect);
+    expect(screen.getByTestId("roster-construction")).toBe(root);
+    expect(root.getAttribute("aria-busy")).toBeNull();
+    expect(notice.textContent).toMatch(/No verified lineup rules for 2025/);
+    expect(notice.textContent).toMatch(/contradict/);
+    expect(screen.queryByLabelText("Team")).toBeNull();
+    expect(screen.queryByText("No teams to choose from")).toBeNull();
+    expect(screen.queryByTestId("roster-construction-panel")).toBeNull();
+  });
+
   it("states a not-ready backend instead of 'not available'", async () => {
     installFetch({
       gate: { status: 503, body: { error: "data_not_ready", reason: "contract_not_loaded" } },

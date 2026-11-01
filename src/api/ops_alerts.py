@@ -14,6 +14,9 @@ when any of these conditions hold:
     * A Game Day pregame-projections archive that could not be built, so
       its week's raw weekly-projection log is being kept (one alert per
       league + season + week)
+    * Roster Construction's CURRENT season withheld because its lineup rules
+      are contradicted by the host's own matchups (owner decision D2; one
+      alert per league + season)
 
 Cooldown: each alert class has a 4-hour re-alert cooldown keyed
 on the synthetic user ``_system_ops_alerts`` in user_kv so the
@@ -227,6 +230,42 @@ def _check_draft_valuation(rows: list[dict[str, Any]]) -> list[OpsAlert]:
                     ),
                 )
             )
+    return alerts
+
+
+def _check_roster_construction(rows: list[dict[str, Any]]) -> list[OpsAlert]:
+    """Roster Construction's CURRENT season withheld as lineup-rules-unverified.
+
+    Owner decision D2 (2026-11-01) withholds a whole season when any finalized
+    week's matchups contradict its recorded lineup rules -- fail closed, by
+    design.  For a past season that is a fixed fact; for the CURRENT season it
+    means one new contradicted week (a stat correction, a mid-season settings
+    change) has taken the live page's season offline, so it is surfaced here.
+    One alert per (league, season), keyed ``roster_construction:<league>:<season>``.
+    A row comes from ``server._roster_construction_health`` and exists only
+    while the current season is unavailable; ``None`` from the sweep means
+    "not checked", never "healthy".
+    """
+    alerts: list[OpsAlert] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        league, season = row.get("leagueKey"), row.get("season")
+        alerts.append(
+            OpsAlert(
+                severity="warning",
+                category=f"roster_construction:{league}:{season}",
+                title=f"Roster Construction {season} ({league}) withheld: lineup rules unverified",
+                detail=(
+                    f"The host's own {season} matchups contradict the season's recorded "
+                    f"starting-lineup settings ({', '.join(row.get('contradictions') or []) or 'unknown'}; "
+                    f"weeks {row.get('contradictedWeeks') or 'unknown'}), so the private "
+                    f"/roster-construction page serves {season} as unavailable "
+                    f"({row.get('reason')}).  Nothing is inferred.  Re-run "
+                    "scripts/roster_construction_parity_census.py to see which team-weeks."
+                ),
+            )
+        )
     return alerts
 
 
@@ -660,6 +699,7 @@ def check_and_alert(
     scrape_interval_hours: float = 2.0,
     draft_valuation: list[dict[str, Any]] | None = None,
     pregame_archive: list[dict[str, Any]] | None = None,
+    roster_construction: list[dict[str, Any]] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     kv_path: Any = None,
@@ -681,6 +721,7 @@ def check_and_alert(
         alerts.append(df)
     alerts.extend(_check_draft_valuation(draft_valuation or []))
     alerts.extend(_check_pregame_archive(pregame_archive or []))
+    alerts.extend(_check_roster_construction(roster_construction or []))
 
     active_categories = {a.category for a in alerts}
     now = time.time()
@@ -692,6 +733,9 @@ def check_and_alert(
     if pregame_archive is None:
         # Likewise: an unreadable Game Day store is UNKNOWN, not recovered.
         active_categories |= {c for c in state if str(c).startswith("pregame_archive:")}
+    if roster_construction is None:
+        # Not checked (flag lookup or snapshot failed) is UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c).startswith("roster_construction:")}
 
     # Recovery alerts first — for conditions that were firing but
     # aren't now.
