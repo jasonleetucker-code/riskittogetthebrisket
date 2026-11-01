@@ -56,7 +56,7 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from src.ros.lineup import (
@@ -196,11 +196,30 @@ class ValueInput:
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
+#: Base families a lineup slot can seat (offense, kicker, team defense, IDP).
+_FAMILIES = frozenset({"QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"})
+
+
 def group_of(meta: PlayerMeta | None) -> str:
-    """Base position family a player's points are attributed to."""
+    """Base position family a player's points are attributed to.
+
+    The host position decides, through the one lineup vocabulary.  When that
+    is not a lineup family — Sleeper lists a fullback as ``position="FB"``
+    with ``fantasy_positions=["RB"]`` — the family is the host's own
+    ``fantasy_positions`` (the field it seated him by), so his points are
+    attributed instead of silently dropped.  Measured on dynasty_main 2026:
+    one FB start (1.84 points, week 5) was missing from every group total.
+    """
     if meta is None or not meta.position:
         return ""
-    return lineup_position(meta.position)
+    fam = lineup_position(meta.position)
+    if fam in _FAMILIES:
+        return fam
+    for p in meta.fantasy_positions:
+        alt = lineup_position(p)
+        if alt in _FAMILIES:
+            return alt
+    return fam
 
 
 def position_groups(slots: Sequence[str]) -> tuple[str, ...]:
@@ -312,6 +331,61 @@ class TeamWeekSolution:
         return frozenset(pid for _i, _s, pid, _p in self.assigned)
 
 
+#: Tie-break weight for the host's own counted lineup.  The summed bias over a
+#: whole lineup (< 30 slots x 1e-7) is far below the 0.01-point resolution of
+#: host scores, so it can only choose BETWEEN equal-score optima and never
+#: changes the optimum's score.  The parity check below re-verifies that.
+_HOST_TIEBREAK = 1.0e-7
+
+
+def _host_tiebreak_pool(pool: list[RosterPlayer], team: TeamWeekIn) -> list[RosterPlayer]:
+    """Prefer the host's counted lineup among EQUAL-score legal optima.
+
+    Several legal optima can tie (two 0-point TEs, a 1.33-point DL vs a
+    1.33-point LB).  The solver's own tie order is player-id order, which can
+    attribute the tied points to a different position group than the lineup
+    the host actually awarded.  Measured on dynasty_main 2026 weeks 1-7: 7 of
+    84 team-weeks were equal-score swaps, one of them moving 1.33 points from
+    DL to LB.  Biasing the counted players by a sub-resolution epsilon makes
+    the attribution follow the host whenever the host's lineup is optimal.
+    Only the SELECTION uses the biased copy; every reported point is the
+    unbiased value.
+    """
+    counted = set(team.counted)
+    if not counted:
+        return pool
+    return [
+        replace(p, ros_value=float(p.ros_value) + _HOST_TIEBREAK)
+        if p.player_id in counted and p.ros_value is not None
+        else p
+        for p in pool
+    ]
+
+
+def _drop_unseated_zero_fillers(
+    assignment: dict[int, RosterPlayer], team: TeamWeekIn, slot_count: int
+) -> dict[int, RosterPlayer]:
+    """Leave a slot empty where the HOST left it empty.
+
+    The host records ``0.0`` both for a player who played and scored nothing
+    and for one who did not play (bye, inactive); its awarded lineup seats the
+    first and leaves the slot EMPTY for the second.  The exact solver fills
+    every fillable slot, so it seats the latter as a 0-point "start" the host
+    never awarded (dynasty_main 2026: weeks 4 and 5, one team each).  Only
+    0-point players outside the host's counted lineup are removed, and only as
+    many as the host left empty, so the score cannot change.
+    """
+    counted = set(team.counted)
+    empty = slot_count - len(counted)
+    if not counted or empty <= 0:
+        return assignment
+    drop = sorted(
+        (i for i, p in assignment.items() if p.player_id not in counted and p.ros_value == 0.0),
+        reverse=True,
+    )[:empty]
+    return {i: p for i, p in assignment.items() if i not in drop}
+
+
 def solve_team_week(
     team: TeamWeekIn,
     week: int,
@@ -353,7 +427,12 @@ def solve_team_week(
         )
     pool = [_roster_player(p, si.players.get(p), team.points.get(p)) for p in pids]
     elig = precompute_slot_eligibility(pool, slots)
-    assignment = _solve(pool, slots, elig)
+    host_awarded = si.lineup_mode == LINEUP_BEST_BALL  # counted lineup = the host's optimum
+    assignment = _solve(_host_tiebreak_pool(pool, team) if host_awarded else pool, slots, elig)
+    by_id = {p.player_id: p for p in pool}
+    assignment = {i: by_id[p.player_id] for i, p in assignment.items()}
+    if host_awarded:
+        assignment = _drop_unseated_zero_fillers(assignment, team, len(slots))
     score = _score(assignment)
     assigned = sorted((i, slots[i], p.player_id, float(p.ros_value)) for i, p in assignment.items())
     unfilled = [slots[i] for i in range(len(slots)) if i not in assignment]

@@ -113,6 +113,15 @@ export default function RosterConstructionPage() {
     ? overview.availableSeasons.map(String)
     : [];
   const team = teams.find((t) => String(t.rosterId) === String(rosterId));
+  // Owner decision D2 (2026-11-01): a season whose recorded lineup rules the
+  // host's own matchups contradict arrives as `available: false` — a stated
+  // state, never a computed (or partially computed) board.
+  const seasonUnavailable = overview?.available === false;
+  const unavailableBySeason = new Map(
+    (Array.isArray(overview?.seasonAvailability) ? overview.seasonAvailability : [])
+      .filter((s) => s && s.available === false)
+      .map((s) => [String(s.season), s.reason]),
+  );
 
   return (
     <div
@@ -167,7 +176,7 @@ export default function RosterConstructionPage() {
               >
                 {seasons.map((s) => (
                   <option key={s} value={s}>
-                    {s}
+                    {unavailableBySeason.has(s) ? `${s} (unavailable)` : s}
                   </option>
                 ))}
               </Select>
@@ -180,7 +189,20 @@ export default function RosterConstructionPage() {
         <FailureState failure={probeFailure(failure)} context="Roster Construction" />
       ) : null}
 
-      {!failure && !teams.length ? (
+      {!failure && seasonUnavailable ? (
+        <div data-testid="roster-construction-season-unavailable">
+          <EmptyState
+            title={`${overview?.season || "This"} season is unavailable`}
+            description={
+              overview?.unavailableReason === "historical_lineup_config_unverified"
+                ? `The host's own ${overview?.season || ""} matchups contradict that season's recorded starting-lineup settings, so its lineup rules are not verified. Roster Construction shows nothing for it rather than guess the rules. Pick a verified season above.`
+                : "This season's starting-lineup rules are not verified by the host's own matchups, so nothing is computed for it."
+            }
+          />
+        </div>
+      ) : null}
+
+      {!failure && !seasonUnavailable && !teams.length ? (
         <EmptyState
           title="No teams to choose from"
           description="The backend did not return a team list for this league."

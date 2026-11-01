@@ -16073,6 +16073,8 @@ def _kick_background_refresh(league_id: str, *, trigger: str = "stale-while-reva
             _rebuild_public_snapshot(league_id, trigger=trigger)
         except Exception as exc:  # noqa: BLE001
             logging.warning("Background public_league refresh failed: %s", exc)
+        else:
+            _warm_roster_construction_after_refresh()
         finally:
             _public_league_cache["refreshing"] = False
 
@@ -16595,6 +16597,96 @@ def _roster_construction_snapshot(league_cfg):
         return snapshot
 
 
+_rc_season_status_cache: dict[tuple, dict] = {}
+_RC_SEASON_STATUS_CACHE_MAX = 8
+
+
+def _roster_construction_season_statuses(snapshot, include_playoffs: bool) -> dict:
+    """``{season: lineup_config_status}`` for every season in the snapshot,
+    memoized per snapshot generation (each check solves the season's weeks)."""
+    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+
+    key = (snapshot.root_league_id, str(snapshot.generated_at), bool(include_playoffs))
+    hit = _rc_season_status_cache.get(key)
+    if hit is not None:
+        return hit
+    out = {}
+    for s in snapshot.seasons:
+        si = _rc_api.season_input_from_snapshot(snapshot, s, include_playoffs=include_playoffs)
+        out[str(s.season)] = _rc_api.lineup_config_status(
+            si, is_current=s is snapshot.current_season
+        )
+    for stale in [k for k in list(_rc_season_status_cache) if k[0] == key[0] and k[1] != key[1]]:
+        _rc_season_status_cache.pop(stale, None)
+    while len(_rc_season_status_cache) >= _RC_SEASON_STATUS_CACHE_MAX:
+        _rc_season_status_cache.pop(next(iter(_rc_season_status_cache)))
+    _rc_season_status_cache[key] = out
+    return out
+
+
+def _roster_construction_league_season(league_cfg, snapshot, target, include_playoffs: bool):
+    """The solved league-season (every team-week), memoized per snapshot
+    generation.  Shared by the route and the post-refresh warm."""
+    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+    from src.roster_intel import construction as _rc  # noqa: PLC0415
+    from src.trade.roster_capacity import league_roster_limit  # noqa: PLC0415
+
+    key = (snapshot.root_league_id, str(snapshot.generated_at), target.league_id, include_playoffs)
+    ls = _rc_league_cache.get(key)
+    if ls is not None:
+        return ls
+    try:
+        impact = _player_impact_computed(snapshot, target)
+    except Exception as exc:  # noqa: BLE001 — marginal degrades, never the page
+        logging.error("Roster construction: player impact unavailable: %s", exc)
+        impact = None
+    limit = league_roster_limit(league_cfg.key) if target is snapshot.current_season else None
+    si_ = _rc_api.season_input_from_snapshot(
+        snapshot,
+        target,
+        include_playoffs=include_playoffs,
+        impact=impact,
+        roster_limit=limit,
+    )
+    ls = _rc.compute_league_season(si_, _rc_api.load_priors())
+    for stale in [k for k in list(_rc_league_cache) if k[0] == key[0] and k[1] != key[1]]:
+        _rc_league_cache.pop(stale, None)
+    while len(_rc_league_cache) >= _RC_LEAGUE_CACHE_MAX:
+        _rc_league_cache.pop(next(iter(_rc_league_cache)))
+    _rc_league_cache[key] = ls
+    return ls
+
+
+def _warm_roster_construction_after_refresh() -> None:
+    """Precompute the default Roster Construction view for a fresh snapshot.
+
+    The route's caches are keyed by the snapshot generation, which moves on
+    every public-snapshot refresh (``PUBLIC_LEAGUE_CACHE_TTL``, 300 s), so
+    without this the first signed-in request after each refresh paid the
+    whole cold build (~3-4 s measured on dynasty_main 2026: player impact,
+    every team-week solve, the per-season lineup-rule checks).  Runs on the
+    refresh thread, only while the flag is on; any failure is logged and
+    leaves the route to build on demand exactly as before.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    if not is_enabled("roster_construction"):
+        return
+    try:
+        cfg = _league_registry.get_default_league()
+        snapshot = _get_public_snapshot()
+        if cfg is None or snapshot is None or not snapshot.seasons:
+            return
+        if str(cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return
+        statuses = _roster_construction_season_statuses(snapshot, False)
+        target = snapshot.current_season
+        if (statuses.get(str(target.season)) or {}).get("available"):
+            _roster_construction_league_season(cfg, snapshot, target, False)
+    except Exception as exc:  # noqa: BLE001 — a warm never breaks the refresh
+        logging.warning("Roster construction warm failed: %s", exc)
+
+
 def _roster_construction_posture(league_cfg, snapshot, target, owner_by_roster):
     """Current competitive posture per roster, warm-only; ``{}`` when unavailable."""
     if target is not snapshot.current_season:
@@ -16638,7 +16730,6 @@ async def get_roster_construction(
     from src.api.feature_flags import is_enabled  # noqa: PLC0415
     from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
     from src.roster_intel import construction as _rc  # noqa: PLC0415
-    from src.trade.roster_capacity import league_roster_limit  # noqa: PLC0415
 
     if not is_enabled("roster_construction"):
         return JSONResponse(
@@ -16681,6 +16772,20 @@ async def get_roster_construction(
         target = snapshot.season_by_year(season) if season else snapshot.current_season
         if target is None:
             return 404, {"error": "unknown_season", "season": season}
+        # Owner decision D2 (2026-11-01): a season whose recorded lineup rules
+        # the host's own matchups contradict is served as an explicit
+        # unavailable state — never computed under an inferred configuration.
+        statuses = _roster_construction_season_statuses(snapshot, include_playoffs)
+        status = statuses.get(str(target.season)) or {"available": False}
+        if not status.get("available"):
+            payload = _rc_api.unavailable_payload(
+                league_key=league_cfg.key,
+                season=str(target.season),
+                status=status,
+                statuses=statuses,
+            )
+            payload["generatedAt"] = snapshot.generated_at
+            return 200, payload
         contract = latest_contract_data
         contract_gen = str((contract or {}).get("generatedAt") or "")
         key = (
@@ -16694,30 +16799,7 @@ async def get_roster_construction(
         cached = _roster_construction_cache.get(key)
         if cached is not None:
             return 200, cached
-        league_key_ = key[:4]
-        ls = _rc_league_cache.get(league_key_)
-        if ls is None:
-            try:
-                impact = _player_impact_computed(snapshot, target)
-            except Exception as exc:  # noqa: BLE001 — marginal degrades, never the page
-                logging.error("Roster construction: player impact unavailable: %s", exc)
-                impact = None
-            limit = (
-                league_roster_limit(league_cfg.key) if target is snapshot.current_season else None
-            )
-            si_ = _rc_api.season_input_from_snapshot(
-                snapshot,
-                target,
-                include_playoffs=include_playoffs,
-                impact=impact,
-                roster_limit=limit,
-            )
-            ls = _rc.compute_league_season(si_, _rc_api.load_priors())
-            for stale in [k for k in list(_rc_league_cache) if k[0] == key[0] and k[1] != key[1]]:
-                _rc_league_cache.pop(stale, None)
-            while len(_rc_league_cache) >= _RC_LEAGUE_CACHE_MAX:
-                _rc_league_cache.pop(next(iter(_rc_league_cache)))
-            _rc_league_cache[league_key_] = ls
+        ls = _roster_construction_league_season(league_cfg, snapshot, target, include_playoffs)
         si = ls.si
         if roster_id is not None and roster_id not in ls.team_ids:
             return 404, {"error": "unknown_team", "rosterId": roster_id, "season": target.season}
@@ -16738,6 +16820,8 @@ async def get_roster_construction(
             ls, league_key=league_cfg.key, roster_id=roster_id, value=value, posture=posture
         )
         payload["generatedAt"] = snapshot.generated_at
+        payload["available"] = True
+        payload.update(_rc_api.season_availability(statuses))
         for stale in [
             k
             for k in list(_roster_construction_cache)
