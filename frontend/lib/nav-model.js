@@ -42,7 +42,12 @@
  *   href — the group's primary destination; MUST be one of its items
  * Item shape: { href, label, hint, keywords?, section? }
  *   keywords — extra command-palette match terms
- *   section  — optional sub-heading inside a group menu
+ *   section  — optional sub-heading inside a group menu.  An item with no
+ *              section continues the run above it (see `sectionRuns`),
+ *              so a new item placed inside a run needs no section of its
+ *              own.  Every surface (desktop menu, mobile drawer, /more)
+ *              renders the SAME runs — the headings are part of the IA,
+ *              not a desktop-only decoration (UX audit 2026-11-01, NAV-05).
  */
 
 export const NAV_MODEL = [
@@ -149,6 +154,7 @@ export const NAV_MODEL = [
       {
         href: "/game-day",
         label: "Game Day",
+        section: "This week",
         hint: "Your matchup projected: win probability and expected lineups",
         keywords: [
           "game day",
@@ -163,6 +169,7 @@ export const NAV_MODEL = [
       {
         href: "/rosters",
         label: "Team Strength",
+        section: "Roster",
         hint: "Every team ranked, with position breakdowns",
         keywords: ["depth", "roster dashboard", "power"],
       },
@@ -171,6 +178,7 @@ export const NAV_MODEL = [
         label: "Waivers",
         hint: "Add/drop analysis against your roster",
         keywords: ["faab", "free agents", "claims"],
+        section: "Waivers & FAAB",
       },
       // The live private advisor must be discoverable, but never offered
       // while its backend is disabled or has no board.
@@ -180,6 +188,7 @@ export const NAV_MODEL = [
         hint: "Best available adds, the drop each costs, and what to bid",
         keywords: ["waiver advisor", "best available", "add drop", "faab bid"],
         capability: "waiverAdvisor",
+        section: "Waivers & FAAB",
       },
       // The advisor's Weekly IDP Streaming MODE, named and routed on its own
       // (owner requirement: a clearly named route to the streaming mode).
@@ -194,18 +203,21 @@ export const NAV_MODEL = [
         hint: "This week's IDP streaming adds and safe drops for your lineup",
         keywords: ["weekly idp", "idp streaming", "stream", "streamer", "safe to drop"],
         capability: "idpStreaming",
+        section: "Waivers & FAAB",
       },
       {
         href: "/draft",
         label: "Draft Board",
         hint: "Rookie and auction draft prep",
         keywords: ["adp", "auction", "rookie draft", "war room"],
+        section: "Draft & strategy",
       },
       {
         href: "/phases",
         label: "Win-now vs Rebuild",
         hint: "Which teams are contending, and who to trade with",
         keywords: ["contention", "rebuild", "phases", "trade partners"],
+        section: "Draft & strategy",
       },
     ],
   },
@@ -290,7 +302,12 @@ export const NAV_MODEL = [
     href: "/league",
     hint: "Your league's hub, history and activity",
     items: [
-      { href: "/league", label: "Hub", hint: "Champions, records, power, draft capital, recaps" },
+      {
+        href: "/league",
+        label: "Hub",
+        hint: "Standings, power, playoff odds, records, draft capital, recaps",
+        keywords: ["playoff odds", "championship odds", "standings", "power rankings", "records", "draft capital"],
+      },
       { href: "/league/activity", label: "Activity", hint: "Trades and news in one feed" },
       {
         href: "/league/insider-trading",
@@ -473,7 +490,64 @@ export const PALETTE_EXTRA_TARGETS = [
   // group — it was palette-only, which meant the only way to find it
   // was to already know it existed.
   { href: "/", label: "Home", hint: "Your dashboard", keywords: ["dashboard", "terminal"] },
+  // The researched Sharp people universe (curated industry sharps and
+  // their verified platform identities).  A live private page whose only
+  // inbound link was from the admin identity-review page, so a signed-in
+  // user could not find it at all (UX audit 2026-11-01, NAV-01).  Offered
+  // here and contextually from Sharp Tracker; promoting it into the
+  // Market menu is an owner decision recorded in the audit.
+  {
+    href: "/market/sharp-people",
+    label: "Sharp People",
+    hint: "The researched sharp managers and analysts behind the cohort",
+    keywords: ["sharp people", "curated sharps", "analysts", "experts", "sharp profiles"],
+  },
 ];
+
+/**
+ * Split a menu's items into consecutive section runs:
+ * `[{ section: string|null, items: [...] }]`.
+ *
+ * An item with no `section` continues the run above it (the desktop menu
+ * always behaved this way); a run starts whenever an item names a
+ * section different from the current one.  Pure, so the desktop menu,
+ * the mobile drawer and the /more site map render identical headings by
+ * construction rather than by three copies of the same loop.
+ */
+export function sectionRuns(items) {
+  const runs = [];
+  for (const item of items || []) {
+    const last = runs[runs.length - 1];
+    const section = item.section ?? (last ? last.section : null);
+    if (!last || section !== last.section) {
+      runs.push({ section, items: [item] });
+    } else {
+      last.items.push(item);
+    }
+  }
+  return runs;
+}
+
+/**
+ * Contextual "related pages" links for a page, resolved from THIS model.
+ *
+ * Labels come from the model (so a contextual link can never drift from
+ * the naming canon), and the result goes through the same OFFER filters
+ * as every menu: capability-gated entries fail closed, admin-only System
+ * entries need `isAdmin`.  Unknown hrefs are dropped rather than invented
+ * — a related link is an offer, and we only offer destinations the nav
+ * model knows about.
+ */
+export function relatedNavItems(hrefs, { capabilities, isAdmin = false } = {}) {
+  const offered = paletteTargets({ capabilities, isAdmin });
+  const byHref = new Map(offered.map((item) => [item.href, item]));
+  const out = [];
+  for (const href of hrefs || []) {
+    const item = byHref.get(href);
+    if (item) out.push(item);
+  }
+  return out;
+}
 
 /** Flatten a group tree into leaf destinations. */
 export function flattenNav(groups) {

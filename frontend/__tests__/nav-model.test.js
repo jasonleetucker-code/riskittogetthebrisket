@@ -44,6 +44,7 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/market/sharp-tracker",
   "/market/sharp-roster-percentage",
   "/market/trade-database",
+  "/market/sharp-people",
   "/idptc-rookies",
   "/league",
   "/league/activity",

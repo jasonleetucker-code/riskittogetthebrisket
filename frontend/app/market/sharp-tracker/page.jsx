@@ -15,6 +15,7 @@ import {
 import { LoadingState } from "@/components/ui";
 import { apiErrorMessage } from "@/lib/api-error";
 import { sharpAssetPlayerId } from "@/lib/sharp-roster-percentage";
+import RelatedLinks from "@/components/shell/RelatedLinks";
 
 const WINDOWS = ["48h", "7d", "14d", "30d", "90d", "all"];
 const SOURCES = [
@@ -307,6 +308,7 @@ export default function SharpTrackerPage() {
         title="Sharp Tracker"
         description="One normalized market view combining qualified-manager activity from Sleeper and configured FFPC public sources."
       />
+      <RelatedLinks hrefs={["/market/sharp-roster-percentage", "/market/sharp-people"]} />
 
       <Panel title="At a glance" subtitle={`${qualificationLabel} · methodology ${market?.methodologyVersion || cohort?.methodologyVersion || "sharp-v2"}`} dense>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
