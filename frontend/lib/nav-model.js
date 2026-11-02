@@ -189,6 +189,7 @@ export const NAV_MODEL = [
           "dynasty value",
         ],
         capability: "rosterConstruction",
+        section: "Roster",
       },
       {
         href: "/waivers",
