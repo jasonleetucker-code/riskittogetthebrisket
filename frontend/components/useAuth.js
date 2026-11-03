@@ -122,24 +122,28 @@ export function useAuth() {
         const ctl = new AbortController();
         const t = setTimeout(() => ctl.abort(), PROBE_TIMEOUT_MS);
         let res;
+        let data;
+        // The abort covers the WHOLE exchange — headers and body.  A body
+        // that stalls after the headers would otherwise leave ``inFlight``
+        // true and silently block every later re-probe for the tab's life.
         try {
           res = await fetch("/api/auth/status", {
             credentials: "same-origin",
             signal: ctl.signal,
           });
+          if (!active) return;
+
+          if (!res.ok) {
+            // Transient infrastructure failure — NOT an answer.
+            markUnknown(cached);
+            scheduleRetry();
+            return;
+          }
+
+          data = await res.json();
         } finally {
           clearTimeout(t);
         }
-        if (!active) return;
-
-        if (!res.ok) {
-          // Transient infrastructure failure — NOT an answer.
-          markUnknown(cached);
-          scheduleRetry();
-          return;
-        }
-
-        const data = await res.json();
         if (!active) return;
         const authed = !!data.authenticated;
         // Authoritative: stop retrying and commit, in both directions.
