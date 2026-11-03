@@ -8,14 +8,14 @@
     "type": "Unauthenticated"
   },
   "lastMeasuredOn": null,
-  "lastObservedAt": "2026-11-02T00:16:52.474900+00:00",
-  "lastObservedOn": "2026-11-02",
+  "lastObservedAt": "2026-11-03T10:06:09.686761+00:00",
+  "lastObservedOn": "2026-11-03",
   "lastRun": {
     "attempts": 1,
-    "deployConclusion": "success",
-    "deployHeadSha": "9569bdc179f3f4a2af365e8c75d74abe484ba451",
-    "deployRunId": "41356556586",
-    "event": "workflow_run"
+    "deployConclusion": "pending",
+    "deployHeadSha": "68df82811d44ba3ffa15b6774a653b5ebb90e897",
+    "deployRunId": "",
+    "event": "push"
   },
   "measured": false,
   "schema": 2,
