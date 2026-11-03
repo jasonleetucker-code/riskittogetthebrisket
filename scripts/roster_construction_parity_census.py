@@ -39,6 +39,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.api import roster_construction_api as rc_api  # noqa: E402
+from src.public_league import metrics  # noqa: E402
 from src.public_league import player_impact as pi  # noqa: E402
 from src.roster_intel import construction as rc  # noqa: E402
 
@@ -87,11 +88,70 @@ def _diagnose_mismatch(sol: rc.TeamWeekSolution, team: rc.TeamWeekIn, si) -> dic
     }
 
 
-def census_season(snapshot, season, *, tolerance: float, include_playoffs: bool) -> dict[str, Any]:
-    si = rc_api.season_input_from_snapshot(snapshot, season, include_playoffs=include_playoffs)
+def census_season(
+    snapshot,
+    season,
+    *,
+    tolerance: float,
+    include_playoffs: bool,
+    nfl_state: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    # The route's own week-finality rule: weeks the host has not finalized are
+    # removed before the contradiction test and reported, never compared.
+    finality = metrics.host_lineups_open_from_week(season, nfl_state)
+    si = rc_api.season_input_from_snapshot(
+        snapshot, season, include_playoffs=include_playoffs, host_finality=finality
+    )
+    host_open = {
+        int(e["week"]): e["reason"]
+        for e in si.excluded_weeks
+        if str(e.get("reason", "")).startswith("host_week_")
+    }
+    si_all = rc_api.season_input_from_snapshot(snapshot, season, include_playoffs=include_playoffs)
     rows: list[dict[str, Any]] = []
-    for wk in sorted(si.weeks):
-        for team in sorted(si.weeks[wk], key=lambda t: t.roster_id):
+    for wk in sorted(si_all.weeks):
+        for team in sorted(si_all.weeks[wk], key=lambda t: t.roster_id):
+            if wk in host_open:
+                # Evidence only: what the host recorded vs the optimum, while
+                # the host still displays the week.  Never served, never a
+                # contradiction.
+                pre = rc.solve_team_week(
+                    team,
+                    wk,
+                    rc.SeasonInput(
+                        season=si_all.season,
+                        slots=si_all.slots,
+                        slot_source=si_all.slot_source,
+                        lineup_mode=si_all.lineup_mode,
+                        weeks=si_all.weeks,
+                        players=si_all.players,
+                    ),
+                    tolerance=tolerance,
+                )
+                rows.append(
+                    {
+                        "week": wk,
+                        "rosterId": team.roster_id,
+                        "sleeperPoints": team.score,
+                        "recomputedPoints": pre.score,
+                        "absDiscrepancy": (
+                            None
+                            if team.score is None or pre.score is None
+                            else round(abs(float(pre.score) - float(team.score)), 4)
+                        ),
+                        "classification": C_WITHHELD,
+                        "label": host_open[wk],
+                        "lineupIdenticalToHost": None,
+                        "coverage": {
+                            "rosterSize": len(set(team.roster)),
+                            "unobservedPlayers": len(pre.unobserved),
+                            "hostLineupSize": len(team.counted),
+                            "configuredSlots": len(si_all.slots),
+                            "unfilledSlots": list(pre.unfilled_slots),
+                        },
+                    }
+                )
+                continue
             sol = rc.solve_team_week(team, wk, si, tolerance=tolerance)
             # Recompute even for a contradicted week, for evidence only: the
             # product never serves this number (the week is withheld).
@@ -166,7 +226,11 @@ def census_season(snapshot, season, *, tolerance: float, include_playoffs: bool)
             "lineupMode": si.lineup_mode,
         },
         "weeksIncluded": sorted(si.weeks),
-        "weeksNotFinal": [e["week"] for e in si.excluded_weeks],
+        "hostFinality": {"openFromWeek": finality[0], "reason": finality[1]},
+        "lineupConfigStatus": rc_api.lineup_config_status(
+            si, is_current=season is snapshot.current_season
+        ),
+        "weeksNotFinal": sorted(e["week"] for e in si.excluded_weeks),
         "contradictedWeeks": {str(k): list(v) for k, v in sorted(si.contradicted.items())},
         "summary": {
             "teamWeeks": len(rows),
@@ -235,6 +299,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--season", action="append", help="season year (repeatable; default: all)")
     ap.add_argument("--snapshot", type=Path, help="saved snapshot JSON (else fetch from Sleeper)")
     ap.add_argument("--include-playoffs", action="store_true")
+    ap.add_argument(
+        "--nfl-state",
+        type=Path,
+        help="saved Sleeper /state/nfl JSON (else fetched live; unreadable = unknown)",
+    )
     ap.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     ap.add_argument("--stem", default=None, help="output file stem (default PARITY_CENSUS_<date>)")
     ap.add_argument("--finding", action="append", default=[], help="investigation note for .md")
@@ -256,6 +325,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     wanted = args.season or [s.season for s in snapshot.seasons]
     tol = float(rc_api.load_priors().get("hostScoreTolerance", 0.011))
+    if args.nfl_state is not None:
+        nfl_state = json.loads(args.nfl_state.read_text(encoding="utf-8"))
+    else:
+        from src.public_league.sleeper_client import fetch_nfl_state
+
+        nfl_state = fetch_nfl_state()
     seasons = []
     for year in wanted:
         target = snapshot.season_by_year(str(year))
@@ -263,7 +338,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"unknown season {year}", file=sys.stderr)
             return 2
         seasons.append(
-            census_season(snapshot, target, tolerance=tol, include_playoffs=args.include_playoffs)
+            census_season(
+                snapshot,
+                target,
+                tolerance=tol,
+                include_playoffs=args.include_playoffs,
+                nfl_state=nfl_state if isinstance(nfl_state, dict) else None,
+            )
         )
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     report = {
@@ -275,6 +356,12 @@ def main(argv: list[str] | None = None) -> int:
         "lineupSolver": "src.ros.lineup.solve_optimal_assignment via construction.solve_team_week",
         "contradictionOwner": "src.public_league.player_impact.detect_contradictions",
         "bestBallFlag": {s.season: pi.best_ball_rule(s) for s in snapshot.seasons},
+        "hostNflState": {
+            k: (nfl_state or {}).get(k)
+            for k in ("season", "season_type", "week", "leg", "display_week")
+        }
+        if isinstance(nfl_state, dict)
+        else None,
         "findings": list(args.finding),
         "seasons": seasons,
     }

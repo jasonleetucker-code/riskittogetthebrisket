@@ -16663,18 +16663,84 @@ _rc_season_status_cache: dict[tuple, dict] = {}
 _RC_SEASON_STATUS_CACHE_MAX = 8
 
 
+_rc_nfl_state_cache: dict[str, tuple[float, object]] = {}
+_RC_NFL_STATE_TTL_SECONDS = 300.0
+_RC_NFL_STATE_FAILURE_TTL_SECONDS = 60.0
+_rc_nfl_state_lock = threading.Lock()
+
+
+def _rc_nfl_state():
+    """Sleeper ``/state/nfl`` for Roster Construction's week-finality rule,
+    cached (300 s; a failure is retried after 60 s).  ``None`` = unreadable,
+    which the finality rule treats as UNKNOWN (newest week withheld)."""
+    from src.public_league.sleeper_client import fetch_nfl_state  # noqa: PLC0415
+
+    def _fresh():
+        hit = _rc_nfl_state_cache.get("state")
+        if hit is None:
+            return False, None
+        ttl = _RC_NFL_STATE_TTL_SECONDS if hit[1] is not None else _RC_NFL_STATE_FAILURE_TTL_SECONDS
+        return (time.time() - hit[0] < ttl), hit[1]
+
+    ok, state = _fresh()
+    if ok:
+        return state
+    # One fetch per expiry: concurrent requests wait for it instead of each
+    # calling Sleeper (no stampede when the cache expires).
+    with _rc_nfl_state_lock:
+        ok, state = _fresh()
+        if ok:
+            return state
+        try:
+            state = fetch_nfl_state()
+        except Exception as exc:  # noqa: BLE001 — unknown, never a crash
+            logging.warning("Roster construction: /state/nfl unavailable: %s", exc)
+            state = None
+        _rc_nfl_state_cache["state"] = (time.time(), state if isinstance(state, dict) else None)
+        return _rc_nfl_state_cache["state"][1]
+
+
+def _roster_construction_host_finality(snapshot) -> dict:
+    """``{season: (first host-unfinalized week, reason)}`` (production defect
+    2026-11-03: an unfinalized best-ball week is not a rules contradiction)."""
+    from src.public_league import metrics as _metrics  # noqa: PLC0415
+
+    state = None
+    out = {}
+    for s in snapshot.seasons:
+        if str(s.league.get("status") or "").lower() == "complete":
+            out[str(s.season)] = (None, None)
+            continue
+        if state is None:
+            state = _rc_nfl_state() or {}
+        out[str(s.season)] = _metrics.host_lineups_open_from_week(s, state or None)
+    return out
+
+
 def _roster_construction_season_statuses(snapshot, include_playoffs: bool) -> dict:
     """``{season: lineup_config_status}`` for every season in the snapshot,
-    memoized per snapshot generation (each check solves the season's weeks)."""
+    memoized per snapshot generation and host week-finality (each check solves
+    the season's weeks)."""
     from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
 
-    key = (snapshot.root_league_id, str(snapshot.generated_at), bool(include_playoffs))
+    finality = _roster_construction_host_finality(snapshot)
+    key = (
+        snapshot.root_league_id,
+        str(snapshot.generated_at),
+        bool(include_playoffs),
+        tuple(sorted(finality.items())),
+    )
     hit = _rc_season_status_cache.get(key)
     if hit is not None:
         return hit
     out = {}
     for s in snapshot.seasons:
-        si = _rc_api.season_input_from_snapshot(snapshot, s, include_playoffs=include_playoffs)
+        si = _rc_api.season_input_from_snapshot(
+            snapshot,
+            s,
+            include_playoffs=include_playoffs,
+            host_finality=finality.get(str(s.season)),
+        )
         out[str(s.season)] = _rc_api.lineup_config_status(
             si, is_current=s is snapshot.current_season
         )
@@ -16693,7 +16759,14 @@ def _roster_construction_league_season(league_cfg, snapshot, target, include_pla
     from src.roster_intel import construction as _rc  # noqa: PLC0415
     from src.trade.roster_capacity import league_roster_limit  # noqa: PLC0415
 
-    key = (snapshot.root_league_id, str(snapshot.generated_at), target.league_id, include_playoffs)
+    finality = _roster_construction_host_finality(snapshot).get(str(target.season))
+    key = (
+        snapshot.root_league_id,
+        str(snapshot.generated_at),
+        target.league_id,
+        include_playoffs,
+        finality,
+    )
     ls = _rc_league_cache.get(key)
     if ls is not None:
         return ls
@@ -16709,6 +16782,7 @@ def _roster_construction_league_season(league_cfg, snapshot, target, include_pla
         include_playoffs=include_playoffs,
         impact=impact,
         roster_limit=limit,
+        host_finality=finality,
     )
     ls = _rc.compute_league_season(si_, _rc_api.load_priors())
     for stale in [k for k in list(_rc_league_cache) if k[0] == key[0] and k[1] != key[1]]:
@@ -16857,6 +16931,7 @@ async def get_roster_construction(
             include_playoffs,
             contract_gen,
             roster_id,
+            _roster_construction_host_finality(snapshot).get(str(target.season)),
         )
         cached = _roster_construction_cache.get(key)
         if cached is not None:
