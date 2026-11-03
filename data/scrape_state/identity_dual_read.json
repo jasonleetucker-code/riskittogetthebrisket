@@ -1,15 +1,15 @@
 {
- "generatedAt": "2026-11-03T10:08:09.508397+00:00",
+ "generatedAt": "2026-11-03T18:06:18.881004+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2014,
+ "calls": 2013,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1990,
+ "v2Same": 1989,
  "v2WouldChange": 24,
  "v2Examples": [
   {
@@ -141,17 +141,17 @@
    "v2Reason": "ambiguous"
   },
   {
-   "name": "Matthew Hibner",
+   "name": "Bam Knight",
    "pos": "",
-   "served": "13324",
+   "served": "6050",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
   },
   {
-   "name": "Bam Knight",
+   "name": "Matthew Hibner",
    "pos": "",
-   "served": "6050",
+   "served": "13324",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
