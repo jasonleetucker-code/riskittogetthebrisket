@@ -1,7 +1,7 @@
 {
   "modelId": "hill_scope_masters",
   "schemaVersion": 1,
-  "updatedAt": "2026-11-03T02:50:23.684232+00:00",
+  "updatedAt": "2026-11-03T18:22:30.087296+00:00",
   "championVersion": 2,
   "versions": [
     {
@@ -34067,6 +34067,182 @@
           }
         },
         "artifact": "training_runs/b3c35a6e9e628c90e4fc38424e57e1d03aba815e7d6c1ef8c4825f7b5b541272.json",
+        "artifactSchema": 1
+      }
+    },
+    {
+      "modelId": "hill_scope_masters",
+      "version": 291,
+      "params": {
+        "HILL_PERCENTILE_C": 0.065,
+        "HILL_PERCENTILE_S": 1.09,
+        "HILL_GLOBAL_PERCENTILE_C": 0.057,
+        "HILL_GLOBAL_PERCENTILE_S": 0.71,
+        "IDP_HILL_PERCENTILE_C": 0.039,
+        "IDP_HILL_PERCENTILE_S": 0.84,
+        "HILL_ROOKIE_PERCENTILE_C": 0.032,
+        "HILL_ROOKIE_PERCENTILE_S": 0.925
+      },
+      "fittedAt": "2026-11-03T18:22:30.084963+00:00",
+      "producer": "scripts/fit_hill_curve_percentile.py @ c4e5a86db",
+      "status": "challenger",
+      "trainingInputs": {
+        "DraftSharks": "sha256:b4233659d3439ca5",
+        "DynastyDaddy": "sha256:337679ff6ea600d2",
+        "DynastyNerds": "sha256:dbbbf36d62acb4a9",
+        "Fitzmaurice": "sha256:44427d491ea0c205",
+        "GLOBAL:IDPTradeCalc": "sha256:6f8cf50a0045cd18",
+        "IDP:DraftSharks-IDP": "sha256:13f47232cf1d1e9f",
+        "KTC": "sha256:b71eb729eaa9bca7",
+        "YahooBoone": "sha256:c8d24660a2f5771b",
+        "boardSnapshot": "sha256:93dcd9a84b83662e"
+      },
+      "holdout": {
+        "criterion": 509.8754,
+        "measuredAt": "2026-11-03T18:22:30.084178+00:00",
+        "criterionName": "mean_per_source_rmse",
+        "criterionUnits": "points on the 0-9999 value scale (lower is better)",
+        "perSource": {
+          "FantasyCalc": 594.0523,
+          "OTCFFB": 584.0832,
+          "PFKDynasty": 351.4909
+        },
+        "perSourceRows": {
+          "FantasyCalc": 397,
+          "OTCFFB": 400,
+          "PFKDynasty": 400
+        },
+        "skipped": {},
+        "params": {
+          "c": 0.065,
+          "s": 1.09
+        },
+        "holdoutSources": [
+          "FantasyCalc",
+          "OTCFFB",
+          "PFKDynasty"
+        ],
+        "trainingSources": [
+          "DraftSharks",
+          "DynastyDaddy",
+          "DynastyNerds",
+          "Fitzmaurice",
+          "KTC",
+          "YahooBoone"
+        ],
+        "holdoutFamilies": [
+          "fantasyCalc",
+          "otcffbSf",
+          "pfkDynasty"
+        ],
+        "holdoutFamilyByBoard": {
+          "FantasyCalc": "fantasyCalc",
+          "OTCFFB": "otcffbSf",
+          "PFKDynasty": "pfkDynasty"
+        },
+        "trainingFamilies": [
+          "draftSharks",
+          "dynastyDaddySf",
+          "dynastyNerdsSfTep",
+          "fantasyPros",
+          "ktcCrowd",
+          "yahooBoone"
+        ],
+        "measuredDependence": {
+          "FantasyCalc": [
+            "dynastyDaddySf"
+          ],
+          "OTCFFB": [
+            "dynastyDaddySf",
+            "ktcCrowd",
+            "yahooBoone"
+          ],
+          "PFKDynasty": [
+            "ktcCrowd"
+          ]
+        },
+        "lineageDependence": {
+          "FantasyCalc": {
+            "draftSharks": "UNKNOWN",
+            "dynastyDaddySf": "MEASURED_DEPENDENCE",
+            "dynastyNerdsSfTep": "UNKNOWN",
+            "fantasyPros": "UNKNOWN",
+            "ktcCrowd": "UNKNOWN",
+            "yahooBoone": "UNKNOWN"
+          },
+          "OTCFFB": {
+            "draftSharks": "INDEPENDENT_NO_EVIDENCE",
+            "dynastyDaddySf": "MEASURED_DEPENDENCE",
+            "dynastyNerdsSfTep": "SUSPECTED_DEPENDENCE",
+            "fantasyPros": "SUSPECTED_DEPENDENCE",
+            "ktcCrowd": "MEASURED_DEPENDENCE",
+            "yahooBoone": "MEASURED_DEPENDENCE"
+          },
+          "PFKDynasty": {
+            "draftSharks": "UNKNOWN",
+            "dynastyDaddySf": "UNKNOWN",
+            "dynastyNerdsSfTep": "UNKNOWN",
+            "fantasyPros": "UNKNOWN",
+            "ktcCrowd": "MEASURED_DEPENDENCE",
+            "yahooBoone": "UNKNOWN"
+          }
+        },
+        "independentBoards": [],
+        "independentCriterion": null,
+        "independentCriterionReason": "no_independent_holdout",
+        "independentCriterionGates": false,
+        "_semantics": {
+          "measures": "generalization across dynasty markets \u2014 whether a curve fitted to the training boards also describes boards it never saw",
+          "doesNotMeasure": "accuracy against reality; every holdout board is another consensus market correlated with the training boards, and no ground truth for dynasty value exists"
+        }
+      },
+      "qualified": true,
+      "confidence": "measured",
+      "notes": [],
+      "promotedAt": null,
+      "retiredAt": null,
+      "appliedAt": null,
+      "scopeValidation": {},
+      "trainingRun": {
+        "substrateVersion": 2,
+        "manifestHash": "54584777011eed0475c328eb4daeb75b6ecfb91db1721de5f5bb83ca05e37783",
+        "codeSha": "c4e5a86db",
+        "codeHash": "f6b418dc6a7d63743082544f380ea6277d14c815afecedaa60b6c860e47c1365",
+        "trainingCutoff": "2026-11-03T18:09:41+00:00",
+        "inputsOrigin": "worktree@c4e5a86dbd2524a1d394afb8c80c64b8be1be084",
+        "inputsCommit": "c4e5a86dbd2524a1d394afb8c80c64b8be1be084",
+        "reproducible": true,
+        "modelHash": "b959da66649378cec81d9709d0c796c5c6682cca3d6c871d2087383858357ac9",
+        "pinsHash": "ff4a3c78cd453d3ef3ade2e6961389df39633836f44d5784b157be497fe8d739",
+        "challengerHash": "7c1a7659631374d5bed3b6df1ab265fd23ee1ec38458a980c9fe1840caa91174",
+        "inputsContentHash": "0e74fcca0803369125d33f5388ce1edfd60a710f11895099cc1c2bfb93a0f43c",
+        "evidenceHash": "5e67da3327e64384936a8df203e5a28ce369431952cc268d3c185f15fffe9607",
+        "snapshot": {
+          "resolved": true,
+          "path": "exports/latest/dynasty_data_2026-11-03.json",
+          "sha256": "93dcd9a84b83662e0d5d13c0616e49f071f1af41323374815d36862096d838bb"
+        },
+        "scopes": {
+          "OFFENSE": {
+            "promotable": true,
+            "nonPromotableReasons": []
+          },
+          "GLOBAL": {
+            "promotable": true,
+            "nonPromotableReasons": []
+          },
+          "IDP": {
+            "promotable": true,
+            "nonPromotableReasons": []
+          },
+          "ROOKIE": {
+            "promotable": false,
+            "nonPromotableReasons": [
+              "declared_trainer_skipped:DraftSharks-Rookie:only 0 rookies with values"
+            ]
+          }
+        },
+        "artifact": "training_runs/7c1a7659631374d5bed3b6df1ab265fd23ee1ec38458a980c9fe1840caa91174.json",
         "artifactSchema": 1
       }
     }
