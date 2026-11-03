@@ -41,6 +41,27 @@ R_VALUE_NO_TEAMS = "contract_has_no_rosters"
 R_LINEUP_CONFIG_UNVERIFIED_HISTORICAL = "historical_lineup_config_unverified"
 R_LINEUP_CONFIG_UNVERIFIED = "lineup_config_unverified"
 
+#: Per-week exclusions for weeks the HOST has not finalized (production defect
+#: 2026-11-03).  Sleeper scores a best-ball week as its games end (its own
+#: ``last_scored_leg`` already counts it) but awards the optimized lineups only
+#: once it stops displaying the week (``/state/nfl`` ``display_week``).  In
+#: between, every team's recorded lineup is a provisional one that is not the
+#: roster optimum -- which the contradiction test read as "the best-ball rule is
+#: contradicted" and the season gate turned into "withhold all of 2026".  A
+#: week the host still displays is not evidence about the league's rules; it is
+#: excluded and labelled, never zero, never a contradiction.
+R_HOST_WEEK_NOT_FINAL = "host_week_not_final"
+#: The host's state could not be read: finality of the NEWEST scored week is
+#: unproven, so that one week is excluded (fail closed on one week, not the
+#: season).
+R_HOST_WEEK_FINALITY_UNKNOWN = "host_week_finality_unknown"
+
+#: The season gate's share rule for the best-ball contradiction: a best-ball
+#: flag contradicted on more than half of the finalized weeks is a season-level
+#: fact (dynasty_main 2024: 13 of 13); a minority of contradicted finalized
+#: weeks is withheld week by week.
+BEST_BALL_SEASON_SHARE = 0.5
+
 
 @lru_cache(maxsize=1)
 def _priors_cached(path: str) -> str:
@@ -66,9 +87,24 @@ def season_input_from_snapshot(
     include_playoffs: bool = False,
     impact: Mapping[str, Any] | None = None,
     roster_limit: int | None = None,
+    host_finality: tuple[int | None, str | None] | None = None,
 ) -> rc.SeasonInput:
-    """Snapshot season → :class:`construction.SeasonInput` (pure conversion)."""
+    """Snapshot season → :class:`construction.SeasonInput` (pure conversion).
+
+    ``host_finality`` = ``(first week the host has not finalized, reason)`` from
+    :func:`host_open_from_week`.  Those weeks are removed BEFORE the
+    contradiction test and reported in ``excluded_weeks``; ``None`` applies no
+    host-finality rule (fixtures whose host lineups are final by construction).
+    """
     weeks, not_final = pi.season_team_weeks(snapshot, season, include_playoffs=include_playoffs)
+    host_excluded: list[dict[str, Any]] = []
+    open_from, open_reason = host_finality or (None, None)
+    if open_reason == R_HOST_WEEK_FINALITY_UNKNOWN and weeks:
+        open_from = max(weeks)
+    if open_from is not None:
+        for wk in sorted(w for w in weeks if w >= open_from):
+            del weeks[wk]
+            host_excluded.append({"week": wk, "reason": open_reason or R_HOST_WEEK_NOT_FINAL})
     slots, slot_source = resolve_starter_slots(
         roster_positions=season.league.get("roster_positions")
     )
@@ -130,7 +166,7 @@ def season_input_from_snapshot(
         lineup_mode=lineup_mode_of(best_ball),
         weeks=week_in,
         players=players,
-        excluded_weeks=[{"week": w, "reason": "not_final"} for w in not_final],
+        excluded_weeks=[{"week": w, "reason": "not_final"} for w in not_final] + host_excluded,
         contradicted={wk: tuple(r) for wk, r in contradicted.items()},
         regular_weeks=frozenset(regular),
         include_playoffs=include_playoffs,
@@ -255,21 +291,75 @@ def build_payload(
     return payload
 
 
+def host_open_from_week(
+    season: SeasonSnapshot, nfl_state: Mapping[str, Any] | None
+) -> tuple[int | None, str | None]:
+    """``(first week the host has NOT finalized, reason)`` for ``season``.
+
+    Evidence, not assumption: a season the host marks ``complete`` is final
+    throughout; a season older than the host's current one is final; for the
+    host's current season the weeks at or after ``/state/nfl``
+    ``display_week`` are still displayed (best-ball lineups not yet awarded,
+    stat corrections still landing).  ``nfl_state`` unreadable or without a
+    usable week -> ``(None, R_HOST_WEEK_FINALITY_UNKNOWN)``, which excludes only
+    the newest scored week.
+    """
+    if str(season.league.get("status") or "").lower() == "complete":
+        return None, None
+    if not isinstance(nfl_state, Mapping):
+        return None, R_HOST_WEEK_FINALITY_UNKNOWN
+    try:
+        host_season = int(str(nfl_state.get("season") or "").strip())
+        this_season = int(str(season.season).strip())
+    except ValueError:
+        return None, R_HOST_WEEK_FINALITY_UNKNOWN
+    if host_season > this_season:
+        return None, None
+    if host_season < this_season:
+        return 1, R_HOST_WEEK_NOT_FINAL  # the host has not started this season
+    raw = nfl_state.get("display_week")
+    if isinstance(raw, bool) or raw is None:
+        return None, R_HOST_WEEK_FINALITY_UNKNOWN
+    try:
+        display = int(raw)
+    except (TypeError, ValueError):
+        return None, R_HOST_WEEK_FINALITY_UNKNOWN
+    return max(1, display), R_HOST_WEEK_NOT_FINAL
+
+
 def lineup_config_status(si: rc.SeasonInput, *, is_current: bool) -> dict[str, Any]:
     """Is this season's starting-lineup configuration VERIFIED by the host?
 
-    Verified = no finalized week is contradicted by the host's own matchups
-    (``player_impact.detect_contradictions``, the one owner of that test).  A
-    single contradicted week means the season's league object does not
-    describe how lineups were actually seated, so the whole season is refused
-    rather than computed under a configuration the host contradicts or served
-    with the contradicted weeks silently dropped.  A season with no slots at
-    all is refused the same way.  Inferring the real configuration from the
-    matchups is deliberately NOT done (owner decision D2, 2026-11-01).
+    Judged on FINALIZED weeks only: weeks the host has not finalized were
+    removed by :func:`season_input_from_snapshot` before the contradiction test
+    (``player_impact.detect_contradictions``, the one owner of that test).
+    Season-level refusal (owner decision D2: the configuration is never
+    inferred) when:
+
+    * no slots are configured at all;
+    * ANY finalized week seats a different number of starters than the
+      configured slots -- the configuration itself is wrong (dynasty_main 2025:
+      17 configured vs 21-22 seated);
+    * the best-ball flag is contradicted on MORE than
+      :data:`BEST_BALL_SEASON_SHARE` of the finalized weeks -- the flag does not
+      describe the season (2024: 13 of 13).
+
+    Otherwise the season is served, and a contradicted finalized week is
+    withheld and labelled on its own (owner decision D1: contradictory
+    observations are withheld per observation), listed in
+    ``contradictedWeeksWithheld``.
     """
+    slot_weeks = sorted(wk for wk, rs in si.contradicted.items() if pi.CONTRA_SLOT_COUNT in rs)
+    bb_weeks = sorted(wk for wk, rs in si.contradicted.items() if pi.CONTRA_BEST_BALL in rs)
+    finalized = len(si.weeks)
+    broad_bb = bool(bb_weeks) and len(bb_weeks) > BEST_BALL_SEASON_SHARE * finalized
+    if si.slots and not slot_weeks and not broad_bb:
+        return {
+            "available": True,
+            "reason": None,
+            "contradictedWeeksWithheld": sorted(si.contradicted),
+        }
     reasons = sorted({r for rs in si.contradicted.values() for r in rs})
-    if si.slots and not reasons:
-        return {"available": True, "reason": None}
     if not si.slots:
         reasons = reasons or [rc.X_SLOTS_UNKNOWN]
     return {
@@ -279,6 +369,7 @@ def lineup_config_status(si: rc.SeasonInput, *, is_current: bool) -> dict[str, A
         ),
         "contradictions": reasons,
         "contradictedWeeks": sorted(si.contradicted),
+        "finalizedWeeks": finalized,
         "recordedStarterSlotCount": len(si.slots),
         "slotSource": si.slot_source,
     }

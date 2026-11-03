@@ -87,7 +87,11 @@ def test_fixture_is_the_full_finalized_league(ls):
     assert ls.team_ids == list(range(1, 13))
     assert ls.si.lineup_mode == rc.LINEUP_BEST_BALL
     assert ls.si.contradicted == {}
-    assert api.lineup_config_status(ls.si, is_current=True) == {"available": True, "reason": None}
+    assert api.lineup_config_status(ls.si, is_current=True) == {
+        "available": True,
+        "reason": None,
+        "contradictedWeeksWithheld": [],
+    }
 
 
 def test_every_team_week_reproduces_the_host_score(ls, raw):
