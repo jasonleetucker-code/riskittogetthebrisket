@@ -1,64 +1,64 @@
 {
-  "computedAt": "2026-11-03T02:45:00.616970+00:00",
+  "computedAt": "2026-11-03T10:11:17.678429+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.8995,
-      "finalsOdds": 0.993,
+      "championshipOdds": 0.8915,
+      "finalsOdds": 0.96,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.11,
+      "expectedFinish": 1.15,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "861387883699879936",
       "displayName": "Bkesss",
       "championshipOdds": 0.0825,
-      "finalsOdds": 0.6155,
-      "semifinalOdds": 0.966,
+      "finalsOdds": 0.459,
+      "semifinalOdds": 0.917,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.37,
+      "expectedFinish": 2.63,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "360184624380633088",
       "displayName": "DeCline",
-      "championshipOdds": 0.0175,
-      "finalsOdds": 0.376,
-      "semifinalOdds": 0.9885,
+      "championshipOdds": 0.0245,
+      "finalsOdds": 0.5125,
+      "semifinalOdds": 0.9725,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.63,
+      "expectedFinish": 2.52,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "640377779837296640",
+      "displayName": "Kanyn",
+      "championshipOdds": 0.001,
+      "finalsOdds": 0.0305,
+      "semifinalOdds": 0.716,
+      "playoffOdds": 1.0,
+      "expectedFinish": 3.71,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "984270279268446208",
       "displayName": "Comacho",
       "championshipOdds": 0.0005,
-      "finalsOdds": 0.0085,
-      "semifinalOdds": 0.5375,
-      "playoffOdds": 1.0,
-      "expectedFinish": 4.18,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "640377779837296640",
-      "displayName": "Kanyn",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.007,
-      "semifinalOdds": 0.4455,
-      "playoffOdds": 1.0,
-      "expectedFinish": 4.54,
+      "finalsOdds": 0.037,
+      "semifinalOdds": 0.2685,
+      "playoffOdds": 0.9705,
+      "expectedFinish": 4.53,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "1202075501976375296",
       "displayName": "Jhall2002",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0625,
-      "playoffOdds": 0.997,
-      "expectedFinish": 5.17,
+      "finalsOdds": 0.001,
+      "semifinalOdds": 0.125,
+      "playoffOdds": 1.0,
+      "expectedFinish": 5.52,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -66,9 +66,9 @@
       "displayName": "shayden18",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.0,
-      "playoffOdds": 0.003,
-      "expectedFinish": 7.27,
+      "semifinalOdds": 0.001,
+      "playoffOdds": 0.022,
+      "expectedFinish": 7.51,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -77,8 +77,8 @@
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.0,
-      "expectedFinish": 7.73,
+      "playoffOdds": 0.0075,
+      "expectedFinish": 7.42,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -88,7 +88,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 9.13,
+      "expectedFinish": 9.22,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -98,7 +98,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 9.87,
+      "expectedFinish": 9.78,
       "contenderTier": "Rebuilder / Seller"
     }
   ],
