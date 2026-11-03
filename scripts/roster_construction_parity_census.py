@@ -39,6 +39,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from src.api import roster_construction_api as rc_api  # noqa: E402
+from src.public_league import metrics  # noqa: E402
 from src.public_league import player_impact as pi  # noqa: E402
 from src.roster_intel import construction as rc  # noqa: E402
 
@@ -97,7 +98,7 @@ def census_season(
 ) -> dict[str, Any]:
     # The route's own week-finality rule: weeks the host has not finalized are
     # removed before the contradiction test and reported, never compared.
-    finality = rc_api.host_open_from_week(season, nfl_state)
+    finality = metrics.host_lineups_open_from_week(season, nfl_state)
     si = rc_api.season_input_from_snapshot(
         snapshot, season, include_playoffs=include_playoffs, host_finality=finality
     )
@@ -229,7 +230,7 @@ def census_season(
         "lineupConfigStatus": rc_api.lineup_config_status(
             si, is_current=season is snapshot.current_season
         ),
-        "weeksNotFinal": [e["week"] for e in si.excluded_weeks],
+        "weeksNotFinal": sorted(e["week"] for e in si.excluded_weeks),
         "contradictedWeeks": {str(k): list(v) for k, v in sorted(si.contradicted.items())},
         "summary": {
             "teamWeeks": len(rows),

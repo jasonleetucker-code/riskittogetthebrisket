@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from src.api import roster_construction_api as api
+from src.public_league import metrics
 from src.public_league import player_impact as pi
 from src.public_league.identity import ManagerRegistry
 from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
@@ -106,14 +107,14 @@ def test_the_defect_week_8_alone_used_to_withhold_the_season(snap):
 
 def test_unfinalized_week_is_excluded_and_labelled_not_a_contradiction(snap):
     season = snap.seasons[0]
-    finality = api.host_open_from_week(season, STATE_W8_DISPLAYED)
+    finality = metrics.host_lineups_open_from_week(season, STATE_W8_DISPLAYED)
     assert finality == (8, api.R_HOST_WEEK_NOT_FINAL)
     si = api.season_input_from_snapshot(snap, season, host_finality=finality)
     assert sorted(si.weeks) == list(range(1, 8))
     assert si.contradicted == {}
     assert {"week": 8, "reason": "host_week_not_final"} in list(si.excluded_weeks)
     status = api.lineup_config_status(si, is_current=True)
-    assert status["available"] is True and status["contradictedWeeksWithheld"] == []
+    assert status == {"available": True, "reason": None}
     # Parity on the finalized weeks: 84/84 reproduce the host exactly.
     ls = rc.compute_league_season(si, api.load_priors())
     sols = [s for wk in ls.included_weeks for s in ls.solutions[wk].values()]
@@ -135,7 +136,7 @@ def test_unfinalized_week_is_excluded_and_labelled_not_a_contradiction(snap):
 
 def test_unreadable_host_state_withholds_only_the_newest_week(snap):
     season = snap.seasons[0]
-    finality = api.host_open_from_week(season, None)
+    finality = metrics.host_lineups_open_from_week(season, None)
     assert finality == (None, api.R_HOST_WEEK_FINALITY_UNKNOWN)
     si = api.season_input_from_snapshot(snap, season, host_finality=finality)
     assert sorted(si.weeks) == list(range(1, 8))
@@ -150,7 +151,7 @@ def test_a_finalized_slot_count_contradiction_still_withholds_the_season():
     snap = _snapshot(raw, slots_override=seventeen)
     season = snap.seasons[0]
     si = api.season_input_from_snapshot(
-        snap, season, host_finality=api.host_open_from_week(season, STATE_W8_DISPLAYED)
+        snap, season, host_finality=metrics.host_lineups_open_from_week(season, STATE_W8_DISPLAYED)
     )
     status = api.lineup_config_status(si, is_current=True)
     assert status["available"] is False
@@ -169,7 +170,7 @@ def test_best_ball_contradicted_on_most_finalized_weeks_withholds_the_season():
     )
     season = snap.seasons[0]
     si = api.season_input_from_snapshot(
-        snap, season, host_finality=api.host_open_from_week(season, STATE_W8_DISPLAYED)
+        snap, season, host_finality=metrics.host_lineups_open_from_week(season, STATE_W8_DISPLAYED)
     )
     assert len(si.contradicted) == len(si.weeks) > 0
     status = api.lineup_config_status(si, is_current=False)
@@ -177,15 +178,16 @@ def test_best_ball_contradicted_on_most_finalized_weeks_withholds_the_season():
     assert status["reason"] == api.R_LINEUP_CONFIG_UNVERIFIED_HISTORICAL
 
 
-def test_a_minority_finalized_best_ball_contradiction_is_withheld_per_week(snap):
-    # Without the finality rule week 8 is a finalized-looking contradicted
-    # week: one of eight is a minority, so the season is SERVED and week 8 alone
-    # is withheld and labelled (owner decision D1: per observation).
+def test_a_single_finalized_best_ball_contradiction_still_withholds_the_season(snap):
+    # Strict rule, unchanged by this fix: once a week IS finalized (no
+    # host-finality exclusion here), one contradicted week -- even one of
+    # eight -- withholds the season.  Only UNFINALIZED weeks are spared.
     si = api.season_input_from_snapshot(snap, snap.seasons[0])
     status = api.lineup_config_status(si, is_current=True)
-    assert status["available"] is True and status["contradictedWeeksWithheld"] == [8]
-    ls = rc.compute_league_season(si, api.load_priors())
-    assert all(s.reason == rc.X_CONTRADICTED for s in ls.solutions[8].values())
+    assert status["available"] is False
+    assert status["reason"] == api.R_LINEUP_CONFIG_UNVERIFIED
+    assert status["contradictions"] == [pi.CONTRA_BEST_BALL]
+    assert status["contradictedWeeks"] == [8] and status["finalizedWeeks"] == 8
 
 
 @pytest.mark.parametrize(
@@ -200,11 +202,14 @@ def test_a_minority_finalized_best_ball_contradiction_is_withheld_per_week(snap)
         (None, (None, "host_week_finality_unknown")),
     ],
 )
-def test_host_open_from_week(snap, state, expected):
-    assert api.host_open_from_week(snap.seasons[0], state) == expected
+def test_host_lineups_open_from_week(snap, state, expected):
+    assert metrics.host_lineups_open_from_week(snap.seasons[0], state) == expected
 
 
 def test_a_complete_season_is_final_whatever_the_state_says():
     s = build_snapshot(league_of(2), status="complete").seasons[0]
-    assert api.host_open_from_week(s, None) == (None, None)
-    assert api.host_open_from_week(s, {"season": "2025", "display_week": 3}) == (None, None)
+    assert metrics.host_lineups_open_from_week(s, None) == (None, None)
+    assert metrics.host_lineups_open_from_week(s, {"season": "2025", "display_week": 3}) == (
+        None,
+        None,
+    )

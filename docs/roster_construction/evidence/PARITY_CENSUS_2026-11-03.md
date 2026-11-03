@@ -12,7 +12,7 @@ Full per-team-week data: the sibling `.json` file.
 ## 2026
 
 - Configured slots (21, source `sleeper_roster_positions`, mode `best_ball`): QB, RB, RB, WR, WR, WR, TE, TE, FLEX, FLEX, SUPER_FLEX, K, DL, DL, DL, LB, LB, LB, DB, DB, DB
-- Finalized weeks included: [1, 2, 3, 4, 5, 6, 7]; not final: [9, 10, 11, 12, 13, 14, 8]
+- Finalized weeks included: [1, 2, 3, 4, 5, 6, 7]; not final: [8, 9, 10, 11, 12, 13, 14]
 - Contradicted weeks: none
 - Withheld / mismatch labels: {'host_week_not_final': 12}
 
@@ -33,5 +33,5 @@ Full per-team-week data: the sibling `.json` file.
 ## Findings
 
 - Production defect 2026-11-03: /roster-construction showed 2026 as unavailable. Sleeper /state/nfl was week 9, leg 9, display_week 8, and league.settings.last_scored_leg was 8. So the host clock counted week 8 as scored while Sleeper had not yet awarded that week's best-ball lineups. Before this fix the census read 96 team-weeks, 84 comparable, 84 matches, and 12 withheld as contradicted_settings:best_ball_flag_contradicted_by_host_lineups (all of week 8). The season gate then withheld all of 2026.
-- After this fix, weeks at or after display_week (8) are excluded before the contradiction test as host_week_not_final. 2026 is served: 84/84 comparable team-weeks on weeks 1-7 match with max diff 0.00, and the 12 week-8 team-weeks are withheld as host_week_not_final. No week is contradicted.
-- 2025 (slot count contradicted on every finalized week) and 2024 (best-ball flag contradicted on 13 of 13 finalized weeks) remain historical_lineup_config_unverified.
+- After this fix, weeks at or after display_week (8) are excluded before the contradiction test as host_week_not_final. The owner is metrics.host_lineups_open_from_week. 2026 is served: 84/84 comparable team-weeks on weeks 1-7 match with max diff 0.00, and the 12 week-8 team-weeks are withheld as host_week_not_final. No finalized week is contradicted.
+- The season gate is unchanged in strictness: any contradicted FINALIZED week (slot count or best-ball flag) withholds the season. 2025 (slot count contradicted on every finalized week) and 2024 (best-ball flag contradicted on 13 of 13 finalized weeks) remain historical_lineup_config_unverified.

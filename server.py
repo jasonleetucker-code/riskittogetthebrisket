@@ -16666,6 +16666,7 @@ _RC_SEASON_STATUS_CACHE_MAX = 8
 _rc_nfl_state_cache: dict[str, tuple[float, object]] = {}
 _RC_NFL_STATE_TTL_SECONDS = 300.0
 _RC_NFL_STATE_FAILURE_TTL_SECONDS = 60.0
+_rc_nfl_state_lock = threading.Lock()
 
 
 def _rc_nfl_state():
@@ -16674,25 +16675,35 @@ def _rc_nfl_state():
     which the finality rule treats as UNKNOWN (newest week withheld)."""
     from src.public_league.sleeper_client import fetch_nfl_state  # noqa: PLC0415
 
-    hit = _rc_nfl_state_cache.get("state")
-    now = time.time()
-    if hit is not None:
+    def _fresh():
+        hit = _rc_nfl_state_cache.get("state")
+        if hit is None:
+            return False, None
         ttl = _RC_NFL_STATE_TTL_SECONDS if hit[1] is not None else _RC_NFL_STATE_FAILURE_TTL_SECONDS
-        if now - hit[0] < ttl:
-            return hit[1]
-    try:
-        state = fetch_nfl_state()
-    except Exception as exc:  # noqa: BLE001 — unknown, never a crash
-        logging.warning("Roster construction: /state/nfl unavailable: %s", exc)
-        state = None
-    _rc_nfl_state_cache["state"] = (now, state if isinstance(state, dict) else None)
-    return _rc_nfl_state_cache["state"][1]
+        return (time.time() - hit[0] < ttl), hit[1]
+
+    ok, state = _fresh()
+    if ok:
+        return state
+    # One fetch per expiry: concurrent requests wait for it instead of each
+    # calling Sleeper (no stampede when the cache expires).
+    with _rc_nfl_state_lock:
+        ok, state = _fresh()
+        if ok:
+            return state
+        try:
+            state = fetch_nfl_state()
+        except Exception as exc:  # noqa: BLE001 — unknown, never a crash
+            logging.warning("Roster construction: /state/nfl unavailable: %s", exc)
+            state = None
+        _rc_nfl_state_cache["state"] = (time.time(), state if isinstance(state, dict) else None)
+        return _rc_nfl_state_cache["state"][1]
 
 
 def _roster_construction_host_finality(snapshot) -> dict:
     """``{season: (first host-unfinalized week, reason)}`` (production defect
     2026-11-03: an unfinalized best-ball week is not a rules contradiction)."""
-    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+    from src.public_league import metrics as _metrics  # noqa: PLC0415
 
     state = None
     out = {}
@@ -16702,7 +16713,7 @@ def _roster_construction_host_finality(snapshot) -> dict:
             continue
         if state is None:
             state = _rc_nfl_state() or {}
-        out[str(s.season)] = _rc_api.host_open_from_week(s, state or None)
+        out[str(s.season)] = _metrics.host_lineups_open_from_week(s, state or None)
     return out
 
 

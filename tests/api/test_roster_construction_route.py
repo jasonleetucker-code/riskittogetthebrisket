@@ -347,17 +347,37 @@ def test_an_unfinalized_host_week_no_longer_withholds_the_season(env, monkeypatc
     assert server._roster_construction_health() == []  # no ops alert
 
 
+def test_nfl_state_is_fetched_once_per_expiry_and_failure_is_unknown(monkeypatch):
+    from src.public_league import sleeper_client
+
+    calls = []
+
+    def fetch():
+        calls.append(1)
+        return None if len(calls) == 1 else {"season": "2026", "display_week": 8}
+
+    monkeypatch.setattr(sleeper_client, "fetch_nfl_state", fetch)
+    server._rc_nfl_state_cache.clear()
+    assert server._rc_nfl_state() is None  # failure -> unknown, cached briefly
+    assert server._rc_nfl_state() is None and len(calls) == 1
+    server._rc_nfl_state_cache["state"] = (0.0, None)  # failure TTL expired
+    assert server._rc_nfl_state() == {"season": "2026", "display_week": 8}
+    assert server._rc_nfl_state() == {"season": "2026", "display_week": 8} and len(calls) == 2
+    server._rc_nfl_state_cache.clear()
+
+
 def test_once_the_host_finalizes_the_week_its_contradiction_is_real(env, monkeypatch):
-    # Same data, but the host has moved on (display_week 9): week 8 is final,
-    # its lineups are not the optimum, so it is withheld PER WEEK (one of
-    # eight finalized weeks) and the season is still served.
+    # Same data, but the host has moved on (display_week 9): week 8 is final
+    # and its awarded lineups are not the optimum -- a real contradiction of
+    # the best-ball flag, so the strict rule withholds the season.
     snap = _in_season_with_provisional_week_8()
     monkeypatch.setattr(server, "_get_public_snapshot", lambda *a, **k: snap)
     env.nfl["state"] = {"season": "2026", "season_type": "regular", "week": 9, "display_week": 9}
     r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "1"}, headers=AS)
     body = r.json()
-    assert r.status_code == 200 and body["available"] is True
-    assert body["coverage"]["contradictedWeeks"] == [
-        {"week": 8, "reasons": ["best_ball_flag_contradicted_by_host_lineups"]}
-    ]
-    assert body["team"]["validWeeks"] == list(range(1, 8))
+    assert r.status_code == 200 and body["available"] is False
+    assert body["unavailableReason"] == "lineup_config_unverified"
+    assert body["lineupConfig"]["contradictedWeeks"] == [8]
+    assert "team" not in body
+    (row,) = server._roster_construction_health()  # the ops alert would fire
+    assert row["contradictedWeeks"] == [8]
