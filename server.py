@@ -17381,6 +17381,18 @@ def _idp_streaming_available() -> bool:
     return _waiver_advisor_available() and is_enabled("idp_streaming")
 
 
+def _roster_construction_available() -> bool:
+    """Offer Roster Construction only while its route answers.
+
+    ``GET /api/roster-construction`` refuses ``feature_disabled`` first, so
+    the nav entry follows the same flag; the page itself is private
+    (``frontend/middleware.js``) and the route re-checks the session.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("roster_construction")
+
+
 _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
     # nav entry to a page whose every board endpoint refuses — the same
@@ -17389,6 +17401,7 @@ _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     "managerIntelligence": _manager_intelligence_available,
     "waiverAdvisor": _waiver_advisor_available,
     "idpStreaming": _idp_streaming_available,
+    "rosterConstruction": _roster_construction_available,
 }
 
 

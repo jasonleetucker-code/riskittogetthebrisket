@@ -1368,23 +1368,25 @@
       "audience": "signed-in",
       "access": "private",
       "task": "improve roster",
-      "status": "disabled_by_flag",
+      "status": "working",
       "contextualFrom": [],
-      "notes": "Flag roster_construction default OFF. Nav entry lands with PR #2044 (capability rosterConstruction) after production verification; deliberately not added here.",
+      "notes": "Flag roster_construction default ON since #2041 (private, signed-in; owner decision D1 2026-11-01). Nav entry under My Team > Roster beside Team Strength, capability-gated on rosterConstruction (PR #2044, held until owner production verification).",
       "file": "app/roster-construction/page.jsx",
       "nav": {
-        "menuGroup": null,
-        "menuLabels": [],
-        "section": null,
-        "capability": null,
+        "menuGroup": "My Team",
+        "menuLabels": [
+          "Roster Construction"
+        ],
+        "section": "Roster",
+        "capability": "rosterConstruction",
         "adminOnly": false,
-        "palette": false,
+        "palette": true,
         "mobileTabSignedIn": false,
         "mobileTabSignedOut": false,
         "homeQuickAction": false,
         "signedOutMenu": false
       },
-      "reachable": "direct_url_only"
+      "reachable": "nav"
     },
     {
       "route": "/rosters",
