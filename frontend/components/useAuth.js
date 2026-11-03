@@ -15,6 +15,18 @@ const PROBE_TIMEOUT_MS = 5000;
 // the user to reload.
 const RETRY_BACKOFF_MS = [1000, 2000, 4000, 8000, 30000];
 
+// Re-probe AFTER an authoritative answer.  The probe also carries the nav
+// capability map (`features`), and a once-per-mount probe pinned whatever
+// it first heard for the life of the tab: a capability answered during a
+// deploy's backend restart, or before the board loaded, hid Waiver
+// Advisor / Weekly IDP Streaming from the menus, drawer, palette and
+// Related links until a hard reload (owner report 2026-11-03, MD-35).
+// A visible tab re-asks when it regains focus or visibility if the last
+// authoritative answer is older than REFRESH_MIN_AGE_MS, and on a
+// REFRESH_INTERVAL_MS interval while visible.  The probe is cheap.
+export const REFRESH_MIN_AGE_MS = 60_000;
+export const REFRESH_INTERVAL_MS = 5 * 60_000;
+
 /**
  * useAuth — lightweight auth state hook.
  *
@@ -55,10 +67,15 @@ export function useAuth() {
   // "the answer was no" without re-deriving it from authenticated.
   const [authUnknown, setAuthUnknown] = useState(false);
   const attemptRef = useRef(0);
+  // When the last AUTHORITATIVE (200) answer landed; 0 = never.  Once set,
+  // a failed re-probe keeps that answer instead of degrading to unknown.
+  const lastAuthoritativeAtRef = useRef(0);
 
   useEffect(() => {
     let active = true;
     let timer = null;
+    let interval = null;
+    let inFlight = false;
 
     // sessionStorage can throw synchronously in strict privacy modes
     // and locked-down WebViews — wrap every access so a thrown read
@@ -98,29 +115,35 @@ export function useAuth() {
      * timeout), not an answer about this user.
      */
     async function probe() {
+      if (inFlight) return;
+      inFlight = true;
       const cached = readAuthCache();
       try {
         const ctl = new AbortController();
         const t = setTimeout(() => ctl.abort(), PROBE_TIMEOUT_MS);
         let res;
+        let data;
+        // The abort covers the WHOLE exchange — headers and body.  A body
+        // that stalls after the headers would otherwise leave ``inFlight``
+        // true and silently block every later re-probe for the tab's life.
         try {
           res = await fetch("/api/auth/status", {
             credentials: "same-origin",
             signal: ctl.signal,
           });
+          if (!active) return;
+
+          if (!res.ok) {
+            // Transient infrastructure failure — NOT an answer.
+            markUnknown(cached);
+            scheduleRetry();
+            return;
+          }
+
+          data = await res.json();
         } finally {
           clearTimeout(t);
         }
-        if (!active) return;
-
-        if (!res.ok) {
-          // Transient infrastructure failure — NOT an answer.
-          markUnknown(cached);
-          scheduleRetry();
-          return;
-        }
-
-        const data = await res.json();
         if (!active) return;
         const authed = !!data.authenticated;
         // Authoritative: stop retrying and commit, in both directions.
@@ -129,21 +152,37 @@ export function useAuth() {
         // Only an authoritative answer sets capabilities.  A signed-out
         // response carries none, and a backend too old to send the block
         // leaves this null — both mean "not offered", never "offered".
-        setFeatures(authed && data.features ? data.features : null);
+        // An unchanged map keeps its identity so a periodic re-probe does
+        // not re-render every nav consumer.
+        const nextFeatures = authed && data.features ? data.features : null;
+        setFeatures((prev) =>
+          JSON.stringify(prev) === JSON.stringify(nextFeatures) ? prev : nextFeatures,
+        );
         setAuthUnknown(false);
         setChecking(false);
         writeAuthCache(authed);
         attemptRef.current = 0;
+        lastAuthoritativeAtRef.current = Date.now();
       } catch {
         // Abort (our own timeout) or network failure.  Same class as a
         // 5xx: we did not learn anything about this user.
         if (!active) return;
         markUnknown(cached);
         scheduleRetry();
+      } finally {
+        inFlight = false;
       }
     }
 
     function markUnknown(cached) {
+      if (lastAuthoritativeAtRef.current) {
+        // A RE-probe failed (deploy restart, network blip).  We already
+        // hold an authoritative answer: keep it — user, admin flag and
+        // capabilities — and let the backoff retry.  Never flip a known
+        // signed-in user to unknown or signed-out over infrastructure.
+        setChecking(false);
+        return;
+      }
       // Never wedge on ``checking`` — consumers gate real UI on it.
       setChecking(false);
       setAuthUnknown(true);
@@ -165,26 +204,52 @@ export function useAuth() {
     }
     probe();
 
-    // A tab that was backgrounded (or offline) during every retry
-    // recovers the moment it comes back, without waiting out the
-    // backoff.  Only re-probes while the answer is still unknown.
+    function tabVisible() {
+      try {
+        return typeof document === "undefined" || document.visibilityState !== "hidden";
+      } catch {
+        return true;
+      }
+    }
+
+    // Wake (focus / visible / online / interval tick):
+    //  * answer still unknown or retrying -> probe now, without waiting
+    //    out the backoff (unchanged behaviour);
+    //  * answer authoritative -> re-probe only if it is older than
+    //    REFRESH_MIN_AGE_MS, so repeated focus events cannot thrash.
+    // A hidden tab never probes.
     function onWake() {
-      if (!active) return;
-      if (!attemptRef.current) return; // last probe was authoritative
-      if (timer) clearTimeout(timer);
-      probe();
+      if (!active || !tabVisible()) return;
+      if (attemptRef.current) {
+        if (timer) clearTimeout(timer);
+        probe();
+        return;
+      }
+      const last = lastAuthoritativeAtRef.current;
+      if (last && Date.now() - last >= REFRESH_MIN_AGE_MS) probe();
+    }
+    function onVisibility() {
+      if (tabVisible()) onWake();
     }
     if (typeof window !== "undefined") {
       window.addEventListener("focus", onWake);
       window.addEventListener("online", onWake);
+      interval = setInterval(onWake, REFRESH_INTERVAL_MS);
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility);
     }
 
     return () => {
       active = false;
       if (timer) clearTimeout(timer);
+      if (interval) clearInterval(interval);
       if (typeof window !== "undefined") {
         window.removeEventListener("focus", onWake);
         window.removeEventListener("online", onWake);
+      }
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility);
       }
     };
   }, []);
