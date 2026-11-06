@@ -7,9 +7,12 @@ existing ``src.public_league.sleeper_client``.  Output (gitignored, box-local,
 like the other pre-event captures): ``data/draft_backtest/<year>-pre.json`` and
 insurance copies ``<year>-early-<ISOweek>.json``; neither is ever overwritten.
 
-Exit codes: 0 recorded, or already held (nothing to do); 1 error;
-2 skipped (draft started, or no board/rookie pool to capture);
-3 transient (Sleeper unreadable / league or year unresolved) -- retried.
+Exit codes (systemd: SuccessExitStatus=0 5; Restart=on-failure retries 1/3/4):
+0 recorded, or already held; 5 terminal skip (draft started / start margin
+crossed during the build -- nothing left to capture; success for systemd);
+1 error (retry); 3 transient (Sleeper unreadable / league or year unresolved;
+retry); 4 no usable board (no cached contract/rookie pool, or board older than
+``pac.CONTRACT_MAX_AGE`` / of unknown age; retry after the next scrape).
 """
 
 from __future__ import annotations
@@ -27,7 +30,7 @@ if str(REPO) not in sys.path:
 from src.draft import pre_auction_capture as pac  # noqa: E402
 
 DEFAULT_DIR = REPO / "data" / "draft_backtest"
-EXIT_OK, EXIT_ERROR, EXIT_SKIPPED, EXIT_TRANSIENT = 0, 1, 2, 3
+EXIT_OK, EXIT_ERROR, EXIT_TRANSIENT, EXIT_NO_BOARD, EXIT_SKIPPED = 0, 1, 3, 4, 5
 
 
 def _resolve(league_key: str | None, year: int | None) -> tuple[str | None, str | None, int | None]:
@@ -49,11 +52,15 @@ def run(
     year: int | None = None,
     window_days: int = pac.DEFAULT_WINDOW_DAYS,
     now: datetime | None = None,
+    clock: Callable[[], datetime] | None = None,
     resolve: Callable[..., Any] = _resolve,
     fetch_drafts: Callable[[str], tuple[str, Any]] | None = None,
     build: Callable[[str | None], tuple[dict[str, Any] | None, int]] | None = None,
 ) -> int:
-    now = now or datetime.now(timezone.utc)
+    if clock is None:
+        fixed = now
+        clock = (lambda: fixed) if fixed is not None else (lambda: datetime.now(timezone.utc))
+    now = now or clock()
     try:
         key, sleeper_id, draft_year = resolve(league_key, year)
     except Exception as exc:  # noqa: BLE001
@@ -97,7 +104,22 @@ def run(
         from scripts.backtest_perfect_draft import build_snapshot as build
     payload, code = build(key)
     if payload is None:
-        return code
+        # build_snapshot's "skipped" (2) = no cached board / rookie pool: retryable.
+        return EXIT_ERROR if code == 1 else EXIT_NO_BOARD
+    # The build is slow: re-check time validity before writing anything.
+    later = clock()
+    if pac.decide(drafts, draft_year, later, window_days=window_days).action == "refuse":
+        print("SKIPPED: start margin crossed during the build; nothing recorded.")
+        return EXIT_SKIPPED
+    produced = (payload.get("provenance") or {}).get("boardProducedAt")
+    if not pac.board_is_fresh(produced, later):
+        print(
+            f"NO_BOARD: board produced_at={produced!r} is stale/unknown "
+            f"(budget {pac.CONTRACT_MAX_AGE}); nothing recorded, will retry.",
+            file=sys.stderr,
+        )
+        return EXIT_NO_BOARD
+    now = later
     if not pac.write_once(path, pac.stamp(payload, decision, draft_year, now)):
         print(f"HELD: {path} appeared concurrently; not overwriting.")
         return EXIT_OK

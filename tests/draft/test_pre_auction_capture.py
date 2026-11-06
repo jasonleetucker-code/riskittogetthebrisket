@@ -9,6 +9,7 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from scripts.capture_pre_auction_snapshot import (
+    EXIT_NO_BOARD,
     EXIT_OK,
     EXIT_SKIPPED,
     EXIT_TRANSIENT,
@@ -38,7 +39,13 @@ def _resolve(*_a):
 
 
 def _build_ok(_key):
-    return {"capturedAt": "x", "boardHash": "h", "rookies": [1], "rosterContexts": {}}, 0
+    return {
+        "capturedAt": "x",
+        "boardHash": "h",
+        "rookies": [1],
+        "rosterContexts": {},
+        "provenance": {"boardProducedAt": (NOW - timedelta(hours=1)).isoformat()},
+    }, 0
 
 
 def _call(tmp_path, drafts, build=_build_ok, now=NOW, kind="ok"):
@@ -103,7 +110,7 @@ def test_unreadable_drafts_are_transient_not_not_started(tmp_path):
 
 def test_build_skip_writes_nothing(tmp_path):
     start = _ms(NOW + timedelta(days=1))
-    assert _call(tmp_path, [_draft(start=start)], build=lambda _k: (None, 2)) == EXIT_SKIPPED
+    assert _call(tmp_path, [_draft(start=start)], build=lambda _k: (None, 2)) == EXIT_NO_BOARD
     assert list(tmp_path.iterdir()) == []
 
 
@@ -112,3 +119,36 @@ def test_write_once_is_no_replace(tmp_path):
     assert pac.write_once(p, {"a": 1}) is True
     assert pac.write_once(p, {"a": 2}) is False
     assert json.loads(p.read_text(encoding="utf-8")) == {"a": 1}
+
+
+def test_margin_crossed_during_build_writes_nothing(tmp_path):
+    start = _ms(NOW + timedelta(minutes=20))
+    ticks = iter([NOW, NOW + timedelta(minutes=10)])
+    code = run(
+        out_dir=tmp_path,
+        clock=lambda: next(ticks),
+        resolve=_resolve,
+        fetch_drafts=lambda _l: ("ok", [_draft(start=start)]),
+        build=_build_ok,
+    )
+    assert code == EXIT_SKIPPED
+    assert list(tmp_path.iterdir()) == []
+
+
+def _stale_build(age):
+    def build(_k):
+        payload, code = _build_ok(_k)
+        payload["provenance"] = {"boardProducedAt": age}
+        return payload, code
+
+    return build
+
+
+def test_stale_or_unknown_age_board_writes_nothing_and_retries(tmp_path):
+    start = _ms(NOW + timedelta(days=1))
+    for age in ((NOW - timedelta(hours=7)).isoformat(), None, "garbage"):
+        assert _call(tmp_path, [_draft(start=start)], build=_stale_build(age)) == EXIT_NO_BOARD
+        assert list(tmp_path.iterdir()) == []
+    # early path too
+    assert _call(tmp_path, [_draft()], build=_stale_build(None)) == EXIT_NO_BOARD
+    assert list(tmp_path.iterdir()) == []

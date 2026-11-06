@@ -97,6 +97,11 @@ def _provenance(server: Any, contract: dict[str, Any], key: str | None) -> dict[
     out: dict[str, Any] = {
         "contractVersion": meta.get("contractVersion"),
         "contractGeneratedAt": meta.get("generatedAt"),
+        # When the BOARD was produced (the payload's own scrapeTimestamp), which
+        # is NOT ``contractGeneratedAt`` (a cold rebuild stamps that as "now").
+        # None = unknown; never substituted by the load/build time.
+        "boardProducedAt": (getattr(server, "latest_data_source", None) or {}).get("producedAt")
+        or None,
         "scoringProfile": meta.get("scoringProfile"),
         "scoringFingerprint": meta.get("scoringFingerprint"),
         "currentDraftYear": meta.get("currentDraftYear"),

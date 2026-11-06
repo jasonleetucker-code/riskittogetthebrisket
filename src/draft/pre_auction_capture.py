@@ -18,6 +18,20 @@ Rules (all fail closed):
   also never overwritten.  Early copies are labelled and never stand in for the
   pre-auction snapshot.
 
+* Time validity is re-checked AFTER the (slow) board build and before the
+  write: if the "already begun" margin was crossed meanwhile, nothing is written
+  (terminal skip).
+* Board freshness (conservative): the snapshot is only written when the board's
+  own production time (``provenance.boardProducedAt`` = the payload's
+  ``scrapeTimestamp``) is within ``CONTRACT_MAX_AGE`` of the capture clock.  A
+  stale OR unknown-age board writes NOTHING (neither ``-pre`` nor an early copy)
+  and exits with the retryable "no usable board" code -- the 2-hourly scrape
+  refreshes it and the timer/Restart retries.  ``contractGeneratedAt`` is not
+  the clock: a cold rebuild stamps it as now.
+* ``previous_league_id`` coverage: only the current league's drafts are read; a
+  draft listed solely under a predecessor league id is not seen.  Documented
+  limitation, deliberately not implemented here.
+
 Limitation, stated rather than hidden: "started" is read from Sleeper draft
 state; an in-app auction run with no Sleeper draft object cannot be seen here.
 """
@@ -36,6 +50,11 @@ SCHEMA_VERSION = "pre_auction_capture.v1"
 DEFAULT_WINDOW_DAYS = 7
 #: A start this close is treated as already begun (clock skew / Sleeper lag).
 START_MARGIN = timedelta(minutes=15)
+#: Max age of the board at capture: 6 h = ``SCRAPE_INTERVAL_HOURS`` (2) x 3, the
+#: repo's existing contract/source staleness budget (``data_contract.
+#: _SOURCE_MAX_AGE_HOURS`` default 6; ``league_registry.SCORING_SNAPSHOT_MAX_AGE_HOURS``
+#: = 6).  Reused, not invented.
+CONTRACT_MAX_AGE = timedelta(hours=6)
 STARTED_STATUSES = frozenset({"drafting", "complete"})
 
 
@@ -90,6 +109,22 @@ def decide(
     if first - now <= timedelta(days=window_days):
         return Decision("record_pre", "inside_window", first, summary)
     return Decision("record_early", "before_window", first, summary)
+
+
+def board_is_fresh(produced_at: Any, now: datetime) -> bool:
+    """True only for a parseable production time within ``CONTRACT_MAX_AGE``.
+
+    Unknown / unparseable / future-dated-beyond-skew is NOT fresh (fail closed).
+    """
+    if not produced_at:
+        return False
+    try:
+        dt = datetime.fromisoformat(str(produced_at).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return -START_MARGIN <= now - dt <= CONTRACT_MAX_AGE
 
 
 def pre_path(out_dir: Path, draft_year: int) -> Path:
