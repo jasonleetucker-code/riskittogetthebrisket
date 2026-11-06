@@ -1281,6 +1281,29 @@ describe("computeDraftStats — top competitor ceiling capping", () => {
   });
 });
 
+describe("mergeDraftCapitalTeams — missing budget is unavailable, never $0", () => {
+  it("one null team among numeric teams: that team is unavailable, others unchanged", () => {
+    const ws = createDefaultWorkspace();
+    const feed = [
+      { team: "Ed", auctionDollars: 100 },
+      { team: "Brent", auctionDollars: null },
+      { team: "Newbie", auctionDollars: undefined },
+    ];
+    const before = ws.teams.find((t) => t.name === "Brent");
+    const { workspace, unavailable } = mergeDraftCapitalTeams(ws, feed);
+    expect(unavailable).toEqual(["Brent", "Newbie"]);
+    expect(workspace.teams.find((t) => t.name === "Ed").initialBudget).toBe(100);
+    expect(workspace.teams.find((t) => t.name === "Brent")).toEqual(before);
+    expect(workspace.teams.find((t) => t.name === "Newbie")).toBeUndefined();
+  });
+  it("all-missing feed leaves the workspace untouched", () => {
+    const ws = createDefaultWorkspace();
+    const r = mergeDraftCapitalTeams(ws, [{ team: "Ed", auctionDollars: null }]);
+    expect(r.workspace).toBe(ws);
+    expect(r.unavailable).toEqual(["Ed"]);
+  });
+});
+
 describe("mergeDraftCapitalTeams — with picks array", () => {
   const teamTotals = [
     { team: "Russini Panini", auctionDollars: 418 },
