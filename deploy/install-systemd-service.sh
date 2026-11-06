@@ -937,6 +937,9 @@ main() {
   # IDP streaming (2026-10-29): perishable pre-kickoff weekly projection pools
   # -> gitignored data/projections/weekly_archive/.  Public endpoints, no creds.
   install_simple_timer "weekly-projection-capture" "weekly projection pool point-in-time capture"
+  # AMATH-S01 / CW-15: AL-4a + AL-3b report-only scorecards, once per finalized week
+  # -> gitignored data/learning/scorecards/.  Public endpoints, no creds.
+  install_simple_timer "forecast-calibration-ledger" "weekly AL-4a/AL-3b forecast calibration scorecards (final weeks only)"
   # Rookie auction: perishable pre-draft board + roster-context snapshot
   # (idempotent, refuses once the Sleeper draft has started).  No creds.
   install_simple_timer "pre-auction-snapshot" "pre-auction rookie-draft snapshot capture"
