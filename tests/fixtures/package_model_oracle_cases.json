@@ -191,6 +191,32 @@
    "value": 0,
    "side": 0,
    "arithmetic": "empty side answers no adjustment"
+  },
+  {
+   "name": "exact even half rounds up, never to even (16.5 -> 17)",
+   "team1": [
+    1000,
+    75
+   ],
+   "team2": [
+    500
+   ],
+   "value": 17,
+   "side": 2,
+   "arithmetic": "depth1 = (1000+75) - (1000 + 0.78*75) = 0.22*75 = 16.5 exactly (0.78*75 = 58.5 is exact in binary too); depth2 = 0 (single piece); diff 16.5 -> JS Math.round half-up 17 (banker's would give 16); team2 discarded less depth, receives"
+  },
+  {
+   "name": "exact even half rounds up, never to even (82.5 -> 83)",
+   "team1": [
+    2000,
+    375
+   ],
+   "team2": [
+    1500
+   ],
+   "value": 83,
+   "side": 2,
+   "arithmetic": "depth1 = 0.22*375 = 82.5 exactly; depth2 = 0; diff 82.5 -> half-up 83 (banker's would give 82); team2 receives"
   }
  ],
  "randomSweep": [
