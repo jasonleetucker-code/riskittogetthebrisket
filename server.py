@@ -7497,6 +7497,10 @@ async def post_waiver_suggestions(request: Request):
 
     from src.trade import waiver as _waiver  # noqa: PLC0415
 
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+
     inputs = await _waiver_engine_inputs(league_cfg, team_owner_id)
     if inputs["input_error"] is not None:
         log.error(f"Waiver suggestions failed: {inputs['input_error']}")
@@ -7526,6 +7530,27 @@ async def post_waiver_suggestions(request: Request):
         result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
+
+
+def _faab_config_refusal() -> JSONResponse | None:
+    """503 when ``config/trade/faab.json`` is missing or invalid (AMATH-S27).
+
+    Every FAAB-priced route asks this first, so a broken config yields a
+    named refusal instead of a bid computed from silently substituted
+    defaults.  The loader caches a valid config, so this is a dict lookup
+    on the happy path.
+    """
+    from src.trade import faab_engine as _engine  # noqa: PLC0415
+
+    try:
+        _engine.load_faab_config()
+    except _engine.FaabConfigError as exc:
+        log.error(f"FAAB config refused: {exc}")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "faab_config_invalid", "message": str(exc)},
+        )
+    return None
 
 
 async def _waiver_engine_inputs(league_cfg: Any, team_owner_id: str | None) -> dict[str, Any]:
@@ -7675,6 +7700,10 @@ async def post_waiver_perfect(request: Request):
             status_code=400,
             content={"error": "team_required", "leagueKey": league_cfg.key},
         )
+
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
 
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
@@ -8204,6 +8233,10 @@ async def post_waiver_faab_recommend(request: Request):
             status_code=400,
             content={"error": "addPlayerName is required."},
         )
+
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
 
     # Resolve player rows + values from the live contract.
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
