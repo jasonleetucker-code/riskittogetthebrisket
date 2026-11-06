@@ -810,6 +810,14 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
             const myCeiling = Number.isFinite(player.myWinningBid)
               ? player.myWinningBid
               : player.myMaxBid;
+            if (amt > 0 && isMine && amt > stats.myRemaining) {
+              return (
+                <div className="draft-modal-warn">
+                  <strong>Unaffordable.</strong> ${amt} is ${amt - stats.myRemaining}{" "}
+                  more than your remaining budget (${stats.myRemaining}).
+                </div>
+              );
+            }
             if (amt > 0 && isMine && amt > myCeiling) {
               const diff = amt - myCeiling;
               return (
@@ -1628,7 +1636,11 @@ export function RookieBoard({
                     <td
                       className="draft-money draft-money-win"
                       title={
-                        capped
+                        p.budgetCapped
+                          ? `Capped by your remaining budget (${fmt$(
+                              stats.myRemaining,
+                            )}). Theoretical max was ${fmt$(p.theoreticalMaxBid)}.`
+                          : capped
                           ? `Capped by top rival ceiling (${fmt$(
                               stats.topCompetitorMax,
                             )} + $1). Theoretical max was ${fmt$(
