@@ -1,49 +1,84 @@
 from __future__ import annotations
 
+import math
 from collections import defaultdict
-from typing import Dict, Iterable, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 from .feature_engineering import RECEPTION_DEPENDENCY_TAG, infer_scoring_tags
 
 
+#: Label for "not enough observed features to classify".  Same label the
+#: function already returned for an unsupported bucket; ``summarize_archetype_priors``
+#: already buckets it as ``unknown`` and no scoring adjustment is derived from it.
+UNKNOWN_ARCHETYPE: Tuple[str, str] = ("unknown", "unknown")
+
+
+def _observed(features: Dict[str, float], key: str) -> Optional[float]:
+    """The feature's value, or ``None`` when it is absent / None / non-numeric /
+    non-finite.  MISSING IS NEVER ZERO: an observed ``0.0`` is returned as 0.0,
+    an unobserved feature is never coerced to it."""
+    v = features.get(key)
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    return x if math.isfinite(x) else None
+
+
 def infer_archetype(bucket: str, features: Dict[str, float]) -> Tuple[str, str]:
+    """Hand-cut archetype classifier (cut-points unchanged, AMATH-S38).
+
+    A branch whose deciding feature is unobserved returns
+    ``UNKNOWN_ARCHETYPE`` instead of the default label a read of 0.0 implies.
+    Branches are evaluated in order; a feature is only required when the
+    earlier, already-observed features did not decide the answer.
+    """
     p = str(bucket or "").upper()
     f = features or {}
+
+    def two_way(key, cut, hi, lo):
+        v = _observed(f, key)
+        if v is None:
+            return UNKNOWN_ARCHETYPE
+        return hi if v >= cut else lo
+
     if p == "QB":
-        if f.get("qb_rush_contribution", 0.0) >= 0.22:
-            return "dual_threat_qb", "mobile"
-        return "pocket_qb", "passing"
+        return two_way(
+            "qb_rush_contribution", 0.22, ("dual_threat_qb", "mobile"), ("pocket_qb", "passing")
+        )
     if p == "RB":
         # Shares the ``reception_sensitive`` cut rather than carrying a
         # second, looser 0.18 of its own — the two read the same
         # feature, and a back who is a ``receiving_rb`` here but not
         # reception-sensitive there is an incoherent pair of labels.
-        if f.get("reception_dependency", 0.0) >= RECEPTION_DEPENDENCY_TAG:
+        rec = _observed(f, "reception_dependency")
+        if rec is None:
+            return UNKNOWN_ARCHETYPE
+        if rec >= RECEPTION_DEPENDENCY_TAG:
             return "receiving_rb", "receiving"
-        if f.get("goal_line_proxy", 0.0) >= 0.45:
-            return "goal_line_rb", "power"
-        return "early_down_rb", "balanced"
+        return two_way(
+            "goal_line_proxy", 0.45, ("goal_line_rb", "power"), ("early_down_rb", "balanced")
+        )
     if p == "WR":
-        if f.get("field_stretcher_proxy", 0.0) >= 13.5:
-            return "field_stretcher_wr", "downfield"
-        return "possession_wr", "volume"
+        return two_way(
+            "field_stretcher_proxy",
+            13.5,
+            ("field_stretcher_wr", "downfield"),
+            ("possession_wr", "volume"),
+        )
     if p == "TE":
-        if f.get("red_zone_proxy", 0.0) >= 0.45:
-            return "td_te", "red_zone"
-        return "volume_te", "chain_mover"
+        return two_way("red_zone_proxy", 0.45, ("td_te", "red_zone"), ("volume_te", "chain_mover"))
     if p == "DL":
-        if f.get("splash_dependency", 0.0) >= 1.2:
-            return "sack_dl", "splash"
-        return "tackle_dl", "tackle"
+        return two_way("splash_dependency", 1.2, ("sack_dl", "splash"), ("tackle_dl", "tackle"))
     if p == "LB":
-        if f.get("tackle_dependency", 0.0) >= 6.5:
-            return "tackle_lb", "tackle"
-        return "splash_lb", "splash"
+        return two_way("tackle_dependency", 6.5, ("tackle_lb", "tackle"), ("splash_lb", "splash"))
     if p == "DB":
-        if f.get("splash_dependency", 0.0) >= 0.85:
-            return "ballhawk_db", "splash"
-        return "tackle_db", "tackle"
-    return "unknown", "unknown"
+        return two_way(
+            "splash_dependency", 0.85, ("ballhawk_db", "splash"), ("tackle_db", "tackle")
+        )
+    return UNKNOWN_ARCHETYPE
 
 
 def summarize_archetype_priors(rows: Iterable[Dict[str, object]]) -> Dict[str, Dict[str, float]]:

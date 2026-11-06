@@ -9,6 +9,7 @@ import { Badge } from "@/components/ds/Badge";
 import { Field, Input } from "@/components/ds/Input";
 import { Button } from "@/components/ds/Button";
 import { Banner } from "@/components/ds/Banner";
+import { sanitizeNextPath } from "@/lib/safe-next";
 
 /**
  * What to tell the user, given what the server actually said.
@@ -50,8 +51,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const next = params.get("next") || "/";
-    setRedirectPath(next.startsWith("/") ? next : "/");
+    setRedirectPath(sanitizeNextPath(params.get("next"), "/"));
   }, []);
 
   async function handleAdminSubmit(event) {
@@ -76,7 +76,7 @@ export default function LoginPage() {
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok) {
         onLoginSuccess?.();
-        router.push(data.redirect || redirectPath);
+        router.push(sanitizeNextPath(data.redirect, redirectPath));
       } else {
         // "Invalid username or password" is an answer about the
         // CREDENTIALS, and this branch used to give it for every non-ok

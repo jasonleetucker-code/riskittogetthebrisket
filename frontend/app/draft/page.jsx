@@ -4004,6 +4004,7 @@ export default function DraftDashboardPage() {
             workspace: next,
             matched,
             added,
+            unavailable: unavailableTeams = [],
           } = mergeDraftCapitalTeams(ws, teamTotals, {
             picks: picksArray,
             mode: force ? "force" : "sync",
@@ -4013,7 +4014,11 @@ export default function DraftDashboardPage() {
               ...s,
               info: `Loaded ${matched} team budgets${
                 added > 0 ? ` (${added} new)` : ""
-              }${picksArray.length > 0 ? ` · ${picksArray.length} picks tracked` : ""}.`,
+              }${picksArray.length > 0 ? ` · ${picksArray.length} picks tracked` : ""}.${
+                unavailableTeams.length > 0
+                  ? ` Budget unavailable (not loaded, not $0): ${unavailableTeams.join(", ")}.`
+                  : ""
+              }`,
             }));
           }
           return next;

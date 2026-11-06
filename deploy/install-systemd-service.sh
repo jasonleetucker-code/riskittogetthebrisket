@@ -940,6 +940,9 @@ main() {
   # AMATH-S01 / CW-15: AL-4a + AL-3b report-only scorecards, once per finalized week
   # -> gitignored data/learning/scorecards/.  Public endpoints, no creds.
   install_simple_timer "forecast-calibration-ledger" "weekly AL-4a/AL-3b forecast calibration scorecards (final weeks only)"
+  # Rookie auction: perishable pre-draft board + roster-context snapshot
+  # (idempotent, refuses once the Sleeper draft has started).  No creds.
+  install_simple_timer "pre-auction-snapshot" "pre-auction rookie-draft snapshot capture"
   # Game Day U5 shared live collector: fires every minute, the tick decides
   # whether it is due (src/ros/game_day_live.py).  Public endpoints, no creds.
   install_simple_timer "game-day-live" "Game Day live collector (observations + generations)"
