@@ -446,7 +446,7 @@ CW: list[dict] = [
         "owner": "coordinator",
         "state": "IMPLEMENTING",
         "evidence": "PR #2082 merged (57611231): 7 unresolved P0 master-audit findings adjudicated on current main -- CLOSED_VERIFIED W03-F001, W07-F001, W08-F001, W10-F002; PARTIAL W12-F002 (-> CW-36), W17-F001 (-> CW-17), W17-F002 (-> CW-33); offline regression tests, adversarial review APPROVE",
-        "next": "the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated)",
+        "next": "re-adjudicate the 7 recount-open P1 findings (MASTER-AUDIT-P1-OPEN rows; W20-F005 fix + 5-finding adjudication in flight); then the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated)",
     },
     {
         "id": "CW-41",
@@ -620,6 +620,35 @@ DISCOVERED = [
         "NEW-07",
         "No prospective-IDP evaluation runner exists yet (freeze/receipt/predict only)",
         "CW-16",
+    ),
+]
+
+# Master-audit P1 findings the 2026-11-06 recount verified STILL OPEN (INVENTORY.md section 3).
+# They were recorded in prose only; routed here so none is lost.  W00-F001 is DIR-12 (CW-07,
+# public by design per DD-06).  Re-adjudication on current main: CW-40.
+MASTER_AUDIT_OPEN_P1 = [
+    (
+        "W06-F001",
+        "Split-identity ghost rows: one player on a resolved row and an unresolved ghost",
+        "CW-36",
+    ),
+    (
+        "W10-F003",
+        "Rookie recommender panel empty at budget advantage 1.0-3.0 (per-player EV 0)",
+        "CW-38",
+    ),
+    ("W13-F003", "BDVM signal layer saturates at STRONG_SELL (570 of 699 at recount)", "CW-34"),
+    ("W20-F005", "Terminal portfolio prices current-year draft picks at zero", "CW-29"),
+    (
+        "W27-F001",
+        "/rankings Edge column carries no IDP signal while /edge labels the same players",
+        "CW-32",
+    ),
+    ("W30-F002", "Playoff odds publish 100%/0% with zero games played", "CW-17"),
+    (
+        "W30-F008",
+        "Hill fit percentile denominator 400 vs serve 500 (same rank up to +25%)",
+        "CW-36",
     ),
 ]
 
@@ -1015,13 +1044,20 @@ def _github_rows() -> list[dict]:
 
 
 def _directive_rows() -> list[dict]:
-    return [
-        {"source": "DIRECTIVE-2026-11-06", "id": i, "title": t, "cw": cw}
-        for i, t, cw in DIRECTIVE_FINDINGS
-    ] + [
-        {"source": "DISCOVERED-2026-11-06", "id": i, "title": t, "cw": cw}
-        for i, t, cw in DISCOVERED
-    ]
+    return (
+        [
+            {"source": "DIRECTIVE-2026-11-06", "id": i, "title": t, "cw": cw}
+            for i, t, cw in DIRECTIVE_FINDINGS
+        ]
+        + [
+            {"source": "DISCOVERED-2026-11-06", "id": i, "title": t, "cw": cw}
+            for i, t, cw in DISCOVERED
+        ]
+        + [
+            {"source": "MASTER-AUDIT-P1-OPEN", "id": i, "title": t, "cw": cw}
+            for i, t, cw in MASTER_AUDIT_OPEN_P1
+        ]
+    )
 
 
 def _master_audit_summary() -> dict:

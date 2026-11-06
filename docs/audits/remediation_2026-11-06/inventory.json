@@ -3,6 +3,7 @@
  "population": {
   "DIRECTIVE-2026-11-06": 44,
   "DISCOVERED-2026-11-06": 7,
+  "MASTER-AUDIT-P1-OPEN": 7,
   "AMATH": 63,
   "RPA-ITEM": 125,
   "RPA-FINDING": 39,
@@ -196,7 +197,7 @@
    "state": "RESEARCH_ONLY",
    "evidence": "AMATH-S03, S04, S30, S47; MD-4; master-audit W17-F001 residual (no preseason guard on ROS season selection) routed here by CW-40 / PR #2082",
    "next": "shadow challengers after CW-15; preseason guard for ROS season selection",
-   "sourceRowCount": 7
+   "sourceRowCount": 8
   },
   {
    "id": "CW-18",
@@ -328,7 +329,7 @@
    "state": "MERGED",
    "evidence": "PR #2068 merged (622ad85d): archetype missing feature is unknown, not 0",
    "next": "follow-up: infer_scoring_tags / compute_profile_features missing -> 0",
-   "sourceRowCount": 2
+   "sourceRowCount": 3
   },
   {
    "id": "CW-30",
@@ -361,7 +362,7 @@
    "state": "RESEARCH_ONLY",
    "evidence": "AMATH-S07, S18, S22, S28, S29, S49",
    "next": "named alternate concept only; never a calibrated interval claim",
-   "sourceRowCount": 7
+   "sourceRowCount": 8
   },
   {
    "id": "CW-33",
@@ -383,7 +384,7 @@
    "state": "RESEARCH_ONLY",
    "evidence": "AMATH-S19, S20, S24, S31, S39",
    "next": "hierarchical priors with knowledge cutoffs",
-   "sourceRowCount": 5
+   "sourceRowCount": 6
   },
   {
    "id": "CW-35",
@@ -405,7 +406,7 @@
    "state": "RESEARCH_ONLY",
    "evidence": "AMATH-S21, S34, S40, S42, S50, S56; #898, #1322; master-audit W12-F002 residual (TE SELL skew 0.742 vs target 0.137 in the top 250) routed here by PR #2082",
    "next": "independent validation target (S50) before any promotion; measure the TE++ uplift's role in the TE SELL skew",
-   "sourceRowCount": 8
+   "sourceRowCount": 10
   },
   {
    "id": "CW-37",
@@ -427,7 +428,7 @@
    "state": "MERGED",
    "evidence": "PR #2074 merged (5dea846f): MaxBid capped by remaining budget; audit C01 closed",
    "next": "board-level class-retirement gate (#1414)",
-   "sourceRowCount": 13
+   "sourceRowCount": 14
   },
   {
    "id": "CW-39",
@@ -448,7 +449,7 @@
    "owner": "coordinator",
    "state": "IMPLEMENTING",
    "evidence": "PR #2082 merged (57611231): 7 unresolved P0 master-audit findings adjudicated on current main -- CLOSED_VERIFIED W03-F001, W07-F001, W08-F001, W10-F002; PARTIAL W12-F002 (-> CW-36), W17-F001 (-> CW-17), W17-F002 (-> CW-33); offline regression tests, adversarial review APPROVE",
-   "next": "the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated)",
+   "next": "re-adjudicate the 7 recount-open P1 findings (MASTER-AUDIT-P1-OPEN rows; W20-F005 fix + 5-finding adjudication in flight); then the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated)",
    "sourceRowCount": 30
   },
   {
@@ -901,6 +902,48 @@
    "id": "NEW-07",
    "title": "No prospective-IDP evaluation runner exists yet (freeze/receipt/predict only)",
    "cw": "CW-16"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W06-F001",
+   "title": "Split-identity ghost rows: one player on a resolved row and an unresolved ghost",
+   "cw": "CW-36"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W10-F003",
+   "title": "Rookie recommender panel empty at budget advantage 1.0-3.0 (per-player EV 0)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W13-F003",
+   "title": "BDVM signal layer saturates at STRONG_SELL (570 of 699 at recount)",
+   "cw": "CW-34"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W20-F005",
+   "title": "Terminal portfolio prices current-year draft picks at zero",
+   "cw": "CW-29"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W27-F001",
+   "title": "/rankings Edge column carries no IDP signal while /edge labels the same players",
+   "cw": "CW-32"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W30-F002",
+   "title": "Playoff odds publish 100%/0% with zero games played",
+   "cw": "CW-17"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W30-F008",
+   "title": "Hill fit percentile denominator 400 vs serve 500 (same rank up to +25%)",
+   "cw": "CW-36"
   },
   {
    "source": "AMATH",
