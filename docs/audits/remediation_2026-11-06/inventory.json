@@ -119,7 +119,7 @@
    "state": "TESTED",
    "evidence": "PR #2071: W11-F003/F005/F007 FIXED, W11-F004 FIXED with a pinned by-design exception, IST-7 verified, AMATH-S27 fail-closed config fixed; 6,000 payloads byte-identical",
    "next": "review running; W10-F001 re-routed to CW-38 (DD-13)",
-   "sourceRowCount": 8
+   "sourceRowCount": 7
   },
   {
    "id": "CW-11",
@@ -424,10 +424,10 @@
    "priority": "P2",
    "title": "Draft / auction 2027 readiness",
    "owner": "draft capital + auction room",
-   "state": "NOT_STARTED",
-   "evidence": "#1414, #1807, draft-order median-game rule, auction findings",
-   "next": "retire completed classes; rehearsal checklist",
-   "sourceRowCount": 12
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2074: W10-F001 STILL_PRESENT and fixed (draft-logic.js bids capped by remaining budget; decision-intelligence Critical C01 closed); #1414: no surface shows the completed 2026 class, /rankings reads pickClassLifecycle",
+   "next": "merge #2074; board-level retirement gate (every served league must prove completion) is a canonical-owner decision; mergeDraftCapitalTeams null-to-0 follow-up; auction rehearsal checklist",
+   "sourceRowCount": 13
   },
   {
    "id": "CW-39",
@@ -659,8 +659,8 @@
   {
    "source": "DIRECTIVE-2026-11-06",
    "id": "DIR-22",
-   "title": "W10-F001 FAAB bids ignore remaining budget",
-   "cw": "CW-10"
+   "title": "W10-F001 bids ignore remaining budget (the /draft auction MaxBid, not FAAB; DD-13)",
+   "cw": "CW-38"
   },
   {
    "source": "DIRECTIVE-2026-11-06",
