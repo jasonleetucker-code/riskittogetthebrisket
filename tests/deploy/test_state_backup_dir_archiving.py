@@ -441,6 +441,8 @@ AL_P2_OPTIONAL = {
     # AL-P5 (2026-10-15): the Best Offers served-run log the DECISION receipts
     # point into. Optional: small, but never allowed to fail a core generation.
     "trade_best_offers",
+    # C6-ANA-01 analyst claim ledger (INSERT-only, as-recorded timestamps).
+    "analyst_ledger.sqlite",
 }
 
 

@@ -219,6 +219,11 @@ if [[ "${BACKUP_ROOT}" != "${REQUESTED_ROOT}" ]]; then
 fi
 log "effective backup root: ${BACKUP_ROOT}"
 chmod 700 "${BACKUP_ROOT}" 2>/dev/null || true
+# Re-open LISTING for the service group at once (the chmod above would otherwise
+# close it for the whole run and for ever after a failed one).
+if [[ -n "${BACKUP_READ_GROUP:-}" ]]; then
+    backup_root_grant_group_list "${BACKUP_ROOT}" "${BACKUP_READ_GROUP}" || true
+fi
 
 # Stage the snapshot in a hidden dir and promote it to the dated slot
 # only after validation.  A failed run therefore never appears in the
@@ -252,6 +257,9 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 mkdir -p "${BACKUP_ROOT}/daily"
+if [[ -n "${BACKUP_READ_GROUP:-}" ]]; then
+    backup_root_grant_group_list "${BACKUP_ROOT}" "${BACKUP_READ_GROUP}" || true
+fi
 if command -v flock >/dev/null 2>&1; then
     exec 9>"${STAGING_LOCK}"
     flock -n 9 || fail "could not lock this run's staging (${STAGING_LOCK})"
@@ -891,6 +899,10 @@ optional backup_sqlite "${DATA_DIR}/dfs/workspace.sqlite" "dfs_workspace.sqlite"
 #     live:server row (canonical board incl. slot picks + the value-direct
 #     source anchors) exists only here.  Measured 2026-10-02: ~2.0 M of
 #     ~3.3 M rows.  Large (1.5 GB raw); see the register for the disk math.
+#   * Analyst claim ledger (C6-ANA-01, src/analyst/store.py): INSERT-only
+#     record of analyst takes + the content they came from, with
+#     as-recorded timestamps.  Not re-derivable from a later re-scrape.
+optional backup_sqlite "${DATA_DIR}/analyst_ledger.sqlite"
 optional backup_sqlite "${DATA_DIR}/temporal_ledger.sqlite"
 
 # ── Validate this run BEFORE any destructive step ────────────────────
@@ -938,6 +950,16 @@ log "snapshot promoted: ${FINAL_DEST}"
 # the pointer never names a generation that does not exist.
 if ! backup_root_write_pointer "${BACKUP_ROOT}" "${FINAL_DEST}" "${DATE_STAMP}" "${ARTIFACTS}"; then
     warn "could not record the generation pointer under ${BACKUP_ROOT} (the snapshot itself is intact)"
+fi
+
+# Let the service group LIST this root so /api/status can verify it (the root
+# is otherwise 0700 root-only and reads as unverifiable).  Listing only: the
+# artifacts stay 0600 and sessions/ stays 0700 — see backup_root_grant_group_list.
+if [[ -n "${BACKUP_READ_GROUP:-}" ]]; then
+    if ! backup_root_grant_group_list "${BACKUP_ROOT}" "${BACKUP_READ_GROUP}" \
+            "${FINAL_DEST}" "${FINAL_DEST}/sqlite"; then
+        warn "could not grant group '${BACKUP_READ_GROUP}' list access under ${BACKUP_ROOT} — /api/status will read the root as unverifiable"
+    fi
 fi
 # A caller that asked for the result by path gets it or gets a failed run.
 # Silently not writing it would send the caller looking somewhere else,
