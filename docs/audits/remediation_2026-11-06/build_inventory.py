@@ -10,7 +10,8 @@ Inputs are the repository's own records (no network):
 * AMATH-S01..S63 — ``docs/research/amath/evidence/sitewide_opportunities_merged.json``
 * research/promotion readiness — ``docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.json``
   (125 items + 39 findings)
-* owner intake MD-1..MD-37 — ``docs/OWNER_REQUESTED_TODO.md``
+* owner intake MD-1..MD-55 — ``docs/OWNER_REQUESTED_TODO.md`` (MD-47..MD-55: the 2026-11-06
+  continuous-QA directive, work items CW-48..CW-53)
 * open issues / PRs — ``github_snapshot.json`` (GitHub API, captured 2026-11-06T12:45Z)
 * directive-enumerated findings — ``DIRECTIVE_FINDINGS`` below (the two 2026-11-06 audits
   exist only in the owner directive; every finding it names is a row here)
@@ -303,7 +304,7 @@ CW: list[dict] = [
         "owner": "per-route",
         "state": "IMPLEMENTING",
         "evidence": "perf_baseline_2026-11-06.json: /league 0.84 s HTML (was ~44 s cold); public overview p50 0.45 s but one 89.8 s sample; /api/status cold 15.8 s; /draft requests the full contract; Team Strength anonymous 401 with a permanent spinner",
-        "next": "PRs in flight: public-league stale-while-revalidate, /draft contract view audit, Team Strength auth state",
+        "next": "#2079 /draft compact view (-60% raw, -56% gzip per fetch; reviewed APPROVE) and #2081 Team Strength auth-required state (reviewed APPROVE) wait for the train; public-league stale-while-revalidate in flight",
     },
     {
         "id": "CW-27",
@@ -443,9 +444,9 @@ CW: list[dict] = [
         "priority": "P3",
         "title": "Governance / process / UI-lane records",
         "owner": "coordinator",
-        "state": "NOT_STARTED",
-        "evidence": "#1336 #1412 #1418 #1421 #1422 #1428 #1628 #967 #1214 #1005",
-        "next": "close or re-point to current canonical records",
+        "state": "IMPLEMENTING",
+        "evidence": "#1336 #1412 #1418 #1421 #1422 #1428 #1628 #967 #1214 #1005; master-site-audit adjudication: PR #2082 classifies the 7 unresolved P0 findings CLOSED_VERIFIED with offline regression tests (adversarial review running)",
+        "next": "merge #2082 after review; then the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated); close or re-point governance issues",
     },
     {
         "id": "CW-41",
@@ -521,6 +522,72 @@ CW.append(
         "next": "independent review (running), green CI, merge, verify deploy",
     }
 )
+
+# wave Q — continuous verification / QA directive (owner, 2026-11-06; record
+# docs/owner/CONTINUOUS_QA_DIRECTIVE_2026-11-06.md; intake MD-47 .. MD-55).  Phase 6
+# (security / data integrity) routes to the existing CW-07 with CW-05 / CW-11 / CW-37.
+CW += [
+    {
+        "id": "CW-48",
+        "wave": "Q",
+        "priority": "P1",
+        "title": "Feature-intent census: requirement -> code -> test -> evidence matrix and per-feature verification states",
+        "owner": "docs/audits/remediation_2026-11-06/ (census tooling) + docs/OWNER_FEATURE_INVENTORY.md (intent)",
+        "state": "IMPLEMENTING",
+        "evidence": "standard merged #2080; mechanical surface census (routes, pages, bridge routes, flags, timers -> test references) in progress",
+        "next": "census PR, then join each surface to its controlling owner requirement and record VERIFIED / PARTIAL / UNVERIFIED with evidence",
+    },
+    {
+        "id": "CW-49",
+        "wave": "Q",
+        "priority": "P1",
+        "title": "Independent mathematical oracles + invariants for consequential calculations; correctness kept separate from predictive skill",
+        "owner": "the canonical owner of each calculation (confidence, blend, package model, lineup, FAAB, ROS, BDVM)",
+        "state": "NOT_STARTED",
+        "evidence": "existing invariant work: CW-29 (missing-as-zero property suite), CW-47 (confidence), C2-U1 exact lineup vs host truth",
+        "next": "rank calculations by decision impact x oracle gap from the CW-48 census; add hand-computed / host-truth known-answer tests first",
+    },
+    {
+        "id": "CW-50",
+        "wave": "Q",
+        "priority": "P1",
+        "title": "Permanent regression + end-to-end critical journeys (source -> API -> frontend -> action) across league / flag states",
+        "owner": "tests/ + frontend/__tests__ + the Playwright regression suite (existing frameworks only)",
+        "state": "NOT_STARTED",
+        "evidence": "every verified defect gains a reproducing test (e.g. CW-40 P0 adjudication regression tests, PR #2082)",
+        "next": "list the critical journeys from the census; close the zero-reference mutating / private routes first",
+    },
+    {
+        "id": "CW-51",
+        "wave": "Q",
+        "priority": "P2",
+        "title": "Bounded stress / resilience harness with retained baselines (non-production; explicit ceilings)",
+        "owner": "docs/GLOBAL_PERFORMANCE_STANDARD.md budgets + a local / CI harness",
+        "state": "NOT_STARTED",
+        "evidence": "production read-only latency baseline perf_baseline_2026-11-06.json (CW-26)",
+        "next": "isolated-backend concurrency + slow-upstream scenarios with stored baselines; never load production",
+    },
+    {
+        "id": "CW-52",
+        "wave": "Q",
+        "priority": "P3",
+        "title": "Evidence-classified dead code / duplicate logic (PROVEN_UNUSED / FLAGGED_OFF_RETAIN / SHADOW_RESEARCH / SUPERSEDED / UNKNOWN_CONSUMER)",
+        "owner": "standard section 6; removal only in small reversible PRs inside file claims",
+        "state": "NOT_STARTED",
+        "evidence": "-",
+        "next": "static + entrypoint + flag + job + dynamic-import census; remove PROVEN_UNUSED only",
+    },
+    {
+        "id": "CW-53",
+        "wave": "Q",
+        "priority": "P1",
+        "title": "Mechanized verification feedback loop: PR verification receipt, test selection, retained fixtures, cost-conscious scheduled checks",
+        "owner": ".github/pull_request_template.md + scripts/ci_change_scope.py + docs/AGENT_OPERATING_SYSTEM.md section 3",
+        "state": "IMPLEMENTING",
+        "evidence": "standard + Agent OS section merged #2080; PR template verification receipt added with the intake reconciliation",
+        "next": "assess scheduled deeper checks (drift, security scan, targeted mutation) within the existing scheduling framework",
+    },
+]
 
 DISCOVERED = [
     (
@@ -897,6 +964,13 @@ def _md_rows() -> list[dict]:
         **dict.fromkeys(["MD-42"], "CW-03"),
         **dict.fromkeys(["MD-43"], "CW-05"),
         **dict.fromkeys(["MD-46"], "CW-47"),
+        **dict.fromkeys(["MD-47", "MD-54"], "CW-53"),
+        **dict.fromkeys(["MD-48", "MD-55"], "CW-48"),
+        **dict.fromkeys(["MD-49"], "CW-49"),
+        **dict.fromkeys(["MD-50"], "CW-50"),
+        **dict.fromkeys(["MD-51"], "CW-51"),
+        **dict.fromkeys(["MD-52"], "CW-07"),
+        **dict.fromkeys(["MD-53"], "CW-52"),
     }
     for line in text.splitlines():
         m = re.match(r"^\| (MD-\d+) \|(.*)\|\s*$", line)
