@@ -80,7 +80,7 @@ describe("W20-F008: /phases with no rebuilder", () => {
     expect(out.partnerships).toEqual([]);
   });
 
-  it.fails("explains why there are no trade partners instead of rendering nothing", () => {
+  it("explains why there are no trade partners instead of rendering nothing", () => {
     mockUseRosterIntelligence.mockReturnValue({
       loading: false,
       failure: null,

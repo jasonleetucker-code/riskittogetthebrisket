@@ -2313,12 +2313,19 @@ Flow:
 One precise nuance on ranks (documented 2026-07-29 audit — the line
 above used to read "never recomputes ranks", which overstated it):
 `buildRows` assigns a display ordinal `computedConsensusRank = i + 1`
-after sorting (`dynasty-data.js:1366`) and uses it for `r.rank`
-(`:1378`) **only** when the backend stamped no `canonicalConsensusRank`
-on that row. In practice that is players past the backend's
-`OVERALL_RANK_LIMIT` (800) — rows the backend deliberately left
-unranked — and it is suppressed for picks and whenever a valuation
-overlay is active. A backend-stamped rank always wins.
+after sorting (`dynasty-data.js:1594`) and uses it for `r.rank`
+(`:1606`) **only** when the backend stamped no `canonicalConsensusRank`
+on that row. In practice that is two populations of non-pick rows the
+backend left unranked: players PRICED but past the rank limit
+(`OVERALL_RANK_LIMIT` = 800 counts pick rows too, so the highest stamped
+player rank is lower — 740 on the 2026-11-06 board; these carry
+`offCapPlayerValue: true` and a real `rankDerivedValue`), and players the
+board could NOT price at all (`rankDerivedValue: null`, mostly
+single-source K/DL/DB) — the second group is not "past a cutoff"
+(corrected 2026-11-06, audit W25-F003: 175 priced off-cap + 76 unpriced
+of 251 on the pinned archive). The ordinal is suppressed for picks and
+whenever a valuation overlay is active. A backend-stamped rank always
+wins.
 
 This is a display ordinal for otherwise-unnumbered rows, not a ranking
 engine: no value is recomputed and the sort key is the backend's

@@ -227,6 +227,19 @@ export default function TeamPhasePanel() {
         defaultSort={{ key: "totalValue", direction: "desc" }}
       />
 
+      {analysis.partnerships.length === 0 && (
+        // W20-F008: an empty partner list used to render nothing at all, so
+        // "no rebuilder exists" and "the block is broken" looked identical.
+        // Say which side of the pairing is missing; the classification rule
+        // itself (strict below-median age) is unchanged.
+        <p className="muted" style={{ fontSize: "0.74rem", marginTop: "var(--space-3)" }}>
+          No trade partners to suggest right now:{" "}
+          {analysis.teams.some((t) => t.phase.key === "rebuild")
+            ? "the league has no Win-now or Contender team to pair with its rebuilders."
+            : "the league has no Rebuild team (Team Strength at or below the league median with a core younger than the league median), so there is no win-now ↔ rebuild pairing."}
+        </p>
+      )}
+
       {myPartnerships.length > 0 && (
         <div style={{ marginTop: "var(--space-3)" }}>
           <strong style={{ fontSize: "0.84rem" }}>Natural trade partners for you</strong>
