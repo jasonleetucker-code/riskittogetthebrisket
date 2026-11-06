@@ -21,7 +21,8 @@ approval. Owner-only consequential gates are unchanged.
 6. `CLAUDE.md` — **legacy filename, universal technical runbook for every model**. Its filename is historical; its technical invariants and architecture guidance are not Claude-only.
 7. Relevant architecture/ADR/domain docs and live code.
 8. For engineering-system improvements, read `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
-9. **Only for unattended/recurrent site-steward design or operation**, read `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`. Do not preload that long-term vision into ordinary feature sessions.
+9. For every material code change or QA audit, apply the permanent cross-model feature-intent / regression requirements in `docs/AGENT_OPERATING_SYSTEM.md` §3 and `docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md`; reuse existing CI/fixtures and distinguish regression correctness from predictive skill.
+10. **Only for unattended/recurrent site-steward design or operation**, read `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`. Do not preload that long-term vision into ordinary feature sessions.
 
 ## Three-month owner conversation-detail audit — 2026-10-30
 
