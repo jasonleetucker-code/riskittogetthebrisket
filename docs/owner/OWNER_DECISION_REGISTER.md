@@ -204,20 +204,58 @@ Record: `docs/owner/CHASE_UPSIDE_MASTER_DIRECTIVE_DECISIONS_2026-11-01.md`. Inta
 | `ODR-UX-2031-2032` | Platform | Finish #2031 (iPhone owner sign-in) and #2032 (streaming nav)? | **Approved** through ordinary gates — decision 8 | — | — | DECIDED | #2031, #2032 | review, CI, merge, deploy, verify |
 | `ODR-ODDS-WORDING` | Power & playoff odds | Wording for unvalidated playoff / championship estimates? | **"Experimental projection — not yet calibrated against this league's historical outcomes."** where accurate; no math change — decision 9 | `docs/league-intelligence/SIM_CALIBRATION_*_RESULTS_*` | — | DECIDED | — | apply on every uncalibrated odds surface |
 
+### Sitewide remediation directive (2026-11-06)
+
+Record: `docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md` §8 (Owner directive 2026-11-06 Part 16). Intake MD-38 … MD-46. Each decision binds only its stated scope; decisions the agent made under the delegated authority are in `docs/audits/remediation_2026-11-06/DECISIONS.md`, not here.
+
+| ID | family | question | decision | evidence | risk / impact | status | PR / tests | remaining action |
+|---|---|---|---|---|---|---|---|---|
+| `ODR-SR-RC-RECHECK` | Roster Construction | Reactivate / rebuild Roster Construction? | Already authorized and verified; recheck production, never reactivate blindly | MD-37 parity 84/84; owner observed the page on production, desktop + mobile, 2026-11-03; live flag ON 2026-11-06 | — | PRODUCTION_VERIFIED | #2040 #2041 #2044 #2058 | recheck in CW-23 |
+| `ODR-SR-HIST-SLOTS` | Roster Construction | Infer 2025/2024 slots? | Never as production fact; explicit unavailable state | ODR-RC-2025-SLOTS | inventing history | DECIDED | — | — |
+| `ODR-SR-RC-NAV` | Roster Construction | Where does Roster Construction live? | Authenticated My Team, capability-gated | #2044; owner observed My Team → Roster → Roster Construction on production, desktop + mobile, 2026-11-03 (MD-37) | — | PRODUCTION_VERIFIED | #2044 #2057 | — |
+| `ODR-SR-STREAM-BUDGET` | Waivers | Default dynasty-loss budget? | 0 net dynasty loss via canonical release cost | ODR-STREAMING-BUDGET | — | DECIDED | — | CW-18 |
+| `ODR-SR-UNPRICED` | Waivers | Unpriced assets in drop logic? | Never a free drop | missing ≠ 0 | free-cut recommendations | DECIDED | — | CW-18 |
+| `ODR-SR-KICKERS` | Waivers | Kicker valuation? | League-scored projected lineup contribution; no invented dynasty value | decision 7 | — | DECIDED | — | CW-18 |
+| `ODR-SR-IDP-DEF-TD` | Scoring | IDP defensive TDs? | Canonical scorer + actual league settings only | — | — | DECIDED | — | CW-08 |
+| `ODR-SR-EDGE-PROTECT` | Waivers | Developmental edge-rusher protection? | Evidence-based, no blanket position exemption | — | — | DECIDED | — | CW-18 |
+| `ODR-SR-BOUNDED` | Optimizers | Bounded search wording? | Disclose incompleteness; never claim optimality | — | — | DECIDED | — | CW-18 CW-25 |
+| `ODR-SR-PW-WORDING` | Waivers | Perfect Waivers 'Proven optimal'? | State objective, horizon, constraints, search scope | MD-36 | overclaiming | DECIDED | — | CW-25 |
+| `ODR-SR-MC-WINRATE` | Trade | Trade Monte Carlo win rate? | Hide probability framing until real per-asset bands exist | AMATH-S12: 0/1093 rows with a real valueBand | false certainty | DECIDED | — | CW-19 |
+| `ODR-SR-ARBITRAGE` | Trade | Finder 'arbitrage' label? | 'Disagreement' until convergence is proven | AMATH-S10 | — | DECIDED | — | CW-21 |
+| `ODR-SR-SINGLE-SOURCE` | Rankings & sources | x0.30 single-source haircut? | Validated shadow challenge only; no auto-promotion | AMATH-S02 | — | DECIDED | — | CW-30 |
+| `ODR-SR-FAIRNESS` | Trade | Change fairness bands? | OD-F4 evidence protocol first | AMATH-S14 | — | DECIDED | — | CW-22 |
+| `ODR-SR-DLF-IDP` | Rankings & sources | Release the DLF IDP hold? | Retain until release gates show justified improvement | ODR-IDP-SOURCE-AUTHORITY | — | DECIDED | — | CW-13 |
+| `ODR-SR-FRESH-V2` | Rankings & sources | Freshness v2? | OFF until correctness + blast-radius tests pass | owner 2026-10-20 | — | DECIDED | — | CW-13 |
+| `ODR-SR-OUTLIER-V2` | Rankings & sources | Outlier Integrity V2? | Research/validate; no unconditional activation | #1884 | — | DECIDED | #1884 | CW-13 |
+| `ODR-SR-ADVISOR` | Trade | Public Trade Advisor? | OFF until security, licensing, privacy, production gates pass | ODR-ADVISOR-FLOOR | — | DECIDED | — | CW-06 |
+| `ODR-SR-WARROOM` | Trade | Multi-team War Room? | Finish validation; private enable on existing release criteria | flag OFF | — | DECIDED | — | CW-20 |
+| `ODR-SR-FORECASTS` | Projections | Forecast model promotion? | Only through prospective independent evidence | MD-30 prereg | — | DECIDED | #2048 #2065 | CW-16 |
+| `ODR-SR-GAMEDAY-PROB` | Game Day | Game Day probabilities? | Experimental until outcome-calibrated | decision 9 | — | DECIDED | — | CW-17 |
+| `ODR-SR-DRO` | Waivers | DRO / CVaR streaming? | Defer until forecasts justify it | AMATH-S51 | — | DECIDED | — | CW-44 |
+| `ODR-SR-ACCEPT-PROB` | Trade | Trade acceptance probability? | Never from accepted-only observations | AMATH-S08 | — | DECIDED | — | CW-22 |
+| `ODR-SR-AUCTION` | Rookie auction | Rookie auction? | Complete preparation; official launch is a separate event | — | — | DECIDED | #2063 | CW-38 |
+| `ODR-SR-MEDIAN-RULE` | Draft order | Historical median-game rule? | Authoritative source, else provisional/unknown | — | — | DECIDED | — | CW-38 |
+| `ODR-SR-IA` | Platform | Homepage / mobile IA? | Task-oriented nav, in-season Game Day visibility, stable URLs | UX audit #2051 | — | DECIDED | — | CW-27 |
+| `ODR-SR-PAUSED` | Programs | League Tycoon and DFS? | Remain paused | owner 2026-10-18 | — | OWNER_PAUSED | — | — |
+| `ODR-SR-SPEND` | Sources | Paid sources? | No new spending | — | — | DECIDED | — | — |
+| `ODR-SR-LICENSING` | Sources | Automated/public source use? | Only with legitimate permission | — | — | DECIDED | — | — |
+| `ODR-SR-PRIVATE-HIST` | Privacy | Private historical data? | Keep private; anonymize public research | — | — | DECIDED | — | — |
+| `ODR-SR-LIVE-MODEL` | Models | Live model changes? | Measured independent benefit, gates, rollback, release evidence | — | — | DECIDED | — | — |
+
 ## Counts
 
-<!-- counts: generated from the tables above when this file was written; recount if rows change -->
+<!-- counts: generated from the tables above when this file was written; recount if rows change. A composite status (e.g. `SUPERSEDED → DECIDED`) counts as its final state. Recounted 2026-11-06. -->
 | status | rows |
 |---|---:|
-| `DECIDED` | 20 |
-| `IMPLEMENTED` | 0 |
+| `DECIDED` | 50 |
+| `IMPLEMENTED` | 1 |
 | `MERGED` | 0 |
 | `DEPLOYED` | 17 |
-| `PRODUCTION_VERIFIED` | 0 |
-| `EVIDENCE_PENDING` | 6 |
-| `HUMAN_ACTION_REQUIRED` | 17 |
-| `OWNER_PAUSED` | 14 |
-| **total** | **74** |
+| `PRODUCTION_VERIFIED` | 2 |
+| `EVIDENCE_PENDING` | 4 |
+| `HUMAN_ACTION_REQUIRED` | 16 |
+| `OWNER_PAUSED` | 15 |
+| **total** | **105** |
 
 ## Where each stale record was closed (in place)
 
