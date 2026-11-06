@@ -2785,7 +2785,7 @@ function BestValueOnBoard({ stats, onDraft, onCycleTag }) {
   );
 }
 
-function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
+export function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
   const top = useMemo(() => nextBestTargets(stats, { limit: 5 }), [stats]);
 
   if (top.length === 0) {
@@ -2795,6 +2795,14 @@ function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
         <div className="muted" style={{ fontSize: "0.72rem" }}>
           Nothing to flag yet — tag a few players as <strong>★ target</strong>{" "}
           to seed EV ranking.
+          <div data-testid="nbt-empty-reason" style={{ marginTop: 4 }}>
+            No undrafted player clears this panel&apos;s per-player gate at the
+            current budget (value above your winning bid, plus scarcity or a
+            target tag). That means this panel has nothing to show, not that
+            no rookie is worth buying — the <strong>Perfect Draft</strong>{" "}
+            panel below, when available, ranks the best combination of rookies
+            for your budget.
+          </div>
         </div>
       </Panel>
     );

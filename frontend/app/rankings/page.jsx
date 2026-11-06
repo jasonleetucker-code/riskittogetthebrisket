@@ -45,7 +45,7 @@ import {
   confBadgeClass as confidenceBadgeClass,
   confBadgeLabel as confidenceBadgeLabel,
   marketEdge,
-  marketAction,
+  marketActionDisclosed,
   isEligibleForBoard,
 } from "@/lib/display-helpers";
 import {
@@ -1297,7 +1297,7 @@ export default function RankingsPage() {
         headerInfo:
           "Market edge: retail (KTC) vs expert consensus. Always rendered with an explicit state — never an ambiguous dash.",
         render: (row) => {
-          const action_ = marketAction(row);
+          const action_ = marketActionDisclosed(row);
           return (
             <span className={`edge-label ${action_.css}`} title={action_.title}>
               {action_.label}
@@ -2046,11 +2046,12 @@ export default function RankingsPage() {
                 <Select
                   value={adv.edge ?? ""}
                   onChange={(e) => setAdvField("edge", e.target.value)}
-                  aria-label="Market edge direction"
+                  aria-label="Market edge direction (offense only; IDP is not covered, see /edge)"
+                  title="Edge filters cover offense only: KTC Market prices no IDP players. See /edge for IDP."
                 >
                   <option value="">Any edge</option>
-                  <option value="buy">Buy edge</option>
-                  <option value="sell">Sell edge</option>
+                  <option value="buy">Buy edge (offense only)</option>
+                  <option value="sell">Sell edge (offense only)</option>
                 </Select>
                 <label className={styles.advCheck}>
                   <input
