@@ -83,7 +83,8 @@ def test_ros_refresh_non_admin_is_refused_and_runs_nothing(client, ros_runs):
     could start a scrape.
     """
     res = client.post("/api/ros/refresh", json={}, headers=_cookie(OTHER))
-    assert res.status_code in (401, 403)
+    assert res.status_code == 403
+    assert res.json().get("error") == "admin_required"
     assert ros_runs == []
 
 
@@ -346,6 +347,49 @@ def test_sharp_audit_error_mapping(client, sharp_audit):
 # backend module so the pattern cannot return anywhere.
 
 
+def _gate_name(call: object) -> str:
+    import ast
+
+    if not isinstance(call, ast.Call):
+        return ""
+    fn = call.func
+    return fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+
+
+def _truthiness_offenders(tree, rel: str) -> list[str]:
+    """Boolean tests of the admin gate's result: ``if not _require_admin_session(...)``
+    directly, or through a name assigned from it in the same scope
+    (``gate = _require_admin_session(...); if not gate:``).  An ``isinstance`` check
+    is the only correct consumer."""
+    import ast
+
+    offenders: list[str] = []
+    scopes = [
+        tree,
+        *(n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))),
+    ]
+    for scope in scopes:
+        body_nodes = (
+            list(ast.walk(scope)) if scope is not tree else list(ast.iter_child_nodes(scope))
+        )
+        gated: set[str] = set()
+        for node in body_nodes:
+            if isinstance(node, ast.Assign) and _gate_name(node.value) == "_require_admin_session":
+                gated |= {t.id for t in node.targets if isinstance(t, ast.Name)}
+        for node in body_nodes:
+            if not isinstance(node, (ast.If, ast.IfExp, ast.While, ast.Assert, ast.BoolOp)):
+                continue
+            tests = node.values if isinstance(node, ast.BoolOp) else [node.test]
+            for test in tests:
+                if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+                    test = test.operand
+                if _gate_name(test) == "_require_admin_session" or (
+                    isinstance(test, ast.Name) and test.id in gated
+                ):
+                    offenders.append(f"{rel}:{node.lineno}")
+    return sorted(set(offenders))
+
+
 def _admin_gate_truthiness_tests() -> list[str]:
     import ast
     from pathlib import Path
@@ -358,20 +402,24 @@ def _admin_gate_truthiness_tests() -> list[str]:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError):
             continue
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.If, ast.IfExp, ast.While, ast.Assert, ast.BoolOp)):
-                continue
-            tests = node.values if isinstance(node, ast.BoolOp) else [node.test]
-            for test in tests:
-                if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
-                    test = test.operand
-                if not isinstance(test, ast.Call):
-                    continue
-                fn = test.func
-                name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
-                if name == "_require_admin_session":
-                    offenders.append(f"{path.relative_to(root)}:{node.lineno}")
+        offenders += _truthiness_offenders(tree, str(path.relative_to(root)))
     return offenders
+
+
+def test_truthiness_detector_catches_direct_and_assigned_forms():
+    import ast
+
+    direct = "def f(r):\n    if not _require_admin_session(r):\n        return 1\n"
+    assigned = (
+        "def f(r):\n    gate = _require_admin_session(r)\n    if not gate:\n        return 1\n"
+    )
+    correct = (
+        "def f(r):\n    gate = _require_admin_session(r)\n"
+        "    if isinstance(gate, JSONResponse):\n        return gate\n"
+    )
+    assert _truthiness_offenders(ast.parse(direct), "x.py")
+    assert _truthiness_offenders(ast.parse(assigned), "x.py")
+    assert _truthiness_offenders(ast.parse(correct), "x.py") == []
 
 
 def test_no_code_tests_the_admin_gate_for_truthiness():
