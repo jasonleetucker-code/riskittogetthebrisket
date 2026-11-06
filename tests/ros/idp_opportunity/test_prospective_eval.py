@@ -48,6 +48,7 @@ FROZEN_BASE = {
 def _facts(**kw) -> GitFacts:
     base = dict(
         receipt_commit_iso=(KICK_AAA - timedelta(days=2)).isoformat(),
+        receipt_last_commit_iso=(KICK_AAA - timedelta(days=2)).isoformat(),
         receipt_clean=True,
         frozen_blob_now=FP_BLOB,
         code_blobs_now=dict(RECEIPT["code"]),
@@ -87,6 +88,24 @@ def test_gate_refuses_no_receipt():
 def test_gate_refuses_uncommitted_receipt():
     g = _gate(git=_facts(receipt_clean=False))
     assert "receipt_not_committed" in g.refusals
+
+
+@pytest.mark.parametrize("delta", [timedelta(0), timedelta(seconds=1), timedelta(days=1)])
+def test_gate_refuses_receipt_edited_at_or_after_kickoff(delta):
+    """Added before kickoff but touched again at/after it: not the frozen receipt."""
+    g = _gate(git=_facts(receipt_last_commit_iso=(KICK_AAA + delta).isoformat()))
+    assert "receipt_modified_after_first_kickoff" in g.refusals
+    assert not g.ok
+
+
+def test_gate_refuses_unknown_last_modification():
+    g = _gate(git=_facts(receipt_last_commit_iso=None))
+    assert "receipt_last_modified_unknown" in g.refusals
+
+
+def test_gate_accepts_receipt_last_touched_before_kickoff():
+    g = _gate(git=_facts(receipt_last_commit_iso=(KICK_AAA - timedelta(seconds=1)).isoformat()))
+    assert "receipt_modified_after_first_kickoff" not in g.refusals
 
 
 @pytest.mark.parametrize("delta", [timedelta(0), timedelta(seconds=1), timedelta(days=1)])

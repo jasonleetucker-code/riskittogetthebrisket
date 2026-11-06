@@ -137,6 +137,10 @@ class GitFacts:
     frozen_blob_now: str | None
     code_blobs_now: Mapping[str, str | None]
     frozen_params_path_clean: bool = True
+    # Committer time of the LAST commit that touched the receipt file.  A receipt
+    # edited after kickoff (e.g. ``refit`` flipped) is not the receipt that was
+    # frozen, however early the file was first added.  ``None`` = not gathered.
+    receipt_last_commit_iso: str | None = None
 
 
 @dataclass
@@ -206,6 +210,14 @@ def verify_gate(
                 at = datetime.fromisoformat(git.receipt_commit_iso.replace("Z", "+00:00"))
                 if at.tzinfo is None or at >= first_kickoff:
                     g.refusals.append("receipt_commit_not_before_first_kickoff")
+                if git.receipt_last_commit_iso is None:
+                    g.refusals.append("receipt_last_modified_unknown")
+                else:
+                    last = datetime.fromisoformat(
+                        git.receipt_last_commit_iso.replace("Z", "+00:00")
+                    )
+                    if last.tzinfo is None or last >= first_kickoff:
+                        g.refusals.append("receipt_modified_after_first_kickoff")
     if receipt is not None and not retrospective:
         pinned = (receipt.get("frozenParams") or {}).get("blob")
         if not git.frozen_params_path_clean or git.frozen_blob_now != pinned:

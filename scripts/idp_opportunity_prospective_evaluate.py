@@ -66,6 +66,11 @@ def _added_at(path: str) -> str | None:
     return lines[-1] if lines else None
 
 
+def _last_modified_at(path: str) -> str | None:
+    """Committer time of the LATEST commit that touched ``path``, or None."""
+    return (_git("log", "-1", "--format=%cI", "--", path) or "").strip() or None
+
+
 def cmd_evaluate(args: argparse.Namespace) -> int:
     """Score the six models on a final week exactly as preregistered (DESCRIPTIVE per week)."""
     from src.public_league.metrics import host_lineups_open_from_week
@@ -139,6 +144,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     )
     facts = GitFacts(
         receipt_commit_iso=_added_at(rel_receipt),
+        receipt_last_commit_iso=_last_modified_at(rel_receipt),
         receipt_clean=receipt is not None
         and _git("ls-files", "--error-unmatch", rel_receipt) is not None
         and not _git("status", "--porcelain", "--", rel_receipt),
