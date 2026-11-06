@@ -40,6 +40,7 @@ __all__ = [
     "population",
     "run_season",
     "spearman",
+    "top_n_hit",
 ]
 
 FIRST_FIT_WEEK = 2
@@ -194,6 +195,9 @@ def _top_n_hit(rows: Sequence[Prediction], n: int) -> float | None:
     return len({r.pid for r in by_pred} & {r.pid for r in by_act}) / n
 
 
+top_n_hit = _top_n_hit  # public name for the prospective evaluation runner
+
+
 def metrics(rows: Sequence[Prediction], top_n: int) -> dict[str, Any]:
     """MAE, RMSE, bias, 80% coverage, mean weekly Spearman, mean weekly top-N hit."""
     n = len(rows)
@@ -265,7 +269,12 @@ def bootstrap_delta_mae(
     rng = random.Random(seed)
     k = len(players)
     draws = sorted(delta([rng.randrange(k) for _ in range(k)]) for _ in range(resamples))
+    # Two-sided percentile-bootstrap p-value (prospective preregistration §6); additive key.
+    n_le = sum(1 for d in draws if d <= 0.0)
+    n_ge = sum(1 for d in draws if d >= 0.0)
+    p_two = min(1.0, 2.0 * min((n_le + 1) / (resamples + 1), (n_ge + 1) / (resamples + 1)))
     out: dict[str, Any] = {
+        "pTwoSided": p_two,
         "deltaMae": point,
         "nRows": sum(t[2] for t in tot),
         "nPlayers": k,
