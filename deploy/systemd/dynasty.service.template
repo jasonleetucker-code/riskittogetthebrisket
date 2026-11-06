@@ -26,6 +26,9 @@ RestartSec=5
 TimeoutStartSec=180
 TimeoutStopSec=30
 Environment=PYTHONUNBUFFERED=1
+# Opt in to sweeping THIS service's cgroup for reparented Chromium (see
+# server.py _reap_orphan_browsers).  Never set outside a dedicated unit.
+Environment=SCRAPE_REAP_SERVICE_CGROUP=1
 EnvironmentFile=-__APP_DIR__/.env
 
 # ── Resource sanity ─────────────────────────────────────────────────

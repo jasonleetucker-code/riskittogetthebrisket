@@ -23,7 +23,8 @@ SELF = 4000
 def _proc(root: Path, pid: int, ppid: int, cmd: str, cgroup: str) -> None:
     d = root / str(pid)
     d.mkdir()
-    (d / "stat").write_text(f"{pid} (x y) S {ppid} 0 0\n", encoding="utf-8")
+    comm = "chrome" if cmd.split()[0].endswith("/chrome") else "python"
+    (d / "stat").write_text(f"{pid} ({comm}) S {ppid} 0 0\n", encoding="utf-8")
     (d / "cmdline").write_bytes(cmd.replace(" ", "\0").encode())
     (d / "cgroup").write_text(f"0::{cgroup}\n", encoding="utf-8")
 
@@ -38,6 +39,8 @@ def fake(tmp_path, monkeypatch):
     monkeypatch.setattr(proc_probe, "PROC_ROOT", str(proc))
     monkeypatch.setattr(proc_probe, "CGROUP_ROOT", cg)
     monkeypatch.setattr(os, "getpid", lambda: SELF)
+    monkeypatch.setenv("SCRAPE_REAP_SERVICE_CGROUP", "1")
+    monkeypatch.delenv("SYSTEMD_EXEC_PID", raising=False)
     kills: list[int] = []
     monkeypatch.setattr(server.os, "kill", lambda pid, sig: kills.append(pid))
     svcname = "/system.slice/dynasty.service"
@@ -47,7 +50,7 @@ def fake(tmp_path, monkeypatch):
     _proc(proc, 4300, 1, "python other.py", svcname)  # non-chromium service member
     _proc(proc, 5000, 1, CHROME, "/user.slice/session-3.scope")  # foreign chromium
     (svc / "cgroup.procs").write_text("4000\n4100\n4200\n4300\n", encoding="utf-8")
-    (svc / "memory.current").write_text("1000\n", encoding="utf-8")
+    (svc / "memory.current").write_text("1048576\n", encoding="utf-8")
     (svc / "memory.max").write_text("3221225472\n", encoding="utf-8")
     (svc / "pids.current").write_text("7\n", encoding="utf-8")
     (svc / "pids.max").write_text("max\n", encoding="utf-8")
@@ -82,8 +85,8 @@ def test_diagnostics_are_numbers_only(fake):
     d = proc_probe.service_diagnostics(SELF, tmp_dir=str(fake[1]), shm_dir=str(fake[1]))
     assert d["chromium_processes"] == 2
     assert d["chromium_reparented"] == 1
-    assert d["cgroup_memory_current_bytes"] == 1000
-    assert d["cgroup_memory_max_bytes"] == 3221225472
+    assert d["cgroup_memory_current_mib"] == 1
+    assert d["cgroup_memory_max_mib"] == 3072
     assert d["cgroup_pids_current"] == 7
     assert d["cgroup_pids_max"] is None  # "max" = unlimited, not a number
     assert all(v is None or isinstance(v, int) for v in d.values())
@@ -93,7 +96,7 @@ def test_diagnostics_never_raise_without_proc(monkeypatch, tmp_path):
     monkeypatch.setattr(proc_probe, "PROC_ROOT", str(tmp_path / "nope"))
     d = proc_probe.service_diagnostics(SELF)
     assert d["chromium_processes"] == 0
-    assert d["cgroup_memory_current_bytes"] is None
+    assert d["cgroup_memory_current_mib"] is None
 
 
 def test_prelaunch_reap_runs_inside_scrape_and_respects_switch(monkeypatch):
@@ -125,3 +128,74 @@ def test_prelaunch_reap_runs_inside_scrape_and_respects_switch(monkeypatch):
     monkeypatch.setattr(server, "SCRAPE_REAP_ORPHAN_BROWSERS", False)
     asyncio.run(server.run_scraper("test"))
     assert calls == []
+
+
+def test_no_opt_in_means_descendant_only(fake, monkeypatch):
+    _, _, kills = fake
+    monkeypatch.delenv("SCRAPE_REAP_SERVICE_CGROUP")
+    assert proc_probe.sweep_cgroup_dir(SELF) is None
+    assert server._reap_orphan_browsers(root_pid=SELF, include_service_cgroup=True) == 1
+    assert kills == [4100]
+
+
+def test_non_main_process_never_sweeps(fake, monkeypatch):
+    _, _, kills = fake
+    monkeypatch.setenv("SYSTEMD_EXEC_PID", "999")  # inherited from a parent service
+    assert proc_probe.sweep_cgroup_dir(SELF) is None
+    server._reap_orphan_browsers(root_pid=SELF, include_service_cgroup=True)
+    assert kills == [4100]
+    assert proc_probe.sweep_cgroup_dir(SELF + 1) is None  # not this process
+
+
+def test_e2e_runner_and_node_are_never_killed(fake):
+    proc, svc, kills = fake
+    cg = "/system.slice/dynasty.service"
+    _proc(
+        proc, 4400, SELF, "node /w/node_modules/.bin/playwright test --project=mobile-chromium", cg
+    )
+    _proc(proc, 4500, 1, "/usr/bin/node /x/playwright/cli.js test --headless chromium", cg)
+    _proc(proc, 4600, 1, "npx playwright test --project=mobile-chromium", cg)
+    (svc / "cgroup.procs").write_text("4000\n4100\n4200\n4400\n4500\n4600\n", encoding="utf-8")
+    server._reap_orphan_browsers(root_pid=SELF, include_service_cgroup=True)
+    assert sorted(kills) == [4100, 4200]
+
+
+@pytest.mark.parametrize(
+    "cmd",
+    [
+        "node playwright test --project=mobile-chromium",
+        "npx playwright test --headless",
+        "/usr/bin/node /x/chromium-runner.js --headless",
+        "python -m pytest --headless chrome",
+    ],
+)
+def test_predicate_rejects_runners(cmd):
+    assert not proc_probe.looks_like_playwright_chromium(cmd)
+
+
+def test_predicate_accepts_headless_shell():
+    assert proc_probe.looks_like_playwright_chromium(
+        "/r/.cache/ms-playwright/chromium_headless_shell-1/chrome-linux/headless_shell --headless"
+    )
+
+
+def test_blocked_probe_returns_nulls_within_timeout(monkeypatch):
+    import threading
+    import time
+
+    gate = threading.Event()
+    monkeypatch.setattr(proc_probe, "service_diagnostics", lambda pid: gate.wait(10) or {})
+    t0 = time.monotonic()
+    out = server._box_diagnostics(timeout=0.2)
+    assert time.monotonic() - t0 < 2
+    assert out == proc_probe.empty_service_diagnostics()
+    assert all(v is None for v in out.values())
+    gate.set()
+
+
+def test_box_at_failure_has_captured_at(monkeypatch):
+    monkeypatch.setattr(server, "_box_diagnostics", lambda: {"chromium_processes": 0})
+    server._mark_scrape_failure(RuntimeError("x"), 1.0)
+    snap = server.scrape_status["box_at_failure"]
+    assert snap["chromium_processes"] == 0
+    assert snap["capturedAt"].startswith("20")

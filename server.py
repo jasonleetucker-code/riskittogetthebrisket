@@ -1630,6 +1630,8 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
     failed_step = scrape_status.get("current_step")
     failed_source = scrape_status.get("current_source")
     box = _box_diagnostics()
+    # Own timestamp so a snapshot left behind by a later success is identifiable.
+    box_at_failure = {**box, "capturedAt": _utc_now_iso()}
     scrape_status.update(
         {
             "running": False,
@@ -1640,7 +1642,7 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
             "last_duration_sec": round(elapsed, 1),
             "error": error_text,
             "current_step": "failed",
-            "box_at_failure": box,
+            "box_at_failure": box_at_failure,
         }
     )
     _touch_scrape_heartbeat()
@@ -1749,12 +1751,40 @@ def _reap_orphan_browsers(
         return 0
 
 
-def _box_diagnostics() -> dict:
-    """Numbers-only service-resource snapshot (public-safe).  Never raises."""
+_BOX_PROBE_TIMEOUT_SEC = 2.0
+_BOX_PROBE_STATUS_TIMEOUT_SEC = 0.5
+
+
+def _box_diagnostics(timeout: float | None = None) -> dict:
+    """Numbers-only service-resource snapshot (public-safe).  Never raises.
+
+    The /proc walk runs in a daemon worker thread and is abandoned after
+    ``timeout`` seconds: a probe that does not answer yields all-null fields
+    instead of blocking the event loop (health/status must never hang on it).
+    """
+    wait = _BOX_PROBE_TIMEOUT_SEC if timeout is None else timeout
+    box: dict = _proc_probe.empty_service_diagnostics()
+    done = threading.Event()
+
+    def _work() -> None:
+        try:
+            box.update(_proc_probe.service_diagnostics(os.getpid()))
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            done.set()
+
     try:
-        return _proc_probe.service_diagnostics(os.getpid())
+        threading.Thread(target=_work, name="box-probe", daemon=True).start()
+        if not done.wait(wait):
+            return _proc_probe.empty_service_diagnostics()
+        return dict(box)
     except Exception:  # noqa: BLE001
-        return {}
+        return _proc_probe.empty_service_diagnostics()
+
+
+def _box_diagnostics_for_status() -> dict:
+    return _box_diagnostics(_BOX_PROBE_STATUS_TIMEOUT_SEC)
 
 
 _scrape_sampler_proc = None
@@ -6568,7 +6598,7 @@ def _status_content() -> dict:
         "build": {**PROCESS_BUILD, "release": dict(PROCESS_RELEASE)},
         # Numbers-only service-resource snapshot (Chromium count, cgroup
         # memory/pids vs limits, free /dev/shm + temp bytes); memoized 30s.
-        "box_resources": _disk_probe_memo("box_resources", _box_diagnostics),
+        "box_resources": _disk_probe_memo("box_resources", _box_diagnostics_for_status),
         "contract": {
             "version": API_DATA_CONTRACT_VERSION,
             "health": contract_health,
