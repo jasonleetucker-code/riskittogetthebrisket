@@ -38,7 +38,9 @@ _IDX = LEVELS.index
 
 def test_config_pins_the_oracle_parameters() -> None:
     cfg = json.loads(
-        (Path(__file__).resolve().parents[2] / "config/confidence/gate_v1.json").read_text()
+        (Path(__file__).resolve().parents[2] / "config/confidence/gate_v1.json").read_text(
+            encoding="utf-8"
+        )
     )["parameters"]
     got = {k: v["value"] for k, v in cfg.items()}
     assert got == {
