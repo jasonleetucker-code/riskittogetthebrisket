@@ -113,10 +113,14 @@ export function _renderPlainSummary(result, sides, sidesSend = false) {
     // Sensitivity-only copy: NO percentage of simulations, no winner /
     // favored / probability language.
     const bigger = meanDeltaRaw > 0 ? "A" : "B";
+    // The simulator compares totals AFTER the package (Value Adjustment)
+    // model when the request applied it, so the label says so: a
+    // VA-adjusted gap must never read as a raw total.
+    const total = result?.vaAdjustment?.applied ? "package-adjusted total" : "total";
     const deltaLine =
       Math.abs(meanDeltaRaw) < 100
         ? "On average, the two sides are within 100 points of each other."
-        : `On average, Side ${bigger}'s total was ${Math.abs(meanDeltaRaw).toLocaleString()} points bigger.`;
+        : `On average, Side ${bigger}'s ${total} was ${Math.abs(meanDeltaRaw).toLocaleString()} points bigger.`;
     const r = result.deltaRange || {};
     let rangeLine;
     if (typeof r.p10 === "number" && typeof r.p90 === "number") {
@@ -364,6 +368,7 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
           </div>
           <div style={{ fontSize: "0.85rem", marginBottom: 4 }}>
             {summary.deltaLine}
+            {summary.illustrative && vaText ? ` ${vaText}` : ""}
           </div>
           <div
             data-testid="mc-scope-note"

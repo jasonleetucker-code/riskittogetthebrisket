@@ -107,6 +107,21 @@ describe("the result states what it is", () => {
     );
   });
 
+  it("labels a package-adjusted gap as adjusted, beside the adjustment it includes", async () => {
+    mockResult({ vaAdjustment: { side: 1, value: 1234, effectiveValue: 1234, applied: true } });
+    await run();
+    const body = document.body.textContent;
+    expect(body).toMatch(/Side A's package-adjusted total was 900 points bigger\. It includes our package adjustment/);
+  });
+
+  it("calls the gap a plain total only when no adjustment was applied", async () => {
+    mockResult();
+    await run();
+    const body = document.body.textContent;
+    expect(body).toMatch(/Side A's total was 900 points bigger/);
+    expect(body).not.toMatch(/package-adjusted/);
+  });
+
   it("drops the assumed-range wording when every band is measured", async () => {
     mockResult({ bandSources: { stamped_value_band: 2 } });
     await run();

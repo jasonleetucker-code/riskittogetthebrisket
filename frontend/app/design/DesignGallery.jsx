@@ -517,7 +517,7 @@ export default function DesignGallery() {
       <div className={`${styles.grid} ${styles.cols2}`}>
         <Panel flush title="Empty state">
           <EmptyState
-            title="No arbitrage found"
+            title="No market disagreement found"
             description="When board value and market value disagree by enough to act on, opportunities appear here."
             action={<Button variant="secondary" size="sm">Adjust thresholds</Button>}
           />
