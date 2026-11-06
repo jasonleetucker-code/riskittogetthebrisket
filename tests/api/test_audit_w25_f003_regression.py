@@ -79,6 +79,10 @@ def test_max_stamped_player_rank_is_below_the_published_limit():
 
 @pytest.mark.xfail(
     strict=True,
+    # Only the defect assertion may be the expected failure: if the anchor
+    # sentence is reworded, ``str.index`` raises ValueError and the test FAILS
+    # loudly instead of staying a silent xfail forever (review of #2100).
+    raises=AssertionError,
     reason="W25-F003 OPEN: CLAUDE.md still attributes all rank-less rows to the 800 limit",
 )
 def test_claude_md_names_the_unpriced_population():
