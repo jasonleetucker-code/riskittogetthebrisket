@@ -15236,15 +15236,19 @@ def _store_public_contract_bytes(snapshot, contract, key=None, started_at=None) 
 
 def _stale_public_contract_bytes(snapshot) -> bytes | None:
     """The newest memoized contract bytes of the snapshot's lineage, whatever
-    their generation or age (stale-while-revalidate, below), or ``None``."""
+    their generation, while inside the staleness bound (stale-while-
+    revalidate, below), or ``None``."""
     key = _public_contract_cache_key(snapshot)
     with _PUBLIC_CONTRACT_BYTES_LOCK:
         candidates = [
-            (entry[1], entry[0])
+            (entry[1], entry_key, entry[0])
             for entry_key, entry in _PUBLIC_CONTRACT_BYTES_CACHE.items()
             if _public_memo_same_lineage(entry_key, key)
         ]
-    return max(candidates, key=lambda c: c[0])[1] if candidates else None
+    if not candidates:
+        return None
+    started_at, entry_key, raw = max(candidates, key=lambda c: c[0])
+    return raw if _public_memo_stale_servable(entry_key, key, started_at) else None
 
 
 # ── Stale-while-revalidate for the per-generation response memos ─────
@@ -15277,26 +15281,58 @@ def _stale_public_contract_bytes(snapshot) -> bytes | None:
 # file results under each memo's existing newer-build-wins rule.  A job in
 # flight longer than ``_PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS`` stops
 # suppressing a replacement (a thread cannot be killed; its late result
-# still cannot displace a newer build).  A failed job keeps the last good
+# still cannot displace a newer build) -- but at most ONE such abandoned
+# (timed-out, still alive) job per memo: while it lives, a second timeout
+# starts nothing and the last good entry keeps serving
+# (``memo_refresh_skipped_abandoned``), so a hung build path cannot pile up
+# threads that each hold a whole snapshot.  A failed job keeps the last good
 # entry, logs ``memo_refresh_failed`` and holds retries off for the
-# snapshot's failure cooldown; an error is never filed as data.
+# snapshot's failure cooldown; an error is never filed as data, and a
+# superseded (abandoned) job's late outcome neither sets nor clears that
+# cooldown -- it belongs to the job that replaced it.
 #
-# Only a TRUE cold start -- no entry of this lineage at all -- builds on the
+# Staleness is bounded (stale != current): an entry whose build started more
+# than ``_PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS`` ago is never served stale.
+# If every refresh keeps failing, the request falls through to the cold path
+# below and answers exactly as with no entry at all -- a 503 when that build
+# fails too -- instead of serving one old build forever.
+#
+# Only a TRUE cold start -- no servable entry of this lineage -- builds on the
 # request path, single-flighted so concurrent callers wait on one build.  A
 # new VORP calc version is a cold start on purpose: that key part exists so
 # a pre-fix payload is never served after the formula changes.  An
-# authorized ``?refresh`` (B8) still bypasses the memos and builds inline.
-# No staleness marker is added to any response: public payloads are
+# authorized ``?refresh`` (B8) still bypasses the stale serve and builds
+# inline.  No staleness marker is added to any response: public payloads are
 # allowlisted, pre-encoded shapes and the snapshot layer's SWR has never
 # marked them either; the ``memo_*`` counters report it instead.
+#
+# Known race, pre-existing and NOT fixed here: newer-build-wins orders builds
+# by START time, not by snapshot generation.  A request handed the previous
+# snapshot (snapshot SWR) can kick a job that starts after the next snapshot's
+# rebuild seeded the memos; that job then files the older generation over the
+# newer one (on main the inline miss build did the same).  It self-heals --
+# the next request's key no longer matches, so it is served stale and
+# revalidated once more -- at the cost of one extra build.
 
 #: How long one background memo job may run before it no longer blocks a
 #: replacement.  Generous: a full contract build is seconds when healthy.
 _PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS: float = float(
     os.getenv("PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS", "120")
 )
-_public_memo_refresh_inflight: dict = {}  # job -> (claim token, monotonic start)
+#: The oldest memo entry (by build start) that may still be served stale.
+#: Reuses the repo's scrape-cadence staleness rule, ``SCRAPE_INTERVAL_HOURS *
+#: 3`` (6 h) -- the same budget as ``/api/status``'s ``data_stale`` and the
+#: draft-capital last-valid-board fallback -- rather than a new number.
+_PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS: float = float(
+    os.getenv("PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS", str(float(SCRAPE_INTERVAL_HOURS) * 3 * 3600))
+)
+# job -> (claim token, monotonic start, worker thread)
+_public_memo_refresh_inflight: dict = {}
+# job -> the worker thread of the ONE timed-out job allowed to still be alive
+_public_memo_refresh_abandoned: dict = {}
 _public_memo_refresh_failed_at: dict = {}  # job -> monotonic time of the last failure
+# Guards the three dicts above AND the ``memo_*`` metric counters.  Never
+# held while calling ``_bump_public_metric`` (it takes the lock itself).
 _public_memo_refresh_lock = threading.Lock()
 
 
@@ -15306,7 +15342,8 @@ def _public_memo_same_lineage(entry_key, key) -> bool:
     Same league -- ``root_league_id``, element 0 of every memo key, and never
     empty -- and, for the 4-part contract keys, the same VORP calc version
     (element 3).  Only the generation (``generated_at`` /
-    ``latest_data_etag``) may differ.
+    ``latest_data_etag``) may differ.  Age is the caller's second test
+    (``_public_memo_stale_servable``).
     """
     if not isinstance(entry_key, tuple) or not isinstance(key, tuple):
         return False
@@ -15315,8 +15352,17 @@ def _public_memo_same_lineage(entry_key, key) -> bool:
     return len(key) < 4 or entry_key[3] == key[3]
 
 
+def _public_memo_stale_servable(entry_key, key, started_at: float) -> bool:
+    """Same lineage AND built inside the staleness bound: may be served stale."""
+    return (
+        _public_memo_same_lineage(entry_key, key)
+        and (time.monotonic() - started_at) < _PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS
+    )
+
+
 def _bump_public_metric(name: str) -> None:
-    _public_league_metrics[name] = _public_league_metrics.get(name, 0) + 1
+    with _public_memo_refresh_lock:
+        _public_league_metrics[name] = _public_league_metrics.get(name, 0) + 1
 
 
 def _public_memo_job_running(job: str, now: float) -> bool:
@@ -15328,39 +15374,31 @@ def _public_memo_job_running(job: str, now: float) -> bool:
 def _kick_public_memo_refresh(job: str, build, *, covered_by: tuple[str, ...] = ()) -> bool:
     """Start ``build`` on a daemon thread unless ``job`` (or a job in
     ``covered_by``, whose build refreshes this memo too) is already running,
-    or ``job`` failed inside the failure cooldown.  Never blocks and never
-    raises; returns whether a job started."""
-    now = time.monotonic()
-    with _public_memo_refresh_lock:
-        if any(_public_memo_job_running(name, now) for name in (job, *covered_by)):
-            _bump_public_metric("memo_refresh_suppressed")
-            return False
-        failed_at = _public_memo_refresh_failed_at.get(job)
-        if failed_at is not None and (now - failed_at) < _PUBLIC_LEAGUE_FAILURE_COOLDOWN_SECONDS:
-            _bump_public_metric("memo_refresh_suppressed")
-            return False
-        abandoned = _public_memo_refresh_inflight.get(job)
-        token = object()
-        _public_memo_refresh_inflight[job] = (token, now)
-    if abandoned is not None:
-        _bump_public_metric("memo_refresh_timed_out")
-        _log_public_league_event(
-            "memo_refresh_timed_out", job=job, running_seconds=round(now - abandoned[1], 1)
-        )
+    ``job`` failed inside the failure cooldown, or ``job``'s claim timed out
+    while an earlier abandoned ``job`` is still alive.  Never blocks and
+    never raises; returns whether a job started."""
+    token = object()
 
     def _worker():
+        def _owns_claim() -> bool:
+            # Caller holds the lock.  False once a replacement took over.
+            claim = _public_memo_refresh_inflight.get(job)
+            return claim is not None and claim[0] is token
+
         started = time.monotonic()
         try:
             build()
         except Exception as exc:  # noqa: BLE001 — the last good entry keeps serving
             with _public_memo_refresh_lock:
-                _public_memo_refresh_failed_at[job] = time.monotonic()
+                if _owns_claim():
+                    _public_memo_refresh_failed_at[job] = time.monotonic()
             _bump_public_metric("memo_refresh_failures")
             _log_public_league_event("memo_refresh_failed", job=job, error=str(exc))
             logging.warning("Background public_league memo refresh %s failed: %s", job, exc)
         else:
             with _public_memo_refresh_lock:
-                _public_memo_refresh_failed_at.pop(job, None)
+                if _owns_claim():
+                    _public_memo_refresh_failed_at.pop(job, None)
             _log_public_league_event(
                 "memo_refresh_complete",
                 job=job,
@@ -15368,12 +15406,42 @@ def _kick_public_memo_refresh(job: str, build, *, covered_by: tuple[str, ...] = 
             )
         finally:
             with _public_memo_refresh_lock:
-                claim = _public_memo_refresh_inflight.get(job)
-                if claim is not None and claim[0] is token:
+                if _owns_claim():
                     del _public_memo_refresh_inflight[job]
 
+    thread = threading.Thread(target=_worker, name=f"public-league-memo-{job}", daemon=True)
+    now = time.monotonic()
+    refused = None
+    with _public_memo_refresh_lock:
+        if any(_public_memo_job_running(name, now) for name in (job, *covered_by)):
+            refused = "memo_refresh_suppressed"
+        else:
+            failed_at = _public_memo_refresh_failed_at.get(job)
+            if (
+                failed_at is not None
+                and (now - failed_at) < _PUBLIC_LEAGUE_FAILURE_COOLDOWN_SECONDS
+            ):
+                refused = "memo_refresh_suppressed"
+        timed_out = None if refused else _public_memo_refresh_inflight.get(job)
+        if timed_out is not None:
+            previous = _public_memo_refresh_abandoned.get(job)
+            if previous is not None and previous.is_alive():
+                refused = "memo_refresh_skipped_abandoned"
+            else:
+                _public_memo_refresh_abandoned[job] = timed_out[2]
+        if refused is None:
+            _public_memo_refresh_inflight[job] = (token, now, thread)
+    if refused is not None:
+        _bump_public_metric(refused)
+        return False
+    if timed_out is not None:
+        _bump_public_metric("memo_refresh_timed_out")
+        _log_public_league_event(
+            "memo_refresh_timed_out", job=job, running_seconds=round(now - timed_out[1], 1)
+        )
+
     try:
-        threading.Thread(target=_worker, name=f"public-league-memo-{job}", daemon=True).start()
+        thread.start()
     except Exception as exc:  # noqa: BLE001 — e.g. no thread can be started; stale still serves
         with _public_memo_refresh_lock:
             claim = _public_memo_refresh_inflight.get(job)
@@ -15449,10 +15517,10 @@ def _memoized_overview(key):
 
 
 def _stale_overview(key):
-    """The memoized overview of ``key``'s lineage, whatever its generation
-    or age (stale-while-revalidate), or ``None``."""
+    """The memoized overview of ``key``'s lineage, whatever its generation,
+    while inside the staleness bound (stale-while-revalidate), or ``None``."""
     hit = _PUBLIC_OVERVIEW_CACHE.get("overview")
-    if hit is not None and _public_memo_same_lineage(hit[0], key):
+    if hit is not None and _public_memo_stale_servable(hit[0], key, hit[2]):
         return hit[1]
     return None
 
@@ -15605,9 +15673,10 @@ def _memoized_activity(key) -> tuple[bytes, bytes] | None:
 
 def _stale_activity(key) -> tuple[bytes, bytes] | None:
     """The prepared activity bytes of ``key``'s lineage, whatever their
-    generation or age (stale-while-revalidate), or ``None``."""
+    generation, while inside the staleness bound (stale-while-revalidate),
+    or ``None``."""
     hit = _PUBLIC_ACTIVITY_CACHE.get("activity")
-    if hit is not None and _public_memo_same_lineage(hit[0], key):
+    if hit is not None and _public_memo_stale_servable(hit[0], key, hit[3]):
         return hit[1], hit[2]
     return None
 
@@ -15856,7 +15925,9 @@ def _kick_heavy_section_refresh(snapshot, section, activity_valuation) -> bool:
     return _kick_public_memo_refresh(f"heavy:{section}", _build)
 
 
-async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=None):
+async def _get_heavy_section_payload(
+    snapshot, section, *, activity_valuation=None, bypass_cache: bool = False
+):
     """Single-flight + per-snapshot memoization for a heavy section,
     coordinated on the event loop.
 
@@ -15869,8 +15940,16 @@ async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=No
     one instance across concurrent requests is safe.
 
     Stale-while-revalidate: an entry of the same league from an older
-    snapshot / board generation is served at once while ONE background job
-    rebuilds it; only a section with no entry for this league builds here.
+    snapshot / board generation, built inside the staleness bound, is served
+    at once while ONE background job rebuilds it; only a section with no
+    such entry for this league builds here.
+
+    ``bypass_cache`` must come from ``_authorized_force_refresh`` (B8).  It
+    disables the STALE serve only: an authorized ``?refresh`` has just forced
+    a snapshot rebuild, which always moves ``generated_at``, so the entry it
+    would find is the pre-refresh generation.  An exact-key hit is still
+    served -- it IS the requested generation (this section's payload is a
+    pure function of the key's inputs), e.g. another refresher's build.
     """
     cache_key = _heavy_section_cache_key(snapshot)
 
@@ -15880,7 +15959,7 @@ async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=No
             return None
         if cached[0] == cache_key:
             return cached[1]
-        if _public_memo_same_lineage(cached[0], cache_key):
+        if not bypass_cache and _public_memo_stale_servable(cached[0], cache_key, cached[2]):
             _bump_public_metric("memo_stale_served")
             _kick_heavy_section_refresh(snapshot, section, activity_valuation)
             return cached[1]
@@ -15937,6 +16016,9 @@ _public_league_metrics: dict = {
     "memo_refresh_suppressed": 0,
     "memo_refresh_failures": 0,
     "memo_refresh_timed_out": 0,
+    # A timed-out job's claim was NOT replaced because the one abandoned
+    # job this memo may have is still alive (a hung build path).
+    "memo_refresh_skipped_abandoned": 0,
     "total_rebuild_seconds": 0.0,
     "last_rebuild_seconds": None,
     "last_rebuild_iso": None,
@@ -17392,7 +17474,9 @@ async def get_public_league_section_csv(
             # though no heavy section reads it today — the predicate should
             # match the stated rule, or the next section added here
             # reintroduces the bug.
-            payload = await _get_heavy_section_payload(snapshot, section)
+            payload = await _get_heavy_section_payload(
+                snapshot, section, bypass_cache=_authorized_force_refresh(request, refresh)
+            )
 
             def _export():
                 assert_public_payload_safe(payload)
@@ -17507,6 +17591,7 @@ async def get_public_league_section(
                 snapshot,
                 section,
                 activity_valuation=_build_public_activity_valuation(),
+                bypass_cache=_authorized_force_refresh(request, refresh),
             )
         elif section == "overview":
             payload = await _get_public_overview_payload(

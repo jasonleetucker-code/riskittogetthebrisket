@@ -428,27 +428,41 @@ def wait_for_public_memo_refreshes(srv, timeout: float = 30.0) -> None:
     Those jobs (``server._kick_public_memo_refresh``, stale-while-revalidate)
     file their build into the memos when they land.  A test that clears the
     memos, or counts builds, must not have one land mid-test from an earlier
-    test.  Raises rather than proceeding on a job that never finishes.
+    test.  That includes an ABANDONED job (timed out, replaced, still
+    running): it holds no claim, so it is found by its thread name.  Raises
+    rather than proceeding on a job that never finishes.
     """
+    import threading
     import time
 
     inflight = getattr(srv, "_public_memo_refresh_inflight", None)
     if inflight is None:
         return
+
+    def running() -> list[str]:
+        threads = [
+            t.name
+            for t in threading.enumerate()
+            if t.name.startswith("public-league-memo-") and t.is_alive()
+        ]
+        return sorted(set(inflight) | set(threads))
+
     deadline = time.monotonic() + timeout
-    while inflight and time.monotonic() < deadline:
+    while running() and time.monotonic() < deadline:
         time.sleep(0.01)
-    if inflight:
-        raise AssertionError(f"public memo refresh never finished: {sorted(inflight)}")
+    if running():
+        raise AssertionError(f"public memo refresh never finished: {running()}")
 
 
 def reset_public_memo_refresh_state(srv) -> None:
-    """Wait out running memo refresh jobs, then forget failure cooldowns so
-    one test's deliberately failed refresh cannot suppress the next test's."""
+    """Wait out running memo refresh jobs, then forget failure cooldowns (so
+    one test's deliberately failed refresh cannot suppress the next test's)
+    and finished abandoned jobs."""
     wait_for_public_memo_refreshes(srv)
-    failed = getattr(srv, "_public_memo_refresh_failed_at", None)
-    if isinstance(failed, dict):
-        failed.clear()
+    for name in ("_public_memo_refresh_failed_at", "_public_memo_refresh_abandoned"):
+        state = getattr(srv, name, None)
+        if isinstance(state, dict):
+            state.clear()
 
 
 def capture_public_league_process_state():
