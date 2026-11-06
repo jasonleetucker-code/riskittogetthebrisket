@@ -9,12 +9,13 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-27 of the 67 entries in ``_DEFAULTS`` below are ``True`` —
+28 of the 68 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
 ``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
+``confidence_cured_rejection_guard``,
 ``signals_active_source``, ``dlf_offense_only_vote``,
 ``two_way_alt_evidence_rules``,
 ``fantasypros_idp_upstream_clock``,
@@ -144,6 +145,17 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # make evidence OLDER, never fresher.  OFF (RISKIT_FEATURE_SOURCE_UNIVERSE_
     # FRESHNESS=0 + restart): one clock per subset, the prior behaviour.
     "source_universe_freshness": True,
+    # Losing evidence never raises confidence -- the cured-rejection half
+    # (owner directive 2026-10-07; CLAUDE.md "Confidence -- one owner").  ON:
+    # a voting source the OBSERVED panel (voting + withheld votes) rejects --
+    # a rejection a withheld vote CURED -- earns the B11 confidence gate
+    # nothing: no head, and a seat (every share axis' denominator, no
+    # numerator) for a family left with no credited member
+    # (data_contract._lost_evidence_replay case (c)).  Confidence only: no
+    # value, rank or tier reads it.  OFF
+    # (RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0 + restart): the cured
+    # source is credited again, the prior behaviour.
+    "confidence_cured_rejection_guard": True,
     # Signals Fantasy as an ACTIVE canonical source (owner addendum
     # 2026-10-03; docs/sources/SIGNALS_FANTASY_INTEGRATION.md §9).  ON: the
     # authenticated native-value boards vote (``signalsSf``; the IDP family
@@ -1159,6 +1171,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._compute_unified_rankings``, which reaches a request
     # through ``/api/data`` and every engine that reads the board.
     "source_family_cap": LIVE,
+    # confidence_cured_rejection_guard decides which voting sources the B11
+    # confidence gate credits in ``data_contract._compute_unified_rankings``,
+    # read on every board build, which reaches a request through ``/api/data``
+    # (confidenceBucket / confidenceAxes / confidenceReasons).
+    "confidence_cured_rejection_guard": LIVE,
     # dlf_offense_only_vote gates the vote hold on the DLF IDP boards in
     # ``data_contract._policy_source_vote_holds`` -- a TEMPORARY hold
     # re-applied 2026-10-19 (default ON): the owner rescinded the 2026-10-16

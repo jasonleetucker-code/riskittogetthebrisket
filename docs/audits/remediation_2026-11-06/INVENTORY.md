@@ -40,10 +40,10 @@ restore; #2031 / #2032; UX audit #2051; AMATH master #2054 (superseded #2053, ne
 | lane | outcome | PR | state |
 |---|---|---|---|
 | W0-A deploy blocker 1 | Sonny Styles: the DLF-restore board's Hampel filter rejects two valid votes (CQ-65); the held board keeps them. The test invariant was incomplete; production correct. Tightened, not loosened | #2061 | reviewed APPROVE; CI red only on blocker 2 |
-| W0-A deploy blocker 2 | Mahomes: withholding a source cures other Hampel rejections and raises confidence — a confidence-owner gap against the 2026-10-07 owner rule | branch `claude/confidence-cured-rejection-guard` | IMPLEMENTING |
-| W0-B scraper | reaper only walked ppid descendants after a run; reparented Chromium in the service cgroup escaped it. Pre/post cgroup-scoped reap + numbers-only box diagnostics; review hardening (systemd-main-process scope, strict Chromium matcher, off-loop probe, MiB rounding) in progress | #2062 | reviewed APPROVE + hardening |
+| W0-A deploy blocker 2 | Mahomes: withholding a source cures other Hampel rejections and raises confidence — a confidence-owner gap against the 2026-10-07 owner rule | #2072 (release train with #2061; seated variant, DD-12) | reviewed APPROVE |
+| W0-B scraper | reaper only walked ppid descendants after a run; reparented Chromium in the service cgroup escaped it. Pre/post cgroup-scoped reap + numbers-only box diagnostics; review hardening (explicit unit opt-in, strict Chromium matcher, off-loop probe, MiB rounding) | #2062 | reviewed + delta reviewed APPROVE |
 | W0-C capture | Week 10: capture timer Tue/Thu/Sat/Sun 14:10Z precedes the 2026-11-12 kickoff and is reconciled by every deploy; both preregistered receipts pushed 2026-11-06T12:46:58Z with byte-identical frozen and code blobs; Week 9 archive presence unknowable from git | #2065 | evidence pushed |
-| W0-C auction | nothing ran `--record-snapshot` automatically; first-valid-wins daily capture added; review found a missing `SuccessExitStatus` (fix in progress) | #2063 | changes requested → fixing |
+| W0-C auction | nothing ran `--record-snapshot` automatically; first-valid-wins daily capture added; review found a missing `SuccessExitStatus`, fixed | #2063 | reviewed + delta reviewed APPROVE |
 | W0-D backups | root writer `chmod 700`s the canonical root while the backend runs as `dynasty`; `analyst_ledger.sqlite` was unprotected; group-list 0750, analyst ledger, scratch restore verifier | #2064 | reviewed APPROVE |
 | W0-D security | W22-F001 / F002 / F003 already fixed in code; W00-F001 public by documented design, 4.4 s cold / 0.9 s warm (was 13.2 s) | — | recorded (DD-06, DD-07) |
 
@@ -76,8 +76,8 @@ output withheld because it carries local paths); adjudicating the 78 unresolved 
 
 ## 4. Closure and remaining-blocker report (Deliverable I) — as of this checkpoint
 
-1. **Actively implementing:** CW-47 (confidence guard), CW-02 hardening (#2062), CW-04 fix (#2063); coordinator
-   records.
+1. **In review / integration:** release train #2072 (CW-47 + #2061); then #2062, #2063, #2064, #2067, #2068,
+   #2069, #2070, #2071, #2074 (all independently reviewed) once `main`'s hard gate is green; coordinator records.
 2. **Dependency blocked:** Deploy Production → needs #2061 **and** the CW-47 PR; scraper recovery and the backup
    permission fix land on the box only through a successful deploy plus, for backups, an operator re-install.
 3. **Awaiting statistical evidence:** CW-13, CW-15 – CW-17, CW-22, CW-30 – CW-36 (no promotion without the gates).

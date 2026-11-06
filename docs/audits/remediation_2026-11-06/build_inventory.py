@@ -10,7 +10,8 @@ Inputs are the repository's own records (no network):
 * AMATH-S01..S63 — ``docs/research/amath/evidence/sitewide_opportunities_merged.json``
 * research/promotion readiness — ``docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.json``
   (125 items + 39 findings)
-* owner intake MD-1..MD-37 — ``docs/OWNER_REQUESTED_TODO.md``
+* owner intake MD-1..MD-55 — ``docs/OWNER_REQUESTED_TODO.md`` (MD-47..MD-55: the 2026-11-06
+  continuous-QA directive, work items CW-48..CW-53)
 * open issues / PRs — ``github_snapshot.json`` (GitHub API, captured 2026-11-06T12:45Z)
 * directive-enumerated findings — ``DIRECTIVE_FINDINGS`` below (the two 2026-11-06 audits
   exist only in the owner directive; every finding it names is a row here)
@@ -49,8 +50,8 @@ CW: list[dict] = [
         "title": "Deploy blocker: DLF-hold confidence invariant (Sonny Styles)",
         "owner": "tests/api/test_dlf_offense_only_vote.py",
         "state": "INDEPENDENTLY_REVIEWED",
-        "evidence": "PR #2061; reproduced locally + independent review APPROVE",
-        "next": "merge on green Validate PR; confirm Deploy Production passes and /api/status build advances",
+        "evidence": "PR #2061 reviewed APPROVE; carried by release train PR #2072",
+        "next": "merge #2072 on green; close #2061 as included",
     },
     {
         "id": "CW-02",
@@ -58,9 +59,9 @@ CW: list[dict] = [
         "priority": "P0",
         "title": "Production scraper browser-launch outage + truthful health",
         "owner": "Dynasty Scraper.py launch, server.py reaper/status",
-        "state": "TESTED",
-        "evidence": "#2060; /api/status 0/9 in 24h, launch 180s timeout taking ~18 min wall clock; PR #2062 (cgroup-scoped reap before+after each run, numbers-only box diagnostics)",
-        "next": "independent review of #2062; deploy restart via CW-01; read box_resources after deploy",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2062 reviewed + delta reviewed APPROVE",
+        "next": "merge after the train; read live box_resources after deploy",
     },
     {
         "id": "CW-03",
@@ -68,9 +69,9 @@ CW: list[dict] = [
         "priority": "P0",
         "title": "Pre-kickoff forecast capture: Week 10 freeze receipts, Week 9 scoring",
         "owner": "projection weekly archive + ROS / six-model receipts",
-        "state": "TESTED",
-        "evidence": "MD-22, MD-30; capture timer Tue/Thu/Sat/Sun 14:10Z fires before the 2026-11-12 kickoff (deploy reconciles timers); Week 10 receipts pushed 2026-11-06T12:46:58Z (PR #2065); Week 9 archive presence unknowable from the repo (gitignored)",
-        "next": "box check of w9/w10 archive timestamps; Week 9 evaluation runner (none exists yet)",
+        "state": "MERGED",
+        "evidence": "Week 10 receipts merged #2065 (53fb2e4d), pushed 2026-11-06T12:46:58Z; capture timer precedes the 2026-11-12 kickoff",
+        "next": "box check of w9/w10 archive timestamps; Week 9 evaluation runner",
     },
     {
         "id": "CW-04",
@@ -78,9 +79,9 @@ CW: list[dict] = [
         "priority": "P0",
         "title": "2027 rookie-auction first-valid pre-auction snapshot",
         "owner": "scripts/backtest_perfect_draft.py --record-snapshot",
-        "state": "TESTED",
-        "evidence": "AMATH-S13; PR #2063 (daily timer, first-valid-wins <year>-pre.json, refuses once Sleeper draft started)",
-        "next": "independent review of #2063; no in-app (non-Sleeper) auction coverage",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2063 reviewed + delta reviewed APPROVE",
+        "next": "merge after the train; import the 6 h budget from its owner (nit)",
     },
     {
         "id": "CW-05",
@@ -88,9 +89,9 @@ CW: list[dict] = [
         "priority": "P0",
         "title": "Backup coverage, restore verification, truthful backup health",
         "owner": "backup health + state backup writer",
-        "state": "TESTED",
-        "evidence": "root writer chmods the canonical root 700 (backend runs as dynasty); analyst_ledger.sqlite was not backed up; PR #2064 (group-list 0750, analyst ledger, restore verifier)",
-        "next": "review #2064; box operator runs install_state_backup.sh + restore verification",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2064 reviewed APPROVE",
+        "next": "merge after the train; box operator install + restore verification",
     },
     {
         "id": "CW-06",
@@ -109,9 +110,9 @@ CW: list[dict] = [
         "priority": "P1",
         "title": "Auth/security defect family (redirect, XFF trust, login throttling, draft-capital boundary)",
         "owner": "frontend middleware/login + server.py auth/rate limiter",
-        "state": "EVIDENCE_PENDING",
-        "evidence": "W22-F001 fixed (server.py _sanitize_next_path), W22-F002 fixed (src/api/client_ip.py trusted-proxy), W22-F003 fixed (login_throttle_check); W00-F001 public by documented design, 4.4 s cold / 0.9 s warm (was 13.2 s)",
-        "next": "frontend/app/login/page.jsx fallback accepts any leading '/' (incl. '//'): harden; draft-capital cold latency",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "W22-F001/F002/F003 fixed in code; PR #2075 adds a client-side next-path sanitizer (dot-segment bypass found in review and fixed; 400k-string fuzz clean) and missing draft-capital budgets as unavailable",
+        "next": "merge after the train",
     },
     {
         "id": "CW-08",
@@ -119,9 +120,9 @@ CW: list[dict] = [
         "priority": "P1",
         "title": "Canonical scoring parity census + league-config propagation",
         "owner": "canonical league scorer + league-config resolver",
-        "state": "NOT_STARTED",
-        "evidence": "W18-F003, W13-F001, RPA-F-002/003/008, #1842, #802",
-        "next": "finalized-2026 host-parity census by category; repair at the owner",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2069 census: Sleeper-native scorer 4833/4833; nflverse path 91.8% (96.4% with #1938); W18-F003 and W13-F001 FIXED; #802 PARTIAL",
+        "next": "merge after the train; #1938 recommendation DD-11",
     },
     {
         "id": "CW-09",
@@ -139,9 +140,9 @@ CW: list[dict] = [
         "priority": "P1",
         "title": "FAAB correctness and recommendation integrity",
         "owner": "src/trade/faab_engine.py",
-        "state": "NOT_STARTED",
-        "evidence": "W10-F001, W11-F003/F004/F005/F007, AMATH-S27, #738",
-        "next": "budget/filter-independence fixtures; fail-closed config",
+        "state": "TESTED",
+        "evidence": "PR #2071: W11-F003/F005/F007 FIXED, W11-F004 FIXED with a pinned by-design exception, IST-7 verified, AMATH-S27 fail-closed config fixed; 6,000 payloads byte-identical",
+        "next": "review running; W10-F001 re-routed to CW-38 (DD-13)",
     },
     # wave C — data quality and calibration
     {
@@ -150,9 +151,9 @@ CW: list[dict] = [
         "priority": "P1",
         "title": "Source freshness/integrity monitoring (no false green)",
         "owner": "config/source_staleness.json + source health",
-        "state": "NOT_STARTED",
-        "evidence": "IDP Show ack expired, overdue rehab reviews, IDPTC pick board frozen, ESPN injury empty, Sharp breaker, #1065 #1409 #1423",
-        "next": "per-source attempted/success/usable/content-age stamps",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2070: overdue plans re-reviewed with evidence, idpTradeCalc entry added, IDPTC pick staleness vendor-side and down-weighted",
+        "next": "merge on green",
     },
     {
         "id": "CW-12",
@@ -190,9 +191,9 @@ CW: list[dict] = [
         "priority": "P0",
         "title": "Forecast Calibration Ledger + size-controlled gates",
         "owner": "AL-3b scorecard / AL-4a Game Day calibration",
-        "state": "RESEARCH_ONLY",
-        "evidence": "AMATH-S01",
-        "next": "schedule scorecards; fix gate operating characteristics",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2076: AL-3b/AL-4a scheduled Tue/Wed after weeks whose best-ball lineups Sleeper has awarded; research-only size-controlled gates (perfect-model pass ~0.93-0.94 vs fixed KS 0.08 rejecting > half)",
+        "next": "merge after the train; calibrationState descriptor, confidence-bucket reliability and playoff-odds evaluator need follow-up units",
     },
     {
         "id": "CW-16",
@@ -200,9 +201,9 @@ CW: list[dict] = [
         "priority": "P1",
         "title": "Weekly IDP six-model prospective comparison",
         "owner": "MD-30 prereg + frozen fits",
-        "state": "EVIDENCE_PENDING",
-        "evidence": "#2048 prereg + Week 9 receipt",
-        "next": "score each completed prospective week; no promotion without independent evidence",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2077: prospective evaluation runner (separate script; receipted blob beb7640f untouched); hard gate incl. receipt edited after kickoff",
+        "next": "merge after the train; run Week 9 once final; build --decision-inputs from the streaming-backtest context",
     },
     {
         "id": "CW-17",
@@ -231,9 +232,9 @@ CW: list[dict] = [
         "priority": "P1",
         "title": "Analyze Trade unification + honest Monte Carlo framing",
         "owner": "trade_decision.decide()",
-        "state": "NOT_STARTED",
-        "evidence": "#792, #1173, #790; AMATH-S12 (hide synthetic win rate)",
-        "next": "hide MC win-rate percentage until real per-asset bands exist",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2067: synthetic Monte Carlo win rate hidden; package-adjusted gap labelled",
+        "next": "merge on green",
     },
     {
         "id": "CW-20",
@@ -251,9 +252,9 @@ CW: list[dict] = [
         "priority": "P2",
         "title": "Trade Finder / Best Offers + calculator UI fixes",
         "owner": "finder.py / suggestions.py / trade page",
-        "state": "NOT_STARTED",
-        "evidence": "#781 #786 #791 #841; AMATH-S10 relabel arbitrage as disagreement",
-        "next": "relabel; feasibility checks",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2067: arbitrage copy renamed Market Disagreement (URL, API, fields unchanged)",
+        "next": "merge on green",
     },
     {
         "id": "CW-22",
@@ -301,9 +302,9 @@ CW: list[dict] = [
         "priority": "P1",
         "title": "Performance defects (draft contract size, BDVM latency, Team Strength, roster %, public league cold load, Activity)",
         "owner": "per-route",
-        "state": "NOT_STARTED",
-        "evidence": "#1340, #1157, #1622",
-        "next": "production-like p50/p95 + payload measurement first",
+        "state": "IMPLEMENTING",
+        "evidence": "perf_baseline_2026-11-06.json: /league 0.84 s HTML (was ~44 s cold); public overview p50 0.45 s but one 89.8 s sample; /api/status cold 15.8 s; /draft requests the full contract; Team Strength anonymous 401 with a permanent spinner",
+        "next": "#2079 /draft compact view (-60% raw, -56% gzip per fetch; reviewed APPROVE) and #2081 Team Strength auth-required state (reviewed APPROVE) wait for the train; public-league stale-while-revalidate in flight",
     },
     {
         "id": "CW-27",
@@ -332,9 +333,9 @@ CW: list[dict] = [
         "priority": "P0",
         "title": "Missing-as-zero defects + property-based invariant suite",
         "owner": "test-only + archetype owner",
-        "state": "NOT_STARTED",
-        "evidence": "AMATH-S38, S15",
-        "next": "fix archetype missing-feature-to-0; hypothesis suite",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2068: infer_archetype missing feature -> unknown (no production caller today); follow-up: infer_scoring_tags / compute_profile_features still coerce missing to 0",
+        "next": "merge after the train; follow-up unit",
     },
     {
         "id": "CW-30",
@@ -423,9 +424,9 @@ CW: list[dict] = [
         "priority": "P2",
         "title": "Draft / auction 2027 readiness",
         "owner": "draft capital + auction room",
-        "state": "NOT_STARTED",
-        "evidence": "#1414, #1807, draft-order median-game rule, auction findings",
-        "next": "retire completed classes; rehearsal checklist",
+        "state": "INDEPENDENTLY_REVIEWED",
+        "evidence": "PR #2074: W10-F001 STILL_PRESENT and fixed (draft-logic.js bids capped by remaining budget; decision-intelligence Critical C01 closed); #1414: no surface shows the completed 2026 class, /rankings reads pickClassLifecycle",
+        "next": "merge #2074; board-level retirement gate (every served league must prove completion) is a canonical-owner decision; mergeDraftCapitalTeams null-to-0 follow-up; auction rehearsal checklist",
     },
     {
         "id": "CW-39",
@@ -443,9 +444,9 @@ CW: list[dict] = [
         "priority": "P3",
         "title": "Governance / process / UI-lane records",
         "owner": "coordinator",
-        "state": "NOT_STARTED",
-        "evidence": "#1336 #1412 #1418 #1421 #1422 #1428 #1628 #967 #1214 #1005",
-        "next": "close or re-point to current canonical records",
+        "state": "IMPLEMENTING",
+        "evidence": "#1336 #1412 #1418 #1421 #1422 #1428 #1628 #967 #1214 #1005; master-site-audit adjudication: PR #2082 classifies the 7 unresolved P0 findings CLOSED_VERIFIED with offline regression tests (adversarial review running)",
+        "next": "merge #2082 after review; then the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated); close or re-point governance issues",
     },
     {
         "id": "CW-41",
@@ -516,11 +517,77 @@ CW.append(
         "priority": "P0",
         "title": "Confidence owner: withholding a source can CURE Hampel rejections and raise confidence (second deploy blocker)",
         "owner": "src/api/data_contract.py::_lost_evidence_seats + _family_evidence_for_row",
-        "state": "IMPLEMENTING",
-        "evidence": "test_idptc_cutoff_readiness::test_5 (Patrick Mahomes coverage 9/14 -> 11/14); hidden behind CW-01 by pytest -x; violates owner rule 2026-10-07",
-        "next": "branch claude/confidence-cured-rejection-guard: guard + rollback flag + blast radius; test_5 unchanged",
+        "state": "TESTED",
+        "evidence": "PR #2072 (seated variant, DD-12): 0 values move, 0 upgrades, 1 downgrade; 77 targeted tests pass on the train head",
+        "next": "independent review (running), green CI, merge, verify deploy",
     }
 )
+
+# wave Q — continuous verification / QA directive (owner, 2026-11-06; record
+# docs/owner/CONTINUOUS_QA_DIRECTIVE_2026-11-06.md; intake MD-47 .. MD-55).  Phase 6
+# (security / data integrity) routes to the existing CW-07 with CW-05 / CW-11 / CW-37.
+CW += [
+    {
+        "id": "CW-48",
+        "wave": "Q",
+        "priority": "P1",
+        "title": "Feature-intent census: requirement -> code -> test -> evidence matrix and per-feature verification states",
+        "owner": "docs/audits/remediation_2026-11-06/ (census tooling) + docs/OWNER_FEATURE_INVENTORY.md (intent)",
+        "state": "IMPLEMENTING",
+        "evidence": "standard merged #2080; mechanical surface census (routes, pages, bridge routes, flags, timers -> test references) in progress",
+        "next": "census PR, then join each surface to its controlling owner requirement and record VERIFIED / PARTIAL / UNVERIFIED with evidence",
+    },
+    {
+        "id": "CW-49",
+        "wave": "Q",
+        "priority": "P1",
+        "title": "Independent mathematical oracles + invariants for consequential calculations; correctness kept separate from predictive skill",
+        "owner": "the canonical owner of each calculation (confidence, blend, package model, lineup, FAAB, ROS, BDVM)",
+        "state": "NOT_STARTED",
+        "evidence": "existing invariant work: CW-29 (missing-as-zero property suite), CW-47 (confidence), C2-U1 exact lineup vs host truth",
+        "next": "rank calculations by decision impact x oracle gap from the CW-48 census; add hand-computed / host-truth known-answer tests first",
+    },
+    {
+        "id": "CW-50",
+        "wave": "Q",
+        "priority": "P1",
+        "title": "Permanent regression + end-to-end critical journeys (source -> API -> frontend -> action) across league / flag states",
+        "owner": "tests/ + frontend/__tests__ + the Playwright regression suite (existing frameworks only)",
+        "state": "NOT_STARTED",
+        "evidence": "every verified defect gains a reproducing test (e.g. CW-40 P0 adjudication regression tests, PR #2082)",
+        "next": "list the critical journeys from the census; close the zero-reference mutating / private routes first",
+    },
+    {
+        "id": "CW-51",
+        "wave": "Q",
+        "priority": "P2",
+        "title": "Bounded stress / resilience harness with retained baselines (non-production; explicit ceilings)",
+        "owner": "docs/GLOBAL_PERFORMANCE_STANDARD.md budgets + a local / CI harness",
+        "state": "NOT_STARTED",
+        "evidence": "production read-only latency baseline perf_baseline_2026-11-06.json (CW-26)",
+        "next": "isolated-backend concurrency + slow-upstream scenarios with stored baselines; never load production",
+    },
+    {
+        "id": "CW-52",
+        "wave": "Q",
+        "priority": "P3",
+        "title": "Evidence-classified dead code / duplicate logic (PROVEN_UNUSED / FLAGGED_OFF_RETAIN / SHADOW_RESEARCH / SUPERSEDED / UNKNOWN_CONSUMER)",
+        "owner": "standard section 6; removal only in small reversible PRs inside file claims",
+        "state": "NOT_STARTED",
+        "evidence": "-",
+        "next": "static + entrypoint + flag + job + dynamic-import census; remove PROVEN_UNUSED only",
+    },
+    {
+        "id": "CW-53",
+        "wave": "Q",
+        "priority": "P1",
+        "title": "Mechanized verification feedback loop: PR verification receipt, test selection, retained fixtures, cost-conscious scheduled checks",
+        "owner": ".github/pull_request_template.md + scripts/ci_change_scope.py + docs/AGENT_OPERATING_SYSTEM.md section 3",
+        "state": "IMPLEMENTING",
+        "evidence": "standard + Agent OS section merged #2080; PR template verification receipt added with the intake reconciliation",
+        "next": "assess scheduled deeper checks (drift, security scan, targeted mutation) within the existing scheduling framework",
+    },
+]
 
 DISCOVERED = [
     (
@@ -762,7 +829,11 @@ DIRECTIVE_FINDINGS = [
     ("DIR-19", "W08-F003 non-monotonic trade verdict", "CW-09"),
     ("DIR-20", "W08-F005 lost origin ownership on 53/216 picks", "CW-09"),
     ("DIR-21", "W08-F007 raw asset-mode incomparability", "CW-09"),
-    ("DIR-22", "W10-F001 FAAB bids ignore remaining budget", "CW-10"),
+    (
+        "DIR-22",
+        "W10-F001 bids ignore remaining budget (the /draft auction MaxBid, not FAAB; DD-13)",
+        "CW-38",
+    ),
     ("DIR-23", "W11-F003 FAAB saturation", "CW-10"),
     ("DIR-24", "W11-F004 FAAB non-monotonic outputs", "CW-10"),
     ("DIR-25", "W11-F005 FAAB bids depend on UI/filter state", "CW-10"),
@@ -893,6 +964,13 @@ def _md_rows() -> list[dict]:
         **dict.fromkeys(["MD-42"], "CW-03"),
         **dict.fromkeys(["MD-43"], "CW-05"),
         **dict.fromkeys(["MD-46"], "CW-47"),
+        **dict.fromkeys(["MD-47", "MD-54"], "CW-53"),
+        **dict.fromkeys(["MD-48", "MD-55"], "CW-48"),
+        **dict.fromkeys(["MD-49"], "CW-49"),
+        **dict.fromkeys(["MD-50"], "CW-50"),
+        **dict.fromkeys(["MD-51"], "CW-51"),
+        **dict.fromkeys(["MD-52"], "CW-07"),
+        **dict.fromkeys(["MD-53"], "CW-52"),
     }
     for line in text.splitlines():
         m = re.match(r"^\| (MD-\d+) \|(.*)\|\s*$", line)
