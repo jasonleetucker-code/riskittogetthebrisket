@@ -17,9 +17,9 @@
    "priority": "P0",
    "title": "Deploy blocker: DLF-hold confidence invariant (Sonny Styles)",
    "owner": "tests/api/test_dlf_offense_only_vote.py",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2061 reviewed APPROVE; carried by release train PR #2072",
-   "next": "merge #2072 on green; close #2061 as included",
+   "state": "PRODUCTION_VERIFIED",
+   "evidence": "#2061 merged inside release train #2072 (91b0965c); Deploy Production run 3734 succeeded 2026-11-06T18:48Z; live /api/status build.commit 91b0965c",
+   "next": "none (closed)",
    "sourceRowCount": 2
   },
   {
@@ -28,9 +28,9 @@
    "priority": "P0",
    "title": "Production scraper browser-launch outage + truthful health",
    "owner": "Dynasty Scraper.py launch, server.py reaper/status",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2062 reviewed + delta reviewed APPROVE",
-   "next": "merge after the train; read live box_resources after deploy",
+   "state": "MERGED",
+   "evidence": "production recovered by the 3734 deploy restart: scrape success 2026-11-06T18:48:38Z (263 s), /api/health 200 (was 503); PR #2062 (pre/post cgroup-scoped reaper + public-safe box diagnostics) merged a9244b0a after one rerun of a load-sensitive timing test (DD-16)",
+   "next": "after its deploy: read live /api/status box_resources and confirm scrapes keep succeeding",
    "sourceRowCount": 7
   },
   {
@@ -40,8 +40,8 @@
    "title": "Pre-kickoff forecast capture: Week 10 freeze receipts, Week 9 scoring",
    "owner": "projection weekly archive + ROS / six-model receipts",
    "state": "MERGED",
-   "evidence": "Week 10 receipts merged #2065 (53fb2e4d), pushed 2026-11-06T12:46:58Z; capture timer precedes the 2026-11-12 kickoff",
-   "next": "box check of w9/w10 archive timestamps; Week 9 evaluation runner",
+   "evidence": "Week 10 receipts merged #2065; prospective evaluation runner merged #2077",
+   "next": "box check of w9/w10 archive timestamps; run the Week 9 evaluation once final",
    "sourceRowCount": 3
   },
   {
@@ -50,9 +50,9 @@
    "priority": "P0",
    "title": "2027 rookie-auction first-valid pre-auction snapshot",
    "owner": "scripts/backtest_perfect_draft.py --record-snapshot",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2063 reviewed + delta reviewed APPROVE",
-   "next": "merge after the train; import the 6 h budget from its owner (nit)",
+   "state": "MERGED",
+   "evidence": "PR #2063 merged (640193f8): first-valid-wins pre-auction snapshot timer",
+   "next": "deploy, then confirm the timer on the box; nit: import the 6 h budget from its owner",
    "sourceRowCount": 3
   },
   {
@@ -61,9 +61,9 @@
    "priority": "P0",
    "title": "Backup coverage, restore verification, truthful backup health",
    "owner": "backup health + state backup writer",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2064 reviewed APPROVE",
-   "next": "merge after the train; box operator install + restore verification",
+   "state": "HUMAN_ACTION_REQUIRED",
+   "evidence": "PR #2064 merged (bdc0cd5f); live backup_health still stateBackup unverifiable/permission_denied until the operator re-runs the installer",
+   "next": "box operator: bash deploy/backup/install_state_backup.sh, then scripts/verify_state_backup_restore.py",
    "sourceRowCount": 3
   },
   {
@@ -83,9 +83,9 @@
    "priority": "P1",
    "title": "Auth/security defect family (redirect, XFF trust, login throttling, draft-capital boundary)",
    "owner": "frontend middleware/login + server.py auth/rate limiter",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "W22-F001/F002/F003 fixed in code; PR #2075 adds a client-side next-path sanitizer (dot-segment bypass found in review and fixed; 400k-string fuzz clean) and missing draft-capital budgets as unavailable",
-   "next": "merge after the train",
+   "state": "MERGED",
+   "evidence": "#2075 merged (login next sanitizer, missing budget is unavailable not $0); #2087 merged: POST /api/ros/refresh admin gate admitted any signed-in user (truthy JSONResponse refusal) -- fixed, 6 private routes regression-tested, AST guard against the pattern; security review APPROVE",
+   "next": "confirm deploy; owner policy question only: sharp audit routes are any-signed-in, not admin-only (documented, consistent with siblings)",
    "sourceRowCount": 5
   },
   {
@@ -94,9 +94,9 @@
    "priority": "P1",
    "title": "Canonical scoring parity census + league-config propagation",
    "owner": "canonical league scorer + league-config resolver",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2069 census: Sleeper-native scorer 4833/4833; nflverse path 91.8% (96.4% with #1938); W18-F003 and W13-F001 FIXED; #802 PARTIAL",
-   "next": "merge after the train; #1938 recommendation DD-11",
+   "state": "MERGED",
+   "evidence": "PR #2069 merged (280514bc): host-truth parity census",
+   "next": "#1938 recommendation stays owner-reserved (DD-11)",
    "sourceRowCount": 34
   },
   {
@@ -116,9 +116,9 @@
    "priority": "P1",
    "title": "FAAB correctness and recommendation integrity",
    "owner": "src/trade/faab_engine.py",
-   "state": "TESTED",
-   "evidence": "PR #2071: W11-F003/F005/F007 FIXED, W11-F004 FIXED with a pinned by-design exception, IST-7 verified, AMATH-S27 fail-closed config fixed; 6,000 payloads byte-identical",
-   "next": "review running; W10-F001 re-routed to CW-38 (DD-13)",
+   "state": "MERGED",
+   "evidence": "PR #2071 merged (cd555327): FAAB integrity fixtures + fail-closed config",
+   "next": "follow-up in flight: apply the same config refusal to /api/waiver/advisor and /api/waiver/streaming",
    "sourceRowCount": 7
   },
   {
@@ -127,9 +127,9 @@
    "priority": "P1",
    "title": "Source freshness/integrity monitoring (no false green)",
    "owner": "config/source_staleness.json + source health",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2070: overdue plans re-reviewed with evidence, idpTradeCalc entry added, IDPTC pick staleness vendor-side and down-weighted",
-   "next": "merge on green",
+   "state": "MERGED",
+   "evidence": "PR #2070 merged (4d374cf3): overdue rehabilitation plans re-reviewed",
+   "next": "CW-26 note: the public snapshot layer itself has no staleness bound (memo layer bounded at 6 h by #2084)",
    "sourceRowCount": 20
   },
   {
@@ -172,8 +172,8 @@
    "title": "Forecast Calibration Ledger + size-controlled gates",
    "owner": "AL-3b scorecard / AL-4a Game Day calibration",
    "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2076: AL-3b/AL-4a scheduled Tue/Wed after weeks whose best-ball lineups Sleeper has awarded; research-only size-controlled gates (perfect-model pass ~0.93-0.94 vs fixed KS 0.08 rejecting > half)",
-   "next": "merge after the train; calibrationState descriptor, confidence-bucket reliability and playoff-odds evaluator need follow-up units",
+   "evidence": "PR #2076: AL-3b/AL-4a schedule; merge conflict with #2063 in the installer resolved by keeping both timers (f9049d11; deploy tests 1423 passed)",
+   "next": "merge on green",
    "sourceRowCount": 1
   },
   {
@@ -182,9 +182,9 @@
    "priority": "P1",
    "title": "Weekly IDP six-model prospective comparison",
    "owner": "MD-30 prereg + frozen fits",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2077: prospective evaluation runner (separate script; receipted blob beb7640f untouched); hard gate incl. receipt edited after kickoff",
-   "next": "merge after the train; run Week 9 once final; build --decision-inputs from the streaming-backtest context",
+   "state": "MERGED",
+   "evidence": "PR #2077 merged (58c89c08): prospective evaluation runner",
+   "next": "run Week 9 once final",
    "sourceRowCount": 7
   },
   {
@@ -194,8 +194,8 @@
    "title": "Game Day / ROS calibration (shared latent factors, measured marginals)",
    "owner": "Game Day sim + ROS engine",
    "state": "RESEARCH_ONLY",
-   "evidence": "AMATH-S03, S04, S30, S47; MD-4",
-   "next": "shadow challengers after CW-15",
+   "evidence": "AMATH-S03, S04, S30, S47; MD-4; master-audit W17-F001 residual (no preseason guard on ROS season selection) routed here by CW-40 / PR #2082",
+   "next": "shadow challengers after CW-15; preseason guard for ROS season selection",
    "sourceRowCount": 7
   },
   {
@@ -216,8 +216,8 @@
    "title": "Analyze Trade unification + honest Monte Carlo framing",
    "owner": "trade_decision.decide()",
    "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2067: synthetic Monte Carlo win rate hidden; package-adjusted gap labelled",
-   "next": "merge on green",
+   "evidence": "PR #2067: synthetic Monte Carlo win rate hidden; 'Market Disagreement'; nav invariant test updated for the owner rename (ce2e969d, reviewed APPROVE)",
+   "next": "merge on green (journeys re-run once: WebKit navigation flake)",
    "sourceRowCount": 5
   },
   {
@@ -292,9 +292,9 @@
    "priority": "P1",
    "title": "Performance defects (draft contract size, BDVM latency, Team Strength, roster %, public league cold load, Activity)",
    "owner": "per-route",
-   "state": "IMPLEMENTING",
-   "evidence": "perf_baseline_2026-11-06.json: /league 0.84 s HTML (was ~44 s cold); public overview p50 0.45 s but one 89.8 s sample; /api/status cold 15.8 s; /draft requests the full contract; Team Strength anonymous 401 with a permanent spinner",
-   "next": "#2079 /draft compact view (-60% raw, -56% gzip per fetch; reviewed APPROVE) and #2081 Team Strength auth-required state (reviewed APPROVE) wait for the train; public-league stale-while-revalidate in flight",
+   "state": "MERGED",
+   "evidence": "#2079 /draft compact view (-60% raw, -56% gzip), #2081 Team Strength sign-in state, #2084 public-league stale-while-revalidate (bounded 6 h, one abandoned job max, B8 refresh honoured; adversarial review APPROVE) all merged",
+   "next": "post-deploy public curl baseline for /overview; snapshot-layer staleness bound (CW-11 note)",
    "sourceRowCount": 4
   },
   {
@@ -325,9 +325,9 @@
    "priority": "P0",
    "title": "Missing-as-zero defects + property-based invariant suite",
    "owner": "test-only + archetype owner",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2068: infer_archetype missing feature -> unknown (no production caller today); follow-up: infer_scoring_tags / compute_profile_features still coerce missing to 0",
-   "next": "merge after the train; follow-up unit",
+   "state": "MERGED",
+   "evidence": "PR #2068 merged (622ad85d): archetype missing feature is unknown, not 0",
+   "next": "follow-up: infer_scoring_tags / compute_profile_features missing -> 0",
    "sourceRowCount": 2
   },
   {
@@ -370,7 +370,7 @@
    "title": "Roster risk / team strength / posture models",
    "owner": "roster_intel + window",
    "state": "RESEARCH_ONLY",
-   "evidence": "AMATH-S11, S32, S33, S37, S41, S43",
+   "evidence": "AMATH-S11, S32, S33, S37, S41, S43; master-audit W17-F002 residual (classify_team ignores strength for the label) routed here by PR #2082",
    "next": "shadow metrics on the exact lineup engine",
    "sourceRowCount": 6
   },
@@ -403,8 +403,8 @@
    "title": "Board constants, Hill validation target, drift forecast, TE++ uplift, record linkage",
    "owner": "canonical board constants (research)",
    "state": "RESEARCH_ONLY",
-   "evidence": "AMATH-S21, S34, S40, S42, S50, S56; #898, #1322",
-   "next": "independent validation target (S50) before any promotion",
+   "evidence": "AMATH-S21, S34, S40, S42, S50, S56; #898, #1322; master-audit W12-F002 residual (TE SELL skew 0.742 vs target 0.137 in the top 250) routed here by PR #2082",
+   "next": "independent validation target (S50) before any promotion; measure the TE++ uplift's role in the TE SELL skew",
    "sourceRowCount": 8
   },
   {
@@ -424,9 +424,9 @@
    "priority": "P2",
    "title": "Draft / auction 2027 readiness",
    "owner": "draft capital + auction room",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2074: W10-F001 STILL_PRESENT and fixed (draft-logic.js bids capped by remaining budget; decision-intelligence Critical C01 closed); #1414: no surface shows the completed 2026 class, /rankings reads pickClassLifecycle",
-   "next": "merge #2074; board-level retirement gate (every served league must prove completion) is a canonical-owner decision; mergeDraftCapitalTeams null-to-0 follow-up; auction rehearsal checklist",
+   "state": "MERGED",
+   "evidence": "PR #2074 merged (5dea846f): MaxBid capped by remaining budget; audit C01 closed",
+   "next": "board-level class-retirement gate (#1414)",
    "sourceRowCount": 13
   },
   {
@@ -447,8 +447,8 @@
    "title": "Governance / process / UI-lane records",
    "owner": "coordinator",
    "state": "IMPLEMENTING",
-   "evidence": "#1336 #1412 #1418 #1421 #1422 #1428 #1628 #967 #1214 #1005; master-site-audit adjudication: PR #2082 classifies the 7 unresolved P0 findings CLOSED_VERIFIED with offline regression tests (adversarial review running)",
-   "next": "merge #2082 after review; then the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated); close or re-point governance issues",
+   "evidence": "PR #2082 merged (57611231): 7 unresolved P0 master-audit findings adjudicated on current main -- CLOSED_VERIFIED W03-F001, W07-F001, W08-F001, W10-F002; PARTIAL W12-F002 (-> CW-36), W17-F001 (-> CW-17), W17-F002 (-> CW-33); offline regression tests, adversarial review APPROVE",
+   "next": "the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated)",
    "sourceRowCount": 30
   },
   {
@@ -523,9 +523,9 @@
    "priority": "P0",
    "title": "Confidence owner: withholding a source can CURE Hampel rejections and raise confidence (second deploy blocker)",
    "owner": "src/api/data_contract.py::_lost_evidence_seats + _family_evidence_for_row",
-   "state": "TESTED",
-   "evidence": "PR #2072 (seated variant, DD-12): 0 values move, 0 upgrades, 1 downgrade; 77 targeted tests pass on the train head",
-   "next": "independent review (running), green CI, merge, verify deploy",
+   "state": "PRODUCTION_VERIFIED",
+   "evidence": "release train #2072 merged (91b0965c) and deployed (run 3734, 2026-11-06T18:48Z); live featureFlags confidence_cured_rejection_guard enabled/LIVE",
+   "next": "none (closed); rollback RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0",
    "sourceRowCount": 2
   },
   {
@@ -534,9 +534,9 @@
    "priority": "P1",
    "title": "Feature-intent census: requirement -> code -> test -> evidence matrix and per-feature verification states",
    "owner": "docs/audits/remediation_2026-11-06/ (census tooling) + docs/OWNER_FEATURE_INVENTORY.md (intent)",
-   "state": "IMPLEMENTING",
-   "evidence": "standard merged #2080; mechanical surface census (routes, pages, bridge routes, flags, timers -> test references) in progress",
-   "next": "census PR, then join each surface to its controlling owner requirement and record VERIFIED / PARTIAL / UNVERIFIED with evidence",
+   "state": "MERGED",
+   "evidence": "standard merged #2080; feature census merged #2085 (scripts/feature_census.py; 229 routes, 61 pages, 87 bridge routes, 67 flags, 52 jobs; 38 ranked gaps; review: 0 false negatives / 0 false positives on a 13-item check)",
+   "next": "join each surface to its controlling owner requirement and record VERIFIED / PARTIAL / UNVERIFIED with evidence",
    "sourceRowCount": 2
   },
   {
@@ -545,9 +545,9 @@
    "priority": "P1",
    "title": "Independent mathematical oracles + invariants for consequential calculations; correctness kept separate from predictive skill",
    "owner": "the canonical owner of each calculation (confidence, blend, package model, lineup, FAAB, ROS, BDVM)",
-   "state": "NOT_STARTED",
-   "evidence": "existing invariant work: CW-29 (missing-as-zero property suite), CW-47 (confidence), C2-U1 exact lineup vs host truth",
-   "next": "rank calculations by decision impact x oracle gap from the CW-48 census; add hand-computed / host-truth known-answer tests first",
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2089: independent oracles for the package model (14 hand cases + exact-rational sweep, shared by Python and JS) and the weighted count-aware blend median (spec reference, n=1..9); production agrees; even-half rounding cases added after review",
+   "next": "merge on green; next: confidence gate axes, lineup solver vs host truth, FAAB curve",
    "sourceRowCount": 1
   },
   {
@@ -556,9 +556,9 @@
    "priority": "P1",
    "title": "Permanent regression + end-to-end critical journeys (source -> API -> frontend -> action) across league / flag states",
    "owner": "tests/ + frontend/__tests__ + the Playwright regression suite (existing frameworks only)",
-   "state": "NOT_STARTED",
-   "evidence": "every verified defect gains a reproducing test (e.g. CW-40 P0 adjudication regression tests, PR #2082)",
-   "next": "list the critical journeys from the census; close the zero-reference mutating / private routes first",
+   "state": "MERGED",
+   "evidence": "#2086 timer/service unit integrity over every deploy timer (264 cases; commented-out installer lines no longer count); #2087 private-route auth regressions; #2082 audit regression tests",
+   "next": "critical user journeys from the census; weak-only census items next",
    "sourceRowCount": 1
   },
   {
@@ -2611,28 +2611,28 @@
    "source": "INTAKE",
    "id": "MD-40",
    "title": "W0-A deploy blocker. Reproduce and correctly fix `test_no_confidence_rise_from_the_held_familys_silence` (Sonny Styles) without skipping or weakening; full hard",
-   "statusAtSource": "IN PROGRESS — #2061 reviewed; second hidden blocker found (MD-46)",
+   "statusAtSource": "DONE — #2061 merged in release train #2072 (91b0965c); Deploy Production 3734 succeeded 2026-11-06T18:48Z",
    "cw": "CW-01"
   },
   {
    "source": "INTAKE",
    "id": "MD-41",
    "title": "W0-B production scraper outage + health (#2060). Root-cause browser launch failures, restore collection, truthful freshness and `/api/health`, diagnostics witho",
-   "statusAtSource": "IN PROGRESS — #2062",
+   "statusAtSource": "PRODUCTION RECOVERED — deploy restart: scrape success 2026-11-06T18:48:38Z, /api/health 200; #2062 (reaper + diagnostics) merged a9244b0a",
    "cw": "CW-02"
   },
   {
    "source": "INTAKE",
    "id": "MD-42",
    "title": "W0-C time-critical evidence. Week 10 pre-kickoff capture with freeze receipts (kickoff 2026-11-12); Week 9 scoring; automatic first-valid 2027 pre-auction snaps",
-   "statusAtSource": "IN PROGRESS — receipts pushed (#2065); auction capture #2063",
+   "statusAtSource": "IN PROGRESS — receipts #2065, auction capture #2063 and evaluation runner #2077 merged; Week 9 evaluation once final",
    "cw": "CW-03"
   },
   {
    "source": "INTAKE",
    "id": "MD-43",
    "title": "W0-D backups, security posture, observability. Prove backup coverage and a restore path; verify loopback / ports / headers / banners / auth boundaries without r",
-   "statusAtSource": "IN PROGRESS — #2064; headers verified live 2026-11-06",
+   "statusAtSource": "HUMAN_ACTION_REQUIRED — #2064 merged; box operator re-runs install_state_backup.sh + restore verifier; headers verified live 2026-11-06",
    "cw": "CW-05"
   },
   {
@@ -2653,7 +2653,7 @@
    "source": "INTAKE",
    "id": "MD-46",
    "title": "Discovered 2026-11-06: confidence-owner gap (second deploy blocker). `test_idptc_cutoff_readiness::test_5` (Patrick Mahomes): withholding a source cures other H",
-   "statusAtSource": "IN PROGRESS — CW-47",
+   "statusAtSource": "DONE — CW-47 merged in #2072 and deployed; guard flag LIVE in production",
    "cw": "CW-47"
   },
   {
@@ -2667,21 +2667,21 @@
    "source": "INTAKE",
    "id": "MD-48",
    "title": "Feature-intent census (Phase 1). Inventory every material feature and execution surface; per feature: original request, latest controlling requirement, intended",
-   "statusAtSource": "IN PROGRESS — CW-48 (mechanical census first)",
+   "statusAtSource": "IN PROGRESS — CW-48 census merged #2085; requirement joins next",
    "cw": "CW-48"
   },
   {
    "source": "INTAKE",
    "id": "MD-49",
    "title": "Independent mathematical verification (Phase 2). Every consequential calculation checked for validity, intended methodology, independent oracles (never the func",
-   "statusAtSource": "AUTHORIZED — CW-49",
+   "statusAtSource": "IN PROGRESS — CW-49 oracles #2089 (package model, blend median) reviewed",
    "cw": "CW-49"
   },
   {
    "source": "INTAKE",
    "id": "MD-50",
    "title": "Permanent regression and end-to-end coverage (Phases 3–4). Tests from intended behavior; a reproducing test per verified defect; detection of silent numeric cha",
-   "statusAtSource": "AUTHORIZED — CW-50",
+   "statusAtSource": "IN PROGRESS — #2086 timer integrity, #2087 private-route auth regressions (fixed a live admin-gate defect), #2082 audit regressions merged",
    "cw": "CW-50"
   },
   {

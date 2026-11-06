@@ -3,53 +3,57 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-11-06 ~14:00Z.** Agent-OS-Receipt `47a8b19f`. Session `session_01BGLcxPv9489uMYWnm3GbTF`.
+**As of 2026-11-06 ~19:05Z.** Agent-OS-Receipt `741230de` (Agent OS changed with #2080). Session
+`session_01BGLcxPv9489uMYWnm3GbTF`.
 
 ## Mode
-- Owner directive 2026-11-06 (sitewide remediation): record `docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md`;
-  intake MD-38 … MD-46; execution-plan top section; register section "Sitewide remediation directive (2026-11-06)";
-  agent decisions `docs/audits/remediation_2026-11-06/DECISIONS.md` (DD-01 … DD-13).
-- Inventory `docs/audits/remediation_2026-11-06/` (CW-01 … CW-47): `python docs/audits/remediation_2026-11-06/build_inventory.py`
-  then `--check`. Production performance baseline: `perf_baseline_2026-11-06.json` (same folder).
+- Two owner directives of 2026-11-06, one program:
+  - Sitewide remediation: `docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md`; intake MD-38 … MD-46.
+  - Continuous QA / feature-intent verification: `docs/owner/CONTINUOUS_QA_DIRECTIVE_2026-11-06.md`; intake
+    MD-47 … MD-55; permanent process `docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md` (#2080).
+- Inventory CW-01 … CW-53 (`docs/audits/remediation_2026-11-06/`; `build_inventory.py` then `--check`); delegated
+  decisions DD-01 … DD-16 (`DECISIONS.md`). Owner granted standing permission to merge anything ready (green CI +
+  independent review).
 
-## Production (live, 2026-11-06)
-- Build `80c52dbf` (2026-11-04). **No deploy since 2026-11-05**: the hard gate fails on Sonny Styles (fixed by #2061) and,
-  hidden behind it by `pytest -x`, Patrick Mahomes (CW-47 confidence gap). Both are in **release train #2072**.
-- `/api/health` 503; scraper 0/9, stuck at `browser/launch`; a deploy restarts `dynasty.service`.
+## Production (verified 2026-11-06 ~18:55Z, public endpoints)
+- Deploy run 3734 SUCCEEDED 18:48Z: `/api/status` build.commit `91b0965c` (release train #2072). First deploy since
+  2026-11-04. `/api/health` 200 (was 503). Scrape success 18:48:38Z (263 s), next 20:44Z. Flag
+  `confidence_cured_rejection_guard` LIVE.
+- Deploys 3747 / 3748 (main through #2079 / #2084) were in flight; later merges queue more (concurrency group never
+  cancels an in-progress deploy). Re-read build.commit and `box_resources` (#2062 adds it) after they land.
+- `backup_health.stateBackup` still unverifiable / permission_denied: needs the box operator (below).
 
-## Merged this session
-#2065 (Week 10 freeze receipts, pushed 12:46:58Z — before the 2026-11-12 kickoff), #2066 (directive record + inventory),
-#2073 (inventory states, DD-11 … DD-13).
+## Merged today
+#2065 #2066 #2073 #2078 #2080 #2081 #2083 · #2072 (train, incl. #2061) · #2070 #2069 #2086 #2064 #2075 #2077 #2085
+#2068 #2063 #2087 #2082 #2074 #2079 #2084 #2071 #2062.
 
-## Merge order (every PR below is independently reviewed APPROVE)
-1. **#2072** release train (CW-47 seated confidence guard + #2061). Validate PR running the full hard gate (first time
-   in two days that `-x` does not stop early — watch for a THIRD hidden failure). On green: merge, close #2061 as
-   included, watch Deploy Production, confirm `/api/status` `build.commit` advances, read `box_resources` /
-   `backup_health` / scraper state.
-2. Then bring each up to date with `main` and merge on green: #2062 (scraper reaper + box diagnostics), #2063 (2027
-   pre-auction snapshot; nit: import the 6 h budget from its owner), #2064 (backup group-list, analyst ledger, restore
-   verifier), #2067 (hide synthetic MC win rate; "Market Disagreement"), #2068 (archetype missing ≠ 0), #2069 (scoring
-   parity census), #2070 (rehab reviews), #2071 (FAAB integrity + fail-closed config; follow-up: add the config refusal
-   to `/api/waiver/advisor` and `/api/waiver/streaming`), #2074 (W10-F001 bid ≤ remaining budget; C01 closed), #2075
-   (login next sanitizer + missing budget ≠ $0), #2076 (forecast calibration ledger timer + size-controlled gates),
-   #2077 (prospective IDP evaluation runner).
-3. In flight (workers): public-league stale-while-revalidate; `/draft` contract-view audit; Team Strength auth state.
+## Open, all independently reviewed — merge each on green
+- #2067 trade honesty / "Market Disagreement": nav-invariant test updated (ce2e969d, DD-15); journeys re-run once.
+- #2076 forecast calibration ledger timer: installer conflict with #2063 resolved (f9049d11).
+- #2089 CW-49 math oracles (package model, blend median).
+- In flight: CW-10 follow-up worker (FAAB config refusal on `/api/waiver/advisor` + `/api/waiver/streaming`).
 
 ## Owner / box-operator items
-- Box: `bash deploy/backup/install_state_backup.sh` + `scripts/verify_state_backup_restore.py` (#2064 body); check
-  `systemctl list-timers '*weekly-projection-capture*'` and w9/w10 archive timestamps; confirm `:8000` is closed.
-- Owner: DD-11 recommends promoting #1938 (IDP scorer fixes; host-truth census 91.8 % → 96.4 %) — still owner-reserved.
-- Canonical-owner question: board-level class retirement waits for EVERY served league to prove completion (#1414).
+- Box: `bash deploy/backup/install_state_backup.sh` then `scripts/verify_state_backup_restore.py` (#2064 body); check
+  `systemctl list-timers '*weekly-projection-capture*' '*pre-auction-snapshot*'` and w9/w10 archive timestamps;
+  confirm `:8000` is closed.
+- Owner: DD-11 recommends promoting #1938 (owner-reserved). DD-14: the DFS auto-refresh timer keeps running under
+  ODR-DFS-PAUSE ("deployed DFS preserved") — say so if the pause should cover it. Sharp audit routes are
+  any-signed-in, not admin-only (consistent with siblings) — policy question only.
 
 ## Next dependency-ready units
-Week 9 evaluation once final (needs #2077); CW-08 follow-ups (#802 return TDs untested); CW-12 source lineage
-(MD-21) as a measured shadow only; CW-29 follow-up (`infer_scoring_tags` / `compute_profile_features` missing→0);
-CW-40 adjudicate the 78 unresolved P0/P1 master-audit findings; CW-37 dependency batches after the train.
+QA: CW-48 requirement joins for the census's surfaces; CW-49 batch 2 (confidence gate axes, FAAB curve, lineup vs host
+truth); CW-50 critical journeys + census weak-only items; CW-52 dead-code census. Remediation: Week 9 evaluation once
+final (#2077 merged); CW-40 P1 batch (71 unresolved); CW-29 follow-up (`infer_scoring_tags` /
+`compute_profile_features` missing → 0); CW-26 post-deploy `/overview` curl baseline; snapshot-layer staleness bound
+(CW-11 note); residuals routed by #2082: W12-F002 → CW-36, W17-F001 → CW-17, W17-F002 → CW-33.
 
 ## Hazards
-- Disk: each worker worktree is a full checkout; `git worktree remove -f -f` finished ones (disk filled once).
-- Deploy/Validate run `pytest -x`: one data-coupled failure hides the next.
-- `config/coercion_baseline.json`: edit entries by hand, never `--write-baseline`; only one open PR may touch it.
-- Receipted blobs (freeze receipts) must never change: `scripts/idp_opportunity_prospective.py` = `beb7640f`.
-- `pip install http-ece` needs `pip install --ignore-installed --upgrade setuptools` first in this container.
-- Encoding guard: new Python text IO passes `encoding="utf-8"`. Never `git stash`. GitHub API quota is shared.
+- Run Python formatting ONLY via `bash scripts/format_python_changes.sh` (pinned Ruff 0.6.9); a newer local `ruff`
+  formats differently and fails CI.
+- Disk: worker worktrees are full checkouts; `git worktree remove -f -f` finished ones.
+- Usage: the 5-hour model limit was hit once (≈14:45–16:40Z) with four opus agents running; prefer sonnet workers.
+- Deploy/Validate run `pytest -x`: one data-coupled failure hides the next. Validate job timeout is 120 min.
+- `config/coercion_baseline.json`: edit by hand, never `--write-baseline`; one open PR at a time.
+- Receipted blobs never change: `scripts/idp_opportunity_prospective.py` = `beb7640f`.
+- Encoding guard: new Python text IO passes `encoding="utf-8"`. Never `git stash`.
