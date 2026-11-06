@@ -2272,7 +2272,14 @@ second blend (``_lost_evidence_seats``): the unweighted outlier test is re-run
 on the OBSERVED panel (voting + withheld values), which reproduces the verdict
 from while the source still voted — so a withheld source the panel would have
 rejected anyway is not a loss, and a Hampel rejection is seated only when the
-lost vote CAUSED it.  Exact at a fixed published value; the one accepted
+lost vote CAUSED it.  The mirror case — a rejection the lost vote CURED (kept
+now, rejected by the observed panel; measured: IDPTC's own rejected vote was
+what rejected Yahoo/Boone and Draft Sharks on Patrick Mahomes) — earns the gate
+nothing (``_lost_evidence_replay``, flag ``confidence_cured_rejection_guard``,
+default ON, rollback ``RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0`` +
+restart; stamped ``sourceRankMeta[src].confidenceUncredited``; its value vote is
+untouched).  Not identifiable under the default-off joint / rank-space filter
+challengers.  Exact at a fixed published value; the one accepted
 residual (coordinator, 2026-10-07) is the agreement axis re-measured against a
 value that itself moved (1 row on the simulated cutoff).  Validator warnings
 ``source_votes_withheld:*`` / ``pick_evidence_reduced_to_single_provider:*`` /

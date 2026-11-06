@@ -11,7 +11,7 @@ import re
 import statistics
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Collection, Iterable, Mapping, Sequence
+from typing import Any, Callable, Collection, Iterable, Mapping, NamedTuple, Sequence
 
 from src.canonical.player_valuation import (
     PERCENTILE_REFERENCE_N as _CANONICAL_PERCENTILE_REFERENCE_N,
@@ -7920,6 +7920,7 @@ def _family_evidence_for_row(
     family_by_key: dict[str, str],
     fresh_by_source: dict[str, bool | None],
     content_freshness_applies: bool = False,
+    uncredited: Collection[str] = (),
 ) -> list["FamilyEvidence"]:
     """Assemble the B11 gate's per-family evidence for one row.
 
@@ -7928,6 +7929,12 @@ def _family_evidence_for_row(
     second copy of this block would be a second confidence methodology —
     ``src/api/confidence.py`` owns what the levels MEAN and this owns
     what evidence it is shown, and both halves need exactly one owner.
+
+    ``uncredited`` names voting sources that are NOT evidence for the gate:
+    rejections a withheld vote CURED (``_lost_evidence_replay``'s ``cured``).
+    They are skipped exactly like a rejected source — no head, no seat — so a
+    family keeps its place only through another credited member.  Their
+    value votes are untouched; this is the confidence half only.
 
     Decides no level.  Every judgement below is about what a source
     contribution IS, not about how good it is.
@@ -7938,6 +7945,8 @@ def _family_evidence_for_row(
     row_is_te = str(row.get("position") or "").strip().upper() == "TE"
     evidence: list[FamilyEvidence] = []
     for skey in effective_source_ranks:
+        if skey in uncredited:
+            continue
         smeta = effective_source_meta.get(skey) or {}
         # Family-superseded members are not independent evidence;
         # B10-T3b already excluded them from the blend.
@@ -8036,7 +8045,20 @@ def _idp_trade_calc_native_points(
     return points
 
 
-def _lost_evidence_seats(
+class _LostEvidence(NamedTuple):
+    """What one row's withheld votes did to its evidence, as the confidence
+    gate must see it.  See :func:`_lost_evidence_replay`."""
+
+    # Sources whose absence from the value is LOST evidence: a seat that
+    # counts against every share axis and earns nothing.
+    seats: list[str]
+    # Sources voting NOW that the observed panel REJECTS — rejections the
+    # loss CURED.  Not evidence the row had while the withheld source still
+    # voted, so they earn no confidence credit (they still vote in the value).
+    cured: list[str]
+
+
+def _lost_evidence_replay(
     *,
     voting_pairs: list[tuple[str, float]],
     withheld_pairs: list[tuple[str, float]],
@@ -8044,38 +8066,63 @@ def _lost_evidence_seats(
     outlier_test_applies: bool,
     exact_replay: bool = True,
     replay: Any = None,  # Callable[[list[tuple[str, float]]], Sequence[str]] | None
-) -> list[str]:
-    """The sources a row's confidence must seat because a vote was withheld.
+    cured_identifiable: bool = True,
+) -> _LostEvidence:
+    """How a row's confidence must account for its withheld votes.
 
     Owner directive 2026-10-07 (IDP Trade Calculator's quarantine cutoff):
-    losing a vote must never RAISE confidence.  The seat answers "what did
+    losing a vote must never RAISE confidence.  The replay answers "what did
     this row's evidence look like while the withheld source still voted?" —
     and the outlier test can be asked that EXACTLY, with no second blend:
     ``_hampel_filter_per_player`` is unweighted, so re-running it on the
     OBSERVED panel (voting + withheld values) reproduces the verdict the
-    panel reached while the withheld source was still voting.  Seated:
+    panel reached while the withheld source was still voting.
 
-    * each withheld source the observed panel would have KEPT — it was a
+    ``seats`` (lost evidence — a seat that earns nothing):
+
+    * (a) each withheld source the observed panel would have KEPT — it was a
       voting head and now is not.  One the observed panel itself rejects
       was already absent from the evidence, so it is not a new loss;
-    * each source rejected NOW that the observed panel would have kept —
+    * (b) each source rejected NOW that the observed panel would have kept —
       a rejection CAUSED by the lost vote (measured on the simulated
       cutoff: The IDP Show on Trey McBride, Draft Sharks on Colby
       Parkinson).  A source the observed panel rejects too (rejected
       before the cutoff as well, e.g. on Bijan Robinson) is not seated:
       seating it would penalise a verdict nothing changed.
 
+    ``cured`` (no credit — the mirror of (b)):
+
+    * (c) each source KEPT now that the observed panel REJECTS — a rejection
+      the lost vote CURED.  Measured on the simulated IDP Trade Calculator
+      cutoff (``dynasty_export_20261106_123200``): IDPTC's own vote was
+      rejected on Patrick Mahomes, yet its presence in the panel is what
+      rejected Yahoo/Boone and Draft Sharks; withholding it un-rejected
+      both, and crediting them raised his coverage 9 -> 11 of 14 families
+      (medium -> high).  While the withheld source still voted they were
+      not evidence, so the confidence gate must not credit them now — the
+      caller removes them from the row's family evidence (confidence only;
+      their value votes are untouched).  A source rejected on both panels
+      is in neither list: nothing changed for it.
+
+    With (a), (b) and (c) the families the gate sees are exactly those the
+    observed panel kept: credited when still voting, seated when not.
+
     Picks bypass the outlier test in the blend, so for them every withheld
-    source is seated and no rejection exists.  Under the (default-off)
-    weighted joint challenger the replay is not exact, so the seat falls
-    back to the conservative superset: every withheld and every rejected
-    source.
+    source is seated and no rejection exists, so nothing is cured.  Under the
+    (default-off) weighted joint challenger the replay is not exact: the seat
+    falls back to the conservative superset (every withheld and every
+    rejected source), and cured rejections CANNOT be identified — ``cured`` is
+    empty, so on that path the no-raise guarantee does not cover them.  The
+    caller passes ``cured_identifiable=False`` wherever the replay is not the
+    filter the blend actually ran (the default-off rank-space challengers),
+    for the same reason: a disagreement between two different filters is
+    not a rejection the loss cured.
     """
     withheld = [k for k, _v in withheld_pairs]
     if not outlier_test_applies:
-        return withheld
+        return _LostEvidence(withheld, [])
     if not exact_replay:
-        return withheld + [k for k in dropped_now if k not in withheld]
+        return _LostEvidence(withheld + [k for k in dropped_now if k not in withheld], [])
     observed = list(voting_pairs) + list(withheld_pairs)
     if replay is not None:
         # The outlier policy in force (``outlier-corroborated-v1``) asked of the
@@ -8086,9 +8133,35 @@ def _lost_evidence_seats(
     else:
         observed_dropped = []
     already = set(observed_dropped)
-    return [k for k in withheld if k not in already] + [
+    seats = [k for k in withheld if k not in already] + [
         k for k in dropped_now if k not in already and k not in withheld
     ]
+    cured: list[str] = []
+    if cured_identifiable:
+        not_kept_now = set(dropped_now) | set(withheld)
+        cured = [k for k, _v in voting_pairs if k in already and k not in not_kept_now]
+    return _LostEvidence(seats, cured)
+
+
+def _lost_evidence_seats(
+    *,
+    voting_pairs: list[tuple[str, float]],
+    withheld_pairs: list[tuple[str, float]],
+    dropped_now: Sequence[str],
+    outlier_test_applies: bool,
+    exact_replay: bool = True,
+    replay: Any = None,  # Callable[[list[tuple[str, float]]], Sequence[str]] | None
+) -> list[str]:
+    """The sources a row's confidence must seat because a vote was withheld —
+    the ``seats`` half of :func:`_lost_evidence_replay` (cases (a) and (b))."""
+    return _lost_evidence_replay(
+        voting_pairs=voting_pairs,
+        withheld_pairs=withheld_pairs,
+        dropped_now=dropped_now,
+        outlier_test_applies=outlier_test_applies,
+        exact_replay=exact_replay,
+        replay=replay,
+    ).seats
 
 
 def _withheld_family_evidence_for_row(
@@ -12398,6 +12471,11 @@ def _compute_unified_rankings(
     # ``_withheld_family_evidence_for_row``).  Decided in the blend loop, where
     # the exact observed values exist.
     row_lost_seats: dict[int, list[str]] = {}
+    # Per row, under ``confidence_cured_rejection_guard`` (default ON): voting
+    # sources the OBSERVED panel (voting + withheld) rejects — rejections a
+    # withheld vote CURED.  The confidence gate does not credit them (see
+    # ``_lost_evidence_replay``); the value blend still counts their votes.
+    row_cured_rejections: dict[int, list[str]] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
     # The combined ladder from every usable bridge.  EMPTY means no bridge
@@ -13204,6 +13282,12 @@ def _compute_unified_rankings(
     # uncorroborated vote or a vote from a board the screen found mis-scaled
     # (``outlier_board_exclusions``).  Every challenger above takes precedence.
     _outlier_policy_on = _outlier_policy_active()
+    # Losing evidence never raises confidence — the cured-rejection half
+    # (default ON; ``_lost_evidence_replay`` case (c)).  OFF
+    # (RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0 + restart): a source
+    # whose rejection a withheld vote cured is credited again, the prior
+    # behaviour.  Confidence only — no value, rank or tier reads it.
+    _cured_rejection_guard = _feature_flags.is_enabled("confidence_cured_rejection_guard")
     if _outlier_policy_on:
         from src.api import outlier_policy as _outlier_policy  # noqa: PLC0415
     # IDP deep-tail native-value challenger ``idp-deep-tail-native-v1``
@@ -13765,6 +13849,7 @@ def _compute_unified_rankings(
         # artificial agreement that the Hampel statistic mis-reads as
         # outliers across the synthetic vs. real-source values.
         hampel_dropped_keys: list[str] = []
+        cured_now: list[str] = []
         # ``idp-hampel-n3-v1`` (default OFF) changes ONLY this minimum, and
         # only on IDP rows; with the flag off it is ``_HAMPEL_MIN_N``.
         _hampel_min_n = (
@@ -13857,12 +13942,16 @@ def _compute_unified_rankings(
                     meta["hampelDropped"] = True
         players_array[row_idx]["droppedSources"] = list(hampel_dropped_keys)
         if withheld_pairs:
-            row_lost_seats[row_idx] = _lost_evidence_seats(
+            _lost = _lost_evidence_replay(
                 voting_pairs=[(k, v) for k, v, _ in all_value_pairs],
                 withheld_pairs=withheld_pairs,
                 dropped_now=hampel_dropped_keys,
                 outlier_test_applies=not row_is_pick,
                 exact_replay=not _joint_challenger,
+                # The replay is the incumbent Hampel (or the outlier policy's
+                # own replay); under a rank-space challenger the blend ran a
+                # different filter, so a disagreement is not a cured rejection.
+                cured_identifiable=not (_rank_space_challenger or _rank_space_per_vote),
                 replay=(
                     _outlier_policy.replay_dropped(
                         curve=_outlier_policy.scope_curve(players_array[row_idx].get("assetClass")),
@@ -13875,6 +13964,9 @@ def _compute_unified_rankings(
                     else None
                 ),
             )
+            row_lost_seats[row_idx] = _lost.seats
+            if _cured_rejection_guard:
+                cured_now = _lost.cured
         # Observations present but not voting because their effective weight
         # is 0 (quarantined staleness or FAILED health) — named separately
         # from Hampel drops, because "stale" and "outlier" are different facts.
@@ -13929,6 +14021,19 @@ def _compute_unified_rankings(
                 meta["contributedToBlend"] = False
                 meta["supersededBy"] = winner
             del kept_keys
+
+        # Cured rejections earn the confidence gate nothing (see
+        # ``_lost_evidence_replay``).  Never the WHOLE credited panel: if every
+        # source the gate would credit is cured, the gate would see no family
+        # and answer "no evidence covers this asset", which is false of a row
+        # its voters priced — that case keeps the prior answer.  The stamp
+        # names each uncredited source on its own provenance record, so it
+        # travels with ``sourceRankMeta`` (and merges with it in the delta).
+        if cured_now and {k for k, _v, _a in family_kept} - set(cured_now):
+            row_cured_rejections[row_idx] = list(cured_now)
+            for sk in cured_now:
+                meta = row_source_meta[row_idx].get(sk, {})
+                meta["confidenceUncredited"] = "rejected_with_withheld_votes"
 
         # Three counts, named for what they each mean.  ``sourceCount``
         # (stamped elsewhere) stays the raw matched-key count, because it
@@ -14540,6 +14645,7 @@ def _compute_unified_rankings(
                 family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
+                uncredited=row_cured_rejections.get(row_idx, ()),
             )
             withheld = _withheld_family_evidence_for_row(
                 seats=row_lost_seats.get(row_idx, ()),
@@ -14743,6 +14849,7 @@ def _compute_unified_rankings(
                 family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
+                uncredited=row_cured_rejections.get(row_idx, ()),
             )
             withheld = _withheld_family_evidence_for_row(
                 seats=row_lost_seats.get(row_idx, ()),
