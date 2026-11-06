@@ -141,8 +141,8 @@ CW: list[dict] = [
         "title": "FAAB correctness and recommendation integrity",
         "owner": "src/trade/faab_engine.py",
         "state": "MERGED",
-        "evidence": "PR #2071 merged (cd555327): FAAB integrity fixtures + fail-closed config",
-        "next": "follow-up in flight: apply the same config refusal to /api/waiver/advisor and /api/waiver/streaming",
+        "evidence": "PR #2071 merged (cd555327): FAAB integrity fixtures + fail-closed config; #2091 merged (598f0780): /api/waiver/advisor + /api/waiver/streaming refuse 503 faab_config_invalid on an unreadable config (same helper)",
+        "next": "post-deploy probe of the refusal shape; FAAB ceiling-curve independent oracle (CW-49)",
     },
     # wave C — data quality and calibration
     {
@@ -191,9 +191,9 @@ CW: list[dict] = [
         "priority": "P0",
         "title": "Forecast Calibration Ledger + size-controlled gates",
         "owner": "AL-3b scorecard / AL-4a Game Day calibration",
-        "state": "INDEPENDENTLY_REVIEWED",
-        "evidence": "PR #2076: AL-3b/AL-4a schedule; merge conflict with #2063 in the installer resolved by keeping both timers (f9049d11; deploy tests 1423 passed)",
-        "next": "merge on green",
+        "state": "MERGED",
+        "evidence": "PR #2076 merged (d3f1fcc8): AL-3b/AL-4a weekly ledger timer + research-layer size-controlled gates; installer conflict with #2063 resolved keeping both timers",
+        "next": "first post-deploy firing (Tue/Wed 13:40 UTC after a final week) on the box; calibrationState descriptor needs owner/UI authorization",
     },
     {
         "id": "CW-16",
@@ -232,9 +232,9 @@ CW: list[dict] = [
         "priority": "P1",
         "title": "Analyze Trade unification + honest Monte Carlo framing",
         "owner": "trade_decision.decide()",
-        "state": "INDEPENDENTLY_REVIEWED",
-        "evidence": "PR #2067: synthetic Monte Carlo win rate hidden; 'Market Disagreement'; nav invariant test updated for the owner rename (ce2e969d, reviewed APPROVE)",
-        "next": "merge on green (journeys re-run once: WebKit navigation flake)",
+        "state": "MERGED",
+        "evidence": "PR #2067 merged (bab2f59f): synthetic Monte Carlo win rate hidden behind 'Illustrative sensitivity only'; nav invariant test follows the owner rename (DD-15)",
+        "next": "production check of the Monte Carlo panel copy after deploy",
     },
     {
         "id": "CW-20",
@@ -252,9 +252,9 @@ CW: list[dict] = [
         "priority": "P2",
         "title": "Trade Finder / Best Offers + calculator UI fixes",
         "owner": "finder.py / suggestions.py / trade page",
-        "state": "INDEPENDENTLY_REVIEWED",
-        "evidence": "PR #2067: arbitrage copy renamed Market Disagreement (URL, API, fields unchanged)",
-        "next": "merge on green",
+        "state": "MERGED",
+        "evidence": "PR #2067 merged (bab2f59f): arbitrage copy renamed Market Disagreement (URL, API, fields unchanged)",
+        "next": "production check of /arbitrage labels after deploy",
     },
     {
         "id": "CW-22",
@@ -304,7 +304,7 @@ CW: list[dict] = [
         "owner": "per-route",
         "state": "MERGED",
         "evidence": "#2079 /draft compact view (-60% raw, -56% gzip), #2081 Team Strength sign-in state, #2084 public-league stale-while-revalidate (bounded 6 h, one abandoned job max, B8 refresh honoured; adversarial review APPROVE) all merged",
-        "next": "post-deploy public curl baseline for /overview; snapshot-layer staleness bound (CW-11 note)",
+        "next": "baseline after deploy 3747 (3b3b0eee, carries #2084), 2026-11-06 ~20:43Z, 5 anonymous GETs /api/public/league/overview: 8.32 s (first after deploy), then 0.72 / 0.53 / 1.28 / 0.82 s, all 200, 14,485 B; keep sampling; snapshot-layer staleness bound (CW-11 note)",
     },
     {
         "id": "CW-27",
@@ -334,8 +334,8 @@ CW: list[dict] = [
         "title": "Missing-as-zero defects + property-based invariant suite",
         "owner": "test-only + archetype owner",
         "state": "MERGED",
-        "evidence": "PR #2068 merged (622ad85d): archetype missing feature is unknown, not 0",
-        "next": "follow-up: infer_scoring_tags / compute_profile_features missing -> 0",
+        "evidence": "PR #2068 merged (622ad85d): archetype missing feature is unknown, not 0; #2093 (independently reviewed): compute_profile_features / infer_scoring_tags treat missing inputs as unknown (no served caller); #2094 merged (2bbda400): W20-F005 Terminal portfolio prices picks via the canonical resolvePickRow + pickAliases (unpriceable pick stays unresolved, never 0)",
+        "next": "merge #2093 on green; property-based missing-is-not-zero suite",
     },
     {
         "id": "CW-30",
@@ -415,8 +415,8 @@ CW: list[dict] = [
         "title": "Dependencies / toolchain / security advisories",
         "owner": "requirements*.txt, frontend/package.json, workflows",
         "state": "NOT_STARTED",
-        "evidence": "#1467 Node 22; 13 dependabot PRs; #1485 scraper runtime",
-        "next": "advisory census; one focused batch per runtime",
+        "evidence": "#1467 Node 22; 13 dependabot PRs; #1485 scraper runtime; #2055 (next 16.4.2 -> 16.4.3 patch, lockfile-only for next/@next/*) branch updated to current main, independent review APPROVE conditional on CI incl. the production-start journeys; default-branch Dependabot alert #149 (low) open",
+        "next": "merge #2055 on green; advisory census incl. alert #149; one focused batch per runtime",
     },
     {
         "id": "CW-38",
@@ -445,8 +445,8 @@ CW: list[dict] = [
         "title": "Governance / process / UI-lane records",
         "owner": "coordinator",
         "state": "IMPLEMENTING",
-        "evidence": "PR #2082 merged (57611231): 7 unresolved P0 master-audit findings adjudicated on current main -- CLOSED_VERIFIED W03-F001, W07-F001, W08-F001, W10-F002; PARTIAL W12-F002 (-> CW-36), W17-F001 (-> CW-17), W17-F002 (-> CW-33); offline regression tests, adversarial review APPROVE",
-        "next": "the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated)",
+        "evidence": "PR #2082 merged (57611231): 7 unresolved P0 master-audit findings adjudicated on current main -- CLOSED_VERIFIED W03-F001, W07-F001, W08-F001, W10-F002; PARTIAL W12-F002 (-> CW-36), W17-F001 (-> CW-17), W17-F002 (-> CW-33); offline regression tests, adversarial review APPROVE. Recount-open P1s: W20-F005 FIXED (#2094 merged); W06-F001 PARTIAL -> fix #2096 (must-have guarantee reuses the unique identified verified-rookie variant; 1105 -> 1103 rows, 0 value/rank/tier/confidence changes; first review REQUEST_CHANGES (veteran absorption), verified-rookie gate added, delta review APPROVE); W10-F003 PARTIAL and W27-F001 OPEN: honest disclosure merged (#2097: offense-only edge label, explained empty Next Best Targets), methodology repair gated; W13-F003 OPEN and W30-F002 PARTIAL: adjudicated in #2095 (strict-xfail regression tests, review APPROVE)",
+        "next": "merge #2095 + #2096 on green; then the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated)",
     },
     {
         "id": "CW-41",
@@ -543,9 +543,9 @@ CW += [
         "priority": "P1",
         "title": "Independent mathematical oracles + invariants for consequential calculations; correctness kept separate from predictive skill",
         "owner": "the canonical owner of each calculation (confidence, blend, package model, lineup, FAAB, ROS, BDVM)",
-        "state": "INDEPENDENTLY_REVIEWED",
-        "evidence": "PR #2089: independent oracles for the package model (14 hand cases + exact-rational sweep, shared by Python and JS) and the weighted count-aware blend median (spec reference, n=1..9); production agrees; even-half rounding cases added after review",
-        "next": "merge on green; next: confidence gate axes, lineup solver vs host truth, FAAB curve",
+        "state": "MERGED",
+        "evidence": "PR #2089 merged (389a46d8): independent oracles for the package model (14 hand cases + exact-rational sweep, shared by Python and JS) and the weighted count-aware blend median (spec reference, n=1..9); production agrees. #2092 (independently reviewed): spec-derived oracle for the B11 confidence gate axes; encoding-guard fix pushed (89a2d3fb)",
+        "next": "merge #2092 on green; FAAB ceiling curve; lineup solver vs host truth already pinned (C2-U1, 10/10 Sleeper lineups)",
     },
     {
         "id": "CW-50",
@@ -554,7 +554,7 @@ CW += [
         "title": "Permanent regression + end-to-end critical journeys (source -> API -> frontend -> action) across league / flag states",
         "owner": "tests/ + frontend/__tests__ + the Playwright regression suite (existing frameworks only)",
         "state": "MERGED",
-        "evidence": "#2086 timer/service unit integrity over every deploy timer (264 cases; commented-out installer lines no longer count); #2087 private-route auth regressions; #2082 audit regression tests",
+        "evidence": "#2086 timer/service unit integrity over every deploy timer (264 cases; commented-out installer lines no longer count); #2087 private-route auth regressions; #2082 audit regression tests; #2098 merged (54b4cef6): device-profile test no longer order/Node-version dependent (Node >= 21 getter-only navigator)",
         "next": "critical user journeys from the census; weak-only census items next",
     },
     {
@@ -620,6 +620,35 @@ DISCOVERED = [
         "NEW-07",
         "No prospective-IDP evaluation runner exists yet (freeze/receipt/predict only)",
         "CW-16",
+    ),
+]
+
+# Master-audit P1 findings the 2026-11-06 recount verified STILL OPEN (INVENTORY.md section 3).
+# They were recorded in prose only; routed here so none is lost.  W00-F001 is DIR-12 (CW-07,
+# public by design per DD-06).  Re-adjudication on current main: CW-40.
+MASTER_AUDIT_OPEN_P1 = [
+    (
+        "W06-F001",
+        "Split-identity ghost rows: one player on a resolved row and an unresolved ghost",
+        "CW-36",
+    ),
+    (
+        "W10-F003",
+        "Rookie recommender panel empty at budget advantage 1.0-3.0 (per-player EV 0)",
+        "CW-38",
+    ),
+    ("W13-F003", "BDVM signal layer saturates at STRONG_SELL (570 of 699 at recount)", "CW-34"),
+    ("W20-F005", "Terminal portfolio prices current-year draft picks at zero", "CW-29"),
+    (
+        "W27-F001",
+        "/rankings Edge column carries no IDP signal while /edge labels the same players",
+        "CW-32",
+    ),
+    ("W30-F002", "Playoff odds publish 100%/0% with zero games played", "CW-17"),
+    (
+        "W30-F008",
+        "Hill fit percentile denominator 400 vs serve 500 (same rank up to +25%)",
+        "CW-36",
     ),
 ]
 
@@ -1015,13 +1044,20 @@ def _github_rows() -> list[dict]:
 
 
 def _directive_rows() -> list[dict]:
-    return [
-        {"source": "DIRECTIVE-2026-11-06", "id": i, "title": t, "cw": cw}
-        for i, t, cw in DIRECTIVE_FINDINGS
-    ] + [
-        {"source": "DISCOVERED-2026-11-06", "id": i, "title": t, "cw": cw}
-        for i, t, cw in DISCOVERED
-    ]
+    return (
+        [
+            {"source": "DIRECTIVE-2026-11-06", "id": i, "title": t, "cw": cw}
+            for i, t, cw in DIRECTIVE_FINDINGS
+        ]
+        + [
+            {"source": "DISCOVERED-2026-11-06", "id": i, "title": t, "cw": cw}
+            for i, t, cw in DISCOVERED
+        ]
+        + [
+            {"source": "MASTER-AUDIT-P1-OPEN", "id": i, "title": t, "cw": cw}
+            for i, t, cw in MASTER_AUDIT_OPEN_P1
+        ]
+    )
 
 
 def _master_audit_summary() -> dict:
