@@ -18,8 +18,8 @@
    "title": "Deploy blocker: DLF-hold confidence invariant (Sonny Styles)",
    "owner": "tests/api/test_dlf_offense_only_vote.py",
    "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "PR #2061; reproduced locally + independent review APPROVE",
-   "next": "merge on green Validate PR; confirm Deploy Production passes and /api/status build advances",
+   "evidence": "PR #2061 reviewed APPROVE; carried by release train PR #2072",
+   "next": "merge #2072 on green; close #2061 as included",
    "sourceRowCount": 2
   },
   {
@@ -28,9 +28,9 @@
    "priority": "P0",
    "title": "Production scraper browser-launch outage + truthful health",
    "owner": "Dynasty Scraper.py launch, server.py reaper/status",
-   "state": "TESTED",
-   "evidence": "#2060; /api/status 0/9 in 24h, launch 180s timeout taking ~18 min wall clock; PR #2062 (cgroup-scoped reap before+after each run, numbers-only box diagnostics)",
-   "next": "independent review of #2062; deploy restart via CW-01; read box_resources after deploy",
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2062 reviewed + delta reviewed APPROVE",
+   "next": "merge after the train; read live box_resources after deploy",
    "sourceRowCount": 7
   },
   {
@@ -39,9 +39,9 @@
    "priority": "P0",
    "title": "Pre-kickoff forecast capture: Week 10 freeze receipts, Week 9 scoring",
    "owner": "projection weekly archive + ROS / six-model receipts",
-   "state": "TESTED",
-   "evidence": "MD-22, MD-30; capture timer Tue/Thu/Sat/Sun 14:10Z fires before the 2026-11-12 kickoff (deploy reconciles timers); Week 10 receipts pushed 2026-11-06T12:46:58Z (PR #2065); Week 9 archive presence unknowable from the repo (gitignored)",
-   "next": "box check of w9/w10 archive timestamps; Week 9 evaluation runner (none exists yet)",
+   "state": "MERGED",
+   "evidence": "Week 10 receipts merged #2065 (53fb2e4d), pushed 2026-11-06T12:46:58Z; capture timer precedes the 2026-11-12 kickoff",
+   "next": "box check of w9/w10 archive timestamps; Week 9 evaluation runner",
    "sourceRowCount": 3
   },
   {
@@ -50,9 +50,9 @@
    "priority": "P0",
    "title": "2027 rookie-auction first-valid pre-auction snapshot",
    "owner": "scripts/backtest_perfect_draft.py --record-snapshot",
-   "state": "TESTED",
-   "evidence": "AMATH-S13; PR #2063 (daily timer, first-valid-wins <year>-pre.json, refuses once Sleeper draft started)",
-   "next": "independent review of #2063; no in-app (non-Sleeper) auction coverage",
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2063 reviewed + delta reviewed APPROVE",
+   "next": "merge after the train; import the 6 h budget from its owner (nit)",
    "sourceRowCount": 3
   },
   {
@@ -61,9 +61,9 @@
    "priority": "P0",
    "title": "Backup coverage, restore verification, truthful backup health",
    "owner": "backup health + state backup writer",
-   "state": "TESTED",
-   "evidence": "root writer chmods the canonical root 700 (backend runs as dynasty); analyst_ledger.sqlite was not backed up; PR #2064 (group-list 0750, analyst ledger, restore verifier)",
-   "next": "review #2064; box operator runs install_state_backup.sh + restore verification",
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2064 reviewed APPROVE",
+   "next": "merge after the train; box operator install + restore verification",
    "sourceRowCount": 3
   },
   {
@@ -94,9 +94,9 @@
    "priority": "P1",
    "title": "Canonical scoring parity census + league-config propagation",
    "owner": "canonical league scorer + league-config resolver",
-   "state": "NOT_STARTED",
-   "evidence": "W18-F003, W13-F001, RPA-F-002/003/008, #1842, #802",
-   "next": "finalized-2026 host-parity census by category; repair at the owner",
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2069 census: Sleeper-native scorer 4833/4833; nflverse path 91.8% (96.4% with #1938); W18-F003 and W13-F001 FIXED; #802 PARTIAL",
+   "next": "merge after the train; #1938 recommendation DD-11",
    "sourceRowCount": 34
   },
   {
@@ -116,9 +116,9 @@
    "priority": "P1",
    "title": "FAAB correctness and recommendation integrity",
    "owner": "src/trade/faab_engine.py",
-   "state": "NOT_STARTED",
-   "evidence": "W10-F001, W11-F003/F004/F005/F007, AMATH-S27, #738",
-   "next": "budget/filter-independence fixtures; fail-closed config",
+   "state": "TESTED",
+   "evidence": "PR #2071: W11-F003/F005/F007 FIXED, W11-F004 FIXED with a pinned by-design exception, IST-7 verified, AMATH-S27 fail-closed config fixed; 6,000 payloads byte-identical",
+   "next": "review running; W10-F001 re-routed to CW-38 (DD-13)",
    "sourceRowCount": 8
   },
   {
@@ -127,9 +127,9 @@
    "priority": "P1",
    "title": "Source freshness/integrity monitoring (no false green)",
    "owner": "config/source_staleness.json + source health",
-   "state": "NOT_STARTED",
-   "evidence": "IDP Show ack expired, overdue rehab reviews, IDPTC pick board frozen, ESPN injury empty, Sharp breaker, #1065 #1409 #1423",
-   "next": "per-source attempted/success/usable/content-age stamps",
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2070: overdue plans re-reviewed with evidence, idpTradeCalc entry added, IDPTC pick staleness vendor-side and down-weighted",
+   "next": "merge on green",
    "sourceRowCount": 20
   },
   {
@@ -215,9 +215,9 @@
    "priority": "P1",
    "title": "Analyze Trade unification + honest Monte Carlo framing",
    "owner": "trade_decision.decide()",
-   "state": "NOT_STARTED",
-   "evidence": "#792, #1173, #790; AMATH-S12 (hide synthetic win rate)",
-   "next": "hide MC win-rate percentage until real per-asset bands exist",
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2067: synthetic Monte Carlo win rate hidden; package-adjusted gap labelled",
+   "next": "merge on green",
    "sourceRowCount": 5
   },
   {
@@ -237,9 +237,9 @@
    "priority": "P2",
    "title": "Trade Finder / Best Offers + calculator UI fixes",
    "owner": "finder.py / suggestions.py / trade page",
-   "state": "NOT_STARTED",
-   "evidence": "#781 #786 #791 #841; AMATH-S10 relabel arbitrage as disagreement",
-   "next": "relabel; feasibility checks",
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2067: arbitrage copy renamed Market Disagreement (URL, API, fields unchanged)",
+   "next": "merge on green",
    "sourceRowCount": 20
   },
   {
@@ -325,9 +325,9 @@
    "priority": "P0",
    "title": "Missing-as-zero defects + property-based invariant suite",
    "owner": "test-only + archetype owner",
-   "state": "NOT_STARTED",
-   "evidence": "AMATH-S38, S15",
-   "next": "fix archetype missing-feature-to-0; hypothesis suite",
+   "state": "INDEPENDENTLY_REVIEWED",
+   "evidence": "PR #2068: infer_archetype missing feature -> unknown (no production caller today); follow-up: infer_scoring_tags / compute_profile_features still coerce missing to 0",
+   "next": "merge after the train; follow-up unit",
    "sourceRowCount": 2
   },
   {
@@ -523,9 +523,9 @@
    "priority": "P0",
    "title": "Confidence owner: withholding a source can CURE Hampel rejections and raise confidence (second deploy blocker)",
    "owner": "src/api/data_contract.py::_lost_evidence_seats + _family_evidence_for_row",
-   "state": "IMPLEMENTING",
-   "evidence": "test_idptc_cutoff_readiness::test_5 (Patrick Mahomes coverage 9/14 -> 11/14); hidden behind CW-01 by pytest -x; violates owner rule 2026-10-07",
-   "next": "branch claude/confidence-cured-rejection-guard: guard + rollback flag + blast radius; test_5 unchanged",
+   "state": "TESTED",
+   "evidence": "PR #2072 (seated variant, DD-12): 0 values move, 0 upgrades, 1 downgrade; 77 targeted tests pass on the train head",
+   "next": "independent review (running), green CI, merge, verify deploy",
    "sourceRowCount": 2
   }
  ],
