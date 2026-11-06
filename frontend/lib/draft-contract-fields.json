@@ -1,0 +1,43 @@
+{
+  "_comment": "Single source of truth for what /draft reads from GET /api/data. Cited by frontend/app/draft/page.jsx (fetch comments) and enforced by tests/api/test_draft_contract_view_fields.py. Add a path here when /draft starts reading a new contract field; the test then proves each served view still carries it.",
+  "views": {
+    "sleeperTeamsFetches": {
+      "_comment": "Mount fetch + roster-gap fetch in app/draft/page.jsx. Read only the Sleeper team map and its readiness/league stamps (draftTeamsFromContract). Served as view=compact (same URL as the sync fetch; view=app is NOT used because it is not smaller than compact and strips playersArray).",
+      "view": "compact",
+      "topLevel": [
+        "sleeper.teams"
+      ],
+      "serverStamped": [
+        "meta.sleeperDataReady",
+        "meta.leagueKey"
+      ]
+    },
+    "rookieSyncFetch": {
+      "_comment": "Manual 'Sync rookies' fetch. Needs playersArray rows (view=app strips playersArray and its legacy players dict lacks rookie/assetClass/position/displayName). Served as view=compact.",
+      "view": "compact",
+      "topLevel": [
+        "sleeper.teams",
+        "playersArray"
+      ],
+      "serverStamped": [
+        "meta.sleeperDataReady",
+        "meta.leagueKey"
+      ],
+      "playerRow": [
+        "displayName",
+        "canonicalName",
+        "position",
+        "rookie",
+        "assetClass",
+        "rankDerivedValue",
+        "values.overall",
+        "rawSourceValues.ktcCrowdTradesSfTep",
+        "rawSourceValues.ktcSfTep",
+        "canonicalSiteValues.ktcCrowdTradesSfTep",
+        "canonicalSiteValues.ktcSfTep",
+        "canonicalSiteValues.ktc",
+        "canonicalSiteValues.idpTradeCalc"
+      ]
+    }
+  }
+}

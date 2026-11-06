@@ -31,3 +31,17 @@ export function draftTeamsFromContract(contract, leagueKey, loading = false) {
   if (leagueKey && contractLeague && leagueKey !== contractLeague) return null;
   return Array.isArray(contract.sleeper?.teams) ? contract.sleeper.teams : null;
 }
+
+/**
+ * The one /api/data URL /draft reads (mount team map, roster gap, manual
+ * rookie sync). ``view=compact`` carries every field /draft reads - see
+ * ``lib/draft-contract-fields.json`` (enforced by
+ * ``tests/api/test_draft_contract_view_fields.py``). ``view=app`` is NOT
+ * safe here: it strips ``playersArray`` and its legacy ``players`` dict has
+ * no position / displayName / rookie / assetClass.
+ */
+export function draftContractUrl(leagueKey = "") {
+  const params = new URLSearchParams({ view: "compact" });
+  if (leagueKey) params.set("leagueKey", leagueKey);
+  return `/api/data?${params.toString()}`;
+}

@@ -17,7 +17,11 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
-import { createDraftCapitalLoader, draftTeamsFromContract } from "@/lib/draft-feed";
+import {
+  createDraftCapitalLoader,
+  draftContractUrl,
+  draftTeamsFromContract,
+} from "@/lib/draft-feed";
 
 import {
   buildTeamIndexLookup,
@@ -4087,9 +4091,7 @@ export default function DraftDashboardPage() {
     // them.
     setSleeperTeams(null);
     let cancelled = false;
-    const url = selectedLeagueKey
-      ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-      : "/api/data";
+    const url = draftContractUrl(selectedLeagueKey);
     fetch(url, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -4360,9 +4362,7 @@ export default function DraftDashboardPage() {
       // Pass leagueKey so the backend serves the right league's
       // sleeper block and 503s cleanly when the requested league
       // isn't loaded yet.
-      const url = selectedLeagueKey
-        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-        : "/api/data";
+      const url = draftContractUrl(selectedLeagueKey);
       // Fetch /api/data and /api/draft-capital in parallel — the
       // draft-capital response carries per-slot dollar values from
       // the workbook, which we use as each rookie's preDraft (the
@@ -4679,9 +4679,7 @@ export default function DraftDashboardPage() {
     // playersArray fetch side-effect.  Defer to the user's
     // currently selected team identity by NAME.
     try {
-      const url = selectedLeagueKey
-        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-        : "/api/data";
+      const url = draftContractUrl(selectedLeagueKey);
       fetch(url, { cache: "force-cache" })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
