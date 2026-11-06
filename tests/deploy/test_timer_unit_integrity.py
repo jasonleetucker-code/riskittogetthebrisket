@@ -98,7 +98,11 @@ def _calendar_error(value: str) -> str | None:
         return "empty"
     time_part = parts.pop()
     if parts and _DATE.match(parts[-1]):
-        parts.pop()
+        _, month, day = parts.pop().split("-")
+        if month != "*" and not 1 <= int(month) <= 12:
+            return f"month {month!r} out of range"
+        if day != "*" and not 1 <= int(day) <= 31:
+            return f"day {day!r} out of range"
     if parts and _DOW_LIST.match(parts[-1]):
         parts.pop()
     if parts:
@@ -112,6 +116,11 @@ def _calendar_error(value: str) -> str | None:
         for number in re.findall(r"\d+", field):
             if int(number) > limit:
                 return f"time field {field!r} exceeds {limit}"
+        for lo, hi in re.findall(r"(\d+)\.\.(\d+)", field):
+            if int(lo) > int(hi):
+                return f"time field {field!r} has a reversed range"
+        if re.search(r"/0+(?!\d)", field):
+            return f"time field {field!r} has a zero repetition"
     return None
 
 
@@ -124,7 +133,16 @@ def test_calendar_validator_is_not_vacuous() -> None:
         "Wed *-*-* 12:20:00 UTC",
     ):
         assert _calendar_error(good) is None, good
-    for bad in ("*-*-* 25:00:00 UTC", "Funday *-*-* 01:00:00 UTC", "*-*-* 04:20:00:00 UTC", ""):
+    for bad in (
+        "*-*-* 25:00:00 UTC",
+        "Funday *-*-* 01:00:00 UTC",
+        "*-*-* 04:20:00:00 UTC",
+        "",
+        "*-13-01 04:00:00 UTC",
+        "*-01-45 04:00:00 UTC",
+        "*-*-* 05..03:00:00 UTC",
+        "*-*-* 1/0:00:00 UTC",
+    ):
         assert _calendar_error(bad), bad
 
 
@@ -197,9 +215,9 @@ def test_service_execstart_targets_exist(timer: Path) -> None:
             assert (_REPO / rel).exists(), f"{service.name}: ExecStart target {rel} missing"
         for mod in re.findall(r"-m\s+([\w.]+)", line):
             base = _REPO / mod.replace(".", "/")
-            assert (
-                base.with_suffix(".py").exists() or (base / "__init__.py").exists()
-            ), f"{service.name}: module {mod} missing"
+            assert base.with_suffix(".py").exists() or (base / "__init__.py").exists(), (
+                f"{service.name}: module {mod} missing"
+            )
         unknown = set(re.findall(r"__[A-Z_]+__", line)) - _KNOWN_PLACEHOLDERS
         assert not unknown, f"{service.name}: placeholder {unknown} the installer never fills"
 
@@ -222,9 +240,20 @@ def test_oneshot_services_bound_their_runtime(timer: Path) -> None:
 
 
 def _installer_corpus() -> str:
-    return "\n".join(
-        p.read_text(encoding="utf-8", errors="replace") for p in sorted(_DEPLOY.rglob("*.sh"))
-    )
+    """Every deploy/**/*.sh line that can execute: full-line comments are dropped, so a
+    commented-out ``install_simple_timer`` line no longer counts as an install route."""
+    lines = []
+    for p in sorted(_DEPLOY.rglob("*.sh")):
+        for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.lstrip().startswith("#"):
+                lines.append(line)
+    return "\n".join(lines)
+
+
+def test_installer_corpus_ignores_commented_out_lines() -> None:
+    corpus = _installer_corpus()
+    assert corpus, "no deploy/*.sh installer text found"
+    assert not any(line.lstrip().startswith("#") for line in corpus.splitlines())
 
 
 @pytest.mark.parametrize("timer", _timers(), ids=_IDS)
@@ -242,9 +271,9 @@ def test_timer_is_reached_by_an_install_route_or_allowlisted(timer: Path) -> Non
         or plain.removesuffix(".timer") + ".timer" in corpus
         or stem + ".timer" in corpus
     )
-    assert (
-        reached or name in _MANUAL_UNITS
-    ), f"{name}: no deploy/*.sh installer route and not in _MANUAL_UNITS (with a reason)"
+    assert reached or name in _MANUAL_UNITS, (
+        f"{name}: no deploy/*.sh installer route and not in _MANUAL_UNITS (with a reason)"
+    )
 
 
 def test_manual_allowlist_entries_have_reasons_and_exist() -> None:
