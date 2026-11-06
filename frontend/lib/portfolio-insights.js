@@ -239,9 +239,11 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
     // permanent "N unresolved" badge at 45-84% coverage while
     // `pickCount` stayed 0 and the "Picks $X · N" legend never drew.
     //
-    // `buildPickLookupCandidates` already solves this and
-    // `lib/league-analysis.js` already uses it; this module simply
-    // never imported it. With it, 216 of 288 resolve.
+    // The label format is handled by the shared resolver below
+    // (`resolvePickRow`, which expands candidates via
+    // `buildPickLookupCandidates`), the same one `lib/league-analysis.js`
+    // and /trade use. When this module first adopted the candidate
+    // expansion, 216 of 288 resolved.
     //
     // The remaining 72 were every 2029 pick, which the board did not
     // price at the time this comment was written. C1-U6 CLOSED that:
