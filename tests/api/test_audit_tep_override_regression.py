@@ -78,3 +78,28 @@ def test_posted_tep_body_serves_the_get_api_data_board(
     assert compared > 0
     assert payload["meta"]["tepMultiplierSource"] != "override"
     assert data_contract.TEP_OVERRIDE_WITHDRAWN_NOTE in payload["warnings"]
+
+
+def test_negative_control_the_same_post_moves_the_board_when_the_gate_is_off(
+    overrides_env,  # noqa: F811 - pytest fixture
+    monkeypatch,
+    raw_board,
+):
+    """The test above must be able to FAIL: with the withdrawal gate rolled
+    back, the identical stock body bypasses the TE-basis conversion and the
+    served board differs from ``GET /api/data`` (audit measured 2027 Pick 1.08
+    at 4636 vs 4651).  If this ever stops moving the board, the positive test
+    is vacuous."""
+    base_rows = _rows(data_contract.build_api_data_contract(raw_board)["playersArray"])
+    monkeypatch.setattr(data_contract, "_TEP_OVERRIDES_DISABLED", False)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        monkeypatch.setattr(server, "latest_data", raw_board)
+        monkeypatch.setattr(server, "latest_contract_data", {"meta": {"leagueKey": "main"}})
+        monkeypatch.setattr(server, "latest_data_etag", "audit-tep-neg")
+        resp = c.post("/api/rankings/overrides?view=delta", json={"tep_multiplier": 1.15})
+    assert resp.status_code == 200, resp.text
+    payload = resp.json()
+    assert payload["meta"]["tepMultiplierSource"] == "override"
+    delta_rows = _rows(payload["rankingsDelta"]["players"])
+    moved = [rid for rid, got in delta_rows.items() if rid in base_rows and got != base_rows[rid]]
+    assert moved, "rollback gate did not move the board: the positive test cannot detect the defect"

@@ -16,7 +16,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from src.ros import playoff_sim
+import inspect
+
+import pytest
+
+from src.ros import playoff_sim, power_v2
 from src.ros.trade_deadline import build_team_directions
 
 _SELL_FAMILY_WORDS = ("sell", "seller")
@@ -30,6 +34,43 @@ def test_the_simulated_season_is_the_newest_whatever_the_load_order():
     assert playoff_sim._simulated_season(newest_first).season == "2026"
     assert playoff_sim._simulated_season(oldest_first).season == "2026"
     assert playoff_sim._simulated_season(SimpleNamespace(seasons=[])) is None
+
+
+def _snapshot(order):
+    return SimpleNamespace(
+        seasons=[SimpleNamespace(season=y, tag=y) for y in order], managers=object()
+    )
+
+
+@pytest.mark.parametrize("order", [("2026", "2025", "2024"), ("2024", "2025", "2026")])
+def test_remaining_schedule_reads_the_newest_season_whatever_the_load_order(monkeypatch, order):
+    # Inline selection site #2 (playoff_sim._remaining_schedule): observe WHICH
+    # season object the schedule reader is handed.
+    seen = []
+
+    def fake_posted(season, managers):
+        seen.append(season.season)
+        return {}
+
+    monkeypatch.setattr(playoff_sim.playoff_odds, "_posted_future_matchups", fake_posted)
+    assert playoff_sim._remaining_schedule(_snapshot(order)) == []
+    assert seen == ["2026"]
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        playoff_sim._build_team_distributions,
+        playoff_sim._remaining_schedule,
+        power_v2.build_section,
+    ],
+)
+def test_inline_season_selection_passes_the_season_string_not_the_snapshot(func):
+    # Source shape (these bodies need a full league snapshot to run): the
+    # defect was handing the SeasonSnapshot OBJECT to a key typed for str.
+    src = inspect.getsource(func)
+    assert "luck._season_sort_key(s.season)" in src
+    assert "_season_sort_key(s)" not in src.replace("_season_sort_key(s.season)", "")
 
 
 def test_the_strongest_roster_absent_from_the_sim_is_not_told_to_sell():

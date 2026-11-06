@@ -1058,7 +1058,7 @@ describe("the rookie draft has no per-team slot limit", () => {
       { team: "Heavy", auctionDollars: 685 },
       { team: "Light", auctionDollars: 100 },
     ];
-    const picks = Array.from({ length: 31 }, () => ({ team: "Heavy" }));
+    const picks = Array.from({ length: 31 }, () => ({ currentOwner: "Heavy" }));
     const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), feed, { picks });
     const heavy = workspace.teams.find((t) => t.name === "Heavy");
     expect(heavy.initialBudget).toBe(685);

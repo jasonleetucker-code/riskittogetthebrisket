@@ -14,9 +14,9 @@ in-code owner comments and PR numbers rather than `git log -S` origin commits.
 | W07-F001 | CLOSED_VERIFIED | frontend default `tepMultiplier` is `null` (no POST); server ignores manual TE keys |
 | W08-F001 | CLOSED_VERIFIED | same path as W07; /trade reads the base contract (no override POST) |
 | W10-F002 | CLOSED_VERIFIED | slot machinery deleted; 31-pick team merges with full budget, no slot fields |
-| W12-F002 | CLOSED_VERIFIED (residual noted) | gap is now model value vs KTC Market in value space; SELLs are no longer TE-only |
-| W17-F001 | CLOSED_VERIFIED | selector called with `s.season`; newest season chosen whatever the load order |
-| W17-F002 | CLOSED_VERIFIED | absent-from-sim owner gets null odds and a non-sell label, never a coerced 0.0 |
+| W12-F002 | PARTIAL | SELL is no longer TE-only (gap is value-space vs KTC Market, position-blind); the TE SELL skew remains (23/31 = 0.742 vs target 0.137 +/- 0.05) |
+| W17-F001 | PARTIAL | selector called with `s.season` at all four sites; newest season chosen whatever the load order; no preseason guard exists |
+| W17-F002 | PARTIAL | absent-from-sim owner gets null odds and a non-sell label, never a coerced 0.0; `classify_team` still ignores strength for the label |
 
 ## W03-F001, W07-F001, W08-F001 (one root cause: manual `tep_multiplier` bypasses ADR-015)
 
@@ -52,7 +52,10 @@ None, rollback gate does move the board), `tests/api/test_overrides_response_cac
 `use-dynasty-data-tep-withdrawn.test.jsx`.
 
 **Classification.** All three CLOSED_VERIFIED. **Test added:**
-`tests/api/test_audit_tep_override_regression.py` (about 7 s, hard gate).
+`tests/api/test_audit_tep_override_regression.py` (hard gate). Positive: the stock/any manual TE body serves
+the `GET /api/data` board. Negative control: with `_TEP_OVERRIDES_DISABLED` monkeypatched to False the same POST
+reports `tepMultiplierSource == "override"` and MOVES the board (reviewer measured 2027 Pick 1.08: 4636 vs
+4651), proving the test detects the defect.
 
 ## W10-F002 (draft slot accounting)
 
@@ -69,7 +72,8 @@ deleted (file header `:20-45`, owner-confirmed "no min or max rookie count"; ros
 `Heavy $685` + 31 pick rows, then `computeDraftStats`. Output: `initialBudget 685`, `initialSlots undefined`,
 team row has no `initialSlots` or `mdv`; `DEFAULT_INITIAL_SLOTS` is not exported.
 
-**Classification.** CLOSED_VERIFIED. **Test added:** a case in the existing block "the rookie draft has no
+**Classification.** CLOSED_VERIFIED. The fixture uses the real pick shape (`{ currentOwner: "Heavy" }`, which the retired
+`slotsByTeamFromPicks` read) so it mirrors the original 31-to-6 clamp scenario. **Test added:** a case in the existing block "the rookie draft has no
 per-team slot limit" in `frontend/__tests__/draft-logic.test.js` (assertions replicated and verified with the
 node harness; vitest itself could not be run here because `node_modules` is absent, so CI is its first run).
 
@@ -97,13 +101,18 @@ frontend 0.05 threshold, top 250 by `canonicalConsensusRank`:
 SELLs in the top 250 span QB, RB, WR and TE (5/27/27/23). The defect as stated (SELL exclusive to TE, driven by
 TE-premium rank basis) is gone.
 
-**Residual, not a W12-F002 defect.** KTC Market is above our model for most skill positions, and TE (74% SELL)
-is the most skewed of the four though its median gap (+0.076) matches RB (+0.074). Any position-level
-calibration of the Edge label is a methodology question for the owner, not routed here.
+**Closed part.** SELL is no longer TE-only; the gap is value-space vs KTC Market and position-blind.
 
-**Classification.** CLOSED_VERIFIED. **Test added:** `tests/api/test_audit_w12_f002_regression.py`
-(signature is position-blind; every stamped gap equals the pure function; top-250 SELLs include a non-TE
-position; guarded against vacuity).
+**Residual (why this is PARTIAL).** The finding's own target is P(SELL | TE, top-250) = 0.137 +/- 0.05. On
+`dynasty_export_20261106_123200` it is still 0.742 (23/31) vs 0.418 for other offense and 0.15 for QB. The
+median gap (+0.076) matches RB (+0.074), so the skew is a level/position effect between our TE values and KTC
+Market, not a label bug. Residual routed by the coordinator to CW-36 (TE++ uplift / board constants).
+
+**Classification.** PARTIAL. **Test added:** `tests/api/test_audit_w12_f002_regression.py`: synthetic rows
+through the real `_stamp_ktc_market_benchmark` (no archive or market data, so a KTC refresh cannot flip it).
+Positive: a TE and a WR with identical model-vs-market gaps get the same direction and ratio. Negatives: a
+sub-threshold gap is not SELL, the opposite sign is a model premium (not SELL), and a missing market is
+`none`/null rather than a zero gap. The live-board TE skew is deliberately NOT asserted.
 
 ## W17-F001 (ROS sims on the oldest season)
 
@@ -118,7 +127,18 @@ position; guarded against vacuity).
 `tests/ros/test_season_selection.py` (11 tests with the deadline file) passes, including the source-shape
 tripwire.
 
-**Classification.** CLOSED_VERIFIED. **Test added:** `tests/ros/test_audit_w17_regression.py`.
+**Coverage.** The first version of the test covered only `_simulated_season` (added 2026-10-04, never
+defective). The audited inline selections are now covered: `playoff_sim._remaining_schedule` behaviorally (the
+season handed to the schedule reader is the newest, both load orders), and `playoff_sim._build_team_distributions`
+(`:767`) / `power_v2.build_section` (`:1003`) by source shape (their bodies need a full league snapshot): each
+passes `s.season`, never the snapshot object.
+
+**Preseason guard.** None exists. The finding asked for one; `simulate_playoff_odds` always selects the newest
+season and only STAMPS `regularSeasonProgress` (`weeksFinal` / `complete`); it does not refuse a season with no
+finished weeks. `power_v2._is_preseason` guards strength weighting only.
+
+**Classification.** PARTIAL. Closed: newest season selected at all four sites. Residual: no preseason guard
+(routed by the coordinator). **Test added:** `tests/ros/test_audit_w17_regression.py`.
 
 ## W17-F002 (absent owner told "Seller")
 
@@ -133,10 +153,18 @@ sells (`tests/ros/test_trade_deadline_unknown.py`). The code comment records it 
 **Rebuilt repro.** Pure call with injected maps (no sim file read): owner `new` is rank 1 in team strength and
 absent from both sim maps; result has null odds and no sell-family label; a measured owner keeps its odds.
 
-**Classification.** CLOSED_VERIFIED. **Test added:** `tests/ros/test_audit_w17_regression.py`.
+**Closed part.** An owner absent from the sim gets null odds, not 0 (the test would have failed on the old
+`or 0.0`). **Not addressed (why PARTIAL).** `classify_team` still ignores team strength when choosing the label
+(`src/ros/direction.py` coerces it with `or 0.0`; it is used only in the summary text). Routed by the
+coordinator to CW-33. The stale `build_team_directions` docstring ("classifier degrades cleanly") was corrected
+(docstring only).
+
+**Classification.** PARTIAL. **Test added:** `tests/ros/test_audit_w17_regression.py`.
 
 ## Routing
 
-No finding is OPEN_VERIFIED and none is UNVERIFIABLE. Nothing in this PR changes served behaviour,
+Final tally: W03-F001, W07-F001, W08-F001, W10-F002 CLOSED_VERIFIED; W12-F002, W17-F001, W17-F002 PARTIAL
+(residuals routed by the coordinator: TE SELL skew to CW-36, `classify_team` strength to CW-33, no preseason
+guard for the sim). None is UNVERIFIABLE. Nothing in this PR changes served behaviour,
 values, weights or confidence; it adds tests and this record only. Coordinator to record outcomes in the
 audit status tooling.
