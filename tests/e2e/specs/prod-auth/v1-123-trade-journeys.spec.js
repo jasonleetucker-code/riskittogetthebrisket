@@ -22,7 +22,7 @@ const SEL = {
 
 const TITLE = {
   "/rankings": "Rankings",
-  "/arbitrage": "Arbitrage",
+  "/arbitrage": "Market Disagreement",
 };
 
 function titleFor(route) {
@@ -109,7 +109,7 @@ test.describe("V1-123 Phase 1: trade journeys beyond /trade (production)", () =>
     const scan = page.getByRole("button", { name: /Find trade packages|Scanning/i });
     const settled = page
       .locator(SEL.arbitrageTradeCard)
-      .or(page.getByText(/No package arbitrage found/i));
+      .or(page.getByText(/No package disagreement found/i));
 
     await expect
       .poll(

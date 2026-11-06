@@ -86,10 +86,15 @@ describe("the result states what it is", () => {
     mockResult();
     await run();
     expect(screen.getByTestId("mc-scope-note").textContent).toMatch(
-      /Value-uncertainty check \(assumed ±15% range\) — not the chance the trade works out/,
+      /Assumed ±15% range, not measured — not the chance the trade works out/,
     );
     const body = document.body.textContent;
-    expect(body).toMatch(/assumption, not a measurement/);
+    expect(body).toMatch(/Illustrative sensitivity only/);
+    expect(body).toMatch(/not a probability and is not calibrated/);
+    // ODR-SR-MC-WINRATE: no percentage-of-simulations / winner framing.
+    expect(body).not.toMatch(/\d+%\s+of/);
+    expect(body).not.toMatch(/\b(won|wins|winner|favou?red|coin flip|came out ahead)\b/i);
+    expect(body).not.toMatch(/82%|18%/);
     expect(body).not.toMatch(/ranking sources don't fully/);
     expect(body).not.toMatch(/disagreement range/);
   });
@@ -105,6 +110,22 @@ describe("the result states what it is", () => {
   it("drops the assumed-range wording when every band is measured", async () => {
     mockResult({ bandSources: { stamped_value_band: 2 } });
     await run();
-    expect(screen.getByTestId("mc-scope-note").textContent).not.toMatch(/assumed/);
+    expect(screen.getByTestId("mc-scope-note").textContent).not.toMatch(/assumed/i);
+    // The measured path keeps the existing share-of-simulations framing.
+    expect(document.body.textContent).toMatch(/82% of 40,000 simulations/);
+  });
+
+  it("any synthetic asset in a mixed run gates the percentage off", async () => {
+    mockResult({ bandSources: { stamped_value_band: 1, synthetic_flat_15pct: 1 } });
+    await run();
+    expect(document.body.textContent).toMatch(/Illustrative sensitivity only/);
+    expect(document.body.textContent).not.toMatch(/82%/);
+  });
+
+  it("fails closed when the response does not report band sources", async () => {
+    mockResult({ bandSources: undefined });
+    await run();
+    expect(document.body.textContent).toMatch(/Illustrative sensitivity only/);
+    expect(document.body.textContent).not.toMatch(/82%/);
   });
 });

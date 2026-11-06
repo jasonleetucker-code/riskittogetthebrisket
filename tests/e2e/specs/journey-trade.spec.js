@@ -209,7 +209,7 @@ test.describe("journey: trade surfaces", () => {
     });
     const settled = page
       .locator(SEL.arbitrageTradeCard)
-      .or(page.getByText(/No package arbitrage found/i));
+      .or(page.getByText(/No package disagreement found/i));
 
     await expect
       .poll(

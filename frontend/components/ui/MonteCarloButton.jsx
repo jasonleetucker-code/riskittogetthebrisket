@@ -17,7 +17,8 @@
  *
  * Output is rewritten in plain English — no "Δ" / "consensus-band
  * samples" / "direction-symmetrized" — just "Side B wins 70% of
- * 50,000 simulations".
+ * 50,000 simulations" — but ONLY when every asset has a measured band;
+ * on the synthesized +/-15% band no percentage is shown (ODR-SR-MC-WINRATE).
  */
 "use client";
 
@@ -91,7 +92,52 @@ export function _payloadFromSides(sides, valueMode, settings) {
 }
 
 
+/**
+ * ODR-SR-MC-WINRATE (owner decision 2026-11-06): a win rate is shown ONLY
+ * when every simulated asset carried a real, measured per-asset band.  The
+ * synthesized flat +/-15% band is an assumption, so a share of simulations
+ * built on it is not a probability and must not be framed as one.  Fails
+ * closed: a result that does not positively report measured bands (absent
+ * or malformed `bandSources`) is treated as synthetic.
+ */
+export function _usesSyntheticBand(result) {
+  const bs = result?.bandSources;
+  const synthetic = Number(bs?.synthetic_flat_15pct) || 0;
+  const measured = Number(bs?.stamped_value_band) || 0;
+  return !(measured > 0 && synthetic === 0);
+}
+
 export function _renderPlainSummary(result, sides, sidesSend = false) {
+  const meanDeltaRaw = Math.round(result.meanDelta || result.valueDelta || 0);
+  if (_usesSyntheticBand(result)) {
+    // Sensitivity-only copy: NO percentage of simulations, no winner /
+    // favored / probability language.
+    const bigger = meanDeltaRaw > 0 ? "A" : "B";
+    const deltaLine =
+      Math.abs(meanDeltaRaw) < 100
+        ? "On average, the two sides are within 100 points of each other."
+        : `On average, Side ${bigger}'s total was ${Math.abs(meanDeltaRaw).toLocaleString()} points bigger.`;
+    const r = result.deltaRange || {};
+    let rangeLine;
+    if (typeof r.p10 === "number" && typeof r.p90 === "number") {
+      const tightness = r.p90 - r.p10;
+      rangeLine =
+        tightness < 1500
+          ? "The size of the gap barely moves across the assumed range."
+          : tightness < 4000
+            ? "The size of the gap moves moderately across the assumed range."
+            : "The size of the gap moves a lot across the assumed range.";
+    }
+    return {
+      headline: "Illustrative sensitivity only",
+      subline:
+        "Every value was varied by an assumed ±15% — this is not a probability and is not calibrated.",
+      tone: "even",
+      deltaLine,
+      rangeLine,
+      illustrative: true,
+    };
+  }
   const winA = (result.winProbA != null ? result.winProbA : (result.winPct || 0) / 100);
   const pct = Math.round(winA * 100);
   const sims = (result.nSims || 0).toLocaleString();
@@ -259,7 +305,7 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
 
   const summary =
     state === "ok" && result && !stale ? _renderPlainSummary(result, sides, sidesSend) : null;
-  const synthetic = Number(result?.bandSources?.synthetic_flat_15pct) || 0;
+  const synthetic = result && _usesSyntheticBand(result) ? 1 : 0;
   const va = result?.vaAdjustment;
   const vaText =
     va?.applied && Number(va.value) > 0 && (va.side === 1 || va.side === 2)
@@ -323,9 +369,9 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
             data-testid="mc-scope-note"
             style={{ fontSize: "0.75rem", color: "var(--subtext)", marginTop: 2 }}
           >
-            Value-uncertainty check
-            {synthetic > 0 ? " (assumed ±15% range)" : ""} — not the chance
-            the trade works out.
+            {synthetic > 0
+              ? "Assumed ±15% range, not measured — not the chance the trade works out."
+              : "Value-uncertainty check — not the chance the trade works out."}
           </div>
           {summary.rangeLine && (
             <div style={{ fontSize: "0.85rem", color: "var(--subtext)" }}>
@@ -344,13 +390,12 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
             </summary>
             <div style={{ marginTop: 4, lineHeight: 1.5 }}>
               Each asset&apos;s value is drawn {result.nSims?.toLocaleString() || "20,000"} times
-              from a range around our board value, each side is
-              summed, and we count who came out ahead.
+              from a range around our board value and each side is
+              summed.
               {synthetic > 0
-                ? " That range is an assumed ±15% — we don't yet measure how uncertain each player's value is — so the spread is an assumption, not a measurement."
-                : ""}
-              {vaText ? ` ${vaText}` : ""} This is how often one side
-              comes out ahead under that value uncertainty — NOT the
+                ? " That range is an assumed ±15% — we don't yet measure how uncertain each player's value is — so this is an illustration of sensitivity, not a probability, and we show no win rate."
+                : " We count how often one side comes out ahead under that value uncertainty."}
+              {vaText ? ` ${vaText}` : ""} This is NOT the
               chance the trade works out.
             </div>
           </details>

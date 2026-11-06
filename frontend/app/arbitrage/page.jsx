@@ -283,7 +283,7 @@ function TradeCard({ trade, myTeam, opponent, refine }) {
     <Panel className={`${styles.tradeCard} arbitrage-trade-card`}>
       <div className={styles.tradeHead}>
         <span className={styles.score}>
-          arbitrage {Number(trade.arbitrageScore || 0).toFixed(2)}
+          disagreement {Number(trade.arbitrageScore || 0).toFixed(2)}
         </span>
         {trade.packageSize ? <Badge tone="neutral">{trade.packageSize}</Badge> : null}
         <span className={styles.deltas}>
@@ -612,7 +612,7 @@ export default function ArbitragePage() {
     <div className={styles.page}>
       <PageHeader
         eyebrow="Trades"
-        title="Arbitrage"
+        title="Market Disagreement"
         description="Find trades that matter: better players your league's markets undervalue, built into packages the other side can still see as fair."
       />
 
@@ -801,7 +801,7 @@ export default function ArbitragePage() {
             {!running && result && !result.trades?.length ? (
               <>
                 <EmptyState
-                  title={meta?.noResultLabel || "No package arbitrage found"}
+                  title={meta?.noResultLabel || "No package disagreement found"}
                   description={
                     meta?.noResultReason === "lock_conflicts_with_protection"
                       ? "A locked player is also protected or excluded, so no package can include him. Unlock him or change the protection."
@@ -904,8 +904,8 @@ function PlayerResearch({ rows, loading }) {
       <div className={styles.controls}>
         <Field label="Signal">
           <Select value={edgeAction} onChange={(e) => setEdgeAction(e.target.value)}>
-            <option value="buy">Buy arbitrage</option>
-            <option value="sell">Sell arbitrage</option>
+            <option value="buy">Buy disagreement</option>
+            <option value="sell">Sell disagreement</option>
             <option value="winwin">Win-win on public market</option>
             <option value="all">All edges</option>
           </Select>

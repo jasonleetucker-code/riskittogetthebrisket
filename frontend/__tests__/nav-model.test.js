@@ -286,7 +286,7 @@ describe("active matching", () => {
 describe("pageTitleFor", () => {
   it("derives titles from the model (no hand-maintained map)", () => {
     expect(pageTitleFor("/rankings")).toBe("Rankings");
-    expect(pageTitleFor("/arbitrage")).toBe("Arbitrage");
+    expect(pageTitleFor("/arbitrage")).toBe("Market Disagreement");
     expect(pageTitleFor("/tools/source-health")).toBe("Source Health");
     expect(pageTitleFor("/")).toBe("Home");
   });

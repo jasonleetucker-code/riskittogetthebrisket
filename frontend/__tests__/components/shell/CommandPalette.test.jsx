@@ -110,7 +110,7 @@ describe("navigation targets", () => {
     const user = userEvent.setup();
     palette();
     await user.keyboard("arbitrage");
-    const opt = screen.getByRole("option", { name: /Arbitrage/ });
+    const opt = screen.getByRole("option", { name: /Market Disagreement/ });
     await user.click(opt);
     expect(push).toHaveBeenCalledWith("/arbitrage");
   });

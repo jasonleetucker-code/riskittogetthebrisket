@@ -50,7 +50,7 @@ const TITLE = {
   "/news": "News",
   "/trade": "Trade Calculator",
   "/angle": "Package Builder",
-  "/arbitrage": "Arbitrage",
+  "/arbitrage": "Market Disagreement",
   "/trades": "Trade History",
   "/rosters": "Team Strength",
   "/roster-construction": "Roster Construction",

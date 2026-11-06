@@ -133,9 +133,9 @@ export const NAV_MODEL = [
       },
       {
         href: "/arbitrage",
-        label: "Arbitrage",
-        hint: "Trades that gain on our board but read as fair on theirs",
-        keywords: ["market gaps", "mispricing"],
+        label: "Market Disagreement",
+        hint: "Where our board and the public market disagree, built into trades",
+        keywords: ["market gaps", "mispricing", "arbitrage"],
       },
       {
         href: "/trades",
