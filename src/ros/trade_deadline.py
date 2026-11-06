@@ -127,9 +127,13 @@ def build_team_directions(
 ) -> list[dict[str, Any]]:
     """Compose direction labels for every team that has any input data.
 
-    All maps are keyed by ownerId.  When a map is empty (e.g. no
-    cached sim yet), the missing dimension defaults to 0 — the
-    classifier degrades cleanly.
+    All maps are keyed by ownerId.  A team present in the strength map but
+    absent from the sim maps is NOT given 0 odds: it is emitted as an
+    unmeasurable row (null odds, ``team_absent_from_sim`` Unknown, a
+    non-buy/sell label).  Only a team the sim actually measured is classified
+    from its odds, and a measured 0 is a real 0.  Known limit: the classifier
+    (``direction.classify_team``) still ignores team strength when choosing
+    the label (it appears only in the summary text).
 
     ``read_simulations=False`` (the caller's league is unresolved) reads no
     cached sim file: an unresolved league has no simulation of its own, and
