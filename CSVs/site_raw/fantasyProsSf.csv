@@ -27,8 +27,8 @@ Jalen Hurts,25,QB,PHI
 Trey McBride,26,TE,ARI
 Jonathan Taylor,27,RB,IND
 Chris Olave,28,WR,NO
-Dak Prescott,29,QB,DAL
-Zay Flowers,30,WR,BAL
+Zay Flowers,29,WR,BAL
+Dak Prescott,30,QB,DAL
 Tetairoa McMillan,31,WR,CAR
 Jordan Love,32,QB,GB
 Justin Herbert,33,QB,LAC
@@ -36,9 +36,9 @@ Jared Goff,34,QB,DET
 Bo Nix,35,QB,DEN
 Nico Collins,36,WR,HOU
 Emeka Egbuka,37,WR,TB
-Luther Burden III,38,WR,CHI
-George Pickens,39,WR,DAL
-Jaxson Dart,40,QB,NYG
+Jaxson Dart,38,QB,NYG
+Luther Burden III,39,WR,CHI
+George Pickens,40,WR,DAL
 Colston Loveland,41,TE,CHI
 Carnell Tate,42,WR,TEN
 C.J. Stroud,43,QB,HOU
@@ -73,8 +73,8 @@ Harold Fannin Jr.,71,TE,CLE
 Omarion Hampton,72,RB,LAC
 Denzel Boston,73,WR,CLE
 Makai Lemon,74,WR,PHI
-A.J. Brown,75,WR,NE
-Sam Darnold,76,QB,SEA
+Sam Darnold,75,QB,SEA
+A.J. Brown,76,WR,NE
 Rome Odunze,77,WR,CHI
 Saquon Barkley,78,RB,PHI
 Baker Mayfield,79,QB,TB
@@ -101,11 +101,11 @@ Omar Cooper Jr.,99,WR,NYJ
 Chuba Hubbard,100,RB,CAR
 Alec Pierce,101,WR,IND
 Jordan Addison,102,WR,MIN
-Travis Etienne Jr.,103,RB,NO
-Malik Willis,104,QB,MIA
+Malik Willis,103,QB,MIA
+Travis Etienne Jr.,104,RB,NO
 DK Metcalf,105,WR,PIT
-Josh Downs,106,WR,IND
-Jonah Coleman,107,RB,DEN
+Jonah Coleman,106,RB,DEN
+Josh Downs,107,WR,IND
 Mike Evans,108,WR,SF
 Daniel Jones,109,QB,IND
 Davante Adams,110,WR,LAR
@@ -114,8 +114,8 @@ Wan'Dale Robinson,112,WR,TEN
 Brenton Strange,113,TE,JAC
 Blake Corum,114,RB,LAR
 Ty Simpson,115,QB,LAR
-Kyle Monangai,116,RB,CHI
-Josh Jacobs,117,RB,GB
+Josh Jacobs,116,RB,GB
+Kyle Monangai,117,RB,CHI
 Terry McLaurin,118,WR,WAS
 Michael Penix Jr.,119,QB,ATL
 Jayden Higgins,120,WR,HOU
@@ -126,22 +126,22 @@ Chris Bell,124,WR,MIA
 Rhamondre Stevenson,125,RB,NE
 Eli Stowers,126,TE,PHI
 Romeo Doubs,127,WR,NE
-Oronde Gadsden II,128,TE,LAC
-Quentin Johnston,129,WR,LAC
-RJ Harvey,130,RB,DEN
+Quentin Johnston,128,WR,LAC
+RJ Harvey,129,RB,DEN
+Oronde Gadsden II,130,TE,LAC
 Terrance Ferguson,131,TE,LAR
 Dallas Goedert,132,TE,PHI
 Michael Pittman Jr.,133,WR,PIT
 Jake Ferguson,134,TE,DAL
 David Montgomery,135,RB,HOU
-Zach Charbonnet,136,RB,SEA
+Tony Pollard,136,RB,TEN
 Chris Godwin Jr.,137,WR,TB
 T.J. Hockenson,138,TE,MIN
-Juwan Johnson,139,TE,NO
-Tony Pollard,140,RB,TEN
-Courtland Sutton,141,WR,DEN
-Geno Smith,142,QB,NYJ
-Chig Okonkwo,143,TE,WAS
+Chig Okonkwo,139,TE,WAS
+Zach Charbonnet,140,RB,SEA
+Juwan Johnson,141,TE,NO
+Courtland Sutton,142,WR,DEN
+Geno Smith,143,QB,NYJ
 Germie Bernard,144,WR,PIT
 Adonai Mitchell,145,WR,NYJ
 De'Zhaun Stribling,146,WR,SF
@@ -150,8 +150,8 @@ Rico Dowdle,148,RB,PIT
 Braelon Allen,149,RB,NYJ
 Jayden Reed,150,WR,GB
 Travis Kelce,151,TE,KC
-Woody Marks,152,RB,HOU
-Emmett Johnson,153,RB,KC
+Emmett Johnson,152,RB,KC
+Woody Marks,153,RB,HOU
 Jacory Croskey-Merritt,154,RB,WAS
 Ja'Kobi Lane,155,WR,BAL
 Rachaad White,156,RB,WAS
@@ -426,9 +426,9 @@ Brycen Tremayne,424,WR,CAR
 Adam Trautman,425,TE,DEN
 Tyler Goodson,426,RB,DAL
 Kareem Hunt,427,RB,FA
-Carsen Ryan,428,TE,CLE
+Carsen Ryan,428,TE,FA
 Kaden Wetjen,429,WR,PIT
-Cody White,430,WR,FA
+Cody White,430,WR,LV
 Jake Bobo,431,WR,SEA
 Skyy Moore,432,WR,GB
 Thomas Fidone II,433,TE,NYG
