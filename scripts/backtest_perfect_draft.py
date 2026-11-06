@@ -56,6 +56,7 @@ Exit codes follow the repo's script convention: 0 success, 1 error, 2 skipped
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import datetime, timezone
@@ -78,8 +79,65 @@ def _load(path: Path) -> Any:
         return json.load(fh)
 
 
-def record_snapshot(out_dir: Path, league_key: str | None) -> int:
-    """Capture everything a later backtest will need, before the auction.
+def _json_hash(value: Any) -> str:
+    blob = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _provenance(server: Any, contract: dict[str, Any], key: str | None) -> dict[str, Any]:
+    """Version stamps, league settings, pick ownership and budgets (additive).
+
+    Every field degrades to ``{"state": "unavailable", "reason": ...}`` — never a
+    guessed value, never 0 — because the perishable part is the board and the
+    roster contexts, and a budget read that fails must not cost the capture.
+    """
+    meta = contract.get("meta") or {}
+    sleeper = contract.get("sleeper") or {}
+    teams = sleeper.get("teams") if isinstance(sleeper.get("teams"), list) else None
+    out: dict[str, Any] = {
+        "contractVersion": meta.get("contractVersion"),
+        "contractGeneratedAt": meta.get("generatedAt"),
+        "scoringProfile": meta.get("scoringProfile"),
+        "scoringFingerprint": meta.get("scoringFingerprint"),
+        "currentDraftYear": meta.get("currentDraftYear"),
+        "leagueSettings": {
+            "rosterPositions": sleeper.get("rosterPositions"),
+            "scoringSettings": sleeper.get("scoringSettings"),
+            "leagueSettings": sleeper.get("leagueSettings"),
+        },
+    }
+    if teams is None:
+        out["pickOwnership"] = {"state": "unavailable", "reason": "no_sleeper_teams_in_contract"}
+    else:
+        out["pickOwnership"] = [
+            {
+                "team": t.get("name") or t.get("teamName"),
+                "rosterId": t.get("rosterId"),
+                "pickOwnershipState": t.get("pickOwnershipState"),
+                "pickDetails": t.get("pickDetails"),
+            }
+            for t in teams
+            if isinstance(t, dict)
+        ]
+    try:
+        cap = server._fetch_draft_capital(key)  # noqa: SLF001
+        cap = cap[0] if isinstance(cap, tuple) else cap
+        if isinstance(cap, dict) and not cap.get("error"):
+            out["budgets"] = {
+                "teamTotals": cap.get("teamTotals"),
+                "budgetPolicy": cap.get("budgetPolicy"),
+                "upcomingDraftYear": cap.get("upcomingDraftYear"),
+            }
+        else:
+            reason = cap.get("error") if isinstance(cap, dict) else "unexpected_shape"
+            out["budgets"] = {"state": "unavailable", "reason": str(reason)}
+    except Exception as exc:  # noqa: BLE001
+        out["budgets"] = {"state": "unavailable", "reason": f"{type(exc).__name__}: {exc}"}
+    return out
+
+
+def build_snapshot(league_key: str | None) -> tuple[dict[str, Any] | None, int]:
+    """``(payload, EXIT_OK)`` or ``(None, EXIT_ERROR | EXIT_SKIPPED)``.
 
     Deliberately captures the board and the roster context TOGETHER: scoring a
     recommendation needs the state the recommendation was made from, and the
@@ -94,7 +152,7 @@ def record_snapshot(out_dir: Path, league_key: str | None) -> int:
         )
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: could not import the app ({exc})", file=sys.stderr)
-        return EXIT_ERROR
+        return None, EXIT_ERROR
 
     contract = getattr(server, "latest_contract_data", None)
     if not contract:
@@ -115,7 +173,7 @@ def record_snapshot(out_dir: Path, league_key: str | None) -> int:
             server._prime_latest_payload(server.load_from_disk())  # noqa: SLF001
         except Exception as exc:  # noqa: BLE001
             print(f"ERROR: could not load the cached contract ({exc})", file=sys.stderr)
-            return EXIT_ERROR
+            return None, EXIT_ERROR
         contract = getattr(server, "latest_contract_data", None)
     if not contract:
         # Genuinely nothing on disk either. Still SKIPPED rather than OK — "no
@@ -126,13 +184,13 @@ def record_snapshot(out_dir: Path, league_key: str | None) -> int:
             "SKIPPED: no contract cached on disk — run a scrape first.",
             file=sys.stderr,
         )
-        return EXIT_SKIPPED
+        return None, EXIT_SKIPPED
 
     key = league_key or ((contract.get("meta") or {}).get("leagueKey"))
     pool = server._our_rookie_pool(server._KTC_TOTAL_PICKS)  # noqa: SLF001
     if not pool:
         print("SKIPPED: contract carries no rookie pool.", file=sys.stderr)
-        return EXIT_SKIPPED
+        return None, EXIT_SKIPPED
     dollars = server._rookie_dollars_from_values(  # noqa: SLF001
         [r["value"] for r in pool], server.DRAFT_TOTAL_BUDGET
     )
@@ -144,33 +202,41 @@ def record_snapshot(out_dir: Path, league_key: str | None) -> int:
         except ValueError:
             continue
 
+    rookies = [
+        {
+            "name": r["name"],
+            "pos": r["pos"],
+            "boardValue": r["value"],
+            "preDraft": d,
+            "dispersionCV": r.get("dispersionCV"),
+            "singleSource": r.get("singleSource"),
+        }
+        for r, d in zip(pool, dollars)
+    ]
+    payload = {
+        "capturedAt": datetime.now(timezone.utc).isoformat(),
+        "leagueKey": key,
+        "contextVersion": CONTEXT_VERSION,
+        "boardHash": _json_hash(rookies),
+        "provenance": _provenance(server, contract, key),
+        "rookies": rookies,
+        "rosterContexts": contexts,
+    }
+    return payload, EXIT_OK
+
+
+def record_snapshot(out_dir: Path, league_key: str | None) -> int:
+    """Capture everything a later backtest will need, before the auction."""
+    payload, code = build_snapshot(league_key)
+    if payload is None:
+        return code
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     path = out_dir / f"{stamp}-pre.json"
-    path.write_text(
-        json.dumps(
-            {
-                "capturedAt": datetime.now(timezone.utc).isoformat(),
-                "leagueKey": key,
-                "contextVersion": CONTEXT_VERSION,
-                "rookies": [
-                    {
-                        "name": r["name"],
-                        "pos": r["pos"],
-                        "boardValue": r["value"],
-                        "preDraft": d,
-                        "dispersionCV": r.get("dispersionCV"),
-                        "singleSource": r.get("singleSource"),
-                    }
-                    for r, d in zip(pool, dollars)
-                ],
-                "rosterContexts": contexts,
-            },
-            indent=1,
-        ),
-        encoding="utf-8",
+    path.write_text(json.dumps(payload, indent=1), encoding="utf-8")
+    print(
+        f"Wrote {path} ({len(payload['rookies'])} rookies, {len(payload['rosterContexts'])} rosters)."
     )
-    print(f"Wrote {path} ({len(pool)} rookies, {len(contexts)} rosters).")
     return EXIT_OK
 
 

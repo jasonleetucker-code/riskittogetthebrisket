@@ -937,6 +937,9 @@ main() {
   # IDP streaming (2026-10-29): perishable pre-kickoff weekly projection pools
   # -> gitignored data/projections/weekly_archive/.  Public endpoints, no creds.
   install_simple_timer "weekly-projection-capture" "weekly projection pool point-in-time capture"
+  # Rookie auction: perishable pre-draft board + roster-context snapshot
+  # (idempotent, refuses once the Sleeper draft has started).  No creds.
+  install_simple_timer "pre-auction-snapshot" "pre-auction rookie-draft snapshot capture"
   # Game Day U5 shared live collector: fires every minute, the tick decides
   # whether it is due (src/ros/game_day_live.py).  Public endpoints, no creds.
   install_simple_timer "game-day-live" "Game Day live collector (observations + generations)"
