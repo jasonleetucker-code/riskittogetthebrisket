@@ -59,6 +59,9 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 from src.utils.name_clean import is_first_name_variant  # noqa: E402
+from src.utils.name_clean import (  # noqa: E402
+    unique_identified_first_name_variant as _unique_identified_first_name_variant,
+)
 from src.utils.name_clean import resolve_idp_position as _resolve_idp_position  # noqa: E402
 from src.utils.age import age_from_birthdate as _age_from_birthdate  # noqa: E402
 from src.utils.owner_names import owner_label as _owner_label  # noqa: E402
@@ -6581,6 +6584,18 @@ async def run(progress_callback=None):
         else:
             _norm = normalize_lookup_name(_clean_nm)
             _existing_key = _norm_to_player_key.get(_norm)
+        if _existing_key is None:
+            # W06-F001: this guarantee runs AFTER the dedup first-name-drift
+            # rung, so without this the must-have name ("Matthew Hibner")
+            # becomes a fresh id-less ghost beside the identified row
+            # ("Matt Hibner").  Same rule + identity gate as that rung; the
+            # rookie stays on the board through the identified row.
+            _existing_key = _unique_identified_first_name_variant(
+                _clean_nm,
+                players_json,
+                position_of=_get_pos,
+                preferred_position=_must_have_rookie_bucket(_clean_nm),
+            )
 
         _target_name = _existing_key or _canonical_map.get(_clean_nm, _clean_nm)
         _pref_pos = _get_pos(_target_name) or _get_pos(_clean_nm)
