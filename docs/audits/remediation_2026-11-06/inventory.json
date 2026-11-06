@@ -28,9 +28,9 @@
    "priority": "P0",
    "title": "Production scraper browser-launch outage + truthful health",
    "owner": "Dynasty Scraper.py launch, server.py reaper/status",
-   "state": "INDEPENDENTLY_REVIEWED",
-   "evidence": "production recovered by the 3734 deploy restart: scrape success 2026-11-06T18:48:38Z (263 s), /api/health 200 (was 503); PR #2062 (reaper + box diagnostics) re-validating after one rerun of a load-sensitive event-loop timing test (local prober 0.204 s on branch and main alike)",
-   "next": "merge #2062 on green; read live box_resources after its deploy",
+   "state": "MERGED",
+   "evidence": "production recovered by the 3734 deploy restart: scrape success 2026-11-06T18:48:38Z (263 s), /api/health 200 (was 503); PR #2062 (pre/post cgroup-scoped reaper + public-safe box diagnostics) merged a9244b0a after one rerun of a load-sensitive timing test (DD-16)",
+   "next": "after its deploy: read live /api/status box_resources and confirm scrapes keep succeeding",
    "sourceRowCount": 7
   },
   {
@@ -2611,28 +2611,28 @@
    "source": "INTAKE",
    "id": "MD-40",
    "title": "W0-A deploy blocker. Reproduce and correctly fix `test_no_confidence_rise_from_the_held_familys_silence` (Sonny Styles) without skipping or weakening; full hard",
-   "statusAtSource": "IN PROGRESS — #2061 reviewed; second hidden blocker found (MD-46)",
+   "statusAtSource": "DONE — #2061 merged in release train #2072 (91b0965c); Deploy Production 3734 succeeded 2026-11-06T18:48Z",
    "cw": "CW-01"
   },
   {
    "source": "INTAKE",
    "id": "MD-41",
    "title": "W0-B production scraper outage + health (#2060). Root-cause browser launch failures, restore collection, truthful freshness and `/api/health`, diagnostics witho",
-   "statusAtSource": "IN PROGRESS — #2062",
+   "statusAtSource": "PRODUCTION RECOVERED — deploy restart: scrape success 2026-11-06T18:48:38Z, /api/health 200; #2062 (reaper + diagnostics) merged a9244b0a",
    "cw": "CW-02"
   },
   {
    "source": "INTAKE",
    "id": "MD-42",
    "title": "W0-C time-critical evidence. Week 10 pre-kickoff capture with freeze receipts (kickoff 2026-11-12); Week 9 scoring; automatic first-valid 2027 pre-auction snaps",
-   "statusAtSource": "IN PROGRESS — receipts pushed (#2065); auction capture #2063",
+   "statusAtSource": "IN PROGRESS — receipts #2065, auction capture #2063 and evaluation runner #2077 merged; Week 9 evaluation once final",
    "cw": "CW-03"
   },
   {
    "source": "INTAKE",
    "id": "MD-43",
    "title": "W0-D backups, security posture, observability. Prove backup coverage and a restore path; verify loopback / ports / headers / banners / auth boundaries without r",
-   "statusAtSource": "IN PROGRESS — #2064; headers verified live 2026-11-06",
+   "statusAtSource": "HUMAN_ACTION_REQUIRED — #2064 merged; box operator re-runs install_state_backup.sh + restore verifier; headers verified live 2026-11-06",
    "cw": "CW-05"
   },
   {
@@ -2653,7 +2653,7 @@
    "source": "INTAKE",
    "id": "MD-46",
    "title": "Discovered 2026-11-06: confidence-owner gap (second deploy blocker). `test_idptc_cutoff_readiness::test_5` (Patrick Mahomes): withholding a source cures other H",
-   "statusAtSource": "IN PROGRESS — CW-47",
+   "statusAtSource": "DONE — CW-47 merged in #2072 and deployed; guard flag LIVE in production",
    "cw": "CW-47"
   },
   {
@@ -2667,21 +2667,21 @@
    "source": "INTAKE",
    "id": "MD-48",
    "title": "Feature-intent census (Phase 1). Inventory every material feature and execution surface; per feature: original request, latest controlling requirement, intended",
-   "statusAtSource": "IN PROGRESS — CW-48 (mechanical census first)",
+   "statusAtSource": "IN PROGRESS — CW-48 census merged #2085; requirement joins next",
    "cw": "CW-48"
   },
   {
    "source": "INTAKE",
    "id": "MD-49",
    "title": "Independent mathematical verification (Phase 2). Every consequential calculation checked for validity, intended methodology, independent oracles (never the func",
-   "statusAtSource": "AUTHORIZED — CW-49",
+   "statusAtSource": "IN PROGRESS — CW-49 oracles #2089 (package model, blend median) reviewed",
    "cw": "CW-49"
   },
   {
    "source": "INTAKE",
    "id": "MD-50",
    "title": "Permanent regression and end-to-end coverage (Phases 3–4). Tests from intended behavior; a reproducing test per verified defect; detection of silent numeric cha",
-   "statusAtSource": "AUTHORIZED — CW-50",
+   "statusAtSource": "IN PROGRESS — #2086 timer integrity, #2087 private-route auth regressions (fixed a live admin-gate defect), #2082 audit regressions merged",
    "cw": "CW-50"
   },
   {

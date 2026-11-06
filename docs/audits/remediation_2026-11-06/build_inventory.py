@@ -59,9 +59,9 @@ CW: list[dict] = [
         "priority": "P0",
         "title": "Production scraper browser-launch outage + truthful health",
         "owner": "Dynasty Scraper.py launch, server.py reaper/status",
-        "state": "INDEPENDENTLY_REVIEWED",
-        "evidence": "production recovered by the 3734 deploy restart: scrape success 2026-11-06T18:48:38Z (263 s), /api/health 200 (was 503); PR #2062 (reaper + box diagnostics) re-validating after one rerun of a load-sensitive event-loop timing test (local prober 0.204 s on branch and main alike)",
-        "next": "merge #2062 on green; read live box_resources after its deploy",
+        "state": "MERGED",
+        "evidence": "production recovered by the 3734 deploy restart: scrape success 2026-11-06T18:48:38Z (263 s), /api/health 200 (was 503); PR #2062 (pre/post cgroup-scoped reaper + public-safe box diagnostics) merged a9244b0a after one rerun of a load-sensitive timing test (DD-16)",
+        "next": "after its deploy: read live /api/status box_resources and confirm scrapes keep succeeding",
     },
     {
         "id": "CW-03",

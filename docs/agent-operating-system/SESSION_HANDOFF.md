@@ -25,10 +25,9 @@ acting: a previous session's workers are NOT running in a new session.
 
 ## Merged today
 #2065 #2066 #2073 #2078 #2080 #2081 #2083 · #2072 (train, incl. #2061) · #2070 #2069 #2086 #2064 #2075 #2077 #2085
-#2068 #2063 #2087 #2082 #2074 #2079 #2084 #2071.
+#2068 #2063 #2087 #2082 #2074 #2079 #2084 #2071 #2062.
 
 ## Open, all independently reviewed — merge each on green
-- #2062 scraper reaper + box diagnostics: CI re-run once (load-sensitive loop-timing test; DD-16).
 - #2067 trade honesty / "Market Disagreement": nav-invariant test updated (ce2e969d, DD-15); journeys re-run once.
 - #2076 forecast calibration ledger timer: installer conflict with #2063 resolved (f9049d11).
 - #2089 CW-49 math oracles (package model, blend median).
