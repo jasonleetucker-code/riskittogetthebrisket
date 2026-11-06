@@ -1,0 +1,7681 @@
+{
+ "census": "CW-08 scoring parity",
+ "generatedAtUtc": "2026-11-06T13:14:23Z",
+ "scorerVariant": "main",
+ "league": {
+  "key": "dynasty_main",
+  "season": 2026,
+  "status": "in_season"
+ },
+ "scoringFingerprint": "sf1:9e51824690d091f9",
+ "scoringFingerprintPinnedByLaneA2026_10_25": "sf1:9e51824690d091f9",
+ "configurationMismatch": false,
+ "finality": {
+  "nflState": {
+   "season": "2026",
+   "week": 9,
+   "display_week": 9,
+   "season_type": "regular"
+  },
+  "hostLineupsOpenFromWeek": 9,
+  "reason": "host_week_not_final",
+  "lastScoredLeg": 8,
+  "weeksCensused": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ]
+ },
+ "tolerance": 0.011,
+ "inputs": {
+  "sleeper_league": {
+   "sha256": "1c01712d3920dd5fda3268dabc5d83992fdfd32065ef336b1954bb737ad2656f",
+   "bytes": 5106,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "sleeper_state_nfl": {
+   "sha256": "9c8a7b4f2d7b2f3c6371a93246f07b8507d15678ef38e24f0a93bb374582d460",
+   "bytes": 211,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "sleeper_players_nfl": {
+   "sha256": "5fa514109f0eed5be6e03fe026077d5bc67c801e3bffb14333dbc9d20df17e39",
+   "bytes": 14663796,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "matchups_w1": {
+   "sha256": "9f4d2663ac8a4960d6299ec97199dccba070828e19e0ff0e15b875314b2221b2",
+   "bytes": 18649,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "matchups_w2": {
+   "sha256": "ac8be4fffb6c0dc35df103295539a6d4843b75195596b77d7ade21a617e3df02",
+   "bytes": 18695,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "matchups_w3": {
+   "sha256": "142ca76bb94e966dad28f699362bb7fd8d6ea71f658c06f82e958807ac1218e0",
+   "bytes": 18672,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "matchups_w4": {
+   "sha256": "c1c28e4add27364429437778d172fdfa65d9894c4637ae12ab839cda77a913a7",
+   "bytes": 18735,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "matchups_w5": {
+   "sha256": "b8c08a1546f9e2a5b68e3c7f62547b23f20b6ff1c4f7ca154ab697004799966e",
+   "bytes": 18732,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "matchups_w6": {
+   "sha256": "3fec893d6fe76fa37901e9aad7f6d4d66bbad200b83a1754dd1b1a3e2b41cdf7",
+   "bytes": 18677,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "matchups_w7": {
+   "sha256": "4c0a4ea6cea104dac68d9c3797c204d05a82e5a4d63a3570e42a28fba71bca6b",
+   "bytes": 18623,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "matchups_w8": {
+   "sha256": "7b7e09952f1f5f50ebd39a23f9784232272c1479668f53b2605ef91a89196617",
+   "bytes": 18696,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "stats_w1": {
+   "sha256": "0e2453cc8cbb5315001d5f990f7f5a8e934d675ee0d809a9dde5d491f1d2d5ff",
+   "bytes": 569056,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "stats_w2": {
+   "sha256": "616ce95a9f34e975e12ab2ecba380c525e27bb104e84160c7a748c2e11f5bea1",
+   "bytes": 574480,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "stats_w3": {
+   "sha256": "255fb568b17433754fb1eaa8858fc2646cf667244c083ee44067f992655172d8",
+   "bytes": 573997,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "stats_w4": {
+   "sha256": "6a7e8256ed4e92a61b6a3d73233a54e281ba39c53667b8c61c22be6a43f393d5",
+   "bytes": 585518,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "stats_w5": {
+   "sha256": "11ae27fcc6872eb04f3972259fa63bdb510e22e51314198bd0ce962af4f82070",
+   "bytes": 555127,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "stats_w6": {
+   "sha256": "e9086612023efd3beea10174475c7010ae8401305d0b489923ddfeaeb1e7d77e",
+   "bytes": 513801,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "stats_w7": {
+   "sha256": "f234896b04f5e61ee3d453f88d0617de8e1530e2a09c8f79b043d85ac5b91ad6",
+   "bytes": 510291,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  },
+  "stats_w8": {
+   "sha256": "6e7fc8488f182d1809e3c06fe1aa3b1af481d5f89bb23ef85b2dd17a212b4f9f",
+   "bytes": 510266,
+   "fetchedAtUtc": "2026-11-06T13:12:12Z"
+  }
+ },
+ "nflverseRowsCanonicalSha256": "b048a0ce92317c9c3d8497dfb892cb51c470bbc330eb580b02fda6ae8c017e57",
+ "pbpArtifactWeeksCovered": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9
+ ],
+ "projectionConfusion": "none: the nflverse weekly row and the Sleeper stat line are realized statistics; no projection field is read by either scorer path",
+ "nflverseJoin": {
+  "nflverseRegRowsInScope": 8428,
+  "joinedToSleeperId": 8352,
+  "joinMethods": {
+   "gsis_id": 1934,
+   "exact_clean": 6348,
+   "exact_canonical": 43,
+   "exact_lookup": 27
+  },
+  "directoryEntriesWithGsis": 3893,
+  "directoryEntries": 12229,
+  "nflverseRowsUnjoined": {
+   "unresolved_by_identity_owner": 72,
+   "refused_fuzzy_rung": 4
+  },
+  "duplicateSleeperIdWeek": 0,
+  "nflverseRowsNotRostered": 4275,
+  "hostRowsWithoutNflverseRow": {
+   "no_nflverse_row_host_zero": 1462,
+   "no_nflverse_row_host_nonzero": 24
+  },
+  "hostRowsWithoutNflverseRowButHostNonzero": [
+   {
+    "week": 1,
+    "name": "Quinnen Williams",
+    "pos": "DT",
+    "host": 9.29
+   },
+   {
+    "week": 1,
+    "name": "Matt Hibner",
+    "pos": "TE",
+    "host": 3.15
+   },
+   {
+    "week": 1,
+    "name": "Byron Young",
+    "pos": "LB",
+    "host": 0.8
+   },
+   {
+    "week": 2,
+    "name": "Quinnen Williams",
+    "pos": "DT",
+    "host": 10.62
+   },
+   {
+    "week": 2,
+    "name": "Byron Young",
+    "pos": "LB",
+    "host": 19.22
+   },
+   {
+    "week": 3,
+    "name": "Quinnen Williams",
+    "pos": "DT",
+    "host": 6.9
+   },
+   {
+    "week": 3,
+    "name": "Matt Hibner",
+    "pos": "TE",
+    "host": 10.75
+   },
+   {
+    "week": 3,
+    "name": "Byron Young",
+    "pos": "LB",
+    "host": 3.2
+   },
+   {
+    "week": 4,
+    "name": "Quinnen Williams",
+    "pos": "DT",
+    "host": 19.0
+   },
+   {
+    "week": 4,
+    "name": "Matt Hibner",
+    "pos": "TE",
+    "host": 6.1
+   },
+   {
+    "week": 4,
+    "name": "Byron Young",
+    "pos": "LB",
+    "host": 35.52
+   },
+   {
+    "week": 5,
+    "name": "Quinnen Williams",
+    "pos": "DT",
+    "host": 1.6
+   },
+   {
+    "week": 5,
+    "name": "Josh Uche",
+    "pos": "LB",
+    "host": 3.46
+   },
+   {
+    "week": 5,
+    "name": "Byron Young",
+    "pos": "LB",
+    "host": 7.7
+   },
+   {
+    "week": 6,
+    "name": "Quinnen Williams",
+    "pos": "DT",
+    "host": 24.73
+   },
+   {
+    "week": 6,
+    "name": "Zonovan Knight",
+    "pos": "RB",
+    "host": 16.4
+   },
+   {
+    "week": 6,
+    "name": "Byron Young",
+    "pos": "LB",
+    "host": 13.81
+   },
+   {
+    "week": 7,
+    "name": "Quinnen Williams",
+    "pos": "DT",
+    "host": 23.97
+   },
+   {
+    "week": 7,
+    "name": "Zonovan Knight",
+    "pos": "RB",
+    "host": 9.42
+   },
+   {
+    "week": 7,
+    "name": "Josh Uche",
+    "pos": "LB",
+    "host": 9.3
+   },
+   {
+    "week": 7,
+    "name": "Byron Young",
+    "pos": "LB",
+    "host": 10.9
+   },
+   {
+    "week": 8,
+    "name": "Quinnen Williams",
+    "pos": "DT",
+    "host": 27.72
+   },
+   {
+    "week": 8,
+    "name": "Josh Uche",
+    "pos": "LB",
+    "host": 15.71
+   },
+   {
+    "week": 8,
+    "name": "Byron Young",
+    "pos": "LB",
+    "host": 3.45
+   }
+  ]
+ },
+ "hostNative": {
+  "rosteredPlayerWeeks": 5563,
+  "withStatLine": 4833,
+  "noStatLine": 730,
+  "noStatLineAwardedZero": 730,
+  "noStatLineAwardedNonzero": [],
+  "canonicalScoreStatLine": {
+   "n": 4833,
+   "withinTol": 4833,
+   "agreement": 1.0,
+   "maxAbs": 0.0044,
+   "meanAbs": 0.0003,
+   "netSigned": 0.014
+  },
+  "productionHostNative": {
+   "n": 4833,
+   "withinTol": 4833,
+   "agreement": 1.0,
+   "maxAbs": 0.0044,
+   "meanAbs": 0.0003,
+   "netSigned": 0.014
+  },
+  "byGroup": {
+   "DB": {
+    "n": 799,
+    "withinTol": 799,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000224,
+    "netSigned": 0.006
+   },
+   "DL": {
+    "n": 651,
+    "withinTol": 651,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000602,
+    "netSigned": -0.037
+   },
+   "FB": {
+    "n": 5,
+    "withinTol": 5,
+    "agreement": 1.0,
+    "maxAbs": 0.0,
+    "meanAbs": 0.0,
+    "netSigned": 0.0
+   },
+   "K": {
+    "n": 160,
+    "withinTol": 160,
+    "agreement": 1.0,
+    "maxAbs": 0.0,
+    "meanAbs": 0.0,
+    "netSigned": 0.0
+   },
+   "LB": {
+    "n": 737,
+    "withinTol": 737,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000398,
+    "netSigned": 0.016
+   },
+   "QB": {
+    "n": 403,
+    "withinTol": 403,
+    "agreement": 1.0,
+    "maxAbs": 0.0,
+    "meanAbs": 0.0,
+    "netSigned": 0.0
+   },
+   "RB": {
+    "n": 639,
+    "withinTol": 639,
+    "agreement": 1.0,
+    "maxAbs": 0.0033,
+    "meanAbs": 0.000318,
+    "netSigned": 0.023
+   },
+   "TE": {
+    "n": 439,
+    "withinTol": 439,
+    "agreement": 1.0,
+    "maxAbs": 0.0,
+    "meanAbs": 0.0,
+    "netSigned": 0.0
+   },
+   "WR": {
+    "n": 1000,
+    "withinTol": 1000,
+    "agreement": 1.0,
+    "maxAbs": 0.0033,
+    "meanAbs": 0.00038,
+    "netSigned": 0.007
+   }
+  },
+  "byWeek": {
+   "w1": {
+    "n": 632,
+    "withinTol": 632,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000357,
+    "netSigned": 0.012
+   },
+   "w2": {
+    "n": 646,
+    "withinTol": 646,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000325,
+    "netSigned": 0.001
+   },
+   "w3": {
+    "n": 633,
+    "withinTol": 633,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000304,
+    "netSigned": 0.001
+   },
+   "w4": {
+    "n": 640,
+    "withinTol": 640,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000252,
+    "netSigned": 0.023
+   },
+   "w5": {
+    "n": 594,
+    "withinTol": 594,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000284,
+    "netSigned": 0.002
+   },
+   "w6": {
+    "n": 565,
+    "withinTol": 565,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000281,
+    "netSigned": -0.008
+   },
+   "w7": {
+    "n": 565,
+    "withinTol": 565,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000275,
+    "netSigned": -0.022
+   },
+   "w8": {
+    "n": 558,
+    "withinTol": 558,
+    "agreement": 1.0,
+    "maxAbs": 0.0044,
+    "meanAbs": 0.000315,
+    "netSigned": 0.004
+   }
+  },
+  "exceptions": []
+ },
+ "nflversePath": {
+  "scored": {
+   "n": 4077,
+   "withinTol": 3743,
+   "agreement": 0.918077,
+   "maxAbs": 6.3644,
+   "meanAbs": 0.125311,
+   "netSigned": 46.661
+  },
+  "byGroup": {
+   "DB": {
+    "n": 744,
+    "withinTol": 657,
+    "agreement": 0.883065,
+    "maxAbs": 6.36,
+    "meanAbs": 0.180085,
+    "netSigned": 95.606
+   },
+   "DL": {
+    "n": 563,
+    "withinTol": 534,
+    "agreement": 0.94849,
+    "maxAbs": 6.3644,
+    "meanAbs": 0.087503,
+    "netSigned": -1.536
+   },
+   "FB": {
+    "n": 4,
+    "withinTol": 1,
+    "agreement": 0.25,
+    "maxAbs": 1.0,
+    "meanAbs": 0.75,
+    "netSigned": 3.0
+   },
+   "K": {
+    "n": 160,
+    "withinTol": 149,
+    "agreement": 0.93125,
+    "maxAbs": 3.85,
+    "meanAbs": 0.161438,
+    "netSigned": 23.17
+   },
+   "LB": {
+    "n": 662,
+    "withinTol": 566,
+    "agreement": 0.854985,
+    "maxAbs": 6.36,
+    "meanAbs": 0.214131,
+    "netSigned": 78.901
+   },
+   "QB": {
+    "n": 261,
+    "withinTol": 251,
+    "agreement": 0.961686,
+    "maxAbs": 1.33,
+    "meanAbs": 0.048927,
+    "netSigned": -12.77
+   },
+   "RB": {
+    "n": 519,
+    "withinTol": 503,
+    "agreement": 0.969171,
+    "maxAbs": 1.3333,
+    "meanAbs": 0.039711,
+    "netSigned": -18.397
+   },
+   "TE": {
+    "n": 359,
+    "withinTol": 338,
+    "agreement": 0.941504,
+    "maxAbs": 5.57,
+    "meanAbs": 0.09624,
+    "netSigned": -34.55
+   },
+   "WR": {
+    "n": 805,
+    "withinTol": 744,
+    "agreement": 0.924224,
+    "maxAbs": 5.57,
+    "meanAbs": 0.11072,
+    "netSigned": -86.763
+   }
+  },
+  "byWeek": {
+   "w1": {
+    "n": 540,
+    "withinTol": 499,
+    "agreement": 0.924074,
+    "maxAbs": 6.36,
+    "meanAbs": 0.117469,
+    "netSigned": 0.542
+   },
+   "w2": {
+    "n": 550,
+    "withinTol": 502,
+    "agreement": 0.912727,
+    "maxAbs": 5.2989,
+    "meanAbs": 0.143214,
+    "netSigned": 14.79
+   },
+   "w3": {
+    "n": 535,
+    "withinTol": 490,
+    "agreement": 0.915888,
+    "maxAbs": 5.57,
+    "meanAbs": 0.131767,
+    "netSigned": 8.691
+   },
+   "w4": {
+    "n": 528,
+    "withinTol": 478,
+    "agreement": 0.905303,
+    "maxAbs": 5.3,
+    "meanAbs": 0.137603,
+    "netSigned": 24.099
+   },
+   "w5": {
+    "n": 502,
+    "withinTol": 460,
+    "agreement": 0.916335,
+    "maxAbs": 6.36,
+    "meanAbs": 0.140529,
+    "netSigned": -6.608
+   },
+   "w6": {
+    "n": 476,
+    "withinTol": 441,
+    "agreement": 0.926471,
+    "maxAbs": 2.66,
+    "meanAbs": 0.098681,
+    "netSigned": 3.739
+   },
+   "w7": {
+    "n": 470,
+    "withinTol": 434,
+    "agreement": 0.923404,
+    "maxAbs": 6.3644,
+    "meanAbs": 0.118806,
+    "netSigned": 4.679
+   },
+   "w8": {
+    "n": 476,
+    "withinTol": 439,
+    "agreement": 0.922269,
+    "maxAbs": 3.15,
+    "meanAbs": 0.109631,
+    "netSigned": -3.271
+   }
+  },
+  "startedOnly": {
+   "n": 1980,
+   "withinTol": 1829,
+   "agreement": 0.923737,
+   "maxAbs": 6.3644,
+   "meanAbs": 0.125759,
+   "netSigned": -75.47
+  },
+  "rowClassification": {
+   "category_mapping_defect": 121,
+   "missing_raw_stat_event_in_feed": 213
+  },
+  "netPtsByClassNflMinusHost": {
+   "category_mapping_defect": -147.13,
+   "missing_raw_stat_event_in_feed": 193.81
+  },
+  "mismatchedRowsExplainedBySingleKey": 298,
+  "rowsWithUnscoredPbpRules": 0,
+  "hostScoringDifferenceRows": 0,
+  "perKey": [
+   {
+    "key": "idp_tkl_solo",
+    "rate": 1.33,
+    "hostRowsNonzero": 1750,
+    "nflverseRowsNonzero": 1686,
+    "rowsDiffer": 216,
+    "netPtsNflMinusHost": 22.61,
+    "absPts": 312.55,
+    "hostPtsTotal": 6506.36,
+    "nflPtsTotal": 6528.97,
+    "byGroup": {
+     "TE": 19,
+     "LB": 48,
+     "DB": 58,
+     "WR": 58,
+     "QB": 9,
+     "RB": 14,
+     "DL": 10
+    },
+    "classes": {
+     "category_mapping_defect:event_present_in_row_not_emitted": 100,
+     "missing_raw_stat_event_in_feed:special_teams_play_in_defensive_column_exact": 96,
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 6,
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 14
+    }
+   },
+   {
+    "key": "idp_tkl_ast",
+    "rate": 0.8,
+    "hostRowsNonzero": 1543,
+    "nflverseRowsNonzero": 1575,
+    "rowsDiffer": 117,
+    "netPtsNflMinusHost": 61.6,
+    "absPts": 103.2,
+    "hostPtsTotal": 3220.0,
+    "nflPtsTotal": 3281.6,
+    "byGroup": {
+     "DB": 43,
+     "LB": 52,
+     "DL": 16,
+     "TE": 1,
+     "WR": 3,
+     "QB": 1,
+     "RB": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 91,
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 20,
+     "category_mapping_defect:event_present_in_row_not_emitted": 6
+    }
+   },
+   {
+    "key": "idp_hit",
+    "rate": 2.12,
+    "hostRowsNonzero": 584,
+    "nflverseRowsNonzero": 580,
+    "rowsDiffer": 10,
+    "netPtsNflMinusHost": -19.08,
+    "absPts": 23.32,
+    "hostPtsTotal": 1859.24,
+    "nflPtsTotal": 1840.16,
+    "byGroup": {
+     "DL": 4,
+     "DB": 1,
+     "LB": 5
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 9,
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 1
+    }
+   },
+   {
+    "key": "idp_pd",
+    "rate": 5.3,
+    "hostRowsNonzero": 493,
+    "nflverseRowsNonzero": 493,
+    "rowsDiffer": 4,
+    "netPtsNflMinusHost": -10.6,
+    "absPts": 21.2,
+    "hostPtsTotal": 3328.4,
+    "nflPtsTotal": 3317.8,
+    "byGroup": {
+     "LB": 2,
+     "DL": 1,
+     "DB": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 3,
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 1
+    }
+   },
+   {
+    "key": "idp_def_td",
+    "rate": 6.36,
+    "hostRowsNonzero": 7,
+    "nflverseRowsNonzero": 4,
+    "rowsDiffer": 3,
+    "netPtsNflMinusHost": -19.08,
+    "absPts": 19.08,
+    "hostPtsTotal": 44.52,
+    "nflPtsTotal": 25.44,
+    "byGroup": {
+     "LB": 1,
+     "DB": 1,
+     "DL": 1
+    },
+    "classes": {
+     "category_mapping_defect:event_present_in_row_not_emitted": 3
+    }
+   },
+   {
+    "key": "idp_ff",
+    "rate": 4.24,
+    "hostRowsNonzero": 126,
+    "nflverseRowsNonzero": 122,
+    "rowsDiffer": 4,
+    "netPtsNflMinusHost": -16.96,
+    "absPts": 16.96,
+    "hostPtsTotal": 563.92,
+    "nflPtsTotal": 546.96,
+    "byGroup": {
+     "TE": 2,
+     "WR": 1,
+     "LB": 1
+    },
+    "classes": {
+     "category_mapping_defect:event_present_in_row_not_emitted": 3,
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 1
+    }
+   },
+   {
+    "key": "fgmiss_30_39",
+    "rate": -3.15,
+    "hostRowsNonzero": 3,
+    "nflverseRowsNonzero": 1,
+    "rowsDiffer": 2,
+    "netPtsNflMinusHost": 6.3,
+    "absPts": 6.3,
+    "hostPtsTotal": -9.45,
+    "nflPtsTotal": -3.15,
+    "byGroup": {
+     "K": 2
+    },
+    "classes": {
+     "category_mapping_defect:event_present_in_row_not_emitted": 2
+    }
+   },
+   {
+    "key": "fgmiss_50_59",
+    "rate": -1.75,
+    "hostRowsNonzero": 26,
+    "nflverseRowsNonzero": 23,
+    "rowsDiffer": 3,
+    "netPtsNflMinusHost": 5.25,
+    "absPts": 5.25,
+    "hostPtsTotal": -45.5,
+    "nflPtsTotal": -40.25,
+    "byGroup": {
+     "K": 3
+    },
+    "classes": {
+     "category_mapping_defect:event_present_in_row_not_emitted": 3
+    }
+   },
+   {
+    "key": "fgmiss_40_49",
+    "rate": -2.45,
+    "hostRowsNonzero": 17,
+    "nflverseRowsNonzero": 15,
+    "rowsDiffer": 2,
+    "netPtsNflMinusHost": 4.9,
+    "absPts": 4.9,
+    "hostPtsTotal": -44.1,
+    "nflPtsTotal": -39.2,
+    "byGroup": {
+     "K": 2
+    },
+    "classes": {
+     "category_mapping_defect:event_present_in_row_not_emitted": 2
+    }
+   },
+   {
+    "key": "bonus_fd_rb",
+    "rate": 1.0,
+    "hostRowsNonzero": 402,
+    "nflverseRowsNonzero": 405,
+    "rowsDiffer": 4,
+    "netPtsNflMinusHost": 4.0,
+    "absPts": 4.0,
+    "hostPtsTotal": 1214.0,
+    "nflPtsTotal": 1218.0,
+    "byGroup": {
+     "FB": 3,
+     "RB": 1
+    },
+    "classes": {
+     "category_mapping_defect:position_vocabulary": 3,
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 1
+    }
+   },
+   {
+    "key": "fgmiss_20_29",
+    "rate": -3.85,
+    "hostRowsNonzero": 2,
+    "nflverseRowsNonzero": 1,
+    "rowsDiffer": 1,
+    "netPtsNflMinusHost": 3.85,
+    "absPts": 3.85,
+    "hostPtsTotal": -7.7,
+    "nflPtsTotal": -3.85,
+    "byGroup": {
+     "K": 1
+    },
+    "classes": {
+     "category_mapping_defect:event_present_in_row_not_emitted": 1
+    }
+   },
+   {
+    "key": "xpmiss",
+    "rate": -3.15,
+    "hostRowsNonzero": 17,
+    "nflverseRowsNonzero": 16,
+    "rowsDiffer": 1,
+    "netPtsNflMinusHost": 3.15,
+    "absPts": 3.15,
+    "hostPtsTotal": -59.85,
+    "nflPtsTotal": -56.7,
+    "byGroup": {
+     "K": 1
+    },
+    "classes": {
+     "category_mapping_defect:event_present_in_row_not_emitted": 1
+    }
+   },
+   {
+    "key": "st_tkl_solo",
+    "rate": 1.33,
+    "hostRowsNonzero": 146,
+    "nflverseRowsNonzero": 145,
+    "rowsDiffer": 1,
+    "netPtsNflMinusHost": -1.33,
+    "absPts": 1.33,
+    "hostPtsTotal": 224.77,
+    "nflPtsTotal": 223.44,
+    "byGroup": {
+     "K": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 1
+    }
+   },
+   {
+    "key": "fgmiss_60p",
+    "rate": -1.05,
+    "hostRowsNonzero": 4,
+    "nflverseRowsNonzero": 4,
+    "rowsDiffer": 1,
+    "netPtsNflMinusHost": 1.05,
+    "absPts": 1.05,
+    "hostPtsTotal": -5.25,
+    "nflPtsTotal": -4.2,
+    "byGroup": {
+     "K": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 1
+    }
+   },
+   {
+    "key": "bonus_fd_wr",
+    "rate": 1.0,
+    "hostRowsNonzero": 602,
+    "nflverseRowsNonzero": 602,
+    "rowsDiffer": 1,
+    "netPtsNflMinusHost": 1.0,
+    "absPts": 1.0,
+    "hostPtsTotal": 1416.0,
+    "nflPtsTotal": 1417.0,
+    "byGroup": {
+     "WR": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 1
+    }
+   },
+   {
+    "key": "idp_sack_yd",
+    "rate": 0.1111111111111111,
+    "hostRowsNonzero": 300,
+    "nflverseRowsNonzero": 300,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 239.06,
+    "nflPtsTotal": 239.06,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "idp_tkl_loss",
+    "rate": 4.24,
+    "hostRowsNonzero": 536,
+    "nflverseRowsNonzero": 536,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 2870.48,
+    "nflPtsTotal": 2870.48,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "idp_sack",
+    "rate": 2.92,
+    "hostRowsNonzero": 323,
+    "nflverseRowsNonzero": 323,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 978.2,
+    "nflPtsTotal": 978.2,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec_yd",
+    "rate": 0.1,
+    "hostRowsNonzero": 1400,
+    "nflverseRowsNonzero": 1400,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 5159.1,
+    "nflPtsTotal": 5159.1,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec",
+    "rate": 0.1,
+    "hostRowsNonzero": 1409,
+    "nflverseRowsNonzero": 1409,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 465.7,
+    "nflPtsTotal": 465.7,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rush_yd",
+    "rate": 0.1,
+    "hostRowsNonzero": 830,
+    "nflverseRowsNonzero": 830,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 2613.8,
+    "nflPtsTotal": 2613.8,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rush_att",
+    "rate": 0.01,
+    "hostRowsNonzero": 842,
+    "nflverseRowsNonzero": 842,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 61.8,
+    "nflPtsTotal": 61.8,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec_10_19",
+    "rate": 0.75,
+    "hostRowsNonzero": 812,
+    "nflverseRowsNonzero": 812,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 1037.25,
+    "nflPtsTotal": 1037.25,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "bonus_fd_te",
+    "rate": 1.0,
+    "hostRowsNonzero": 237,
+    "nflverseRowsNonzero": 237,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 498.0,
+    "nflPtsTotal": 498.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec_5_9",
+    "rate": 0.5,
+    "hostRowsNonzero": 933,
+    "nflverseRowsNonzero": 933,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 819.0,
+    "nflPtsTotal": 819.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec_td",
+    "rate": 6.0,
+    "hostRowsNonzero": 288,
+    "nflverseRowsNonzero": 288,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 1986.0,
+    "nflPtsTotal": 1986.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "bonus_rec_wr",
+    "rate": 0.02,
+    "hostRowsNonzero": 704,
+    "nflverseRowsNonzero": 704,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 51.08,
+    "nflPtsTotal": 51.08,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec_20_29",
+    "rate": 1.0,
+    "hostRowsNonzero": 311,
+    "nflverseRowsNonzero": 311,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 389.0,
+    "nflPtsTotal": 389.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "kr_yd",
+    "rate": 0.03333333333333333,
+    "hostRowsNonzero": 196,
+    "nflverseRowsNonzero": 196,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 419.97,
+    "nflPtsTotal": 419.97,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "idp_fum_ret_yd",
+    "rate": 0.1111111111111111,
+    "hostRowsNonzero": 14,
+    "nflverseRowsNonzero": 14,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 26.44,
+    "nflPtsTotal": 26.44,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "idp_fum_rec",
+    "rate": 3.19,
+    "hostRowsNonzero": 66,
+    "nflverseRowsNonzero": 66,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 213.73,
+    "nflPtsTotal": 213.73,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rush_td",
+    "rate": 6.0,
+    "hostRowsNonzero": 186,
+    "nflverseRowsNonzero": 186,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 1368.0,
+    "nflPtsTotal": 1368.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "pass_yd",
+    "rate": 0.04,
+    "hostRowsNonzero": 253,
+    "nflverseRowsNonzero": 253,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 2234.4,
+    "nflPtsTotal": 2234.4,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "pass_inc",
+    "rate": -0.67,
+    "hostRowsNonzero": 255,
+    "nflverseRowsNonzero": 255,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": -1887.39,
+    "nflPtsTotal": -1887.39,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "pass_cmp",
+    "rate": 0.37,
+    "hostRowsNonzero": 254,
+    "nflverseRowsNonzero": 254,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 1874.42,
+    "nflPtsTotal": 1874.42,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "pass_td",
+    "rate": 6.0,
+    "hostRowsNonzero": 196,
+    "nflverseRowsNonzero": 196,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 2208.0,
+    "nflPtsTotal": 2208.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "pass_sack",
+    "rate": -1.0,
+    "hostRowsNonzero": 209,
+    "nflverseRowsNonzero": 209,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": -548.0,
+    "nflPtsTotal": -548.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "bonus_fd_qb",
+    "rate": 0.4,
+    "hostRowsNonzero": 251,
+    "nflverseRowsNonzero": 251,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 1021.6,
+    "nflPtsTotal": 1021.6,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "fgm_yds",
+    "rate": 0.07,
+    "hostRowsNonzero": 134,
+    "nflverseRowsNonzero": 134,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 765.73,
+    "nflPtsTotal": 765.73,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "xpm",
+    "rate": 2.31,
+    "hostRowsNonzero": 147,
+    "nflverseRowsNonzero": 147,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 847.77,
+    "nflPtsTotal": 847.77,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec_30_39",
+    "rate": 1.25,
+    "hostRowsNonzero": 116,
+    "nflverseRowsNonzero": 116,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 151.25,
+    "nflPtsTotal": 151.25,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "pass_2pt",
+    "rate": 2.0,
+    "hostRowsNonzero": 23,
+    "nflverseRowsNonzero": 23,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 50.0,
+    "nflPtsTotal": 50.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec_0_4",
+    "rate": 0.25,
+    "hostRowsNonzero": 615,
+    "nflverseRowsNonzero": 615,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 216.25,
+    "nflPtsTotal": 216.25,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec_2pt",
+    "rate": 2.0,
+    "hostRowsNonzero": 23,
+    "nflverseRowsNonzero": 23,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 46.0,
+    "nflPtsTotal": 46.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "pass_int",
+    "rate": -4.0,
+    "hostRowsNonzero": 127,
+    "nflverseRowsNonzero": 127,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": -664.0,
+    "nflPtsTotal": -664.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "pass_int_td",
+    "rate": -2.0,
+    "hostRowsNonzero": 6,
+    "nflverseRowsNonzero": 6,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": -12.0,
+    "nflPtsTotal": -12.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "fum_lost",
+    "rate": -4.0,
+    "hostRowsNonzero": 107,
+    "nflverseRowsNonzero": 107,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": -452.0,
+    "nflPtsTotal": -452.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rec_40p",
+    "rate": 2.0,
+    "hostRowsNonzero": 117,
+    "nflverseRowsNonzero": 117,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 250.0,
+    "nflPtsTotal": 250.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "idp_int",
+    "rate": 5.3,
+    "hostRowsNonzero": 99,
+    "nflverseRowsNonzero": 99,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 572.4,
+    "nflPtsTotal": 572.4,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "pr_yd",
+    "rate": 0.03333333333333333,
+    "hostRowsNonzero": 104,
+    "nflverseRowsNonzero": 104,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 62.73,
+    "nflPtsTotal": 62.73,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "idp_int_ret_yd",
+    "rate": 0.1111111111111111,
+    "hostRowsNonzero": 62,
+    "nflverseRowsNonzero": 62,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 128.11,
+    "nflPtsTotal": 128.11,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "idp_blk_kick",
+    "rate": 5.3,
+    "hostRowsNonzero": 8,
+    "nflverseRowsNonzero": 8,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 42.4,
+    "nflPtsTotal": 42.4,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "st_ff",
+    "rate": 4.25,
+    "hostRowsNonzero": 5,
+    "nflverseRowsNonzero": 5,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 21.25,
+    "nflPtsTotal": 21.25,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "rush_2pt",
+    "rate": 2.0,
+    "hostRowsNonzero": 7,
+    "nflverseRowsNonzero": 7,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 14.0,
+    "nflPtsTotal": 14.0,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "st_fum_rec",
+    "rate": 3.19,
+    "hostRowsNonzero": 1,
+    "nflverseRowsNonzero": 1,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 3.19,
+    "nflPtsTotal": 3.19,
+    "byGroup": {},
+    "classes": {}
+   },
+   {
+    "key": "idp_safe",
+    "rate": 5.3,
+    "hostRowsNonzero": 1,
+    "nflverseRowsNonzero": 1,
+    "rowsDiffer": 0,
+    "netPtsNflMinusHost": 0.0,
+    "absPts": 0.0,
+    "hostPtsTotal": 5.3,
+    "nflPtsTotal": 5.3,
+    "byGroup": {},
+    "classes": {}
+   }
+  ],
+  "pricedKeysWithNoActivity": [
+   "blk_kick",
+   "def_2pt",
+   "def_3_and_out",
+   "def_4_and_stop",
+   "def_forced_punts",
+   "def_kr_yd",
+   "def_pr_yd",
+   "def_st_ff",
+   "def_st_fum_rec",
+   "def_st_td",
+   "def_td",
+   "fg_ret_yd",
+   "fgmiss_0_19",
+   "fum_rec",
+   "fum_rec_td",
+   "fum_ret_yd",
+   "int",
+   "int_ret_yd",
+   "pts_allow",
+   "pts_allow_0",
+   "pts_allow_14_20",
+   "pts_allow_1_6",
+   "pts_allow_21_27",
+   "pts_allow_28_34",
+   "pts_allow_35p",
+   "pts_allow_7_13",
+   "sack_yd",
+   "safe",
+   "st_td",
+   "yds_allow"
+  ],
+  "mismatches": [
+   {
+    "week": 1,
+    "name": "T.J. Hockenson",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Malaki Starks",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Will Reichard",
+    "pos": "K",
+    "delta": -1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "st_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Jake Golday",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Kamren Kinchens",
+    "pos": "DB",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 3.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Caleb Downs",
+    "pos": "DB",
+    "delta": 0.8011,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "SirVocea Dennis",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "DeMario Douglas",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Courtland Sutton",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Jordan Love",
+    "pos": "QB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Noah Fant",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Malik Mustapha",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Dane Belton",
+    "pos": "DB",
+    "delta": -1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 1.0,
+      "deltaPts": -1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Caleb Douglas",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Danny Stutsman",
+    "pos": "LB",
+    "delta": 0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 4.0,
+      "nflRaw": 3.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Jack Bech",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Tuli Tuipulotu",
+    "pos": "DL",
+    "delta": -2.12,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 3.0,
+      "nflRaw": 2.0,
+      "deltaPts": -2.12,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Josh Downs",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "TJ Parker",
+    "pos": "DE",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Talanoa Hufanga",
+    "pos": "DB",
+    "delta": 0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 5.0,
+      "nflRaw": 4.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Derrick Barnes",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Patrick Queen",
+    "pos": "LB",
+    "delta": -0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 6.0,
+      "nflRaw": 5.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Demetrius Knight Jr.",
+    "pos": "LB",
+    "delta": -6.36,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_def_td": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -6.36,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Malachi Moore",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Bryce Boettcher",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Jahdae Barron",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Josiah Trotter",
+    "pos": "LB",
+    "delta": 1.3322,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Dillon Thieneman",
+    "pos": "DB",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 6.0,
+      "nflRaw": 8.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Paulson Adebo",
+    "pos": "CB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Jordan Battle",
+    "pos": "DB",
+    "delta": 2.93,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Puka Nacua",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Alex Singleton",
+    "pos": "LB",
+    "delta": -0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 11.0,
+      "nflRaw": 10.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Ventrell Miller",
+    "pos": "LB",
+    "delta": 1.3344,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Nahshon Wright",
+    "pos": "CB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Roquan Smith",
+    "pos": "LB",
+    "delta": -5.2989,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_pd": {
+      "hostRaw": 2.0,
+      "nflRaw": 1.0,
+      "deltaPts": -5.3,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "George Kittle",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Reed Blankenship",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Hunter Luepke",
+    "pos": "FB",
+    "delta": 1.0,
+    "category": "category_mapping_defect",
+    "keys": {
+     "bonus_fd_rb": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.0,
+      "category": "category_mapping_defect",
+      "subtype": "position_vocabulary"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Ivan Pace Jr.",
+    "pos": "LB",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 3.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Caden Curry",
+    "pos": "DL",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 1,
+    "name": "Payton Wilson",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 7.0,
+      "nflRaw": 8.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Kyle Pitts Sr.",
+    "pos": "TE",
+    "delta": -0.8,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -0.8,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Jeffery Simmons",
+    "pos": "DT",
+    "delta": -5.2989,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_pd": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -5.3,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Jonas Sanker",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "DeVonta Smith",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Jake Golday",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Caleb Downs",
+    "pos": "DB",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 6.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Treydan Stukes",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Quentin Lake",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Cody Simon",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Emmanuel McNeil-Warren",
+    "pos": "DB",
+    "delta": 3.99,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 3.0,
+      "deltaPts": 3.99,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Jessie Bates III",
+    "pos": "DB",
+    "delta": -0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 2.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Ted Hurst III",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Kimani Vidal",
+    "pos": "RB",
+    "delta": -1.3333,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Brandon Cisse",
+    "pos": "DB",
+    "delta": 1.3333,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Anthony Hill Jr.",
+    "pos": "LB",
+    "delta": 0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 5.0,
+      "nflRaw": 4.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Malik Mustapha",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Justin Herbert",
+    "pos": "QB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Danny Stutsman",
+    "pos": "LB",
+    "delta": 2.93,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Keionte Scott",
+    "pos": "DB",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 5.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Tyler Loop",
+    "pos": "K",
+    "delta": 2.45,
+    "category": "category_mapping_defect",
+    "keys": {
+     "fgmiss_40_49": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": 2.45,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Parker Washington",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Rome Odunze",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "TJ Parker",
+    "pos": "DE",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Gabe Jacas",
+    "pos": "DE",
+    "delta": 0.8022,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Cairo Santos",
+    "pos": "K",
+    "delta": 3.85,
+    "category": "category_mapping_defect",
+    "keys": {
+     "fgmiss_20_29": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": 3.85,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Zion Young",
+    "pos": "DE",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Theo Johnson",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Derrick Barnes",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Jermod McCoy",
+    "pos": "DB",
+    "delta": -1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 1.0,
+      "deltaPts": -1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Malachi Moore",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Bryce Boettcher",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Ashton Jeanty",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Josiah Trotter",
+    "pos": "LB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Drake London",
+    "pos": "WR",
+    "delta": -2.13,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -0.8,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Rashod Bateman",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Davante Adams",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Hunter Henry",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Omar Speights",
+    "pos": "LB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Reed Blankenship",
+    "pos": "DB",
+    "delta": 2.12,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 2.12,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Hunter Luepke",
+    "pos": "FB",
+    "delta": 1.0,
+    "category": "category_mapping_defect",
+    "keys": {
+     "bonus_fd_rb": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.0,
+      "category": "category_mapping_defect",
+      "subtype": "position_vocabulary"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Nakobe Dean",
+    "pos": "LB",
+    "delta": 1.3256,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Xavier Watts",
+    "pos": "DB",
+    "delta": 0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 1.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Elijah Higgins",
+    "pos": "TE",
+    "delta": -4.24,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_ff": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -4.24,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Kyle Dugger",
+    "pos": "DB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Makai Lemon",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Caden Curry",
+    "pos": "DL",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Aaron Rodgers",
+    "pos": "QB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 2,
+    "name": "Payton Wilson",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Laiatu Latu",
+    "pos": "DL",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Arvell Reese",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 9.0,
+      "nflRaw": 10.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Jake Golday",
+    "pos": "LB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Brandon Aubrey",
+    "pos": "K",
+    "delta": 1.75,
+    "category": "category_mapping_defect",
+    "keys": {
+     "fgmiss_50_59": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": 1.75,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Jakobi Meyers",
+    "pos": "WR",
+    "delta": -0.8,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -0.8,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Jonathan Allen",
+    "pos": "DT",
+    "delta": -0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 2.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Caleb Downs",
+    "pos": "DB",
+    "delta": 0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Malachi Lawrence",
+    "pos": "DL",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Fred Warner",
+    "pos": "LB",
+    "delta": 0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 7.0,
+      "nflRaw": 8.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 10.0,
+      "nflRaw": 9.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Quentin Lake",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Cody Simon",
+    "pos": "LB",
+    "delta": 1.6,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Emmanuel McNeil-Warren",
+    "pos": "DB",
+    "delta": 1.6,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Joshua Josephs",
+    "pos": "DL",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Kenny Gainwell",
+    "pos": "RB",
+    "delta": -1.3267,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Trevin Wallace",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Ted Hurst III",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Juwan Johnson",
+    "pos": "TE",
+    "delta": -5.57,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_ff": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -4.24,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     },
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Braelon Allen",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "DJ Moore",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Xavier Worthy",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Trey Smack",
+    "pos": "K",
+    "delta": 2.45,
+    "category": "category_mapping_defect",
+    "keys": {
+     "fgmiss_40_49": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": 2.45,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Drake Maye",
+    "pos": "QB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "James Pierre",
+    "pos": "CB",
+    "delta": 4.79,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 5.0,
+      "deltaPts": 3.99,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Jordyn Brooks",
+    "pos": "LB",
+    "delta": -2.12,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -2.12,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Jalen Pitre",
+    "pos": "DB",
+    "delta": -5.3,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_pd": {
+      "hostRaw": 2.0,
+      "nflRaw": 1.0,
+      "deltaPts": -5.3,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Christian Harris",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Malachi Moore",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "George Holani",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Drake London",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Cedric Gray",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Trenton Simpson",
+    "pos": "LB",
+    "delta": -2.12,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -2.12,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Kingsley Enagbare",
+    "pos": "DL",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "DaRon Bland",
+    "pos": "DB",
+    "delta": -0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Dawson Knox",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Mike Evans",
+    "pos": "WR",
+    "delta": 1.0,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "bonus_fd_wr": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.0,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "D'Marco Jackson",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Troy Dye",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Ivan Pace Jr.",
+    "pos": "LB",
+    "delta": 0.8033,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Daniel Carlson",
+    "pos": "K",
+    "delta": 3.15,
+    "category": "category_mapping_defect",
+    "keys": {
+     "xpmiss": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": 3.15,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Makai Lemon",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Caden Curry",
+    "pos": "DL",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Harold Perkins Jr.",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Kamari Ramsey",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Michael Taaffe",
+    "pos": "DB",
+    "delta": 1.6,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 3,
+    "name": "Cashius Howell",
+    "pos": "DL",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Oronde Gadsden",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Justin Herbert",
+    "pos": "QB",
+    "delta": -0.8,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -0.8,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Malaki Starks",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Jev\u00f3n Holland",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Daiyan Henley",
+    "pos": "LB",
+    "delta": 0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 1.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Jake Golday",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Brandon Aubrey",
+    "pos": "K",
+    "delta": 1.05,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "fgmiss_60p": {
+      "hostRaw": 2.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.05,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Caleb Downs",
+    "pos": "DB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Marvin Harrison Jr.",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Quentin Lake",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Cody Simon",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Emmanuel McNeil-Warren",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Malachi Fields",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Tyrel Dodson",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Kimani Vidal",
+    "pos": "RB",
+    "delta": -0.8,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -0.8,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Tucker Kraft",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Joshua Palmer",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Kyren Williams",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Emanuel Wilson",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Jack Campbell",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Elijah Ponder",
+    "pos": "DE",
+    "delta": 0.8044,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Jameis Winston",
+    "pos": "QB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Chase Brown",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Jamien Sherwood",
+    "pos": "LB",
+    "delta": 5.3,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_pd": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 5.3,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Chuck Clark",
+    "pos": "DB",
+    "delta": -1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 4.0,
+      "deltaPts": -1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Cody White",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Jalen Pitre",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Javon Bullard",
+    "pos": "DB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Jalon Daniels",
+    "pos": "QB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Sam Roush",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Malachi Moore",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Bryce Boettcher",
+    "pos": "LB",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Nate Landman",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Christian Izien",
+    "pos": "DB",
+    "delta": 1.3311,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "David Walker",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Cedric Gray",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Eddy Pineiro",
+    "pos": "K",
+    "delta": 1.75,
+    "category": "category_mapping_defect",
+    "keys": {
+     "fgmiss_50_59": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": 1.75,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Omar Speights",
+    "pos": "LB",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 5.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Reed Blankenship",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "D'Marco Jackson",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Troy Dye",
+    "pos": "LB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Ivan Pace Jr.",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Denzel Boston",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Michael Pittman Jr.",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Ashton Dulin",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Caden Curry",
+    "pos": "DL",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Harold Perkins Jr.",
+    "pos": "LB",
+    "delta": 2.1289,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Michael Taaffe",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Roman Wilson",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 4,
+    "name": "Payton Wilson",
+    "pos": "LB",
+    "delta": 2.6644,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 7.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Dane Belton",
+    "pos": "DB",
+    "delta": 0.7967,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Malaki Starks",
+    "pos": "DB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Brian Thomas Jr.",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Daiyan Henley",
+    "pos": "LB",
+    "delta": -2.12,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -2.12,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Jake Golday",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Caleb Downs",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Gunnar Helm",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Quentin Lake",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Roschon Johnson",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Cody Simon",
+    "pos": "LB",
+    "delta": 2.93,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Emmanuel McNeil-Warren",
+    "pos": "DB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Jessie Bates III",
+    "pos": "DB",
+    "delta": -6.36,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_def_td": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -6.36,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Trevin Wallace",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Ja'Marr Chase",
+    "pos": "WR",
+    "delta": -5.57,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_ff": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -4.24,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     },
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Evan Williams",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Michael Wilson",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Elijah Arroyo",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Kevin Coleman Jr.",
+    "pos": "WR",
+    "delta": -1.3267,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Luther Burden III",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Zach Allen",
+    "pos": "DE",
+    "delta": -4.24,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 3.0,
+      "nflRaw": 1.0,
+      "deltaPts": -4.24,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Derrick Barnes",
+    "pos": "LB",
+    "delta": 1.3311,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Malachi Moore",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Jaxon Smith-Njigba",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Will McDonald IV",
+    "pos": "DE",
+    "delta": 1.6011,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Tyler Shough",
+    "pos": "QB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Isaiah McDuffie",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Christian Izien",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Alex Singleton",
+    "pos": "LB",
+    "delta": -0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 2.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Brenton Cox Jr.",
+    "pos": "LB",
+    "delta": -2.12,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -2.12,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Drake London",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "David Walker",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Chris Olave",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Dawson Knox",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Omar Speights",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Winston Reid",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Hunter Luepke",
+    "pos": "FB",
+    "delta": 1.0,
+    "category": "category_mapping_defect",
+    "keys": {
+     "bonus_fd_rb": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.0,
+      "category": "category_mapping_defect",
+      "subtype": "position_vocabulary"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Tyrice Knight",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Ivan Pace Jr.",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Dadrion Taylor-Demerson",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Caden Curry",
+    "pos": "DL",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Colton Hood",
+    "pos": "DB",
+    "delta": 3.46,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 5,
+    "name": "Zavion Thomas",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "George Pickens",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Arvell Reese",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Michael Mayer",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Jake Ferguson",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Cody Simon",
+    "pos": "LB",
+    "delta": 1.6,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Malachi Fields",
+    "pos": "WR",
+    "delta": -2.66,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 0.0,
+      "deltaPts": -2.66,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Rueben Bain Jr.",
+    "pos": "DL",
+    "delta": -0.8011,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 2.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Matthew Golden",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "David Bailey",
+    "pos": "LB",
+    "delta": -0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 5.0,
+      "nflRaw": 4.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Malik Nabers",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Cooper DeJean",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Tuli Tuipulotu",
+    "pos": "DL",
+    "delta": -2.12,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -2.12,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Greg Newsome II",
+    "pos": "CB",
+    "delta": -0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 1.0,
+      "deltaPts": -1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Avieon Terrell",
+    "pos": "DB",
+    "delta": -1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 4.0,
+      "deltaPts": -1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Jalon Daniels",
+    "pos": "QB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Malachi Moore",
+    "pos": "DB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Will McDonald IV",
+    "pos": "DE",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Trey McBride",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Josiah Trotter",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Isaiah McDuffie",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Jake Hansen",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Cedric Gray",
+    "pos": "LB",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 4.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Quan Martin",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Tony Pollard",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Hunter Henry",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Winston Reid",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Shemar James",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Troy Dye",
+    "pos": "LB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Tyrice Knight",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Xavier Watts",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Nick Herbig",
+    "pos": "LB",
+    "delta": 1.3267,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Dadrion Taylor-Demerson",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Caden Curry",
+    "pos": "DL",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Harold Perkins Jr.",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 6,
+    "name": "Tory Horton",
+    "pos": "WR",
+    "delta": -1.3267,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Malaki Starks",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Will Reichard",
+    "pos": "K",
+    "delta": 1.75,
+    "category": "category_mapping_defect",
+    "keys": {
+     "fgmiss_50_59": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": 1.75,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Carnell Tate",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Will Anderson Jr.",
+    "pos": "DL",
+    "delta": -0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 4.0,
+      "nflRaw": 3.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Christian Watson",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Fred Warner",
+    "pos": "LB",
+    "delta": -5.04,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_ff": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -4.24,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 8.0,
+      "nflRaw": 7.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Quentin Lake",
+    "pos": "DB",
+    "delta": 2.66,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 4.0,
+      "deltaPts": 2.66,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Colby Parkinson",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Cody Simon",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Elic Ayomanor",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Trevin Wallace",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Trey Smack",
+    "pos": "K",
+    "delta": 3.15,
+    "category": "category_mapping_defect",
+    "keys": {
+     "fgmiss_30_39": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": 3.15,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Evan Williams",
+    "pos": "DB",
+    "delta": 2.13,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Xavier McKinney",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Danny Stutsman",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "James Pierre",
+    "pos": "CB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Christian Harris",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Keenan Allen",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Jermod McCoy",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Malachi Moore",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Jalen Royals",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Azareye'h Thomas",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Josiah Trotter",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Bryce Lance",
+    "pos": "WR",
+    "delta": -1.3267,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Dillon Thieneman",
+    "pos": "DB",
+    "delta": 1.5956,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Jordan Battle",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Cedric Gray",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Chuba Hubbard",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Omar Speights",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Dallas Goedert",
+    "pos": "TE",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Trenton Simpson",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Denzel Boston",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Winston Reid",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Tyler Nubin",
+    "pos": "DB",
+    "delta": 1.6,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Kitan Crawford",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 7,
+    "name": "Calijah Kancey",
+    "pos": "DL",
+    "delta": -6.3644,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_def_td": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -6.36,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Dane Belton",
+    "pos": "DB",
+    "delta": 0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 8.0,
+      "nflRaw": 9.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 4.0,
+      "nflRaw": 3.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Malaki Starks",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Jameson Williams",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Ja'Kobi Lane",
+    "pos": "WR",
+    "delta": -0.8,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -0.8,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Jordan Addison",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Bryce Young",
+    "pos": "QB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Jalen Coker",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Cody Simon",
+    "pos": "LB",
+    "delta": 1.6,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Emmanuel McNeil-Warren",
+    "pos": "DB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 6.0,
+      "nflRaw": 7.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Tyrel Dodson",
+    "pos": "LB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Trevin Wallace",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Ja'Marr Chase",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Jason Myers",
+    "pos": "K",
+    "delta": 3.15,
+    "category": "category_mapping_defect",
+    "keys": {
+     "fgmiss_30_39": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": 3.15,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "DK Metcalf",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Pierre Strong Jr.",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Malik Washington",
+    "pos": "WR",
+    "delta": -1.3333,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Tuli Tuipulotu",
+    "pos": "DL",
+    "delta": -2.1244,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 2.0,
+      "nflRaw": 1.0,
+      "deltaPts": -2.12,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Chase Brown",
+    "pos": "RB",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Javonte Williams",
+    "pos": "RB",
+    "delta": 1.0,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "bonus_fd_rb": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 1.0,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Seth McGowan",
+    "pos": "RB",
+    "delta": -1.3267,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Konata Mumpfield",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Malachi Moore",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Josiah Trotter",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 3.0,
+      "nflRaw": 4.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Dillon Thieneman",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Quentin Johnston",
+    "pos": "WR",
+    "delta": -2.66,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 0.0,
+      "deltaPts": -2.66,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Drake London",
+    "pos": "WR",
+    "delta": -2.66,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 2.0,
+      "nflRaw": 0.0,
+      "deltaPts": -2.66,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Joshua Metellus",
+    "pos": "DB",
+    "delta": 0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 5.0,
+      "nflRaw": 6.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 8.0,
+      "nflRaw": 7.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Kingsley Enagbare",
+    "pos": "DL",
+    "delta": -0.53,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 2.0,
+      "nflRaw": 3.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "K'Lavon Chaisson",
+    "pos": "LB",
+    "delta": -2.1178,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_hit": {
+      "hostRaw": 4.0,
+      "nflRaw": 3.0,
+      "deltaPts": -2.12,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Mike Sainristil",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Zachariah Branch",
+    "pos": "WR",
+    "delta": -1.33,
+    "category": "category_mapping_defect",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 1.0,
+      "nflRaw": 0.0,
+      "deltaPts": -1.33,
+      "category": "category_mapping_defect",
+      "subtype": "event_present_in_row_not_emitted"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Dadrion Taylor-Demerson",
+    "pos": "DB",
+    "delta": 1.33,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Winston Reid",
+    "pos": "LB",
+    "delta": 0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Caden Curry",
+    "pos": "DL",
+    "delta": 2.1278,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 1.0,
+      "nflRaw": 2.0,
+      "deltaPts": 0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Harold Perkins Jr.",
+    "pos": "LB",
+    "delta": 1.3322,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 4.0,
+      "nflRaw": 5.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Mack Wilson Sr.",
+    "pos": "LB",
+    "delta": -0.8,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_ast": {
+      "hostRaw": 6.0,
+      "nflRaw": 5.0,
+      "deltaPts": -0.8,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_undercounts_vs_host"
+     }
+    },
+    "unscored": []
+   },
+   {
+    "week": 8,
+    "name": "Kitan Crawford",
+    "pos": "DB",
+    "delta": 2.93,
+    "category": "missing_raw_stat_event_in_feed",
+    "keys": {
+     "idp_tkl_solo": {
+      "hostRaw": 0.0,
+      "nflRaw": 1.0,
+      "deltaPts": 1.33,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "special_teams_play_in_defensive_column_exact"
+     },
+     "idp_tkl_ast": {
+      "hostRaw": 0.0,
+      "nflRaw": 2.0,
+      "deltaPts": 1.6,
+      "category": "missing_raw_stat_event_in_feed",
+      "subtype": "feed_overcounts_vs_host"
+     }
+    },
+    "unscored": []
+   }
+  ]
+ },
+ "variant": {
+  "scorerVariant": "pr1938",
+  "generatedAtUtc": "2026-11-06T13:14:05Z",
+  "scored": {
+   "n": 4077,
+   "withinTol": 3931,
+   "agreement": 0.964189,
+   "maxAbs": 5.3,
+   "meanAbs": 0.041374,
+   "netSigned": 41.991
+  },
+  "byGroup": {
+   "DB": {
+    "n": 744,
+    "withinTol": 693,
+    "agreement": 0.931452,
+    "maxAbs": 5.3,
+    "meanAbs": 0.071429,
+    "netSigned": 27.486
+   },
+   "DL": {
+    "n": 563,
+    "withinTol": 541,
+    "agreement": 0.960924,
+    "maxAbs": 5.2989,
+    "meanAbs": 0.054946,
+    "netSigned": -7.146
+   },
+   "FB": {
+    "n": 4,
+    "withinTol": 1,
+    "agreement": 0.25,
+    "maxAbs": 1.0,
+    "meanAbs": 0.75,
+    "netSigned": 3.0
+   },
+   "K": {
+    "n": 160,
+    "withinTol": 159,
+    "agreement": 0.99375,
+    "maxAbs": 1.33,
+    "meanAbs": 0.008313,
+    "netSigned": -1.33
+   },
+   "LB": {
+    "n": 662,
+    "withinTol": 601,
+    "agreement": 0.907855,
+    "maxAbs": 5.3,
+    "meanAbs": 0.110107,
+    "netSigned": 22.751
+   },
+   "QB": {
+    "n": 261,
+    "withinTol": 260,
+    "agreement": 0.996169,
+    "maxAbs": 0.8,
+    "meanAbs": 0.003065,
+    "netSigned": -0.8
+   },
+   "RB": {
+    "n": 519,
+    "withinTol": 517,
+    "agreement": 0.996146,
+    "maxAbs": 1.0,
+    "meanAbs": 0.00386,
+    "netSigned": 0.223
+   },
+   "TE": {
+    "n": 359,
+    "withinTol": 358,
+    "agreement": 0.997214,
+    "maxAbs": 0.8,
+    "meanAbs": 0.002228,
+    "netSigned": -0.8
+   },
+   "WR": {
+    "n": 805,
+    "withinTol": 801,
+    "agreement": 0.995031,
+    "maxAbs": 1.0,
+    "meanAbs": 0.004696,
+    "netSigned": -1.393
+   }
+  },
+  "rowClassification": {
+   "missing_raw_stat_event_in_feed": 137,
+   "category_mapping_defect": 9
+  },
+  "netPtsByClassNflMinusHost": {
+   "missing_raw_stat_event_in_feed": 43.79,
+   "category_mapping_defect": -1.8
+  },
+  "perKey": [
+   {
+    "key": "idp_tkl_ast",
+    "rate": 0.8,
+    "hostRowsNonzero": 1543,
+    "nflverseRowsNonzero": 1575,
+    "rowsDiffer": 117,
+    "netPtsNflMinusHost": 61.6,
+    "absPts": 103.2,
+    "hostPtsTotal": 3220.0,
+    "nflPtsTotal": 3281.6,
+    "byGroup": {
+     "DB": 43,
+     "LB": 52,
+     "DL": 16,
+     "TE": 1,
+     "WR": 3,
+     "QB": 1,
+     "RB": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 91,
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 20,
+     "category_mapping_defect:event_present_in_row_not_emitted": 6
+    }
+   },
+   {
+    "key": "idp_tkl_solo",
+    "rate": 1.33,
+    "hostRowsNonzero": 1750,
+    "nflverseRowsNonzero": 1749,
+    "rowsDiffer": 20,
+    "netPtsNflMinusHost": 10.64,
+    "absPts": 26.6,
+    "hostPtsTotal": 6506.36,
+    "nflPtsTotal": 6517.0,
+    "byGroup": {
+     "DB": 12,
+     "LB": 6,
+     "DL": 2
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 6,
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 14
+    }
+   },
+   {
+    "key": "idp_hit",
+    "rate": 2.12,
+    "hostRowsNonzero": 584,
+    "nflverseRowsNonzero": 580,
+    "rowsDiffer": 10,
+    "netPtsNflMinusHost": -19.08,
+    "absPts": 23.32,
+    "hostPtsTotal": 1859.24,
+    "nflPtsTotal": 1840.16,
+    "byGroup": {
+     "DL": 4,
+     "DB": 1,
+     "LB": 5
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 9,
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 1
+    }
+   },
+   {
+    "key": "idp_pd",
+    "rate": 5.3,
+    "hostRowsNonzero": 493,
+    "nflverseRowsNonzero": 493,
+    "rowsDiffer": 4,
+    "netPtsNflMinusHost": -10.6,
+    "absPts": 21.2,
+    "hostPtsTotal": 3328.4,
+    "nflPtsTotal": 3317.8,
+    "byGroup": {
+     "LB": 2,
+     "DL": 1,
+     "DB": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 3,
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 1
+    }
+   },
+   {
+    "key": "idp_ff",
+    "rate": 4.24,
+    "hostRowsNonzero": 126,
+    "nflverseRowsNonzero": 125,
+    "rowsDiffer": 1,
+    "netPtsNflMinusHost": -4.24,
+    "absPts": 4.24,
+    "hostPtsTotal": 563.92,
+    "nflPtsTotal": 559.68,
+    "byGroup": {
+     "LB": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 1
+    }
+   },
+   {
+    "key": "bonus_fd_rb",
+    "rate": 1.0,
+    "hostRowsNonzero": 402,
+    "nflverseRowsNonzero": 405,
+    "rowsDiffer": 4,
+    "netPtsNflMinusHost": 4.0,
+    "absPts": 4.0,
+    "hostPtsTotal": 1214.0,
+    "nflPtsTotal": 1218.0,
+    "byGroup": {
+     "FB": 3,
+     "RB": 1
+    },
+    "classes": {
+     "category_mapping_defect:position_vocabulary": 3,
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 1
+    }
+   },
+   {
+    "key": "st_tkl_solo",
+    "rate": 1.33,
+    "hostRowsNonzero": 146,
+    "nflverseRowsNonzero": 145,
+    "rowsDiffer": 1,
+    "netPtsNflMinusHost": -1.33,
+    "absPts": 1.33,
+    "hostPtsTotal": 224.77,
+    "nflPtsTotal": 223.44,
+    "byGroup": {
+     "K": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_undercounts_vs_host": 1
+    }
+   },
+   {
+    "key": "bonus_fd_wr",
+    "rate": 1.0,
+    "hostRowsNonzero": 602,
+    "nflverseRowsNonzero": 602,
+    "rowsDiffer": 1,
+    "netPtsNflMinusHost": 1.0,
+    "absPts": 1.0,
+    "hostPtsTotal": 1416.0,
+    "nflPtsTotal": 1417.0,
+    "byGroup": {
+     "WR": 1
+    },
+    "classes": {
+     "missing_raw_stat_event_in_feed:feed_overcounts_vs_host": 1
+    }
+   }
+  ]
+ }
+}

@@ -1,40 +1,40 @@
 {
-  "rebuiltAt": "2026-11-02T01:55:56.216605+00:00",
+  "rebuiltAt": "2026-11-06T19:48:23.162836+00:00",
   "sources": {
     "fantasyProsRosSf": {
       "status": "ok",
-      "player_count": 537,
-      "rows_written": 537,
-      "started_at": "2026-11-02T01:55:54.540828+00:00",
-      "completed_at": "2026-11-02T01:55:54.687044+00:00",
+      "player_count": 539,
+      "rows_written": 539,
+      "started_at": "2026-11-06T19:48:21.546945+00:00",
+      "completed_at": "2026-11-06T19:48:21.760998+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosSf__2026-11-02T01-55-54.687044+00-00.json",
+      "run_path": "runs/fantasyProsRosSf__2026-11-06T19-48-21.760998+00-00.json",
       "kept_previous": null,
       "kept_previous_rows": null,
-      "content_hash": "9e7a984724733e0a1a1306b819dcac9a9ab673ad7a65c86684e496ffbeed849c",
-      "content_state": "unchanged",
+      "content_hash": "6d743d6b1f7bbb27ed8183bd61b6af4e50438df3a2576d6925a30f2e2c0501eb",
+      "content_state": "changed",
       "content_first_observed_at": "2026-10-26T21:17:53.892751+00:00",
-      "last_content_change": "2026-10-31T00:11:40.575268+00:00",
+      "last_content_change": "2026-11-06T19:48:21.760998+00:00",
       "rank_basis": {
         "basisDeclared": false,
         "bases": [
           {
-            "basis": "total_ranked:538",
-            "rows": 537,
+            "basis": "total_ranked:540",
+            "rows": 539,
             "totalRanked": [
-              538
+              540
             ],
             "groups": {
-              "OFFENSE": 537
+              "OFFENSE": 539
             }
           }
         ],
         "groupCoverage": {
-          "OFFENSE": 537
+          "OFFENSE": 539
         },
         "groupBases": {
           "OFFENSE": [
-            "total_ranked:538"
+            "total_ranked:540"
           ]
         },
         "mixedRankBasis": false,
@@ -48,36 +48,36 @@
     },
     "draftSharksRosSf": {
       "status": "ok",
-      "player_count": 229,
-      "rows_written": 229,
-      "started_at": "2026-11-02T01:55:54.772346+00:00",
-      "completed_at": "2026-11-02T01:55:54.773101+00:00",
+      "player_count": 228,
+      "rows_written": 228,
+      "started_at": "2026-11-06T19:48:21.834783+00:00",
+      "completed_at": "2026-11-06T19:48:21.835568+00:00",
       "error": null,
-      "run_path": "runs/draftSharksRosSf__2026-11-02T01-55-54.773101+00-00.json",
+      "run_path": "runs/draftSharksRosSf__2026-11-06T19-48-21.835568+00-00.json",
       "kept_previous": null,
       "kept_previous_rows": null,
-      "content_hash": "8445618517a15f6d053f968dee71c2beee056694c0e2a8167662b9415ccab261",
+      "content_hash": "57a8d2042a01ed8360e085c196b441363be7a7b17a9eb63f5c629476a5148f54",
       "content_state": "changed",
       "content_first_observed_at": "2026-10-26T21:17:54.002733+00:00",
-      "last_content_change": "2026-11-02T01:55:54.773101+00:00",
+      "last_content_change": "2026-11-06T19:48:21.835568+00:00",
       "rank_basis": {
         "basisDeclared": true,
         "bases": [
           {
             "basis": "draftsharks:ros-superflex",
-            "rows": 229,
+            "rows": 228,
             "totalRanked": [
               250
             ],
             "groups": {
-              "KICKER": 19,
-              "OFFENSE": 210
+              "KICKER": 20,
+              "OFFENSE": 208
             }
           }
         ],
         "groupCoverage": {
-          "KICKER": 19,
-          "OFFENSE": 210
+          "KICKER": 20,
+          "OFFENSE": 208
         },
         "groupBases": {
           "KICKER": [
@@ -101,34 +101,34 @@
     },
     "draftSharksRosIdp": {
       "status": "ok",
-      "player_count": 482,
-      "rows_written": 482,
-      "started_at": "2026-11-02T01:55:55.016398+00:00",
-      "completed_at": "2026-11-02T01:55:55.023208+00:00",
+      "player_count": 490,
+      "rows_written": 490,
+      "started_at": "2026-11-06T19:48:22.111905+00:00",
+      "completed_at": "2026-11-06T19:48:22.119734+00:00",
       "error": null,
-      "run_path": "runs/draftSharksRosIdp__2026-11-02T01-55-55.023208+00-00.json",
+      "run_path": "runs/draftSharksRosIdp__2026-11-06T19-48-22.119734+00-00.json",
       "kept_previous": null,
       "kept_previous_rows": null,
-      "content_hash": "84e9347213411407a5b9bef2d2f64ac2b89fedfa280dcbb3792f0a5acb68bb9a",
-      "content_state": "changed",
+      "content_hash": "2d6e9a90bfcf7393b4af1151af0872ac2dbb585138ec13320f915a7d94e48a6d",
+      "content_state": "unchanged",
       "content_first_observed_at": "2026-10-27T21:04:59.562675+00:00",
-      "last_content_change": "2026-11-02T01:55:55.023208+00:00",
+      "last_content_change": "2026-11-06T02:55:46.510167+00:00",
       "rank_basis": {
         "basisDeclared": true,
         "bases": [
           {
             "basis": "draftsharks:ros-idp",
-            "rows": 482,
+            "rows": 490,
             "totalRanked": [
-              484
+              492
             ],
             "groups": {
-              "IDP": 482
+              "IDP": 490
             }
           }
         ],
         "groupCoverage": {
-          "IDP": 482
+          "IDP": 490
         },
         "groupBases": {
           "IDP": [
@@ -153,10 +153,10 @@
       "status": "ok",
       "player_count": 319,
       "rows_written": 319,
-      "started_at": "2026-11-02T01:55:55.074406+00:00",
-      "completed_at": "2026-11-02T01:55:55.075365+00:00",
+      "started_at": "2026-11-06T19:48:22.172417+00:00",
+      "completed_at": "2026-11-06T19:48:22.173540+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosIdp__2026-11-02T01-55-55.075365+00-00.json",
+      "run_path": "runs/fantasyProsRosIdp__2026-11-06T19-48-22.173540+00-00.json",
       "kept_previous": null,
       "kept_previous_rows": null,
       "content_hash": "b4967a83b2cef7d9c237a2f7d78326724f9af2f7a63983cff3fb13bd1620d9da",
@@ -196,43 +196,43 @@
     },
     "fantasyProsRosOverall": {
       "status": "ok",
-      "player_count": 375,
-      "rows_written": 375,
-      "started_at": "2026-11-02T01:55:55.092189+00:00",
-      "completed_at": "2026-11-02T01:55:55.520389+00:00",
+      "player_count": 386,
+      "rows_written": 386,
+      "started_at": "2026-11-06T19:48:22.189949+00:00",
+      "completed_at": "2026-11-06T19:48:22.372681+00:00",
       "error": null,
-      "run_path": "runs/fantasyProsRosOverall__2026-11-02T01-55-55.520389+00-00.json",
+      "run_path": "runs/fantasyProsRosOverall__2026-11-06T19-48-22.372681+00-00.json",
       "kept_previous": null,
       "kept_previous_rows": null,
-      "content_hash": "a45cd1520b5eb7308cd8d11bea6b6fb7b6168edd6b5f2b1d460cd0488b48cbd2",
-      "content_state": "unchanged",
+      "content_hash": "8d0b3d4eb5d5d04a3d264922c17f49e83b90e794fb541b588100a7295f50c3f6",
+      "content_state": "changed",
       "content_first_observed_at": "2026-10-26T21:17:54.415564+00:00",
-      "last_content_change": "2026-11-01T20:55:34.852353+00:00",
+      "last_content_change": "2026-11-06T19:48:22.372681+00:00",
       "rank_basis": {
         "basisDeclared": false,
         "bases": [
           {
-            "basis": "total_ranked:404",
-            "rows": 375,
+            "basis": "total_ranked:415",
+            "rows": 386,
             "totalRanked": [
-              404
+              415
             ],
             "groups": {
-              "KICKER": 26,
-              "OFFENSE": 349
+              "KICKER": 27,
+              "OFFENSE": 359
             }
           }
         ],
         "groupCoverage": {
-          "KICKER": 26,
-          "OFFENSE": 349
+          "KICKER": 27,
+          "OFFENSE": 359
         },
         "groupBases": {
           "KICKER": [
-            "total_ranked:404"
+            "total_ranked:415"
           ],
           "OFFENSE": [
-            "total_ranked:404"
+            "total_ranked:415"
           ]
         },
         "mixedRankBasis": false,
@@ -248,16 +248,16 @@
       "status": "ok",
       "player_count": 126,
       "rows_written": 126,
-      "started_at": "2026-11-02T01:55:55.846860+00:00",
-      "completed_at": "2026-11-02T01:55:56.137511+00:00",
+      "started_at": "2026-11-06T19:48:22.744661+00:00",
+      "completed_at": "2026-11-06T19:48:23.075097+00:00",
       "error": null,
-      "run_path": "runs/ffc2qbAdp__2026-11-02T01-55-56.137511+00-00.json",
+      "run_path": "runs/ffc2qbAdp__2026-11-06T19-48-23.075097+00-00.json",
       "kept_previous": null,
       "kept_previous_rows": null,
-      "content_hash": "66262930484f9862126851b562c3b284476f3f7ddd4b89f6dca22a5ede54f731",
-      "content_state": "unchanged",
+      "content_hash": "6d9a6cc3fc9f7b6cbecd8d8f6565cd66964fd2a2111b0d31fc5877c68ad5035d",
+      "content_state": "changed",
       "content_first_observed_at": "2026-10-26T21:17:55.045271+00:00",
-      "last_content_change": null,
+      "last_content_change": "2026-11-06T19:48:23.075097+00:00",
       "rank_basis": {
         "basisDeclared": false,
         "bases": [

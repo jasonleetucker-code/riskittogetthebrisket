@@ -15,6 +15,7 @@ regenerated from the repo or re-scraped.
 | `data/intel/` | `tar.gz` — excludes the live `ledger.sqlite3*` only when the online copy above succeeded; otherwise the raw ledger files ride in the tar (pre-AL-P2 path, corruption tolerant) | skip if absent |
 | C1A retention + AL-0 stores | SQLite online backup / `tar.gz` (CORE) | skip if absent |
 | AL-P2 evidence stores | SQLite online backup / `tar.gz` (**OPTIONAL**) — the authoritative list is the script itself, each line justified in place; per-store retention and rebuildability in `docs/retention/RETENTION_REGISTER.md` | skip if absent |
+| `data/analyst_ledger.sqlite` | **OPTIONAL** SQLite online backup (INSERT-only analyst claim ledger, C6-ANA-01) | skip if absent |
 | `dlf_session.json`, `draftsharks_session.json`, `idpshow_session.json` (repo root) | copy, mode 0600 | skip if absent |
 | `/var/lib/dlf-fetch/dlf_session.json`, `/var/lib/idpshow-fetch/idpshow_session.json` | copy, mode 0600 | skip if absent/unreadable |
 
@@ -107,6 +108,27 @@ partial artifacts can never ride into a new generation.
 Rotation keeps the newest **14** dated directories (`KEEP_DAILY`).
 Falls back to `/home/dynasty/backups/riskit-state` if `/var/backups`
 is not writable.
+
+### Letting the backend see the root (`BACKUP_READ_GROUP`)
+
+The nightly runs as root and the root is `0700`, so the backend (user
+`dynasty`) cannot stat it and `/api/status` reports the state backup as
+`unverifiable / permission_denied / canonical_root_unreadable` for a root full
+of healthy generations (production, 2026-11-06).  The shipped unit sets
+`BACKUP_READ_GROUP=dynasty`: after each run the writer makes the root,
+`daily/`, the generation and its `sqlite/` directory `0750 root:dynasty` and the
+pointer / `optional_stores.tsv` `0640`.  That is LISTING only: every artifact
+stays `0600` root and `sessions/` (scraper cookies) stays `0700`.  Unset it to
+keep the root fully closed (health then stays `unverifiable`, by design).
+
+### Restore verification
+
+`sudo python3 scripts/verify_state_backup_restore.py --scratch-dir /var/tmp
+[--only temporal_ledger] [--full]` restores the newest generation's SQLite
+artifacts into a scratch directory (deleted afterwards), runs `quick_check`
+(`integrity_check` with `--full`) and reads every tarball end to end.  Exit
+0 verified / 1 a failure / 2 no generation.  This is the check the post-deploy
+proof deliberately skips for the 1.5 GB temporal ledger and the intel ledger.
 
 ### Where the backup actually went
 

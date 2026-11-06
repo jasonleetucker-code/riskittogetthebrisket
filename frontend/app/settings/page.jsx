@@ -1236,7 +1236,7 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
       });
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        if (res.status === 401) {
+        if (res.status === 401 || res.status === 403) {
           setFeedback("Admin session required.");
         } else {
           setFeedback(

@@ -422,6 +422,49 @@ PUBLIC_SERVER_MEMOS = (
 )
 
 
+def wait_for_public_memo_refreshes(srv, timeout: float = 30.0) -> None:
+    """Block until no background public-memo refresh job is running.
+
+    Those jobs (``server._kick_public_memo_refresh``, stale-while-revalidate)
+    file their build into the memos when they land.  A test that clears the
+    memos, or counts builds, must not have one land mid-test from an earlier
+    test.  That includes an ABANDONED job (timed out, replaced, still
+    running): it holds no claim, so it is found by its thread name.  Raises
+    rather than proceeding on a job that never finishes.
+    """
+    import threading
+    import time
+
+    inflight = getattr(srv, "_public_memo_refresh_inflight", None)
+    if inflight is None:
+        return
+
+    def running() -> list[str]:
+        threads = [
+            t.name
+            for t in threading.enumerate()
+            if t.name.startswith("public-league-memo-") and t.is_alive()
+        ]
+        return sorted(set(inflight) | set(threads))
+
+    deadline = time.monotonic() + timeout
+    while running() and time.monotonic() < deadline:
+        time.sleep(0.01)
+    if running():
+        raise AssertionError(f"public memo refresh never finished: {running()}")
+
+
+def reset_public_memo_refresh_state(srv) -> None:
+    """Wait out running memo refresh jobs, then forget failure cooldowns (so
+    one test's deliberately failed refresh cannot suppress the next test's)
+    and finished abandoned jobs."""
+    wait_for_public_memo_refreshes(srv)
+    for name in ("_public_memo_refresh_failed_at", "_public_memo_refresh_abandoned"):
+        state = getattr(srv, name, None)
+        if isinstance(state, dict):
+            state.clear()
+
+
 def capture_public_league_process_state():
     """Record the process-global state public-league tests mutate.
 
@@ -449,6 +492,13 @@ def capture_public_league_process_state():
         srv_now = sys.modules.get("server")
         if srv_now is None:
             return
+        # A background memo refresh still running would file a build of
+        # THIS module's snapshot after the memos below are cleared.  A job
+        # that never finishes must not stop the rest of the restore.
+        try:
+            reset_public_memo_refresh_state(srv_now)
+        except AssertionError:
+            pass
         cache = srv_now._public_league_cache
         if cache_before is not None:
             target = cache_before

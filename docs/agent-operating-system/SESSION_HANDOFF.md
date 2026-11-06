@@ -3,45 +3,57 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-11-01 ~15:30Z.** Agent-OS-Receipt `cb64f74c`. Workers: four plus the coordinator.
+**As of 2026-11-06 ~19:05Z.** Agent-OS-Receipt `741230de` (Agent OS changed with #2080). Session
+`session_01BGLcxPv9489uMYWnm3GbTF`.
 
 ## Mode
-- Owner directive 2026-11-01 ("MASTER DEVELOPMENT DIRECTIVE"), decisions 1–10 verbatim in
-  `docs/owner/CHASE_UPSIDE_MASTER_DIRECTIVE_DECISIONS_2026-11-01.md`; intake MD-1 … MD-16; execution-plan section at
-  the top of `docs/EXECUTION_PLAN.md`; register section "Master development directive (2026-11-01)".
-- Standing merge authorization applies: exact-head green, independent review (delta re-review after any later
-  commit), stacked dependencies first.
+- Two owner directives of 2026-11-06, one program:
+  - Sitewide remediation: `docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md`; intake MD-38 … MD-46.
+  - Continuous QA / feature-intent verification: `docs/owner/CONTINUOUS_QA_DIRECTIVE_2026-11-06.md`; intake
+    MD-47 … MD-55; permanent process `docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md` (#2080).
+- Inventory CW-01 … CW-53 (`docs/audits/remediation_2026-11-06/`; `build_inventory.py` then `--check`); delegated
+  decisions DD-01 … DD-16 (`DECISIONS.md`). Owner granted standing permission to merge anything ready (green CI +
+  independent review).
 
-## Settled by the 2026-11-01 decisions (were pending)
-- NC-A: ROS diagnosis accepted; G3 stays FAILED; CR research + optional `rosPointsPerWeek` shadow; no promotion.
-- NC-B D-A / D-B: not promoted; read-only comparison authorized.
-- NC-D: `responseFloorMs` 300 (provisional); admission and limiters unchanged; public launch still blocked; odds
-  wording decided (decision 9).
-- #2006: restore the deep-tail rookie rule (decision 3 gates).
-- RCV-7: Roster Construction conditional private activation (decision 1 conditions); 2025 slots never inferred
-  (decision 2).
-- FAAB list-bid season phase: already fixed by IST-7 (#2018, `29216a529`); the old "unassigned" note was stale.
+## Production (verified 2026-11-06 ~18:55Z, public endpoints)
+- Deploy run 3734 SUCCEEDED 18:48Z: `/api/status` build.commit `91b0965c` (release train #2072). First deploy since
+  2026-11-04. `/api/health` 200 (was 503). Scrape success 18:48:38Z (263 s), next 20:44Z. Flag
+  `confidence_cured_rejection_guard` LIVE.
+- Deploys 3747 / 3748 (main through #2079 / #2084) were in flight; later merges queue more (concurrency group never
+  cancels an in-progress deploy). Re-read build.commit and `box_resources` (#2062 adds it) after they land.
+- `backup_health.stateBackup` still unverifiable / permission_denied: needs the box operator (below).
 
-## Lanes (see `docs/WORK_CLAIMS.md`)
-- **Worker 1:** #2031 review; #2032 naming-canon parity fix + rebase; decision 9 wording PR.
-- **Worker 2:** Roster Construction parity census, integrity tests, 2025 unavailable state, timing / mobile; activation
-  PR only if every gate passes (lands after #2032 — both touch `nav-model.js` / `server.py` capabilities).
-- **Worker 3:** #2006 rebase + re-measure; #2035 format fix, review, Week 8 run; ROS prereg.
-- **Worker 4:** streaming gap decomposition + weekly IDP source census + scenarios; outlier V2 / IDP Show
-  comparison (read-only); advisor floor 300 ms; read-only production security audit.
+## Merged today
+#2065 #2066 #2073 #2078 #2080 #2081 #2083 · #2072 (train, incl. #2061) · #2070 #2069 #2086 #2064 #2075 #2077 #2085
+#2068 #2063 #2087 #2082 #2074 #2079 #2084 #2071 #2062.
 
-## Production
-- Prod flags at 15:00Z: `waiver_advisor` ON, `idp_streaming` ON, `roster_construction` OFF,
-  `brisket_trade_advisor` OFF, `source_freshness_schedule_v2` OFF. Verify with `/api/status` (`featureFlags`,
-  `build.commit`).
-- **P-1:** live nginx sends none of the declared security headers; `deploy/apply_hardening.sh` is box-operator only.
+## Open, all independently reviewed — merge each on green
+- #2067 trade honesty / "Market Disagreement": nav-invariant test updated (ce2e969d, DD-15); journeys re-run once.
+- #2076 forecast calibration ledger timer: installer conflict with #2063 resolved (f9049d11).
+- #2089 CW-49 math oracles (package model, blend median).
+- In flight: CW-10 follow-up worker (FAAB config refusal on `/api/waiver/advisor` + `/api/waiver/streaming`).
 
-## Still owner-reserved
-- Public Trade Advisor launch and per-source permissions (OD-3); box-operator hardening; CR promotion; DLF IDP release;
-  freshness v2; IDP Show board swap; #1884 / #1938 / #1873 / #1852; Sim V3; `dynasty_new` taxi cap; #1985 GitHub
-  Support filing (owner account); League Tycoon.
+## Owner / box-operator items
+- Box: `bash deploy/backup/install_state_backup.sh` then `scripts/verify_state_backup_restore.py` (#2064 body); check
+  `systemctl list-timers '*weekly-projection-capture*' '*pre-auction-snapshot*'` and w9/w10 archive timestamps;
+  confirm `:8000` is closed.
+- Owner: DD-11 recommends promoting #1938 (owner-reserved). DD-14: the DFS auto-refresh timer keeps running under
+  ODR-DFS-PAUSE ("deployed DFS preserved") — say so if the pause should cover it. Sharp audit routes are
+  any-signed-in, not admin-only (consistent with siblings) — policy question only.
+
+## Next dependency-ready units
+QA: CW-48 requirement joins for the census's surfaces; CW-49 batch 2 (confidence gate axes, FAAB curve, lineup vs host
+truth); CW-50 critical journeys + census weak-only items; CW-52 dead-code census. Remediation: Week 9 evaluation once
+final (#2077 merged); CW-40 P1 batch (71 unresolved); CW-29 follow-up (`infer_scoring_tags` /
+`compute_profile_features` missing → 0); CW-26 post-deploy `/overview` curl baseline; snapshot-layer staleness bound
+(CW-11 note); residuals routed by #2082: W12-F002 → CW-36, W17-F001 → CW-17, W17-F002 → CW-33.
 
 ## Hazards
-- Encoding guard is in the hard gate: new Python passes `encoding="utf-8"` to text-mode IO.
-- Never `git stash`; commit explicit paths; `npm ci` per worktree; only the newest pending deploy run survives.
-- GitHub API quota is shared across sessions: no polling loops.
+- Run Python formatting ONLY via `bash scripts/format_python_changes.sh` (pinned Ruff 0.6.9); a newer local `ruff`
+  formats differently and fails CI.
+- Disk: worker worktrees are full checkouts; `git worktree remove -f -f` finished ones.
+- Usage: the 5-hour model limit was hit once (≈14:45–16:40Z) with four opus agents running; prefer sonnet workers.
+- Deploy/Validate run `pytest -x`: one data-coupled failure hides the next. Validate job timeout is 120 min.
+- `config/coercion_baseline.json`: edit by hand, never `--write-baseline`; one open PR at a time.
+- Receipted blobs never change: `scripts/idp_opportunity_prospective.py` = `beb7640f`.
+- Encoding guard: new Python text IO passes `encoding="utf-8"`. Never `git stash`.

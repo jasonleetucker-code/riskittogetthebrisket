@@ -1,0 +1,15 @@
+[Unit]
+Description=Daily pre-auction rookie-draft snapshot check for __SERVICE_NAME__
+
+# Daily so the first day Sleeper states a draft start inside the 7-day window
+# records <year>-pre.json.  Most days are cheap no-ops (file already held, or
+# only the weekly insurance copy is due).  Persistent=true catches a missed day.
+[Timer]
+OnCalendar=*-*-* 11:40:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-pre-auction-snapshot.service
+
+[Install]
+WantedBy=timers.target

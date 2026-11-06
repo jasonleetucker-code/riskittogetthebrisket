@@ -75,8 +75,12 @@ def env(tmp_path: Path, monkeypatch):
         server._rc_snapshot_cache,
         server._player_impact_cache,
         server._rc_season_status_cache,
+        server._rc_nfl_state_cache,
     ):
         cache.clear()
+    # Host week-finality reads Sleeper /state/nfl; never the network in tests.
+    nfl = {"state": {"season": "2025", "season_type": "regular", "display_week": 99}}
+    monkeypatch.setattr(server, "_rc_nfl_state", lambda: nfl["state"])
     real = feature_flags.is_enabled
     state = {"on": True}
     monkeypatch.setattr(
@@ -85,7 +89,11 @@ def env(tmp_path: Path, monkeypatch):
         lambda name, *a, **k: state["on"] if name == "roster_construction" else real(name, *a, **k),
     )
     client = TestClient(server.app, raise_server_exceptions=True)
-    yield type("E", (), {"client": client, "state": state, "contract": contract, "built": built})
+    yield type(
+        "E",
+        (),
+        {"client": client, "state": state, "contract": contract, "built": built, "nfl": nfl},
+    )
     league_registry.reload_registry()
 
 
@@ -308,3 +316,68 @@ def test_unknown_team_never_answers_with_another_teams_data(env):
     r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "77"}, headers=AS)
     assert r.status_code == 404
     assert r.json() == {"error": "unknown_team", "rosterId": 77, "season": "2025"}
+
+
+# ── production defect 2026-11-03: an unfinalized host week ───────────────
+def _in_season_with_provisional_week_8():
+    """In-season 2026, weeks 1-8 scored by the host clock, week 8's host
+    lineups provisional (each team's FIRST 21 players, not the optimum)."""
+    teams = league_of(4)
+    snap = build_snapshot(
+        teams, weeks=list(range(1, 9)), league_id="RCMAIN", season="2026", status="in_season"
+    )
+    s = snap.seasons[0]
+    s.league["settings"]["last_scored_leg"] = 8
+    for e in s.matchups_by_week[8]:
+        e["starters"] = list(e["players"][:21])
+        e["points"] = round(sum(e["players_points"].get(p, 0.0) for p in e["starters"]), 2)
+    return snap
+
+
+def test_an_unfinalized_host_week_no_longer_withholds_the_season(env, monkeypatch):
+    snap = _in_season_with_provisional_week_8()
+    monkeypatch.setattr(server, "_get_public_snapshot", lambda *a, **k: snap)
+    env.nfl["state"] = {"season": "2026", "season_type": "regular", "week": 9, "display_week": 8}
+    r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "1"}, headers=AS)
+    body = r.json()
+    assert r.status_code == 200 and body["available"] is True and body["season"] == "2026"
+    assert body["coverage"]["weeksIncluded"] == list(range(1, 8))
+    assert {"week": 8, "reason": "host_week_not_final"} in body["coverage"]["weeksExcluded"]
+    assert body["coverage"]["contradictedWeeks"] == []
+    assert server._roster_construction_health() == []  # no ops alert
+
+
+def test_nfl_state_is_fetched_once_per_expiry_and_failure_is_unknown(monkeypatch):
+    from src.public_league import sleeper_client
+
+    calls = []
+
+    def fetch():
+        calls.append(1)
+        return None if len(calls) == 1 else {"season": "2026", "display_week": 8}
+
+    monkeypatch.setattr(sleeper_client, "fetch_nfl_state", fetch)
+    server._rc_nfl_state_cache.clear()
+    assert server._rc_nfl_state() is None  # failure -> unknown, cached briefly
+    assert server._rc_nfl_state() is None and len(calls) == 1
+    server._rc_nfl_state_cache["state"] = (0.0, None)  # failure TTL expired
+    assert server._rc_nfl_state() == {"season": "2026", "display_week": 8}
+    assert server._rc_nfl_state() == {"season": "2026", "display_week": 8} and len(calls) == 2
+    server._rc_nfl_state_cache.clear()
+
+
+def test_once_the_host_finalizes_the_week_its_contradiction_is_real(env, monkeypatch):
+    # Same data, but the host has moved on (display_week 9): week 8 is final
+    # and its awarded lineups are not the optimum -- a real contradiction of
+    # the best-ball flag, so the strict rule withholds the season.
+    snap = _in_season_with_provisional_week_8()
+    monkeypatch.setattr(server, "_get_public_snapshot", lambda *a, **k: snap)
+    env.nfl["state"] = {"season": "2026", "season_type": "regular", "week": 9, "display_week": 9}
+    r = env.client.get(URL, params={"leagueKey": "main", "rosterId": "1"}, headers=AS)
+    body = r.json()
+    assert r.status_code == 200 and body["available"] is False
+    assert body["unavailableReason"] == "lineup_config_unverified"
+    assert body["lineupConfig"]["contradictedWeeks"] == [8]
+    assert "team" not in body
+    (row,) = server._roster_construction_health()  # the ops alert would fire
+    assert row["contradictedWeeks"] == [8]

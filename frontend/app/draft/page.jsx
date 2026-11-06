@@ -17,7 +17,11 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
-import { createDraftCapitalLoader, draftTeamsFromContract } from "@/lib/draft-feed";
+import {
+  createDraftCapitalLoader,
+  draftContractUrl,
+  draftTeamsFromContract,
+} from "@/lib/draft-feed";
 
 import {
   buildTeamIndexLookup,
@@ -810,6 +814,14 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
             const myCeiling = Number.isFinite(player.myWinningBid)
               ? player.myWinningBid
               : player.myMaxBid;
+            if (amt > 0 && isMine && amt > stats.myRemaining) {
+              return (
+                <div className="draft-modal-warn">
+                  <strong>Unaffordable.</strong> ${amt} is ${amt - stats.myRemaining}{" "}
+                  more than your remaining budget (${stats.myRemaining}).
+                </div>
+              );
+            }
             if (amt > 0 && isMine && amt > myCeiling) {
               const diff = amt - myCeiling;
               return (
@@ -1628,7 +1640,11 @@ export function RookieBoard({
                     <td
                       className="draft-money draft-money-win"
                       title={
-                        capped
+                        p.budgetCapped
+                          ? `Capped by your remaining budget (${fmt$(
+                              stats.myRemaining,
+                            )}). Theoretical max was ${fmt$(p.theoreticalMaxBid)}.`
+                          : capped
                           ? `Capped by top rival ceiling (${fmt$(
                               stats.topCompetitorMax,
                             )} + $1). Theoretical max was ${fmt$(
@@ -4004,6 +4020,7 @@ export default function DraftDashboardPage() {
             workspace: next,
             matched,
             added,
+            unavailable: unavailableTeams = [],
           } = mergeDraftCapitalTeams(ws, teamTotals, {
             picks: picksArray,
             mode: force ? "force" : "sync",
@@ -4013,7 +4030,11 @@ export default function DraftDashboardPage() {
               ...s,
               info: `Loaded ${matched} team budgets${
                 added > 0 ? ` (${added} new)` : ""
-              }${picksArray.length > 0 ? ` · ${picksArray.length} picks tracked` : ""}.`,
+              }${picksArray.length > 0 ? ` · ${picksArray.length} picks tracked` : ""}.${
+                unavailableTeams.length > 0
+                  ? ` Budget unavailable (not loaded, not $0): ${unavailableTeams.join(", ")}.`
+                  : ""
+              }`,
             }));
           }
           return next;
@@ -4070,9 +4091,7 @@ export default function DraftDashboardPage() {
     // them.
     setSleeperTeams(null);
     let cancelled = false;
-    const url = selectedLeagueKey
-      ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-      : "/api/data";
+    const url = draftContractUrl(selectedLeagueKey);
     fetch(url, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
@@ -4343,9 +4362,7 @@ export default function DraftDashboardPage() {
       // Pass leagueKey so the backend serves the right league's
       // sleeper block and 503s cleanly when the requested league
       // isn't loaded yet.
-      const url = selectedLeagueKey
-        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-        : "/api/data";
+      const url = draftContractUrl(selectedLeagueKey);
       // Fetch /api/data and /api/draft-capital in parallel — the
       // draft-capital response carries per-slot dollar values from
       // the workbook, which we use as each rookie's preDraft (the
@@ -4662,9 +4679,7 @@ export default function DraftDashboardPage() {
     // playersArray fetch side-effect.  Defer to the user's
     // currently selected team identity by NAME.
     try {
-      const url = selectedLeagueKey
-        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-        : "/api/data";
+      const url = draftContractUrl(selectedLeagueKey);
       fetch(url, { cache: "force-cache" })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {

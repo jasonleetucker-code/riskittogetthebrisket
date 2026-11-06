@@ -45,6 +45,27 @@ async function openDrawer(page) {
   return dialog;
 }
 
+/**
+ * Wait for every finite animation to finish before an axe scan.  The drawer
+ * slides/fades in, and on WebKit axe can sample a link's colour mid-transition
+ * (one `color-contrast` hit that passes on retry).  Same pattern as
+ * psi-rankings-player-a11y.spec.js: it waits for the final state; it does not
+ * relax the scan.  Infinite animations are excluded (they never finish).
+ */
+async function settleFiniteAnimations(page) {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => {
+          const timing = a.effect && a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
+          return !!timing && Number.isFinite(timing.endTime);
+        })
+        .map((a) => a.finished.catch(() => undefined)),
+    ),
+  );
+}
+
 test.describe("UX nav audit: offered destinations answer", () => {
   test("every signed-in menu destination is a live page (no 404, no login bounce)", async ({
     authedPage,
@@ -147,6 +168,7 @@ test.describe("UX nav audit: menus are operable on each viewport", () => {
       await expect(authedPage.getByRole("menu", { name: "My Team" })).toBeVisible();
       include = '[role="menu"]';
     }
+    await settleFiniteAnimations(authedPage);
     const results = await new AxeBuilder({ page: authedPage })
       .include(include)
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])

@@ -104,14 +104,78 @@
      "rowsChanged": 246,
      "rowsRemoved": 1,
      "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-03T02:45:05Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-03T10:11:22Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-03T23:48:40Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-04T07:05:55Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-05T02:53:56Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-05T12:52:13Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-05T21:20:35Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-06T12:35:18Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
     }
    ],
-   "contentSince": "2026-10-29T19:58:25Z",
+   "contentSince": "2026-11-06T12:35:18Z",
    "fingerprint": "2d8ef2538b131cc8fb437113",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-16T14:34:45Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-29T19:58:25Z",
-   "lastBroadDatasetChangeAt": "2026-10-29T19:58:25Z",
+   "lastAnyMeaningfulChangeAt": "2026-11-06T12:35:18Z",
+   "lastBroadDatasetChangeAt": "2026-11-06T12:35:18Z",
    "rowChangedAt": {},
    "rowCount": 285,
    "rowCountHistory": [
@@ -123,6 +187,14 @@
     294,
     294,
     294,
+    285,
+    285,
+    285,
+    285,
+    285,
+    285,
+    285,
+    285,
     285,
     285,
     285,

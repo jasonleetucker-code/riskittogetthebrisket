@@ -111,7 +111,7 @@ def test_reaper_never_raises_on_bad_root():
 # ── finalize wiring + kill-switch ────────────────────────────────────
 def test_finalize_invokes_reaper_when_enabled(monkeypatch):
     calls = []
-    monkeypatch.setattr(server, "_reap_orphan_browsers", lambda: calls.append(1) or 0)
+    monkeypatch.setattr(server, "_reap_orphan_browsers", lambda **kw: calls.append(1) or 0)
     monkeypatch.setattr(server, "SCRAPE_REAP_ORPHAN_BROWSERS", True)
     monkeypatch.setitem(server.scrape_status, "worker_id", "wid-test")
     server._finalize_scrape_run("wid-test")
@@ -120,7 +120,7 @@ def test_finalize_invokes_reaper_when_enabled(monkeypatch):
 
 def test_finalize_skips_reaper_when_disabled(monkeypatch):
     calls = []
-    monkeypatch.setattr(server, "_reap_orphan_browsers", lambda: calls.append(1) or 0)
+    monkeypatch.setattr(server, "_reap_orphan_browsers", lambda **kw: calls.append(1) or 0)
     monkeypatch.setattr(server, "SCRAPE_REAP_ORPHAN_BROWSERS", False)
     monkeypatch.setitem(server.scrape_status, "worker_id", "wid-test")
     server._finalize_scrape_run("wid-test")
@@ -129,7 +129,7 @@ def test_finalize_skips_reaper_when_disabled(monkeypatch):
 
 def test_finalize_wrong_worker_id_is_noop(monkeypatch):
     calls = []
-    monkeypatch.setattr(server, "_reap_orphan_browsers", lambda: calls.append(1) or 0)
+    monkeypatch.setattr(server, "_reap_orphan_browsers", lambda **kw: calls.append(1) or 0)
     monkeypatch.setattr(server, "SCRAPE_REAP_ORPHAN_BROWSERS", True)
     monkeypatch.setitem(server.scrape_status, "worker_id", "owner")
     server._finalize_scrape_run("not-the-owner")

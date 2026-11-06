@@ -726,9 +726,13 @@ export function computeDraftStats(workspace) {
     // (everyone bankrupt), winning bid collapses to 1.
     const competitorCeiling = Math.max(0, topCompetitorMax);
     const winByCompetitor = Math.max(1, competitorCeiling + 1);
+    // W10-F001: nothing may be advertised above what this team can
+    // actually pay.  ``myRemaining`` caps every surfaced ceiling below;
+    // ``theoreticalMaxBid`` keeps the uncapped figure (for the "capped
+    // by ..." tooltips) and ``budgetCapped`` says when the cap bit.
     const myWinningBid = Math.max(
       0,
-      Math.min(theoreticalMaxBid, winByCompetitor),
+      Math.min(theoreticalMaxBid, winByCompetitor, myRemaining),
     );
     // Bayesian competitor ceiling: reweight each rival's effective
     // budget by their tierInterest for THIS player's tier.  Less
@@ -749,9 +753,13 @@ export function computeDraftStats(workspace) {
     }
     const bayesianWinningBid = Math.max(
       0,
-      Math.min(theoreticalMaxBid, Math.max(1, Math.floor(bayesianTopCompetitor) + 1)),
+      Math.min(
+        theoreticalMaxBid,
+        Math.max(1, Math.floor(bayesianTopCompetitor) + 1),
+        myRemaining,
+      ),
     );
-    const enforceUpTo = Math.floor(inflatedFair * enforcePct);
+    const enforceUpTo = Math.min(Math.floor(inflatedFair * enforcePct), myRemaining);
     const drafted = !!pick;
     const mine = drafted && pick.teamIdx === myTeamIdx;
     const valueVsFair =
@@ -769,8 +777,9 @@ export function computeDraftStats(workspace) {
       mine,
       userTag,
       inflatedFair: Math.max(0, inflatedFair),
-      myMaxBid: Math.max(0, theoreticalMaxBid),
+      myMaxBid: Math.max(0, Math.min(theoreticalMaxBid, myRemaining)),
       theoreticalMaxBid: Math.max(0, theoreticalMaxBid),
+      budgetCapped: theoreticalMaxBid > myRemaining,
       myWinningBid,
       bayesianTopCompetitor: Math.max(0, Math.floor(bayesianTopCompetitor)),
       bayesianWinningBid,
@@ -1354,13 +1363,25 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   // so existing callers keep working, and is deliberately unused.
 
   // Build a case-insensitive lookup from the feed.
+  // MISSING IS NEVER ZERO: a team whose ``auctionDollars`` is not a finite
+  // number is UNAVAILABLE — it is never written as a $0 budget, never
+  // appended, and an existing row for it is left exactly as it was (not
+  // zeroed).  Names are reported in ``unavailable`` for the caller to show.
   const feedByKey = new Map();
+  const unavailableKeys = new Set();
+  const unavailable = [];
   for (const entry of feed) {
     const name = String(entry?.team || "").trim();
     if (!name) continue;
+    const raw = entry?.auctionDollars;
+    if (raw === null || raw === undefined || raw === "" || !Number.isFinite(Number(raw))) {
+      unavailableKeys.add(name.toLowerCase());
+      unavailable.push(name);
+      continue;
+    }
     feedByKey.set(name.toLowerCase(), {
       name,
-      auctionDollars: Math.max(0, Number(entry?.auctionDollars) || 0),
+      auctionDollars: Math.max(0, Number(raw)),
     });
   }
 
@@ -1369,7 +1390,7 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   // surfaced this as an error to the user; compute-side we just
   // act as a no-op so nothing gets lost.
   if (feedByKey.size === 0) {
-    return { workspace: ws, matched: 0, added: 0, missing: [], zeroed: [] };
+    return { workspace: ws, matched: 0, added: 0, missing: [], zeroed: [], unavailable };
   }
 
   const myTeamIdx = Number.isInteger(ws.settings?.myTeamIdx)
@@ -1431,6 +1452,11 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
       merged.push(buildTeam(nameOut, hit.auctionDollars, t));
       continue;
     }
+    // Budget unavailable in the feed: keep the row untouched (never $0).
+    if (unavailableKeys.has(key)) {
+      merged.push(t);
+      continue;
+    }
     // Drop unmatched default placeholders; zero out unmatched user-
     // customized rows.
     if (
@@ -1469,6 +1495,7 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
     added: missing.length,
     missing,
     zeroed,
+    unavailable,
   };
 }
 
