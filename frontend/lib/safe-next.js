@@ -14,7 +14,13 @@ export function sanitizeNextPath(raw, fallback = "/") {
   try {
     const u = new URL(value, BASE);
     if (u.origin !== BASE) return fallback;
-    return `${u.pathname}${u.search}${u.hash}`;
+    const out = `${u.pathname}${u.search}${u.hash}`;
+    // Re-check the SERIALIZED result, not just the input: URL normalization
+    // collapses dot segments, so "/..//evil.com" (which passes every guard
+    // above) serializes to "//evil.com" -- a protocol-relative, cross-origin
+    // reference once handed to the router.  Judge what we emit.
+    if (!out.startsWith("/") || out.startsWith("//") || out.startsWith("/\\")) return fallback;
+    return out;
   } catch {
     return fallback;
   }
