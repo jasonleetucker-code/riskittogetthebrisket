@@ -24,9 +24,14 @@ its caller is worse than no probe at all.
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 from pathlib import Path
 
 CGROUP_ROOT = Path("/sys/fs/cgroup")
+#: Module constants (not literals at call sites) so tests can point the whole
+#: probe at a fake tree and never touch a real process.
+PROC_ROOT = "/proc"
 
 
 def _read_text(path: str | Path) -> str | None:
@@ -80,13 +85,13 @@ def collect_descendant_pids(root_pid: int) -> set[int]:
         return set()
     children: dict[int, list[int]] = {}
     try:
-        entries = os.listdir("/proc")
+        entries = os.listdir(PROC_ROOT)
     except OSError:
         return set()
     for entry in entries:
         if not entry.isdigit():
             continue
-        data = _read_text(f"/proc/{entry}/stat")
+        data = _read_text(f"{PROC_ROOT}/{entry}/stat")
         if data is None:
             continue
         rparen = data.rfind(")")
@@ -110,7 +115,7 @@ def collect_descendant_pids(root_pid: int) -> set[int]:
 
 
 def read_cmdline(pid: int) -> str:
-    raw = _read_text(f"/proc/{pid}/cmdline")
+    raw = _read_text(f"{PROC_ROOT}/{pid}/cmdline")
     if not raw:
         return ""
     return raw.replace("\x00", " ").strip()
@@ -248,7 +253,7 @@ def read_pressure(kind: str) -> dict[str, float] | None:
 
 def resolve_cgroup_dir(pid: int) -> Path | None:
     """The cgroup-v2 directory for ``pid`` under /sys/fs/cgroup."""
-    text = _read_text(f"/proc/{pid}/cgroup")
+    text = _read_text(f"{PROC_ROOT}/{pid}/cgroup")
     if not text:
         return None
     for line in text.splitlines():
@@ -363,4 +368,104 @@ def sample_process_tree(root_pid: int) -> dict[str, object]:
         out[f"{prefix}_rss_kb"] = int(out[f"{prefix}_rss_kb"]) + (rss or 0)
         out[f"{prefix}_cpu_ticks"] = int(out[f"{prefix}_cpu_ticks"]) + (ticks or 0)
         out[f"{prefix}_proc_count"] = int(out[f"{prefix}_proc_count"]) + 1
+    return out
+
+
+# -- Service-cgroup membership (reparented-orphan detection) ---------------
+#
+# ``collect_descendant_pids`` follows ppid links, so it loses any process whose
+# parent died: the kernel reparents it to init (or a subreaper) and it is no
+# longer a descendant of the server -- yet it stays in the service's cgroup,
+# still counted against MemoryMax / TasksMax.  Cgroup membership is the
+# property reparenting cannot change.
+
+
+def service_cgroup_dir(pid: int) -> Path | None:
+    """The cgroup-v2 dir for ``pid`` ONLY if it is a dedicated systemd service.
+
+    A cgroup that is not a ``*.service`` (the root, a login session scope, a
+    container slice) may contain unrelated processes -- e.g. a developer's own
+    Playwright run -- so membership there proves nothing about ownership and
+    callers get ``None``.
+    """
+    cg = resolve_cgroup_dir(pid)
+    if cg is None or cg == CGROUP_ROOT or not cg.name.endswith(".service"):
+        return None
+    return cg
+
+
+def read_cgroup_procs(cgroup_dir: Path | None) -> set[int]:
+    """PIDs listed in ``cgroup.procs`` (empty on any failure)."""
+    if cgroup_dir is None:
+        return set()
+    text = _read_text(cgroup_dir / "cgroup.procs")
+    if not text:
+        return set()
+    return {int(tok) for tok in text.split() if tok.isdigit() and int(tok) > 0}
+
+
+def collect_service_pids(root_pid: int) -> tuple[set[int], set[int]]:
+    """``(descendants, cgroup_only)`` of ``root_pid``, ``root_pid`` excluded.
+
+    ``cgroup_only`` are service-cgroup members that are NOT descendants,
+    i.e. reparented orphans.  Empty when the cgroup is not a dedicated service.
+    """
+    descendants = collect_descendant_pids(root_pid)
+    members = read_cgroup_procs(service_cgroup_dir(root_pid))
+    members.discard(root_pid)
+    return descendants, members - descendants
+
+
+def _int_or_none(raw: str | None) -> int | None:
+    if raw is None:
+        return None
+    try:
+        return int(raw.strip())
+    except ValueError:
+        return None  # includes the literal "max" (no limit)
+
+
+def _free_bytes(path: str) -> int | None:
+    try:
+        return int(shutil.disk_usage(path).free)
+    except (OSError, ValueError):
+        return None
+
+
+def service_diagnostics(
+    root_pid: int, *, tmp_dir: str | None = None, shm_dir: str = "/dev/shm"
+) -> dict[str, int | None]:
+    """Numbers-only box snapshot for the PUBLIC status.  Never raises.
+
+    No paths, hostnames or command lines: every value is an integer or
+    ``None`` (unreadable / no limit).  ``cgroup_*_max`` is ``None`` when the
+    limit is the literal ``max`` (unlimited) as well as when unreadable.
+    """
+    out: dict[str, int | None] = {
+        "chromium_processes": None,
+        "chromium_reparented": None,
+        "cgroup_memory_current_bytes": None,
+        "cgroup_memory_max_bytes": None,
+        "cgroup_pids_current": None,
+        "cgroup_pids_max": None,
+        "shm_free_bytes": None,
+        "tmp_free_bytes": None,
+    }
+    try:
+        descendants, cgroup_only = collect_service_pids(root_pid)
+        chromium = [
+            p for p in descendants | cgroup_only if looks_like_playwright_chromium(read_cmdline(p))
+        ]
+        out["chromium_processes"] = len(chromium)
+        out["chromium_reparented"] = sum(1 for p in chromium if p in cgroup_only)
+        cg = service_cgroup_dir(root_pid)
+        if cg is not None:
+            out["cgroup_memory_current_bytes"] = _int_or_none(_read_text(cg / "memory.current"))
+            out["cgroup_memory_max_bytes"] = _int_or_none(_read_text(cg / "memory.max"))
+            out["cgroup_pids_current"] = _int_or_none(_read_text(cg / "pids.current"))
+            out["cgroup_pids_max"] = _int_or_none(_read_text(cg / "pids.max"))
+        out["shm_free_bytes"] = _free_bytes(shm_dir)
+        out["tmp_free_bytes"] = _free_bytes(tmp_dir or tempfile.gettempdir())
+    except Exception:  # noqa: BLE001 -- a diagnostic must never break its caller
+        pass
     return out

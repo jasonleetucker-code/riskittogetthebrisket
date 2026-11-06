@@ -1,0 +1,127 @@
+"""Service-cgroup reaping + numbers-only box diagnostics, on FAKE /proc trees.
+
+Nothing here touches a real process: ``os.kill`` is replaced by a recorder and
+``/proc`` + ``/sys/fs/cgroup`` are pointed at ``tmp_path``.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import pytest
+
+import server
+from src.diagnostics import proc_probe
+
+CHROME = (
+    "/home/u/.cache/ms-playwright/chromium-1/chrome-linux/chrome --headless --remote-debugging-pipe"
+)
+SELF = 4000
+
+
+def _proc(root: Path, pid: int, ppid: int, cmd: str, cgroup: str) -> None:
+    d = root / str(pid)
+    d.mkdir()
+    (d / "stat").write_text(f"{pid} (x y) S {ppid} 0 0\n", encoding="utf-8")
+    (d / "cmdline").write_bytes(cmd.replace(" ", "\0").encode())
+    (d / "cgroup").write_text(f"0::{cgroup}\n", encoding="utf-8")
+
+
+@pytest.fixture()
+def fake(tmp_path, monkeypatch):
+    proc = tmp_path / "proc"
+    cg = tmp_path / "cg"
+    proc.mkdir()
+    svc = cg / "system.slice" / "dynasty.service"
+    svc.mkdir(parents=True)
+    monkeypatch.setattr(proc_probe, "PROC_ROOT", str(proc))
+    monkeypatch.setattr(proc_probe, "CGROUP_ROOT", cg)
+    monkeypatch.setattr(os, "getpid", lambda: SELF)
+    kills: list[int] = []
+    monkeypatch.setattr(server.os, "kill", lambda pid, sig: kills.append(pid))
+    svcname = "/system.slice/dynasty.service"
+    _proc(proc, SELF, 1, "python server.py", svcname)
+    _proc(proc, 4100, SELF, CHROME, svcname)  # descendant chromium
+    _proc(proc, 4200, 1, CHROME, svcname)  # REPARENTED chromium, same cgroup
+    _proc(proc, 4300, 1, "python other.py", svcname)  # non-chromium service member
+    _proc(proc, 5000, 1, CHROME, "/user.slice/session-3.scope")  # foreign chromium
+    (svc / "cgroup.procs").write_text("4000\n4100\n4200\n4300\n", encoding="utf-8")
+    (svc / "memory.current").write_text("1000\n", encoding="utf-8")
+    (svc / "memory.max").write_text("3221225472\n", encoding="utf-8")
+    (svc / "pids.current").write_text("7\n", encoding="utf-8")
+    (svc / "pids.max").write_text("max\n", encoding="utf-8")
+    return proc, svc, kills
+
+
+def test_descendant_only_reaper_misses_reparented(fake):
+    _, _, kills = fake
+    assert server._reap_orphan_browsers(root_pid=SELF) == 1
+    assert kills == [4100]
+
+
+def test_cgroup_reaper_catches_reparented_and_spares_foreign(fake):
+    _, _, kills = fake
+    assert server._reap_orphan_browsers(root_pid=SELF, include_service_cgroup=True) == 2
+    assert sorted(kills) == [4100, 4200]
+    assert SELF not in kills and 4300 not in kills and 5000 not in kills
+
+
+def test_non_service_cgroup_is_never_swept(fake, tmp_path):
+    proc, svc, kills = fake
+    scope = tmp_path / "cg" / "user.slice" / "session-3.scope"
+    scope.mkdir(parents=True)
+    (scope / "cgroup.procs").write_text("5000\n4000\n", encoding="utf-8")
+    (proc / str(SELF) / "cgroup").write_text("0::/user.slice/session-3.scope\n", encoding="utf-8")
+    assert proc_probe.service_cgroup_dir(SELF) is None
+    server._reap_orphan_browsers(root_pid=SELF, include_service_cgroup=True)
+    assert 5000 not in kills
+
+
+def test_diagnostics_are_numbers_only(fake):
+    d = proc_probe.service_diagnostics(SELF, tmp_dir=str(fake[1]), shm_dir=str(fake[1]))
+    assert d["chromium_processes"] == 2
+    assert d["chromium_reparented"] == 1
+    assert d["cgroup_memory_current_bytes"] == 1000
+    assert d["cgroup_memory_max_bytes"] == 3221225472
+    assert d["cgroup_pids_current"] == 7
+    assert d["cgroup_pids_max"] is None  # "max" = unlimited, not a number
+    assert all(v is None or isinstance(v, int) for v in d.values())
+
+
+def test_diagnostics_never_raise_without_proc(monkeypatch, tmp_path):
+    monkeypatch.setattr(proc_probe, "PROC_ROOT", str(tmp_path / "nope"))
+    d = proc_probe.service_diagnostics(SELF)
+    assert d["chromium_processes"] == 0
+    assert d["cgroup_memory_current_bytes"] is None
+
+
+def test_prelaunch_reap_runs_inside_scrape_and_respects_switch(monkeypatch):
+    import asyncio
+
+    calls: list[bool] = []
+
+    def fake_reap(*a, **kw):
+        calls.append(bool(kw.get("include_service_cgroup")))
+        return 0
+
+    async def boom(*a, **kw):
+        raise RuntimeError("stop after prelaunch")
+
+    monkeypatch.setattr(server, "_reap_orphan_browsers", fake_reap)
+    monkeypatch.setattr(server, "_box_diagnostics", lambda: {"chromium_processes": 0})
+    monkeypatch.setattr(
+        server, "_import_scraper_module", lambda: (_ for _ in ()).throw(RuntimeError("x"))
+    )
+    monkeypatch.setattr(server, "send_alert", lambda *a, **k: None)
+
+    monkeypatch.setattr(server, "SCRAPE_REAP_ORPHAN_BROWSERS", True)
+    asyncio.run(server.run_scraper("test"))
+    # once before launch, once in finalize -- both service-cgroup aware
+    assert calls == [True, True]
+    assert server.scrape_history[-1]["box"] == {"chromium_processes": 0}
+
+    calls.clear()
+    monkeypatch.setattr(server, "SCRAPE_REAP_ORPHAN_BROWSERS", False)
+    asyncio.run(server.run_scraper("test"))
+    assert calls == []
