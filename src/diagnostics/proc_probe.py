@@ -24,9 +24,14 @@ its caller is worse than no probe at all.
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 from pathlib import Path
 
 CGROUP_ROOT = Path("/sys/fs/cgroup")
+#: Module constants (not literals at call sites) so tests can point the whole
+#: probe at a fake tree and never touch a real process.
+PROC_ROOT = "/proc"
 
 
 def _read_text(path: str | Path) -> str | None:
@@ -45,23 +50,59 @@ def clock_ticks_per_second() -> int:
         return 100
 
 
+_BROWSER_BASENAMES = frozenset(
+    {
+        "chrome",
+        "chromium",
+        "chromium-browser",
+        "headless_shell",
+        "chrome-headless-shell",
+    }
+)
+#: /proc/<pid>/stat ``comm`` is truncated to 15 chars by the kernel.
+_BROWSER_COMMS = frozenset(
+    {"chrome", "chromium", "chromium-browse", "headless_shell", "chrome-headless-"}
+)
+
+
 def looks_like_playwright_chromium(cmdline: str) -> bool:
     """True for a Playwright-spawned headless Chromium command line.
 
-    Deliberately conservative: requires BOTH a chromium binary token
-    AND an automation/headless marker, so it can't match an unrelated
-    process even before the descendant-scoping guard.
+    argv[0] must BE a browser binary (basename ``chrome`` / ``chromium`` /
+    ``headless_shell`` / ``chrome-headless-shell``, or a path under an
+    ``ms-playwright`` browsers dir), plus an automation/headless marker.
+    A node / npm / npx / ``playwright test --project=mobile-chromium``
+    command line is never a browser, however many chromium-ish tokens it
+    carries: the reaper SIGKILLs whatever this accepts.
     """
-    c = cmdline.lower()
-    if "chrome" not in c and "chromium" not in c:
+    parts = cmdline.split(None, 1)
+    if not parts:
         return False
+    argv0 = parts[0].lower()
+    base = argv0.rsplit("/", 1)[-1]
+    if base not in _BROWSER_BASENAMES and "/ms-playwright/" not in argv0:
+        return False
+    if base in {"node", "nodejs", "npm", "npx", "python", "python3"}:
+        return False
+    c = cmdline.lower()
     return (
         "--headless" in c
         or "--remote-debugging-" in c
-        or "--remote-debugging-pipe" in c
         or "/ms-playwright/" in c
         or "playwright" in c
     )
+
+
+def read_comm(pid: int) -> str:
+    """``comm`` from /proc/<pid>/stat.  Unlike ``cmdline`` this does not take
+    the target's mmap lock, so a stuck process cannot block the read."""
+    data = _read_text(f"{PROC_ROOT}/{pid}/stat")
+    if not data:
+        return ""
+    lparen, rparen = data.find("("), data.rfind(")")
+    if lparen == -1 or rparen <= lparen:
+        return ""
+    return data[lparen + 1 : rparen]
 
 
 def collect_descendant_pids(root_pid: int) -> set[int]:
@@ -80,13 +121,13 @@ def collect_descendant_pids(root_pid: int) -> set[int]:
         return set()
     children: dict[int, list[int]] = {}
     try:
-        entries = os.listdir("/proc")
+        entries = os.listdir(PROC_ROOT)
     except OSError:
         return set()
     for entry in entries:
         if not entry.isdigit():
             continue
-        data = _read_text(f"/proc/{entry}/stat")
+        data = _read_text(f"{PROC_ROOT}/{entry}/stat")
         if data is None:
             continue
         rparen = data.rfind(")")
@@ -110,7 +151,7 @@ def collect_descendant_pids(root_pid: int) -> set[int]:
 
 
 def read_cmdline(pid: int) -> str:
-    raw = _read_text(f"/proc/{pid}/cmdline")
+    raw = _read_text(f"{PROC_ROOT}/{pid}/cmdline")
     if not raw:
         return ""
     return raw.replace("\x00", " ").strip()
@@ -248,7 +289,7 @@ def read_pressure(kind: str) -> dict[str, float] | None:
 
 def resolve_cgroup_dir(pid: int) -> Path | None:
     """The cgroup-v2 directory for ``pid`` under /sys/fs/cgroup."""
-    text = _read_text(f"/proc/{pid}/cgroup")
+    text = _read_text(f"{PROC_ROOT}/{pid}/cgroup")
     if not text:
         return None
     for line in text.splitlines():
@@ -363,4 +404,132 @@ def sample_process_tree(root_pid: int) -> dict[str, object]:
         out[f"{prefix}_rss_kb"] = int(out[f"{prefix}_rss_kb"]) + (rss or 0)
         out[f"{prefix}_cpu_ticks"] = int(out[f"{prefix}_cpu_ticks"]) + (ticks or 0)
         out[f"{prefix}_proc_count"] = int(out[f"{prefix}_proc_count"]) + 1
+    return out
+
+
+# -- Service-cgroup membership (reparented-orphan detection) ---------------
+#
+# ``collect_descendant_pids`` follows ppid links, so it loses any process whose
+# parent died: the kernel reparents it to init (or a subreaper) and it is no
+# longer a descendant of the server -- yet it stays in the service's cgroup,
+# still counted against MemoryMax / TasksMax.  Cgroup membership is the
+# property reparenting cannot change.
+
+
+def service_cgroup_dir(pid: int) -> Path | None:
+    """The cgroup-v2 dir for ``pid`` ONLY if it is a dedicated systemd service.
+
+    A cgroup that is not a ``*.service`` (the root, a login session scope, a
+    container slice) may contain unrelated processes -- e.g. a developer's own
+    Playwright run -- so membership there proves nothing about ownership and
+    callers get ``None``.
+    """
+    cg = resolve_cgroup_dir(pid)
+    if cg is None or cg == CGROUP_ROOT or not cg.name.endswith(".service"):
+        return None
+    return cg
+
+
+#: Set to ``1`` by deploy/systemd/dynasty.service.template.  An explicit
+#: opt-in (not ``SYSTEMD_EXEC_PID``, which needs systemd >= 248 and is also
+#: inherited by anything a service spawns) so CI runners, cron, supervisord
+#: etc. -- whose whole job sits in one ``*.service`` cgroup -- never sweep it.
+SWEEP_OPT_IN_ENV = "SCRAPE_REAP_SERVICE_CGROUP"
+
+
+def sweep_cgroup_dir(pid: int) -> Path | None:
+    """The service cgroup that may be SWEPT for orphans, else ``None``.
+
+    Requires the explicit opt-in env var AND that ``pid`` is this very
+    process; otherwise callers fall back to the descendant-only walk.
+    """
+    if os.environ.get(SWEEP_OPT_IN_ENV) != "1" or pid != os.getpid():
+        return None
+    exec_pid = os.environ.get("SYSTEMD_EXEC_PID")
+    if exec_pid is not None and exec_pid != str(pid):
+        return None  # we are a child of the service, not its main process
+    return service_cgroup_dir(pid)
+
+
+def read_cgroup_procs(cgroup_dir: Path | None) -> set[int]:
+    """PIDs listed in ``cgroup.procs`` (empty on any failure)."""
+    if cgroup_dir is None:
+        return set()
+    text = _read_text(cgroup_dir / "cgroup.procs")
+    if not text:
+        return set()
+    return {int(tok) for tok in text.split() if tok.isdigit() and int(tok) > 0}
+
+
+def collect_service_pids(root_pid: int) -> tuple[set[int], set[int]]:
+    """``(descendants, cgroup_only)`` of ``root_pid``, ``root_pid`` excluded.
+
+    ``cgroup_only`` are service-cgroup members that are NOT descendants,
+    i.e. reparented orphans.  Empty unless ``sweep_cgroup_dir`` allows it (opt-in + main process).
+    """
+    descendants = collect_descendant_pids(root_pid)
+    members = read_cgroup_procs(sweep_cgroup_dir(root_pid))
+    members.discard(root_pid)
+    return descendants, members - descendants
+
+
+def _int_or_none(raw: str | None) -> int | None:
+    if raw is None:
+        return None
+    try:
+        return int(raw.strip())
+    except ValueError:
+        return None  # includes the literal "max" (no limit)
+
+
+def _mib(n: int | None) -> int | None:
+    return None if n is None else int(n) // (1024 * 1024)
+
+
+def _free_mib(path: str) -> int | None:
+    try:
+        return _mib(int(shutil.disk_usage(path).free))
+    except (OSError, ValueError):
+        return None
+
+
+def empty_service_diagnostics() -> dict[str, int | None]:
+    return {
+        "chromium_processes": None,
+        "chromium_reparented": None,
+        "cgroup_memory_current_mib": None,
+        "cgroup_memory_max_mib": None,
+        "cgroup_pids_current": None,
+        "cgroup_pids_max": None,
+        "shm_free_mib": None,
+        "tmp_free_mib": None,
+    }
+
+
+def service_diagnostics(
+    root_pid: int, *, tmp_dir: str | None = None, shm_dir: str = "/dev/shm"
+) -> dict[str, int | None]:
+    """Numbers-only box snapshot for the PUBLIC status.  Never raises.
+
+    No paths, hostnames or command lines: every value is an integer or
+    ``None`` (unreadable / no limit).  Memory and free-space figures are whole
+    MiB (coarse on purpose: exact byte counts fingerprint the box).  The
+    Chromium count uses ``/proc/<pid>/stat`` comm, never ``cmdline``.
+    """
+    out = empty_service_diagnostics()
+    try:
+        descendants, cgroup_only = collect_service_pids(root_pid)
+        chromium = [p for p in descendants | cgroup_only if read_comm(p) in _BROWSER_COMMS]
+        out["chromium_processes"] = len(chromium)
+        out["chromium_reparented"] = sum(1 for p in chromium if p in cgroup_only)
+        cg = service_cgroup_dir(root_pid)
+        if cg is not None:
+            out["cgroup_memory_current_mib"] = _mib(_int_or_none(_read_text(cg / "memory.current")))
+            out["cgroup_memory_max_mib"] = _mib(_int_or_none(_read_text(cg / "memory.max")))
+            out["cgroup_pids_current"] = _int_or_none(_read_text(cg / "pids.current"))
+            out["cgroup_pids_max"] = _int_or_none(_read_text(cg / "pids.max"))
+        out["shm_free_mib"] = _free_mib(shm_dir)
+        out["tmp_free_mib"] = _free_mib(tmp_dir or tempfile.gettempdir())
+    except Exception:  # noqa: BLE001 -- a diagnostic must never break its caller
+        pass
     return out

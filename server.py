@@ -155,6 +155,9 @@ SCRAPE_PLAYER_RETENTION_FLOOR = 0.75
 # (Dynasty Scraper.py, pw.chromium.launch) carries --disable-dev-shm-usage
 # / --disable-gpu to reduce the odds of the mid-scrape RSS spike that
 # crosses the systemd MemoryMax cgroup and OOM-kills this whole process.
+# It now ALSO runs before each launch and, besides descendants, sweeps
+# Chromium reparented out of this process but still in the service's own
+# cgroup (see ``_reap_orphan_browsers``).  Same switch.
 SCRAPE_REAP_ORPHAN_BROWSERS = os.getenv("SCRAPE_REAP_ORPHAN_BROWSERS", "1") != "0"
 # /api/trade/simulate-mc is a pure-Python Monte Carlo (no numpy) run
 # twice for A→B/B→A symmetrization.  On this box: 50k≈0.9s, 200k≈3.9s.
@@ -1626,6 +1629,9 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
     error_text = f"{type(exc).__name__}: {str(exc)[:400]}"
     failed_step = scrape_status.get("current_step")
     failed_source = scrape_status.get("current_source")
+    box = _box_diagnostics()
+    # Own timestamp so a snapshot left behind by a later success is identifiable.
+    box_at_failure = {**box, "capturedAt": _utc_now_iso()}
     scrape_status.update(
         {
             "running": False,
@@ -1636,6 +1642,7 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
             "last_duration_sec": round(elapsed, 1),
             "error": error_text,
             "current_step": "failed",
+            "box_at_failure": box_at_failure,
         }
     )
     _touch_scrape_heartbeat()
@@ -1647,9 +1654,10 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
         failed_step=failed_step,
         failed_source=failed_source,
         duration_sec=round(elapsed, 1),
+        box=box,
     )
     # R-4: Record to rolling history
-    _record_scrape_history("failure", elapsed, error=error_text)
+    _record_scrape_history("failure", elapsed, error=error_text, box=box)
     # R-9: Update metrics counters
     _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
     _metrics["scrape_failures"] = _metrics.get("scrape_failures", 0) + 1
@@ -1703,25 +1711,34 @@ _looks_like_playwright_chromium = _proc_probe.looks_like_playwright_chromium
 _collect_descendant_pids = _proc_probe.collect_descendant_pids
 
 
-def _reap_orphan_browsers(root_pid: int | None = None, match=None) -> int:
-    """SIGKILL orphaned Playwright Chromium descendants of this process.
+def _reap_orphan_browsers(
+    root_pid: int | None = None, match=None, include_service_cgroup: bool = False
+) -> int:
+    """SIGKILL orphaned Playwright Chromium belonging to this service.
 
-    Best-effort; never raises.  Scoped to descendants of ``root_pid``
-    (our own PID) so it can never touch unrelated system processes.
-    The scrape that spawned them already exited (single scrape_run_lock),
-    so a graceful shutdown buys nothing — SIGKILL directly, with no
-    sleep, so this stays safe to call from the async finally path.
+    Best-effort; never raises.  Scope is (a) descendants of ``root_pid`` (our
+    own PID), and -- only when ``include_service_cgroup`` -- (b) members of
+    this process's own dedicated ``*.service`` cgroup that are NOT descendants
+    (Chromium reparented to init after its Playwright driver died, which the
+    descendant walk cannot see).  ``proc_probe.service_cgroup_dir`` returns
+    nothing for non-service cgroups, so a dev shell's scope is never swept.
+    The root pid and this process are never killed, and every candidate must
+    still satisfy the Playwright-Chromium cmdline predicate.  Callers hold
+    ``scrape_run_lock``, so no live scrape of ours owns a browser; SIGKILL
+    directly, no sleep, so this stays safe on the async finally path.
     """
     try:
         root = os.getpid() if root_pid is None else root_pid
         predicate = _looks_like_playwright_chromium if match is None else match
+        if include_service_cgroup:
+            descendants, cgroup_only = _proc_probe.collect_service_pids(root)
+            candidates = descendants | cgroup_only
+        else:
+            candidates = _collect_descendant_pids(root)
+        candidates = candidates - {root, os.getpid(), 0, 1}
         killed = 0
-        for pid in _collect_descendant_pids(root):
-            try:
-                with open(f"/proc/{pid}/cmdline", "rb") as fh:
-                    cmd = fh.read().replace(b"\x00", b" ").decode("utf-8", "replace").strip()
-            except OSError:
-                continue
+        for pid in candidates:
+            cmd = _proc_probe.read_cmdline(pid)
             if not cmd or not predicate(cmd):
                 continue
             try:
@@ -1732,6 +1749,42 @@ def _reap_orphan_browsers(root_pid: int | None = None, match=None) -> int:
         return killed
     except Exception:  # noqa: BLE001 — finalize must never raise
         return 0
+
+
+_BOX_PROBE_TIMEOUT_SEC = 2.0
+_BOX_PROBE_STATUS_TIMEOUT_SEC = 0.5
+
+
+def _box_diagnostics(timeout: float | None = None) -> dict:
+    """Numbers-only service-resource snapshot (public-safe).  Never raises.
+
+    The /proc walk runs in a daemon worker thread and is abandoned after
+    ``timeout`` seconds: a probe that does not answer yields all-null fields
+    instead of blocking the event loop (health/status must never hang on it).
+    """
+    wait = _BOX_PROBE_TIMEOUT_SEC if timeout is None else timeout
+    box: dict = _proc_probe.empty_service_diagnostics()
+    done = threading.Event()
+
+    def _work() -> None:
+        try:
+            box.update(_proc_probe.service_diagnostics(os.getpid()))
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            done.set()
+
+    try:
+        threading.Thread(target=_work, name="box-probe", daemon=True).start()
+        if not done.wait(wait):
+            return _proc_probe.empty_service_diagnostics()
+        return dict(box)
+    except Exception:  # noqa: BLE001
+        return _proc_probe.empty_service_diagnostics()
+
+
+def _box_diagnostics_for_status() -> dict:
+    return _box_diagnostics(_BOX_PROBE_STATUS_TIMEOUT_SEC)
 
 
 _scrape_sampler_proc = None
@@ -1797,7 +1850,7 @@ def _finalize_scrape_run(worker_id: str) -> None:
         return
     _stop_resource_sampler()
     if SCRAPE_REAP_ORPHAN_BROWSERS:
-        reaped = _reap_orphan_browsers()
+        reaped = _reap_orphan_browsers(include_service_cgroup=True)
         if reaped:
             log.warning(
                 "reaped %d orphaned Chromium process(es) after scrape "
@@ -3694,6 +3747,24 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
         _start_resource_sampler(worker_id)
 
         try:
+            if SCRAPE_REAP_ORPHAN_BROWSERS:
+                # Before launch, not just after: Chromium leaked by an earlier
+                # run (reparented away from this process, or left by a launch
+                # that timed out) still counts against the service cgroup's
+                # MemoryMax/TasksMax and starves this run's launch.
+                _pre_box = await run_in_threadpool(_box_diagnostics)
+                _pre_reaped = await run_in_threadpool(
+                    lambda: _reap_orphan_browsers(include_service_cgroup=True)
+                )
+                if _pre_reaped:
+                    log.warning("reaped %d leaked Chromium process(es) before launch", _pre_reaped)
+                _record_scrape_event(
+                    "scrape_prelaunch_box_check",
+                    level="warning" if _pre_reaped else "info",
+                    message=f"reaped={_pre_reaped}",
+                    reaped=_pre_reaped,
+                    box=_pre_box,
+                )
             _update_scrape_progress(
                 step="bootstrap",
                 source="import_scraper",
@@ -6525,6 +6596,9 @@ def _status_content() -> dict:
         # Which commit this process is running, read once at import. Deploy
         # verification compares it with the commit the workflow shipped.
         "build": {**PROCESS_BUILD, "release": dict(PROCESS_RELEASE)},
+        # Numbers-only service-resource snapshot (Chromium count, cgroup
+        # memory/pids vs limits, free /dev/shm + temp bytes); memoized 30s.
+        "box_resources": _disk_probe_memo("box_resources", _box_diagnostics_for_status),
         "contract": {
             "version": API_DATA_CONTRACT_VERSION,
             "health": contract_health,
