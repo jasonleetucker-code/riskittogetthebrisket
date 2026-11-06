@@ -1,0 +1,737 @@
+{
+ "window_utc": "2026-11-06T13:39Z to ~13:58Z",
+ "note": "prod serving stale data, scraper failing; /api/health returns 503 throughout; single vantage (sandbox proxy); request budget exceeded by Playwright asset fetches (~195 sub-requests) plus ~100 curl",
+ "curl": {
+  "start": "2026-11-06T13:42:13.225436",
+  "end": "2026-11-06T13:46:02.742901",
+  "res": {
+   "/": [
+    {
+     "code": "200",
+     "dns": "0.000031",
+     "connect": "0.000117",
+     "ttfb": "0.513896",
+     "total": "0.513977",
+     "bytes": "5830"
+    },
+    {
+     "code": "200",
+     "dns": "0.000034",
+     "connect": "0.000168",
+     "ttfb": "0.642059",
+     "total": "0.642129",
+     "bytes": "5830"
+    },
+    {
+     "code": "200",
+     "dns": "0.000025",
+     "connect": "0.000123",
+     "ttfb": "0.491636",
+     "total": "0.491698",
+     "bytes": "5839"
+    },
+    {
+     "code": "200",
+     "dns": "0.000027",
+     "connect": "0.000125",
+     "ttfb": "0.799618",
+     "total": "0.799678",
+     "bytes": "5839"
+    },
+    {
+     "code": "200",
+     "dns": "0.000033",
+     "connect": "0.000162",
+     "ttfb": "0.498478",
+     "total": "0.498552",
+     "bytes": "5839"
+    }
+   ],
+   "/league": [
+    {
+     "code": "200",
+     "dns": "0.000021",
+     "connect": "0.000263",
+     "ttfb": "0.835317",
+     "total": "0.835387",
+     "bytes": "14134"
+    },
+    {
+     "code": "200",
+     "dns": "0.000024",
+     "connect": "0.000102",
+     "ttfb": "0.835735",
+     "total": "0.835782",
+     "bytes": "13973"
+    },
+    {
+     "code": "200",
+     "dns": "0.000023",
+     "connect": "0.000114",
+     "ttfb": "0.648133",
+     "total": "0.648194",
+     "bytes": "14134"
+    },
+    {
+     "code": "200",
+     "dns": "0.000021",
+     "connect": "0.000092",
+     "ttfb": "0.891569",
+     "total": "0.891667",
+     "bytes": "14134"
+    },
+    {
+     "code": "200",
+     "dns": "0.000021",
+     "connect": "0.000127",
+     "ttfb": "0.721481",
+     "total": "0.721537",
+     "bytes": "14133"
+    }
+   ],
+   "/api/status": [
+    {
+     "code": "200",
+     "dns": "0.000023",
+     "connect": "0.000258",
+     "ttfb": "15.782503",
+     "total": "15.782606",
+     "bytes": "5836"
+    },
+    {
+     "code": "200",
+     "dns": "0.000024",
+     "connect": "0.000106",
+     "ttfb": "1.254426",
+     "total": "1.254475",
+     "bytes": "5837"
+    },
+    {
+     "code": "200",
+     "dns": "0.000024",
+     "connect": "0.000114",
+     "ttfb": "1.399042",
+     "total": "1.399096",
+     "bytes": "5838"
+    },
+    {
+     "code": "200",
+     "dns": "0.000022",
+     "connect": "0.000106",
+     "ttfb": "1.679927",
+     "total": "1.679976",
+     "bytes": "5838"
+    },
+    {
+     "code": "200",
+     "dns": "0.000022",
+     "connect": "0.000105",
+     "ttfb": "1.225105",
+     "total": "1.225166",
+     "bytes": "5836"
+    }
+   ],
+   "/api/draft-capital": [
+    {
+     "code": "200",
+     "dns": "0.000024",
+     "connect": "0.003911",
+     "ttfb": "0.854758",
+     "total": "0.854826",
+     "bytes": "8684"
+    },
+    {
+     "code": "200",
+     "dns": "0.000056",
+     "connect": "0.000150",
+     "ttfb": "0.400896",
+     "total": "0.400958",
+     "bytes": "8684"
+    },
+    {
+     "code": "200",
+     "dns": "0.000024",
+     "connect": "0.000100",
+     "ttfb": "0.405499",
+     "total": "0.405560",
+     "bytes": "8684"
+    },
+    {
+     "code": "200",
+     "dns": "0.000023",
+     "connect": "0.000120",
+     "ttfb": "3.222078",
+     "total": "3.222139",
+     "bytes": "8684"
+    },
+    {
+     "code": "200",
+     "dns": "0.000022",
+     "connect": "0.000136",
+     "ttfb": "0.534332",
+     "total": "0.534384",
+     "bytes": "8684"
+    }
+   ],
+   "/api/health": [
+    {
+     "code": "503",
+     "dns": "0.000022",
+     "connect": "0.000095",
+     "ttfb": "0.554721",
+     "total": "0.554787",
+     "bytes": "1356"
+    },
+    {
+     "code": "503",
+     "dns": "0.000037",
+     "connect": "0.000131",
+     "ttfb": "0.400430",
+     "total": "0.400501",
+     "bytes": "1357"
+    },
+    {
+     "code": "503",
+     "dns": "0.000024",
+     "connect": "0.000105",
+     "ttfb": "0.515335",
+     "total": "0.515384",
+     "bytes": "1357"
+    },
+    {
+     "code": "503",
+     "dns": "0.000049",
+     "connect": "0.000124",
+     "ttfb": "0.652064",
+     "total": "0.652125",
+     "bytes": "1358"
+    },
+    {
+     "code": "503",
+     "dns": "0.000022",
+     "connect": "0.000101",
+     "ttfb": "0.458221",
+     "total": "0.458271",
+     "bytes": "1357"
+    }
+   ],
+   "/api/leagues": [
+    {
+     "code": "200",
+     "dns": "0.000021",
+     "connect": "0.000093",
+     "ttfb": "0.416655",
+     "total": "0.416713",
+     "bytes": "853"
+    },
+    {
+     "code": "200",
+     "dns": "0.000042",
+     "connect": "0.000142",
+     "ttfb": "0.459128",
+     "total": "0.459173",
+     "bytes": "853"
+    },
+    {
+     "code": "200",
+     "dns": "0.000021",
+     "connect": "0.000104",
+     "ttfb": "0.406037",
+     "total": "0.406112",
+     "bytes": "853"
+    },
+    {
+     "code": "200",
+     "dns": "0.000029",
+     "connect": "0.000124",
+     "ttfb": "0.484475",
+     "total": "0.484533",
+     "bytes": "853"
+    },
+    {
+     "code": "200",
+     "dns": "0.000024",
+     "connect": "0.000113",
+     "ttfb": "0.404230",
+     "total": "0.404306",
+     "bytes": "853"
+    }
+   ],
+   "/api/league/articles": [
+    {
+     "code": "200",
+     "dns": "0.000022",
+     "connect": "0.004871",
+     "ttfb": "0.451992",
+     "total": "0.452057",
+     "bytes": "1607"
+    },
+    {
+     "code": "200",
+     "dns": "0.000022",
+     "connect": "0.000098",
+     "ttfb": "0.453474",
+     "total": "0.453531",
+     "bytes": "1607"
+    },
+    {
+     "code": "200",
+     "dns": "0.000022",
+     "connect": "0.000108",
+     "ttfb": "0.431358",
+     "total": "0.431408",
+     "bytes": "1607"
+    },
+    {
+     "code": "200",
+     "dns": "0.000025",
+     "connect": "0.000119",
+     "ttfb": "0.433117",
+     "total": "0.433167",
+     "bytes": "1607"
+    },
+    {
+     "code": "200",
+     "dns": "0.000022",
+     "connect": "0.000118",
+     "ttfb": "0.418047",
+     "total": "0.418111",
+     "bytes": "1607"
+    }
+   ],
+   "/api/public/league/overview": [
+    {
+     "code": "200",
+     "dns": "0.000022",
+     "connect": "0.000243",
+     "ttfb": "0.451957",
+     "total": "0.452024",
+     "bytes": "3564"
+    },
+    {
+     "code": "200",
+     "dns": "0.000024",
+     "connect": "0.000107",
+     "ttfb": "0.447299",
+     "total": "0.447359",
+     "bytes": "3564"
+    },
+    {
+     "code": "200",
+     "dns": "0.000022",
+     "connect": "0.000116",
+     "ttfb": "89.818750",
+     "total": "89.818801",
+     "bytes": "3564"
+    },
+    {
+     "code": "200",
+     "dns": "0.000023",
+     "connect": "0.000113",
+     "ttfb": "0.441469",
+     "total": "0.441527",
+     "bytes": "3564"
+    },
+    {
+     "code": "200",
+     "dns": "0.000035",
+     "connect": "0.000150",
+     "ttfb": "0.463829",
+     "total": "0.463920",
+     "bytes": "3564"
+    }
+   ],
+   "/api/public/league": [
+    {
+     "code": "200",
+     "dns": "0.000021",
+     "connect": "0.000098",
+     "ttfb": "0.645170",
+     "total": "0.938816",
+     "bytes": "263007"
+    },
+    {
+     "code": "200",
+     "dns": "0.000023",
+     "connect": "0.000102",
+     "ttfb": "0.844022",
+     "total": "1.195674",
+     "bytes": "263007"
+    },
+    {
+     "code": "200",
+     "dns": "0.000021",
+     "connect": "0.000120",
+     "ttfb": "0.826227",
+     "total": "1.121047",
+     "bytes": "263007"
+    }
+   ]
+  },
+  "hdrs": {
+   "/": {
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+    "x-nextjs-cache": "HIT",
+    "cache-control": "s-maxage=60, stale-while-revalidate=31535940",
+    "etag": "\"uglv8sofo5108i\"",
+    "content-encoding": "gzip"
+   },
+   "/league": {
+    "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+    "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+    "content-encoding": "gzip"
+   },
+   "/api/status": {
+    "content-length": "5836",
+    "cache-control": "private, max-age=15, stale-while-revalidate=30",
+    "vary": "Accept-Encoding",
+    "content-encoding": "gzip"
+   },
+   "/api/draft-capital": {
+    "content-length": "8684",
+    "cache-control": "private, max-age=60, stale-while-revalidate=300",
+    "vary": "Accept-Encoding",
+    "content-encoding": "gzip"
+   },
+   "/api/health": {
+    "content-length": "1356",
+    "vary": "Accept-Encoding",
+    "content-encoding": "gzip"
+   },
+   "/api/leagues": {
+    "content-length": "853",
+    "cache-control": "no-store"
+   },
+   "/api/league/articles": {
+    "content-length": "1607",
+    "cache-control": "public, max-age=120",
+    "vary": "Accept-Encoding",
+    "content-encoding": "gzip"
+   },
+   "/api/public/league/overview": {
+    "content-length": "3564",
+    "cache-control": "public, max-age=60, stale-while-revalidate=300",
+    "vary": "Accept-Encoding",
+    "content-encoding": "gzip"
+   },
+   "/api/public/league": {
+    "content-length": "263007",
+    "cache-control": "public, max-age=60, stale-while-revalidate=300",
+    "vary": "Accept-Encoding",
+    "content-encoding": "gzip"
+   }
+  },
+  "raw_noaccept": {
+   "/": "47035 0.592828",
+   "/league": "93832 0.716882",
+   "/api/status": "30313 1.272401",
+   "/api/draft-capital": "145780 0.761380",
+   "/api/health": "3807 0.646092",
+   "/api/leagues": "853 0.493454",
+   "/api/league/articles": "4631 0.558592",
+   "/api/public/league/overview": "14485 0.563610"
+  }
+ },
+ "extra": {
+  "gz": {
+   "/api/public/league/rosTeamStrength": [
+    "401 0.420494 0.420544 146",
+    "401 0.400294 0.400352 146",
+    "401 0.607714 0.607765 146"
+   ],
+   "/api/public/league/activity": [
+    "200 0.644223 0.656130 17200",
+    "200 0.457208 0.465450 17200",
+    "200 1.927738 1.927841 17200"
+   ],
+   "/api/public/league/rosPower": [
+    "200 0.873786 0.873876 21951",
+    "200 0.647599 0.647664 21951",
+    "200 0.855526 0.855592 21951"
+   ]
+  },
+  "raw": {
+   "/api/public/league/rosTeamStrength": "146",
+   "/api/public/league/activity": "206155",
+   "/api/public/league/rosPower": "272796"
+  }
+ },
+ "playwright": [
+  {
+   "name": "/",
+   "marker": "h1",
+   "err": null,
+   "markerMs": 2902,
+   "settledMs": 4001,
+   "nav": {
+    "ttfb": 482,
+    "dcl": 1200,
+    "fcp": 1352
+   },
+   "longTasks": 0,
+   "longTaskTotalMs": 0,
+   "requests": 33,
+   "decodedBytes": 1028424,
+   "wireBytesApprox": 1025972,
+   "top5": [
+    {
+     "url": "/_next/static/chunks/3794-04350b0fcecd82e5.js",
+     "status": 200,
+     "body": 243176,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/chunks/4bd1b696-8cd12253b448cc13.js",
+     "status": 200,
+     "body": 203727,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/css/b6957a8321764383.css",
+     "status": 200,
+     "body": 94022,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/chunks/app/page-f5751d01176a5fdf.js",
+     "status": 200,
+     "body": 85359,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/media/e4af272ccee01ff0-s.p.woff2",
+     "status": 200,
+     "body": 48432,
+     "enc": "",
+     "len": 48432
+    }
+   ]
+  },
+  {
+   "name": "/league",
+   "marker": "main h1, main h2, [class*=overview]",
+   "err": null,
+   "markerMs": 1246,
+   "settledMs": 3788,
+   "nav": {
+    "ttfb": 358,
+    "dcl": 762,
+    "fcp": 928
+   },
+   "longTasks": 0,
+   "longTaskTotalMs": 0,
+   "requests": 44,
+   "decodedBytes": 1151487,
+   "wireBytesApprox": 1149038,
+   "top5": [
+    {
+     "url": "/_next/static/chunks/3794-04350b0fcecd82e5.js",
+     "status": 200,
+     "body": 243176,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/chunks/4bd1b696-8cd12253b448cc13.js",
+     "status": 200,
+     "body": 203727,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/css/b6957a8321764383.css",
+     "status": 200,
+     "body": 94022,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/league",
+     "status": 200,
+     "body": 93832,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/chunks/app/page-f5751d01176a5fdf.js",
+     "status": 200,
+     "body": 85359,
+     "enc": "gzip",
+     "len": 0
+    }
+   ]
+  },
+  {
+   "name": "/league mobile",
+   "marker": "main h1, main h2, [class*=overview]",
+   "err": null,
+   "markerMs": 1212,
+   "settledMs": 3935,
+   "nav": {
+    "ttfb": 331,
+    "dcl": 733,
+    "fcp": 888
+   },
+   "longTasks": 1,
+   "longTaskTotalMs": 51,
+   "requests": 44,
+   "decodedBytes": 1151487,
+   "wireBytesApprox": 1149039,
+   "top5": [
+    {
+     "url": "/_next/static/chunks/3794-04350b0fcecd82e5.js",
+     "status": 200,
+     "body": 243176,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/chunks/4bd1b696-8cd12253b448cc13.js",
+     "status": 200,
+     "body": 203727,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/css/b6957a8321764383.css",
+     "status": 200,
+     "body": 94022,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/league",
+     "status": 200,
+     "body": 93832,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/chunks/app/page-f5751d01176a5fdf.js",
+     "status": 200,
+     "body": 85359,
+     "enc": "gzip",
+     "len": 0
+    }
+   ]
+  },
+  {
+   "name": "/league?tab=rosTeamStrength",
+   "marker": "table, [class*=team]",
+   "err": "TimeoutError: page.waitForSelector: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('table, [class*=team",
+   "markerMs": null,
+   "settledMs": 90325,
+   "nav": {
+    "ttfb": 292,
+    "dcl": 647,
+    "fcp": 796
+   },
+   "longTasks": 1,
+   "longTaskTotalMs": 69,
+   "requests": 37,
+   "decodedBytes": 1108043,
+   "wireBytesApprox": 1103144,
+   "top5": [
+    {
+     "url": "/_next/static/chunks/3794-04350b0fcecd82e5.js",
+     "status": 200,
+     "body": 243176,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/chunks/4bd1b696-8cd12253b448cc13.js",
+     "status": 200,
+     "body": 203727,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/css/b6957a8321764383.css",
+     "status": 200,
+     "body": 94022,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/chunks/app/page-f5751d01176a5fdf.js",
+     "status": 200,
+     "body": 85359,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/league?tab=rosTeamStrength",
+     "status": 200,
+     "body": 66858,
+     "enc": "gzip",
+     "len": 0
+    }
+   ]
+  },
+  {
+   "name": "/league/activity",
+   "marker": "main h1, main h2",
+   "err": null,
+   "markerMs": 3346,
+   "settledMs": 63346,
+   "nav": {
+    "ttfb": 991,
+    "dcl": 1710,
+    "fcp": 1728
+   },
+   "longTasks": 0,
+   "longTaskTotalMs": 0,
+   "requests": 36,
+   "decodedBytes": 1289523,
+   "wireBytesApprox": 1051607,
+   "top5": [
+    {
+     "url": "/_next/static/chunks/3794-04350b0fcecd82e5.js",
+     "status": 200,
+     "body": 243176,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/api/public/league/activity",
+     "status": 200,
+     "body": 206155,
+     "enc": "gzip",
+     "len": 17200
+    },
+    {
+     "url": "/_next/static/chunks/4bd1b696-8cd12253b448cc13.js",
+     "status": 200,
+     "body": 203727,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/css/b6957a8321764383.css",
+     "status": 200,
+     "body": 94022,
+     "enc": "gzip",
+     "len": 0
+    },
+    {
+     "url": "/_next/static/chunks/app/page-f5751d01176a5fdf.js",
+     "status": 200,
+     "body": 85359,
+     "enc": "gzip",
+     "len": 0
+    }
+   ]
+  }
+ ],
+ "auth_gated_not_measurable": {
+  "/draft": "fetches /api/data with NO view param -> full contract (server.py view default 'full'), plus /api/draft-capital, /api/leagues, /api/bdvm/values",
+  "/bdvm": "/api/bdvm/values,/roster,/trades",
+  "team-strength": "/api/public/league/rosTeamStrength -> 401 auth_required anonymous (private section)",
+  "/market/sharp-roster-percentage": "/api/sharp/roster-percentage 401 anon"
+ }
+}
