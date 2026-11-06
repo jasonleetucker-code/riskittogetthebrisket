@@ -197,6 +197,8 @@ not replace the intake ledger (`docs/OWNER_REQUESTED_TODO.md`).
 - `docs/ops/ADMIN_ONLY_ACTIONS_RUNBOOK.md` — administrator-only procedures (D18 / D19 / D20).
 
 ### Design, performance, policy
+- `docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md` — permanent cross-model feature-intent, regression, independent-oracle and controlled stress-testing standard (process/verification only; no new product or deployment authority).
+### Design, performance, policy
 - `docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md` — Direction A, the permanent visual direction *(#809)*
 - `docs/GLOBAL_PERFORMANCE_STANDARD.md` — 1 s warm / 3 s cold / 2 s p95 / **5 s failure ceiling** *(#809)*
 - `docs/COMPETITOR_REUSE_POLICY.md` — **design-pattern reuse only; grants no data rights** *(#809)*

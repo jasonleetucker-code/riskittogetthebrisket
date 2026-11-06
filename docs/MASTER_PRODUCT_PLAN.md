@@ -85,6 +85,12 @@ Important nuance: live code or executable evidence may prove a *status statement
 
 These apply to every future feature unless an explicit later owner decision supersedes them.
 
+## 3.0 Product completion means verified behavior, not code existence — owner, 2026-11-06
+
+A delivered feature must do what the *latest authorized owner requirement* says, not merely render a control, return a number or pass a self-referential test. Every new or materially changed capability requires intent → canonical implementation → independent expected-result evidence → regression/negative/edge-case tests → user-flow/production confirmation as appropriate. Scope both intended behavior and explicitly prohibited outcomes. Separate deterministic mathematical correctness from predictive model skill and decision utility; empirical evaluation/promotion retains its existing stricter owner gates. Unverified, partial, hidden, feature-flag OFF, dead, historical and deployed states are distinct and must remain honest.
+
+Permanent implementation/testing protocol: `docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md` via the model-neutral `docs/AGENT_OPERATING_SYSTEM.md`. Retrospective reconciliation belongs inside the **existing** November 6 sitewide remediation inventory and owner feature/completion records, not in a new independent roadmap or a second denominator. `docs/EXECUTION_PLAN.md` still solely authorizes implementation; active file claims and release/methodology boundaries remain in force.
+
 ## 3.1 One concept, one canonical owner
 
 Pages and features consume canonical systems; they do not independently reimplement them.
