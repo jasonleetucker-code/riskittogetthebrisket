@@ -1,5 +1,31 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Sitewide audit remediation, implementation and delivery — owner directive, 2026-11-06
+
+**AUTHORIZED NOW (expands the sections below; replaces no recorded owner decision).** Record:
+`docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md`. Intake MD-38 … MD-46. Owner decisions (its Part 16 table):
+register section "Sitewide remediation directive (2026-11-06)". Inventory, portfolio and traceability (CW-01 …
+CW-47): `docs/audits/remediation_2026-11-06/`; agent-made decisions: `…/DECISIONS.md`.
+
+- **Delegated:** ordinary engineering, product, UX and evidence-based methodology decisions; investigation, coding,
+  regression repair, bounded features, reversible UX, tests; normal reviewed integration and deployment under the
+  existing CI / release gates (standing 2026-10-19 merge authorization unchanged: exact-head green, independent
+  review, delta re-review after any later change).
+- **Order:** Wave A (CW-01 … CW-06, CW-47: deploy blockers, scraper outage, Week 10 / 2027-auction capture,
+  backups, security posture) → B (CW-07 … CW-10) → C (CW-11 … CW-17, CW-46) → D (CW-18 … CW-28) → E (CW-29 …
+  CW-36) → F (CW-37 … CW-43), dependency-ready units in parallel, at most four workers.
+- **Value-changing methodology:** research, benchmarks, challengers and evidence now; clearly corrective defects
+  through independent review + regression gates (e.g. CW-47 restores the 2026-10-07 owner rule behind a rollback
+  flag); consequential live changes to valuation, source voting, fairness, probabilities or public launch only with
+  independent outcome evidence, a measured blast radius, rollback and the documented activation conditions; else
+  the incumbent stays.
+
+**Still not permitted / owner-reserved:** credentials the agent lacks; licence, paywall or provider-term bypass;
+spending; unauthorized root changes (box-operator steps are written out, not run); public exposure of private routes
+or proprietary values; any Sleeper write; destroying irreplaceable history; bypassing protections or failing tests;
+DFS and League Tycoon; launching the public Trade Advisor; and every subject the sections below keep reserved
+unless this directive's Part 16 table (register) settles it for its exact scope.
+
 ## Second master directive: production security, Roster Construction, IDP accuracy, frontend UX audit — owner directive, 2026-11-01
 
 **AUTHORIZED NOW (expands the section below; replaces no decision).** Verbatim: `docs/owner/CHASE_UPSIDE_NEXT_MASTER_DIRECTIVE_2026-11-01.md`. Intake MD-26 … MD-34.
