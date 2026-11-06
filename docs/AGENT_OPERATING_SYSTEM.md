@@ -239,6 +239,18 @@ Keep this lightweight: a short note in the claim/PR/handoff is enough when there
 
 This check **does not authorize** a reliability workstream, override an active completion contract, or require all twelve priorities on every feature. Current product/implementation authority still wins.
 
+### Permanent feature-intent verification / regression discipline — owner, 2026-11-06
+
+Every material feature, bug fix and meaningful refactor must demonstrate more than “the page renders” or “the tests are green”: link the *latest authorized owner behavior* to its actual live execution path, independent expected-result oracle, positive/negative/edge-case tests, and exact-tree evidence. Apply the detailed cross-model protocol in `docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md`.
+
+- Before changing code: inspect the intent/spec and current path, preserve a baseline, define acceptance and missing/stale/failure cases, and select independent oracles for high-stakes numerical outputs.
+- During coding: write reproducing tests for defects where feasible, run L0/L1, and keep tests that prevent repeat regressions. Fix the canonical owner rather than a presentation-only symptom.
+- At PR/integration: run all required L2 gates, verify integration and actual user workflows, document test commands/results and unverified gaps, and obtain independent review. Use L3 and stricter owner-campaign gates for production.
+- Periodically when authorized: reconcile all known features against intended behavior, trace unused/duplicated code before removal, run bounded nonproduction stress/drift/backtest suites, and report evidence-backed status without a second completion ledger.
+- Distinguish `implemented`, `correct against spec`, `predictively effective`, `merged`, `deployed` and `verified in production`. A green test suite alone proves none of the latter claims. Test existence cannot replace independent oracles or out-of-sample evaluation.
+
+This rule changes **verification discipline**, not implementation scope, methodology promotion, worker file claims, integration authority or release gates. Route findings through existing registries and `docs/EXECUTION_PLAN.md`; do not duplicate the already-running 2026-11-06 remediation campaign.
+
 ### Progress visibility on long runs
 
 For work that spans many tool calls or meaningful checkpoints, keep the owner/operator informed without narrating every command.
