@@ -10,8 +10,11 @@ classifies every source by what the loss did to it:
   CAUSED, a SEAT;
 * (c) kept now, rejected by the observed panel — a rejection the loss CURED.
   Not evidence while the withheld source still voted, so the confidence gate
-  does not credit it (``confidence_cured_rejection_guard``, default ON); its
-  value vote is untouched;
+  does not credit it (``confidence_cured_rejection_guard``, default ON): no
+  head, and a SEAT for a family left with no credited member — dropped
+  outright it would leave the share denominators, and removing a disagreeing
+  vote could PROMOTE the row (measured: Jordan Love, agreement 10 of 14 ->
+  10 of 13, medium -> high).  Its value vote is untouched;
 * rejected on both panels — nothing changed for it, in neither list.
 
 Measured before the guard (newest archive, simulated IDPTC cutoff): IDPTC was
@@ -287,6 +290,42 @@ def test_guard_never_raises_coverage_or_independence(monkeypatch) -> None:
         for axis in ("coverage", "independence"):
             if axis in ax_on and axis in ax_off:
                 assert _LEVEL[ax_on[axis]] <= _LEVEL[ax_off[axis]], (key, axis)
+
+
+def test_guard_never_raises_any_axis_against_crediting_the_cure(monkeypatch) -> None:
+    """Seated, a cured family stays in every share denominator and earns
+    nothing, so against crediting it (guard OFF) no axis can rise — on every
+    row where the cured source's family has no other credited member.  Where
+    it does, the family is represented by that member instead (the observed
+    panel's verdict), whose own evidence is what the gate then reads."""
+    on, off = _rows(_board(True, monkeypatch)), _rows(_board(False, monkeypatch))
+    compared = 0
+    for key, row in on.items():
+        stamped = _uncredited(row)
+        if not stamped:
+            continue
+        meta = row.get("sourceRankMeta") or {}
+        withheld = set(row.get("freshnessExcludedSources") or ())
+        credited = {
+            dc.correlation_group_for(k)
+            for k in row.get("effectiveSourceRanks") or {}
+            if k not in stamped
+            and k not in withheld
+            and (meta.get(k) or {}).get("contributedToBlend") is not False
+        }
+        if {dc.correlation_group_for(k) for k in stamped} & credited:
+            continue
+        compared += 1
+        ax_on, ax_off = row.get("confidenceAxes") or {}, off[key].get("confidenceAxes") or {}
+        for axis, level in ax_on.items():
+            assert _LEVEL[level] <= _LEVEL[ax_off[axis]], (key, axis, ax_off, ax_on)
+        assert _LEVEL[row["confidenceBucket"]] <= _LEVEL[off[key]["confidenceBucket"]], key
+        seat_line = [r for r in row.get("confidenceReasons") or [] if "did not reach" in r]
+        assert seat_line, key
+        seated = {name.strip() for name in seat_line[0].split(":", 1)[1].split(",")}
+        assert {dc.correlation_group_for(k) for k in stamped} <= seated, (key, seated)
+    if not compared:
+        pytest.skip("no row on this board carries a cure whose family lost every voter")
 
 
 def test_every_stamp_names_a_voting_source_on_a_row_that_lost_a_vote(monkeypatch) -> None:

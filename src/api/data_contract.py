@@ -7932,9 +7932,10 @@ def _family_evidence_for_row(
 
     ``uncredited`` names voting sources that are NOT evidence for the gate:
     rejections a withheld vote CURED (``_lost_evidence_replay``'s ``cured``).
-    They are skipped exactly like a rejected source — no head, no seat — so a
-    family keeps its place only through another credited member.  Their
-    value votes are untouched; this is the confidence half only.
+    They are never a head, so a family is represented only through another
+    credited member; a family left with none is SEATED by the caller
+    (``_withheld_family_evidence_for_row``).  Their value votes are
+    untouched; this is the confidence half only.
 
     Decides no level.  Every judgement below is about what a source
     contribution IS, not about how good it is.
@@ -8054,7 +8055,8 @@ class _LostEvidence(NamedTuple):
     seats: list[str]
     # Sources voting NOW that the observed panel REJECTS — rejections the
     # loss CURED.  Not evidence the row had while the withheld source still
-    # voted, so they earn no confidence credit (they still vote in the value).
+    # voted, so they earn no confidence credit (they still vote in the value);
+    # the caller seats a family left with no credited member.
     cured: list[str]
 
 
@@ -8100,12 +8102,19 @@ def _lost_evidence_replay(
       both, and crediting them raised his coverage 9 -> 11 of 14 families
       (medium -> high).  While the withheld source still voted they were
       not evidence, so the confidence gate must not credit them now — the
-      caller removes them from the row's family evidence (confidence only;
-      their value votes are untouched).  A source rejected on both panels
-      is in neither list: nothing changed for it.
+      caller takes them out of the row's family heads and SEATS a family
+      left with no credited member (confidence only; their value votes are
+      untouched).  Seated rather than dropped: as a seat the family stays in
+      every share axis' denominator and earns nothing, so against crediting
+      it no axis can rise; dropped, it would leave the denominators and a
+      disagreeing cured vote's removal could PROMOTE the row (measured:
+      Jordan Love, agreement 10 of 14 -> 10 of 13, medium -> high).  A
+      source rejected on both panels is in neither list: nothing changed
+      for it.
 
-    With (a), (b) and (c) the families the gate sees are exactly those the
-    observed panel kept: credited when still voting, seated when not.
+    With (a), (b) and (c) the gate CREDITS exactly the families the observed
+    panel kept that still vote; every other family it observed on the row
+    is a seat.
 
     Picks bypass the outlier test in the blend, so for them every withheld
     source is seated and no rejection exists, so nothing is cured.  Under the
@@ -14023,14 +14032,20 @@ def _compute_unified_rankings(
             del kept_keys
 
         # Cured rejections earn the confidence gate nothing (see
-        # ``_lost_evidence_replay``).  Never the WHOLE credited panel: if every
-        # source the gate would credit is cured, the gate would see no family
-        # and answer "no evidence covers this asset", which is false of a row
-        # its voters priced — that case keeps the prior answer.  The stamp
-        # names each uncredited source on its own provenance record, so it
-        # travels with ``sourceRankMeta`` (and merges with it in the delta).
+        # ``_lost_evidence_replay``): no head, and a SEAT for a family left
+        # with no credited member, so the family still counts against every
+        # share axis exactly as it did while credited — removing it outright
+        # would shrink the share denominators and could PROMOTE the row (a
+        # disagreeing cured vote dropped from the agreement panel).  Never the
+        # WHOLE credited panel: if every source the gate would credit is
+        # cured, the gate would see no family and answer "no evidence covers
+        # this asset", which is false of a row its voters priced — that case
+        # keeps the prior answer.  The stamp names each uncredited source on
+        # its own provenance record, so it travels with ``sourceRankMeta``
+        # (and merges with it in the delta).
         if cured_now and {k for k, _v, _a in family_kept} - set(cured_now):
             row_cured_rejections[row_idx] = list(cured_now)
+            row_lost_seats[row_idx] = list(row_lost_seats.get(row_idx, ())) + list(cured_now)
             for sk in cured_now:
                 meta = row_source_meta[row_idx].get(sk, {})
                 meta["confidenceUncredited"] = "rejected_with_withheld_votes"

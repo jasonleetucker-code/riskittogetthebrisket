@@ -128,14 +128,14 @@ def test_every_flag_defaults_off_except_safe_additive():
         "source_universe_freshness",
         # Losing evidence never raises confidence -- the cured-rejection half
         # (owner directive 2026-10-07).  A voting source the observed panel
-        # (voting + withheld votes) rejects earns the B11 gate nothing.
+        # (voting + withheld votes) rejects earns the B11 gate nothing (no
+        # head; a seat when its family has no other credited member).
         # CONFIDENCE ONLY: measured on dynasty_export_20261106_123200 (board
         # clock, production default flags), ON vs OFF: 0 of 1,105 values,
         # ranks, tiers or votes move; 34 rows carry an uncredited source
-        # (27 IDP, 7 offense); 29 rows move an axis; 2 buckets move (Jayden
-        # Daniels high -> medium via coverage; Jordan Love medium -> high via
-        # agreement: the uncredited Draft Sharks vote was one of the four
-        # families outside 15%).  Rollback:
+        # (27 IDP, 7 offense); 28 rows move an axis, every move DOWN
+        # (coverage 28, independence 27, applicability 27); 1 bucket moves
+        # (Jayden Daniels high -> medium, coverage); 0 upgrades.  Rollback:
         # RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0 + restart.
         "confidence_cured_rejection_guard",
         # Owner closeout 2026-10-18 as amended by the owner's source-voting

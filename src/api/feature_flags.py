@@ -149,7 +149,8 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # (owner directive 2026-10-07; CLAUDE.md "Confidence -- one owner").  ON:
     # a voting source the OBSERVED panel (voting + withheld votes) rejects --
     # a rejection a withheld vote CURED -- earns the B11 confidence gate
-    # nothing, exactly as while the withheld source still voted
+    # nothing: no head, and a seat (every share axis' denominator, no
+    # numerator) for a family left with no credited member
     # (data_contract._lost_evidence_replay case (c)).  Confidence only: no
     # value, rank or tier reads it.  OFF
     # (RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0 + restart): the cured

@@ -2275,7 +2275,9 @@ rejected anyway is not a loss, and a Hampel rejection is seated only when the
 lost vote CAUSED it.  The mirror case — a rejection the lost vote CURED (kept
 now, rejected by the observed panel; measured: IDPTC's own rejected vote was
 what rejected Yahoo/Boone and Draft Sharks on Patrick Mahomes) — earns the gate
-nothing (``_lost_evidence_replay``, flag ``confidence_cured_rejection_guard``,
+nothing: no head, and a seat for a family left with no credited member, so it
+cannot promote a row by leaving the share denominators
+(``_lost_evidence_replay``, flag ``confidence_cured_rejection_guard``,
 default ON, rollback ``RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0`` +
 restart; stamped ``sourceRankMeta[src].confidenceUncredited``; its value vote is
 untouched).  Not identifiable under the default-off joint / rank-space filter
