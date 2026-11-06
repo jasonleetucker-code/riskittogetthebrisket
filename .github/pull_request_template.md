@@ -17,6 +17,19 @@ Bounded outcome, authority, related issue and canonical owner.
 Exact commands, tested SHA, results and limitations. Separate local/CI from production.
 Material agent work includes its `Agent-OS-Receipt`.
 
+## Feature verification receipt
+
+Required for material feature, fix and refactor PRs
+(`docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md` §4 step 9); tiny maintenance may write "n/a".
+
+- Intended behavior (latest owner requirement / spec + clause) and prohibited behavior:
+- Live path (route / flag / audience) and canonical owner:
+- Baseline before the change (for a defect: the reproducing test failed on the old code?):
+- Independent oracle (hand-computed, host truth, reference implementation, frozen fixture) — or "provisional":
+- Positive / negative / edge / missing / stale cases covered:
+- Remaining unverified behavior and gaps:
+- State: TESTED_IN_PR / MERGED / DEPLOYED / VERIFIED_IN_PRODUCTION (each with evidence; never inferred)
+
 ## UI impact (material product/UI changes only)
 
 Tiny maintenance may explain none and omit irrelevant fields. Substantial batches

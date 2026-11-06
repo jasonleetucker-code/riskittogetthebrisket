@@ -1,0 +1,2592 @@
+{
+ "measuredAt": "2026-11-06",
+ "method": "docs/master-site-audit/tools/verify_closure.py --rerun on a local backend at origin/main a2a21ebb + manual P0/P1 adjudication; raw repro output withheld (local paths)",
+ "records": [
+  {
+   "id": "W00-F001",
+   "priority": "P1",
+   "subsystem": "Draft capital / auth boundary",
+   "closure": "open"
+  },
+  {
+   "id": "W00-F002",
+   "priority": "P1",
+   "subsystem": "BDVM",
+   "closure": "closed"
+  },
+  {
+   "id": "W00-F003",
+   "priority": "P2",
+   "subsystem": "API contract / payload size",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W00-F004",
+   "priority": "P2",
+   "subsystem": "Feature flags / documentation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W00-F005",
+   "priority": "P3",
+   "subsystem": "Routing",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W00-F006",
+   "priority": "P2",
+   "subsystem": "Value architecture",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W00-F007",
+   "priority": "P2",
+   "subsystem": "Confidence presentation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W00-F008",
+   "priority": "P3",
+   "subsystem": "Identity / provenance",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W00-F009",
+   "priority": "P3",
+   "subsystem": "Frontend shell",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W00-F010",
+   "priority": "P2",
+   "subsystem": "Public league page",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W01-F001",
+   "priority": "P2",
+   "subsystem": "Frontend/backend wiring",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W01-F002",
+   "priority": "P2",
+   "subsystem": "Roster intelligence",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W01-F003",
+   "priority": "P2",
+   "subsystem": "Backend route surface",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W01-F004",
+   "priority": "P2",
+   "subsystem": "Information architecture",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W01-F005",
+   "priority": "P3",
+   "subsystem": "Information architecture",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W01-F006",
+   "priority": "P3",
+   "subsystem": "Information architecture",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W01-F007",
+   "priority": "P2",
+   "subsystem": "Information architecture",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W01-F008",
+   "priority": "P2",
+   "subsystem": "Rest-of-season",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W01-F009",
+   "priority": "P3",
+   "subsystem": "Feature flags",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W01-F010",
+   "priority": "P2",
+   "subsystem": "Backend route surface",
+   "closure": "closed"
+  },
+  {
+   "id": "W01-F011",
+   "priority": "P3",
+   "subsystem": "Source registry",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W01-F012",
+   "priority": "P3",
+   "subsystem": "Public league",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W02-F001",
+   "priority": "P1",
+   "subsystem": "Core value blend \u2014 scope curve routing",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F002",
+   "priority": "P1",
+   "subsystem": "Core value blend \u2014 per-player outlier rejection",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F003",
+   "priority": "P1",
+   "subsystem": "Core value blend \u2014 market corridor clamp",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F004",
+   "priority": "P2",
+   "subsystem": "Core value blend \u2014 aggregation",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F005",
+   "priority": "P2",
+   "subsystem": "Core value blend \u2014 percentile normalization",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F006",
+   "priority": "P2",
+   "subsystem": "Core value blend \u2014 source registry",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F007",
+   "priority": "P3",
+   "subsystem": "Core value blend \u2014 pick year discount",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F008",
+   "priority": "P3",
+   "subsystem": "Core value blend \u2014 two-way player boost",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F009",
+   "priority": "P2",
+   "subsystem": "Core value blend \u2014 constant provenance",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W02-F010",
+   "priority": "P3",
+   "subsystem": "Core value blend \u2014 value stamping",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F011",
+   "priority": "P3",
+   "subsystem": "Core value blend \u2014 audit stamps",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F012",
+   "priority": "P3",
+   "subsystem": "Core value blend \u2014 determinism",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F013",
+   "priority": "P3",
+   "subsystem": "Core value blend \u2014 post-blend stages",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W02-F014",
+   "priority": "P3",
+   "subsystem": "Core value blend \u2014 abstention posture",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W03-F001",
+   "priority": "P0",
+   "subsystem": "Rankings override delta view",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W03-F002",
+   "priority": "P3",
+   "subsystem": "Rankings override delta view",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F003",
+   "priority": "P2",
+   "subsystem": "Rankings override delta view",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F004",
+   "priority": "P1",
+   "subsystem": "Confidence buckets",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F005",
+   "priority": "P2",
+   "subsystem": "Confidence buckets",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F006",
+   "priority": "P2",
+   "subsystem": "Market gap / edge signal",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F007",
+   "priority": "P2",
+   "subsystem": "Tiering",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F008",
+   "priority": "P3",
+   "subsystem": "marketConfidence",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W03-F009",
+   "priority": "P3",
+   "subsystem": "Identity confidence",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F010",
+   "priority": "P1",
+   "subsystem": "rankChange snapshot",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W03-F011",
+   "priority": "P2",
+   "subsystem": "Rank history / movers",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F012",
+   "priority": "P2",
+   "subsystem": "Per-source value history",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F013",
+   "priority": "P3",
+   "subsystem": "Compact view",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W03-F014",
+   "priority": "P3",
+   "subsystem": "Confidence buckets / published methodology",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W03-F015",
+   "priority": "P2",
+   "subsystem": "Confidence buckets / frontend signal labels",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W04-F002",
+   "priority": "P2",
+   "subsystem": "Model registry / Hill curve promotion gate",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W04-F003",
+   "priority": "P2",
+   "subsystem": "Model registry / Hill curve promotion gate",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W04-F004",
+   "priority": "P2",
+   "subsystem": "Hill curves / scope routing",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W04-F005",
+   "priority": "P2",
+   "subsystem": "Model registry CLI",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W04-F006",
+   "priority": "P2",
+   "subsystem": "Model registry / historical snapshots",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W04-F007",
+   "priority": "P2",
+   "subsystem": "Model registry / holdout scoring",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W04-F008",
+   "priority": "P3",
+   "subsystem": "Blend calibration / backtests",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W04-F009",
+   "priority": "P2",
+   "subsystem": "Historical snapshots / backtesting",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W04-F010",
+   "priority": "P2",
+   "subsystem": "Backtesting documentation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W04-F011",
+   "priority": "P2",
+   "subsystem": "Value provenance",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W04-F012",
+   "priority": "P2",
+   "subsystem": "Confidence",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W04-F013",
+   "priority": "P3",
+   "subsystem": "Blend weights",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W04-F014",
+   "priority": "P3",
+   "subsystem": "Backtesting",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W04-F015",
+   "priority": "P3",
+   "subsystem": "Model registry",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W04-F016",
+   "priority": "P3",
+   "subsystem": "Model registry / Hill curves",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W05-F001",
+   "priority": "P1",
+   "subsystem": "Source health surface",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W05-F002",
+   "priority": "P2",
+   "subsystem": "Source health API",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W05-F003",
+   "priority": "P1",
+   "subsystem": "Source CSV ingestion",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W05-F004",
+   "priority": "P1",
+   "subsystem": "Contract validation",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W05-F005",
+   "priority": "P2",
+   "subsystem": "KTC crowd ingestion / FAAB",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W05-F006",
+   "priority": "P1",
+   "subsystem": "Pick ingestion / blend",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W05-F007",
+   "priority": "P2",
+   "subsystem": "Raw ingest scaffold",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W05-F008",
+   "priority": "P2",
+   "subsystem": "Source coverage monitoring",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W05-F009",
+   "priority": "P2",
+   "subsystem": "Freshness reporting",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W05-F010",
+   "priority": "P3",
+   "subsystem": "Source ingestion chain",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W05-F011",
+   "priority": "P3",
+   "subsystem": "Source coverage accounting",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W05-F012",
+   "priority": "P3",
+   "subsystem": "Refresh scheduling",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W06-F001",
+   "priority": "P1",
+   "subsystem": "Player identity - cross-source name join",
+   "closure": "open"
+  },
+  {
+   "id": "W06-F002",
+   "priority": "P2",
+   "subsystem": "Identity validation / quarantine pass",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W06-F003",
+   "priority": "P1",
+   "subsystem": "Unified identity mapper - live consumer",
+   "closure": "closed"
+  },
+  {
+   "id": "W06-F004",
+   "priority": "P2",
+   "subsystem": "Manual identity overrides",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W06-F005",
+   "priority": "P2",
+   "subsystem": "Identity confidence scoring",
+   "closure": "open"
+  },
+  {
+   "id": "W06-F006",
+   "priority": "P2",
+   "subsystem": "Unified identity mapper - fuzzy rung",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W06-F007",
+   "priority": "P3",
+   "subsystem": "Unified identity mapper - batch path",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W06-F008",
+   "priority": "P2",
+   "subsystem": "Pick identity",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W06-F009",
+   "priority": "P3",
+   "subsystem": "Source CSV identity join",
+   "closure": "closed"
+  },
+  {
+   "id": "W06-F010",
+   "priority": "P2",
+   "subsystem": "Identity scaffold surface",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W06-F011",
+   "priority": "P3",
+   "subsystem": "Sleeper roster identity",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W06-F012",
+   "priority": "P3",
+   "subsystem": "Sleeper roster identity",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W06-F013",
+   "priority": "P3",
+   "subsystem": "Terminal identity backfill",
+   "closure": "open"
+  },
+  {
+   "id": "W06-F014",
+   "priority": "P3",
+   "subsystem": "Source CSV identity join - coverage",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W07-F001",
+   "priority": "P0",
+   "subsystem": "Rankings surface / override pipeline",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W07-F002",
+   "priority": "P1",
+   "subsystem": "Settings",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W07-F003",
+   "priority": "P1",
+   "subsystem": "buildRows materializer",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W07-F004",
+   "priority": "P1",
+   "subsystem": "Rankings display layer",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W07-F005",
+   "priority": "P2",
+   "subsystem": "Rankings override payload",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W07-F006",
+   "priority": "P3",
+   "subsystem": "Valuation mode",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W07-F007",
+   "priority": "P3",
+   "subsystem": "Rankings surface / settings / export",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W07-F008",
+   "priority": "P3",
+   "subsystem": "League-adjusted valuation overlay",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W07-F009",
+   "priority": "P3",
+   "subsystem": "buildRows materializer",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F001",
+   "priority": "P0",
+   "subsystem": "Trade calculator value source",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W08-F002",
+   "priority": "P1",
+   "subsystem": "Trade verdict copy",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F003",
+   "priority": "P1",
+   "subsystem": "Trade verdict math",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F004",
+   "priority": "P1",
+   "subsystem": "Trade asset picker",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F005",
+   "priority": "P1",
+   "subsystem": "Pick ownership / asset identity",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F006",
+   "priority": "P2",
+   "subsystem": "Trade asset pricing",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F007",
+   "priority": "P1",
+   "subsystem": "Trade value modes",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F008",
+   "priority": "P2",
+   "subsystem": "KTC export",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W08-F009",
+   "priority": "P3",
+   "subsystem": "Trade verdict math",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W08-F010",
+   "priority": "P3",
+   "subsystem": "KTC VA port",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F011",
+   "priority": "P2",
+   "subsystem": "Trade calculator disclosure",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F012",
+   "priority": "P2",
+   "subsystem": "Trade simulator",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W08-F013",
+   "priority": "P3",
+   "subsystem": "Trade side management",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W08-F014",
+   "priority": "P3",
+   "subsystem": "Cross-market value comparability",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W08-F015",
+   "priority": "P3",
+   "subsystem": "Monte Carlo trade simulator",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W09-F001",
+   "priority": "P1",
+   "subsystem": "Trade suggestions",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W09-F002",
+   "priority": "P1",
+   "subsystem": "Trade finder",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W09-F003",
+   "priority": "P1",
+   "subsystem": "Trade finder",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W09-F004",
+   "priority": "P1",
+   "subsystem": "Trade suggestions",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W09-F005",
+   "priority": "P1",
+   "subsystem": "Monte Carlo trade simulator",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W09-F006",
+   "priority": "P1",
+   "subsystem": "Valuation lens threading",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W09-F007",
+   "priority": "P1",
+   "subsystem": "Frontend bridge routes",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W09-F008",
+   "priority": "P2",
+   "subsystem": "Trade finder",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W09-F009",
+   "priority": "P2",
+   "subsystem": "Trade finder",
+   "closure": "open"
+  },
+  {
+   "id": "W09-F010",
+   "priority": "P3",
+   "subsystem": "Trade finder",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W09-F011",
+   "priority": "P2",
+   "subsystem": "Trade finder",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W09-F012",
+   "priority": "P2",
+   "subsystem": "Trade finder",
+   "closure": "open"
+  },
+  {
+   "id": "W09-F013",
+   "priority": "P3",
+   "subsystem": "Trade suggestions",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W09-F014",
+   "priority": "P3",
+   "subsystem": "Trade finder",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W09-F015",
+   "priority": "P2",
+   "subsystem": "Partner fit and acceptance",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W09-F016",
+   "priority": "P2",
+   "subsystem": "Monte Carlo trade simulator",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W10-F001",
+   "priority": "P1",
+   "subsystem": "Draft auction bid engine",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W10-F002",
+   "priority": "P0",
+   "subsystem": "Draft slot accounting",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W10-F003",
+   "priority": "P1",
+   "subsystem": "Rookie auction optimizer",
+   "closure": "open"
+  },
+  {
+   "id": "W10-F004",
+   "priority": "P1",
+   "subsystem": "Draft vendor-comparison panels",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W10-F005",
+   "priority": "P2",
+   "subsystem": "Draft vendor-comparison panels",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W10-F006",
+   "priority": "P2",
+   "subsystem": "Draft inflation model",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W10-F007",
+   "priority": "P2",
+   "subsystem": "Draft league scoping",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W10-F008",
+   "priority": "P2",
+   "subsystem": "Draft capital endpoint",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W10-F009",
+   "priority": "P3",
+   "subsystem": "Draft capital fallback",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W10-F010",
+   "priority": "P3",
+   "subsystem": "Draft capital endpoint auth",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W10-F011",
+   "priority": "P2",
+   "subsystem": "Draft workspace persistence",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W10-F012",
+   "priority": "P2",
+   "subsystem": "Rookie pick valuation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W10-F013",
+   "priority": "P2",
+   "subsystem": "Draft roster-fit accounting",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W10-F014",
+   "priority": "P3",
+   "subsystem": "Auction power lens",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W10-F015",
+   "priority": "P3",
+   "subsystem": "Draft seed data",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W10-F016",
+   "priority": "P3",
+   "subsystem": "Draft capital workbook parse",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W10-F017",
+   "priority": "P3",
+   "subsystem": "Draft UI",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W11-F001",
+   "priority": "P0",
+   "subsystem": "FAAB recommender / league analytics",
+   "closure": "closed"
+  },
+  {
+   "id": "W11-F002",
+   "priority": "P2",
+   "subsystem": "FAAB recommender",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W11-F003",
+   "priority": "P1",
+   "subsystem": "FAAB recommender",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W11-F004",
+   "priority": "P1",
+   "subsystem": "FAAB recommender",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W11-F005",
+   "priority": "P1",
+   "subsystem": "Waivers page",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W11-F006",
+   "priority": "P1",
+   "subsystem": "Waivers page",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W11-F007",
+   "priority": "P1",
+   "subsystem": "Waivers page / FAAB recommender",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W11-F008",
+   "priority": "P2",
+   "subsystem": "FAAB recommender",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W11-F009",
+   "priority": "P2",
+   "subsystem": "FAAB recommender",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W11-F010",
+   "priority": "P2",
+   "subsystem": "FAAB recommender / league analytics",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W11-F011",
+   "priority": "P2",
+   "subsystem": "FAAB recommender",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W11-F012",
+   "priority": "P2",
+   "subsystem": "FAAB recommender",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W11-F013",
+   "priority": "P2",
+   "subsystem": "FAAB recommender",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W11-F014",
+   "priority": "P3",
+   "subsystem": "FAAB recommender",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W11-F015",
+   "priority": "P3",
+   "subsystem": "FAAB contention",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W11-F016",
+   "priority": "P3",
+   "subsystem": "League analytics",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W11-F017",
+   "priority": "P3",
+   "subsystem": "Waiver suggestions",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W11-F018",
+   "priority": "P3",
+   "subsystem": "FAAB contention",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W11-F019",
+   "priority": "P3",
+   "subsystem": "FAAB recommender",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W11-F020",
+   "priority": "P3",
+   "subsystem": "Waivers page / FAAB recommender",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W11-F021",
+   "priority": "P3",
+   "subsystem": "Waivers page",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W11-F022",
+   "priority": "P3",
+   "subsystem": "Waivers page",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W12-F001",
+   "priority": "P1",
+   "subsystem": "Directional labels / market-gap family",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W12-F002",
+   "priority": "P0",
+   "subsystem": "Directional labels / market-gap family",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W12-F003",
+   "priority": "P1",
+   "subsystem": "Directional labels \u2014 architecture",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W12-F004",
+   "priority": "P1",
+   "subsystem": "Directional labels / edge panels",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W12-F005",
+   "priority": "P1",
+   "subsystem": "Signal alerts / hysteresis",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W12-F006",
+   "priority": "P1",
+   "subsystem": "Alerting",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W12-F007",
+   "priority": "P1",
+   "subsystem": "Directional labels / confidence",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W12-F008",
+   "priority": "P1",
+   "subsystem": "Directional labels / source taxonomy",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W12-F009",
+   "priority": "P2",
+   "subsystem": "Directional labels / momentum",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W12-F010",
+   "priority": "P2",
+   "subsystem": "Directional labels / IDP coverage",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W12-F011",
+   "priority": "P2",
+   "subsystem": "Rule engines / evidence honesty",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W12-F012",
+   "priority": "P2",
+   "subsystem": "Directional labels / architecture",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W12-F013",
+   "priority": "P2",
+   "subsystem": "Rule engines / thresholds",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W12-F014",
+   "priority": "P3",
+   "subsystem": "Directional labels / constants",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W12-F015",
+   "priority": "P3",
+   "subsystem": "Directional labels / failure honesty",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W13-F001",
+   "priority": "P1",
+   "subsystem": "BDVM projections / realized scoring",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W13-F002",
+   "priority": "P1",
+   "subsystem": "BDVM roster analysis",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W13-F003",
+   "priority": "P1",
+   "subsystem": "BDVM market comparison / signals",
+   "closure": "open"
+  },
+  {
+   "id": "W13-F004",
+   "priority": "P2",
+   "subsystem": "BDVM pick valuation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W13-F005",
+   "priority": "P2",
+   "subsystem": "BDVM API + frontend surfaces",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W13-F006",
+   "priority": "P2",
+   "subsystem": "BDVM parameters / validation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W13-F007",
+   "priority": "P3",
+   "subsystem": "BDVM engine parity",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W13-F008",
+   "priority": "P3",
+   "subsystem": "BDVM market isolation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W13-F009",
+   "priority": "P3",
+   "subsystem": "BDVM curves / survival",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W13-F010",
+   "priority": "P2",
+   "subsystem": "BDVM surplus",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W13-F011",
+   "priority": "P3",
+   "subsystem": "BDVM value scale",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W13-F012",
+   "priority": "P3",
+   "subsystem": "BDVM frontend join",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W13-F013",
+   "priority": "P3",
+   "subsystem": "BDVM pick valuation",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W13-F014",
+   "priority": "P3",
+   "subsystem": "BDVM market signals",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W13-F015",
+   "priority": "P3",
+   "subsystem": "BDVM strategy currencies",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W13-F016",
+   "priority": "P3",
+   "subsystem": "BDVM uncertainty",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W13-F017",
+   "priority": "P3",
+   "subsystem": "BDVM API adapter",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W14-F001",
+   "priority": "P2",
+   "subsystem": "Consensus Edge \u2014 Sharp Flow component",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W14-F002",
+   "priority": "P2",
+   "subsystem": "Consensus Edge \u2014 Sharp Flow component",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W14-F003",
+   "priority": "P2",
+   "subsystem": "Consensus Edge \u2014 mispricing / presentation",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W14-F004",
+   "priority": "P3",
+   "subsystem": "Consensus Edge \u2014 fair value",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W14-F005",
+   "priority": "P3",
+   "subsystem": "Consensus Edge \u2014 scoring, classification, UI",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W14-F006",
+   "priority": "P3",
+   "subsystem": "Consensus Edge vs Sharp Buy/Sell Tracker",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W14-F007",
+   "priority": "P3",
+   "subsystem": "Consensus Edge \u2014 flag state",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W14-F008",
+   "priority": "P3",
+   "subsystem": "Consensus Edge \u2014 revalidation workflow",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W14-F009",
+   "priority": "P3",
+   "subsystem": "Consensus Edge \u2014 route surface",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W14-F010",
+   "priority": "P3",
+   "subsystem": "Consensus Edge \u2014 snapshot store",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W15-F001",
+   "priority": "P3",
+   "subsystem": "Sharp cohort / Sharp Tracker / Sharp Roster Percentage",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W15-F002",
+   "priority": "P2",
+   "subsystem": "Sharp Score v2",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W15-F003",
+   "priority": "P2",
+   "subsystem": "Sharp Score v2 qualification bar",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W15-F004",
+   "priority": "P2",
+   "subsystem": "Sharp Score v2",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W15-F005",
+   "priority": "P2",
+   "subsystem": "Sharp Score v2",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W15-F006",
+   "priority": "P3",
+   "subsystem": "Sharp Score v2 eligibility gates",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W15-F007",
+   "priority": "P2",
+   "subsystem": "Sharp cohort evidence assembly",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W15-F008",
+   "priority": "P2",
+   "subsystem": "Sharp cohort",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W15-F009",
+   "priority": "P1",
+   "subsystem": "Sharp Roster Percentage",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W15-F010",
+   "priority": "P2",
+   "subsystem": "Sharp Roster Percentage",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W15-F011",
+   "priority": "P2",
+   "subsystem": "Sharp operations workflows",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W15-F012",
+   "priority": "P3",
+   "subsystem": "Sharp operations workflows",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W15-F013",
+   "priority": "P3",
+   "subsystem": "Sharp Buy/Sell Tracker",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W15-F014",
+   "priority": "P3",
+   "subsystem": "Sharp route registration",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W15-F015",
+   "priority": "P3",
+   "subsystem": "Sharp cohort / qualification",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W15-F016",
+   "priority": "P3",
+   "subsystem": "Sharp Roster Percentage",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W15-F017",
+   "priority": "P3",
+   "subsystem": "Sharp cohort / performance",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W15-F018",
+   "priority": "P3",
+   "subsystem": "Sharp API bridge routes",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W15-F019",
+   "priority": "P2",
+   "subsystem": "Sharp Score v2",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W15-F020",
+   "priority": "P3",
+   "subsystem": "Sharp cohort / FFPC configuration",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W15-F021",
+   "priority": "P3",
+   "subsystem": "Sharp Score v2 documentation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W16-F001",
+   "priority": "P3",
+   "subsystem": "Insider Trading / Sharp separation",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W16-F002",
+   "priority": "P3",
+   "subsystem": "Insider Trading ledger",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F003",
+   "priority": "P2",
+   "subsystem": "Insider Trading UI",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F004",
+   "priority": "P2",
+   "subsystem": "Insider Trading coverage honesty",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F005",
+   "priority": "P2",
+   "subsystem": "Insider Trading board",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F006",
+   "priority": "P3",
+   "subsystem": "Insider Trading member profile",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F007",
+   "priority": "P2",
+   "subsystem": "Insider Trading waiver surface",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F008",
+   "priority": "P3",
+   "subsystem": "Insider Trading drill-down",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F009",
+   "priority": "P3",
+   "subsystem": "Insider Trading signal metrics",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F010",
+   "priority": "P3",
+   "subsystem": "Insider Trading schema",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F011",
+   "priority": "P3",
+   "subsystem": "Insider Trading refresh",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W16-F012",
+   "priority": "P3",
+   "subsystem": "Insider Trading data state",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F013",
+   "priority": "P3",
+   "subsystem": "Insider Trading board",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W16-F014",
+   "priority": "P3",
+   "subsystem": "Documentation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W16-F015",
+   "priority": "P3",
+   "subsystem": "Insider Trading frontend plumbing",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W16-F016",
+   "priority": "P3",
+   "subsystem": "Insider Trading docs",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W17-F001",
+   "priority": "P0",
+   "subsystem": "ROS playoff/championship Monte Carlo",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W17-F002",
+   "priority": "P0",
+   "subsystem": "ROS buyer/seller direction",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W17-F003",
+   "priority": "P3",
+   "subsystem": "ROS isolation invariant",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W17-F004",
+   "priority": "P3",
+   "subsystem": "ROS aggregate freshness",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W17-F005",
+   "priority": "P2",
+   "subsystem": "ROS aggregate identity",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W17-F006",
+   "priority": "P3",
+   "subsystem": "Best-ball lineup optimizer",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W17-F007",
+   "priority": "P2",
+   "subsystem": "Best-ball weekly scoring model",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W17-F008",
+   "priority": "P2",
+   "subsystem": "Monte Carlo convergence reporting",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W17-F009",
+   "priority": "P2",
+   "subsystem": "ROS team-strength composite",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W17-F010",
+   "priority": "P2",
+   "subsystem": "ROS buyer/seller direction",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W17-F011",
+   "priority": "P2",
+   "subsystem": "ROS playoff bracket",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W17-F012",
+   "priority": "P2",
+   "subsystem": "ROS source registry",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W17-F013",
+   "priority": "P2",
+   "subsystem": "ROS data retention",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W18-F001",
+   "priority": "P1",
+   "subsystem": "League registry / rankings routing",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W18-F002",
+   "priority": "P1",
+   "subsystem": "Sleeper overlay / contract meta",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W18-F003",
+   "priority": "P1",
+   "subsystem": "Realized fantasy points / BDVM fundamentals",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W18-F004",
+   "priority": "P2",
+   "subsystem": "Realized points endpoint",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W18-F005",
+   "priority": "P2",
+   "subsystem": "League comparison",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W18-F006",
+   "priority": "P2",
+   "subsystem": "Draft board / roster gaps",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W18-F007",
+   "priority": "P3",
+   "subsystem": "Scoring adjustment / baseline comparison",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W18-F008",
+   "priority": "P3",
+   "subsystem": "League config snapshot refresh",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W18-F009",
+   "priority": "P3",
+   "subsystem": "League configuration",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W18-F010",
+   "priority": "P3",
+   "subsystem": "Exact scoring engine",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W18-F011",
+   "priority": "P2",
+   "subsystem": "League registry",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W19-F001",
+   "priority": "P1",
+   "subsystem": "Public league \u2014 records / history / streaks / luck",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W19-F002",
+   "priority": "P1",
+   "subsystem": "Public league \u2014 history",
+   "closure": "closed"
+  },
+  {
+   "id": "W19-F003",
+   "priority": "P1",
+   "subsystem": "Public league \u2014 activity / trade grading",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W19-F004",
+   "priority": "P1",
+   "subsystem": "Public league \u2014 awards",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W19-F005",
+   "priority": "P2",
+   "subsystem": "Public league \u2014 labelling",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W19-F006",
+   "priority": "P2",
+   "subsystem": "Public league \u2014 superlatives",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W19-F007",
+   "priority": "P2",
+   "subsystem": "Public league \u2014 navigation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W19-F008",
+   "priority": "P2",
+   "subsystem": "Public league \u2014 playoff odds",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W19-F009",
+   "priority": "P3",
+   "subsystem": "Public league \u2014 trade grading",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W19-F010",
+   "priority": "P3",
+   "subsystem": "Public league \u2014 records / awards / player journey",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W19-F011",
+   "priority": "P3",
+   "subsystem": "Public league \u2014 contract boundary",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W19-F012",
+   "priority": "P3",
+   "subsystem": "Public league \u2014 routing",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W19-F013",
+   "priority": "P3",
+   "subsystem": "Public league \u2014 archives",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W19-F014",
+   "priority": "P2",
+   "subsystem": "Public league \u2014 narratives / league media",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W19-F015",
+   "priority": "P3",
+   "subsystem": "Public league \u2014 routing / rendering",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W19-F016",
+   "priority": "P2",
+   "subsystem": "Public league \u2014 archives UI",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W19-F017",
+   "priority": "P2",
+   "subsystem": "Public league \u2014 records / streaks",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F001",
+   "priority": "P1",
+   "subsystem": "Roster intelligence / gameplan",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W20-F002",
+   "priority": "P0",
+   "subsystem": "Team direction (ROS)",
+   "closure": "closed"
+  },
+  {
+   "id": "W20-F003",
+   "priority": "P1",
+   "subsystem": "Terminal / team aggregates",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F004",
+   "priority": "P1",
+   "subsystem": "Terminal / portfolio panel",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F005",
+   "priority": "P1",
+   "subsystem": "Terminal / portfolio panel",
+   "closure": "open"
+  },
+  {
+   "id": "W20-F006",
+   "priority": "P1",
+   "subsystem": "Team direction",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W20-F007",
+   "priority": "P1",
+   "subsystem": "Team strength (/rosters)",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W20-F008",
+   "priority": "P1",
+   "subsystem": "Team direction (/phases)",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W20-F009",
+   "priority": "P2",
+   "subsystem": "Team direction (/phases)",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F010",
+   "priority": "P1",
+   "subsystem": "Roster intelligence / value rollups",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F011",
+   "priority": "P2",
+   "subsystem": "Roster intelligence / positional needs",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F012",
+   "priority": "P2",
+   "subsystem": "Roster intelligence / concentration",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F013",
+   "priority": "P2",
+   "subsystem": "Team direction / override",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F014",
+   "priority": "P2",
+   "subsystem": "Terminal / signals",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F015",
+   "priority": "P2",
+   "subsystem": "Roster intelligence / recommendations",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W20-F016",
+   "priority": "P2",
+   "subsystem": "Team direction (ROS)",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W21-F001",
+   "priority": "P1",
+   "subsystem": "News \u2192 value (injury impact)",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W21-F002",
+   "priority": "P3",
+   "subsystem": "BDVM structured events",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W21-F003",
+   "priority": "P1",
+   "subsystem": "Terminal signals / news join",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W21-F004",
+   "priority": "P2",
+   "subsystem": "nfl_data realized points / ESPN per-player news",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W21-F005",
+   "priority": "P2",
+   "subsystem": "News providers",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W21-F006",
+   "priority": "P2",
+   "subsystem": "BDVM structured events",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W21-F007",
+   "priority": "P2",
+   "subsystem": "News \u2192 BDVM events / player attribution",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W21-F008",
+   "priority": "P2",
+   "subsystem": "BDVM event schema",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W21-F009",
+   "priority": "P2",
+   "subsystem": "Usage / role signals",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W21-F010",
+   "priority": "P3",
+   "subsystem": "Terminal signals UI",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W22-F001",
+   "priority": "P1",
+   "subsystem": "Auth / login redirect",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W22-F002",
+   "priority": "P1",
+   "subsystem": "Rate limiting",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W22-F003",
+   "priority": "P1",
+   "subsystem": "Authentication",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W22-F004",
+   "priority": "P2",
+   "subsystem": "Authentication / configuration",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W22-F005",
+   "priority": "P2",
+   "subsystem": "Public API allowlist / observability",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W22-F006",
+   "priority": "P3",
+   "subsystem": "Public/private page boundary",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W22-F007",
+   "priority": "P2",
+   "subsystem": "Authorization",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W22-F008",
+   "priority": "P3",
+   "subsystem": "Public/private data boundary",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W22-F009",
+   "priority": "P3",
+   "subsystem": "Cache correctness / privacy",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W23-F001",
+   "priority": "P2",
+   "subsystem": "Operator alerting",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W23-F002",
+   "priority": "P2",
+   "subsystem": "Scrape lifecycle / monitoring",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W23-F003",
+   "priority": "P2",
+   "subsystem": "Scrape lifecycle",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W23-F004",
+   "priority": "P2",
+   "subsystem": "CI / Sharp production verification",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W23-F005",
+   "priority": "P2",
+   "subsystem": "CI / Sharp production verification",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W23-F006",
+   "priority": "P2",
+   "subsystem": "Monitoring / staleness",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W23-F007",
+   "priority": "P2",
+   "subsystem": "Monitoring UI",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W23-F008",
+   "priority": "P2",
+   "subsystem": "Monitoring / status contract",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W23-F009",
+   "priority": "P2",
+   "subsystem": "CI / model registry alerting",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W23-F010",
+   "priority": "P2",
+   "subsystem": "Data refresh pipeline",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W23-F011",
+   "priority": "P2",
+   "subsystem": "Production monitoring / backup",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W23-F012",
+   "priority": "P3",
+   "subsystem": "Operator alerting",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W23-F013",
+   "priority": "P3",
+   "subsystem": "Deployment / Sharp ingestion",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W23-F014",
+   "priority": "P3",
+   "subsystem": "Deployment / alerting",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W23-F015",
+   "priority": "P3",
+   "subsystem": "Scripts / tooling",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W23-F016",
+   "priority": "P3",
+   "subsystem": "CI",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W23-F017",
+   "priority": "P2",
+   "subsystem": "Admin / review",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W24-F001",
+   "priority": "P1",
+   "subsystem": "Test suite integrity",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W24-F002",
+   "priority": "P1",
+   "subsystem": "Test suite integrity / roster intelligence",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W24-F003",
+   "priority": "P2",
+   "subsystem": "Test suite integrity / CI gating",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W24-F004",
+   "priority": "P1",
+   "subsystem": "Test suite integrity / E2E",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W24-F005",
+   "priority": "P2",
+   "subsystem": "Test suite integrity / valuation pipeline",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W24-F006",
+   "priority": "P2",
+   "subsystem": "Test suite integrity / league routing",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W24-F007",
+   "priority": "P2",
+   "subsystem": "Test suite integrity / valuation pipeline",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W24-F008",
+   "priority": "P3",
+   "subsystem": "Test suite integrity / consensus edge",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W24-F009",
+   "priority": "P3",
+   "subsystem": "Test suite integrity",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W24-F010",
+   "priority": "P3",
+   "subsystem": "Test suite integrity",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W25-F001",
+   "priority": "P2",
+   "subsystem": "Feature flags / Consensus Edge",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W25-F002",
+   "priority": "P2",
+   "subsystem": "API contract / payload size",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W25-F003",
+   "priority": "P1",
+   "subsystem": "Rankings materializer / documentation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W25-F004",
+   "priority": "P2",
+   "subsystem": "Draft capital / documentation",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W25-F005",
+   "priority": "P2",
+   "subsystem": "Multi-league contract annotations",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W25-F006",
+   "priority": "P2",
+   "subsystem": "Architecture decision records",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W25-F007",
+   "priority": "P2",
+   "subsystem": "API contract / documentation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W25-F008",
+   "priority": "P3",
+   "subsystem": "Documentation / scraper",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W25-F009",
+   "priority": "P3",
+   "subsystem": "Documentation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W25-F010",
+   "priority": "P1",
+   "subsystem": "Audit reconciliation",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W25-F011",
+   "priority": "P2",
+   "subsystem": "Documentation corpus",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W26-F001",
+   "priority": "P1",
+   "subsystem": "API payload shaping / device profile",
+   "closure": "closed"
+  },
+  {
+   "id": "W26-F002",
+   "priority": "P2",
+   "subsystem": "Frontend data layer / app shell",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W26-F003",
+   "priority": "P1",
+   "subsystem": "Draft board",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W26-F004",
+   "priority": "P1",
+   "subsystem": "BDVM engine / API adapter",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W26-F005",
+   "priority": "P2",
+   "subsystem": "Caching",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W26-F006",
+   "priority": "P2",
+   "subsystem": "Realized points / nfl_data ingest",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W26-F007",
+   "priority": "P2",
+   "subsystem": "Caching / nfl_data ingest",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W26-F008",
+   "priority": "P2",
+   "subsystem": "Draft capital / KTC ingest",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W26-F009",
+   "priority": "P2",
+   "subsystem": "HTTP caching",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W26-F010",
+   "priority": "P2",
+   "subsystem": "Terminal / movers",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W26-F011",
+   "priority": "P3",
+   "subsystem": "Trade calculator (display)",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W26-F012",
+   "priority": "P2",
+   "subsystem": "Team strength UI",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W26-F013",
+   "priority": "P2",
+   "subsystem": "Rankings board / disclosure",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W26-F014",
+   "priority": "P2",
+   "subsystem": "Accessibility",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W26-F015",
+   "priority": "P2",
+   "subsystem": "Mobile layout",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W26-F016",
+   "priority": "P3",
+   "subsystem": "Accessibility / keyboard navigation",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W26-F017",
+   "priority": "P2",
+   "subsystem": "Mobile ergonomics",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W26-F018",
+   "priority": "P3",
+   "subsystem": "Caching / multi-league",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W26-F019",
+   "priority": "P3",
+   "subsystem": "Documentation accuracy",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W27-F001",
+   "priority": "P1",
+   "subsystem": "Market-gap edge signal",
+   "closure": "open"
+  },
+  {
+   "id": "W27-F002",
+   "priority": "P1",
+   "subsystem": "Trade suggestions",
+   "closure": "closed"
+  },
+  {
+   "id": "W27-F003",
+   "priority": "P1",
+   "subsystem": "Angle / package builder",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W27-F004",
+   "priority": "P2",
+   "subsystem": "Angle 1-for-1 pivot",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W27-F005",
+   "priority": "P1",
+   "subsystem": "Market-gap edge signal / TE premium",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W27-F006",
+   "priority": "P3",
+   "subsystem": "ROS aggregate",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W27-F007",
+   "priority": "P2",
+   "subsystem": "Position identity / roster construction",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W27-F008",
+   "priority": "P3",
+   "subsystem": "Cross-market normalization",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W27-F009",
+   "priority": "P3",
+   "subsystem": "TE premium",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W27-F010",
+   "priority": "P3",
+   "subsystem": "Trade finder",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W27-F011",
+   "priority": "P3",
+   "subsystem": "Documentation / trade finder",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W27-F012",
+   "priority": "P2",
+   "subsystem": "IDP valuation",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W28-F002",
+   "priority": "P3",
+   "subsystem": "Team assignment",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W28-F003",
+   "priority": "P2",
+   "subsystem": "Team assignment",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W28-F004",
+   "priority": "P3",
+   "subsystem": "Team assignment",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W28-F005",
+   "priority": "P3",
+   "subsystem": "Team assignment",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W28-F006",
+   "priority": "P3",
+   "subsystem": "Team assignment",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W29-F001",
+   "priority": "P1",
+   "subsystem": "Trade suggestions / value architecture",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W29-F002",
+   "priority": "P1",
+   "subsystem": "League-adjusted valuation lens",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W29-F003",
+   "priority": "P2",
+   "subsystem": "Exports / release artifacts",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W29-F004",
+   "priority": "P2",
+   "subsystem": "Trade history grading",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W29-F005",
+   "priority": "P3",
+   "subsystem": "ROS context tags",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W29-F006",
+   "priority": "P3",
+   "subsystem": "Rankings display / prior-audit reconciliation",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W29-F007",
+   "priority": "P2",
+   "subsystem": "League-adjusted valuation / ROS coupling",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W29-F008",
+   "priority": "P3",
+   "subsystem": "Trade calculator value selection",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F001",
+   "priority": "P1",
+   "subsystem": "Playoff odds",
+   "closure": "closed"
+  },
+  {
+   "id": "W30-F002",
+   "priority": "P1",
+   "subsystem": "Playoff odds",
+   "closure": "open"
+  },
+  {
+   "id": "W30-F003",
+   "priority": "P1",
+   "subsystem": "Power rankings",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W30-F004",
+   "priority": "P2",
+   "subsystem": "Power rankings",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F005",
+   "priority": "P2",
+   "subsystem": "Trade fairness",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W30-F006",
+   "priority": "P2",
+   "subsystem": "Trade suggestions",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W30-F007",
+   "priority": "P2",
+   "subsystem": "Shared math",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W30-F008",
+   "priority": "P1",
+   "subsystem": "Value pipeline",
+   "closure": "open"
+  },
+  {
+   "id": "W30-F009",
+   "priority": "P2",
+   "subsystem": "Documentation / governance",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W30-F010",
+   "priority": "P3",
+   "subsystem": "Documentation / governance",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F011",
+   "priority": "P3",
+   "subsystem": "Dead code",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F012",
+   "priority": "P2",
+   "subsystem": "Buy/Sell signals",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F013",
+   "priority": "P3",
+   "subsystem": "Dead code",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F014",
+   "priority": "P3",
+   "subsystem": "Adapters",
+   "closure": "unsafe-to-rerun"
+  },
+  {
+   "id": "W30-F015",
+   "priority": "P3",
+   "subsystem": "Dead code",
+   "closure": "repro_failed_nonzero"
+  },
+  {
+   "id": "W30-F016",
+   "priority": "P2",
+   "subsystem": "Team classification",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F017",
+   "priority": "P2",
+   "subsystem": "Roster strength",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F018",
+   "priority": "P3",
+   "subsystem": "Value pipeline",
+   "closure": "repro_rotted"
+  },
+  {
+   "id": "W30-F019",
+   "priority": "P2",
+   "subsystem": "TE correction",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W30-F020",
+   "priority": "P3",
+   "subsystem": "Tiering",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F021",
+   "priority": "P3",
+   "subsystem": "Roster strength",
+   "closure": "ran_clean_changed_or_nonquantitative"
+  },
+  {
+   "id": "W30-F022",
+   "priority": "P3",
+   "subsystem": "Dead code",
+   "closure": "reproduces_august_observation"
+  },
+  {
+   "id": "W31-F001",
+   "priority": "P2",
+   "subsystem": "Data refresh and deployment hygiene",
+   "closure": "unsafe-to-rerun"
+  }
+ ]
+}
