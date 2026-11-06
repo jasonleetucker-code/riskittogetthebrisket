@@ -17,7 +17,6 @@ from src.ros.idp_opportunity.prospective_eval import (
     ProvSelection,
     evaluate_week,
     holm_adjust,
-    script_frozen_path_changed,
     select_prov,
     verify_gate,
 )
@@ -44,7 +43,6 @@ FROZEN_BASE = {
         "slots": ["QB", "DL", "DL", "LB", "DB", "DB"],
     },
 }
-OLD_SCRIPT = "X = 1\n\ndef cmd_predict():\n    return 1\n\ndef main():\n    return 0\n"
 
 
 def _facts(**kw) -> GitFacts:
@@ -53,8 +51,6 @@ def _facts(**kw) -> GitFacts:
         receipt_clean=True,
         frozen_blob_now=FP_BLOB,
         code_blobs_now=dict(RECEIPT["code"]),
-        old_script_source=OLD_SCRIPT,
-        new_script_source=OLD_SCRIPT,
     )
     base.update(kw)
     return GitFacts(**base)
@@ -129,15 +125,14 @@ def test_deviation_flag_never_waives_receipt_timing_or_finality():
     assert not _gate(receipt=None, allow_deviation=True).ok
 
 
-def test_script_blob_change_outside_frozen_path_is_a_note_not_a_deviation():
+def test_receipted_script_blob_mismatch_refuses_unless_allowed():
     blobs = dict(RECEIPT["code"]) | {"scripts/idp_opportunity_prospective.py": "n" * 40}
-    grown = OLD_SCRIPT + "\ndef cmd_evaluate():\n    return 2\n"
-    ok = _gate(git=_facts(code_blobs_now=blobs, new_script_source=grown))
-    assert ok.ok and not ok.deviations
-    changed = OLD_SCRIPT.replace("return 1", "return 3")
-    bad = _gate(git=_facts(code_blobs_now=blobs, new_script_source=changed))
-    assert any("cmd_predict" in d for d in bad.deviations) and not bad.ok
-    assert script_frozen_path_changed(OLD_SCRIPT, grown) == []
+    g = _gate(git=_facts(code_blobs_now=blobs))
+    assert not g.ok
+    assert "deviation_without_allow_deviation" in g.refusals
+    assert any("scripts/idp_opportunity_prospective.py" in d for d in g.deviations)
+    g2 = _gate(git=_facts(code_blobs_now=blobs), allow_deviation=True)
+    assert g2.ok and g2.deviations
 
 
 def test_retrospective_waives_only_receipt_timing():
@@ -420,16 +415,3 @@ def test_holm_adjust():
     assert adj["c"] == pytest.approx(0.06)
     assert adj["b"] == pytest.approx(0.06)  # monotone
     assert adj["d"] is None
-
-
-def test_cli_refuses_weeks_before_the_first_evaluation_week():
-    import importlib.util
-    from pathlib import Path
-
-    spec = importlib.util.spec_from_file_location(
-        "_idp_prosp", Path(__file__).resolve().parents[3] / "scripts/idp_opportunity_prospective.py"
-    )
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    assert mod.main(["evaluate", "--week", "8"]) == 2
-    assert mod.main(["evaluate", "--week", "9", "--retrospective"]) == 2

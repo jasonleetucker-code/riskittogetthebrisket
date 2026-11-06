@@ -21,7 +21,7 @@ from tests.ros.idp_opportunity.test_prospective_eval import (
     _row,
 )
 
-SCRIPT = Path(__file__).resolve().parents[3] / "scripts/idp_opportunity_prospective.py"
+SCRIPT = Path(__file__).resolve().parents[3] / "scripts/idp_opportunity_prospective_evaluate.py"
 SCRIPT_REL = "scripts/idp_opportunity_prospective.py"
 
 
@@ -47,8 +47,7 @@ def test_cmd_evaluate_end_to_end(tmp_path, monkeypatch):
     frozen = {**FROZEN_BASE, "fit": diag, "params": fp.to_dict()}
     (tmp_path / mod.FROZEN).write_text(json.dumps(frozen), encoding="utf-8")
     (tmp_path / "scripts").mkdir()
-    script_text = SCRIPT.read_text(encoding="utf-8")
-    (tmp_path / SCRIPT_REL).write_text(script_text, encoding="utf-8")
+    (tmp_path / SCRIPT_REL).write_text("# stub\n", encoding="utf-8")
     (tmp_path / "src/ros/idp_opportunity").mkdir(parents=True)
     for name in ("prospective.py", "model.py", "prospective_eval.py", "evaluate.py"):
         (tmp_path / "src/ros/idp_opportunity" / name).write_text("# stub\n", encoding="utf-8")
@@ -73,7 +72,7 @@ def test_cmd_evaluate_end_to_end(tmp_path, monkeypatch):
         if a[0] == "status":
             return ""
         if a[0] == "cat-file":
-            return script_text
+            return None
         return None
 
     games_csv = tmp_path / "games.csv"
@@ -142,3 +141,22 @@ def test_cmd_evaluate_end_to_end(tmp_path, monkeypatch):
     path.unlink()
     assert mod.cmd_evaluate(args) == 2
     assert not path.exists()
+    # the receipted script blob must equal the receipt's: a different blob is a deviation
+    added[receipt_rel] = (KICK_AAA - timedelta(days=2)).isoformat()
+    blobs[SCRIPT_REL] = "n" * 40
+    assert mod.cmd_evaluate(args) == 2
+    assert not path.exists()
+    args.allow_deviation = True
+    assert mod.cmd_evaluate(args) == 0
+    assert json.loads(path.read_bytes())["label"].startswith("DEVIATION")
+
+
+def test_receipted_script_is_untouched_by_the_evaluator():
+    root = Path(__file__).resolve().parents[3]
+    receipt = json.loads(
+        (
+            root
+            / "docs/projections/evidence/idp_opportunity/prospective/freeze_receipts/week09.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert receipt["code"][SCRIPT_REL] == "beb7640f1a58e961f5a0949b007feb589a6df221"

@@ -24,7 +24,6 @@ A missing projection is an exclusion that is counted, never a 0.
 
 from __future__ import annotations
 
-import ast
 import csv
 import math
 import random
@@ -54,7 +53,6 @@ __all__ = [
     "BIAS_MARGIN",
     "BOOTSTRAP_RESAMPLES",
     "BOOTSTRAP_SEED",
-    "FROZEN_SCRIPT_EXCLUDED",
     "GateResult",
     "GitFacts",
     "ProvSelection",
@@ -76,15 +74,12 @@ BONFERRONI_FAMILIES = ("pointError", "topN", "streaming")
 #: The five challengers vs PROV (15 tests over 3 families) and four vs S0 (12 tests).
 VS_PROV = PROSPECTIVE_MODELS
 VS_S0 = ("SNAP", "OPP", "ROLE", "HYB")
-#: Script top-level names that MAY differ from the receipt's blob (the dispatcher grew an
-#: ``evaluate`` command).  Everything else defined in the receipt-time script must be
-#: byte-identical in AST — the freeze/receipt/predict path did not change.
-FROZEN_SCRIPT_EXCLUDED = frozenset({"main"})
+#: Every receipted code blob must equal the receipt's (a plain blob comparison).
 _RECEIPT_CODE_PATHS = (
     "src/ros/idp_opportunity/prospective.py",
     "src/ros/idp_opportunity/model.py",
+    "scripts/idp_opportunity_prospective.py",
 )
-_SCRIPT_PATH = "scripts/idp_opportunity_prospective.py"
 
 
 def _r(x: Any, nd: int = 6) -> Any:
@@ -141,8 +136,6 @@ class GitFacts:
     receipt_clean: bool
     frozen_blob_now: str | None
     code_blobs_now: Mapping[str, str | None]
-    old_script_source: str | None  # the script at the receipt's recorded blob
-    new_script_source: str
     frozen_params_path_clean: bool = True
 
 
@@ -160,31 +153,6 @@ class GateResult:
             "deviations": sorted(self.deviations),
             "notes": list(self.notes),
         }
-
-
-def script_frozen_path_changed(old_source: str, new_source: str) -> list[str]:
-    """Top-level names defined in ``old_source`` whose AST differs in ``new_source``.
-
-    Imports and :data:`FROZEN_SCRIPT_EXCLUDED` are skipped; new definitions are allowed."""
-
-    def defs(src: str) -> dict[str, str]:
-        out: dict[str, str] = {}
-        for node in ast.parse(src).body:
-            if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
-                out[node.name] = ast.dump(node)
-            elif isinstance(node, (ast.Assign, ast.AnnAssign)):
-                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                for t in targets:
-                    if isinstance(t, ast.Name):
-                        out[t.id] = ast.dump(node)
-        return out
-
-    old, new = defs(old_source), defs(new_source)
-    return sorted(
-        n
-        for n, d in old.items()
-        if n not in FROZEN_SCRIPT_EXCLUDED and (n not in new or new[n] != d)
-    )
 
 
 def verify_gate(
@@ -246,20 +214,6 @@ def verify_gate(
         for path in _RECEIPT_CODE_PATHS:
             if git.code_blobs_now.get(path) != code.get(path):
                 g.deviations.append(f"code_blob_differs_from_receipt:{path}")
-        if git.code_blobs_now.get(_SCRIPT_PATH) != code.get(_SCRIPT_PATH):
-            if git.old_script_source is None:
-                g.deviations.append(f"code_blob_differs_from_receipt:{_SCRIPT_PATH}")
-            else:
-                changed = script_frozen_path_changed(git.old_script_source, git.new_script_source)
-                if changed:
-                    g.deviations.append(
-                        f"code_blob_differs_from_receipt:{_SCRIPT_PATH}:{','.join(changed)}"
-                    )
-                else:
-                    g.notes.append(
-                        "script blob differs from the receipt only outside the frozen "
-                        "freeze/receipt/predict definitions (evaluate command added)"
-                    )
     if g.deviations and not allow_deviation:
         g.refusals.append("deviation_without_allow_deviation")
     g.ok = not g.refusals
