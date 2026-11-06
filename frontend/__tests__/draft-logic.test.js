@@ -1053,6 +1053,22 @@ describe("the rookie draft has no per-team slot limit", () => {
     }
   });
 
+  it("a 31-pick team is not clamped to six slots by the capital merge (audit W10-F002)", () => {
+    const feed = [
+      { team: "Heavy", auctionDollars: 685 },
+      { team: "Light", auctionDollars: 100 },
+    ];
+    const picks = Array.from({ length: 31 }, () => ({ team: "Heavy" }));
+    const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), feed, { picks });
+    const heavy = workspace.teams.find((t) => t.name === "Heavy");
+    expect(heavy.initialBudget).toBe(685);
+    expect(heavy.initialSlots).toBeUndefined();
+    const stats = computeDraftStats(workspace);
+    const row = stats.teamStats.find((t) => t.name === "Heavy");
+    expect(row.initialSlots).toBeUndefined();
+    expect(row.mdv).toBeUndefined();
+  });
+
   it("stamps no slot fields on stats or teams", () => {
     const stats = computeDraftStats(createDefaultWorkspace());
     for (const gone of [
