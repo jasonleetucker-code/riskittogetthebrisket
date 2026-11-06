@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-08-03T15:37:11Z",
-     "broad": true,
-     "rowsAdded": 0,
-     "rowsChanged": 51,
-     "rowsRemoved": 0,
-     "rowsTotal": 454
-    },
-    {
      "at": "2026-08-03T18:29:46Z",
      "broad": true,
      "rowsAdded": 0,
@@ -1936,13 +1928,21 @@
      "rowsChanged": 12,
      "rowsRemoved": 0,
      "rowsTotal": 417
+    },
+    {
+     "at": "2026-11-06T19:48:39Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 1,
+     "rowsRemoved": 0,
+     "rowsTotal": 417
     }
    ],
-   "contentSince": "2026-11-06T02:56:01Z",
-   "fingerprint": "672b60e7c461b0d0eadd9ff0",
+   "contentSince": "2026-11-06T19:48:39Z",
+   "fingerprint": "072c81c110433070942875db",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-19T19:47:46Z",
-   "lastAnyMeaningfulChangeAt": "2026-11-06T02:56:01Z",
+   "lastAnyMeaningfulChangeAt": "2026-11-06T19:48:39Z",
    "lastBroadDatasetChangeAt": "2026-11-06T02:56:01Z",
    "rowChangedAt": {
     "a.j. brown": "2026-11-05T21:20:35Z",
@@ -2342,7 +2342,7 @@
     "tyler goodson": "2026-11-04T16:41:52Z",
     "tyler higbee": "2026-11-05T21:20:35Z",
     "tyler shough": "2026-11-04T16:41:52Z",
-    "tyler warren": "2026-11-04T16:41:52Z",
+    "tyler warren": "2026-11-06T19:48:39Z",
     "tyquan thornton": "2026-11-03T23:48:40Z",
     "tyreek hill": "2026-11-04T16:41:52Z",
     "tyren montgomery": "2026-11-04T16:41:52Z",
@@ -2365,7 +2365,6 @@
    },
    "rowCount": 417,
    "rowCountHistory": [
-    393,
     393,
     438,
     435,
@@ -2390,6 +2389,7 @@
     420,
     420,
     420,
+    417,
     417,
     417,
     417,
@@ -2794,7 +2794,7 @@
     "tyler goodson": "205a52c138",
     "tyler higbee": "c328ec04a9",
     "tyler shough": "d4fedcb0fd",
-    "tyler warren": "cbb0db15a2",
+    "tyler warren": "cc01e42f86",
     "tyquan thornton": "dc5df19a3e",
     "tyreek hill": "dbbb6dee4c",
     "tyren montgomery": "155a221f52",
