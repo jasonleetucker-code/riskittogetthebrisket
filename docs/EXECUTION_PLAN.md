@@ -1,5 +1,26 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Continuous verification / QA program — owner directive, 2026-11-06 (second directive of the day)
+
+**AUTHORIZED NOW, inside the sitewide remediation program below (no second roadmap).** Record:
+`docs/owner/CONTINUOUS_QA_DIRECTIVE_2026-11-06.md`; intake MD-47 … MD-55; permanent process
+`docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md` (#2080) via `docs/AGENT_OPERATING_SYSTEM.md` §3.
+Work items CW-48 (feature-intent census + requirement → code → test → evidence matrix), CW-49 (independent
+mathematical oracles and invariants), CW-50 (regression and end-to-end journeys), CW-51 (bounded stress and
+resilience baselines), CW-52 (evidence-classified dead code / duplicate logic), CW-53 (mechanized feedback loop and
+PR verification receipt); Phase 6 security / data integrity runs through CW-05, CW-07, CW-11 and CW-37.
+
+- **Order:** Wave A blockers and perishable capture first; then the directive's priority order (critical incorrect
+  results / security / production reliability → math and scoring correctness → integration failures → behavior that
+  contradicts owner requirements → regression gaps → data integrity → measured performance → proven dead code →
+  usability), dependency-ready units in parallel, at most four workers.
+- **Delegated:** test, harness, fixture and tooling design; corrective fixes with reproducing tests; proven-safe
+  dead-code removal in small reversible PRs; bounded non-production stress runs.
+- **Not permitted:** unbounded or disruptive production load; weakening, skipping or deleting tests or gates;
+  consequential valuation, predictive, source-voting, probability or public-launch changes without their own
+  authorization and evidence; new recurring schedules outside the existing cost-conscious framework; anything the
+  sitewide section below keeps reserved.
+
 ## Sitewide audit remediation, implementation and delivery — owner directive, 2026-11-06
 
 **AUTHORIZED NOW (expands the sections below; replaces no recorded owner decision).** Record:
