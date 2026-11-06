@@ -15,6 +15,28 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-06 — Sitewide audit remediation, implementation and delivery directive
+
+Owner directive 2026-11-06 (chat, "MASTER SITEWIDE AUDIT REMEDIATION, IMPLEMENTATION & DELIVERY DIRECTIVE"). Structured
+record (every authorization, limit, decision, finding ID, gate and deliverable; prose condensed):
+`docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md`. Authorized in `docs/EXECUTION_PLAN.md` (same date). Owner
+decisions (its Part 16 table): `docs/owner/OWNER_DECISION_REGISTER.md` "Sitewide remediation directive (2026-11-06)".
+Zero-loss inventory of every input population (two 2026-11-06 audits as `DIR-01…44`, AMATH-S01…S63, the 125-item
+readiness audit + 39 findings, MD-1…MD-37, 68 open issues, 19 open PRs) mapped to canonical work items CW-01…CW-47:
+`docs/audits/remediation_2026-11-06/`. Delegated (agent-made) decisions: `docs/audits/remediation_2026-11-06/DECISIONS.md`.
+
+| ID | Requirement | Status |
+|---|---|---|
+| MD-38 | **Delegated authority.** Ordinary engineering, product, UX and evidence-based methodology decisions are delegated to the agent, chosen by correctness, predictive accuracy, decision usefulness, production safety, mathematical validity, provenance, maintainability, performance, UX clarity and cost; normal reviewed PR integration and deployment under existing CI/release gates. Limits kept: no unavailable credentials, licence/paywall bypass, spending, unauthorized root, private exposure, Sleeper writes, irreplaceable-data loss, branch-protection bypass, unvalidated model promotion, DFS / League Tycoon, or public Trade Advisor while gates are open. Value-changing methodology: research now; consequential live changes need independent outcome evidence, blast radius, rollback and the documented activation conditions | DECIDED — owner, 2026-11-06 |
+| MD-39 | **Current truth first; zero-loss reconciliation.** Rebuild the baseline from live main / production / CI; recognise superseded work (Roster Construction V1 activated and verified, #2006, #2051, #2054); one canonical work item per underlying problem with a traceability matrix proving every input row has a disposition | IN PROGRESS — inventory built (404 + 7 discovered rows → CW-01…CW-47) |
+| MD-40 | **W0-A deploy blocker.** Reproduce and correctly fix `test_no_confidence_rise_from_the_held_familys_silence` (Sonny Styles) without skipping or weakening; full hard gate; review; deploy advances | IN PROGRESS — #2061 reviewed; second hidden blocker found (MD-46) |
+| MD-41 | **W0-B production scraper outage + health (#2060).** Root-cause browser launch failures, restore collection, truthful freshness and `/api/health`, diagnostics without secrets; operator commands where root is needed | IN PROGRESS — #2062 |
+| MD-42 | **W0-C time-critical evidence.** Week 10 pre-kickoff capture with freeze receipts (kickoff 2026-11-12); Week 9 scoring; automatic first-valid 2027 pre-auction snapshot; perishable archive gaps rechecked | IN PROGRESS — receipts pushed (#2065); auction capture #2063 |
+| MD-43 | **W0-D backups, security posture, observability.** Prove backup coverage and a restore path; verify loopback / ports / headers / banners / auth boundaries without repeating applied root changes | IN PROGRESS — #2064; headers verified live 2026-11-06 |
+| MD-44 | **Waves B–F** (security/auth, scoring parity, trade identity/math, FAAB; source freshness/independence/methodology comparison; calibration ledger and IDP / Game Day / ROS research; streaming, trade intelligence, War Room, Roster Construction integration, Player File, Perfect Waivers wording, performance, navigation/a11y, Game Day UX; AMATH-S01…S63 in evidence order; dependencies, 2027 draft/auction, backlog, governance) with the directive's L0–L6 verification and 20-step model-promotion standard | AUTHORIZED — dependency order per inventory |
+| MD-45 | **Deliverables A–J** (baseline, finding registry, ranked portfolio, code/PRs, production recovery, research, product completion, delegated-decision register, closure/blocker report, handoff) as durable repository changes | IN PROGRESS |
+| MD-46 | **Discovered 2026-11-06: confidence-owner gap (second deploy blocker).** `test_idptc_cutoff_readiness::test_5` (Patrick Mahomes): withholding a source cures other Hampel rejections, so coverage rises 9/14 → 11/14, against the 2026-10-07 owner rule that losing evidence never raises confidence. `_lost_evidence_seats` seats rejections a loss causes, not ones it cures. Fix in the confidence evidence assembly behind a rollback flag; test unchanged | IN PROGRESS — CW-47 |
+
 ## Added 2026-11-01 — Master development directive: production intelligence validation, model accuracy, decision quality
 
 Owner directive 2026-11-01 (chat, "CHASE UPSIDE — MASTER DEVELOPMENT DIRECTIVE"). Recorded verbatim with decisions
