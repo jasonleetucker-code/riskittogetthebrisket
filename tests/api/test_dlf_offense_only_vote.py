@@ -225,12 +225,48 @@ def test_offense_values_do_not_move_and_moved_picks_are_tethered(boards):
             assert name in dc._TWO_WAY_PLAYERS, f"offense row {name} moved {before}->{after}"
 
 
+def _recovered_evidence(on_row, off_row):
+    """Non-held sources the restore board's outlier filter REJECTED that the
+    held board kept as votes -- evidence the hold gives back, not silence."""
+    rejected_off = set(off_row.get("droppedSources") or []) - set(_HELD)
+    kept_on = _voters(on_row) - set(on_row.get("droppedSources") or [])
+    return rejected_off & kept_on
+
+
+def test_recovered_evidence_requires_a_rejected_vote_the_hold_keeps():
+    """Synthetic (no live board): the admissible coverage / independence rise
+    needs a non-held vote rejected under the restore and kept under the hold.
+    Silence alone -- or a vote rejected on both boards, or a held source's own
+    rejection -- recovers nothing."""
+    off = {
+        "sourceRankMeta": {"dlfIdp": {}, "fantasyProsIdp": {}, "idpTradeCalc": {}},
+        "droppedSources": ["fantasyProsIdp"],
+    }
+    kept = {"sourceRankMeta": {"fantasyProsIdp": {}, "idpTradeCalc": {}}, "droppedSources": []}
+    assert _recovered_evidence(kept, off) == {"fantasyProsIdp"}
+    still_rejected = dict(kept, droppedSources=["fantasyProsIdp"])
+    assert _recovered_evidence(still_rejected, off) == set()
+    silence = {"sourceRankMeta": {"idpTradeCalc": {}}, "droppedSources": []}
+    assert _recovered_evidence(silence, dict(off, droppedSources=[])) == set()
+    held_only = dict(off, droppedSources=["dlfIdp"])
+    assert _recovered_evidence(kept, held_only) == set()
+
+
 def test_no_confidence_rise_from_the_held_familys_silence(boards):
     """A policy hold makes DLF IDP ineligible (not lost evidence) — the
     posture every declared methodology state already has (seasonal
     inactivity, the Signals IDP hold).  A row may therefore rise only where
-    DLF IDP VOTED and was itself the weak evidence (disagreeing / stale /
-    inapplicable); never via coverage or independence."""
+    DLF IDP VOTED and either
+
+    * was itself the weak evidence (disagreeing / stale / inapplicable): the
+      bottleneck is an evidence-quality axis; or
+    * its vote made the incumbent outlier filter reject ANOTHER family's
+      valid vote (the CQ-65 defect the hold exists to prevent): the held
+      board keeps that vote, so independence / coverage rise on RECOVERED
+      evidence.
+
+    Never via coverage or independence with nothing recovered -- that would
+    mean the held family's SILENCE, not evidence, had lifted the row."""
     on, off = _rows(boards[True]), _rows(boards[False])
     for name, row in on.items():
         old = off[name]
@@ -241,7 +277,15 @@ def test_no_confidence_rise_from_the_held_familys_silence(boards):
         assert _voters(old) & set(_HELD), f"{name} rose without a DLF IDP vote to lose"
         axes = old.get("confidenceAxes") or {}
         bottleneck = {ax for ax, lvl in axes.items() if lvl == old.get("confidenceBucket")}
-        assert bottleneck and bottleneck <= _EVIDENCE_QUALITY_AXES, (name, axes)
+        assert bottleneck, (name, axes)
+        if bottleneck <= _EVIDENCE_QUALITY_AXES:
+            continue
+        recovered = _recovered_evidence(row, old)
+        assert recovered, (
+            f"{name} rose through {sorted(bottleneck - _EVIDENCE_QUALITY_AXES)} "
+            "with no outlier-rejected vote recovered",
+            axes,
+        )
 
 
 def test_contract_validates_in_both_lanes_shape(boards):
