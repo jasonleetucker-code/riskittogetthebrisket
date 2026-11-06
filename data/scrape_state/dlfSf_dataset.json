@@ -736,18 +736,25 @@
      "rowsChanged": 163,
      "rowsRemoved": 0,
      "rowsTotal": 286
+    },
+    {
+     "at": "2026-11-06T20:27:40Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 286
     }
    ],
-   "contentSince": "2026-11-04T00:27:37Z",
-   "fingerprint": "a47ca6f2ab44a2e061fc2fa9",
+   "contentSince": "2026-11-06T20:27:40Z",
+   "fingerprint": "d683aa987bda50df0ece5f3e",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-21T01:18:59Z",
-   "lastAnyMeaningfulChangeAt": "2026-11-04T00:27:37Z",
+   "lastAnyMeaningfulChangeAt": "2026-11-06T20:27:40Z",
    "lastBroadDatasetChangeAt": "2026-11-04T00:27:37Z",
    "rowChangedAt": {},
    "rowCount": 286,
    "rowCountHistory": [
-    280,
     281,
     281,
     288,
@@ -776,6 +783,7 @@
     286,
     286,
     286,
+    286,
     286
    ],
    "rowHashes": {
@@ -789,7 +797,7 @@
     "amon-ra st. brown": "0e6b4bee8c",
     "anthony richardson": "c80b9a3354",
     "antonio williams": "d3ca6a5b24",
-    "ashton jeanty": "46931be809",
+    "ashton jeanty": "35837a55f1",
     "baker mayfield": "aad578e9b1",
     "bhayshul tuten": "b3c18ba0a0",
     "bijan robinson": "b29b16eea4",
@@ -949,7 +957,7 @@
     "keenan allen": "9169acdebc",
     "kendre miller": "1836d700f7",
     "kenneth gainwell": "0b9d70870f",
-    "kenneth walker": "4dc6e3954d",
+    "kenneth walker": "071048ba16",
     "kenyon sadiq": "bdf9c61a92",
     "keon coleman": "5c9eb84e7e",
     "khalil shakir": "3ea518c637",
