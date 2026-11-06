@@ -215,9 +215,9 @@ def test_service_execstart_targets_exist(timer: Path) -> None:
             assert (_REPO / rel).exists(), f"{service.name}: ExecStart target {rel} missing"
         for mod in re.findall(r"-m\s+([\w.]+)", line):
             base = _REPO / mod.replace(".", "/")
-            assert base.with_suffix(".py").exists() or (base / "__init__.py").exists(), (
-                f"{service.name}: module {mod} missing"
-            )
+            assert (
+                base.with_suffix(".py").exists() or (base / "__init__.py").exists()
+            ), f"{service.name}: module {mod} missing"
         unknown = set(re.findall(r"__[A-Z_]+__", line)) - _KNOWN_PLACEHOLDERS
         assert not unknown, f"{service.name}: placeholder {unknown} the installer never fills"
 
@@ -271,9 +271,9 @@ def test_timer_is_reached_by_an_install_route_or_allowlisted(timer: Path) -> Non
         or plain.removesuffix(".timer") + ".timer" in corpus
         or stem + ".timer" in corpus
     )
-    assert reached or name in _MANUAL_UNITS, (
-        f"{name}: no deploy/*.sh installer route and not in _MANUAL_UNITS (with a reason)"
-    )
+    assert (
+        reached or name in _MANUAL_UNITS
+    ), f"{name}: no deploy/*.sh installer route and not in _MANUAL_UNITS (with a reason)"
 
 
 def test_manual_allowlist_entries_have_reasons_and_exist() -> None:
