@@ -7910,6 +7910,11 @@ async def post_waiver_advisor(request: Request):
         return JSONResponse(
             status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
         )
+    # List bids come from the FAAB engine: a broken config is a named refusal,
+    # never a bid from substituted defaults (CW-10 / AMATH-S27).
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
     )
@@ -8051,6 +8056,11 @@ async def post_waiver_streaming(request: Request):
         return JSONResponse(
             status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
         )
+    # List bids come from the FAAB engine: a broken config is a named refusal,
+    # never a bid from substituted defaults (CW-10 / AMATH-S27).
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
     )
