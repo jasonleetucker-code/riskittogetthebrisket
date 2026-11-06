@@ -11,6 +11,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { useDynastyData } from "@/components/useDynastyData";
+import { boardFirstActivePickYear, isRetiredPickClassRow } from "@/lib/pick-class-lifecycle";
 import {
   resolvedRank,
   RANKING_SOURCES,
@@ -530,17 +531,20 @@ export default function RankingsPage() {
 
   // ── Base eligible list ──────────────────────────────────────────
   const eligible = useMemo(() => {
-    // 2026 rookie draft has passed — hide current-year slot picks from
-    // the board.  Rows stay in buildRows so value resolution still
-    // works for trade history; we filter only at display time.
+    // Completed rookie-draft classes leave the board (owner #1414).  The
+    // rule is the backend's ``pickClassLifecycle`` stamp, read here — never
+    // a hard-coded year.  Rows stay in buildRows so value resolution still
+    // works for trade history; we filter only at display time.  No stamp
+    // retires nothing.
+    const firstActivePickYear = boardFirstActivePickYear(rawData);
     let filtered = rows
       .filter(isEligibleForBoard)
-      .filter((r) => !(r.assetClass === "pick" && /^2026\b/.test(r.name)));
+      .filter((r) => !isRetiredPickClassRow(r, firstActivePickYear));
     if (!idpEnabled) {
       return filtered.filter((r) => r?.assetClass !== "idp");
     }
     return filtered;
-  }, [rows, idpEnabled]);
+  }, [rows, rawData, idpEnabled]);
 
   // ── Trust summary stats (single pass) ───────────────────────────
   const trustStats = useMemo(() => {

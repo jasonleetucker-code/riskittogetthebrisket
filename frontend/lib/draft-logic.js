@@ -726,9 +726,13 @@ export function computeDraftStats(workspace) {
     // (everyone bankrupt), winning bid collapses to 1.
     const competitorCeiling = Math.max(0, topCompetitorMax);
     const winByCompetitor = Math.max(1, competitorCeiling + 1);
+    // W10-F001: nothing may be advertised above what this team can
+    // actually pay.  ``myRemaining`` caps every surfaced ceiling below;
+    // ``theoreticalMaxBid`` keeps the uncapped figure (for the "capped
+    // by ..." tooltips) and ``budgetCapped`` says when the cap bit.
     const myWinningBid = Math.max(
       0,
-      Math.min(theoreticalMaxBid, winByCompetitor),
+      Math.min(theoreticalMaxBid, winByCompetitor, myRemaining),
     );
     // Bayesian competitor ceiling: reweight each rival's effective
     // budget by their tierInterest for THIS player's tier.  Less
@@ -749,9 +753,13 @@ export function computeDraftStats(workspace) {
     }
     const bayesianWinningBid = Math.max(
       0,
-      Math.min(theoreticalMaxBid, Math.max(1, Math.floor(bayesianTopCompetitor) + 1)),
+      Math.min(
+        theoreticalMaxBid,
+        Math.max(1, Math.floor(bayesianTopCompetitor) + 1),
+        myRemaining,
+      ),
     );
-    const enforceUpTo = Math.floor(inflatedFair * enforcePct);
+    const enforceUpTo = Math.min(Math.floor(inflatedFair * enforcePct), myRemaining);
     const drafted = !!pick;
     const mine = drafted && pick.teamIdx === myTeamIdx;
     const valueVsFair =
@@ -769,8 +777,9 @@ export function computeDraftStats(workspace) {
       mine,
       userTag,
       inflatedFair: Math.max(0, inflatedFair),
-      myMaxBid: Math.max(0, theoreticalMaxBid),
+      myMaxBid: Math.max(0, Math.min(theoreticalMaxBid, myRemaining)),
       theoreticalMaxBid: Math.max(0, theoreticalMaxBid),
+      budgetCapped: theoreticalMaxBid > myRemaining,
       myWinningBid,
       bayesianTopCompetitor: Math.max(0, Math.floor(bayesianTopCompetitor)),
       bayesianWinningBid,
