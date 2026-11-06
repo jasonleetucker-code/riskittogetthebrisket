@@ -6589,12 +6589,19 @@ async def run(progress_callback=None):
             # rung, so without this the must-have name ("Matthew Hibner")
             # becomes a fresh id-less ghost beside the identified row
             # ("Matt Hibner").  Same rule + identity gate as that rung; the
-            # rookie stays on the board through the identified row.
+            # rookie stays on the board through the identified row.  The
+            # candidate must ALSO be a verified rookie (Sleeper years_exp == 0;
+            # unknown -> no merge): the list name carries no row, no votes and
+            # usually no position, so a veteran sharing a first-name variant
+            # must never absorb it.
             _existing_key = _unique_identified_first_name_variant(
                 _clean_nm,
                 players_json,
                 position_of=_get_pos,
                 preferred_position=_must_have_rookie_bucket(_clean_nm),
+                candidate_ok=lambda _cand: (
+                    _player_years_exp_local(_cand, players_json.get(_cand)) == 0
+                ),
             )
 
         _target_name = _existing_key or _canonical_map.get(_clean_nm, _clean_nm)

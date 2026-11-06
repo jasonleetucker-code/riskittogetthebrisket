@@ -834,6 +834,7 @@ def unique_identified_first_name_variant(
     *,
     position_of=None,
     preferred_position: object | None = None,
+    candidate_ok=None,
 ) -> str | None:
     """The ONE identified row ``name`` is a first-name variant of, else ``None``.
 
@@ -847,6 +848,13 @@ def unique_identified_first_name_variant(
     :func:`normalize_position`; an unknown position never blocks, a known
     conflict always does.  ``name`` itself is never returned (an exact row is
     the caller's own exact-match path).
+
+    ``candidate_ok`` (optional) is an extra evidence gate applied BEFORE the
+    uniqueness count: a candidate it rejects is not the same human.  The
+    must-have guarantee passes "verified rookie (Sleeper ``years_exp == 0``)"
+    because its input is a bare list name with no row, no votes and usually
+    no position -- without it a rookie "Chris Smith" could fold into a veteran
+    "Christian Smith".  An unknown answer must be passed as a rejection.
     """
     pref = normalize_position(preferred_position)
     matches = []
@@ -854,6 +862,8 @@ def unique_identified_first_name_variant(
         if cand == name or not isinstance(entry, dict) or not entry.get("_sleeperId"):
             continue
         if not is_first_name_variant(name, cand):
+            continue
+        if candidate_ok is not None and not candidate_ok(cand):
             continue
         cand_pos = normalize_position(position_of(cand)) if position_of else ""
         if pref and cand_pos and pref != cand_pos:

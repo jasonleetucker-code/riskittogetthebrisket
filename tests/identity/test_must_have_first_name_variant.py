@@ -62,3 +62,42 @@ def test_must_have_guarantee_consults_the_rule_before_creating_a_row():
     start = src.index("# Must-have rookie guarantee: ensure every listed must-have rookie")
     block = src[start : start + 4000]
     assert re.search(r"_existing_key = _unique_identified_first_name_variant\(", block)
+    # The call must carry the verified-rookie gate (review finding on #2096).
+    call = block[block.index("_unique_identified_first_name_variant(") :]
+    call = call[: call.index("\n        _target_name")]
+    assert "candidate_ok=" in call
+    assert "_player_years_exp_local(" in call and "== 0" in call
+
+
+def test_a_veteran_sharing_a_first_name_variant_never_absorbs_a_rookie():
+    # No position hints exist in rookie_must_have.txt, so the position guard
+    # cannot fire; the rookie gate is what keeps "Chris Smith" (rookie) out of
+    # "Christian Smith" (veteran LB).
+    rows = _rows(Christian_Smith={"_sleeperId": "1"})
+    years_exp = {"Christian Smith": 6}
+    ok = lambda c: years_exp.get(c) == 0  # noqa: E731
+    assert uniq("Chris Smith", rows) == "Christian Smith"  # the gap without the gate
+    assert uniq("Chris Smith", rows, candidate_ok=ok) is None
+
+
+def test_unknown_rookie_status_is_fail_closed():
+    rows = _rows(Matt_Hibner={"_sleeperId": "13324"})
+    assert uniq("Matthew Hibner", rows, candidate_ok=lambda c: None == 0) is None  # noqa: E711
+
+
+def test_the_rookie_gate_filters_before_uniqueness():
+    # A veteran variant must not make a verified rookie variant "ambiguous".
+    rows = _rows(Christian_Smith={"_sleeperId": "1"}, Christopher_Smith={"_sleeperId": "2"})
+    years_exp = {"Christian Smith": 6, "Christopher Smith": 0}
+    ok = lambda c: years_exp.get(c) == 0  # noqa: E731
+    assert uniq("Chris Smith", rows, candidate_ok=ok) == "Christopher Smith"
+
+
+def test_the_two_archive_cases_pass_the_rookie_gate():
+    # Pinned archive dynasty_export_20261106_194518: both identified rows carry
+    # Sleeper years_exp 0 (Matt Hibner 13324, Jam Miller 13403).
+    rows = _rows(Matt_Hibner={"_sleeperId": "13324"}, Jam_Miller={"_sleeperId": "13403"})
+    years_exp = {"Matt Hibner": 0, "Jam Miller": 0}
+    ok = lambda c: years_exp.get(c) == 0  # noqa: E731
+    assert uniq("Matthew Hibner", rows, candidate_ok=ok) == "Matt Hibner"
+    assert uniq("Jamarion Miller", rows, candidate_ok=ok) == "Jam Miller"
