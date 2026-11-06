@@ -54,6 +54,8 @@ const sides = [
   { id: 1, label: "B", assets: [{ name: "Beta", rankDerivedValue: 4000, values: { full: 4000 } }] },
 ];
 
+const MEASURED = { stamped_value_band: 3 };
+
 describe("trade verdict wording follows the side model", () => {
   it("on /trade names the bigger PACKAGE and the team that receives it", () => {
     // Each 2-team side lists what that team SENDS (computeSideFlowAssets),
@@ -96,7 +98,7 @@ describe("Monte Carlo summary on /trade is a value-sensitivity check, never a ve
   // TC-D2 (decision-engine audit §7.8, V5): no winner / favored / clearly /
   // probably headline and no strong tone; the War Room owns the one YES / NO.
   it.each([0.9, 0.7, 0.5, 0.3, 0.05])("winProbA %s reads as a count, not a verdict", (p) => {
-    const s = _renderPlainSummary({ winProbA: p, nSims: 2000, meanDelta: 900 }, sides, true);
+    const s = _renderPlainSummary({ winProbA: p, nSims: 2000, meanDelta: 900, bandSources: MEASURED }, sides, true);
     expect(s.headline).toBe("Value-sensitivity check");
     expect(s.tone).toBe("even");
     const text = `${s.headline} ${s.subline} ${s.deltaLine}`;
@@ -104,12 +106,12 @@ describe("Monte Carlo summary on /trade is a value-sensitivity check, never a ve
     expect(s.subline).toMatch(/came out bigger in \d+% of 2,000 simulations/);
   });
   it("names the bigger package and its share", () => {
-    const s = _renderPlainSummary({ winProbA: 0.9, nSims: 2000, meanDelta: -1200 }, sides, true);
+    const s = _renderPlainSummary({ winProbA: 0.9, nSims: 2000, meanDelta: -1200, bandSources: MEASURED }, sides, true);
     expect(s.subline).toBe("Side A's package came out bigger in 90% of 2,000 simulations.");
     expect(s.deltaLine).toBe("On average, Side B's package was 1,200 points bigger.");
   });
   it("keeps the original wording off /trade", () => {
-    expect(_renderPlainSummary({ winProbA: 0.9, nSims: 2000 }, sides).headline).toBe(
+    expect(_renderPlainSummary({ winProbA: 0.9, nSims: 2000, bandSources: MEASURED }, sides).headline).toBe(
       "Side A is the clear winner.",
     );
   });
