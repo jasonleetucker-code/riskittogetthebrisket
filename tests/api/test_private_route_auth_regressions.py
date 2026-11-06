@@ -336,3 +336,43 @@ def test_sharp_audit_error_mapping(client, sharp_audit):
     boom = client.get("/api/sharp/roster-percentage/audit?assetId=boom", headers=h)
     assert boom.status_code == 503
     assert boom.json()["error"] == "sharp_roster_percentage_unavailable"
+
+
+# ── structural guard: the admin gate's refusal is truthy ─────────────────
+#
+# ``_require_admin_session`` returns the session dict on success and a truthy
+# ``JSONResponse`` on failure, so ``if not _require_admin_session(...)`` can never
+# refuse anyone — the exact defect /api/ros/refresh shipped with.  Scan every
+# backend module so the pattern cannot return anywhere.
+
+
+def _admin_gate_truthiness_tests() -> list[str]:
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    files = [root / "server.py", *sorted((root / "src").rglob("*.py"))]
+    offenders: list[str] = []
+    for path in files:
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.If, ast.IfExp, ast.While, ast.Assert, ast.BoolOp)):
+                continue
+            tests = node.values if isinstance(node, ast.BoolOp) else [node.test]
+            for test in tests:
+                if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+                    test = test.operand
+                if not isinstance(test, ast.Call):
+                    continue
+                fn = test.func
+                name = fn.attr if isinstance(fn, ast.Attribute) else getattr(fn, "id", "")
+                if name == "_require_admin_session":
+                    offenders.append(f"{path.relative_to(root)}:{node.lineno}")
+    return offenders
+
+
+def test_no_code_tests_the_admin_gate_for_truthiness():
+    assert _admin_gate_truthiness_tests() == []
