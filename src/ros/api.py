@@ -22,7 +22,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from src.ros import ROS_DATA_DIR
@@ -374,8 +374,13 @@ async def post_refresh(request: Request) -> JSONResponse:
     from server import _require_admin_session  # type: ignore[attr-defined]
     from fastapi.concurrency import run_in_threadpool
 
-    if not _require_admin_session(request):
-        raise HTTPException(status_code=401, detail="admin_required")
+    # ``_require_admin_session`` returns the session dict on success and a
+    # (truthy!) ``JSONResponse`` 401/403 on failure — so the failure must be
+    # detected by type and returned, never by ``not <result>`` (which let any
+    # signed-in non-admin start a scrape).
+    gate = _require_admin_session(request)
+    if isinstance(gate, JSONResponse):
+        return gate
 
     overrides: dict[str, dict[str, Any]] | None = None
     try:
