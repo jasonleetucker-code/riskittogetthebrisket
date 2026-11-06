@@ -210,9 +210,9 @@ Record: `docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md` §8 (Owner dir
 
 | ID | family | question | decision | evidence | risk / impact | status | PR / tests | remaining action |
 |---|---|---|---|---|---|---|---|---|
-| `ODR-SR-RC-RECHECK` | Roster Construction | Reactivate / rebuild Roster Construction? | Already authorized and verified; recheck production, never reactivate blindly | MD-37 parity 84/84; live flag ON 2026-11-06 | — | PRODUCTION_VERIFIED | #2040 #2041 #2044 #2058 | recheck in CW-23 |
+| `ODR-SR-RC-RECHECK` | Roster Construction | Reactivate / rebuild Roster Construction? | Already authorized and verified; recheck production, never reactivate blindly | MD-37 parity 84/84; owner observed the page on production, desktop + mobile, 2026-11-03; live flag ON 2026-11-06 | — | PRODUCTION_VERIFIED | #2040 #2041 #2044 #2058 | recheck in CW-23 |
 | `ODR-SR-HIST-SLOTS` | Roster Construction | Infer 2025/2024 slots? | Never as production fact; explicit unavailable state | ODR-RC-2025-SLOTS | inventing history | DECIDED | — | — |
-| `ODR-SR-RC-NAV` | Roster Construction | Where does Roster Construction live? | Authenticated My Team, capability-gated | #2044 | — | PRODUCTION_VERIFIED | #2044 #2057 | — |
+| `ODR-SR-RC-NAV` | Roster Construction | Where does Roster Construction live? | Authenticated My Team, capability-gated | #2044; owner observed My Team → Roster → Roster Construction on production, desktop + mobile, 2026-11-03 (MD-37) | — | PRODUCTION_VERIFIED | #2044 #2057 | — |
 | `ODR-SR-STREAM-BUDGET` | Waivers | Default dynasty-loss budget? | 0 net dynasty loss via canonical release cost | ODR-STREAMING-BUDGET | — | DECIDED | — | CW-18 |
 | `ODR-SR-UNPRICED` | Waivers | Unpriced assets in drop logic? | Never a free drop | missing ≠ 0 | free-cut recommendations | DECIDED | — | CW-18 |
 | `ODR-SR-KICKERS` | Waivers | Kicker valuation? | League-scored projected lineup contribution; no invented dynasty value | decision 7 | — | DECIDED | — | CW-18 |

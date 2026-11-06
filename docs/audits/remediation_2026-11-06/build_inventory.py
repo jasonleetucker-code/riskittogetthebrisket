@@ -2,7 +2,8 @@
 
 Regenerate rather than hand-edit:
 
-    python docs/audits/remediation_2026-11-06/build_inventory.py
+    python docs/audits/remediation_2026-11-06/build_inventory.py          # write
+    python docs/audits/remediation_2026-11-06/build_inventory.py --check  # verify committed outputs
 
 Inputs are the repository's own records (no network):
 
@@ -1044,9 +1045,25 @@ def render(inv: dict) -> str:
 
 
 def main() -> None:
+    import sys
+
     inv = build()
-    OUT_JSON.write_text(json.dumps(inv, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-    OUT_MD.write_text(render(inv), encoding="utf-8")
+    outputs = {
+        OUT_JSON: json.dumps(inv, indent=1, ensure_ascii=False) + "\n",
+        OUT_MD: render(inv),
+    }
+    if "--check" in sys.argv[1:]:
+        stale = [
+            p.name
+            for p, text in outputs.items()
+            if not p.exists() or p.read_text(encoding="utf-8") != text
+        ]
+        if stale:
+            raise SystemExit(f"stale generated outputs (re-run without --check): {stale}")
+        print("generated outputs are current")
+        return
+    for path, text in outputs.items():
+        path.write_text(text, encoding="utf-8")
     print(json.dumps(inv["population"]), f"cw={len(inv['canonicalWorkItems'])}")
 
 

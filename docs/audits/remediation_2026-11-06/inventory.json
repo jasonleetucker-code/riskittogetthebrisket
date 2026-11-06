@@ -2538,7 +2538,7 @@
    "source": "INTAKE",
    "id": "MD-39",
    "title": "Current truth first; zero-loss reconciliation. Rebuild the baseline from live main / production / CI; recognise superseded work (Roster Construction V1 activate",
-   "statusAtSource": "IN PROGRESS — inventory built (395 + 7 discovered rows → CW-01…CW-47)",
+   "statusAtSource": "IN PROGRESS — inventory built (404 + 7 discovered rows → CW-01…CW-47)",
    "cw": "CW-40"
   },
   {
