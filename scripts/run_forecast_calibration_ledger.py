@@ -52,7 +52,25 @@ def last_final_week(state: dict[str, Any] | None) -> tuple[int | None, int | Non
     except (TypeError, ValueError):
         return None, None
     final = [w for w in range(1, LAST_REGULAR_WEEK + 1) if ps.host_week_final(state, season, w)]
-    return season, (max(final) if final else None)
+    if not final:
+        return season, None
+    last = max(final)
+    # Scoring-final is not lineup-final.  Sleeper awards a best-ball week's
+    # optimized lineups (and absorbs stat corrections) only once it stops
+    # DISPLAYING the week -- the rule the canonical owner
+    # ``src/public_league/metrics.py::host_lineups_open_from_week`` documents
+    # (2026-11-03: provisional week-8 lineups withheld a whole season).  AL-4a
+    # scores lineup-dependent outcomes, so a week counts only below
+    # ``display_week``; an unreadable ``display_week`` withholds the newest
+    # scored week (fail closed on one week, never on a season), as that owner
+    # does.  Mirrored here because the owner needs a full SeasonSnapshot.
+    if str(state.get("season_type") or "") == "regular":
+        try:
+            display = int(state.get("display_week"))
+        except (TypeError, ValueError):
+            display = None
+        last = last - 1 if display is None else min(last, display - 1)
+    return season, (last if last >= 1 else None)
 
 
 def read_marker(path: Path) -> dict[str, Any]:

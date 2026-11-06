@@ -11,8 +11,14 @@ _REPO = Path(__file__).resolve().parents[2]
 _SYSTEMD = _REPO / "deploy" / "systemd"
 
 
-def _state(week: int, kind: str = "regular", season: int = 2026) -> dict:
-    return {"season": str(season), "season_type": kind, "week": week}
+def _state(week: int, kind: str = "regular", season: int = 2026, display=...) -> dict:
+    # Sleeper's state normally carries display_week == week; tests override it.
+    state = {"season": str(season), "season_type": kind, "week": week}
+    if display is ...:
+        state["display_week"] = week
+    elif display is not None:
+        state["display_week"] = display
+    return state
 
 
 class _Calls:
@@ -72,6 +78,18 @@ def test_force_reruns_a_scored_week(tmp_path):
 
 def test_postseason_means_regular_season_complete(tmp_path):
     assert ledger.last_final_week(_state(1, "post")) == (2026, 18)
+
+
+def test_lineups_not_yet_awarded_are_not_final():
+    """Week 9 scored (week=10) but Sleeper still displays week 9: its best-ball
+    lineups are provisional, so only week 8 may be scored."""
+    assert ledger.last_final_week(_state(10, display=9)) == (2026, 8)
+    assert ledger.last_final_week(_state(10, display=10)) == (2026, 9)
+
+
+def test_unreadable_display_week_withholds_the_newest_week_only():
+    assert ledger.last_final_week(_state(10, display=None)) == (2026, 8)
+    assert ledger.last_final_week(_state(2, display=None)) == (2026, None)
 
 
 def test_timer_and_service_templates_exist_and_are_wired():
