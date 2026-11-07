@@ -639,13 +639,15 @@ jobs:
     # The required check.  Passes only when the change-scope job, the static
     # checks and — whenever the backend is in scope — every backend shard
     # succeeded AND their manifests prove the shards together executed every
-    # collected hard-gate test exactly once.  `!cancelled()` so a failed or
-    # skipped dependency is reported here as a failure rather than leaving
-    # the required check skipped (which GitHub treats as satisfied), while a
-    # run superseded by a newer push is cancelled rather than painted red.
+    # collected hard-gate test exactly once.  `always()`, not `!cancelled()`:
+    # under `!cancelled()` a manually cancelled run leaves this job SKIPPED,
+    # and GitHub counts a skipped required check as satisfied — the old single
+    # job ended "cancelled", which blocks a merge.  Here a cancelled
+    # dependency is a red `Validate PR`; the cost is a red check on commits a
+    # newer push superseded, which nothing merges.
     name: Validate PR
     needs: [scope, checks, backend]
-    if: ${{ !cancelled() }}
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -671,7 +673,7 @@ jobs:
         # set, collected >= floor, skipped <= budget (config/ci/test_shards.json;
         # audit W24-F001).  Runs even when a shard failed so the omission
         # report is never hidden behind the first red shard.
-        if: ${{ !cancelled() && needs.scope.outputs.python == 'true' }}
+        if: ${{ always() && needs.scope.outputs.python == 'true' }}
         shell: bash
         run: |
           set -Eeuo pipefail

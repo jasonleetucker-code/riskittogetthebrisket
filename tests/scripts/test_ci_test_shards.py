@@ -185,6 +185,22 @@ def test_the_skip_budget_is_enforced_suite_wide():
     assert any("skip budget" in p for p in verify_manifests(ms, CONFIG))
 
 
+def test_module_level_skips_count_once_against_the_budget():
+    ms = _complete()
+    for m in ms:
+        m["collect_skipped"] = ["tests/test_x.py", "tests/test_y.py", "tests/test_z.py"]
+    assert any("skip budget" in p for p in verify_manifests(ms, CONFIG))
+    for m in ms:
+        m["collect_skipped"] = ["tests/test_x.py", "tests/test_y.py"]
+    assert verify_manifests(ms, CONFIG) == []
+
+
+def test_shards_disagreeing_on_module_skips_are_refused():
+    ms = _complete()
+    ms[0]["collect_skipped"] = ["tests/test_x.py"]
+    assert any("skipped different modules" in p for p in verify_manifests(ms, CONFIG))
+
+
 def test_a_shard_count_mismatch_is_refused():
     ms = _complete()
     ms[0]["shard_count"] = 4
@@ -208,7 +224,9 @@ def test_register_is_a_no_op_without_the_shard_variable():
 
 def test_register_refuses_a_spec_that_disagrees_with_the_config(tmp_path):
     cfg = tmp_path / "shards.json"
-    cfg.write_text(json.dumps({"shard_count": 4, "min_collected": 1, "max_skipped": 1}))
+    cfg.write_text(
+        json.dumps({"shard_count": 4, "min_collected": 1, "max_skipped": 1}), encoding="utf-8"
+    )
     with pytest.raises(ShardError, match="disagrees"):
         shards.register_if_requested(object(), environ={shards.SHARD_ENV: "1/3"}, config_path=cfg)
 
@@ -261,6 +279,16 @@ _FIXTURE_TESTS = {
         def test_live():
             assert True
     """,
+    # Skipped at COLLECTION: its tests never exist as items, so only the
+    # collect report can see it.
+    "test_epsilon.py": """
+        import pytest
+
+        pytest.importorskip("a_module_that_does_not_exist_anywhere")
+
+        def test_hidden():
+            assert True
+    """,
 }
 
 
@@ -273,7 +301,8 @@ def _run_fixture_suite(
         for name, body in tests.items():
             (suite / name).write_text(textwrap.dedent(body), encoding="utf-8")
         (tmp_path / "shards.json").write_text(
-            json.dumps({"shard_count": count, "min_collected": 1, "max_skipped": 99})
+            json.dumps({"shard_count": count, "min_collected": 1, "max_skipped": 99}),
+            encoding="utf-8",
         )
         (suite / "conftest.py").write_text(
             textwrap.dedent(
@@ -340,10 +369,15 @@ def test_the_plugin_partitions_a_real_run_and_counts_one_verdict_per_test(tmp_pa
     assert totals["skipped"] == 2
     assert totals["xfailed"] == 2
     assert totals["failed"] == totals["error"] == 0
+    # Every shard collects every module, so each records the one module-level
+    # skip; the suite counts it once.
+    assert totals["skipped_modules"] == 1
+    assert all(m["collect_skipped"] == ["test_epsilon.py"] for m in manifests)
 
-    config = ShardConfig(shard_count=count, min_collected=12, max_skipped=2, durations={})
+    # Budget = 2 test skips + 1 module skip.
+    config = ShardConfig(shard_count=count, min_collected=12, max_skipped=3, durations={})
     assert verify_manifests(manifests, config) == []
-    stricter = ShardConfig(shard_count=count, min_collected=12, max_skipped=1, durations={})
+    stricter = ShardConfig(shard_count=count, min_collected=12, max_skipped=2, durations={})
     assert any("skip budget" in p for p in verify_manifests(manifests, stricter))
 
 
@@ -377,9 +411,11 @@ def test_cli_verify_exit_codes(tmp_path):
     d = tmp_path / "manifests"
     d.mkdir()
     for m in _complete():
-        (d / f"shard-{m['shard']}.json").write_text(json.dumps(m))
+        (d / f"shard-{m['shard']}.json").write_text(json.dumps(m), encoding="utf-8")
     cfg = tmp_path / "shards.json"
-    cfg.write_text(json.dumps({"shard_count": 3, "min_collected": 6, "max_skipped": 2}))
+    cfg.write_text(
+        json.dumps({"shard_count": 3, "min_collected": 6, "max_skipped": 2}), encoding="utf-8"
+    )
     ok = shards.main(["--config", str(cfg), "verify", "--manifests", str(d)])
     assert ok == 0
     (d / "shard-3.json").unlink()

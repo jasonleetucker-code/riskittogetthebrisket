@@ -203,6 +203,11 @@ class ShardPlugin:
         self.verdicts: dict[str, str] = {}
         self.errors = 0
         self.file_seconds: dict[str, float] = {}
+        # Modules skipped at COLLECTION (``pytest.importorskip``,
+        # ``skip(allow_module_level=True)``): their tests are never collected,
+        # so no per-test verdict can see them.  Every shard collects every
+        # module, so each shard records the same list.
+        self.collect_skipped: set[str] = set()
 
     def _deselect(self, config, items) -> None:
         self.collected = [item.nodeid for item in items]
@@ -238,6 +243,10 @@ class ShardPlugin:
             # test's one verdict.
             self.verdicts[report.nodeid] = "xfailed" if hasattr(report, "wasxfail") else "skipped"
 
+    def _record_collect(self, report) -> None:
+        if report.skipped:
+            self.collect_skipped.add(report.nodeid.replace("\\", "/"))
+
     def outcomes(self) -> dict[str, int]:
         counts = {k: 0 for k in _TEST_OUTCOMES}
         for verdict in self.verdicts.values():
@@ -255,6 +264,7 @@ class ShardPlugin:
             "selected": sorted(self.selected),
             "verdict_sha256": collected_digest(self.verdicts),
             "outcomes": self.outcomes(),
+            "collect_skipped": sorted(self.collect_skipped),
             "exitstatus": int(exitstatus),
             "file_seconds": {k: round(v, 3) for k, v in sorted(self.file_seconds.items())},
         }
@@ -283,6 +293,9 @@ def _make_hooks():
     def pytest_collection_modifyitems(self, config, items):
         self._deselect(config, items)
 
+    def pytest_collectreport(self, report):
+        self._record_collect(report)
+
     def pytest_runtest_logreport(self, report):
         # Only the test's own setup/call/teardown reports are exactly
         # TestReport; pytest's SubtestReport (and any plugin's report type)
@@ -298,6 +311,7 @@ def _make_hooks():
 
     return {
         "pytest_collection_modifyitems": pytest_collection_modifyitems,
+        "pytest_collectreport": pytest_collectreport,
         "pytest_runtest_logreport": pytest_runtest_logreport,
         "pytest_sessionfinish": pytest_sessionfinish,
         "pytest_report_header": pytest_report_header,
@@ -379,6 +393,13 @@ def verify_manifests(manifests: list[dict], config: ShardConfig) -> list[str]:
         return problems
     (digest,) = digests
     (total,) = totals
+    module_skips = {tuple(m.get("collect_skipped") or ()) for m in by_index.values()}
+    if len(module_skips) != 1:
+        problems.append(
+            "shards skipped different modules at collection (collection is not deterministic)"
+        )
+        return problems
+    (skipped_modules,) = module_skips
 
     seen: dict[str, int] = {}
     for idx in sorted(by_index):
@@ -392,7 +413,9 @@ def verify_manifests(manifests: list[dict], config: ShardConfig) -> list[str]:
             "some test ran nowhere"
         )
 
-    skipped = 0
+    # A module skipped at collection counts once, as pytest's own summary
+    # counts it: it hides tests the per-test verdicts can never see.
+    skipped = len(skipped_modules)
     for idx in sorted(by_index):
         m = by_index[idx]
         if m["exitstatus"] != 0:
@@ -429,6 +452,9 @@ def summarize(manifests: list[dict]) -> dict:
         for k, v in (m.get("outcomes") or {}).items():
             out[k] = out.get(k, 0) + int(v)
     out["collected"] = max((m.get("collected_total", 0) for m in manifests), default=0)
+    out["skipped_modules"] = max(
+        (len(m.get("collect_skipped") or ()) for m in manifests), default=0
+    )
     out["shards"] = len(manifests)
     return out
 
@@ -481,7 +507,8 @@ def _cmd_verify(args) -> int:
         return 1
     print(
         f"sharded hard gate complete: {summary['collected']} tests across "
-        f"{summary['shards']} shards, {summary['skipped']} skipped "
+        f"{summary['shards']} shards, {summary['skipped']} tests + "
+        f"{summary['skipped_modules']} modules skipped "
         f"(budget {config.max_skipped}), floor {config.min_collected}"
     )
     return 0
