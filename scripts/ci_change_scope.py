@@ -114,6 +114,11 @@ _HIGH_RISK_PATTERNS = (
     "scripts/ci_change_scope.py",
     "scripts/ci_gate_classification.py",
     "config/ci/release_gate_classification.json",
+    # The backend hard gate's shard plan and completeness proof
+    # (scripts/ci_test_shards.py): a change here decides which tests each
+    # runner executes and what proves none was dropped.
+    "scripts/ci_test_shards.py",
+    "config/ci/test_shards.json",
     # Release-artifact identity: these decide whether the tested frontend bytes
     # are the deployed ones, so a change here must run the frontend lane's
     # "Package and verify frontend release candidate" against a REAL Next build
