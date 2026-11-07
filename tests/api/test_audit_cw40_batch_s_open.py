@@ -5,7 +5,7 @@ defect is repaired, so the marker must then be deleted in the repair PR.  Everyt
 and deterministic: stub news provider, source-shape scans, ``git ls-files``, the workflow YAML.
 
 * W21-F003  REPAIRED: roster news filters by the roster's player names (tests below are plain passes).
-* W24-F001  no union skip census and no executed-test floor gate exists (characterization + xfail).
+* W24-F001  no union skip census (characterization); the executed/skip floor gate now exists (sharded hard gate).
 * W24-F002  the 22 ``test_real_rosters.py`` tests skip: an input file they need is untracked.
 * W24-F004  ``e2e.yml`` sets ``SKIP_VISUAL_REGRESSION=1`` and the specs skip the whole describe.
 * W20-F006  three team-direction classifiers remain reachable (was four; ``scoreTeamTiers`` gone).
@@ -106,15 +106,29 @@ def test_w24_f001_characterization_naive_census_undercounts():
     assert union > naive + 50, (naive, union)
 
 
-@pytest.mark.xfail(
-    reason="W24-F001 OPEN: no workflow asserts an executed-test floor or skip budget for the "
-    "Python suite (pr-validation runs pytest with no --junitxml / --collect-only / skip ceiling), "
-    "so a skipped test is byte-identical to a passing one",
-    **STRICT,
-)
 def test_w24_f001_python_suite_has_an_executed_or_skip_floor_gate():
-    wf = (REPO / ".github" / "workflows" / "pr-validation.yml").read_text(encoding="utf-8")
-    assert re.search(r"--collect-only|--junitxml|skip[-_ ]?(budget|ceiling|floor)", wf, re.I)
+    """W24-F001's gate half, CLOSED by the sharded hard gate (2026-11-07).
+
+    Was a strict xfail: nothing compared executed tests with collected ones,
+    so a skipped test was byte-identical to a passing one.  ``Validate PR`` now
+    runs ``scripts/ci_test_shards.py verify``, which fails on a collection
+    floor breach, a suite-wide skip-budget overrun, or a selected test with no
+    verdict.  The behaviour itself is pinned in
+    ``tests/scripts/test_ci_test_shards.py``; this test pins the wiring.  The
+    finding's OTHER half — a union skip-site census — is still open and is
+    characterized above.
+    """
+    import json
+
+    import yaml
+
+    wf = yaml.safe_load((REPO / ".github" / "workflows" / "pr-validation.yml").read_text("utf-8"))
+    aggregator = next(j for j in wf["jobs"].values() if j.get("name") == "Validate PR")
+    runs = "\n".join(step.get("run") or "" for step in aggregator.get("steps") or [])
+    assert "scripts/ci_test_shards.py verify" in runs
+    config = json.loads((REPO / "config" / "ci" / "test_shards.json").read_text("utf-8"))
+    assert int(config["min_collected"]) > 10_000
+    assert 0 < int(config["max_skipped"]) < int(config["min_collected"])
 
 
 # --------------------------------------------------------------------------- W24-F002
