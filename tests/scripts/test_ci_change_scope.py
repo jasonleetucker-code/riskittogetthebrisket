@@ -144,6 +144,20 @@ def test_canonical_owner_change_is_high_risk(repo: Path):
     assert scope.frontend is True
 
 
+@pytest.mark.parametrize("path", ["scripts/ci_test_shards.py", "config/ci/test_shards.json"])
+def test_shard_plan_change_is_high_risk(repo: Path, path: str):
+    """The shard owner decides which tests each runner executes and what proves
+    none was dropped, so changing it must run the full gate on both sides."""
+    _git(repo, "checkout", "-q", "-b", "feature")
+    _commit_files(repo, {path: "{}\n"}, "shard plan change")
+
+    scope = compute_scope(base_ref="main", head_ref="feature", repo_root=str(repo))
+
+    assert scope.high_risk is True
+    assert scope.python is True
+    assert scope.frontend is True
+
+
 def test_docs_only_change_flags_neither(repo: Path):
     _git(repo, "checkout", "-q", "-b", "feature")
     _commit_files(repo, {"docs/SOME_NOTE.md": "note\n"}, "docs change")

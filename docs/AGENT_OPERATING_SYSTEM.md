@@ -321,7 +321,12 @@ governance/planning gates, the runtime import gate and the API contract check
 stay unconditional: they are cheap and are cross-cutting safety nets, not
 per-domain suites that should ever be skipped. Any change-detection failure
 defaults to running everything — this mechanism can only ever widen validation
-on its own error, never narrow it. **Related work should generally land as ONE
+on its own error, never narrow it. The backend hard gate runs as N parallel,
+duration-balanced shards of the identical command (2026-11-07; owner
+`scripts/ci_test_shards.py`, config `config/ci/test_shards.json`), and the
+required `Validate PR` check passes only when the shard manifests prove every
+collected test ran exactly once, the collection floor holds and the skip budget
+is not exceeded — splitting the suite never drops a test. **Related work should generally land as ONE
 integration PR** covering a coherent development phase, not one PR per tiny
 edit — see "Development operating model" below for how this reconciles with
 `ASSISTANT_COORDINATION.md`'s branch rules.
