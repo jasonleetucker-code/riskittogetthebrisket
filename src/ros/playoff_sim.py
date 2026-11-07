@@ -1209,6 +1209,50 @@ def _fixed_bracket_refusal(field: int, byes: int | None) -> dict[str, Any] | Non
     }
 
 
+#: Sleeper's own statement of the division rule the simulator does not model.
+DIVISION_RULE_SOURCE = "https://sleeper.com/blog/how-do-fantasy-playoffs-work"
+
+
+def _division_refusal(structure: Any) -> dict[str, Any] | None:
+    """Why a league's divisions make qualifying unsimulable, or ``None``.
+
+    The host qualifies EVERY division winner for the playoffs, whatever its
+    overall record ("If there are divisions, then each division winner will
+    qualify for the playoffs", :data:`DIVISION_RULE_SOURCE`).  This engine
+    seeds on overall record and Points For only, and how the host seeds
+    division winners against wild cards, and breaks a division tie, is not
+    verified — so a league with divisions ON is refused rather than simulated
+    as if it had none (PLAYOFF_PREDICTOR_SPEC §3: division / wild-card
+    qualification rules, fail closed when unverified).  An unreadable
+    ``divisions`` setting is refused the same way.
+    """
+    if not getattr(structure, "divisions_in_play", False):
+        return None
+    if structure.divisions_reason:
+        return {
+            "reason": structure.divisions_reason,
+            "detail": (
+                "this league's divisions setting cannot be read, so whether division "
+                "winners qualify ahead of better records is unknown. Playoff, bye, "
+                "seed, title and draft-slot odds are not published. This is not a 0% "
+                "chance for anyone."
+            ),
+        }
+    return {
+        "reason": "league_divisions_unmodeled",
+        "divisions": structure.divisions,
+        "source": DIVISION_RULE_SOURCE,
+        "detail": (
+            f"this league plays in {structure.divisions} division(s), and the host "
+            "qualifies every division winner for the playoffs whatever its record. "
+            "This simulation seeds on overall record only, and the host's seeding of "
+            "division winners against wild cards is not verified, so playoff, bye, "
+            "seed, title and draft-slot odds are not published. This is not a 0% "
+            "chance for anyone."
+        ),
+    }
+
+
 def _simulate_bracket(
     seeded: list[str],
     distributions: dict[str, _TeamDist],
@@ -1427,6 +1471,24 @@ def simulate_playoff_odds(
                     "a six-team bracket."
                 ),
             },
+        }
+
+    division_refusal = _division_refusal(structure)
+    if division_refusal is not None:
+        # CW-49: qualifying in a league with divisions is not overall record
+        # alone, and this loop models no division rule — see
+        # ``_division_refusal``.  An explicit ``playoff_seeds`` does not model
+        # division winners either, so it does not bypass this.
+        return {
+            "playoffOdds": [],
+            "n_simulations": 0,
+            "playoffSeeds": playoff_seeds,
+            "byeSeeds": bye_seeds,
+            "rosStrengthAvailable": ros_strength_available(_load_ros_strength_map(league_key)),
+            "bestBallVarianceMode": "depth_aware" if best_ball else "off",
+            "pointsModelSource": model.source,
+            "playoffStructure": structure.to_dict(),
+            "unsimulable": division_refusal,
         }
 
     ros_map = _load_ros_strength_map(league_key)
@@ -2137,9 +2199,30 @@ def simulate_trade_impact(
         reseed=reseed,
     )
 
+    # CW-49: an arm the simulator REFUSED (median rule unverifiable, no team
+    # evidence, divisions, nothing played or scheduled, ...) has no odds, so
+    # the trade has no measured effect — which is not "no effect".  The envelope
+    # used to fall through with empty deltas, ``meaningfulDeltas: 0`` and the
+    # REQUESTED count as ``nSimulations`` (``0 or n_simulations``), reading as a
+    # zero-impact trade over simulations that never ran.
+    refused = before.get("unsimulable") or after.get("unsimulable")
+    if refused:
+        return {
+            "playoff": [],
+            "championship": [],
+            "meaningfulDeltas": 0,
+            "nSimulations": 0,
+            "sharedSeed": seed,
+            "pointsModelSource": model.source,
+            "playoffStructure": structure.to_dict(),
+            "note": "playoff simulation refused",
+            "methodology": _TRADE_IMPACT_METHODOLOGY,
+            "unsimulable": refused,
+        }
+
     before_by_owner = {r["ownerId"]: r for r in before.get("playoffOdds") or []}
     after_by_owner = {r["ownerId"]: r for r in after.get("playoffOdds") or []}
-    n = int(after.get("n_simulations") or n_simulations)
+    n = int(after["n_simulations"])
 
     def _deltas(metric: str) -> list[OddsDelta]:
         rows: list[OddsDelta] = []
