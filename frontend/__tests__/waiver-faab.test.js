@@ -264,3 +264,26 @@ describe("waiverBidStateForRow team_context_missing", () => {
     expect(waiverBidStateForRow(null, { name: "Emeka Egbuka", pos: "WR" }).state).toBe("unavailable");
   });
 });
+
+describe("unknown team FAAB balance", () => {
+  const payload = {
+    bidMethodology: "market_aware",
+    faabBudget: { state: "unknown", balance: null, originalBudget: 100, bidsWithheld: true },
+    by_position: { WR: [{ name: "Emeka Egbuka", position: "WR", bid: null, maxRational: null }] },
+  };
+
+  it("renders balance_unknown with no bid, never $100 and never plain 'No bids'", () => {
+    const entry = waiverBidStateForRow(buildWaiverBidIndex(payload), {
+      name: "Emeka Egbuka",
+      pos: "WR",
+    });
+    expect(entry.state).toBe("balance_unknown");
+    expect(entry.bid).toBeNull();
+  });
+
+  it("a known balance with no priced candidates is still the null index", () => {
+    expect(
+      buildWaiverBidIndex({ ...payload, faabBudget: { state: "known", balance: 60 } }),
+    ).toBeNull();
+  });
+});

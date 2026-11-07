@@ -213,15 +213,6 @@ def test_a_rostered_by_id_only_never_proposed_by_perfect(env):
     assert "Free WR" not in {m["add"]["name"] for m in _moves(env.perfect())}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "src/trade/waiver.py:236-252 rostered_name_set (used at find_waiver_targets) "
-        "keys ownership on NAMES only; a player rostered by playerId only is offered "
-        "by /api/waiver/suggestions as a free agent. /api/waiver/perfect re-checks "
-        "ids in perfect_waivers.free_agent_candidates."
-    ),
-)
 def test_a_suggestions_excludes_player_rostered_by_id_only(env):
     contract = _build_contract(MINE_FULL, 60, _board(), RIVAL)
     contract["sleeper"]["teams"][1]["playerIds"].append("fa2")
@@ -286,20 +277,21 @@ def test_b_unknown_balance_is_explicit_unknown_in_perfect_plan(env):
     assert payload["budget"]["remainingAfter"] is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "src/trade/waiver.py:494-499 — an UNKNOWN balance (own team row without "
-        "faabRemaining) falls back to cap = league budget (default 100, also "
-        "server.py _waiver_engine_inputs) and bids are emitted as if capped to a "
-        "known $100; the suggestions response has no budget-state field."
-    ),
-)
 def test_b_suggestions_unknown_balance_is_not_presented_as_a_known_budget(env):
     env.load(_build_contract(MINE_FULL, _OMIT, _board(), RIVAL))
     body = env.suggest()
-    state = body.get("budgetState") or (body.get("budget") or {}).get("state")
-    assert state == "unknown"
+    # Property: an explicit unknown state exists, and no balance-capped bid is
+    # presented as if the cap were known.
+    assert body["faabBudget"]["state"] == "unknown"
+    assert body["faabBudget"]["balance"] is None
+    candidates = [c for items in body["by_position"].values() for c in items]
+    assert candidates, "non-vacuity: the pool must still be offered"
+    assert all(c["bid"] is None and c["maxRational"] is None for c in candidates)
+    # Control: the same league with a KNOWN balance states it and bids.
+    env.load(_build_contract(MINE_FULL, 60, _board(), RIVAL))
+    known = env.suggest()
+    assert known["faabBudget"]["state"] == "known" and known["faabBudget"]["balance"] == 60
+    assert any(c["bid"] is not None for items in known["by_position"].values() for c in items)
 
 
 # -- (c) roster capacity --------------------------------------------------
@@ -321,6 +313,7 @@ def test_c_open_spots_bound_the_number_of_open_spot_claims(env):
     payload = env.perfect()
     assert payload["capacity"]["openSpotsPlanned"] == 2
     opens = [m for m in _moves(payload) if m["release"]["kind"] == "openSpot"]
+    assert opens, "non-vacuity: open spots exist and eligible claims are better than nothing"
     assert len(opens) <= 2
     assert 2 + payload["plan"]["addCount"] - payload["plan"]["dropCount"] <= 4
 
@@ -350,8 +343,13 @@ def test_c_unknown_roster_limit_never_plans_an_add_without_a_drop(env, monkeypat
 
 def test_d_saved_protection_never_proposed_as_drop(env):
     env.load(_build_contract(MINE_FULL, 60, _board(), RIVAL))
-    protected = {"Weak TE", "Deep WR"}
+    # Control: with nothing protected the plan DOES drop someone, so the
+    # protection assertion below binds on a real candidate.
+    control_drops = {m["release"].get("name") for m in _moves(env.perfect())}
+    assert control_drops, "non-vacuity: the unprotected plan must release someone"
+    protected = set(control_drops)
     _protect(env, protected)
+    server._PERFECT_WAIVERS_CACHE.clear()
     payload = env.perfect()
     assert not {m["release"].get("name") for m in _moves(payload)} & protected
     assert {r["name"] for r in payload["constraints"]["protectedOnRoster"]} == protected
@@ -361,6 +359,7 @@ def test_d_sole_starter_is_never_dropped_without_a_replacement(env):
     mine = [("qb1", "Star QB"), ("wr2", "Deep WR")]  # the only QB; no QB on the wire
     env.load(_build_contract(mine, 60, _board(), RIVAL))
     released = {m["release"].get("name") for m in _moves(env.perfect())}
+    assert released, "non-vacuity: the plan must drop someone (Deep WR) for this to bind"
     assert "Star QB" not in released
 
 
@@ -369,6 +368,7 @@ def test_d_unpriced_rostered_player_is_never_dropped(env):
     mine = [("qb1", "Star QB"), ("te1", "Weak TE"), ("wr1", "Bench WR"), ("ghost", "Unpriced Guy")]
     env.load(_build_contract(mine, 60, rows, RIVAL))
     released = {m["release"].get("name") for m in _moves(env.perfect())}
+    assert released, "non-vacuity: the plan must drop someone priced for this to bind"
     assert "Unpriced Guy" not in released
 
 
