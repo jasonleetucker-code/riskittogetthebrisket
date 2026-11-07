@@ -7,6 +7,10 @@
 
 ---
 
+## 2026-11-07 intake addendum — format-adaptive dynasty valuation (C1-SRC-03)
+
+New owner intent is preserved as **one** future capability rather than counted as eight new source opinions or used to reopen the completed archive: `docs/OWNER_REQUESTED_TODO.md` (2026-11-07 future format-adaptive entry) → `docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md` §21 (complete A/B/C research contract) → `docs/OWNER_FEATURE_INVENTORY.md` 7.13 → **`C1-SRC-03`** (manifest, `C1-U10` execution-map unit) → `docs/EXECUTION_PLAN.md` (deferred; production authority reserved). The earlier `C1-SRC-01` and `C1-SRC-02` retain their delivered status. This is a new Nov 2026 owner input, not a recount of the original A–L August census or an approved live valuation formula.
+
 # 1. What "safely mapped" means here
 
 A requirement is **not** safely mapped merely because it appears somewhere in an old file or an open branch. For

@@ -241,6 +241,8 @@ Not product surfaces, but every product above reads them, so a defect here is a 
 | 7.11 | **Acquisition / holding-period history** | What each rostered player was worth when acquired, what was paid, how long held, across re-acquisitions | New | Does not exist. Sleeper transactions are fetched today only for FAAB history. **Provenance must distinguish RECORDED / HISTORICAL SNAPSHOT / RECONSTRUCTED / UNAVAILABLE, and never use a future snapshot as historical truth** | C3 | 7.10 | **L** | KEEP — NEW BUILD |
 | 7.12 | **Model provenance stamps** | Every material number says which model, params and as-of produced it | Existing, partial | BDVM stamps well; the main board does not (W04-F011) | C | — | **M** | KEEP — INFRASTRUCTURE/FOUNDATION |
 
+| 7.13 | **Format-adaptive dynasty valuation (A/B/C challenger; `C1-SRC-03`)** | Determine whether common 1QB/no-TEP source inputs and proprietary translation or a paired native-format hybrid beat the SF/TEP incumbent; eventually distinguish market consensus, league-wide value and market edge | Extension of C1-U9/valuation foundations; research only | **PLANNED / LATER — not implemented and no live value authorization (2026-11-07 owner intake).** Native KTC eight-state capture exists in code; production completeness, source coverage and predictive format valuation are not proven. Previous league-aware canonical overlay rejected; do not resurrect it. | C1-U10 future | C1-SRC-01/02; scoring identity/parity; C2 replacement; BDVM/IDP; point-in-time source history | **L** | KEEP — DEFERRED EVIDENCE-GATED FOUNDATION; see multi-format spec §21 |
+
 ---
 
 ## 8. BDVM, news, notifications
