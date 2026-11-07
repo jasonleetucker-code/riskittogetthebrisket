@@ -731,6 +731,11 @@ def test_fa_join_with_two_same_name_same_position_players_is_ambiguous():
 
 def test_waiver_pool_filters_are_disclosed_by_reason():
     contract = _contract()
+    # A FLEX makes the WRs below startable, so the reasons under test are the
+    # value / source / kicker / unpriced filters rather than the league-lineup
+    # one (CW-50), which ``test_unstartable_position_is_disclosed_by_reason``
+    # covers on the unmodified QB/TE lineup.
+    contract["sleeper"]["rosterPositions"] = ["QB", "TE", "FLEX", "BN", "BN", "BN"]
     contract["playersArray"] += [
         _row("lo", "Low Guy", "WR", 300),
         _row("one", "One Source", "WR", 2000, sources=1),
@@ -742,6 +747,17 @@ def test_waiver_pool_filters_are_disclosed_by_reason():
     assert pool["single_source"] == 1
     assert pool["kicker_def_excluded"] == 1
     assert pool["unpriced"] >= 1
+
+
+def test_unstartable_position_is_disclosed_by_reason():
+    """CW-50: a free agent the league's lineup (QB, TE) cannot start is counted
+    as ``position_not_started`` — never silently missing from the census."""
+    contract = _contract()
+    contract["playersArray"] += [_row("lb1", "Free LB", "LB", 3000)]
+    out = _build(contract)
+    pool = out["freeAgentExclusions"]["waiverPool"]
+    # Free WR (2500), Nobody Knows (WR, unpriced) and Free LB: none can fill QB or TE.
+    assert pool["position_not_started"] == 3
 
 
 def test_partial_baseline_fill_is_disclosed():

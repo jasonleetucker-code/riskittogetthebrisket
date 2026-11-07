@@ -332,6 +332,22 @@ class TestDegradedInputs:
                 "playoffWeekStart": 15,
                 "playoffWeekStartSource": "default",
             },
+            # CW-50: the balance the bids were capped at, and whether the
+            # league lineup filtered the pool, are stated even on an empty board.
+            "faabBalance": {
+                "state": "unknown",
+                "source": None,
+                "remaining": None,
+                "bidCap": 100,
+                "assumption": "bids_capped_at_league_original_budget",
+            },
+            "positionEligibility": {
+                "state": "unverified",
+                "owner": "src/ros/lineup.py::resolve_starter_slots",
+                "reason": "league_starter_slots_unknown",
+                "slotSource": None,
+                "excluded": 0,
+            },
         }
 
     def test_non_list_players_array_returns_empty_shape(self):
