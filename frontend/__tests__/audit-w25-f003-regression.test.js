@@ -1,5 +1,5 @@
 /**
- * Master-site-audit W25-F003, display half (CW-40 P1 re-adjudication, 2026-11-06) -- OPEN.
+ * Master-site-audit W25-F003, display half (CW-40 P1 re-adjudication, 2026-11-06) -- REPAIRED (unpriced rows are no longer numbered).
  *
  * The finding's main claim is a CLAUDE.md accuracy error (pinned in
  * tests/api/test_audit_w25_f003_regression.py).  Its "observed" paragraph also records the
@@ -13,7 +13,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { buildRows } from "@/lib/dynasty-data";
+import { buildRows, resolvedRank } from "@/lib/dynasty-data";
 
 function player(name, extra) {
   return {
@@ -48,10 +48,18 @@ describe("W25-F003: rank-less rows in buildRows", () => {
     expect(byName["Off Cap Priced"].computedConsensusRank).toBe(3);
   });
 
-  it.fails("an unpriced row gets no `#` ordinal", () => {
+  it("an unpriced row gets no `#` ordinal", () => {
     const rows = buildRows(CONTRACT);
     const unpriced = rows.find((r) => r.name === "Unpriced");
     expect(unpriced).toBeTruthy();
     expect(unpriced.rank).toBeNull();
+  });
+
+  it("an unpriced row reads as unranked everywhere: no ordinal, Infinity resolved rank, sorts last", () => {
+    const rows = buildRows(CONTRACT);
+    const unpriced = rows.find((r) => r.name === "Unpriced");
+    expect(unpriced.computedConsensusRank).toBeNull();
+    expect(resolvedRank(unpriced)).toBe(Infinity);
+    expect(rows[rows.length - 1].name).toBe("Unpriced");
   });
 });
