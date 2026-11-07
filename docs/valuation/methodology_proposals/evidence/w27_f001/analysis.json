@@ -508,7 +508,7 @@
    "SELL": 85,
    "—": 92
   },
-  "verdictsCountingIdptcsOwnAncestorAsAnExpert": 45,
+  "verdictsCountingTheIdpShowAsAnExpert": 45,
   "verdictsUsingAZeroWeightSource": 45,
   "verdictsWithExpertWeightBelowOne": 323
  },
@@ -609,6 +609,103 @@
    "hold": 2,
    "sell": 13
   }
+ },
+ "sensitivityIdpShowIncluded": {
+  "appliedWeights": {
+   "twoFamilies": {
+    "rowsDifferingFromExclusion": 0,
+    "states": {
+     "available": 239,
+     "insufficient_independent_families": 84,
+     "no_idp_market_price": 53,
+     "no_independent_evidence": 54
+    },
+    "verdicts5pct": {
+     "buy": 139,
+     "hold": 33,
+     "sell": 67,
+     "unavailable": 191
+    }
+   },
+   "twoFamiliesWeight0p5": {
+    "rowsDifferingFromExclusion": 0,
+    "states": {
+     "insufficient_evidence_weight": 239,
+     "insufficient_independent_families": 84,
+     "no_idp_market_price": 53,
+     "no_independent_evidence": 54
+    },
+    "verdicts5pct": {
+     "unavailable": 430
+    }
+   },
+   "twoFamiliesWeight1p0": {
+    "rowsDifferingFromExclusion": 0,
+    "states": {
+     "insufficient_evidence_weight": 239,
+     "insufficient_independent_families": 84,
+     "no_idp_market_price": 53,
+     "no_independent_evidence": 54
+    },
+    "verdicts5pct": {
+     "unavailable": 430
+    }
+   }
+  },
+  "idpShowAtFullWeightHypothetical": {
+   "twoFamilies": {
+    "rowsDifferingFromExclusion": 144,
+    "states": {
+     "available": 290,
+     "insufficient_independent_families": 61,
+     "no_idp_market_price": 53,
+     "no_independent_evidence": 26
+    },
+    "verdicts5pct": {
+     "buy": 220,
+     "hold": 32,
+     "sell": 38,
+     "unavailable": 140
+    }
+   },
+   "twoFamiliesWeight0p5": {
+    "rowsDifferingFromExclusion": 301,
+    "states": {
+     "available": 273,
+     "insufficient_evidence_weight": 17,
+     "insufficient_independent_families": 61,
+     "no_idp_market_price": 53,
+     "no_independent_evidence": 26
+    },
+    "verdicts5pct": {
+     "buy": 204,
+     "hold": 31,
+     "sell": 38,
+     "unavailable": 157
+    }
+   },
+   "twoFamiliesWeight1p0": {
+    "rowsDifferingFromExclusion": 301,
+    "states": {
+     "available": 273,
+     "insufficient_evidence_weight": 17,
+     "insufficient_independent_families": 61,
+     "no_idp_market_price": 53,
+     "no_independent_evidence": 26
+    },
+    "verdicts5pct": {
+     "buy": 204,
+     "hold": 31,
+     "sell": 38,
+     "unavailable": 157
+    }
+   }
+  },
+  "idpShowKeys": [
+   "idpShowCombined"
+  ],
+  "rowsWithAnIdpShowPlacement": 301,
+  "rowsWithIdpShowAppliedWeightAboveZero": 0
  },
  "signalIndependence": {
   "idpRowsWhereIdptcIsTheOnlyVoter": 54,

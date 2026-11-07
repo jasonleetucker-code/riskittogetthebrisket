@@ -31,10 +31,11 @@ the harness that reproduces it is offline.
    - **It ignores the blend's evidence weights.** All 323 of its BUY/SELL verdicts rest on expert evidence
      that the blend weights at a median **0.35** of one full-strength provider: FantasyPros at 0.13
      (64 days stale) plus Draft Sharks at 0.2173.
-   - **It counts IDPTC's own ancestor as an independent expert.** On 45 rows it uses The IDP Show
-     combined board, which is zero-weight in the blend (79 days stale). IDPTC's IDP ordering is measured
-     to follow The IDP Show (Spearman 0.998, IDP Show leads), and a later source audit found vendor
-     statements that the calculator is built from it.
+   - **It counts a zero-weight board as full evidence.** On 45 rows it uses The IDP Show combined
+     board, which the blend weights at zero (79 days stale). The registry also records a measured
+     dependence between IDPTC and The IDP Show (Spearman 0.998, IDP Show leads), but classifies common
+     ancestry as **SUSPECTED**, not vendor-stated (`idptc-idpshow-suspected-ancestry`). A 2026-11-01
+     source audit reports vendor statements and recommends an upgrade that has not been made.
    - **It has a curve-shape artifact.** It prices expert ranks on the GLOBAL Hill curve but IDPTC on its
      own published values. So when experts agree exactly with IDPTC, it still issues 232 BUY and 94 SELL
      verdicts (median baseline −14.1%).
@@ -50,9 +51,11 @@ the harness that reproduces it is offline.
 4. **Recommendation, IDP benchmark.** IDPTC is the only IDP *reference price* on the shared scale, and it
    is what IDP counterparties consult, so it is the right IDP benchmark. But it must never be compared
    with a value it dominates. Recommended contract:
-   - The IDP gap is **C2**: anchor-free evidence vs IDPTC's price. The evidence excludes IDPTC and its
-     declared lineage, and each source's placement is priced on IDPTC's own curve. The zero point is exact
-     by construction.
+   - The IDP gap is **C2**: anchor-free evidence vs IDPTC's price. The evidence excludes IDPTC, and each
+     source's placement is priced on IDPTC's own curve. The zero point is exact by construction.
+   - Whether C2 also excludes The IDP Show is **an owner decision (D1b), not a premise**. The registry
+     classifies that ancestry as SUSPECTED, and the 2026-10-19 directive merges votes only on credible
+     shared-data lineage. §4.2 reports C2 both ways.
    - C2 is gated on at least 2 independent provider families and at least 1.0 freshness-weighted
      provider-equivalents.
    - On the pinned board **no IDP row passes the weight gate**. The canonical IDP state today is therefore
@@ -138,13 +141,19 @@ in `evidence/w27_f001/analysis.json`.
   construction the owner rejected for offense (see the `_compute_market_gap` docstring).
 - **Evidence weight.** The expert side's applied weight is median 0.3473 (p10 0.13). All 323 verdicts sit
   below one full-strength provider.
-- **Zero-weight and lineage evidence.** 45 verdicts count `idpShowCombined`. The blend gives it zero weight
-  (stale), and it is IDPTC's measured ancestor:
-  - `config/sources/source_lineage.json` `idptc-idpshow-dependence`: Spearman 0.998, IDP Show leads.
-  - `docs/sources/IDP_SHOW_LIBRARY_AUDIT_2026-11-01.md` §6 cites three vendor statements that the
-    calculator is built from that publication's rankings.
-- **Signal independence.** A source and its descendant are not independent votes (CLAUDE.md "Signal
-  independence").
+- **Zero-weight evidence.** 45 verdicts count `idpShowCombined` at full strength, although the blend gives
+  it zero weight (stale, 79 days). That is a defect whatever the lineage answer is.
+- **Relation to IDPTC: unsettled, not proven lineage.**
+  - `config/sources/source_lineage.json` records `idptc-idpshow-dependence` as a *measured dependence*
+    (Spearman 0.998, IDP Show leads at 3 of 5 publications).
+  - It records `idptc-idpshow-suspected-ancestry` as **SUSPECTED**: "no vendor statement says so".
+  - `docs/sources/IDP_SHOW_LIBRARY_AUDIT_2026-11-01.md` §6 reports three vendor statements and recommends
+    upgrading the relation. That upgrade has not been made.
+  - Under the 2026-10-19 directive (`docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md`), similarity
+    alone never merges votes. That directive withdrew the IDPTC / IDP Show shared cap because its only
+    basis was rank similarity.
+  - So whether The IDP Show may serve as evidence against IDPTC is an owner question (D1b), not something
+    this proposal treats as settled.
 
 ### 3.4 Curve-shape artifact
 
@@ -219,7 +228,7 @@ All candidates are offline functions in `scripts/research/w27_f001_idp_edge_benc
 |---|---|---|
 | **C0 (incumbent)** | §1 /edge row | BUY 238 / SELL 85 / HOLD 15 / — 92; contradicts /rankings on 323 |
 | **C1: model vs IDPTC** (the audit's repair, the finder's arithmetic) | `(IDPTC − rankDerivedValue) / mean` | BUY 165 / SELL 68 / HOLD 144 / n/a 53. Regression on the leave-IDPTC-out gap has **slope 0.265** (= 1 − IDPTC share). 28 rows are "aligned" only because the model *is* IDPTC; 26 rows are SELL ≈ +108% only because of the single-source haircut. **Rejected:** double counting by construction |
-| **C2: anchor-free evidence on the market's curve** | For each non-IDPTC source the blend counted on the row (applied weight > 0; holds and fully stale boards are already out; IDPTC's declared lineage, The IDP Show, excluded), read IDPTC's price at that source's shared-market rank. Evidence = applied-weight mean. Gap = `(IDPTC − evidence) / mean`. Gates: ≥ 2 independent families, total weight ≥ W | W = 0: 239 available, BUY 139 / SELL 67 / HOLD 33. **W = 0.5 or 1.0: 0 available.** Exactly 0 when every source agrees with IDPTC's placement |
+| **C2: anchor-free evidence on the market's curve** | For each non-IDPTC source the blend counted on the row (applied weight > 0; holds and fully stale boards are already out; The IDP Show excluded by default, a D1b choice, see §4.2), read IDPTC's price at that source's shared-market rank. Evidence = applied-weight mean. Gap = `(IDPTC − evidence) / mean`. Gates: ≥ 2 independent families, total weight ≥ W | W = 0: 239 available, BUY 139 / SELL 67 / HOLD 33. **W = 0.5 or 1.0: 0 available.** Exactly 0 when every source agrees with IDPTC's placement |
 | **C3: leave-IDPTC-out board** (the Consensus Edge construction) | rebuild with `idpTradeCalc` disabled; `(IDPTC − LOO value) / mean` | BUY 191 / SELL 115 / HOLD 17; agrees with C2 on 192 / 200 directional rows. Its shared-market ladder switches to the **Draft Sharks** bridge (FantasyPros goes `extrapolated` on 93 rows; values move median ×1.106, range 0.33–2.36). It still prices votes on the GLOBAL Hill, so 207 / 323 verdicts equal the zero-disagreement baseline's. **Not recommended** until the bridge-swap scale is validated |
 
 Correction to an older record. The Consensus Edge refusal documented in `fair_value.py` (ADR-021/025,
@@ -238,8 +247,37 @@ IDPTC enters C2 only through its **price level**: the curve that turns a placeme
 enters through its **opinion** of the player being evaluated. That is the IDP analogue of the offense
 benchmark rule "KTC Market never votes": the benchmark sits on one side of the comparison only. C2 is
 exactly zero when every independent source places the player where IDPTC does, so no curve-shape term can
-create a verdict. Lineage exclusion removes The IDP Show (`BENCHMARK_LINEAGE_FAMILIES`). Applied weights
-reuse the blend's own freshness × health × coverage and owner holds, with no new weighting.
+create a verdict. The default additionally excludes The IDP Show (`BENCHMARK_LINEAGE_FAMILIES`), but
+that is a parameter (`excluded_families`), and the alternative (`BENCHMARK_ONLY_FAMILIES`, IDPTC only) is
+reported in §4.2. Applied weights reuse the blend's own freshness × health × coverage and owner holds,
+with no new weighting.
+
+### 4.2 Sensitivity: C2 with The IDP Show admitted as evidence
+
+The IDP Show's exclusion rests on a SUSPECTED registry relation, so the result is shown both ways. The
+only IDP Show key on the board is `idpShowCombined`. It places 301 IDP rows and has applied weight 0 on
+every one of them (stale, 79 days).
+
+| C2 variant | gate | available | BUY / SELL / HOLD | rows differing from the default |
+|---|---|---|---|---|
+| IDP Show excluded (default) | 2 families | 239 | 139 / 67 / 33 | n/a |
+| IDP Show excluded (default) | 2 families, W ≥ 0.5 or 1.0 | **0** | n/a | n/a |
+| IDP Show admitted, actual applied weights | any of the three gates | identical to the default | identical | **0** |
+| IDP Show admitted at weight 1.0 (hypothetical: its board republished fresh) | 2 families | 290 | 220 / 38 / 32 | 144 |
+| IDP Show admitted at weight 1.0 (hypothetical) | 2 families, W ≥ 0.5 or 1.0 | **273** | 204 / 38 / 31 | 301 |
+
+What this means:
+
+- **Today the choice changes nothing.** The board gives the IDP Show zero weight, so C2 is identical
+  either way.
+- **It becomes decisive the moment The IDP Show refreshes.** With the IDP Show admitted at full weight,
+  273 rows would pass the W ≥ 1.0 gate (BUY-heavy, 204 vs 38), where the default passes none. With it
+  excluded, they stay unavailable.
+- **That is why it must be an explicit owner decision (D1b)** rather than a premise.
+
+Historical replay with the IDP Show admitted (it exists in the tracked history from 2026-08-20, so it
+enters origins from 2026-08-24, unweighted): hit rate 0.505 (14 d), 0.486 (28 d), 0.461 (56 d); Spearman
+−0.013 / −0.008 / −0.000. Like every other variant, it shows no predictive value (§9).
 
 ## 5. Independently computed expected results (oracles)
 
@@ -248,7 +286,7 @@ reuse the blend's own freshness × health × coverage and owner holds, with no n
 | Real frontend module under node (`w27_f001_frontend_crosscheck.mjs`) | the Python transcription of `idpMarketAction` / `marketActionDisclosed` / `isIdpInTopByIdptc` | 430 / 430 rows identical (test) |
 | Hill formula from published parameters | expert votes are GLOBAL-Hill priced, which is the premise of the artifact | 890 / 890 within 1 |
 | CSV-level recomputation of the FantasyPros half of C2 (`oracle` subcommand): own CSV parsing, own name join, own IDPTC IDP ladder | that `ladder(effectiveRank)` equals "IDPTC's k-th IDP price" for FantasyPros' k | 229 / 266 within 2%: **182 / 185** for the vendor's directly published ranks (`direct_combined`), 47 / 81 for vendor-derived family listings (`anchored_from_individual`), where the pipeline re-ranks before translating. Worked example: Micah Parsons, FantasyPros #39 IDP → stamped `effectiveRank` 204 = rank of IDPTC's 39th IDP (Blake Cashman, 3180) among all 899 IDPTC values |
-| Synthetic C2 properties (tests) | zero point, refusals never 0, lineage exclusion, direction | pass |
+| Synthetic C2 properties (tests) | zero point, refusals never 0, IDP Show exclusion as a parameter (both settings), direction | pass |
 
 ## 6. Before/after player impacts (named audit players, pinned board)
 
@@ -296,15 +334,22 @@ comparison stamp, not a value.
   - shared-market ladder: the only contributor (`crossPositionBridges.ladder.contributors == ["idpTradeCalc"]`),
     so all 267 FantasyPros votes are placed on its ladder;
   - rookie ladder reference for `dlfRookieIdp` (`rookie-ladder-borrows-reference-scale`).
-- **Its ordering is not independent either.** It follows The IDP Show (above). "IDPTC vs the IDP Show
-  board" is one publication compared with itself.
+- **Its ordering may not be independent either.** It tracks The IDP Show closely (measured dependence;
+  ancestry classified SUSPECTED in the registry). If the vendor-stated derivation reported on 2026-11-01
+  is accepted, "IDPTC vs the IDP Show board" is one publication compared with itself. If it is not, they
+  are two providers in agreement, which is consensus under the 2026-10-19 directive.
 - **Offense contrast (owner-accepted).** KTC Crowd + Trades carry a median 16.5% of offense rows' applied
   weight (p90 32.7%). The offense benchmark is a correlated descendant, but a minority one. On IDP the
   benchmark is the majority of the model. That is why the offense formula cannot be copied to IDP: C1's
   slope of 0.265 is the measured compression.
 - **Agreement vs duplication** (owner directive 2026-10-19). Draft Sharks and FantasyPros agreeing with
-  each other is consensus, and C2 counts both. The IDP Show is excluded from C2 only because of recorded
-  shared-data lineage (vendor statements plus measured lead-lag), not because of similarity.
+  each other is consensus, and C2 counts both. Excluding The IDP Show is **proposed, not settled**:
+  - the registry classifies its ancestry as SUSPECTED;
+  - measured lead-lag and a 0.998 Spearman are similarity, which by themselves never merge votes;
+  - the only basis that could qualify is the vendor statements reported on 2026-11-01, which the registry
+    has not adopted.
+
+  D1b asks the owner to choose. §4.2 shows both outcomes.
 
 ## 9. Historical predictive evaluation
 
@@ -324,6 +369,9 @@ comparison stamp, not a value.
 | | | incumbent-like | 3612 | 3005 | 0.501 | −0.014 |
 | 56 d | 7 (07-27 … 09-07) | C2 | 1360 | 1138 | 0.464 | +0.002 |
 | | | incumbent-like | 2238 | 2023 | 0.473 | −0.027 |
+
+C2 with The IDP Show admitted (sensitivity, §4.2): 14 d 3244 / 1544 / 0.505 / −0.013; 28 d 2678 / 2036 /
+0.486 / −0.008; 56 d 1556 / 1295 / 0.461 / −0.000.
 
 - **Per origin** (28 d): hit rates run 0.43–0.60. The only negative-ρ stretch is the three origins of
   2026-08-24 … 09-07 (ρ −0.09 to −0.12), which bracket the 08-20 and 08-26 IDP Show republications.
@@ -380,7 +428,7 @@ never neutral, never zero, never a fabricated gap.
     "key": "ktcCrowdTradesSfTep | idpTradeCalc | null",
     "definition": "ktc_published_crowd_trades | idp_trade_calculator_reference_price",
     "isModelInput": false,
-    "lineageExcludedFamilies": ["idpTradeCalc", "idpShow"],
+    "evidenceExcludedFamilies": ["idpTradeCalc", "idpShow (only if D1b = exclude)"],
     "value": 5409.0,
     "lastGenuineUpdate": "2026-11-06T02:56:01Z"
   },
@@ -445,7 +493,7 @@ never neutral, never zero, never a fabricated gap.
 
 ## 12. Downstream consumer effects of adopting the recommendation
 
-| Consumer | Today | After D1 + D3(c) |
+| Consumer | Today | After D1a/D1b + D3(c) |
 |---|---|---|
 | /rankings Edge, IDP | "offense only" | "IDP edge unavailable: insufficient independent evidence (0.35 of 1.0)" or a stamped direction |
 | /rankings filter | silently 0 IDP | includes IDP rows with `state == available` |
@@ -468,6 +516,10 @@ never neutral, never zero, never a fabricated gap.
 1. **Adopt IDPTC as the canonical IDP reference-price benchmark, with C2 as the IDP edge definition.**
    Never use C1 (model vs IDPTC) as a published edge. Gates: at least 2 independent families and at least
    1.0 applied-weight provider-equivalents.
+   - Whether The IDP Show counts as evidence is the owner's D1b. Today it makes no difference (zero
+     weight). After an IDP Show refresh it decides 273 rows (§4.2).
+   - Either way, the sources lane should first settle the registry relation (SUSPECTED vs vendor-stated)
+     under the 2026-10-19 rule.
 2. **Send C2 to an owner-approved shadow evaluation.** Compute and record the stamp per board with no UI.
    Preregister these success criteria before any exposure:
    - the gate pass rate across Draft Sharks' publication cycle;
@@ -480,18 +532,29 @@ never neutral, never zero, never a fabricated gap.
 
 ## 15. Owner decision requested
 
-- **D1. Canonical IDP edge definition.** Approve, reject or modify: "The IDP market benchmark is the IDP
-  Trade Calculator's published price. The IDP edge compares that price with independent evidence that
-  excludes IDPTC and its declared lineage (The IDP Show), priced on IDPTC's own curve (C2). It is published
-  only with at least 2 independent provider families and at least 1.0 freshness-weighted
-  provider-equivalents; otherwise it is unavailable with a named reason." If modified, name the gate values.
+- **D1a. Canonical IDP edge definition.** Approve, reject or modify: "The IDP market benchmark is the IDP
+  Trade Calculator's published price. The IDP edge compares that price with evidence that excludes IDPTC,
+  with each source's placement priced on IDPTC's own curve (C2). It is published only with at least
+  2 independent provider families and at least 1.0 freshness-weighted provider-equivalents; otherwise it
+  is unavailable with a named reason." If modified, name the gate values.
+- **D1b. The IDP Show as evidence against IDPTC.** Choose one:
+  - **exclude** it, treating the vendor statements reported in
+    `docs/sources/IDP_SHOW_LIBRARY_AUDIT_2026-11-01.md` §6 as credible shared-data lineage under the
+    2026-10-19 rule. This would also require upgrading `idptc-idpshow-suspected-ancestry` from SUSPECTED;
+  - **include** it as an independent provider, which is the default under the 2026-10-19 rule while the
+    registry says SUSPECTED.
+
+  Impact: 0 rows today; after an IDP Show refresh, 273 rows available vs 0 under the W ≥ 1.0 gate (§4.2).
+  The proposal's default code path excludes it, but that default is not a recommendation to bypass the
+  rule. If the owner makes no decision, the 2026-10-19 rule (include) governs.
 - **D2. Shadow evaluation.** Authorize the backend to compute and record (not display) the C2 stamp per
   board behind a default-OFF flag, for at least 8 weeks, with the preregistered criteria in §14.2.
   Yes / no.
 - **D3. Interim /edge IDP BUY/SELL panels** (presentation only; no methodology). Choose one:
   - (a) keep as is;
   - (b) relabel as "IDPTC vs IDP-expert disagreement — not a market signal", remove the BUY/SELL verbs,
-    disclose the evidence weight and the IDP Show lineage, and fix the Gap parsing and source list;
+    disclose the evidence weight and the IDP Show relation (registry: SUSPECTED ancestry), and fix the
+    Gap parsing and source list;
   - (c) replace with the per-row unavailable reason until D1/D2 conclude.
 
   **Recommended:** (c). The fallback is (b). Either removes the contradiction with /rankings without
@@ -509,7 +572,7 @@ python scripts/research/w27_f001_idp_edge_benchmark.py analyze              # al
 python scripts/research/w27_f001_idp_edge_benchmark.py oracle               # §5 CSV oracle
 python scripts/research/w27_f001_idp_edge_benchmark.py history --horizon-days 28   # §9 (needs full-depth git)
 node scripts/research/w27_f001_frontend_crosscheck.mjs                       # real frontend module
-python -m pytest tests/scripts/test_w27_f001_idp_edge_benchmark.py -q        # 19 tests
+python -m pytest tests/scripts/test_w27_f001_idp_edge_benchmark.py -q        # 20 tests
 ```
 
 Evidence outputs: `docs/valuation/methodology_proposals/evidence/w27_f001/`.

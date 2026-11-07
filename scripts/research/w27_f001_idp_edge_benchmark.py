@@ -78,11 +78,18 @@ EDGE_PREMIUM_LIMIT = 10
 PERCENTILE_REFERENCE_N = 500
 TAIL_SATURATION_RANK = 904
 
-# Families whose IDP opinion reaches IDPTC itself and therefore cannot be
-# evidence AGAINST it: config/sources/source_lineage.json
-# ``idptc-idpshow-dependence`` (Spearman 0.998, IDP Show leads) and
-# ``idptc-idpshow-suspected-ancestry`` (vendor-stated per
-# docs/sources/IDP_SHOW_LIBRARY_AUDIT_2026-11-01.md section 6).
+# Families excluded from C2's evidence side.  IDPTC itself always.  The IDP
+# Show is a PROPOSED exclusion that the owner must decide (D1): the registry
+# (config/sources/source_lineage.json) classifies
+# ``idptc-idpshow-suspected-ancestry`` as SUSPECTED ("not vendor-stated"), and
+# ``idptc-idpshow-dependence`` is a measured dependence (Spearman 0.998, IDP
+# Show leads).  Under the 2026-10-19 owner directive
+# (docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md) only credible
+# shared-DATA-lineage evidence may merge votes; similarity does not.
+# docs/sources/IDP_SHOW_LIBRARY_AUDIT_2026-11-01.md section 6 reports vendor
+# statements and recommends upgrading the relation, which has NOT been done.
+# ``analyze`` therefore reports C2 both ways (``sensitivityIdpShowIncluded``).
+BENCHMARK_ONLY_FAMILIES = frozenset({"idpTradeCalc"})
 BENCHMARK_LINEAGE_FAMILIES = frozenset({"idpTradeCalc", "idpShow"})
 
 IDP_CSV_FILES = (
@@ -385,12 +392,16 @@ def candidate_c2(
     *,
     min_families: int = 2,
     min_weight: float = 0.0,
+    excluded_families: frozenset[str] = BENCHMARK_LINEAGE_FAMILIES,
+    weight_overrides: Mapping[str, float] | None = None,
 ) -> dict[str, Any]:
     """C2 — anchor-free evidence priced on the market's own curve.
 
     For every non-IDPTC source the blend counted on this row (applied weight
-    > 0, so owner holds and fully stale boards are already out; sources in a
-    declared lineage with IDPTC — The IDP Show — excluded), take the
+    > 0, so owner holds and fully stale boards are already out; families in
+    ``excluded_families`` skipped — by default IDPTC and The IDP Show, whose
+    exclusion is a proposed owner decision, see BENCHMARK_LINEAGE_FAMILIES),
+    take the
     source's shared-market rank (the coordinate the blend itself uses) and read
     IDPTC's published price AT that rank: "what IDPTC would charge if it agreed
     with this source's placement".  Evidence = applied-weight mean of those
@@ -416,9 +427,11 @@ def candidate_c2(
     den = 0.0
     fams: set[str] = set()
     for key, m in sorted(_meta(row).items()):
-        if key == IDPTC or families.get(key, key) in BENCHMARK_LINEAGE_FAMILIES:
+        if key == IDPTC or families.get(key, key) in excluded_families:
             continue
         w = _applied(m)
+        if weight_overrides is not None and key in weight_overrides:
+            w = float(weight_overrides[key])
         if w <= 0:
             continue
         price = ladder_value(ladder, m.get("effectiveRank"))
@@ -757,7 +770,7 @@ def analyze(fixture: Mapping[str, Any]) -> dict[str, Any]:
         "panelPopulationTop200ByIdptc": len(in_panel),
         "panelVerdicts": _count(inc[r["displayName"]]["label"] for r in in_panel),
         "verdictsUsingAZeroWeightSource": zero_weight_dependence,
-        "verdictsCountingIdptcsOwnAncestorAsAnExpert": lineage_dependence,
+        "verdictsCountingTheIdpShowAsAnExpert": lineage_dependence,
         "expertAppliedWeightBehindBuySell": _quantiles(expert_weight),
         "verdictsWithExpertWeightBelowOne": sum(1 for w in expert_weight if w < 1.0),
     }
@@ -934,6 +947,44 @@ def analyze(fixture: Mapping[str, Any]) -> dict[str, Any]:
     )
     result["candidateC2AnchorFreeOnMarketCurve"] = c2_out
 
+    # Sensitivity: C2 WITH The IDP Show admitted as evidence.  Its exclusion
+    # rests on a SUSPECTED registry relation, so the owner sees both (D1).
+    included = BENCHMARK_ONLY_FAMILIES
+    show_keys = sorted({k for r in rows for k in _meta(r) if fams.get(k, k) == "idpShow"})
+    sens: dict[str, Any] = {
+        "idpShowKeys": show_keys,
+        "rowsWithAnIdpShowPlacement": sum(1 for r in rows if any(k in _meta(r) for k in show_keys)),
+        "rowsWithIdpShowAppliedWeightAboveZero": sum(
+            1 for r in rows if any(_applied(_meta(r).get(k) or {}) > 0 for k in show_keys)
+        ),
+    }
+    for label, overrides in (
+        ("appliedWeights", None),
+        ("idpShowAtFullWeightHypothetical", {k: 1.0 for k in show_keys}),
+    ):
+        block: dict[str, Any] = {}
+        for gname in ("twoFamilies", "twoFamiliesWeight0p5", "twoFamiliesWeight1p0"):
+            kw = gates[gname]
+            res = {
+                r["displayName"]: candidate_c2(
+                    r, ladder, fams, excluded_families=included, weight_overrides=overrides, **kw
+                )
+                for r in rows
+            }
+            base_res = {r["displayName"]: candidate_c2(r, ladder, fams, **kw) for r in rows}
+            block[gname] = {
+                "states": _count(v["state"] for v in res.values()),
+                "verdicts5pct": _count(_verdict(v["ratio"]) for v in res.values()),
+                "rowsDifferingFromExclusion": sum(
+                    1
+                    for n in res
+                    if res[n]["state"] != base_res[n]["state"]
+                    or _verdict(res[n]["ratio"]) != _verdict(base_res[n]["ratio"])
+                ),
+            }
+        sens[label] = block
+    result["sensitivityIdpShowIncluded"] = sens
+
     # Selection on one side of a two-sided comparison manufactures direction
     # (regression toward the mean): the /edge IDP panels admit "top 200 by
     # IDPTC", i.e. they select on the benchmark's own ordering.  Same-size
@@ -949,24 +1000,25 @@ def analyze(fixture: Mapping[str, Any]) -> dict[str, Any]:
         top = sorted(scored, key=key)[:k]
         return _count(_verdict(c2_primary[r["displayName"]]["ratio"]) for r in top)
 
+    def _idptc_rank(r: Mapping[str, Any]) -> float:
+        return _num((_meta(r).get(IDPTC) or {}).get("effectiveRank")) or 1e9
+
+    def _board_value(r: Mapping[str, Any]) -> float:
+        return -(_positive(r.get("rankDerivedValue")) or 0.0)
+
+    def _evidence_value(r: Mapping[str, Any]) -> float:
+        return -(c2_primary[r["displayName"]].get("evidence") or 0.0)
+
+    def _mean_of_both(r: Mapping[str, Any]) -> float:
+        evidence = c2_primary[r["displayName"]].get("evidence") or 0.0
+        return -((idptc_market_value(r) or 0.0) + evidence) / 2.0
+
     result["selectionGateEffect"] = {
         "populationSize": k,
-        "topByIdptcRank": _pick(
-            lambda r: _num((_meta(r).get(IDPTC) or {}).get("effectiveRank")) or 1e9
-        ),
-        "topByBoardValue": _pick(lambda r: -(_positive(r.get("rankDerivedValue")) or 0.0)),
-        "topByEvidenceValue": _pick(
-            lambda r: -(c2_primary[r["displayName"]].get("evidence") or 0.0)
-        ),
-        "topByMeanOfMarketAndEvidence": _pick(
-            lambda r: -(
-                (
-                    (idptc_market_value(r) or 0.0)
-                    + (c2_primary[r["displayName"]].get("evidence") or 0.0)
-                )
-                / 2.0
-            )
-        ),
+        "topByIdptcRank": _pick(_idptc_rank),
+        "topByBoardValue": _pick(_board_value),
+        "topByEvidenceValue": _pick(_evidence_value),
+        "topByMeanOfMarketAndEvidence": _pick(_mean_of_both),
     }
 
     c3 = {r["displayName"]: candidate_c3(r) for r in rows}
@@ -1342,6 +1394,7 @@ def cmd_history(args: argparse.Namespace) -> int:
         "allExperts": [],
         "freshExperts": [],
         "incumbentLike": [],
+        "allExpertsWithIdpShow": [],
     }
     head_idptc = _git("show", "HEAD:CSVs/site_raw/idpTradeCalc.csv")
     later_idp, later_off = idp_name_universe(head_idptc)
@@ -1393,6 +1446,8 @@ def cmd_history(args: argparse.Namespace) -> int:
         independent_fresh = {k: v for k, v in fresh.items() if k != "idpShowCombined"}
         signals = {
             "allExperts": csv_c2(m0, independent),
+            # sensitivity: The IDP Show admitted (its exclusion is a D1 question)
+            "allExpertsWithIdpShow": csv_c2(m0, experts),
             "freshExperts": csv_c2(m0, independent_fresh),
             "incumbentLike": csv_incumbent_like(
                 m0, _all_values(m0_text), experts, args.hill_c, args.hill_s

@@ -1,9 +1,16 @@
 {
- "gitHead": "d7db52a43b8c96a7c44e2d62a24cb70c9114c37a",
+ "gitHead": "ab69b778d39c78073d9d5444561bb4412a83581a",
  "horizonDays": 56,
  "origins": [
   {
    "allExperts": {
+    "directional": 172,
+    "directionalWithMove": 172,
+    "hitRate": 0.4884,
+    "signals": 200,
+    "spearmanSignalVsMove": -0.0154
+   },
+   "allExpertsWithIdpShow": {
     "directional": 172,
     "directionalWithMove": 172,
     "hitRate": 0.4884,
@@ -52,6 +59,13 @@
     "signals": 198,
     "spearmanSignalVsMove": 0.0345
    },
+   "allExpertsWithIdpShow": {
+    "directional": 171,
+    "directionalWithMove": 171,
+    "hitRate": 0.4503,
+    "signals": 198,
+    "spearmanSignalVsMove": 0.0345
+   },
    "expertBoards": {
     "dlfIdp": 171,
     "draftSharksIdp": 410,
@@ -88,6 +102,13 @@
   },
   {
    "allExperts": {
+    "directional": 145,
+    "directionalWithMove": 144,
+    "hitRate": 0.4792,
+    "signals": 172,
+    "spearmanSignalVsMove": -0.0292
+   },
+   "allExpertsWithIdpShow": {
     "directional": 145,
     "directionalWithMove": 144,
     "hitRate": 0.4792,
@@ -136,6 +157,13 @@
     "signals": 172,
     "spearmanSignalVsMove": -0.0473
    },
+   "allExpertsWithIdpShow": {
+    "directional": 143,
+    "directionalWithMove": 142,
+    "hitRate": 0.493,
+    "signals": 172,
+    "spearmanSignalVsMove": -0.0473
+   },
    "expertBoards": {
     "dlfIdp": 171,
     "draftSharksIdp": 409,
@@ -177,6 +205,13 @@
     "hitRate": 0.4387,
     "signals": 189,
     "spearmanSignalVsMove": 0.034
+   },
+   "allExpertsWithIdpShow": {
+    "directional": 217,
+    "directionalWithMove": 217,
+    "hitRate": 0.447,
+    "signals": 267,
+    "spearmanSignalVsMove": -0.0002
    },
    "expertBoards": {
     "dlfIdp": 166,
@@ -223,6 +258,13 @@
     "signals": 190,
     "spearmanSignalVsMove": 0.0374
    },
+   "allExpertsWithIdpShow": {
+    "directional": 218,
+    "directionalWithMove": 217,
+    "hitRate": 0.447,
+    "signals": 267,
+    "spearmanSignalVsMove": 0.0084
+   },
    "expertBoards": {
     "dlfIdp": 166,
     "draftSharksIdp": 408,
@@ -267,6 +309,13 @@
     "hitRate": 0.465,
     "signals": 239,
     "spearmanSignalVsMove": -0.0063
+   },
+   "allExpertsWithIdpShow": {
+    "directional": 232,
+    "directionalWithMove": 232,
+    "hitRate": 0.444,
+    "signals": 280,
+    "spearmanSignalVsMove": 0.0318
    },
    "expertBoards": {
     "dlfIdp": 167,
@@ -313,6 +362,14 @@
    "note": "expected sign of rho is NEGATIVE if the market converges to the evidence",
    "observations": 1360,
    "spearmanSignalVsMove": 0.0016
+  },
+  "allExpertsWithIdpShow": {
+   "directional": 1298,
+   "directionalWithMove": 1295,
+   "hitRate": 0.461,
+   "note": "expected sign of rho is NEGATIVE if the market converges to the evidence",
+   "observations": 1556,
+   "spearmanSignalVsMove": -0.0004
   },
   "freshExperts": {
    "directional": 1141,

@@ -89,9 +89,9 @@ def test_incumbent_edge_detector_counts(result):
     assert inc["verdictsWithExpertWeightBelowOne"] == 323
     assert inc["expertAppliedWeightBehindBuySell"]["median"] == pytest.approx(0.3473)
     assert inc["verdictsUsingAZeroWeightSource"] == 45
-    # ...and those 45 count The IDP Show, the measured ancestor of IDPTC's own
-    # IDP ordering, as independent evidence against IDPTC
-    assert inc["verdictsCountingIdptcsOwnAncestorAsAnExpert"] == 45
+    # ...and those 45 count The IDP Show (zero weight in the blend; registry
+    # relation to IDPTC: measured dependence, ancestry SUSPECTED) as evidence
+    assert inc["verdictsCountingTheIdpShowAsAnExpert"] == 45
     assert inc["panelPopulationTop200ByIdptc"] == 38
     assert inc["panelVerdicts"] == {"BUY": 10, "HOLD": 3, "SELL": 25}
 
@@ -215,12 +215,42 @@ def test_c2_refuses_rather_than_reporting_a_zero_gap():
     assert mod.candidate_c2(deep, LADDER, FAMS)["state"] == "no_independent_evidence"
 
 
-def test_c2_never_counts_the_benchmarks_own_lineage_as_evidence():
+def test_c2_idp_show_exclusion_is_a_parameter_not_a_premise():
+    # Default (the proposal's D1 option): The IDP Show is excluded.
     fams = {**FAMS, "idpShowCombined": "idpShow"}
     row = _row({"idpTradeCalc": 50, "a": 150, "idpShowCombined": 50}, {})
     out = mod.candidate_c2(row, LADDER, fams)
     assert out["families"] == ["famA"]
     assert out["state"] == "insufficient_independent_families"
+    # The alternative the owner may choose: only IDPTC itself is excluded.
+    alt = mod.candidate_c2(row, LADDER, fams, excluded_families=mod.BENCHMARK_ONLY_FAMILIES)
+    assert alt["families"] == ["famA", "idpShow"]
+    assert alt["state"] == "available"
+
+
+def test_c2_sensitivity_with_the_idp_show_included(result):
+    sens = result["sensitivityIdpShowIncluded"]
+    assert sens["idpShowKeys"] == ["idpShowCombined"]
+    assert sens["rowsWithAnIdpShowPlacement"] == 301
+    # zero applied weight on this board: including it changes nothing today
+    assert sens["rowsWithIdpShowAppliedWeightAboveZero"] == 0
+    for gate in ("twoFamilies", "twoFamiliesWeight0p5", "twoFamiliesWeight1p0"):
+        assert sens["appliedWeights"][gate]["rowsDifferingFromExclusion"] == 0
+    # ...but if its board were fresh (weight 1.0) it would decide the gate
+    hypo = sens["idpShowAtFullWeightHypothetical"]
+    assert hypo["twoFamiliesWeight1p0"]["states"]["available"] == 273
+    assert hypo["twoFamiliesWeight1p0"]["verdicts5pct"] == {
+        "buy": 204,
+        "hold": 31,
+        "sell": 38,
+        "unavailable": 157,
+    }
+    assert hypo["twoFamilies"]["verdicts5pct"] == {
+        "buy": 220,
+        "hold": 32,
+        "sell": 38,
+        "unavailable": 140,
+    }
 
 
 def test_c2_direction_follows_the_independent_evidence():
