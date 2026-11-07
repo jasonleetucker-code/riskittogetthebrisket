@@ -1,3 +1,5 @@
+> **2026-11-07 OWNER SUPERSESSION:** This contract describes the incumbent PSI Lane 6 implementation and active compatibility requirements, not an immutable future visual direction. Comprehensive redesign *research* is now authorized under `docs/owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md`. The older "No design exploration" language is superseded for isolated research; production rebuild, palette swap, framework migration and major nav changes remain gated by `docs/EXECUTION_PLAN.md`. Maintain useful UI/QA work in parallel with backend remediation without deepening design debt in the now-rejected light aesthetic.
+
 # Calculator — UI Implementation Contract
 
 **Status:** binding implementation contract for existing Lane 6 / Premium UI.
