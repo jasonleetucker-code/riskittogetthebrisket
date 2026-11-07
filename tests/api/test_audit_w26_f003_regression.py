@@ -7,10 +7,11 @@ Closed by #2079 and pinned here (offline): every /draft read of ``/api/data`` go
 ``draftContractUrl`` (``view=compact``); no bare ``/api/data`` fetch remains; the compact
 view is well under the full contract's size on the pinned tracked archive board.
 
-Still open: the mount-time read needs only ``sleeper.teams`` but still pulls the whole
-compact view (measured ~39% of the full contract, not ~0.4%), and two of the three call
-sites still pass ``cache: "no-store"``, defeating the HTTP cache/ETag path.  The strict xfail
-states the repaired shape (no no-store contract read); it flips when that lands.
+The two ``cache: "no-store"`` call sites now use ``cache: "no-cache"`` (2026-11-07): the
+browser revalidates with the backend ETag every time, so an unchanged contract is a 304
+and a changed one is never served stale.  Still open: the mount-time read needs only
+``sleeper.teams`` but still pulls the whole compact view (measured ~39% of the full
+contract, not ~0.4%).
 """
 
 from __future__ import annotations
@@ -67,9 +68,18 @@ def _no_store_contract_reads(src: str) -> int:
     return count
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="W26-F003 PARTIAL: two /draft contract reads still use cache: no-store",
-)
 def test_draft_contract_reads_use_the_http_cache():
     assert _no_store_contract_reads(_page()) == 0
+
+
+def test_draft_contract_reads_always_revalidate():
+    """The reads must still never be served stale: ``no-cache`` (revalidate every
+    time via ETag) is the intended mode, not a ``force-cache``/default heuristic."""
+    src = _page()
+    modes = []
+    for m in re.finditer(r"draftContractUrl\([^)]*\)", src):
+        window = src[m.end() : m.end() + 1000]
+        fetch = re.search(r"fetch\(\s*url\s*,\s*\{([^}]*)\}", window)
+        assert fetch, "every draftContractUrl read passes explicit fetch options"
+        modes.append(re.search(r'cache:\s*"([^"]+)"', fetch.group(1)).group(1))
+    assert modes and set(modes) == {"no-cache"}

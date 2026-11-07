@@ -1,5 +1,5 @@
 /**
- * Master-site-audit W09-F007 (CW-40 Batch S re-adjudication, 2026-11-07) -- OPEN.
+ * Master-site-audit W09-F007 (CW-40 Batch S re-adjudication, 2026-11-07) -- REPAIRED.
  *
  * Claim: of the four trade/angle Next bridge routes, `/api/trade/suggestions` is the only one
  * that drops the caller's session cookie, so in local dev / the E2E stack (where Next serves
@@ -31,7 +31,13 @@ describe("hand-rolled trade/angle bridges forward the session cookie", () => {
     expect(readsCookie(rel)).toBe(true);
   });
 
-  it.fails("trade/suggestions forwards the cookie (W09-F007: it does not)", () => {
+  // /api/scrape is admin-gated on the backend (server.py::trigger_scrape), so it needs the session.
+  // /api/news is deliberately public (listed in the public-path set), so it is left alone.
+  it("scrape forwards the cookie (admin-gated backend route)", () => {
+    expect(readsCookie("scrape")).toBe(true);
+  });
+
+  it("trade/suggestions forwards the cookie (W09-F007, repaired)", () => {
     expect(readsCookie("trade/suggestions")).toBe(true);
   });
 });

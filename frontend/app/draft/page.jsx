@@ -3999,7 +3999,10 @@ export default function DraftDashboardPage() {
     setSleeperTeams(null);
     let cancelled = false;
     const url = draftContractUrl(selectedLeagueKey);
-    fetch(url, { cache: "no-store" })
+    // ``no-cache`` (not ``no-store``): the browser always revalidates with
+    // the backend's ETag, so an unchanged contract is a 304 instead of a
+    // re-download, and a changed one is never served stale (W26-F003).
+    fetch(url, { cache: "no-cache" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
@@ -4276,7 +4279,8 @@ export default function DraftDashboardPage() {
       // consensus 1.01 rookie inherits pick 1.01's dollar value, etc.)
       // instead of rescaling raw blended values across the top 72.
       const [res, capitalData] = await Promise.all([
-        fetch(url, { cache: "no-store" }),
+        // Always revalidated (ETag / 304), never served stale (W26-F003).
+        fetch(url, { cache: "no-cache" }),
         // Same league as the /api/data read above; a failed capital
         // request is null and falls back to the rescale path so sync
         // still works when the workbook isn't available.
@@ -4587,7 +4591,11 @@ export default function DraftDashboardPage() {
     // currently selected team identity by NAME.
     try {
       const url = draftContractUrl(selectedLeagueKey);
-      fetch(url, { cache: "force-cache" })
+      // ``no-cache``, not ``force-cache``: this result is written into
+      // sleeperTeams (the live-sync team map), so a stale cached copy must
+      // never win.  Revalidation is a cheap 304 when nothing changed, and the
+      // other two reads keep the cache entry current (W26-F003).
+      fetch(url, { cache: "no-cache" })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           // Pending / other-league / not-ready stays pending (see the

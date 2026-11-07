@@ -19272,6 +19272,7 @@ async def get_terminal(request: Request):
                 _live_player_names(),
                 (resolved_team or {}).get("name") if resolved_team else None,
                 player_meta=_live_player_meta(),
+                roster_player_names=_terminal.roster_player_names(resolved_team),
             )
             return _terminal.build_terminal_payload(
                 contract,
@@ -19411,6 +19412,7 @@ async def get_reconciled_signals(request: Request):
                     _live_player_names(),
                     resolved_team.get("name"),
                     player_meta=_live_player_meta(),
+                    roster_player_names=_terminal.roster_player_names(resolved_team),
                 )
             except Exception as exc:  # noqa: BLE001 — reported as unavailable news
                 log.warning("/api/signals/reconciled news gather failed: %s", exc)

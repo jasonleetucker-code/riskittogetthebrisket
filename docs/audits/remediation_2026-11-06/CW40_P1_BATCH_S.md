@@ -17,8 +17,8 @@ CW-07 is recorded MERGED in `build_inventory.py`. Verified rather than trusted: 
 | W22-F001 | CLOSED_VERIFIED | `server.py:1003-1048` rejects `\`, control chars, scheme/netloc, `//`; used at `:18088` | `test_audit_cw40_batch_s_closed.py` (end-to-end login) + `test_next_path_sanitizer.py` | none | n/a |
 | W22-F002 | CLOSED_VERIFIED | `server.py:4891-4902` -> `src/api/client_ip.py` (proxy headers only from trusted peer, last XFF) | closed.py (rotating XFF vs `/api/health`) + `test_client_ip_trust.py` | none | n/a |
 | W22-F003 | CLOSED_VERIFIED | `rate_limit.py:342-476` `login_*`; wired `server.py:18066-18085`, checked before credential compare | closed.py (30 wrong passwords, spoofed headers -> 429 + `Retry-After`) + `test_login_throttle.py` | none | n/a |
-| W09-F007 | OPEN | `frontend/app/api/trade/suggestions/route.js:9-27` never reads the cookie; finder/angle routes do | `audit-w09-f007-regression.test.js` (`it.fails`) | 2 lines (below) | routine |
-| W21-F003 | OPEN | `server.py:19270`, `:19409` pass `resolved_team["name"]`; `terminal.py:1317-1320`; `news/service.py:233-245,424` | open.py (strict xfail) | pass `team_name=None` / filter on roster players | routine (see section) |
+| W09-F007 | REPAIRED | `frontend/app/api/trade/suggestions/route.js:9-27` never reads the cookie; finder/angle routes do | `audit-w09-f007-regression.test.js` (`it.fails`) | 2 lines (below) | routine |
+| W21-F003 | REPAIRED | `server.py:19270`, `:19409` pass `resolved_team["name"]`; `terminal.py:1317-1320`; `news/service.py:233-245,424` | open.py (strict xfail) | pass `team_name=None` / filter on roster players | routine (see section) |
 | W03-F010 | CLOSED_VERIFIED | `data_contract.py:7804-7885` read-only; snapshot + `write_snapshot` deleted | closed.py + `tests/history/test_temporal_red.py:93` | none | n/a |
 | W24-F001 | OPEN | no union skip census, no executed/skip floor gate (`pr-validation.yml:339,359`); 443 sites now vs naive count | open.py (characterization + strict xfail) | union census script + floor gate | routine (CI) |
 | W24-F002 | OPEN | `test_real_rosters.py:59,64,87`: `nfl_players_full.json` untracked; 22 skipped | open.py (strict xfail) | commit trimmed fixture / archive-derived dump | routine |
@@ -61,7 +61,7 @@ during backoff (check precedes comparison). Unit pins: `test_login_throttle.py` 
 cool-off). Residual (not a defect of this finding): in-memory per process, so a multi-worker deploy multiplies the
 free attempts; production runs one uvicorn process.
 
-## W09-F007 (suggestions bridge drops the session cookie) - OPEN
+## W09-F007 (suggestions bridge drops the session cookie) - REPAIRED
 
 **Live path.** `frontend/app/api/trade/suggestions/route.js:9-27` builds headers `{"Content-Type"}` only.
 `finder`, `angle/find`, `angle/packages` read `request.headers.get("cookie")` and forward it. `/api/trade/suggestions`
@@ -73,7 +73,14 @@ headers (2 lines). Routine. Adjacent observation, not adjudicated: `app/api/scra
 are also raw-`fetch` bridges with no cookie read (`public/*` ones are public by design); worth a follow-up check
 and a widened guard test.
 
-## W21-F003 (terminal news filtered by fantasy team name) - OPEN
+**Repaired in this PR.** `suggestions/route.js` now reads the `cookie` header and forwards it, exactly as the
+finder and angle bridges do (no new helper; they hand-roll the same two lines). The `it.fails` is now a plain `it`.
+Adjudication of the two adjacent bridges: `/api/scrape` REQUIRES the session (backend `trigger_scrape` calls
+`_require_admin_session`, W22-F007), so the same defect applied; `scrape/route.js` now forwards the cookie and the
+guard test pins it. `/api/news` is deliberately public (`/api/news` is in the backend's public-path set: no
+rosters, rankings or user state; the public `/league/player/<id>` page consumes it), so it is left unchanged.
+
+## W21-F003 (terminal news filtered by fantasy team name) - REPAIRED
 
 **Live path.** `server.py:19270-19275` (and `:19409-19414` for `/api/signals/reconciled`) pass the resolved FANTASY
 team name; `terminal.py:1317-1320` forwards it as `team_names=[...]`; `news/service.py:233-245` intersects it with
@@ -84,6 +91,13 @@ team name; `terminal.py:1317-1320` forwards it as `team_names=[...]`; `news/serv
 feature wants is player-name based and already handled by `live_names`). Routine, but it changes what authenticated
 terminal users see and re-activates news-driven signal rules, so land with a before/after on a pinned fixture
 board; flip the xfail in the same PR.
+
+**Repaired in this PR.** `gather_news_items` no longer forwards the fantasy team name as `team_names`; its third
+argument is now informational only. A new `roster_player_names` kwarg (built by `terminal.roster_player_names`
+from the resolved `sleeper.teams` entry's `players`) is what scopes news, so a roster player's item is kept and a
+non-roster player's is dropped. Both server.py call sites pass it; no roster (or an empty one) keeps the unfiltered
+path. The strict xfail is now a plain passing test, plus a roster-inclusion/exclusion regression test. No values or
+ranks change.
 
 ## W03-F010 (overrides rewrites the shared rank snapshot) - CLOSED_VERIFIED
 

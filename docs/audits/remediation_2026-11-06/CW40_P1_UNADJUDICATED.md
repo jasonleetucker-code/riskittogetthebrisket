@@ -16,14 +16,14 @@ live board. Nothing here changes served behaviour, values, thresholds or methodo
 | W12-F006 | OPEN | one player in one sweep still emails twice through two uncoordinated detectors (strict xfail) |
 | W15-F009 | CLOSED_VERIFIED | rows carry `distinctManagers` + `managerConcentration` (`roster_percentage.py:816-863`), page shows them; pinned by `test_roster_percentage.py` |
 | W19-F004 | CLOSED_VERIFIED | a season with zero games emits no awards (`awards.py:3256-3295`, one `_has_begun` rule); pinned by `test_awards_need_games.py` |
-| W20-F001 | OPEN | no quoted `/api/gameplan` in any frontend source and no bridge route (strict xfail) |
+| W20-F001 | CLOSED_VERIFIED | owner decision 2026-11-07: /rosters consumes GET /api/gameplan via `frontend/app/api/gameplan` + `TeamGameplanSection` (on-demand, selected team); pinned by `tests/api/test_audit_w20_f001_regression.py` |
 | W20-F007 | CLOSED_VERIFIED | `scoreTeamTiers` deleted; /rosters renders one ordering and no `#` rank (`league-analysis.js:1094-1117`); pinned by `no-frontend-team-strength-methodology.test.js` |
 | W20-F008 | PARTIAL | age axis is now continuous, but strict-`<` Rebuild still yields zero rebuilders on a tied league and the panel says nothing (`it.fails`) |
 | W25-F003 | OPEN | CLAUDE.md still says rank-less rows are "past the 800 limit"; 76 of 251 are unpriced, max player rank is 740 (strict xfail on the doc) |
 | W26-F003 | PARTIAL | `view=compact` (39% of full) via one URL helper; two of three reads still `cache: "no-store"` (strict xfail) |
 | W27-F005 | PARTIAL | rank-space gap retired; residual TE skew 22 SELL / 1 BUY on the pinned board (strict xfail) |
 
-Tally: 5 CLOSED_VERIFIED, 4 PARTIAL, 3 OPEN.
+Tally: 6 CLOSED_VERIFIED, 4 PARTIAL, 2 OPEN.
 
 ## W10-F001 (draft bids ignore remaining budget) - CLOSED_VERIFIED
 
@@ -127,7 +127,7 @@ zero games manufactures no awards, the named defect awards are specifically abse
 scored game lets awards appear, completed seasons are unchanged, there is exactly one season-start rule. 64 passed with the
 sharp tests on this head.
 
-## W20-F001 (`GET /api/gameplan` / `src/roster_intel` have no frontend consumer) - OPEN
+## W20-F001 (`GET /api/gameplan` / `src/roster_intel` have no frontend consumer) - CLOSED_VERIFIED (owner decision 2026-11-07)
 
 **Claim.** The 92 KB per-team gameplan payload is called by nothing in `frontend/`.
 
