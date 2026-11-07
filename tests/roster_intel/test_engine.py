@@ -280,8 +280,16 @@ class TestValueRollups:
         v = analyze_roster("me", pool, ["QB", "RB"], player_values=pv).values
         assert v.market == pytest.approx(8000)
         assert v.consensus == pytest.approx(7900)
-        # b has no adjusted value -> falls back to its consensus.
-        assert v.league_adjusted == pytest.approx(5200 + 3100)
+        # The league-adjusted lens is withdrawn: never a number.
+        assert v.league_adjusted is None
+        assert v.to_dict()["leagueAdjustedUnavailableReason"] == "league_adjusted_withdrawn"
+
+    def test_incomplete_player_values_are_unavailable_not_a_partial_sum(self):
+        pool = to_roster_players([_p("a", "QB", 50), _p("b", "RB", 40)])
+        pv = {"a": {"marketValue": 5000, "consensusValue": 4800}}
+        v = analyze_roster("me", pool, ["QB", "RB"], player_values=pv).values
+        assert v.market is None and v.consensus is None
+        assert v.to_dict()["marketUnavailableReason"] == "player_values_incomplete"
 
     def test_unpriced_players_are_counted_not_hidden(self):
         pool = to_roster_players([_p("a", "QB", 50), _p("b", "RB", 0)])
