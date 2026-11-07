@@ -100,7 +100,9 @@ export function tierForPreDraft(preDraft) {
 }
 
 // ── Player tags (TARGET / AVOID / neutral) ──────────────────────────────
-// Tags drive the recommendation engine.  A player defaults to neutral
+// Tags steer the nomination list, best-value list, board filter and the
+// per-player recommendation chip (Perfect Draft does not read them).  A
+// player defaults to neutral
 // (no entry in ``workspace.tags``); the UI cycles TARGET → AVOID →
 // neutral via clickable chips.  Stored in a separate map keyed by
 // player id so it survives player renames + is trivially JSON-

@@ -52,10 +52,10 @@
   }
 }
 
-/* ── Sidebar trio: next-best / nominations / best value ── */
+/* ── Sidebar pair: nominations / best value ── */
 .sidebarGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4);
   align-items: start;
 }

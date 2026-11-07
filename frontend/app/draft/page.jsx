@@ -3118,7 +3118,9 @@ function DraftGlossary() {
               </li>
               <li>
                 <strong>Tag</strong> — click to cycle: neutral → ★ target → ⊘
-                avoid → neutral. Drives the recommendation engine.
+                avoid → neutral. Tags filter the board and steer the Good to
+                Nominate, Best Value and Rec columns; Perfect Draft does not
+                read them.
               </li>
               <li>
                 <strong>Rec</strong> — LOCK / STEAL / PUSH / BUY / SPEND / AVOID
