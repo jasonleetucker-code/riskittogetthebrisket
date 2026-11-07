@@ -1,5 +1,9 @@
 # Risk It To Get The Brisket — Master Product Plan
 
+## Frontend experience direction reset — 2026-11-07 (research stage)
+
+The owner rejects the light, cream/editorial PSI aesthetic as the **future design destination** and requests a bottom-up evidence-led rethink of the entire public-and-private frontend: visual identity, typography, density, data visualization, navigation/IA, contextual help and glossary, editorial NFL news/tickers, feature consistency, information disclosure, and tool/framework/AI-builder choice. Expert ambition: NFL front office and scout room × rigorous analytics lab × market terminal × professional sports network, sophisticated but easy to read, not generic AI-SaaS. The owner is open to dark-first designs but has NOT chosen a final palette or provider. New research is authorized **alongside ongoing backend engineering**, not a whole-site rollout. This later owner instruction supersedes September's injunction against aesthetic exploration; existing PSI implementation remains a baseline until a separately approved replacement. The authoritative full owner-intent charter is [FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md](owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md). `docs/EXECUTION_PLAN.md` remains sole implementation authorization; retain public/private access, independent verification and valuation gates.
+
 ## Continuous UI convergence — owner decision, 2026-09-24 (#1421)
 
 UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE
