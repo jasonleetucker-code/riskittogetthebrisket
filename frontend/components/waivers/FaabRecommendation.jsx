@@ -88,6 +88,33 @@ function fmtProbability(p) {
  * normalises before sending rather than letting a typo read as a
  * silently ignored choice.
  */
+// Refusals that mean "there is no honest bid for THIS claim", not "the desk
+// is down": an unpriced add or drop (value unknown, so no figure — an
+// unpriced drop is never treated as free, ODR-SR-UNPRICED) and a player
+// already on a roster in this league (not a waiver claim).  Rendered with the
+// backend's own sentence instead of a raw status line (CW-50).
+const NO_BID_ERRORS = new Set([
+  "add_player_unpriced",
+  "drop_player_unpriced",
+  "add_player_not_available",
+]);
+
+/** ``{ kind, message }`` for a non-2xx desk response body. */
+export function deskRefusal(status, text) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = null;
+  }
+  const code = parsed && typeof parsed.error === "string" ? parsed.error : "";
+  const message = parsed && typeof parsed.message === "string" ? parsed.message : "";
+  if (NO_BID_ERRORS.has(code)) {
+    return { kind: "noBid", message: message || code };
+  }
+  return { kind: "unavailable", message: `API ${status}: ${String(text || "").slice(0, 120)}` };
+}
+
 export const RISK_POSTURES = ["conservative", "balanced", "aggressive"];
 export const DEFAULT_RISK_POSTURE = "balanced";
 
@@ -605,6 +632,7 @@ export default function FaabRecommendation({
   const [state, setState] = useState("idle"); // idle | loading | done | error
   const [data, setData] = useState(null);
   const [err, setErr] = useState("");
+  const [errKind, setErrKind] = useState("unavailable");
   const { settings } = useSettings();
   const valuationMode = settings?.valuationMode || "market";
   const headingBaseId = useId();
@@ -650,7 +678,9 @@ export default function FaabRecommendation({
         if (cancelled) return;
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
-          setErr(`API ${res.status}: ${txt.slice(0, 120)}`);
+          const refusal = deskRefusal(res.status, txt);
+          setErr(refusal.message);
+          setErrKind(refusal.kind);
           setState("error");
           return;
         }
@@ -661,6 +691,7 @@ export default function FaabRecommendation({
       } catch (exc) {
         if (cancelled) return;
         setErr(String(exc?.message || exc));
+        setErrKind("unavailable");
         setState("error");
       }
     })();
@@ -711,7 +742,10 @@ export default function FaabRecommendation({
   if (state === "error") {
     return (
       <Panel title="Recommended FAAB bid" headingLevel={3}>
-        <Banner tone="negative" title="FAAB recommender unavailable">
+        <Banner
+          tone={errKind === "noBid" ? "warning" : "negative"}
+          title={errKind === "noBid" ? "No bid for this claim" : "FAAB recommender unavailable"}
+        >
           {err}
         </Banner>
       </Panel>

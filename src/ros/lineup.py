@@ -947,6 +947,27 @@ def _eligibility_predicate(
     return _predicate
 
 
+def player_fills_any_slot(
+    player: RosterPlayer,
+    slots: Sequence[str],
+    *,
+    slot_eligibility: Mapping[str, Collection[str]] | None = None,
+) -> bool:
+    """Can ``player`` legally occupy at least one of ``slots``?
+
+    The question a waiver add pool asks before offering a player: a defender
+    in a league with no DL / LB / DB / IDP_FLEX slot can never start, so he is
+    not a pickup there.  Answered with the SAME predicate the solver uses
+    (``fantasy_positions`` included, the league's configured flex rule
+    honoured), so the add pool and the lineup can never disagree about who is
+    startable.  ``slots`` empty answers ``False`` — the caller decides what an
+    unresolved lineup means (``resolve_starter_slots`` returns ``[]`` as a
+    refusal, and a refusal is not "nobody is startable").
+    """
+    is_eligible = _eligibility_predicate(slot_eligibility)
+    return any(is_eligible(slot, player) for slot in slots)
+
+
 def precompute_slot_eligibility(
     pool: list[RosterPlayer],
     slots: list[str],

@@ -260,12 +260,46 @@ def waiver_positions(include_kicker_def: bool = False) -> set[str]:
     return positions
 
 
+def waiver_starter_slots(
+    contract: dict[str, Any] | None, starters: dict[str, Any] | None
+) -> tuple[list[str], str | None]:
+    """The league lineup the add pool is checked against, or ``([], None)``.
+
+    Delegates to THE truth ladder (``src.ros.lineup.resolve_starter_slots``):
+    the contract's live ``sleeper.rosterPositions`` first, then the registry
+    ``starters`` the route resolved for this league, else a refusal.  The
+    routes that call :func:`find_waiver_targets` have already proven the
+    loaded contract belongs to the requested league (``require_loaded_contract``),
+    so the live block is that league's own.
+    """
+    from src.ros.lineup import resolve_starter_slots  # noqa: PLC0415
+
+    sleeper = (contract or {}).get("sleeper") if isinstance(contract, dict) else None
+    roster_positions = sleeper.get("rosterPositions") if isinstance(sleeper, dict) else None
+    return resolve_starter_slots(
+        roster_positions=roster_positions if isinstance(roster_positions, list) else None,
+        roster_settings={"starters": starters} if isinstance(starters, dict) else None,
+    )
+
+
+def _waiver_slot_eligibility(contract: dict[str, Any] | None) -> dict[str, tuple[str, ...]] | None:
+    """The league's CONFIGURED flex rule, or ``None`` (declared table applies)."""
+    try:
+        from src.api.data_contract import contract_slot_eligibility  # noqa: PLC0415
+
+        return contract_slot_eligibility(contract or {}) or None
+    except Exception:  # noqa: BLE001 — an optional rule must not fail the pool
+        return None
+
+
 def waiver_candidate_exclusion(
     row: dict[str, Any],
     *,
     positions: set[str],
     min_value: int = MIN_WAIVER_VALUE,
     rookies_eligible: bool,
+    starter_slots: list[str] | None = None,
+    slot_eligibility: dict[str, Any] | None = None,
 ) -> str | None:
     """Why the waiver add pool refuses this (unrostered) row, or ``None``.
 
@@ -273,10 +307,26 @@ def waiver_candidate_exclusion(
     candidates; Perfect Waivers applies it to REPORT who was filtered and
     why, so a player outside the pool is counted rather than invisible.
     One definition, so the two cannot disagree about who was eligible.
+
+    ``starter_slots`` (CW-50, 2026-11-07): when the league's lineup is known,
+    a player who can fill none of its slots is refused as
+    ``position_not_started`` — a defender is not a pickup in a league with no
+    defensive slot (the /waivers page already gated IDP on the league's
+    ``idpEnabled``; this is the server half).  Decided by the lineup owner's
+    own predicate (``lineup.player_fills_any_slot``).  ``None`` / empty means
+    the lineup is UNKNOWN and nothing is refused for position — unknown is
+    not "offense only".
     """
     pos = str(row.get("position") or "").upper()
     if pos not in positions:
         return "kicker_def_excluded" if pos in {"K", "DEF"} else "position_not_offered"
+    if starter_slots:
+        from src.ros.lineup import player_fills_any_slot, roster_player_from_row  # noqa: PLC0415
+
+        if not player_fills_any_slot(
+            roster_player_from_row(row), starter_slots, slot_eligibility=slot_eligibility
+        ):
+            return "position_not_started"
     consensus = row.get("rankDerivedValue")
     if not isinstance(consensus, (int, float)):
         return "unpriced"
@@ -304,6 +354,8 @@ def waiver_pool_exclusion_census(
     *,
     min_value: int = MIN_WAIVER_VALUE,
     include_kicker_def: bool = False,
+    starter_slots: list[str] | None = None,
+    slot_eligibility: dict[str, Any] | None = None,
 ) -> dict[str, int]:
     """Counts, by reason, of the given unrostered rows the add pool refuses."""
     positions = waiver_positions(include_kicker_def)
@@ -313,7 +365,12 @@ def waiver_pool_exclusion_census(
         if not isinstance(row, dict):
             continue
         reason = waiver_candidate_exclusion(
-            row, positions=positions, min_value=min_value, rookies_eligible=rookies_eligible
+            row,
+            positions=positions,
+            min_value=min_value,
+            rookies_eligible=rookies_eligible,
+            starter_slots=starter_slots,
+            slot_eligibility=slot_eligibility,
         )
         if reason is not None:
             out[reason] = out.get(reason, 0) + 1
@@ -400,6 +457,12 @@ def find_waiver_targets(
 
     rookies_eligible = _rookies_eligible_today()
     positions = waiver_positions(include_kicker_def)
+    # CW-50: only positions this league can START are pickups.  The lineup
+    # comes from the slot owner's truth ladder; an unresolved lineup refuses
+    # nothing for position and says so (``positionEligibility``).
+    starter_slots, slot_source = waiver_starter_slots(contract, starters)
+    slot_eligibility = _waiver_slot_eligibility(contract) if starter_slots else None
+    not_started = 0
 
     candidates_by_position: dict[str, list[WaiverCandidate]] = {}
 
@@ -414,15 +477,17 @@ def find_waiver_targets(
         if not name or _normalize_name(name) in rostered:
             continue
 
-        if (
-            waiver_candidate_exclusion(
-                row,
-                positions=positions,
-                min_value=min_value,
-                rookies_eligible=rookies_eligible,
-            )
-            is not None
-        ):
+        reason = waiver_candidate_exclusion(
+            row,
+            positions=positions,
+            min_value=min_value,
+            rookies_eligible=rookies_eligible,
+            starter_slots=starter_slots,
+            slot_eligibility=slot_eligibility,
+        )
+        if reason is not None:
+            if reason == "position_not_started":
+                not_started += 1
             continue
 
         consensus = row.get("rankDerivedValue")
@@ -491,12 +556,41 @@ def find_waiver_targets(
                 break
 
     bid_methodology = "ceiling_only_estimate"
-    cap = user_faab_remaining if user_faab_remaining is not None else budget
-    if own_team_row is not None:
-        remaining = own_team_row.get("faabRemaining")
-        if user_faab_remaining is None and isinstance(remaining, int):
-            cap = remaining
-    cap = max(0, int(cap))
+    # Two possible observations of the balance: the caller's (the client
+    # sends the one its own contract carries) and the resolved roster's (the
+    # live teams overlay, the only roster source that carries balances).  When
+    # both are known the LOWER one caps — a stale client figure must never
+    # lift a bid above what the live roster says the team has (CW-50:
+    # measured, a $50 request against a $10 roster quoted a $49 bid).
+    observed = own_team_row.get("faabRemaining") if own_team_row is not None else None
+    observed_known = isinstance(observed, int) and not isinstance(observed, bool)
+    known_remaining: int | None
+    if user_faab_remaining is not None and observed_known:
+        known_remaining = min(int(user_faab_remaining), int(observed))
+        balance_source: str | None = "roster"
+    elif observed_known:
+        known_remaining = int(observed)
+        balance_source = "roster"
+    elif user_faab_remaining is not None:
+        known_remaining = int(user_faab_remaining)
+        balance_source = "request"
+    else:
+        # UNKNOWN balance.  The list keeps its documented fallback (bids are
+        # capped at the league's original budget so the columns render), but
+        # it is now LABELLED rather than presented as a known balance.
+        known_remaining = None
+        balance_source = None
+    cap = max(0, int(budget if known_remaining is None else known_remaining))
+    faab_balance: dict[str, Any] = {
+        "state": "unknown" if balance_source is None else "known",
+        "source": balance_source,
+        "remaining": known_remaining,
+        "bidCap": cap,
+        "assumption": ("bids_capped_at_league_original_budget" if balance_source is None else None),
+    }
+    if user_faab_remaining is not None and observed_known:
+        faab_balance["requestedRemaining"] = int(user_faab_remaining)
+        faab_balance["observedRemaining"] = int(observed)
 
     if own_team_row is not None:
         bid_methodology = "market_aware"
@@ -633,4 +727,21 @@ def find_waiver_targets(
         "rookies_excluded": not rookies_eligible,
         "bidMethodology": bid_methodology,
         "seasonPhase": season_phase,
+        "faabBalance": faab_balance,
+        "positionEligibility": (
+            {
+                "state": "league_slots",
+                "owner": "src/ros/lineup.py::player_fills_any_slot",
+                "slotSource": slot_source,
+                "excluded": not_started,
+            }
+            if starter_slots
+            else {
+                "state": "unverified",
+                "owner": "src/ros/lineup.py::resolve_starter_slots",
+                "reason": "league_starter_slots_unknown",
+                "slotSource": None,
+                "excluded": 0,
+            }
+        ),
     }

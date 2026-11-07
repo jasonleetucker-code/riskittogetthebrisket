@@ -619,6 +619,19 @@ def invalidate_cache(league_key: str | None = None) -> None:
             _TEAM_CACHE.pop(key, None)
 
 
+def last_built_league_bundle(league_key: str) -> LeagueBundle | None:
+    """The LAST bundle built for ``league_key``, from memory, or ``None``.
+
+    The warm-only read ``league_competitive_postures(build_if_missing=False)``
+    makes, for a latency-sensitive caller that must never trigger the solve
+    (no input load, no disk, no network).  It may predate the latest scrape;
+    a caller says so rather than presenting it as current.
+    """
+    with _CACHE_LOCK:
+        cached = _BUNDLE_CACHE.get(league_key)
+    return None if cached is None else cached[1]
+
+
 def get_league_bundle(
     league_key: str,
     scoring_profile: str,

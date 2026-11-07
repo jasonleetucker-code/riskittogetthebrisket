@@ -8357,8 +8357,53 @@ async def post_waiver_faab_recommend(request: Request):
             content={"error": f"Player not found: {add_name!r}"},
         )
 
-    add_value = float(add_row.get("rankDerivedValue") or 0)
-    drop_value = float(drop_row.get("rankDerivedValue") or 0) if drop_row else 0.0
+    # MISSING IS NEVER ZERO (CW-50, 2026-11-07).  Both sides used to read
+    # ``rankDerivedValue or 0``: an add the board does not price was quoted a
+    # real-looking $0 ("worth nothing"), and a named drop that was unpriced —
+    # or not on the board at all — was charged nothing and described as
+    # "replacement level — free", which ODR-SR-UNPRICED forbids ("unpriced
+    # assets in drop logic: never a free drop").  Neither gets a figure now.
+    def _board_value(row: dict | None) -> float | None:
+        v = (row or {}).get("rankDerivedValue")
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+            return None
+        return float(v)
+
+    priced_add_value = _board_value(add_row)
+    if priced_add_value is None:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "add_player_unpriced",
+                "message": (
+                    f"{add_name} is on the board but not priced — no FAAB figure is quoted "
+                    "for a player whose value is unknown."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+    add_value = priced_add_value
+    drop_value: float | None = None
+    if not drop_target:
+        drop_value_state = "none"
+    else:
+        drop_value = _board_value(drop_row)
+        drop_value_state = "priced" if drop_value is not None else "unpriced"
+        if drop_value is None:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": "drop_player_unpriced",
+                    "message": (
+                        f"{drop_name} is "
+                        + ("not on the board" if drop_row is None else "not priced by the board")
+                        + " — what dropping him costs is unknown, and an unpriced drop is "
+                        "never treated as free."
+                    ),
+                    "dropValueState": "not_on_board" if drop_row is None else "unpriced",
+                    "leagueKey": league_cfg.key,
+                },
+            )
     add_position = add_row.get("position") or add_row.get("pos") or None
 
     # Live Waiver Opportunity — SHADOW ONLY (docs/faab-live-opportunity-
@@ -8436,6 +8481,46 @@ async def post_waiver_faab_recommend(request: Request):
     for t in sleeper_teams:
         for n in t.get("players") or []:
             rostered_norms.add(_norm(n))
+
+    # Only a FREE AGENT is a claim (CW-50).  A player already on a roster in
+    # this league — another team's or the requester's own — cannot be bid on,
+    # so no figure is quoted.  Matched by Sleeper id where the roster carries
+    # ids (two distinct players can share a display name); by name only for a
+    # roster that carries none.
+    _add_pid = str(add_row.get("playerId") or "").strip()
+    _holder: dict | None = None
+    _matched_by: str | None = None
+    for _t in sleeper_teams:
+        if not isinstance(_t, dict):
+            continue
+        _ids = {str(x).strip() for x in (_t.get("playerIds") or []) if str(x or "").strip()}
+        if _add_pid and _ids:
+            if _add_pid in _ids:
+                _holder, _matched_by = _t, "playerId"
+                break
+            continue
+        if add_target in {_norm(n) for n in (_t.get("players") or [])}:
+            _holder, _matched_by = _t, "name"
+            break
+    if _holder is not None:
+        _requester = body.get("teamOwnerId") or body.get("ownerId")
+        _own = bool(_requester) and str(_holder.get("ownerId") or "") == str(_requester)
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "add_player_not_available",
+                "message": (
+                    f"{add_name} is already on "
+                    + ("your roster" if _own else f"{_holder.get('name') or 'a roster'}")
+                    + " in this league — not a waiver claim."
+                ),
+                "rosteredBy": _holder.get("name"),
+                "onYourRoster": _own,
+                "matchedBy": _matched_by,
+                "rostersAsOf": rosters_as_of,
+                "leagueKey": league_cfg.key,
+            },
+        )
 
     # League FAAB analytics — reuse the cached public-snapshot
     # path so this endpoint doesn't pay the multi-season fetch cost
@@ -8744,7 +8829,9 @@ async def post_waiver_faab_recommend(request: Request):
 
     base_kwargs = dict(
         add_player_value=add_value,
-        drop_player_value=drop_value,
+        # ``None`` only when no drop is named (an unknown drop was refused
+        # above); the engine reads an absent drop by its missing NAME.
+        drop_player_value=drop_value if drop_value is not None else 0.0,
         add_player_position=add_position,
         add_player_name=add_name,
         drop_player_name=drop_name or None,
@@ -8975,9 +9062,87 @@ async def post_waiver_faab_recommend(request: Request):
     # answer is that nothing was usable.
     if crowd_market_block is not None:
         rec["crowdMarket"] = crowd_market_block
+    # Roster capacity, from its ONE owner (``src/trade/roster_capacity.py``).
+    # REPORTED, never applied: forced-drop selection is owner-held OFF
+    # (``forced_drop_cheapest_legal``, 2026-10-21), so no figure above moves —
+    # but a claim on a full roster now names the release it forces, with its
+    # value, instead of reading as a free add (CW-50).
+    if selected_team_row is not None:
+        try:
+            from src.trade.roster_capacity import (  # noqa: PLC0415
+                assess_roster_capacity,
+                build_capacity_context,
+            )
+
+            from src.api.gameplan import last_built_league_bundle  # noqa: PLC0415
+
+            _cap_contract = {
+                **(contract or {}),
+                "sleeper": {**((contract or {}).get("sleeper") or {}), "teams": sleeper_teams},
+            }
+            # Warm-only scarcity, the /trade simulate posture: a bid desk must
+            # never pay the league-bundle solve (measured 4-6 s cold on the
+            # 2026-11-07 board) for a REPORT.  Not warm -> scarcity inert, and
+            # the capacity block's notes say so.
+            _bundle = last_built_league_bundle(league_cfg.key)
+            _scarcity = (
+                (_bundle.scarcity, None)
+                if _bundle is not None
+                else (
+                    None,
+                    "league roster-intelligence bundle not built yet — positional "
+                    "scarcity inert for this report",
+                )
+            )
+            _cap = assess_roster_capacity(
+                build_capacity_context(
+                    _cap_contract,
+                    league_cfg.key,
+                    selected_team_row,
+                    roster_settings=roster_settings or None,
+                    scarcity_reading=_scarcity,
+                ),
+                incoming_players=[str(add_row.get("displayName") or add_name)],
+                outgoing_players=(
+                    [str(drop_row.get("displayName") or drop_name)] if drop_row is not None else []
+                ),
+            )
+            rec["rosterCapacity"] = {**_cap.to_dict(), "application": "reported_not_applied"}
+            if _cap.requires_drops is None:
+                rec["warnings"].append(
+                    "Roster capacity is unknown for this team — whether this claim forces "
+                    "a release could not be determined."
+                )
+            elif _cap.requires_drops and not drop_name:
+                _forced = (
+                    ", ".join(
+                        f"{d.name} ({'value unknown' if d.value is None else round(d.value)})"
+                        for d in _cap.forced_drops
+                    )
+                    or "a release the cut ladder could not name"
+                )
+                rec["warnings"].append(
+                    "Your roster is full — this claim forces a release you have not chosen: "
+                    f"{_forced}.  The figures above assume no drop."
+                )
+        except Exception as exc:  # noqa: BLE001 — a report must never break the bid
+            log.warning("faab-recommend roster capacity failed for %s: %s", league_cfg.key, exc)
+            rec["rosterCapacity"] = {
+                "state": "unavailable",
+                "reason": "roster_capacity_failed",
+                "application": "reported_not_applied",
+            }
+    else:
+        rec["rosterCapacity"] = {
+            "state": "unavailable",
+            "reason": "team_not_identified",
+            "application": "reported_not_applied",
+        }
+
     rec["leagueKey"] = league_cfg.key
     rec["resolvedAddValue"] = add_value
     rec["resolvedDropValue"] = drop_value
+    rec["dropValueState"] = drop_value_state
     rec["resolvedAddPosition"] = add_position
     # ``resolvedAddValue`` is only interpretable against a named board —
     # the same player is worth a different number under each lens, and a
