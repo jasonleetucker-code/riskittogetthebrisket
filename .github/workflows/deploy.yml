@@ -97,6 +97,11 @@ on:
         required: false
         default: false
         type: boolean
+      serial_hard_gate:
+        description: "Run the unit-test hard gate on ONE runner (the pre-2026-11-07 serial gate: no shard manifests, no skip budget) instead of shards. For a rollback whose tree no longer fits the current skip budget. Normally leave false."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: production-deploy
@@ -499,10 +504,18 @@ jobs:
         id: plan
         env:
           RELEASE_MODE: ${{ needs.resolve.outputs.release_mode }}
+          FORCE_SERIAL: ${{ inputs.serial_hard_gate || false }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          if [[ "${RELEASE_MODE}" == "artifact" && -f scripts/ci_test_shards.py && -f config/ci/test_shards.json ]]; then
+          if [[ "${FORCE_SERIAL}" == "true" ]]; then
+            echo "::notice title=Serial hard gate (operator)::serial_hard_gate was requested on dispatch."
+            {
+              echo 'shards=["serial"]'
+              echo "shard_count=1"
+              echo "mode=serial"
+            } >> "$GITHUB_OUTPUT"
+          elif [[ "${RELEASE_MODE}" == "artifact" && -f scripts/ci_test_shards.py && -f config/ci/test_shards.json ]]; then
             python scripts/ci_test_shards.py matrix --github-output
             echo "mode=sharded" >> "$GITHUB_OUTPUT"
           else
@@ -518,10 +531,11 @@ jobs:
     name: Hard gate (${{ matrix.shard }}/${{ needs.test-plan.outputs.shard_count }})
     runs-on: ubuntu-latest
     needs: [resolve, test-plan]
-    # 180 covers the serial fallback (the whole suite, ~90-110 min on a slow
-    # runner); a shard finishes in a fraction of it.  A finite hang bound either
-    # way — tests/deploy/test_full_suite_budgets.py.
-    timeout-minutes: 180
+    # 180 for the serial fallback (the whole suite, ~90-110 min on a slow
+    # runner); 45 for a shard (~1/8 of it), so a hung shard releases the
+    # production-deploy group in 45 minutes rather than three hours.  A finite
+    # hang bound either way — tests/deploy/test_full_suite_budgets.py.
+    timeout-minutes: ${{ matrix.shard == 'serial' && 180 || 45 }}
     permissions:
       contents: read
     strategy:
@@ -581,8 +595,9 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends tesseract-ocr
+          # Retries: a flaky apt mirror must not block a production deploy.
+          sudo apt-get -o Acquire::Retries=3 update -q
+          sudo apt-get -o Acquire::Retries=3 install -y -q --no-install-recommends tesseract-ocr
           tesseract --version | head -1
 
       - name: Run unit tests (hard gate — pure logic)
@@ -616,6 +631,9 @@ jobs:
           path: ${{ runner.temp }}/shard-manifest/shard-${{ matrix.shard }}.json
           if-no-files-found: warn
           retention-days: 14
+          # "Re-run failed jobs" re-uploads the same name; the re-run's
+          # manifest must replace the failed attempt's.
+          overwrite: true
 
   hard-gate-complete:
     # What `deploy` waits on.  On the sharded path it proves, from every

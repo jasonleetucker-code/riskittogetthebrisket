@@ -555,8 +555,8 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends tesseract-ocr
+          sudo apt-get -o Acquire::Retries=3 update -q
+          sudo apt-get -o Acquire::Retries=3 install -y -q --no-install-recommends tesseract-ocr
           tesseract --version | head -1
 
       - name: Run unit tests (hard gate — pure logic)
@@ -592,6 +592,9 @@ jobs:
           path: ${{ runner.temp }}/shard-manifest/shard-${{ matrix.shard }}.json
           if-no-files-found: warn
           retention-days: 14
+          # "Re-run failed jobs" re-uploads the same name; the re-run's
+          # manifest must replace the failed attempt's.
+          overwrite: true
 
   livedata:
     # Data-coupled tests (live scraped board/exports).  A routine source

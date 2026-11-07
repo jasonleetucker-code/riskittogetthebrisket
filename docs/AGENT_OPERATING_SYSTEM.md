@@ -342,7 +342,11 @@ style gate, while one is active and incomplete). This is
 which this policy does not replace, only names in the L0-L3 vocabulary) and
 `.github/workflows/deploy.yml`. Neither file gained any path-awareness or
 skip logic under this policy — every step in both runs unconditionally, every
-time, exactly as before. Existing owner-approved production acceptance
+time, exactly as before. Since 2026-11-07 `deploy.yml` runs its hard gate as
+parallel shards with the same manifest completeness proof as PR Validation
+(serial on one runner for a target without the shard owner, or on an operator's
+`serial_hard_gate` dispatch); that changes where tests run, never which.
+Existing owner-approved production acceptance
 contracts remain authoritative and are not superseded by the existence of this
 faster development workflow.
 

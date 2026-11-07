@@ -81,6 +81,21 @@ def test_deploy_runs_the_hard_gate_in_one_matrix_job_with_a_serial_fallback():
     )
 
 
+def test_an_operator_can_force_the_serial_gate_on_dispatch():
+    doc = _load("deploy.yml")
+    flag = doc[True]["workflow_dispatch"]["inputs"]["serial_hard_gate"]
+    assert flag["default"] is False and flag["type"] == "boolean"
+    plan = doc["jobs"]["test-plan"]
+    step = next(s for s in _steps(plan) if s.get("id") == "plan")
+    assert step["env"]["FORCE_SERIAL"] == "${{ inputs.serial_hard_gate || false }}"
+    assert '"${FORCE_SERIAL}" == "true"' in step["run"]
+
+
+def test_a_hung_shard_cannot_hold_the_deploy_group_for_hours():
+    gate = _load("deploy.yml")["jobs"]["hard-gate"]
+    assert gate["timeout-minutes"] == "${{ matrix.shard == 'serial' && 180 || 45 }}"
+
+
 def test_the_plan_only_shards_a_target_that_carries_the_shard_owner():
     plan_run = _runs(_load("deploy.yml")["jobs"]["test-plan"])
     assert '"${RELEASE_MODE}" == "artifact"' in plan_run

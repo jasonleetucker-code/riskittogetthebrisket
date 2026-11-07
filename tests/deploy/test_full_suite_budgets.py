@@ -70,7 +70,31 @@ def test_the_deploy_gate_still_runs_the_full_hard_gate_suite():
         "job's copy with a budget it fits in."
     )
     _, job = found
-    assert int(job.get("timeout-minutes", 360)) >= FULL_SUITE_MIN_BUDGET_MINUTES
+    # The serial path (a rollback without the shard owner, or an operator's
+    # serial_hard_gate dispatch) runs the WHOLE suite on one runner.
+    serial_budget, _ = _budgets(job)
+    assert serial_budget >= FULL_SUITE_MIN_BUDGET_MINUTES
+
+
+_PER_MODE_TIMEOUT = re.compile(
+    r"^\$\{\{\s*matrix\.shard\s*==\s*'serial'\s*&&\s*(\d+)\s*\|\|\s*(\d+)\s*\}\}$"
+)
+
+
+def _budgets(job: dict) -> tuple[int, int]:
+    """(serial budget, shard budget) of a job's ``timeout-minutes``.
+
+    A plain number budgets both.  The one expression form allowed is the
+    deploy hard gate's per-mode timeout,
+    ``${{ matrix.shard == 'serial' && A || B }}``; anything else is refused
+    rather than guessed at.
+    """
+    raw = job.get("timeout-minutes", 360)
+    if isinstance(raw, int):
+        return raw, raw
+    m = _PER_MODE_TIMEOUT.match(str(raw).strip())
+    assert m, f"unparseable timeout-minutes {raw!r}"
+    return int(m.group(1)), int(m.group(2))
 
 
 def _shard_count() -> int:
@@ -110,11 +134,16 @@ def test_no_job_runs_the_full_suite_under_a_budget_it_cannot_finish_in():
             ]
             if not needed:
                 continue
-            budget = int(job.get("timeout-minutes", 360))
-            if budget < max(needed):
+            serial_budget, shard_budget = _budgets(job)
+            # The shard budget must fit the slice each step runs; a per-mode
+            # timeout's serial budget must also fit the WHOLE suite, because
+            # its serial path runs everything on one runner.
+            if shard_budget < max(needed):
                 offenders.append(
-                    f"{path.name} :: {job_name} (timeout-minutes: {budget}, needs {max(needed)})"
+                    f"{path.name} :: {job_name} (timeout-minutes: {shard_budget}, needs {max(needed)})"
                 )
+            if serial_budget != shard_budget and serial_budget < FULL_SUITE_MIN_BUDGET_MINUTES:
+                offenders.append(f"{path.name} :: {job_name} (serial path budget {serial_budget})")
     assert not offenders, (
         "these jobs run the full unit suite (measured ~77 min) under a budget it "
         "cannot finish in, so every run is CANCELLED rather than failed and the "
