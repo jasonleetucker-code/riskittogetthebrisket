@@ -427,6 +427,39 @@ class ArchiveEvidenceTests(unittest.TestCase):
         self.assertEqual(arch["captureKinds"], ["pregame", "pregame_late"])
         self.assertEqual(arch["capturedAt"], "2026-11-11T20:00:05+00:00")
 
+    def test_a_damaged_archive_file_is_counted_not_hidden_and_hides_nothing_else(self) -> None:
+        # PR #2140 review: one truncated file used to make the whole week
+        # unreadable; now the readable teams still count and the damaged file
+        # is reported, and a week with ONLY damaged files is not "not captured".
+        from src.ros import game_day_archive as gda
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        with mock.patch.object(gda, "ARCHIVE_ROOT", tmp):
+            gda.record_snapshot(
+                league_key="lk",
+                season=2026,
+                week=10,
+                team_id="1",
+                capture_kind="pregame",
+                scoring_config_id="sf1:x",
+                starter_slots=("QB",),
+                roster=(
+                    gda.PlayerPointEstimate(player_id="p1", position="QB", is_lineup_eligible=True),
+                ),
+            )
+            week_dir = tmp / "2026" / "lk" / "week_10"
+            (week_dir / "2_pregame.json").write_text('{"league_key": "lk", "sea', encoding="utf-8")
+            arch = matchup_intel._archive_evidence("lk", 2026, 10)
+            self.assertEqual(arch["state"], "captured")
+            self.assertEqual(arch["teamsCaptured"], 1)
+            self.assertEqual(arch["unreadableFiles"], 1)
+
+            (week_dir / "1_pregame.json").unlink()
+            arch = matchup_intel._archive_evidence("lk", 2026, 10)
+            self.assertEqual(arch["state"], "unreadable")
+            self.assertEqual(arch["unreadableFiles"], 1)
+
 
 def _row(*, home, away, gametime, gameday="2026-09-07"):
     return {

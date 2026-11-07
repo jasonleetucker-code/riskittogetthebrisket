@@ -467,17 +467,21 @@ def load_snapshots_for_week(
     *,
     capture_kind: str | None = None,
     base_dir: Path | None = None,
+    unreadable: list[dict[str, Any]] | None = None,
 ) -> list[WeeklyPredictionSnapshot]:
     """Every team's snapshot for one league-week, optionally filtered to
     one capture_kind. Empty list means nothing was captured — not an
     error, since a week before this unit's deployment genuinely has
     none.  An unreadable file is logged and left out (a team it held is then
-    missing, which is exactly what a gap check must see) -- use
-    :func:`scan_snapshots_for_week` to get the list of them."""
-    snaps, unreadable = scan_snapshots_for_week(
+    missing, which is exactly what a gap check must see); pass a list as
+    ``unreadable`` to receive those entries, or use
+    :func:`scan_snapshots_for_week`."""
+    snaps, bad = scan_snapshots_for_week(
         league_key, season, week, capture_kind=capture_kind, base_dir=base_dir
     )
-    for entry in unreadable:
+    if unreadable is not None:
+        unreadable.extend(bad)
+    for entry in bad:
         _LOG.warning(
             "game day archive: unreadable snapshot %s (%s)", entry["path"], entry["reason"]
         )
