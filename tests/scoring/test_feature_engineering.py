@@ -70,9 +70,36 @@ def test_td_dependency_does_not_fire_for_a_yardage_workhorse():
     assert "td_dependent" not in infer_scoring_tags("RB", f)
 
 
-def test_td_dependency_is_zero_with_no_production():
+def test_td_dependency_is_unknown_with_no_offensive_production():
+    """No yardage/TD inputs observed -> unknown (omitted), not a 0.0 share."""
     f = _features("LB", {"idp_tkl_solo": 5.0, "idp_tkl_ast": 2.0})
-    assert f["td_dependency"] == 0.0
+    assert "td_dependency" not in f
+
+
+def test_observed_zero_production_is_not_a_zero_share():
+    f = _features("RB", {"rush_yd": 0.0, "rec_yd": 0.0, "rush_td": 0.0})
+    assert "td_dependency" not in f
+
+
+def test_missing_inputs_do_not_look_like_real_zero():
+    from src.scoring.feature_engineering import scoring_tags_undecidable
+
+    empty = _features("RB", {})
+    assert "reception_dependency" not in empty
+    assert "first_down_dependency" not in empty
+    assert "turnover_sensitivity" not in empty
+    assert "reception_sensitive" in scoring_tags_undecidable("RB", empty)
+    real_zero = _features("RB", {"rush_yd": 80.0, "rec": 0.0, "rec_yd": 0.0, "rush_fd": 0.0})
+    assert real_zero["reception_dependency"] == 0.0
+    assert real_zero["first_down_dependency"] == 0.0
+    assert "reception_sensitive" not in scoring_tags_undecidable("RB", real_zero)
+    assert "scramble_floor_proxy" not in _features("QB", {"pass_yd": 250.0})
+    assert _features("QB", {"pass_yd": 250.0, "rush_yd": 0.0})["scramble_floor_proxy"] == 0.0
+
+
+def test_infer_scoring_tags_tolerates_none_and_nan_feature_values():
+    feats = {"reception_dependency": None, "td_dependency": float("nan")}
+    assert infer_scoring_tags("RB", feats) == []
 
 
 # ── reception_dependency ────────────────────────────────────────
