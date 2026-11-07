@@ -315,7 +315,7 @@ def render_report(per_rank: dict[int, list[dict[str, Any]]]) -> str:
 def write_csv(per_rank: dict[int, list[dict[str, Any]]], out_path: Path) -> None:
     """Dump the full daily series as CSV for downstream analysis."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w", newline="") as f:
+    with out_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["date", "rank", "player", "ktc", "ours", "pct_diff"])
         for rank in PINNED_RANKS:
@@ -351,7 +351,7 @@ def main() -> int:
     report = render_report(per_rank)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(report)
+    args.out.write_text(report, encoding="utf-8")
     write_csv(per_rank, args.csv)
 
     # Also print the summary so a runner without a file viewer sees it.

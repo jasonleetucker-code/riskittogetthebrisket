@@ -636,7 +636,9 @@ def main() -> int:
         f"w{w}": {c: n for (ww, c), n in sorted(per_week.items()) if ww == w} for w in WEEKS
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(out, indent=1, sort_keys=False, default=str) + "\n")
+    args.out.write_text(
+        json.dumps(out, indent=1, sort_keys=False, default=str) + "\n", encoding="utf-8"
+    )
     h = out["hostNative"]
     print(json.dumps({"census": h["census"], "dist": h["distribution"],
                       "B": h["reproduceInvestigationB"]["reproduced"]}, indent=1))  # fmt: skip

@@ -565,7 +565,9 @@ def test_the_eligibility_parameter_cannot_be_discarded_again():
     # history note — and it would equally miss a real discard written any other
     # way.  Ask the parser for an actual delete, the way
     # ``tests/lineup/test_single_owner.py`` asks about real call sites.
-    tree = ast.parse((REPO / "src" / "roster_intel" / "droppability.py").read_text())
+    tree = ast.parse(
+        (REPO / "src" / "roster_intel" / "droppability.py").read_text(encoding="utf-8")
+    )
     discards = [
         node
         for node in ast.walk(tree)

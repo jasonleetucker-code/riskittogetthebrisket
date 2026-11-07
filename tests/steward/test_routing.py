@@ -6,7 +6,9 @@ import pytest
 from src.steward.routing import diagnose_failures, measured, recommend, retrospective
 
 POLICY = json.loads(
-    (Path(__file__).resolve().parents[2] / "config/steward/routing.json").read_text()
+    (Path(__file__).resolve().parents[2] / "config/steward/routing.json").read_text(
+        encoding="utf-8"
+    )
 )
 AVAILABLE = list(POLICY["models"])
 

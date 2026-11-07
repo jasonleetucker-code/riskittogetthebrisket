@@ -12,7 +12,7 @@
  * Runs on every configured project (desktop-1366 and the phone projects).
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, awaitStreamSettled, contractFixture } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled, contractFixture, isNavigationAbortedFetch } = require("../helpers/journey");
 const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
 
 const PICK_TOKEN = /\d{4}/;
@@ -59,7 +59,9 @@ test("trade next steps: immediate tally, engine deep links, partner evidence, no
   authedPage: page,
 }, testInfo) => {
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  page.on("pageerror", (e) => {
+    if (!isNavigationAbortedFetch(e, page)) errors.push(e.message);
+  });
   const evidenceRequests = [];
   await page.route(
     (url) => url.pathname === "/api/manager-scout/offer-evidence",

@@ -11,11 +11,12 @@ bytes memo, under the full contract's generation key.
 Pinned here:
     1. Repeat requests for one generation build once, identical bytes.
     2. That build also serves ``GET /api/public/league`` (no second build).
-    3. A new private-board generation and a new VORP calc version miss.
+    3. A new private-board generation is served stale while ONE background
+       build refreshes it; a new VORP calc version is a cold miss.
     4. Only an AUTHORIZED ``?refresh`` bypasses the memo read (B8).
-    5b. Entries age out with the snapshot refresh window; an older build
-        never replaces a newer one; a bad value elsewhere in the contract
-        cannot fail the overview.
+    5b. Entries age out with the snapshot refresh window (then revalidate
+        in the background); an older build never replaces a newer one; a bad
+        value elsewhere in the contract cannot fail the overview.
     5. The memoized overview equals a direct ``build_section_payload``.
     6. Concurrent misses build once.
 """
@@ -26,6 +27,11 @@ import asyncio
 import os
 import time
 import unittest
+
+from tests.public_league.fixtures import (
+    reset_public_memo_refresh_state,
+    wait_for_public_memo_refreshes,
+)
 
 try:
     from fastapi.testclient import TestClient
@@ -71,6 +77,7 @@ class PublicOverviewMemoTests(unittest.TestCase):
             self.server._get_public_snapshot()
         self.server._public_league_cache["fetched_at"] = time.time()
         self._wait_for_snapshot_refresh()
+        reset_public_memo_refresh_state(self.server)
         with self.server._PUBLIC_CONTRACT_BYTES_LOCK:
             self.server._PUBLIC_CONTRACT_BYTES_CACHE.clear()
         self.server._PUBLIC_OVERVIEW_CACHE.clear()
@@ -93,6 +100,9 @@ class PublicOverviewMemoTests(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
+        # Background refreshes call the builder by its module name: let them
+        # land on the counting one before it is swapped back.
+        wait_for_public_memo_refreshes(self.server)
         self.server.build_public_contract = self._real
 
     def test_repeat_requests_build_once(self) -> None:
@@ -111,10 +121,21 @@ class PublicOverviewMemoTests(unittest.TestCase):
         self.assertEqual(full.json()["sections"]["overview"], overview.json()["data"])
 
     def test_a_new_private_board_generation_rebuilds(self) -> None:
-        self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
+        # Stale-while-revalidate: the request is answered from the previous
+        # generation's entry and ONE background build files the new one.
+        first = self.client.get("/api/public/league/overview")
+        self.assertEqual(first.status_code, 200)
         old = self.server.latest_data_etag
         self.server.latest_data_etag = "new-private-generation"
         try:
+            stale = self.client.get("/api/public/league/overview")
+            self.assertEqual(stale.status_code, 200)
+            self.assertEqual(stale.content, first.content)
+            wait_for_public_memo_refreshes(self.server)
+            new_key = self.server._public_contract_cache_key(
+                self.server._public_league_cache["snapshot"]
+            )
+            self.assertIsNotNone(self.server._memoized_overview(new_key))
             self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
         finally:
             self.server.latest_data_etag = old
@@ -153,20 +174,23 @@ class PublicOverviewMemoTests(unittest.TestCase):
 
     def test_entries_expire_with_the_snapshot_refresh_window(self) -> None:
         # Inputs outside the key (file-backed power data) may not freeze
-        # while snapshot rebuilds fail: entries age out.
+        # while snapshot rebuilds fail: entries age out -- and an aged entry
+        # is revalidated in the background, not rebuilt on the request path.
         self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
-        ttl = self.server._PUBLIC_LEAGUE_CACHE_TTL_SECONDS
-        self.server._PUBLIC_LEAGUE_CACHE_TTL_SECONDS = 0
-        try:
-            self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
-            self.assertIsNone(
-                self.server._cached_public_contract_bytes(
-                    self.server._public_league_cache["snapshot"]
-                )
-            )
-        finally:
-            self.server._PUBLIC_LEAGUE_CACHE_TTL_SECONDS = ttl
+        key, payload, _ = self.server._PUBLIC_OVERVIEW_CACHE["overview"]
+        aged = time.monotonic() - 2 * self.server._PUBLIC_LEAGUE_CACHE_TTL_SECONDS - 1
+        self.server._PUBLIC_OVERVIEW_CACHE["overview"] = (key, payload, aged)
+        self.assertIsNone(self.server._memoized_overview(key))
+        self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
+        wait_for_public_memo_refreshes(self.server)
         self.assertEqual(self.calls["n"], 2)
+        self.assertIsNotNone(self.server._memoized_overview(key))
+        with self.server._PUBLIC_CONTRACT_BYTES_LOCK:
+            raw, _ = self.server._PUBLIC_CONTRACT_BYTES_CACHE[key]
+            self.server._PUBLIC_CONTRACT_BYTES_CACHE[key] = (raw, aged)
+        self.assertIsNone(
+            self.server._cached_public_contract_bytes(self.server._public_league_cache["snapshot"])
+        )
 
     def test_an_entry_outlives_its_snapshot_window_until_the_next_generation(self) -> None:
         # Past ONE snapshot window the snapshot is stale and a background

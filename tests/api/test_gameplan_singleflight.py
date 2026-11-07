@@ -35,9 +35,11 @@ def facts(tmp_path, monkeypatch):
     ]
     slots = ["QB"]
     snapshot = tmp_path / "roster.json"
-    snapshot.write_text("fixed")
+    snapshot.write_text("fixed", encoding="utf-8")
     sim = tmp_path / "sim.json"
-    sim.write_text('{"playoffOdds": [{"ownerId": "one", "championshipOdds": 0.5}]}')
+    sim.write_text(
+        '{"playoffOdds": [{"ownerId": "one", "championshipOdds": 0.5}]}', encoding="utf-8"
+    )
     monkeypatch.setattr(gameplan, "load_or_compute_team_strength", lambda key: deepcopy(rows))
     monkeypatch.setattr(gameplan, "load_league_starter_slots", lambda key: list(slots))
     monkeypatch.setattr(gameplan, "_team_strength_stamp_path", lambda key: snapshot)

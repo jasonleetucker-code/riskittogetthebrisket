@@ -24,17 +24,17 @@ CONFIG = REPO / "config/league_valuation/fair_value_v1.json"
 
 
 def test_param_set_id_is_the_content_hash():
-    payload = json.loads(CONFIG.read_text())
+    payload = json.loads(CONFIG.read_text(encoding="utf-8"))
     assert payload["paramSetId"] == param_set_id_for(payload)
     tampered = dict(payload, kMax={**payload["kMax"], "value": 0.3})
     assert param_set_id_for(tampered) != payload["paramSetId"]
 
 
 def test_load_params_refuses_a_stale_id(tmp_path):
-    payload = json.loads(CONFIG.read_text())
+    payload = json.loads(CONFIG.read_text(encoding="utf-8"))
     payload["kMax"]["value"] = 0.5
     bad = tmp_path / "p.json"
-    bad.write_text(json.dumps(payload))
+    bad.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ContractError):
         load_params(str(bad))
 
@@ -86,9 +86,9 @@ def _close(a, b, path=""):
 
 
 def test_committed_fixture_reproduces_exactly():
-    board = json.loads((FIX / "synthetic_board.json").read_text())
-    payload = json.loads((FIX / "bdvm_payload.json").read_text())
-    expected = json.loads((FIX / "expected_fair_value_board.json").read_text())
+    board = json.loads((FIX / "synthetic_board.json").read_text(encoding="utf-8"))
+    payload = json.loads((FIX / "bdvm_payload.json").read_text(encoding="utf-8"))
+    expected = json.loads((FIX / "expected_fair_value_board.json").read_text(encoding="utf-8"))
     ev = utility_evidence_from_bdvm(payload, now=NOW, params=PARAMS)
     fb = compute_fair_values(board["playersArray"], ev, params=PARAMS, pins=pins())
     _close(json.loads(json.dumps(fb.to_dict())), expected["board"])
@@ -96,7 +96,7 @@ def test_committed_fixture_reproduces_exactly():
 
 
 def test_published_shapes_are_camel_case():
-    expected = json.loads((FIX / "expected_fair_value_board.json").read_text())
+    expected = json.loads((FIX / "expected_fair_value_board.json").read_text(encoding="utf-8"))
     some_value = next(iter(expected["board"]["values"].values()))
     some_ev = next(iter(expected["utilityEvidence"].values()))
     for key in list(some_value) + list(some_ev) + list(expected["board"]):

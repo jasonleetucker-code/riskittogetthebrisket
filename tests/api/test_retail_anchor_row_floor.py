@@ -254,7 +254,9 @@ def _site_raw_floor_keys() -> set[str]:
     import ast
     from pathlib import Path
 
-    tree = ast.parse((Path(__file__).resolve().parents[2] / "Dynasty Scraper.py").read_text())
+    tree = ast.parse(
+        (Path(__file__).resolve().parents[2] / "Dynasty Scraper.py").read_text(encoding="utf-8")
+    )
     for node in ast.walk(tree):
         if not isinstance(node, ast.Assign):
             continue
@@ -303,7 +305,7 @@ def _top50_floors() -> dict:
     from pathlib import Path
 
     path = Path(__file__).resolve().parents[2] / "config/weights/top50_coverage_floors.json"
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def test_retail_source_has_a_top50_offense_coverage_floor() -> None:
@@ -346,7 +348,7 @@ def test_retail_top50_floor_matches_its_twin() -> None:
 def _scraper_source() -> str:
     from pathlib import Path
 
-    return (Path(__file__).resolve().parents[2] / "Dynasty Scraper.py").read_text()
+    return (Path(__file__).resolve().parents[2] / "Dynasty Scraper.py").read_text(encoding="utf-8")
 
 
 def test_the_offense_anchor_is_a_ktc_transport_sentinel() -> None:

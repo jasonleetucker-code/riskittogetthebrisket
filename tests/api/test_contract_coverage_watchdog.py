@@ -115,9 +115,9 @@ class TestFindLatestExport(unittest.TestCase):
             # Root snapshot has a LEXICALLY-NEWER name than the
             # exports/latest artifact; a global-max picker would
             # wrongly choose it.
-            (root / "dynasty_data_2999-12-31.json").write_text("{}")
+            (root / "dynasty_data_2999-12-31.json").write_text("{}", encoding="utf-8")
             chosen_path = latest / "dynasty_data_2026-05-15.json"
-            chosen_path.write_text("{}")
+            chosen_path.write_text("{}", encoding="utf-8")
 
             orig = wcc._REPO_ROOT
             wcc._REPO_ROOT = root
@@ -138,9 +138,11 @@ class TestFindLatestExport(unittest.TestCase):
             root = Path(d)
             (root / "data").mkdir()
             (root / "exports" / "latest").mkdir(parents=True)
-            (root / "exports" / "latest" / "dynasty_data_2999-12-31.json").write_text("{}")
+            (root / "exports" / "latest" / "dynasty_data_2999-12-31.json").write_text(
+                "{}", encoding="utf-8"
+            )
             chosen_path = root / "data" / "dynasty_data_2026-05-15.json"
-            chosen_path.write_text("{}")
+            chosen_path.write_text("{}", encoding="utf-8")
 
             orig = wcc._REPO_ROOT
             wcc._REPO_ROOT = root
@@ -158,7 +160,7 @@ class TestFindLatestExport(unittest.TestCase):
             root = Path(d)
             (root / "exports" / "latest").mkdir(parents=True)  # empty
             fallback = root / "dynasty_data_2026-05-15.json"
-            fallback.write_text("{}")
+            fallback.write_text("{}", encoding="utf-8")
 
             orig = wcc._REPO_ROOT
             wcc._REPO_ROOT = root

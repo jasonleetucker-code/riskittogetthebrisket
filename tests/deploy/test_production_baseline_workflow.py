@@ -64,7 +64,9 @@ def test_revocation_and_report_privacy_preserved():
 
 
 def test_new_workflow_steps_are_blocking():
-    data = json.loads((ROOT / "config/ci/release_gate_classification.json").read_text())
+    data = json.loads(
+        (ROOT / "config/ci/release_gate_classification.json").read_text(encoding="utf-8")
+    )
 
     def find(value, key):
         if isinstance(value, dict):

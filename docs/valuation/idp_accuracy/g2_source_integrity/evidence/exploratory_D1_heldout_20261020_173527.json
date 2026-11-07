@@ -1,0 +1,202 @@
+{
+ "board": "dynasty_export_20261020_173527.zip",
+ "evaluatorCommit": "c62f9713eda9c729b68bbd62c4c5ccf019a8ad5a",
+ "role": "heldout",
+ "schema": "g2-idp-source-integrity/v1#exploratory-D1",
+ "vendorJoinCoverage": {
+  "dlfIdp": {
+   "aliasCaveat": true,
+   "bands": {},
+   "evaluable": false,
+   "positionFiltered": false,
+   "vendorRowsConsidered": 175
+  },
+  "dlfRookieIdp": {
+   "aliasCaveat": true,
+   "bands": {},
+   "evaluable": false,
+   "positionFiltered": false,
+   "vendorRowsConsidered": 29
+  },
+  "draftSharksIdp": {
+   "aliasCaveat": true,
+   "bands": {
+    "1-50": {
+     "examples": [],
+     "rows": 50,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    },
+    "151-300": {
+     "examples": [
+      "Shavon Revel Jr.",
+      "Michael Jackson",
+      "Tommy Togiai",
+      "Moro Ojomo",
+      "Max Melton",
+      "Quincy Riley",
+      "Karl Brooks",
+      "Logan Hall"
+     ],
+     "rows": 150,
+     "unjoined": 24,
+     "unjoinedShare": 0.16
+    },
+    "301-end": {
+     "examples": [
+      "Carlton Davis",
+      "Javon Kinlaw",
+      "Sam Okuayinonu",
+      "BJ Ojulari",
+      "Grover Stewart",
+      "Wesley Williams",
+      "Trey Amos",
+      "Kenny Clark"
+     ],
+     "rows": 109,
+     "unjoined": 62,
+     "unjoinedShare": 0.5688
+    },
+    "51-150": {
+     "examples": [
+      "Maxwell Hairston",
+      "D'Angelo Ponds",
+      "Benjamin Morrison"
+     ],
+     "rows": 100,
+     "unjoined": 3,
+     "unjoinedShare": 0.03
+    }
+   },
+   "evaluable": true,
+   "positionFiltered": true,
+   "vendorRowsConsidered": 409
+  },
+  "fantasyProsIdp": {
+   "aliasCaveat": true,
+   "bands": {
+    "1-50": {
+     "examples": [],
+     "rows": 50,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    },
+    "151-300": {
+     "examples": [
+      "Byron Murphy Jr.",
+      "A.J. Terrell Jr.",
+      "Akheem Mesidor",
+      "Calais Campbell",
+      "Nahshon Wright",
+      "Kayden McDonald",
+      "Trey Amos",
+      "Isaiah Rodgers Sr."
+     ],
+     "rows": 149,
+     "unjoined": 29,
+     "unjoinedShare": 0.1946
+    },
+    "51-150": {
+     "examples": [
+      "D'Angelo Ponds",
+      "Jaylinn Hawkins",
+      "Mike Jackson Sr.",
+      "Cameron Jordan",
+      "Kenny Moore II",
+      "Jamel Dean"
+     ],
+     "rows": 100,
+     "unjoined": 6,
+     "unjoinedShare": 0.06
+    }
+   },
+   "evaluable": true,
+   "positionFiltered": true,
+   "vendorRowsConsidered": 299
+  },
+  "idpShow": {
+   "aliasCaveat": true,
+   "bands": {},
+   "evaluable": false,
+   "positionFiltered": true,
+   "vendorRowsConsidered": 350
+  },
+  "idpShowCombined": {
+   "aliasCaveat": true,
+   "bands": {
+    "1-50": {
+     "examples": [],
+     "rows": 50,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    },
+    "151-300": {
+     "examples": [
+      "JT Tuimoloau"
+     ],
+     "rows": 150,
+     "unjoined": 1,
+     "unjoinedShare": 0.0067
+    },
+    "301-end": {
+     "examples": [
+      "Jourdan Lewis"
+     ],
+     "rows": 8,
+     "unjoined": 1,
+     "unjoinedShare": 0.125
+    },
+    "51-150": {
+     "examples": [],
+     "rows": 100,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    }
+   },
+   "evaluable": true,
+   "positionFiltered": true,
+   "vendorRowsConsidered": 308
+  },
+  "idpTradeCalc": {
+   "aliasCaveat": true,
+   "bands": {
+    "1-50": {
+     "examples": [],
+     "rows": 50,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    },
+    "151-300": {
+     "examples": [],
+     "rows": 150,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    },
+    "301-end": {
+     "examples": [
+      "DeMario Douglas",
+      "Matthew Hibner",
+      "JT Tuimoloau",
+      "Bam Knight",
+      "Dru Phillips",
+      "Joe Flacco",
+      "Thomas Fidone",
+      "Grant Calcaterra"
+     ],
+     "rows": 516,
+     "unjoined": 9,
+     "unjoinedShare": 0.0174
+    },
+    "51-150": {
+     "examples": [],
+     "rows": 100,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    }
+   },
+   "evaluable": true,
+   "positionFiltered": false,
+   "vendorRowsConsidered": 816
+  }
+ }
+}

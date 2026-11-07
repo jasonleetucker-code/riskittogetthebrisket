@@ -68,7 +68,7 @@ def test_verified_ci_bytes_are_staged(release, tmp_path):
     checkout, _, _, manifest = release
     assert _stage(tmp_path, release) == manifest["artifact_id"]
     assert (checkout / "frontend/.next.new/static/app.js").read_bytes() == b"tested frontend"
-    assert json.loads((tmp_path / "receipt.json").read_text()) == manifest
+    assert json.loads((tmp_path / "receipt.json").read_text(encoding="utf-8")) == manifest
 
 
 def test_archive_checksum_and_checkout_lock_are_required(release, tmp_path):

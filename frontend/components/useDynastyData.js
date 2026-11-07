@@ -36,12 +36,11 @@ function buildRowsShared(rawData) {
 export function useDynastyData() {
   // Read user-level source overrides from settings so per-source
   // toggles and weight sliders actually affect the rendered board.
-  // When the user has customized anything (including a non-default
-  // TE premium multiplier), ``fetchDynastyData`` routes through the
-  // backend override endpoint (``POST
+  // When the user has customized a source, ``fetchDynastyData`` routes
+  // through the backend override endpoint (``POST
   // /api/rankings/overrides?view=delta``) which re-runs the canonical
   // ranking pipeline in ``src/api/data_contract.py`` with the
-  // overrides + tep_multiplier threaded in, then merges the compact
+  // overrides threaded in (and withdrawn there), then merges the compact
   // delta onto the cached base contract.  ``buildRows`` is a pure
   // materializer that reads the already-canonical rows off the
   // merged contract; there is no client-side recompute and no
@@ -51,31 +50,18 @@ export function useDynastyData() {
   // Valuation lens. "market" (the default) is today's board; changing
   // it refetches, because the overlay is a separate league-scoped GET.
   const valuationMode = settings?.valuationMode || "market";
-  // tepMultiplier: null means "auto from league" (derive on backend
-  // from Sleeper's bonus_rec_te).  A finite number means the user
-  // dragged the slider and wants that exact override.  Coercing null
-  // → 1.0 here would defeat the derivation path entirely, so we
-  // preserve the sentinel and let ``fetchDynastyData`` route
-  // accordingly (absent body key → backend derives).
-  const rawTep = settings?.tepMultiplier;
-  const tepMultiplier =
-    rawTep === null || rawTep === undefined
-      ? null
-      : Number.isFinite(Number(rawTep))
-        ? Number(rawTep)
-        : null;
-  const rawTepNative = settings?.tepNativeMultiplier;
-  const tepNativeMultiplier =
-    rawTepNative === null || rawTepNative === undefined
-      ? null
-      : Number.isFinite(Number(rawTepNative))
-        ? Number(rawTepNative)
-        : null;
+  // The MANUAL TE-premium knobs (``settings.tepMultiplier`` /
+  // ``settings.tepNativeMultiplier``) are deliberately NOT read or sent
+  // (DEFECT-02, held for owner approval).  A posted value re-ran the blend
+  // and came back under ``rankDerivedValue``, so two devices with
+  // different localStorage showed two canonical values for one TE; the
+  // server now ignores it anyway (``data_contract._TEP_OVERRIDES_DISABLED``)
+  // and a stale stored value must not route the page onto the override
+  // POST.  The league-derived / ADR-015 TE premium is applied server-side
+  // on the base contract.
   // Serialize the override map so the effect's dependency array
   // fires on semantic changes, not reference churn, without forcing
-  // callers to memoize on their side.  The tepMultiplier is part of
-  // the cache key so a slider change re-fetches the delta without
-  // bundling a stale base blend.
+  // callers to memoize on their side.
   const siteOverridesKey = useMemo(
     () => (siteOverrides ? JSON.stringify(siteOverrides) : ""),
     [siteOverrides],
@@ -149,8 +135,6 @@ export function useDynastyData() {
         setFailure(null);
         const payload = await fetchDynastyData({
           siteOverrides,
-          tepMultiplier,
-          tepNativeMultiplier,
           valuationMode,
         });
         if (!active) return;
@@ -228,8 +212,6 @@ export function useDynastyData() {
   }, [
     settingsHydrated,
     siteOverridesKey,
-    tepMultiplier,
-    tepNativeMultiplier,
     valuationMode,
     leagueRefreshKey,
     reloadKey,

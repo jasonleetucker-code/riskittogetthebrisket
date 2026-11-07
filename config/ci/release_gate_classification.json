@@ -403,6 +403,9 @@
     "e2e.yml::e2e::Install Playwright chromium (test runner only)": {
       "category": "blocking"
     },
+    "e2e.yml::e2e::Install Playwright webkit (iPhone projects)": {
+      "category": "blocking"
+    },
     "e2e.yml::e2e::Install backend dependencies": {
       "category": "blocking"
     },
@@ -416,6 +419,9 @@
       "category": "blocking"
     },
     "e2e.yml::e2e::Run Playwright suite": {
+      "category": "blocking"
+    },
+    "e2e.yml::e2e::Run Playwright WebKit mobile suite (iPhone 13)": {
       "category": "blocking"
     },
     "e2e.yml::e2e::Set up Python": {

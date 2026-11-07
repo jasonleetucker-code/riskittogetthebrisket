@@ -58,7 +58,9 @@ def test_section_exists_and_globs_the_canonical_archive_name():
 def test_no_archive_yet_is_reported_not_an_error(tmp_path):
     live = tmp_path / "live"
     (live / "_nfl" / "2026" / "week_3" / "observations").mkdir(parents=True)
-    (live / "_nfl" / "2026" / "week_3" / "observations" / "a.jsonl").write_text("{}\n")
+    (live / "_nfl" / "2026" / "week_3" / "observations" / "a.jsonl").write_text(
+        "{}\n", encoding="utf-8"
+    )
     out = _run(live)
     assert "pregame_projections*: NONE" in out
     assert "weeks still holding raw observations/: 1" in out
@@ -72,7 +74,7 @@ def test_archives_are_listed_per_week(tmp_path):
     w3.mkdir(parents=True)
     w4.mkdir(parents=True)
     (w3 / "pregame_projections.json.gz").write_bytes(b"\x1f\x8b" + b"x" * 10)
-    (w4 / "pregame_projections.retained.json").write_text("{}")
+    (w4 / "pregame_projections.retained.json").write_text("{}", encoding="utf-8")
     out = _run(live)
     assert "NONE" not in out
     assert "week_3/pregame_projections.json.gz" in out

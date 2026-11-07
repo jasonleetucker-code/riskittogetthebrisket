@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-10-25, 24 of the 62 entries in
+   **Defaults are per-flag.** As of 2026-11-06, 28 of the 68 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -39,7 +39,10 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    (every correlation-family member votes under a family cap; off restores
    the family-head selection), `source_universe_freshness` (a board pricing
    offense and IDP ages each row from its own universe's broad-change clock;
-   off restores one clock per subset), `signals_active_source` (Signals'
+   off restores one clock per subset), `confidence_cured_rejection_guard`
+   (a voting source whose outlier rejection a withheld vote cured earns the
+   B11 confidence gate nothing; confidence only, no value moves; off credits
+   it again), `signals_active_source` (Signals'
    authenticated native values vote as a rank signal in the FantasyCalc
    family; off removes the vote, keeps the evidence visible),
    `dlf_offense_only_vote` (the owner-approved DLF IDP restore, held at
@@ -57,7 +60,11 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    (automatic DFS slates; writes only `data/dfs/`), `trade_screenshot_import`
    (Import Trade from Screenshot; local OCR, identities only, retains
    nothing), `manager_intelligence` (private Sleeper-username portfolio
-   lookup; reads only, owner-confirmed non-commercial use) — several
+   lookup; reads only, owner-confirmed non-commercial use), `waiver_advisor`
+   and `idp_streaming` (the private signed-in Waiver Advisor and its Weekly
+   IDP Streaming mode; advice only, owner decision 2026-10-29),
+   `roster_construction` (the private signed-in Roster Construction page;
+   reads only, owner decision D1 2026-11-01) — several
    with comments
    recording that the enabled default is deliberate. For those, the env
    var is a rollback lever rather than an opt-in.

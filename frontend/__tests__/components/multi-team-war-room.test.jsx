@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import MultiTeamWarRoom, { MULTI_DEBOUNCE_MS } from "@/components/trade/MultiTeamWarRoom";
 import { builderFromFixture } from "../helpers/multi-team-fixture";
+import { decisionReasonSentences } from "@/lib/trade-war-room-copy";
 
 import THREE_CTX from "../fixtures/trade-multi/three-team-team-context.json";
 import FORCED from "../fixtures/trade-multi/three-team-forced-cut.json";
@@ -557,4 +558,75 @@ describe("multi-team War Room", () => {
     expect(props.onReset).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("multi-team-summary")).toBeNull();
   });
+});
+
+// D3 (build mode 2026-10-27): every number a team's explanation shows can be
+// re-derived from the other numbers on the same screen -- each asset's own
+// value, the raw totals, the Value Adjustment, the adjusted totals, the gap
+// and the percentage of the larger package.  Nothing on screen is a number
+// the reader cannot trace.
+describe("multi-team War Room: numerically traceable explanation (D3)", () => {
+  const fmt = (v) => Math.round(v).toLocaleString("en-US");
+  const signed = (v) => {
+    const r = Math.round(v);
+    return r === 0 ? "±0" : `${r > 0 ? "+" : "−"}${Math.abs(r).toLocaleString("en-US")}`;
+  };
+
+  it.each(FOUR.teams.map((t) => [t.team.name, t]))(
+    "%s: assets -> raw -> adjusted -> gap -> percent all trace",
+    async (name, team) => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(ok(FOUR));
+      mount(FOUR);
+      await analyze();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("tab", { name }));
+      });
+      const md = team.analysis.lenses.market.detail;
+      const priced = (xs) => xs.filter((a) => a.valueState === "priced");
+      // 1. Each asset's independent value is shown, on the side it moves.
+      for (const [testId, legs] of [
+        ["multi-team-gives", team.gives],
+        ["multi-team-receives", team.receives],
+      ]) {
+        const list = screen.getByTestId(testId);
+        for (const a of priced(legs)) {
+          expect(list.querySelector(`[data-asset-id="${a.assetId}"]`).textContent).toContain(fmt(a.value));
+        }
+      }
+      // 2. Raw totals are the sums of those asset values.
+      const sum = (xs) => priced(xs).reduce((s, a) => s + a.value, 0);
+      expect(Math.round(md.sendingValue)).toBe(Math.round(sum(team.gives)));
+      expect(Math.round(md.receivingValue)).toBe(Math.round(sum(team.receives)));
+      // 3. Adjusted = raw + Value Adjustment, and the table shows all three.
+      const table = screen.getByTestId("multi-team-package-totals");
+      const sendRow = table.querySelector('[data-package="send"]');
+      const recvRow = table.querySelector('[data-package="recv"]');
+      expect(md.sendingAdjusted).toBeCloseTo(md.sendingValue + md.sendingValueAdjustment, 6);
+      expect(md.receivingAdjusted).toBeCloseTo(md.receivingValue + md.receivingValueAdjustment, 6);
+      expect(sendRow.textContent).toContain(fmt(md.sendingValue));
+      expect(sendRow.textContent).toContain(fmt(md.sendingAdjusted));
+      expect(recvRow.textContent).toContain(fmt(md.receivingValue));
+      expect(recvRow.textContent).toContain(fmt(md.receivingAdjusted));
+      // 4. The fairness gap is adjusted receives minus adjusted sends.
+      const f = team.fairness;
+      expect(f.gap).toBe(Math.round(md.receivingAdjusted - md.sendingAdjusted));
+      // 5. The percentage is the gap over the larger package after the
+      //    depth discount, and the note prints all three numbers.
+      expect(f.relativePct).toBeCloseTo((Math.abs(f.gap) / f.largerPackageUtility) * 100, 1);
+      const note = screen.getByTestId("multi-team-fairness").closest("dd").textContent;
+      expect(note).toContain(signed(f.gap));
+      expect(note).toContain(fmt(f.largerPackageUtility));
+      expect(note).toContain(`${f.relativePct}%`);
+      // 6. Why accept or decline: exactly one list item per worded decision
+      //    reason, in order, each carrying that reason's sentence.
+      const sentences = decisionReasonSentences(team.analysis.decision, { analysis: team.analysis });
+      if (sentences.length) {
+        const items = [...screen.getByTestId("multi-team-reasons").querySelectorAll("li")];
+        expect(items).toHaveLength(sentences.length);
+        items.forEach((li, i) => expect(li.textContent).toBe(sentences[i].sentence));
+      } else {
+        expect(screen.queryByTestId("multi-team-reasons")).toBeNull();
+      }
+    },
+  );
 });

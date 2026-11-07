@@ -42,13 +42,51 @@ fake it.
 
 THE FINGERPRINT EXCLUDES TIME BY CONSTRUCTION
 =============================================
-``stateFingerprint`` is taken over ``(status, cohort, ffpcMarket,
-lastError.type)`` only. Timestamps, run ids and error *messages* are
+``stateFingerprint`` is taken over ``(status, tokenProvisioned, cohort,
+ffpcMarket, lastError.type)`` only. Timestamps, run ids and error *messages* are
 excluded structurally rather than by remembering to exclude them —
 folding any clock-derived value in would restore the every-run write
 while looking like it had been fixed. ``lastError.type`` is in and
 ``lastError.message`` is out deliberately: ``Unauthenticated`` is the
 state, while ``"401 from https://…"`` carries a URL that could churn.
+
+RUN-ONLY FIELDS vs STATE FIELDS (2026-10-26)
+============================================
+The fingerprint is the *definition* of "the state", so which fields are
+inside it is the whole question.
+
+    STATE (in the fingerprint; a change here is news and is committed):
+        status, tokenProvisioned, cohort, ffpcMarket, lastError.type
+
+    RUN-ONLY (never in the fingerprint; only record "we ran again"):
+        checkedAt / lastObservedAt, attempts, eventName, deployRunId,
+        deployHeadSha, deployConclusion, lastError.message
+
+``tokenProvisioned`` is state because "no credential exists" and "a
+credential exists and production refused it" are different problems with
+different owners, and a 401 looks the same for both.
+
+THE TWO TRIGGERS ARE NOT TWO STATES
+===================================
+The workflow fires on ``push`` to main AND on ``workflow_run`` of Deploy
+Production.  A push run does the real probe.  A workflow_run whose deploy
+was *cancelled* (superseded by the next merge, the normal case) or *skipped*
+probes nothing and makes no claim about production
+(``deploy_superseded`` / ``deploy_unmeasured``).
+
+Before this, such a run overwrote the standing state with "superseded", and
+the next push run overwrote it back to ``unverifiable_unauthenticated``.
+Each flip changed the fingerprint, so each flip was a commit to main AND a
+new ``stateSince`` — which is the key the tracker issue dedups on, so each
+flip was also a new comment on #951.  Measured 2026-10-26: 16 record commits
+in 24 hours, every one a flip between two statuses, and 41 marker-carrying
+comments on #951 each with a distinct ``since``.  The dedup on both sides
+was correct; the thing being deduplicated was flapping upstream of them.
+
+A run that observed nothing leaves the standing record exactly as it found
+it (:func:`record_to_persist`).  It does not advance ``lastObservedOn``
+either: that field means "we are still *checking*", and a superseded run
+did not check.
 
 MISSING IS NOT ZERO
 ===================
@@ -74,6 +112,14 @@ SCHEMA = 2
 #: it and finding it empty.
 MEASURED_STATUSES = frozenset({"healthy", "population_in_progress"})
 
+#: Statuses of a run that never probed production because the deploy that
+#: triggered it was cancelled or produced no conclusion.  They carry no
+#: verdict in either direction, so they must not replace a standing record
+#: that does.  ``deploy_failed`` is deliberately NOT here: a failed deploy is
+#: a verdict (the gate goes red on it) and changing the record for it is
+#: correct.
+NO_VERDICT_STATUSES = frozenset({"deploy_superseded", "deploy_unmeasured"})
+
 
 def is_measured(status: str | None) -> bool:
     return status in MEASURED_STATUSES
@@ -83,13 +129,18 @@ def state_fingerprint(result: dict[str, Any]) -> str:
     """A content hash of the STATE, with every time-varying field excluded.
 
     Excluded by construction, not by convention: ``checkedAt``,
-    ``attempts``, ``deployRunId``, ``deployHeadSha``, ``eventName`` and
-    the error *message*.  Including any of them would silently restore
-    the every-run write.
+    ``attempts``, ``deployRunId``, ``deployHeadSha``, ``deployConclusion``,
+    ``eventName`` and the error *message*.  Including any of them would
+    silently restore the every-run write.
+
+    ``tokenProvisioned`` is IN: it is a fact about the configuration, not
+    about the run, and ``None`` (not recorded) is kept distinct from
+    ``False`` (recorded as absent).
     """
     error = (result.get("errors") or [{}])[-1] if result.get("errors") else {}
     material = {
         "status": result.get("status"),
+        "tokenProvisioned": result.get("tokenProvisioned"),
         "cohort": result.get("cohort") or {},
         "ffpcMarket": result.get("ffpcMarket") or {},
         "lastErrorType": error.get("type"),
@@ -149,6 +200,8 @@ def build_record(
         "lastObservedOn": today,
         "lastObservedAt": now_iso,
         "lastMeasuredOn": last_measured_on,
+        # ``None`` = this run did not say; ``False`` = it said "absent".
+        "tokenProvisioned": result.get("tokenProvisioned"),
         "credentialRegression": credential_regression(previous, result),
         "lastRun": {
             "event": result.get("eventName"),
@@ -179,6 +232,27 @@ def credential_regression(previous: dict[str, Any] | None, result: dict[str, Any
     if result.get("status") != "unverifiable_unauthenticated":
         return False
     return bool((previous or {}).get("lastMeasuredOn"))
+
+
+def record_to_persist(previous: dict[str, Any] | None, record: dict[str, Any]) -> dict[str, Any]:
+    """The record the TRACKED artifact should hold after this run.
+
+    This is not :func:`build_record`'s output when the run made no claim.  A
+    ``deploy_superseded`` / ``deploy_unmeasured`` run (see the module
+    docstring) leaves the standing record as it found it, so the file, its
+    ``stateSince`` and the tracker marker derived from it do not flap.
+
+    The RUN-SCOPED copy the gate grades is still ``record`` itself — the
+    gate must see what THIS run saw (``deploy_superseded`` is handled there
+    as "no production claim"), never the standing record.  Only the
+    durable file is shielded.
+
+    With no previous record there is nothing to preserve, so the run's own
+    record is written: an honest "no verdict yet" beats an empty file.
+    """
+    if record.get("status") in NO_VERDICT_STATUSES and previous is not None:
+        return previous
+    return record
 
 
 def decide_write(previous: dict[str, Any] | None, record: dict[str, Any]) -> bool:

@@ -83,13 +83,15 @@ const DEFAULT_RAW_DATA = {
   // Board built from an EARLIER scrape — the two clocks differ.
   scrapeTimestamp: "2026-07-25T18:00:00Z",
 };
-const dyn = vi.hoisted(() => ({ rawData: null }));
+// ``rows`` lets one describe swap in its own board without touching the
+// shared 4-row fixture the rest of this file asserts against.
+const dyn = vi.hoisted(() => ({ rawData: null, rows: null }));
 vi.mock("@/components/useDynastyData", () => ({
   useDynastyData: () => ({
     loading: false,
     error: "",
     source: "test",
-    rows: ROWS,
+    rows: dyn.rows || ROWS,
     rawData: dyn.rawData || DEFAULT_RAW_DATA,
   }),
 }));
@@ -140,6 +142,7 @@ function renderedNames() {
 
 beforeEach(() => {
   dyn.rawData = null;
+  dyn.rows = null;
   openPlayerPopup.mockClear();
   bdvm.data = null;
   bdvm.request.mockClear();
@@ -355,4 +358,363 @@ it("labels the Fund gap column's fundamental side as provisional BDVM, not the m
   expect(screen.getByRole("region", { name: "Fund gap" })).toHaveTextContent(
     "Fundamental value (BDVM) · provisional priors — not the market board.",
   );
+});
+
+// ── NFL team filter in the MAIN control bar ───────────────────────────
+// The select is bound to ``adv.nflTeam`` — the same single state and the
+// same ``rowMatches`` pass the advanced rail used — so these tests check
+// the control's placement, its one-state design, how it composes with the
+// other filters, and the board invariant that filtering HIDES rows and
+// never re-ranks them (ranks are backend ``canonicalConsensusRank``
+// stamps; ``buildRows`` is a pure materializer).
+describe("NFL team filter (main control bar)", () => {
+  // Deliberately non-contiguous ranks: any client-side renumbering of a
+  // filtered view (1, 2, 3 …) would be visible against these stamps.
+  const TEAM_ROWS = [
+    boardRow("Justin Jefferson", "WR", 1, 9541, { team: "MIN", age: 26 }),
+    boardRow("Josh Allen", "QB", 3, 8900, { team: "BUF", age: 29 }),
+    boardRow("Brock Bowers", "TE", 12, 7400, { team: "LV", age: 23 }),
+    boardRow("George Pickens", "WR", 18, 6900, { team: "PIT", age: 25, confidenceBucket: "medium" }),
+    boardRow("T.J. Hockenson", "TE", 29, 6100, { team: "MIN", age: 28 }),
+    boardRow("Jordan Addison", "WR", 41, 5200, { team: "MIN", age: 24, confidenceBucket: "low" }),
+    boardRow("Null Team Guy", "WR", 90, 3000, { team: null, age: 27 }),
+    boardRow("Empty Team Guy", "RB", 95, 2900, { team: "", age: 27 }),
+    boardRow("Free Agent Guy", "RB", 99, 2800, { team: "FA", age: 27 }),
+  ];
+  const ALL_NAMES = TEAM_ROWS.map((r) => r.name);
+
+  const teamSelect = () => screen.getByLabelText("NFL team filter");
+  /** The ``aria-live`` result line ("N shown · ...") a screen reader announces. */
+  const resultLine = () =>
+    Array.from(document.querySelectorAll('[aria-live="polite"]')).find((el) =>
+      /shown/.test(el.textContent),
+    );
+
+  /** [name, rank, value] per rendered row, read from the table cells. */
+  function boardCells() {
+    return screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) => {
+        const btn = within(r).queryByTitle(/Open .* profile/);
+        if (!btn) return null;
+        // The "#" cell also hosts the row-disclosure button's hidden label,
+        // so read the rank span itself (what a user sees as the number).
+        const rank = r
+          .querySelector("td[data-col='rank'] [class*='rankCell']")
+          ?.textContent.trim();
+        const value = r.querySelector("td[data-col='value']")?.textContent.replace(/[^\d]/g, "");
+        return [btn.textContent.trim(), Number(rank), Number(value)];
+      })
+      .filter(Boolean);
+  }
+  const stampOf = (name) => {
+    const r = TEAM_ROWS.find((x) => x.name === name);
+    return [r.name, r.canonicalConsensusRank, r.rankDerivedValue];
+  };
+
+  beforeEach(() => {
+    dyn.rows = TEAM_ROWS;
+  });
+
+  it("is visible in the main control bar without opening Advanced Filters, defaulting to All NFL Teams", () => {
+    render(<RankingsPage />);
+    const select = teamSelect();
+    expect(select).toBeInTheDocument();
+    expect(select.tagName).toBe("SELECT");
+    expect(select).toHaveValue("");
+    expect(select).toHaveDisplayValue("All NFL Teams");
+    // It sits in the same bar as search / position / confidence, and the
+    // advanced rail is still closed.
+    expect(select.closest(".rankings-controls")).not.toBeNull();
+    expect(screen.getByLabelText("Position filter").closest(".rankings-controls")).toBe(
+      select.closest(".rankings-controls"),
+    );
+    expect(screen.getByRole("button", { name: /^Filters/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Experience")).toBeNull();
+    // Nothing selected, so nothing to clear.
+    expect(screen.queryByRole("button", { name: /^Clear team/ })).toBeNull();
+    expect(renderedNames()).toEqual(ALL_NAMES);
+  });
+
+  it("offers the board's own team codes (the teamOptions source), not a second list", async () => {
+    render(<RankingsPage />);
+    const { teamOptions } = await import("@/lib/player-filters");
+    const values = within(teamSelect())
+      .getAllByRole("option")
+      .map((o) => o.getAttribute("value"));
+    expect(values).toEqual(["", ...teamOptions(TEAM_ROWS)]);
+    // Spelled out for readability: FA last, unknown (null / "") teams never an option.
+    expect(values).toEqual(["", "BUF", "LV", "MIN", "PIT", "FA"]);
+    expect(within(teamSelect()).getByRole("option", { name: "Free agent (NFL)" })).toHaveValue("FA");
+    expect(within(teamSelect()).getByRole("option", { name: "All NFL Teams" })).toHaveValue("");
+  });
+
+  it("is the ONLY NFL team control: opening Filters does not render a second one", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    expect(screen.getAllByRole("combobox", { name: /NFL team/i })).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: /^Filters/ }));
+    // The rail is open (its own controls are there)…
+    expect(screen.getByLabelText("Experience")).toBeInTheDocument();
+    // …but there is still exactly one team select, and it is the main-bar one.
+    const teams = screen.getAllByRole("combobox", { name: /NFL team/i });
+    expect(teams).toHaveLength(1);
+    expect(teams[0].closest(".rankings-controls")).not.toBeNull();
+    expect(screen.queryByText("Any NFL team")).toBeNull();
+  });
+
+  it("selecting a team immediately shows only that franchise, with each player's real rank and value", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "MIN");
+
+    expect(teamSelect()).toHaveValue("MIN");
+    expect(renderedNames()).toEqual(["Justin Jefferson", "T.J. Hockenson", "Jordan Addison"]);
+    // Backend stamps verbatim: ranks 1 / 29 / 41, NOT renumbered 1 / 2 / 3.
+    expect(boardCells()).toEqual([
+      stampOf("Justin Jefferson"),
+      stampOf("T.J. Hockenson"),
+      stampOf("Jordan Addison"),
+    ]);
+    expect(boardCells().map(([, rank]) => rank)).toEqual([1, 29, 41]);
+
+    // Other franchises, same invariant — a lone survivor keeps its own rank.
+    await user.selectOptions(teamSelect(), "LV");
+    expect(boardCells()).toEqual([stampOf("Brock Bowers")]);
+    await user.selectOptions(teamSelect(), "PIT");
+    expect(boardCells()).toEqual([stampOf("George Pickens")]);
+  });
+
+  it("hides players with a null, empty or FA team once a franchise is selected, and shows them under All", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    const unknown = ["Null Team Guy", "Empty Team Guy", "Free Agent Guy"];
+    expect(renderedNames()).toEqual(expect.arrayContaining(unknown));
+
+    for (const team of ["MIN", "BUF", "LV", "PIT"]) {
+      await user.selectOptions(teamSelect(), team);
+      for (const name of unknown) expect(renderedNames()).not.toContain(name);
+    }
+
+    // FA is its own explicit option — free agents only, never the unknown rows.
+    await user.selectOptions(teamSelect(), "FA");
+    expect(renderedNames()).toEqual(["Free Agent Guy"]);
+
+    await user.selectOptions(teamSelect(), "");
+    expect(renderedNames()).toEqual(ALL_NAMES);
+  });
+
+  it("combines with position, search, confidence, a lens and the advanced filters", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "MIN");
+
+    // position
+    await user.selectOptions(screen.getByLabelText("Position filter"), "WR");
+    expect(renderedNames()).toEqual(["Justin Jefferson", "Jordan Addison"]);
+    await user.selectOptions(screen.getByLabelText("Position filter"), "TE");
+    expect(renderedNames()).toEqual(["T.J. Hockenson"]);
+    await user.selectOptions(screen.getByLabelText("Position filter"), "all");
+
+    // search — cannot widen past the team (PIT's Pickens stays out)
+    await user.type(screen.getByLabelText("Search the board"), "jordan");
+    expect(renderedNames()).toEqual(["Jordan Addison"]);
+    await user.clear(screen.getByLabelText("Search the board"));
+    await user.type(screen.getByLabelText("Search the board"), "pickens");
+    expect(screen.getByText(/No players match these filters/)).toBeInTheDocument();
+    await user.clear(screen.getByLabelText("Search the board"));
+    expect(renderedNames()).toHaveLength(3);
+
+    // confidence ("low" bucket → only Addison)
+    await user.selectOptions(screen.getByLabelText("Confidence filter"), "low");
+    expect(renderedNames()).toEqual(["Jordan Addison"]);
+    await user.selectOptions(screen.getByLabelText("Confidence filter"), "all");
+
+    // lens ("Safest": high confidence + 2 sources → drops low-confidence Addison)
+    await user.click(screen.getByRole("tab", { name: "Safest" }));
+    expect(renderedNames()).toEqual(["Justin Jefferson", "T.J. Hockenson"]);
+    await user.click(screen.getByRole("tab", { name: "Consensus" }));
+    expect(renderedNames()).toHaveLength(3);
+
+    // advanced filter (Age min 25 → drops 24-year-old Addison); team still binds
+    await user.click(screen.getByRole("button", { name: /^Filters/ }));
+    await user.type(screen.getAllByPlaceholderText("min")[0], "25");
+    expect(renderedNames()).toEqual(["Justin Jefferson", "T.J. Hockenson"]);
+    expect(teamSelect()).toHaveValue("MIN");
+
+    // ranks are still the stamps through every combination
+    expect(boardCells()).toEqual([stampOf("Justin Jefferson"), stampOf("T.J. Hockenson")]);
+  });
+
+  it("All NFL Teams restores the full board in canonical rank order", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "MIN");
+    expect(renderedNames()).toHaveLength(3);
+
+    await user.selectOptions(teamSelect(), "All NFL Teams");
+    expect(teamSelect()).toHaveValue("");
+    expect(boardCells()).toEqual(TEAM_ROWS.map((r) => stampOf(r.name)));
+  });
+
+  it("shows a Clear team control only while a team is selected, and it resets the select and the board", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    expect(screen.queryByRole("button", { name: /^Clear team/ })).toBeNull();
+
+    await user.selectOptions(teamSelect(), "MIN");
+    const clear = screen.getByRole("button", { name: /^Clear team/ });
+    // It lives in the same flex item as the select, so it cannot wrap away from it.
+    expect(clear.parentElement).toBe(teamSelect().closest("span[class*='controlsTeam']"));
+    // The result line names the active team.
+    expect(resultLine().textContent).toMatch(/shown · NFL team MIN/);
+
+    await user.click(clear);
+    expect(teamSelect()).toHaveValue("");
+    expect(screen.queryByRole("button", { name: /^Clear team/ })).toBeNull();
+    expect(renderedNames()).toEqual(ALL_NAMES);
+    expect(resultLine().textContent).not.toMatch(/NFL team/);
+  });
+
+  // WCAG 2.5.3 (Label in Name): a voice-control user says what they SEE, so
+  // the accessible name has to start with the visible text.  The team goes
+  // after it, for context.
+  it("the Clear button's accessible name starts with its visible text", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "MIN");
+    const clear = screen.getByRole("button", { name: /^Clear team/ });
+    expect(clear).toHaveTextContent("Clear team");
+    expect(clear).toHaveAccessibleName("Clear team (MIN)");
+    // Nothing in the old, longer wording survives to confuse a name match.
+    expect(screen.queryByRole("button", { name: /Clear NFL team filter/ })).toBeNull();
+  });
+
+  // The button unmounts the instant the filter clears; without an explicit
+  // hand-off, focus falls to <body> and a keyboard user loses their place.
+  it("returns focus to the NFL team select after Clear team (keyboard path included)", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "MIN");
+
+    const clear = screen.getByRole("button", { name: /^Clear team/ });
+    clear.focus();
+    expect(clear).toHaveFocus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.queryByRole("button", { name: /^Clear team/ })).toBeNull();
+    expect(teamSelect()).toHaveValue("");
+    expect(teamSelect()).toHaveFocus();
+    expect(document.body).not.toHaveFocus();
+
+    // Same hand-off on the pointer path.
+    await user.selectOptions(teamSelect(), "BUF");
+    await user.click(screen.getByRole("button", { name: /^Clear team/ }));
+    expect(teamSelect()).toHaveFocus();
+  });
+
+  it("announces the active team in the live region as 'NFL team <code>', not a bare code", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    expect(resultLine()).toHaveAttribute("aria-live", "polite");
+    expect(resultLine().textContent).not.toMatch(/NFL team/);
+
+    await user.selectOptions(teamSelect(), "MIN");
+    expect(resultLine().textContent).toMatch(/shown · NFL team MIN(?: ·|$)/);
+    // The old bare " · MIN" suffix is gone.
+    expect(resultLine().textContent).not.toMatch(/shown · MIN/);
+
+    // The free-agent sentinel reads as words, not "NFL team Free agent (NFL)".
+    await user.selectOptions(teamSelect(), "FA");
+    expect(resultLine().textContent).toMatch(/shown · NFL free agents(?: ·|$)/);
+  });
+
+  // A data refresh or the IDP toggle can drop a code out of ``teamOptions``
+  // while ``adv.nflTeam`` still holds it.  A controlled <select> whose value
+  // matches no <option> silently displays the FIRST option ("All NFL
+  // Teams") — it would claim "no filter" over a board the filter is
+  // emptying.
+  it("keeps a stale selected team visible and selected when it leaves the options", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "MIN");
+    expect(renderedNames()).toHaveLength(3);
+
+    // Data refresh: the board no longer carries a single MIN player.
+    dyn.rows = TEAM_ROWS.filter((r) => r.team !== "MIN");
+    rerender(<RankingsPage />);
+
+    const optionValues = () =>
+      within(teamSelect())
+        .getAllByRole("option")
+        .map((o) => o.getAttribute("value"));
+    expect(teamSelect()).toHaveValue("MIN");
+    expect(teamSelect()).toHaveDisplayValue("MIN");
+    expect(teamSelect()).not.toHaveDisplayValue("All NFL Teams");
+    // The board's own codes plus the one stale code — once, not a second list.
+    const values = optionValues();
+    expect(values.filter((v) => v === "MIN")).toHaveLength(1);
+    expect([...values].sort()).toEqual(["", "BUF", "FA", "LV", "MIN", "PIT"].sort());
+    expect(values.slice(0, 1)).toEqual([""]);
+    // The filter is genuinely still active, which is the point of showing it.
+    expect(screen.getByText(/No players match these filters/)).toBeInTheDocument();
+    expect(resultLine().textContent).toMatch(/NFL team MIN/);
+
+    // It can be cleared, and clearing drops the extra option again.
+    await user.click(screen.getByRole("button", { name: /^Clear team/ }));
+    expect(teamSelect()).toHaveValue("");
+    expect(teamSelect()).toHaveDisplayValue("All NFL Teams");
+    expect(optionValues()).not.toContain("MIN");
+    expect(renderedNames()).toEqual(dyn.rows.map((r) => r.name));
+  });
+
+  it("adds no extra option when the selected team is still on the board", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "PIT");
+    const values = within(teamSelect())
+      .getAllByRole("option")
+      .map((o) => o.getAttribute("value"));
+    expect(values).toEqual(["", "BUF", "LV", "MIN", "PIT", "FA"]);
+  });
+
+  it("the clear-all control (Reset filters) clears the team along with every other filter", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.selectOptions(teamSelect(), "BUF");
+    await user.selectOptions(screen.getByLabelText("Position filter"), "RB");
+    // BUF has no RB → empty state, which carries the reset action.
+    expect(screen.getByText(/No players match these filters/)).toBeInTheDocument();
+    expect(screen.getByText(/Clear the search, NFL team or advanced filters/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Reset filters/ }));
+    expect(teamSelect()).toHaveValue("");
+    expect(screen.getByLabelText("Position filter")).toHaveValue("all");
+    expect(renderedNames()).toEqual(ALL_NAMES);
+  });
+
+  it("keeps the Filters badge consistent: the team is not counted as a rail filter, and the rail's Clear leaves it alone", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    const filtersBtn = () => screen.getByRole("button", { name: /^Filters/ });
+
+    // Team alone: the rail holds nothing active, so no badge and no rail Clear.
+    await user.selectOptions(teamSelect(), "MIN");
+    expect(filtersBtn()).toHaveTextContent(/^Filters$/);
+    await user.click(filtersBtn());
+    expect(screen.queryByTitle("Clear advanced filters")).toBeNull();
+
+    // A rail filter adds exactly one to the badge, team or not.
+    await user.type(screen.getAllByPlaceholderText("min")[0], "25");
+    expect(filtersBtn()).toHaveTextContent(/^Filters \(1\)$/);
+    expect(renderedNames()).toEqual(["Justin Jefferson", "T.J. Hockenson"]);
+
+    // The rail's Clear resets the rail only; the visible team control keeps its state.
+    await user.click(screen.getByTitle("Clear advanced filters"));
+    expect(filtersBtn()).toHaveTextContent(/^Filters$/);
+    expect(teamSelect()).toHaveValue("MIN");
+    expect(renderedNames()).toEqual(["Justin Jefferson", "T.J. Hockenson", "Jordan Addison"]);
+  });
 });

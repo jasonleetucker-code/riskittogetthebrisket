@@ -12,8 +12,9 @@ Pinned here (mirrors ``test_overview_memo.py``):
     1. Repeat requests for one generation build once, identical bytes.
     2. A full-contract build (overview / full contract / snapshot rebuild)
        seeds it -- the activity request builds nothing.
-    3. A new private-board generation and a new VORP calc version miss;
-       a miss builds ONLY the activity section, never the full contract.
+    3. A new private-board generation is served stale while ONE background
+       build refreshes it; a new VORP calc version is a cold miss; either
+       build is ONLY the activity section, never the full contract.
     4. Only an AUTHORIZED ``?refresh`` bypasses the memo read (B8).
     5. Entries age out with the snapshot window; an older build never
        replaces a newer one; a broken activity section cannot cost the
@@ -31,6 +32,11 @@ import json
 import os
 import time
 import unittest
+
+from tests.public_league.fixtures import (
+    reset_public_memo_refresh_state,
+    wait_for_public_memo_refreshes,
+)
 
 try:
     from fastapi.testclient import TestClient
@@ -70,6 +76,7 @@ class PublicActivityMemoTests(unittest.TestCase):
             self.server._get_public_snapshot()
         self.server._public_league_cache["fetched_at"] = time.time()
         self._wait_for_snapshot_refresh()
+        reset_public_memo_refresh_state(self.server)
         with self.server._PUBLIC_CONTRACT_BYTES_LOCK:
             self.server._PUBLIC_CONTRACT_BYTES_CACHE.clear()
         self.server._PUBLIC_OVERVIEW_CACHE.clear()
@@ -94,6 +101,7 @@ class PublicActivityMemoTests(unittest.TestCase):
         self.server.build_activity_serving_payload = counting_activity
 
     def tearDown(self) -> None:
+        wait_for_public_memo_refreshes(self.server)
         self.server.build_public_contract = self._real_contract
         self.server.build_activity_serving_payload = self._real_activity
 
@@ -142,11 +150,13 @@ class PublicActivityMemoTests(unittest.TestCase):
 
     # 3 ---------------------------------------------------------------
     def test_a_new_private_board_generation_rebuilds_only_activity(self) -> None:
-        self._get()
+        first = self._get()
         old = self.server.latest_data_etag
         self.server.latest_data_etag = "new-private-generation"
         try:
-            self._get()
+            # Served from the previous generation; ONE background build.
+            self.assertEqual(self._get().content, first.content)
+            wait_for_public_memo_refreshes(self.server)
             self._get()
         finally:
             self.server.latest_data_etag = old

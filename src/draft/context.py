@@ -113,6 +113,14 @@ def index_contract_rows(
     return by_id, by_name
 
 
+def _row_name_keys(row: Mapping[str, Any]) -> frozenset[str]:
+    """Every normalised name a board row answers to - the three fields
+    :func:`index_contract_rows` indexes by name."""
+    return frozenset(
+        k for k in (_norm(row.get(f)) for f in ("legacyRef", "canonicalName", "displayName")) if k
+    )
+
+
 def league_rostered_keys(contract: Mapping[str, Any] | None) -> set[str]:
     """Every key that identifies a player owned by SOME team in the league.
 
@@ -231,6 +239,36 @@ def match_team(
     return None
 
 
+def _ids_parallel_to_names(
+    names: Sequence[str],
+    ids: Sequence[str],
+    by_id: Mapping[str, Mapping[str, Any]],
+) -> bool:
+    """Are ``ids`` VERIFIABLY the parallel list of ``names`` (``ids[i]`` is
+    ``names[i]``'s Sleeper id)?
+
+    Equal lengths, at least one id that resolves to a board row, and EVERY id
+    that resolves sits at an index whose name that row answers to.  Positional
+    pairing is never assumed: it is the ``sleeper_overlay`` shape, the scraper
+    sorts the two lists independently (8 of 696 entries line up on the
+    2026-10-25 board), and neither shape carries a marker saying which it is.
+    A sorted pair of lists can pass only by agreeing at every resolvable index,
+    in which case the pairing it implies is the true one for those entries.
+    Pure.
+    """
+    if not names or len(names) != len(ids):
+        return False
+    verified = 0
+    for name, pid in zip(names, ids):
+        row = by_id.get(_norm(pid))
+        if row is None:
+            continue
+        if _norm(name) not in _row_name_keys(row):
+            return False
+        verified += 1
+    return verified > 0
+
+
 def build_roster_assets(
     team: Mapping[str, Any],
     by_name: Mapping[str, Mapping[str, Any]],
@@ -244,25 +282,94 @@ def build_roster_assets(
     anything asking "what would this lineup actually be?" needs the players.
     Duplicating the join in a script would be a second definition of who is on
     a roster, which is exactly the kind of parallel system this repo avoids.
+
+    **Identity first, name only as the fallback** (B0-b; the N-team engine's
+    I9, ``LANE-E-DEFECT-I9-DUPNAME``).  The roster's Sleeper ids say WHICH board
+    rows are this roster's own players; a roster name is then joined to one of
+    THOSE rows, each used once.  Only a name that none of the roster's own rows
+    carries falls back to the league-wide name index - and a row that index
+    returns for ANOTHER player (stamped with a ``playerId`` this roster does not
+    hold, or one already used) is a name collision, not a match.  The join used
+    to be name-first, so two players sharing a display name - on one roster or
+    across the league - collapsed onto one board row and one ``player_id``,
+    which the cut ladder (keyed on ``player_id``) then read as one player.
+
+    ``players`` and ``playerIds`` are NOT parallel lists in the live contract
+    (names sorted alphabetically, ids by id: 8 of 696 entries line up on the
+    2026-10-25 board), so the ids are used as a SET to scope who a name can mean,
+    never positionally to JOIN.  The one positional read is an unmatched entry's
+    own id, and only for rosters whose lists are VERIFIED parallel (the
+    ``sleeper_overlay`` shape; :func:`_ids_parallel_to_names`).  The assets come
+    back one per name, in name order; an entry the board has no row for is
+    ``on_board=False`` - the join's own fact, not a guess from empty fields.
     """
     names = [str(n) for n in (team.get("players") or []) if str(n or "").strip()]
     ids = [str(i) for i in (team.get("playerIds") or []) if str(i or "").strip()]
+    own_ids = {_norm(i) for i in ids}
+    # The roster's OWN board rows, in id order, each consumable once.
+    own_rows: list[tuple[str, Mapping[str, Any], frozenset[str]]] = []
+    for pid in ids:
+        own = by_id.get(_norm(pid))
+        if own is not None:
+            own_rows.append((_norm(pid), own, _row_name_keys(own)))
+    used_own: set[int] = set()
+    consumed_ids: set[str] = set()
+    joined: list[tuple[str, Mapping[str, Any] | None]] = []
+    for name in names:
+        key = _norm(name)
+        row: Mapping[str, Any] | None = None
+        for j, (pid, own, own_keys) in enumerate(own_rows):
+            if j not in used_own and key in own_keys:
+                used_own.add(j)
+                consumed_ids.add(pid)
+                row = own
+                break
+        if row is None:
+            row = by_name.get(key)
+            if row is not None and own_ids:
+                rid = _norm(row.get("playerId"))
+                if rid and (rid not in own_ids or rid in consumed_ids):
+                    row = None
+            if row is not None and _norm(row.get("playerId")) in own_ids:
+                consumed_ids.add(_norm(row.get("playerId")))
+        joined.append((name, row))
+    # An unmatched entry's own Sleeper id.  Two producer shapes, told apart by
+    # what the board can VERIFY (:func:`_ids_parallel_to_names`):
+    #
+    # * ``sleeper_overlay`` rosters (every non-default league) publish ``players``
+    #   and ``playerIds`` as PARALLEL lists - ``playerIds[i]`` is entry ``i``'s
+    #   id.  When every id that resolves to a board row sits at an index whose
+    #   name that row answers to, the pairing is verified and an unmatched entry
+    #   keeps its positional id (what this join always gave it).
+    # * the scraper's rosters (the default league) sort the two lists
+    #   independently, so no index means anything.  An unmatched entry's id is
+    #   then known only when it is the single one left over; with several,
+    #   which id is whose cannot be told, so none is guessed.
+    #
+    # A roster whose pairing cannot be verified (nothing resolves, or one pair
+    # contradicts) reads as the scraper shape - the safe reading: it can
+    # withhold an id, never assign another entry's.
+    parallel = _ids_parallel_to_names(names, ids, by_id)
+    leftover_ids = [i for i in ids if _norm(i) not in consumed_ids]
+    only_unmatched_id = (
+        leftover_ids[0]
+        if len(leftover_ids) == 1 and sum(r is None for _n, r in joined) == 1
+        else None
+    )
     assets: list[RosterAsset] = []
     unmatched: list[str] = []
-    for idx, name in enumerate(names):
-        row = by_name.get(_norm(name))
-        if row is None and idx < len(ids):
-            row = by_id.get(_norm(ids[idx]))
+    for idx, (name, row) in enumerate(joined):
         if row is None:
             unmatched.append(name)
             # Still occupies a roster spot, and is a legitimate cut candidate —
             # dropping him from the model would understate roster pressure.
             assets.append(
                 RosterAsset(
-                    player_id=ids[idx] if idx < len(ids) else name,
+                    player_id=(ids[idx] if parallel else only_unmatched_id) or name,
                     name=name,
                     position="",
                     board_value=None,
+                    on_board=False,
                 )
             )
             continue

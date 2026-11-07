@@ -709,6 +709,56 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
     expect(merged.rankDerivedValue).toBe(9700);
   });
 
+  // LI1842-DEFECT-08: the override POST carries the page's league key on
+  // the same channel the base fetch does (the query string), so the server
+  // never falls back to the user's SAVED league for an override request.
+  it("sends the active leagueKey on the override POST, like the base fetch", async () => {
+    // node environment: stand up the two browser globals the reader uses
+    const store = { next_active_league_v1: "dynasty_new" };
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("localStorage", { getItem: (k) => store[k] ?? null });
+    try {
+      globalThis.fetch = routeFetchMock({
+        base: {
+          ok: true,
+          json: async () => ({ ok: true, source: "backend", data: fixture() }),
+        },
+        deltas: [{ ok: false, status: 503, json: async () => ({}) }],
+      });
+      await fetchDynastyData({
+        siteOverrides: { ktcCrowdSfTep: { include: false } },
+      });
+      const [baseUrl] = callsMatching(globalThis.fetch, /\/api\/dynasty-data/)[0];
+      const [postUrl, postOpts] = callsMatching(
+        globalThis.fetch,
+        /\/api\/rankings\/overrides/,
+      )[0];
+      const baseLeague = new URL(String(baseUrl), "http://x").searchParams.get("leagueKey");
+      const post = new URL(String(postUrl), "http://x");
+      expect(baseLeague).toBe("dynasty_new");
+      expect(post.searchParams.get("leagueKey")).toBe(baseLeague);
+      expect(post.searchParams.get("view")).toBe("delta");
+      // the body stays the override map only (no new top-level field for the
+      // source-override parser to classify)
+      expect(JSON.parse(postOpts.body)).toEqual({ ktcCrowdSfTep: { include: false } });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("omits leagueKey on the override POST when no league is selected", async () => {
+    globalThis.fetch = routeFetchMock({
+      base: {
+        ok: true,
+        json: async () => ({ ok: true, source: "backend", data: fixture() }),
+      },
+      deltas: [{ ok: false, status: 503, json: async () => ({}) }],
+    });
+    await fetchDynastyData({ siteOverrides: { ktcCrowdSfTep: { include: false } } });
+    const [postUrl] = callsMatching(globalThis.fetch, /\/api\/rankings\/overrides/)[0];
+    expect(new URL(String(postUrl), "http://x").searchParams.has("leagueKey")).toBe(false);
+  });
+
   it("reuses the cached base contract for a second override fetch", async () => {
     globalThis.fetch = routeFetchMock({
       base: {

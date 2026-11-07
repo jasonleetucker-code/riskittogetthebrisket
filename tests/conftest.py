@@ -246,101 +246,44 @@ def pytest_sessionfinish(session, exitstatus):
 
 # ── Live-data CI tiering ──────────────────────────────────────────────
 # A handful of tests assert against the LIVE scraped board
-# (``exports/latest/dynasty_data_*.json`` / ``CSVs/site_raw/*``).  They
-# are correctness-valuable but DATA-COUPLED: a routine source row-count
-# dip or scrape churn fails them with NO code defect, and because CI
-# runs ``pytest -x`` that single failure blocks EVERY PR (it did so
-# repeatedly this audit — e.g. a yahooBoone row dip stalled all PRs).
-# Mark these modules ``livedata`` so CI runs them as a NON-blocking
-# advisory tier while the pure-logic suite stays the hard gate.
-# Module-granularity by design: one central, reviewable policy instead
-# of editing ~16 files; a new live-data test just adds its module here.
-# (test_source_floor_invariant.py is intentionally NOT here — it is the
+# (``exports/latest/dynasty_data_*.json`` / ``CSVs/site_raw/*``) or fetch
+# from a provider.  They are correctness-valuable but DATA-COUPLED: a
+# routine source row-count dip or scrape churn fails them with NO code
+# defect, and because CI runs ``pytest -x`` that single failure blocks
+# EVERY PR (it did so repeatedly -- e.g. a yahooBoone row dip stalled all
+# PRs).  Marked ``livedata``, CI runs them as a NON-blocking advisory tier
+# while the deterministic suite stays the hard gate.
+#
+# TWO ways to be livedata, and only the first is this list:
+#
+# 1. A MODULE named below is livedata in whole.  Use it only when every test
+#    in the file is data-coupled.  Module granularity is how tests got
+#    stranded in the advisory tier that had nothing to do with live data (the
+#    pick-anchor split, ``test_data_contract.py``, ``test_dlf_scraper.py`` --
+#    see ``test_livedata_policy.py``), so it is the exception.
+# 2. Otherwise mark the class or test itself with ``@pytest.mark.livedata``
+#    and say why next to it.  A mixed module is NOT listed here.
+#
+# The rule for what may stay in the hard gate is CLAUDE.md "CI has two lanes",
+# "Rule for new tests": a hard-gate test must not assert an absolute count, a
+# floor or a health status over the LIVE board.  A test of an invariant of
+# OUR code builds its board with ``tests.archive_fixtures`` (the newest
+# archived scrape the contract's own source-health definition calls
+# complete) instead of ``exports/latest``.  Each remaining entry below is
+# whole-module live for the reason given.
+# (test_source_floor_invariant.py is intentionally NOT here -- it is the
 # pure static pre-merge guard and must keep blocking.)
 _LIVEDATA_MODULES = frozenset(
     {
-        "test_launch_readiness.py",
-        "test_source_monitoring.py",
-        # ``test_footballguys_source.py`` was listed here and does not
-        # exist — a dead exemption.  Removed 2026-07-27;
-        # ``test_livedata_policy.py`` now fails on a stale entry, since
-        # an exemption list nobody can check is how the pick-anchor
-        # split below went unnoticed.
-        "test_picks_end_to_end.py",
-        "test_pick_refinement.py",
-        "test_pick_rookie_anchor.py",
-        "test_player_identity_regression.py",
-        "test_single_curve_live.py",
-        "test_single_authority.py",
-        "test_per_source_freshness.py",
-        # ``test_data_contract.py`` was listed here and is 100% SYNTHETIC:
-        # every test builds its input from ``_minimal_raw_payload()`` and
-        # the module contains no reference to exports/, CSVs/, data/ or
-        # the live contract.  The exemption moved 33 tests covering
-        # ``build_api_data_contract`` — rank assignment, value-direct
-        # voting, the single-source haircut, OVERALL_RANK_LIMIT,
-        # legacy-dict mirroring, IDP integrity guardrails, hillCurves
-        # stamping — out of the hard gate, so a real regression in the
-        # core blend could not fail a PR.  This is the same defect the
-        # module docstring of ``test_livedata_policy.py`` records for
-        # ``test_pick_rookie_anchor.py``, in a second file.
-        #
-        # Removed 2026-08-04 (audit finding Q-1).  Unlike the pick-anchor
-        # case no split was needed — the module is synthetic in whole, so
-        # it simply rejoins the blocking tier.  Verified: 33 passed in
-        # 1.37s with no data files present.
-        "test_dlf_source.py",
-        # ``test_dlf_scraper.py`` was listed here and is WHOLLY PURE.
-        # Its own docstring says so — "these tests exercise the
-        # offline-safe pure functions: HTML table parsing, paywall
-        # detection, and CSV write" — and it reads only inline HTML
-        # fixtures and ``tmp_path``.  Its single mention of
-        # ``CSVs/site_raw/`` asserts that a CONFIG STRING starts with
-        # that prefix; it never touches the tree.
-        #
-        # Removed 2026-08-04.  Same shape as the ``test_data_contract.py``
-        # case above and no split needed: 13 tests, 0.28s, no data files
-        # present.  They guard DLF's HTML parse and paywall detection —
-        # the ingestion path for four registry sources — and a real
-        # regression there could not fail a PR while they sat in the
-        # advisory tier.
-        #
-        # STILL OPEN: ``test_dlf_source.py`` (above) carries
-        # ``TestDlfCsvEnrichment``, whose own comment says it builds a
-        # temporary CSV "without touching the real CSVs/site_raw tree".
-        # That one needs the pick-anchor treatment — a split, not a
-        # removal, because the rest of the module genuinely reads live
-        # data.  ``test_livedata_policy.py`` records it as open.
-        "test_fantasypros_idp_integration.py",
+        # Compares the canonical Hill curve with TODAY'S KTC CSV.  Its one
+        # pure test (monotonicity of the curve) is covered in the hard gate
+        # by ``test_hill_percentile_constants_tripwire.py``.
         "test_ktc_reconciliation.py",
-        # ``test_ktc_import_live.py`` — added 2026-10-13.  The only test that
-        # fetches keeptradecut.com; split out of ``test_ktc_import_e2e.py`` so
-        # that module's deterministic tests stay blocking.  Hard-gate twin:
+        # Added 2026-10-13.  The only test that fetches keeptradecut.com;
+        # split out of ``test_ktc_import_e2e.py`` so that module's
+        # deterministic tests stay blocking.  Hard-gate twin:
         # ``tests/trade/test_ktc_import_player_map.py`` (captured fixtures).
         "test_ktc_import_live.py",
-        "test_fetch_flock_fantasy_rookies.py",
-        # ``test_faab_calibration.py`` — added 2026-08-16.  Its own
-        # docstring says what it is: "These are the tests that would
-        # catch a recalibration going wrong.  They run against the REAL
-        # exported board rather than a synthetic one."  Its anchors are
-        # resolved FROM that board (``resolve_anchors(values, league)``),
-        # so when a scrape loses a market the replacement line moves and
-        # value points that were at replacement no longer are.  Measured
-        # during the 2026-08-16 KTC outage: a 1,000-value player priced
-        # at 2% of budget instead of 0% and recommended $7 instead of
-        # $1, with ``faab_engine`` byte-identical.
-        #
-        # The ENGINE's deterministic invariants are unaffected and stay
-        # in the blocking tier: ``tests/trade/test_faab_engine.py``
-        # builds a SYNTHETIC board and already pins
-        # ``objective_ceiling(v_repl - 1) == 0``,
-        # ``objective_ceiling(v_allin) == 1``, the monotonicity of the
-        # curve and the raw-ceiling cap.  What moves to the advisory
-        # tier is only the claim that TODAY'S REAL BOARD lands its
-        # anchors where the two managers said they should — a
-        # calibration claim about live data, which is what this tier is
-        # for.
-        "test_faab_calibration.py",
     }
 )
 

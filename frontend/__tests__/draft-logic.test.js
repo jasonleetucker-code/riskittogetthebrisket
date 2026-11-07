@@ -1053,6 +1053,22 @@ describe("the rookie draft has no per-team slot limit", () => {
     }
   });
 
+  it("a 31-pick team is not clamped to six slots by the capital merge (audit W10-F002)", () => {
+    const feed = [
+      { team: "Heavy", auctionDollars: 685 },
+      { team: "Light", auctionDollars: 100 },
+    ];
+    const picks = Array.from({ length: 31 }, () => ({ currentOwner: "Heavy" }));
+    const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), feed, { picks });
+    const heavy = workspace.teams.find((t) => t.name === "Heavy");
+    expect(heavy.initialBudget).toBe(685);
+    expect(heavy.initialSlots).toBeUndefined();
+    const stats = computeDraftStats(workspace);
+    const row = stats.teamStats.find((t) => t.name === "Heavy");
+    expect(row.initialSlots).toBeUndefined();
+    expect(row.mdv).toBeUndefined();
+  });
+
   it("stamps no slot fields on stats or teams", () => {
     const stats = computeDraftStats(createDefaultWorkspace());
     for (const gone of [
@@ -1278,6 +1294,29 @@ describe("computeDraftStats — top competitor ceiling capping", () => {
     // Budget advantage ≈ 1.0 now, so theoretical max ≈ preDraft ×
     // (1 + 0.09 × 0) = preDraft.  Winning bid doesn't cap below it.
     expect(love.myWinningBid).toBeCloseTo(love.theoreticalMaxBid, 0);
+  });
+});
+
+describe("mergeDraftCapitalTeams — missing budget is unavailable, never $0", () => {
+  it("one null team among numeric teams: that team is unavailable, others unchanged", () => {
+    const ws = createDefaultWorkspace();
+    const feed = [
+      { team: "Ed", auctionDollars: 100 },
+      { team: "Brent", auctionDollars: null },
+      { team: "Newbie", auctionDollars: undefined },
+    ];
+    const before = ws.teams.find((t) => t.name === "Brent");
+    const { workspace, unavailable } = mergeDraftCapitalTeams(ws, feed);
+    expect(unavailable).toEqual(["Brent", "Newbie"]);
+    expect(workspace.teams.find((t) => t.name === "Ed").initialBudget).toBe(100);
+    expect(workspace.teams.find((t) => t.name === "Brent")).toEqual(before);
+    expect(workspace.teams.find((t) => t.name === "Newbie")).toBeUndefined();
+  });
+  it("all-missing feed leaves the workspace untouched", () => {
+    const ws = createDefaultWorkspace();
+    const r = mergeDraftCapitalTeams(ws, [{ team: "Ed", auctionDollars: null }]);
+    expect(r.workspace).toBe(ws);
+    expect(r.unavailable).toEqual(["Ed"]);
   });
 });
 

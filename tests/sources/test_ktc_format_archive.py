@@ -930,7 +930,7 @@ class TestFailureIsolation:
 
     def test_an_unwritable_archive_path_never_raises(self, tmp_path):
         blocker = tmp_path / "file"
-        blocker.write_text("x")
+        blocker.write_text("x", encoding="utf-8")
         out = asyncio.run(
             kfa.archive_variants_safely(
                 _CountingPage(_payload()),

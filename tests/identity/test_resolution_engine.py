@@ -96,7 +96,7 @@ class TestCanonicalV2KillsTheMeasuredDefects(_Base):
             (
                 Path(__file__).resolve().parents[2]
                 / "docs/master-site-audit/evidence/W06/fuzzy-false-merges.json"
-            ).read_text()
+            ).read_text(encoding="utf-8")
         )
         from src.identity.name_primitives import clean_name
 

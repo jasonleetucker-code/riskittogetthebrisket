@@ -22,7 +22,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from src.ros import ROS_DATA_DIR
@@ -30,6 +30,7 @@ from src.ros.sources import ROS_SOURCES, enabled_ros_sources
 from src.ros.team_strength import (
     load_or_compute_team_strength,
     load_team_strength_snapshot,
+    persisted_fast_path_rows,
 )
 
 LOG = logging.getLogger("ros.api")
@@ -41,7 +42,7 @@ def _read_json(path) -> Any:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None
 
@@ -175,6 +176,15 @@ async def get_team_strength(request: Request, leagueKey: str | None = None) -> J
             cfg = get_league_by_key(leagueKey)
             if cfg and cfg.key:
                 resolved_key = cfg.key
+            else:
+                # The same refusal every league-scoped route gives
+                # (``server.LeagueResolutionError``): an unknown key is a 400,
+                # never the default league's strength echoed under the bogus
+                # key (LI1842-DEFECT-06).
+                return JSONResponse(
+                    {"error": "unknown_league", "message": f"Unknown leagueKey {leagueKey!r}"},
+                    status_code=400,
+                )
         else:
             resolved_key = default_league_key()
     except Exception:  # noqa: BLE001
@@ -364,8 +374,13 @@ async def post_refresh(request: Request) -> JSONResponse:
     from server import _require_admin_session  # type: ignore[attr-defined]
     from fastapi.concurrency import run_in_threadpool
 
-    if not _require_admin_session(request):
-        raise HTTPException(status_code=401, detail="admin_required")
+    # ``_require_admin_session`` returns the session dict on success and a
+    # (truthy!) ``JSONResponse`` 401/403 on failure — so the failure must be
+    # detected by type and returned, never by ``not <result>`` (which let any
+    # signed-in non-admin start a scrape).
+    gate = _require_admin_session(request)
+    if isinstance(gate, JSONResponse):
+        return gate
 
     overrides: dict[str, dict[str, Any]] | None = None
     try:
@@ -421,7 +436,14 @@ def build_section(snapshot: Any) -> dict[str, Any]:
                     break
     except Exception:  # noqa: BLE001
         pass
-    persisted = load_team_strength_snapshot(league_key)
+    # The persisted file is served as "snapshot" only under the read path's
+    # own rule (``persisted_fast_path_rows``: inside
+    # ``_TEAM_STRENGTH_SNAPSHOT_MAX_AGE_HOURS`` by file mtime AND carrying ROS
+    # evidence).  A bare ``load_team_strength_snapshot`` served a 30-day-old
+    # (or all-zero) file as current -- ``source=snapshot, stale=False``
+    # (LI1842-DEFECT-09).  An expired file is not served; the builder
+    # recomputes below and ``stale`` is True only when nothing could be.
+    persisted = persisted_fast_path_rows(league_key)
     if persisted is not None:
         payload: list[dict[str, Any]] | None = persisted
         source = "snapshot"

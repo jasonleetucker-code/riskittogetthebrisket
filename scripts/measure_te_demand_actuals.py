@@ -34,7 +34,7 @@ sys.path.insert(0, str(REPO))
 from src.ros.lineup import RosterPlayer, optimize_lineup  # noqa: E402
 
 FIX = REPO / "tests/league_intel/fixtures/matchups_2025"
-META = json.loads((FIX / "players_meta.json").read_text())
+META = json.loads((FIX / "players_meta.json").read_text(encoding="utf-8"))
 
 
 def _slots(te_count: int) -> list[str]:
@@ -85,7 +85,7 @@ weeks = []
 for w in range(1, 18):
     f = FIX / f"w{w}.json"
     if f.exists():
-        weeks.append((w, json.loads(f.read_text())))
+        weeks.append((w, json.loads(f.read_text(encoding="utf-8"))))
 
 results = {}
 excluded_rosters = []

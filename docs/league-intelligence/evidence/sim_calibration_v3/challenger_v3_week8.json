@@ -1,0 +1,188 @@
+{
+  "schemaVersion": "research-sim-points-v3",
+  "kind": "RESEARCH_CANDIDATE_NOT_SERVED",
+  "promotes": false,
+  "evaluatedWeek": 8,
+  "model": {
+    "source": "research-v3-challenger",
+    "meanByFamily": {
+      "DB": {
+        "a": 7.241425,
+        "b": 2.914892,
+        "mode": "ols",
+        "n": 636
+      },
+      "DL": {
+        "a": 6.039622,
+        "b": 2.881938,
+        "mode": "ols",
+        "n": 490
+      },
+      "K": {
+        "a": 7.916059,
+        "b": 1.294552,
+        "mode": "ols",
+        "n": 131
+      },
+      "LB": {
+        "a": 8.810409,
+        "b": 2.971473,
+        "mode": "ols",
+        "n": 579
+      },
+      "QB": {
+        "a": 11.734796,
+        "b": 7.013604,
+        "mode": "ols",
+        "n": 225
+      },
+      "RB": {
+        "a": 4.437851,
+        "b": 6.704845,
+        "mode": "ols",
+        "n": 476
+      },
+      "TE": {
+        "a": 3.302976,
+        "b": 4.373069,
+        "mode": "ols",
+        "n": 349
+      },
+      "WR": {
+        "a": 3.987418,
+        "b": 6.114095,
+        "mode": "ols",
+        "n": 718
+      }
+    },
+    "pooledMean": {
+      "a": 0.0,
+      "b": 10.630805,
+      "n": 3604
+    },
+    "reAnchored": false,
+    "cvByFamily": {
+      "DB": 0.865,
+      "DL": 1.095,
+      "K": 1.2,
+      "LB": 0.765,
+      "QB": 0.725,
+      "RB": 0.995,
+      "TE": 1.2,
+      "WR": 1.045
+    },
+    "pooledCv": 1.005,
+    "rawFamily": {},
+    "tauL2": 0.000119,
+    "tauR2": 0.006974
+  },
+  "fit": {
+    "fitWeeks": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "fitPlayerWeeks": 3604,
+    "prequentialPlayerWeeks": 3048,
+    "prequentialWeeks": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "cv": {
+      "LB": {
+        "cv": 0.765,
+        "n": 493,
+        "measured": true,
+        "meanLogScore": -3.49719
+      },
+      "DB": {
+        "cv": 0.865,
+        "n": 545,
+        "measured": true,
+        "meanLogScore": -3.40168
+      },
+      "WR": {
+        "cv": 1.045,
+        "n": 596,
+        "measured": true,
+        "meanLogScore": -3.34284
+      },
+      "QB": {
+        "cv": 0.725,
+        "n": 193,
+        "measured": true,
+        "meanLogScore": -3.8063
+      },
+      "TE": {
+        "cv": 1.2,
+        "n": 290,
+        "measured": true,
+        "meanLogScore": -3.19693
+      },
+      "RB": {
+        "cv": 0.995,
+        "n": 400,
+        "measured": true,
+        "meanLogScore": -3.4522
+      },
+      "DL": {
+        "cv": 1.095,
+        "n": 419,
+        "measured": true,
+        "meanLogScore": -3.42518
+      },
+      "K": {
+        "cv": 1.2,
+        "n": 112,
+        "measured": true,
+        "meanLogScore": -3.85589
+      }
+    },
+    "pooledCv": {
+      "cv": 1.005,
+      "n": 3048,
+      "meanLogScore": -3.4609380969063857
+    },
+    "shocks": {
+      "tauL2": 0.00011907303674950722,
+      "tauR2": 0.0069744714118311285,
+      "tauL2Raw": 0.00011907303674950722,
+      "tauW2Raw": 0.0070935444485806355,
+      "pairsCross": true,
+      "residualPlayerWeeks": 3048
+    },
+    "cIdioByFamily": {
+      "DB": 0.8609,
+      "DL": 1.0918,
+      "K": 1.197,
+      "LB": 0.7603,
+      "QB": 0.7201,
+      "RB": 0.9914,
+      "TE": 1.197,
+      "WR": 1.0416
+    }
+  },
+  "note": "Family anchors are inputs of the evaluated week (mean as-of rosValue over its pool, \u00a73.1) and are attached at evaluation time; they are not part of this file.",
+  "study": {
+    "promotes": false,
+    "status": "RESEARCH_CANDIDATE_NOT_SERVED",
+    "cardFingerprint": "sf1:9e51824690d091f9",
+    "codeSha": "75c6206790da8bf171566e8c8cb9448f8f127cf1",
+    "studyCodeDirty": false,
+    "scriptSha256": "b55b29d7cef0dbbbd41e24d7134052526e823cd637b58b3667fb6b6ee876e278",
+    "preregistration": {
+      "path": "docs/league-intelligence/SIM_CALIBRATION_V3_PREREGISTRATION_2026-10-27.md",
+      "commit": "c52ff4d7f0b41e27a6422f25ad4b661d8d145f1f",
+      "committedAt": "2026-10-27T05:10:03-04:00",
+      "isAncestorOfCodeSha": true
+    }
+  }
+}

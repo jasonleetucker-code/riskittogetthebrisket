@@ -96,15 +96,15 @@ class _Harness:
             return scrape.run_all(canonical_universe={"alpha", "beta", "gamma"})
 
     def index_entry(self, key: str = KEY) -> dict:
-        index = json.loads((self.root / "runs" / "index.json").read_text())
+        index = json.loads((self.root / "runs" / "index.json").read_text(encoding="utf-8"))
         return index["sources"][key]
 
     def run_json(self, key: str = KEY) -> dict:
         rel = self.index_entry(key)["run_path"]
-        return json.loads((self.root / rel).read_text())
+        return json.loads((self.root / rel).read_text(encoding="utf-8"))
 
     def ledger(self) -> dict:
-        return json.loads((self.root / scrape.CONTENT_CLOCK_FILENAME).read_text())
+        return json.loads((self.root / scrape.CONTENT_CLOCK_FILENAME).read_text(encoding="utf-8"))
 
     @property
     def csv(self) -> Path:
@@ -312,7 +312,7 @@ def test_missing_csv_is_a_failed_observation_not_a_change(h: _Harness):
 
 def test_unreadable_ledger_rebaselines_and_never_fails_the_scrape(h: _Harness, caplog):
     h.run(BOARD_A, completed_at="2026-10-26T01:00:00+00:00")
-    (h.root / scrape.CONTENT_CLOCK_FILENAME).write_text("{ not json")
+    (h.root / scrape.CONTENT_CLOCK_FILENAME).write_text("{ not json", encoding="utf-8")
     with caplog.at_level(logging.WARNING, logger="ros.scrape"):
         h.run(BOARD_A, completed_at="2026-10-26T03:00:00+00:00")
     assert h.index_entry()["content_state"] == "baseline"
@@ -439,7 +439,7 @@ def test_aggregate_output_is_identical_with_and_without_the_content_clock(tmp_pa
         h.run(BOARD_B, completed_at=now(), real_aggregate=True)
         h.run(BOARD_B, completed_at=now(), real_aggregate=True)  # same content, re-fetched
         h.run([], completed_at=now(), real_aggregate=True)  # zero rows, previous kept
-        payload = json.loads((h.root / "aggregate" / "latest.json").read_text())
+        payload = json.loads((h.root / "aggregate" / "latest.json").read_text(encoding="utf-8"))
         for player in payload["players"]:
             player.pop("aggregatedAt", None)
         return payload["players"]

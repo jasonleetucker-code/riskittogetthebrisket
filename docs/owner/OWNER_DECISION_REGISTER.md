@@ -103,7 +103,7 @@ authenticated verification workflow is re-enabled (runbook §6).
 
 | ID | family | question | decision | evidence | risk / impact | status | PR / tests | remaining action |
 |---|---|---|---|---|---|---|---|---|
-| `ODR-PLAYOFF-ROS-DOUBLE` | Power & playoff odds | Remove the double-counted ROS multiplier from the playoff / title simulator (ledger `TODO-2026-09-26-D2`)? | **Double-counted evidence is not acceptable; removal approved as policy** — D11. Replacement only through the AL-5c shadow (or equivalent preregistered) comparison; incumbent kept otherwise; official Power Rankings formula untouched | `playoff_sim.py` `emp_mean*(1+0.2·ros_z)`; Brent 99.45% vs 84.6% (2026-09-26) | overconfident championship odds today | EVIDENCE_PENDING | no challenger yet | build AL-5c with both equations stated, proof ROS counts once, historical calibration / distribution / uncertainty / format sensitivity |
+| `ODR-PLAYOFF-ROS-DOUBLE` | Power & playoff odds | Remove the double-counted ROS multiplier from the playoff / title simulator (ledger `TODO-2026-09-26-D2`)? | **Double-counted evidence is not acceptable; removal approved as policy** — D11. Replacement only through the AL-5c shadow (or equivalent preregistered) comparison; incumbent kept otherwise; official Power Rankings formula untouched | `playoff_sim.py` `emp_mean*(1+0.2·ros_z)`; Brent 99.45% vs 84.6% (2026-09-26) | overconfident championship odds today | EVIDENCE_PENDING | no challenger yet. Corrected 2026-10-26 by the RPA audit: a challenger exists. Flag `playoff_ros_counted_once` (registry default OFF) serves the ROS-counted-once equation; the preregistered comparison ran 2026-10-18 and FAILED gate G4 (distribution / uncertainty calibration; G2, G3, G5 and G6 passed, G1 is a structural test), so it stays shadow and the incumbent is kept. Turning it on needs a re-run that passes every gate. Records: `docs/research/PLAYOFF_ROS_D11_PREREGISTRATION.md`, `docs/research/PLAYOFF_ROS_DOUBLE_COUNT_D11.md`, `docs/research/evidence/D11/results.json`. The decision text and status are unchanged | build AL-5c with both equations stated, proof ROS counts once, historical calibration / distribution / uncertainty / format sensitivity |
 | `ODR-DRAFT-ORDER-MEDIAN` | Power & playoff odds / draft | Does the `dynasty_main` rookie-draft order rank on the official Sleeper record including league-median results, or on head-to-head only? | **Not covered by the directive.** The 2026-10-04 rule says "final regular-season record" without saying, and the league's history does not settle it | `docs/picks/DRAFT_ORDER_RULE.md` "Median games"; #1712 | the final 2026 standings fix the 2027 draft order; forecasts are labelled `head_to_head_with_half_win_ties` meanwhile | HUMAN_ACTION_REQUIRED | #1712 (standings / seeding count median) | owner answers one yes/no before the 2026 regular season ends. No recommendation is offered: it is a league-rule fact, and the evidence matches neither reading |
 | `ODR-UMOTY` | Awards | Promote unified Manager of the Year to official, and from which season? (#1513) | **Remain experimental**: validation-only candidate; official method and display unchanged; weights unchanged; UNAVAILABLE components never redistributed; no definitive score from incomplete evidence; **earliest eligible official season 2027** — D12 | PR #1513 (open, PARTIAL / NOT PROMOTED); trade component's decision-time half incomplete | publishing an incomplete winner could be overturned | DECIDED | PR #1513 open, not merged | apply the D12 interim rules on the candidate; promotion no earlier than 2027 through normal gates |
 
@@ -188,20 +188,86 @@ authenticated verification workflow is re-enabled (runbook §6).
 | `ODR-LT-OD7` | League Tycoon | OD-7: rookie-draft format and draft-order rule on League Tycoon | paused | same | — | OWNER_PAUSED | — | — |
 | `ODR-LT-CAPTURE` | League Tycoon | One signed-in evidence capture by the owner | paused; not to be requested | `OWNER_EVIDENCE_CAPTURE.md` | — | OWNER_PAUSED | — | — |
 
+### Master development directive (2026-11-01)
+
+Record: `docs/owner/CHASE_UPSIDE_MASTER_DIRECTIVE_DECISIONS_2026-11-01.md`. Intake MD-1 … MD-16.
+
+| ID | family | question | decision | evidence | risk / impact | status | PR / tests | remaining action |
+|---|---|---|---|---|---|---|---|---|
+| `ODR-RC-ACTIVATION` | Roster Construction | Activate `roster_construction` in production (RCV-7)? | **Conditional private activation approved** — decision 1: every comparable 2026 finalized team-week within tolerance 0.011, contradictions withheld, attribution/ownership/FLEX/SF/2-TE correct, auth/privacy/performance/mobile, exact-head CI + review, live real-team check; then capability-gated My Team nav; never public | #2028 (merged, flag OFF); parity census pending | a wrong attribution misleads roster decisions | EVIDENCE_PENDING | #2028 | parity census, integrity tests, timing, mobile; activation PR; owner's authenticated real-team check |
+| `ODR-RC-2025-SLOTS` | Roster Construction | Infer the 2025 starting-lineup rules for production? | **No** — decision 2: 2026 first; 2025 from authoritative evidence or a clear unavailable state; reconstruction research-only | Sleeper 2025 league object 17 starters vs 22 seated in matchups (`docs/waivers/IDP_STREAMING_BACKTEST_RESULTS_2026-10-29.md` §3) | inferred slots would invent history | DECIDED | — | serve 2025 as unavailable unless evidence appears |
+| `ODR-DEEP-TAIL-ROOKIE` | Rankings & sources | Restore the 80% deep-tail rookie vote rule decoupled from `excludes_rookies` (#2006)? | **Restore** — decision 3; factual `excludes_rookies=False` kept; covers only this restoration | #2006 measured impact (re-measure on current main) | ~12 IDP-rookie-area rows move | DECIDED | #2006 | rebase, measure, review, green CI, merge |
+| `ODR-ROS-CALIBRATION` | Power & playoff odds | Accept the offense/IDP ROS diagnosis and promote CR? | **Diagnosis accepted; no promotion** — decision 4; Week 8 confirmation, prospective weeks, preregistered ROS-horizon ordering gate, optional `rosPointsPerWeek` shadow behind default-OFF flag; **G3 stays FAILED** | `docs/league-intelligence/ROS_SCALE_CALIBRATION_RESULTS_2026-10-28.md` | promoting early would reprice lineups and odds | DECIDED | #2010 (merged), #2035 | run Week 8 confirmation; preregister next gates |
+| `ODR-IDP-SOURCE-AUTHORITY` | Rankings & sources | Promote IDP Show IDP-only board (D-A) or IDPTC cadence change (D-B); release DLF IDP? | **No promotion** — decision 5; DLF IDP held, freshness v2 OFF, combined board keeps voting; read-only comparison on identical inputs authorized | `docs/sources/IDP_SOURCE_AUTHORITY_2026-10-28.md` | — | DECIDED | #2014 (merged) | four-arm V2 + IDP Show comparison; owner-ready recommendation |
+| `ODR-ADVISOR-FLOOR` | Trade | Trade Advisor response floor and launch? | **300 ms provisional floor**; admission 2/2, deadlines 5 s / 30 s, buckets and size limits unchanged; **public launch stays OFF** — decision 6 | `docs/trade/advisor_evidence/LAUNCH_GATE_RECOMMENDATIONS_2026-10-28.md` | timing side channel vs latency | DECIDED | — | set floor + tests; security audit; permissions never attested |
+| `ODR-STREAMING-BUDGET` | Waivers | Streaming default dynasty-loss budget and rules? | **0 by default**, disclosed opt-in; canonical release cost; missing ≠ 0; NO TRANSACTION valid; kickers valued on lineup contribution, no invented market value where no supported dynasty valuation exists; league-card defensive scoring; evidence-based protection; FAAB season-phase fix authorized — decision 7 | #2029 activation; IST-7 fix #2018 | — | DEPLOYED | #2024, #2025, #2029, #2018 | verify behaviour in production; gap decomposition (MD-8) |
+| `ODR-UX-2031-2032` | Platform | Finish #2031 (iPhone owner sign-in) and #2032 (streaming nav)? | **Approved** through ordinary gates — decision 8 | — | — | DECIDED | #2031, #2032 | review, CI, merge, deploy, verify |
+| `ODR-ODDS-WORDING` | Power & playoff odds | Wording for unvalidated playoff / championship estimates? | **"Experimental projection — not yet calibrated against this league's historical outcomes."** where accurate; no math change — decision 9 | `docs/league-intelligence/SIM_CALIBRATION_*_RESULTS_*` | — | DECIDED | — | apply on every uncalibrated odds surface |
+
+### Sitewide remediation directive (2026-11-06)
+
+Record: `docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md` §8 (Owner directive 2026-11-06 Part 16). Intake MD-38 … MD-46. Each decision binds only its stated scope; decisions the agent made under the delegated authority are in `docs/audits/remediation_2026-11-06/DECISIONS.md`, not here.
+
+| ID | family | question | decision | evidence | risk / impact | status | PR / tests | remaining action |
+|---|---|---|---|---|---|---|---|---|
+| `ODR-SR-RC-RECHECK` | Roster Construction | Reactivate / rebuild Roster Construction? | Already authorized and verified; recheck production, never reactivate blindly | MD-37 parity 84/84; owner observed the page on production, desktop + mobile, 2026-11-03; live flag ON 2026-11-06 | — | PRODUCTION_VERIFIED | #2040 #2041 #2044 #2058 | recheck in CW-23 |
+| `ODR-SR-HIST-SLOTS` | Roster Construction | Infer 2025/2024 slots? | Never as production fact; explicit unavailable state | ODR-RC-2025-SLOTS | inventing history | DECIDED | — | — |
+| `ODR-SR-RC-NAV` | Roster Construction | Where does Roster Construction live? | Authenticated My Team, capability-gated | #2044; owner observed My Team → Roster → Roster Construction on production, desktop + mobile, 2026-11-03 (MD-37) | — | PRODUCTION_VERIFIED | #2044 #2057 | — |
+| `ODR-SR-STREAM-BUDGET` | Waivers | Default dynasty-loss budget? | 0 net dynasty loss via canonical release cost | ODR-STREAMING-BUDGET | — | DECIDED | — | CW-18 |
+| `ODR-SR-UNPRICED` | Waivers | Unpriced assets in drop logic? | Never a free drop | missing ≠ 0 | free-cut recommendations | DECIDED | — | CW-18 |
+| `ODR-SR-KICKERS` | Waivers | Kicker valuation? | League-scored projected lineup contribution; no invented dynasty value | decision 7 | — | DECIDED | — | CW-18 |
+| `ODR-SR-IDP-DEF-TD` | Scoring | IDP defensive TDs? | Canonical scorer + actual league settings only | — | — | DECIDED | — | CW-08 |
+| `ODR-SR-EDGE-PROTECT` | Waivers | Developmental edge-rusher protection? | Evidence-based, no blanket position exemption | — | — | DECIDED | — | CW-18 |
+| `ODR-SR-BOUNDED` | Optimizers | Bounded search wording? | Disclose incompleteness; never claim optimality | — | — | DECIDED | — | CW-18 CW-25 |
+| `ODR-SR-PW-WORDING` | Waivers | Perfect Waivers 'Proven optimal'? | State objective, horizon, constraints, search scope | MD-36 | overclaiming | DECIDED | — | CW-25 |
+| `ODR-SR-MC-WINRATE` | Trade | Trade Monte Carlo win rate? | Hide probability framing until real per-asset bands exist | AMATH-S12: 0/1093 rows with a real valueBand | false certainty | DECIDED | — | CW-19 |
+| `ODR-SR-ARBITRAGE` | Trade | Finder 'arbitrage' label? | 'Disagreement' until convergence is proven | AMATH-S10 | — | DECIDED | — | CW-21 |
+| `ODR-SR-SINGLE-SOURCE` | Rankings & sources | x0.30 single-source haircut? | Validated shadow challenge only; no auto-promotion | AMATH-S02 | — | DECIDED | — | CW-30 |
+| `ODR-SR-FAIRNESS` | Trade | Change fairness bands? | OD-F4 evidence protocol first | AMATH-S14 | — | DECIDED | — | CW-22 |
+| `ODR-SR-DLF-IDP` | Rankings & sources | Release the DLF IDP hold? | Retain until release gates show justified improvement | ODR-IDP-SOURCE-AUTHORITY | — | DECIDED | — | CW-13 |
+| `ODR-SR-FRESH-V2` | Rankings & sources | Freshness v2? | OFF until correctness + blast-radius tests pass | owner 2026-10-20 | — | DECIDED | — | CW-13 |
+| `ODR-SR-OUTLIER-V2` | Rankings & sources | Outlier Integrity V2? | Research/validate; no unconditional activation | #1884 | — | DECIDED | #1884 | CW-13 |
+| `ODR-SR-ADVISOR` | Trade | Public Trade Advisor? | OFF until security, licensing, privacy, production gates pass | ODR-ADVISOR-FLOOR | — | DECIDED | — | CW-06 |
+| `ODR-SR-WARROOM` | Trade | Multi-team War Room? | Finish validation; private enable on existing release criteria | flag OFF | — | DECIDED | — | CW-20 |
+| `ODR-SR-FORECASTS` | Projections | Forecast model promotion? | Only through prospective independent evidence | MD-30 prereg | — | DECIDED | #2048 #2065 | CW-16 |
+| `ODR-SR-GAMEDAY-PROB` | Game Day | Game Day probabilities? | Experimental until outcome-calibrated | decision 9 | — | DECIDED | — | CW-17 |
+| `ODR-SR-DRO` | Waivers | DRO / CVaR streaming? | Defer until forecasts justify it | AMATH-S51 | — | DECIDED | — | CW-44 |
+| `ODR-SR-ACCEPT-PROB` | Trade | Trade acceptance probability? | Never from accepted-only observations | AMATH-S08 | — | DECIDED | — | CW-22 |
+| `ODR-SR-AUCTION` | Rookie auction | Rookie auction? | Complete preparation; official launch is a separate event | — | — | DECIDED | #2063 | CW-38 |
+| `ODR-SR-MEDIAN-RULE` | Draft order | Historical median-game rule? | Authoritative source, else provisional/unknown | — | — | DECIDED | — | CW-38 |
+| `ODR-SR-IA` | Platform | Homepage / mobile IA? | Task-oriented nav, in-season Game Day visibility, stable URLs | UX audit #2051 | — | DECIDED | — | CW-27 |
+| `ODR-SR-PAUSED` | Programs | League Tycoon and DFS? | Remain paused | owner 2026-10-18 | — | OWNER_PAUSED | — | — |
+| `ODR-SR-SPEND` | Sources | Paid sources? | No new spending | — | — | DECIDED | — | — |
+| `ODR-SR-LICENSING` | Sources | Automated/public source use? | Only with legitimate permission | — | — | DECIDED | — | — |
+| `ODR-SR-PRIVATE-HIST` | Privacy | Private historical data? | Keep private; anonymize public research | — | — | DECIDED | — | — |
+| `ODR-SR-LIVE-MODEL` | Models | Live model changes? | Measured independent benefit, gates, rollback, release evidence | — | — | DECIDED | — | — |
+
+### Session resumption directive (2026-11-07)
+
+Record: `docs/owner/SESSION_RESUMPTION_DIRECTIVE_2026-11-07.md` §2. Intake MD-56 … MD-64. Each decision binds only its stated scope.
+
+| ID | family | question | decision | evidence | risk / impact | status | PR / tests | remaining action |
+|---|---|---|---|---|---|---|---|---|
+| `ODR-W12F006-TERMINAL-PRECEDENCE` | Alerts | Terminal and BDVM detectors both alert for one player in one sweep — which email? | Terminal takes precedence; at most one user-facing notification per canonical player, user and sweep; BDVM computation, state and future alerts unaffected; contradictory evidence retained; custom-alert route unchanged | W12-F006 OPEN (`CW40_P1_UNADJUDICATED.md`; repro: two emails for one player in one sweep) | a suppressed BDVM alert must not be lost when the Terminal send fails or is in cooldown | DECIDED | — | CW-40 |
+| `ODR-W20F001-ROSTERS-GAMEPLAN` | Roster intelligence | Which page consumes `/api/gameplan`? | `/rosters`: on-demand Team Gameplan for the selected team; reuse the endpoint and canonical calculations; no new team-strength score or contradictory ranking | W20-F001 OPEN (no frontend caller, no bridge route) | fake zeros or withdrawn lenses must not be surfaced (W20-F010) | DECIDED | — | CW-40 |
+| `ODR-W10F003-RETIRE-NBT` | Draft | Legacy Next Best Targets panel? | Retire it in favor of the Perfect Draft optimizer after inventorying unique, verified-correct functionality to migrate | W10-F003 PARTIAL (0 rows at budget advantage 1.0–3.0) | silently dropping a useful verified feature | DECIDED | — | CW-38 |
+| `ODR-1938-PROMOTION-PREP` | Scoring | Promote #1938 (IDP scorer defects on the nflverse path)? | Approved for promotion PREPARATION only: rebase, independent case review, parity reconciliation, BDVM before/after on identical snapshot inputs, consumer impact, review + CI, release / rollback recommendation. No merge or valuation activation without an explicit subsequent owner approval after the impact evidence | DD-11; CW-08 census #2069 (nflverse path 91.8 % → 96.4 % with #1938) | BDVM in-season fundamental values move for affected IDP players | DECIDED (prep only) | #1938 | CW-13 |
+| `ODR-DFS-TIMER-KEEP` | DFS | Does the DFS pause cover the deployed refresh timer (DD-14)? | No: the program stays paused for new development; the deployed `dynasty-dfs-auto-refresh` timer keeps running unless the owner changes this | DD-14 | — | DECIDED | — | CW-42 |
+
 ## Counts
 
-<!-- counts: generated from the tables above when this file was written; recount if rows change -->
+<!-- counts: generated from the tables above when this file was written; recount if rows change. A composite status (e.g. `SUPERSEDED → DECIDED`) counts as its final state. Recounted 2026-11-07. -->
 | status | rows |
 |---|---:|
-| `DECIDED` | 13 |
-| `IMPLEMENTED` | 0 |
+| `DECIDED` | 55 |
+| `IMPLEMENTED` | 1 |
 | `MERGED` | 0 |
-| `DEPLOYED` | 16 |
-| `PRODUCTION_VERIFIED` | 0 |
-| `EVIDENCE_PENDING` | 5 |
-| `HUMAN_ACTION_REQUIRED` | 17 |
-| `OWNER_PAUSED` | 14 |
-| **total** | **65** |
+| `DEPLOYED` | 17 |
+| `PRODUCTION_VERIFIED` | 2 |
+| `EVIDENCE_PENDING` | 4 |
+| `HUMAN_ACTION_REQUIRED` | 16 |
+| `OWNER_PAUSED` | 15 |
+| **total** | **110** |
 
 ## Where each stale record was closed (in place)
 

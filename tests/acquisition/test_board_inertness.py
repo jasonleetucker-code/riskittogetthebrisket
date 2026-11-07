@@ -105,7 +105,7 @@ class TestTheValuationPathCannotReachAcquisitionHistory:
         }
         offenders = []
         for path in (REPO / "src").rglob("*.py"):
-            rel = str(path.relative_to(REPO))
+            rel = path.relative_to(REPO).as_posix()  # ``/`` on every OS, like the allow-list
             if rel.startswith(allowed_prefixes) or rel in allowed_exact:
                 continue
             if any(n.startswith("src.acquisition") for n in _imported_modules(path)):

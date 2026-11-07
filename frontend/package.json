@@ -17,6 +17,14 @@
   "sideEffects": [
     "*.css"
   ],
+  "//start": [
+    "`start` binds 127.0.0.1 ON PURPOSE (owner directive 2026-11-01, P0).",
+    "Production runs it via the systemd unit's `npm start`, and nginx is the",
+    "only legitimate client (upstream 127.0.0.1:3000); next start's default",
+    "0.0.0.0 left the raw Next port answering from the internet. Local dev",
+    "uses `npm run dev`. To serve a production build to the LAN, use",
+    "`npm run start:lan`. Pinned by tests/deploy/test_loopback_bind.py."
+  ],
   "engines": {
     "node": ">=20 <21"
   },
@@ -24,7 +32,8 @@
     "dev": "next dev -p 3000",
     "build": "next build --webpack && node scripts/check-bundle-sizes.mjs && node scripts/check-public-bundle-privacy.mjs",
     "build:nocheck": "next build --webpack",
-    "start": "next start -p 3000",
+    "start": "next start -p 3000 -H 127.0.0.1",
+    "start:lan": "next start -p 3000 -H 0.0.0.0",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:components": "vitest run --project components",
@@ -32,7 +41,7 @@
   },
   "dependencies": {
     "html2canvas": "^1.4.1",
-    "next": "16.4.2",
+    "next": "16.4.3",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
@@ -42,6 +51,6 @@
     "@testing-library/user-event": "^14.6.8",
     "@vitejs/plugin-react": "^6.1.2",
     "jsdom": "^25.0.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   }
 }

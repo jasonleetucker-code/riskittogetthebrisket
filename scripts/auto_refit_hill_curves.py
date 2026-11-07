@@ -304,7 +304,7 @@ def main() -> int:
     run: TrainingRun | None = None
     if args.challenger_json:
         try:
-            raw = json.loads(args.challenger_json.read_text())
+            raw = json.loads(args.challenger_json.read_text(encoding="utf-8"))
             fitted = {str(k): float(v) for k, v in raw.items()}
         except (OSError, ValueError) as exc:
             print(f"ERROR reading --challenger-json: {exc}", file=sys.stderr)

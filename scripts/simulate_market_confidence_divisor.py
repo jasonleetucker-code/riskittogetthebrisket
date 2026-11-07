@@ -177,7 +177,7 @@ def main() -> int:
         print(f"ERROR: no payload found ({path})", file=sys.stderr)
         return 1
 
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     players = payload.get("players") or {}
 
     rows: list[dict[str, Any]] = []
@@ -276,7 +276,7 @@ def main() -> int:
     }
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(json.dumps(out, indent=2) + "\n")
+        args.out.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
         print(f"Wrote {args.out}")
     return 0
 

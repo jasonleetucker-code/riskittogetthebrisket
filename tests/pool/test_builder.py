@@ -222,7 +222,9 @@ class TestAdamidpExtraction:
                 },
             ]
         }
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
             json.dump(data, f)
             f.flush()
             rows = extract_adamidp_from_artifact(f.name)

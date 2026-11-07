@@ -27,7 +27,7 @@ class TestFrontendRuntimeDefault(unittest.TestCase):
 
     def test_server_py_serves_no_frontend(self):
         server_py = REPO_ROOT / "server.py"
-        text = server_py.read_text()
+        text = server_py.read_text(encoding="utf-8")
         # The removed Static frontend, still guarded.
         self.assertNotIn('FRONTEND_RUNTIME = "static"', text)
         self.assertNotIn("LEGACY_STATIC_DIR", text)
@@ -53,17 +53,17 @@ class TestLoginPageUsesServerAuth(unittest.TestCase):
 
     def test_login_page_calls_api_auth_login(self):
         login_page = REPO_ROOT / "frontend" / "app" / "login" / "page.jsx"
-        text = login_page.read_text()
+        text = login_page.read_text(encoding="utf-8")
         self.assertIn("/api/auth/login", text)
 
     def test_login_page_does_not_use_localstorage(self):
         login_page = REPO_ROOT / "frontend" / "app" / "login" / "page.jsx"
-        text = login_page.read_text()
+        text = login_page.read_text(encoding="utf-8")
         self.assertNotIn("localStorage", text)
 
     def test_login_page_sends_username_not_email(self):
         login_page = REPO_ROOT / "frontend" / "app" / "login" / "page.jsx"
-        text = login_page.read_text()
+        text = login_page.read_text(encoding="utf-8")
         # The form must send a username field, not email
         self.assertIn("username", text)
         # Should not have an email input type for the primary credential
@@ -71,7 +71,7 @@ class TestLoginPageUsesServerAuth(unittest.TestCase):
 
     def test_login_page_handles_error_response(self):
         login_page = REPO_ROOT / "frontend" / "app" / "login" / "page.jsx"
-        text = login_page.read_text()
+        text = login_page.read_text(encoding="utf-8")
         # Must handle non-ok responses (401)
         self.assertIn("data.error", text)
 
@@ -97,7 +97,7 @@ class TestCanonicalOverlayRemoved(unittest.TestCase):
     def test_overlay_helper_is_absent(self):
         """server.py must not define or call _apply_canonical_primary_overlay."""
         server_py = REPO_ROOT / "server.py"
-        text = server_py.read_text()
+        text = server_py.read_text(encoding="utf-8")
         self.assertNotIn("_apply_canonical_primary_overlay", text)
         self.assertNotIn("canonical overlay applied", text.lower())
 
@@ -106,7 +106,7 @@ class TestCanonicalOverlayRemoved(unittest.TestCase):
         hook_file = REPO_ROOT / "frontend" / "components" / "useSettings.js"
         self.assertTrue(hook_file.exists())
         trade_page = REPO_ROOT / "frontend" / "app" / "trade" / "page.jsx"
-        text = trade_page.read_text()
+        text = trade_page.read_text(encoding="utf-8")
         self.assertIn("useSettings", text)
 
     def test_trade_logic_does_not_reapply_pick_year_discount(self):
@@ -123,13 +123,13 @@ class TestCanonicalOverlayRemoved(unittest.TestCase):
         that it is not reintroduced (mirrors the TEP invariant below).
         """
         trade_logic = REPO_ROOT / "frontend" / "lib" / "trade-logic.js"
-        text = trade_logic.read_text()
+        text = trade_logic.read_text(encoding="utf-8")
         self.assertNotIn("PICK_YEAR_DISCOUNTS", text)
         self.assertNotIn("settings.pickCurrentYear", text)
         # The backend stays the single source of truth for the discount.
         self.assertIn(
             "_pick_year_discount_for",
-            REPO_ROOT.joinpath("src", "api", "data_contract.py").read_text(),
+            REPO_ROOT.joinpath("src", "api", "data_contract.py").read_text(encoding="utf-8"),
         )
 
     def test_effective_value_does_not_apply_tep(self):
@@ -146,7 +146,7 @@ class TestCanonicalOverlayRemoved(unittest.TestCase):
         reintroduces a client-side TEP multiplication.
         """
         trade_logic = REPO_ROOT / "frontend" / "lib" / "trade-logic.js"
-        text = trade_logic.read_text()
+        text = trade_logic.read_text(encoding="utf-8")
         # effectiveValue must NOT multiply by tepMultiplier.  The
         # frontend may still MENTION tepMultiplier in doc comments
         # (explaining that it's backend-authoritative), so we only
@@ -156,7 +156,7 @@ class TestCanonicalOverlayRemoved(unittest.TestCase):
         self.assertNotIn("*= tepMultiplier", text)
         # Settings wiring still lives in useSettings + dynasty-data.
         settings_hook = REPO_ROOT / "frontend" / "components" / "useSettings.js"
-        self.assertIn("tepMultiplier", settings_hook.read_text())
+        self.assertIn("tepMultiplier", settings_hook.read_text(encoding="utf-8"))
 
 
 class TestIdpRankings(unittest.TestCase):
@@ -165,7 +165,7 @@ class TestIdpRankings(unittest.TestCase):
     def test_unified_ranking_function_exists(self):
         """data_contract.py must have _compute_unified_rankings."""
         dc = REPO_ROOT / "src" / "api" / "data_contract.py"
-        text = dc.read_text()
+        text = dc.read_text(encoding="utf-8")
         self.assertIn("_compute_unified_rankings", text)
         self.assertIn("OVERALL_RANK_LIMIT", text)
 
@@ -220,7 +220,7 @@ class TestIdpRankings(unittest.TestCase):
         ``src/api/data_contract.py::_compute_unified_rankings``.
         """
         dd = REPO_ROOT / "frontend" / "lib" / "dynasty-data.js"
-        text = dd.read_text()
+        text = dd.read_text(encoding="utf-8")
         # Must read the backend-stamped fields verbatim
         self.assertIn("canonicalConsensusRank", text)
         self.assertIn("rankDerivedValue", text)
@@ -256,14 +256,14 @@ class TestEdgeAndFinderRoutes(unittest.TestCase):
     def test_edge_page_exists(self):
         page = REPO_ROOT / "frontend" / "app" / "edge" / "page.jsx"
         self.assertTrue(page.exists())
-        text = page.read_text()
+        text = page.read_text(encoding="utf-8")
         self.assertIn("useDynastyData", text)
         self.assertIn("edge-helpers", text)
 
     def test_finder_route_still_resolves_to_the_board(self):
         page = REPO_ROOT / "frontend" / "app" / "finder" / "page.jsx"
         self.assertTrue(page.exists(), "/finder is gone — saved links now 404")
-        text = page.read_text()
+        text = page.read_text(encoding="utf-8")
         self.assertIn("/rankings", text)
         # Every workflow key keeps a mapping, so a bookmarked preset
         # lands on that preset rather than the default board.
@@ -272,7 +272,7 @@ class TestEdgeAndFinderRoutes(unittest.TestCase):
 
     def test_the_screener_lives_on_the_board(self):
         helpers = REPO_ROOT / "frontend" / "lib" / "edge-helpers.js"
-        text = helpers.read_text()
+        text = helpers.read_text(encoding="utf-8")
         self.assertIn("export const SCREENS", text)
         for workflow in ("wr-gaps", "stable-idp", "single-risk", "rookie-spread"):
             self.assertIn(workflow, text)
@@ -290,7 +290,7 @@ class TestEdgeAndFinderRoutes(unittest.TestCase):
         # lives on the /rankings entry's keywords so search still finds
         # it.
         nav_model = REPO_ROOT / "frontend" / "lib" / "nav-model.js"
-        text = nav_model.read_text()
+        text = nav_model.read_text(encoding="utf-8")
         self.assertIn('"/edge"', text)
         self.assertIn("screener", text)
 
@@ -300,13 +300,13 @@ class TestDeployFrontendRestart(unittest.TestCase):
 
     def test_deploy_restarts_frontend_service(self):
         deploy_sh = REPO_ROOT / "deploy" / "deploy.sh"
-        text = deploy_sh.read_text()
+        text = deploy_sh.read_text(encoding="utf-8")
         self.assertIn("frontend_name", text)
         self.assertIn("restart", text)
 
     def test_verify_checks_frontend_service(self):
         verify_sh = REPO_ROOT / "deploy" / "verify-deploy.sh"
-        text = verify_sh.read_text()
+        text = verify_sh.read_text(encoding="utf-8")
         self.assertIn("frontend_name", text)
 
 
@@ -319,7 +319,7 @@ class TestDeployConfig(unittest.TestCase):
 
     def test_frontend_service_runs_npm_start(self):
         template = REPO_ROOT / "deploy" / "systemd" / "dynasty-frontend.service.template"
-        text = template.read_text()
+        text = template.read_text(encoding="utf-8")
         # ExecStart must invoke `npm start` via the __NPM_BIN__
         # placeholder, which install-systemd-service.sh substitutes at
         # install time with an absolute path to npm (system-wide or
@@ -331,15 +331,15 @@ class TestDeployConfig(unittest.TestCase):
 
     def test_backend_service_depends_on_frontend(self):
         template = REPO_ROOT / "deploy" / "systemd" / "dynasty.service.template"
-        text = template.read_text()
+        text = template.read_text(encoding="utf-8")
         self.assertIn("frontend.service", text)
 
     def test_deploy_builds_frontend_by_default(self):
         deploy_sh = REPO_ROOT / "deploy" / "deploy.sh"
-        text = deploy_sh.read_text()
+        text = deploy_sh.read_text(encoding="utf-8")
         self.assertIn('RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-true}"', text)
 
     def test_install_script_handles_frontend_service(self):
         install_sh = REPO_ROOT / "deploy" / "install-systemd-service.sh"
-        text = install_sh.read_text()
+        text = install_sh.read_text(encoding="utf-8")
         self.assertIn("dynasty-frontend.service.template", text)

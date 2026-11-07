@@ -262,7 +262,8 @@ def test_a_name_bearing_exception_never_reaches_stdout_or_stderr(tmp_path, monke
     assert captured.err == ""
     logs = list((box / "data" / "sources" / "signals" / "reports").glob("verify-stderr-*.log"))
     assert len(logs) == 1
-    assert stat.S_IMODE(os.stat(logs[0]).st_mode) == 0o600
+    if os.name == "posix":  # POSIX permission bits; Windows reports 0o666 (ACLs)
+        assert stat.S_IMODE(os.stat(logs[0]).st_mode) == 0o600
     assert "Synthetic Idp 001" in logs[0].read_text(encoding="utf-8")
 
 
@@ -512,7 +513,8 @@ def test_d1_builds_its_matrix_and_never_candidate_f(diagnose_run):
     assert "reproduction" not in public
     assert not any(name.startswith(("F_", "H", "G_")) for name in variants)
     private = json.loads((box / public["privateReport"]).read_text(encoding="utf-8"))
-    assert stat.S_IMODE(os.stat(box / public["privateReport"]).st_mode) == 0o600
+    if os.name == "posix":  # POSIX permission bits; Windows reports 0o666 (ACLs)
+        assert stat.S_IMODE(os.stat(box / public["privateReport"]).st_mode) == 0o600
     flags = private["private"]["flags"]
     assert flags.get("signals_idp_shared_market") is False, "served board is the champion"
     # The pinned board was rendered from the release JSON into the frozen tree.

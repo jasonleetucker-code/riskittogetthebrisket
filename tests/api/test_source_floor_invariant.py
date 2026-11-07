@@ -70,7 +70,7 @@ def _module_int_const(rel_path: str, const_name: str) -> int | None:
         path = _REPO / rel_path
     if not path.exists():
         return None
-    tree = ast.parse(path.read_text())
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         # Plain ``X = 400``.
         if isinstance(node, ast.Assign):
@@ -102,7 +102,7 @@ def _dlf_board_min_rows(board_key: str) -> int | None:
     path = _SCRIPTS / "fetch_dlf.py"
     if not path.exists():
         return None
-    src = path.read_text()
+    src = path.read_text(encoding="utf-8")
     # Find the board's block, then the first min_rows int after it.
     m = re.search(rf'"{re.escape(board_key)}"\s*:\s*\{{(.*?)\}}', src, re.S)
     if not m:

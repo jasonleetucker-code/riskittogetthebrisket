@@ -9,6 +9,7 @@ semantic; every number is).
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import unittest
@@ -32,11 +33,17 @@ class TestReferenceFixture(unittest.TestCase):
             self.assertTrue((REFERENCE_DIR / name).exists(), f"missing reference file {name}")
 
     def test_run_examples_reproduces_committed_output(self):
+        # The golden output contains non-ASCII (an em dash).  Pin the child's
+        # stdout AND our decoding to UTF-8: on Windows both default to the
+        # locale code page (cp1252), which mangles it.  On Linux both are
+        # already UTF-8, so this changes nothing there.
         result = subprocess.run(
             [sys.executable, "run_examples.py"],
             cwd=REFERENCE_DIR,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             timeout=120,
             check=False,
         )

@@ -72,7 +72,7 @@ def test_fresh_process_recovers_provenance_and_partial_state(tmp_path):
 
 
 def test_run_receipt_matches_canonical_shape_and_unknown_cost():
-    schema = json.loads((ROOT / "config/steward/contracts.schema.json").read_text())
+    schema = json.loads((ROOT / "config/steward/contracts.schema.json").read_text(encoding="utf-8"))
     receipt = run_receipt(
         head="a" * 40,
         agent_os="b" * 40,

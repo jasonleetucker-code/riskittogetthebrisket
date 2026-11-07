@@ -27,12 +27,21 @@ into deploy.sh/rollback.sh.
 
 from __future__ import annotations
 
+import sys
 import re
 import subprocess
 import textwrap
 from pathlib import Path
 
 import pytest
+
+# sources the production runtime reconciler (systemd units, sudo) by POSIX path; Git Bash on Windows cannot run it faithfully.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: sources the production runtime reconciler (systemd units, sudo) by POSIX path",
+)
+
 
 REPO = Path(__file__).resolve().parents[2]
 RECONCILER = REPO / "deploy" / "reconcile-runtime-controls.sh"
@@ -68,6 +77,7 @@ ENV = dict(
 )
 
 
+@_LINUX_ONLY
 class TestTheBackendUnitIsActuallyRendered:
     """Blocker 1. A non-default SERVICE_NAME is used throughout, so a
     renderer that only works for ``dynasty`` cannot pass."""
@@ -111,6 +121,7 @@ class TestTheWatchdogTargetAgreesWithItsUnit:
     """Blocker 3. Installed path and ExecStart must match by contract,
     not by both happening to say `dynasty`."""
 
+    @_LINUX_ONLY
     def test_execstart_path_is_what_the_reconciler_installs(self):
         svc = _render("hardening", SYSD / "dynasty-healthcheck.service", **ENV)
         m = re.search(r"^ExecStart=(\S+)", svc, re.M)
@@ -119,7 +130,7 @@ class TestTheWatchdogTargetAgreesWithItsUnit:
 
         installed = re.search(
             r'_rc_install_if_different "\$\{sysd\}/dynasty-healthcheck\.sh" \\\s*\n\s*"([^"]+)"',
-            RECONCILER.read_text(),
+            RECONCILER.read_text(encoding="utf-8"),
         )
         assert installed, "could not find the watchdog install target in the reconciler"
         target = (
@@ -132,6 +143,7 @@ class TestTheWatchdogTargetAgreesWithItsUnit:
             "these agree only when SERVICE_NAME=dynasty"
         )
 
+    @_LINUX_ONLY
     def test_the_service_name_reaches_the_watchdog_config(self):
         """The watchdog must watch THIS backend, not a literal dynasty."""
         svc = _render("hardening", SYSD / "dynasty-healthcheck.service", **ENV)
@@ -149,16 +161,17 @@ class TestItStaysInsideTheAuthorizedPrivilege:
         which binary ran. One helper makes the property both enforceable
         at runtime and readable statically.
         """
-        code = re.sub(r"#.*", "", RECONCILER.read_text())
+        code = re.sub(r"#.*", "", RECONCILER.read_text(encoding="utf-8"))
         bare = re.findall(r"(?<!_rc_)\bsudo -n\b", code)
         # exactly one: the call inside _rc_sudo itself
         assert len(bare) == 1, f"{len(bare)} bare sudo call(s) bypass _rc_sudo"
 
     def test_the_allowlist_is_the_verified_nopasswd_surface(self):
-        m = re.search(r"_RC_SUDO_ALLOWED=\(([^)]*)\)", RECONCILER.read_text())
+        m = re.search(r"_RC_SUDO_ALLOWED=\(([^)]*)\)", RECONCILER.read_text(encoding="utf-8"))
         assert m, "no _RC_SUDO_ALLOWED allowlist"
         assert set(m.group(1).split()) == AUTHORIZED_SUDO
 
+    @_LINUX_ONLY
     def test_an_unauthorized_binary_is_refused_before_sudo(self):
         """Runtime proof, not just a static read."""
         r = subprocess.run(
@@ -177,19 +190,19 @@ class TestItStaysInsideTheAuthorizedPrivilege:
     def test_unreadable_state_fails_rather_than_escalating(self):
         """If the installed artifact cannot be read, say so — do not try
         to reach it with privilege we do not have."""
-        text = RECONCILER.read_text()
+        text = RECONCILER.read_text(encoding="utf-8")
         assert "cannot prove convergence" in text
         assert "cannot verify the watchdog that actually runs" in text
 
 
 class TestScopeIsHeld:
     def test_it_does_not_run_the_full_hardening_installer(self):
-        text = RECONCILER.read_text()
+        text = RECONCILER.read_text(encoding="utf-8")
         assert "apply_hardening.sh" not in re.sub(
             r"#.*", "", text
         ), "reconciler invokes the full hardening installer"
 
     def test_it_touches_no_unrelated_hardening(self):
-        code = re.sub(r"#.*", "", RECONCILER.read_text())
+        code = re.sub(r"#.*", "", RECONCILER.read_text(encoding="utf-8"))
         for unrelated in ("nginx", "riskit-backup", "riskit-uptime", "certbot"):
             assert unrelated not in code, f"reconciler touches unrelated {unrelated}"

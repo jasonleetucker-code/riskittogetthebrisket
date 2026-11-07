@@ -9,9 +9,9 @@ import math
 import os
 import re
 import statistics
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Collection, Iterable, Mapping, Sequence
+from typing import Any, Callable, Collection, Iterable, Mapping, NamedTuple, Sequence
 
 from src.canonical.player_valuation import (
     PERCENTILE_REFERENCE_N as _CANONICAL_PERCENTILE_REFERENCE_N,
@@ -1863,7 +1863,11 @@ def _build_source_timestamps(
             else:
                 last_epoch = st.st_mtime
                 try:
-                    stamp_text = (state_dir / f"{source_key}_last_success").read_text().strip()
+                    stamp_text = (
+                        (state_dir / f"{source_key}_last_success")
+                        .read_text(encoding="utf-8")
+                        .strip()
+                    )
                     if stamp_text:
                         last_epoch = float(stamp_text)
                 except (OSError, ValueError):
@@ -2005,6 +2009,17 @@ _SIGNALS_IDP_GAME_TYPE_EVIDENCE = (
     "Signals authenticated listIdpDynastyValuesBySeason rows keyed sk '<season>#dynasty', "
     "re-verified on every row of every release (src/sources/signals.py::normalize_idp_items)"
 )
+
+#: The deep-tail rookie VOTE rule (#134, April 2026).  A source registered
+#: with ``drop_deep_tail_rookies: True`` casts no vote for a rookie it ranks
+#: deeper than this fraction of its own ranked pool ("deep-tail rookie ranks
+#: are filler").  Deliberately a SEPARATE field from ``excludes_rookies``,
+#: which is a factual coverage claim (the board cannot list rookies) read by
+#: expected-sources, ``sparse_evidence`` and the source census.  Until the
+#: decoupling the vote rule rode on that flag, so correcting the flag in
+#: G2-D3 (#2001) silently switched the rule off.  Methodology status: the
+#: pre-#2001 behaviour, held pending an explicit owner decision.
+DEEP_TAIL_ROOKIE_POOL_FRACTION = 0.80
 
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
@@ -2294,13 +2309,25 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "display_name": "Dynasty League Football IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "position_group": None,
-        # DLF's published IDP list is a top-185 NFL veteran cut.  It
-        # never carries first-year college prospects (Caleb Downs,
-        # Sonny Styles, Arvell Reese, etc.), so we declare it
-        # ``excludes_rookies`` and cap the structural depth at 185 so
-        # ``_expected_sources_for_position`` stops over-flagging
-        # rookies and deep-bench veterans as 1-src "matching failures"
-        # when DLF was never going to cover them in the first place.
+        # DLF's published IDP list is a ~150-185 row board; the depth cap
+        # stops ``_expected_sources_for_position`` over-flagging
+        # deep-bench veterans as 1-src "matching failures".
+        #
+        # ``excludes_rookies`` is False (G2-D3, PR #1998 RESULTS.md §3):
+        # the old claim that this board "never carries first-year
+        # prospects" is contradicted by its own CSV — it ranks Jacob
+        # Rodriguez 9th, Arvell Reese 16.5 and Caleb Downs 41.  A flag
+        # that says a source cannot cover rookies removes it from the
+        # rookies' coverage denominator, so its real silence on a rookie
+        # was not counted as missing evidence.  Pinned against the CSV
+        # by ``tests/sources/test_excludes_rookies_matches_csv.py``.
+        #
+        # ``drop_deep_tail_rookies`` is the SEPARATE vote rule that used
+        # to ride on the false flag (#134): a rookie this board ranks past
+        # ``DEEP_TAIL_ROOKIE_POOL_FRACTION`` of its pool casts no vote.
+        # Restores the pre-G2-D3 voting methodology pending an explicit
+        # owner decision on the rule itself.  Latent while DLF IDP is
+        # policy-held from voting (``POLICY_SOURCE_VOTE_HOLDS``).
         "depth": 185,
         # Weight normalized to 1.0 so every registered source
         # contributes equally to the blended rank.  The previous 3.0
@@ -2310,7 +2337,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "weight": 1.0,
         "is_backbone": False,
         "needs_shared_market_translation": True,
-        "excludes_rookies": True,
+        "excludes_rookies": False,
+        "drop_deep_tail_rookies": True,
         # IDP values have no TE-premium dimension — declared
         # explicitly False so the registry-completeness test can
         # enforce that every source states its TEP posture.
@@ -2880,14 +2908,21 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "is_retail": False,
         "needs_shared_market_translation": True,
-        # The FantasyPros dynasty IDP board is a curated veteran
-        # list — like DLF IDP, it does not list first-year college
-        # prospects (Caleb Downs, Sonny Styles, Arvell Reese, etc.).
-        # Declare ``excludes_rookies`` so
-        # ``_expected_sources_for_position`` stops counting FP as an
-        # expected source for rookies and the structural-1-src
-        # detection still fires for DLF+FP-excluded rookies.
-        "excludes_rookies": True,
+        # ``excludes_rookies`` is False (G2-D3, PR #1998 RESULTS.md §3).
+        # This used to claim the board is a veteran list that does not
+        # carry first-year prospects; its own CSV ranks Sonny Styles 37,
+        # Arvell Reese 59, CJ Allen 62, David Bailey 66 and Caleb Downs
+        # 74.  The false flag dropped FP from every rookie's expected /
+        # eligible sources, so its silence on a rookie was never counted
+        # as missing evidence.  Pinned against the CSV by
+        # ``tests/sources/test_excludes_rookies_matches_csv.py``.
+        "excludes_rookies": False,
+        # The deep-tail rookie VOTE rule (#134), decoupled from the
+        # factual flag above: a rookie FP ranks past
+        # ``DEEP_TAIL_ROOKIE_POOL_FRACTION`` of its pool casts no FP vote.
+        # Restores the pre-G2-D3 voting methodology pending an explicit
+        # owner decision on the rule itself.
+        "drop_deep_tail_rookies": True,
         # IDP values have no TE-premium dimension — declared
         # explicitly False so the registry-completeness test can
         # enforce that every source states its TEP posture.
@@ -3215,8 +3250,9 @@ def rank_signal_source_keys() -> frozenset[str]:
 #                            the source simply doesn't list them.
 #   "depth_boundary:<source>" — the player's rank is just beyond <source>'s
 #                               declared depth.  Borderline, not a join failure.
-#   "rookie_exclusion:<source>" — the player is a rookie and the source
-#                                 excludes rookies.
+#   "rookie_exclusion:<source>" — the player is a rookie and <source>
+#                                 casts no vote on him (a vote hold, or the
+#                                 ``drop_deep_tail_rookies`` deep-tail skip).
 SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # ── Offense: DLF-SF-only (dropped by retail + IDPTC) ──
     # Veteran running backs / fringe players that both KTC and
@@ -3243,17 +3279,20 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "mike washington": "source_gap:idpTradeCalc+dlfSf — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
     "omar cooper": "source_gap:idpTradeCalc+dlfSf — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
     # ── IDP: IDPTradeCalc-only (DLF does not list these players) ──
-    # DLF publishes a curated 185-player IDP veteran board.  Rookies and
-    # players outside the top 185 are structurally excluded.
-    "arvell reese": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "sonny styles": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "caleb downs": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "david bailey": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "cj allen": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "dillon thieneman": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "dani dennis sutton": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "emmanuel mcneil warren": "rookie_exclusion:dlfIdp — DLF excludes rookies",
-    "jake golday": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    # DLF publishes a curated ~150-185-player IDP board.  It DOES rank
+    # rookies (G2-D3, #2001 — the old "veteran board" premise was false);
+    # these rookies are single-source because DLF IDP is policy-held from
+    # voting, and when it votes the only rookie-specific rule is the
+    # deep-tail skip (``drop_deep_tail_rookies``).
+    "arvell reese": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "sonny styles": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "caleb downs": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "david bailey": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "cj allen": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "dillon thieneman": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "dani dennis sutton": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "emmanuel mcneil warren": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
+    "jake golday": "rookie_exclusion:dlfIdp — DLF IDP is policy-held from voting (dlf_offense_only_vote); its board does rank rookies (G2-D3), and when it votes only drop_deep_tail_rookies (rookie rank past 80% of its pool) skips a rookie",
     "devin bush": "depth_boundary:dlfIdp — IDPTC rank 189, DLF depth 185; just outside DLF cutoff",
     # ── Offense: DynastyNerds-SF-TEP-only (dropped by retail + DLF SF) ──
     # Fringe offense players (deep rookies and retired/cut veterans) that
@@ -3630,6 +3669,9 @@ def get_ranking_source_registry() -> list[dict[str, Any]]:
             "isRankSignal": bool(src.get("is_rank_signal")),
             "needsSharedMarketTranslation": bool(src.get("needs_shared_market_translation")),
             "excludesRookies": bool(src.get("excludes_rookies")),
+            # The deep-tail rookie VOTE rule — separate from the factual
+            # ``excludesRookies`` coverage claim above.
+            "dropsDeepTailRookies": bool(src.get("drop_deep_tail_rookies")),
             # Undeclared groups resolve to the source's own key, so the
             # field is never null and consumers never have to encode the
             # "no group means independent" rule themselves.
@@ -4091,33 +4133,56 @@ _RESERVED_OVERRIDE_BODY_KEYS: frozenset[str] = frozenset(
 )
 
 
-def normalize_tep_multiplier(raw: Any) -> float | None:
-    """Extract + clamp a TEP multiplier from a POST override body.
+#: The user's MANUAL TE-premium override is withdrawn (held for owner
+#: approval as DEFECT-02, ``docs/audits/LEAGUE_CONFIG_PROPAGATION_MATRIX_2026-10-26.md``).
+#: Same reasoning, same mechanism and same shape as
+#: :data:`_SOURCE_OVERRIDES_DISABLED`: ``tepMultiplier`` /
+#: ``tepNativeMultiplier`` live in ``next_settings_v2`` in localStorage,
+#: are never server-synced, and a posted value re-ran the blend and came
+#: back under ``rankDerivedValue`` — so two devices held two canonical
+#: values for one TE.  An explicit ``tep_multiplier`` also switched OFF
+#: the ADR-015 TE-basis conversion (``tep_multiplier_is_override``), so
+#: even the stock 1.15 body was a different board from ``GET /api/data``.
+#:
+#: Accepted and IGNORED, never refused: a stale bundle or direct caller
+#: still posting one converges silently on the canonical board, and the
+#: response says why (:func:`withdrawn_tep_override_note`).  Closed at the
+#: HTTP ingress normalizers — the only production entry point — so the
+#: library parameters of ``build_api_data_contract`` /
+#: ``build_rankings_delta_payload`` stay available to research scripts
+#: and tests.  Rollback: set this to ``False`` (a code change and
+#: restart, deliberately not an env flag — it is a product decision).
+_TEP_OVERRIDES_DISABLED: bool = True
 
-    Accepts a raw request body dict.  Returns:
+#: Stamped on ``meta.tepMultiplierNote`` and appended to ``warnings``
+#: when a request carried a manual TE-premium key that was ignored.
+TEP_OVERRIDE_WITHDRAWN_NOTE: str = "tep_override_withdrawn: not_canonical"
 
-      * ``None`` when no ``tep_multiplier`` / ``tepMultiplier`` key is
-        present in the body — signals "user did not override, fall
-        back to the league-derived default".  ``build_api_data_contract``
-        and ``build_rankings_delta_payload`` both treat ``None`` as
-        "derive from Sleeper" via :func:`_derive_tep_multiplier_from_league`.
-      * A ``float`` clamped to ``[1.0, 1.5]`` (matching the slider's
-        UI bounds) when the key IS present and parses as a finite
-        number.  The clamped value is what the
-        pipeline applies verbatim (no derivation layered on top).
-      * ``None`` when the key is present but unparseable / infinite —
-        treated the same as "absent" so a garbled body falls back to
-        the league-derived default rather than silently becoming 1.0.
+_TEP_OVERRIDE_BODY_KEYS: tuple[str, ...] = (
+    "tep_multiplier",
+    "tepMultiplier",
+    "tep_native_multiplier",
+    "tepNativeMultiplier",
+)
 
-    The key lookup accepts both ``tep_multiplier`` (snake_case, the
-    canonical API spelling) and ``tepMultiplier`` (camelCase, the
-    JS-native spelling some callers may emit).
+
+def _parse_manual_tep(raw: Any, keys: tuple[str, str]) -> float | None:
+    """Parse + clamp one manual TE-premium knob from a POST body.
+
+    The parser behind both normalizers, retained (and still covered by
+    tests that patch :data:`_TEP_OVERRIDES_DISABLED` off) so a rollback
+    does not mean rebuilding and re-reviewing the validation.
+
+    ``None`` when no key is present, or the value is unparseable /
+    infinite (a garbled body falls back to the default rather than
+    silently becoming 1.0); otherwise a float clamped to ``[1.0, 1.5]``.
+    The snake_case key wins over the camelCase one.
     """
     import math
 
     if not isinstance(raw, dict):
         return None
-    for key in ("tep_multiplier", "tepMultiplier"):
+    for key in keys:
         if key in raw:
             try:
                 v = float(raw[key])
@@ -4129,28 +4194,50 @@ def normalize_tep_multiplier(raw: Any) -> float | None:
     return None
 
 
-def normalize_tep_native_multiplier(raw: Any) -> float | None:
-    """Extract + clamp the TEP-native multiplier from a POST override body.
+def normalize_tep_multiplier(raw: Any) -> float | None:
+    """The TE-premium override a POST override body may apply.
 
-    Mirrors :func:`normalize_tep_multiplier` but for the parallel knob
-    that controls the boost applied to TEP-native sources (DN SF-TEP,
-    Yahoo Boone, FP Fitzmaurice).  Returns ``None`` when the key is
-    absent / unparseable so the pipeline falls back to the hardcoded
-    default (``_TE_BLANKET_NATIVE_MULTIPLIER`` = 1.10).
+    **Always ``None`` while** :data:`_TEP_OVERRIDES_DISABLED` — the
+    manual override is withdrawn, and ``None`` is exactly what
+    ``build_api_data_contract`` / ``build_rankings_delta_payload`` read as
+    "no override": the canonical league-derived / ADR-015 TE-basis path,
+    byte-identical to a request that never posted the key.
+
+    With the gate off (rollback) it returns the clamped
+    ``tep_multiplier`` / ``tepMultiplier`` value via
+    :func:`_parse_manual_tep`.
     """
-    import math
-
-    if not isinstance(raw, dict):
+    if _TEP_OVERRIDES_DISABLED:
         return None
-    for key in ("tep_native_multiplier", "tepNativeMultiplier"):
-        if key in raw:
-            try:
-                v = float(raw[key])
-            except (TypeError, ValueError):
-                return None
-            if not math.isfinite(v):
-                return None
-            return max(1.0, min(1.5, v))
+    return _parse_manual_tep(raw, ("tep_multiplier", "tepMultiplier"))
+
+
+def normalize_tep_native_multiplier(raw: Any) -> float | None:
+    """The TEP-native override a POST override body may apply.
+
+    Mirrors :func:`normalize_tep_multiplier` for the parallel knob that
+    boosts TEP-native sources (DN SF-TEP, Yahoo Boone, FP Fitzmaurice).
+    **Always ``None`` while** :data:`_TEP_OVERRIDES_DISABLED`, so the
+    pipeline applies its default (``_TE_BLANKET_NATIVE_MULTIPLIER`` = 1.10).
+    """
+    if _TEP_OVERRIDES_DISABLED:
+        return None
+    return _parse_manual_tep(raw, ("tep_native_multiplier", "tepNativeMultiplier"))
+
+
+def withdrawn_tep_override_note(raw: Any) -> str | None:
+    """:data:`TEP_OVERRIDE_WITHDRAWN_NOTE` when ``raw`` carried a manual
+    TE-premium key that the withdrawal ignored, else ``None``.
+
+    Keyed on the PRESENCE of a key, not on whether it parsed: "you asked
+    for something and did not get it" must not read the same as "you
+    asked for nothing".  ``None`` with the gate off, because then the
+    value is honoured and there is nothing to explain.
+    """
+    if not _TEP_OVERRIDES_DISABLED or not isinstance(raw, dict):
+        return None
+    if any(key in raw for key in _TEP_OVERRIDE_BODY_KEYS):
+        return TEP_OVERRIDE_WITHDRAWN_NOTE
     return None
 
 
@@ -4525,9 +4612,15 @@ def assert_ranking_source_registry_parity(
             # frontend that disagrees about correlation would show a
             # source count the backend considers inflated.
             "correlationGroup",
+            # The deep-tail rookie vote rule: the mirror declares it only
+            # where true, so both sides normalise to bool.
+            "dropsDeepTailRookies",
         ):
             py_val = py.get(field)
             js_val = js.get(field)
+            if field == "dropsDeepTailRookies":
+                py_val = bool(py_val)
+                js_val = bool(js_val)
             if field == "correlationGroup":
                 # Both sides may omit the field for an independent
                 # source; the singleton default is the source's own key.
@@ -5096,6 +5189,8 @@ _TRUST_MIRROR_FIELDS = (
     "dominantSource",
     "dominantSourceShare",
     "freshnessExcludedSources",
+    # Per-source reason codes behind ``retainedAuthority`` (diagnostic).
+    "sourceAuthorityReasons",
     # Which independent PROVIDERS stand behind a pick's market confidence
     # (owner 2026-10-07) — degraded pick evidence stays visible too.
     "pickEvidence",
@@ -6387,9 +6482,11 @@ def _expected_sources_for_position(
     structural reach.  This is finer-grained than pure scope eligibility:
 
     * Sources flagged ``excludes_rookies=True`` in the registry are
-      pruned for players whose ``is_rookie`` flag is set.  The
-      canonical example is DLF IDP, which is a 185-row NFL veteran
-      list and never carries first-year college prospects.
+      pruned for players whose ``is_rookie`` flag is set.  No source
+      carries it today: DLF IDP and FantasyPros IDP did until G2-D3
+      (PR #1998), when their own CSVs were shown to rank rookies.  The
+      deep-tail rookie VOTE skip is a separate field
+      (``drop_deep_tail_rookies``) and does not touch coverage.
 
     * Sources with a declared shallow ``depth`` are pruned when the
       player's already-matched rank is deeper than their cutoff plus
@@ -7823,6 +7920,7 @@ def _family_evidence_for_row(
     family_by_key: dict[str, str],
     fresh_by_source: dict[str, bool | None],
     content_freshness_applies: bool = False,
+    uncredited: Collection[str] = (),
 ) -> list["FamilyEvidence"]:
     """Assemble the B11 gate's per-family evidence for one row.
 
@@ -7831,6 +7929,13 @@ def _family_evidence_for_row(
     second copy of this block would be a second confidence methodology —
     ``src/api/confidence.py`` owns what the levels MEAN and this owns
     what evidence it is shown, and both halves need exactly one owner.
+
+    ``uncredited`` names voting sources that are NOT evidence for the gate:
+    rejections a withheld vote CURED (``_lost_evidence_replay``'s ``cured``).
+    They are never a head, so a family is represented only through another
+    credited member; a family left with none is SEATED by the caller
+    (``_withheld_family_evidence_for_row``).  Their value votes are
+    untouched; this is the confidence half only.
 
     Decides no level.  Every judgement below is about what a source
     contribution IS, not about how good it is.
@@ -7841,6 +7946,8 @@ def _family_evidence_for_row(
     row_is_te = str(row.get("position") or "").strip().upper() == "TE"
     evidence: list[FamilyEvidence] = []
     for skey in effective_source_ranks:
+        if skey in uncredited:
+            continue
         smeta = effective_source_meta.get(skey) or {}
         # Family-superseded members are not independent evidence;
         # B10-T3b already excluded them from the blend.
@@ -7939,7 +8046,21 @@ def _idp_trade_calc_native_points(
     return points
 
 
-def _lost_evidence_seats(
+class _LostEvidence(NamedTuple):
+    """What one row's withheld votes did to its evidence, as the confidence
+    gate must see it.  See :func:`_lost_evidence_replay`."""
+
+    # Sources whose absence from the value is LOST evidence: a seat that
+    # counts against every share axis and earns nothing.
+    seats: list[str]
+    # Sources voting NOW that the observed panel REJECTS — rejections the
+    # loss CURED.  Not evidence the row had while the withheld source still
+    # voted, so they earn no confidence credit (they still vote in the value);
+    # the caller seats a family left with no credited member.
+    cured: list[str]
+
+
+def _lost_evidence_replay(
     *,
     voting_pairs: list[tuple[str, float]],
     withheld_pairs: list[tuple[str, float]],
@@ -7947,38 +8068,70 @@ def _lost_evidence_seats(
     outlier_test_applies: bool,
     exact_replay: bool = True,
     replay: Any = None,  # Callable[[list[tuple[str, float]]], Sequence[str]] | None
-) -> list[str]:
-    """The sources a row's confidence must seat because a vote was withheld.
+    cured_identifiable: bool = True,
+) -> _LostEvidence:
+    """How a row's confidence must account for its withheld votes.
 
     Owner directive 2026-10-07 (IDP Trade Calculator's quarantine cutoff):
-    losing a vote must never RAISE confidence.  The seat answers "what did
+    losing a vote must never RAISE confidence.  The replay answers "what did
     this row's evidence look like while the withheld source still voted?" —
     and the outlier test can be asked that EXACTLY, with no second blend:
     ``_hampel_filter_per_player`` is unweighted, so re-running it on the
     OBSERVED panel (voting + withheld values) reproduces the verdict the
-    panel reached while the withheld source was still voting.  Seated:
+    panel reached while the withheld source was still voting.
 
-    * each withheld source the observed panel would have KEPT — it was a
+    ``seats`` (lost evidence — a seat that earns nothing):
+
+    * (a) each withheld source the observed panel would have KEPT — it was a
       voting head and now is not.  One the observed panel itself rejects
       was already absent from the evidence, so it is not a new loss;
-    * each source rejected NOW that the observed panel would have kept —
+    * (b) each source rejected NOW that the observed panel would have kept —
       a rejection CAUSED by the lost vote (measured on the simulated
       cutoff: The IDP Show on Trey McBride, Draft Sharks on Colby
       Parkinson).  A source the observed panel rejects too (rejected
       before the cutoff as well, e.g. on Bijan Robinson) is not seated:
       seating it would penalise a verdict nothing changed.
 
+    ``cured`` (no credit — the mirror of (b)):
+
+    * (c) each source KEPT now that the observed panel REJECTS — a rejection
+      the lost vote CURED.  Measured on the simulated IDP Trade Calculator
+      cutoff (``dynasty_export_20261106_123200``): IDPTC's own vote was
+      rejected on Patrick Mahomes, yet its presence in the panel is what
+      rejected Yahoo/Boone and Draft Sharks; withholding it un-rejected
+      both, and crediting them raised his coverage 9 -> 11 of 14 families
+      (medium -> high).  While the withheld source still voted they were
+      not evidence, so the confidence gate must not credit them now — the
+      caller takes them out of the row's family heads and SEATS a family
+      left with no credited member (confidence only; their value votes are
+      untouched).  Seated rather than dropped: as a seat the family stays in
+      every share axis' denominator and earns nothing, so against crediting
+      it no axis can rise; dropped, it would leave the denominators and a
+      disagreeing cured vote's removal could PROMOTE the row (measured:
+      Jordan Love, agreement 10 of 14 -> 10 of 13, medium -> high).  A
+      source rejected on both panels is in neither list: nothing changed
+      for it.
+
+    With (a), (b) and (c) the gate CREDITS exactly the families the observed
+    panel kept that still vote; every other family it observed on the row
+    is a seat.
+
     Picks bypass the outlier test in the blend, so for them every withheld
-    source is seated and no rejection exists.  Under the (default-off)
-    weighted joint challenger the replay is not exact, so the seat falls
-    back to the conservative superset: every withheld and every rejected
-    source.
+    source is seated and no rejection exists, so nothing is cured.  Under the
+    (default-off) weighted joint challenger the replay is not exact: the seat
+    falls back to the conservative superset (every withheld and every
+    rejected source), and cured rejections CANNOT be identified — ``cured`` is
+    empty, so on that path the no-raise guarantee does not cover them.  The
+    caller passes ``cured_identifiable=False`` wherever the replay is not the
+    filter the blend actually ran (the default-off rank-space challengers),
+    for the same reason: a disagreement between two different filters is
+    not a rejection the loss cured.
     """
     withheld = [k for k, _v in withheld_pairs]
     if not outlier_test_applies:
-        return withheld
+        return _LostEvidence(withheld, [])
     if not exact_replay:
-        return withheld + [k for k in dropped_now if k not in withheld]
+        return _LostEvidence(withheld + [k for k in dropped_now if k not in withheld], [])
     observed = list(voting_pairs) + list(withheld_pairs)
     if replay is not None:
         # The outlier policy in force (``outlier-corroborated-v1``) asked of the
@@ -7989,9 +8142,35 @@ def _lost_evidence_seats(
     else:
         observed_dropped = []
     already = set(observed_dropped)
-    return [k for k in withheld if k not in already] + [
+    seats = [k for k in withheld if k not in already] + [
         k for k in dropped_now if k not in already and k not in withheld
     ]
+    cured: list[str] = []
+    if cured_identifiable:
+        not_kept_now = set(dropped_now) | set(withheld)
+        cured = [k for k, _v in voting_pairs if k in already and k not in not_kept_now]
+    return _LostEvidence(seats, cured)
+
+
+def _lost_evidence_seats(
+    *,
+    voting_pairs: list[tuple[str, float]],
+    withheld_pairs: list[tuple[str, float]],
+    dropped_now: Sequence[str],
+    outlier_test_applies: bool,
+    exact_replay: bool = True,
+    replay: Any = None,  # Callable[[list[tuple[str, float]]], Sequence[str]] | None
+) -> list[str]:
+    """The sources a row's confidence must seat because a vote was withheld —
+    the ``seats`` half of :func:`_lost_evidence_replay` (cases (a) and (b))."""
+    return _lost_evidence_replay(
+        voting_pairs=voting_pairs,
+        withheld_pairs=withheld_pairs,
+        dropped_now=dropped_now,
+        outlier_test_applies=outlier_test_applies,
+        exact_replay=exact_replay,
+        replay=replay,
+    ).seats
 
 
 def _withheld_family_evidence_for_row(
@@ -11470,6 +11649,128 @@ def _stamp_source_weight_state(
     row["dominantSourceShare"] = round(share, 4)
 
 
+#: Per-row reason codes for every source whose weight on the row is below its
+#: base weight (2026-10-28, IDP source authority).  Freshness, health and
+#: coverage reductions lower ``retainedAuthority``; ``family_cap`` and
+#: ``outlier_dropped`` do not (its denominator gets the same treatment), so the
+#: field is "per-source weight below base", a superset of what moved
+#: ``retainedAuthority``.  One compact string per source that carries LESS than
+#: its base weight on the row, or that observed the row and was held from voting.
+#: Parts are joined with ``,`` when several apply.  Diagnostic only: built
+#: from stamps the blend already wrote, read back by nothing in the pipeline.
+SOURCE_AUTHORITY_STALE = "stale"  # ``stale=<factor>@<content date>``
+SOURCE_AUTHORITY_HEALTH = "health"  # ``health=<factor>``
+SOURCE_AUTHORITY_COVERAGE = "coverage"  # ``coverage=<factor>``
+SOURCE_AUTHORITY_WITHHELD_STALE = "withheld:stale"  # ``withheld:stale@<content date>``
+SOURCE_AUTHORITY_WITHHELD_HEALTH = "withheld:health"
+SOURCE_AUTHORITY_FAMILY_CAP = "family_cap"  # ``family_cap=<factor>``
+SOURCE_AUTHORITY_OUTLIER = "outlier_dropped"
+SOURCE_AUTHORITY_SUPERSEDED = "superseded"  # ``superseded:<winning key>``
+SOURCE_AUTHORITY_HELD_POLICY = "held:owner_policy"
+#: Date suffix used instead of a calendar date when the row's freshness clock is
+#: the source's FIRST-OBSERVATION baseline: a fetch time, not a vendor update, so
+#: no content date is known (``SubsetFreshness.clock_is_baseline``).
+SOURCE_AUTHORITY_UNVERIFIED_CLOCK = "unverified_clock"
+
+
+def _fmt_authority_factor(value: float) -> str:
+    return f"{round(float(value), 3):g}"
+
+
+def _content_date(as_of: datetime | None, age_hours: Any) -> str | None:
+    """The calendar date (UTC) of the content clock behind a row's freshness:
+    the board's as-of minus the row's stamped age.  ``None`` when either is
+    unknown — a date is never invented."""
+    if as_of is None or not isinstance(age_hours, (int, float)):
+        return None
+    return (as_of - timedelta(hours=float(age_hours))).astimezone(timezone.utc).date().isoformat()
+
+
+def _source_authority_reasons(
+    row_meta: Mapping[str, Mapping[str, Any]],
+    *,
+    is_pick: bool,
+    source_weighting: Mapping[str, Any] | None,
+    freshness_applied: bool,
+    held_observed: Iterable[str] = (),
+) -> dict[str, str]:
+    """``{source: reason code}`` for every source whose authority on this row
+    is below its base weight, plus every policy-held source that observed it.
+
+    Answers "why is this row's authority reduced, source by source" from the
+    stamps already on ``sourceRankMeta`` and the board's source weighting.  It
+    decides nothing and moves no value.  A source at full authority is
+    absent, so ``{}`` means nothing was reduced.
+
+    * a voting source below full freshness -> ``stale=<f>@<date>``, where
+      ``<date>`` is the content clock the factor was computed from (the
+      vendor's stated time for an upstream-timestamp source, else the last
+      observed content change), or ``@unverified_clock`` when that clock is
+      only our first observation of the board (a fetch time, never shown as a
+      content date);
+    * source-level health / coverage below 1 -> ``health=<f>`` / ``coverage=<f>``;
+    * a withheld (zero-weight) observation -> ``withheld:stale@<date>`` or
+      ``withheld:health``;
+    * a family-capped member -> ``family_cap=<f>``;
+    * a rejected / superseded observation -> ``outlier_dropped`` /
+      ``superseded:<key>``;
+    * a policy-held source with a value on the row -> ``held:owner_policy``
+      (``sourceVotingEligibility`` names the hold and its flag).
+    """
+    out: dict[str, str] = {}
+    for key, meta in row_meta.items():
+        if not isinstance(meta, Mapping):
+            continue
+        parts: list[str] = []
+        sw = (source_weighting or {}).get(key)
+        measured = sw is not None and bool(getattr(sw, "measured", False))
+        sub = sw.subset_for(is_pick) if measured else None
+        fresh = meta.get("freshness")
+        age_h = meta.get("freshnessAgeHours")
+        date_s = _content_date(getattr(sub, "as_of", None), age_h)
+        # A clock that IS the first-observation baseline is a fetch time: never
+        # present it as the content's date.  The stamped age is rounded to 0.1 h,
+        # hence the 6-minute tolerance when matching the row clock to it.
+        base_at = getattr(sub, "clock_at", None) if sub is not None else None
+        unverified = bool(
+            date_s
+            and getattr(sub, "clock_is_baseline", False)
+            and base_at is not None
+            and abs(((sub.as_of - timedelta(hours=float(age_h))) - base_at).total_seconds()) <= 360
+        )
+        if unverified:
+            at = f"@{SOURCE_AUTHORITY_UNVERIFIED_CLOCK}"
+        else:
+            at = f"@{date_s}" if date_s else ""
+        excluded = meta.get("contributedToBlend") is False
+        if meta.get("hampelDropped"):
+            parts.append(SOURCE_AUTHORITY_OUTLIER)
+        elif meta.get("supersededBy"):
+            parts.append(f"{SOURCE_AUTHORITY_SUPERSEDED}:{meta['supersededBy']}")
+        elif excluded:
+            if isinstance(fresh, (int, float)) and fresh <= 0.0:
+                parts.append(SOURCE_AUTHORITY_WITHHELD_STALE + at)
+            else:
+                parts.append(SOURCE_AUTHORITY_WITHHELD_HEALTH)
+        elif freshness_applied:
+            if isinstance(fresh, (int, float)) and fresh < 1.0:
+                parts.append(f"{SOURCE_AUTHORITY_STALE}={_fmt_authority_factor(fresh)}{at}")
+            if measured and float(sw.health_factor) < 1.0:
+                parts.append(f"{SOURCE_AUTHORITY_HEALTH}={_fmt_authority_factor(sw.health_factor)}")
+            if measured and float(sw.coverage_factor) < 1.0:
+                parts.append(
+                    f"{SOURCE_AUTHORITY_COVERAGE}={_fmt_authority_factor(sw.coverage_factor)}"
+                )
+        fam = meta.get("familyAdjustment")
+        if isinstance(fam, (int, float)) and fam < 1.0 and not excluded:
+            parts.append(f"{SOURCE_AUTHORITY_FAMILY_CAP}={_fmt_authority_factor(fam)}")
+        if parts:
+            out[str(key)] = ",".join(parts)
+    for key in held_observed:
+        out.setdefault(str(key), SOURCE_AUTHORITY_HELD_POLICY)
+    return out
+
+
 # ── Rank-vote pricing + the Signals IDP family crosswalk (Candidate F) ──
 #: ``method`` stamped on a Candidate F family translation.
 TRANSLATION_COVERAGE_ALIGNED = "coverage_aligned"
@@ -12179,6 +12480,11 @@ def _compute_unified_rankings(
     # ``_withheld_family_evidence_for_row``).  Decided in the blend loop, where
     # the exact observed values exist.
     row_lost_seats: dict[int, list[str]] = {}
+    # Per row, under ``confidence_cured_rejection_guard`` (default ON): voting
+    # sources the OBSERVED panel (voting + withheld) rejects — rejections a
+    # withheld vote CURED.  The confidence gate does not credit them (see
+    # ``_lost_evidence_replay``); the value blend still counts their votes.
+    row_cured_rejections: dict[int, list[str]] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
     # The combined ladder from every usable bridge.  EMPTY means no bridge
@@ -12402,9 +12708,16 @@ def _compute_unified_rankings(
                 observed_at_value += 1
             raw_rank = current_dense_rank
 
-            # ── Self-correcting rookie exclusion ──
-            # Sources flagged ``excludes_rookies=True`` (DLF IDP,
-            # FantasyPros IDP today) are veteran-focused boards whose
+            # ── Self-correcting deep-tail rookie skip (#134) ──
+            # Driven ONLY by ``drop_deep_tail_rookies`` (today DLF IDP and
+            # FantasyPros IDP).  It used to ride on ``excludes_rookies``,
+            # which is a FACTUAL coverage claim ("this board cannot list a
+            # rookie") — correcting that flag in G2-D3 (#2001) silently
+            # switched this methodology off.  The two are now separate
+            # registry fields so the factual one stays true to the CSV
+            # while the owner decides this rule on its own merits.
+            #
+            # These are veteran-focused boards whose
             # rookie entries historically live at the deep tail of
             # the pool — placeholder filler rather than real
             # evaluations.  Stamping those placeholder ranks onto
@@ -12420,9 +12733,9 @@ def _compute_unified_rankings(
             # when DLF or FP start covering rookies properly — the
             # gate lifts on its own.
             row = players_array[row_idx]
-            if src.get("excludes_rookies") and bool(row.get("rookie")):
+            if src.get("drop_deep_tail_rookies") and bool(row.get("rookie")):
                 _pool_size = source_pool_sizes.get(source_key, 0)
-                if _pool_size > 0 and raw_rank > _pool_size * 0.80:
+                if _pool_size > 0 and raw_rank > _pool_size * DEEP_TAIL_ROOKIE_POOL_FRACTION:
                     continue
 
             # Translate to effective overall-style rank based on scope.
@@ -12978,6 +13291,12 @@ def _compute_unified_rankings(
     # uncorroborated vote or a vote from a board the screen found mis-scaled
     # (``outlier_board_exclusions``).  Every challenger above takes precedence.
     _outlier_policy_on = _outlier_policy_active()
+    # Losing evidence never raises confidence — the cured-rejection half
+    # (default ON; ``_lost_evidence_replay`` case (c)).  OFF
+    # (RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0 + restart): a source
+    # whose rejection a withheld vote cured is credited again, the prior
+    # behaviour.  Confidence only — no value, rank or tier reads it.
+    _cured_rejection_guard = _feature_flags.is_enabled("confidence_cured_rejection_guard")
     if _outlier_policy_on:
         from src.api import outlier_policy as _outlier_policy  # noqa: PLC0415
     # IDP deep-tail native-value challenger ``idp-deep-tail-native-v1``
@@ -13539,6 +13858,7 @@ def _compute_unified_rankings(
         # artificial agreement that the Hampel statistic mis-reads as
         # outliers across the synthetic vs. real-source values.
         hampel_dropped_keys: list[str] = []
+        cured_now: list[str] = []
         # ``idp-hampel-n3-v1`` (default OFF) changes ONLY this minimum, and
         # only on IDP rows; with the flag off it is ``_HAMPEL_MIN_N``.
         _hampel_min_n = (
@@ -13631,12 +13951,16 @@ def _compute_unified_rankings(
                     meta["hampelDropped"] = True
         players_array[row_idx]["droppedSources"] = list(hampel_dropped_keys)
         if withheld_pairs:
-            row_lost_seats[row_idx] = _lost_evidence_seats(
+            _lost = _lost_evidence_replay(
                 voting_pairs=[(k, v) for k, v, _ in all_value_pairs],
                 withheld_pairs=withheld_pairs,
                 dropped_now=hampel_dropped_keys,
                 outlier_test_applies=not row_is_pick,
                 exact_replay=not _joint_challenger,
+                # The replay is the incumbent Hampel (or the outlier policy's
+                # own replay); under a rank-space challenger the blend ran a
+                # different filter, so a disagreement is not a cured rejection.
+                cured_identifiable=not (_rank_space_challenger or _rank_space_per_vote),
                 replay=(
                     _outlier_policy.replay_dropped(
                         curve=_outlier_policy.scope_curve(players_array[row_idx].get("assetClass")),
@@ -13649,6 +13973,9 @@ def _compute_unified_rankings(
                     else None
                 ),
             )
+            row_lost_seats[row_idx] = _lost.seats
+            if _cured_rejection_guard:
+                cured_now = _lost.cured
         # Observations present but not voting because their effective weight
         # is 0 (quarantined staleness or FAILED health) — named separately
         # from Hampel drops, because "stale" and "outlier" are different facts.
@@ -13704,6 +14031,25 @@ def _compute_unified_rankings(
                 meta["supersededBy"] = winner
             del kept_keys
 
+        # Cured rejections earn the confidence gate nothing (see
+        # ``_lost_evidence_replay``): no head, and a SEAT for a family left
+        # with no credited member, so the family still counts against every
+        # share axis exactly as it did while credited — removing it outright
+        # would shrink the share denominators and could PROMOTE the row (a
+        # disagreeing cured vote dropped from the agreement panel).  Never the
+        # WHOLE credited panel: if every source the gate would credit is
+        # cured, the gate would see no family and answer "no evidence covers
+        # this asset", which is false of a row its voters priced — that case
+        # keeps the prior answer.  The stamp names each uncredited source on
+        # its own provenance record, so it travels with ``sourceRankMeta``
+        # (and merges with it in the delta).
+        if cured_now and {k for k, _v, _a in family_kept} - set(cured_now):
+            row_cured_rejections[row_idx] = list(cured_now)
+            row_lost_seats[row_idx] = list(row_lost_seats.get(row_idx, ())) + list(cured_now)
+            for sk in cured_now:
+                meta = row_source_meta[row_idx].get(sk, {})
+                meta["confidenceUncredited"] = "rejected_with_withheld_votes"
+
         # Three counts, named for what they each mean.  ``sourceCount``
         # (stamped elsewhere) stays the raw matched-key count, because it
         # answers a COVERAGE question — "did the scrape reach this row".
@@ -13726,6 +14072,18 @@ def _compute_unified_rankings(
             players_array[row_idx],
             voting={k: row_weight.get(k, 0.0) for k, _v, _a in family_kept},
             base=base_weights,
+        )
+        _row_site_values = players_array[row_idx].get("canonicalSiteValues") or {}
+        players_array[row_idx]["sourceAuthorityReasons"] = _source_authority_reasons(
+            row_source_meta.get(row_idx) or {},
+            is_pick=row_is_pick,
+            source_weighting=source_weighting,
+            freshness_applied=_freshness_applied,
+            held_observed=sorted(
+                k
+                for k in _policy_held
+                if isinstance(_row_site_values, dict) and _row_site_values.get(k) is not None
+            ),
         )
 
         # Coverage diagnostic (2026-04-20 override): soft-fallback
@@ -14302,6 +14660,7 @@ def _compute_unified_rankings(
                 family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
+                uncredited=row_cured_rejections.get(row_idx, ()),
             )
             withheld = _withheld_family_evidence_for_row(
                 seats=row_lost_seats.get(row_idx, ()),
@@ -14505,6 +14864,7 @@ def _compute_unified_rankings(
                 family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
                 content_freshness_applies=_freshness_applied,
+                uncredited=row_cured_rejections.get(row_idx, ()),
             )
             withheld = _withheld_family_evidence_for_row(
                 seats=row_lost_seats.get(row_idx, ()),
@@ -16703,6 +17063,8 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "dominantSource",
     "dominantSourceShare",
     "freshnessExcludedSources",
+    # Per-source reason codes behind ``retainedAuthority`` (diagnostic).
+    "sourceAuthorityReasons",
     "pickEvidence",
     # Canonical KTC Market block — its ``normalizedValue`` is board-scale,
     # and the model-vs-market gap above is override-sensitive.

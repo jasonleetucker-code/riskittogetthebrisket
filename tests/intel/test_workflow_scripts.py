@@ -56,6 +56,9 @@ def _run_snippet(source: str, payload: dict, tmp_path: Path) -> subprocess.Compl
         input=source,
         capture_output=True,
         text=True,
+        # The workflow snippet contains non-ASCII; Python reads ``-`` as UTF-8,
+        # so encode it as UTF-8 rather than the locale code page (cp1252).
+        encoding="utf-8",
         timeout=30,
     )
 
@@ -152,6 +155,7 @@ class TestTriggerDecision:
             input=trigger_script,
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=30,
         )
         assert proc.returncode == 0

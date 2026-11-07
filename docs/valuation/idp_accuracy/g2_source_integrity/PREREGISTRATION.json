@@ -1,0 +1,67 @@
+{
+ "schema": "g2-idp-source-integrity-prereg/v1",
+ "registeredBy": "docs/valuation/idp_accuracy/g2_source_integrity/PREREGISTRATION.md",
+ "heldOut": [
+  "dynasty_export_20261020_173527.zip"
+ ],
+ "development": [
+  "dynasty_export_20261018_161125.zip",
+  "dynasty_export_20261019_201546.zip",
+  "dynasty_export_20261020_052241.zip"
+ ],
+ "prospectiveHeldOut": "complete boards added to main by the automated data refresh at or after 2026-12-09T00:00:00Z (after the latest possible end of the Outlier Integrity V2.1 held-out window); not evaluated in this PR",
+ "seed": 20261027,
+ "variants": {
+  "served": "registry defaults (DLF IDP hold ON)",
+  "dlfRestored": "dlf_offense_only_vote OFF in-process only"
+ },
+ "thresholds": {
+  "tauAgree": 0.693147,
+  "tauExtreme": 1.098612,
+  "minOtherProviders": 2,
+  "tauSegment": 0.916291,
+  "segmentMinRows": 15,
+  "basisProbeK": 24,
+  "basisMixedLowSlope": 1.25,
+  "basisMixedHighSlope": 2.0,
+  "basisMixedCollisionShare": 0.25,
+  "stampAfterContentToleranceH": 1.0,
+  "stampBeforeBroadChangeToleranceH": 36.0,
+  "broadChangeMinRows": 5,
+  "broadChangeMinFraction": 0.02,
+  "valueInversionSlack": 1.0,
+  "deepTailIdpRank": 216,
+  "tailSaturationRank": 904,
+  "e6RowCorruptionRecallMin": 0.9,
+  "e6CleanExtremeRateMax": 0.05,
+  "e7SwapRecallMin": 0.8,
+  "e10RuntimeSecondsMax": 60.0
+ },
+ "eGates": {
+  "E1_determinism": "two evaluations of the held-out panel give one digest",
+  "E2_vendor_family": "30 injected vendor-position family errors (family outside Sleeper eligibility): 30/30 flagged vendor_family_mismatch",
+  "E3_sleeper_id": "20 injected id-to-wrong-name rows: 20/20 flagged sleeper_name_mismatch",
+  "E4_shared_entry": "20 injected two-rows-one-vendor-entry joins: 20/20 flagged shared_vendor_entry",
+  "E5_segment_scale": "x5 and x0.2 on every evaluable, unshifted (provider, family) segment: all flagged",
+  "E6_row_corruption": "200 single votes x8 or /8, one per row, rows with >=3 providers: recall >= 0.90 as extreme, AND clean extreme rate <= 0.05",
+  "E7_wrong_player_swap": "up to 100 one-provider vote swaps between same-family rows whose votes differ >= 4x, one per row: recall >= 0.80 (either row extreme); fewer than 20 swaps constructible = INSUFFICIENT, never pass",
+  "E8_rank_inversion": "20 single translation inversions, one per panel: 20/20 flagged",
+  "E9_stale_stamp": "synthetic stamp-after-content / stamp-before-broad-change / consistent triple classified exactly",
+  "E10_runtime": "one evaluation <= 60 s",
+  "E11_rank_basis_restart": "for every evaluable unmixed source, restarting its deepest family at 1..n is flagged rank_basis_mixed"
+ },
+ "bGates": {
+  "B1_identity": "0 identity DEFECT findings on the served held-out build",
+  "B2_normalization": "0 translation inversions, 0 value inversions, 0 non-positive votes, 0 rank_basis_mixed on any IDP source",
+  "B3_stale": "every IDP source with a vendor CSV is consistent or not_evaluable",
+  "B4_attribution": "0 extreme votes attributed data_error_corroborated",
+  "B5_false_exclusions": "0 false-exclusion candidates on the served build",
+  "B6_segments": "0 shifted (provider, family) segments on the served build",
+  "B7_missing_never_zero": "0 priced IDP rows with no vote and 0 non-positive published IDP values",
+  "B8_lineage": "0 IDP sources without a lineage provider"
+ },
+ "predictions": {
+  "P1_dlfRestored_false_exclusions": ">= 20 false-exclusion candidates under dlfRestored (the V2 root cause replicates on a fresh build)",
+  "P2_draftSharks_family_dominance": "draftSharksIdp shows familyDominanceOnly (LB-heavy combined list), not rank_basis_mixed"
+ }
+}

@@ -1,0 +1,182 @@
+{
+  "schemaVersion": "research-sim-points-v3",
+  "kind": "RESEARCH_CANDIDATE_NOT_SERVED",
+  "promotes": false,
+  "evaluatedWeek": 5,
+  "model": {
+    "source": "research-v3-challenger",
+    "meanByFamily": {
+      "DB": {
+        "a": 6.526822,
+        "b": 3.236165,
+        "mode": "ols",
+        "n": 375
+      },
+      "DL": {
+        "a": 5.496047,
+        "b": 3.375635,
+        "mode": "ols",
+        "n": 288
+      },
+      "K": {
+        "a": 8.614835,
+        "b": 0.889011,
+        "mode": "ols",
+        "n": 78
+      },
+      "LB": {
+        "a": 9.421151,
+        "b": 2.726982,
+        "mode": "ols",
+        "n": 344
+      },
+      "QB": {
+        "a": 13.668224,
+        "b": 5.412997,
+        "mode": "ols",
+        "n": 131
+      },
+      "RB": {
+        "a": 3.135919,
+        "b": 7.497079,
+        "mode": "ols",
+        "n": 298
+      },
+      "TE": {
+        "a": 3.472081,
+        "b": 4.044928,
+        "mode": "ols",
+        "n": 214
+      },
+      "WR": {
+        "a": 3.922103,
+        "b": 6.037248,
+        "mode": "ols",
+        "n": 442
+      }
+    },
+    "pooledMean": {
+      "a": 0.0,
+      "b": 10.513995,
+      "n": 2170
+    },
+    "reAnchored": false,
+    "cvByFamily": {
+      "DB": 0.915,
+      "DL": 1.03,
+      "K": 1.2,
+      "LB": 0.745,
+      "QB": 0.76,
+      "RB": 1.04,
+      "TE": 1.2,
+      "WR": 1.09
+    },
+    "pooledCv": 1.075,
+    "rawFamily": {},
+    "tauL2": 0.000632,
+    "tauR2": 0.008837
+  },
+  "fit": {
+    "fitWeeks": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "fitPlayerWeeks": 2170,
+    "prequentialPlayerWeeks": 1614,
+    "prequentialWeeks": [
+      2,
+      3,
+      4
+    ],
+    "cv": {
+      "LB": {
+        "cv": 0.745,
+        "n": 258,
+        "measured": true,
+        "meanLogScore": -3.50303
+      },
+      "DB": {
+        "cv": 0.915,
+        "n": 284,
+        "measured": true,
+        "meanLogScore": -3.37742
+      },
+      "WR": {
+        "cv": 1.09,
+        "n": 320,
+        "measured": true,
+        "meanLogScore": -3.35012
+      },
+      "QB": {
+        "cv": 0.76,
+        "n": 99,
+        "measured": true,
+        "meanLogScore": -3.86365
+      },
+      "TE": {
+        "cv": 1.2,
+        "n": 155,
+        "measured": true,
+        "meanLogScore": -3.21829
+      },
+      "RB": {
+        "cv": 1.04,
+        "n": 222,
+        "measured": true,
+        "meanLogScore": -3.41252
+      },
+      "DL": {
+        "cv": 1.03,
+        "n": 217,
+        "measured": true,
+        "meanLogScore": -3.33568
+      },
+      "K": {
+        "cv": 1.2,
+        "n": 59,
+        "measured": true,
+        "meanLogScore": -4.43663
+      }
+    },
+    "pooledCv": {
+      "cv": 1.075,
+      "n": 1614,
+      "meanLogScore": -3.4719089394902927
+    },
+    "shocks": {
+      "tauL2": 0.0006323984501563224,
+      "tauR2": 0.00883676696658751,
+      "tauL2Raw": 0.0006323984501563224,
+      "tauW2Raw": 0.009469165416743834,
+      "pairsCross": true,
+      "residualPlayerWeeks": 1614
+    },
+    "cIdioByFamily": {
+      "DB": 0.9098,
+      "DL": 1.0254,
+      "K": 1.196,
+      "LB": 0.7386,
+      "QB": 0.7537,
+      "RB": 1.0354,
+      "TE": 1.196,
+      "WR": 1.0856
+    }
+  },
+  "note": "Family anchors are inputs of the evaluated week (mean as-of rosValue over its pool, \u00a73.1) and are attached at evaluation time; they are not part of this file.",
+  "study": {
+    "promotes": false,
+    "status": "RESEARCH_CANDIDATE_NOT_SERVED",
+    "cardFingerprint": "sf1:9e51824690d091f9",
+    "codeSha": "75c6206790da8bf171566e8c8cb9448f8f127cf1",
+    "studyCodeDirty": false,
+    "scriptSha256": "b55b29d7cef0dbbbd41e24d7134052526e823cd637b58b3667fb6b6ee876e278",
+    "preregistration": {
+      "path": "docs/league-intelligence/SIM_CALIBRATION_V3_PREREGISTRATION_2026-10-27.md",
+      "commit": "c52ff4d7f0b41e27a6422f25ad4b661d8d145f1f",
+      "committedAt": "2026-10-27T05:10:03-04:00",
+      "isAncestorOfCodeSha": true
+    }
+  }
+}

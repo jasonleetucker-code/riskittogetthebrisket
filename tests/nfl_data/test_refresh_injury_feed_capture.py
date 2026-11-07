@@ -227,7 +227,7 @@ def test_proven_empty_report_is_real_and_recorded_and_recovers_in_shadow_only(en
 
 def test_archive_failure_does_not_fail_the_refresh(env):
     blocker = env["prior"].parent / "blocker"
-    blocker.write_text("x")
+    blocker.write_text("x", encoding="utf-8")
     env["monkeypatch"].setenv("RISKIT_INJURY_HISTORY_DIR", str(blocker / "sub"))
     _fetch_writes_cache(env, [_entry("1", "Alpha Player", "OUT")])
 

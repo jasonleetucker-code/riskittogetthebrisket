@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { Card } from "../shared-server.jsx";
+import OddsExperimentalNote from "@/components/league/OddsExperimentalNote";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
@@ -98,6 +99,7 @@ export default function RosTradeDeadlineSection() {
 
   return (
     <Card title="Trade Deadline Dashboard">
+      <OddsExperimentalNote />
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
         Read-only Buyer/Seller direction per team based on ROS playoff +
         championship odds + team strength + roster age. Informational only —

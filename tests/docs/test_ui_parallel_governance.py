@@ -44,11 +44,14 @@ class UIParallelGovernanceTests(unittest.TestCase):
 
     def test_deleting_each_required_document_fails(self) -> None:
         for path in list(self.root.rglob("*.md")):
-            with self.subTest(document=str(path.relative_to(self.root))):
+            # ``as_posix``: the checker names documents with ``/`` on every
+            # platform, while ``str()`` of a Windows path uses ``\``.
+            relative = path.relative_to(self.root).as_posix()
+            with self.subTest(document=relative):
                 text = path.read_text(encoding="utf-8")
                 path.unlink()
                 self.assertTrue(self.failures())
-                self.assertIn(str(path.relative_to(self.root)), "\n".join(self.failures()))
+                self.assertIn(relative, "\n".join(self.failures()))
                 path.write_text(text, encoding="utf-8")
 
     def test_empty_or_unreadable_contract_and_ledger_fail(self) -> None:

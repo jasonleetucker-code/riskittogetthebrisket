@@ -167,3 +167,34 @@ def test_points_for_preview_is_labelled_and_flags_ties(env, monkeypatch):  # noq
     # previewing changes nothing
     state, _, _ = st.load(room)
     assert state["order"] == [f"S{i}" for i in range(1, 13)]
+
+
+def _rewrite_budget_provenance(st, room, **changes):
+    import json
+
+    with st.write() as conn:
+        row = conn.execute("SELECT state_json FROM rooms WHERE id=?", (room,)).fetchone()
+        state = json.loads(row["state_json"])
+        state["budget_provenance"].update(changes)
+        conn.execute("UPDATE rooms SET state_json=? WHERE id=?", (json.dumps(state), room))
+
+
+def test_preflight_names_whose_budgets_these_are(env):  # noqa: F811
+    """LI1842-DEFECT-13: a receipt whose dollars are another league's fails the
+    check; a pre-fix receipt that names no league is a warning, never ok."""
+    import sys
+
+    st, app = env
+    sys.modules["server"].latest_contract_data["meta"] = {"leagueKey": "dynasty_main"}
+    owner = _owner_client(app)
+    room = _make_room(owner, bots=True)["roomId"]  # league seats + draft-capital budgets
+    keys = {i["key"]: i for i in owner.get(f"/api/auction/rooms/{room}/preflight").json()["items"]}
+    assert "budget_league" not in keys  # same league: nothing to report
+
+    _rewrite_budget_provenance(st, room, leagueKey="dynasty_new", leagueMismatch=None)
+    keys = {i["key"]: i for i in owner.get(f"/api/auction/rooms/{room}/preflight").json()["items"]}
+    assert keys["budget_league"]["status"] == "fail"
+
+    _rewrite_budget_provenance(st, room, leagueKey=None)
+    keys = {i["key"]: i for i in owner.get(f"/api/auction/rooms/{room}/preflight").json()["items"]}
+    assert keys["budget_league"]["status"] == "warn"

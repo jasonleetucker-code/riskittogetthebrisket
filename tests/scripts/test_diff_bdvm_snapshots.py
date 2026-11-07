@@ -64,7 +64,8 @@ def _write_snapshot(path: Path, records: list[dict], season=2026, as_of="2026-08
     path.write_text(
         json.dumps(
             {"asOf": as_of, "season": season, "recordCount": len(records), "records": records}
-        )
+        ),
+        encoding="utf-8",
     )
 
 
@@ -172,7 +173,7 @@ def test_missing_snapshot_file_raises(tmp_path):
 
 def test_malformed_json_raises(tmp_path):
     bad = tmp_path / "bad.json"
-    bad.write_text("{not valid json")
+    bad.write_text("{not valid json", encoding="utf-8")
     try:
         _mod.load_snapshot_payload(bad)
         raise AssertionError("expected SnapshotDiffError")

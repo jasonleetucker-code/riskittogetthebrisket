@@ -3,82 +3,58 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-10-26 ~14:30Z.** Agent-OS-Receipt `cb64f74c`. Concurrency limit: four workers (owner 2026-10-26).
-No subagents are running.
+**As of 2026-11-07 ~05:15Z.** Agent-OS-Receipt `741230de`. Session `session_01BGLcxPv9489uMYWnm3GbTF`.
 
-## Merged + live
-- **#1939** (squash `6eddc569f`, merged 11:33Z): the scheduled refresh is pinned to ubuntu-24.04.
-  - **Production:** `/api/status .build.commit` = `6eddc569f`, process started 13:07:59Z.
-  - **Verified:** refresh run 40325142841 (dispatched 12:46Z) ran on 24.04.
-    - The `_last_success` stamps for `ktc*` and `idpTradeCalc` moved to 12:50:16Z, and `draftSharks*` to 12:52:55Z.
-    - Content changed for KTC and DraftSharks IDP (12:53:33Z).
-    - IDPTC content stays at 2026-10-10. That is vendor staleness, not a fetch failure.
-    - The evidence is posted on #1939.
-- **Nightly E2E:** run 40329220180 (13:16Z) was green. Issue #1918 is closed.
+## Mode
+- Two owner directives of 2026-11-06, one program:
+  - Sitewide remediation: `docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md`; intake MD-38 … MD-46.
+  - Continuous QA / feature-intent verification: `docs/owner/CONTINUOUS_QA_DIRECTIVE_2026-11-06.md`; intake
+    MD-47 … MD-55; permanent process `docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md`.
+- Inventory CW-01 … CW-53 (`docs/audits/remediation_2026-11-06/`; `build_inventory.py` then `--check`); delegated
+  decisions DD-01 … DD-16. Owner granted standing permission to merge anything ready (green CI + independent review).
 
-## Draft PRs from this session (none merged)
-Every PR in this table had an independent review, with findings fixed afterwards unless noted.
+## Production (verified 2026-11-07 ~05:12Z, public endpoints)
+- `/api/status` build.commit `405bc35a` (main through #2102; includes #2096 W06 fix, #2094 W20-F005, #2097, #2087
+  security fix, #2055 next 16.4.3). `/api/health` 200. Scrape success 03:39:57Z. `box_resources` live (#2062):
+  0 Chromium processes; cgroup memory 743–2,531 MiB of 3,072 across the night (peaked right after a deploy+scrape,
+  then fell back — reclaimable, not a leak trend).
+- Box memory figures are from `/api/status` `box_resources` reads at ~00:09Z, ~01:15Z, ~03:14Z and ~05:12Z.
+- Not verifiable without a signed-in session: W06 ghost rows gone from the served board (`/api/data` is 401),
+  "Market Disagreement" copy, Monte Carlo framing, Terminal pick values, /phases sentence. #2103 (CLAUDE.md +
+  /phases) merged 05:09Z and deploys next.
+- `backup_health.stateBackup` still unverifiable / permission_denied: needs the box operator (below).
 
-| PR | head | review | what |
-|---|---|---|---|
-| #1950 | `1e99a02c0` | APPROVE_WITH_NITS; 6 findings fixed | Auction Phase 2 + security follow-ups; supersedes #1533 |
-| #1951 | `7e6b0ef9f` (on #1948) | APPROVE_WITH_NITS; nits fixed | LI1842 defects 01/03/04/06/09/10/11 |
-| #1948 | `155f6d505` | APPROVE_WITH_NITS; nits fixed | config propagation matrix + metamorphic tests |
-| #1952 | `52f373b94` | APPROVE_WITH_NITS; hardened | ESPN injuries parse 274 of 800 (was 0); shadow events only |
-| #1953 | `8bd2cbbc5` | APPROVE_WITH_NITS | refresh browser-source signals; release-gate entry fixed |
-| #1954 | `1fd4a5770` | APPROVE_WITH_NITS | Settings value-basis truthful; waiver-compare charset |
-| #1955 | `2dbf1fd49` | APPROVE_WITH_NITS | aiohttp/certifi/pillow with lock refresh; prove-* green; supersedes #1855/#1895/#1896 |
-| #1956 | `f606ba310` | APPROVE_WITH_NITS | `/api/health` reads the real DLF session jar |
-| #1957 | `c0e535e2e` | APPROVE_WITH_NITS; hardened | Sharp 404s no longer trip the breaker |
-| #1958 | `c741ae050` | APPROVE_WITH_NITS | ROS kept-previous status + content clock; coercion fixed |
-| #1959 | `667274f26` | APPROVE_WITH_NITS; nits fixed | BDVM refresh honest status; IDP Show parser to shadow |
-| #1960 | `748d20a0a` | — | audit report + inventory (125 items, 39 defects) |
+## Merged this session (since the 2026-11-06 ~21:10Z handoff)
+#2099 #2055 #2093 #2095 #2092 #2096 (accidentally auto-closed by a "fix #2096" commit keyword, reopened) #2101
+#2102 (CI wall 120→180) #2100 #2103.
 
-Reviews of pre-existing PRs, all posted on the PRs:
-- **APPROVE:** #1935, #1941, #1949.
-- **APPROVE_WITH_NITS:**
-  - #1936, #1940, #1942 (now merged with #1940's head), #1943, #1945 (X2/Q3 relabelled)
-  - #1944, #1946, #1947, #1843
-  - #1938, with an owner decision brief
-- **#1937:** REQUEST_CHANGES, then all five findings fixed at `7c418c4dd`. Replay: only roster 2 (Byron Murphy) differs, and 216 of 216 picks are identical.
+## Open
+- None of ours. Dependabot: #2056 (jsdom major), #2034 (actions), #2033 (e2e harness) — CW-37, unreviewed.
+- #1938 owner-reserved (DD-11).
 
-## Merge order (when authorized)
-1. #1933 (CI unblock), #1934 (Agent OS + handoff)
-2. #1955, #1956, #1953, #1954, #1958, #1952, #1957, #1959, #1950, #1960
-3. #1931, then #1938 (owner decision)
-4. #1935, then #1937 / #1946 / #1949
-5. #1940, then #1942; #1936 / #1941 / #1943 / #1945
-6. #1948, then #1951; #1944, #1947, #1843, #1929
+## Owner / box-operator items
+- Box: `bash deploy/backup/install_state_backup.sh` then `scripts/verify_state_backup_restore.py` (#2064 body); check
+  `systemctl list-timers '*weekly-projection-capture*' '*pre-auction-snapshot*' '*forecast-calibration-ledger*'`;
+  confirm `:8000` is closed.
+- Owner decisions: W12-F006 which alert wins when terminal + BDVM detectors fire for one player in one sweep;
+  W20-F001 which UI consumes `/api/gameplan`; gated methodology repairs W13-F003 (BDVM saturation), W27-F001 (one IDP
+  edge), W27-F005 (TE skew), W10-F003 (retire/reseed old panel), W30-F008 (Hill denominator); DD-11 #1938; DD-14 DFS
+  timer. Dependabot alert #149 (low).
 
-Close #1533 after #1950 merges, and #1855 / #1895 / #1896 after #1955 merges.
-
-## Owner decisions pending
-- **#1938 nflverse scorer fixes.** Recommended: ship WITH the special-teams de-dup, after a box before/after of
-  `run_valuation` plus the alert sweep. There is no flag; rollback is a revert.
-- **Activations into BDVM:**
-  - injury events (#1952);
-  - IDP Show projections (#1959 switch);
-  - a ROS content-clock freshness multiplier (#1958).
-- **LI1842 open defects:** 02 TE multiplier, 05, 07 roster cap, 08 POST leagueKey, 12 trade_deadline,
-  13 auction provenance.
-  - Defect 07 may be taxi accounting: 24 roster positions + 3 taxi = 27.
-  - Should `/api/intel/leads` return 503 for a league whose data isn't loaded, or just leave out the fit/value terms?
-- **Credentials and signals:**
-  - provide `SHARP_SMOKE_TOKEN` (the smoke check has never measured anything);
-  - run red after a browser source is preserved for N runs (#1953);
-  - Sharp crawl exit-code semantics (#1957).
-- **Housekeeping:** #804 capture cadence; DFS tick while DFS is paused; retire the Codex OneDrive orchestrator.
-- **Earlier, still open:**
-  - cut-ladder tie-break (#1945 X2) and forced-drop activation (recommended: not yet)
-  - Public Waiver Wire scope
-  - IDP Show board swap
-  - 2026 holdout; 17-game re-run
-  - lineage census box run
-  - backend memory canary
+## Next dependency-ready units
+CW-40: 59 P1 findings still unadjudicated per the 2026-11-06 recount (41 rotted repros, 18 unsafe; not re-measured since), separate from the adjudicated open/partial items; W26-F003 `/draft` no-store needs a live-draft
+freshness check first; W25-F003 display half (doc half closed by #2103; unpriced rows still get a `#` ordinal, `it.fails` pinned). CW-49: FAAB anchor
+derivation + market layer, ROS/BDVM oracles. CW-53: suite duration (shared-state audit of slowest files →
+`pytest-xdist --dist loadfile`). CW-37: dependency batches. CW-48: requirement joins. CW-52: dead-code census.
 
 ## Hazards
-- **Disk:** about 121 GB free after removing 48 clean, pushed worktrees and the regenerable folders. 44 dirty or
-  unpushed worktrees remain (some are Codex's). Inspect before deleting.
-- **Git:** never `git stash`; commit explicit paths only; never junction `node_modules`.
-- **Deploys:** only the newest pending run in the `production-deploy` group survives, so confirm what is live from
-  `/api/status .build`.
+- NEVER write "fix/fixes/closes/resolves #<open PR>" in a commit message or PR body: GitHub closes that PR on merge
+  (it closed #2096 on 2026-11-06).
+- Full Validate PR now takes ~105–114 min (wall 180 since #2102). `pytest -x`: one failure hides the rest.
+- Python formatting ONLY via `bash scripts/format_python_changes.sh` (pinned Ruff 0.6.9). Every Python text IO passes
+  `encoding="utf-8"` (the guard failed #2092 at 67%).
+- Local Node 22 vs CI Node 20 (getter-only `navigator`, #2098). jsx vitest files must live under
+  `frontend/__tests__/components/` (jsdom project).
+- Squash-merged stacked branches conflict add/add on merge-back: keep the branch side for files it changed.
+- `config/coercion_baseline.json`: edit by hand, never `--write-baseline`. Receipted blob
+  `scripts/idp_opportunity_prospective.py` = `beb7640f`. Never `git stash`. Remove finished worktrees.

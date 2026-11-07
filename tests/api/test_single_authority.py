@@ -10,19 +10,22 @@ No other code path may override canonicalConsensusRank, rankDerivedValue,
 canonicalTierId, sourceRanks, confidenceBucket, anomalyFlags,
 isSingleSource, or hasSourceDisagreement AFTER build_api_data_contract()
 has produced the playersArray.
+
+The contract-shaped tests read the newest archived scrape the contract's own
+source-health definition calls complete
+(``tests.archive_fixtures.newest_complete_contract``) rather than today's
+``exports/latest``: they pin properties of our code, so a provider that did
+not answer must not fail them, and they run in the hard gate (CLAUDE.md "CI has
+two lanes").
 """
 
 from __future__ import annotations
 
-import json
 import unittest
-from pathlib import Path
 from typing import Any
 
-from src.api.data_contract import (
-    build_api_data_contract,
-    assert_ranking_coherence,
-)
+from src.api.data_contract import assert_ranking_coherence
+from tests.archive_fixtures import newest_complete_contract
 
 
 # ── Authoritative fields that MUST be present on ranked rows ────────────
@@ -45,13 +48,9 @@ AUTHORITATIVE_FIELDS = (
 
 
 def _load_live_contract() -> dict[str, Any] | None:
-    data_path = Path(__file__).resolve().parents[2] / "exports" / "latest"
-    json_files = sorted(data_path.glob("dynasty_data_*.json"), reverse=True)
-    if not json_files:
-        return None
-    with json_files[0].open() as f:
-        raw = json.load(f)
-    return build_api_data_contract(raw)
+    """The newest COMPLETE archived board (read-only, shared across modules)."""
+    contract, _name = newest_complete_contract()
+    return contract
 
 
 class TestSingleAuthority(unittest.TestCase):
@@ -62,7 +61,7 @@ class TestSingleAuthority(unittest.TestCase):
     def test_all_authoritative_fields_present(self):
         contract = _load_live_contract()
         if contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         pa = contract.get("playersArray", [])
         ranked = [r for r in pa if r.get("canonicalConsensusRank")]
 
@@ -80,7 +79,7 @@ class TestSingleAuthority(unittest.TestCase):
         """Value must monotonically decrease with rank."""
         contract = _load_live_contract()
         if contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         pa = contract.get("playersArray", [])
         ranked = sorted(
             [r for r in pa if r.get("canonicalConsensusRank")],
@@ -92,7 +91,7 @@ class TestSingleAuthority(unittest.TestCase):
     def test_no_duplicate_ranks(self):
         contract = _load_live_contract()
         if contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         pa = contract.get("playersArray", [])
         ranks = [r["canonicalConsensusRank"] for r in pa if r.get("canonicalConsensusRank")]
         self.assertEqual(len(ranks), len(set(ranks)), "Duplicate ranks detected")
@@ -109,7 +108,7 @@ class TestSingleAuthority(unittest.TestCase):
         """
         contract = _load_live_contract()
         if contract is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         pa = contract.get("playersArray", [])
         ranked = sorted(
             [r for r in pa if r.get("canonicalConsensusRank") is not None],

@@ -357,6 +357,12 @@ CANONICAL_NAME_ALIASES: dict[str, str] = {
     # pre-2024 name; player renamed Justin → Nnamdi (DL, BAL, 28)
     "robert henry": "rob henry",  # DS/FP "Robert Henry Jr." ↔ pool
     # "Rob Henry" (RB, UTSA UDFA → WAS, age 24 on both sides)
+    # ── 2026-10-27 G2-D2 (PR #1998 RESULTS.md §3) ──────────────────────
+    "jt tuimoloau": "jaylahn tuimoloau",  # IDPTC/DS/idpShow "JT" (his
+    # common name) ↔ Sleeper "Jaylahn" (DL/ED, IND, Sleeper 12594, the
+    # only Tuimoloau in the pool).  The scraper attached IDPTC through
+    # its (initial, last) rung; the contract CSV join is exact-key only,
+    # so Draft Sharks' identical "JT Tuimoloau" never reached the row.
 }
 
 
@@ -820,3 +826,47 @@ def is_first_name_variant(a: object, b: object) -> bool:
     if len(shorter) < _MIN_VARIANT_PREFIX:
         return False
     return longer.startswith(shorter)
+
+
+def unique_identified_first_name_variant(
+    name: object,
+    rows: dict,
+    *,
+    position_of=None,
+    preferred_position: object | None = None,
+    candidate_ok=None,
+) -> str | None:
+    """The ONE identified row ``name`` is a first-name variant of, else ``None``.
+
+    The creation-path twin of the scraper's dedup "Second rung: first-name
+    drift (W06-F001)": same rule (:func:`is_first_name_variant`), same
+    identity gate (a candidate must carry a ``_sleeperId``), same fail-closed
+    posture (zero or several candidates -> ``None``).  It exists so the
+    must-have rookie guarantee, which runs AFTER that rung, does not mint a
+    new id-less row for a human the board already holds (Matthew Hibner beside
+    Matt Hibner).  When both positions are known they must agree after
+    :func:`normalize_position`; an unknown position never blocks, a known
+    conflict always does.  ``name`` itself is never returned (an exact row is
+    the caller's own exact-match path).
+
+    ``candidate_ok`` (optional) is an extra evidence gate applied BEFORE the
+    uniqueness count: a candidate it rejects is not the same human.  The
+    must-have guarantee passes "verified rookie (Sleeper ``years_exp == 0``)"
+    because its input is a bare list name with no row, no votes and usually
+    no position -- without it a rookie "Chris Smith" could fold into a veteran
+    "Christian Smith".  An unknown answer must be passed as a rejection.
+    """
+    pref = normalize_position(preferred_position)
+    matches = []
+    for cand, entry in rows.items():
+        if cand == name or not isinstance(entry, dict) or not entry.get("_sleeperId"):
+            continue
+        if not is_first_name_variant(name, cand):
+            continue
+        if candidate_ok is not None and not candidate_ok(cand):
+            continue
+        cand_pos = normalize_position(position_of(cand)) if position_of else ""
+        if pref and cand_pos and pref != cand_pos:
+            continue
+        matches.append(cand)
+    return matches[0] if len(matches) == 1 else None

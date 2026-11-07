@@ -257,11 +257,13 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         self.assertIsNone(dlf["position_group"])
         # DLF's published board is a top-185 NFL veteran cut and is
         # registered with that depth so ``_expected_sources_for_position``
-        # can prune DLF from the structural-coverage set for college
-        # rookies and deep-bench veterans.  ``excludes_rookies`` is
-        # the second half of the same fix.
+        # can prune DLF from the structural-coverage set for deep-bench
+        # veterans.  ``excludes_rookies`` is False since G2-D3 (PR
+        # #1998): DLF's own CSV ranks rookies (Jacob Rodriguez 9th), so
+        # the board is expected to cover them — pinned against the CSV
+        # by ``tests/sources/test_excludes_rookies_matches_csv.py``.
         self.assertEqual(dlf["depth"], 185)
-        self.assertTrue(dlf.get("excludes_rookies"))
+        self.assertFalse(dlf.get("excludes_rookies"))
         # All registered sources are declared at weight 1.0 so the
         # blend is an honest equal-weight consensus of every source
         # with coverage.  See the registry note in data_contract.py.

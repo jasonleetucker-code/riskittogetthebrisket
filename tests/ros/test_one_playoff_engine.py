@@ -241,7 +241,7 @@ def test_three_surfaces_publish_one_answer_from_the_scheduled_file(engine):
     sims = engine.tmp / "sims"
     sims.mkdir()
     (sims / "dynasty_parity_playoff.json").write_text(
-        json.dumps({"computedAt": "2026-10-07T17:39:24+00:00", **forecast})
+        json.dumps({"computedAt": "2026-10-07T17:39:24+00:00", **forecast}), encoding="utf-8"
     )
     with patch.object(playoff_sim, "simulate_playoff_odds", side_effect=AssertionError):
         public, ros, champ = _served(snap)
@@ -271,8 +271,8 @@ def test_the_scrape_writes_both_files_from_one_simulation(engine, monkeypatch):
     cfg = SimpleNamespace(key="dynasty_parity", sleeper_league_id="LPARITY", best_ball=False)
     out = scrape._refresh_sim_caches_for_league(cfg, "dynasty_main")
     assert calls["n"] == 1
-    playoff = json.loads(out["playoff"].read_text())
-    champ = json.loads(out["championship"].read_text())
+    playoff = json.loads(out["playoff"].read_text(encoding="utf-8"))
+    champ = json.loads(out["championship"].read_text(encoding="utf-8"))
     assert champ["computedAt"] == playoff["computedAt"]
     by_owner = {r["ownerId"]: r for r in playoff["playoffOdds"]}
     for row in champ["championshipOdds"]:
@@ -291,7 +291,7 @@ def test_a_stale_week_file_is_not_laid_beside_a_newer_record(engine):
     assert stale["regularSeasonProgress"]["weeksFinal"] == 3
     sims = engine.tmp / "sims"
     sims.mkdir()
-    (sims / "dynasty_parity_playoff.json").write_text(json.dumps(stale))
+    (sims / "dynasty_parity_playoff.json").write_text(json.dumps(stale), encoding="utf-8")
     public, ros, champ = _served(snap)
     assert ros["cached"] is False
     assert ros["regularSeasonProgress"]["weeksFinal"] == 4 == public["weeksPlayed"]

@@ -41,6 +41,7 @@ from src.identity.picks import (
     PICK_OWNERSHIP_UNAVAILABLE,
     league_pick_owner_index,
     lookup_league_pick_owner,
+    parse_league_pick_id,
     team_pick_ownership_unavailable_reason,
 )
 
@@ -365,6 +366,10 @@ def _resolve_asset(
     single canonical pick path.  Names without an id keep the name index.
     """
     pid = str(player_id or "").strip() or None
+    # An owned pick whose IDENTITY lands on a board row the pipeline has not
+    # priced: on the board, UNPRICED (``value`` None + ``valueState``), never
+    # off-board and never 0.
+    unpriced = False
     if pid is not None:
         row = (player_rows or {}).get(pid)
         if not row:
@@ -381,7 +386,7 @@ def _resolve_asset(
             # canonical resolver decides the row, so one asset carries one
             # value whichever grammar named it.  Anything unparseable stays
             # unresolved — identity never guesses.
-            row, _res = resolve_pick_board_row(
+            row, res = resolve_pick_board_row(
                 str(name),
                 row_index=row_index,
                 pick_rows=pick_rows,
@@ -389,8 +394,31 @@ def _resolve_asset(
                 pick_slots=pick_slots,
             )
             if not row:
-                return None
-    value = int(_row_value(row))
+                # Identity landed on a board row the pipeline declined to price
+                # (``row_present_but_unpriced`` / alias target missing): the
+                # asset IS on the board, UNPRICED -- not an off-board name
+                # (spec R14d / LANE-E-DEFECT-I13-PICKSTATE).  Only an asset
+                # whose CANONICAL league-pick id is what resolved it: a label
+                # alone never marks a row unpriced, so a label-only pick whose
+                # row is unpriced stays unresolved exactly as before (the War
+                # Room calculator names its picks by label).  No row at all
+                # also stays unresolved: identity never guesses.
+                unpriced_name = res.basis_row_name if res is not None else None
+                if (
+                    asset_id
+                    and unpriced_name
+                    and getattr(res, "value", None) is None
+                    and parse_league_pick_id(str(asset_id).strip()) is not None
+                ):
+                    row = row_index.get(unpriced_name.strip().lower())
+                    unpriced = row is not None
+                if not unpriced:
+                    return None
+    # MISSING IS NEVER ZERO: an unpriced pick carries NO value -- ``None``,
+    # ``valueState: "unpriced"`` -- the marker the N-team engine and the
+    # evidence gates (``trade_decision.asset_is_priced``) already read.  The
+    # ``_row_value`` fall-through to 0 is never consulted for it.
+    value = None if unpriced else int(_row_value(row))
     pos = _normalize_pos(row.get("pos") or row.get("position"))
     age = row.get("age")
     # ``pos`` collapses DL/LB/DB to "IDP" for terminal aggregation;
@@ -400,7 +428,7 @@ def _resolve_asset(
     from src.utils.name_clean import normalize_position
 
     base_pos = normalize_position(row.get("pos") or row.get("position"))
-    return {
+    asset: dict[str, Any] = {
         "name": row.get("displayName") or row.get("canonicalName") or name,
         # The label the CALLER used, kept alongside the board row name.
         # Two roster picks can share a board row ("2027 Mid 1st") while
@@ -412,7 +440,7 @@ def _resolve_asset(
         "basePos": base_pos or pos,
         "value": value,
         "rank": _row_rank(row),
-        "tier": _tier_bucket(value),
+        "tier": _tier_bucket(value) if value is not None else None,
         "age": int(age) if isinstance(age, (int, float)) and age else None,
         "assetClass": row.get("assetClass") or ("pick" if pos == "PICK" else "player"),
         # Canonical stamps, READ never computed: identity for the UI's player
@@ -432,6 +460,11 @@ def _resolve_asset(
         if isinstance(row.get("confidenceAxes"), dict)
         else None,
     }
+    if unpriced:
+        # Additive and ONLY on an unpriced asset: every priced asset's dict is
+        # byte-identical to what it always was.
+        asset["valueState"] = "unpriced"
+    return asset
 
 
 def resolve_trade_asset(
@@ -468,6 +501,14 @@ def resolve_trade_asset(
     )
 
 
+def _priced_value(asset: Mapping[str, Any]) -> int:
+    """The asset's canonical value, or 0 for the SUM of an asset that has none
+    (``value`` None -- an unpriced owned pick).  A summing helper only: the 0
+    never leaves a total, and the asset itself still reads as unpriced."""
+    v = asset.get("value")
+    return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0
+
+
 def _aggregate(assets: list[dict[str, Any]]) -> dict[str, Any]:
     """Compute totalValue / tiers / byPosition for a roster list of
     resolved asset dicts.  Matches the shape ``_compute_portfolio_insights``
@@ -477,9 +518,12 @@ def _aggregate(assets: list[dict[str, Any]]) -> dict[str, Any]:
     tiers = {"elite": 0, "high": 0, "mid": 0, "depth": 0}
     by_position: dict[str, dict[str, int]] = {g: {"count": 0, "value": 0} for g in POS_GROUPS}
     for a in assets:
-        v = int(a.get("value") or 0)
+        v = _priced_value(a)
         total += v
-        tiers[_tier_bucket(v)] += 1
+        if a.get("valueState") != "unpriced":
+            # An unpriced asset is not a "depth" asset: it sits in no value
+            # tier until the board prices it (it still COUNTS in its position).
+            tiers[_tier_bucket(v)] += 1
         bucket = a.get("pos") if a.get("pos") in POS_GROUPS else None
         if bucket:
             by_position[bucket]["count"] += 1
@@ -965,7 +1009,10 @@ def simulate_trade(
     after = _aggregate(after_assets)
     delta = _diff(before, after)
 
-    equity = sum(a["value"] for a in receiving) - sum(a["value"] for a in sending)
+    # An unpriced asset (``value`` None) adds nothing to a total it cannot
+    # price -- the evidence gate (``unpriced_assets``) names it, so the number
+    # is never read as "that asset is worth 0".
+    equity = sum(_priced_value(a) for a in receiving) - sum(_priced_value(a) for a in sending)
 
     response: dict[str, Any] = {
         "team": team_block,

@@ -13,6 +13,7 @@ league.  These tests pin down:
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -139,6 +140,104 @@ def test_default_league_falls_back_to_first_active(tmp_path, monkeypatch):
     league_registry.reload_registry()
 
     assert league_registry.get_default_league().key == "active_one"
+
+
+def _two_leagues(default: str, *, first_active: bool, second_active: bool) -> dict:
+    return {
+        "defaultLeagueKey": default,
+        "leagues": [
+            {
+                "key": "first",
+                "displayName": "First",
+                "sleeperLeagueId": "1",
+                "active": first_active,
+                "rosterSettings": {},
+            },
+            {
+                "key": "second",
+                "displayName": "Second",
+                "sleeperLeagueId": "2",
+                "active": second_active,
+                "rosterSettings": {},
+            },
+        ],
+    }
+
+
+def test_an_explicit_default_is_honoured_when_it_is_active(tmp_path, monkeypatch):
+    """LI1842-DEFECT-10 positive control: the live registry shape is unchanged."""
+    path = _write_registry(tmp_path, _two_leagues("second", first_active=True, second_active=True))
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    assert league_registry.get_default_league().key == "second"
+    assert league_registry.default_league_key() == "second"
+
+
+def test_an_explicit_default_that_is_inactive_is_not_served_implicitly(tmp_path, monkeypatch):
+    """LI1842-DEFECT-10: ``get_default_league`` documents ``defaultLeagueKey``
+    as honoured when set AND active, matching the ``inactive_league`` 400 an
+    explicit request for it gets.  A retired default falls to the first active
+    league instead of answering every implicit request as the home league."""
+    path = _write_registry(tmp_path, _two_leagues("first", first_active=False, second_active=True))
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    assert league_registry.get_default_league().key == "second"
+    assert league_registry.default_league_key() == "second"
+    # ...while the retired league itself is still looked up (and refused by the resolver).
+    assert league_registry.get_league_by_key("first").active is False
+
+
+def test_overriding_an_inactive_explicit_default_is_logged(tmp_path, monkeypatch, caplog):
+    """Review nit on LI1842-DEFECT-10: retiring the league ``defaultLeagueKey``
+    names silently moves every implicit request to another league.  The
+    fallback stays; the silence does not -- one warning names the retired key."""
+    path = _write_registry(tmp_path, _two_leagues("first", first_active=False, second_active=True))
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    with caplog.at_level(logging.WARNING, logger=league_registry.log.name):
+        assert league_registry.get_default_league().key == "second"
+
+    warnings = [
+        r
+        for r in caplog.records
+        if r.name == league_registry.log.name and r.levelno == logging.WARNING
+    ]
+    assert len(warnings) == 1
+    message = warnings[0].getMessage()
+    assert "defaultLeagueKey" in message
+    assert "'first'" in message
+    assert "inactive" in message
+
+
+def test_an_active_or_unset_explicit_default_logs_no_override_warning(
+    tmp_path, monkeypatch, caplog
+):
+    """Negative controls: nothing was overridden, so nothing is reported."""
+    for default, subdir in (("second", "active"), ("", "unset")):
+        folder = tmp_path / subdir
+        folder.mkdir()
+        path = _write_registry(folder, _two_leagues(default, first_active=True, second_active=True))
+        monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+        league_registry.reload_registry()
+        caplog.clear()
+        with caplog.at_level(logging.WARNING, logger=league_registry.log.name):
+            league_registry.get_default_league()
+        assert [r for r in caplog.records if "defaultLeagueKey" in r.getMessage()] == []
+
+
+def test_with_nothing_active_the_first_listed_league_is_still_the_default(tmp_path, monkeypatch):
+    """The documented last resort is unchanged: an all-inactive registry
+    still has a well-defined (if retired) default rather than none."""
+    path = _write_registry(
+        tmp_path, _two_leagues("second", first_active=False, second_active=False)
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    assert league_registry.get_default_league().key == "first"
 
 
 def test_active_leagues_excludes_inactive(tmp_path, monkeypatch):

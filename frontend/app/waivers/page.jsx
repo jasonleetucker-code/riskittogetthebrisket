@@ -32,6 +32,7 @@ import { useSettings } from "@/components/useSettings";
 import { useWaiverAnalysis } from "@/components/useWaiverAnalysis";
 import { waiverBidStateForRow } from "@/lib/waiver-faab";
 import WaiverBidFigure from "@/components/waivers/WaiverBidFigure";
+import RelatedLinks from "@/components/shell/RelatedLinks";
 import styles from "./waivers.module.css";
 
 // Perfect Waivers (C7-WAIV-01) loads on demand: the panel and its fetch stay
@@ -714,6 +715,9 @@ export default function WaiversPage() {
             : "Every unrostered player measured against your roster"
         }
       />
+      {/* The other waiver tools, offered only when their backends answer
+          (capability-gated through nav-model, like the menus). */}
+      <RelatedLinks hrefs={["/waiver-advisor", "/waiver-advisor?mode=streaming"]} />
 
       <ValueBasisNote contract={rawData} />
 

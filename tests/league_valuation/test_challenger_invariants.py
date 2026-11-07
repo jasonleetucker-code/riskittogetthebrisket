@@ -227,8 +227,8 @@ def test_per_player_stale_proxy_and_missing_strategy_return_market():
 # (f) haircut, override, off-cap and blend-integrity rows excluded and unchanged
 def test_structurally_excluded_rows_are_unchanged_and_named():
     path = "tests/fixtures/league_valuation/"
-    rows = json.load(open(path + "synthetic_board.json"))["playersArray"]
-    pl = json.load(open(path + "bdvm_payload.json"))
+    rows = json.load(open(path + "synthetic_board.json", encoding="utf-8"))["playersArray"]
+    pl = json.load(open(path + "bdvm_payload.json", encoding="utf-8"))
     fb = run(rows, pl)
     expected = {
         "player:7002": "quarantined",

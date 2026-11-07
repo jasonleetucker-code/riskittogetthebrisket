@@ -93,6 +93,11 @@ def paths(tmp_path, monkeypatch):
         "COMBINED_UPSTREAM_PATH",
         tmp_path / "data" / "scrape_state" / "idpShowCombined_upstream.json",
     )
+    monkeypatch.setattr(
+        mod,
+        "PLAIN_UPSTREAM_PATH",
+        tmp_path / "data" / "scrape_state" / "idpShow_upstream.json",
+    )
     # Every scenario stubs the network; _build_session's return value is
     # never actually used for a real request once _fetch_article_html /
     # _resolve_latest_version / _fetch_dataset_csv are monkeypatched below.
@@ -103,6 +108,8 @@ def paths(tmp_path, monkeypatch):
         "combined_out": combined_out_path,
         "status": status_path,
         "combined_status": combined_status_path,
+        "upstream": tmp_path / "data" / "scrape_state" / "idpShow_upstream.json",
+        "combined_upstream": tmp_path / "data" / "scrape_state" / "idpShowCombined_upstream.json",
     }
 
 
@@ -232,6 +239,51 @@ class TestExplicitOutcomeStatesPlainBoard:
         assert status["usable"] is True
         assert paths["out"].exists()
         assert not paths["combined_status"].exists()
+
+    def test_success_records_the_plain_boards_own_vendor_metadata(self, paths, monkeypatch):
+        """Evidence for the owner's IDP Show board decision (2026-10-28): the
+        IDP-only board's Datawrapper clock lands in ITS OWN sidecar, never in
+        the voting board's, and a metadata miss stays ``None`` (nothing is
+        inferred)."""
+        _write_session_file(paths["session"])
+        monkeypatch.setattr(
+            mod, "_fetch_article_html", lambda session, url=mod.ARTICLE_URL: _IFRAME_HTML
+        )
+        monkeypatch.setattr(mod, "_resolve_latest_version", lambda session, chart_id: "5")
+        monkeypatch.setattr(
+            mod, "_fetch_dataset_csv", lambda session, chart_id, version: _good_csv(200)
+        )
+        monkeypatch.setattr(
+            mod,
+            "_chart_metadata",
+            lambda session, chart_id, version: {
+                "chartId": chart_id,
+                "version": version,
+                "lastModifiedAt": "2026-10-08T20:00:00.000Z",
+                "publishedAt": None,
+            },
+        )
+        assert mod.main([]) == 0
+        meta = json.loads(paths["upstream"].read_text(encoding="utf-8"))
+        assert meta == {
+            "chartId": "Kwh7Y",
+            "version": "5",
+            "lastModifiedAt": "2026-10-08T20:00:00.000Z",
+            "publishedAt": None,
+        }
+        assert not paths["combined_upstream"].exists()
+
+    def test_failed_plain_fetch_writes_no_vendor_metadata(self, paths, monkeypatch):
+        _write_session_file(paths["session"])
+        monkeypatch.setattr(
+            mod, "_fetch_article_html", lambda session, url=mod.ARTICLE_URL: _IFRAME_HTML
+        )
+        monkeypatch.setattr(mod, "_resolve_latest_version", lambda session, chart_id: "5")
+        monkeypatch.setattr(
+            mod, "_fetch_dataset_csv", lambda session, chart_id, version: _good_csv(10)
+        )
+        assert mod.main([]) == 2
+        assert not paths["upstream"].exists()
 
     def test_dry_run_never_persists_a_status(self, paths, monkeypatch):
         """A dry run writes no CSV, so persisting HEALTHY would claim an

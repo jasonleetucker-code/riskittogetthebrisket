@@ -334,6 +334,7 @@ def test_posted_source_weights_are_ignored_by_the_authority():
 
 def test_the_withdrawal_is_a_declared_constant_not_an_accident():
     assert _data_contract._SOURCE_OVERRIDES_DISABLED is True
+    assert _data_contract._TEP_OVERRIDES_DISABLED is True
 
 
 # ── D — device-local settings cannot change canonical value ────────────
@@ -363,6 +364,11 @@ def test_no_legacy_client_can_obtain_a_different_board(label):
     assert overrides == {}, (
         f"legacy client {label!r} still reprices the board through custom " "source weights"
     )
+    # The TE-premium knobs are the other half of the build inputs a body can
+    # carry.  Before DEFECT-02 this matrix asserted only the source map, so
+    # clients D and E passed here while still repricing every TE row.
+    assert _data_contract.normalize_tep_multiplier(body) is None, label
+    assert _data_contract.normalize_tep_native_multiplier(body) is None, label
 
 
 def test_a_manual_tep_multiplier_cannot_ride_the_override_path():
@@ -370,14 +376,20 @@ def test_a_manual_tep_multiplier_cannot_ride_the_override_path():
     class as ``siteWeights`` — device-local, never synced, and they rode
     the identical endpoint.
 
-    ``normalize_tep_multiplier`` still PARSES the field (it is retained
-    for when Custom Mix returns), so the guarantee is that no override
-    survives ``normalize_source_overrides`` to reach the blend.
+    This test used to assert only that ``normalize_source_overrides``
+    dropped the SOURCE half, while ``normalize_tep_multiplier`` still
+    returned 1.45 and the route passed it to the blend (DEFECT-02).  Both
+    halves are withdrawn now: the TEP normalizers answer ``None`` (the
+    canonical path) and the caller is told why.
     """
     body = {"tep_multiplier": 1.45, "ktcSfTep": {"weight": 0.0}}
     overrides, warnings = normalize_source_overrides(body)
     assert overrides == {}
     assert warnings, "the caller is not told its override was ignored"
+    assert _data_contract.normalize_tep_multiplier(body) is None
+    assert _data_contract.withdrawn_tep_override_note(body) == (
+        _data_contract.TEP_OVERRIDE_WITHDRAWN_NOTE
+    )
 
 
 def test_the_client_cannot_select_a_methodology():

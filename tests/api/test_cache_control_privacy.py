@@ -50,7 +50,7 @@ def _routes_with_public_stamps() -> list[tuple[int, str]]:
     hits: list[tuple[int, str]] = []
     for source in SCANNED_SOURCES:
         current_route = "<module level>"
-        for lineno, line in enumerate(source.read_text().split("\n"), start=1):
+        for lineno, line in enumerate(source.read_text(encoding="utf-8").split("\n"), start=1):
             m = _ROUTE_RE.search(line)
             if m:
                 current_route = m.group(1)

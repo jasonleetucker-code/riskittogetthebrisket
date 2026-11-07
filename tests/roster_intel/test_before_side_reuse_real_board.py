@@ -39,7 +39,7 @@ def _league_roster_settings() -> list[tuple[str, dict]]:
     a 27-man taxi league with a WR/RB flex, so the same archived rosters are
     also exercised over the cap (forced drops / cleanup roster)."""
     try:
-        doc = json.loads(_REGISTRY.read_text())
+        doc = json.loads(_REGISTRY.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
     leagues = doc.get("leagues", doc)

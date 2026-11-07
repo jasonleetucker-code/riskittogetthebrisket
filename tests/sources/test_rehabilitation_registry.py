@@ -29,7 +29,9 @@ def test_every_held_or_non_voting_source_has_an_entry():
         | set(dc._NON_VOTING_SOURCE_CSV_KEYS)
         | set(inv.KNOWN_NON_VOTING_REASONS)
     )
-    policy = json.loads((REPO / "config/sources/seasonal_policy_v1.json").read_text())
+    policy = json.loads(
+        (REPO / "config/sources/seasonal_policy_v1.json").read_text(encoding="utf-8")
+    )
     required |= set(policy["sources"])  # declared seasonal windows
     missing = sorted(required - set(_registry()["entries"]))
     assert missing == [], f"held/non-voting sources with no rehabilitation plan: {missing}"

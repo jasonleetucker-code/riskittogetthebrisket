@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/ui/PageHeader";
+import RelatedLinks from "@/components/shell/RelatedLinks";
 import LoadingState from "@/components/ui/LoadingState";
 import ErrorState from "@/components/ui/ErrorState";
 import EmptyState from "@/components/ui/EmptyState";
@@ -186,6 +187,10 @@ export default function IdptcRookiesPage() {
           </div>
         }
       />
+      {/* Rookie values live under Rankings, the draft room under My Team:
+          a draft-prep user on either page needs the other one (UX audit
+          2026-11-01, NAV-08). */}
+      <RelatedLinks hrefs={["/draft"]} />
 
       {ranked.length === 0 ? (
         <EmptyState

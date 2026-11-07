@@ -33,7 +33,7 @@ INVENTORY = REPO_ROOT / "deploy" / "diagnostics" / "fd_inventory.sh"
 
 class TestTheUnitDeclaresAnExplicitFileDescriptorLimit:
     def test_limitnofile_is_set(self):
-        assert re.search(r"^LimitNOFILE=", UNIT.read_text(), re.M), (
+        assert re.search(r"^LimitNOFILE=", UNIT.read_text(encoding="utf-8"), re.M), (
             "dynasty.service.template sets no LimitNOFILE, so the process "
             "inherits the distro's 1024 soft default — the limit EMFILE was "
             "raised against on 2026-08-12"
@@ -46,7 +46,7 @@ class TestTheUnitDeclaresAnExplicitFileDescriptorLimit:
         hard limit at what the host already permitted means this grants
         no new ceiling.
         """
-        m = re.search(r"^LimitNOFILE=(\d+):(\d+)\s*$", UNIT.read_text(), re.M)
+        m = re.search(r"^LimitNOFILE=(\d+):(\d+)\s*$", UNIT.read_text(encoding="utf-8"), re.M)
         assert m, "LimitNOFILE should use systemd's soft:hard form"
         soft, hard = int(m.group(1)), int(m.group(2))
         assert soft > 1024, f"soft limit {soft} is not above the 1024 default that failed"
@@ -58,7 +58,7 @@ class TestTheUnitDeclaresAnExplicitFileDescriptorLimit:
 
     def test_the_limit_is_documented_as_defence_not_a_fix(self):
         """A number without its reasoning gets 'tuned' away later."""
-        text = UNIT.read_text()
+        text = UNIT.read_text(encoding="utf-8")
         assert "Errno 24" in text, "the limit does not reference the incident that motivated it"
         assert "NOT THE FIX" in text.upper(), (
             "nothing records that this is defence in depth — a later reader "
@@ -75,14 +75,14 @@ class TestSomethingWatchesTheDescriptorCount:
     """
 
     def test_the_watch_lives_in_the_out_of_process_healthcheck(self):
-        text = HEALTHCHECK.read_text()
+        text = HEALTHCHECK.read_text(encoding="utf-8")
         assert "fd_watch" in text, (
             "no FD watch in the minutely healthcheck — the only monitor here "
             "that does not depend on the backend answering"
         )
 
     def test_it_reads_proc_rather_than_asking_the_application(self):
-        text = HEALTHCHECK.read_text()
+        text = HEALTHCHECK.read_text(encoding="utf-8")
         assert "/proc/${pid}/fd" in text
         assert "/api/fd" not in text, (
             "the FD count must not come from an application endpoint; the "
@@ -95,7 +95,7 @@ class TestSomethingWatchesTheDescriptorCount:
         Normal is ~16 descriptors, so the alarm belongs near normal, not
         near the ceiling.
         """
-        text = HEALTHCHECK.read_text()
+        text = HEALTHCHECK.read_text(encoding="utf-8")
         warn = int(re.search(r'FD_WARN="\$\{FD_WARN:-(\d+)\}"', text).group(1))
         crit = int(re.search(r'FD_CRIT="\$\{FD_CRIT:-(\d+)\}"', text).group(1))
         emerg = int(re.search(r'FD_EMERG="\$\{FD_EMERG:-(\d+)\}"', text).group(1))
@@ -112,7 +112,7 @@ class TestSomethingWatchesTheDescriptorCount:
         A second, independent restart trigger added during an incident
         repair is how a bounce loop nobody predicted gets shipped.
         """
-        text = HEALTHCHECK.read_text()
+        text = HEALTHCHECK.read_text(encoding="utf-8")
         fd_block = text[text.index("fd_watch()") : text.index("# LIVENESS probe")]
         assert (
             "systemctl restart" not in fd_block
@@ -124,7 +124,7 @@ class TestSomethingWatchesTheDescriptorCount:
         It is also unrecoverable once the process is gone — which is
         precisely why this incident's cause is unresolved.
         """
-        text = HEALTHCHECK.read_text()
+        text = HEALTHCHECK.read_text(encoding="utf-8")
         for field in ("sockets=", "files=", "anon=", "soft_limit="):
             assert field in text, f"FD warning does not report {field}"
 
@@ -136,7 +136,7 @@ class TestTheDiagnosticDoesNotMisreadItsOwnEvidence:
         On modern kernels it is essentially always 0, so reading it as
         remaining capacity inverts the meaning.
         """
-        text = INVENTORY.read_text()
+        text = INVENTORY.read_text(encoding="utf-8")
         assert "allocated / free / max" not in text
         assert "allocated / unused / max" in text
 
@@ -146,6 +146,6 @@ class TestTheDiagnosticDoesNotMisreadItsOwnEvidence:
         Its REG rows exceed the open regular-file descriptors, so the
         canonical count has to come from /proc/PID/fd.
         """
-        text = INVENTORY.read_text()
+        text = INVENTORY.read_text(encoding="utf-8")
         assert "NOT an FD count" in text
         assert "canonical" in text

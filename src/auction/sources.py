@@ -43,10 +43,43 @@ def league_seats(contract: Mapping[str, Any] | None) -> list[dict]:
     return seats
 
 
+def budget_league_mismatch(
+    seat_league_key: str | None, draft_capital: Mapping[str, Any] | None
+) -> str | None:
+    """Why these budgets may not be joined to seats of ``seat_league_key``.
+
+    ``None`` when the draft-capital payload is stamped for the SAME league as
+    the seats.  Otherwise a machine-readable reason: the dollars are another
+    league's (``budget_league_mismatch``) or the payload does not say whose
+    they are (``budget_league_unstated``).  LI1842-DEFECT-13: the seats come
+    from the loaded contract and the budgets from a separately resolved
+    league, so the two could silently be different leagues.  An unknown seat
+    league is not asserted here (generic seats carry none).
+    """
+    if not seat_league_key:
+        return None
+    budget_key = (draft_capital or {}).get("leagueKey")
+    if not budget_key:
+        return "budget_league_unstated"
+    if str(budget_key) != str(seat_league_key):
+        return "budget_league_mismatch"
+    return None
+
+
 def join_budgets(
-    seats: list[dict], draft_capital: Mapping[str, Any] | None
+    seats: list[dict],
+    draft_capital: Mapping[str, Any] | None,
+    *,
+    seat_league_key: str | None = None,
 ) -> tuple[list[dict], dict]:
-    """Attach raw auction dollars.  Returns (seats, provenance)."""
+    """Attach raw auction dollars.  Returns (seats, provenance).
+
+    Provenance names the league the DOLLARS belong to (``leagueKey``, the
+    draft-capital payload's own stamp) and, when known, the league the SEATS
+    belong to (``seatLeagueKey``), so a room's receipt shows whether the two
+    agree (``leagueMismatch``).  The caller refuses a mismatch; this function
+    only reports.
+    """
     totals = (draft_capital or {}).get("teamTotals") or []
     by_team: dict[str, int] = {}
     dupes: set[str] = set()
@@ -77,6 +110,11 @@ def join_budgets(
     matched_keys = {(s.get("team") or "").strip().lower() for s in seats}
     provenance = {
         "source": "/api/draft-capital teamTotals[].auctionDollars (raw dollars)",
+        # Whose dollars these are: the payload's own league stamp, never
+        # inferred.  ``None`` = the payload did not say.
+        "leagueKey": (draft_capital or {}).get("leagueKey"),
+        "seatLeagueKey": seat_league_key,
+        "leagueMismatch": budget_league_mismatch(seat_league_key, draft_capital),
         "season": (draft_capital or {}).get("season"),
         "totalBudget": (draft_capital or {}).get("totalBudget"),
         "numTeams": (draft_capital or {}).get("numTeams"),
@@ -99,6 +137,32 @@ def join_budgets(
         "staleWhileRevalidate": (draft_capital or {}).get("staleWhileRevalidate"),
     }
     return out, provenance
+
+
+def advice_board_values(
+    contract: Mapping[str, Any] | None, state: Mapping[str, Any]
+) -> tuple[dict[str, float], str | None]:
+    """Current canonical values for a room's frozen pool, or why none.
+
+    Withheld (``{}``, ``board_is_for_another_league``) when the room's seats
+    are a league's and the loaded board DECLARES a different league: neither
+    that board's rosters nor its values are this room's to mix in (LATENT-06,
+    LI1842-DEFECT-13).  The same declared-league rule the roster context
+    uses; an unstamped board is the server's own league.
+    """
+    meta = (contract or {}).get("meta") or {}
+    room_league = state.get("league_key")
+    if room_league and meta.get("leagueKey") and str(meta["leagueKey"]) != str(room_league):
+        return {}, "board_is_for_another_league"
+    wanted = set((state.get("pool") or {}).get("players") or {})
+    values: dict[str, float] = {}
+    for row in (contract or {}).get("playersArray") or []:
+        pid = str(row.get("playerId") or "")
+        if pid in wanted:
+            v = row.get("rankDerivedValue")
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                values[pid] = float(v)
+    return values, None
 
 
 def rookie_pool_from_contract(contract: Mapping[str, Any] | None, *, top_n: int = 120) -> dict:

@@ -217,6 +217,6 @@ def test_private_policy_reads_config_and_fails_closed(monkeypatch, tmp_path):
     monkeypatch.setattr(tl, "_CONFIG_PATH", tmp_path / "missing.json")
     assert tl.private_policy().max_teams == 2
     bad = tmp_path / "bad.json"
-    bad.write_text('{"maxTeams": 99, "maxLegs": 1, "participation": "any_leg"}')
+    bad.write_text('{"maxTeams": 99, "maxLegs": 1, "participation": "any_leg"}', encoding="utf-8")
     monkeypatch.setattr(tl, "_CONFIG_PATH", bad)
     assert tl.private_policy().max_teams == 2

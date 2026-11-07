@@ -101,8 +101,44 @@ import {
 // gap and are not fixed here — wrapping all of them is a separate,
 // larger change than the one defect this fixes.
 const sectionLoading = () => <LoadingState message="Loading section..." />;
-const lazySection = (loader) =>
-  dynamic(loader, { ssr: false, loading: sectionLoading });
+
+// Section components whose code has already arrived, keyed by tab.  Filled
+// only by `preloadSectionCode` (client effects, never the server), so the
+// server render and hydration see an empty map and load exactly as before.
+// Bounded by the fixed tab list; never invalidated because a loaded module
+// does not change.
+const loadedSectionCode = {};
+
+// A thenable that is already settled and calls back SYNCHRONOUSLY.
+function settledThenable(value) {
+  return {
+    then(onFulfilled) {
+      return settledThenable(onFulfilled ? onFulfilled(value) : value);
+    },
+  };
+}
+
+// One lazily-loaded tab section: `dynamic(…, { ssr: false })` as before,
+// with one difference in its loader.  When the tab's code has already been
+// loaded (by `preloadSectionCode`) at the moment the section first renders,
+// the loader answers with an already-settled thenable, so the `React.lazy`
+// inside `dynamic()` resolves during that render instead of suspending.
+//
+// Why (Workstream H, 2026-10-27, measured locally and on production): a
+// lazy boundary suspends on its first render even when the module is in
+// memory (a native promise settles a tick later), and React throttles the
+// reveal of a suspended boundary (~300 ms).  With the data AND the code both
+// present, a tab still sat on "Loading section..." for ~340 ms.  If a later
+// Next version stops calling `.then` on the loader's result this degrades to
+// exactly the previous behaviour (one suspension); nothing else changes.
+const lazySection = (tab) =>
+  dynamic(
+    () => {
+      const ready = loadedSectionCode[tab];
+      return ready ? settledThenable({ default: ready }) : SECTION_CODE_FOR_TAB[tab]();
+    },
+    { ssr: false, loading: sectionLoading },
+  );
 
 // The Brisket Trade Advisor's team step: split the same way as Overview —
 // its own chunk, still SERVER-RENDERED whenever the advisor tab renders
@@ -116,30 +152,88 @@ const TradeAdvisorShell = dynamic(() => import("./sections/trade-advisor-shell.j
   ssr: true,
   loading: sectionLoading,
 });
-const DraftCapitalSection = lazySection(() => import("./sections/draft-capital.jsx"));
-const HistorySection = lazySection(() => import("./sections/history.jsx"));
-const RivalriesSection = lazySection(() => import("./sections/rivalries.jsx"));
-const AwardsSection = lazySection(() => import("./sections/awards.jsx"));
-const RecordsSection = lazySection(() => import("./sections/records.jsx"));
-const FranchiseSection = lazySection(() => import("./sections/franchise.jsx"));
-const ActivitySection = lazySection(() => import("./sections/activity.jsx"));
-const DraftSection = lazySection(() => import("./sections/draft.jsx"));
-const WeeklySection = lazySection(() => import("./sections/weekly.jsx"));
-const SuperlativesSection = lazySection(() => import("./sections/superlatives.jsx"));
-const ArchivesSection = lazySection(() => import("./sections/archives.jsx"));
-const LuckSection = lazySection(() => import("./sections/luck.jsx"));
-const StreaksSection = lazySection(() => import("./sections/streaks.jsx"));
-const ConductSection = lazySection(() => import("./sections/conduct.jsx"));
-const RosTeamStrengthSection = lazySection(() => import("./sections/ros-team-strength.jsx"));
-const RosPowerSection = lazySection(() => import("./sections/ros-power.jsx"));
-const RosChampionshipSection = lazySection(() => import("./sections/ros-championship.jsx"));
-const RosTradeDeadlineSection = lazySection(() => import("./sections/ros-trade-deadline.jsx"));
-const ArticlesSection = lazySection(() => import("./sections/articles.jsx"));
+// Each lazily-mounted tab's code loader, keyed by TAB.  The same function
+// is handed to `dynamic()` below and to `preloadSectionCode`, so the
+// preload and the render resolve one module (webpack de-duplicates the
+// chunk request; nothing is loaded twice).
+//
+// Why a preload exists (Workstream H, 2026-10-27, measured on production):
+// a tab whose data the shell fetches rendered its loading state until that
+// fetch resolved, and only THEN mounted the section — which is when
+// `dynamic()` first asked for the section's code.  Data and code were a
+// serial waterfall: clicking "Records" fetched the section (~450 ms), then
+// started the 6245 chunk (~135 ms), then rendered.  Starting the code
+// request when the tab becomes active overlaps the two.  It changes no
+// data path, no loading/error state and no deadline: the section still
+// renders only when its data is present, exactly as before.
+const SECTION_CODE_FOR_TAB = {
+  "draft-capital": () => import("./sections/draft-capital.jsx"),
+  history: () => import("./sections/history.jsx"),
+  rivalries: () => import("./sections/rivalries.jsx"),
+  awards: () => import("./sections/awards.jsx"),
+  records: () => import("./sections/records.jsx"),
+  franchise: () => import("./sections/franchise.jsx"),
+  activity: () => import("./sections/activity.jsx"),
+  draft: () => import("./sections/draft.jsx"),
+  weekly: () => import("./sections/weekly.jsx"),
+  superlatives: () => import("./sections/superlatives.jsx"),
+  archives: () => import("./sections/archives.jsx"),
+  luck: () => import("./sections/luck.jsx"),
+  streaks: () => import("./sections/streaks.jsx"),
+  [PIECE_OF_SHIT_RANKINGS_TAB]: () => import("./sections/conduct.jsx"),
+  rosTeamStrength: () => import("./sections/ros-team-strength.jsx"),
+  power: () => import("./sections/ros-power.jsx"),
+  rosChampionship: () => import("./sections/ros-championship.jsx"),
+  rosTradeDeadline: () => import("./sections/ros-trade-deadline.jsx"),
+  recaps: () => import("./sections/articles.jsx"),
+  previews: () => import("./sections/matchup-previews.jsx"),
+  teamAssignment: () => import("./sections/team-assignment.jsx"),
+};
+
+/**
+ * Start loading the active tab's section code without waiting for its
+ * data, and remember the component once it lands (see `lazySection`).
+ * Best effort by construction: a failed preload is swallowed here and the
+ * real `dynamic()` load retries and reports through the existing error
+ * path (webpack forgets a failed chunk, so it is not poisoned).  Tabs with
+ * no lazily-loaded code (Overview, the advisor) are a no-op.
+ */
+export function preloadSectionCode(tab) {
+  const load = SECTION_CODE_FOR_TAB[tab];
+  if (!load) return null;
+  const pending = load().then((mod) => {
+    const Component = mod?.default;
+    if (Component) loadedSectionCode[tab] = Component;
+    return Component;
+  });
+  pending.catch(() => {});
+  return pending;
+}
+
+const DraftCapitalSection = lazySection("draft-capital");
+const HistorySection = lazySection("history");
+const RivalriesSection = lazySection("rivalries");
+const AwardsSection = lazySection("awards");
+const RecordsSection = lazySection("records");
+const FranchiseSection = lazySection("franchise");
+const ActivitySection = lazySection("activity");
+const DraftSection = lazySection("draft");
+const WeeklySection = lazySection("weekly");
+const SuperlativesSection = lazySection("superlatives");
+const ArchivesSection = lazySection("archives");
+const LuckSection = lazySection("luck");
+const StreaksSection = lazySection("streaks");
+const ConductSection = lazySection(PIECE_OF_SHIT_RANKINGS_TAB);
+const RosTeamStrengthSection = lazySection("rosTeamStrength");
+const RosPowerSection = lazySection("power");
+const RosChampionshipSection = lazySection("rosChampionship");
+const RosTradeDeadlineSection = lazySection("rosTradeDeadline");
+const ArticlesSection = lazySection("recaps");
 // The Previews tab composes the structured current-week head-to-head
 // block with the article slate; the Recaps tab stays the bare article
 // list, because a scored week is owned by the recap surfaces.
-const PreviewsSection = lazySection(() => import("./sections/matchup-previews.jsx"));
-const TeamAssignmentSection = lazySection(() => import("./sections/team-assignment.jsx"));
+const PreviewsSection = lazySection("previews");
+const TeamAssignmentSection = lazySection("teamAssignment");
 
 // SUB_TABS / VALID_TABS / DEFAULT_TAB / normalizeTabKey / SECTION_FOR_TAB
 // now live in ./tabs.js so ./page.jsx (a server component) can read the
@@ -372,6 +466,11 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
       });
     };
   }, []);
+  // Ask for the active tab's CODE as soon as the tab is active, in
+  // parallel with the data fetch below (see SECTION_CODE_FOR_TAB).
+  useEffect(() => {
+    preloadSectionCode(activeTab);
+  }, [activeTab]);
   useEffect(() => {
     if (!contract) return undefined;
     if (!neededSection || haveSection) return undefined;

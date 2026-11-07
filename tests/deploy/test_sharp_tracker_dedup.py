@@ -256,12 +256,13 @@ class Harness:
                     "bot_login": bot_login,
                     "list_calls": 0,
                 }
-            )
+            ),
+            encoding="utf-8",
         )
         bindir = tmp_path / "bin"
         bindir.mkdir()
         gh = bindir / "gh"
-        gh.write_text(GH_STUB)
+        gh.write_text(GH_STUB, encoding="utf-8")
         gh.chmod(0o755)
         self.bindir = bindir
 
@@ -291,7 +292,7 @@ class Harness:
 
     @property
     def issues(self) -> list[dict]:
-        return json.loads(self.state_path.read_text())["issues"]
+        return json.loads(self.state_path.read_text(encoding="utf-8"))["issues"]
 
     def open_trackers(self) -> list[dict]:
         return [i for i in self.issues if i["state"] == "open" and i["title"] == self.spec.title]
@@ -448,7 +449,7 @@ def test_lookup_failure_stays_actionable_and_is_not_silently_healthy(tmp_path, s
     """A lookup that FAILS must not read like one that found nothing."""
     h = Harness(tmp_path, spec, "github-actions")
     broken = h.bindir / "gh"
-    broken.write_text("#!/bin/bash\nexit 7\n")
+    broken.write_text("#!/bin/bash\nexit 7\n", encoding="utf-8")
     broken.chmod(0o755)
 
     opened = h.run(_step_script(spec, spec.open_step))
@@ -524,11 +525,12 @@ def test_sharp_tracker_view_failure_comments_rather_than_going_silent(tmp_path):
         }
     ]
     h = Harness(tmp_path, SHARP, "app/github-actions", seed=seed)
-    stub = (h.bindir / "gh").read_text()
+    stub = (h.bindir / "gh").read_text(encoding="utf-8")
     (h.bindir / "gh").write_text(
         stub.replace(
             'if argv[:2] == ["issue", "view"]:', 'if argv[:2] == ["issue", "view-disabled"]:'
-        )
+        ),
+        encoding="utf-8",
     )
     result = h.run(_step_script(SHARP, SHARP.open_step))
     assert "Tracker view failed" in result.stdout + result.stderr
@@ -566,7 +568,7 @@ def _render(script: str, tmp_path: Path) -> str:
     """Replace GitHub expressions so the step is plain bash, and point the
     drift report at a file that exists."""
     report = tmp_path / "rank_form_drift.txt"
-    report.write_text("drift report\n")
+    report.write_text("drift report\n", encoding="utf-8")
     script = re.sub(r"\$\{\{[^}]*\}\}", "x", script)
     return script.replace("/tmp/rank_form_drift.txt", str(report))
 
@@ -621,7 +623,7 @@ def test_the_drift_all_clear_reaches_a_tracker_older_than_60_newer_issues(tmp_pa
 def test_the_drift_all_clear_fails_loudly_when_it_cannot_look(tmp_path):
     spec = CALIBRATION_OPEN[0]
     h = Harness(tmp_path, spec, "app/github-actions")
-    (h.bindir / "gh").write_text("#!/bin/bash\nexit 7\n")
+    (h.bindir / "gh").write_text("#!/bin/bash\nexit 7\n", encoding="utf-8")
     result = h.run(_render(_step_script(spec, spec.close_step), tmp_path))
     assert "::error title=Tracker lookup failed" in result.stdout + result.stderr
     assert result.returncode != 0, "a lookup that failed must not read as 'nothing to close'"

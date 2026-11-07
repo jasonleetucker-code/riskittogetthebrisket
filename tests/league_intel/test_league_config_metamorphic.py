@@ -19,7 +19,8 @@ B. slot change (SFLEX / TE / IDP) moves lineup-dependent outputs
 C. same ``scoringProfile`` label, different cards: never share
 D. multi-league isolation
 E. a stale or missing card fails closed
-F. genuine defects, pinned ``xfail(strict=True)`` with their exact repro
+F. genuine defects: still-open ones pinned ``xfail(strict=True)`` with their exact
+   repro; repaired ones stand as ordinary regression tests
 
 A section-F test that starts passing fails the suite (strict): remove its
 marker in the same change that repairs the defect.  Nothing here changes a
@@ -687,21 +688,13 @@ def test_e_a_zero_filled_card_is_not_an_identity():
     assert scoring_fingerprint(None) is None
 
 
-# ── F. genuine defects (xfail strict) ─────────────────────────────────────────
+# ── F. genuine defects (open: xfail strict; repaired: regression tests) ───────
 #
 # Each reason starts with its id so a grep for ``LI1842-DEFECT-`` is the defect
 # register.  The prose, repro and severity live in the matrix document.
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-01: POST /api/intel/leads for league B ranks B's members against the "
-        "LOADED league A's rosters, owners and board values (server.py::_build_intel_leads reads "
-        "latest_contract_data with no loaded-league or scoring-identity check)."
-    ),
-)
+# LI1842-DEFECT-01 -- REPAIRED: POST /api/intel/leads is a 503 data_not_ready for a league the loaded contract was not built for, and the context helper abstains.
 def test_f01_intel_leads_do_not_borrow_another_leagues_rosters_or_values(world, monkeypatch):
     import server
     from src.intel import lead_service
@@ -723,16 +716,7 @@ def test_f01_intel_leads_do_not_borrow_another_leagues_rosters_or_values(world, 
     assert captured["target_value"] is None  # league A's board value leaked in
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-02: a manual tep_multiplier in the POST /api/rankings/overrides body still "
-        "changes rankDerivedValue (110 rows on the 2026-10-25 board) although the client comment "
-        "and CLAUDE.md describe the user's manual override as withdrawn; only source weights are "
-        "(normalize_source_overrides)."
-    ),
-)
+# LI1842-DEFECT-02 -- REPAIRED (held for owner approval): the overrides route's TEP normalizers ignore a manual value (data_contract._TEP_OVERRIDES_DISABLED), so a posted tep_multiplier / tep_native_multiplier serves the canonical board; stamped meta.tepMultiplierNote.
 def test_f02_a_manual_tep_multiplier_cannot_move_the_canonical_board():
     from src.api import data_contract
     from tests.archive_fixtures import newest_complete_raw_payload
@@ -741,26 +725,34 @@ def test_f02_a_manual_tep_multiplier_cannot_move_the_canonical_board():
     if raw is None:
         pytest.skip("no complete archived scrape available")
 
-    def values(tep):
+    # Through the INGRESS normalizers, which is how POST /api/rankings/overrides
+    # (server.py, the only production caller) turns a body into build inputs.
+    # The library parameters of build_rankings_delta_payload stay a research
+    # knob (scripts/backtest_*.py pin tep_multiplier=1.0) and are not a
+    # request surface.
+    def values(body):
         out = data_contract.build_rankings_delta_payload(
-            raw, source_overrides={}, tep_multiplier=tep
+            raw,
+            source_overrides={},
+            tep_multiplier=data_contract.normalize_tep_multiplier(body),
+            tep_native_multiplier=data_contract.normalize_tep_native_multiplier(body),
         )
         return {r["id"]: r.get("rankDerivedValue") for r in out["rankingsDelta"]["players"]}
 
-    baseline = values(None)
+    baseline = values({})
     assert len(baseline) > 500  # a real board, not an empty delta
-    assert values(1.45) == baseline
+    for body in (
+        {"tep_multiplier": 1.45},
+        {"tep_multiplier": 1.15},
+        {"tep_native_multiplier": 1.3},
+    ):
+        assert values(body) == baseline, body
+        assert data_contract.withdrawn_tep_override_note(body) == (
+            data_contract.TEP_OVERRIDE_WITHDRAWN_NOTE
+        )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-03: GET /api/movers applies no scoring-identity gate. For a league whose "
-        "scoring is not proven identical to the loaded board, /api/data is refused (503) but the "
-        "loaded board's rank movers are served 200 (home Terminal MoversPanel renders them)."
-    ),
-)
+# LI1842-DEFECT-03 -- REPAIRED: GET /api/movers follows the board's _scoring_identity_error gate.
 def test_f03_movers_follow_the_same_scoring_gate_as_the_board(world, monkeypatch, tmp_path):
     import server
     from src.api import rank_history
@@ -784,15 +776,7 @@ def test_f03_movers_follow_the_same_scoring_gate_as_the_board(world, monkeypatch
     assert not served_risers  # ... so its movers must not be served either
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-04: gameplan._resolve_scoring_fit memoises the IDP scoring-fit by leagueKey "
-        "for the process lifetime (invalidate_* has no production caller), so a commissioner "
-        "scoring change (21 keys on dynasty_main, 2026-08-19) is never picked up until restart."
-    ),
-)
+# LI1842-DEFECT-04 -- REPAIRED: the scoring-fit / reception-fit memos are keyed on the cards' scoring fingerprints.
 def test_f04_the_scoring_fit_memo_notices_a_changed_card(monkeypatch):
     from src.api import feature_flags, gameplan
     from src.league_comparison import service as lc_service
@@ -856,16 +840,7 @@ def test_f05_consensus_edge_fit_does_not_score_with_a_card_the_league_no_longer_
     assert mine is None or scoring_fingerprint(mine) == scoring_fingerprint(live)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-06: team_strength.compute_team_strength_live('<unknown key>') falls back to "
-        "the DEFAULT league (`get_league_by_key(k) or get_default_league()`) and fetches its "
-        "Sleeper overlay; /api/ros/team-strength echoes the bogus key and persists the result "
-        "under it."
-    ),
-)
+# LI1842-DEFECT-06 -- REPAIRED: an unknown league key is refused (no rows; 400 unknown_league at the route), never the default league.
 def test_f06_an_unknown_league_key_never_computes_another_leagues_team_strength(world, monkeypatch):
     from src.api import sleeper_overlay
     from src.ros import team_strength
@@ -879,16 +854,7 @@ def test_f06_an_unknown_league_key_never_computes_another_leagues_team_strength(
     assert calls == []  # no Sleeper fetch for the default league on an unknown key's behalf
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-07: the trade-side roster cap (roster_capacity.league_roster_limit) reads "
-        "only the registry rosterSize; the live sleeper.rosterPositions that the lineup ladder "
-        "prefers is never consulted and a disagreement is not even noted. dynasty_new today: "
-        "registry 27 vs live 24 slots."
-    ),
-)
+# LI1842-DEFECT-07 -- REPAIRED (report): a registry-vs-live roster-cap / starter-slot disagreement is published as an exact note AND a structured block; the applied cap is unchanged (switching its source to the live list is an owner decision).
 def test_f07_roster_capacity_reports_a_disagreement_with_the_live_slot_list():
     from src.trade import roster_capacity as rc
 
@@ -912,43 +878,84 @@ def test_f07_roster_capacity_reports_a_disagreement_with_the_live_slot_list():
     ctx = rc.build_capacity_context(
         contract, "beta", team, roster_settings=registry_settings, scarcity_reading=(None, None)
     )
-    # Asserted on the STRUCTURED field only.  ``roster_capacity`` defines no
-    # disagreement note yet, so there is no exact string a fix "would emit"; the
-    # earlier ``"disagree" in notes or "live" in notes`` disjunct was satisfied by
-    # any unrelated note that merely contained those letters (``alive``,
-    # ``delivered``, a future scarcity message) and could turn this xfail into a
-    # false XPASS.  The matrix's stated remediation is "cap equals the live
-    # count"; if the fix is instead a reported disagreement, that fix must define
-    # its note (or a structured field) and THIS assertion is then extended to pin
-    # it exactly -- never to a substring.
-    assert ctx.roster_limit == len(live_slots)
+    # The repair REPORTS the disagreement (the matrix's second remediation);
+    # the applied cap stays the configured one until the owner decides to
+    # switch its source.  Pinned on the structured fields and the exact note
+    # text, never a substring an unrelated note could satisfy.
+    reading = ctx.limit_reading
+    assert ctx.roster_limit == 27 and reading.source == rc.LIMIT_FROM_SETTINGS
+    assert reading.live_limit == len(live_slots)
+    assert reading.disagreement == {
+        "registryRosterSize": 27,
+        "liveRosterSlots": 24,
+        "liveSource": rc.LIMIT_FROM_LIVE,
+        "appliedFrom": rc.LIMIT_FROM_SETTINGS,
+    }
+    note = rc.roster_limit_disagreement_note(reading)
+    assert note == (
+        "roster cap sources disagree: registry rosterSize 27 vs live host slot list 24; "
+        "the registry cap is still applied (switching the cap source awaits an owner decision)"
+    )
+    assert note in ctx.notes
+    block = rc.assess_roster_capacity(ctx).to_dict()
+    assert block["rosterLimit"] == 27
+    assert block["rosterLimitSourceDisagreement"]["rosterLimit"] == reading.disagreement
+    assert note in block["notes"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-08: the client builds the rankings override POST body without a leagueKey "
-        "(and the URL is only ?view=delta) while every other league-scoped fetch in "
-        "dynasty-data.js carries it, so the server resolves the league from saved user state."
-    ),
-)
+def test_f07b_agreeing_sources_publish_nothing_new_and_a_foreign_list_is_not_used():
+    """The dynasty_main shape: live list and registry agree, so the capacity
+    block is exactly the pre-repair one; and a contract stamped for ANOTHER
+    league never lends its slot list."""
+    from src.trade import roster_capacity as rc
+
+    starters = {"QB": 1, "RB": 2, "WR": 3, "TE": 2, "FLEX": 2, "SFLEX": 1, "K": 1}
+    live = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX", "FLEX", "SUPER_FLEX", "K"]
+    live += ["BN"] * 18
+    settings = {"rosterSize": 30, "taxiSize": 0, "starters": starters}
+    team = {"name": "T", "ownerId": "o", "players": []}
+
+    def ctx_for(meta_key, positions):
+        contract = {
+            "meta": {"leagueKey": meta_key} if meta_key else {},
+            "playersArray": [],
+            "sleeper": {"rosterPositions": positions, "teams": [team]},
+        }
+        return rc.build_capacity_context(
+            contract, "alpha", team, roster_settings=settings, scarcity_reading=(None, None)
+        )
+
+    agree = ctx_for("alpha", live)
+    assert agree.roster_limit == 30 and agree.limit_reading.disagreement is None
+    assert agree.limit_reading.starter_disagreement is None  # SFLEX == SUPER_FLEX
+    assert "rosterLimitSourceDisagreement" not in rc.assess_roster_capacity(agree).to_dict()
+
+    foreign = ctx_for("beta", live[:-5])  # another league's 25-slot list
+    assert foreign.roster_limit == 30
+    assert foreign.limit_reading.live_limit is None  # never read off another league
+    assert foreign.limit_reading.disagreement is None
+
+    missing = ctx_for("alpha", [])  # [] is missing, never "no roster"
+    assert missing.roster_limit == 30 and missing.limit_reading.live_limit is None
+
+
+# LI1842-DEFECT-08 -- REPAIRED: the override POST URL carries the page's leagueKey in the query string, like the base fetch (behaviour pinned in frontend/__tests__/site-overrides.test.js; the dev bridge forwards it).
 def test_f08_the_overrides_request_carries_the_pages_league_key():
     text = (ROOT / "frontend" / "lib" / "dynasty-data.js").read_text(encoding="utf-8")
     start = text.index("const body = { ...(siteOverrides")
     end = text.index("const base = await basePromise;", start)
-    assert "leagueKey" in text[start:end]
+    region = text[start:end]
+    assert "fetch(rankingsOverridesUrl(leagueKey)" in region
+    builder = text[text.index("export function rankingsOverridesUrl(") :]
+    builder = builder[: builder.index("\n}\n")]
+    assert 'params.set("leagueKey", leagueKey)' in builder
+    bridge = (ROOT / "frontend" / "app" / "api" / "rankings" / "overrides" / "route.js").read_text(
+        encoding="utf-8"
+    )
+    assert '["view", "leagueKey"]' in bridge  # the dev bridge forwards it, not drops it
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-09: the public hub rosTeamStrength section (ros.api.build_section) reads the "
-        "persisted team-strength file with load_team_strength_snapshot and no age or evidence "
-        "gate, so a 30-day-old all-zero file is served as source=snapshot, stale=False."
-    ),
-)
+# LI1842-DEFECT-09 -- REPAIRED: rosTeamStrength serves the persisted file only under the read path's freshness + evidence rule.
 def test_f09_public_ros_team_strength_does_not_serve_an_expired_file_as_current(
     tmp_path, monkeypatch
 ):
@@ -967,30 +974,13 @@ def test_f09_public_ros_team_strength_does_not_serve_an_expired_file_as_current(
     assert not (section["source"] == "snapshot" and section["stale"] is False)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-10: league_registry.get_default_league() returns an explicit "
-        "defaultLeagueKey even when that league is inactive (membership test only), contradicting "
-        "its docstring ('set + active') and the 400 inactive_league an explicit request gets."
-    ),
-)
+# LI1842-DEFECT-10 -- REPAIRED: an inactive defaultLeagueKey is not served implicitly.
 def test_f10_an_inactive_default_league_is_not_served_implicitly(world):
     world.write_registry(_registry(default="alpha", alpha_active=False))
     assert lr.get_default_league().key == "beta"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-11: frontend/lib/perfect-draft.js FLEX_SLOTS omits the canonical flex slots "
-        "WR_RB_FLEX, DL_LB, DB_LB, DL_DB that src/ros/lineup.py emits (flatten_starter_slots "
-        "renames dynasty_new's WRRB_FLEX to WR_RB_FLEX), so a flex slot is counted as an "
-        "unfillable position need."
-    ),
-)
+# LI1842-DEFECT-11 -- REPAIRED: FLEX_SLOTS mirrors the owner's flex vocabulary (exact lockstep: tests/lineup/test_single_owner.py).
 def test_f11_the_perfect_draft_flex_vocabulary_covers_every_canonical_flex_slot():
     from src.ros import lineup
 
@@ -1001,17 +991,7 @@ def test_f11_the_perfect_draft_flex_vocabulary_covers_every_canonical_flex_slot(
     assert set(lineup._FLEX_SLOT_ELIGIBILITY) <= js_slots
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-12: ros.trade_deadline._load_playoff_odds_map/_load_championship_map are "
-        "hard-wired to sims/latest_*.json, so build_team_directions(league_key=<non-default>) "
-        "classifies that league's teams from the DEFAULT league's simulations (the module "
-        "comment names this as a known follow-on). Latent: the public section only serves the "
-        "default league today."
-    ),
-)
+# LI1842-DEFECT-12 -- REPAIRED: trade_deadline reads the requested league's own sims/<key>_*.json (the writer's _sim_paths rule); a league with no file is unmeasurable, never the default league's.
 def test_f12_trade_deadline_reads_the_requested_leagues_simulation(tmp_path, monkeypatch):
     from src.ros import trade_deadline
 
@@ -1031,17 +1011,74 @@ def test_f12_trade_deadline_reads_the_requested_leagues_simulation(tmp_path, mon
     assert rows and rows[0]["playoffOdds"] == pytest.approx(0.05)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "LI1842-DEFECT-13: auction.sources.join_budgets joins seats to draft-capital teamTotals by "
-        "team NAME and its provenance does not name the league the dollars came from, so a room "
-        "created while the admin's saved league differs from the loaded contract's league cannot "
-        "be detected from the room's own receipt (api.py takes seats from latest_contract_data and "
-        "budgets from a separately-resolved league)."
-    ),
-)
+def test_f12b_a_league_without_its_own_simulation_is_unmeasurable_not_the_defaults(
+    tmp_path, monkeypatch
+):
+    from src.ros import trade_deadline
+
+    sims = tmp_path / "sims"
+    sims.mkdir()
+    (sims / "latest_playoff.json").write_text(
+        json.dumps({"playoffOdds": [{"ownerId": "A", "playoffOdds": 0.95}]}), encoding="utf-8"
+    )
+    (sims / "latest_championship.json").write_text(
+        json.dumps({"championshipOdds": [{"ownerId": "A", "championshipOdds": 0.4}]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(trade_deadline, "ROS_DATA_DIR", tmp_path)
+    rows = trade_deadline.build_team_directions(
+        league_key="beta", team_strength_map={"A": {"ownerId": "A", "rank": 1}}
+    )
+    assert len(rows) == 1
+    assert rows[0]["measurable"] is False
+    assert rows[0]["playoffOdds"] is None  # not the default league's 0.95
+    availability = trade_deadline.simulation_availability("beta")
+    assert availability == {
+        "leagueKey": "beta",
+        "leagueResolved": True,
+        "playoff": "missing",
+        "championship": "missing",
+    }
+
+
+def test_f12c_an_unresolved_league_reads_no_simulation_never_the_defaults(tmp_path, monkeypatch):
+    """A snapshot whose league cannot be resolved (unknown root id, registry
+    failure) must not be classified from the default league's
+    ``latest_*.json``: the simulation is missing and named unresolved."""
+    from types import SimpleNamespace
+
+    from src.api import league_registry
+    from src.ros import trade_deadline
+
+    sims = tmp_path / "sims"
+    sims.mkdir()
+    (sims / "latest_playoff.json").write_text(
+        json.dumps({"playoffOdds": [{"ownerId": "A", "playoffOdds": 0.95}]}), encoding="utf-8"
+    )
+    (sims / "latest_championship.json").write_text(
+        json.dumps({"championshipOdds": [{"ownerId": "A", "championshipOdds": 0.4}]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(trade_deadline, "ROS_DATA_DIR", tmp_path)
+    monkeypatch.setattr(league_registry, "league_key_for_sleeper_id", lambda _id: None)
+    monkeypatch.setattr(
+        trade_deadline,
+        "load_or_compute_team_strength",
+        lambda _key: [{"ownerId": "A", "rank": 1}],
+    )
+    section = trade_deadline.build_section(SimpleNamespace(root_league_id="unknown-root"))
+    assert section["simulation"] == {
+        "leagueKey": None,
+        "leagueResolved": False,
+        "playoff": "missing",
+        "championship": "missing",
+        "reason": "league_unresolved",
+    }
+    assert [r["playoffOdds"] for r in section["teams"]] == [None]  # not the default's 0.95
+    assert all(r["measurable"] is False for r in section["teams"])
+
+
+# LI1842-DEFECT-13 -- REPAIRED: budget provenance names the league of its dollars and of the seats, a mismatch is stated (room creation refuses it, 409), and advice-context withholds another league's board values (route tests: tests/auction/test_advice_context.py).
 def test_f13_auction_budget_provenance_names_the_league_of_its_dollars():
     from src.auction import sources
 
@@ -1053,3 +1090,14 @@ def test_f13_auction_budget_provenance_names_the_league_of_its_dollars():
     }
     _joined, provenance = sources.join_budgets(seats, payload)
     assert provenance.get("leagueKey") == "beta"
+    # ... and a seats-vs-budgets mismatch is detectable from the receipt alone
+    _joined, mixed = sources.join_budgets(seats, payload, seat_league_key="alpha")
+    assert mixed["seatLeagueKey"] == "alpha" and mixed["leagueMismatch"] == "budget_league_mismatch"
+    _joined, same = sources.join_budgets(seats, payload, seat_league_key="beta")
+    assert same["leagueMismatch"] is None
+    state = {"league_key": "alpha", "pool": {"players": {"p1": {}}}}
+    board = {
+        "meta": {"leagueKey": "beta"},
+        "playersArray": [{"playerId": "p1", "rankDerivedValue": 5000}],
+    }
+    assert sources.advice_board_values(board, state) == ({}, "board_is_for_another_league")

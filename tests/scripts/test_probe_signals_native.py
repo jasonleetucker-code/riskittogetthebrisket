@@ -10,14 +10,22 @@ import ast
 import base64
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
-from scripts import probe_signals_native as P
-from src.sources import signals as S
-from src.sources import signals_auth as SA
+if sys.platform == "win32":
+    # The probe is an on-box (Linux) tool whose signatures default to
+    # ``os.getuid`` for POSIX store-ownership checks; Windows has no
+    # ``os.getuid``, so the script cannot even be imported there.
+    # Never skipped on Linux/CI.
+    pytest.skip("on-box probe uses os.getuid (POSIX-only)", allow_module_level=True)
+
+from scripts import probe_signals_native as P  # noqa: E402
+from src.sources import signals as S  # noqa: E402
+from src.sources import signals_auth as SA  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 NOW = datetime(2026, 10, 20, 7, 0, tzinfo=timezone.utc)

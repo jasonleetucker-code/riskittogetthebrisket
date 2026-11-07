@@ -5,12 +5,21 @@ that is not a complete, current owner approval covering every voting source
 
 from __future__ import annotations
 
+import sys
 import datetime as dt
 import json
 
 import pytest
 
 from src.trade import public_advisor_permission as perm
+
+# creating a symlink needs SeCreateSymbolicLinkPrivilege on Windows.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: creating a symlink needs SeCreateSymbolicLinkPrivilege on Windows.",
+)
+
 
 TODAY = dt.date(2026, 10, 20)
 VOTING = ("ktcCrowdSfTep", "ktcTradesSfTep", "signalsSf", "idpTradeCalc")
@@ -173,6 +182,7 @@ def test_unparseable_and_oversized_files_fail_closed(tmp_path):
     assert _path_problem(tmp_path, big) == "too_large"
 
 
+@_LINUX_ONLY
 def test_symlink_escaping_the_record_dir_is_refused(tmp_path):
     outside = tmp_path / "elsewhere.json"
     outside.write_text(json.dumps(_record()), encoding="utf-8")
@@ -190,3 +200,64 @@ def test_real_repo_design_doc_no_longer_opens_the_leg():
 def test_real_voting_source_registry_is_non_empty():
     keys = perm.voting_source_keys()
     assert keys and all(isinstance(k, str) and k for k in keys)
+
+
+# ── The owner checklist (read-only) ─────────────────────────────────────────
+
+_WITH_ORPHAN = (*VOTING, "orphanSource")
+
+
+def _checklist(voting=_WITH_ORPHAN):
+    return perm.permission_checklist(voting_sources=voting, provider_of=PROVIDERS.get)
+
+
+def test_checklist_covers_exactly_the_voting_sources_once():
+    rows = _checklist()
+    listed = [s for r in rows for s in r["sources"]]
+    assert sorted(listed) == sorted(_WITH_ORPHAN)
+    assert len(listed) == len(set(listed))
+    orphan = [r for r in rows if r["provider"] is None]
+    assert orphan == [
+        {
+            "provider": None,
+            "sources": ["orphanSource"],
+            "providerEntry": None,
+            "orEverySourceEntry": ['sources["orphanSource"]'],
+        }
+    ]
+
+
+def test_answering_every_provider_entry_is_sufficient():
+    rows = _checklist()
+    rec = _record(
+        providers={r["provider"]: "approved" for r in rows if r["provider"]},
+        sources={r["sources"][0]: "approved" for r in rows if r["provider"] is None},
+    )
+    assert _problem(rec, voting=_WITH_ORPHAN) is None
+
+
+def test_answering_every_source_entry_is_sufficient_but_some_is_not():
+    rows = _checklist()
+    every = {s: "approved" for r in rows for s in r["sources"]}
+    assert _problem(_record(providers={}, sources=every), voting=_WITH_ORPHAN) is None
+    ktc = next(r for r in rows if r["provider"] == "keepTradeCut")
+    assert len(ktc["sources"]) == 2
+    partial = {k: v for k, v in every.items() if k != ktc["sources"][1]}
+    assert _problem(_record(providers={}, sources=partial), voting=_WITH_ORPHAN) == (
+        f"uncovered:{ktc['sources'][1]}"
+    )
+
+
+def test_the_unanswered_template_can_never_open_the_gate():
+    tpl = perm.unanswered_template(voting_sources=_WITH_ORPHAN, provider_of=PROVIDERS.get)
+    assert _problem(tpl, voting=_WITH_ORPHAN) == "approver_missing"
+    # Even with an approver and valid dates, every answer is still "unknown".
+    filled = {**tpl, "approvedBy": "someone", "approvedAt": "2026-10-19", "reviewBy": "2026-12-31"}
+    assert _problem(filled, voting=_WITH_ORPHAN).startswith("unresolved:")
+    assert set(tpl["providers"].values()) == {"unknown"}
+    assert tpl["sources"] == {"orphanSource": "unknown"}
+
+
+def test_real_checklist_names_every_real_voting_source():
+    rows = perm.permission_checklist()
+    assert sorted(s for r in rows for s in r["sources"]) == sorted(perm.voting_source_keys())

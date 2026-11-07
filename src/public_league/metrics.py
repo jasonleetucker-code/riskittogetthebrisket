@@ -331,6 +331,62 @@ def final_weeks(season: SeasonSnapshot) -> list[int]:
     ]
 
 
+#: Reasons :func:`host_lineups_open_from_week` names.
+HOST_WEEK_NOT_FINAL = "host_week_not_final"
+HOST_WEEK_FINALITY_UNKNOWN = "host_week_finality_unknown"
+
+
+def host_lineups_open_from_week(
+    season: SeasonSnapshot, nfl_state: dict[str, Any] | None
+) -> tuple[int | None, str | None]:
+    """``(first week whose host LINEUPS are not yet awarded, reason)``.
+
+    A distinct question from :func:`final_weeks` ("is the week's SCORING
+    finished?").  Sleeper scores a best-ball week as its games end -- its own
+    ``last_scored_leg`` counts the week, so ``final_weeks`` includes it -- but
+    it awards the week's optimized best-ball lineups (and absorbs stat
+    corrections) only once it stops DISPLAYING the week, ``/state/nfl``
+    ``display_week``.  Between the two, every recorded lineup is provisional
+    and is not the roster optimum (dynasty_main 2026 week 8, 2026-11-03: the
+    whole season was withheld as "best-ball rule contradicted").
+
+    Anything that compares recorded lineups with the roster optimum -- e.g.
+    ``player_impact.detect_contradictions`` -- must only be given weeks below
+    this bound.  Evidence, not assumption:
+
+    * a season the host marks ``complete`` -> ``(None, None)``: all awarded;
+    * ``nfl_state`` for a LATER season -> ``(None, None)``;
+    * ``nfl_state`` for an EARLIER season -> ``(1, HOST_WEEK_NOT_FINAL)``;
+    * the host's current season -> ``(display_week, HOST_WEEK_NOT_FINAL)``;
+    * ``nfl_state`` unreadable or without a usable week ->
+      ``(None, HOST_WEEK_FINALITY_UNKNOWN)``: the caller withholds the newest
+      scored week (fail closed on one week, never on a season).
+
+    Pure: the caller fetches ``/state/nfl`` (``sleeper_client.fetch_nfl_state``).
+    """
+    if str(season.league.get("status") or "").lower() == "complete":
+        return None, None
+    if not isinstance(nfl_state, dict):
+        return None, HOST_WEEK_FINALITY_UNKNOWN
+    try:
+        host_season = int(str(nfl_state.get("season") or "").strip())
+        this_season = int(str(season.season).strip())
+    except ValueError:
+        return None, HOST_WEEK_FINALITY_UNKNOWN
+    if host_season > this_season:
+        return None, None
+    if host_season < this_season:
+        return 1, HOST_WEEK_NOT_FINAL  # the host has not started this season
+    raw = nfl_state.get("display_week")
+    if isinstance(raw, bool) or raw is None:
+        return None, HOST_WEEK_FINALITY_UNKNOWN
+    try:
+        display = int(raw)
+    except (TypeError, ValueError):
+        return None, HOST_WEEK_FINALITY_UNKNOWN
+    return max(1, display), HOST_WEEK_NOT_FINAL
+
+
 def tx_week(tx: dict[str, Any]) -> int | None:
     """The week a Sleeper transaction belongs to (its ``leg``), or ``None``."""
     for key in ("leg", "_leg"):

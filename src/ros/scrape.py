@@ -56,6 +56,7 @@ from src.api import build_identity as _build_identity  # noqa: F401
 from src.ros import ROS_DATA_DIR
 from src.ros.aggregate import RankedRow, SourceSnapshot, aggregate
 from src.ros.lineup import flatten_starter_slots
+from src.ros.rank_basis import diagnose as diagnose_rank_basis
 from src.ros.mapping import resolve_player
 from src.ros.sources import enabled_ros_sources
 from src.sources.dataset_state import load_state, save_state
@@ -76,6 +77,9 @@ class ScrapeResult:
     started_at: str = ""
     completed_at: str = ""
     player_count: int = 0
+    # Adapter-stated diagnostics (REPORTING ONLY — never read by the
+    # aggregate), e.g. ``sourceMode`` and rows ``withheld`` by reason.
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 def _now() -> str:
@@ -179,7 +183,7 @@ def _write_csv_outcome(source_key: str, rows: list[dict[str, Any]]) -> CsvWriteO
     ]
     import csv
 
-    with path.open("w", newline="") as f:
+    with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         for row in rows:
@@ -312,8 +316,27 @@ def _write_run_json(
     # Drop the heavy rows blob — it's already in the CSV; the run JSON
     # is for status / debugging only.
     payload.pop("rows", None)
-    target.write_text(json.dumps(payload, indent=2))
+    target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return target
+
+
+def _load_prior_rank_basis() -> dict[str, dict[str, Any]]:
+    """Each source's ``rank_basis`` report from the current ``index.json``.
+
+    Missing / unreadable index → ``{}``: every source is then a baseline
+    (nothing compared, nothing raised), never a false "coverage vanished".
+    """
+    path = _runs_dir() / "index.json"
+    try:
+        index = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for key, entry in ((index or {}).get("sources") or {}).items():
+        report = (entry or {}).get("rank_basis") if isinstance(entry, dict) else None
+        if isinstance(report, dict):
+            out[str(key)] = report
+    return out
 
 
 def _rebuild_index(latest_runs: dict[str, dict[str, Any]]) -> Path:
@@ -325,7 +348,8 @@ def _rebuild_index(latest_runs: dict[str, dict[str, Any]]) -> Path:
                 "sources": latest_runs,
             },
             indent=2,
-        )
+        ),
+        encoding="utf-8",
     )
     return index_path
 
@@ -736,7 +760,7 @@ def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[st
         # before this seam existed: the served bytes must not change.
         playoff_payload = playoff_sim.simulate_playoff_odds(snap, best_ball=bb)
         playoff_doc = {"computedAt": _now(), **playoff_payload}
-        playoff_path.write_text(json.dumps(playoff_doc, indent=2))
+        playoff_path.write_text(json.dumps(playoff_doc, indent=2), encoding="utf-8")
         out["playoff"] = playoff_path
         # AL-P6: archive each forecast, as written, with its model identity --
         # only AFTER the served file is on disk, and never able to fail this
@@ -749,7 +773,7 @@ def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[st
         # were produced.
         championship_payload = championship.championship_from_forecast(playoff_payload)
         champ_doc = {"computedAt": playoff_doc["computedAt"], **championship_payload}
-        champ_path.write_text(json.dumps(champ_doc, indent=2))
+        champ_path.write_text(json.dumps(champ_doc, indent=2), encoding="utf-8")
         out["championship"] = champ_path
         _archive_forecast(cfg.key, snap, bb, "championship", champ_doc, champ_path)
 
@@ -950,6 +974,10 @@ def run_all(
     # is rebuilt from only the sources that ran.
     content_clock = _load_content_clock()
     content_clock_dirty = False
+    # The previous run's rank-basis report per source, so a group whose
+    # coverage vanishes or whose basis moves between refreshes is reported
+    # (``src/ros/rank_basis.py``).  Reporting only.
+    prior_rank_basis = _load_prior_rank_basis()
 
     for src in sources:
         key = str(src.get("key") or "")
@@ -978,6 +1006,21 @@ def run_all(
 
         if result.status == "ok" and result.player_count == 0:
             result.status = "partial"
+
+        # Rank basis of the rows that will vote (reporting only).  A source
+        # that returned nothing this run is not diagnosed — its CSV is the
+        # previous one, and an empty report would read as "coverage
+        # vanished" for every group.
+        rank_basis_diag: dict[str, Any] | None = None
+        if result.rows:
+            rank_basis_diag = diagnose_rank_basis(
+                result.rows,
+                prior_rank_basis.get(key),
+                withheld=(result.diagnostics or {}).get("withheld"),
+                groups_served_by_other_key=(result.diagnostics or {}).get("groupsServedByOtherKey"),
+            )
+            if rank_basis_diag["issues"]:
+                LOG.warning("[ros] %s rank-basis issues: %s", key, rank_basis_diag["issues"])
 
         # Persist CSV + run JSON.
         try:
@@ -1024,6 +1067,12 @@ def run_all(
             "content_state": clock_state,
             "content_first_observed_at": (clock_entry or {}).get("first_observed_at"),
             "last_content_change": (clock_entry or {}).get("last_content_change"),
+            # Carried forward unchanged when this run produced no rows, so the
+            # next comparison is against the last DIAGNOSED board.
+            "rank_basis": rank_basis_diag
+            if rank_basis_diag is not None
+            else prior_rank_basis.get(key),
+            "source_mode": (result.diagnostics or {}).get("sourceMode"),
         }
         run_path = _write_run_json(result, src, status_extra)
 
@@ -1063,11 +1112,12 @@ def run_all(
                 "players": aggregated,
             },
             indent=2,
-        )
+        ),
+        encoding="utf-8",
     )
     # Archive history copy keyed by completion timestamp.
     archive = agg_dir / "history" / f"{_now().replace(':', '-')}.json"
-    archive.write_text(json.dumps({"players": aggregated}, indent=2))
+    archive.write_text(json.dumps({"players": aggregated}, indent=2), encoding="utf-8")
 
     # Warm derived caches per active league.  Both helpers are best-
     # effort and never raise — a network blip during sim cache refresh

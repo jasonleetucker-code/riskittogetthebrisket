@@ -1,5 +1,253 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Session resumption directive — owner, 2026-11-07
+
+**AUTHORIZED NOW, inside the same remediation program and inventory (no second roadmap).** Record:
+`docs/owner/SESSION_RESUMPTION_DIRECTIVE_2026-11-07.md`; intake MD-56 … MD-64; owner decisions
+`ODR-W12F006-TERMINAL-PRECEDENCE`, `ODR-W20F001-ROSTERS-GAMEPLAN`, `ODR-W10F003-RETIRE-NBT`,
+`ODR-1938-PROMOTION-PREP`, `ODR-DFS-TIMER-KEEP` in `docs/owner/OWNER_DECISION_REGISTER.md`.
+
+- **Authorized to implement:** Decisions A (W12-F006 Terminal precedence), B (W20-F001 `/rosters` Team Gameplan), C
+  (W10-F003 retire legacy Next Best Targets); CW-40 fresh adjudication of the 59 P1 findings with routine repairs and
+  regression tests; CW-49 / CW-53 / CW-48 / CW-52 / CW-37 dependency-ready work; W25-F003 and W26-F003 residuals.
+- **Authorized as research / preparation only:** W13-F003, W27-F001, W27-F005, W30-F008 methodology proposals; #1938
+  promotion package.
+- **Reserved:** merging #1938 or activating its valuation effects; any production valuation formula, weight,
+  threshold or activation-flag change; disabling the deployed DFS refresh timer; box-operator actions.
+- Same order, worker limit (≤ 4), gates and prohibitions as the two 2026-11-06 sections below.
+
+## Continuous verification / QA program — owner directive, 2026-11-06 (second directive of the day)
+
+**AUTHORIZED NOW, inside the sitewide remediation program below (no second roadmap).** Record:
+`docs/owner/CONTINUOUS_QA_DIRECTIVE_2026-11-06.md`; intake MD-47 … MD-55; permanent process
+`docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md` (#2080) via `docs/AGENT_OPERATING_SYSTEM.md` §3.
+Work items CW-48 (feature-intent census + requirement → code → test → evidence matrix), CW-49 (independent
+mathematical oracles and invariants), CW-50 (regression and end-to-end journeys), CW-51 (bounded stress and
+resilience baselines), CW-52 (evidence-classified dead code / duplicate logic), CW-53 (mechanized feedback loop and
+PR verification receipt); Phase 6 security / data integrity runs through CW-05, CW-07, CW-11 and CW-37.
+
+- **Order:** Wave A blockers and perishable capture first; then the directive's priority order (critical incorrect
+  results / security / production reliability → math and scoring correctness → integration failures → behavior that
+  contradicts owner requirements → regression gaps → data integrity → measured performance → proven dead code →
+  usability), dependency-ready units in parallel, at most four workers.
+- **Delegated:** test, harness, fixture and tooling design; corrective fixes with reproducing tests; proven-safe
+  dead-code removal in small reversible PRs; bounded non-production stress runs.
+- **Not permitted:** unbounded or disruptive production load; weakening, skipping or deleting tests or gates;
+  consequential valuation, predictive, source-voting, probability or public-launch changes without their own
+  authorization and evidence; new recurring schedules outside the existing cost-conscious framework; anything the
+  sitewide section below keeps reserved.
+
+## Sitewide audit remediation, implementation and delivery — owner directive, 2026-11-06
+
+**AUTHORIZED NOW (expands the sections below; replaces no recorded owner decision).** Record:
+`docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md`. Intake MD-38 … MD-46. Owner decisions (its Part 16 table):
+register section "Sitewide remediation directive (2026-11-06)". Inventory, portfolio and traceability (CW-01 …
+CW-47): `docs/audits/remediation_2026-11-06/`; agent-made decisions: `…/DECISIONS.md`.
+
+- **Delegated:** ordinary engineering, product, UX and evidence-based methodology decisions; investigation, coding,
+  regression repair, bounded features, reversible UX, tests; normal reviewed integration and deployment under the
+  existing CI / release gates (standing 2026-10-19 merge authorization unchanged: exact-head green, independent
+  review, delta re-review after any later change).
+- **Order:** Wave A (CW-01 … CW-06, CW-47: deploy blockers, scraper outage, Week 10 / 2027-auction capture,
+  backups, security posture) → B (CW-07 … CW-10) → C (CW-11 … CW-17, CW-46) → D (CW-18 … CW-28) → E (CW-29 …
+  CW-36) → F (CW-37 … CW-43), dependency-ready units in parallel, at most four workers.
+- **Value-changing methodology:** research, benchmarks, challengers and evidence now; clearly corrective defects
+  through independent review + regression gates (e.g. CW-47 restores the 2026-10-07 owner rule behind a rollback
+  flag); consequential live changes to valuation, source voting, fairness, probabilities or public launch only with
+  independent outcome evidence, a measured blast radius, rollback and the documented activation conditions; else
+  the incumbent stays.
+
+**Still not permitted / owner-reserved:** credentials the agent lacks; licence, paywall or provider-term bypass;
+spending; unauthorized root changes (box-operator steps are written out, not run); public exposure of private routes
+or proprietary values; any Sleeper write; destroying irreplaceable history; bypassing protections or failing tests;
+DFS and League Tycoon; launching the public Trade Advisor; and every subject the sections below keep reserved
+unless this directive's Part 16 table (register) settles it for its exact scope.
+
+## Second master directive: production security, Roster Construction, IDP accuracy, frontend UX audit — owner directive, 2026-11-01
+
+**AUTHORIZED NOW (expands the section below; replaces no decision).** Verbatim: `docs/owner/CHASE_UPSIDE_NEXT_MASTER_DIRECTIVE_2026-11-01.md`. Intake MD-26 … MD-34.
+- **P0 security:** pipeline PR binding the backend and frontend to loopback by default; box-operator root step
+  `deploy/apply_hardening.sh` (dry-run first) for nginx headers and banners. The deploy user's scoped sudo is never
+  used to bypass it. No addresses or secrets in public artifacts. `brisket_trade_advisor` stays OFF.
+- **P1:** #2040 → #2041 → owner's authenticated production check → #2044.
+- **P2/P3:** IDP Show findings into the existing lanes; prospective, pre-kickoff champion-vs-challenger evaluation
+  from Week 9 with a preregistration and frozen fits pushed before kickoff. Shadow only.
+- **P4:** frontend IA / navigation / usability / accessibility audit and justified fixes. Owner: `frontend/lib/nav-model.js`,
+  `frontend/components/shell/*`, page titles, the naming canons, PSI / Direction A. No second nav or design system.
+  Consequential redesigns (renaming or reorganizing top-level sections) are listed for the owner, not shipped
+  unilaterally.
+- **P5/P6:** research under existing gates; roadmap traceability.
+
+**Unchanged and owner-reserved:** everything reserved in the section below, plus public exposure of any private
+route, proprietary-data ingestion without rights, and root-only box changes.
+
+## Master development directive: production validation, model accuracy, decision quality — owner directive, 2026-11-01
+
+**AUTHORIZED NOW: finish, validate, merge, deploy and verify existing work; research and shadow work as listed; the
+conditional private activation of Roster Construction.** Verbatim directive and decisions 1–10:
+`docs/owner/CHASE_UPSIDE_MASTER_DIRECTIVE_DECISIONS_2026-11-01.md`. Intake rows: MD-1 … MD-16. This section settles,
+for its exact subjects only, the items the 2026-10-28 / 10-29 / 10-30 sections below list as owner-reserved
+(`roster_construction` activation, #2006, the ROS diagnosis, the advisor response floor, the odds wording); everything
+else they reserve stays reserved.
+
+Workstreams (one owner per file; planning records are the coordinator's alone):
+- **A — release and usability:** #2031 and #2032 through ordinary gates; Decision 9 wording on uncalibrated
+  playoff / championship odds (`frontend/app/league/sections/ros-*.jsx`, `PlayoffOddsChart`), copy only.
+- **B — Roster Construction readiness:** 2026 host-score parity census over every finalized team-week
+  (`src/roster_intel/construction.py`, tolerance `config/roster_construction/v1.json`); attribution / ownership /
+  slot integrity tests; 2025 served as an explicit unavailable state unless authoritative evidence proves its slots
+  (decision 2); timing, auth, desktop + WebKit mobile. **Activation** = `roster_construction` default ON; the
+  capability-gated My Team nav follows only after production verification (`frontend/lib/nav-model.js`, `server.py::_NAV_GATED_CAPABILITIES`), only when every
+  decision-1 condition is evidenced; otherwise it stays OFF with the failing gate named.
+- **C — streaming accuracy:** gap decomposition and weekly IDP source census in `src/waivers/streaming_backtest.py`
+  (research); optimizer changes in `src/waivers/streaming*.py` only where that evidence supports them; default
+  budget 0; search exhaustion never reported as optimal.
+- **D — ROS calibration:** merge #2035 (research runner) once reviewed; run the frozen Week 8 confirmation;
+  preregister prospective weeks and a ROS-horizon ordering gate; `rosPointsPerWeek` only as a separate field behind
+  a new default-OFF flag, and only if justified. G3 stays FAILED.
+- **E — source integrity:** #2006 restoration (decision 3 gates); read-only outlier-integrity V2 four-arm and IDP
+  Show board comparisons with an owner-ready recommendation.
+- **F — Trade Advisor and security:** `responseFloorMs` 300; admission and limiter values unchanged and confirmed;
+  read-only production network audit (headers, direct port, CORS, error leakage); permission checklist reviewed,
+  never attested.
+
+Merges follow the standing authorization (2026-10-19): exact-head green, independent review, Integration merges.
+
+**Unchanged and owner-reserved:**
+- canonical dynasty values, curves, TE++, package model, source weights, voting membership and freshness rules;
+- promoting CR / `rosPointsPerWeek` or any ROS calibration into `rosValue`, team strength, lineups, simulations or
+  trade verdicts;
+- the DLF IDP hold, `source_freshness_schedule_v2`, swapping the IDP Show voting board;
+- `brisket_trade_advisor` (public launch), per-source public-use permission records;
+- box-operator production changes outside the deploy pipeline (nginx headers, app bind address);
+- inferring the 2025 lineup configuration for production;
+- public exposure of Roster Construction, the Waiver Advisor or streaming;
+- #1884, #1938, #1873, #1852; Sim V3 promotion; the `dynasty_new` taxi cap; any Sleeper write; paid data;
+  League Tycoon (OWNER-PARKED).
+
+## Roster Construction Intelligence V1 (private) and release completion — owner directive, 2026-10-30
+
+**AUTHORIZED NOW: build and merge Roster Construction V1 behind a new default-OFF flag; finish #2024 → #2025; reconcile
+#2026.** Verbatim directive: `docs/owner/RELEASE_COMPLETION_ROSTER_CONSTRUCTION_DIRECTIVE_2026-10-30.md`. Intake rows:
+RCV-1 … RCV-8. Feature contract: `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` §§9–20 and
+`docs/OWNER_PRODUCT_BACKLOG_SPEC.md` FC-01 / FC-02 / FC-06. Both arrive with PR #2026; until it merges, read them from
+its branch.
+
+Lanes (one owner per concern):
+- **Lane A (coordinator):** #2024 → #2025 under the 2026-10-29 section below; signed-in activation per IST-10 only.
+- **Lane B:** planning reconciliation and #2026 integration. Docs only.
+- **Lane C — mathematics:** new `src/roster_intel/construction*.py` (name chosen by the lane) adding only the missing
+  calculation layer; one private route in `server.py` behind flag `roster_construction` (default OFF), versioned
+  response contract.
+- **Lane D — frontend:** private, mobile-first page under `frontend/app/roster-construction/` (path may change),
+  PSI Direction A, fixtures until the API lands. The backend decides, the frontend renders.
+- **Lane E — independent validation:** acceptance scenarios 1–10 (directive Phase 5), FLEX attribution, ownership
+  history, chronology, mobile/WebKit/accessibility. Never certifies its own code.
+
+Canonical owners to reuse, never re-implement:
+- `src/ros/lineup.py` — slot rules and exact lineup assignment.
+- `src/roster_intel/best_ball_utility.py`, `marginal.py` — conditional marginal lineup utility (#1173).
+- `src/roster_intel/strength.py`, `weakness.py`, `window.py` (Competitive Posture), `age_portfolio.py`, `core.py`.
+- `src/league_intel/replacement.py` — replacement levels; `src/draft/displacement.py` — cut ladder and waiver levels.
+- `src/nfl_data/realized_points.py` — weekly points under the league's exact scoring.
+- `src/public_league/ownership.py` — who held a roster in week N; `src/history/asof.py` — as-of values, never future.
+- `src/trade/roster_capacity.py` — roster limits and forced drops.
+
+Invariants: positional production and positional dynasty value are computed and labelled separately; team utility never
+feeds `rankDerivedValue`; missing ownership or weekly actuals stay missing, never 0; historical numbers respect
+ownership tenure and as-of data; a weak position never auto-generates a transaction; NO ACTION is valid.
+
+**Unchanged and owner-reserved:**
+- canonical dynasty values, curves, source voting and weights;
+- every held flag and model promotion (#2006, #1938, #1884, #1873, #1852, freshness v2, DLF holds, Sim V3);
+- public exposure of any advisor or of Roster Construction;
+- any Sleeper write;
+- League Tycoon (OWNER-PARKED);
+- **production activation of `roster_construction`** (not authorized by this directive). *Superseded 2026-11-01:*
+  conditional private activation is authorized by the master directive section above (decision 1).
+
+## IDP streaming and dynasty-safe roster churning (Waiver Advisor) — owner directive, 2026-10-29
+
+**AUTHORIZED NOW: build, merge and deploy under the standing merge authorization.** Verbatim directive and owner
+decisions: `docs/owner/IDP_STREAMING_DIRECTIVE_2026-10-29.md`. Intake rows: IST-1 … IST-12.
+
+Owners (one per concern):
+- `src/ros/weekly_league_projections.py`: league-scored weekly projections, the archive and the attested scrapers.
+  Seasonal lane only.
+- `src/waivers/drop_assessment.py`: protection classes.
+- `src/waivers/streaming.py`: the weekly add/drop solver, capacity and multiweek. It consumes `src/ros/lineup.py`,
+  `waiver.find_waiver_targets`, constraints, roster capacity and droppability; it re-implements none of them.
+- `src/waivers/streaming_backtest.py`: research, kept isolated.
+- `POST /api/waiver/streaming` behind `waiver_advisor` + `idp_streaming`, and the Waiver Advisor UI.
+- The FAAB `current_week` fix in `find_waiver_targets` is authorized (IST-7). It changes live list bids.
+- Production activation of `waiver_advisor` and `idp_streaming` for signed-in users is owner-approved (IST-10), once the
+  acceptance scenarios, exact-head green CI and independent review are in place.
+
+**Unchanged and owner-reserved:**
+- canonical dynasty values, TE++, source voting and weights;
+- `forced_drop_cheapest_legal`;
+- #2006 (*superseded 2026-11-01: restore authorized, decision 3*) and the `dynasty_new` taxi cap;
+- any Sim V3 promotion;
+- any Sleeper write or claim submission;
+- paid data;
+- promoting any learned projection weighting.
+
+## Next development cycle: IDP calibration, source authority, Trade Advisor readiness — owner directive, 2026-10-28
+
+**AUTHORIZED NOW (parallel build mode; research, shadow candidates, bug fixes, tests and evidence; NOT activation).**
+Verbatim: `docs/owner/NEXT_CYCLE_IDP_CALIBRATION_DIRECTIVE_2026-10-28.md`. Intake: `docs/OWNER_REQUESTED_TODO.md`
+"Added 2026-10-28" (NC-A … NC-E).
+- **NC-A:** ROS offense/IDP scale calibration as an isolated shadow package with a preregistered champion/challenger
+  evaluation and an owner recommendation. It consumes `src/ros/lineup.py`, the existing host-native scorer and actuals loaders, and the replacement owner;
+  it edits none of them.
+- **NC-B:** IDP source-authority diagnosis, ingestion and timestamp bug fixes with measured board diffs, and additive
+  per-source weight-reduction reasons.
+- **NC-C:** test reliability (live-data tier promotion, encoding regression test, E2E #2000, WebKit mobile, advisor
+  production network checks).
+- **NC-D:** Trade Advisor launch-gate recommendations and value-concept labelling (display and explanation only).
+- **NC-E:** Waiver Advisor readiness evidence; close #1921 once it is verified superseded by #1995.
+
+**Owner-reserved (NOT authorized):** promoting any ROS calibration into live team strength, lineups, simulations or
+trade verdicts; changing canonical dynasty values, TE++ basis, source weights, voting membership or freshness rules;
+releasing the DLF IDP hold; turning `source_freshness_schedule_v2`, the Trade Advisor launch flag, `waiver_advisor`
+or any flag ON; choosing the advisor response floor, permissions, admission or rate-limit values; #2006; the
+`dynasty_new` taxi cap; filing the #1985 GitHub Support request (owner account). *2026-11-01: the response floor
+(300 ms), #2006 (restore) and the ROS diagnosis (accepted, no promotion) are settled by the master directive section
+above; everything else here stays reserved.* Merges follow the standing merge
+authorization (2026-10-19 / 2026-10-26).
+
+## Chase Upside private ChatGPT MCP plugin — owner directive, 2026-10-25
+
+**AUTHORIZED: scoped implementation and PR only.** Build an owner-only, read-only MCP plugin using ChatGPT Sites hosting to support the user's ChatGPT Plus workflow. First tools: player rankings, canonical player identity resolution, league context, Sleeper rosters, and trade analysis. Reuse current API contracts and analytical owners; include IDs, data-as-of stamps, confidence, provenance, and explicit unavailable states. Respect private ranking permissions, source licensing, and feature flags. No write tools, public publication, production deployment, or merge is authorized in this lane. Review and required verification are prerequisites to any later publish/deploy/merge. Follow-on scope for projections, draft capital, waivers and FAAB remains intake-only until the first live path is verified. Intake: `docs/OWNER_REQUESTED_TODO.md` §"Added 2026-10-25 — Chase Upside private ChatGPT MCP plugin".
+
+## IDP market pricing, acquisition intelligence, historical trade research and draft strategy — owner directive, 2026-10-26
+
+**AUTHORIZED NOW (read-only collection, additive diagnostics and shadow-only research; NOT activation).** The directive
+is verbatim in `docs/owner/IDP_MARKET_ACQUISITION_DIRECTIVE_2026-10-26.md`. Authorized in phase order:
+- **Phase 1:** the own-league trade and draft census over the full `previous_league_id` chain, from Sleeper's public
+  read-only API, priced only point-in-time through `src/history`, with private transaction-level evidence kept in
+  gitignored `data/research/`. A survey of historical price archives for trades before 2026-07-14; no ingestion before
+  the owner approves a source, and no paid data.
+- **Phase 2:** preregistered market-hypothesis research (H1–H7).
+- **Phases 3–4:** shadow acquisition, selling, draft and auction research.
+
+Rules for all of it:
+- **Reuse, never fork.** Reuse the existing owners: `src/trade/market_trade_*`, `comparable_trades.py`,
+  `own_league_format_capture.py`, `src/public_league/sleeper_client.py`, `src/identity/`, `src/history/`,
+  `analyze_trade.py`, `trade_decision.decide()` (the only verdict owner), `roster_capacity`, `competitive_posture`,
+  `src/ros/lineup.py`, `src/draft/` and `src/auction/`.
+- **Isolate.** New code is research or shadow only: unwired, or behind default-OFF flags, and isolated like
+  `src/league_valuation/` (`tests/league_valuation/test_isolation.py`).
+- **No second owner.** `chaseTradeMarket` stays non-voting; no second voting mechanism, no second ledger, no second
+  verdict owner.
+
+**Owner-reserved (NOT authorized):** the directive's §15 list: canonical IDP values, source voting or weights, the
+shared market anchor, replacement-level or fair-value promotion, public fairness, the package model, recommendation
+rule tables, turning any flag ON, scoring cards, and any model affecting live trade verdicts. Also: Sleeper writes and
+paid data. Intake: `docs/OWNER_REQUESTED_TODO.md` "Added 2026-10-26 — IDP market pricing…" (IDPM-1..11).
+
+**Unaffected and not blocked:** every other §0 authorization continues in parallel.
+
 ## IDP valuation accuracy + platform research/promotion-readiness audit — owner directives, 2026-10-25
 
 **AUTHORIZED NOW (research, tests and shadow-only candidates; NOT activation).** IDP valuation accuracy,
@@ -608,6 +856,16 @@ coordinate with the open awards claim), then the league-valid alternative-calend
 qualification/finish distributions (B remainder, separate model id; the finish sampler exists as
 library code and is not published), then D (valid slot swaps, retrospective playoff sensitivity);
 E stays behind `C5-WAR-01`.
+
+**Corrected 2026-10-26 by the RPA audit:** "WAR/WAB are absent on main" and "E stays behind `C5-WAR-01`" above were true on
+2026-10-03 and are stale. `C5-WAR-01`'s deterministic core (realized lineup VORP, Actual WAR, Wins
+Above Bench, Game Changer Points) merged as #1692 on 2026-10-08 (`src/public_league/player_impact.py`;
+private, read-only route `GET /api/league/player-impact`), so Milestone E's WAR/WAB dependency is met.
+Unchanged: xWAR is deliberately not computed (no archived no-lookahead league-week distribution
+exists); nothing consumes the player-impact contract yet, so no award or MVP formula uses it; B
+remainder, C and D keep their dependency order; an official MVP formula change stays shadow-only until
+the owner approves it. Evidence: `gh pr view 1692` (MERGED 2026-10-08);
+`docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` (RPA-LGI-009).
 
 **Not authorized by this directive:** changing the official Power Rankings formula or the official
 League MVP formula (both stay behind the existing owner/methodology gates — candidates ship in
@@ -2140,6 +2398,15 @@ C10 Closure
 
 **Units 1–4 are CLOSED. Unit 5 of this list (`C1-U6`) is AUTHORIZED. Unit 4 of this list (`C1-U5`) is
 DEFERRED; unit 6 is NOT authorized.** Original rationale in `docs/POST_B_RECONCILIATION_2026-08-14.md` §30.
+
+> **Corrected 2026-10-26 by the RPA audit:** the header's "`C1-U5` is DEFERRED" (and item 4's "DEFERRED — NOT AUTHORIZED")
+> recorded the owner's 2026-08-16 checkpoint choice and was true then; it is stale. `C1-U5` /
+> `C1-CONF-01` was executed and merged as PR #876 on 2026-08-17 (merge `1bfa83699`,
+> `docs/confidence/C1_U5_CONFIDENCE_NAMING.md`) and is recorded as in production, checklist unexecuted,
+> in the §0.3 merge queue above (that status was not re-verified here). Likewise `C1-U6` (unit 5) is no
+> longer merely "AUTHORIZED": its own section above records it CLOSED. Unit 6 remains NOT authorized. The
+> 2026-08-16 deferral text is left as written. Evidence: `gh pr view 876` (MERGED 2026-08-17);
+> `docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` (RPA-GOV-005).
 
 PR-sized units within C1A, in order:
 

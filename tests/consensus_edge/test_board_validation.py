@@ -74,7 +74,7 @@ class TestTheInertFitBoardIsActuallyInert(unittest.TestCase):
         self.assertTrue(meta["reasons"]["summary"])
 
     def test_the_study_uses_it(self):
-        source = (REPO / "scripts" / "validate_consensus_edge_board.py").read_text()
+        source = (REPO / "scripts" / "validate_consensus_edge_board.py").read_text(encoding="utf-8")
         self.assertIn("scoring_fit.inert_board(", source)
         self.assertIn("scoring_fit_board=self._inert", source)
 
@@ -100,7 +100,7 @@ class TestBuildBoardThreadsCsvRoot(unittest.TestCase):
         self.assertIn("csv_root=csv_root", source)
 
     def test_the_study_always_supplies_it(self):
-        source = (REPO / "scripts" / "validate_consensus_edge_board.py").read_text()
+        source = (REPO / "scripts" / "validate_consensus_edge_board.py").read_text(encoding="utf-8")
         self.assertIn("csv_root=pd.csv_root", source)
         # Both the contract build and the board build need it; neither
         # alone is sufficient.
@@ -423,7 +423,7 @@ class TestCommittedMeasurementsAreHonest(unittest.TestCase):
         import json
 
         for path in self._measurements():
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8"))
             self.assertFalse(
                 payload["configuration"]["scoringFitApplied"],
                 f"{path.name} claims a scoring fit was applied; the replay holds it inert",
@@ -445,7 +445,7 @@ class TestCommittedMeasurementsAreHonest(unittest.TestCase):
         import json
 
         for path in self._measurements():
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8"))
             unreachable = payload["unreachableLabels"]
             for label in ("Conflicted", "Withheld"):
                 self.assertIn(label, unreachable)
@@ -463,7 +463,7 @@ class TestCommittedMeasurementsAreHonest(unittest.TestCase):
         import json
 
         for path in self._measurements():
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8"))
             self.assertTrue(
                 any("OFFSEASON" in c or "offseason" in c for c in payload["caveats"]),
                 f"{path.name} does not state that its panel is entirely offseason",
@@ -577,7 +577,9 @@ class TestSellSideIsMarkedUnvalidated(unittest.TestCase):
         self.assertTrue((REPO / service.SELL_SIDE_VALIDATION["evidence"]).exists())
 
     def test_the_frontend_surfaces_it_on_the_sells_view(self):
-        page = (REPO / "frontend" / "app" / "consensus-edge" / "page.jsx").read_text()
+        page = (REPO / "frontend" / "app" / "consensus-edge" / "page.jsx").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("sellSideValidation", page)
         self.assertIn('view === "sells"', page)
 

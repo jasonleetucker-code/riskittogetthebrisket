@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 import unittest
 
+from tests.public_league.fixtures import wait_for_public_memo_refreshes
+
 try:
     from fastapi.testclient import TestClient
 
@@ -231,6 +233,7 @@ class PublicLeagueRouteTests(unittest.TestCase):
         import server
 
         self.client.get("/api/public/league?refresh=1")
+        wait_for_public_memo_refreshes(server)
         server._heavy_section_cache.clear()
 
         calls = {"n": 0}
@@ -324,6 +327,7 @@ class PublicLeagueRouteTests(unittest.TestCase):
         import server
 
         self.client.get("/api/public/league?refresh=1")
+        wait_for_public_memo_refreshes(server)
         server._heavy_section_cache.clear()
 
         calls = {"n": 0}
@@ -353,6 +357,7 @@ class PublicLeagueRouteTests(unittest.TestCase):
         from src.public_league.public_contract import build_section_payload
 
         self.client.get("/api/public/league?refresh=1")
+        wait_for_public_memo_refreshes(server)
         server._heavy_section_cache.clear()
         cached = self.client.get("/api/public/league/awards").json()
         fresh = build_section_payload(server._get_public_snapshot(), "awards")

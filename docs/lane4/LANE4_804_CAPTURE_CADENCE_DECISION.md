@@ -2,6 +2,17 @@
 
 **Status: awaiting an owner decision. Nothing is scheduled and nothing is on.**
 
+> **Corrected 2026-10-26 by the RPA audit:** the next paragraph's "The capture unit shipped in **#921** and its feature flag
+> is **OFF**" is wrong. #921 was CLOSED UNMERGED on 2026-09-09 ("DEFER / PRESERVE REFERENCE",
+> `docs/OPEN_PR_DISPOSITION_LEDGER_2026-09-09.md`); its head branch is gone from the remote (only
+> `refs/pull/921/head` remains) and `src/history/store.py::VALID_LANES` still holds exactly
+> `canonical_board`, `source_value` and `scraper_blend`. No capture unit and no feature flag for it
+> exist on main, and nothing has been captured. The capture stays authorized (`docs/EXECUTION_PLAN.md`
+> §0.4b) but needs a fresh implementation; the cadence trade below still applies to that implementation.
+> Read "Turning it on" and "proved it before shipping" as describing #921's closed branch, not code on
+> main. The measurement table below is unchanged and was not re-run. Evidence: `gh pr view 921`;
+> `docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.md` (RPA-F-031, §9.4).
+
 The capture unit shipped in **#921** and its feature flag is **OFF**. This
 document exists because the one thing left is not an engineering choice — it is
 a storage/fidelity trade the owner should make, and it should not be smuggled in

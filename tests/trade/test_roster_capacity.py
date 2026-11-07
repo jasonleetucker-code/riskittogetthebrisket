@@ -871,3 +871,130 @@ def test_reordering_draws_only_from_the_post_trade_roster():
             f"{drop.name!r} is on neither the roster nor the incoming side — "
             "the reordering invented a drop"
         )
+
+
+# ── Roster join facts: which entries are on the board, and who left ────────
+
+
+def test_a_board_matched_row_with_no_position_or_value_keeps_its_identity():
+    """Whether an entry joined the board is the JOIN's fact (``on_board``), not
+    a guess from empty fields.  On a degraded board a MATCHED row can carry a
+    blank position and no value; the cut ladder must still see it as that
+    player - its Sleeper id, injury and eligibility - and not re-key it by
+    name.  Only an entry the board has no row for takes the name identity."""
+    roster = _roster(56)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    contract["playersArray"].append(
+        {
+            "playerId": "stub_1",
+            "displayName": "Stub Guy",
+            "canonicalName": "Stub Guy",
+            "injured": True,
+            "fantasyPositions": ["WR"],
+        }
+    )
+    team["players"] += ["Stub Guy", "Ghost Guy"]
+    team["playerIds"] += ["stub_1", "ghost_1"]
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+
+    stub, ghost = context.roster_assets[-2:]
+    assert (stub.name, stub.position, stub.board_value) == ("Stub Guy", "", None)
+    assert stub.on_board is True
+    assert stub.player_id == "stub_1"  # the id, not "stub guy"
+    assert stub.injured is True and stub.fantasy_positions == ("WR",)
+    assert context.roster_player_ids[-2] == "stub_1"
+    # No board row at all: the ladder's name identity, the roster's own id kept.
+    assert ghost.on_board is False and ghost.player_id == "ghost guy"
+    assert context.roster_player_ids[-1] == "ghost_1"
+
+
+def test_a_matched_stub_row_is_a_forced_drop_under_its_id():
+    """The cut ladder reports a forced drop by the id the roster join gave him."""
+    roster = _roster(57)
+    contract, team = _contract(
+        roster, extra_rows=[*_free_agents(), *_incoming(["In 1"])], opponent=["In 1"]
+    )
+    contract["playersArray"].append(
+        {"playerId": "stub_1", "displayName": "Stub Guy", "canonicalName": "Stub Guy"}
+    )
+    team["players"].append("Stub Guy")
+    team["playerIds"].append("stub_1")
+    context = build_capacity_context(contract, None, team, roster_settings=MAIN_SETTINGS)
+    capacity = assess_roster_capacity(context, incoming_players=["In 1"], outgoing_players=[])
+    assert capacity.over_limit_after == 1
+    (drop,) = capacity.forced_drops
+    assert drop.name == "Stub Guy"
+    assert drop.player_id == "stub_1"
+
+
+def _twin_context(*, taxi_names=("Sam Smith",)):
+    """A 30-man roster holding TWO distinct players named "Sam Smith" (ids
+    ``sm_a`` / ``sm_b``), in a 27-man / 3-taxi league whose taxi list is by name."""
+    roster = _roster(28)
+    contract, team = _contract(roster, extra_rows=_free_agents())
+    contract["playersArray"] += [
+        _row("Sam Smith", 900.0, "WR", player_id="sm_a"),
+        _row("Sam Smith", 800.0, "DB", player_id="sm_b"),
+    ]
+    team["players"] += ["Sam Smith", "Sam Smith"]
+    team["playerIds"] += ["sm_a", "sm_b"]
+    team["taxi"] = list(taxi_names)
+    return build_capacity_context(contract, None, team, roster_settings=NEW_SETTINGS)
+
+
+def test_taxi_relief_removes_same_named_players_by_entry_like_the_roster_does():
+    """``_outgoing_held`` / ``_surviving_keys`` used to remove by NAME
+    (a set of outgoing keys: a name left at most once however many copies were
+    sent), while the post-trade roster removed by ENTRY.  Sending both
+    same-named players now frees both spots AND both taxi keys."""
+    from src.trade.roster_capacity import (
+        _outgoing_held,
+        _removal_indexes,
+        _surviving_keys,
+        final_legal_roster,
+        outgoing_roster_names,
+    )
+
+    context = _twin_context()
+    assert context.taxi_membership_known and len(context.roster_player_names) == 30
+
+    both = outgoing_roster_names(context, ["Sam Smith", "Sam Smith"], ["sm_b", "sm_a"])
+    removed, unplaced = _removal_indexes(context, both)
+    assert len(removed) == 2 and unplaced == []
+    assert _outgoing_held(context, both) == (2, [])
+    assert "sam smith" not in _surviving_keys(context, [], both)
+
+    capacity = assess_roster_capacity(
+        context, incoming_players=[], outgoing_players=["Sam Smith", "Sam Smith"]
+    )
+    assert capacity.size_after == 28
+    assert capacity.outgoing_not_on_roster == 0
+    # Neither copy survives, so the name no longer holds a taxi slot.
+    assert capacity.taxi_occupied_min == capacity.taxi_occupied_max == 0
+    roster = final_legal_roster(
+        context, capacity, incoming_players=[], outgoing_players=["Sam Smith", "Sam Smith"]
+    )
+    assert sorted(roster.outgoing_ids) == ["sm_a", "sm_b"]
+    assert not any(a.name == "Sam Smith" for a in roster.landed)
+
+    # One of the pair leaves: the other keeps the name on the surviving roster.
+    one = outgoing_roster_names(context, ["Sam Smith"], ["sm_b"])
+    assert _outgoing_held(context, one) == (1, [])
+    assert "sam smith" in _surviving_keys(context, [], one)
+    capacity_one = assess_roster_capacity(context, incoming_players=[], outgoing_players=one)
+    assert capacity_one.size_after == 29
+    assert capacity_one.taxi_occupied_max == 1
+    roster_one = final_legal_roster(
+        context, capacity_one, incoming_players=[], outgoing_players=one
+    )
+    assert roster_one.outgoing_ids == ("sm_b",)
+
+
+def test_a_third_copy_the_roster_does_not_hold_is_named_absent():
+    from src.trade.roster_capacity import _outgoing_held
+
+    context = _twin_context()
+    assert _outgoing_held(context, ["Sam Smith"] * 3) == (2, ["Sam Smith"])
+    # Named in the order the trade first asked for them.
+    asked = ["Sam Smith", "Nobody Here", "Sam Smith", "Sam Smith"]
+    assert _outgoing_held(context, asked) == (2, ["Sam Smith", "Nobody Here"])

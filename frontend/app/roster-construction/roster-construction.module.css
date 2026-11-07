@@ -1,0 +1,225 @@
+/* roster-construction.module.css — /roster-construction structural styles.
+   Structure only: stacks, grids and text roles.  Every color, size, radius and
+   space comes from the token layer; no new tokens, radii, shadows or
+   breakpoints (480 / 768 / 1024 only). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  /* Same full-bleed paint as /managers and /market/trade-database:
+     .psi-editorial scopes the editorial tokens but does not repaint the
+     section. */
+  background: var(--surface-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  margin: calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+}
+
+@media (width < 1024px) {
+  .page {
+    margin: calc(-1 * var(--space-md));
+    padding: var(--space-md);
+  }
+}
+
+@media (width < 768px) {
+  .page {
+    margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
+      calc(
+        -1 *
+          (
+            var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) +
+              var(--space-md)
+          )
+      );
+    padding: var(--space-sm) var(--space-sm)
+      calc(
+        var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)
+      );
+  }
+}
+
+/* Matches the shell's own phone gutter, as /managers does. */
+@media (width < 420px) {
+  .page {
+    margin: -6px -6px
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.controls > * {
+  min-width: 0;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+@media (width < 1024px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (width < 480px) {
+  .summaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ── player / position identity ── */
+.playerCell {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.playerName {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.meta {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.contributors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* ── expanded detail ── */
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+@media (width < 768px) {
+  .detailGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.detailBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.detailLabel {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+.detailValue {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.detailNum {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* ── diagnoses ── */
+.diagnosisList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.diagnosis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.diagnosis:first-child {
+  padding-top: 0;
+}
+.diagnosis:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.diagnosisHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.diagnosisTitle {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+.diagnosisText {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  max-width: 72ch;
+}
+.evidence {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-xs);
+}
+@media (width < 480px) {
+  .evidence {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.evidence dt {
+  color: var(--text-tertiary);
+}
+.evidence dd {
+  margin: 0;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* ── method notes ── */
+.notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.note {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: var(--line-height-snug);
+}

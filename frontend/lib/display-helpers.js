@@ -309,6 +309,30 @@ export function marketAction(row) {
 }
 
 /**
+ * marketActionDisclosed(row) — `marketAction` plus an explicit coverage
+ * state for IDP rows (audit W27-F001).  The Edge column compares our model
+ * with KTC Market, which prices no defenders, so an IDP row can never carry
+ * a buy/sell here.  Rather than a silent dash, say so and point at /edge,
+ * which labels IDP via its own (IDPTC-anchored) detector.  Display only:
+ * `marketAction` / `marketGapDirection` semantics are unchanged, and every
+ * non-IDP row (and any IDP row that DID get a verdict) is returned as-is.
+ */
+export const IDP_EDGE_DISCLOSURE_TITLE =
+  "Offense only: the Edge column compares our value with KTC Market, which does not price defenders, so IDP players carry no buy/sell here. See /edge for the IDP market view (IDP Trade Calculator vs IDP-expert consensus).";
+export function marketActionDisclosed(row) {
+  const action = marketAction(row);
+  if (row?.assetClass === "idp" && action.label === "\u2014") {
+    return {
+      ...action,
+      label: "offense only",
+      title: IDP_EDGE_DISCLOSURE_TITLE,
+      idpDisclosure: true,
+    };
+  }
+  return action;
+}
+
+/**
  * Legacy string-only market gap label.  Retained for tests and any
  * consumer that still expects the old `"KTC +N"` / `"Consensus +N"` /
  * `null` contract.  New code should prefer `marketEdge()` which

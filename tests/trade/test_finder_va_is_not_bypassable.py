@@ -175,7 +175,7 @@ def test_the_package_init_does_not_patch_anything():
     rather than grepped, so a comment quoting the old code cannot trip it —
     the mistake that made two earlier guards in this repo decorative.
     """
-    tree = ast.parse((_REPO_ROOT / "src" / "trade" / "__init__.py").read_text())
+    tree = ast.parse((_REPO_ROOT / "src" / "trade" / "__init__.py").read_text(encoding="utf-8"))
     executable = [
         node
         for node in tree.body
@@ -214,7 +214,7 @@ def test_the_generator_routes_through_the_adjusting_scorer():
     moved to ``src/packages`` (V1-36), and the guard followed rather than being
     dropped.
     """
-    source = (_REPO_ROOT / "src" / "trade" / "finder.py").read_text()
+    source = (_REPO_ROOT / "src" / "trade" / "finder.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     func = next(
         node

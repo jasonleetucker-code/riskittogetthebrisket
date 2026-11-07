@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import os
 import socket
+import sys
 import threading
 import time
 import unittest
@@ -121,10 +122,32 @@ class TestThePureUnitSuiteIsSelfContained(unittest.TestCase):
             release.wait()
             raise OSError(f"network blocked by {self.id()}")
 
+        # Windows has no native socketpair(): ``socket.socketpair`` IS
+        # ``socket._fallback_socketpair``, a loopback listen + connect, and
+        # every asyncio event loop (TestClient's included) builds its
+        # in-process self-pipe with it.  That is not network I/O, so exactly
+        # that caller is let through -- identified by the calling frame,
+        # never by address.  Linux has a native socketpair and never takes
+        # this branch, so the hook there is unchanged.
+        real_connect = socket.socket.connect
+        real_connect_ex = socket.socket.connect_ex
+        fallback = getattr(socket, "_fallback_socketpair", None)
+
+        def _from_socketpair_emulation() -> bool:
+            return (
+                sys.platform == "win32"
+                and fallback is not None
+                and sys._getframe(2).f_code is fallback.__code__
+            )
+
         def _connect(sock, address):
+            if _from_socketpair_emulation():
+                return real_connect(sock, address)
             _hang("connect", address)
 
         def _connect_ex(sock, address):
+            if _from_socketpair_emulation():
+                return real_connect_ex(sock, address)
             _hang("connect_ex", address)
 
         def _getaddrinfo(host, *args, **kwargs):

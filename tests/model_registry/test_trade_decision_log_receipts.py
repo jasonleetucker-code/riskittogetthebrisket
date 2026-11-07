@@ -93,7 +93,7 @@ def test_the_recorder_script_reads_the_decision_log(log):
 
 def test_recording_never_raises(tmp_path):
     blocker = tmp_path / "file"
-    blocker.write_text("x")
+    blocker.write_text("x", encoding="utf-8")
     assert (
         tdl.record_decision(_analysis(), league_key="k", team="t", log_dir=blocker / "sub") is None
     )

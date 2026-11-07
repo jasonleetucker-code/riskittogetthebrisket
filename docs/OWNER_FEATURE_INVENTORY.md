@@ -69,6 +69,8 @@ build, blocker, backlog item or future feature.
 
 ## 1. Roster intelligence
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** row 1.2 Team Weakness → AMATH-S11 (fragility and points-at-risk); row 1.4 droppability → AMATH-S09 (drop-regret curve); row 1.1 Team Strength → AMATH-S33 (points-unit strength). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
 | 1.1 | **Team Strength** | One canonical answer to "how strong is this roster" — the meaningful upper roster: QB3 / RB3 / WR5 / TE3 / DL5 / LB5 / DB5 by canonical league-adjusted value | New (as canon) | **Does not exist as a single owner.** Multiple partial notions exist and disagree: terminal roster strength is a raw sum of `rankDerivedValue` with no lineup solve (W20-F003), `src/ros/` carries an ROS 0-100 strength, `roster_intel` computes marginal values. No module implements the spec's Top-N table | C1 | B9 (value-scale semantics) | **L** | KEEP — NEW BUILD |
@@ -81,9 +83,17 @@ build, blocker, backlog item or future feature.
 
 | 1.7 | **Canonical Meaningful Roster Core (#839)** | One site-wide roster-core selector for every whole-team dynasty value or strength claim | New | **OWNER DECISION 2026-08-14: BUILD.** Replaces hard-coded QB3/RB3/WR5/TE3/DL5/LB5/DB5 selection and raw full-roster sums with one league-config-derived selector: **`ceil(1.5 × real starter demand)` per position**, **Superflex counted as real QB demand** (1QB + 1SF ⇒ 2 QB-demand starters ⇒ 3 meaningful QBs), and regular/IDP FLEX resolved as the highest-valued remaining eligible depth after dedicated position cores. No page-local top-N rules. **Ships as the V1 champion labelled PRIOR**, with the `MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md` §4.3 challenger pass (1.25× / 1.50× / 1.75× / data-derived) before it is frozen. Manifest `C2-CORE-01`. **Provenance corrected 2026-08-17:** this is addendum #839 (2026-08-14), promoted here and to `OWNER_REQUESTED_TODO_SPEC_INDEX.md` T-NEW-19 — it is **not** intake decisions 47–49, which are #829's Weekly Report Studio decisions, and `#839` has no row in the intake ledger. See `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1 and §6.1. **AMENDED 2026-08-18 by owner addendum #899 (ordering):** FLEX is an ASSIGNMENT RULE, not a sortable Team Strength position. Actual starter assignment comes FIRST — dedicated slots, then each actual FLEX/SF/IDP-FLEX starter slot from the highest-valued remaining legally eligible players — and every actual starter is removed from the pools BEFORE reserve selection. Reserve demand is then `ceil(M × slots) − slots` per dedicated position, and `ceil(M × actual FLEX slots) − actual FLEX slots` for FLEX. `M` stays the 1.5× V1 champion/PRIOR with its §4.3 challenger pass — this changes WHEN a player leaves the pool, not the multiplier. Every player counts at most once; reuse the canonical exact assignment machinery (`src/ros/lineup.py`), never per-position greedy lists. No FLEX column required. See `docs/OWNER_FEATURE_ADDENDUM_2026-08-18_FLEX_STARTER_ASSIGNMENT.md` | C2 | 1.1 | **M** | KEEP — NEW BUILD |
 
+**Three-month conversation audit (2026-10-30, 3MA-1…6):** `docs/MASTER_PRODUCT_PLAN.md` §13 and `docs/owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md` route earlier 72-cluster and later 88-RIT-source documentation, dated intermediate directives and detailed owner intent. 100-mechanism/44-candidate League Tycoon ideas from **open #1755** are now preserved, **owner-parked**, in `docs/owner/LEAGUE_TYCOON_DEFERRED_IDEAS_PRESERVED_2026-10-16.md`. The separate October 29 login report is UNREPRODUCED. Neither source recovery nor retrospective old status certifies current production completion; there are NO new denominator rows, no paused-feature reactivation and no development authorization.
+
+**Three-week comprehensive intake routing (2026-10-30, MP3W-1…8):** The October 9–30 family-specific feature contract table, case-by-case acceptance and partial/held status map are maintained in `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22; `docs/MASTER_PRODUCT_PLAN.md` §12 is the roadmap/dependency graph and `docs/BRISKET_IDEAS.md` §§15–16 binds future intake. Existing RIT-001…088, IDPV, IDPM, NC, IST, FFBB records are incorporated by reference rather than duplicated as new inventory rows. A section heading is not sufficient implementation detail; inspect each named contract, current SHA and evidence. Status in the RIT Oct 25 audit is historical, not automatically current. NO new code/activation authorization.
+
+| 1.8 | **Roster Construction / positional points vs value / Future First strategy intelligence (FFBB)** | Selected-team league ranks by realized optimal starter points and separate dynasty values for QB/RB/WR/TE/DL/LB/DB; historical and hypothetical lineup starts, scoring and value gap, start/position demand, positional opportunity/false depth, market-meta, contender/rebuilder windows, transaction and roster repair suggestions; shared future models for contingent roles, roster utility, draft/auction/FAAB, portfolio liquidity and Next Move | New private UX over existing/in-progress canonical components | **OWNER INTAKE 2026-10-30 — PLANNED, NOT IMPLEMENTED OR AUTHORIZED BY THIS ROW.** Scope comes from Future First episodes 50–55. Existing #1173 best-ball utility and C2 lineup/Team Strength/Weakness/ROS, C3 trade decision, C4 market/FAAB, C5 projections, C7 products and IST waiver optimizer must be reused; this is not 44 new engines and must not invent a second valuation scale or revive withdrawn TE++. Detailed specification: `docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md` §§9–20, ledger FFBB-1–8. Specific existing subfeatures may already be partial/implemented and must be proven by current-HEAD audit. | C2/C3/C4/C5/C7 overlay — future replan, not a new C-Series denominator | Existing canonical owners, exact scoring & lineup, historical snapshots, permissions | **L–XL** combined research and UX | **KEEP — FUTURE / EVIDENCE-GATED** |
+
 ---
 
 ## 2. Trade products
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** row 2.1 trade calculator → AMATH-S12 (synthetic-band win rate; OD-AM-2), AMATH-S14 / S08 (band validation, clearing percentile; OD-AM-3); row 2.3 Trade Finder → AMATH-S10 (convergence test; OD-AM-4), AMATH-S45; row 2.12 Competitive Posture → AMATH-S41; row 2.14 forced drops → AMATH-S54 (exact solvers KEEP). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
@@ -108,6 +118,8 @@ build, blocker, backlog item or future feature.
 
 ## 3. Waivers, FAAB and draft
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** row 3.1 FAAB → AMATH-S05 (point-in-time refit, winner-censored likelihood), AMATH-S27 (fail-closed config, P0), AMATH-S46; rows 3.5–3.6 Perfect Draft → AMATH-S13 (pre-auction snapshot; OD-AM-7); row 3.9 Weekly IDP Streaming → AMATH-S06, S16, S26, S51 (DRO BLOCKED). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
 | 3.1 | **FAAB recommendations** | Separate objective ceiling (what a player is worth) from recommended bid (what this team should bid) | Existing, rebuilt | `src/trade/faab_engine.py` is a full two-layer model with config, history and backtest. Registry's saturation/monotonicity findings (W11-F003/F004) **predate the rewrite and need re-measurement, not repair-by-assumption**. **2026-09-01: `/api/waiver/suggestions` and `/api/waiver/faab-recommend` were found running two different formulas for the same player (unified), and a Live Waiver Opportunity layer was added so short-term role/event/market evidence can move a bid without waiting on the canonical dynasty board's slower cadence — see `docs/faab-live-opportunity-model.md`, shadow-gated behind `waiver_live_opportunity`** | D4 | — | **M** | KEEP — EXISTING, REPAIR/COMPLETE |
@@ -118,6 +130,8 @@ build, blocker, backlog item or future feature.
 | 3.6 | **Perfect Draft pre-auction snapshot** | Capture the pre-draft board so the optimizer can ever be backtested | Existing, unrun | `scripts/backtest_perfect_draft.py --record-snapshot` exists and exits 2 without data. **One-shot and unrecoverable — must run on prod before the 2026 rookie auction** | D6 | prod access | **S (ops)** | KEEP — EXISTING, REPAIR/COMPLETE (time-critical) |
 | 3.7 | **Draft bid respects remaining budget** | Stop telling a manager with $4 left to "win at $37" | Existing, defective | W10-F001 open. **Consolidated 2026-09-13 into row 3.8's legal-maximum-bid machinery** rather than tracked as a standalone patch — see the addendum's §5/§7 | D-tier | 3.8 | **S** | KEEP — EXISTING, REPAIR/COMPLETE |
 | 3.8 | **Live Rookie Auction — dynamic bid tracking, roster-aware budget optimization, price sensitivity** | Extend Perfect Draft to continuously answer what to acquire, what to pay, and what to eventually drop while the auction is actually live | New (extends 3.5) | **OWNER DIRECTIVE 2026-09-13: SPECIFIED, not yet authorized to build.** Absent — the live optimizer's declared scope (3.5) is pre-auction/static and reruns only on completed picks; it does not model in-progress bids, leading/outbid state, a shared multi-auction budget, or live what-if price sensitivity. Full binding spec: `docs/OWNER_FEATURE_ADDENDUM_2026-09-13_LIVE_ROOKIE_AUCTION_PERFECT_DRAFT.md`; manifest `C7-DRAFT-03`. Building it is gated on `docs/EXECUTION_PLAN.md`, which this entry does not amend | C7 | 3.5, 3.7 | **L** | KEEP — NEW BUILD |
+| 3.9 | **Weekly IDP Streaming / Waiver Advisor** | Legal weekly IDP add/drop packages under a dynasty-loss budget (default 0), exact lineup solver, protected/conditional/churn classes, explicit NO TRANSACTION | Existing, live (signed-in) | `src/waivers/streaming.py` + `streaming_solver.py` + `drop_assessment.py`; `POST /api/waiver/streaming`; flags `waiver_advisor` + `idp_streaming` ON (IST-10); nav #2032 merged. **2026-11-01 (#2039, MD-17…MD-22):** the accuracy gap is forecast quality (#2045); shadow opportunity challengers (#2043); pre-kickoff capture needed (MD-22) | — | 1.4, 3.1, C2 | **M (accuracy)** | KEEP — EXISTING, IMPROVE ACCURACY (shadow-first) |
+| 3.10 | **Site-wide navigation / IA / usability audit (P4)** | Every route discoverable in the right place, consistent titles/labels, desktop/mobile/PWA parity, accessible navigation | Existing, audit + fixes | Weekly IDP Streaming was live but undiscoverable until #2032 — the defect class this audit closes. Register: `docs/ui/UX_NAVIGATION_AUDIT_2026-11-01.md`; intake MD-31 | — | nav-model, shell, canons | **L** | KEEP — AUDIT, THEN JUSTIFIED FIXES |
 
 ---
 
@@ -208,6 +222,8 @@ elsewhere.
 
 ## 7. Value model and identity (foundations)
 
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S02 (single-source haircut; OD-AM-1), AMATH-S07 (value band), AMATH-S21, S22, S28, S42 (identity record-linkage challenger), AMATH-S50 (Hill gate 7 target, BLOCKED), AMATH-S56 (Hill curve family KEEP). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
+
 Not product surfaces, but every product above reads them, so a defect here is a defect everywhere.
 
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
@@ -228,6 +244,8 @@ Not product surfaces, but every product above reads them, so a defect here is a 
 ---
 
 ## 8. BDVM, news, notifications
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S19 (n_prior), AMATH-S20 (rookie hit-rate priors), AMATH-S39 (hazards and aging). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 
 | # | Feature | Purpose | New/Existing | Current status at HEAD | Phase | Deps | Scope | Classification |
 |---|---|---|---|---|---|---|---|---|
@@ -422,6 +440,8 @@ These are not optional ideas merely because they arrived after the first invento
 | #792 / CE-05 | **Analyze Trade canonical recommendation** | After assets are entered, one deliberate Analyze Trade action returns MAKE THE TRADE / LEAN MAKE / TOO CLOSE-DEPENDS / LEAN PASS / PASS from selected-team perspective, with confidence, strongest reasons for/against, material uncertainty/disagreement and optionally "what would change the answer." Must synthesize unique-information dimensions and lineage rather than averaging visible panels | Dependency-gated until canonical value/package/Team Strength/Weakness/roster-impact foundations and MC audit are trustworthy; `/trade` and CE-05 must consume the same decision contract | **KEEP — NEW BUILD / PLANNED DECISION PRODUCT** |
 
 ### 13.2 Game Day prediction methodology is part of the product, not an implementation detail
+
+> **AMATH cross-reference (2026-11-01, research only, not authorization):** AMATH-S01 (calibration ledger), AMATH-S04 (measured marginals), AMATH-S03 (correlation and season-level uncertainty, which also covers playoff odds), AMATH-S55 (Game Day state machine KEEP). See the [master synthesis](research/amath/SITEWIDE_MASTER_2026-11-01.md).
 
 CE-20/#789 must model the actual league rather than inherit Sleeper's assumptions:
 

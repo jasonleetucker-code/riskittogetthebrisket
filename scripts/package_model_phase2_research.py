@@ -559,7 +559,9 @@ def main() -> int:
         }
     out = REPO / args.out
     out.mkdir(parents=True, exist_ok=True)
-    (out / "phase2.json").write_text(json.dumps(result, indent=1, default=str) + "\n")
+    (out / "phase2.json").write_text(
+        json.dumps(result, indent=1, default=str) + "\n", encoding="utf-8"
+    )
     print(json.dumps({"out": str(out), "ownLeague": census}, indent=1))
     return 0
 

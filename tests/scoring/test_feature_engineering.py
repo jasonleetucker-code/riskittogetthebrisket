@@ -10,6 +10,8 @@ per-YARD and TDs-per-YARD versions these pin against.
 
 from __future__ import annotations
 
+import pytest
+
 from src.scoring.archetype_model import infer_archetype
 from src.scoring.feature_engineering import (
     RECEPTION_DEPENDENCY_TAG,
@@ -68,9 +70,36 @@ def test_td_dependency_does_not_fire_for_a_yardage_workhorse():
     assert "td_dependent" not in infer_scoring_tags("RB", f)
 
 
-def test_td_dependency_is_zero_with_no_production():
+def test_td_dependency_is_unknown_with_no_offensive_production():
+    """No yardage/TD inputs observed -> unknown (omitted), not a 0.0 share."""
     f = _features("LB", {"idp_tkl_solo": 5.0, "idp_tkl_ast": 2.0})
-    assert f["td_dependency"] == 0.0
+    assert "td_dependency" not in f
+
+
+def test_observed_zero_production_is_not_a_zero_share():
+    f = _features("RB", {"rush_yd": 0.0, "rec_yd": 0.0, "rush_td": 0.0})
+    assert "td_dependency" not in f
+
+
+def test_missing_inputs_do_not_look_like_real_zero():
+    from src.scoring.feature_engineering import scoring_tags_undecidable
+
+    empty = _features("RB", {})
+    assert "reception_dependency" not in empty
+    assert "first_down_dependency" not in empty
+    assert "turnover_sensitivity" not in empty
+    assert "reception_sensitive" in scoring_tags_undecidable("RB", empty)
+    real_zero = _features("RB", {"rush_yd": 80.0, "rec": 0.0, "rec_yd": 0.0, "rush_fd": 0.0})
+    assert real_zero["reception_dependency"] == 0.0
+    assert real_zero["first_down_dependency"] == 0.0
+    assert "reception_sensitive" not in scoring_tags_undecidable("RB", real_zero)
+    assert "scramble_floor_proxy" not in _features("QB", {"pass_yd": 250.0})
+    assert _features("QB", {"pass_yd": 250.0, "rush_yd": 0.0})["scramble_floor_proxy"] == 0.0
+
+
+def test_infer_scoring_tags_tolerates_none_and_nan_feature_values():
+    feats = {"reception_dependency": None, "td_dependency": float("nan")}
+    assert infer_scoring_tags("RB", feats) == []
 
 
 # ── reception_dependency ────────────────────────────────────────
@@ -169,3 +198,42 @@ def test_archetype_and_tag_read_one_reception_threshold():
     above = {"reception_dependency": 0.25, "goal_line_proxy": 0.0}
     assert infer_archetype("RB", above)[0] == "receiving_rb"
     assert "reception_sensitive" in infer_scoring_tags("RB", above)
+
+
+# ── AMATH-S38: missing feature is UNKNOWN, never 0 ─────────────────
+_BRANCH_CASES = [
+    # bucket, feature, cut, hi label, lo label
+    ("QB", "qb_rush_contribution", 0.22, "dual_threat_qb", "pocket_qb"),
+    ("WR", "field_stretcher_proxy", 13.5, "field_stretcher_wr", "possession_wr"),
+    ("TE", "red_zone_proxy", 0.45, "td_te", "volume_te"),
+    ("DL", "splash_dependency", 1.2, "sack_dl", "tackle_dl"),
+    ("LB", "tackle_dependency", 6.5, "tackle_lb", "splash_lb"),
+    ("DB", "splash_dependency", 0.85, "ballhawk_db", "tackle_db"),
+]
+
+
+@pytest.mark.parametrize("bucket,key,cut,hi,lo", _BRANCH_CASES)
+def test_missing_feature_is_unknown_not_default_label(bucket, key, cut, hi, lo):
+    assert infer_archetype(bucket, {}) == ("unknown", "unknown")
+    assert infer_archetype(bucket, {key: None}) == ("unknown", "unknown")
+    assert infer_archetype(bucket, {key: float("nan")}) == ("unknown", "unknown")
+    assert infer_archetype(bucket, {key: float("inf")}) == ("unknown", "unknown")
+    assert infer_archetype(bucket, None) == ("unknown", "unknown")
+    # Observed values (including an observed 0) still classify as before.
+    assert infer_archetype(bucket, {key: 0.0})[0] == lo
+    assert infer_archetype(bucket, {key: cut})[0] == hi
+
+
+def test_rb_missing_features_unknown_observed_zero_unchanged():
+    assert infer_archetype("RB", {})[0] == "unknown"
+    assert infer_archetype("RB", {"goal_line_proxy": 0.9})[0] == "unknown"  # reception unobserved
+    assert (
+        infer_archetype("RB", {"reception_dependency": 0.1})[0] == "unknown"
+    )  # goal line unobserved
+    assert infer_archetype("RB", {"reception_dependency": 0.0, "goal_line_proxy": 0.0})[0] == (
+        "early_down_rb"
+    )
+    assert infer_archetype("RB", {"reception_dependency": 0.5})[0] == "receiving_rb"
+    assert infer_archetype("RB", {"reception_dependency": 0.1, "goal_line_proxy": 0.5})[0] == (
+        "goal_line_rb"
+    )

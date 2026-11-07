@@ -13,6 +13,8 @@ import {
 import styles from "./terminal.module.css";
 import { PlayerImage } from "@/components/ui";
 import { useApp } from "@/components/AppShell";
+import { useLeague } from "@/components/useLeague";
+import { classifyContractFailure } from "@/lib/contract-failure";
 import { valuationBasisOf } from "@/lib/dynasty-data";
 
 // Movers — buy-low / sell-high signals derived from rank-history.
@@ -26,6 +28,14 @@ import { valuationBasisOf } from "@/lib/dynasty-data";
 // Sits next to the existing ``PlayerMarketMovement`` (value-trend
 // view) and ``BuySellHold`` (signal-engine view) — this widget is
 // the rank-delta-with-source-attribution view.
+//
+// League scope (LI1842-DEFECT-03): the request carries the ACTIVE league's
+// key, the same one ``useTerminal`` / ``useTeam`` send.  Without it the
+// server resolves a league from saved user state, and now that ``/api/movers``
+// follows the board's scoring-identity gate it answers 503 ``data_not_ready``
+// for a league whose scoring is not proven identical to the loaded board's.
+// That is a state of the data, not a failure of the panel, so it renders as
+// "unavailable" with the server's reason instead of the raw status code.
 
 const WINDOW_OPTIONS = [
   { days: 7, label: "7d" },
@@ -146,16 +156,43 @@ export default function MoversPanel() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // The server declined to serve movers for this league (503 data_not_ready):
+  // an expected, explained state, distinct from a request that broke.
+  const [unavailable, setUnavailable] = useState(null);
+  const { selectedLeagueKey, loading: leagueLoading } = useLeague();
 
   useEffect(() => {
+    // Hold the request until the league registry has resolved the active
+    // key, so the first (and only) request already names its league.
+    if (leagueLoading) return undefined;
     let cancelled = false;
     async function run() {
       setLoading(true);
       setError(null);
+      setUnavailable(null);
       try {
-        const url = `/api/movers?window=${windowDays}&threshold=15&limit=8`;
-        const res = await fetch(url, { credentials: "include" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const params = new URLSearchParams({
+          window: String(windowDays),
+          threshold: "15",
+          limit: "8",
+        });
+        if (selectedLeagueKey) params.set("leagueKey", selectedLeagueKey);
+        const res = await fetch(`/api/movers?${params.toString()}`, { credentials: "include" });
+        if (!res.ok) {
+          let body = null;
+          try {
+            body = await res.json();
+          } catch {
+            body = null;
+          }
+          const failure = classifyContractFailure(res.status, body);
+          if (!cancelled) {
+            setData(null);
+            if (failure.kind === "degraded") setUnavailable(failure.message);
+            else setError(failure.message);
+          }
+          return;
+        }
         const json = await res.json();
         if (!cancelled) setData(json);
       } catch (err) {
@@ -166,7 +203,7 @@ export default function MoversPanel() {
     }
     run();
     return () => { cancelled = true; };
-  }, [windowDays]);
+  }, [windowDays, selectedLeagueKey, leagueLoading]);
 
   const risers = data?.risers || [];
   const fallers = data?.fallers || [];
@@ -188,7 +225,7 @@ export default function MoversPanel() {
         />
       }
     >
-      {loading && (
+      {(loading || leagueLoading) && (
         // Sized to the settled two-column shape (up to 8 movers per
         // side) — the old 4-line text skeleton was ~10x too short and
         // the panel grew ~500px when data landed.
@@ -202,7 +239,12 @@ export default function MoversPanel() {
         </div>
       )}
       {error && <p className={styles.moverError}>{error}</p>}
-      {!loading && !error && (
+      {unavailable && (
+        <p className={styles.moverEmpty} role="status">
+          Movers are unavailable for this league right now. {unavailable}
+        </p>
+      )}
+      {!loading && !leagueLoading && !error && !unavailable && (
         <div className={styles.moverColumns}>
           <div className={styles.moverColumn}>
             {/* A riser's price has already gone UP, so it is a candidate to

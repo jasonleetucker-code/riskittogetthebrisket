@@ -1,5 +1,19 @@
 """Rankings launch-readiness hard gates.
 
+TWO TIERS, decided per test (CLAUDE.md "CI has two lanes"):
+
+* STRUCTURAL invariants of ``build_api_data_contract`` -- coherent ranks,
+  tiers, value range, audit fields, no duplicate names -- are properties of
+  our code given ANY complete board.  They build from
+  ``tests.archive_fixtures.newest_complete_contract`` (the newest archived
+  scrape the contract's own source-health definition calls complete) and run
+  in the hard gate.  One KTC timeout cannot fail them.
+* HEALTH FLOORS over TODAY'S board -- quarantine ceiling, multi-source share,
+  IDP placement, confidence share, wall-clock build time, wire size -- are
+  functions of which sources answered the last scrape (or of the runner's
+  speed).  They keep reading ``exports/latest`` and carry
+  ``@pytest.mark.livedata``, i.e. the non-blocking advisory lane.
+
 This test suite implements 10 hard gates that must ALL pass before
 the rankings engine can be considered production-ready for source
 expansion.  Each gate has explicit pass/fail criteria, automated
@@ -19,11 +33,14 @@ import unittest
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from src.api.data_contract import (
     build_api_data_contract,
     assert_ranking_coherence,
     assert_no_unexplained_single_source,
 )
+from tests.archive_fixtures import newest_complete_contract
 
 
 def _load_contract() -> tuple[dict[str, Any], list[dict[str, Any]], float] | None:
@@ -48,10 +65,31 @@ _CACHED = None
 
 
 def _get():
+    """TODAY'S board (``exports/latest``) -- for the ``livedata`` health floors."""
     global _CACHED
     if _CACHED is None:
         _CACHED = _load_contract()
     return _CACHED
+
+
+def _ranked(contract: dict[str, Any]) -> list[dict[str, Any]]:
+    return sorted(
+        [r for r in contract.get("playersArray", []) if r.get("canonicalConsensusRank")],
+        key=lambda r: r["canonicalConsensusRank"],
+    )
+
+
+def _get_pinned():
+    """The newest COMPLETE archived board -- for the structural invariants.
+
+    Same ``(contract, ranked, build_time)`` shape as :func:`_get`; the build
+    time is not measured here (it is cached across modules), so it is 0.0 and
+    only the live ``test_build_under_5_seconds`` reads it.
+    """
+    contract, _name = newest_complete_contract()
+    if contract is None:
+        return None
+    return contract, _ranked(contract), 0.0
 
 
 # ── GATE 1: Identity Integrity ──────────────────────────────────────────
@@ -62,14 +100,15 @@ class TestGate1IdentityIntegrity(unittest.TestCase):
 
     def test_no_duplicate_canonical_names(self):
         """Zero duplicate canonicalName values in the ranked board."""
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         names = [r.get("canonicalName") for r in ranked]
         dupes = [n for n in set(names) if names.count(n) > 1]
         self.assertEqual(dupes, [], f"Duplicate names: {dupes}")
 
+    @pytest.mark.livedata
     def test_quarantined_under_threshold(self):
         """At most 12 quarantined players in the ranked board.
 
@@ -97,9 +136,9 @@ class TestGate1IdentityIntegrity(unittest.TestCase):
         self.assertLessEqual(q, 12, f"Quarantined count {q} exceeds threshold")
 
     def test_no_cross_universe_collisions(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         collisions = sum(
             1 for r in ranked if "name_collision_cross_universe" in (r.get("anomalyFlags") or [])
@@ -113,6 +152,7 @@ class TestGate1IdentityIntegrity(unittest.TestCase):
 class TestGate2SourceCoverage(unittest.TestCase):
     """Multi-source coverage adequate; all 1-src cases explained."""
 
+    @pytest.mark.livedata
     def test_multi_source_above_70pct(self):
         """At least 70% of ranked players have 2+ sources."""
         result = _get()
@@ -123,6 +163,7 @@ class TestGate2SourceCoverage(unittest.TestCase):
         pct = multi / len(ranked) * 100
         self.assertGreaterEqual(pct, 70, f"Multi-source {pct:.1f}% < 70%")
 
+    @pytest.mark.livedata
     def test_semantic_1src_under_10(self):
         """At most 40 semantic 1-src (matching failures) in ranked board.
 
@@ -146,6 +187,7 @@ class TestGate2SourceCoverage(unittest.TestCase):
         # row board.
         self.assertLessEqual(sem, 50, f"Semantic 1-src: {sem}")
 
+    @pytest.mark.livedata
     def test_no_unexplained_1src_top400(self):
         """Every top-400 1-src player has an allowlist reason."""
         result = _get()
@@ -166,26 +208,26 @@ class TestGate3RankValueConsistency(unittest.TestCase):
     """Monotonic ordering, no missing fields, coherence check passes."""
 
     def test_coherence_check_passes(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         errors = assert_ranking_coherence(ranked)
         self.assertEqual(errors, [], "\n".join(errors[:10]))
 
     def test_no_missing_rankDerivedValue(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         missing = [r["canonicalName"] for r in ranked if not r.get("rankDerivedValue")]
         self.assertEqual(missing, [])
 
     def test_value_range(self):
         """All values in 1-9999 range."""
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         vals = [r.get("rankDerivedValue", 0) for r in ranked]
         self.assertGreater(min(vals), 0)
@@ -197,18 +239,18 @@ class TestGate3RankValueConsistency(unittest.TestCase):
 
 class TestGate4DuplicateRankPrevention(unittest.TestCase):
     def test_no_duplicate_ranks(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         ranks = [r["canonicalConsensusRank"] for r in ranked]
         self.assertEqual(len(ranks), len(set(ranks)))
 
     def test_ranks_contiguous(self):
         """Ranks form a contiguous sequence 1..N."""
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         ranks = [r["canonicalConsensusRank"] for r in ranked]
         self.assertEqual(ranks, list(range(1, len(ranks) + 1)))
@@ -219,9 +261,9 @@ class TestGate4DuplicateRankPrevention(unittest.TestCase):
 
 class TestGate5TierAlignment(unittest.TestCase):
     def test_all_ranked_have_tier(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         missing = [r["canonicalName"] for r in ranked if r.get("canonicalTierId") is None]
         self.assertEqual(missing, [])
@@ -236,9 +278,9 @@ class TestGate5TierAlignment(unittest.TestCase):
         "Tier N" labels, so there's no upper bound on tier count;
         monotonicity is covered by ``test_tiers_non_decreasing``.
         """
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         out_of_range = [
             f"#{r['canonicalConsensusRank']}: tier={r.get('canonicalTierId')}"
@@ -255,9 +297,9 @@ class TestGate5TierAlignment(unittest.TestCase):
             )
 
     def test_tiers_non_decreasing(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         prev = 0
         for r in ranked:
@@ -270,17 +312,17 @@ class TestGate5TierAlignment(unittest.TestCase):
 
 class TestGate6SourceTransparency(unittest.TestCase):
     def test_all_ranked_have_sourceAudit(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         missing = sum(1 for r in ranked if not r.get("sourceAudit"))
         self.assertEqual(missing, 0)
 
     def test_sourceAudit_has_required_fields(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         required = ["canonicalName", "positionGroup", "expectedSources", "matchedSources", "reason"]
         bad = []
@@ -297,6 +339,7 @@ class TestGate6SourceTransparency(unittest.TestCase):
 
 
 class TestGate7IdpCalibration(unittest.TestCase):
+    @pytest.mark.livedata
     def test_idp_in_top_100(self):
         """At least 5 IDP players in the top 100."""
         result = _get()
@@ -306,6 +349,7 @@ class TestGate7IdpCalibration(unittest.TestCase):
         idp_top100 = sum(1 for r in ranked[:100] if r.get("assetClass") == "idp")
         self.assertGreaterEqual(idp_top100, 5, f"Only {idp_top100} IDP in top 100")
 
+    @pytest.mark.livedata
     def test_elite_idp_placement(self):
         """Aidan Hutchinson, Will Anderson, Micah Parsons all rank
         inside the top ~150 on the neutral-config board.
@@ -356,9 +400,9 @@ class TestGate7IdpCalibration(unittest.TestCase):
             )
 
     def test_no_idp_value_inversions(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         idp = [r for r in ranked if r.get("assetClass") == "idp"]
         prev = 99999
@@ -373,13 +417,14 @@ class TestGate7IdpCalibration(unittest.TestCase):
 
 class TestGate8FlagIntegrity(unittest.TestCase):
     def test_no_impossible_value_flags(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         impossible = sum(1 for r in ranked if "impossible_value" in (r.get("anomalyFlags") or []))
         self.assertEqual(impossible, 0)
 
+    @pytest.mark.livedata
     def test_confidence_distribution_reasonable(self):
         """At least 7% high-confidence players.
 
@@ -418,9 +463,9 @@ class TestGate8FlagIntegrity(unittest.TestCase):
 
 class TestGate9LivePage(unittest.TestCase):
     def test_playersArray_sorted(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         _, ranked, _ = result
         for i in range(len(ranked) - 1):
             self.assertLess(
@@ -429,17 +474,17 @@ class TestGate9LivePage(unittest.TestCase):
             )
 
     def test_contract_has_required_top_level_fields(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         contract, _, _ = result
         for field in ["version", "playersArray", "players", "sites", "methodology"]:
             self.assertIn(field, contract, f"Missing top-level: {field}")
 
     def test_methodology_documents_sources(self):
-        result = _get()
+        result = _get_pinned()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         contract, _, _ = result
         meth = contract.get("methodology", {})
         sources = meth.get("sources", [])
@@ -450,6 +495,7 @@ class TestGate9LivePage(unittest.TestCase):
 
 
 class TestGate10Performance(unittest.TestCase):
+    @pytest.mark.livedata
     def test_build_under_5_seconds(self):
         result = _get()
         if result is None:
@@ -457,6 +503,7 @@ class TestGate10Performance(unittest.TestCase):
         _, _, build_time = result
         self.assertLess(build_time, 5.0, f"Build took {build_time:.2f}s")
 
+    @pytest.mark.livedata
     def test_gzipped_payload_under_2mb(self):
         """Production wire payload (gzipped) must be under 2 MB."""
         result = _get()

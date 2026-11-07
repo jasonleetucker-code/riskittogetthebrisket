@@ -1,0 +1,247 @@
+{
+  "schemaVersion": "research-sim-points-v2",
+  "kind": "RESEARCH_CANDIDATE_NOT_SERVED",
+  "promotes": false,
+  "model": {
+    "source": "research-v2-challenger",
+    "scaleByFamily": {
+      "QB": 1.4543,
+      "RB": 1.9192,
+      "WR": 1.6256,
+      "TE": 1.2851,
+      "K": 0.6003,
+      "DL": 1.3585,
+      "LB": 1.3105,
+      "DB": 1.3041
+    },
+    "cvByFamily": {
+      "QB": 0.6618,
+      "RB": 0.6654,
+      "WR": 0.7169,
+      "TE": 0.7662,
+      "K": 0.4537,
+      "DL": 0.7661,
+      "LB": 0.5714,
+      "DB": 0.5893
+    },
+    "rawFamily": {
+      "FB": "RB"
+    },
+    "pooledScale": 1.4764,
+    "pooledCv": 0.6648,
+    "sampleSize": 8933
+  },
+  "fit": {
+    "scales": {
+      "pooled": {
+        "scale": {
+          "rosValuePerPoint": 1.4764,
+          "r2": 0.3266,
+          "n": 615
+        },
+        "playerWeeks": 2161
+      },
+      "byFamily": {
+        "QB": {
+          "scale": {
+            "rosValuePerPoint": 1.4543,
+            "r2": 0.1059,
+            "n": 37
+          },
+          "playerWeeks": 130,
+          "used": "own",
+          "rosValuePerPoint": 1.4543
+        },
+        "RB": {
+          "scale": {
+            "rosValuePerPoint": 1.9192,
+            "r2": 0.645,
+            "n": 86
+          },
+          "playerWeeks": 294,
+          "used": "own",
+          "rosValuePerPoint": 1.9192
+        },
+        "WR": {
+          "scale": {
+            "rosValuePerPoint": 1.6256,
+            "r2": 0.4645,
+            "n": 125
+          },
+          "playerWeeks": 450,
+          "used": "own",
+          "rosValuePerPoint": 1.6256
+        },
+        "TE": {
+          "scale": {
+            "rosValuePerPoint": 1.2851,
+            "r2": 0.2827,
+            "n": 59
+          },
+          "playerWeeks": 220,
+          "used": "own",
+          "rosValuePerPoint": 1.2851
+        },
+        "K": {
+          "scale": {
+            "rosValuePerPoint": 0.6003,
+            "r2": -0.5163,
+            "n": 20
+          },
+          "playerWeeks": 74,
+          "used": "own",
+          "rosValuePerPoint": 0.6003
+        },
+        "DL": {
+          "scale": {
+            "rosValuePerPoint": 1.3585,
+            "r2": -0.0752,
+            "n": 84
+          },
+          "playerWeeks": 285,
+          "used": "own",
+          "rosValuePerPoint": 1.3585
+        },
+        "LB": {
+          "scale": {
+            "rosValuePerPoint": 1.3105,
+            "r2": -0.1056,
+            "n": 93
+          },
+          "playerWeeks": 341,
+          "used": "own",
+          "rosValuePerPoint": 1.3105
+        },
+        "DB": {
+          "scale": {
+            "rosValuePerPoint": 1.3041,
+            "r2": -0.2746,
+            "n": 111
+          },
+          "playerWeeks": 367,
+          "used": "own",
+          "rosValuePerPoint": 1.3041
+        }
+      },
+      "pricedPlayers": 638
+    },
+    "cvs": {
+      "byFamily": {
+        "QB": {
+          "withinPlayerCv": 0.6618,
+          "playerSeasons": 67,
+          "playerWeeks": 604,
+          "cv": 0.6618,
+          "measured": true
+        },
+        "RB": {
+          "withinPlayerCv": 0.6654,
+          "playerSeasons": 146,
+          "playerWeeks": 1354,
+          "cv": 0.6654,
+          "measured": true
+        },
+        "WR": {
+          "withinPlayerCv": 0.7169,
+          "playerSeasons": 228,
+          "playerWeeks": 2036,
+          "cv": 0.7169,
+          "measured": true
+        },
+        "TE": {
+          "withinPlayerCv": 0.7662,
+          "playerSeasons": 101,
+          "playerWeeks": 886,
+          "cv": 0.7662,
+          "measured": true
+        },
+        "K": {
+          "withinPlayerCv": 0.4537,
+          "playerSeasons": 39,
+          "playerWeeks": 310,
+          "cv": 0.4537,
+          "measured": true
+        },
+        "DL": {
+          "withinPlayerCv": 0.7661,
+          "playerSeasons": 124,
+          "playerWeeks": 1007,
+          "cv": 0.7661,
+          "measured": true
+        },
+        "LB": {
+          "withinPlayerCv": 0.5714,
+          "playerSeasons": 165,
+          "playerWeeks": 1389,
+          "cv": 0.5714,
+          "measured": true
+        },
+        "DB": {
+          "withinPlayerCv": 0.5893,
+          "playerSeasons": 164,
+          "playerWeeks": 1347,
+          "cv": 0.5893,
+          "measured": true
+        }
+      },
+      "pooled": {
+        "withinPlayerCv": 0.6648,
+        "playerSeasons": 1034,
+        "playerWeeks": 8933,
+        "cv": 0.6648
+      }
+    },
+    "rawFamily": {
+      "FB": "RB"
+    }
+  },
+  "study": {
+    "promotes": false,
+    "status": "RESEARCH_CANDIDATE_NOT_SERVED",
+    "cardFingerprint": "sf1:9e51824690d091f9",
+    "fitWeeks": [
+      "2025-w01",
+      "2025-w02",
+      "2025-w03",
+      "2025-w04",
+      "2025-w05",
+      "2025-w06",
+      "2025-w07",
+      "2025-w08",
+      "2025-w09",
+      "2025-w10",
+      "2025-w11",
+      "2025-w12",
+      "2025-w13",
+      "2025-w14",
+      "2025-w15",
+      "2025-w16",
+      "2025-w17",
+      "2026-w01",
+      "2026-w02",
+      "2026-w03",
+      "2026-w04"
+    ],
+    "scaleFitWeeks": [
+      "2026-w01",
+      "2026-w02",
+      "2026-w03",
+      "2026-w04"
+    ],
+    "rosSnapshot": {
+      "file": "data/ros/aggregate/history/2026-09-09T21-17-37.092580+00-00.json",
+      "sha256": "6585f7dcec86286db16055c85e30a2e2a2097c2200838c0ea2173c0278ad8cae",
+      "cutoffUtc": "2026-09-10T00:20:00+00:00"
+    },
+    "codeSha": "8bd4e8b414ce721921f8dac7728de66a9822c8eb",
+    "studyCodeDirty": false,
+    "scriptSha256": "41793e25e53757a4ad61dfa4fd7a4d3bc4c62b04c2454e4174faed9a62458b28",
+    "v1ScriptSha256": "5d29a7a6284450fa1072d265bdbb4646c0a8484d493de1c1d076d35ecf323f5f",
+    "preregistration": {
+      "path": "docs/league-intelligence/SIM_CALIBRATION_V2_PREREGISTRATION_2026-10-26.md",
+      "commit": "ad8ab042f3b5d1edbaf55f3ac34a28f0a3e8ba46",
+      "committedAt": "2026-10-26T13:32:25-04:00",
+      "isAncestorOfCodeSha": true
+    }
+  }
+}

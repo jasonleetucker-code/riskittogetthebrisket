@@ -147,7 +147,7 @@ class TestTheRuleIsRetired:
         """The shared fixture is the contract between the Python and JS
         engines.  If the tag is back in its rule registry, one of the two
         engines has been changed without the other."""
-        data = json.loads(_FIXTURE.read_text())
+        data = json.loads(_FIXTURE.read_text(encoding="utf-8"))
         tags = {r["tag"] for r in data["rules"]}
         assert "low_conf_unstable" not in tags
 

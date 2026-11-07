@@ -7,6 +7,7 @@ and token is invented; no systemd, no network, no real session.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 
 import pytest
@@ -134,9 +135,12 @@ def test_a_stamp_without_verification_or_a_tampered_csv_is_caught(tmp_path):
     _collect(app, _idp(), at=t)
     state = app / "data" / "scrape_state"
     # a success stamp newer than any verification (a failed run refreshing a clock)
-    (state / "signalsIdpLb_last_success").write_text(f"{int(NOW.timestamp())}\n")
+    (state / "signalsIdpLb_last_success").write_text(f"{int(NOW.timestamp())}\n", encoding="utf-8")
     csv = S.board_csv_path(app / "data" / "sources" / "signals", "signalsIdpDb")
-    csv.write_text(csv.read_text() + "Synthetic Extra,99,1,9,DB,CB,SYN,NATIVE_VALUE,1,,idp\n")
+    csv.write_text(
+        csv.read_text(encoding="utf-8") + "Synthetic Extra,99,1,9,DB,CB,SYN,NATIVE_VALUE,1,,idp\n",
+        encoding="utf-8",
+    )
     rep = _report(app, tmp_path)
     assert rep["boards"]["signalsIdpLb"]["lastSuccessAgreesWithVerification"] is False
     assert rep["boards"]["signalsIdpDb"]["csvMatchesLatest"] is False
@@ -224,4 +228,6 @@ def test_the_cli_never_prints_an_exception_message(tmp_path, monkeypatch, capsys
     assert json.loads(out) == {"error": "ValueError"}
     assert "Synthetic" not in out + err and "4321" not in out + err
     logs = list((app / "data" / "sources" / "signals" / "reports").glob("health-*.log"))
-    assert logs and (logs[0].stat().st_mode & 0o777) == 0o600
+    assert logs
+    if os.name == "posix":  # POSIX permission bits; Windows reports 0o666 (ACLs)
+        assert (logs[0].stat().st_mode & 0o777) == 0o600

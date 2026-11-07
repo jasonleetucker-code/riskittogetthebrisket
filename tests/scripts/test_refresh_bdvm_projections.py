@@ -305,7 +305,7 @@ class TestHonestReporting(_RunHarness):
 
     def test_status_write_failure_never_changes_the_exit_code(self):
         blocker = self.status_path.parent / "a-file"
-        blocker.write_text("x")
+        blocker.write_text("x", encoding="utf-8")
         with mock.patch.dict(
             os.environ, {_mod.STATUS_PATH_ENV: str(blocker / "nested" / "status.json")}
         ):
@@ -387,15 +387,15 @@ class TestSessionStaging(unittest.TestCase):
             repo.mkdir()
             work.mkdir()
             repo_jar = repo / _mod.SESSION_NAME
-            repo_jar.write_text("stale")
+            repo_jar.write_text("stale", encoding="utf-8")
             os.utime(repo_jar, (1000, 1000))
             candidate = work / _mod.SESSION_NAME
-            candidate.write_text("fresh")
+            candidate.write_text("fresh", encoding="utf-8")
             os.utime(candidate, (2000, 2000))
             with mock.patch.object(_mod, "REPO", repo):
                 staged_from = _mod._stage_session_file(str(candidate))
             self.assertEqual(staged_from, candidate)
-            self.assertEqual(repo_jar.read_text(), "fresh")
+            self.assertEqual(repo_jar.read_text(encoding="utf-8"), "fresh")
             if os.name == "posix":
                 # POSIX permission bits only; Windows reports 0o666 for any
                 # writable file whatever was requested.
@@ -406,7 +406,7 @@ class TestSessionStaging(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             src = Path(td) / "src.json"
             dst = Path(td) / "dst.json"
-            src.write_text("jar")
+            src.write_text("jar", encoding="utf-8")
             real_chmod = os.chmod
             calls = []
 
@@ -424,7 +424,7 @@ class TestSessionStaging(unittest.TestCase):
                 if saved_fchmod is not None:
                     os.fchmod = saved_fchmod
             self.assertEqual(calls, [0o600])
-            self.assertEqual(dst.read_text(), "jar")
+            self.assertEqual(dst.read_text(encoding="utf-8"), "jar")
             if os.name == "posix":
                 self.assertEqual(dst.stat().st_mode & 0o777, 0o600)
 
@@ -436,15 +436,15 @@ class TestSessionStaging(unittest.TestCase):
             repo.mkdir()
             work.mkdir()
             repo_jar = repo / _mod.SESSION_NAME
-            repo_jar.write_text("current")
+            repo_jar.write_text("current", encoding="utf-8")
             os.utime(repo_jar, (2000, 2000))
             candidate = work / _mod.SESSION_NAME
-            candidate.write_text("older")
+            candidate.write_text("older", encoding="utf-8")
             os.utime(candidate, (1000, 1000))
             with mock.patch.object(_mod, "REPO", repo):
                 staged_from = _mod._stage_session_file(str(candidate))
             self.assertIsNone(staged_from)
-            self.assertEqual(repo_jar.read_text(), "current")
+            self.assertEqual(repo_jar.read_text(encoding="utf-8"), "current")
 
     def test_oserror_on_candidate_is_tolerated(self):
         with tempfile.TemporaryDirectory() as td:
@@ -452,7 +452,7 @@ class TestSessionStaging(unittest.TestCase):
             repo = base / "repo"
             repo.mkdir()
             candidate = base / _mod.SESSION_NAME
-            candidate.write_text("x")
+            candidate.write_text("x", encoding="utf-8")
             with (
                 mock.patch.object(_mod, "REPO", repo),
                 mock.patch.object(

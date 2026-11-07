@@ -157,6 +157,22 @@
   width: auto;
   min-width: 120px;
 }
+/* NFL team filter: the select and its inline "Clear team" button share ONE
+   flex item, so the clear affordance can never wrap onto a line away from
+   the control it resets.  The select side may shrink (min-width: 0) and the
+   group is capped at its row's width, so a narrow phone (375px) wraps the
+   group onto the next line instead of overflowing horizontally. */
+.controlsTeam {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 140px;
+  max-width: 100%;
+}
+.controlsTeam > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .advRail {
   display: flex;
   flex-wrap: wrap;

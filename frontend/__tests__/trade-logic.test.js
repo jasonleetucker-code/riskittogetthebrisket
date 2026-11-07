@@ -724,7 +724,9 @@ describe("multiAdjustedSideTotals", () => {
     const src = readFileSync(
       fileURLToPath(new URL("../lib/trade-logic.js", import.meta.url)),
       "utf8",
-    );
+      // A Windows checkout with core.autocrlf has CRLF line endings; the
+      // "\n}\n" end-of-function search below assumes LF.
+    ).replace(/\r\n/g, "\n");
     const start = src.indexOf("export function multiAdjustedSideTotals(");
     expect(start).toBeGreaterThan(-1);
     const end = src.indexOf("\n}\n", start);

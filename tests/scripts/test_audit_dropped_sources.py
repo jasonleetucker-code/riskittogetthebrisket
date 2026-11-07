@@ -213,7 +213,8 @@ class TestCliJsonMode:
                         }
                     ]
                 }
-            )
+            ),
+            encoding="utf-8",
         )
         result = subprocess.run(
             [

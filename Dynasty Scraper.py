@@ -59,6 +59,9 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 from src.utils.name_clean import is_first_name_variant  # noqa: E402
+from src.utils.name_clean import (  # noqa: E402
+    unique_identified_first_name_variant as _unique_identified_first_name_variant,
+)
 from src.utils.name_clean import resolve_idp_position as _resolve_idp_position  # noqa: E402
 from src.utils.age import age_from_birthdate as _age_from_birthdate  # noqa: E402
 from src.utils.owner_names import owner_label as _owner_label  # noqa: E402
@@ -276,7 +279,7 @@ def get_cached(site_key):
     if age_hours > CACHE_TTL_HOURS:
         return None
     try:
-        with open(cache_file, "r") as f:
+        with open(cache_file, "r", encoding="utf-8") as f:
             data = json.load(f)
         print(f"  [{site_key}] Using cached data ({age_hours:.1f}h old, {len(data)} players)")
         return data
@@ -291,7 +294,7 @@ def set_cache(site_key, name_map):
     os.makedirs(CACHE_DIR, exist_ok=True)
     cache_file = os.path.join(CACHE_DIR, f"{site_key}.json")
     try:
-        with open(cache_file, "w") as f:
+        with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(name_map, f)
     except Exception:
         pass
@@ -3963,7 +3966,7 @@ async def run(progress_callback=None):
     # never created on new server deploys, blocking every scrape run.
     fname = os.path.join(SCRIPT_DIR, "CSVs", "dynasty_values.csv")
     os.makedirs(os.path.dirname(fname), exist_ok=True)
-    with open(fname, "w", newline="") as f:
+    with open(fname, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["Player"] + active_sites)
         for player in PLAYERS:
@@ -6581,6 +6584,25 @@ async def run(progress_callback=None):
         else:
             _norm = normalize_lookup_name(_clean_nm)
             _existing_key = _norm_to_player_key.get(_norm)
+        if _existing_key is None:
+            # W06-F001: this guarantee runs AFTER the dedup first-name-drift
+            # rung, so without this the must-have name ("Matthew Hibner")
+            # becomes a fresh id-less ghost beside the identified row
+            # ("Matt Hibner").  Same rule + identity gate as that rung; the
+            # rookie stays on the board through the identified row.  The
+            # candidate must ALSO be a verified rookie (Sleeper years_exp == 0;
+            # unknown -> no merge): the list name carries no row, no votes and
+            # usually no position, so a veteran sharing a first-name variant
+            # must never absorb it.
+            _existing_key = _unique_identified_first_name_variant(
+                _clean_nm,
+                players_json,
+                position_of=_get_pos,
+                preferred_position=_must_have_rookie_bucket(_clean_nm),
+                candidate_ok=lambda _cand: (
+                    _player_years_exp_local(_cand, players_json.get(_cand)) == 0
+                ),
+            )
 
         _target_name = _existing_key or _canonical_map.get(_clean_nm, _clean_nm)
         _pref_pos = _get_pos(_target_name) or _get_pos(_clean_nm)
@@ -7422,7 +7444,7 @@ def check_value_alerts(current_json):
     prev_values = {}
     try:
         if os.path.exists(prev_file):
-            with open(prev_file, "r") as f:
+            with open(prev_file, "r", encoding="utf-8") as f:
                 prev_values = json.load(f)
     except Exception:
         pass
@@ -7445,7 +7467,7 @@ def check_value_alerts(current_json):
     # Save current for next time
     try:
         os.makedirs(os.path.dirname(prev_file), exist_ok=True)
-        with open(prev_file, "w") as f:
+        with open(prev_file, "w", encoding="utf-8") as f:
             json.dump(current_values, f)
     except Exception:
         pass
@@ -7532,7 +7554,7 @@ def check_value_alerts(current_json):
     # Save alert to file (server can pick this up)
     alert_file = os.path.join(SCRIPT_DIR, "data", "_latest_alert.txt")
     try:
-        with open(alert_file, "w") as f:
+        with open(alert_file, "w", encoding="utf-8") as f:
             f.write(body)
         print(f"  [Alerts] Saved alert to {alert_file}")
     except Exception:

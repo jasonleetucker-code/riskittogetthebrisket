@@ -1,0 +1,53 @@
+/* /waiver-advisor page shell. The route wears .psi-editorial, and that class
+   only redefines tokens (dark ink, cream surfaces). It does not repaint the
+   root, so without the paint below the page stays transparent over the dark
+   app background, and the editorial ink fails WCAG contrast on it (axe
+   color-contrast on the PageHeader and the empty state). Same full-bleed
+   rule as the migrated reference routes (app/rankings/board.module.css
+   `.page`, app/game-day/game-day-page.module.css): the app shell's
+   .main-shell padding is cancelled with matching negative margins and
+   restored as padding, so the cream canvas reaches the edges. The
+   1024/768/420/360 steps MIRROR .main-shell's own padding steps; they are
+   not new layout breakpoints. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  min-width: 0;
+  margin: calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .page {
+    margin: calc(-1 * var(--space-md));
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)));
+    padding: var(--space-sm) var(--space-sm)
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    margin: -6px -6px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    margin: -4px -4px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px));
+    padding: 4px 4px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
+}

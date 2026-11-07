@@ -193,7 +193,7 @@ def test_cli_evaluate_reports_segments_with_the_per_vote_seed(monkeypatch, tmp_p
     assert cli.cmd_evaluate(args) == 0
     assert {c.seed for c in seen} == {2027}
     assert [c.segment for c in seen if c.segment] == list(O.SEGMENTS)
-    written = json.loads(out.read_text())
+    written = json.loads(out.read_text(encoding="utf-8"))
     assert set(written["segments"]) == set(O.SEGMENTS)
     assert written["challengerVersion"] == "rank-space-hampel-per-vote-v1"
 

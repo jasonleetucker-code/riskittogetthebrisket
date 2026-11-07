@@ -329,6 +329,30 @@ class TestFrontendIsNotAnOptimizer:
             if fam in families and pos != "K":
                 assert pos in families[fam], f"Python maps {pos} -> {fam}; JS does not"
 
+    def test_perfect_draft_flex_slots_are_held_in_lockstep_with_python(self):
+        """``perfect-draft.js::FLEX_SLOTS`` decides which ``starters`` keys are
+        NOT positions.  A flex slot missing from it is counted as a position
+        nobody can fill (LI1842-DEFECT-11: ``WR_RB_FLEX``, ``DL_LB``,
+        ``DB_LB`` and ``DL_DB`` were absent), so the set is a mirror of the
+        owner's flex vocabulary and is diffed in BOTH directions: every
+        canonical flex slot, plus every spelling ``normalize_slot`` folds
+        into one."""
+        text = (FRONTEND_LIB / "perfect-draft.js").read_text(encoding="utf-8")
+        match = re.search(r"const FLEX_SLOTS = new Set\(\[([^\]]*)\]\)", text)
+        assert match, "FLEX_SLOTS not found in perfect-draft.js"
+        js_slots = {m.strip().strip("\"'") for m in match.group(1).split(",") if m.strip()}
+
+        canonical = set(owner._FLEX_SLOT_ELIGIBILITY)
+        spellings = {alias for alias, target in owner._SLOT_ALIASES.items() if target in canonical}
+        assert js_slots == canonical | spellings, (
+            f"missing from JS: {sorted((canonical | spellings) - js_slots)}; "
+            f"unknown to Python: {sorted(js_slots - (canonical | spellings))}"
+        )
+        # ...and every member really is a flex slot to the owner, so the JS set
+        # cannot swallow a real position (e.g. "K") as a spare-capacity slot.
+        for slot in js_slots:
+            assert owner.normalize_slot(slot) in canonical, slot
+
 
 class TestSlotDemandHasOneOwner:
     def test_no_module_re_derives_the_even_split(self):

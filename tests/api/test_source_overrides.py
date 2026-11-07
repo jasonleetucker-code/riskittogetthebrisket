@@ -820,6 +820,87 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
                     )
 
 
+class TestManualTepOverrideIsWithdrawn(unittest.TestCase):
+    """DEFECT-02 (held for owner approval): the MANUAL TE-premium override
+    is withdrawn exactly like Custom Mix above.
+
+    A posted ``tep_multiplier`` re-ran the blend and came back under
+    ``rankDerivedValue`` -- and switched off the ADR-015 TE-basis
+    conversion -- so it was a second canonical board per device.  Closed
+    at the ingress normalizers, which answer ``None`` (the canonical path)
+    for every body; the request is answered, never refused, and
+    ``withdrawn_tep_override_note`` says why.
+    """
+
+    BODIES = (
+        {"tep_multiplier": 1.15},
+        {"tepMultiplier": 1.45},
+        {"tep_multiplier": 1.0},
+        {"tep_native_multiplier": 1.3},
+        {"tepNativeMultiplier": 1.2, "tep_multiplier": 1.5},
+        {"tep_multiplier": "garbled"},
+    )
+
+    def test_the_gate_is_closed(self) -> None:
+        self.assertTrue(_data_contract._TEP_OVERRIDES_DISABLED)
+
+    def test_every_manual_value_normalizes_to_the_canonical_none(self) -> None:
+        for body in self.BODIES:
+            with self.subTest(body=body):
+                self.assertIsNone(normalize_tep_multiplier(body))
+                self.assertIsNone(normalize_tep_native_multiplier(body))
+
+    def test_an_ignored_value_is_explained(self) -> None:
+        for body in self.BODIES:
+            with self.subTest(body=body):
+                self.assertEqual(
+                    _data_contract.withdrawn_tep_override_note(body),
+                    _data_contract.TEP_OVERRIDE_WITHDRAWN_NOTE,
+                )
+
+    def test_a_body_without_a_tep_key_carries_no_note(self) -> None:
+        for body in (None, {}, {"ktcCrowdSfTep": {"include": False}}, "1.15", [1.15]):
+            with self.subTest(body=body):
+                self.assertIsNone(_data_contract.withdrawn_tep_override_note(body))
+
+    def test_the_posted_board_is_the_canonical_board(self) -> None:
+        """The property itself: a body posting manual TEP values serves the
+        same values, ranks and TE-premium source stamp as one posting none."""
+        raw = _fixture_raw_payload()
+
+        def board(body):
+            out = build_rankings_delta_payload(
+                raw,
+                tep_multiplier=normalize_tep_multiplier(body),
+                tep_native_multiplier=normalize_tep_native_multiplier(body),
+            )
+            return (
+                {
+                    r["id"]: (r.get("rankDerivedValue"), r.get("canonicalConsensusRank"))
+                    for r in out["rankingsDelta"]["players"]
+                },
+                out["rankingsOverride"]["tepMultiplierSource"],
+                out["rankingsOverride"]["tepNativeMultiplierSource"],
+            )
+
+        baseline = board({})
+        self.assertNotIn("override", baseline[1:])
+        for body in self.BODIES:
+            with self.subTest(body=body):
+                self.assertEqual(board(body), baseline)
+        # Not vacuous: on this fixture the same body DID move the board
+        # before the withdrawal (the rollback path still does).
+        with mock.patch.object(_data_contract, "_TEP_OVERRIDES_DISABLED", False):
+            self.assertNotEqual(board({"tep_multiplier": 1.45}), baseline)
+
+    def test_with_the_gate_off_no_note_is_stamped(self) -> None:
+        """Rollback path: the value is honoured, so there is nothing to explain."""
+        with mock.patch.object(_data_contract, "_TEP_OVERRIDES_DISABLED", False):
+            self.assertIsNone(_data_contract.withdrawn_tep_override_note({"tep_multiplier": 1.2}))
+            self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 1.2}), 1.2)
+
+
+@mock.patch.object(_data_contract, "_TEP_OVERRIDES_DISABLED", False)
 class TestNormalizeTepMultiplier(unittest.TestCase):
     """Input validation + clamping for the TE-premium multiplier.
 
@@ -827,6 +908,11 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
     pipeline can distinguish "user did not override" (→ derive from
     Sleeper league context) from "user explicitly set 1.0" (→ use
     1.0 verbatim).
+
+    The manual override is withdrawn (``TestManualTepOverrideIsWithdrawn``);
+    the parser is retained for rollback, so -- like
+    ``TestNormalizeSourceOverrides`` -- this class patches the gate off to
+    exercise the parser rather than the withdrawal.
     """
 
     def test_missing_field_returns_none(self) -> None:
@@ -901,6 +987,7 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
         self.assertEqual(normalize_tep_multiplier(body), 1.2)
 
 
+@mock.patch.object(_data_contract, "_TEP_OVERRIDES_DISABLED", False)
 class TestNormalizeTepNativeMultiplier(unittest.TestCase):
     """``tep_native_multiplier`` mirrors ``tep_multiplier`` exactly —
     same validation contract (None for absent / invalid, clamp to

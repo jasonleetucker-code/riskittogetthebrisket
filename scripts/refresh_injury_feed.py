@@ -279,7 +279,10 @@ def _refresh_return_evidence() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     if not feature_flags.is_enabled("espn_injury_feed"):
-        _LOGGER.info("espn_injury_feed flag OFF — skipping refresh")
+        # Exit 0 keeps the unit green by design (the flag is the operator's
+        # choice), but nothing was fetched or measured: say so at WARNING so a
+        # green unit is never read as a healthy feed.
+        _LOGGER.warning("espn_injury_feed flag OFF — skipping refresh; injury feed NOT MEASURED")
         return 0
 
     _refresh_return_evidence()

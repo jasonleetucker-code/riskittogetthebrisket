@@ -75,7 +75,7 @@ describe("TopBar landmarks + active state", () => {
     await user.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     const menu = screen.getByRole("menu", { name: "Trades" });
-    expect(within(menu).getByRole("menuitem", { name: /Arbitrage/ })).toHaveAttribute(
+    expect(within(menu).getByRole("menuitem", { name: /Market Disagreement/ })).toHaveAttribute(
       "aria-current",
       "page"
     );
@@ -226,7 +226,7 @@ describe("MobileTabBar", () => {
     await user.click(menuBtn);
     const drawer = screen.getByRole("dialog", { name: "Menu" });
     // full IA present: a Trades group item and a System entry
-    expect(within(drawer).getByText("Arbitrage")).toBeInTheDocument();
+    expect(within(drawer).getByText("Market Disagreement")).toBeInTheDocument();
     expect(within(drawer).getByText("Settings")).toBeInTheDocument();
     expect(within(drawer).getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   });

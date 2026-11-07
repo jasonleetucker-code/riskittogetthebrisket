@@ -246,7 +246,7 @@ def test_a_fresh_board_loaded_long_ago_is_not_reported_stale(restore_source) -> 
 def _server_source() -> str:
     from pathlib import Path
 
-    return (Path(__file__).resolve().parents[2] / "server.py").read_text()
+    return (Path(__file__).resolve().parents[2] / "server.py").read_text(encoding="utf-8")
 
 
 def _code_lines() -> list[str]:

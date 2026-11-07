@@ -22,8 +22,8 @@ def _daemon_reload_condition(installer: str) -> str:
 
 
 def test_normal_deploy_installs_and_kicks_all_sharp_population_jobs():
-    installer = (ROOT / "deploy" / "install-systemd-service.sh").read_text()
-    deploy = (ROOT / "deploy" / "deploy.sh").read_text()
+    installer = (ROOT / "deploy" / "install-systemd-service.sh").read_text(encoding="utf-8")
+    deploy = (ROOT / "deploy" / "deploy.sh").read_text(encoding="utf-8")
     reload_condition = _daemon_reload_condition(installer)
     assert "sharp_needs_install" in reload_condition
     assert "sharprec_needs_install" in reload_condition
@@ -34,8 +34,12 @@ def test_normal_deploy_installs_and_kicks_all_sharp_population_jobs():
 
 
 def test_ffpc_timer_is_daily_and_records_bootstrap_has_large_budget():
-    timer = (ROOT / "deploy" / "systemd" / "dynasty-ffpc-sharp.timer.template").read_text()
-    records = (ROOT / "deploy" / "systemd" / "dynasty-sharp-records.service.template").read_text()
+    timer = (ROOT / "deploy" / "systemd" / "dynasty-ffpc-sharp.timer.template").read_text(
+        encoding="utf-8"
+    )
+    records = (ROOT / "deploy" / "systemd" / "dynasty-sharp-records.service.template").read_text(
+        encoding="utf-8"
+    )
     assert "OnCalendar=*-*-* 05:20:00 UTC" in timer
     assert "Persistent=true" in timer
     assert "crawl_sharp_records.py --budget 5000" in records
