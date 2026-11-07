@@ -171,20 +171,6 @@ def _scored_game_span(state: dict[str, Any]) -> tuple[int, int]:
     return min(counts), max(counts)
 
 
-def _scored_game_count(state: dict[str, Any]) -> int:
-    """Games EVERY scored owner has played — the league's SHARED evidence.
-
-    Deliberately the minimum, not the maximum.  The results-evidence ramp
-    asks "how much has this league actually played", and the maximum
-    answers it with the luckiest team's total: when denominators diverged
-    it claimed more evidence than any shared week supported.  With the
-    completed-week gate in ``metrics.final_regular_season_weeks`` they no
-    longer diverge, so this is an identity on healthy data and an honest
-    floor on unhealthy data.
-    """
-    return _scored_game_span(state)[0]
-
-
 def _results_evidence(scored_games: int) -> float:
     """Reliability multiplier for observed results, smoothly in [0, 1)."""
     if scored_games <= 0:

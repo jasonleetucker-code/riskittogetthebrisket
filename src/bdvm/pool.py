@@ -9,7 +9,7 @@ reference fixture does).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Iterable, Mapping
+from typing import Callable, Iterable
 
 from src.bdvm.league_config import BdvmLeagueConfig
 from src.bdvm.projections import ConsensusProjection
@@ -57,8 +57,3 @@ def build_group_pools(
             continue  # positions with no lineup group (e.g. K in K-less leagues)
         by_group.setdefault(group, []).append(c.mu_fpg)
     return {g: PoolCurve(tuple(sorted(vals, reverse=True))) for g, vals in by_group.items()}
-
-
-def pools_from_callables(pool_map: Mapping[str, PoolFn]) -> Mapping[str, PoolFn]:
-    """Pass-through helper so the engine accepts synthetic pools in tests."""
-    return dict(pool_map)

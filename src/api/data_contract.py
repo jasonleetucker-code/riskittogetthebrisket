@@ -4851,12 +4851,6 @@ def _normalize_for_collision(name: str) -> str:
     return normalize_player_name(name)
 
 
-def _extract_last_name(name: str) -> str:
-    """Extract the last whitespace-delimited token as a surname proxy."""
-    parts = str(name or "").strip().split()
-    return parts[-1].lower() if parts else ""
-
-
 def _compute_identity_confidence(
     row: dict[str, Any],
 ) -> tuple[float, str]:
