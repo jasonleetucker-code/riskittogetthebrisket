@@ -45,13 +45,17 @@ Expected: exit status 0 (or 3 = an OPTIONAL store shed/failed — read `optional
 ```bash
 sudo python3 scripts/verify_state_backup_restore.py --scratch-dir /var/tmp --full --json \
   | tee /var/tmp/restore-verify-$(date -u +%Y%m%dT%H%M%SZ).json
-echo "exit=$?"
+echo "exit=${PIPESTATUS[0]}"   # the script's exit status, not tee's
 ```
 - Restores the newest generation's SQLite artifacts into a temporary directory under `/var/tmp` (deleted after),
   runs `PRAGMA integrity_check` (`--full`), and reads every tarball. It never touches `data/`.
 - Exit codes: `0` all restored artifacts pass; `1` any artifact fails or the generation has none (missing is never a
   pass); `2` no backup root/generation found.
 - To check one store quickly: `--only temporal_ledger --only intel_ledger` (substring filters).
+- Two roots can hold generations: the canonical root and a writer-fallback root (`/api/status` reports
+  `writer_fallback_root_newer` when the fallback is newer — seen 2026-11-07). The script picks the newest generation
+  across its default roots; record which root and generation id it restored, and if the canonical root is the one
+  that matters for retention, re-run with `--root <canonical root>` so both are verified.
 
 **Evidence to record:** the exit code, the generation id, and the per-artifact `ok` lines from the JSON (no paths or
 contents are needed).

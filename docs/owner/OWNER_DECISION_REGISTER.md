@@ -228,18 +228,6 @@ Record: `docs/owner/SITEWIDE_REMEDIATION_DIRECTIVE_2026-11-06.md` §8 (Owner dir
 | `ODR-SR-FRESH-V2` | Rankings & sources | Freshness v2? | OFF until correctness + blast-radius tests pass | owner 2026-10-20 | — | DECIDED | — | CW-13 |
 | `ODR-SR-OUTLIER-V2` | Rankings & sources | Outlier Integrity V2? | Research/validate; no unconditional activation | #1884 | — | DECIDED | #1884 | CW-13 |
 | `ODR-SR-ADVISOR` | Trade | Public Trade Advisor? | OFF until security, licensing, privacy, production gates pass | ODR-ADVISOR-FLOOR | — | DECIDED | — | CW-06 |
-
-### Session resumption directive (2026-11-07)
-
-Record: `docs/owner/SESSION_RESUMPTION_DIRECTIVE_2026-11-07.md` §2. Intake MD-56 … MD-64. Each decision binds only its stated scope.
-
-| ID | family | question | decision | evidence | risk / impact | status | PR / tests | remaining action |
-|---|---|---|---|---|---|---|---|---|
-| `ODR-W12F006-TERMINAL-PRECEDENCE` | Alerts | Terminal and BDVM detectors both alert for one player in one sweep — which email? | Terminal takes precedence; at most one user-facing notification per canonical player, user and sweep; BDVM computation, state and future alerts unaffected; contradictory evidence retained; custom-alert route unchanged | W12-F006 OPEN (`CW40_P1_UNADJUDICATED.md`; repro: two emails for one player in one sweep) | a suppressed BDVM alert must not be lost when the Terminal send fails or is in cooldown | DECIDED | — | CW-40 |
-| `ODR-W20F001-ROSTERS-GAMEPLAN` | Roster intelligence | Which page consumes `/api/gameplan`? | `/rosters`: on-demand Team Gameplan for the selected team; reuse the endpoint and canonical calculations; no new team-strength score or contradictory ranking | W20-F001 OPEN (no frontend caller, no bridge route) | fake zeros or withdrawn lenses must not be surfaced (W20-F010) | DECIDED | — | CW-40 |
-| `ODR-W10F003-RETIRE-NBT` | Draft | Legacy Next Best Targets panel? | Retire it in favor of the Perfect Draft optimizer after inventorying unique, verified-correct functionality to migrate | W10-F003 PARTIAL (0 rows at budget advantage 1.0–3.0) | silently dropping a useful verified feature | DECIDED | — | CW-38 |
-| `ODR-1938-PROMOTION-PREP` | Scoring | Promote #1938 (IDP scorer defects on the nflverse path)? | Approved for promotion PREPARATION only: rebase, independent case review, parity reconciliation, BDVM before/after on identical snapshot inputs, consumer impact, review + CI, release / rollback recommendation. No merge or valuation activation without an explicit subsequent owner approval after the impact evidence | DD-11; CW-08 census #2069 (nflverse path 91.8 % → 96.4 % with #1938) | BDVM in-season fundamental values move for affected IDP players | DECIDED (prep only) | #1938 | CW-13 |
-| `ODR-DFS-TIMER-KEEP` | DFS | Does the DFS pause cover the deployed refresh timer (DD-14)? | No: the program stays paused for new development; the deployed `dynasty-dfs-auto-refresh` timer keeps running unless the owner changes this | DD-14 | — | DECIDED | — | CW-42 |
 | `ODR-SR-WARROOM` | Trade | Multi-team War Room? | Finish validation; private enable on existing release criteria | flag OFF | — | DECIDED | — | CW-20 |
 | `ODR-SR-FORECASTS` | Projections | Forecast model promotion? | Only through prospective independent evidence | MD-30 prereg | — | DECIDED | #2048 #2065 | CW-16 |
 | `ODR-SR-GAMEDAY-PROB` | Game Day | Game Day probabilities? | Experimental until outcome-calibrated | decision 9 | — | DECIDED | — | CW-17 |
@@ -254,12 +242,24 @@ Record: `docs/owner/SESSION_RESUMPTION_DIRECTIVE_2026-11-07.md` §2. Intake MD-5
 | `ODR-SR-PRIVATE-HIST` | Privacy | Private historical data? | Keep private; anonymize public research | — | — | DECIDED | — | — |
 | `ODR-SR-LIVE-MODEL` | Models | Live model changes? | Measured independent benefit, gates, rollback, release evidence | — | — | DECIDED | — | — |
 
+### Session resumption directive (2026-11-07)
+
+Record: `docs/owner/SESSION_RESUMPTION_DIRECTIVE_2026-11-07.md` §2. Intake MD-56 … MD-64. Each decision binds only its stated scope.
+
+| ID | family | question | decision | evidence | risk / impact | status | PR / tests | remaining action |
+|---|---|---|---|---|---|---|---|---|
+| `ODR-W12F006-TERMINAL-PRECEDENCE` | Alerts | Terminal and BDVM detectors both alert for one player in one sweep — which email? | Terminal takes precedence; at most one user-facing notification per canonical player, user and sweep; BDVM computation, state and future alerts unaffected; contradictory evidence retained; custom-alert route unchanged | W12-F006 OPEN (`CW40_P1_UNADJUDICATED.md`; repro: two emails for one player in one sweep) | a suppressed BDVM alert must not be lost when the Terminal send fails or is in cooldown | DECIDED | — | CW-40 |
+| `ODR-W20F001-ROSTERS-GAMEPLAN` | Roster intelligence | Which page consumes `/api/gameplan`? | `/rosters`: on-demand Team Gameplan for the selected team; reuse the endpoint and canonical calculations; no new team-strength score or contradictory ranking | W20-F001 OPEN (no frontend caller, no bridge route) | fake zeros or withdrawn lenses must not be surfaced (W20-F010) | DECIDED | — | CW-40 |
+| `ODR-W10F003-RETIRE-NBT` | Draft | Legacy Next Best Targets panel? | Retire it in favor of the Perfect Draft optimizer after inventorying unique, verified-correct functionality to migrate | W10-F003 PARTIAL (0 rows at budget advantage 1.0–3.0) | silently dropping a useful verified feature | DECIDED | — | CW-38 |
+| `ODR-1938-PROMOTION-PREP` | Scoring | Promote #1938 (IDP scorer defects on the nflverse path)? | Approved for promotion PREPARATION only: rebase, independent case review, parity reconciliation, BDVM before/after on identical snapshot inputs, consumer impact, review + CI, release / rollback recommendation. No merge or valuation activation without an explicit subsequent owner approval after the impact evidence | DD-11; CW-08 census #2069 (nflverse path 91.8 % → 96.4 % with #1938) | BDVM in-season fundamental values move for affected IDP players | DECIDED (prep only) | #1938 | CW-13 |
+| `ODR-DFS-TIMER-KEEP` | DFS | Does the DFS pause cover the deployed refresh timer (DD-14)? | No: the program stays paused for new development; the deployed `dynasty-dfs-auto-refresh` timer keeps running unless the owner changes this | DD-14 | — | DECIDED | — | CW-42 |
+
 ## Counts
 
-<!-- counts: generated from the tables above when this file was written; recount if rows change. A composite status (e.g. `SUPERSEDED → DECIDED`) counts as its final state. Recounted 2026-11-06. -->
+<!-- counts: generated from the tables above when this file was written; recount if rows change. A composite status (e.g. `SUPERSEDED → DECIDED`) counts as its final state. Recounted 2026-11-07. -->
 | status | rows |
 |---|---:|
-| `DECIDED` | 50 |
+| `DECIDED` | 55 |
 | `IMPLEMENTED` | 1 |
 | `MERGED` | 0 |
 | `DEPLOYED` | 17 |
@@ -267,7 +267,7 @@ Record: `docs/owner/SESSION_RESUMPTION_DIRECTIVE_2026-11-07.md` §2. Intake MD-5
 | `EVIDENCE_PENDING` | 4 |
 | `HUMAN_ACTION_REQUIRED` | 16 |
 | `OWNER_PAUSED` | 15 |
-| **total** | **105** |
+| **total** | **110** |
 
 ## Where each stale record was closed (in place)
 
