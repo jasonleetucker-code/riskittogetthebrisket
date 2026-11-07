@@ -14,6 +14,7 @@ below.** A document that appears nowhere is drift, and `scripts/check_planning_i
 
 | Document | Authority |
 |---|---|
+| `docs/owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md` | **Current owner frontend-rebuild research charter (2026-11-07):** supersedes September aesthetic/no-exploration lock for research only; owner-selected Sports Network lead / Sunday Paper secondary and Codex prototype study (Rankings, Player File, News Desk); no finalized production design tokens or broad build authorization; carries public/private/parallel-backend boundaries. |
 | `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` | Binding implementation of locked PSI; existing Lane 6 parallel rule, not independent scope or authorization |
 | `docs/ui/UI_PARALLEL_LEDGER.md` | Operational UI migration/claim/evidence dimension; no competing product denominator |
 | `docs/ui/UI_AUDIT_2026-09-24.md` | Dated source and work-overlap audit; not current production proof |

@@ -1,3 +1,7 @@
+> **LATEST OWNER DESIGN SELECTION — 2026-11-07:** The **original Sports Network** concept is now the leading future *research reference*, with **Sunday Paper** a secondary editorial influence. The owner rejected the suggested Personnel Exchange dark/dashboard look as generic AI output. See `docs/owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md` for explicit motifs, Codex Rankings/Player File/News Desk prototype authorization and production gate. Existing PSI code remains maintained safely; this does not authorize a live redesign.
+
+> **LATER OWNER OVERRIDE — 2026-11-07.** The owner is dissatisfied with the light/cream PSI direction as the *future site aesthetic*, and explicitly reopens comprehensive visual, IA, typographic, frontend-tool and site-experience research. The prior statements that Direction A is permanent, no aesthetic exploration is authorized, and all pages must migrate toward it are **superseded for future design choice**. This document now records the historical owner-approved incumbent direction; do not treat it as a lock preventing research. Existing shipped PSI code is retained until a successor is selected, validated and separately authorized. There is **no new palette, AI-builder choice or rebuild permission yet**. Read `docs/owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md` and `docs/EXECUTION_PLAN.md` first.
+
 # Chase Upside — Premium Sports Intelligence Design North Star
 
 > **CURRENT EXECUTION AMENDMENT — 2026-09-24 (#1421).** PSI / Direction A remains the
