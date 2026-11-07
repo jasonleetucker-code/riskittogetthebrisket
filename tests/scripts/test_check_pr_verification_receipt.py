@@ -163,11 +163,11 @@ def test_mixed_docs_and_code_is_material():
 
 def test_cli_body_file_and_files(tmp_path, capsys):
     bf = tmp_path / "b.md"
-    bf.write_text(body())
+    bf.write_text(body(), encoding="utf-8")
     ff = tmp_path / "f.txt"
-    ff.write_text("src/a.py\n")
+    ff.write_text("src/a.py\n", encoding="utf-8")
     assert mod.main(["--body-file", str(bf), "--files-from", str(ff), "--author", "x"]) == 0
-    bf.write_text("nothing")
+    bf.write_text("nothing", encoding="utf-8")
     assert mod.main(["--body-file", str(bf), "--files-from", str(ff)]) == 1
 
 
@@ -188,15 +188,16 @@ def test_event_path_and_summary(tmp_path, monkeypatch):
                     "head": {"sha": "b"},
                 }
             }
-        )
+        ),
+        encoding="utf-8",
     )
     ff = tmp_path / "f.txt"
-    ff.write_text("src/a.py\n")
+    ff.write_text("src/a.py\n", encoding="utf-8")
     summ = tmp_path / "s.md"
     monkeypatch.setenv("GITHUB_EVENT_PATH", str(ev))
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summ))
     assert mod.main(["--files-from", str(ff)]) == 0
-    assert "EXEMPT" in summ.read_text()
+    assert "EXEMPT" in summ.read_text(encoding="utf-8")
 
 
 def test_fenced_heading_does_not_truncate_section():
@@ -260,7 +261,7 @@ def test_rename_both_sides_listed(monkeypatch):
 def _run_main_capture(m, seen):
     import tempfile
 
-    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False, encoding="utf-8") as fh:
         fh.write("x")
     m.main(["--body-file", fh.name, "--base", "a", "--head", "b", "--author", "alice"])
     return seen["cmd"]
