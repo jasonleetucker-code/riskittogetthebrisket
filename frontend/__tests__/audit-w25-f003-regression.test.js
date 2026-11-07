@@ -7,9 +7,10 @@
  * could NOT price it (rankDerivedValue null) still receives a client display ordinal in the
  * `#` column, indistinguishable from a real board rank.
  *
- * `it.fails` states the correct behaviour (an unpriced row shows no `#`); it flips when
- * `buildRows` stops numbering unpriced rows.  Priced off-cap rows (#1101) are deliberately
- * left numbered here -- that is the documented display ordinal and is not what this pins.
+ * Repaired: `buildRows` no longer numbers unpriced rows, so the former `it.fails` pin is a
+ * plain test asserting the correct behaviour (an unpriced row shows no `#`).  Priced off-cap
+ * rows (#1101) are deliberately left numbered here -- that is the documented display ordinal
+ * and is not what this pins.
  */
 import { describe, expect, it } from "vitest";
 
