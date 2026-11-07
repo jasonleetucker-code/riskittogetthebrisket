@@ -4,7 +4,7 @@ Each strict xfail states the CORRECT behaviour and flips (XPASS strict -> failur
 defect is repaired, so the marker must then be deleted in the repair PR.  Everything is offline
 and deterministic: stub news provider, source-shape scans, ``git ls-files``, the workflow YAML.
 
-* W21-F003  /api/terminal passes the FANTASY team name where player names are matched.
+* W21-F003  REPAIRED: roster news filters by the roster's player names (tests below are plain passes).
 * W24-F001  no union skip census and no executed-test floor gate exists (characterization + xfail).
 * W24-F002  the 22 ``test_real_rosters.py`` tests skip: an input file they need is untracked.
 * W24-F004  ``e2e.yml`` sets ``SKIP_VISUAL_REGRESSION=1`` and the specs skip the whole describe.
@@ -58,18 +58,28 @@ def test_w21_f003_control_unfiltered_gather_returns_the_item():
     assert [i["id"] for i in items] == ["n1"]
 
 
-@pytest.mark.xfail(
-    reason="W21-F003 OPEN: gather_news_items forwards the FANTASY team name as team_names; "
-    "NewsService._filter_by_team_names matches it against PLAYER mention names, so a resolved "
-    "team ('Jason') drops every item",
-    **STRICT,
-)
 def test_w21_f003_resolved_fantasy_team_does_not_empty_the_news_feed():
     from src.api.terminal import gather_news_items
 
     svc = _news_service_with_one_player_item()
     items = gather_news_items(lambda: svc, ["Josh Allen"], "Jason")
     assert [i["id"] for i in items] == ["n1"], "authenticated roster view received no news"
+
+
+def test_w21_f003_roster_filter_uses_player_names_not_team_name():
+    from src.api.terminal import gather_news_items, roster_player_names
+
+    svc = _news_service_with_one_player_item()
+    team = {"name": "Jason", "players": ["Josh Allen", "Bijan Robinson"]}
+    roster = roster_player_names(team)
+    assert roster == ["Josh Allen", "Bijan Robinson"]
+    kept = gather_news_items(lambda: svc, ["Josh Allen"], "Jason", roster_player_names=roster)
+    assert [i["id"] for i in kept] == ["n1"]
+    dropped = gather_news_items(
+        lambda: svc, ["Josh Allen"], "Jason", roster_player_names=["Bijan Robinson"]
+    )
+    assert dropped == []
+    assert roster_player_names(None) is None and roster_player_names({"players": []}) is None
 
 
 # --------------------------------------------------------------------------- W24-F001
