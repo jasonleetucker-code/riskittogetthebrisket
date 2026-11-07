@@ -332,13 +332,15 @@ gives TE 1 / 0, RB 1 / 0, WR 0 / 1, QB 0 / 1.
   synthetic board where KTC is 10% higher everywhere in the same order, C0 labels every
   row SELL and C1 labels none. Swapping two players' KTC prices produces opposite C1
   labels. All of this is pinned in the test.
-* **C2 oracle.** This is a log-linear re-blend from the incumbent's own per-source
+* **C2 cross-check (approximate, not an independent oracle).** This is a log-linear re-blend from the incumbent's own per-source
   stamps: un-correct each TEP-native contribution, re-lift it with the curve evaluated
   here, then take the applied-weight-weighted mean log change. It deliberately skips
   Hampel, trimming and the family cap. Against the production rebuild it gives a median
   absolute TE value error of **1.25%** (maximum 3.4%, signed +0.66%, n = 30). The
-  oracle's census is TE 13 / 2 against the pipeline's 16 / 1, so both agree that the
-  skew survives C2.
+  cross-check's census is TE 13 / 2 against the pipeline's 16 / 1, so both agree that the
+  skew survives C2, but because it omits three blend stages it confirms direction, not
+  exact counts. The exact independent checks in this proposal are the KTC uplift oracle
+  and the decomposition restatements.
 
 ## 7. Before and after: player impacts
 
@@ -508,7 +510,7 @@ product and UI decision, recorded here only as the fallback.
   in the archive. Windows overlap, and the span is 2 months in-season.
 * Theta uses KTC's base board as the coordinate. Any reference is a choice, and KTC base
   is chosen because KTC's natural experiment calibrates the 0-to-1 axis.
-* C2 patches the registry in-process only, inside the research script. The oracle
+* C2 patches the registry in-process only, inside the research script. The C2 cross-check
   approximates the blend rather than replicating it.
 * `dynasty_new` is not in the payload, and its labels are inferred to be identical
   because the board is shared.
