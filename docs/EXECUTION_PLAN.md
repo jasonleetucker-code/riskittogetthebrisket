@@ -1,5 +1,13 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Sports Network production frontend implementation — owner, 2026-11-07 (latest)
+
+**AUTHORIZED NOW:** Following positive review of the three isolated Sports Network reference screens, the owner instructed **"continue until its fully implemented"**. This explicitly advances the work from prototype review into implementation of the approved Sports Network frontend across the existing active product. Sports Network is primary; Sunday Paper supplies subordinate editorial rhythm. Reference study: PR #2132, runtime implementation `e114e1915`, responsive evidence `60f0d7352`, positive-feedback record `5314ce35f`; original HTML was unavailable, so the reviewed implementation is the baseline. This supersedes prototype-only/production-build-gated restrictions for this frontend program and supersedes the former permanent PSI visual destination. Preserve historical requirements in open #2112; do not treat its unmerged status as a new owner-approval request.
+
+**Implementation boundary:** canonical typography/tokens, shared shell and navigation presentation, Rankings, Player File, News Desk, existing private tools, public league and remaining active route presentation; retain existing route identities, rich features, canonical data/values/calculations, exports, exact league transforms, attribution/freshness, auth/public-private boundaries, hidden/paused products and flags. No backend calculation, scoring, source, framework migration or feature activation is authorized by this frontend direction. Existing backend remediation continues without overlapping edits.
+
+**Execution:** use existing Lane 6; isolated task/worktrees and named file owners; source → API → live component verification; independent review, continuous L0/L1, exact-tree L2 and release L3. Integration retains qualified merge/release ownership and all existing production safety gates. Owner has authorized continuing implementation; do not repeatedly request aesthetic/prototype approval. Do not claim complete until current route coverage, representative populated/error/missing states, keyboard/a11y/mobile/performance and integration evidence agree. Contract and route evidence: `docs/ui/SPORTS_NETWORK_MIGRATION_2026-11-07.md` (within existing UI ledger, not a new product denominator).
+
 ## Complete sitewide feature verification directive — owner, 2026-11-07 (third directive of the day)
 
 **AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:

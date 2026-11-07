@@ -609,3 +609,13 @@ owned by its author; this campaign changes neither and performs no operations wo
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 # **Chase Upside private ChatGPT MCP plugin (owner directive 2026-10-25).** Scoped read-only owner-only ChatGPT Sites MCP tools for rankings, canonical player identity, league context, Sleeper rosters and trade analysis; reuse API/analytics owners; include IDs, freshness, confidence, provenance and explicit missing states. No public access, writes, merge or deploy. Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c` (`codex/chase-upside-private-mcp`)
     shared files: `.env.example`, `server.py`, `src/api/chase_upside_mcp.py`, `sites/chase-upside-mcp/**`, `tests/api/test_chase_upside_mcp.py`, `docs/ops/CHATGPT_MCP_SETUP.md`, `docs/EXECUTION_PLAN.md`, `docs/OWNER_REQUESTED_TODO.md`, `docs/WORK_CLAIMS.md`
+
+
+## Sports Network production frontend — owner continuation 2026-11-07
+
+| Work | Files | Contract | Branch | Status |
+|---|---|---|---|---|
+| Coordinator / design custodian: canonical foundation, fonts, Rankings, cross-route migration and evidence; stable live contracts, no backend calculations. Agent-OS-Receipt: 741230def70b1c94b9924192ee784bb7241b91a6 | `frontend/app/{layout.jsx,tokens.css,globals.css,ds.css}`, `frontend/app/fonts/**`, `frontend/app/rankings/**`, coordinated remaining route presentation, frontend design/contrast tests, existing governance/UI evidence docs | Existing Lane 6 / Sports Network owner continuation | `codex/sports-network-production` | in progress |
+| News presentation worker: newsroom composition; preserve useNews/services/digests/facets/identity and unavailable behavior; no shared foundation edits | `frontend/app/news/{page.jsx,news.module.css,loading.jsx}`, `frontend/__tests__/**/sports-network-news*` | Same program | `codex/sports-network-news` | in progress — isolated worker |
+| Player presentation worker: personnel dossier over existing real ownership/value/research paths; no new valuation or fixture data | `frontend/app/players/[playerId]/{page.jsx,player-file.module.css,loading.jsx}`, `frontend/__tests__/**/sports-network-player*` | Same program | `codex/sports-network-player` | in progress — isolated worker |
+| Shell presentation worker: same NAV_MODEL/access/capabilities/search/team/league semantics, sports masthead and mobile chrome; no nav model edits | `frontend/components/shell/**`, `frontend/app/shell.css`, `frontend/__tests__/**/sports-network-shell*` | Same program | `codex/sports-network-shell` | in progress — isolated worker |

@@ -1,3 +1,5 @@
+> **LATEST OWNER EXECUTION DIRECTION — 2026-11-07:** Sports Network has advanced from isolated prototype research to owner-authorized frontend implementation ("continue until its fully implemented"). The prior permanent PSI aesthetic lock and prototype-only production restriction are superseded for this program. Preserve feature/data/privacy/accessibility/performance invariants. Read `docs/EXECUTION_PLAN.md` and `docs/ui/SPORTS_NETWORK_MIGRATION_2026-11-07.md`. Existing Lane 6 and Integration/release gates remain canonical.
+
 # Design System — Premium Sports Intelligence
 
 ## Current PSI authority — 2026-09-24 (#1421)
