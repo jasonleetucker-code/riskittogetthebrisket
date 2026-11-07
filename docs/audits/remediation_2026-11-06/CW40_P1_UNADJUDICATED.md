@@ -269,3 +269,8 @@ Existing tests cited for CLOSED_VERIFIED rows: `frontend/__tests__/draft-bid-bud
 `frontend/__tests__/components/waiver-faab-context-envelope.test.jsx`, `tests/sharp/test_roster_percentage.py`,
 `frontend/__tests__/sharp-roster-percentage-lib.test.js`, `tests/public_league/test_awards_need_games.py`,
 `frontend/__tests__/no-frontend-team-strength-methodology.test.js`.
+
+## W25-F003 display half: repaired in this PR
+
+Unpriced rows no longer receive a client display ordinal in `buildRows`; see "Repaired in this PR" in
+`CW40_P1_BATCH_t2.md`.

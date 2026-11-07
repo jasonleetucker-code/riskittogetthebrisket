@@ -225,12 +225,60 @@ def test_offense_values_do_not_move_and_moved_picks_are_tethered(boards):
             assert name in dc._TWO_WAY_PLAYERS, f"offense row {name} moved {before}->{after}"
 
 
+#: The confidence gate's stamp for a vote that reached the value but that the
+#: gate's REPLAY of the outlier test rejects (``data_contract._lost_evidence_replay``
+#: case (c), flag ``confidence_cured_rejection_guard``).
+_CURED_REJECTION = "rejected_with_withheld_votes"
+
+
+def _cured_rejections(row):
+    """Voting sources the row's confidence gate declined to credit because the
+    outlier test, replayed on the OBSERVED panel, rejects them."""
+    return {
+        key
+        for key, meta in (row.get("sourceRankMeta") or {}).items()
+        if isinstance(meta, dict) and meta.get("confidenceUncredited") == _CURED_REJECTION
+    }
+
+
 def _recovered_evidence(on_row, off_row):
-    """Non-held sources the restore board's outlier filter REJECTED that the
-    held board kept as votes -- evidence the hold gives back, not silence."""
-    rejected_off = set(off_row.get("droppedSources") or []) - set(_HELD)
-    kept_on = _voters(on_row) - set(on_row.get("droppedSources") or [])
-    return rejected_off & kept_on
+    """Non-held sources the restore board's outlier test REJECTED that the
+    held board CREDITS -- evidence the hold gives back, not silence.
+
+    The restore board records an outlier rejection in one of two places, and
+    both are the SAME incumbent test:
+
+    * ``droppedSources`` -- the blend's own filter rejected the vote;
+    * ``sourceRankMeta[src].confidenceUncredited == "rejected_with_withheld_votes"``
+      -- the vote reached the value only because a freshness-withheld source
+      left the panel; the confidence gate replays the same filter on the
+      OBSERVED panel (voting + withheld values, ``_lost_evidence_replay``
+      case (c)), that replay rejects the vote, so the gate credits it nothing.
+      Measured on ``dynasty_export_20261107_133702``: Edgerrin Cooper, with
+      The IDP Show withheld as stale (3541).  Restore panel: IDPTC 3339,
+      DLF IDP 3326, FantasyPros IDP 4698, Draft Sharks IDP 4754 -- the blend
+      drops nothing, but the replay with The IDP Show rejects FantasyPros and
+      Draft Sharks (median 3541, MAD 215 -> threshold floored at 1000; they sit
+      1157 / 1213 away -- DLF's vote beside IDPTC and The IDP Show collapses
+      the spread).  Held panel: the replay rejects nothing (median 4119.5,
+      threshold 1668), both are credited, coverage 2 of 5 -> 3 of 4 eligible
+      families, bucket low -> medium.  DLF's vote is the but-for cause --
+      the CQ-65 defect the hold exists to prevent, reached through the
+      guard's replay instead of the blend.  Nick Bolton is the same case
+      (3605 / 3383 / 3503 / 4783 / 4901).
+
+    CREDITED on the held board means voting, not dropped AND not uncredited:
+    a vote the held board's gate still declines to credit is not evidence the
+    hold gave back, so it cannot explain a coverage / independence rise.
+
+    Residual, named: the guard's own carve-out (every source it would credit
+    is cured -> the prior answer, unstamped) publishes those sources as
+    credited, so this reads them as credited -- the build's published answer.
+    """
+    rejected_off = set(off_row.get("droppedSources") or []) | _cured_rejections(off_row)
+    credited_on = _voters(on_row) - set(on_row.get("droppedSources") or [])
+    credited_on -= _cured_rejections(on_row)
+    return (rejected_off - set(_HELD)) & credited_on
 
 
 def test_recovered_evidence_requires_a_rejected_vote_the_hold_keeps():
@@ -250,6 +298,71 @@ def test_recovered_evidence_requires_a_rejected_vote_the_hold_keeps():
     assert _recovered_evidence(silence, dict(off, droppedSources=[])) == set()
     held_only = dict(off, droppedSources=["dlfIdp"])
     assert _recovered_evidence(kept, held_only) == set()
+    # Kept in the held board's blend but NOT credited by its gate: no recovery.
+    kept_uncredited = {
+        "sourceRankMeta": {
+            "fantasyProsIdp": {"confidenceUncredited": _CURED_REJECTION},
+            "idpTradeCalc": {},
+        },
+        "droppedSources": [],
+    }
+    assert _recovered_evidence(kept_uncredited, off) == set()
+
+
+def test_recovered_evidence_reads_the_gates_replay_rejection_too():
+    """Synthetic (no live board): a restore-board vote the confidence gate
+    left uncredited as a cured rejection, credited on the held board, is
+    recovered evidence -- the same outlier test as ``droppedSources``, read
+    where the guard records it.  Any other stamp, a held source's own stamp,
+    or a vote the held board's gate still declines recovers nothing."""
+    cured = {"confidenceUncredited": _CURED_REJECTION}
+    off = {
+        "sourceRankMeta": {
+            "dlfIdp": {},
+            "idpTradeCalc": {},
+            "fantasyProsIdp": dict(cured),
+            "draftSharksIdp": dict(cured),
+        },
+        "droppedSources": [],
+    }
+    on = {
+        "sourceRankMeta": {"idpTradeCalc": {}, "fantasyProsIdp": {}, "draftSharksIdp": {}},
+        "droppedSources": [],
+    }
+    assert _recovered_evidence(on, off) == {"fantasyProsIdp", "draftSharksIdp"}
+    still_cured = copy.deepcopy(on)
+    still_cured["sourceRankMeta"]["draftSharksIdp"] = dict(cured)
+    assert _recovered_evidence(still_cured, off) == {"fantasyProsIdp"}
+    other_stamp = copy.deepcopy(off)
+    other_stamp["sourceRankMeta"]["fantasyProsIdp"] = {"confidenceUncredited": "something_else"}
+    other_stamp["sourceRankMeta"]["draftSharksIdp"] = {}
+    assert _recovered_evidence(on, other_stamp) == set()
+    held_stamp = copy.deepcopy(off)
+    held_stamp["sourceRankMeta"] = {"dlfIdp": dict(cured), "idpTradeCalc": {}}
+    assert _recovered_evidence(on, held_stamp) == set()
+
+
+def test_a_held_vote_can_make_the_gates_replay_reject_valid_votes():
+    """The mechanism, on the production replay with the measured Edgerrin
+    Cooper values (``dynasty_export_20261107_133702``; The IDP Show withheld
+    as stale): with DLF IDP voting the observed-panel replay rejects
+    FantasyPros IDP and Draft Sharks IDP although the blend kept them; with
+    DLF IDP held it rejects nothing.  So the held board's credit for them is
+    evidence the hold gives back, not the held family's silence."""
+    show = [("idpShowCombined", 3541.0)]
+    held_panel = [("idpTradeCalc", 3339.0), ("fantasyProsIdp", 4698.0), ("draftSharksIdp", 4754.0)]
+    restore_panel = held_panel + [("dlfIdp", 3326.0)]
+    for panel in (restore_panel, held_panel):
+        assert dc._hampel_filter_per_player(panel, k=dc._HAMPEL_K, min_n=dc._HAMPEL_MIN_N)[1] == []
+    restore = dc._lost_evidence_replay(
+        voting_pairs=restore_panel, withheld_pairs=show, dropped_now=[], outlier_test_applies=True
+    )
+    held = dc._lost_evidence_replay(
+        voting_pairs=held_panel, withheld_pairs=show, dropped_now=[], outlier_test_applies=True
+    )
+    assert sorted(restore.cured) == ["draftSharksIdp", "fantasyProsIdp"]
+    assert held.cured == []
+    assert restore.seats == held.seats == ["idpShowCombined"]
 
 
 def test_no_confidence_rise_from_the_held_familys_silence(boards):
@@ -261,9 +374,10 @@ def test_no_confidence_rise_from_the_held_familys_silence(boards):
     * was itself the weak evidence (disagreeing / stale / inapplicable): the
       bottleneck is an evidence-quality axis; or
     * its vote made the incumbent outlier filter reject ANOTHER family's
-      valid vote (the CQ-65 defect the hold exists to prevent): the held
-      board keeps that vote, so independence / coverage rise on RECOVERED
-      evidence.
+      valid vote (the CQ-65 defect the hold exists to prevent) -- in the
+      blend, or in the confidence gate's replay of that filter over the
+      observed panel (``_recovered_evidence``): the held board credits that
+      vote, so independence / coverage rise on RECOVERED evidence.
 
     Never via coverage or independence with nothing recovered -- that would
     mean the held family's SILENCE, not evidence, had lifted the row."""

@@ -1591,13 +1591,19 @@ export function buildRows(data) {
     return ra - rb;
   });
   rows.forEach((r, i) => {
-    r.computedConsensusRank = i + 1;
+    // A row the backend could not price (no rankDerivedValue) has no
+    // board position at all: its sort slot is an artifact of sinking to
+    // the end, not evidence.  Missing is never a number (W25-F003 /
+    // W07-F003), so no ordinal is minted -- `resolvedRank` then reads it
+    // as unranked (Infinity) and `tierLabel` as "Unranked" (W07-F004).
+    const unpriced = !Number.isFinite(Number(r.rankDerivedValue ?? NaN));
+    r.computedConsensusRank = unpriced && r.canonicalConsensusRank == null ? null : i + 1;
     // Preserve null rank on rows the backend explicitly un-ranked
     // (anchor-year slot picks). Players still fall back to the
     // local computed ordinal as before; picks show no rank number.
     if (r.canonicalConsensusRank != null) {
       r.rank = r.canonicalConsensusRank;
-    } else if (r.assetClass === "pick" || overlayActive) {
+    } else if (r.assetClass === "pick" || overlayActive || unpriced) {
       // With an overlay active the local ordinal would be derived from
       // ADJUSTED values — a client-computed rank in the `#` column,
       // which is the one thing `buildRows` must never produce.

@@ -60,15 +60,14 @@ const CONTRACT = {
 
 const byName = () => Object.fromEntries(buildRows(CONTRACT).map((r) => [r.name, r]));
 
-describe("W07-F003 (characterization): unpriced rows are numbered by the client", () => {
-  it("backend stamps win; the unpriced row takes the local ordinal", () => {
+describe("W07-F003: unpriced rows are not numbered by the client", () => {
+  it("backend stamps win; the unpriced row is minted no local ordinal", () => {
     const rows = byName();
     expect(rows["Ranked One"].rank).toBe(1);
-    expect(rows["Unpriced Back"].rank).toBe(rows["Unpriced Back"].computedConsensusRank);
-    expect(rows["Unpriced Back"].rank).toBeGreaterThan(2);
+    expect(rows["Unpriced Back"].computedConsensusRank).toBeNull();
   });
 
-  it.fails("W07-F003 open: an unpriced row carries no `#` ordinal", () => {
+  it("W07-F003: an unpriced row carries no `#` ordinal", () => {
     expect(byName()["Unpriced Back"].rank).toBeNull();
   });
 });
@@ -85,11 +84,7 @@ describe("W07-F004: fabricated tier / verdict / confidence for unpriced rows", (
     expect(c.level).toBe("none");
   });
 
-  it("(characterization) the tier is derived from the invented ordinal", () => {
-    expect(tierLabel(byName()["Unpriced Back"])).toMatch(/^Tier \d+$/);
-  });
-
-  it.fails("W07-F004 open: an unpriced row shows no invented tier", () => {
+  it("W07-F004: an unpriced row shows no invented tier", () => {
     expect(tierLabel(byName()["Unpriced Back"])).toBe("Unranked");
   });
 });

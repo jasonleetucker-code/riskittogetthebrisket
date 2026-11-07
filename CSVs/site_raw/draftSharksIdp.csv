@@ -95,7 +95,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 94,,Rueben Bain Jr.,DL,4.01,10,22.1,53,236,390,763,,5
 95,,Devon Witherspoon,DB,6.05,11,25.8,110,291,454,831,,5
 96,,D'Angelo Ponds,DB,20.06,13,21.8,63,299,485,874,,5
-97,,Myles Garrett,DL,1.01,11,30.8,112,268,347,499,,5
+97,,Myles Garrett,DL,1.01,11,30.8,114,268,347,499,,5
 98,,Malachi Moore,DB,67.11,13,25.1,21,322,509,868,,5
 99,,Drue Tranquill,LB,10.06,5,31.2,99,273,399,569,,5
 100,,Walter Nolen,DL,70.09,14,23,50,232,392,726,,5
@@ -161,9 +161,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 160,,Jordan Battle,DB,10.02,6,25.8,96,251,389,644,,1
 161,,Carl Granderson,DL,7.03,8,29.8,81,205,266,385,,1
 162,,Boye Mafe,DL,7.04,6,27.9,73,197,282,395,,1
-163,,Josaiah Stewart,DL,68.06,11,23.5,48,169,287,540,,1
-164,,Benjamin Morrison,DB,70.02,10,22.6,13,267,430,760,,1
-165,,Michael Jackson,DB,16.09,5,29.8,98,262,390,565,,1
+163,,Benjamin Morrison,DB,70.02,10,22.6,13,267,430,760,,1
+164,,Michael Jackson,DB,16.09,5,29.8,98,262,390,565,,1
+165,,Josaiah Stewart,DL,68.06,11,23.5,47,169,287,540,,1
 166,,Grant Delpit,DB,12.09,11,28.1,101,251,380,596,,1
 167,,Mack Wilson,LB,13.11,14,28.7,99,212,323,490,,1
 168,,Brandon Jones,DB,16.08,10,28.6,95,255,386,605,,1
@@ -178,8 +178,8 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 177,,Joey Porter Jr.,DB,82.02,14,26.3,88,241,379,639,,1
 178,,Micah McFadden,LB,21.04,8,26.8,99,194,305,502,,1
 179,,Patrick Surtain II,DB,9.07,10,26.5,82,241,379,639,,0
-180,,Josiah Trotter,LB,9.05,10,21.5,92,172,297,599,,0
-181,,Jalen Pitre,DB,11.10,8,27.4,100,234,361,586,,0
+180,,Jalen Pitre,DB,11.10,8,27.4,105,234,361,586,,0
+181,,Josiah Trotter,LB,9.05,10,21.5,92,172,297,599,,0
 182,,Danielle Hunter,DL,3.06,8,32,82,165,229,387,,0
 183,,Tommy Togiai,DL,40.08,8,27.1,55,171,265,402,,0
 184,,Devonte Wyatt,DL,37.09,11,28.6,55,173,264,382,,0
@@ -240,9 +240,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 239,,John Franklin-Myers,DL,51.07,9,30.1,59,157,204,295,,-1
 240,,Kendal Daniels,LB,63.12,11,23.8,41,184,298,541,,-1
 241,,Logan Hall,DL,34.10,8,26.5,33,146,229,366,,-1
-242,,Jermaine Johnson,DL,32.12,9,27.8,74,197,287,406,,-2
-243,,Isaiah Pola-Mao,DB,19.12,13,27.3,73,221,341,552,,-2
-244,,Reed Blankenship,DB,13.12,8,27.7,89,220,334,524,,-2
+242,,Reed Blankenship,DB,13.12,8,27.7,91,220,334,524,,-2
+243,,Jermaine Johnson,DL,32.12,9,27.8,74,197,287,406,,-2
+244,,Isaiah Pola-Mao,DB,19.12,13,27.3,73,221,341,552,,-2
 245,,Omar Speights,LB,19.10,11,25.7,53,179,286,521,,-2
 246,,Keyron Crawford,DL,64.07,13,23,0,142,241,454,,-2
 247,,Jaycee Horn,DB,27.02,5,26.9,81,212,334,550,,-2
