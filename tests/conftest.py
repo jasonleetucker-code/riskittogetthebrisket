@@ -307,6 +307,14 @@ def pytest_configure(config):
         "tesseract: runs the REAL local tesseract OCR binary; skipped when "
         "the binary is not installed (see tests/trade/screenshot_import).",
     )
+    # CI runs the hard gate as N parallel shards (``PR Validation``'s
+    # ``backend`` matrix).  ``scripts/ci_test_shards.py`` owns which files a
+    # shard runs and the manifest that lets the ``Validate PR`` aggregator
+    # prove every collected test ran exactly once.  A no-op unless
+    # ``RISKIT_TEST_SHARD`` is set, so local and L1 runs are unchanged.
+    from scripts import ci_test_shards as _ci_shards
+
+    _ci_shards.register_if_requested(config.pluginmanager)
 
 
 @pytest.fixture(autouse=True, scope="session")
