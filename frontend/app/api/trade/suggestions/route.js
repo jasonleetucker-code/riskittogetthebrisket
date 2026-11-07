@@ -14,12 +14,13 @@ export async function POST(request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  const cookie = request.headers.get("cookie") || "";
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 5000);
   try {
     const res = await fetch(SUGGESTIONS_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Cookie: cookie },
       body: JSON.stringify(body),
       signal: ctl.signal,
       cache: "no-store",

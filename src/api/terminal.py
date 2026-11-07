@@ -1298,13 +1298,31 @@ def _compute_portfolio_insights(
 # ── NEWS GATHERING ──────────────────────────────────────────────────────
 
 
+def roster_player_names(resolved_team: dict[str, Any] | None) -> list[str] | None:
+    """Player names on a resolved ``sleeper.teams`` entry, or ``None`` if unknown."""
+    if not isinstance(resolved_team, dict):
+        return None
+    players = resolved_team.get("players")
+    if not isinstance(players, list):
+        return None
+    names = [str(p).strip() for p in players if isinstance(p, str) and p.strip()]
+    return names or None
+
+
 def gather_news_items(
     news_service_factory: Callable[[], Any],
     live_names: list[str] | None,
     team_name: str | None,
     player_meta: dict[str, Any] | None = None,
+    roster_player_names: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Pull raw news items through the existing NewsService aggregator.
+
+    ``team_name`` is the FANTASY team's label and is NOT a news filter
+    (W21-F003: ``NewsService`` matches ``team_names`` against PLAYER mention
+    names, so a fantasy team name emptied the feed).  The roster filter is
+    ``roster_player_names`` -- the names of the players on that team's
+    roster.  ``None``/empty keeps the unfiltered path.
 
     Failure is non-fatal — the terminal payload still renders without
     news.  Service lookup is lazy so tests can pass a factory that
@@ -1316,7 +1334,7 @@ def gather_news_items(
         svc = news_service_factory()
         aggregated = svc.aggregate(
             player_names=live_names or [],
-            team_names=[team_name] if team_name else None,
+            team_names=list(roster_player_names) if roster_player_names else None,
             player_meta=player_meta,
         )
     except Exception:
