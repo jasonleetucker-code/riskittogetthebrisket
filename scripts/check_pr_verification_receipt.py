@@ -20,6 +20,10 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ci_change_scope  # noqa: E402  (single owner of high-risk path knowledge)
 
 EXEMPT_AUTHORS = ("dependabot[bot]", "github-actions[bot]")
 
@@ -33,6 +37,10 @@ MATERIAL_PREFIXES = (
 )
 MATERIAL_EXACT = ("server.py", "Dynasty Scraper.py")
 NOT_MATERIAL_PREFIXES = ("frontend/__tests__/", "scripts/research/")
+MANIFEST_RE = re.compile(
+    r"(^|/)(requirements[^/]*\.(txt|in)|pyproject\.toml|package(-lock)?\.json)$"
+)
+NA_FORBIDDEN = ("intended", "commands", "state")
 TEST_FILE_RE = re.compile(r"(^|/)[^/]*\.(test|spec)\.[^/]+$")
 TEST_PATH_RE = re.compile(r"(^|/)(tests?|__tests__)/")
 
@@ -100,7 +108,10 @@ def is_material_path(path: str) -> bool:
         return False
     if p.startswith("tests/"):
         return False
-    return p in MATERIAL_EXACT or p.startswith(MATERIAL_PREFIXES)
+    if p in MATERIAL_EXACT or p.startswith(MATERIAL_PREFIXES):
+        return True
+    # Dependency/build manifests, workflows, migrations etc. are material too.
+    return ci_change_scope._matches_high_risk(p) or bool(MANIFEST_RE.search(p))
 
 
 def is_test_path(path: str) -> bool:
@@ -108,12 +119,29 @@ def is_test_path(path: str) -> bool:
     return bool(TEST_PATH_RE.search(p) or TEST_FILE_RE.search(p))
 
 
+def _is_fence(line: str) -> bool:
+    t = line.lstrip()
+    return t.startswith("```") or t.startswith("~~~")
+
+
+def _field_key(label: str) -> str | None:
+    norm = re.sub(r"\s+", " ", label.strip().strip("*_ ").lower())
+    for k, _human, prefixes in FIELDS:
+        if any(norm.startswith(p) for p in prefixes):
+            return k
+    return None
+
+
 def extract_section(body: str) -> str | None:
     lines = body.replace("\r\n", "\n").split("\n")
     start = None
     level = 0
+    in_fence = False
     for i, line in enumerate(lines):
-        m = HEADING_RE.match(line)
+        if _is_fence(line):
+            in_fence = not in_fence
+            continue
+        m = None if in_fence else HEADING_RE.match(line)
         if m and m.group(1).strip().lower().startswith(SECTION_TITLE):
             start = i + 1
             level = len(line.lstrip()) - len(line.lstrip().lstrip("#"))
@@ -121,8 +149,13 @@ def extract_section(body: str) -> str | None:
     if start is None:
         return None
     out = []
+    in_fence = False
     for line in lines[start:]:
-        m = HEADING_RE.match(line)
+        if _is_fence(line):
+            in_fence = not in_fence
+            out.append(line)
+            continue
+        m = None if in_fence else HEADING_RE.match(line)
         if m and (len(line.lstrip()) - len(line.lstrip().lstrip("#"))) <= level:
             break
         out.append(line)
@@ -132,20 +165,25 @@ def extract_section(body: str) -> str | None:
 def parse_fields(section: str) -> dict[str, str]:
     """Map each bullet label to its value; continuation lines join the value."""
     items: list[tuple[str, list[str]]] = []
+    in_fence = False
     for line in section.split("\n"):
-        m = re.match(r"^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*)?(.+?)(?:\*\*)?\s*:(?:\*\*)?\s*(.*)$", line)
-        if m:
-            items.append((m.group(1), [m.group(2)]))
+        if _is_fence(line):
+            in_fence = not in_fence
+            if items:
+                items[-1][1].append(line)
+            continue
+        m = None
+        if not in_fence:
+            m = re.match(
+                r"^( {0,1})(?:[-*+]|\d+[.)])\s+(?:\*\*)?(.+?)(?:\*\*)?\s*:(?:\*\*)?\s*(.*)$", line
+            )
+        if m and _field_key(m.group(2)):
+            items.append((m.group(2), [m.group(3)]))
         elif items:
             items[-1][1].append(line)
     parsed: dict[str, str] = {}
     for label, vals in items:
-        norm = re.sub(r"\s+", " ", label.strip().strip("*_ ").lower())
-        key = None
-        for k, _human, prefixes in FIELDS:
-            if any(norm.startswith(p) for p in prefixes):
-                key = k
-                break
+        key = _field_key(label)
         if key and key not in parsed:
             parsed[key] = "\n".join(vals).strip()
     return parsed
@@ -164,6 +202,8 @@ def field_problem(key: str, value: str | None) -> str | None:
         return "template placeholder text left in place"
     na = NA_RE.match(v)
     if na:
+        if key in NA_FORBIDDEN:
+            return "n/a is not allowed for this field"
         reason = na.group(1).strip()
         if len(re.findall(r"[A-Za-z0-9]+", reason)) < 3:
             return "n/a needs a reason of at least a few words"
@@ -179,10 +219,17 @@ def evaluate(body: str) -> list[str]:
         return ["missing section: '## Feature verification receipt'"]
     parsed = parse_fields(section)
     problems = []
+    na_count = 0
     for key, human, _ in FIELDS:
         p = field_problem(key, parsed.get(key))
         if p:
             problems.append(f"{human}: {p}")
+        elif NA_RE.match(re.sub(r"<!--.*?-->", "", parsed.get(key) or "", flags=re.S).strip()):
+            na_count += 1
+    if na_count * 2 > len(FIELDS):
+        problems.append(
+            f"too many n/a fields ({na_count} of {len(FIELDS)}); at most half may be n/a"
+        )
     return problems
 
 
@@ -269,7 +316,9 @@ def main(argv: list[str] | None = None) -> int:
         files = [ln.strip() for ln in src.read().splitlines() if ln.strip()]
     elif base and head:
         r = subprocess.run(
-            ["git", "diff", "--name-only", f"{base}...{head}"], capture_output=True, text=True
+            ["git", "diff", "--name-only", "--no-renames", f"{base}...{head}"],
+            capture_output=True,
+            text=True,
         )
         if r.returncode != 0:
             print(f"error: git diff failed: {r.stderr.strip()}", file=sys.stderr)

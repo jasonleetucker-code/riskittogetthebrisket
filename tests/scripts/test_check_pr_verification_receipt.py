@@ -197,3 +197,93 @@ def test_event_path_and_summary(tmp_path, monkeypatch):
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summ))
     assert mod.main(["--files-from", str(ff)]) == 0
     assert "EXEMPT" in summ.read_text()
+
+
+def test_fenced_heading_does_not_truncate_section():
+    b = body({"Baseline before the change": "\n```sh\n# a comment\npytest -q\n```"})
+    assert go(b)[0] == 0
+
+
+def test_fenced_heading_does_not_end_section_midway():
+    sec = mod.extract_section(
+        body({"Intended behavior and prohibited behavior": "\n~~~\n# x\n~~~"})
+    )
+    assert "State" in sec
+
+
+def test_indented_subbullets_belong_to_parent():
+    v = "\n  - `pytest tests/a.py`: 12 passed\n  - `vitest`: ok"
+    assert go(body({"Test commands and outcomes": v}))[0] == 0
+
+
+def test_indented_known_label_is_not_new_field():
+    f = mod.parse_fields(body({"Test commands and outcomes": "\n  - State: nope"}))
+    assert "nope" in f["commands"] and f["state"].startswith("TESTED_IN_PR")
+
+
+@pytest.mark.parametrize(
+    "lab", ["Intended behavior and prohibited behavior", "Test commands and outcomes", "State"]
+)
+def test_na_forbidden_for_core_fields(lab):
+    code, rep = go(body({lab: "n/a — not applicable to this change at all"}))
+    assert code == 1 and "not allowed" in rep
+
+
+def test_majority_na_fails():
+    ov = {k: "n/a — does not apply to this change" for k in LABELS[1:7] + LABELS[8:10]}
+    code, rep = go(body(ov))
+    assert code == 1 and "too many n/a" in rep
+
+
+def test_few_na_ok():
+    ov = {LABELS[3]: "n/a — brand new endpoint, nothing to baseline"}
+    assert go(body(ov))[0] == 0
+
+
+def test_rename_both_sides_listed(monkeypatch):
+    seen = {}
+
+    def fake(cmd, **kw):
+        seen["cmd"] = cmd
+
+        class R:
+            returncode = 0
+            stdout = "src/a.py\ndocs/x.py\n"
+            stderr = ""
+
+        return R()
+
+    monkeypatch.setattr(mod.subprocess, "run", fake)
+    assert "--no-renames" in _run_main_capture(mod, seen)
+
+
+def _run_main_capture(m, seen):
+    import tempfile
+
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
+        fh.write("x")
+    m.main(["--body-file", fh.name, "--base", "a", "--head", "b", "--author", "alice"])
+    return seen["cmd"]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "requirements.txt",
+        "requirements-dev.lock.txt",
+        "pyproject.toml",
+        "package.json",
+        "package-lock.json",
+        "frontend/package.json",
+        "frontend/package-lock.json",
+        ".github/workflows/ci.yml",
+    ],
+)
+def test_manifests_are_material(path):
+    assert mod.is_material_path(path)
+
+
+def test_every_high_risk_pattern_is_material():
+    for pat in mod.ci_change_scope._HIGH_RISK_PATTERNS:
+        sample = pat.replace("**", "x").replace("*", "x")
+        assert mod.is_material_path(sample), (pat, sample)
