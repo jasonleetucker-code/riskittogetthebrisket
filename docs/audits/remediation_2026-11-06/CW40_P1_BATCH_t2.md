@@ -31,7 +31,7 @@ read and adjudicated but not edited; the repair is recorded below.
 | W20-F010 | PARTIAL | `pickValue` repaired to an explicit unavailable state; market / consensus / leagueAdjusted still 0.0 (`gameplan.py:525`, `engine.py:257`) | open.py (2 characterization + 1 strict xfail) | repair belongs to PR #2109's file (below) |
 | W30-F003 | CLOSED_VERIFIED | legacy engine `src/public_league/power.py` deleted (V1-52); one engine, one tab | closed.py (2) | none |
 
-Tally: **11 CLOSED_VERIFIED** (W07-F002, W11-F003/4/5/7, W12-F001/4, W19-F001/3, W30-F003), **3 OPEN** (W07-F003,
+Tally: **10 CLOSED_VERIFIED** (W07-F002, W11-F003/4/5/7, W12-F001/4, W19-F001/3, W30-F003), **3 OPEN** (W07-F003,
 W12-F005, W20-F004), **2 PARTIAL** (W07-F004, W20-F010), **1 PARTIAL / REQUIRES_OWNER_DECISION** (W20-F003), **1
 REQUIRES_OWNER_DECISION** (W12-F007).
 Tests: `tests/api/test_audit_cw40_batch_t2_closed.py` (20 pass), `tests/api/test_audit_cw40_batch_t2_open.py` (5 pass,
