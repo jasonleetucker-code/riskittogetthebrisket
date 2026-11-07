@@ -1,5 +1,9 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Frontend experience rebuild — research authorization, owner 2026-11-07
+
+**RESEARCH/PLANNING AUTHORIZED ONLY.** [Frontend Experience Rebuild Research Charter](docs/owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md) records a new owner direction superseding September's *permanent aesthetic lock* and *no aesthetic exploration* language. Research why AI-built interfaces converge; compare AI frontend builders, UI design, information architecture, dark-first and alternative palettes/typography, application architecture, news experience, public/private coherence and parallel engineering. Produce a vetted implementation strategy and future builder prompt. **No new theme or tooling selected; no whole-site rewrite, infrastructure switch or production visual rollout authorized by this entry.** Existing backend remediation and approved routine UI integration/QA may continue safely with stable contracts; avoid expanding legacy light PSI migration purely to satisfy the superseded visual target. When owner approves a direction, reconcile execution lanes/claims, planned feature contracts, integration tests and reversible migration before implementation.
+
 ## Session resumption directive — owner, 2026-11-07
 
 **AUTHORIZED NOW, inside the same remediation program and inventory (no second roadmap).** Record:
