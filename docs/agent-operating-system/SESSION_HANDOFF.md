@@ -18,6 +18,7 @@ acting: a previous session's workers are NOT running in a new session.
   security fix, #2055 next 16.4.3). `/api/health` 200. Scrape success 03:39:57Z. `box_resources` live (#2062):
   0 Chromium processes; cgroup memory 743–2,531 MiB of 3,072 across the night (peaked right after a deploy+scrape,
   then fell back — reclaimable, not a leak trend).
+- Box memory figures are from `/api/status` `box_resources` reads at ~00:09Z, ~01:15Z, ~03:14Z and ~05:12Z.
 - Not verifiable without a signed-in session: W06 ghost rows gone from the served board (`/api/data` is 401),
   "Market Disagreement" copy, Monte Carlo framing, Terminal pick values, /phases sentence. #2103 (CLAUDE.md +
   /phases) merged 05:09Z and deploys next.
@@ -41,8 +42,8 @@ acting: a previous session's workers are NOT running in a new session.
   timer. Dependabot alert #149 (low).
 
 ## Next dependency-ready units
-CW-40: 59 unresolved P1 findings (41 rotted repros, 18 unsafe); W26-F003 `/draft` no-store needs a live-draft
-freshness check first; W25-F003 display (unpriced rows still get a `#` ordinal, `it.fails` pinned). CW-49: FAAB anchor
+CW-40: 59 P1 findings still unadjudicated per the 2026-11-06 recount (41 rotted repros, 18 unsafe; not re-measured since), separate from the adjudicated open/partial items; W26-F003 `/draft` no-store needs a live-draft
+freshness check first; W25-F003 display half (doc half closed by #2103; unpriced rows still get a `#` ordinal, `it.fails` pinned). CW-49: FAAB anchor
 derivation + market layer, ROS/BDVM oracles. CW-53: suite duration (shared-state audit of slowest files →
 `pytest-xdist --dist loadfile`). CW-37: dependency batches. CW-48: requirement joins. CW-52: dead-code census.
 
