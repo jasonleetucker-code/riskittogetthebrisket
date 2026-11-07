@@ -481,7 +481,7 @@ jobs:
 
       - name: Upload tested release artifact
         if: ${{ needs.resolve.outputs.release_mode == 'artifact' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: calculator-release-${{ needs.resolve.outputs.sha }}
           path: |
@@ -525,7 +525,7 @@ jobs:
 
       - name: Download tested release artifact
         if: ${{ needs.resolve.outputs.release_mode == 'artifact' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: calculator-release-${{ needs.resolve.outputs.sha }}
           path: release-input
