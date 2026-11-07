@@ -63,6 +63,18 @@ behaviours: Perfect Waivers capacity / protection / NO TRANSACTION, league scopi
 Coercion baseline: the two removed `server.py` `or 0` entries are deleted from
 `config/coercion_baseline.json` (623 → 621).
 
+Two existing tests were updated, neither weakened: the empty-board shape test in
+`tests/trade/test_waiver.py` now pins `faabBalance` / `positionEligibility` exactly, and
+`test_waiver_pool_filters_are_disclosed_by_reason` gains a FLEX so its WRs stay startable
+(its value / source / kicker / unpriced reasons stay under test); the new
+`test_unstartable_position_is_disclosed_by_reason` pins `position_not_started` on the
+original QB/TE lineup.
+
+Regression runs (local, `-m "not livedata"`): `tests/trade tests/waivers tests/lineup
+tests/roster_intel` 11,087 passed + the 2 updated tests green on re-run; `tests/ros
+tests/draft` + the waiver/FAAB/capacity/lineup/gameplan/draft slice of `tests/api` 1,470
+passed; waiver/FAAB vitest suites 250 passed.
+
 ## Owner questions (methodology — not changed here)
 
 1. **Unknown own balance on the list.** When the team's FAAB balance cannot be
