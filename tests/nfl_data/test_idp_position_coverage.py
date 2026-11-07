@@ -95,11 +95,31 @@ def test_idp_positions_is_derived_from_the_alias_owner():
     ), "the IDP-eligible set must be derived from POSITION_ALIASES, not restated"
 
 
-def test_offensive_players_are_still_not_scored_by_idp_rules():
-    """A WR credited with a tackle after a turnover is not IDP production the
-    league pays under idp_* rules — he occupies no IDP slot.  317 WR rows
-    recorded defensive events in 2025 and none of them may score here."""
+def test_a_zeroed_defensive_block_scores_nothing_for_any_position():
+    """The invariant the old position gate was really protecting: every unified
+    row carries ``def_*`` columns for EVERY player, zero for a non-defender.
+    Reading them for all positions is a no-op there."""
+    zeroed = {k: 0 for k in SAFETY_LINE if k.startswith("def_")}
+    for pos in ("WR", "RB", "TE", "QB", "K", "OT"):
+        rp = compute_weekly_points(
+            {"season": 2025, "week": 5, **zeroed, "position": pos}, CARD, position=pos
+        )
+        assert rp.fantasy_points == 0.0, f"{pos} scored IDP rules from zeros"
+
+
+def test_defensive_events_are_paid_to_whatever_position_recorded_them():
+    """IDPA-DEFECT-01 (dynasty_main 2026 wk 1-6).  This test used to assert the
+    opposite -- that a WR credited with a tackle after a turnover "is not IDP
+    production the league pays".  Sleeper's own awarded points say it is: 80
+    rostered QB/RB/WR/TE player-weeks carried ``idp_tkl_solo`` / ``idp_ff`` /
+    ``idp_tkl_ast`` and were paid for them (-117.8 points when dropped).
+
+    ``_is_idp_position`` is unchanged (it still names who occupies an IDP slot);
+    it just no longer decides whether a defensive STAT counts.  Assisted tackles
+    are the one exception, and stay IDP-only: see ``_defensive_tackle_view``.
+    """
+    paid = 6 * 1.33 + 2 * 1.33 + 2 * 5.32 + 4.25 + 22 * 0.111  # no assists
     for pos in ("WR", "RB", "TE", "QB", "K", "OT"):
         assert not _is_idp_position(pos)
         rp = compute_weekly_points({**SAFETY_LINE, "position": pos}, CARD, position=pos)
-        assert rp.fantasy_points == 0.0, f"{pos} scored IDP rules"
+        assert rp.fantasy_points == pytest.approx(paid, abs=1e-6), f"{pos}"

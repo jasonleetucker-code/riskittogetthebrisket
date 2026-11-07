@@ -201,11 +201,12 @@ def records_from_rows(
     * Offense row + defense row under ONE name is a TWO-WAY player
       (Travis Hunter) — the stat lines are COMBINED into one record,
       which scores as the sum under league rules: exactly his value in
-      an IDP league.  The record keeps the DEFENSIVE position: the
-      scoring gate lets an IDP position score offense keys too (a
-      defender's receptions count in real fantasy), while an offense
-      position gates the IDP keys off (the contract row decides the
-      lineup group regardless).
+      an IDP league.  The record keeps the DEFENSIVE position (the
+      contract row decides the lineup group regardless).  Since
+      IDPA-DEFECT-01 an offense position no longer gates the IDP keys
+      off; the one thing the listed position still decides is assisted
+      tackles, paid only to an IDP-listed record (see
+      ``realized_points._defensive_tackle_view``).
     * Two rows on the SAME side under one name are two DIFFERENT
       players this source cannot tell apart (Byron Murphy the CB vs
       Byron Murphy the DT) — both are dropped and counted, never

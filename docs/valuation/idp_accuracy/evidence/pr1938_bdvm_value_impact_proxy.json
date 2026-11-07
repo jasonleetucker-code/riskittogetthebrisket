@@ -1,0 +1,3034 @@
+{
+ "generatedAtUtc": "2026-11-07T11:06:46.851708+00:00",
+ "receipts": {
+  "baseRef": "origin/main",
+  "currentScorerSha256": "ad506643cbd13a35d9f77b0caa6748da68e1603336ff82e0d06029863b8cc23b",
+  "correctedScorerSha256": "24bad46c7a63213ff23f06385c07242148892a2b725d011085ae8abbc9f8e43f",
+  "mode": "dev",
+  "contract": {
+   "path": "exports/latest/dynasty_data_2026-11-07.json",
+   "sha256": "7d35c88dafe5fa2232d9f253b4ca5066b14b08e5cd04edbba3e42cdedaa4eade",
+   "generatedAt": "2026-11-07T11:06:24.113447+00:00"
+  },
+  "snapshot": {
+   "mode": "proxy_reconstructed_baseline_in_memory",
+   "scoredWith": "current",
+   "records": 3012,
+   "proxyRecords": 3012
+  },
+  "season": 2026,
+  "actualsSeason": 2026,
+  "weeklyRows": 8500,
+  "weeklyRowsCanonicalSha256": "32f09a4a9733bd2b4b00f5836cd703917ca12dd4ba4971005c44254cab552693",
+  "maxWeekObserved": 9,
+  "pbpArtifactSha256": "f49c077893769c5f9cbdbbf251087437fa50ffecd8232ce5842408be12bf89b5",
+  "scoringCardEntries": 148,
+  "paramSetId": "params_v1:01af672b2aff",
+  "contextPlayers": 0,
+  "scheduleAvailable": false,
+  "cacheOnly": false
+ },
+ "actualsFeed": {
+  "playersWithSamplesCurrent": 1725,
+  "playersWithSamplesCorrected": 1725,
+  "playersWhoseWeeklyPointsChanged": 438
+ },
+ "current_vs_corrected": {
+  "values": {
+   "pricedCurrent": 861,
+   "pricedCorrected": 861,
+   "valueChanged": 325,
+   "rankChanged": 679,
+   "absDeltaPctAmongChanged": {
+    "median": 2.16,
+    "p90": 19.18,
+    "max": 131.48,
+    "atLeast5pct": 107,
+    "atLeast10pct": 69
+   },
+   "rankMove": {
+    "median": 2,
+    "p90": 10,
+    "max": 64,
+    "top100Membership": {
+     "entered": 1,
+     "left": 1
+    }
+   },
+   "byPosition": {
+    "CB": {
+     "priced": 59,
+     "valueChanged": 21,
+     "up": 11,
+     "down": 10,
+     "meanAbsDelta": 20.1,
+     "maxAbsDelta": 114.6,
+     "rankChanged": 45,
+     "maxRankMove": 28
+    },
+    "DL": {
+     "priced": 4,
+     "valueChanged": 0,
+     "up": 0,
+     "down": 0,
+     "meanAbsDelta": null,
+     "maxAbsDelta": null,
+     "rankChanged": 3,
+     "maxRankMove": 7
+    },
+    "DT": {
+     "priced": 42,
+     "valueChanged": 2,
+     "up": 2,
+     "down": 0,
+     "meanAbsDelta": 161.6,
+     "maxAbsDelta": 296.7,
+     "rankChanged": 37,
+     "maxRankMove": 58
+    },
+    "EDGE": {
+     "priced": 56,
+     "valueChanged": 4,
+     "up": 0,
+     "down": 4,
+     "meanAbsDelta": 28.4,
+     "maxAbsDelta": 60.2,
+     "rankChanged": 41,
+     "maxRankMove": 58
+    },
+    "LB": {
+     "priced": 166,
+     "valueChanged": 57,
+     "up": 15,
+     "down": 42,
+     "meanAbsDelta": 18.0,
+     "maxAbsDelta": 120.5,
+     "rankChanged": 134,
+     "maxRankMove": 48
+    },
+    "QB": {
+     "priced": 66,
+     "valueChanged": 8,
+     "up": 7,
+     "down": 1,
+     "meanAbsDelta": 25.7,
+     "maxAbsDelta": 59.1,
+     "rankChanged": 46,
+     "maxRankMove": 13
+    },
+    "RB": {
+     "priced": 123,
+     "valueChanged": 104,
+     "up": 14,
+     "down": 90,
+     "meanAbsDelta": 6.0,
+     "maxAbsDelta": 34.9,
+     "rankChanged": 94,
+     "maxRankMove": 15
+    },
+    "S": {
+     "priced": 80,
+     "valueChanged": 38,
+     "up": 12,
+     "down": 26,
+     "meanAbsDelta": 34.1,
+     "maxAbsDelta": 166.2,
+     "rankChanged": 67,
+     "maxRankMove": 47
+    },
+    "TE": {
+     "priced": 79,
+     "valueChanged": 34,
+     "up": 19,
+     "down": 15,
+     "meanAbsDelta": 20.8,
+     "maxAbsDelta": 90.7,
+     "rankChanged": 61,
+     "maxRankMove": 64
+    },
+    "WR": {
+     "priced": 186,
+     "valueChanged": 62,
+     "up": 51,
+     "down": 11,
+     "meanAbsDelta": 37.0,
+     "maxAbsDelta": 240.1,
+     "rankChanged": 151,
+     "maxRankMove": 33
+    }
+   },
+   "replacementCurrent": {
+    "DB": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 11.132,
+     "worstStarterFpg": 11.281,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "DL": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 8.883,
+     "worstStarterFpg": 8.974,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "K": {
+     "startableSlots": 12,
+     "replacementRank": 15,
+     "replacementFpg": 9.336,
+     "worstStarterFpg": 10.025,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "LB": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 11.748,
+     "worstStarterFpg": 12.477,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "QB": {
+     "startableSlots": 24,
+     "replacementRank": 34,
+     "replacementFpg": 16.963,
+     "worstStarterFpg": 17.458,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "RB": {
+     "startableSlots": 38,
+     "replacementRank": 47,
+     "replacementFpg": 10.195,
+     "worstStarterFpg": 11.018,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "TE": {
+     "startableSlots": 24,
+     "replacementRank": 29,
+     "replacementFpg": 7.114,
+     "worstStarterFpg": 7.818,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "WR": {
+     "startableSlots": 46,
+     "replacementRank": 58,
+     "replacementFpg": 10.011,
+     "worstStarterFpg": 11.117,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    }
+   },
+   "replacementCorrected": {
+    "DB": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 11.132,
+     "worstStarterFpg": 11.281,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "DL": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 8.883,
+     "worstStarterFpg": 8.974,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "K": {
+     "startableSlots": 12,
+     "replacementRank": 15,
+     "replacementFpg": 9.186,
+     "worstStarterFpg": 9.8,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "LB": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 11.748,
+     "worstStarterFpg": 12.402,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "QB": {
+     "startableSlots": 24,
+     "replacementRank": 34,
+     "replacementFpg": 16.963,
+     "worstStarterFpg": 17.48,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "RB": {
+     "startableSlots": 38,
+     "replacementRank": 47,
+     "replacementFpg": 10.243,
+     "worstStarterFpg": 11.018,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "TE": {
+     "startableSlots": 24,
+     "replacementRank": 29,
+     "replacementFpg": 7.114,
+     "worstStarterFpg": 7.818,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "WR": {
+     "startableSlots": 46,
+     "replacementRank": 58,
+     "replacementFpg": 10.011,
+     "worstStarterFpg": 11.117,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    }
+   },
+   "replacementChanged": true,
+   "topMoversByAbsDelta": [
+    {
+     "key": "13501",
+     "name": "Gracen Halton",
+     "position": "DT",
+     "balancedCurrent": 1598.2,
+     "balancedCorrected": 1894.9,
+     "delta": 296.7,
+     "deltaPct": 18.56,
+     "rankCurrent": 103,
+     "rankCorrected": 83,
+     "fpgCurrent": 7.492,
+     "fpgCorrected": 7.981,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "7564",
+     "name": "Ja'Marr Chase",
+     "position": "WR",
+     "balancedCurrent": 3698.1,
+     "balancedCorrected": 3938.2,
+     "delta": 240.1,
+     "deltaPct": 6.49,
+     "rankCurrent": 25,
+     "rankCorrected": 22,
+     "fpgCurrent": 18.566,
+     "fpgCorrected": 19.097,
+     "rosteredBy": "roster:4"
+    },
+    {
+     "key": "8112",
+     "name": "Drake London",
+     "position": "WR",
+     "balancedCurrent": 2901.7,
+     "balancedCorrected": 3120.8,
+     "delta": 219.1,
+     "deltaPct": 7.55,
+     "rankCurrent": 42,
+     "rankCorrected": 36,
+     "fpgCurrent": 15.621,
+     "fpgCorrected": 16.096,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "13376",
+     "name": "Caleb Downs",
+     "position": "S",
+     "balancedCurrent": 1470.2,
+     "balancedCorrected": 1304.0,
+     "delta": -166.2,
+     "deltaPct": -11.3,
+     "rankCurrent": 112,
+     "rankCorrected": 130,
+     "fpgCurrent": 9.157,
+     "fpgCorrected": 8.824,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "12567",
+     "name": "Malaki Starks",
+     "position": "S",
+     "balancedCurrent": 1420.7,
+     "balancedCorrected": 1270.6,
+     "delta": -150.1,
+     "deltaPct": -10.56,
+     "rankCurrent": 120,
+     "rankCorrected": 137,
+     "fpgCurrent": 10.218,
+     "fpgCorrected": 9.905,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13371",
+     "name": "Dillon Thieneman",
+     "position": "S",
+     "balancedCurrent": 2080.6,
+     "balancedCorrected": 1933.3,
+     "delta": -147.3,
+     "deltaPct": -7.08,
+     "rankCurrent": 71,
+     "rankCorrected": 77,
+     "fpgCurrent": 10.672,
+     "fpgCorrected": 10.423,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "13360",
+     "name": "Emmanuel McNeil-Warren",
+     "position": "S",
+     "balancedCurrent": 1137.4,
+     "balancedCorrected": 997.6,
+     "delta": -139.9,
+     "deltaPct": -12.3,
+     "rankCurrent": 154,
+     "rankCorrected": 172,
+     "fpgCurrent": 8.855,
+     "fpgCorrected": 8.522,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "12619",
+     "name": "Jonas Sanker",
+     "position": "S",
+     "balancedCurrent": 1028.9,
+     "balancedCorrected": 1166.7,
+     "delta": 137.8,
+     "deltaPct": 13.4,
+     "rankCurrent": 170,
+     "rankCorrected": 150,
+     "fpgCurrent": 9.845,
+     "fpgCorrected": 10.18,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "13346",
+     "name": "Denzel Boston",
+     "position": "WR",
+     "balancedCurrent": 2889.3,
+     "balancedCorrected": 3012.1,
+     "delta": 122.9,
+     "deltaPct": 4.25,
+     "rankCurrent": 43,
+     "rankCorrected": 39,
+     "fpgCurrent": 10.718,
+     "fpgCorrected": 10.908,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "12978",
+     "name": "Elijah Ponder",
+     "position": "LB",
+     "balancedCurrent": 762.6,
+     "balancedCorrected": 883.2,
+     "delta": 120.5,
+     "deltaPct": 15.81,
+     "rankCurrent": 219,
+     "rankCorrected": 187,
+     "fpgCurrent": 11.001,
+     "fpgCorrected": 11.399,
+     "rosteredBy": "roster:5"
+    },
+    {
+     "key": "12617",
+     "name": "Demetrius Knight",
+     "position": "LB",
+     "balancedCurrent": 850.5,
+     "balancedCorrected": 969.0,
+     "delta": 118.5,
+     "deltaPct": 13.93,
+     "rankCurrent": 197,
+     "rankCorrected": 177,
+     "fpgCurrent": 12.695,
+     "fpgCorrected": 13.119,
+     "rosteredBy": "roster:7"
+    },
+    {
+     "key": "13454",
+     "name": "Davison Igbinosun",
+     "position": "CB",
+     "balancedCurrent": 2466.1,
+     "balancedCorrected": 2351.5,
+     "delta": -114.6,
+     "deltaPct": -4.65,
+     "rankCurrent": 53,
+     "rankCorrected": 59,
+     "fpgCurrent": 10.569,
+     "fpgCorrected": 10.392,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "13377",
+     "name": "Arvell Reese",
+     "position": "LB",
+     "balancedCurrent": 2741.5,
+     "balancedCorrected": 2627.4,
+     "delta": -114.1,
+     "deltaPct": -4.16,
+     "rankCurrent": 46,
+     "rankCorrected": 49,
+     "fpgCurrent": 12.579,
+     "fpgCorrected": 12.402,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13294",
+     "name": "Makai Lemon",
+     "position": "WR",
+     "balancedCurrent": 2233.4,
+     "balancedCorrected": 2345.3,
+     "delta": 111.8,
+     "deltaPct": 5.01,
+     "rankCurrent": 66,
+     "rankCorrected": 61,
+     "fpgCurrent": 9.665,
+     "fpgCorrected": 9.855,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "13285",
+     "name": "Malachi Fields",
+     "position": "WR",
+     "balancedCurrent": 705.7,
+     "balancedCorrected": 817.3,
+     "delta": 111.6,
+     "deltaPct": 15.82,
+     "rankCurrent": 236,
+     "rankCorrected": 210,
+     "fpgCurrent": 6.897,
+     "fpgCorrected": 7.204,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "13382",
+     "name": "Keionte Scott",
+     "position": "CB",
+     "balancedCurrent": 956.5,
+     "balancedCorrected": 848.1,
+     "delta": -108.4,
+     "deltaPct": -11.33,
+     "rankCurrent": 180,
+     "rankCorrected": 198,
+     "fpgCurrent": 8.907,
+     "fpgCorrected": 8.574,
+     "rosteredBy": null
+    },
+    {
+     "key": "13379",
+     "name": "Josiah Trotter",
+     "position": "LB",
+     "balancedCurrent": 3296.1,
+     "balancedCorrected": 3194.8,
+     "delta": -101.3,
+     "deltaPct": -3.07,
+     "rankCurrent": 31,
+     "rankCorrected": 34,
+     "fpgCurrent": 13.464,
+     "fpgCorrected": 13.286,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "7002",
+     "name": "Juwan Johnson",
+     "position": "TE",
+     "balancedCurrent": 541.4,
+     "balancedCorrected": 632.1,
+     "delta": 90.7,
+     "deltaPct": 16.76,
+     "rankCurrent": 280,
+     "rankCorrected": 251,
+     "fpgCurrent": 9.219,
+     "fpgCorrected": 9.648,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "11726",
+     "name": "Kamren Kinchens",
+     "position": "S",
+     "balancedCurrent": 457.2,
+     "balancedCorrected": 370.4,
+     "delta": -86.9,
+     "deltaPct": -19.0,
+     "rankCurrent": 327,
+     "rankCorrected": 369,
+     "fpgCurrent": 9.574,
+     "fpgCorrected": 9.194,
+     "rosteredBy": null
+    },
+    {
+     "key": "13279",
+     "name": "Carnell Tate",
+     "position": "WR",
+     "balancedCurrent": 4209.3,
+     "balancedCorrected": 4286.8,
+     "delta": 77.5,
+     "deltaPct": 1.84,
+     "rankCurrent": 16,
+     "rankCorrected": 16,
+     "fpgCurrent": 11.951,
+     "fpgCorrected": 12.053,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "12493",
+     "name": "Oronde Gadsden",
+     "position": "TE",
+     "balancedCurrent": 1856.1,
+     "balancedCorrected": 1923.4,
+     "delta": 67.3,
+     "deltaPct": 3.63,
+     "rankCurrent": 85,
+     "rankCorrected": 80,
+     "fpgCurrent": 6.895,
+     "fpgCorrected": 6.997,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "9488",
+     "name": "Jaxon Smith-Njigba",
+     "position": "WR",
+     "balancedCurrent": 9361.4,
+     "balancedCorrected": 9425.5,
+     "delta": 64.1,
+     "deltaPct": 0.68,
+     "rankCurrent": 2,
+     "rankCorrected": 2,
+     "fpgCurrent": 24.92,
+     "fpgCorrected": 25.015,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "12519",
+     "name": "Luther Burden",
+     "position": "WR",
+     "balancedCurrent": 3830.0,
+     "balancedCorrected": 3893.6,
+     "delta": 63.6,
+     "deltaPct": 1.66,
+     "rankCurrent": 22,
+     "rankCorrected": 23,
+     "fpgCurrent": 13.082,
+     "fpgCorrected": 13.177,
+     "rosteredBy": "roster:6"
+    },
+    {
+     "key": "13296",
+     "name": "Caleb Douglas",
+     "position": "WR",
+     "balancedCurrent": 1423.4,
+     "balancedCorrected": 1486.1,
+     "delta": 62.6,
+     "deltaPct": 4.4,
+     "rankCurrent": 119,
+     "rankCorrected": 110,
+     "fpgCurrent": 8.627,
+     "fpgCorrected": 8.76,
+     "rosteredBy": "roster:5"
+    },
+    {
+     "key": "10231",
+     "name": "Elijah Higgins",
+     "position": "TE",
+     "balancedCurrent": 210.2,
+     "balancedCorrected": 272.0,
+     "delta": 61.8,
+     "deltaPct": 29.38,
+     "rankCurrent": 498,
+     "rankCorrected": 434,
+     "fpgCurrent": 5.844,
+     "fpgCorrected": 6.171,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "8330",
+     "name": "Quentin Lake",
+     "position": "S",
+     "balancedCurrent": 1119.0,
+     "balancedCorrected": 1057.9,
+     "delta": -61.2,
+     "deltaPct": -5.46,
+     "rankCurrent": 157,
+     "rankCorrected": 165,
+     "fpgCurrent": 14.702,
+     "fpgCorrected": 14.453,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "13373",
+     "name": "Caden Curry",
+     "position": "EDGE",
+     "balancedCurrent": 133.6,
+     "balancedCorrected": 73.4,
+     "delta": -60.2,
+     "deltaPct": -45.05,
+     "rankCurrent": 580,
+     "rankCorrected": 638,
+     "fpgCurrent": 4.105,
+     "fpgCorrected": 3.689,
+     "rosteredBy": "roster:12"
+    },
+    {
+     "key": "13317",
+     "name": "Ted Hurst",
+     "position": "WR",
+     "balancedCurrent": 397.9,
+     "balancedCorrected": 457.5,
+     "delta": 59.6,
+     "deltaPct": 14.97,
+     "rankCurrent": 355,
+     "rankCorrected": 326,
+     "fpgCurrent": 5.575,
+     "fpgCorrected": 5.78,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "11564",
+     "name": "Drake Maye",
+     "position": "QB",
+     "balancedCurrent": 4669.7,
+     "balancedCorrected": 4728.8,
+     "delta": 59.1,
+     "deltaPct": 1.27,
+     "rankCurrent": 13,
+     "rankCorrected": 13,
+     "fpgCurrent": 23.034,
+     "fpgCorrected": 23.129,
+     "rosteredBy": "roster:4"
+    },
+    {
+     "key": "12501",
+     "name": "Matthew Golden",
+     "position": "WR",
+     "balancedCurrent": 3730.1,
+     "balancedCorrected": 3789.1,
+     "delta": 59.1,
+     "deltaPct": 1.58,
+     "rankCurrent": 24,
+     "rankCorrected": 25,
+     "fpgCurrent": 13.753,
+     "fpgCorrected": 13.848,
+     "rosteredBy": "roster:4"
+    }
+   ],
+   "topMoversRosteredByAbsDelta": [
+    {
+     "key": "13501",
+     "name": "Gracen Halton",
+     "position": "DT",
+     "balancedCurrent": 1598.2,
+     "balancedCorrected": 1894.9,
+     "delta": 296.7,
+     "deltaPct": 18.56,
+     "rankCurrent": 103,
+     "rankCorrected": 83,
+     "fpgCurrent": 7.492,
+     "fpgCorrected": 7.981,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "7564",
+     "name": "Ja'Marr Chase",
+     "position": "WR",
+     "balancedCurrent": 3698.1,
+     "balancedCorrected": 3938.2,
+     "delta": 240.1,
+     "deltaPct": 6.49,
+     "rankCurrent": 25,
+     "rankCorrected": 22,
+     "fpgCurrent": 18.566,
+     "fpgCorrected": 19.097,
+     "rosteredBy": "roster:4"
+    },
+    {
+     "key": "8112",
+     "name": "Drake London",
+     "position": "WR",
+     "balancedCurrent": 2901.7,
+     "balancedCorrected": 3120.8,
+     "delta": 219.1,
+     "deltaPct": 7.55,
+     "rankCurrent": 42,
+     "rankCorrected": 36,
+     "fpgCurrent": 15.621,
+     "fpgCorrected": 16.096,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "13376",
+     "name": "Caleb Downs",
+     "position": "S",
+     "balancedCurrent": 1470.2,
+     "balancedCorrected": 1304.0,
+     "delta": -166.2,
+     "deltaPct": -11.3,
+     "rankCurrent": 112,
+     "rankCorrected": 130,
+     "fpgCurrent": 9.157,
+     "fpgCorrected": 8.824,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "12567",
+     "name": "Malaki Starks",
+     "position": "S",
+     "balancedCurrent": 1420.7,
+     "balancedCorrected": 1270.6,
+     "delta": -150.1,
+     "deltaPct": -10.56,
+     "rankCurrent": 120,
+     "rankCorrected": 137,
+     "fpgCurrent": 10.218,
+     "fpgCorrected": 9.905,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13371",
+     "name": "Dillon Thieneman",
+     "position": "S",
+     "balancedCurrent": 2080.6,
+     "balancedCorrected": 1933.3,
+     "delta": -147.3,
+     "deltaPct": -7.08,
+     "rankCurrent": 71,
+     "rankCorrected": 77,
+     "fpgCurrent": 10.672,
+     "fpgCorrected": 10.423,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "13360",
+     "name": "Emmanuel McNeil-Warren",
+     "position": "S",
+     "balancedCurrent": 1137.4,
+     "balancedCorrected": 997.6,
+     "delta": -139.9,
+     "deltaPct": -12.3,
+     "rankCurrent": 154,
+     "rankCorrected": 172,
+     "fpgCurrent": 8.855,
+     "fpgCorrected": 8.522,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "12619",
+     "name": "Jonas Sanker",
+     "position": "S",
+     "balancedCurrent": 1028.9,
+     "balancedCorrected": 1166.7,
+     "delta": 137.8,
+     "deltaPct": 13.4,
+     "rankCurrent": 170,
+     "rankCorrected": 150,
+     "fpgCurrent": 9.845,
+     "fpgCorrected": 10.18,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "13346",
+     "name": "Denzel Boston",
+     "position": "WR",
+     "balancedCurrent": 2889.3,
+     "balancedCorrected": 3012.1,
+     "delta": 122.9,
+     "deltaPct": 4.25,
+     "rankCurrent": 43,
+     "rankCorrected": 39,
+     "fpgCurrent": 10.718,
+     "fpgCorrected": 10.908,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "12978",
+     "name": "Elijah Ponder",
+     "position": "LB",
+     "balancedCurrent": 762.6,
+     "balancedCorrected": 883.2,
+     "delta": 120.5,
+     "deltaPct": 15.81,
+     "rankCurrent": 219,
+     "rankCorrected": 187,
+     "fpgCurrent": 11.001,
+     "fpgCorrected": 11.399,
+     "rosteredBy": "roster:5"
+    },
+    {
+     "key": "12617",
+     "name": "Demetrius Knight",
+     "position": "LB",
+     "balancedCurrent": 850.5,
+     "balancedCorrected": 969.0,
+     "delta": 118.5,
+     "deltaPct": 13.93,
+     "rankCurrent": 197,
+     "rankCorrected": 177,
+     "fpgCurrent": 12.695,
+     "fpgCorrected": 13.119,
+     "rosteredBy": "roster:7"
+    },
+    {
+     "key": "13454",
+     "name": "Davison Igbinosun",
+     "position": "CB",
+     "balancedCurrent": 2466.1,
+     "balancedCorrected": 2351.5,
+     "delta": -114.6,
+     "deltaPct": -4.65,
+     "rankCurrent": 53,
+     "rankCorrected": 59,
+     "fpgCurrent": 10.569,
+     "fpgCorrected": 10.392,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "13377",
+     "name": "Arvell Reese",
+     "position": "LB",
+     "balancedCurrent": 2741.5,
+     "balancedCorrected": 2627.4,
+     "delta": -114.1,
+     "deltaPct": -4.16,
+     "rankCurrent": 46,
+     "rankCorrected": 49,
+     "fpgCurrent": 12.579,
+     "fpgCorrected": 12.402,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13294",
+     "name": "Makai Lemon",
+     "position": "WR",
+     "balancedCurrent": 2233.4,
+     "balancedCorrected": 2345.3,
+     "delta": 111.8,
+     "deltaPct": 5.01,
+     "rankCurrent": 66,
+     "rankCorrected": 61,
+     "fpgCurrent": 9.665,
+     "fpgCorrected": 9.855,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "13285",
+     "name": "Malachi Fields",
+     "position": "WR",
+     "balancedCurrent": 705.7,
+     "balancedCorrected": 817.3,
+     "delta": 111.6,
+     "deltaPct": 15.82,
+     "rankCurrent": 236,
+     "rankCorrected": 210,
+     "fpgCurrent": 6.897,
+     "fpgCorrected": 7.204,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "13379",
+     "name": "Josiah Trotter",
+     "position": "LB",
+     "balancedCurrent": 3296.1,
+     "balancedCorrected": 3194.8,
+     "delta": -101.3,
+     "deltaPct": -3.07,
+     "rankCurrent": 31,
+     "rankCorrected": 34,
+     "fpgCurrent": 13.464,
+     "fpgCorrected": 13.286,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "7002",
+     "name": "Juwan Johnson",
+     "position": "TE",
+     "balancedCurrent": 541.4,
+     "balancedCorrected": 632.1,
+     "delta": 90.7,
+     "deltaPct": 16.76,
+     "rankCurrent": 280,
+     "rankCorrected": 251,
+     "fpgCurrent": 9.219,
+     "fpgCorrected": 9.648,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "13279",
+     "name": "Carnell Tate",
+     "position": "WR",
+     "balancedCurrent": 4209.3,
+     "balancedCorrected": 4286.8,
+     "delta": 77.5,
+     "deltaPct": 1.84,
+     "rankCurrent": 16,
+     "rankCorrected": 16,
+     "fpgCurrent": 11.951,
+     "fpgCorrected": 12.053,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "12493",
+     "name": "Oronde Gadsden",
+     "position": "TE",
+     "balancedCurrent": 1856.1,
+     "balancedCorrected": 1923.4,
+     "delta": 67.3,
+     "deltaPct": 3.63,
+     "rankCurrent": 85,
+     "rankCorrected": 80,
+     "fpgCurrent": 6.895,
+     "fpgCorrected": 6.997,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "9488",
+     "name": "Jaxon Smith-Njigba",
+     "position": "WR",
+     "balancedCurrent": 9361.4,
+     "balancedCorrected": 9425.5,
+     "delta": 64.1,
+     "deltaPct": 0.68,
+     "rankCurrent": 2,
+     "rankCorrected": 2,
+     "fpgCurrent": 24.92,
+     "fpgCorrected": 25.015,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "12519",
+     "name": "Luther Burden",
+     "position": "WR",
+     "balancedCurrent": 3830.0,
+     "balancedCorrected": 3893.6,
+     "delta": 63.6,
+     "deltaPct": 1.66,
+     "rankCurrent": 22,
+     "rankCorrected": 23,
+     "fpgCurrent": 13.082,
+     "fpgCorrected": 13.177,
+     "rosteredBy": "roster:6"
+    },
+    {
+     "key": "13296",
+     "name": "Caleb Douglas",
+     "position": "WR",
+     "balancedCurrent": 1423.4,
+     "balancedCorrected": 1486.1,
+     "delta": 62.6,
+     "deltaPct": 4.4,
+     "rankCurrent": 119,
+     "rankCorrected": 110,
+     "fpgCurrent": 8.627,
+     "fpgCorrected": 8.76,
+     "rosteredBy": "roster:5"
+    },
+    {
+     "key": "10231",
+     "name": "Elijah Higgins",
+     "position": "TE",
+     "balancedCurrent": 210.2,
+     "balancedCorrected": 272.0,
+     "delta": 61.8,
+     "deltaPct": 29.38,
+     "rankCurrent": 498,
+     "rankCorrected": 434,
+     "fpgCurrent": 5.844,
+     "fpgCorrected": 6.171,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "8330",
+     "name": "Quentin Lake",
+     "position": "S",
+     "balancedCurrent": 1119.0,
+     "balancedCorrected": 1057.9,
+     "delta": -61.2,
+     "deltaPct": -5.46,
+     "rankCurrent": 157,
+     "rankCorrected": 165,
+     "fpgCurrent": 14.702,
+     "fpgCorrected": 14.453,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "13373",
+     "name": "Caden Curry",
+     "position": "EDGE",
+     "balancedCurrent": 133.6,
+     "balancedCorrected": 73.4,
+     "delta": -60.2,
+     "deltaPct": -45.05,
+     "rankCurrent": 580,
+     "rankCorrected": 638,
+     "fpgCurrent": 4.105,
+     "fpgCorrected": 3.689,
+     "rosteredBy": "roster:12"
+    },
+    {
+     "key": "13317",
+     "name": "Ted Hurst",
+     "position": "WR",
+     "balancedCurrent": 397.9,
+     "balancedCorrected": 457.5,
+     "delta": 59.6,
+     "deltaPct": 14.97,
+     "rankCurrent": 355,
+     "rankCorrected": 326,
+     "fpgCurrent": 5.575,
+     "fpgCorrected": 5.78,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "11564",
+     "name": "Drake Maye",
+     "position": "QB",
+     "balancedCurrent": 4669.7,
+     "balancedCorrected": 4728.8,
+     "delta": 59.1,
+     "deltaPct": 1.27,
+     "rankCurrent": 13,
+     "rankCorrected": 13,
+     "fpgCurrent": 23.034,
+     "fpgCorrected": 23.129,
+     "rosteredBy": "roster:4"
+    },
+    {
+     "key": "12501",
+     "name": "Matthew Golden",
+     "position": "WR",
+     "balancedCurrent": 3730.1,
+     "balancedCorrected": 3789.1,
+     "delta": 59.1,
+     "deltaPct": 1.58,
+     "rankCurrent": 24,
+     "rankCorrected": 25,
+     "fpgCurrent": 13.753,
+     "fpgCorrected": 13.848,
+     "rosteredBy": "roster:4"
+    },
+    {
+     "key": "9493",
+     "name": "Puka Nacua",
+     "position": "WR",
+     "balancedCurrent": 5591.3,
+     "balancedCorrected": 5650.5,
+     "delta": 59.1,
+     "deltaPct": 1.06,
+     "rankCurrent": 5,
+     "rankCorrected": 5,
+     "fpgCurrent": 21.074,
+     "fpgCorrected": 21.185,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "13369",
+     "name": "Brandon Cisse",
+     "position": "CB",
+     "balancedCurrent": 3378.0,
+     "balancedCorrected": 3321.0,
+     "delta": -57.0,
+     "deltaPct": -1.69,
+     "rankCurrent": 29,
+     "rankCorrected": 29,
+     "fpgCurrent": 11.471,
+     "fpgCorrected": 11.388,
+     "rosteredBy": "roster:4"
+    }
+   ],
+   "onlyInOneArm": [],
+   "signalFlips": {
+    "count": 2,
+    "byTransition": {
+     "BUY->STRONG_BUY": 1,
+     "SELL->STRONG_SELL": 1
+    },
+    "rosteredCount": 2,
+    "list": [
+     {
+      "key": "13501",
+      "name": "Gracen Halton",
+      "position": "DT",
+      "from": "BUY",
+      "to": "STRONG_BUY",
+      "rosteredBy": "roster:1"
+     },
+     {
+      "key": "8330",
+      "name": "Quentin Lake",
+      "position": "S",
+      "from": "SELL",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:2"
+     }
+    ]
+   },
+   "alertTransitionsRostered": {
+    "count": 2,
+    "byTeam": {
+     "roster:1": 1,
+     "roster:2": 1
+    },
+    "list": [
+     {
+      "key": "13501",
+      "name": "Gracen Halton",
+      "position": "DT",
+      "from": "BUY",
+      "to": "STRONG_BUY",
+      "rosteredBy": "roster:1"
+     },
+     {
+      "key": "8330",
+      "name": "Quentin Lake",
+      "position": "S",
+      "from": "SELL",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:2"
+     }
+    ],
+    "caveat": "an upper bound for one sweep: a user whose last-seen state already holds the new signal, or who was notified inside the minimum interval, gets nothing"
+   }
+  },
+  "rosters": [
+   {
+    "team": "roster:9",
+    "capitalCurrent": {
+     "contender": 75650.1,
+     "balanced": 65843.3,
+     "rebuilder": 47677.0,
+     "risk_neutral": 66981.4
+    },
+    "capitalCorrected": {
+     "contender": 75474.6,
+     "balanced": 66182.8,
+     "rebuilder": 47938.9,
+     "risk_neutral": 67320.1
+    },
+    "capitalDelta": {
+     "balanced": 339.5,
+     "contender": -175.5,
+     "rebuilder": 261.9,
+     "risk_neutral": 338.7
+    },
+    "directionCurrent": "contend",
+    "directionCorrected": "contend",
+    "starterFpgCurrent": 334.0,
+    "starterFpgCorrected": 334.7
+   },
+   {
+    "team": "roster:4",
+    "capitalCurrent": {
+     "contender": 50800.7,
+     "balanced": 46332.6,
+     "rebuilder": 35072.9,
+     "risk_neutral": 47489.3
+    },
+    "capitalCorrected": {
+     "contender": 50989.0,
+     "balanced": 46803.8,
+     "rebuilder": 35404.6,
+     "risk_neutral": 47960.9
+    },
+    "capitalDelta": {
+     "balanced": 471.2,
+     "contender": 188.3,
+     "rebuilder": 331.7,
+     "risk_neutral": 471.6
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 276.7,
+    "starterFpgCorrected": 277.8
+   },
+   {
+    "team": "roster:2",
+    "capitalCurrent": {
+     "contender": 43314.7,
+     "balanced": 41474.8,
+     "rebuilder": 33239.8,
+     "risk_neutral": 42662.3
+    },
+    "capitalCorrected": {
+     "contender": 42930.5,
+     "balanced": 41362.3,
+     "rebuilder": 33114.1,
+     "risk_neutral": 42548.4
+    },
+    "capitalDelta": {
+     "balanced": -112.5,
+     "contender": -384.2,
+     "rebuilder": -125.7,
+     "risk_neutral": -113.9
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 256.4,
+    "starterFpgCorrected": 256.5
+   },
+   {
+    "team": "roster:6",
+    "capitalCurrent": {
+     "contender": 51819.9,
+     "balanced": 48279.9,
+     "rebuilder": 38200.7,
+     "risk_neutral": 49386.8
+    },
+    "capitalCorrected": {
+     "contender": 51476.7,
+     "balanced": 48328.3,
+     "rebuilder": 38262.9,
+     "risk_neutral": 49435.5
+    },
+    "capitalDelta": {
+     "balanced": 48.4,
+     "contender": -343.2,
+     "rebuilder": 62.2,
+     "risk_neutral": 48.7
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 286.7,
+    "starterFpgCorrected": 286.8
+   },
+   {
+    "team": "roster:1",
+    "capitalCurrent": {
+     "contender": 87785.6,
+     "balanced": 87875.0,
+     "rebuilder": 73066.1,
+     "risk_neutral": 89340.6
+    },
+    "capitalCorrected": {
+     "contender": 87409.0,
+     "balanced": 88128.3,
+     "rebuilder": 73307.8,
+     "risk_neutral": 89593.3
+    },
+    "capitalDelta": {
+     "balanced": 253.3,
+     "contender": -376.6,
+     "rebuilder": 241.7,
+     "risk_neutral": 252.7
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 315.2,
+    "starterFpgCorrected": 315.3
+   },
+   {
+    "team": "roster:8",
+    "capitalCurrent": {
+     "contender": 72359.9,
+     "balanced": 67548.2,
+     "rebuilder": 52000.4,
+     "risk_neutral": 68884.3
+    },
+    "capitalCorrected": {
+     "contender": 71747.6,
+     "balanced": 67422.4,
+     "rebuilder": 51873.7,
+     "risk_neutral": 68757.2
+    },
+    "capitalDelta": {
+     "balanced": -125.8,
+     "contender": -612.3,
+     "rebuilder": -126.7,
+     "risk_neutral": -127.1
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 304.1,
+    "starterFpgCorrected": 304.1
+   },
+   {
+    "team": "roster:11",
+    "capitalCurrent": {
+     "contender": 29605.9,
+     "balanced": 27540.9,
+     "rebuilder": 21205.4,
+     "risk_neutral": 28693.6
+    },
+    "capitalCorrected": {
+     "contender": 29538.6,
+     "balanced": 27706.7,
+     "rebuilder": 21373.4,
+     "risk_neutral": 28858.6
+    },
+    "capitalDelta": {
+     "balanced": 165.8,
+     "contender": -67.3,
+     "rebuilder": 168.0,
+     "risk_neutral": 165.0
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 237.0,
+    "starterFpgCorrected": 237.6
+   },
+   {
+    "team": "roster:10",
+    "capitalCurrent": {
+     "contender": 40967.4,
+     "balanced": 34266.2,
+     "rebuilder": 23735.9,
+     "risk_neutral": 35419.4
+    },
+    "capitalCorrected": {
+     "contender": 40733.1,
+     "balanced": 34292.7,
+     "rebuilder": 23740.0,
+     "risk_neutral": 35446.2
+    },
+    "capitalDelta": {
+     "balanced": 26.5,
+     "contender": -234.3,
+     "rebuilder": 4.1,
+     "risk_neutral": 26.8
+    },
+    "directionCurrent": "contend",
+    "directionCorrected": "contend",
+    "starterFpgCurrent": 278.1,
+    "starterFpgCorrected": 278.6
+   },
+   {
+    "team": "roster:5",
+    "capitalCurrent": {
+     "contender": 49600.7,
+     "balanced": 47783.2,
+     "rebuilder": 37979.1,
+     "risk_neutral": 48996.9
+    },
+    "capitalCorrected": {
+     "contender": 49626.9,
+     "balanced": 48175.9,
+     "rebuilder": 38309.8,
+     "risk_neutral": 49392.0
+    },
+    "capitalDelta": {
+     "balanced": 392.7,
+     "contender": 26.2,
+     "rebuilder": 330.7,
+     "risk_neutral": 395.1
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 255.2,
+    "starterFpgCorrected": 255.6
+   },
+   {
+    "team": "roster:7",
+    "capitalCurrent": {
+     "contender": 19991.4,
+     "balanced": 19000.4,
+     "rebuilder": 15366.6,
+     "risk_neutral": 19966.1
+    },
+    "capitalCorrected": {
+     "contender": 20027.5,
+     "balanced": 19148.0,
+     "rebuilder": 15473.7,
+     "risk_neutral": 20109.0
+    },
+    "capitalDelta": {
+     "balanced": 147.6,
+     "contender": 36.1,
+     "rebuilder": 107.1,
+     "risk_neutral": 142.9
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 223.7,
+    "starterFpgCorrected": 224.3
+   },
+   {
+    "team": "roster:3",
+    "capitalCurrent": {
+     "contender": 25008.4,
+     "balanced": 25318.8,
+     "rebuilder": 21840.2,
+     "risk_neutral": 26399.5
+    },
+    "capitalCorrected": {
+     "contender": 25150.9,
+     "balanced": 25562.4,
+     "rebuilder": 21985.7,
+     "risk_neutral": 26645.4
+    },
+    "capitalDelta": {
+     "balanced": 243.6,
+     "contender": 142.5,
+     "rebuilder": 145.5,
+     "risk_neutral": 245.9
+    },
+    "directionCurrent": "rebuild",
+    "directionCorrected": "rebuild",
+    "starterFpgCurrent": 227.4,
+    "starterFpgCorrected": 228.5
+   },
+   {
+    "team": "roster:12",
+    "capitalCurrent": {
+     "contender": 29496.2,
+     "balanced": 28839.3,
+     "rebuilder": 23071.4,
+     "risk_neutral": 29876.6
+    },
+    "capitalCorrected": {
+     "contender": 29212.4,
+     "balanced": 28769.1,
+     "rebuilder": 23026.4,
+     "risk_neutral": 29802.5
+    },
+    "capitalDelta": {
+     "balanced": -70.2,
+     "contender": -283.8,
+     "rebuilder": -45.0,
+     "risk_neutral": -74.1
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 232.7,
+    "starterFpgCorrected": 232.6
+   }
+  ],
+  "tradeScan": {
+   "tradesCurrent": 40,
+   "tradesCorrected": 40,
+   "unchanged": 35,
+   "onlyCurrent": 5,
+   "onlyCorrected": 5
+  }
+ },
+ "current_vs_correctedAfterBaselineRebuild": {
+  "values": {
+   "pricedCurrent": 861,
+   "pricedCorrected": 861,
+   "valueChanged": 754,
+   "rankChanged": 767,
+   "absDeltaPctAmongChanged": {
+    "median": 3.21,
+    "p90": 19.17,
+    "max": 388.22,
+    "atLeast5pct": 284,
+    "atLeast10pct": 155
+   },
+   "rankMove": {
+    "median": 4,
+    "p90": 19,
+    "max": 80,
+    "top100Membership": {
+     "entered": 1,
+     "left": 1
+    }
+   },
+   "byPosition": {
+    "CB": {
+     "priced": 59,
+     "valueChanged": 47,
+     "up": 9,
+     "down": 38,
+     "meanAbsDelta": 22.8,
+     "maxAbsDelta": 139.1,
+     "rankChanged": 55,
+     "maxRankMove": 37
+    },
+    "DL": {
+     "priced": 4,
+     "valueChanged": 4,
+     "up": 4,
+     "down": 0,
+     "meanAbsDelta": 2.4,
+     "maxAbsDelta": 3.3,
+     "rankChanged": 4,
+     "maxRankMove": 15
+    },
+    "DT": {
+     "priced": 42,
+     "valueChanged": 40,
+     "up": 39,
+     "down": 1,
+     "meanAbsDelta": 14.2,
+     "maxAbsDelta": 294.4,
+     "rankChanged": 38,
+     "maxRankMove": 63
+    },
+    "EDGE": {
+     "priced": 56,
+     "valueChanged": 51,
+     "up": 39,
+     "down": 12,
+     "meanAbsDelta": 5.5,
+     "maxAbsDelta": 60.5,
+     "rankChanged": 45,
+     "maxRankMove": 59
+    },
+    "LB": {
+     "priced": 166,
+     "valueChanged": 141,
+     "up": 8,
+     "down": 133,
+     "meanAbsDelta": 16.2,
+     "maxAbsDelta": 147.2,
+     "rankChanged": 147,
+     "maxRankMove": 80
+    },
+    "QB": {
+     "priced": 66,
+     "valueChanged": 52,
+     "up": 15,
+     "down": 37,
+     "meanAbsDelta": 9.5,
+     "maxAbsDelta": 40.5,
+     "rankChanged": 47,
+     "maxRankMove": 34
+    },
+    "RB": {
+     "priced": 123,
+     "valueChanged": 108,
+     "up": 9,
+     "down": 99,
+     "meanAbsDelta": 12.3,
+     "maxAbsDelta": 76.7,
+     "rankChanged": 110,
+     "maxRankMove": 14
+    },
+    "S": {
+     "priced": 80,
+     "valueChanged": 78,
+     "up": 5,
+     "down": 73,
+     "meanAbsDelta": 32.4,
+     "maxAbsDelta": 226.2,
+     "rankChanged": 75,
+     "maxRankMove": 66
+    },
+    "TE": {
+     "priced": 79,
+     "valueChanged": 72,
+     "up": 30,
+     "down": 42,
+     "meanAbsDelta": 14.3,
+     "maxAbsDelta": 79.0,
+     "rankChanged": 68,
+     "maxRankMove": 53
+    },
+    "WR": {
+     "priced": 186,
+     "valueChanged": 170,
+     "up": 170,
+     "down": 0,
+     "meanAbsDelta": 35.4,
+     "maxAbsDelta": 322.5,
+     "rankChanged": 178,
+     "maxRankMove": 44
+    }
+   },
+   "replacementCurrent": {
+    "DB": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 11.132,
+     "worstStarterFpg": 11.281,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "DL": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 8.883,
+     "worstStarterFpg": 8.974,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "K": {
+     "startableSlots": 12,
+     "replacementRank": 15,
+     "replacementFpg": 9.336,
+     "worstStarterFpg": 10.025,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "LB": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 11.748,
+     "worstStarterFpg": 12.477,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "QB": {
+     "startableSlots": 24,
+     "replacementRank": 34,
+     "replacementFpg": 16.963,
+     "worstStarterFpg": 17.458,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "RB": {
+     "startableSlots": 38,
+     "replacementRank": 47,
+     "replacementFpg": 10.195,
+     "worstStarterFpg": 11.018,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "TE": {
+     "startableSlots": 24,
+     "replacementRank": 29,
+     "replacementFpg": 7.114,
+     "worstStarterFpg": 7.818,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "WR": {
+     "startableSlots": 46,
+     "replacementRank": 58,
+     "replacementFpg": 10.011,
+     "worstStarterFpg": 11.117,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    }
+   },
+   "replacementCorrected": {
+    "DB": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 11.089,
+     "worstStarterFpg": 11.23,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "DL": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 8.847,
+     "worstStarterFpg": 8.969,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "K": {
+     "startableSlots": 12,
+     "replacementRank": 15,
+     "replacementFpg": 9.106,
+     "worstStarterFpg": 9.696,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "LB": {
+     "startableSlots": 36,
+     "replacementRank": 42,
+     "replacementFpg": 11.703,
+     "worstStarterFpg": 12.328,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "QB": {
+     "startableSlots": 24,
+     "replacementRank": 34,
+     "replacementFpg": 17.004,
+     "worstStarterFpg": 17.499,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "RB": {
+     "startableSlots": 37,
+     "replacementRank": 46,
+     "replacementFpg": 10.34,
+     "worstStarterFpg": 11.071,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "TE": {
+     "startableSlots": 24,
+     "replacementRank": 29,
+     "replacementFpg": 7.186,
+     "worstStarterFpg": 7.844,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    },
+    "WR": {
+     "startableSlots": 47,
+     "replacementRank": 59,
+     "replacementFpg": 9.92,
+     "worstStarterFpg": 11.075,
+     "method": "dynamic_vorp",
+     "poolExhausted": false
+    }
+   },
+   "replacementChanged": true,
+   "topMoversByAbsDelta": [
+    {
+     "key": "7564",
+     "name": "Ja'Marr Chase",
+     "position": "WR",
+     "balancedCurrent": 3698.1,
+     "balancedCorrected": 4020.5,
+     "delta": 322.5,
+     "deltaPct": 8.72,
+     "rankCurrent": 25,
+     "rankCorrected": 22,
+     "fpgCurrent": 18.566,
+     "fpgCorrected": 19.227,
+     "rosteredBy": "roster:4"
+    },
+    {
+     "key": "13501",
+     "name": "Gracen Halton",
+     "position": "DT",
+     "balancedCurrent": 1598.2,
+     "balancedCorrected": 1892.6,
+     "delta": 294.4,
+     "deltaPct": 18.42,
+     "rankCurrent": 103,
+     "rankCorrected": 82,
+     "fpgCurrent": 7.492,
+     "fpgCorrected": 7.972,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "8112",
+     "name": "Drake London",
+     "position": "WR",
+     "balancedCurrent": 2901.7,
+     "balancedCorrected": 3183.0,
+     "delta": 281.2,
+     "deltaPct": 9.69,
+     "rankCurrent": 42,
+     "rankCorrected": 34,
+     "fpgCurrent": 15.621,
+     "fpgCorrected": 16.178,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "13376",
+     "name": "Caleb Downs",
+     "position": "S",
+     "balancedCurrent": 1470.2,
+     "balancedCorrected": 1244.0,
+     "delta": -226.2,
+     "deltaPct": -15.38,
+     "rankCurrent": 112,
+     "rankCorrected": 139,
+     "fpgCurrent": 9.157,
+     "fpgCorrected": 8.674,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "13371",
+     "name": "Dillon Thieneman",
+     "position": "S",
+     "balancedCurrent": 2080.6,
+     "balancedCorrected": 1859.3,
+     "delta": -221.3,
+     "deltaPct": -10.64,
+     "rankCurrent": 71,
+     "rankCorrected": 86,
+     "fpgCurrent": 10.672,
+     "fpgCorrected": 10.272,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "12567",
+     "name": "Malaki Starks",
+     "position": "S",
+     "balancedCurrent": 1420.7,
+     "balancedCorrected": 1231.9,
+     "delta": -188.9,
+     "deltaPct": -13.29,
+     "rankCurrent": 120,
+     "rankCorrected": 142,
+     "fpgCurrent": 10.218,
+     "fpgCorrected": 9.797,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13346",
+     "name": "Denzel Boston",
+     "position": "WR",
+     "balancedCurrent": 2889.3,
+     "balancedCorrected": 3051.3,
+     "delta": 162.0,
+     "deltaPct": 5.61,
+     "rankCurrent": 43,
+     "rankCorrected": 38,
+     "fpgCurrent": 10.718,
+     "fpgCorrected": 10.948,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "13360",
+     "name": "Emmanuel McNeil-Warren",
+     "position": "S",
+     "balancedCurrent": 1137.4,
+     "balancedCorrected": 979.0,
+     "delta": -158.4,
+     "deltaPct": -13.93,
+     "rankCurrent": 154,
+     "rankCorrected": 174,
+     "fpgCurrent": 8.855,
+     "fpgCorrected": 8.451,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "13294",
+     "name": "Makai Lemon",
+     "position": "WR",
+     "balancedCurrent": 2233.4,
+     "balancedCorrected": 2388.9,
+     "delta": 155.4,
+     "deltaPct": 6.96,
+     "rankCurrent": 66,
+     "rankCorrected": 57,
+     "fpgCurrent": 9.665,
+     "fpgCorrected": 9.906,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "13377",
+     "name": "Arvell Reese",
+     "position": "LB",
+     "balancedCurrent": 2741.5,
+     "balancedCorrected": 2594.3,
+     "delta": -147.2,
+     "deltaPct": -5.37,
+     "rankCurrent": 46,
+     "rankCorrected": 49,
+     "fpgCurrent": 12.579,
+     "fpgCorrected": 12.328,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13379",
+     "name": "Josiah Trotter",
+     "position": "LB",
+     "balancedCurrent": 3296.1,
+     "balancedCorrected": 3152.5,
+     "delta": -143.7,
+     "deltaPct": -4.36,
+     "rankCurrent": 31,
+     "rankCorrected": 35,
+     "fpgCurrent": 13.464,
+     "fpgCorrected": 13.205,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "9488",
+     "name": "Jaxon Smith-Njigba",
+     "position": "WR",
+     "balancedCurrent": 9361.4,
+     "balancedCorrected": 9500.5,
+     "delta": 139.2,
+     "deltaPct": 1.49,
+     "rankCurrent": 2,
+     "rankCorrected": 2,
+     "fpgCurrent": 24.92,
+     "fpgCorrected": 25.096,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "13382",
+     "name": "Keionte Scott",
+     "position": "CB",
+     "balancedCurrent": 956.5,
+     "balancedCorrected": 817.4,
+     "delta": -139.1,
+     "deltaPct": -14.55,
+     "rankCurrent": 180,
+     "rankCorrected": 207,
+     "fpgCurrent": 8.907,
+     "fpgCorrected": 8.455,
+     "rosteredBy": null
+    },
+    {
+     "key": "13285",
+     "name": "Malachi Fields",
+     "position": "WR",
+     "balancedCurrent": 705.7,
+     "balancedCorrected": 839.5,
+     "delta": 133.8,
+     "deltaPct": 18.96,
+     "rankCurrent": 236,
+     "rankCorrected": 199,
+     "fpgCurrent": 6.897,
+     "fpgCorrected": 7.233,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "11632",
+     "name": "Malik Nabers",
+     "position": "WR",
+     "balancedCurrent": 3971.2,
+     "balancedCorrected": 4104.5,
+     "delta": 133.3,
+     "deltaPct": 3.36,
+     "rankCurrent": 21,
+     "rankCorrected": 19,
+     "fpgCurrent": 15.957,
+     "fpgCorrected": 16.162,
+     "rosteredBy": "roster:5"
+    },
+    {
+     "key": "13279",
+     "name": "Carnell Tate",
+     "position": "WR",
+     "balancedCurrent": 4209.3,
+     "balancedCorrected": 4339.8,
+     "delta": 130.6,
+     "deltaPct": 3.1,
+     "rankCurrent": 16,
+     "rankCorrected": 16,
+     "fpgCurrent": 11.951,
+     "fpgCorrected": 12.108,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "12619",
+     "name": "Jonas Sanker",
+     "position": "S",
+     "balancedCurrent": 1028.9,
+     "balancedCorrected": 1159.1,
+     "delta": 130.2,
+     "deltaPct": 12.65,
+     "rankCurrent": 170,
+     "rankCorrected": 151,
+     "fpgCurrent": 9.845,
+     "fpgCorrected": 10.139,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "13454",
+     "name": "Davison Igbinosun",
+     "position": "CB",
+     "balancedCurrent": 2466.1,
+     "balancedCorrected": 2336.8,
+     "delta": -129.2,
+     "deltaPct": -5.24,
+     "rankCurrent": 53,
+     "rankCorrected": 60,
+     "fpgCurrent": 10.569,
+     "fpgCorrected": 10.35,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "12617",
+     "name": "Demetrius Knight",
+     "position": "LB",
+     "balancedCurrent": 850.5,
+     "balancedCorrected": 966.1,
+     "delta": 115.5,
+     "deltaPct": 13.58,
+     "rankCurrent": 197,
+     "rankCorrected": 177,
+     "fpgCurrent": 12.695,
+     "fpgCorrected": 13.083,
+     "rosteredBy": "roster:7"
+    },
+    {
+     "key": "12622",
+     "name": "Nohl Williams",
+     "position": "CB",
+     "balancedCurrent": 1767.4,
+     "balancedCorrected": 1662.2,
+     "delta": -105.2,
+     "deltaPct": -5.95,
+     "rankCurrent": 92,
+     "rankCorrected": 99,
+     "fpgCurrent": 11.479,
+     "fpgCorrected": 11.23,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "9493",
+     "name": "Puka Nacua",
+     "position": "WR",
+     "balancedCurrent": 5591.3,
+     "balancedCorrected": 5696.5,
+     "delta": 105.2,
+     "deltaPct": 1.88,
+     "rankCurrent": 5,
+     "rankCorrected": 5,
+     "fpgCurrent": 21.074,
+     "fpgCorrected": 21.229,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "11726",
+     "name": "Kamren Kinchens",
+     "position": "S",
+     "balancedCurrent": 457.2,
+     "balancedCorrected": 355.3,
+     "delta": -102.0,
+     "deltaPct": -22.3,
+     "rankCurrent": 327,
+     "rankCorrected": 377,
+     "fpgCurrent": 9.574,
+     "fpgCorrected": 9.095,
+     "rosteredBy": null
+    },
+    {
+     "key": "12501",
+     "name": "Matthew Golden",
+     "position": "WR",
+     "balancedCurrent": 3730.1,
+     "balancedCorrected": 3831.2,
+     "delta": 101.1,
+     "deltaPct": 2.71,
+     "rankCurrent": 24,
+     "rankCorrected": 25,
+     "fpgCurrent": 13.753,
+     "fpgCorrected": 13.887,
+     "rosteredBy": "roster:4"
+    },
+    {
+     "key": "13281",
+     "name": "Jordyn Tyson",
+     "position": "WR",
+     "balancedCurrent": 3802.9,
+     "balancedCorrected": 3897.1,
+     "delta": 94.3,
+     "deltaPct": 2.48,
+     "rankCurrent": 23,
+     "rankCorrected": 24,
+     "fpgCurrent": 12.039,
+     "fpgCorrected": 12.157,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13296",
+     "name": "Caleb Douglas",
+     "position": "WR",
+     "balancedCurrent": 1423.4,
+     "balancedCorrected": 1517.7,
+     "delta": 94.3,
+     "deltaPct": 6.62,
+     "rankCurrent": 119,
+     "rankCorrected": 110,
+     "fpgCurrent": 8.627,
+     "fpgCorrected": 8.798,
+     "rosteredBy": "roster:5"
+    },
+    {
+     "key": "12519",
+     "name": "Luther Burden",
+     "position": "WR",
+     "balancedCurrent": 3830.0,
+     "balancedCorrected": 3918.4,
+     "delta": 88.4,
+     "deltaPct": 2.31,
+     "rankCurrent": 22,
+     "rankCorrected": 23,
+     "fpgCurrent": 13.082,
+     "fpgCorrected": 13.191,
+     "rosteredBy": "roster:6"
+    },
+    {
+     "key": "8148",
+     "name": "Jameson Williams",
+     "position": "WR",
+     "balancedCurrent": 2307.2,
+     "balancedCorrected": 2394.7,
+     "delta": 87.5,
+     "deltaPct": 3.79,
+     "rankCurrent": 62,
+     "rankCorrected": 56,
+     "fpgCurrent": 14.315,
+     "fpgCorrected": 14.466,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "8144",
+     "name": "Chris Olave",
+     "position": "WR",
+     "balancedCurrent": 3003.0,
+     "balancedCorrected": 3089.7,
+     "delta": 86.7,
+     "deltaPct": 2.89,
+     "rankCurrent": 37,
+     "rankCorrected": 37,
+     "fpgCurrent": 17.511,
+     "fpgCorrected": 17.673,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "8137",
+     "name": "George Pickens",
+     "position": "WR",
+     "balancedCurrent": 2623.0,
+     "balancedCorrected": 2709.2,
+     "delta": 86.2,
+     "deltaPct": 3.29,
+     "rankCurrent": 49,
+     "rankCorrected": 46,
+     "fpgCurrent": 14.883,
+     "fpgCorrected": 15.021,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "11727",
+     "name": "Payton Wilson",
+     "position": "LB",
+     "balancedCurrent": 913.7,
+     "balancedCorrected": 828.0,
+     "delta": -85.7,
+     "deltaPct": -9.38,
+     "rankCurrent": 185,
+     "rankCorrected": 204,
+     "fpgCurrent": 14.068,
+     "fpgCorrected": 13.703,
+     "rosteredBy": "roster:12"
+    }
+   ],
+   "topMoversRosteredByAbsDelta": [
+    {
+     "key": "7564",
+     "name": "Ja'Marr Chase",
+     "position": "WR",
+     "balancedCurrent": 3698.1,
+     "balancedCorrected": 4020.5,
+     "delta": 322.5,
+     "deltaPct": 8.72,
+     "rankCurrent": 25,
+     "rankCorrected": 22,
+     "fpgCurrent": 18.566,
+     "fpgCorrected": 19.227,
+     "rosteredBy": "roster:4"
+    },
+    {
+     "key": "13501",
+     "name": "Gracen Halton",
+     "position": "DT",
+     "balancedCurrent": 1598.2,
+     "balancedCorrected": 1892.6,
+     "delta": 294.4,
+     "deltaPct": 18.42,
+     "rankCurrent": 103,
+     "rankCorrected": 82,
+     "fpgCurrent": 7.492,
+     "fpgCorrected": 7.972,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "8112",
+     "name": "Drake London",
+     "position": "WR",
+     "balancedCurrent": 2901.7,
+     "balancedCorrected": 3183.0,
+     "delta": 281.2,
+     "deltaPct": 9.69,
+     "rankCurrent": 42,
+     "rankCorrected": 34,
+     "fpgCurrent": 15.621,
+     "fpgCorrected": 16.178,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "13376",
+     "name": "Caleb Downs",
+     "position": "S",
+     "balancedCurrent": 1470.2,
+     "balancedCorrected": 1244.0,
+     "delta": -226.2,
+     "deltaPct": -15.38,
+     "rankCurrent": 112,
+     "rankCorrected": 139,
+     "fpgCurrent": 9.157,
+     "fpgCorrected": 8.674,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "13371",
+     "name": "Dillon Thieneman",
+     "position": "S",
+     "balancedCurrent": 2080.6,
+     "balancedCorrected": 1859.3,
+     "delta": -221.3,
+     "deltaPct": -10.64,
+     "rankCurrent": 71,
+     "rankCorrected": 86,
+     "fpgCurrent": 10.672,
+     "fpgCorrected": 10.272,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "12567",
+     "name": "Malaki Starks",
+     "position": "S",
+     "balancedCurrent": 1420.7,
+     "balancedCorrected": 1231.9,
+     "delta": -188.9,
+     "deltaPct": -13.29,
+     "rankCurrent": 120,
+     "rankCorrected": 142,
+     "fpgCurrent": 10.218,
+     "fpgCorrected": 9.797,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13346",
+     "name": "Denzel Boston",
+     "position": "WR",
+     "balancedCurrent": 2889.3,
+     "balancedCorrected": 3051.3,
+     "delta": 162.0,
+     "deltaPct": 5.61,
+     "rankCurrent": 43,
+     "rankCorrected": 38,
+     "fpgCurrent": 10.718,
+     "fpgCorrected": 10.948,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "13360",
+     "name": "Emmanuel McNeil-Warren",
+     "position": "S",
+     "balancedCurrent": 1137.4,
+     "balancedCorrected": 979.0,
+     "delta": -158.4,
+     "deltaPct": -13.93,
+     "rankCurrent": 154,
+     "rankCorrected": 174,
+     "fpgCurrent": 8.855,
+     "fpgCorrected": 8.451,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "13294",
+     "name": "Makai Lemon",
+     "position": "WR",
+     "balancedCurrent": 2233.4,
+     "balancedCorrected": 2388.9,
+     "delta": 155.4,
+     "deltaPct": 6.96,
+     "rankCurrent": 66,
+     "rankCorrected": 57,
+     "fpgCurrent": 9.665,
+     "fpgCorrected": 9.906,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "13377",
+     "name": "Arvell Reese",
+     "position": "LB",
+     "balancedCurrent": 2741.5,
+     "balancedCorrected": 2594.3,
+     "delta": -147.2,
+     "deltaPct": -5.37,
+     "rankCurrent": 46,
+     "rankCorrected": 49,
+     "fpgCurrent": 12.579,
+     "fpgCorrected": 12.328,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13379",
+     "name": "Josiah Trotter",
+     "position": "LB",
+     "balancedCurrent": 3296.1,
+     "balancedCorrected": 3152.5,
+     "delta": -143.7,
+     "deltaPct": -4.36,
+     "rankCurrent": 31,
+     "rankCorrected": 35,
+     "fpgCurrent": 13.464,
+     "fpgCorrected": 13.205,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "9488",
+     "name": "Jaxon Smith-Njigba",
+     "position": "WR",
+     "balancedCurrent": 9361.4,
+     "balancedCorrected": 9500.5,
+     "delta": 139.2,
+     "deltaPct": 1.49,
+     "rankCurrent": 2,
+     "rankCorrected": 2,
+     "fpgCurrent": 24.92,
+     "fpgCorrected": 25.096,
+     "rosteredBy": "roster:8"
+    },
+    {
+     "key": "13285",
+     "name": "Malachi Fields",
+     "position": "WR",
+     "balancedCurrent": 705.7,
+     "balancedCorrected": 839.5,
+     "delta": 133.8,
+     "deltaPct": 18.96,
+     "rankCurrent": 236,
+     "rankCorrected": 199,
+     "fpgCurrent": 6.897,
+     "fpgCorrected": 7.233,
+     "rosteredBy": "roster:3"
+    },
+    {
+     "key": "11632",
+     "name": "Malik Nabers",
+     "position": "WR",
+     "balancedCurrent": 3971.2,
+     "balancedCorrected": 4104.5,
+     "delta": 133.3,
+     "deltaPct": 3.36,
+     "rankCurrent": 21,
+     "rankCorrected": 19,
+     "fpgCurrent": 15.957,
+     "fpgCorrected": 16.162,
+     "rosteredBy": "roster:5"
+    },
+    {
+     "key": "13279",
+     "name": "Carnell Tate",
+     "position": "WR",
+     "balancedCurrent": 4209.3,
+     "balancedCorrected": 4339.8,
+     "delta": 130.6,
+     "deltaPct": 3.1,
+     "rankCurrent": 16,
+     "rankCorrected": 16,
+     "fpgCurrent": 11.951,
+     "fpgCorrected": 12.108,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "12619",
+     "name": "Jonas Sanker",
+     "position": "S",
+     "balancedCurrent": 1028.9,
+     "balancedCorrected": 1159.1,
+     "delta": 130.2,
+     "deltaPct": 12.65,
+     "rankCurrent": 170,
+     "rankCorrected": 151,
+     "fpgCurrent": 9.845,
+     "fpgCorrected": 10.139,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "13454",
+     "name": "Davison Igbinosun",
+     "position": "CB",
+     "balancedCurrent": 2466.1,
+     "balancedCorrected": 2336.8,
+     "delta": -129.2,
+     "deltaPct": -5.24,
+     "rankCurrent": 53,
+     "rankCorrected": 60,
+     "fpgCurrent": 10.569,
+     "fpgCorrected": 10.35,
+     "rosteredBy": "roster:2"
+    },
+    {
+     "key": "12617",
+     "name": "Demetrius Knight",
+     "position": "LB",
+     "balancedCurrent": 850.5,
+     "balancedCorrected": 966.1,
+     "delta": 115.5,
+     "deltaPct": 13.58,
+     "rankCurrent": 197,
+     "rankCorrected": 177,
+     "fpgCurrent": 12.695,
+     "fpgCorrected": 13.083,
+     "rosteredBy": "roster:7"
+    },
+    {
+     "key": "12622",
+     "name": "Nohl Williams",
+     "position": "CB",
+     "balancedCurrent": 1767.4,
+     "balancedCorrected": 1662.2,
+     "delta": -105.2,
+     "deltaPct": -5.95,
+     "rankCurrent": 92,
+     "rankCorrected": 99,
+     "fpgCurrent": 11.479,
+     "fpgCorrected": 11.23,
+     "rosteredBy": "roster:11"
+    },
+    {
+     "key": "9493",
+     "name": "Puka Nacua",
+     "position": "WR",
+     "balancedCurrent": 5591.3,
+     "balancedCorrected": 5696.5,
+     "delta": 105.2,
+     "deltaPct": 1.88,
+     "rankCurrent": 5,
+     "rankCorrected": 5,
+     "fpgCurrent": 21.074,
+     "fpgCorrected": 21.229,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "12501",
+     "name": "Matthew Golden",
+     "position": "WR",
+     "balancedCurrent": 3730.1,
+     "balancedCorrected": 3831.2,
+     "delta": 101.1,
+     "deltaPct": 2.71,
+     "rankCurrent": 24,
+     "rankCorrected": 25,
+     "fpgCurrent": 13.753,
+     "fpgCorrected": 13.887,
+     "rosteredBy": "roster:4"
+    },
+    {
+     "key": "13281",
+     "name": "Jordyn Tyson",
+     "position": "WR",
+     "balancedCurrent": 3802.9,
+     "balancedCorrected": 3897.1,
+     "delta": 94.3,
+     "deltaPct": 2.48,
+     "rankCurrent": 23,
+     "rankCorrected": 24,
+     "fpgCurrent": 12.039,
+     "fpgCorrected": 12.157,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "13296",
+     "name": "Caleb Douglas",
+     "position": "WR",
+     "balancedCurrent": 1423.4,
+     "balancedCorrected": 1517.7,
+     "delta": 94.3,
+     "deltaPct": 6.62,
+     "rankCurrent": 119,
+     "rankCorrected": 110,
+     "fpgCurrent": 8.627,
+     "fpgCorrected": 8.798,
+     "rosteredBy": "roster:5"
+    },
+    {
+     "key": "12519",
+     "name": "Luther Burden",
+     "position": "WR",
+     "balancedCurrent": 3830.0,
+     "balancedCorrected": 3918.4,
+     "delta": 88.4,
+     "deltaPct": 2.31,
+     "rankCurrent": 22,
+     "rankCorrected": 23,
+     "fpgCurrent": 13.082,
+     "fpgCorrected": 13.191,
+     "rosteredBy": "roster:6"
+    },
+    {
+     "key": "8148",
+     "name": "Jameson Williams",
+     "position": "WR",
+     "balancedCurrent": 2307.2,
+     "balancedCorrected": 2394.7,
+     "delta": 87.5,
+     "deltaPct": 3.79,
+     "rankCurrent": 62,
+     "rankCorrected": 56,
+     "fpgCurrent": 14.315,
+     "fpgCorrected": 14.466,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "8144",
+     "name": "Chris Olave",
+     "position": "WR",
+     "balancedCurrent": 3003.0,
+     "balancedCorrected": 3089.7,
+     "delta": 86.7,
+     "deltaPct": 2.89,
+     "rankCurrent": 37,
+     "rankCorrected": 37,
+     "fpgCurrent": 17.511,
+     "fpgCorrected": 17.673,
+     "rosteredBy": "roster:9"
+    },
+    {
+     "key": "8137",
+     "name": "George Pickens",
+     "position": "WR",
+     "balancedCurrent": 2623.0,
+     "balancedCorrected": 2709.2,
+     "delta": 86.2,
+     "deltaPct": 3.29,
+     "rankCurrent": 49,
+     "rankCorrected": 46,
+     "fpgCurrent": 14.883,
+     "fpgCorrected": 15.021,
+     "rosteredBy": "roster:1"
+    },
+    {
+     "key": "11727",
+     "name": "Payton Wilson",
+     "position": "LB",
+     "balancedCurrent": 913.7,
+     "balancedCorrected": 828.0,
+     "delta": -85.7,
+     "deltaPct": -9.38,
+     "rankCurrent": 185,
+     "rankCorrected": 204,
+     "fpgCurrent": 14.068,
+     "fpgCorrected": 13.703,
+     "rosteredBy": "roster:12"
+    },
+    {
+     "key": "9487",
+     "name": "Parker Washington",
+     "position": "WR",
+     "balancedCurrent": 1944.3,
+     "balancedCorrected": 2028.1,
+     "delta": 83.8,
+     "deltaPct": 4.31,
+     "rankCurrent": 77,
+     "rankCorrected": 73,
+     "fpgCurrent": 12.72,
+     "fpgCorrected": 12.865,
+     "rosteredBy": "roster:6"
+    },
+    {
+     "key": "9756",
+     "name": "Jordan Addison",
+     "position": "WR",
+     "balancedCurrent": 1007.3,
+     "balancedCorrected": 1089.9,
+     "delta": 82.5,
+     "deltaPct": 8.19,
+     "rankCurrent": 172,
+     "rankCorrected": 159,
+     "fpgCurrent": 10.276,
+     "fpgCorrected": 10.459,
+     "rosteredBy": "roster:1"
+    }
+   ],
+   "onlyInOneArm": [],
+   "signalFlips": {
+    "count": 6,
+    "byTransition": {
+     "SELL->STRONG_SELL": 3,
+     "HOLD->STRONG_SELL": 1,
+     "BUY->STRONG_BUY": 1,
+     "STRONG_SELL->SELL": 1
+    },
+    "rosteredCount": 6,
+    "list": [
+     {
+      "key": "12591",
+      "name": "Xavier Watts",
+      "position": "S",
+      "from": "SELL",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:11"
+     },
+     {
+      "key": "12614",
+      "name": "Shemar James",
+      "position": "LB",
+      "from": "HOLD",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:11"
+     },
+     {
+      "key": "13501",
+      "name": "Gracen Halton",
+      "position": "DT",
+      "from": "BUY",
+      "to": "STRONG_BUY",
+      "rosteredBy": "roster:1"
+     },
+     {
+      "key": "8330",
+      "name": "Quentin Lake",
+      "position": "S",
+      "from": "SELL",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:2"
+     },
+     {
+      "key": "8343",
+      "name": "Boye Mafe",
+      "position": "EDGE",
+      "from": "STRONG_SELL",
+      "to": "SELL",
+      "rosteredBy": "roster:12"
+     },
+     {
+      "key": "8395",
+      "name": "Dane Belton",
+      "position": "S",
+      "from": "SELL",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:1"
+     }
+    ]
+   },
+   "alertTransitionsRostered": {
+    "count": 6,
+    "byTeam": {
+     "roster:11": 2,
+     "roster:1": 2,
+     "roster:2": 1,
+     "roster:12": 1
+    },
+    "list": [
+     {
+      "key": "12591",
+      "name": "Xavier Watts",
+      "position": "S",
+      "from": "SELL",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:11"
+     },
+     {
+      "key": "12614",
+      "name": "Shemar James",
+      "position": "LB",
+      "from": "HOLD",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:11"
+     },
+     {
+      "key": "13501",
+      "name": "Gracen Halton",
+      "position": "DT",
+      "from": "BUY",
+      "to": "STRONG_BUY",
+      "rosteredBy": "roster:1"
+     },
+     {
+      "key": "8330",
+      "name": "Quentin Lake",
+      "position": "S",
+      "from": "SELL",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:2"
+     },
+     {
+      "key": "8343",
+      "name": "Boye Mafe",
+      "position": "EDGE",
+      "from": "STRONG_SELL",
+      "to": "SELL",
+      "rosteredBy": "roster:12"
+     },
+     {
+      "key": "8395",
+      "name": "Dane Belton",
+      "position": "S",
+      "from": "SELL",
+      "to": "STRONG_SELL",
+      "rosteredBy": "roster:1"
+     }
+    ],
+    "caveat": "an upper bound for one sweep: a user whose last-seen state already holds the new signal, or who was notified inside the minimum interval, gets nothing"
+   }
+  },
+  "rosters": [
+   {
+    "team": "roster:9",
+    "capitalCurrent": {
+     "contender": 75650.1,
+     "balanced": 65843.3,
+     "rebuilder": 47677.0,
+     "risk_neutral": 66981.4
+    },
+    "capitalCorrected": {
+     "contender": 74845.0,
+     "balanced": 66168.9,
+     "rebuilder": 47897.9,
+     "risk_neutral": 67297.5
+    },
+    "capitalDelta": {
+     "balanced": 325.6,
+     "contender": -805.1,
+     "rebuilder": 220.9,
+     "risk_neutral": 316.1
+    },
+    "directionCurrent": "contend",
+    "directionCorrected": "contend",
+    "starterFpgCurrent": 334.0,
+    "starterFpgCorrected": 334.8
+   },
+   {
+    "team": "roster:4",
+    "capitalCurrent": {
+     "contender": 50800.7,
+     "balanced": 46332.6,
+     "rebuilder": 35072.9,
+     "risk_neutral": 47489.3
+    },
+    "capitalCorrected": {
+     "contender": 50504.8,
+     "balanced": 46743.4,
+     "rebuilder": 35342.2,
+     "risk_neutral": 47895.5
+    },
+    "capitalDelta": {
+     "balanced": 410.8,
+     "contender": -295.9,
+     "rebuilder": 269.3,
+     "risk_neutral": 406.2
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 276.7,
+    "starterFpgCorrected": 277.7
+   },
+   {
+    "team": "roster:2",
+    "capitalCurrent": {
+     "contender": 43314.7,
+     "balanced": 41474.8,
+     "rebuilder": 33239.8,
+     "risk_neutral": 42662.3
+    },
+    "capitalCorrected": {
+     "contender": 42682.3,
+     "balanced": 41426.0,
+     "rebuilder": 33119.4,
+     "risk_neutral": 42605.6
+    },
+    "capitalDelta": {
+     "balanced": -48.8,
+     "contender": -632.4,
+     "rebuilder": -120.4,
+     "risk_neutral": -56.7
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 256.4,
+    "starterFpgCorrected": 256.7
+   },
+   {
+    "team": "roster:6",
+    "capitalCurrent": {
+     "contender": 51819.9,
+     "balanced": 48279.9,
+     "rebuilder": 38200.7,
+     "risk_neutral": 49386.8
+    },
+    "capitalCorrected": {
+     "contender": 50992.4,
+     "balanced": 48302.5,
+     "rebuilder": 38245.3,
+     "risk_neutral": 49404.3
+    },
+    "capitalDelta": {
+     "balanced": 22.6,
+     "contender": -827.5,
+     "rebuilder": 44.6,
+     "risk_neutral": 17.5
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 286.7,
+    "starterFpgCorrected": 286.8
+   },
+   {
+    "team": "roster:1",
+    "capitalCurrent": {
+     "contender": 87785.6,
+     "balanced": 87875.0,
+     "rebuilder": 73066.1,
+     "risk_neutral": 89340.6
+    },
+    "capitalCorrected": {
+     "contender": 86668.6,
+     "balanced": 88104.0,
+     "rebuilder": 73256.9,
+     "risk_neutral": 89558.3
+    },
+    "capitalDelta": {
+     "balanced": 229.0,
+     "contender": -1117.0,
+     "rebuilder": 190.8,
+     "risk_neutral": 217.7
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 315.2,
+    "starterFpgCorrected": 315.3
+   },
+   {
+    "team": "roster:8",
+    "capitalCurrent": {
+     "contender": 72359.9,
+     "balanced": 67548.2,
+     "rebuilder": 52000.4,
+     "risk_neutral": 68884.3
+    },
+    "capitalCorrected": {
+     "contender": 70919.4,
+     "balanced": 67202.2,
+     "rebuilder": 51680.8,
+     "risk_neutral": 68529.8
+    },
+    "capitalDelta": {
+     "balanced": -346.0,
+     "contender": -1440.5,
+     "rebuilder": -319.6,
+     "risk_neutral": -354.5
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 304.1,
+    "starterFpgCorrected": 304.2
+   },
+   {
+    "team": "roster:11",
+    "capitalCurrent": {
+     "contender": 29605.9,
+     "balanced": 27540.9,
+     "rebuilder": 21205.4,
+     "risk_neutral": 28693.6
+    },
+    "capitalCorrected": {
+     "contender": 29115.9,
+     "balanced": 27535.8,
+     "rebuilder": 21240.7,
+     "risk_neutral": 28678.6
+    },
+    "capitalDelta": {
+     "balanced": -5.1,
+     "contender": -490.0,
+     "rebuilder": 35.3,
+     "risk_neutral": -15.0
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 237.0,
+    "starterFpgCorrected": 237.7
+   },
+   {
+    "team": "roster:10",
+    "capitalCurrent": {
+     "contender": 40967.4,
+     "balanced": 34266.2,
+     "rebuilder": 23735.9,
+     "risk_neutral": 35419.4
+    },
+    "capitalCorrected": {
+     "contender": 40351.1,
+     "balanced": 34245.9,
+     "rebuilder": 23692.4,
+     "risk_neutral": 35393.3
+    },
+    "capitalDelta": {
+     "balanced": -20.3,
+     "contender": -616.3,
+     "rebuilder": -43.5,
+     "risk_neutral": -26.1
+    },
+    "directionCurrent": "contend",
+    "directionCorrected": "contend",
+    "starterFpgCurrent": 278.1,
+    "starterFpgCorrected": 278.8
+   },
+   {
+    "team": "roster:5",
+    "capitalCurrent": {
+     "contender": 49600.7,
+     "balanced": 47783.2,
+     "rebuilder": 37979.1,
+     "risk_neutral": 48996.9
+    },
+    "capitalCorrected": {
+     "contender": 49266.9,
+     "balanced": 48251.3,
+     "rebuilder": 38377.8,
+     "risk_neutral": 49458.6
+    },
+    "capitalDelta": {
+     "balanced": 468.1,
+     "contender": -333.8,
+     "rebuilder": 398.7,
+     "risk_neutral": 461.7
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 255.2,
+    "starterFpgCorrected": 255.7
+   },
+   {
+    "team": "roster:7",
+    "capitalCurrent": {
+     "contender": 19991.4,
+     "balanced": 19000.4,
+     "rebuilder": 15366.6,
+     "risk_neutral": 19966.1
+    },
+    "capitalCorrected": {
+     "contender": 19771.3,
+     "balanced": 19055.5,
+     "rebuilder": 15390.7,
+     "risk_neutral": 20006.6
+    },
+    "capitalDelta": {
+     "balanced": 55.1,
+     "contender": -220.1,
+     "rebuilder": 24.1,
+     "risk_neutral": 40.5
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 223.7,
+    "starterFpgCorrected": 224.5
+   },
+   {
+    "team": "roster:3",
+    "capitalCurrent": {
+     "contender": 25008.4,
+     "balanced": 25318.8,
+     "rebuilder": 21840.2,
+     "risk_neutral": 26399.5
+    },
+    "capitalCorrected": {
+     "contender": 25169.8,
+     "balanced": 25789.9,
+     "rebuilder": 22157.0,
+     "risk_neutral": 26869.4
+    },
+    "capitalDelta": {
+     "balanced": 471.1,
+     "contender": 161.4,
+     "rebuilder": 316.8,
+     "risk_neutral": 469.9
+    },
+    "directionCurrent": "rebuild",
+    "directionCorrected": "rebuild",
+    "starterFpgCurrent": 227.4,
+    "starterFpgCorrected": 228.5
+   },
+   {
+    "team": "roster:12",
+    "capitalCurrent": {
+     "contender": 29496.2,
+     "balanced": 28839.3,
+     "rebuilder": 23071.4,
+     "risk_neutral": 29876.6
+    },
+    "capitalCorrected": {
+     "contender": 28967.3,
+     "balanced": 28770.8,
+     "rebuilder": 23027.5,
+     "risk_neutral": 29798.0
+    },
+    "capitalDelta": {
+     "balanced": -68.5,
+     "contender": -528.9,
+     "rebuilder": -43.9,
+     "risk_neutral": -78.6
+    },
+    "directionCurrent": "retool",
+    "directionCorrected": "retool",
+    "starterFpgCurrent": 232.7,
+    "starterFpgCorrected": 232.5
+   }
+  ],
+  "tradeScan": {
+   "tradesCurrent": 40,
+   "tradesCorrected": 40,
+   "unchanged": 34,
+   "onlyCurrent": 6,
+   "onlyCorrected": 6
+  }
+ }
+}
