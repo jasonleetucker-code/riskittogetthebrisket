@@ -12,6 +12,10 @@ const page = fs.readFileSync(
   path.join(__dirname, "..", "app", "arbitrage", "page.jsx"),
   "utf8",
 );
+const nextActions = fs.readFileSync(
+  path.join(__dirname, "..", "components", "trade", "TradeNextActions.jsx"),
+  "utf8",
+);
 
 describe("/arbitrage user-facing naming", () => {
   it("keeps the route but names it Market Disagreement everywhere", () => {
@@ -34,5 +38,18 @@ describe("/arbitrage user-facing naming", () => {
       .filter((l) => /(>[^<{]*[Aa]rbitrage|title="[^"]*[Aa]rbitrage|"[A-Z][^"]*[Aa]rbitrage)/.test(l))
       .filter((l) => !/arbitrage-trade-card|surface:|__arbitrage|buildArbitrageRows/.test(l));
     expect(visible).toEqual([]);
+  });
+
+  // Owner directive 2026-11-07 Part 5: a board-vs-market gap is disagreement,
+  // not proof the market is wrong — no copy may assert mispricing or a
+  // "hidden surplus" without validated convergence evidence.
+  it("never asserts the market is wrong or that the gap is surplus", () => {
+    for (const src of [page, nextActions]) {
+      expect(src).not.toMatch(/markets? undervalue/);
+      expect(src).not.toMatch(/Hidden surplus/);
+    }
+    expect(page).toContain('"Board − market"');
+    expect(page).toContain("A disagreement is not proof the market is wrong.");
+    expect(nextActions).toContain("Same-position upgrades your league's markets price below our board.");
   });
 });

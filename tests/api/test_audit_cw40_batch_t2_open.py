@@ -5,8 +5,8 @@ noticed) and, where the intended behaviour is already settled, a ``strict=True``
 and flips the day the defect is repaired.  Items whose intended behaviour needs a product choice get
 the characterization only; the exact question is in ``CW40_P1_BATCH_t2.md``.
 
-* W12-F005  signal-alert cooldown / prior-signal are keyed on the rule TAG (OPEN; repair belongs to
-            ``src/api/signal_alerts.py``, which PR #2105 is editing);
+* W12-F005  signal-alert cooldown / prior-signal were keyed on the rule TAG — REPAIRED by PR #2123
+            (cooldown keyed on the player); the former xfails below are now passing tests;
 * W20-F010  ``/api/gameplan`` rollups: market / consensus / leagueAdjusted publish a measured 0.0
             (PARTIAL: pickValue is now an explicit unavailable state; repair belongs to
             ``src/api/gameplan.py``, which PR #2109 is editing);
@@ -66,35 +66,31 @@ def _flip(kv_path):
     return first, second
 
 
-def test_w12_f005_characterization_a_flip_with_a_new_tag_fires_twice_with_no_prior(kv_path):
-    """CURRENT behaviour: state rows are keyed ``sid:<id>::<tag>``, so the second rule is a brand
-    new row (no ``notifiedAt``, no prior signal) and the 12-hour cooldown never engages."""
+def test_w12_f005_a_flip_within_the_cooldown_is_held(kv_path):
+    """REPAIRED (PR #2123): the cooldown is keyed on the player, so a BUY -> SELL flip under a new
+    firing rule zero seconds later is held instead of firing as a brand-new signal."""
     first, second = _flip(kv_path)
     assert len(first) == 1 and first[0]["signal"] == "BUY"
-    assert len(second) == 1 and second[0]["signal"] == "SELL"
-    assert second[0]["priorSignal"] is None  # the digest renders this as "-- -> SELL"
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W12-F005 open: a flip is presented as a brand-new signal; priorSignal should be the "
-    "player's previous alerted signal (BUY), not None",
-)
-def test_w12_f005_a_flip_reports_the_players_previous_signal(kv_path):
-    _first, second = _flip(kv_path)
-    assert second and second[0]["priorSignal"] == "BUY"
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W12-F005 open: the 12h cooldown is keyed on the rule tag, so it never engages when the "
-    "reason changes (the case it exists for); key it on the player",
-)
-def test_w12_f005_cooldown_engages_when_the_same_player_flips_rule_immediately(kv_path):
-    _first, second = _flip(kv_path)
     assert second == []
+
+
+def test_w12_f005_a_flip_after_the_cooldown_reports_the_players_previous_signal(
+    kv_path, monkeypatch
+):
+    """REPAIRED (PR #2123): once the 12h cooldown has passed, the flip alerts and its priorSignal
+    is the player's last alerted signal (BUY), not None."""
+    from src.api import signal_alerts
+
+    signal_alerts.detect_signal_transitions(
+        "alice", [_sig("Josh Allen", "uptrend_controlled", "BUY", "4017")], path=kv_path
+    )
+    now = signal_alerts._utc_now_ms()
+    monkeypatch.setattr(signal_alerts, "_utc_now_ms", lambda: now + 13 * 3600 * 1000)
+    second = signal_alerts.detect_signal_transitions(
+        "alice", [_sig("Josh Allen", "sustained_downtrend", "SELL", "4017")], path=kv_path
+    )
+    assert len(second) == 1 and second[0]["signal"] == "SELL"
+    assert second[0]["priorSignal"] == "BUY"
 
 
 # ---------------------------------------------------------------------------
@@ -112,17 +108,18 @@ def _pool():
     ]
 
 
-def test_w20_f010_characterization_unfed_value_rollups_publish_a_measured_zero():
-    """CURRENT: with no ``player_values`` the engine still emits ``market``/``consensus``/
-    ``leagueAdjusted`` as 0.0 beside a positive pricedPlayers count (pickValue was repaired to an
-    explicit ``unavailable`` state; these three were not)."""
+def test_w20_f010_unfed_value_rollups_publish_explicit_unavailable_not_zero():
+    """Repaired: with no ``player_values`` the engine publishes ``market`` / ``consensus`` as
+    null + unavailable and ``leagueAdjusted`` as withdrawn, beside a positive pricedPlayers."""
     from src.roster_intel.engine import analyze_roster
 
     intel = analyze_roster("o1", _pool(), ["QB", "RB", "WR"])
     values = intel.values.to_dict()
     assert values["pricedPlayers"] == 3
-    assert values["market"] == 0.0 and values["consensus"] == 0.0
-    assert values["leagueAdjusted"] == 0.0
+    assert values["market"] is None and values["marketState"] == "unavailable"
+    assert values["consensus"] is None and values["consensusState"] == "unavailable"
+    assert values["leagueAdjusted"] is None
+    assert values["leagueAdjustedUnavailableReason"] == "league_adjusted_withdrawn"
     assert values["pickValue"] is None and values["pickValueState"] == "unavailable"
 
 
@@ -138,17 +135,6 @@ def _analyze_roster_call_keywords() -> set[str]:
     raise AssertionError("analyze_roster call not found in gameplan.py")
 
 
-def test_w20_f010_characterization_gameplan_does_not_feed_player_values():
-    assert "player_values" not in _analyze_roster_call_keywords()
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W20-F010 open: build_league_bundle must pass player_values (the site-value map it "
-    "already builds) to analyze_roster, or the engine must publish market/consensus/"
-    "leagueAdjusted as unavailable instead of 0.0",
-)
 def test_w20_f010_gameplan_feeds_the_value_rollups():
     assert "player_values" in _analyze_roster_call_keywords()
 

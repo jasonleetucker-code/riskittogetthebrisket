@@ -198,6 +198,19 @@ describe("the recommendation", () => {
     expect(badges.length).toBeGreaterThan(0);
   });
 
+  // Owner directive 2026-11-07 Part 5: the bootstrap share is sensitivity
+  // over source disagreement and an assumed price range, not a calibrated
+  // probability — it must never be labelled "Confidence".
+  it("labels the scenario share as sensitivity, never as confidence", async () => {
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    await screen.findByRole("table");
+    expect(screen.getByText("Stays best in")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/of simulated scenarios — sensitivity, not a calibrated probability/).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("Confidence")).not.toBeInTheDocument();
+  });
+
   it("explains the model in plain language", async () => {
     render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
     await screen.findByRole("table");

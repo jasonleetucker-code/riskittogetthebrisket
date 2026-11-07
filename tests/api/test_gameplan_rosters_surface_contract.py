@@ -96,13 +96,14 @@ def test_surfaced_opportunity_fields_exist(league, monkeypatch):  # noqa: F811
         assert {"playerId", "name", "position", "recommended", "reason"} <= set(t)
 
 
-def test_withheld_values_block_is_still_the_audited_fake_zero_shape(league, monkeypatch):  # noqa: F811
-    """Documents WHY the UI withholds ``roster.values``: the market / consensus /
-    leagueAdjusted lanes are not measured by this endpoint.  If this starts failing the
-    lanes were repaired -- revisit the withhold decision, do not just delete the test."""
+def test_withheld_values_block_publishes_explicit_unavailable(league, monkeypatch):  # noqa: F811
+    """W20-F010 repaired: the lanes the UI withholds are explicit unavailable, never 0.0.
+    The UI keeps withholding them until they carry real values."""
     values = _payload(monkeypatch)["roster"]["values"]
-    assert values["market"] == 0.0 and values["consensus"] == 0.0
-    assert values["leagueAdjusted"] == 0.0
+    assert values["market"] is None and values["marketState"] == "unavailable"
+    assert values["consensus"] is None and values["consensusState"] == "unavailable"
+    assert values["leagueAdjusted"] is None
+    assert values["leagueAdjustedUnavailableReason"] == "league_adjusted_withdrawn"
     assert values["pickValue"] is None and values["pickValueState"] == "unavailable"
 
 

@@ -65,7 +65,7 @@ function plan(overrides = {}) {
         reason: "within_uncertainty",
       },
     },
-    solver: { status: "optimal", provenOptimal: true },
+    solver: { status: "optimal", provenOptimal: true, freeAgentsConsidered: 245 },
     budget: { state: "known", balance: 60 },
     constraints: { resolutionFailed: false, protectedOnRoster: [{ name: "Fav WR" }] },
     unpriced: { rosterPlayers: [{ name: "Ghost" }], freeAgents: 3, freeAgentSample: [] },
@@ -115,7 +115,10 @@ describe("PerfectWaiversPanel — the plan", () => {
     expect(screen.getByText("Open roster spot")).toBeInTheDocument();
     expect(screen.getByText("+1,700")).toBeInTheDocument();
     expect(screen.getByText("$12")).toBeInTheDocument();
-    expect(screen.getByText("Proven optimal")).toBeInTheDocument();
+    // Part 5 (owner directive 2026-11-07): the proof is scoped to the free
+    // agents the solver considered — never a bare global "Proven optimal".
+    expect(screen.getByText("Proven optimal over the 245 free agents considered")).toBeInTheDocument();
+    expect(screen.queryByText("Proven optimal")).not.toBeInTheDocument();
     expect(screen.getByTestId("perfect-waivers-summary")).toHaveTextContent("$12 of $60 FAAB");
   });
 
@@ -169,7 +172,7 @@ describe("PerfectWaiversPanel — the plan", () => {
     mockFetch(200, plan({ solver: { status: "node_limit", provenOptimal: false } }));
     render(<PerfectWaiversPanel leagueKey="main" ownerId="me" />);
     expect(await screen.findByText("Best plan found, not proven optimal")).toBeInTheDocument();
-    expect(screen.queryByText("Proven optimal")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Proven optimal/)).not.toBeInTheDocument();
   });
 
   it("an empty plan says no move clears the bar", async () => {
