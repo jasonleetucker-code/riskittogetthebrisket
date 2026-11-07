@@ -55,7 +55,9 @@ EVIDENCE = json.loads(
     )
 )
 FIX = json.loads(
-    (REPO / "docs/valuation/idp_accuracy/evidence/scorer_fix_measure.json").read_text()
+    (REPO / "docs/valuation/idp_accuracy/evidence/scorer_fix_measure.json").read_text(
+        encoding="utf-8"
+    )
 )
 CARD: dict[str, float] = MANIFEST["scoringCard"]["nonZeroRules"]
 SLOTS: list[str] = MANIFEST["rosterFormat"]["starterSlots"]

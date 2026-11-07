@@ -132,7 +132,9 @@ def main() -> int:
         and int(r["week"]) in WEEKS
     ]
     rows_sha = sha256_bytes(json.dumps(rows, sort_keys=True, default=str).encode())
-    pinned = json.loads(BASE_EVIDENCE.read_text())["nflverse"]["nflverseRowsCanonicalSha256"]
+    pinned = json.loads(BASE_EVIDENCE.read_text(encoding="utf-8"))["nflverse"][
+        "nflverseRowsCanonicalSha256"
+    ]
     pbp = pbp_weekly.default_pbp_stats(SEASON, out_dir=PBP_DIR)
 
     # ── join every Sleeper stat line to its nflverse row ─────────────────────
@@ -210,7 +212,7 @@ def main() -> int:
     # ── 0. the Lane A reconciliation itself, re-run ──────────────────────────
     host_res = sr.reconcile_host(f, card, pdb)
     recs = host_res.pop("records")
-    committed = json.loads(BASE_EVIDENCE.read_text())["nflverse"]
+    committed = json.loads(BASE_EVIDENCE.read_text(encoding="utf-8"))["nflverse"]
 
     def rostered(n: dict, *, with_exceptions: bool = False) -> dict:
         blk = {
