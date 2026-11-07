@@ -559,6 +559,14 @@ Final canonical individual player and draft-pick values are a **1–9999 product
 
 Two mandatory TE starters and unusual scoring require evidence, not a blanket 1.15 multiplier. Audit actual scoring, flex demand, replacement scarcity, TE production, every source's basis, KTC TEP++ behavior, and player/rank-dependent uplift where data exists. Native TEP/TE++ inputs must not receive duplicate premium adjustments.
 
+### Future format-adaptive dynasty value and market edge (2026-11-07)
+
+**Long-term owner direction, not a live formula change:** preserve native 1QB/Superflex and TEP/no-TEP source opinions rather than collapsing or throwing away variants. Evaluate three frozen alternatives: (A) today's native-format champion, (B) a common 1QB/no-TEP-only source consensus followed by league-specific translation, and (C) a hybrid that learns provider-specific, player/tier/position format responses from paired native dynasty boards and combines this with separately validated league structure/utility. Standardized input formats do not by themselves prove better accuracy.
+
+The eventual product should distinguish **market consensus**, **league-specific dynasty fair value**, and **model-vs-market disagreement/edge**, with provenance and confidence. Actual scoring, Superflex/QB demand, 1-vs-2-TE requirements, reception bonuses, FLEX use, team count/depth, IDP, replacement levels and dynasty time horizon determine the research target. Roster-specific fit remains separate from league-wide asset pricing. No blanket position multiplier, reconstructed provider opinion, redundant family vote or double-counted already-priced premium may substitute for paired evidence.
+
+The capability is tracked as **`C1-SRC-03` / `C1-U10`**, building on the completed `C1-SRC-01/02` source archive and the current BDVM/lineup/scoring infrastructure. Detailed staged contract and A/B/C acceptance gates: `docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md` §21. Status: **LATER / dependency-blocked / evaluation only**. No canonically served value, weight, Hill curve, model-selection flag, trade price, public output or source vote changes without preregistered out-of-sample validation, independent review and explicit production authorization.
+
 ### Realized scoring
 
 One exact-scoring owner. Every nonzero league scoring rule must be either supported/mapped or explicitly reported as uncovered. Missing scoring categories must not silently become zero. Player special teams (`kr_yd`, `pr_yd`, supported `st_*`) belong to the individual player where the host rules do; distinguish them from DST `def_*` scoring.

@@ -1,5 +1,14 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Deferred valuation research — owner inclusion, 2026-11-07 (C1-SRC-03 / C1-U10)
+
+**OWNER DIRECTIVE: CAPTURE AND SCHEDULE WHEN READY, NOT IMPLEMENT NOW.** Source: `docs/OWNER_REQUESTED_TODO.md` 2026-11-07 format-adaptive dynasty valuation entry; detailed implementation and verification contract `docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md` §21. It extends C1-U9's completed dynasty variant archive without changing its status or any active implementation order.
+
+- **Position:** `LATER / DEPENDENCY-BLOCKED`, behind ongoing 2026-11-07 remediation, scoring/IDP correctness, validated league config, on-box source-format capture proof and usable as-of evaluation samples. A future planning checkpoint may authorize an isolated, non-voting FAV-0…FAV-5 shadow research lane; readiness must be established from current evidence, not just code existence.
+- **Required study:** Run frozen, point-in-time A/B/C comparisons: A current native SF/TEP champion; B all verified-dynasty 1QB/no-TEP-only inputs followed by source/league translation; C multi-native-format source-specific curve and independent roster/scoring/replacement-utility hybrid. Preserve native evidence, family independence and explicit unknowns; distinguish market price, league-wide fair value, and roster-specific impact. Include simple multiplier and no-adjustment baselines.
+- **Required gates:** preregister outcomes/splits; test held-out source format reproduction separately from actual dynasty-horizon and independent format-matched trade/decision skill; independent scoring/math oracle; by-format/position/tier/IDP error, confidence and calibration; lineage, no double-count, no hindsight, symmetric roster-neutral headline values, performance/operability, exact-head regression and full movement/rollback receipts.
+- **Reservation:** No current permission to change the champion, canonical value scale, source weights/votes, Hill curves, TE basis, package math, deployment, periodic scrape schedules, source entitlements or front-end decision surfaces. Later implementation authorization must be explicitly entered in **this** execution plan. Any consequential production promotion remains a separate owner approval with independent evidence and rollback, regardless of relative A/B/C scores.
+
 ## Session resumption directive — owner, 2026-11-07
 
 **AUTHORIZED NOW, inside the same remediation program and inventory (no second roadmap).** Record:
