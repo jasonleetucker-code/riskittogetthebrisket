@@ -616,3 +616,7 @@ history could otherwise suggest:
 
 Do not begin implementation from this pointer alone — `docs/EXECUTION_PLAN.md`
 is the only record that can authorize it, and it has not been amended.
+
+## Single recommender on /draft (owner decision 2026-11-07, W10-F003)
+
+The legacy per-player "Next Best Targets" list (`nextBestTargets`) is retired. Perfect Draft is the only recommendation experience on /draft. With flag `perfect_draft` off, /draft shows a short "recommendations are switched off" notice rather than silence. Tag (target/avoid) weighting and the tier-scarcity boost belonged to the retired list and were not migrated: they were unvalidated constants and Perfect Draft deliberately takes no per-player tag weights. Tags remain on the rookie board and the nomination / best-value lists.

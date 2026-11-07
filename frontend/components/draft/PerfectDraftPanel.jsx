@@ -8,10 +8,12 @@
  * ladder); this file formats and arranges, it does not compute.
  *
  * Failure posture: this is an add-on surface bolted onto someone else's page,
- * so it VANISHES on any non-ok response rather than rendering an error —
- * matching `BdvmTradePanel`.  The flag being off, the roster snapshot being
- * absent, or the user viewing a league whose rosters are not loaded are all
- * configuration states, not failures worth shouting about mid-draft.
+ * so it VANISHES on a non-ok response rather than rendering an error —
+ * matching `BdvmTradePanel`.  The roster snapshot being absent, or the user
+ * viewing a league whose rosters are not loaded, are configuration states, not
+ * failures worth shouting about mid-draft.  The one exception is the flag
+ * being off: this is the only recommender on /draft, so it shows a short
+ * muted notice instead of silence (W10-F003).
  */
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
@@ -275,7 +277,23 @@ export function PerfectDraftPanel({ stats, workspace }) {
     [context, stats, strategy],
   );
 
-  // Silent vanish — never a generic error on an add-on panel.
+  // Flag off: say so. /draft has no other recommender (the legacy per-player
+  // list was retired, W10-F003), so a silent vanish would read as "nothing to
+  // recommend". Every other non-ok state still vanishes — never a generic error
+  // on an add-on panel. The env-var name is deliberately not shown.
+  if (failure?.kind === "disabled") {
+    return (
+      <p
+        className="muted"
+        data-testid="perfect-draft-disabled"
+        style={{ margin: "var(--space-2) 0", fontSize: "var(--font-size-2xs)" }}
+      >
+        Draft recommendations are switched off for this site, so no rookie
+        recommendations are shown. The rookie board, bid ceilings and
+        nomination lists still work.
+      </p>
+    );
+  }
   if (failure || (!loading && !context)) return null;
   if (!result) return null;
 

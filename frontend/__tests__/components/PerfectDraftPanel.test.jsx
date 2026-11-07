@@ -223,12 +223,14 @@ describe("the recommendation", () => {
 });
 
 describe("it vanishes rather than erroring", () => {
-  it("renders nothing when the feature flag is off", async () => {
+  it("shows a short notice (not silence) when the feature flag is off", async () => {
     fetch.mockResolvedValue(
       jsonResponse(503, { error: "feature_disabled", flag: "perfect_draft" }),
     );
-    const { container } = render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
+    const note = await screen.findByTestId("perfect-draft-disabled");
+    expect(note.textContent).toMatch(/switched off/);
+    expect(note.textContent).not.toMatch(/no viable|nothing worth/i);
   });
 
   it("renders nothing when the league's rosters are not loaded", async () => {
@@ -248,7 +250,7 @@ describe("it vanishes rather than erroring", () => {
       jsonResponse(503, { error: "feature_disabled", flag: "perfect_draft" }),
     );
     const { container } = render(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} />);
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    await screen.findByTestId("perfect-draft-disabled");
     expect(container.textContent).not.toMatch(/RISKIT_FEATURE/);
   });
 });

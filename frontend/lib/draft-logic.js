@@ -100,7 +100,9 @@ export function tierForPreDraft(preDraft) {
 }
 
 // ── Player tags (TARGET / AVOID / neutral) ──────────────────────────────
-// Tags drive the recommendation engine.  A player defaults to neutral
+// Tags steer the nomination list, best-value list, board filter and the
+// per-player recommendation chip (Perfect Draft does not read them).  A
+// player defaults to neutral
 // (no entry in ``workspace.tags``); the UI cycles TARGET → AVOID →
 // neutral via clickable chips.  Stored in a separate map keyed by
 // player id so it survives player renames + is trivially JSON-
@@ -1960,61 +1962,6 @@ export function playerRecommendation(enrichedPlayer, stats) {
     label: "Neutral",
     rationale: null,
   };
-}
-
-/**
- * Rank undrafted players by expected value and return the top N.
- *
- * EV model (per player p):
- *
- *   surplus(p) = max(0, inflatedFair − myWinningBid)
- *   tagWeight(p) = 1.5 (target)  1.0 (neutral)  0 (avoid)
- *   ev(p) = surplus × tagWeight + tierScarcityBoost(p, stats)
- *
- * Where ``tierScarcityBoost`` adds a small bump when the player
- * sits in a drying-up tier, nudging those to the front.  Avoid-
- * tagged players are forced to 0 so they never surface as
- * recommendations.  Ties are broken by tier (S > A > B > C > D)
- * then by ``preDraft`` descending.
- *
- * Returns an array of ``{ player, ev, rec }`` objects, sorted
- * descending by ev, capped at ``limit`` entries (default 5).
- */
-export function nextBestTargets(stats, { limit = 5 } = {}) {
-  if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
-  const tierOrder = { S: 5, A: 4, B: 3, C: 2, D: 1 };
-  const candidates = [];
-  for (const p of stats.enrichedPlayers) {
-    if (p.drafted) continue;
-    if (p.userTag === TAG_AVOID) continue;
-
-    const surplus = Math.max(0, p.inflatedFair - p.myWinningBid);
-    const tagWeight = p.userTag === TAG_TARGET ? 1.5 : 1.0;
-    const tierInfo = stats.tierStats?.[p.tier];
-    const scarcityBoost =
-      tierInfo && tierInfo.remainingRatio < TIER_SCARCITY_URGENT
-        ? Math.max(0, 10 * (TIER_SCARCITY_URGENT - tierInfo.remainingRatio))
-        : 0;
-
-    const ev = surplus * tagWeight + scarcityBoost;
-    if (ev <= 0 && p.userTag !== TAG_TARGET) continue;
-
-    candidates.push({
-      player: p,
-      ev,
-      rec: playerRecommendation(p, stats),
-    });
-  }
-
-  candidates.sort((a, b) => {
-    if (b.ev !== a.ev) return b.ev - a.ev;
-    const at = tierOrder[a.player.tier] || 0;
-    const bt = tierOrder[b.player.tier] || 0;
-    if (bt !== at) return bt - at;
-    return b.player.preDraft - a.player.preDraft;
-  });
-
-  return candidates.slice(0, limit);
 }
 
 // ── Nomination optimizer ───────────────────────────────────────────────
