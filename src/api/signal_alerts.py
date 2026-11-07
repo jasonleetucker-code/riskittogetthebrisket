@@ -66,6 +66,14 @@ _MIN_NOTIFY_INTERVAL_HOURS: float = 12.0
 _PLAYER_STATE_PREFIX = "player:"
 
 
+def _notified_at_ms(row: dict[str, Any]) -> int | None:
+    """The row's ``notifiedAt`` in ms, or ``None`` when it was never recorded."""
+    raw = row.get("notifiedAt")
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None
+    return int(raw)
+
+
 def _player_state_key(entry: dict[str, Any]) -> str:
     """The per-player cooldown row key (Sleeper id, else normalized name)."""
     sid = str(entry.get("sleeperId") or "").strip()
@@ -175,8 +183,11 @@ def _next_alert_state(
         # also held back.
         player_key = _player_state_key(entry)
         player_prev = new_state.get(player_key) or {} if player_key else {}
-        player_notified_at = int(player_prev.get("notifiedAt") or 0)
-        last_notified_at = max(prev_notified_at, player_notified_at)
+        # A missing player timestamp means "never alerted", not epoch 0.
+        player_notified_at = _notified_at_ms(player_prev)
+        last_notified_at = prev_notified_at
+        if player_notified_at is not None and player_notified_at > last_notified_at:
+            last_notified_at = player_notified_at
         # Skip when we notified too recently.
         if last_notified_at and now - last_notified_at < min_interval_ms:
             new_state[state_key] = {
