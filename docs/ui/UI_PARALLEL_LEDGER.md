@@ -144,3 +144,7 @@ keyboard stop (the row paints the focus ring); `aria-expanded` on the `<tr>` its
 green). Deferred: TC-E hover tint below 4.5:1 on `/trade` (release train 12 owns `/trade`; CQ-34).
 Evidence: local seeded stack, a11y-axe + psi-rankings-player-a11y + ssr-duplication +
 mobile-touch-targets 94/94 on desktop-1366 + mobile-chromium; production NV.
+
+## Sports Network isolated reference study — 2026-11-07
+
+Existing Lane 6 exploratory study, owner-approved implementation plan in chat; owner direction is also proposed in open PR #2112. Review package: `prototypes/sports-network/README.md`; visual critique: `prototypes/sports-network/REVIEW.md`. Three standalone local screens (Rankings, Player File, News Desk); fixtures only. Status: LOCAL PROTOTYPE / OWNER DESIGN REVIEW PENDING. No production tokens, routes, backend calculations, auth or flags changed. This does not promote any product completion row or authorize deployment. Historic overlap branches checked 2026-11-07: no open PR for roster-construction-ui / streaming-activate / w5-streaming-ui; this append does not alter their ledger rows. Preserve #2112 charter ownership; carry this review pointer into that charter at Integration rather than importing its unmerged documentation here.

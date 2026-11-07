@@ -15,6 +15,10 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-07 — Sports Network prototype execution and owner review
+
+Owner approved the Sports Network reference-experience plan and requested implementation: three isolated, functional Rankings / Player File / NFL News Desk screens; realistic synthetic fixtures, 1440/768/390 evidence, critique and refinement, functional/accessibility/correctness tests. Primary Sports Network, subordinate Sunday Paper; no Personnel Exchange revival. Review package: `prototypes/sports-network/README.md` and `REVIEW.md` on `codex/sports-network-prototypes`. Existing owner charter is in **open, unmerged PR #2112**; this compact intake pointer preserves the new implementation instruction without importing that branch or creating another roadmap. Owner visual approval and separate production execution authority remain required before any live redesign, token replacement, migration, or deployment. Status: **LOCAL PROTOTYPE; OWNER REVIEW PENDING**. Existing Lane 6, no new completion denominator.
+
 ## Added 2026-11-06 — Sitewide audit remediation, implementation and delivery directive
 
 Owner directive 2026-11-06 (chat, "MASTER SITEWIDE AUDIT REMEDIATION, IMPLEMENTATION & DELIVERY DIRECTIVE"). Structured
