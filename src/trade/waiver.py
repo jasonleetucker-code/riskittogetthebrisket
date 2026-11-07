@@ -336,8 +336,20 @@ def find_waiver_targets(
     roster_size: int | None = 0,
     market_priors: Any = None,
     today: Any = None,
+    withhold_bids_when_balance_unknown: bool = False,
 ) -> dict[str, Any]:
     """Return waiver-wire suggestions grouped by position.
+
+    ``faabBudget`` on the result states whether the requesting team's FAAB
+    balance is KNOWN (request balance, else the roster row's
+    ``faabRemaining``) or UNKNOWN.  An unknown balance used to fall back to
+    ``cap = league budget`` and publish bids as if they were capped to a
+    known $100 (MISSING IS NEVER ZERO).  With
+    ``withhold_bids_when_balance_unknown`` the three balance-capped bids and
+    ``maxRational`` are published as ``null`` instead; the objective ceiling
+    and the market clearing band do not depend on our balance and stay.  Left
+    False for callers that carry their own explicit balance state
+    (``/api/waiver/perfect``, the advisor) so their plans are unchanged.
 
     Season phase (IST-7, owner directive 2026-10-29): the engine's
     ``LeagueContext`` carries the CURRENT NFL week and in-season state from
@@ -397,6 +409,12 @@ def find_waiver_targets(
         }
 
     rostered = rostered_name_set(sleeper_teams)
+    # Ownership is decided by playerId first (the roster's ``playerIds``),
+    # name as the fallback — the same "who is rostered" owner
+    # ``/api/waiver/perfect`` uses, never a second definition.
+    from src.draft.context import league_rostered_keys  # noqa: PLC0415
+
+    rostered_keys = league_rostered_keys({"sleeper": {"teams": sleeper_teams or []}})
 
     rookies_eligible = _rookies_eligible_today()
     positions = waiver_positions(include_kicker_def)
@@ -412,6 +430,9 @@ def find_waiver_targets(
 
         name = str(row.get("displayName") or row.get("canonicalName") or "")
         if not name or _normalize_name(name) in rostered:
+            continue
+        row_pid = _normalize_name(row.get("playerId"))
+        if row_pid and row_pid in rostered_keys:
             continue
 
         if (
@@ -491,12 +512,17 @@ def find_waiver_targets(
                 break
 
     bid_methodology = "ceiling_only_estimate"
-    cap = user_faab_remaining if user_faab_remaining is not None else budget
-    if own_team_row is not None:
+    known_balance: int | None = user_faab_remaining
+    if own_team_row is not None and known_balance is None:
         remaining = own_team_row.get("faabRemaining")
-        if user_faab_remaining is None and isinstance(remaining, int):
-            cap = remaining
-    cap = max(0, int(cap))
+        if isinstance(remaining, int) and not isinstance(remaining, bool):
+            known_balance = remaining
+    balance_known = known_balance is not None
+    # An unknown balance still needs a number for the engine's team layer
+    # (objective/clearing do not depend on it); it is the league budget and is
+    # NEVER published as a balance — see ``faabBudget`` / withholding below.
+    cap = max(0, int(known_balance if known_balance is not None else budget))
+    withhold = withhold_bids_when_balance_unknown and not balance_known
 
     if own_team_row is not None:
         bid_methodology = "market_aware"
@@ -577,7 +603,7 @@ def find_waiver_targets(
                     c.clearing_low = int(bids["clearingLow"])
                 if isinstance(bids.get("clearingHigh"), (int, float)):
                     c.clearing_high = int(bids["clearingHigh"])
-                c.max_rational = int(bids["maxRational"])
+                c.max_rational = None if withhold else int(bids["maxRational"])
                 c.objective_dollars = int(rec["objective"]["dollars"])
                 c.confidence = rec.get("confidence")
     else:
@@ -593,6 +619,12 @@ def find_waiver_targets(
                 c.bid_aggressive = min(agg, cap)
                 c.bid_reasonable = min(reas, cap)
                 c.bid_lowball = min(low, cap)
+
+    if withhold:
+        for cs in candidates_by_position.values():
+            for c in cs:
+                c.bid_aggressive = c.bid_reasonable = c.bid_lowball = None
+                c.max_rational = None
 
     out_by_position: dict[str, list[dict[str, Any]]] = {}
     total = 0
@@ -633,4 +665,11 @@ def find_waiver_targets(
         "rookies_excluded": not rookies_eligible,
         "bidMethodology": bid_methodology,
         "seasonPhase": season_phase,
+        "faabBudget": {
+            "state": "known" if balance_known else "unknown",
+            "balance": known_balance,
+            "originalBudget": budget,
+            "bidsWithheld": bool(withhold),
+            "reason": "faab_balance_unknown" if withhold else None,
+        },
     }
