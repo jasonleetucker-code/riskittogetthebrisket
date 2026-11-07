@@ -78,7 +78,14 @@ jobs:
     # skipping every later blocking step; its release check passed with
     # ~4 min to spare. Same rationale as each step above: runner headroom
     # only; no test, gate or tolerance weakened; a finite hang bound remains.
-    timeout-minutes: 120
+    # 120 -> 180 (2026-11-06): the hard suite now takes ~105-110 min. Full
+    # Validate PR jobs that day: #2091 112 min, #2093 112 min, #2095 109 min
+    # (all green), and #2100's run was still in unit tests at 114 min with
+    # the frontend steps not yet started. Same rationale as each step above:
+    # runner headroom only; no test, gate or tolerance weakened; a finite
+    # hang bound remains. The durable fix is a faster suite (CW-41), not
+    # another raise.
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v7

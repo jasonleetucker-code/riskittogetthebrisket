@@ -52,7 +52,10 @@ jobs:
     # 80 -> 120 (2026-10-19), matching PR Validation and Deploy: the suite
     # now takes ~77 min (PR Validation run 39212246131 was cancelled at the
     # 80-minute wall after its unit tests passed). Runner headroom only.
-    timeout-minutes: 120
+    # 120 -> 180 (2026-11-06), matching PR Validation and Deploy: the suite
+    # now takes ~105-110 min (PR Validation jobs of 109-112 min that day).
+    # Runner headroom only.
+    timeout-minutes: 180
     steps:
       - name: Checkout (full history — the check diffs base against head)
         uses: actions/checkout@v7
