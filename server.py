@@ -21361,6 +21361,9 @@ async def run_signal_alerts(request: Request):
                             email=email,
                             delivery=_deliver_email_smtp,
                             league_key=cfg.key,
+                            # W12-F006: Terminal takes precedence for a player
+                            # its delivered email already covered.
+                            terminal_notified=result.get("notifiedPlayerSignals"),
                         )
                     except Exception as exc:  # noqa: BLE001
                         log.warning(
