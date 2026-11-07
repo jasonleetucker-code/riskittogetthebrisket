@@ -135,23 +135,6 @@ def _parse_int(text: str) -> int | None:
         return None
 
 
-def _xpath_lit(s: str) -> str:
-    """Encode a Python string as an XPath string literal safely.
-
-    XPath has no escape syntax for quotes — strings must use one or the
-    other.  ``Ja'Marr Chase`` (single quote) and ``"quoted"`` (double
-    quotes) both need handling.  When the string contains both kinds,
-    we splice it together with ``concat()``.
-    """
-    if "'" not in s:
-        return f"'{s}'"
-    if '"' not in s:
-        return f'"{s}"'
-    # Both kinds present: concat("foo", "'", "bar")
-    parts = s.split("'")
-    return "concat(" + ', "\'", '.join(f"'{p}'" for p in parts) + ")"
-
-
 async def _dump_debug_snapshot(page, tag: str) -> str:
     """Save a screenshot + page HTML for offline inspection.
 

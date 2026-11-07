@@ -142,3 +142,12 @@ Tests: `tests/api/test_audit_cw40_batch_t2_closed.py` (20 pass), `tests/api/test
 **Live path.** The v1 engine `src/public_league/power.py` was deleted by V1-52 (`f92a465edd`); `public_contract.py:156` and `:541` name `src/ros/power_v2.py` as the only engine and the overview card reads it; `LeagueClient.jsx:228` mounts one `RosPowerSection`. With one engine there is no 10-vs-12-team or rank-shift disagreement to produce.
 **Evidence.** AST scan: nothing in `src/` or `server.py` imports the legacy module; overview references `power_v2`; the client lazy-loads exactly one power section. Retirement guard: `tests/public_league/test_legacy_power_engine_retired.py`.
 **Residual, not part of this verdict.** The audit's second observation (preseason, seven of nine v2 components missing, so v2 is a renormalised ROS-strength ranking labelled "Power") is a methodology/labelling question. The Power tab prints per-component weights (`ros-power.jsx` `ComponentBar`) and an explicit "every weighted component is unavailable" state, so the effective weights are disclosed; whether the title should change in the preseason was not adjudicated.
+
+## Repaired in this PR (W07-F003 / W07-F004 / W25-F003 display half)
+
+`buildRows` no longer mints a `#` ordinal for a non-pick row the backend left both rank-less and
+unpriced (`rankDerivedValue` null): `rank` is `null` and `computedConsensusRank` is `null`, so
+`resolvedRank` reads it as unranked (Infinity) and `tierLabel` yields "Unranked". The rankings page's
+`positionRankByName` skips such rows. Priced off-cap rows keep their display ordinal; backend-stamped
+ranks are untouched. The `it.fails` pins in `audit-cw40-batch-t2-open.test.js` and
+`audit-w25-f003-regression.test.js` are now passing tests.

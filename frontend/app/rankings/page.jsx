@@ -846,6 +846,9 @@ export default function RankingsPage() {
       (a, b) => (a?.rank ?? Infinity) - (b?.rank ?? Infinity),
     );
     for (const row of sorted) {
+      // Unpriced rows (no backend rank and no value) get no positional
+      // rank -- there is no board position to be Nth at (W07-F004).
+      if (row?.rank == null && !Number.isFinite(Number(row?.rankDerivedValue ?? NaN))) continue;
       const pos = String(row?.pos || "").toUpperCase();
       if (!pos || !row?.name) continue;
       const next = (counts.get(pos) || 0) + 1;

@@ -64,7 +64,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import Any, Callable, Iterable, Iterator, Protocol, Sequence
+from typing import Any, Callable, Iterable, Iterator, Sequence
 
 __all__ = [
     "ConstraintMisapplied",
@@ -89,11 +89,6 @@ __all__ = [
 
 
 # ── The normalized asset view ────────────────────────────────────────
-
-
-class _HasTradeFields(Protocol):
-    name: str
-    position: str
 
 
 @dataclass(frozen=True)

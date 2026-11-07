@@ -1,5 +1,21 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Complete sitewide feature verification directive — owner, 2026-11-07 (third directive of the day)
+
+**AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:
+`docs/owner/SITEWIDE_FEATURE_VERIFICATION_DIRECTIVE_2026-11-07.md`; intake MD-65 … MD-73. Work runs through CW-48
+(census and the one verification record), CW-49 (independent oracles), CW-50 (regression and end-to-end workflows),
+CW-51 (bounded stress), CW-52 (evidence-classified dead code), CW-53 (permanent PR verification evidence in CI).
+
+- **Authorized to implement:** feature-group verification against the latest authorized intended behavior with
+  independently computed expected results; reproducing tests and canonical repairs for confirmed defects; CI /
+  automation that checks material PRs for verification evidence; bounded isolated stress harnesses; proven-safe
+  dead-code removal in small reversible PRs.
+- **Not authorized by this directive:** consequential valuation, predictive, source-voting, probability or activation
+  changes without their own evidence and owner approval; model promotion outside the owner-controlled gates; changing
+  branch protection or required checks; unbounded production load; anything the sections below keep reserved.
+- Same order, worker limit (≤ 4), gates and prohibitions as the sections below.
+
 ## Session resumption directive — owner, 2026-11-07
 
 **AUTHORIZED NOW, inside the same remediation program and inventory (no second roadmap).** Record:

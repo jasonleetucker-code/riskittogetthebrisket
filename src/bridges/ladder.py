@@ -136,19 +136,6 @@ class BridgeLadder:
         }
 
 
-def _ladder_for(
-    assessment: BridgeAssessment,
-    rows: Sequence[Mapping[str, Any]],
-    *,
-    offense_positions: frozenset[str],
-    idp_positions: frozenset[str],
-) -> list[int]:
-    """This bridge's own ladder, over its own combined pool."""
-    return _ladders_for(
-        assessment, rows, offense_positions=offense_positions, idp_positions=idp_positions
-    )[0]
-
-
 def _ladders_for(
     assessment: BridgeAssessment,
     rows: Sequence[Mapping[str, Any]],
