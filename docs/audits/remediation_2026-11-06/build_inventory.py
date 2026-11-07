@@ -10,7 +10,7 @@ Inputs are the repository's own records (no network):
 * AMATH-S01..S63 — ``docs/research/amath/evidence/sitewide_opportunities_merged.json``
 * research/promotion readiness — ``docs/audits/RESEARCH_PROMOTION_READINESS_AUDIT_2026-10-25.json``
   (125 items + 39 findings)
-* owner intake MD-1..MD-55 — ``docs/OWNER_REQUESTED_TODO.md`` (MD-47..MD-55: the 2026-11-06
+* owner intake MD-1..MD-64 — ``docs/OWNER_REQUESTED_TODO.md`` (MD-47..MD-55: the 2026-11-06
   continuous-QA directive, work items CW-48..CW-53)
 * open issues / PRs — ``github_snapshot.json`` (GitHub API, captured 2026-11-06T12:45Z)
 * directive-enumerated findings — ``DIRECTIVE_FINDINGS`` below (the two 2026-11-06 audits
@@ -1000,6 +1000,12 @@ def _md_rows() -> list[dict]:
         **dict.fromkeys(["MD-51"], "CW-51"),
         **dict.fromkeys(["MD-52"], "CW-07"),
         **dict.fromkeys(["MD-53"], "CW-52"),
+        **dict.fromkeys(["MD-56", "MD-57", "MD-61", "MD-64"], "CW-40"),
+        **dict.fromkeys(["MD-58"], "CW-38"),
+        **dict.fromkeys(["MD-59"], "CW-36"),
+        **dict.fromkeys(["MD-60"], "CW-13"),
+        **dict.fromkeys(["MD-62"], "CW-49"),
+        **dict.fromkeys(["MD-63"], "CW-05"),
     }
     for line in text.splitlines():
         m = re.match(r"^\| (MD-\d+) \|(.*)\|\s*$", line)

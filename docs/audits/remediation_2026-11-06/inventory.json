@@ -7,7 +7,7 @@
   "AMATH": 63,
   "RPA-ITEM": 125,
   "RPA-FINDING": 39,
-  "INTAKE": 55,
+  "INTAKE": 64,
   "ISSUE": 68,
   "PR": 19
  },
@@ -65,7 +65,7 @@
    "state": "HUMAN_ACTION_REQUIRED",
    "evidence": "PR #2064 merged (bdc0cd5f); live backup_health still stateBackup unverifiable/permission_denied until the operator re-runs the installer",
    "next": "box operator: bash deploy/backup/install_state_backup.sh, then scripts/verify_state_backup_restore.py",
-   "sourceRowCount": 3
+   "sourceRowCount": 4
   },
   {
    "id": "CW-06",
@@ -153,7 +153,7 @@
    "state": "RESEARCH_ONLY",
    "evidence": "#1884, #1938, MD-5; AMATH-S36",
    "next": "one board-diff + holdout comparison; incumbent kept unless gates pass",
-   "sourceRowCount": 31
+   "sourceRowCount": 32
   },
   {
    "id": "CW-14",
@@ -406,7 +406,7 @@
    "state": "RESEARCH_ONLY",
    "evidence": "AMATH-S21, S34, S40, S42, S50, S56; #898, #1322; master-audit W12-F002 residual (TE SELL skew 0.742 vs target 0.137 in the top 250) routed here by PR #2082",
    "next": "independent validation target (S50) before any promotion; measure the TE++ uplift's role in the TE SELL skew",
-   "sourceRowCount": 10
+   "sourceRowCount": 11
   },
   {
    "id": "CW-37",
@@ -428,7 +428,7 @@
    "state": "MERGED",
    "evidence": "PR #2074 merged (5dea846f): MaxBid capped by remaining budget; audit C01 closed",
    "next": "board-level class-retirement gate (#1414)",
-   "sourceRowCount": 14
+   "sourceRowCount": 15
   },
   {
    "id": "CW-39",
@@ -450,7 +450,7 @@
    "state": "IMPLEMENTING",
    "evidence": "PR #2082 merged (57611231): 7 unresolved P0 master-audit findings adjudicated on current main -- CLOSED_VERIFIED W03-F001, W07-F001, W08-F001, W10-F002; PARTIAL W12-F002 (-> CW-36), W17-F001 (-> CW-17), W17-F002 (-> CW-33); offline regression tests, adversarial review APPROVE. Recount-open P1s: W20-F005 FIXED (#2094 merged); W06-F001 PARTIAL -> fix #2096 (must-have guarantee reuses the unique identified verified-rookie variant; 1105 -> 1103 rows, 0 value/rank/tier/confidence changes; first review REQUEST_CHANGES (veteran absorption), verified-rookie gate added, delta review APPROVE); W10-F003 PARTIAL and W27-F001 OPEN: honest disclosure merged (#2097: offense-only edge label, explained empty Next Best Targets), methodology repair gated; W13-F003 OPEN and W30-F002 PARTIAL: adjudicated in #2095 (strict-xfail regression tests, review APPROVE). Merged: #2095 (1b046250), #2096 (de95ad22; deployed: production build 405bc35a contains it, but the served rows are not verifiable without a signed-in session). 12 unadjudicated P1s: #2100 merged (29c645ff) -- CLOSED_VERIFIED W10-F001, W11-F006, W15-F009, W19-F004, W20-F007; PARTIAL W12-F003, W20-F008, W26-F003, W27-F005; OPEN W12-F006, W20-F001, W25-F003 (verdicts at adjudication). Follow-ups #2103 merged (83780faa): W25-F003 doc half CLOSED (CLAUDE.md corrected; display half still open: unpriced rows get a # ordinal, it.fails pinned); W20-F008 /phases empty state explained incl. unmeasured pairings (strict-below-median rule unchanged, so still PARTIAL)",
    "next": "W26-F003 /draft no-store only after a live-draft freshness check; W12-F006 cross-detector email dedupe needs the owner merge rule; W20-F001 gameplan consumer is a product decision; then the 59 P1 findings still unadjudicated per the 2026-11-06 recount (41 rotted repros, 18 unsafe; not re-measured since) -- separate from the open/partial adjudicated items routed above",
-   "sourceRowCount": 30
+   "sourceRowCount": 34
   },
   {
    "id": "CW-41",
@@ -549,7 +549,7 @@
    "state": "MERGED",
    "evidence": "PR #2089 merged (389a46d8): independent oracles for the package model (14 hand cases + exact-rational sweep, shared by Python and JS) and the weighted count-aware blend median (spec reference, n=1..9); production agrees. #2092 merged (6ace92f2): spec-derived oracle for the B11 confidence gate axes (600-case seeded differential sweep + boundaries + properties). #2101 merged (8b0d54a4): FAAB objective-ceiling oracle (18 hand/Decimal cases; mutations of the toe exponent, slope and smootherstep each fail 7-33 cases); engine agrees within 1e-12",
    "next": "FAAB anchor derivation (V_repl / V_allin) and the market layer; ROS / BDVM oracles; lineup solver vs host truth already pinned (C2-U1, 10/10 Sleeper lineups)",
-   "sourceRowCount": 1
+   "sourceRowCount": 2
   },
   {
    "id": "CW-50",
@@ -2761,6 +2761,69 @@
    "title": "One integrated verification view, reporting and priority order (Phases 9–10). Per-feature verification states with evidence inside the existing inventories; met",
    "statusAtSource": "IN PROGRESS — CW-48",
    "cw": "CW-48"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-56",
+   "title": "W12-F006 alert precedence (Decision A). Terminal beats BDVM for one player in one sweep: at most one user-facing notification per canonical player, user and swe",
+   "statusAtSource": "DECIDED — owner, 2026-11-07 (`ODR-W12F006-TERMINAL-PRECEDENCE`); IN PROGRESS",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-57",
+   "title": "W20-F001 Team Gameplan on `/rosters` (Decision B). On-demand panel for the selected team over the existing `/api/gameplan`; auth and league access; posture, str",
+   "statusAtSource": "DECIDED — owner, 2026-11-07 (`ODR-W20F001-ROSTERS-GAMEPLAN`); IN PROGRESS",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-58",
+   "title": "W10-F003 retire the legacy Next Best Targets panel (Decision C). Inventory unique functionality, migrate only verified-correct useful parts into Perfect Draft, ",
+   "statusAtSource": "DECIDED — owner, 2026-11-07 (`ODR-W10F003-RETIRE-NBT`); IN PROGRESS",
+   "cw": "CW-38"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-59",
+   "title": "Valuation methodology investigations (no activation). W13-F003 BDVM saturation, W27-F001 IDP edge benchmark, W27-F005 TE skew, W30-F008 Hill denominator: eviden",
+   "statusAtSource": "AUTHORIZED (research / proposals only)",
+   "cw": "CW-36"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-60",
+   "title": "PR #1938 promotion preparation. Rebase, independent case review, parity reconciliation, BDVM before/after on identical snapshot inputs, consumer impact, review ",
+   "statusAtSource": "DECIDED — owner, 2026-11-07 (`ODR-1938-PROMOTION-PREP`); prep AUTHORIZED, merge RESERVED",
+   "cw": "CW-13"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-61",
+   "title": "CW-40 fresh adjudication of the 59 outstanding P1 findings (41 rotted, 18 unsafe) with the five statuses, independent repros, routine repairs, regression tests ",
+   "statusAtSource": "IN PROGRESS — CW-40",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-62",
+   "title": "Dependency-ready verification work: CW-49 oracles (FAAB anchors, market layer, ROS/BDVM), CW-53 suite performance (no coverage loss), CW-48 requirement joins, C",
+   "statusAtSource": "AUTHORIZED",
+   "cw": "CW-49"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-63",
+   "title": "Backup / restore verification (box operator). Install, generate, group visibility, health observability, isolated SQLite restore + integrity checks, archive rea",
+   "statusAtSource": "HUMAN_ACTION_REQUIRED (`ODR-DFS-TIMER-KEEP` DECIDED)",
+   "cw": "CW-05"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-64",
+   "title": "Reporting and handoff. Checkpoint reports (work, PRs, evidence, defects, findings, production / value changes, blockers, owner decisions, next work); compact fa",
+   "statusAtSource": "IN PROGRESS",
+   "cw": "CW-40"
   },
   {
    "source": "INTAKE",
