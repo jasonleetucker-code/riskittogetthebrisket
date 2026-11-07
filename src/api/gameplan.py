@@ -1302,6 +1302,63 @@ def get_team_gameplan(
     constraints: Any | None = None,
     partner_constraints: Any | None = None,
 ) -> dict[str, Any]:
+    """Cached team build plus this request's competitive posture.
+
+    The team payload is cached on a SOURCE stamp, but posture also depends on
+    the season clock (week / trade deadline), which no source stamp moves.  So
+    the posture is attached per request, after the cache, from the one owner
+    (:func:`league_competitive_postures` -> ``src.roster_intel.window``) and
+    never re-derived here.  Unavailable is an explicit state, never omitted.
+    """
+    payload = _get_team_gameplan_cached(
+        league_key,
+        scoring_profile,
+        contract,
+        owner_id,
+        partner_owner_id=partner_owner_id,
+        constraints=constraints,
+        partner_constraints=partner_constraints,
+    )
+    payload = dict(payload)
+    try:
+        postures, meta = league_competitive_postures(league_key, scoring_profile, contract)
+        posture = postures.get(owner_id)
+        if posture is None:
+            payload["competitivePosture"] = {
+                "available": False,
+                "unavailableReason": "team_not_in_posture_set",
+            }
+        else:
+            payload["competitivePosture"] = {
+                "available": True,
+                **posture.to_dict(),
+                "owner": "src/roster_intel/window.py::competitive_posture",
+                "bundleFreshness": meta.get("bundleFreshness"),
+            }
+    except GameplanUnavailable as exc:
+        payload["competitivePosture"] = {
+            "available": False,
+            "unavailableReason": exc.reason,
+        }
+    except Exception:  # noqa: BLE001 - posture is additive; never 500 the gameplan
+        _LOGGER.exception("competitive posture attachment failed for league=%s", league_key)
+        payload["competitivePosture"] = {
+            "available": False,
+            "unavailableReason": "posture_error",
+        }
+    return payload
+
+
+def _get_team_gameplan_cached(
+    league_key: str,
+    scoring_profile: str,
+    contract: Mapping[str, Any] | None,
+    owner_id: str,
+    *,
+    partner_owner_id: str | None = None,
+    constraints: Any | None = None,
+    partner_constraints: Any | None = None,
+) -> dict[str, Any]:
     """Cached end-to-end build for one team.  Runs off the event loop.
 
     Package payloads are cached under their own key so asking about a
