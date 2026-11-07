@@ -338,8 +338,19 @@ def process_user_alerts(
             "delivered": False,
             "reason": f"delivery_error:{type(exc).__name__}",
         }
-    return {
+    delivered = bool(ok)
+    result: dict[str, Any] = {
         "transitions": len(transitions),
-        "delivered": bool(ok),
+        "delivered": delivered,
         "reason": "ok" if ok else "delivery_returned_false",
     }
+    if delivered:
+        # W12-F006 (owner decision 2026-11-07): the players this email actually
+        # told the user about, by canonical (Sleeper) id -> terminal signal.
+        # The BDVM detector reads it to avoid a second email for the same
+        # player.  Only a DELIVERED email counts; a transition without a
+        # Sleeper id is omitted (no canonical id -> no cross-detector merge).
+        result["notifiedPlayerSignals"] = {
+            str(t["sleeperId"]): str(t["signal"]) for t in transitions if t.get("sleeperId")
+        }
+    return result
