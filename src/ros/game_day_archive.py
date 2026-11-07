@@ -61,12 +61,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import os
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
 from src.utils.config_loader import repo_root
+
+_LOG = logging.getLogger(__name__)
 
 ARCHIVE_ROOT = repo_root() / "data" / "game_day" / "predictions"
 
@@ -97,6 +102,16 @@ CAPTURE_KINDS: frozenset[str] = frozenset({"pregame", "pregame_late", "in_game",
 
 class GameDayArchiveError(ValueError):
     """Raised on a malformed write, or a refused duplicate capture."""
+
+
+class UnreadableSnapshotError(GameDayArchiveError):
+    """A snapshot file exists at the tuple's path but cannot be read back.
+
+    Distinct from ``None`` ("never captured"): the append-only slot is
+    occupied, so a retry cannot fill it, and the observation is lost unless
+    an operator recovers the file.  Only possible for a file written before
+    :func:`_write_once` published atomically, or damaged after the fact.
+    """
 
 
 @dataclass(frozen=True)
@@ -294,12 +309,52 @@ def record_snapshot(
 
 
 def _write_once(path: Path, text: str) -> None:
-    """Create ``path`` with ``text``, refusing if it already exists.
+    """Create ``path`` holding exactly ``text``, refusing if it already exists.
 
-    Exclusive create (``"x"``), so two overlapping runs (a timer firing while
-    a manual capture is in flight) cannot both pass an ``exists()`` check and
-    have the later one silently replace the earlier observation.
+    **A final path only ever holds complete content.**  The text goes to a
+    temp file in the same directory first (a ``.tmp`` name, so the week
+    readers' ``*.json`` glob never sees it), is flushed and fsynced, and only
+    then published under the final name with ``os.link`` -- which fails with
+    ``FileExistsError`` when the name is taken.  So the two properties hold
+    together: two overlapping runs (a timer firing while a manual capture is
+    in flight) cannot both publish, and a kill, timeout or full disk
+    mid-write leaves at worst a stray ``.tmp`` file, never a truncated
+    snapshot at the permanent, append-only name.
+
+    The rule this replaced exclusive-created the FINAL path and wrote into
+    it, so an interrupted write left partial JSON that the append-only rule
+    then protected for good -- and because the readers parsed every file in
+    a week folder, that one file broke both capture kinds for the rest of
+    the week.
+
+    Fallback: a filesystem without hard links (any ``os.link`` failure other
+    than ``FileExistsError``) publishes by exclusive create of the final path
+    -- still never an overwrite; the readers report a truncated file as
+    unreadable rather than crash on it.
     """
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp")
+    try:
+        with tmp.open("x", encoding="utf-8") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        try:
+            os.link(tmp, path)
+        except FileExistsError as exc:
+            raise GameDayArchiveError(
+                f"{path} already exists — captures are append-only and are never overwritten"
+            ) from exc
+        except (OSError, AttributeError, NotImplementedError):
+            _exclusive_create(path, text)
+    finally:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _exclusive_create(path: Path, text: str) -> None:
+    """The no-hard-link fallback: exclusive create (``"x"``), never replace."""
     try:
         with path.open("x", encoding="utf-8") as fh:
             fh.write(text)
@@ -307,6 +362,31 @@ def _write_once(path: Path, text: str) -> None:
         raise GameDayArchiveError(
             f"{path} already exists — captures are append-only and are never overwritten"
         ) from exc
+
+
+def _read_json(path: Path) -> tuple[Any, str | None]:
+    """``(parsed, None)`` or ``(None, reason)`` -- never raises on bad bytes."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8")), None
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+
+
+def _snapshot_kind_from_name(path: Path) -> str | None:
+    """The capture kind a snapshot FILE NAME claims (``<team>_<kind>.json``).
+
+    Used only to attribute a file whose content cannot be read; a readable
+    snapshot's kind always comes from its content.  Longest kind first, so
+    ``_pregame_late`` is never read as ``_pregame``.
+    """
+    for kind in sorted(CAPTURE_KINDS, key=len, reverse=True):
+        if path.stem.endswith(f"_{kind}"):
+            return kind
+    return None
+
+
+def _unreadable_entry(path: Path, kind: str | None, reason: str) -> dict[str, Any]:
+    return {"path": str(path), "captureKind": kind, "reason": reason}
 
 
 def load_snapshot(
@@ -327,7 +407,57 @@ def load_snapshot(
     path = _snapshot_path(league_key, season, week, team_id, capture_kind, base_dir=root)
     if not path.exists():
         return None
-    return WeeklyPredictionSnapshot.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    snap, reason = _parse_snapshot(path)
+    if snap is None:
+        raise UnreadableSnapshotError(
+            f"{path} exists but cannot be read back ({reason}) — the {capture_kind!r} "
+            "slot is occupied, so this observation cannot be re-captured"
+        )
+    return snap
+
+
+def _parse_snapshot(path: Path) -> tuple[WeeklyPredictionSnapshot | None, str | None]:
+    data, reason = _read_json(path)
+    if reason is not None:
+        return None, reason
+    try:
+        return WeeklyPredictionSnapshot.from_dict(data), None
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+
+
+def scan_snapshots_for_week(
+    league_key: str,
+    season: int,
+    week: int,
+    *,
+    capture_kind: str | None = None,
+    base_dir: Path | None = None,
+) -> tuple[list[WeeklyPredictionSnapshot], list[dict[str, Any]]]:
+    """``(snapshots, unreadable)`` for one league-week.
+
+    A file that cannot be parsed back into a snapshot is reported in
+    ``unreadable`` (``path`` / ``captureKind`` claimed by its NAME /
+    ``reason``) instead of raising: one damaged file must not hide every
+    other team's and every other kind's evidence for the week.  With
+    ``capture_kind`` given, an unreadable file is reported only when its name
+    claims that kind (or claims no recognisable kind)."""
+    root = (base_dir or ARCHIVE_ROOT) / str(season) / league_key / f"week_{week}"
+    if not root.exists():
+        return [], []
+    out: list[WeeklyPredictionSnapshot] = []
+    unreadable: list[dict[str, Any]] = []
+    for path in sorted(root.glob("*.json")):
+        snap, reason = _parse_snapshot(path)
+        if snap is None:
+            claimed = _snapshot_kind_from_name(path)
+            if capture_kind is None or claimed in (None, capture_kind):
+                unreadable.append(_unreadable_entry(path, claimed, str(reason)))
+            continue
+        if capture_kind is not None and snap.capture_kind != capture_kind:
+            continue
+        out.append(snap)
+    return out, unreadable
 
 
 def load_snapshots_for_week(
@@ -341,17 +471,17 @@ def load_snapshots_for_week(
     """Every team's snapshot for one league-week, optionally filtered to
     one capture_kind. Empty list means nothing was captured — not an
     error, since a week before this unit's deployment genuinely has
-    none."""
-    root = (base_dir or ARCHIVE_ROOT) / str(season) / league_key / f"week_{week}"
-    if not root.exists():
-        return []
-    out: list[WeeklyPredictionSnapshot] = []
-    for path in sorted(root.glob("*.json")):
-        snap = WeeklyPredictionSnapshot.from_dict(json.loads(path.read_text(encoding="utf-8")))
-        if capture_kind is not None and snap.capture_kind != capture_kind:
-            continue
-        out.append(snap)
-    return out
+    none.  An unreadable file is logged and left out (a team it held is then
+    missing, which is exactly what a gap check must see) -- use
+    :func:`scan_snapshots_for_week` to get the list of them."""
+    snaps, unreadable = scan_snapshots_for_week(
+        league_key, season, week, capture_kind=capture_kind, base_dir=base_dir
+    )
+    for entry in unreadable:
+        _LOG.warning(
+            "game day archive: unreadable snapshot %s (%s)", entry["path"], entry["reason"]
+        )
+    return snaps
 
 
 # ── per-run capture context ──────────────────────────────────────────
@@ -418,6 +548,37 @@ def record_capture_context(
     return path, hashlib.sha256(path.read_bytes()).hexdigest(), record
 
 
+def scan_capture_contexts(
+    season: int,
+    week: int,
+    *,
+    capture_kind: str | None = None,
+    base_dir: Path | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """``(records oldest first, unreadable)`` for one week -- the posture of
+    :func:`scan_snapshots_for_week`: a damaged context file is reported, never
+    raised, so it cannot block either kind's evidence."""
+    root = (base_dir or CONTEXT_ROOT) / str(season) / f"week_{week}"
+    if not root.exists():
+        return [], []
+    out: list[dict[str, Any]] = []
+    unreadable: list[dict[str, Any]] = []
+    for path in sorted(root.glob("*.json")):
+        record, reason = _read_json(path)
+        if reason is None and not isinstance(record, dict):
+            reason = f"not a context record ({type(record).__name__})"
+        if reason is not None:
+            prefix = path.stem.split("__", 1)[0]
+            claimed = prefix if prefix in CAPTURE_KINDS else None
+            if capture_kind is None or claimed in (None, capture_kind):
+                unreadable.append(_unreadable_entry(path, claimed, reason))
+            continue
+        if capture_kind is not None and record.get("captureKind") != capture_kind:
+            continue
+        out.append(record)
+    return sorted(out, key=lambda r: str(r.get("capturedAt"))), unreadable
+
+
 def load_capture_contexts(
     season: int,
     week: int,
@@ -426,14 +587,12 @@ def load_capture_contexts(
     base_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Every recorded context for one week, oldest first.  Empty means none
-    was recorded -- not an error: every week before 2026-11-07 has none."""
-    root = (base_dir or CONTEXT_ROOT) / str(season) / f"week_{week}"
-    if not root.exists():
-        return []
-    out: list[dict[str, Any]] = []
-    for path in sorted(root.glob("*.json")):
-        record = json.loads(path.read_text(encoding="utf-8"))
-        if capture_kind is not None and record.get("captureKind") != capture_kind:
-            continue
-        out.append(record)
-    return sorted(out, key=lambda r: str(r.get("capturedAt")))
+    was recorded -- not an error: every week before 2026-11-07 has none.  An
+    unreadable file is logged and left out (:func:`scan_capture_contexts`
+    returns it)."""
+    records, unreadable = scan_capture_contexts(
+        season, week, capture_kind=capture_kind, base_dir=base_dir
+    )
+    for entry in unreadable:
+        _LOG.warning("game day archive: unreadable context %s (%s)", entry["path"], entry["reason"])
+    return records

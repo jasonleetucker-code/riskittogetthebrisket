@@ -25,7 +25,9 @@ slate (never an assumed weekday), each written to its own immutable file:
 
 The systemd timer runs ``--capture-kind pregame --capture-kind pregame_late``
 every 4 hours; each kind decides independently whether this firing is the
-right one, and the exit code combines them (3 > 1 > 0 > 2).
+right one, and the exit code combines them (3 > 1 > 0 > 2).  Each kind runs
+inside its own guard: an unexpected exception in one is exit 1 for THAT kind
+and the other kind still runs.
 
 Each written snapshot carries ``provenance``: the kickoff it claims to
 precede, the deployed code revision, the projection inputs its estimates came
@@ -57,7 +59,8 @@ Operator verification on the box (week N's early AND late snapshots)
     APP_DIR=/home/dynasty/trade-calculator; cd "$APP_DIR"
     PY=/home/dynasty/.venvs/trade-calculator/bin/python
 
-    # 1. Read-only verdict per kind (exit 0 complete, 3 gap, 2 not yet due):
+    # 1. Read-only verdict per kind (exit 0 complete, 3 gap after the window
+    #    closed, 2 not yet due, 1 the window could not be resolved):
     "$PY" scripts/capture_game_day_predictions.py --verify --season 2026 --week N
 
     # 2. The files themselves — one <team>_pregame.json AND one
@@ -82,6 +85,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -92,11 +96,13 @@ from src.api import league_registry  # noqa: E402
 from src.public_league import sleeper_client  # noqa: E402
 from src.ros.game_day_archive import (  # noqa: E402
     GameDayArchiveError,
-    load_capture_contexts,
+    UnreadableSnapshotError,
     load_snapshot,
     load_snapshots_for_week,
     record_capture_context,
     record_snapshot,
+    scan_capture_contexts,
+    scan_snapshots_for_week,
 )
 from src.ros.game_day_capture import (  # noqa: E402
     CAPTURE_WINDOW_HOURS,
@@ -105,18 +111,20 @@ from src.ros.game_day_capture import (  # noqa: E402
     PREGAME_KINDS,
     PREGAME_LATE_KIND,
     GameDayCaptureRefusal,
-    board_context_from_payload,
     build_capture,
     combine_exit_codes,
     estimate_index_from_ensemble,
     first_kickoff_utc,
     first_sunday_kickoff_utc,
-    injury_context_from_as_known,
     late_pregame_window_state,
     pregame_capture_gaps,
     pregame_window_state,
     snapshot_provenance,
     week_one_waiver_guard,
+)
+from src.ros.game_day_capture_context import (  # noqa: E402
+    board_context_from_payload,
+    injury_context_from_as_known,
 )
 from src.ros.game_day_sim import get_cached_league_week_simulation  # noqa: E402
 from src.ros.game_day_week import resolve_pregame_week  # noqa: E402
@@ -172,7 +180,8 @@ def _uncaptured_pregame(
     ``pregame_late``).
 
     Fails closed: a league whose roster list cannot be read is reported as a
-    gap ("could not verify"), never assumed captured."""
+    gap ("could not verify"), never assumed captured.  An archived file that
+    cannot be read back counts as no snapshot for its team."""
     gaps: list[tuple[str, str]] = []
     for cfg in configs:
         league_id = league_registry.get_sleeper_league_id(cfg.key)
@@ -189,6 +198,7 @@ def _uncaptured_pregame(
         expected = [r["roster_id"] for r in rosters if r.get("players")]
         missing = pregame_capture_gaps(
             expected_team_ids=expected,
+            # Skips (and logs) a file it cannot read back: its team is then a gap.
             snapshots=load_snapshots_for_week(cfg.key, season, week, capture_kind=capture_kind),
             first_kickoff=kickoff,
             capture_kind=capture_kind,
@@ -503,13 +513,22 @@ def _capture_kind(run: _Run, kind: str) -> int:
             continue
 
         # Teams this kind still lacks.  Context is recorded only when there is
-        # something to write, so a re-run inside the window adds no files.
-        pending = [
-            t
-            for t in build.teams
-            if load_snapshot(build.league_key, build.season, build.week, t.team_id, kind) is None
-        ]
-        skipped = len(build.teams) - len(pending)
+        # something to write, so a re-run inside the window adds no files.  A
+        # slot holding a file that cannot be read back is occupied (append-only)
+        # AND lost: reported as this league's failure, never a crash that would
+        # cost every other team its capture.
+        pending = []
+        unreadable_teams = []
+        for t in build.teams:
+            try:
+                held = load_snapshot(build.league_key, build.season, build.week, t.team_id, kind)
+            except UnreadableSnapshotError as exc:
+                print(f"    ERROR: team {t.team_id}: {exc}", file=sys.stderr)
+                unreadable_teams.append(t.team_id)
+                continue
+            if held is None:
+                pending.append(t)
+        skipped = len(build.teams) - len(pending) - len(unreadable_teams)
         wrote = 0
         provenance = None
         if pending:
@@ -555,6 +574,8 @@ def _capture_kind(run: _Run, kind: str) -> int:
                 # observation — that one is the better evidence.
                 skipped += 1
         print(f"    wrote {wrote} snapshot(s), {skipped} already captured")
+        if unreadable_teams:
+            failures += 1
 
         # Warm the Game Day simulation cache so the pregame window's
         # FIRST real request (any manager checking their matchup) reuses
@@ -602,39 +623,63 @@ def _capture_kind(run: _Run, kind: str) -> int:
 
 def _verify(run: _Run, kinds: list[str]) -> int:
     """Read-only: does the archive hold each pregame kind for every team,
-    captured before the kickoff it claims to precede?  Writes nothing."""
+    captured before the kickoff it claims to precede?  Writes nothing.
+
+    A missing snapshot is a GAP (exit 3) only once that kind's window has
+    CLOSED -- before or during the window it is "not yet due" (exit 2; 0 when
+    every team is already captured), and with an unresolvable window it is
+    UNVERIFIED (exit 1): the archive cannot be judged against a kickoff
+    nobody knows.  Each kind is verified inside its own guard."""
     codes: list[int] = []
     for kind in kinds:
         if kind not in PREGAME_KINDS:
             print(f"{kind}: --verify checks pregame kinds only; skipped")
             continue
-        state, why, kickoff = _resolve_window(run, kind)
-        print(f"{kind}: window {state} — {why}")
-        if state == "not_applicable":
-            codes.append(2)
-            continue
-        for cfg in run.configs:
-            snaps = load_snapshots_for_week(cfg.key, run.season, run.week, capture_kind=kind)
-            stamps = sorted(s.captured_at for s in snaps)
+        try:
+            codes.append(_verify_kind(run, kind))
+        except Exception as exc:  # noqa: BLE001 — one kind must not cost the other its verdict
             print(
-                f"  {cfg.key}: {len(snaps)} snapshot(s)"
-                + (f", captured {stamps[0]} .. {stamps[-1]}" if stamps else "")
+                f"    ERROR: {kind} verify aborted ({type(exc).__name__}: {exc})", file=sys.stderr
             )
-        contexts = load_capture_contexts(run.season, run.week, capture_kind=kind)
-        print(f"  capture-context files: {len(contexts)}")
-        gaps = _uncaptured_pregame(run.configs, run.season, run.week, kickoff, capture_kind=kind)
+            traceback.print_exc(file=sys.stderr)
+            codes.append(1)
+    return combine_exit_codes(codes)
+
+
+def _verify_kind(run: _Run, kind: str) -> int:
+    state, why, kickoff = _resolve_window(run, kind)
+    print(f"{kind}: window {state} — {why}")
+    if state == "not_applicable":
+        return 2
+    for cfg in run.configs:
+        snaps, unreadable = scan_snapshots_for_week(
+            cfg.key, run.season, run.week, capture_kind=kind
+        )
+        stamps = sorted(s.captured_at for s in snaps)
+        print(
+            f"  {cfg.key}: {len(snaps)} snapshot(s)"
+            + (f", captured {stamps[0]} .. {stamps[-1]}" if stamps else "")
+        )
+        for entry in unreadable:
+            print(f"  UNREADABLE {cfg.key}: {entry['path']} ({entry['reason']})")
+    contexts, bad_contexts = scan_capture_contexts(run.season, run.week, capture_kind=kind)
+    print(f"  capture-context files: {len(contexts)}")
+    for entry in bad_contexts:
+        print(f"  UNREADABLE context: {entry['path']} ({entry['reason']})")
+    gaps = _uncaptured_pregame(run.configs, run.season, run.week, kickoff, capture_kind=kind)
+    if not gaps:
+        return 0
+    if state == "closed":
         for key, reason in gaps:
             print(f"  GAP {key}: {reason}")
-        if gaps:
-            codes.append(3)
-        elif state in ("early", "open") and not any(
-            load_snapshots_for_week(c.key, run.season, run.week, capture_kind=kind)
-            for c in run.configs
-        ):
-            codes.append(2)  # window not yet passed and nothing captured yet
-        else:
-            codes.append(0)
-    return combine_exit_codes(codes)
+        return 3
+    if state in ("early", "open"):
+        for key, reason in gaps:
+            print(f"  not yet due {key}: {reason} (window {state})")
+        return 2
+    for key, reason in gaps:
+        print(f"  UNVERIFIED {key}: {reason} (window {state})")
+    return 1
 
 
 def main() -> int:
@@ -692,7 +737,8 @@ def main() -> int:
         "--verify",
         action="store_true",
         help="read-only: report whether each pregame kind is archived for every team "
-        "before its kickoff (exit 0 complete, 3 gap, 2 not yet due). Writes nothing.",
+        "before its kickoff (exit 0 complete, 3 gap after the window closed, 2 not yet "
+        "due, 1 window unresolvable). Writes nothing.",
     )
     args = parser.parse_args()
     # Order-preserving de-duplication: `--capture-kind pregame` twice is one kind.
@@ -758,7 +804,16 @@ def main() -> int:
     for kind in kinds:
         if len(kinds) > 1:
             print(f"\n=== {kind} ===")
-        codes[kind] = _capture_kind(run, kind)
+        try:
+            codes[kind] = _capture_kind(run, kind)
+        except Exception as exc:  # noqa: BLE001 — one kind's crash must not cost the other kind its capture
+            # Exit 1 for THIS kind only; combine_exit_codes keeps 3 > 1 > 0 > 2,
+            # so the crash still surfaces even if the other kind succeeds.
+            print(
+                f"    ERROR: {kind} capture aborted ({type(exc).__name__}: {exc})", file=sys.stderr
+            )
+            traceback.print_exc(file=sys.stderr)
+            codes[kind] = 1
     if len(kinds) > 1:
         print("\nPer-kind exit codes: " + ", ".join(f"{k}={c}" for k, c in codes.items()))
     return combine_exit_codes(list(codes.values()))

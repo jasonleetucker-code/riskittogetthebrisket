@@ -177,10 +177,11 @@ Data capture only — no forecast, valuation, constant or flag changed.
   same nflverse slate (`game_day_capture.first_sunday_kickoff_utc`: the ET
   calendar date nflverse publishes, so a London 9:30am game is the Sunday
   kickoff and Thursday/Saturday games are not). Own file
-  `<team>_pregame_late.json`, append-only, exclusive create — it can never
-  overwrite the early snapshot. The score gate cannot protect it (Thursday
-  has scored by Sunday), so an unknown Sunday kickoff is refused (exit 1),
-  never guessed. Collected from 2026 week 10 (`PREGAME_LATE_FIRST_WEEK`);
+  `<team>_pregame_late.json`, append-only — it can never overwrite the early
+  snapshot. The score gate cannot protect it (Thursday has scored by Sunday),
+  so an unknown Sunday kickoff is refused (exit 1), never guessed — including
+  a slate with a Sunday-dated game whose time is blank/"TBD" (it may be the
+  earliest Sunday game) or a week row with no readable date. Collected from 2026 week 10 (`PREGAME_LATE_FIRST_WEEK`);
   earlier weeks are "never collected", not lost. The existing 4-hourly timer
   already lands in the window — a half-open 12h window always holds exactly
   three `00/04/08/12/16/20 UTC` firings, pinned against the timer's own
@@ -208,6 +209,23 @@ Data capture only — no forecast, valuation, constant or flag changed.
   exact shape): `precedesKickoffUtc` + basis, deployed `codeRevision`,
   `projectionInputs` (label, sources loaded/unavailable, slot source), the
   injury/board summaries, and `captureContext` `{path, sha256}`.
+- **A permanent name only ever holds complete JSON.** Snapshot and context
+  files are written to a same-directory `.tmp` file, fsynced, then published
+  with `os.link` (fails if the name exists → "already captured"); a kill,
+  timeout or full disk mid-write leaves at most a stray `.tmp`, never a
+  truncated file at the append-only name. Without hard links the fallback is
+  exclusive create (still never an overwrite). The readers report a file they
+  cannot parse (`scan_snapshots_for_week` / `scan_capture_contexts`) instead
+  of raising, so one damaged file blocks neither kind; and each kind runs in
+  its own guard, so a crash in one is exit 1 for that kind while the other
+  still captures.
+- **The context builders are script-only**
+  (`src/ros/game_day_capture_context.py`, imported by the capture script
+  alone). `game_day_capture.py` is on the request path (Matchup Intel imports
+  it), and the injury ledger's fetch helpers reference
+  `src/nfl_data/injury_feed.py`; the capture only reads the stored ledger, so
+  keeping the import off the served module keeps `espn_injury_feed` honestly
+  `SCRIPT_ONLY`.
 
 ### Operator verification on the box
 
@@ -218,7 +236,9 @@ checked for the early kind the same way; `pregame_late` exists from week 10.
 APP_DIR=/home/dynasty/trade-calculator; cd "$APP_DIR"
 PY=/home/dynasty/.venvs/trade-calculator/bin/python
 
-# Read-only verdict per pregame kind: exit 0 complete, 3 gap, 2 not yet due.
+# Read-only verdict per pregame kind: exit 0 complete, 3 gap (only once that
+# kind's window has CLOSED), 2 not yet due (window early/open), 1 window
+# unresolvable. UNREADABLE lines name a file that cannot be parsed back.
 "$PY" scripts/capture_game_day_predictions.py --verify --season 2026 --week 10
 "$PY" scripts/capture_game_day_predictions.py --verify --season 2026 --week 9 --capture-kind pregame
 "$PY" scripts/capture_game_day_predictions.py --verify --season 2026 --week 8 --capture-kind pregame

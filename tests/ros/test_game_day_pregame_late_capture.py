@@ -35,6 +35,7 @@ import pytest
 from src.nfl_data import injury_history as ih
 from src.ros import game_day_archive as gda
 from src.ros import game_day_capture as gdc
+from src.ros import game_day_capture_context as gdcc
 from src.ros.game_day_archive import (
     GameDayArchiveError,
     PlayerPointEstimate,
@@ -48,15 +49,17 @@ from src.ros.game_day_archive import (
 from src.ros.game_day_capture import (
     LATE_CAPTURE_WINDOW_HOURS,
     PREGAME_LATE_FIRST_WEEK,
-    board_context_from_payload,
     build_capture,
     combine_exit_codes,
     first_kickoff_utc,
     first_sunday_kickoff_utc,
-    injury_context_from_as_known,
     late_pregame_window_state,
     pregame_capture_gaps,
     snapshot_provenance,
+)
+from src.ros.game_day_capture_context import (
+    board_context_from_payload,
+    injury_context_from_as_known,
 )
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -487,7 +490,7 @@ def test_a_proven_empty_report_is_known_empty_not_unavailable(tmp_path):
 )
 def test_missing_injury_evidence_is_unavailable_never_an_empty_list(as_known, error, reason):
     block = injury_context_from_as_known(as_known, error=error)
-    assert block == {"state": "unavailable", "reason": reason, "owner": gdc.INJURY_CONTEXT_OWNER}
+    assert block == {"state": "unavailable", "reason": reason, "owner": gdcc.INJURY_CONTEXT_OWNER}
     assert "entries" not in block
 
 
@@ -786,3 +789,243 @@ def test_journal_stage_parser_still_recognises_the_pregame_lines_and_the_late_on
     started = [ln for ln in out if ln.startswith("Capturing ")]
     assert started and all(stage(ln) == "capture_started" for ln in started)
     assert stage("Done.") == "completed" and "Done." in out
+
+
+# ── PR #2140 review hardening ────────────────────────────────────────
+#
+# 1. The request path must not import the injury ledger (espn_injury_feed
+#    stays SCRIPT_ONLY).  2. A truncated file can never sit at a permanent
+#    name, and one that does (pre-fix, or damaged) blocks neither kind.
+#    3. --verify calls a missing snapshot a gap only once the window closed.
+#    4. A Sunday game without a kickoff time makes the Sunday kickoff unknown.
+
+
+def test_the_request_path_capture_module_does_not_import_the_injury_ledger():
+    """``src/api/matchup_intel.py`` (served) imports ``game_day_capture``, and
+    the injury ledger's fetch helpers reference ``injury_feed`` -- the
+    ``espn_injury_feed`` gate's module.  The capture only READS the ledger, so
+    its context builders live in the script-only ``game_day_capture_context``;
+    importing them here made the gate measure LIVE with no request able to
+    reach it (``tests/api/test_feature_flag_reachability.py``)."""
+    import ast
+
+    tree = ast.parse((_REPO / "src/ros/game_day_capture.py").read_text(encoding="utf-8"))
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module)
+        elif isinstance(node, ast.Import):
+            imported.update(a.name for a in node.names)
+    offenders = {
+        m
+        for m in imported
+        if m.startswith("src.nfl_data") or m.endswith("game_day_capture_context")
+    }
+    assert not offenders
+
+
+def test_an_interrupted_write_leaves_nothing_at_the_permanent_name(tmp_path):
+    # A lone surrogate cannot be encoded, so the write fails part-way -- the
+    # stand-in for a kill / timeout / full disk mid-write.
+    final = tmp_path / "1_pregame_late.json"
+    with pytest.raises(UnicodeEncodeError):
+        gda._write_once(final, '{"partial": "' + "x" * 50_000 + "\ud800" + '"}')
+    assert not final.exists()
+    assert list(tmp_path.iterdir()) == []  # no stray temp file either
+    gda._write_once(final, '{"ok": 1}')  # the slot is still free
+    assert json.loads(final.read_text(encoding="utf-8")) == {"ok": 1}
+    assert list(tmp_path.iterdir()) == [final]
+
+
+def test_without_hard_links_the_write_still_refuses_to_overwrite(monkeypatch, tmp_path):
+    def no_links(src, dst):
+        raise PermissionError(1, "hard links not supported")
+
+    monkeypatch.setattr(gda.os, "link", no_links)
+    final = tmp_path / "1_pregame.json"
+    gda._write_once(final, '{"first": 1}')
+    with pytest.raises(GameDayArchiveError):
+        gda._write_once(final, '{"second": 2}')
+    assert json.loads(final.read_text(encoding="utf-8")) == {"first": 1}
+    assert list(tmp_path.iterdir()) == [final]
+
+
+_TRUNCATED = '{"league_key": "dynasty_main", "season": 2026, "we'
+
+
+def test_a_truncated_snapshot_blocks_neither_kind_nor_the_other_teams(tmp_path):
+    _record(tmp_path, "pregame_late")
+    week_dir = tmp_path / "2026" / "dynasty_main" / "week_10"
+    (week_dir / "2_pregame.json").write_text(_TRUNCATED, encoding="utf-8")
+
+    late = load_snapshots_for_week(
+        "dynasty_main", 2026, 10, capture_kind="pregame_late", base_dir=tmp_path
+    )
+    assert [s.team_id for s in late] == ["1"]
+    every = load_snapshots_for_week("dynasty_main", 2026, 10, base_dir=tmp_path)
+    assert [s.team_id for s in every] == ["1"]
+
+    snaps, unreadable = gda.scan_snapshots_for_week(
+        "dynasty_main", 2026, 10, capture_kind="pregame", base_dir=tmp_path
+    )
+    assert snaps == []
+    assert [(Path(u["path"]).name, u["captureKind"]) for u in unreadable] == [
+        ("2_pregame.json", "pregame")
+    ]
+    assert "JSONDecodeError" in unreadable[0]["reason"]
+    # The late kind's scan does not report the early kind's damaged file.
+    late_scan = gda.scan_snapshots_for_week(
+        "dynasty_main", 2026, 10, capture_kind="pregame_late", base_dir=tmp_path
+    )
+    assert late_scan[1] == []
+    # The occupied-but-unreadable slot is never "not captured".
+    with pytest.raises(gda.UnreadableSnapshotError):
+        load_snapshot("dynasty_main", 2026, 10, "2", "pregame", base_dir=tmp_path)
+
+
+def test_a_truncated_context_file_blocks_neither_kind(tmp_path):
+    injuries, board = _ok_blocks()
+    record_capture_context(
+        season=2026,
+        week=10,
+        capture_kind="pregame_late",
+        injuries=injuries,
+        canonical_board=board,
+        run_id="late",
+        base_dir=tmp_path,
+    )
+    bad = tmp_path / "2026" / "week_10" / "pregame__20261111T200000000000Z.json"
+    bad.write_text('{"schema": "game-day', encoding="utf-8")
+
+    late = load_capture_contexts(2026, 10, capture_kind="pregame_late", base_dir=tmp_path)
+    assert [c["runId"] for c in late] == ["late"]
+    assert [c["runId"] for c in load_capture_contexts(2026, 10, base_dir=tmp_path)] == ["late"]
+    records, unreadable = gda.scan_capture_contexts(
+        2026, 10, capture_kind="pregame", base_dir=tmp_path
+    )
+    assert records == []
+    assert [(Path(u["path"]).name, u["captureKind"]) for u in unreadable] == [(bad.name, "pregame")]
+
+
+def _week_dir(tmp_path):
+    path = tmp_path / "predictions/2026/dynasty_main/week_10"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def test_a_truncated_early_snapshot_does_not_block_the_late_capture(monkeypatch, tmp_path):
+    cap = _cli(monkeypatch, tmp_path)
+    (_week_dir(tmp_path) / "7_pregame.json").write_text(_TRUNCATED, encoding="utf-8")
+    _freeze(monkeypatch, cap, "2026-11-15T08:00:00+00:00")
+    # Early window closed and team 7's early file unreadable -> that loss pages
+    # (3); the late kind still captures every team.
+    assert _main(monkeypatch, cap, *_BOTH) == 3
+    assert _files(tmp_path, "*_pregame_late.json") == ["7_pregame_late.json", "8_pregame_late.json"]
+    assert (_week_dir(tmp_path) / "7_pregame.json").read_text(encoding="utf-8") == _TRUNCATED
+
+
+def test_an_unreadable_late_slot_fails_its_team_and_the_rest_still_capture(monkeypatch, tmp_path):
+    cap = _cli(monkeypatch, tmp_path)
+    (_week_dir(tmp_path) / "7_pregame_late.json").write_text(_TRUNCATED, encoding="utf-8")
+    _freeze(monkeypatch, cap, "2026-11-15T08:00:00+00:00")
+    assert _main(monkeypatch, cap, "--capture-kind", "pregame_late") == 1
+    assert _files(tmp_path, "*_pregame_late.json") == ["7_pregame_late.json", "8_pregame_late.json"]
+    assert (_week_dir(tmp_path) / "7_pregame_late.json").read_text(encoding="utf-8") == _TRUNCATED
+    assert load_snapshot("dynasty_main", 2026, 10, "8", "pregame_late") is not None
+
+
+def test_one_kind_crashing_is_exit_1_for_that_kind_and_the_other_still_runs(
+    monkeypatch, tmp_path, capsys
+):
+    cap = _cli(monkeypatch, tmp_path)
+    real = cap._capture_kind
+
+    def flaky(run, kind):
+        if kind == "pregame":
+            raise RuntimeError("boom")
+        return real(run, kind)
+
+    monkeypatch.setattr(cap, "_capture_kind", flaky)
+    _freeze(monkeypatch, cap, "2026-11-15T08:00:00+00:00")
+    assert _main(monkeypatch, cap, *_BOTH) == 1
+    assert _files(tmp_path, "*_pregame_late.json") == ["7_pregame_late.json", "8_pregame_late.json"]
+    captured = capsys.readouterr()
+    assert "pregame capture aborted (RuntimeError: boom)" in captured.err
+    assert "Per-kind exit codes: pregame=1, pregame_late=0" in captured.out
+
+
+@pytest.mark.parametrize(
+    "now",
+    [
+        "2026-11-11T08:00:00+00:00",  # both windows early
+        "2026-11-11T20:00:00+00:00",  # early window open, nothing captured yet
+    ],
+)
+def test_verify_before_a_window_closes_is_not_yet_due_never_a_gap(
+    monkeypatch, tmp_path, capsys, now
+):
+    cap = _cli(monkeypatch, tmp_path)
+    _freeze(monkeypatch, cap, now)
+    assert _main(monkeypatch, cap, "--verify") == 2
+    out = capsys.readouterr().out
+    assert "GAP" not in out
+    assert "not yet due dynasty_main" in out
+
+
+def test_verify_with_an_unresolvable_window_is_unverified_not_a_gap(monkeypatch, tmp_path, capsys):
+    cap = _cli(monkeypatch, tmp_path, schedule=None)
+    _freeze(monkeypatch, cap, "2026-11-15T08:00:00+00:00")
+    assert _main(monkeypatch, cap, "--verify") == 1
+    out = capsys.readouterr().out
+    assert "GAP" not in out and "UNVERIFIED dynasty_main" in out
+
+
+def test_verify_reports_an_unreadable_snapshot_as_a_gap_once_closed(monkeypatch, tmp_path, capsys):
+    cap = _cli(monkeypatch, tmp_path)
+    _freeze(monkeypatch, cap, "2026-11-11T20:00:00+00:00")
+    assert _main(monkeypatch, cap) == 0
+    (_week_dir(tmp_path) / "8_pregame.json").unlink()
+    (_week_dir(tmp_path) / "8_pregame.json").write_text(_TRUNCATED, encoding="utf-8")
+    _freeze(monkeypatch, cap, "2026-11-13T02:00:00+00:00")  # after Thursday kickoff
+    assert _main(monkeypatch, cap, "--verify", "--capture-kind", "pregame") == 3
+    out = capsys.readouterr().out
+    assert "UNREADABLE dynasty_main" in out and "8_pregame.json" in out
+    assert "GAP dynasty_main: no pregame snapshot for team(s) 8" in out
+
+
+@pytest.mark.parametrize("clock", ["", "TBD", None, "1 PM"])
+def test_a_sunday_game_without_a_kickoff_time_makes_the_sunday_kickoff_unknown(clock):
+    untimed = {"season": 2026, "week": 10, "gameday": "2026-11-15", "gametime": clock}
+    # The only Sunday row is untimed: that is not "no Sunday game".
+    kickoff, reason = first_sunday_kickoff_utc([WEEK10[0], untimed], season=2026, week=10)
+    assert (kickoff, reason) == (None, "sunday_game_without_kickoff_time")
+    state, _ = late_pregame_window_state(
+        season=2026, week=10, sunday_kickoff=kickoff, kickoff_reason=reason
+    )
+    assert state == "unknown"
+    # An untimed Sunday game may be the EARLIEST one: never anchor on a later kickoff.
+    assert first_sunday_kickoff_utc([*WEEK10, untimed], season=2026, week=10) == (
+        None,
+        "sunday_game_without_kickoff_time",
+    )
+
+
+def test_an_undated_row_is_unknown_and_an_untimed_weekday_row_changes_nothing():
+    undated = {"season": 2026, "week": 10, "gameday": "", "gametime": "13:00"}
+    assert first_sunday_kickoff_utc([WEEK10[0], undated], season=2026, week=10) == (
+        None,
+        "game_without_parseable_date",
+    )
+    untimed_thursday = {"season": 2026, "week": 10, "gameday": "2026-11-12", "gametime": "TBD"}
+    assert first_sunday_kickoff_utc([*WEEK10, untimed_thursday], season=2026, week=10) == (
+        SUNDAY_KICKOFF,
+        None,
+    )
+
+
+def test_late_capture_with_an_untimed_sunday_game_is_refused(monkeypatch, tmp_path):
+    rows = [WEEK10[0], {"season": 2026, "week": 10, "gameday": "2026-11-15", "gametime": "TBD"}]
+    cap = _cli(monkeypatch, tmp_path, schedule=rows)
+    _freeze(monkeypatch, cap, "2026-11-15T08:00:00+00:00")
+    assert _main(monkeypatch, cap, "--capture-kind", "pregame_late") == 1
+    assert _files(tmp_path, "*_pregame_late.json") == []
