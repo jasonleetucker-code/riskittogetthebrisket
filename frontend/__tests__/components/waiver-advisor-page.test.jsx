@@ -164,6 +164,38 @@ describe("/waiver-advisor", () => {
     expect(ctx).toHaveTextContent("posture bundle not built yet");
   });
 
+  // Owner directive 2026-11-07 Part 5: "Optimal" only when the solver proved
+  // it, and then scoped to the free agents considered.
+  it("never calls an unproven plan optimal", async () => {
+    global.fetch = vi.fn(async () => respond(200, payload()));
+    render(<WaiverAdvisorPage />);
+    const ctx = await screen.findByTestId("advisor-team-context");
+    expect(ctx).toHaveTextContent("Best plan found");
+    expect(ctx).toHaveTextContent("optimality not stated");
+    expect(ctx).not.toHaveTextContent("Optimal plan");
+  });
+
+  it("says 'not proven optimal' when the solver hit its node limit", async () => {
+    const body = payload();
+    body.plan.solver = { provenOptimal: false, freeAgentsConsidered: 245 };
+    global.fetch = vi.fn(async () => respond(200, body));
+    render(<WaiverAdvisorPage />);
+    const ctx = await screen.findByTestId("advisor-team-context");
+    expect(ctx).toHaveTextContent("Best plan found");
+    expect(ctx).toHaveTextContent("not proven optimal");
+    expect(ctx).not.toHaveTextContent("Optimal plan");
+  });
+
+  it("scopes a proven optimum to the free agents considered", async () => {
+    const body = payload();
+    body.plan.solver = { provenOptimal: true, freeAgentsConsidered: 245 };
+    global.fetch = vi.fn(async () => respond(200, body));
+    render(<WaiverAdvisorPage />);
+    const ctx = await screen.findByTestId("advisor-team-context");
+    expect(ctx).toHaveTextContent("Optimal plan");
+    expect(ctx).toHaveTextContent("proven optimal over the 245 free agents considered");
+  });
+
   it("expands a row into the reasoning breakdown with the forced drop reported, not applied", async () => {
     global.fetch = vi.fn(async () => respond(200, payload()));
     render(<WaiverAdvisorPage />);
