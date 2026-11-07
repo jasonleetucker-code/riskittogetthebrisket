@@ -123,11 +123,42 @@ export function reasonText(code) {
   return String(code).replace(/_/g, " ");
 }
 
-/** Plan status → label + tone (status words, not a judgment invented here). */
+/**
+ * The plan's headline label (owner directive 2026-11-07, Part 5 — no false
+ * optimality).  "Optimal" only when the Perfect Waivers solver PROVED it
+ * (`solver.provenOptimal === true`), and then only over the free agents it
+ * considered — players outside the waiver pool's rules or unpriced by the
+ * board were never in the search.  A node-limited or unstated result is the
+ * best plan FOUND, never an optimum.
+ */
+export function planOptimalityText(solver) {
+  const n = Number(solver?.freeAgentsConsidered);
+  const scope =
+    solver?.freeAgentsConsidered != null && Number.isFinite(n) && n >= 0
+      ? `over the ${n.toLocaleString()} free agent${n === 1 ? "" : "s"} considered`
+      : "over the free agents considered";
+  if (solver?.provenOptimal === true) {
+    return {
+      label: "Optimal plan",
+      proven: true,
+      note: `proven optimal ${scope}`,
+      badge: `Proven optimal ${scope}`,
+    };
+  }
+  return {
+    label: "Best plan found",
+    proven: false,
+    note: solver?.provenOptimal === false ? "not proven optimal" : "optimality not stated",
+  };
+}
+
+/** Plan status → label + tone (status words, not a judgment invented here).
+ *  "In plan", not "In optimal plan": a candidate row cannot see whether the
+ *  plan was proven optimal (see `planOptimalityText`). */
 export function planStatusLabel(plan) {
   switch (plan?.status) {
     case "in_plan":
-      return { label: "In optimal plan", tone: "accent" };
+      return { label: "In plan", tone: "accent" };
     case "next_best_move":
       return { label: "Next best move", tone: "neutral" };
     case "not_in_plan":
