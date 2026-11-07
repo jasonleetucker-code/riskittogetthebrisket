@@ -55,6 +55,25 @@ CW-53 in `docs/audits/remediation_2026-11-06/` (no second roadmap or denominator
 | MD-54 | **Mechanized feedback loop (Phase 8).** The ten-step loop (intent → verification plan → canonical implementation → focused tests → regression → integration → quality review → gated integration → production verification → backlog capture) mechanized where possible: PR verification receipt, automatic test selection, permanent fixtures, reproducible reports; scheduled deeper checks only through the existing cost-conscious scheduling framework | IN PROGRESS — CW-53 (PR template verification receipt) |
 | MD-55 | **One integrated verification view, reporting and priority order (Phases 9–10).** Per-feature verification states with evidence inside the existing inventories; metrics without manufactured scores (line coverage ≠ verified behavior); checkpoint reports with the directive's eight fields; priority order 1–9 inside the remediation program's blockers and dependency order; per-unit reproduce → root cause → smallest repair → regression test → review → gates → production verification → record | IN PROGRESS — CW-48 |
 
+## Added 2026-11-07 — Session resumption, remediation and continuous verification directive
+
+Owner directive 2026-11-07 (chat, "MASTER SESSION RESUMPTION, REMEDIATION, AND CONTINUOUS VERIFICATION DIRECTIVE").
+Structured record: `docs/owner/SESSION_RESUMPTION_DIRECTIVE_2026-11-07.md`. Owner decisions:
+`docs/owner/OWNER_DECISION_REGISTER.md` (section "Session resumption directive (2026-11-07)"). Authorized in
+`docs/EXECUTION_PLAN.md` (same date) inside the same remediation program and inventory (CW-01 … CW-53).
+
+| ID | Requirement | Status |
+|---|---|---|
+| MD-56 | **W12-F006 alert precedence (Decision A).** Terminal beats BDVM for one player in one sweep: at most one user-facing notification per canonical player, user and sweep; BDVM computation / state / future alerts unaffected; contradictory evidence retained; cooldown and retry correctness; custom-alert route unchanged | DECIDED — owner, 2026-11-07 (`ODR-W12F006-TERMINAL-PRECEDENCE`); IN PROGRESS |
+| MD-57 | **W20-F001 Team Gameplan on `/rosters` (Decision B).** On-demand panel for the selected team over the existing `/api/gameplan`; auth and league access; posture, strengths, weaknesses, direction, opportunities where supported; freshness and unavailable states; no new strength score or contradictory ranking | DECIDED — owner, 2026-11-07 (`ODR-W20F001-ROSTERS-GAMEPLAN`); IN PROGRESS |
+| MD-58 | **W10-F003 retire the legacy Next Best Targets panel (Decision C).** Inventory unique functionality, migrate only verified-correct useful parts into Perfect Draft, remove the legacy methodology; one authoritative recommender | DECIDED — owner, 2026-11-07 (`ODR-W10F003-RETIRE-NBT`); IN PROGRESS |
+| MD-59 | **Valuation methodology investigations (no activation).** W13-F003 BDVM saturation, W27-F001 IDP edge benchmark, W27-F005 TE skew, W30-F008 Hill denominator: evidence-backed proposals with independent oracles, before/after impacts, historical predictive evaluation, rollback; production methodology unchanged until owner and evaluation gates pass | AUTHORIZED (research / proposals only) |
+| MD-60 | **PR #1938 promotion preparation.** Rebase, independent case review, parity reconciliation, BDVM before/after on identical snapshot inputs, consumer impact, review + CI, release / rollback recommendation; merge / activation needs a subsequent explicit owner approval | DECIDED — owner, 2026-11-07 (`ODR-1938-PROMOTION-PREP`); prep AUTHORIZED, merge RESERVED |
+| MD-61 | **CW-40 fresh adjudication of the 59 outstanding P1 findings** (41 rotted, 18 unsafe) with the five statuses, independent repros, routine repairs, regression tests and a persistent ledger never reset across sessions | IN PROGRESS — CW-40 |
+| MD-62 | **Dependency-ready verification work**: CW-49 oracles (FAAB anchors, market layer, ROS/BDVM), CW-53 suite performance (no coverage loss), CW-48 requirement joins, CW-52 dead-code census, CW-37 dependency updates, W25-F003 display residual, W26-F003 `/draft` freshness | AUTHORIZED |
+| MD-63 | **Backup / restore verification (box operator).** Install, generate, group visibility, health observability, isolated SQLite restore + integrity checks, archive readability, store coverage, timers, `:8000` closed; never restore into live databases; runbook when access is unavailable. DD-14: keep the deployed DFS refresh timer | HUMAN_ACTION_REQUIRED (`ODR-DFS-TIMER-KEEP` DECIDED) |
+| MD-64 | **Reporting and handoff.** Checkpoint reports (work, PRs, evidence, defects, findings, production / value changes, blockers, owner decisions, next work); compact factual `SESSION_HANDOFF.md` at the end; final report separating verified, partial, blocked and owner-gated work | IN PROGRESS |
+
 ## Added 2026-11-01 — Master development directive: production intelligence validation, model accuracy, decision quality
 
 Owner directive 2026-11-01 (chat, "CHASE UPSIDE — MASTER DEVELOPMENT DIRECTIVE"). Recorded verbatim with decisions

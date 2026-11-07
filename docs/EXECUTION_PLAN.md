@@ -1,5 +1,21 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Session resumption directive — owner, 2026-11-07
+
+**AUTHORIZED NOW, inside the same remediation program and inventory (no second roadmap).** Record:
+`docs/owner/SESSION_RESUMPTION_DIRECTIVE_2026-11-07.md`; intake MD-56 … MD-64; owner decisions
+`ODR-W12F006-TERMINAL-PRECEDENCE`, `ODR-W20F001-ROSTERS-GAMEPLAN`, `ODR-W10F003-RETIRE-NBT`,
+`ODR-1938-PROMOTION-PREP`, `ODR-DFS-TIMER-KEEP` in `docs/owner/OWNER_DECISION_REGISTER.md`.
+
+- **Authorized to implement:** Decisions A (W12-F006 Terminal precedence), B (W20-F001 `/rosters` Team Gameplan), C
+  (W10-F003 retire legacy Next Best Targets); CW-40 fresh adjudication of the 59 P1 findings with routine repairs and
+  regression tests; CW-49 / CW-53 / CW-48 / CW-52 / CW-37 dependency-ready work; W25-F003 and W26-F003 residuals.
+- **Authorized as research / preparation only:** W13-F003, W27-F001, W27-F005, W30-F008 methodology proposals; #1938
+  promotion package.
+- **Reserved:** merging #1938 or activating its valuation effects; any production valuation formula, weight,
+  threshold or activation-flag change; disabling the deployed DFS refresh timer; box-operator actions.
+- Same order, worker limit (≤ 4), gates and prohibitions as the two 2026-11-06 sections below.
+
 ## Continuous verification / QA program — owner directive, 2026-11-06 (second directive of the day)
 
 **AUTHORIZED NOW, inside the sitewide remediation program below (no second roadmap).** Record:
