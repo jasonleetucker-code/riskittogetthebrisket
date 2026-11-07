@@ -110,6 +110,9 @@ map, §5). Then `gap = [TV − Q] + [Q − M]`:
 | shape | **−1315.8** | **100%** | 284,546 | **675 STRONG_SELL**, 1 HOLD |
 | rank | −49.5 | 53.6% | 1,552,850 | = candidate C2 (224 STRONG_SELL / 131 STRONG_BUY) |
 
+The split is exact (`gap = shape + rank`), but it is defined through the C2 map, so where the line
+between "shape" and "rank" falls is a modelling choice, not an observed quantity.
+
 The one-sidedness comes entirely from the shape part. The player-specific content is in the rank
 part, which is centred but large: rank correlation between TV and market is only **0.591**.
 
@@ -335,7 +338,9 @@ Paired bootstrap, 95% CIs:
 
 1. The incumbent's continuous score is significantly anti-predictive of relative market movement at
    30 and 60 days. Most of that is its price-tier loading.
-2. C2 and C5 are significantly less anti-predictive than C0 at 30 and 60 days.
+2. On Spearman, C2 and C5 are significantly less anti-predictive than C0 at 30 and 60 days (the
+   paired-difference CIs exclude zero). On partial Spearman (given market rank) this does not hold:
+   C5's 30-day difference is [−0.005, +0.163] and its 60-day lower bound is +0.000 (borderline).
 3. No candidate's own interval excludes zero on the positive side. Hit rates are at or below 0.5,
    and the complete-case results agree in sign.
 
@@ -417,7 +422,10 @@ users.
      disagreement;
    * C5 bases its thresholds on the model's stated uncertainty instead of absolute points, and
      abstains on 95 of 115 thin-sample rows;
-   * it is the least anti-predictive option at every horizon.
+   * on Spearman it is the least anti-predictive option at 30 and 60 days; at 90 days it is
+     indistinguishable from C2 and C3 (C3 is nominally higher: +0.021 vs +0.012, partial +0.041 vs
+     +0.030). It also has the lowest 30-day hit rate shown (0.40) and the fewest actionable rows
+     (150 of 676), so the case for it rests on the uncertainty-based abstention, not on skill.
 
    Preregistered success criteria for any later activation request:
    * partial Spearman (given market rank) > 0, with a 95% CI excluding 0, pooled over at least 6
@@ -468,6 +476,11 @@ python scripts/research/bdvm_saturation_study.py \
   --players-csv docs/valuation/evidence/w13-f003-bdvm-saturation-2026-11-07/players.csv
 python -m pytest tests/scripts/test_bdvm_saturation_study.py tests/bdvm/test_audit_w13_f003_regression.py -q
 ```
+
+The script does not check itself against production: the match between the re-derived incumbent and
+production (all 676 rows) is asserted by `tests/scripts/test_bdvm_saturation_study.py`, which calls
+`src.bdvm.market.market_comparison` and `buy_hold_sell` row by row. Name-join losses at the outcome
+horizons (18–21 KTC rows, 4–6 IDPTC rows) are described in §15 and are not in the report JSON.
 
 Deterministic: two runs are byte-identical (bootstrap seed 20261107 + horizon days). Input hashes are
 recorded in `study_report.json`. Evidence: sha256 `820e3cdc0232bf34b0fdd622756bc4431df3575c76fa0b8af53af49bfb9f4a3e`.
