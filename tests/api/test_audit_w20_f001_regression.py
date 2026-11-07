@@ -1,4 +1,6 @@
-"""Master-site-audit W20-F001 regression (CW-40 P1 re-adjudication, 2026-11-06) -- OPEN.
+"""Master-site-audit W20-F001 regression (CW-40 P1 re-adjudication, 2026-11-06) -- CLOSED by
+owner decision 2026-11-07: ``/rosters`` is the primary frontend consumer of the Team Gameplan
+(``frontend/components/TeamGameplanSection.jsx`` via the ``frontend/app/api/gameplan`` bridge).
 
 Claim: ``GET /api/gameplan`` (and the ``src/roster_intel`` engine behind it) has zero
 frontend consumers -- no page, component, lib or Next bridge route calls it.
@@ -10,15 +12,13 @@ bridge directory in the shipped frontend source.  Note the SERVER-side consumers
 overlay reuses the cached league bundle) -- the claim that is still true is only that
 the per-team gameplan payload itself reaches no UI.
 
-The strict xfail flips when a UI consumer lands.
+This test was a strict xfail until the /rosters consumer landed; it now asserts the consumer.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
-
-import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 FRONTEND = REPO / "frontend"
@@ -53,9 +53,14 @@ def test_backend_endpoint_is_registered():
     assert '@app.get("/api/gameplan")' in (REPO / "server.py").read_text(encoding="utf-8")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="W20-F001 OPEN: no frontend page/component/bridge reads GET /api/gameplan",
-)
 def test_a_frontend_surface_consumes_the_gameplan_endpoint():
     assert _consumers() or (FRONTEND / "app" / "api" / "gameplan").is_dir()
+
+
+def test_rosters_is_the_consumer_and_the_bridge_exists():
+    # Owner decision 2026-11-07: /rosters, not some other page, consumes it.
+    assert (FRONTEND / "app" / "api" / "gameplan" / "route.js").is_file()
+    rosters = (FRONTEND / "app" / "rosters" / "page.jsx").read_text(encoding="utf-8")
+    assert "TeamGameplanSection" in rosters
+    section = (FRONTEND / "components" / "TeamGameplanSection.jsx").read_text(encoding="utf-8")
+    assert '"/api/gameplan"' in section
