@@ -110,7 +110,7 @@ const ALLOWED_RAW = {
     "p.name": [2, NO_CANONICAL_ID, "suggestion cards: /api/trade/suggestions give/receive entries carry no playerId"],
   },
   "app/draft/page.jsx": {
-    "player.name": [4, NO_CANONICAL_ID, "draft rows are keyed by playerSlug(name) (lib/draft-logic.js) — no Sleeper id"],
+    "player.name": [3, NO_CANONICAL_ID, "draft rows are keyed by playerSlug(name) (lib/draft-logic.js) — no Sleeper id"],
     "row.name": [2, NO_CANONICAL_ID, "draft rows are keyed by playerSlug(name) — no Sleeper id"],
     "p.name": [5, NO_CANONICAL_ID, "draft rows are keyed by playerSlug(name) — no Sleeper id"],
     "review.bestSteal.playerName": [1, NO_CANONICAL_ID, "auction review: pick playerId is the draft slug"],

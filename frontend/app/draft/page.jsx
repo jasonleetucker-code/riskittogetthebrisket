@@ -54,7 +54,6 @@ import {
   mergeDraftCapitalTeams,
   moveInParSheet,
   moveTargetInBoard,
-  nextBestTargets,
   nominationCandidates,
   playerRecommendation,
   playerSlug,
@@ -148,7 +147,7 @@ const DRAFT_PAGE_DESCRIPTION =
 
 // Short labels + CSS classes for the recommendation chip on each row.
 // Kept in one place so the color language is consistent between the
-// board, the Next Best Target sidebar, and the draft modal.
+// board, the sidebars, and the draft modal.
 const REC_CHIP = {
   lock: { text: "LOCK", cls: "draft-rec-lock" },
   steal: { text: "STEAL", cls: "draft-rec-steal" },
@@ -1789,14 +1788,6 @@ export function RookieBoard({
   );
 }
 
-/* ── Next Best Target sidebar ─────────────────────────────────────── */
-
-/**
- * Top-N EV-ranked undrafted targets, always visible.  Answers "what
- * should I focus on right now?" without the user having to scroll
- * or re-sort.  Clicking a row opens the draft modal pre-loaded with
- * that player; clicking the star cycles the tag.
- */
 /* ── Inflation sparkline ──────────────────────────────────────────── */
 
 /**
@@ -2552,7 +2543,7 @@ function TargetBoard({
 /**
  * "Good to nominate" list.  Players I don't want (or am happy
  * without) whose expected clearing price is high enough to drain
- * rival budgets.  Companion to ``NextBestTargets``; both live just
+ * rival budgets.  Lives just
  * above the rookie board so decisions are in peripheral vision.
  */
 function NominationCandidates({ stats, onDraft, onCycleTag }) {
@@ -2780,102 +2771,6 @@ function BestValueOnBoard({ stats, onDraft, onCycleTag }) {
             </div>
           ),
         )}
-      </div>
-    </Panel>
-  );
-}
-
-export function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
-  const top = useMemo(() => nextBestTargets(stats, { limit: 5 }), [stats]);
-
-  if (top.length === 0) {
-    return (
-      <Panel className="draft-nbt">
-        <h3 style={{ margin: "0 0 4px" }}>Next Best Targets</h3>
-        <div className="muted" style={{ fontSize: "0.72rem" }}>
-          Nothing to flag yet — tag a few players as <strong>★ target</strong>{" "}
-          to seed EV ranking.
-          <div data-testid="nbt-empty-reason" style={{ marginTop: 4 }}>
-            No undrafted player clears this panel&apos;s per-player gate at the
-            current budget (value above your winning bid, plus scarcity or a
-            target tag). That means this panel has nothing to show, not that
-            no rookie is worth buying — the <strong>Perfect Draft</strong>{" "}
-            panel below, when available, ranks the best combination of rookies
-            for your budget.
-          </div>
-        </div>
-      </Panel>
-    );
-  }
-
-  return (
-    <Panel className="draft-nbt">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-        }}
-      >
-        <h3 style={{ margin: 0 }}>Next Best Targets</h3>
-        <span className="muted" style={{ fontSize: "0.68rem" }}>
-          EV = (fair − winBid) × tag weight + scarcity boost
-        </span>
-      </div>
-      <div className="draft-nbt-list">
-        {top.map(({ player, ev, rec }, i) => {
-          const recInfo = rec ? REC_CHIP[rec.level] : null;
-          return (
-            <div
-              key={player.id}
-              className={`draft-nbt-row${player.userTag === TAG_TARGET ? " draft-nbt-target" : ""}`}
-              title={rec?.rationale || rec?.label || ""}
-            >
-              <span className="draft-nbt-rank">#{i + 1}</span>
-              <button
-                type="button"
-                className={`draft-tag-chip${
-                  player.userTag ? ` draft-tag-${player.userTag}` : ""
-                }`}
-                onClick={() => onCycleTag(player.id)}
-                title="Cycle tag"
-              >
-                {player.userTag === TAG_TARGET
-                  ? "★"
-                  : player.userTag === TAG_AVOID
-                    ? "⊘"
-                    : "+"}
-              </button>
-              <span
-                className={`draft-tier-chip draft-tier-${player.tier}`}
-                title={`${TIER_LABELS[player.tier] || player.tier} tier`}
-              >
-                {player.tier}
-              </span>
-              <button
-                type="button"
-                className="draft-nbt-name"
-                onClick={() => onDraft(player)}
-              >
-                {player.name}
-              </button>
-              <span className="draft-money draft-money-win">
-                {fmt$(player.myWinningBid)}
-              </span>
-              <span className="muted" style={{ fontSize: "0.68rem" }}>
-                fair {fmt$(player.inflatedFair)}
-              </span>
-              {recInfo && (
-                <span className={`draft-rec-chip ${recInfo.cls}`}>
-                  {recInfo.text}
-                </span>
-              )}
-              <span className="muted" style={{ fontSize: "0.66rem" }}>
-                EV {ev.toFixed(0)}
-              </span>
-            </div>
-          );
-        })}
       </div>
     </Panel>
   );
@@ -3440,12 +3335,14 @@ function DraftGlossary() {
             </ul>
           </Section>
 
-          <Section title="Next Best Targets + Good to Nominate sidebars">
+          <Section title="Perfect Draft + Good to Nominate sidebars">
             <ul>
               <li>
-                <strong>Next Best Targets</strong> — top 5 undrafted rookies by
-                EV = max(0, Fair − Win-at) × tag weight + tier scarcity boost.
-                Targets get a 1.5× tag weight; Avoid players are excluded.
+                <strong>Perfect Draft</strong> — the single recommendation
+                panel: the best combination of undrafted rookies for your
+                remaining budget and open roster spots. The old per-player
+                &quot;Next Best Targets&quot; list was retired because it
+                scored zero for any player you would have to outbid.
               </li>
               <li>
                 <strong>Good to Nominate</strong> — top 5 drain candidates.
@@ -5107,12 +5004,6 @@ export default function DraftDashboardPage() {
       />
 
       <div className={styles.sidebarGrid}>
-        <NextBestTargets
-          stats={stats}
-          onDraft={(p) => setModalPlayer(p)}
-          onCycleTag={onCycleTag}
-          workspace={workspace}
-        />
         <NominationCandidates
           stats={stats}
           onDraft={(p) => setModalPlayer(p)}

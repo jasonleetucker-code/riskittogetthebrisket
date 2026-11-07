@@ -1436,7 +1436,6 @@ import {
   TAG_AVOID,
   TIER_SCARCITY_URGENT,
   cycleTag,
-  nextBestTargets,
   playerRecommendation,
   setPlayerTag,
 } from "@/lib/draft-logic";
@@ -1708,63 +1707,6 @@ describe("playerRecommendation", () => {
     // No tier scarcity on S at opening.  Slot pressure 0 so no
     // spend-up.  → "buy".
     expect(rec.level).toBe("buy");
-  });
-});
-
-// ── nextBestTargets ─────────────────────────────────────────────────────
-
-describe("nextBestTargets", () => {
-  it("returns an array capped at the limit", () => {
-    const stats = computeDraftStats(createDefaultWorkspace());
-    const top = nextBestTargets(stats, { limit: 5 });
-    expect(top.length).toBeLessThanOrEqual(5);
-    for (const entry of top) {
-      expect(entry.player).toBeTruthy();
-      expect(entry.rec).toBeTruthy();
-      expect(entry.ev).toBeGreaterThanOrEqual(0);
-    }
-  });
-
-  it("excludes drafted players", () => {
-    const ws = createDefaultWorkspace();
-    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
-    const withPick = recordPick(ws, {
-      playerId: love.id,
-      teamIdx: 0,
-      amount: 120,
-    });
-    const stats = computeDraftStats(withPick);
-    const top = nextBestTargets(stats, { limit: 10 });
-    expect(top.find((e) => e.player.name === "Jeremiyah Love")).toBeUndefined();
-  });
-
-  it("excludes AVOID-tagged players entirely", () => {
-    let ws = createDefaultWorkspace();
-    ws = setPlayerTag(ws, "jeremiyah-love", TAG_AVOID);
-    const stats = computeDraftStats(ws);
-    const top = nextBestTargets(stats, { limit: 72 });
-    expect(top.find((e) => e.player.name === "Jeremiyah Love")).toBeUndefined();
-  });
-
-  it("ranks TARGET-tagged players above untagged at similar value", () => {
-    let ws = createDefaultWorkspace();
-    // Tag Tate (PreDraft 83) as a target; Tyson (73) stays neutral.
-    ws = setPlayerTag(ws, "carnell-tate", TAG_TARGET);
-    const stats = computeDraftStats(ws);
-    const top = nextBestTargets(stats, { limit: 5 });
-    const tateIdx = top.findIndex((e) => e.player.name === "Carnell Tate");
-    const tysonIdx = top.findIndex(
-      (e) => e.player.name === "Jordyn Tyson",
-    );
-    // Tate should be at or above Tyson after the tag boost.
-    expect(tateIdx).toBeGreaterThanOrEqual(0);
-    if (tysonIdx >= 0) {
-      expect(tateIdx).toBeLessThan(tysonIdx);
-    }
-  });
-
-  it("falls back gracefully when stats is null", () => {
-    expect(nextBestTargets(null)).toEqual([]);
   });
 });
 
