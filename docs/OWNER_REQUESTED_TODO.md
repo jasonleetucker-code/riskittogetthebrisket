@@ -73,6 +73,28 @@ Authorized in `docs/EXECUTION_PLAN.md` (same date) inside the same program and i
 | MD-72 | **Execute incrementally (Part 8).** Bounded high-value feature groups, highest-risk first, ≤ 4 workers with separate ownership; continue until done or genuinely blocked; no routine engineering choices sent back to the owner | IN PROGRESS |
 | MD-73 | **Honest, measurable progress (Part 9).** One verification record with the ten states; checkpoint reports with the ten measures and exact commits, PRs, tests, results and evidence paths; never claim the site fully tested without evidence | IN PROGRESS — CW-48 |
 
+## Added 2026-11-07 — Master correctness, reliability, performance & CI acceleration
+
+Owner directive 2026-11-07 (chat, "CHASE UPSIDE — MASTER CORRECTNESS, RELIABILITY, PERFORMANCE & CI ACCELERATION
+DIRECTIVE"). Structured record: `docs/owner/MASTER_CORRECTNESS_CI_DIRECTIVE_2026-11-07.md`. Authorized in
+`docs/EXECUTION_PLAN.md` (same date) inside the same program and inventory.
+
+| ID | Requirement | Status |
+|---|---|---|
+| MD-74 | **Reconstruct current truth (Part 1).** Live main / PRs / CI / prior fixes; classify every issue into the eight states inside the existing portfolio | DONE 2026-11-07 — main unblocked (#2129), deploy cause confirmed from logs |
+| MD-75 | **Measure the CI pipeline and set targets (Part 2.1–2.2).** Representative runs, critical path, first-failure time, flakes, reruns; evidence-based targets; ≥ 50% less unnecessary wall time where safe | DONE — serial hard gate 74–106 min = ~93% of Validate PR (8 runs); full runs 78–120 min |
+| MD-76 | **Accelerate CI without weakening it (Part 2.3–2.4).** Measured-runtime shards with honest aggregation, caching, fail-safe change scope, fail-fast, flake repair, benign-main rule, build-once identity; regression tests for change detection | IN PROGRESS — PR gate sharded #2133 (20.3 min, same 34,567 tests, completeness proof); deploy gate #2139 in review; RC not yet |
+| MD-77 | **Source freshness and data reliability (Part 3).** Collection vs usable vs served, health/alert accuracy, recovery, replay fixtures, drift coverage | IN PROGRESS — health verified OK 2026-11-07 20:01Z; Game Day capture verified on box |
+| MD-78 | **Source independence, confidence and valuation integrity (Part 4).** Lineage, voting, outliers, confidence never rising on lost evidence, 0.30 haircut challengers on holdouts; no activation without the gates | AUTHORIZED |
+| MD-79 | **False precision (Part 5).** Probability / arbitrage / calibration / optimality / interval / forecast-skill wording at source and presentation, with tests | IN PROGRESS — #2137 merged; five wording items need owner decision |
+| MD-80 | **Scoring, trade, roster and FAAB correctness (Part 6).** Independent parity and regression tests per defect; downstream consumers verified | IN PROGRESS — waiver ownership-by-id and unknown-budget defects repaired #2138 |
+| MD-81 | **Predictive validation (Part 7).** Point-in-time capture incl. Week 10 (2026-11-12) and first 2027 pre-auction state; leakage-free evaluation against baselines | IN PROGRESS — #2140 (late pregame, injury, board identity capture) in review |
+| MD-82 | **Performance and UX (Part 8).** Measured p50/p95, payload, requests, memory, interactivity; usability within the approved design direction | AUTHORIZED |
+| MD-83 | **Security, backups, dead code (Part 9).** Boundaries, isolation, restore capability (operator actions where needed), evidence-classified removals | AUTHORIZED |
+| MD-84 | **Make improvements permanent (Part 10).** Standard / Agent OS / CI updated only where needed, for every model | IN PROGRESS — Agent OS §3 L2 records the sharded gate; receipt check #2130 |
+| MD-85 | **Execute and report measurably (Parts 11–12).** P0-A … P4 batches within the worker limit; real before/after numbers and per-batch evidence | IN PROGRESS |
+
+
 ## Added 2026-11-07 — Session resumption, remediation and continuous verification directive
 
 Owner directive 2026-11-07 (chat, "MASTER SESSION RESUMPTION, REMEDIATION, AND CONTINUOUS VERIFICATION DIRECTIVE").

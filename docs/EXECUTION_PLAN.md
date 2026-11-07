@@ -1,5 +1,19 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Master correctness, reliability, performance & CI acceleration directive — owner, 2026-11-07 (fourth)
+
+**AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:
+`docs/owner/MASTER_CORRECTNESS_CI_DIRECTIVE_2026-11-07.md`; intake MD-74 … MD-85.
+
+- **Authorized to implement:** CI/CD measurement and acceleration that keeps every required check (parallel shards
+  with completeness proof, caching, fail-safe change scope, flake repair, build-once identity); routine correctness,
+  data-reliability, false-precision, scoring / trade / FAAB, capture, performance, UX (within the approved design
+  direction), security and evidence-classified dead-code repairs already permitted below.
+- **Not authorized by this directive:** owner-reserved valuation methodology or activation changes, restricted
+  launches, spending, security bypasses, infrastructure changes outside existing authority, changes to branch
+  protection or required checks, unbounded production load.
+- Same order, worker limit (≤ 4), gates and prohibitions as the sections below.
+
 ## Complete sitewide feature verification directive — owner, 2026-11-07 (third directive of the day)
 
 **AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:
