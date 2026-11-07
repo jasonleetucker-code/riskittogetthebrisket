@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   SHELL.CSS — App chrome (Redesign R1)
-   Header, navigation, mobile tabs, command palette. Built entirely on the
-   R0 token layer — no raw hex, no inline styles. Class namespace: .shell-
+   SHELL.CSS — Sports Network app chrome
+   Header, navigation, mobile tabs, command palette. Canonical tokens with
+   a locally scoped inverse masthead palette. Class namespace: .shell-
    (the legacy .topbar / .nav- / .mobile- rules in globals.css are now dead
    chrome and are removed with their markup in the R5 CSS purge).
 
@@ -32,67 +32,121 @@
   box-shadow: var(--focus-ring);
 }
 
-/* ── Desktop top bar ───────────────────────────────────────────────────── */
+/* ── Sports Network masthead ────────────────────────────────────────────
+   The chrome is intentionally inverse to the cream research canvas. These
+   local tokens also cover the existing team/league controls, without
+   changing the page, command palette or authorization/data providers. */
+.shell-topbar.psi-editorial,
+.shell-mobile-topbar.psi-editorial,
+.shell-tabbar.psi-editorial {
+  --surface-0: var(--sn-navy, #0b2130);
+  --surface-1: #16313f;
+  --surface-2: #203e4c;
+  --surface-3: #244553;
+  --surface-hover: rgba(240, 237, 223, 0.08);
+  --surface-active: rgba(240, 237, 223, 0.12);
+  --surface-veil: var(--sn-navy, #0b2130);
+  --surface-veil-raised: var(--sn-navy, #0b2130);
+  --text-primary: var(--sn-cream, #f0eddf);
+  --text-secondary: #d0d9d6;
+  --text-tertiary: #adbec4;
+  --text-on-accent: var(--sn-navy, #0b2130);
+  --border-subtle: #2e4a58;
+  --border-default: #4c6471;
+  --border-strong: #6d8390;
+  --accent: var(--sn-coral, #fd633f);
+  --accent-hover: #ff805e;
+  --accent-muted: rgba(253, 99, 63, 0.14);
+  --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--sn-gold, #f7c77f);
+  --focus-ring-color: var(--sn-gold, #f7c77f);
+  --bg: var(--surface-0);
+  --card: var(--surface-1);
+  --card-bg: var(--surface-1);
+  --text: var(--text-primary);
+  --subtext: var(--text-secondary);
+  --muted: var(--text-tertiary);
+  --cyan: var(--accent);
+  --border: var(--border-default);
+  --border-bright: var(--border-strong);
+  color: var(--text-primary);
+}
 .shell-topbar {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
   background: var(--surface-veil);
-  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-default);
 }
 .shell-topbar-inner {
-  max-width: var(--shell-max, 1320px);
+  max-width: var(--shell-max, 1440px);
   margin: 0 auto;
-  height: 52px;
+  height: 88px;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4);
+  gap: clamp(12px, 1.4vw, 24px);
+  padding: 0 clamp(20px, 3.6vw, 52px);
 }
 .shell-brand {
   display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
   color: var(--text-primary);
   text-decoration: none;
   white-space: nowrap;
-  margin-right: var(--space-3);
 }
-.shell-brand-mark {
-  color: var(--accent);
+.shell-brand:hover {
+  text-decoration: none;
 }
-/* PSI editorial scope (C8-PSI-02): the reference screenshot's compact
-   "CU" monogram block — a bordered square, not a bare glyph. Scoped so
-   the terminal shell (unmigrated state, if this class is ever removed)
-   keeps its plain accent-colored mark. */
-.psi-editorial .shell-brand-mark {
-  display: inline-flex;
+.shell-brand:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.shell-brand .shell-brand-mark {
+  position: relative;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-1);
-  font-family: var(--font-display);
-  font-style: italic;
-  color: var(--text-primary);
+  width: 50px;
+  height: 50px;
+  background: var(--sn-coral, #fd633f);
+  color: var(--sn-navy, #0b2130);
+  border: 0;
+  border-radius: 0;
+  font: 700 35px/1 var(--font-display, Impact, sans-serif);
+  letter-spacing: -1.8px;
+}
+.shell-brand-arrow {
+  position: absolute;
+  top: 5px;
+  right: 3px;
+  font: 600 13px/1 var(--font-ui);
+  letter-spacing: 0;
+}
+.shell-brand-wordmark {
+  display: flex;
+  flex-direction: column;
+  font: 700 29px/0.86 var(--font-display, Impact, sans-serif);
+  letter-spacing: 0.1px;
+  text-transform: uppercase;
+}
+.shell-brand-dot {
+  color: var(--sn-coral, #fd633f);
 }
 .shell-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 2px;
   min-width: 0;
+  align-self: stretch;
 }
 .shell-nav-right {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 10px;
+  flex-shrink: 0;
+  align-self: stretch;
 }
 .shell-nav-link {
   display: inline-flex;
@@ -102,15 +156,17 @@
   background: none;
   color: var(--text-secondary);
   font-family: var(--font-ui);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
-  padding: var(--space-2) var(--space-3);
+  min-height: 44px;
+  padding: 12px 8px;
   border-radius: var(--radius-2);
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
-  transition: color var(--motion-fast) var(--ease-out),
+  transition:
+    color var(--motion-fast) var(--ease-out),
     background-color var(--motion-fast) var(--ease-out);
 }
 .shell-nav-link:hover {
@@ -123,7 +179,7 @@
 }
 .shell-nav-link[aria-current="page"],
 .shell-nav-link--active {
-  color: var(--text-primary);
+  color: var(--sn-gold, #f7c77f);
 }
 .shell-nav-link[aria-current="page"]::after,
 .shell-nav-link--active::after {
@@ -160,10 +216,14 @@
   border: 0;
   background: none;
   color: var(--text-secondary);
-  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  min-height: 44px;
+  min-width: 24px;
+  justify-content: center;
+  padding: 10px 5px 10px 0;
   border-radius: var(--radius-2);
   cursor: pointer;
-  transition: color var(--motion-fast) var(--ease-out),
+  transition:
+    color var(--motion-fast) var(--ease-out),
     background-color var(--motion-fast) var(--ease-out);
 }
 .shell-nav-caret-btn:focus-visible {
@@ -183,6 +243,12 @@
 /* ── Nav dropdown menus ────────────────────────────────────────────────── */
 .shell-nav-item {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+}
+.shell-nav-caret-btn.shell-nav-link--active::after {
+  display: none;
 }
 .shell-menu {
   position: absolute;
@@ -198,6 +264,62 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
+}
+.shell-menu,
+.shell-topbar .team-switcher-menu,
+.shell-topbar .league-switcher-menu,
+.shell-mobile-topbar .team-switcher-menu,
+.shell-mobile-topbar .league-switcher-menu {
+  --surface-0: var(--sn-cream, #f0eddf);
+  --surface-1: #f8f6ec;
+  --surface-2: #e4e4d7;
+  --surface-3: #f8f6ec;
+  --surface-hover: rgba(11, 33, 48, 0.06);
+  --text-primary: var(--sn-navy, #0b2130);
+  --text-secondary: #3e535e;
+  --text-tertiary: #52636a;
+  --accent: #a3341c;
+  --border-default: #bec7bd;
+  --border-subtle: #d6d9cb;
+  --card: var(--surface-1);
+  --card-bg: var(--surface-1);
+  --text: var(--text-primary);
+  --muted: var(--text-tertiary);
+  --cyan: var(--accent);
+  --border: var(--border-default);
+  --focus-ring: 0 0 0 2px var(--surface-1), 0 0 0 4px #a3341c;
+  color: var(--text-primary);
+  border-radius: 0;
+}
+.shell-topbar .team-switcher-toggle,
+.shell-topbar .league-switcher-toggle,
+.shell-mobile-topbar .team-switcher-toggle,
+.shell-mobile-topbar .league-switcher-toggle {
+  border-radius: 0;
+  min-height: 40px;
+}
+.shell-topbar .team-switcher-toggle {
+  max-width: 150px;
+}
+.shell-topbar .league-switcher-toggle {
+  max-width: 120px;
+}
+.shell-topbar .team-switcher-menu,
+.shell-topbar .league-switcher-menu,
+.shell-mobile-topbar .team-switcher-menu,
+.shell-mobile-topbar .league-switcher-menu {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: 0 12px 32px rgba(11, 33, 48, 0.18);
+  backdrop-filter: none;
+}
+.shell-topbar .league-switcher-option,
+.shell-mobile-topbar .league-switcher-option {
+  min-height: 44px;
+}
+.shell-topbar .league-switcher-option:hover,
+.shell-mobile-topbar .league-switcher-option:hover {
+  background: var(--surface-hover);
 }
 .shell-menu--right {
   left: auto;
@@ -272,12 +394,14 @@
   background: var(--surface-1);
   color: var(--text-tertiary);
   font-family: var(--font-ui);
-  font-size: var(--font-size-xs);
-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  font-size: 11px;
+  min-height: 40px;
+  padding: 8px 10px;
   border-radius: var(--radius-2);
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color var(--motion-fast) var(--ease-out),
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
     color var(--motion-fast) var(--ease-out);
 }
 .shell-search-btn:hover {
@@ -305,8 +429,10 @@
   top: 0;
   z-index: var(--z-header);
   display: none;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  --mobile-topbar-h: 104px;
   /* `viewport-fit=cover` + the translucent iOS status bar lets this
      shell paint behind the clock / Dynamic Island. The retired mobile
      chrome consumed the inset, but the R1 shell initially did not — its
@@ -314,14 +440,45 @@
      region in the installed Home Screen app. Grow the flow box by the
      inset and reserve the original content-height below it. */
   height: calc(var(--mobile-topbar-h, 46px) + env(safe-area-inset-top, 0px));
-  padding: 0 var(--space-3);
+  padding: 0 16px;
   padding-top: env(safe-area-inset-top, 0px);
   background: var(--surface-veil);
-  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-default);
 }
+.shell-mobile-masthead,
+.shell-mobile-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.shell-mobile-masthead {
+  height: 56px;
+  flex-shrink: 0;
+}
+.shell-mobile-context {
+  height: 48px;
+  border-top: 1px solid var(--border-subtle);
+}
+.shell-brand--compact .shell-brand-mark {
+  width: 35px;
+  height: 35px;
+  font-size: 27px;
+}
+.shell-brand--compact .shell-brand-arrow {
+  top: 3px;
+  right: 1px;
+  font-size: 10px;
+}
+.shell-brand--compact .shell-brand-wordmark {
+  font-size: 22px;
+}
+.shell-brand--compact {
+  gap: 8px;
+}
 .shell-mobile-title {
-  font-size: var(--font-size-md);
+  font-size: 11px;
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   min-width: 0;
@@ -333,7 +490,16 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
+  min-width: 0;
+}
+.shell-mobile-actions .team-switcher-toggle {
+  max-width: 132px;
+  min-height: 44px;
+}
+.shell-mobile-actions .league-switcher-toggle {
+  max-width: 105px;
+  min-height: 44px;
 }
 .shell-icon-btn {
   display: inline-flex;
@@ -367,7 +533,6 @@
   z-index: var(--z-header);
   display: none;
   background: var(--surface-veil-raised);
-  backdrop-filter: blur(10px);
   border-top: 1px solid var(--border-default);
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
@@ -390,11 +555,13 @@
 }
 .shell-tab[aria-current="page"],
 .shell-tab--active {
-  color: var(--accent);
+  color: var(--sn-gold, #f7c77f);
+  box-shadow: inset 0 3px 0 var(--sn-coral, #fd633f);
 }
 .shell-tab:focus-visible {
   outline: none;
-  box-shadow: inset var(--focus-ring);
+  outline: 2px solid var(--sn-gold, #f7c77f);
+  outline-offset: -4px;
 }
 
 /* ── Mobile menu drawer content ────────────────────────────────────────── */
@@ -459,6 +626,60 @@
   outline: none;
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-1);
+}
+
+/* Tablet keeps all destinations on a dedicated navigation row, instead
+   of forcing team/league context to compete with seven nav groups. */
+@media (768px <= width < 1200px) {
+  .shell-topbar-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 74px 44px;
+    height: 118px;
+    gap: 0 20px;
+    padding: 0 24px;
+  }
+  .shell-brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .shell-nav-right {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .shell-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    border-top: 1px solid var(--border-subtle);
+    justify-content: space-between;
+  }
+  .shell-nav > .shell-nav-item {
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+  }
+  .shell-topbar .shell-brand-mark {
+    width: 42px;
+    height: 42px;
+    font-size: 31px;
+  }
+  .shell-topbar .shell-brand-wordmark {
+    font-size: 25px;
+  }
+  .shell-topbar .shell-search-btn {
+    padding: 8px;
+  }
+}
+@media (width < 390px) {
+  .shell-mobile-actions .team-switcher-toggle {
+    max-width: 112px;
+  }
+  .shell-mobile-actions .league-switcher-toggle {
+    max-width: 88px;
+  }
+  .shell-mobile-context {
+    gap: 8px;
+  }
 }
 
 /* ── Responsive split (canonical breakpoint: 768) ──────────────────────── */

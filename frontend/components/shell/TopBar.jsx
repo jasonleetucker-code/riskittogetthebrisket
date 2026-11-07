@@ -20,6 +20,7 @@ import { Icon } from "@/components/ds";
 import NavMenu from "@/components/shell/NavMenu";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
+import Brand from "@/components/shell/Brand";
 import {
   SYSTEM_MODEL,
   isGroupActive,
@@ -50,12 +51,14 @@ function visibleGroups(authenticated, isPublic, capabilities) {
   // left-aligned brand and a `margin-left: auto` right rail, so items
   // appearing fill their own space without moving either neighbour.
   if (authenticated === null || authenticated === undefined) return [];
-  return model.map((group) => {
-    if (!group.items) return isPublic(group.href) ? group : null;
-    const items = group.items.filter((i) => isPublic(i.href));
-    if (items.length === 0) return null;
-    return { ...group, items };
-  }).filter(Boolean);
+  return model
+    .map((group) => {
+      if (!group.items) return isPublic(group.href) ? group : null;
+      const items = group.items.filter((i) => isPublic(i.href));
+      if (items.length === 0) return null;
+      return { ...group, items };
+    })
+    .filter(Boolean);
 }
 
 // `searchEnabled` is separate from `authenticated` on purpose: global
@@ -80,14 +83,9 @@ export default function TopBar({
   return (
     <header className="shell-topbar psi-editorial" data-html2canvas-ignore>
       <div className="shell-topbar-inner">
-        <Link href="/" className="shell-brand">
-          <span className="shell-brand-mark" aria-hidden="true">
-            CU
-          </span>
-          Chase Upside
-        </Link>
+        <Brand />
         <nav className="shell-nav" aria-label="Primary">
-          {groups.map((group) =>
+          {groups.map((group, index) =>
             group.items && group.items.length > 0 ? (
               <NavMenu
                 key={group.key}
@@ -96,6 +94,7 @@ export default function TopBar({
                 items={group.items}
                 active={isGroupActive(group, pathname)}
                 pathname={pathname}
+                align={index >= groups.length - 2 ? "right" : "left"}
               />
             ) : (
               <Link
@@ -103,11 +102,13 @@ export default function TopBar({
                 href={group.href}
                 title={group.hint || group.label}
                 className="shell-nav-link"
-                aria-current={isNavActive(group.href, pathname) ? "page" : undefined}
+                aria-current={
+                  isNavActive(group.href, pathname) ? "page" : undefined
+                }
               >
                 {group.label}
               </Link>
-            )
+            ),
           )}
         </nav>
         <div className="shell-nav-right">
