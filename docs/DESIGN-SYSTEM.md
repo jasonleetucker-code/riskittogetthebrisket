@@ -1,3 +1,5 @@
+> **OWNER RESEARCH OVERRIDE — 2026-11-07:** The current PSI / light editorial token system remains deployed/operational but is **not the approved final future aesthetic**. The owner has reopened bottom-up frontend design research, including dark-first alternatives and typography/IA/news UX, per `docs/owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md`. The older "locked/no new palette" restrictions continue to describe safe incumbent code maintenance, not a ban on isolated research prototypes. Do not change production tokens or start a wholesale reskin until separate authorization in `docs/EXECUTION_PLAN.md`.
+
 # Design System — Premium Sports Intelligence
 
 ## Current PSI authority — 2026-09-24 (#1421)
