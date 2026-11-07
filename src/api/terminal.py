@@ -872,6 +872,16 @@ def _fmt_delta(v: int | float | None) -> str:
     return f"+{int(v)}" if v > 0 else f"{int(v)}"
 
 
+def _fmt_mad(mad: Any) -> str:
+    """Volatility (MAD) for reason copy; an unmeasured MAD reads "n/a", never 0.0."""
+    if mad is None:
+        return "n/a"
+    try:
+        return f"{float(mad):.1f}"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
 def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
     fired: list[dict[str, Any]] = []
     trend7 = ctx.get("trend7")
@@ -906,7 +916,7 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
             95,
             "RISK",
             "high_vol_drop",
-            f"High volatility (MAD {float(mad or 0):.1f}) with a steep 7d drop of {_fmt_delta(trend7)}.",
+            f"High volatility (MAD {_fmt_mad(mad)}) with a steep 7d drop of {_fmt_delta(trend7)}.",
         )
     if (trend7 is not None and trend7 <= -3) and (trend30 is not None and trend30 <= 0):
         add(
@@ -920,7 +930,7 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
             78,
             "SELL",
             "neg_news_high_vol",
-            f"Negative news with high volatility (MAD {float(mad or 0):.1f}).",
+            f"Negative news with high volatility (MAD {_fmt_mad(mad)}).",
         )
     if alert > 0:
         add(
@@ -930,7 +940,7 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
             f"{alert} alert-severity headline{'' if alert == 1 else 's'} — watch for follow-up.",
         )
     if vol_label == "high":
-        add(62, "MONITOR", "high_vol", f"High volatility (MAD {float(mad or 0):.1f}).")
+        add(62, "MONITOR", "high_vol", f"High volatility (MAD {_fmt_mad(mad)}).")
     # RETIRED 2026-07-30: ``low_conf_unstable`` (MONITOR, priority 60).
     #
     # The rule tested ``confidence < 0.35``, but the metric it read cannot
@@ -1089,7 +1099,7 @@ def _compute_portfolio_insights(
         t = max(tier1, key=lambda p: p["value"])
         risk = {
             "player": t,
-            "reason": f"High volatility (MAD {float((t['volatility'] or {}).get('mad') or 0):.1f}) and 7d trend of {_fmt_delta(t['trend7'])}.",
+            "reason": f"High volatility (MAD {_fmt_mad((t['volatility'] or {}).get('mad'))}) and 7d trend of {_fmt_delta(t['trend7'])}.",
             "metric": "vol_plus_drop",
         }
     if not risk:
@@ -1158,7 +1168,8 @@ def _compute_portfolio_insights(
                 "value": int(_row_value(best_cand)),
                 "rank": _row_rank(best_cand),
             },
-            "reason": f"Dropped {abs(int(_row_rank_change(best_cand) or 0))} ranks on the last scrape but still inside the top {_row_rank(best_cand)}.",
+            # best_cand is only chosen when its rank change is a measured value <= -3.
+            "reason": f"Dropped {abs(int(best_score))} ranks on the last scrape but still inside the top {_row_rank(best_cand)}.",
             "metric": "short_drop_long_steady",
         }
 
