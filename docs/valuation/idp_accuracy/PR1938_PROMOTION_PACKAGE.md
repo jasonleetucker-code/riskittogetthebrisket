@@ -16,13 +16,17 @@ Agent-OS-Receipt: 741230def70b1c94b9924192ee784bb7241b91a6
 * The nflverse path reproduces the host's points on more player-weeks in every
   sample. Across 44,558 player-weeks in the three samples, exactly **one** becomes
   newly wrong. Details are in §4.
-* The `/api/data` market board is unchanged. Under both scorers the contract has
-  1,103 rows with identical `rankDerivedValue`, rank and confidence.
+* The `/api/data` market board is unchanged. Under both scorers the contract built
+  from `exports/latest/dynasty_data_2026-11-07.json` has 1,103 rows with identical
+  `rankDerivedValue`, rank and confidence (`evidence/pr1938_market_board_parity.json`,
+  command in §11). The permanent guard is
+  `tests/idp_accuracy/test_market_board_does_not_read_realized_points.py` (§5).
 * The change moves BDVM, and only BDVM-family surfaces, plus three secondary
   consumers listed in §5.
 * **The production BDVM before/after was NOT measured.** The snapshot lives only on
   the box, and this session has no box access. §6 gives the exact read-only
-  operator command, and the script was smoke-tested in that mode.
+  operator command. The script was smoke-tested in that mode against a local
+  emulation, not the box (`evidence/pr1938_box_mode_smoke.json`).
 * §6 also gives a **proxy** measurement on a reconstructed-baseline snapshot built
   from public data with the production builder. Its numbers are clearly labelled
   and are not production's.
@@ -150,7 +154,7 @@ not checked.**
 
 | consumer | how it reaches the changed function | output changes? | evidence |
 |---|---|---|---|
-| `/api/data` (`rankDerivedValue`, ranks, confidence) and everything on the market board: trade calculator, finder, suggestions, angle, waivers, FAAB, terminal | none on the value path | **No** | `build_api_data_contract` over `exports/latest/dynasty_data_2026-11-07.json` under each scorer gives 1,103 rows with identical value, rank and confidence (sha `3043fb05d038ba13` both) |
+| `/api/data` (`rankDerivedValue`, ranks, confidence) and everything on the market board: trade calculator, finder, suggestions, angle, waivers, FAAB, terminal | no module-level import; one lazy import of a season helper only (see below) | **No** | `scripts/idp_accuracy/pr1938_market_board_parity.py` builds the contract from `exports/latest/dynasty_data_2026-11-07.json` (sha `7d35c88d…`) under each scorer, each in a fresh interpreter: 1,103 rows, 0 differing, table sha `3043fb05…` both (`evidence/pr1938_market_board_parity.json`). Permanent guard: `tests/idp_accuracy/test_market_board_does_not_read_realized_points.py` (below) |
 | BDVM in-season posterior: `/api/bdvm/values`, `/roster`, `/trades`, `/trade-eval`; the /rankings Fund-gap column; the /draft BDVM panel | `bdvm.actuals.weekly_points_from_rows` | **Yes** | §6 (proxy measured; production blocked). On today's feed (2026 wk 1-8 plus partial wk 9), 438 of 1,725 players' weekly points change |
 | Daily BDVM signal-alert sweep (`bdvm_signal_alerts`) | reads BDVM values | **Yes**, can fire transitions | proxy: 2 rostered transitions immediately, 6 after the baseline rebuild (§6) |
 | BDVM reconstructed baseline (`dynasty-bdvm-refresh`, Tue 06:10 UTC) | `bdvm.baseline` scores 2023-2025 | **Yes**, at the next rebuild | proxy arm "after rebuild" (§6) |
@@ -162,6 +166,22 @@ not checked.**
 | `model_registry/projection_scorecard` SEASON arm | `weekly_points_from_rows` | **Yes** (evaluation numbers only) | not measured |
 | Diagnostics: `nfl_data/scoring_coverage.py`, `bdvm/scoring_census.py` | rate probes | **Yes** (coverage labels for non-IDP IDP keys and blocked kicks) | targeted tests green |
 | ROS keyed weekly projections (`src/ros/keyed_weekly_projections.py`) | does not call it; keeps its own IDP-for-offense gate | **No**. Its comment "same scoping as realized_points" is now stale (follow-up) | traced |
+
+**The market-board guard** (`tests/idp_accuracy/test_market_board_does_not_read_realized_points.py`,
+3 tests). It asserts what can honestly be asserted:
+
+1. **Module level.** The module-level import closure of `src.api.data_contract`
+   excludes `src.nfl_data.realized_points` and `src.bdvm.actuals`. The closure
+   counts top-level `try` / `if` imports and package `__init__`s.
+2. **Lazy imports.** "Never imported" would be false. Walking the full graph,
+   lazy imports included, there is exactly one entry into those modules:
+   `league_registry` lazily imports `nfl_projection_season` from
+   `src.bdvm.actuals`. That entry is pinned, so a new way in fails the test.
+3. **Behaviour, the real guarantee.** The contract built from the newest complete
+   archived scrape succeeds with `_score_stat_line`, `sleeper_stat_line_from_row`,
+   `host_stat_line` and `weekly_points_from_rows` replaced by functions that raise.
+   A mutation that calls `compute_weekly_points` from `_compute_unified_rankings`
+   is caught (checked by hand).
 
 ## 6. BDVM value impact
 
@@ -208,11 +228,18 @@ not checked.**
        `alertTransitionsRostered`
      * `current_vs_corrected.tradeScan`
      * `current_vs_corrected.rosters`
-* **Smoke test.** Box mode was exercised against an emulated deployment: a detached
-  `origin/main` worktree as `--app-dir`, the PR file as the corrected scorer, a
-  scratch snapshot file and `--cache-only`. Its diff equalled dev mode's on the same
-  snapshot exactly. It wrote nothing under the app's `data/`, and only bytecode
-  caches elsewhere (suppressed by `PYTHONDONTWRITEBYTECODE=1`).
+* **Smoke test (local emulation, not the box).** Evidence:
+  `evidence/pr1938_box_mode_smoke.json`, which has both runs' receipts and a hash of
+  each run's `current_vs_corrected` block. The setup:
+  * a detached `origin/main` worktree as `--app-dir`;
+  * the PR file as the corrected scorer;
+  * a scratch snapshot holding the reconstructed baseline;
+  * `--cache-only`.
+
+  Its `current_vs_corrected` block hashes identically to dev mode's on the same
+  snapshot (`cab61c0b…` both). Afterwards the emulated app dir showed only the
+  copied inputs and `__pycache__`; `find data -newer …` listed nothing. This does
+  not prove behaviour on the real box, whose snapshot, context and events differ.
 * **Not covered by the script:** the baseline-rebuild stage on the box. Use a dry
   run of the builder if wanted; it is not needed for the approval decision.
 
@@ -304,12 +331,17 @@ Largest rostered movers:
 * **Unchecked:** 2023, the oldest baseline season; projection rescoring on the box
   snapshot (covered by the §6a run).
 
-## 8. Release recommendation
+## 8. Recommendation for the owner to consider
 
-> **Approve merging #1938 with the special-teams tackle de-duplication (01/02/03 +
-> ST rule together), after the box run in §6a is attached and CI is green on the
-> updated head. Deploy on a Monday (UTC) so the Tuesday 06:10 baseline rebuild lands
-> the second stage within a day, and decide F1 first.**
+**This is not an approval.** Merging #1938 and activating its valuation effects both
+need the owner's **separate, explicit approval**, given after the §6a box evidence
+exists. Nothing in this package authorizes either step.
+
+> Recommendation for the owner to consider: once the §6a box run is attached and CI
+> is green on the updated head, approve #1938 with the special-teams tackle
+> de-duplication (01/02/03 + ST rule together). Deploy on a Monday (UTC) so the
+> Tuesday 06:10 baseline rebuild lands the second stage within a day, and decide F1
+> first.
 
 Why ship them together: the ST rule is required for 01 to be correct on non-IDP
 rows. On IDP-listed rows the old path matched the host on **zero** player-weeks
@@ -362,10 +394,21 @@ with an ST tackle, and the corrected path matches on 99.9% across three seasons.
 | tests | `python -m pytest tests/idp_accuracy tests/bdvm tests/nfl_data tests/scoring -q` → **1,631 passed, 3 skipped, 1 xfailed** (W13-F003, pre-existing) |
 | wider consumer suites | `tests/league_comparison tests/model_registry tests/league_intel tests/ros tests/roster_intel tests/public_league tests/league_valuation tests/waivers` → 6,002 passed, 0 failed |
 | encoding guard | `tests/test_explicit_text_encoding.py` → 5 passed |
-| formatter | `bash scripts/format_python_changes.sh` → GREEN (Ruff 0.6.9) |
+| formatter | `bash scripts/format_python_changes.sh` → GREEN. Ruff **0.6.9**, the version pinned in `requirements-dev.txt` and enforced by that script; the global `ruff` on this machine is 0.16.9 and was not used |
+| new tests | `python -m pytest tests/idp_accuracy/test_market_board_does_not_read_realized_points.py tests/idp_accuracy/test_pr1938_bdvm_value_impact.py -q` → 8 passed |
+| market-board parity | `python scripts/idp_accuracy/pr1938_market_board_parity.py --export exports/latest/dynasty_data_2026-11-07.json --out docs/valuation/idp_accuracy/evidence/pr1938_market_board_parity.json` → 1,103 rows, 0 differing (exit 1 if any row differs) |
 | Lane A re-run | `python scripts/build_pbp_weekly.py --seasons 2026 --complete-through-week 8 --out-dir data/idp_accuracy/pbp_weekly`, prime `data/idp_accuracy/cache` with the public Sleeper GETs, then `python scripts/idp_accuracy/scorer_fix_measure.py --base-ref origin/main --out <file>` |
 | case oracle | `python scripts/idp_accuracy/pr1938_case_oracle.py --out <file>` (add `--season 2025 --weeks 1 … 18`; needs `build_pbp_weekly.py --seasons <season>`) |
 | proxy BDVM | `python scripts/idp_accuracy/pr1938_bdvm_value_impact.py --proxy-baseline --proxy-rebuilt-arm --out <file>` |
+
+**Test coverage of the new scripts:**
+* `pr1938_bdvm_value_impact.py`: its pure diff logic (`diff_payloads`,
+  `_trade_keys`, `_rostered`) is unit-tested in
+  `tests/idp_accuracy/test_pr1938_bdvm_value_impact.py`. Its `main` (snapshot /
+  network) is exercised only by the runs above.
+* `pr1938_case_oracle.py` and `pr1938_market_board_parity.py` are **untested
+  research scripts** (network / subprocess). Their outputs are the committed
+  evidence JSONs.
 
 ## Result contract
 
