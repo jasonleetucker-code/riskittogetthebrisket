@@ -247,15 +247,18 @@ const BID_STATE_COPY = {
 export function waiverBidStateForRow(index, row) {
   const withCopy = (state) => ({ state, bid: null, ...BID_STATE_COPY[state] });
   if (!index) return withCopy("unavailable");
-  if (index.budgetUnknown) return withCopy("balance_unknown");
   // A team was selected (the fetch that built this index only runs
   // then), but the backend fell back to the ceiling-only estimate — no
   // rival model ran, so nothing here is a recommendation. This check
   // comes before any name lookup because it applies to EVERY row in
-  // the payload, not to whether this particular player has a bid.
+  // the payload, not to whether this particular player has a bid.  It
+  // also comes before the balance check: without a resolved team the
+  // balance is unknown as a CONSEQUENCE, and naming it would hide the
+  // cause.
   if (index.methodology && index.methodology !== "market_aware") {
     return withCopy("team_context_missing");
   }
+  if (index.budgetUnknown) return withCopy("balance_unknown");
   if (!row) return withCopy("unpriced");
   const name = normalizeName(row?.name || row?.displayName);
   if (!name) return withCopy("unpriced");

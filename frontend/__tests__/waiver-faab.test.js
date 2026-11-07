@@ -281,6 +281,19 @@ describe("unknown team FAAB balance", () => {
     expect(entry.bid).toBeNull();
   });
 
+  it("team_context_missing wins over balance_unknown: the missing team is the cause", () => {
+    // Without a resolved team the backend falls back to the ceiling-only
+    // estimate AND cannot know the balance; naming the balance would hide
+    // that no team context reached the recommendation at all.
+    const ceilingOnly = { ...payload, bidMethodology: "ceiling_only_estimate" };
+    const entry = waiverBidStateForRow(buildWaiverBidIndex(ceilingOnly), {
+      name: "Emeka Egbuka",
+      pos: "WR",
+    });
+    expect(entry.state).toBe("team_context_missing");
+    expect(entry.bid).toBeNull();
+  });
+
   it("a known balance with no priced candidates is still the null index", () => {
     expect(
       buildWaiverBidIndex({ ...payload, faabBudget: { state: "known", balance: 60 } }),
