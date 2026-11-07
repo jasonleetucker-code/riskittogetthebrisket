@@ -15,9 +15,9 @@ Tests: JS `frontend/__tests__/audit-cw40-batch-t1.test.js` (11 tests); Python `t
 | W08-F004 | CLOSED_VERIFIED |
 | W08-F005 | CLOSED_VERIFIED (identity/representability; owned-pick pricing is the deferred C1-U7, see section) |
 | W08-F007 | CLOSED_VERIFIED |
-| W09-F001 | CLOSED_VERIFIED |
+| W09-F001 | CLOSED_VERIFIED (whole-roster analysis + diagnosis; zero-result rate 8→5 of 12, not asserted) |
 | W09-F002 | CLOSED_VERIFIED (shape skew toward 1-for-2 remains; scoring is owner-reserved) |
-| W09-F003 | CLOSED_VERIFIED (finder; by design only via posture-aware generation) |
+| W09-F003 | PARTIAL (finder fixed via posture-aware generation; suggestions send side still player-only — owner decision) |
 | W09-F004 | CLOSED_VERIFIED |
 | W09-F005 | PARTIAL |
 | W09-F006 | CLOSED_VERIFIED (superseded: lens withdrawn, offense-only board deleted) |
@@ -72,7 +72,7 @@ Tests: JS `frontend/__tests__/audit-cw40-batch-t1.test.js` (11 tests); Python `t
 **Requirement.** CLAUDE.md "Trade Engines": roster ANALYSIS reads the whole roster; what may be OFFERED stays in the quality pool (owner inventory 2.3/2.4).
 **Code.** `server.py:10379-10420` builds the full board once and passes `roster_pool=full_pool`; `src/trade/suggestions.py:2269-2314` (`noResultReason`, `rosterAnalysisPool: "full_board"`, `positionalFloor`).
 **Repro (current, 12 archived rosters).** `rosterMatched`/`rosterProvided` 51-57 of 56-58 for every team; unmatched players are named in `rosterUnpriced`; every zero-suggestion team carries `noResultReason` (`no_offerable_surplus_in_quality_pool`) + label + `generatorDiagnostics`.
-**Limitation.** On the archived board several teams still get zero suggestions when called without `league_rosters` — now explained, which is the original finding's complaint ("no diagnosis"). Whether zero is the right *answer* for them is a product-quality question, not asserted here.
+**Limitation.** On the archived board 5 of 12 teams still get zero suggestions (audit: 8 of 12) when called without `league_rosters` — now explained, with the generic reason `no_offerable_surplus_in_quality_pool`, which is the original finding's complaint ("no diagnosis"). Whether zero is the right *answer* for them is a product-quality question, not asserted here.
 **Test.** `test_audit_cw40_batch_t1_closed.py` › `test_w09_f001_*`.
 
 ## W09-F002 — every finder trade was 1-for-2 — CLOSED_VERIFIED
@@ -83,12 +83,13 @@ Tests: JS `frontend/__tests__/audit-cw40-batch-t1.test.js` (11 tests); Python `t
 **Limitation.** 1-for-2 is still ~70-78% of the list and 2-for-1 is thin. The give-side normalisation is a ranking-methodology choice, so it was not touched; flagged as an observation, not a defect of this finding.
 **Test.** `test_w09_f002_finder_returns_more_than_one_package_shape`.
 
-## W09-F003 — picks never appear in finder/suggestion results — CLOSED_VERIFIED (finder)
+## W09-F003 — picks never appear in finder/suggestion results — PARTIAL
 
 **Claim.** `_resolve_roster` reads only `players`, so no pick reaches a trade.
 **Requirement.** C7-PICKGEN-01: picks enter generated trades only through a posture-aware generator (a complementary PUSH vs RETOOL/REBUILD pair, Team Context ON), never as filler.
 **Code.** `finder.py:1219-1340` (`_owned_pick_assets` from canonical `pickDetails`/`assetId`) and `:1339-1428` (`_posture_pick_packages`); `server.py:10620-10650` passes `postures` and `pick_forecasts`.
-**Repro (current).** PUSH requester vs RETOOL league, Team Context ON: 196 of 4,778 qualified trades carry a pick (assetId `pick:dynasty_main:…`, flag `posture_aware_pick`); with no posture pair, none (`pickGeneration.applied=false`). The suggestions engine's *send* side is still player-only by that same rule — noted, not asserted.
+**Repro (current).** PUSH requester vs RETOOL league, Team Context ON: 196 of 4,778 qualified trades carry a pick (assetId `pick:dynasty_main:…`, flag `posture_aware_pick`); with no posture pair, none (`pickGeneration.applied=false`). The suggestions engine's *send* side is still player-only. C7-PICKGEN-01 rule 5 (cited at `suggestions.py:1621`) only forbids picks as balancers; it does not make a player-only send side intended, so the suggestions half of the finding stays open.
+**Owner decision.** Should `/api/trade/suggestions` propose sending owned picks through the same posture-aware generator the finder uses (C7-PICKGEN-01), or is a player-only suggestions engine intended? No xfail is pinned until that intent is decided.
 **Test.** `test_w09_f003_*` (two).
 
 ## W09-F004 — no DB eligible for any suggestion — CLOSED_VERIFIED
