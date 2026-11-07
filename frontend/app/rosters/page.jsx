@@ -47,6 +47,7 @@ const FONT_2XS = "var(--font-size-2xs, 0.6875rem)";
 import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
 import TeamStrengthCard from "@/components/TeamStrengthCard";
 import TradeTargetsCard from "@/components/TradeTargetsCard";
+import TeamGameplanSection from "@/components/TeamGameplanSection";
 import { useRosterIntelligence } from "@/components/useRosterIntelligence";
 import { ownerIdForTeamName } from "@/lib/roster-intelligence";
 import "./rosters.css";
@@ -503,6 +504,10 @@ export default function RostersPage() {
           onPlayerClick={openPlayerPopup}
         />
       )}
+
+      {/* Team Gameplan — on-demand, selected team only (owner decision
+          2026-11-07, W20-F001).  Fetches nothing until expanded. */}
+      {myTeam && <TeamGameplanSection ownerId={myOwnerId} teamName={myTeam} />}
 
       {/* Waiver Wire Gems */}
       {waiverGems.length > 0 && (
