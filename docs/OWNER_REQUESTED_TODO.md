@@ -15,6 +15,10 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-07 — Frontend Experience Rebuild (research phase only)
+
+**New, later owner intent:** Reject the light/cream PSI editorial look as the *future design destination*; research a distinctive, integrated, professional-grade football front-office / quantitative trading / sports-network UX for both public league and authenticated routes. Investigate generic AI-site convergence and anti-template prompting, AI builder/tool comparison, design systems and dark-first alternatives, complete IA/navigation, actionable data displays, layered help/glossary, news ticker/editorial treatment, responsible public/private information boundaries, existing+future feature inventory, and safe parallel execution with Claude's ongoing backend work. **Research only now; final theme, AI builder, framework migration and broad implementation are NOT yet selected/authorized.** Complete requirements and supersession: [Frontend Experience Rebuild Research Charter](docs/owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md). Reconcile with existing UI Lane 6 / C8-U2 and cross-cutting QA records rather than inventing a competing backlog/denominator. Status: **OWNER-DIRECTED RESEARCH, BUILD-GATED**.
+
 ## Added 2026-11-06 — Sitewide audit remediation, implementation and delivery directive
 
 Owner directive 2026-11-06 (chat, "MASTER SITEWIDE AUDIT REMEDIATION, IMPLEMENTATION & DELIVERY DIRECTIVE"). Structured
