@@ -1,0 +1,185 @@
+{
+  "vitals": {
+    "lcpMs": 180,
+    "cls": 0.0023372425979723485,
+    "shifts": [
+      {
+        "value": 0.0023372425979723485,
+        "time": 276.80000000074506,
+        "sources": [
+          {
+            "previous": {
+              "x": 16,
+              "y": 248,
+              "width": 358,
+              "height": 51,
+              "top": 248,
+              "right": 374,
+              "bottom": 299,
+              "left": 16
+            },
+            "current": {
+              "x": 16,
+              "y": 248,
+              "width": 358,
+              "height": 51,
+              "top": 248,
+              "right": 374,
+              "bottom": 299,
+              "left": 16
+            }
+          },
+          {
+            "node": "TD",
+            "className": "value-cell ",
+            "previous": {
+              "x": 190.140625,
+              "y": 720.390625,
+              "width": 83.671875,
+              "height": 66,
+              "top": 720.390625,
+              "right": 273.8125,
+              "bottom": 786.390625,
+              "left": 190.140625
+            },
+            "current": {
+              "x": 186.390625,
+              "y": 720.390625,
+              "width": 86.453125,
+              "height": 66,
+              "top": 720.390625,
+              "right": 272.84375,
+              "bottom": 786.390625,
+              "left": 186.390625
+            }
+          },
+          {
+            "node": "TD",
+            "className": "value-cell ",
+            "previous": {
+              "x": 190.140625,
+              "y": 786.390625,
+              "width": 83.671875,
+              "height": 57.609375,
+              "top": 786.390625,
+              "right": 273.8125,
+              "bottom": 844,
+              "left": 190.140625
+            },
+            "current": {
+              "x": 186.390625,
+              "y": 786.390625,
+              "width": 86.453125,
+              "height": 57.609375,
+              "top": 786.390625,
+              "right": 272.84375,
+              "bottom": 844,
+              "left": 186.390625
+            }
+          },
+          {
+            "node": "STRONG",
+            "className": "",
+            "previous": {
+              "x": 133.34375,
+              "y": 350,
+              "width": 108.515625,
+              "height": 28,
+              "top": 350,
+              "right": 241.859375,
+              "bottom": 378,
+              "left": 133.34375
+            },
+            "current": {
+              "x": 138.171875,
+              "y": 350,
+              "width": 99.890625,
+              "height": 28,
+              "top": 350,
+              "right": 238.0625,
+              "bottom": 378,
+              "left": 138.171875
+            }
+          },
+          {
+            "previous": {
+              "x": 81.203125,
+              "y": 74,
+              "width": 81.171875,
+              "height": 30,
+              "top": 74,
+              "right": 162.375,
+              "bottom": 104,
+              "left": 81.203125
+            },
+            "current": {
+              "x": 79.6875,
+              "y": 74,
+              "width": 72.875,
+              "height": 30,
+              "top": 74,
+              "right": 152.5625,
+              "bottom": 104,
+              "left": 79.6875
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "measurementWindowMs": 551.3000000007451,
+  "navigation": [
+    {
+      "domContentLoaded": 167.69999999925494,
+      "duration": 215.30000000074506,
+      "transferSize": 9404
+    }
+  ],
+  "resources": [
+    {
+      "name": "/_next/static/css/e95293d9fb747c58.css",
+      "transferSize": 9416,
+      "duration": 10.300000000745058
+    },
+    {
+      "name": "/_next/static/chunks/webpack-c508801ccc3ce4e1.js",
+      "transferSize": 2013,
+      "duration": 14.300000000745058
+    },
+    {
+      "name": "/_next/static/chunks/main-app-c23e33b9057c9abe.js",
+      "transferSize": 813,
+      "duration": 14.399999998509884
+    },
+    {
+      "name": "/_next/static/chunks/280-9c1a6fc96e2d0628.js",
+      "transferSize": 26350,
+      "duration": 18.300000000745058
+    },
+    {
+      "name": "/_next/static/chunks/794-216401842b802bd7.js",
+      "transferSize": 67715,
+      "duration": 23.100000001490116
+    },
+    {
+      "name": "/_next/static/chunks/4bd1b696-c7408084347438ae.js",
+      "transferSize": 64357,
+      "duration": 21.199999999254942
+    },
+    {
+      "name": "/_next/static/chunks/app/rankings/page-6c842503c5b66411.js",
+      "transferSize": 424,
+      "duration": 15.699999999254942
+    },
+    {
+      "name": "/_next/static/media/37fbca445022d0d0-s.p.woff2",
+      "transferSize": 84416,
+      "duration": 138.69999999925494
+    },
+    {
+      "name": "/_next/static/media/491c517072ffa9f4.p.woff2",
+      "transferSize": 27780,
+      "duration": 126.40000000223517
+    }
+  ]
+}

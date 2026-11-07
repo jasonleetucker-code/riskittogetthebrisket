@@ -69,3 +69,9 @@ In production, nginx sends `/api/*` to FastAPI; the existing Next news proxy is 
 - Security/quality engineering applicability: deterministic fixtures, provenance, reproducible assets, E2E, accessibility and request isolation **APPLY_NOW**. Production model evaluation, source ingestion, database migration, backend load testing and scheduled stewardship are **NOT_RELEVANT** to this local prototype. Production rollout and real contract wiring are **DEFERRED_BY_AUTHORITY**.
 
 No merge, deployment, live styling change, public/private access change or production feature activation is included. Owner approval concerns the visual direction and reference experiences; it does not automatically authorize production migration.
+
+## Final local verification
+
+Production build, **11/11 correctness tests**, **16/16 browser tests**, nine populated-state axe scans and planning integrity passed. The browser cases observed zero external requests and no horizontal overflow. [Exact changed-file manifest](output/playwright/changed-files.txt) and [source-linked receipt](output/playwright/verification.json) preserve commands, source commit/blob IDs, actual results and limitations.
+
+Local load samples: LCP **164–288 ms**, maximum CLS **0.0048**. Mobile rankings CLS fell from ~0.146 to **0.0023** by reserving the single-line headline while the condensed font loads. Input-to-second-render-frame sample: **27.7 ms**. These are local unthrottled samples, not production budgets or an INP score.

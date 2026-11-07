@@ -1,0 +1,192 @@
+{
+  "vitals": {
+    "lcpMs": 288,
+    "cls": 0.0012322528754340277,
+    "shifts": [
+      {
+        "value": 0.0012322528754340277,
+        "time": 365.6000000014901,
+        "sources": [
+          {
+            "previous": {
+              "x": 47.828125,
+              "y": 412.734375,
+              "width": 560.234375,
+              "height": 133,
+              "top": 412.734375,
+              "right": 608.0625,
+              "bottom": 545.734375,
+              "left": 47.828125
+            },
+            "current": {
+              "x": 51.828125,
+              "y": 413.734375,
+              "width": 556.234375,
+              "height": 133,
+              "top": 413.734375,
+              "right": 608.0625,
+              "bottom": 546.734375,
+              "left": 51.828125
+            }
+          },
+          {
+            "node": "BUTTON",
+            "className": "",
+            "previous": {
+              "x": 202.390625,
+              "y": 731.96875,
+              "width": 1185.78125,
+              "height": 21.5,
+              "top": 731.96875,
+              "right": 1388.171875,
+              "bottom": 753.46875,
+              "left": 202.390625
+            },
+            "current": {
+              "x": 197.4375,
+              "y": 731.96875,
+              "width": 1190.734375,
+              "height": 21.5,
+              "top": 731.96875,
+              "right": 1388.171875,
+              "bottom": 753.46875,
+              "left": 197.4375
+            }
+          },
+          {
+            "node": "NAV",
+            "className": "",
+            "previous": {
+              "x": 277.84375,
+              "y": 69,
+              "width": 265.40625,
+              "height": 64,
+              "top": 69,
+              "right": 543.25,
+              "bottom": 133,
+              "left": 277.84375
+            },
+            "current": {
+              "x": 267.640625,
+              "y": 69,
+              "width": 266.671875,
+              "height": 64,
+              "top": 69,
+              "right": 534.3125,
+              "bottom": 133,
+              "left": 267.640625
+            }
+          },
+          {
+            "node": "DIV",
+            "className": "masthead-right",
+            "previous": {
+              "x": 1108.484375,
+              "y": 79.5,
+              "width": 279.6875,
+              "height": 43,
+              "top": 79.5,
+              "right": 1388.171875,
+              "bottom": 122.5,
+              "left": 1108.484375
+            },
+            "current": {
+              "x": 1118.171875,
+              "y": 79.5,
+              "width": 270,
+              "height": 43,
+              "top": 79.5,
+              "right": 1388.171875,
+              "bottom": 122.5,
+              "left": 1118.171875
+            }
+          },
+          {
+            "node": "BUTTON",
+            "className": "button outline",
+            "previous": {
+              "x": 196.25,
+              "y": 625.96875,
+              "width": 141.671875,
+              "height": 44,
+              "top": 625.96875,
+              "right": 337.921875,
+              "bottom": 669.96875,
+              "left": 196.25
+            },
+            "current": {
+              "x": 199.796875,
+              "y": 625.96875,
+              "width": 143,
+              "height": 44,
+              "top": 625.96875,
+              "right": 342.796875,
+              "bottom": 669.96875,
+              "left": 199.796875
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "measurementWindowMs": 636.4000000022352,
+  "navigation": [
+    {
+      "domContentLoaded": 47.80000000074506,
+      "duration": 314.9000000022352,
+      "transferSize": 5234
+    }
+  ],
+  "resources": [
+    {
+      "name": "/media/football-editorial.webp",
+      "transferSize": 96702,
+      "duration": 10.600000001490116
+    },
+    {
+      "name": "/_next/static/chunks/webpack-c508801ccc3ce4e1.js",
+      "transferSize": 2013,
+      "duration": 16.300000000745058
+    },
+    {
+      "name": "/_next/static/css/e95293d9fb747c58.css",
+      "transferSize": 9416,
+      "duration": 16.100000001490116
+    },
+    {
+      "name": "/_next/static/chunks/main-app-c23e33b9057c9abe.js",
+      "transferSize": 813,
+      "duration": 14
+    },
+    {
+      "name": "/_next/static/chunks/app/players/%5BplayerId%5D/page-b51a439b4327212e.js",
+      "transferSize": 424,
+      "duration": 20
+    },
+    {
+      "name": "/_next/static/chunks/280-9c1a6fc96e2d0628.js",
+      "transferSize": 26350,
+      "duration": 20.800000000745058
+    },
+    {
+      "name": "/_next/static/chunks/794-216401842b802bd7.js",
+      "transferSize": 67715,
+      "duration": 26.100000001490116
+    },
+    {
+      "name": "/_next/static/chunks/4bd1b696-c7408084347438ae.js",
+      "transferSize": 64357,
+      "duration": 24.399999998509884
+    },
+    {
+      "name": "/_next/static/media/37fbca445022d0d0-s.p.woff2",
+      "transferSize": 84416,
+      "duration": 181.69999999925494
+    },
+    {
+      "name": "/_next/static/media/491c517072ffa9f4.p.woff2",
+      "transferSize": 27780,
+      "duration": 177.90000000223517
+    }
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "vitals": {
+    "lcpMs": 176,
+    "cls": 0.0036313375063295713,
+    "shifts": [
+      {
+        "value": 0.0036313375063295713,
+        "time": 250.80000000074506,
+        "sources": [
+          {
+            "previous": {
+              "x": 51.828125,
+              "y": 254.5,
+              "width": 509.546875,
+              "height": 98,
+              "top": 254.5,
+              "right": 561.375,
+              "bottom": 352.5,
+              "left": 51.828125
+            },
+            "current": {
+              "x": 51.828125,
+              "y": 255.5,
+              "width": 483.890625,
+              "height": 98,
+              "top": 255.5,
+              "right": 535.71875,
+              "bottom": 353.5,
+              "left": 51.828125
+            }
+          },
+          {
+            "node": "NAV",
+            "className": "",
+            "previous": {
+              "x": 277.84375,
+              "y": 69,
+              "width": 265.40625,
+              "height": 64,
+              "top": 69,
+              "right": 543.25,
+              "bottom": 133,
+              "left": 277.84375
+            },
+            "current": {
+              "x": 267.640625,
+              "y": 69,
+              "width": 266.671875,
+              "height": 64,
+              "top": 69,
+              "right": 534.3125,
+              "bottom": 133,
+              "left": 267.640625
+            }
+          },
+          {
+            "node": "TD",
+            "className": "research spread",
+            "previous": {
+              "x": 1005.609375,
+              "y": 769.625,
+              "width": 215.453125,
+              "height": 73,
+              "top": 769.625,
+              "right": 1221.0625,
+              "bottom": 842.625,
+              "left": 1005.609375
+            },
+            "current": {
+              "x": 1002.203125,
+              "y": 769.625,
+              "width": 218.609375,
+              "height": 73,
+              "top": 769.625,
+              "right": 1220.8125,
+              "bottom": 842.625,
+              "left": 1002.203125
+            }
+          },
+          {
+            "node": "TD",
+            "className": "research spread",
+            "previous": {
+              "x": 1005.609375,
+              "y": 696.625,
+              "width": 215.453125,
+              "height": 73,
+              "top": 696.625,
+              "right": 1221.0625,
+              "bottom": 769.625,
+              "left": 1005.609375
+            },
+            "current": {
+              "x": 1002.203125,
+              "y": 696.625,
+              "width": 218.609375,
+              "height": 73,
+              "top": 696.625,
+              "right": 1220.8125,
+              "bottom": 769.625,
+              "left": 1002.203125
+            }
+          },
+          {
+            "node": "TD",
+            "className": "research spread",
+            "previous": {
+              "x": 1005.609375,
+              "y": 842.625,
+              "width": 215.453125,
+              "height": 73,
+              "top": 842.625,
+              "right": 1221.0625,
+              "bottom": 915.625,
+              "left": 1005.609375
+            },
+            "current": {
+              "x": 1002.203125,
+              "y": 842.625,
+              "width": 218.609375,
+              "height": 73,
+              "top": 842.625,
+              "right": 1220.8125,
+              "bottom": 915.625,
+              "left": 1002.203125
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "measurementWindowMs": 552.8000000007451,
+  "navigation": [
+    {
+      "domContentLoaded": 145.10000000149012,
+      "duration": 194.60000000149012,
+      "transferSize": 9404
+    }
+  ],
+  "resources": [
+    {
+      "name": "/_next/static/css/e95293d9fb747c58.css",
+      "transferSize": 9416,
+      "duration": 8.199999999254942
+    },
+    {
+      "name": "/_next/static/chunks/webpack-c508801ccc3ce4e1.js",
+      "transferSize": 2013,
+      "duration": 8.899999998509884
+    },
+    {
+      "name": "/_next/static/chunks/4bd1b696-c7408084347438ae.js",
+      "transferSize": 64357,
+      "duration": 18.299999997019768
+    },
+    {
+      "name": "/_next/static/chunks/main-app-c23e33b9057c9abe.js",
+      "transferSize": 813,
+      "duration": 10
+    },
+    {
+      "name": "/_next/static/chunks/app/rankings/page-6c842503c5b66411.js",
+      "transferSize": 424,
+      "duration": 10.199999999254942
+    },
+    {
+      "name": "/_next/static/chunks/280-9c1a6fc96e2d0628.js",
+      "transferSize": 26350,
+      "duration": 14.300000000745058
+    },
+    {
+      "name": "/_next/static/chunks/794-216401842b802bd7.js",
+      "transferSize": 67715,
+      "duration": 18.800000000745058
+    },
+    {
+      "name": "/_next/static/media/37fbca445022d0d0-s.p.woff2",
+      "transferSize": 84416,
+      "duration": 115.20000000298023
+    },
+    {
+      "name": "/_next/static/media/491c517072ffa9f4.p.woff2",
+      "transferSize": 27780,
+      "duration": 107
+    }
+  ]
+}

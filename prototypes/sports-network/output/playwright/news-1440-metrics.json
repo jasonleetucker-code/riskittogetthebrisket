@@ -1,0 +1,192 @@
+{
+  "vitals": {
+    "lcpMs": 212,
+    "cls": 0.004769311101466049,
+    "shifts": [
+      {
+        "value": 0.004769311101466049,
+        "time": 254.60000000149012,
+        "sources": [
+          {
+            "previous": {
+              "x": 48.828125,
+              "y": 347.046875,
+              "width": 560,
+              "height": 126,
+              "top": 347.046875,
+              "right": 608.828125,
+              "bottom": 473.046875,
+              "left": 48.828125
+            },
+            "current": {
+              "x": 51.828125,
+              "y": 348.046875,
+              "width": 536,
+              "height": 126,
+              "top": 348.046875,
+              "right": 587.828125,
+              "bottom": 474.046875,
+              "left": 51.828125
+            }
+          },
+          {
+            "node": "P",
+            "className": "",
+            "previous": {
+              "x": 1161.765625,
+              "y": 295.296875,
+              "width": 199.6875,
+              "height": 108,
+              "top": 295.296875,
+              "right": 1361.453125,
+              "bottom": 403.296875,
+              "left": 1161.765625
+            },
+            "current": {
+              "x": 1158.078125,
+              "y": 295.296875,
+              "width": 203.375,
+              "height": 108,
+              "top": 295.296875,
+              "right": 1361.453125,
+              "bottom": 403.296875,
+              "left": 1158.078125
+            }
+          },
+          {
+            "node": "NAV",
+            "className": "",
+            "previous": {
+              "x": 277.84375,
+              "y": 69,
+              "width": 265.40625,
+              "height": 64,
+              "top": 69,
+              "right": 543.25,
+              "bottom": 133,
+              "left": 277.84375
+            },
+            "current": {
+              "x": 267.640625,
+              "y": 69,
+              "width": 266.671875,
+              "height": 64,
+              "top": 69,
+              "right": 534.3125,
+              "bottom": 133,
+              "left": 267.640625
+            }
+          },
+          {
+            "node": "DIV",
+            "className": "",
+            "previous": {
+              "x": 1108.953125,
+              "y": 951.890625,
+              "width": 252.21875,
+              "height": 48.109375,
+              "top": 951.890625,
+              "right": 1361.171875,
+              "bottom": 1000,
+              "left": 1108.953125
+            },
+            "current": {
+              "x": 1106.078125,
+              "y": 951.890625,
+              "width": 255.09375,
+              "height": 48.109375,
+              "top": 951.890625,
+              "right": 1361.171875,
+              "bottom": 1000,
+              "left": 1106.078125
+            }
+          },
+          {
+            "node": "DIV",
+            "className": "masthead-right",
+            "previous": {
+              "x": 1108.484375,
+              "y": 79.5,
+              "width": 279.6875,
+              "height": 43,
+              "top": 79.5,
+              "right": 1388.171875,
+              "bottom": 122.5,
+              "left": 1108.484375
+            },
+            "current": {
+              "x": 1118.171875,
+              "y": 79.5,
+              "width": 270,
+              "height": 43,
+              "top": 79.5,
+              "right": 1388.171875,
+              "bottom": 122.5,
+              "left": 1118.171875
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "measurementWindowMs": 519.8000000007451,
+  "navigation": [
+    {
+      "domContentLoaded": 153.60000000149012,
+      "duration": 217.90000000223517,
+      "transferSize": 5368
+    }
+  ],
+  "resources": [
+    {
+      "name": "/media/football-editorial.webp",
+      "transferSize": 96702,
+      "duration": 8.800000000745058
+    },
+    {
+      "name": "/_next/static/css/e95293d9fb747c58.css",
+      "transferSize": 9416,
+      "duration": 14.099999997764826
+    },
+    {
+      "name": "/_next/static/chunks/webpack-c508801ccc3ce4e1.js",
+      "transferSize": 2013,
+      "duration": 13.699999999254942
+    },
+    {
+      "name": "/_next/static/chunks/main-app-c23e33b9057c9abe.js",
+      "transferSize": 813,
+      "duration": 12.300000000745058
+    },
+    {
+      "name": "/_next/static/chunks/app/news/page-2175e6cc26c12a4e.js",
+      "transferSize": 424,
+      "duration": 15.600000001490116
+    },
+    {
+      "name": "/_next/static/chunks/280-9c1a6fc96e2d0628.js",
+      "transferSize": 26350,
+      "duration": 17.600000001490116
+    },
+    {
+      "name": "/_next/static/chunks/4bd1b696-c7408084347438ae.js",
+      "transferSize": 64357,
+      "duration": 20.900000002235174
+    },
+    {
+      "name": "/_next/static/chunks/794-216401842b802bd7.js",
+      "transferSize": 67715,
+      "duration": 22.699999999254942
+    },
+    {
+      "name": "/_next/static/media/37fbca445022d0d0-s.p.woff2",
+      "transferSize": 84416,
+      "duration": 122
+    },
+    {
+      "name": "/_next/static/media/491c517072ffa9f4.p.woff2",
+      "transferSize": 27780,
+      "duration": 114.19999999925494
+    }
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "vitals": {
+    "lcpMs": 184,
+    "cls": 0.002652533650716146,
+    "shifts": [
+      {
+        "value": 0.002652533650716146,
+        "time": 278.6000000014901,
+        "sources": [
+          {
+            "previous": {
+              "x": 24,
+              "y": 256.5,
+              "width": 355.359375,
+              "height": 70,
+              "top": 256.5,
+              "right": 379.359375,
+              "bottom": 326.5,
+              "left": 24
+            },
+            "current": {
+              "x": 24,
+              "y": 256.5,
+              "width": 343.546875,
+              "height": 70,
+              "top": 256.5,
+              "right": 367.546875,
+              "bottom": 326.5,
+              "left": 24
+            }
+          },
+          {
+            "node": "NAV",
+            "className": "",
+            "previous": {
+              "x": 200.578125,
+              "y": 73,
+              "width": 213.234375,
+              "height": 64,
+              "top": 73,
+              "right": 413.8125,
+              "bottom": 137,
+              "left": 200.578125
+            },
+            "current": {
+              "x": 191.796875,
+              "y": 73,
+              "width": 214.296875,
+              "height": 64,
+              "top": 73,
+              "right": 406.09375,
+              "bottom": 137,
+              "left": 191.796875
+            }
+          },
+          {
+            "node": "TD",
+            "className": "movement-cell positive",
+            "previous": {
+              "x": 492.671875,
+              "y": 820.15625,
+              "width": 159.734375,
+              "height": 73,
+              "top": 820.15625,
+              "right": 652.40625,
+              "bottom": 893.15625,
+              "left": 492.671875
+            },
+            "current": {
+              "x": 489.125,
+              "y": 820.15625,
+              "width": 161.90625,
+              "height": 73,
+              "top": 820.15625,
+              "right": 651.03125,
+              "bottom": 893.15625,
+              "left": 489.125
+            }
+          },
+          {
+            "node": "TD",
+            "className": "movement-cell negative",
+            "previous": {
+              "x": 492.671875,
+              "y": 893.15625,
+              "width": 159.734375,
+              "height": 73,
+              "top": 893.15625,
+              "right": 652.40625,
+              "bottom": 966.15625,
+              "left": 492.671875
+            },
+            "current": {
+              "x": 489.125,
+              "y": 893.15625,
+              "width": 161.90625,
+              "height": 73,
+              "top": 893.15625,
+              "right": 651.03125,
+              "bottom": 966.15625,
+              "left": 489.125
+            }
+          },
+          {
+            "node": "TD",
+            "className": "movement-cell positive",
+            "previous": {
+              "x": 492.671875,
+              "y": 747.15625,
+              "width": 159.734375,
+              "height": 73,
+              "top": 747.15625,
+              "right": 652.40625,
+              "bottom": 820.15625,
+              "left": 492.671875
+            },
+            "current": {
+              "x": 489.125,
+              "y": 747.15625,
+              "width": 161.90625,
+              "height": 73,
+              "top": 747.15625,
+              "right": 651.03125,
+              "bottom": 820.15625,
+              "left": 489.125
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "measurementWindowMs": 568.6000000014901,
+  "navigation": [
+    {
+      "domContentLoaded": 170.30000000074506,
+      "duration": 237.10000000149012,
+      "transferSize": 9404
+    }
+  ],
+  "resources": [
+    {
+      "name": "/_next/static/css/e95293d9fb747c58.css",
+      "transferSize": 9416,
+      "duration": 9
+    },
+    {
+      "name": "/_next/static/chunks/webpack-c508801ccc3ce4e1.js",
+      "transferSize": 2013,
+      "duration": 8.799999997019768
+    },
+    {
+      "name": "/_next/static/chunks/4bd1b696-c7408084347438ae.js",
+      "transferSize": 64357,
+      "duration": 22.199999999254942
+    },
+    {
+      "name": "/_next/static/chunks/794-216401842b802bd7.js",
+      "transferSize": 67715,
+      "duration": 24
+    },
+    {
+      "name": "/_next/static/chunks/main-app-c23e33b9057c9abe.js",
+      "transferSize": 813,
+      "duration": 11.700000002980232
+    },
+    {
+      "name": "/_next/static/chunks/app/rankings/page-6c842503c5b66411.js",
+      "transferSize": 424,
+      "duration": 12.300000000745058
+    },
+    {
+      "name": "/_next/static/chunks/280-9c1a6fc96e2d0628.js",
+      "transferSize": 26350,
+      "duration": 18.100000001490116
+    },
+    {
+      "name": "/_next/static/media/37fbca445022d0d0-s.p.woff2",
+      "transferSize": 84416,
+      "duration": 138.89999999850988
+    },
+    {
+      "name": "/_next/static/media/491c517072ffa9f4.p.woff2",
+      "transferSize": 27780,
+      "duration": 123.10000000149012
+    }
+  ]
+}

@@ -614,4 +614,4 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
 | Work | Files | Contract | Branch | Status |
 |---|---|---|---|---|
-| Codex isolated Rankings, Player File and News Desk prototypes; synthetic fixtures only. Owner-approved plan in chat; #2112 remains open. No production imports, tokens, APIs or deploy. Agent-OS-Receipt: 741230def70b1c94b9924192ee784bb7241b91a6 | `prototypes/sports-network/**`; append-only review pointers in owner intake and UI ledger after overlap review | Existing Lane 6 / owner Sports Network directive | `codex/sports-network-prototypes` | in progress — LOCAL PROTOTYPE ONLY |
+| Codex isolated Rankings, Player File and News Desk prototypes; synthetic fixtures only. Owner-approved plan in chat; #2112 remains open. No production imports, tokens, APIs or deploy. Agent-OS-Receipt: 741230def70b1c94b9924192ee784bb7241b91a6 | `prototypes/sports-network/**`; append-only review pointers in owner intake and UI ledger after overlap review | Existing Lane 6 / owner Sports Network directive | `codex/sports-network-prototypes` | done — LOCAL PROTOTYPE VERIFIED; 11 unit / 16 browser tests; owner design approval pending; no merge/deploy |
