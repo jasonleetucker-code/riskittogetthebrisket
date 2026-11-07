@@ -342,10 +342,6 @@ def evaluate_week(study: Study, h: int, models: Mapping[str, cv.ConversionModel]
 # ── aggregation over the holdout ───────────────────────────────────────────────────────────────
 
 
-def _stat_mae(model: str):
-    return lambda rs: mt.mae([r["mu"][model] for r in rs], [r["y"] for r in rs])
-
-
 def _stat_dmae(champ: str, chal: str):
     def f(rs):
         a = mt.mae([r["mu"][champ] for r in rs], [r["y"] for r in rs])
