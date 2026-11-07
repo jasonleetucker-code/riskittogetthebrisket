@@ -17,7 +17,7 @@ import { useHydrated } from "@/components/ds/useHydrated";
 import { EmptyState, LoadingState } from "@/components/ui";
 import { useJsonEndpoint } from "@/components/useJsonEndpoint";
 import { classifyContractFailure } from "@/lib/contract-failure";
-import { gameplanView } from "@/lib/gameplan-view";
+import { GAMEPLAN_TEAM_MISMATCH, gameplanView } from "@/lib/gameplan-view";
 
 // Module-level on purpose: `classify` is an effect dependency of the hook.
 const classifyGameplanFailure = (status, body) =>
@@ -153,17 +153,22 @@ export default function TeamGameplanSection({ ownerId = "", teamName = "" }) {
           message="Pick a team in “My team…” above to see its gameplan."
         />
       );
-    } else if (failure) {
-      content = <FailureState failure={failure} onRetry={refetch} variant="block" context="Team Gameplan" />;
     } else {
       const view = data ? gameplanView(data, { ownerId }) : null;
-      if (loading || !view || view.state !== "ok") {
-        content =
-          view && view.state === "unavailable" && !loading ? (
-            <EmptyState title="Team Gameplan not available" message={view.reasonText} />
-          ) : (
-            <LoadingState message="Building the gameplan..." />
-          );
+      // Loading wins over a stale failure (the hook keeps the previous
+      // request's failure until the new one settles), and a team switch
+      // renders one frame with the previous team's payload: that mismatch is
+      // "still loading", never "not available" and never the other team's data.
+      const pending =
+        loading || (view && view.reason === GAMEPLAN_TEAM_MISMATCH && !failure);
+      if (pending) {
+        content = <LoadingState message="Building the gameplan..." />;
+      } else if (failure) {
+        content = <FailureState failure={failure} onRetry={refetch} variant="block" context="Team Gameplan" />;
+      } else if (!view) {
+        content = <LoadingState message="Building the gameplan..." />;
+      } else if (view.state !== "ok") {
+        content = <EmptyState title="Team Gameplan not available" message={view.reasonText} />;
       } else {
         content = <Body view={view} />;
       }

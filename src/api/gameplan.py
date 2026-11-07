@@ -1340,6 +1340,12 @@ def get_team_gameplan(
             "available": False,
             "unavailableReason": exc.reason,
         }
+    except Exception:  # noqa: BLE001 - posture is additive; never 500 the gameplan
+        _LOGGER.exception("competitive posture attachment failed for league=%s", league_key)
+        payload["competitivePosture"] = {
+            "available": False,
+            "unavailableReason": "posture_error",
+        }
     return payload
 
 

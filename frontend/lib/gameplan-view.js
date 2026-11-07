@@ -137,12 +137,14 @@ function opportunitiesView(payload) {
  * while a new one loads, and one team's gameplan under another team's name
  * is worse than none.
  */
+export const GAMEPLAN_TEAM_MISMATCH = "team_mismatch";
+
 export function gameplanView(payload, { ownerId = "" } = {}) {
   if (!isObj(payload) || !isObj(payload.team)) {
     return { state: "unavailable", reason: "not_loaded", reasonText: reasonText("not_loaded") };
   }
   if (ownerId && String(payload.team.ownerId ?? "") !== String(ownerId)) {
-    return { state: "unavailable", reason: "team_mismatch", reasonText: "the loaded answer is for a different team" };
+    return { state: "unavailable", reason: GAMEPLAN_TEAM_MISMATCH, reasonText: "the loaded answer is for a different team" };
   }
   const needs = teamNeedDetail(
     { team: { ownerId: payload.team.ownerId, weakness: payload.roster?.weakness } },

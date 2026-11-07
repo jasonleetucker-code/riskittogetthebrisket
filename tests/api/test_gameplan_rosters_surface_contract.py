@@ -54,6 +54,19 @@ def test_posture_unavailable_is_explicit_not_omitted(league, monkeypatch):  # no
     }
 
 
+def test_posture_error_still_serves_the_gameplan(league, monkeypatch):  # noqa: F811
+    def boom(*a, **k):
+        raise RuntimeError("posture blew up")
+
+    monkeypatch.setattr(gameplan, "league_competitive_postures", boom)
+    body = _payload(monkeypatch)
+    assert body["competitivePosture"] == {
+        "available": False,
+        "unavailableReason": "posture_error",
+    }
+    assert body["roster"]["positions"], "the rest of the gameplan must still be served"
+
+
 def test_surfaced_roster_fields_exist(league, monkeypatch):  # noqa: F811
     body = _payload(monkeypatch)
     roster = body["roster"]

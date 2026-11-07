@@ -179,4 +179,47 @@ describe("TeamGameplanSection", () => {
     await screen.findByText(/Choose a team/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("after team A errors, switching to team B shows loading, not A's stale error", async () => {
+    let releaseB;
+    fetchMock.mockImplementation((url) => {
+      const team = new URL(url, "http://x").searchParams.get("team");
+      if (team === "owner0") return jsonResponse(500, { error: "boom" });
+      return new Promise((resolve) => {
+        releaseB = () => resolve({ status: 200, ok: true, json: () => Promise.resolve(payload("owner1")) });
+      });
+    });
+    const { rerender } = render(<TeamGameplanSection ownerId="owner0" teamName="A" />);
+    expand();
+    await waitFor(() => expect(screen.queryByText(/Building the gameplan/)).toBeNull());
+    expect(screen.queryByText(/Push — competing now/)).toBeNull();
+
+    rerender(<TeamGameplanSection ownerId="owner1" teamName="B" />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(/Building the gameplan/)).toBeTruthy();
+    releaseB();
+    await screen.findByText(/Push — competing now/);
+  });
+
+  it("a payload for a different owner renders loading, never 'not available' or the other team", async () => {
+    let releaseB;
+    fetchMock.mockImplementation((url) => {
+      const team = new URL(url, "http://x").searchParams.get("team");
+      if (team === "owner0") return jsonResponse(200, payload("owner0"));
+      return new Promise((resolve) => {
+        releaseB = () => resolve({ status: 200, ok: true, json: () => Promise.resolve(payload("owner1")) });
+      });
+    });
+    const { rerender } = render(<TeamGameplanSection ownerId="owner0" teamName="A" />);
+    expand();
+    await screen.findByText(/Push — competing now/);
+
+    rerender(<TeamGameplanSection ownerId="owner1" teamName="B" />);
+    expect(screen.queryByText(/not available/i)).toBeNull();
+    expect(screen.queryByText(/different team/i)).toBeNull();
+    expect(screen.queryByText(/Push — competing now/)).toBeNull();
+    expect(screen.getByText(/Building the gameplan/)).toBeTruthy();
+    releaseB();
+    await screen.findByText(/Push — competing now/);
+  });
 });

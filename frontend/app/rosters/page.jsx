@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
@@ -47,10 +47,16 @@ const FONT_2XS = "var(--font-size-2xs, 0.6875rem)";
 import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
 import TeamStrengthCard from "@/components/TeamStrengthCard";
 import TradeTargetsCard from "@/components/TradeTargetsCard";
-import TeamGameplanSection from "@/components/TeamGameplanSection";
 import { useRosterIntelligence } from "@/components/useRosterIntelligence";
 import { ownerIdForTeamName } from "@/lib/roster-intelligence";
 import "./rosters.css";
+
+// Code-split so the Team Gameplan section stays out of the initial /rosters
+// chunk (check-bundle-sizes.mjs budget).  React.lazy, NOT next/dynamic: the
+// latter pulls Next's loadable runtime into the shared graph (see /draft's
+// PerfectDraftPanel note and CLAUDE.md).  The section is collapsed by default
+// and fetches nothing until expanded, so no fallback is rendered.
+const TeamGameplanSection = lazy(() => import("@/components/TeamGameplanSection"));
 
 /**
  * WHICH ASSETS to count in a team total — NOT which valuation to use.
@@ -507,7 +513,11 @@ export default function RostersPage() {
 
       {/* Team Gameplan — on-demand, selected team only (owner decision
           2026-11-07, W20-F001).  Fetches nothing until expanded. */}
-      {myTeam && <TeamGameplanSection ownerId={myOwnerId} teamName={myTeam} />}
+      {myTeam && (
+        <Suspense fallback={null}>
+          <TeamGameplanSection ownerId={myOwnerId} teamName={myTeam} />
+        </Suspense>
+      )}
 
       {/* Waiver Wire Gems */}
       {waiverGems.length > 0 && (
