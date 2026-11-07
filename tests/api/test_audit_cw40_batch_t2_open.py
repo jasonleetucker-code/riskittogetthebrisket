@@ -112,17 +112,18 @@ def _pool():
     ]
 
 
-def test_w20_f010_characterization_unfed_value_rollups_publish_a_measured_zero():
-    """CURRENT: with no ``player_values`` the engine still emits ``market``/``consensus``/
-    ``leagueAdjusted`` as 0.0 beside a positive pricedPlayers count (pickValue was repaired to an
-    explicit ``unavailable`` state; these three were not)."""
+def test_w20_f010_unfed_value_rollups_publish_explicit_unavailable_not_zero():
+    """Repaired: with no ``player_values`` the engine publishes ``market`` / ``consensus`` as
+    null + unavailable and ``leagueAdjusted`` as withdrawn, beside a positive pricedPlayers."""
     from src.roster_intel.engine import analyze_roster
 
     intel = analyze_roster("o1", _pool(), ["QB", "RB", "WR"])
     values = intel.values.to_dict()
     assert values["pricedPlayers"] == 3
-    assert values["market"] == 0.0 and values["consensus"] == 0.0
-    assert values["leagueAdjusted"] == 0.0
+    assert values["market"] is None and values["marketState"] == "unavailable"
+    assert values["consensus"] is None and values["consensusState"] == "unavailable"
+    assert values["leagueAdjusted"] is None
+    assert values["leagueAdjustedUnavailableReason"] == "league_adjusted_withdrawn"
     assert values["pickValue"] is None and values["pickValueState"] == "unavailable"
 
 
@@ -138,17 +139,6 @@ def _analyze_roster_call_keywords() -> set[str]:
     raise AssertionError("analyze_roster call not found in gameplan.py")
 
 
-def test_w20_f010_characterization_gameplan_does_not_feed_player_values():
-    assert "player_values" not in _analyze_roster_call_keywords()
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W20-F010 open: build_league_bundle must pass player_values (the site-value map it "
-    "already builds) to analyze_roster, or the engine must publish market/consensus/"
-    "leagueAdjusted as unavailable instead of 0.0",
-)
 def test_w20_f010_gameplan_feeds_the_value_rollups():
     assert "player_values" in _analyze_roster_call_keywords()
 

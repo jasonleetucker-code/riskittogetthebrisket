@@ -20,9 +20,9 @@
  *                  `targetPlayers[]` with `recommended: true`
  *
  * ── What is deliberately NOT surfaced ─────────────────────────────────
- *   `roster.values.market` / `consensus` / `leagueAdjusted` — measured as
- *   fake 0.0 for every team (master audit W20-F010) and `leagueAdjusted`
- *   is a withdrawn lens.  `partners` / `packages` — engine scores with
+ *   `roster.values.market` / `consensus` / `leagueAdjusted` — now
+ *   null + an explicit unavailable state (W20-F010 repaired server-side) and
+ *   `leagueAdjusted` is a withdrawn lens; still withheld until real values.  `partners` / `packages` — engine scores with
  *   declared evidence ceilings, not decisions.
  *
  * ── Missing is never zero ─────────────────────────────────────────────
