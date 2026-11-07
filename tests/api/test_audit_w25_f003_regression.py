@@ -77,14 +77,7 @@ def test_max_stamped_player_rank_is_below_the_published_limit():
     assert max(ranks) < 800  # the cap is shared with pick rows; no player sits at 800
 
 
-@pytest.mark.xfail(
-    strict=True,
-    # Only the defect assertion may be the expected failure: if the anchor
-    # sentence is reworded, ``str.index`` raises ValueError and the test FAILS
-    # loudly instead of staying a silent xfail forever (review of #2100).
-    raises=AssertionError,
-    reason="W25-F003 OPEN: CLAUDE.md still attributes all rank-less rows to the 800 limit",
-)
+# W25-F003 closed 2026-11-06: CLAUDE.md now names the unpriced population.
 def test_claude_md_names_the_unpriced_population():
     text = (REPO / "CLAUDE.md").read_text(encoding="utf-8")
     start = text.index("One precise nuance on ranks")

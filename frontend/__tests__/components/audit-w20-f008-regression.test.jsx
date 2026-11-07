@@ -80,7 +80,7 @@ describe("W20-F008: /phases with no rebuilder", () => {
     expect(out.partnerships).toEqual([]);
   });
 
-  it.fails("explains why there are no trade partners instead of rendering nothing", () => {
+  it("explains why there are no trade partners instead of rendering nothing", () => {
     mockUseRosterIntelligence.mockReturnValue({
       loading: false,
       failure: null,
@@ -96,5 +96,40 @@ describe("W20-F008: /phases with no rebuilder", () => {
     mockUseUserState.mockReturnValue({ state: { selectedTeam: "Team 6" } });
     const { container } = render(<TeamPhasePanel />);
     expect(container.textContent).toMatch(/no rebuild|no trade partner|no natural partner/i);
+  });
+
+  it("says pairings are unmeasured, not missing, when both sides exist but every pair is skipped", () => {
+    // Three high-value teams with an unmeasured core age classify Contender;
+    // one low-value young team classifies Rebuild. Every pair is skipped
+    // because the winners' age is null, so partnerships is empty although
+    // both sides exist (review finding on the first version of this copy).
+    const league = [
+      ["a1", 20000, null],
+      ["a2", 19000, null],
+      ["a3", 18000, null],
+      ["a4", 1000, 22.0],
+      ["a5", 900, 23.0],
+      ["a6", 800, 24.0],
+    ].map(([ownerId, strengthTotal, valueWeightedCoreAge], i) => ({
+      ownerId,
+      teamName: `Side ${i + 1}`,
+      strengthTotal,
+      valueWeightedCoreAge,
+    }));
+    const out = analyzeLeaguePhases(league);
+    const keys = out.teams.map((t) => t.phase.key);
+    expect(keys).toContain(PHASES.REBUILD.key);
+    expect(keys).toContain(PHASES.CONTENDER.key);
+    expect(out.partnerships).toEqual([]);
+
+    mockUseRosterIntelligence.mockReturnValue({
+      loading: false,
+      failure: null,
+      data: { leagueContext: league },
+    });
+    const { container } = render(<TeamPhasePanel />);
+    expect(container.textContent).toMatch(/unmeasured/i);
+    expect(container.textContent).not.toMatch(/has no Win-now or Contender team/i);
+    expect(container.textContent).not.toMatch(/has no Rebuild team/i);
   });
 });
