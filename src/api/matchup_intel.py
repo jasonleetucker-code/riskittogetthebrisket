@@ -588,9 +588,16 @@ def _archive_evidence(league_key: str, season: int, week: int) -> dict[str, Any]
         # before this week's capture window, genuinely has none.
         return {"state": "not_captured", "teamsCaptured": 0}
     kinds = sorted({s.capture_kind for s in snaps})
+    by_kind: dict[str, set[str]] = {}
+    for s in snaps:
+        by_kind.setdefault(s.capture_kind, set()).add(str(s.team_id))
     return {
         "state": "captured",
-        "teamsCaptured": len(snaps),
+        # TEAMS, not files: since 2026-11-07 a team carries both a `pregame`
+        # and a `pregame_late` snapshot, and counting files would report a
+        # 12-team league as 24 teams captured.
+        "teamsCaptured": len(set().union(*by_kind.values())),
+        "teamsCapturedByKind": {k: len(v) for k, v in sorted(by_kind.items())},
         "captureKinds": kinds,
         # The EARLIEST capture is the pregame evidence; a later one is a
         # different observation, not a fresher version of the same one.

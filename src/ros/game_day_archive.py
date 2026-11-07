@@ -59,22 +59,40 @@ own documented precedent).
 
 from __future__ import annotations
 
+import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from src.utils.config_loader import repo_root
 
 ARCHIVE_ROOT = repo_root() / "data" / "game_day" / "predictions"
+
+#: Per-run capture CONTEXT (injury state, board identity) lives in a
+#: SIBLING tree, never inside a league-week directory: every ``*.json``
+#: there is read back as a :class:`WeeklyPredictionSnapshot` by
+#: :func:`load_snapshots_for_week`, so a context file beside the team
+#: snapshots would break every reader of the week.
+CONTEXT_ROOT = repo_root() / "data" / "game_day" / "capture_context"
+CONTEXT_SCHEMA = "game-day-capture-context/v1"
 
 #: A capture is taken at one of these moments. Distinct captures for the
 #: same (league, season, week, team) are DISTINCT rows, never an
 #: overwrite of one another — spec §5/§6 needs both a pregame snapshot
 #: (for calibration against what was predicted before anything happened)
 #: and later in-game/postgame snapshots (for live-updating evaluation).
-CAPTURE_KINDS: frozenset[str] = frozenset({"pregame", "in_game", "postgame"})
+#:
+#: ``pregame_late`` (owner directive 2026-11-07, Part 7) is a SECOND
+#: pre-event observation taken before the week's first SUNDAY kickoff.
+#: ``pregame`` is taken before the week's FIRST kickoff (Thursday night,
+#: usually ~Wednesday evening), so without it every Sunday/Monday game is
+#: only ever archived against inputs four days stale.  It is its own kind,
+#: so its own file (``<team>_pregame_late.json``): it can never overwrite
+#: or be mistaken for the early snapshot, which stays the evidence of what
+#: was knowable before ANY game of the week.
+CAPTURE_KINDS: frozenset[str] = frozenset({"pregame", "pregame_late", "in_game", "postgame"})
 
 
 class GameDayArchiveError(ValueError):
@@ -132,6 +150,12 @@ class WeeklyPredictionSnapshot:
     starter_slots: tuple[str, ...]
     roster: tuple[PlayerPointEstimate, ...]
     run_id: str = ""
+    #: What this capture was taken alongside: the projection inputs the
+    #: estimates came from, the injury report as known at capture time and
+    #: the canonical board current when it ran (see
+    #: :func:`src.ros.game_day_capture.snapshot_provenance`).  ``None`` on
+    #: every snapshot written before 2026-11-07 -- absent, never inferred.
+    provenance: Mapping[str, Any] | None = field(default=None, hash=False)
 
     def __post_init__(self) -> None:
         if self.capture_kind not in CAPTURE_KINDS:
@@ -154,7 +178,7 @@ class WeeklyPredictionSnapshot:
             seen.add(p.player_id)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "leagueKey": self.league_key,
             "season": self.season,
             "week": self.week,
@@ -175,6 +199,11 @@ class WeeklyPredictionSnapshot:
                 for p in self.roster
             ],
         }
+        # Only when recorded: a snapshot written without provenance stays
+        # byte-identical to the pre-2026-11-07 shape.
+        if self.provenance is not None:
+            out["provenance"] = dict(self.provenance)
+        return out
 
     @staticmethod
     def from_dict(data: dict[str, Any]) -> "WeeklyPredictionSnapshot":
@@ -198,6 +227,7 @@ class WeeklyPredictionSnapshot:
                 )
                 for r in data.get("roster") or ()
             ),
+            provenance=data.get("provenance"),
         )
 
 
@@ -225,6 +255,7 @@ def record_snapshot(
     starter_slots: "tuple[str, ...] | list[str]",
     roster: "tuple[PlayerPointEstimate, ...] | list[PlayerPointEstimate]",
     run_id: str = "",
+    provenance: Mapping[str, Any] | None = None,
     base_dir: Path | None = None,
 ) -> WeeklyPredictionSnapshot:
     """Capture one (league, season, week, team, capture_kind) prediction
@@ -247,6 +278,7 @@ def record_snapshot(
         starter_slots=tuple(starter_slots),
         roster=tuple(roster),
         run_id=run_id,
+        provenance=dict(provenance) if provenance is not None else None,
     )
     root = base_dir or ARCHIVE_ROOT
     path = _snapshot_path(league_key, season, week, team_id, capture_kind, base_dir=root)
@@ -257,8 +289,24 @@ def record_snapshot(
             "place to update a prediction, only to record it once. If a genuinely "
             "distinct later capture is needed, use a different capture_kind."
         )
-    path.write_text(json.dumps(snapshot.to_dict(), indent=1), encoding="utf-8")
+    _write_once(path, json.dumps(snapshot.to_dict(), indent=1))
     return snapshot
+
+
+def _write_once(path: Path, text: str) -> None:
+    """Create ``path`` with ``text``, refusing if it already exists.
+
+    Exclusive create (``"x"``), so two overlapping runs (a timer firing while
+    a manual capture is in flight) cannot both pass an ``exists()`` check and
+    have the later one silently replace the earlier observation.
+    """
+    try:
+        with path.open("x", encoding="utf-8") as fh:
+            fh.write(text)
+    except FileExistsError as exc:
+        raise GameDayArchiveError(
+            f"{path} already exists — captures are append-only and are never overwritten"
+        ) from exc
 
 
 def load_snapshot(
@@ -304,3 +352,88 @@ def load_snapshots_for_week(
             continue
         out.append(snap)
     return out
+
+
+# ── per-run capture context ──────────────────────────────────────────
+
+
+def _context_path(season: int, week: int, capture_kind: str, stamp: str, *, base_dir: Path) -> Path:
+    root = base_dir / str(season) / f"week_{week}"
+    root.mkdir(parents=True, exist_ok=True)
+    return root / f"{capture_kind}__{stamp}.json"
+
+
+def record_capture_context(
+    *,
+    season: int,
+    week: int,
+    capture_kind: str,
+    injuries: Mapping[str, Any],
+    canonical_board: Mapping[str, Any],
+    run_id: str = "",
+    base_dir: Path | None = None,
+) -> tuple[Path, str, dict[str, Any]]:
+    """Record what one capture RUN was taken alongside.  Returns
+    ``(path, sha256 of the bytes written, record)``.
+
+    One file per run, never per week: two runs of the same window (league A
+    captured at 20:00, league B only at 00:00 after a Sleeper failure) each
+    saw their own injury report, and each team snapshot points at the exact
+    file it was captured with (``provenance.captureContext``).  The name
+    carries the real capture instant to the microsecond and the file is
+    created exclusively, so a context is never overwritten -- the same
+    append-only rule as :func:`record_snapshot`.
+
+    ``capturedAt`` is stamped here from the real clock, never accepted.
+    The two blocks are already-resolved data (the owner of each is named in
+    it); this store only records them.
+    """
+    if capture_kind not in CAPTURE_KINDS:
+        raise GameDayArchiveError(f"capture_kind {capture_kind!r} not in {sorted(CAPTURE_KINDS)}")
+    for name, block in (("injuries", injuries), ("canonical_board", canonical_board)):
+        if not isinstance(block, Mapping) or block.get("state") not in {"known", "unavailable"}:
+            raise GameDayArchiveError(
+                f"{name}: a context block must state 'known' or 'unavailable' -- an "
+                "absent block would read as 'nothing to report'"
+            )
+    now = datetime.now(timezone.utc)
+    record = {
+        "schema": CONTEXT_SCHEMA,
+        "season": int(season),
+        "week": int(week),
+        "captureKind": capture_kind,
+        "capturedAt": now.isoformat(),
+        "runId": run_id,
+        "injuries": dict(injuries),
+        "canonicalBoardAtCapture": dict(canonical_board),
+    }
+    path = _context_path(
+        season,
+        week,
+        capture_kind,
+        now.strftime("%Y%m%dT%H%M%S%fZ"),
+        base_dir=base_dir or CONTEXT_ROOT,
+    )
+    _write_once(path, json.dumps(record, indent=1, sort_keys=True, default=str))
+    return path, hashlib.sha256(path.read_bytes()).hexdigest(), record
+
+
+def load_capture_contexts(
+    season: int,
+    week: int,
+    *,
+    capture_kind: str | None = None,
+    base_dir: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Every recorded context for one week, oldest first.  Empty means none
+    was recorded -- not an error: every week before 2026-11-07 has none."""
+    root = (base_dir or CONTEXT_ROOT) / str(season) / f"week_{week}"
+    if not root.exists():
+        return []
+    out: list[dict[str, Any]] = []
+    for path in sorted(root.glob("*.json")):
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if capture_kind is not None and record.get("captureKind") != capture_kind:
+            continue
+        out.append(record)
+    return sorted(out, key=lambda r: str(r.get("capturedAt")))

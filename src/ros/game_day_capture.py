@@ -103,6 +103,42 @@ _NFL_CLOCK = ZoneInfo("America/New_York")
 #: taken days early against a roster that will still change.
 CAPTURE_WINDOW_HOURS: float = 30.0
 
+#: The two PRE-EVENT capture kinds, each gated on its own kickoff.
+PREGAME_KIND = "pregame"
+PREGAME_LATE_KIND = "pregame_late"
+PREGAME_KINDS: tuple[str, ...] = (PREGAME_KIND, PREGAME_LATE_KIND)
+
+#: How long before the week's first SUNDAY kickoff the ``pregame_late``
+#: capture window opens (owner directive 2026-11-07, Part 7).
+#:
+#: ``pregame`` is taken inside 30h of the week's FIRST kickoff -- in practice
+#: Wednesday evening before Thursday Night Football -- so Sunday and Monday
+#: games were only ever archived against inputs four days stale: before the
+#: Friday injury report, Saturday's IR moves and the weekend's waiver and
+#: free-agent roster changes.  ``pregame_late`` re-observes the same state
+#: before Sunday's first game.
+#:
+#: 12 hours, against a timer that fires at 00/04/08/12/16/20 UTC: a
+#: half-open 12h window always contains EXACTLY three firings whatever the
+#: kickoff minute (pinned against the installed timer's own ``OnCalendar``
+#: in ``tests/ros/test_game_day_pregame_late_capture.py``), so the capture
+#: survives two consecutive failed runs.  For a 1pm ET Sunday it lands Sunday 06:00-10:00
+#: UTC, after Saturday's final designations; for a 9:30am ET international
+#: game, 02:30-06:30 UTC.  Saturday games (late season) are NOT "before"
+#: this snapshot -- the kickoff it precedes is recorded on every snapshot
+#: (``provenance.precedesKickoffUtc``) so no reader has to infer it.
+LATE_CAPTURE_WINDOW_HOURS: float = 12.0
+
+#: ``(season, week)`` from which ``pregame_late`` is collected.  Earlier weeks
+#: never had the capture kind; a closed window there is "never collected",
+#: not a lost observation, and must not page.  The same posture as
+#: ``src.history.store.HISTORY_FLOOR``: the floor is a fact about when
+#: collection started, nothing is backfilled before it.
+PREGAME_LATE_FIRST_WEEK: tuple[int, int] = (2026, 10)
+
+#: ``date.weekday()`` of Sunday.
+_SUNDAY = 6
+
 
 class GameDayCaptureRefusal(RuntimeError):
     """A capture that must not be written as asked.
@@ -422,7 +458,23 @@ def first_kickoff_utc(
     The times are US Eastern and the season crosses the DST boundary, so
     they are localised through a real zone rather than a fixed offset.
     """
-    best: datetime | None = None
+    kickoffs = _week_kickoffs(schedule_rows, season=season, week=week)
+    return min((utc for utc, _local in kickoffs), default=None)
+
+
+def _week_kickoffs(
+    schedule_rows: Sequence[Mapping[str, Any]] | None,
+    *,
+    season: int,
+    week: int,
+) -> list[tuple[datetime, datetime]]:
+    """``(kickoff UTC, kickoff US-Eastern)`` for every usable row of one week.
+
+    The single parser of nflverse ``gameday`` + ``gametime`` for this module:
+    rows of another season/week, or with an absent or unparseable date/time,
+    are skipped -- never guessed.
+    """
+    out: list[tuple[datetime, datetime]] = []
     for row in schedule_rows or ():
         if not isinstance(row, Mapping):
             continue
@@ -441,10 +493,39 @@ def first_kickoff_utc(
             naive = datetime.strptime(f"{day} {clock}", "%Y-%m-%d %H:%M")
         except ValueError:
             continue
-        when = naive.replace(tzinfo=_NFL_CLOCK).astimezone(timezone.utc)
-        if best is None or when < best:
-            best = when
-    return best
+        local = naive.replace(tzinfo=_NFL_CLOCK)
+        out.append((local.astimezone(timezone.utc), local))
+    return out
+
+
+def first_sunday_kickoff_utc(
+    schedule_rows: Sequence[Mapping[str, Any]] | None,
+    *,
+    season: int,
+    week: int,
+) -> tuple[datetime | None, str | None]:
+    """``(earliest kickoff on the week's SUNDAY, None)``, or ``(None, reason)``.
+
+    "Sunday" is the US-Eastern calendar date nflverse publishes the game on,
+    never an assumed weekday offset from the first kickoff: Thursday and
+    Saturday games (and Friday international openers) are skipped, a 9:30am
+    ET London game IS the Sunday kickoff, and a Wednesday opener changes
+    nothing.
+
+    Reasons, kept apart because they mean opposite things:
+
+    * ``no_schedule_rows_for_week`` -- UNKNOWN; the caller must not treat it
+      as "no Sunday game".
+    * ``no_sunday_game`` -- the slate was read and has no Sunday game; the
+      late capture does not apply to this week.
+    """
+    kickoffs = _week_kickoffs(schedule_rows, season=season, week=week)
+    if not kickoffs:
+        return None, "no_schedule_rows_for_week"
+    sundays = [utc for utc, local in kickoffs if local.date().weekday() == _SUNDAY]
+    if not sundays:
+        return None, "no_sunday_game"
+    return min(sundays), None
 
 
 def pregame_window_state(
@@ -498,9 +579,12 @@ def pregame_capture_gaps(
     expected_team_ids: Sequence[Any],
     snapshots: Sequence[Any],
     first_kickoff: datetime | None,
+    capture_kind: str = PREGAME_KIND,
 ) -> list[str]:
-    """Team ids of one league-week that have NO pregame snapshot captured
-    before ``first_kickoff`` -- sorted, empty when the week is fully captured.
+    """Team ids of one league-week that have NO ``capture_kind`` snapshot
+    captured before ``first_kickoff`` -- sorted, empty when the week is fully
+    captured.  For ``pregame_late`` the caller passes the first SUNDAY
+    kickoff: that is the instant the late snapshot claims to precede.
 
     This is the question a closed window actually asks.  "Kickoff has passed"
     alone is not a lost observation: the timer keeps firing every four hours
@@ -517,7 +601,7 @@ def pregame_capture_gaps(
     """
     captured: set[str] = set()
     for snap in snapshots:
-        if getattr(snap, "capture_kind", None) != "pregame":
+        if getattr(snap, "capture_kind", None) != capture_kind:
             continue
         if first_kickoff is not None:
             try:
@@ -565,3 +649,225 @@ def week_one_waiver_guard(
     if any(t.get("status") not in {"complete", "failed"} for t in newest_rows):
         return False, "newest waiver batch is not terminal"
     return True, f"observed Wednesday waiver batch {batch.isoformat()}; no pending claims"
+
+
+def late_pregame_window_state(
+    *,
+    season: int,
+    week: int,
+    sunday_kickoff: datetime | None,
+    kickoff_reason: str | None,
+    now: datetime | None = None,
+    window_hours: float = LATE_CAPTURE_WINDOW_HOURS,
+) -> tuple[str, str]:
+    """``(state, explanation)`` for the ``pregame_late`` window.
+
+    The states of :func:`pregame_window_state`, plus ``not_applicable`` (a
+    week before :data:`PREGAME_LATE_FIRST_WEEK`, or a slate with no Sunday
+    game).  ``unknown`` here is NOT "proceed" the way it is for ``pregame``:
+    that capture still has the score gate behind it (no score can precede
+    the first game), but by Sunday the Thursday game HAS scored, so nothing
+    but the schedule can prove a late capture is pre-Sunday.  The caller
+    refuses it.
+    """
+    if (int(season), int(week)) < PREGAME_LATE_FIRST_WEEK:
+        floor_season, floor_week = PREGAME_LATE_FIRST_WEEK
+        return (
+            "not_applicable",
+            f"pregame_late collection starts {floor_season} week {floor_week}; "
+            f"{season} week {week} was never collected",
+        )
+    if sunday_kickoff is None:
+        if kickoff_reason == "no_sunday_game":
+            return "not_applicable", "the slate has no Sunday game this week"
+        return "unknown", f"no Sunday kickoff could be resolved ({kickoff_reason})"
+    return pregame_window_state(first_kickoff=sunday_kickoff, now=now, window_hours=window_hours)
+
+
+def combine_exit_codes(codes: Sequence[int]) -> int:
+    """One process exit code for several capture kinds run together.
+
+    Same precedence the single-kind run already uses (``refusals`` are
+    reported ahead of ``failures``): 3 (an observation lost) > 1 (a hard
+    error) > 0 (captured, or already was) > 2 (nothing to do).  So a quiet
+    "too early" for one kind can never mask another kind's loss or error.
+    """
+    seen = set(codes)
+    for code in (3, 1, 0):
+        if code in seen:
+            return code
+    return 2
+
+
+# ── capture context: what each capture was taken alongside ───────────
+
+#: Owners named in the records, so a reader knows which module's rules the
+#: block follows.  Neither is re-implemented here.
+INJURY_CONTEXT_OWNER = "src/nfl_data/injury_history.py::as_known_at"
+BOARD_CONTEXT_OWNER = "src/api/sparse_evidence_shadow.py::newest_live_payload"
+
+
+def injury_context_from_as_known(
+    as_known: Mapping[str, Any] | None, *, error: str | None = None
+) -> dict[str, Any]:
+    """The injury report as this system knew it at capture time.
+
+    ``as_known`` is :func:`src.nfl_data.injury_history.as_known_at`'s answer
+    for the capture instant -- the latest PROVEN ESPN fetch at or before it
+    (never a later one).  This module does not fetch: the injury refresh
+    timer owns fetching and fetch proof, and a second fetch path would be a
+    second definition of "what ESPN said".
+
+    MISSING IS NEVER "NO INJURIES": no ledger, no record at or before the
+    instant, or a reader error is ``state: "unavailable"`` with the reason.
+    ``state: "known"`` with zero entries is a different statement -- a proven
+    fetch whose report was empty -- and is kept as such.
+
+    ``contentSha256`` is the ledger's own hash (``injury_history.content_sha256``
+    over the provider's fields); it is recomputed from the copied entries and
+    ``contentVerified`` says whether they still agree.  A disagreement is
+    recorded, never repaired.
+    """
+    if error:
+        return {"state": "unavailable", "reason": str(error), "owner": INJURY_CONTEXT_OWNER}
+    if not isinstance(as_known, Mapping) or as_known.get("state") != "known":
+        reason = as_known.get("reason") if isinstance(as_known, Mapping) else None
+        return {
+            "state": "unavailable",
+            "reason": str(reason) if reason else "as_known_result_missing",
+            "owner": INJURY_CONTEXT_OWNER,
+        }
+    snap = as_known.get("snapshot")
+    entries = snap.get("entries") if isinstance(snap, Mapping) else None
+    if not isinstance(entries, list):
+        return {
+            "state": "unavailable",
+            "reason": "injury_snapshot_without_entries",
+            "owner": INJURY_CONTEXT_OWNER,
+        }
+    from src.nfl_data.injury_history import content_sha256, provider_entries  # noqa: PLC0415
+
+    recorded = snap.get("contentSha256")
+    return {
+        "state": "known",
+        "owner": INJURY_CONTEXT_OWNER,
+        "selection": "latest injury-history record fetched at or before the capture instant",
+        "provider": snap.get("provider"),
+        "endpoint": snap.get("endpoint"),
+        "snapshotKey": snap.get("key"),
+        "snapshotFetchedAt": snap.get("fetchedAt"),
+        "lastObservedAt": as_known.get("lastObservedAt"),
+        "observedAgeSeconds": as_known.get("observedAgeSeconds"),
+        "providerAsOf": snap.get("providerAsOf"),
+        "nullReasons": snap.get("nullReasons"),
+        "contentSha256": recorded,
+        "hashScheme": "injury-history/v1 content_sha256 (provider fields, sorted)",
+        "contentVerified": bool(recorded) and recorded == content_sha256(provider_entries(entries)),
+        "entryCount": len(entries),
+        "identityDirectory": snap.get("identityDirectory"),
+        "entries": entries,
+    }
+
+
+def board_context_from_payload(
+    found: Sequence[Any] | None,
+    *,
+    stale_budget_hours: float | None,
+    repo_root: Any = None,
+    error: str | None = None,
+) -> dict[str, Any]:
+    """Which canonical board was current on this host when the capture ran.
+
+    ``found`` is ``newest_live_payload(with_bytes=True)``'s
+    ``(path, raw payload, age hours, bytes)``.  The identity is the scheme
+    the sparse-evidence shadow ledger already records for a board -- the
+    sha256 of the payload FILE BYTES, the payload's own ``scrapeTimestamp``,
+    its age against the repo's existing staleness budget -- not a new one.
+
+    ``usedByEstimates`` is ``False`` and says so on purpose: Game Day point
+    estimates come from the projection ensemble
+    (``src/ros/projection_ensemble.py``, which never reads
+    ``rankDerivedValue``), not from the canonical board.  This block pins the
+    point-in-time SOURCE-RANKING context the capture was taken in; reading it
+    as an input of the forecast would be wrong.
+    """
+    if error:
+        return {"state": "unavailable", "reason": str(error), "owner": BOARD_CONTEXT_OWNER}
+    if not found:
+        return {
+            "state": "unavailable",
+            "reason": "no_served_board_payload_on_this_host",
+            "owner": BOARD_CONTEXT_OWNER,
+        }
+    import hashlib  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    path, raw, age, data = found[0], found[1], found[2], found[3]
+    source = str(path)
+    if repo_root is not None:
+        try:
+            source = Path(path).resolve().relative_to(Path(repo_root).resolve()).as_posix()
+        except ValueError:
+            pass
+    raw = raw if isinstance(raw, Mapping) else {}
+    return {
+        "state": "known",
+        "owner": BOARD_CONTEXT_OWNER,
+        "source": source,
+        "payloadSha256": hashlib.sha256(data).hexdigest(),
+        "hashScheme": "sha256 of the payload file bytes (sparse-evidence shadow board identity)",
+        "scrapeTimestamp": raw.get("scrapeTimestamp") or raw.get("date"),
+        "payloadAgeHours": None if age is None else round(float(age), 3),
+        "staleBudgetHours": stale_budget_hours,
+        # Unknown age is never "fresh".
+        "stale": (
+            None
+            if age is None or stale_budget_hours is None
+            else float(age) > float(stale_budget_hours)
+        ),
+        "usedByEstimates": False,
+    }
+
+
+def _context_summary(block: Mapping[str, Any], keys: Sequence[str]) -> dict[str, Any]:
+    if block.get("state") != "known":
+        return {"state": block.get("state"), "reason": block.get("reason")}
+    return {"state": "known", **{k: block.get(k) for k in keys}}
+
+
+def snapshot_provenance(
+    build: CaptureBuild,
+    *,
+    precedes_kickoff: datetime | None,
+    precedes_basis: str,
+    injuries: Mapping[str, Any],
+    canonical_board: Mapping[str, Any],
+    capture_context: Mapping[str, Any],
+    code_revision: Mapping[str, Any],
+) -> dict[str, Any]:
+    """The small per-team provenance block every new snapshot carries.
+
+    Full injury entries live once per run in the capture-context file
+    (``captureContext.path`` + its ``sha256``); each snapshot carries the
+    identifying hashes so it can be checked against that file without
+    duplicating ~300 injury rows into every team.
+    """
+    return {
+        "schema": "game-day-snapshot-provenance/v1",
+        "precedesKickoffUtc": precedes_kickoff.isoformat() if precedes_kickoff else None,
+        "precedesKickoffBasis": precedes_basis,
+        "codeRevision": dict(code_revision),
+        "projectionInputs": {
+            "estimateSourceLabel": build.estimate_source_label,
+            "sourcesLoaded": list(build.sources_loaded),
+            "sourcesUnavailable": list(build.sources_unavailable),
+            "starterSlotSource": build.starter_slot_source,
+        },
+        "injuries": _context_summary(
+            injuries, ("contentSha256", "snapshotFetchedAt", "lastObservedAt", "entryCount")
+        ),
+        "canonicalBoardAtCapture": _context_summary(
+            canonical_board, ("payloadSha256", "scrapeTimestamp", "source", "usedByEstimates")
+        ),
+        "captureContext": dict(capture_context),
+    }

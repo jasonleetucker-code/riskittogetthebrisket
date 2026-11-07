@@ -163,6 +163,77 @@ whole repo (checked BEFORE pushing this time, unlike the prior three units
 which each needed a post-push fix cycle). `scripts/check_planning_integrity.py`
 — OK.
 
+## Pre-kickoff hardening (owner directive 2026-11-07, Part 7)
+
+Owner: "Prioritize reliable point-in-time collection ... Do not overwrite
+historical snapshots with newer information. Use immutable timestamps, model
+versions, source provenance, configuration versions, and input hashes."
+Data capture only — no forecast, valuation, constant or flag changed.
+
+- **Second pre-event kind, `pregame_late`.** `pregame` is captured inside 30h
+  of the week's FIRST kickoff (in practice Wednesday evening), so Sunday and
+  Monday games were archived against four-day-old inputs. `pregame_late` is
+  captured inside 12h of the week's first SUNDAY kickoff, resolved from the
+  same nflverse slate (`game_day_capture.first_sunday_kickoff_utc`: the ET
+  calendar date nflverse publishes, so a London 9:30am game is the Sunday
+  kickoff and Thursday/Saturday games are not). Own file
+  `<team>_pregame_late.json`, append-only, exclusive create — it can never
+  overwrite the early snapshot. The score gate cannot protect it (Thursday
+  has scored by Sunday), so an unknown Sunday kickoff is refused (exit 1),
+  never guessed. Collected from 2026 week 10 (`PREGAME_LATE_FIRST_WEEK`);
+  earlier weeks are "never collected", not lost. The existing 4-hourly timer
+  already lands in the window — a half-open 12h window always holds exactly
+  three `00/04/08/12/16/20 UTC` firings, pinned against the timer's own
+  `OnCalendar` in `tests/ros/test_game_day_pregame_late_capture.py` — so only
+  the service's `ExecStart` changed (`--capture-kind pregame --capture-kind
+  pregame_late`, one process, exit code 3 > 1 > 0 > 2).
+- **Injury state at capture time.** Each run that writes a snapshot records
+  `data/game_day/capture_context/<season>/week_<n>/<kind>__<UTC instant>.json`
+  (create-once): the injury report as known at the capture instant through
+  its canonical owner `src/nfl_data/injury_history.as_known_at` (latest proven
+  ESPN fetch at or before it — never a later one), full entries, the ledger's
+  `contentSha256` re-verified against them, `snapshotFetchedAt`,
+  `observedAgeSeconds`. No ledger / no record → `state: "unavailable"` with a
+  reason, never an empty "no injuries" list. Note the injury refresh timer
+  runs at :10 past every fourth hour and the capture at :00, so the as-known
+  report is typically ~3h50m old; the age is recorded, not hidden.
+- **Board identity.** The same file records the canonical board current on the
+  host, using the identity the sparse-evidence shadow ledger already uses
+  (`newest_live_payload`: payload file sha256, `scrapeTimestamp`, age vs
+  `SCORING_SNAPSHOT_MAX_AGE_HOURS`). `usedByEstimates: false` — Game Day point
+  estimates come from the projection ensemble, which never reads
+  `rankDerivedValue`; this is point-in-time source-ranking context, not an
+  input of the forecast.
+- **Per-snapshot `provenance`** (new snapshots only; older files keep their
+  exact shape): `precedesKickoffUtc` + basis, deployed `codeRevision`,
+  `projectionInputs` (label, sources loaded/unavailable, slot source), the
+  injury/board summaries, and `captureContext` `{path, sha256}`.
+
+### Operator verification on the box
+
+Weeks before this deploy (including the unverified weeks 8 and 9) can be
+checked for the early kind the same way; `pregame_late` exists from week 10.
+
+```bash
+APP_DIR=/home/dynasty/trade-calculator; cd "$APP_DIR"
+PY=/home/dynasty/.venvs/trade-calculator/bin/python
+
+# Read-only verdict per pregame kind: exit 0 complete, 3 gap, 2 not yet due.
+"$PY" scripts/capture_game_day_predictions.py --verify --season 2026 --week 10
+"$PY" scripts/capture_game_day_predictions.py --verify --season 2026 --week 9 --capture-kind pregame
+"$PY" scripts/capture_game_day_predictions.py --verify --season 2026 --week 8 --capture-kind pregame
+
+# The files: one <team>_pregame.json AND one <team>_pregame_late.json per team.
+for L in data/game_day/predictions/2026/*/; do
+  echo "$L early=$(ls "$L"week_10/*_pregame.json 2>/dev/null | wc -l)"        "late=$(ls "$L"week_10/*_pregame_late.json 2>/dev/null | wc -l)"
+done
+ls -l data/game_day/capture_context/2026/week_10/
+
+# What the timer did (installed unit name = SERVICE_NAME, default "dynasty").
+systemctl list-timers 'dynasty-game-day-capture*'
+journalctl -u dynasty-game-day-capture.service --since "-7 days"   | grep -E "window:|wrote|REFUSED|Per-kind"
+```
+
 ## What's next (not this unit's scope)
 
 1. **A capture script** that gathers real roster data (via
