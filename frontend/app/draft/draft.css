@@ -444,7 +444,7 @@
 }
 
 /* ── Tier 2: tags, recommendations, tier dividers, progress bar,
-      next best targets, simulator ──────────────────────────── */
+      sidebar lists, simulator ──────────────────────────────── */
 
 .draft-progress {
   margin-bottom: 10px;
@@ -611,7 +611,7 @@
   font-size: 0.8rem;
 }
 
-/* Next Best Targets sidebar */
+/* Sidebar list panels (Good to Nominate, Best Value on Board) */
 .draft-nbt {
   margin-bottom: 14px;
 }
@@ -734,8 +734,7 @@
   font-weight: 600;
 }
 
-/* Sidebar grid holding NextBestTargets + NominationCandidates +
-   BestValueOnBoard */
+/* Sidebar grid holding NominationCandidates + BestValueOnBoard */
 .draft-sidebar-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

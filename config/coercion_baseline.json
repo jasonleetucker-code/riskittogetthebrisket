@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 625,
+ "count": 623,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -26,9 +26,7 @@
   "frontend/lib/draft-logic.js::Number(n?.preDraftAtNomination) || 0,",
   "frontend/lib/draft-logic.js::amount: Math.max(0, Number(p?.amount) || 0),",
   "frontend/lib/draft-logic.js::const amt = Math.max(0, Number(amount) || 0);",
-  "frontend/lib/draft-logic.js::const at = tierOrder[a.player.tier] || 0;",
   "frontend/lib/draft-logic.js::const bid = Math.max(0, Number(currentBid) || 0);",
-  "frontend/lib/draft-logic.js::const bt = tierOrder[b.player.tier] || 0;",
   "frontend/lib/draft-logic.js::const cur = tierInterestByTeam[idx][tierKey] ?? 1;",
   "frontend/lib/draft-logic.js::const fallback = preDraftById.get(pid) ?? 0;",
   "frontend/lib/draft-logic.js::const fv = Math.max(0, Number(fairValue) || 0);",
