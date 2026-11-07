@@ -327,8 +327,8 @@
    "title": "Missing-as-zero defects + property-based invariant suite",
    "owner": "test-only + archetype owner",
    "state": "MERGED",
-   "evidence": "PR #2068 merged (622ad85d): archetype missing feature is unknown, not 0; #2093 (independently reviewed): compute_profile_features / infer_scoring_tags treat missing inputs as unknown (no served caller); #2094 merged (2bbda400): W20-F005 Terminal portfolio prices picks via the canonical resolvePickRow + pickAliases (unpriceable pick stays unresolved, never 0)",
-   "next": "merge #2093 on green; property-based missing-is-not-zero suite",
+   "evidence": "PR #2068 merged (622ad85d): archetype missing feature is unknown, not 0; #2093 merged (3ae682bb): compute_profile_features / infer_scoring_tags treat missing inputs as unknown (no served caller); #2094 merged (2bbda400): W20-F005 Terminal portfolio prices picks via the canonical resolvePickRow + pickAliases (unpriceable pick stays unresolved, never 0)",
+   "next": "property-based missing-is-not-zero suite over the canonical owners",
    "sourceRowCount": 3
   },
   {
@@ -414,9 +414,9 @@
    "priority": "P1",
    "title": "Dependencies / toolchain / security advisories",
    "owner": "requirements*.txt, frontend/package.json, workflows",
-   "state": "NOT_STARTED",
-   "evidence": "#1467 Node 22; 13 dependabot PRs; #1485 scraper runtime; #2055 (next 16.4.2 -> 16.4.3 patch, lockfile-only for next/@next/*) branch updated to current main, independent review APPROVE conditional on CI incl. the production-start journeys; default-branch Dependabot alert #149 (low) open",
-   "next": "merge #2055 on green; advisory census incl. alert #149; one focused batch per runtime",
+   "state": "IMPLEMENTING",
+   "evidence": "#1467 Node 22; 13 dependabot PRs; #1485 scraper runtime; #2055 merged (6abab792): next 16.4.2 -> 16.4.3 (lockfile-only for next/@next/*; Validate PR + production-start journeys green; review APPROVE); default-branch Dependabot alert #149 (low) open",
+   "next": "advisory census incl. alert #149; remaining dependabot PRs #2056 (jsdom major), #2034 (actions), #2033 (e2e harness), one focused batch per runtime",
    "sourceRowCount": 16
   },
   {
@@ -448,8 +448,8 @@
    "title": "Governance / process / UI-lane records",
    "owner": "coordinator",
    "state": "IMPLEMENTING",
-   "evidence": "PR #2082 merged (57611231): 7 unresolved P0 master-audit findings adjudicated on current main -- CLOSED_VERIFIED W03-F001, W07-F001, W08-F001, W10-F002; PARTIAL W12-F002 (-> CW-36), W17-F001 (-> CW-17), W17-F002 (-> CW-33); offline regression tests, adversarial review APPROVE. Recount-open P1s: W20-F005 FIXED (#2094 merged); W06-F001 PARTIAL -> fix #2096 (must-have guarantee reuses the unique identified verified-rookie variant; 1105 -> 1103 rows, 0 value/rank/tier/confidence changes; first review REQUEST_CHANGES (veteran absorption), verified-rookie gate added, delta review APPROVE); W10-F003 PARTIAL and W27-F001 OPEN: honest disclosure merged (#2097: offense-only edge label, explained empty Next Best Targets), methodology repair gated; W13-F003 OPEN and W30-F002 PARTIAL: adjudicated in #2095 (strict-xfail regression tests, review APPROVE)",
-   "next": "merge #2095 + #2096 on green; then the 71 unresolved P1 findings (41 rotted repros, 18 unsafe, 12 unadjudicated)",
+   "evidence": "PR #2082 merged (57611231): 7 unresolved P0 master-audit findings adjudicated on current main -- CLOSED_VERIFIED W03-F001, W07-F001, W08-F001, W10-F002; PARTIAL W12-F002 (-> CW-36), W17-F001 (-> CW-17), W17-F002 (-> CW-33); offline regression tests, adversarial review APPROVE. Recount-open P1s: W20-F005 FIXED (#2094 merged); W06-F001 PARTIAL -> fix #2096 (must-have guarantee reuses the unique identified verified-rookie variant; 1105 -> 1103 rows, 0 value/rank/tier/confidence changes; first review REQUEST_CHANGES (veteran absorption), verified-rookie gate added, delta review APPROVE); W10-F003 PARTIAL and W27-F001 OPEN: honest disclosure merged (#2097: offense-only edge label, explained empty Next Best Targets), methodology repair gated; W13-F003 OPEN and W30-F002 PARTIAL: adjudicated in #2095 (strict-xfail regression tests, review APPROVE). Merged: #2095 (1b046250), #2096 (de95ad22; deployed to production, which runs de95ad22, but the served rows are not verifiable without a signed-in session). 12 unadjudicated P1s: #2100 merged (29c645ff) -- CLOSED_VERIFIED W10-F001, W11-F006, W15-F009, W19-F004, W20-F007; PARTIAL W12-F003, W20-F008, W26-F003, W27-F005; OPEN W12-F006, W20-F001, W25-F003. Follow-ups #2103 merged (83780faa): W25-F003 CLAUDE.md corrected, W20-F008 /phases empty state explained (incl. unmeasured pairings)",
+   "next": "W26-F003 /draft no-store only after a live-draft freshness check; W12-F006 cross-detector email dedupe needs the owner merge rule; W20-F001 gameplan consumer is a product decision; then the 59 remaining unresolved P1 findings (41 rotted repros, 18 unsafe)",
    "sourceRowCount": 30
   },
   {
@@ -547,8 +547,8 @@
    "title": "Independent mathematical oracles + invariants for consequential calculations; correctness kept separate from predictive skill",
    "owner": "the canonical owner of each calculation (confidence, blend, package model, lineup, FAAB, ROS, BDVM)",
    "state": "MERGED",
-   "evidence": "PR #2089 merged (389a46d8): independent oracles for the package model (14 hand cases + exact-rational sweep, shared by Python and JS) and the weighted count-aware blend median (spec reference, n=1..9); production agrees. #2092 (independently reviewed): spec-derived oracle for the B11 confidence gate axes; encoding-guard fix pushed (89a2d3fb)",
-   "next": "merge #2092 on green; FAAB ceiling curve; lineup solver vs host truth already pinned (C2-U1, 10/10 Sleeper lineups)",
+   "evidence": "PR #2089 merged (389a46d8): independent oracles for the package model (14 hand cases + exact-rational sweep, shared by Python and JS) and the weighted count-aware blend median (spec reference, n=1..9); production agrees. #2092 merged (6ace92f2): spec-derived oracle for the B11 confidence gate axes (600-case seeded differential sweep + boundaries + properties). #2101 merged (8b0d54a4): FAAB objective-ceiling oracle (18 hand/Decimal cases; mutations of the toe exponent, slope and smootherstep each fail 7-33 cases); engine agrees within 1e-12",
+   "next": "FAAB anchor derivation (V_repl / V_allin) and the market layer; ROS / BDVM oracles; lineup solver vs host truth already pinned (C2-U1, 10/10 Sleeper lineups)",
    "sourceRowCount": 1
   },
   {
@@ -591,8 +591,8 @@
    "title": "Mechanized verification feedback loop: PR verification receipt, test selection, retained fixtures, cost-conscious scheduled checks",
    "owner": ".github/pull_request_template.md + scripts/ci_change_scope.py + docs/AGENT_OPERATING_SYSTEM.md section 3",
    "state": "IMPLEMENTING",
-   "evidence": "standard + Agent OS section merged #2080; PR template verification receipt added with the intake reconciliation",
-   "next": "assess scheduled deeper checks (drift, security scan, targeted mutation) within the existing scheduling framework",
+   "evidence": "standard + Agent OS section merged #2080; PR template verification receipt added with the intake reconciliation; #2102 merged (405bc35a): validate-job wall 120 -> 180 min in PR Validation / Deploy / Release Candidate (full Validate PR jobs took 107-114 min on 2026-11-06/07; one run was cancelled at exactly 120 min) -- runner headroom only, no check weakened",
+   "next": "suite duration (~105-114 min of a 180-min wall): shared-state audit of the slowest files, then pytest-xdist --dist loadfile; assess scheduled deeper checks (drift, security scan, targeted mutation) within the existing scheduling framework",
    "sourceRowCount": 2
   }
  ],
