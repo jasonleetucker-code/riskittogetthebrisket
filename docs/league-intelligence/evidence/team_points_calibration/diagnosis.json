@@ -1,80 +1,255 @@
 {
  "code": {
   "codeDirty": false,
-  "codeSha": "eab49297936ed5418fe45f0f2299c7da089ea98f",
-  "librarySha256": "4a17c35b2386f94627b5ffd63ffec34ba08de76114662881f4b380ec8c4e0f92",
+  "codeSha": "2724b7f3d0eb0b8639dea91cf59c22b7a5014f4a",
+  "librarySha256": "509272c788341632562cb88289598fc2e28a2e82a626b04850c6b8ab57abdf2c",
   "preregistration": "docs/league-intelligence/TEAM_POINTS_CALIBRATION_PREREGISTRATION_2026-11-08.md",
   "preregistrationCommit": "b7aa4ac219c9a6c1c3cae34427d35e331f3f91cb",
   "preregistrationCommitFiles": [
    "docs/league-intelligence/TEAM_POINTS_CALIBRATION_PREREGISTRATION_2026-11-08.md"
   ],
   "preregistrationIsAncestor": true,
-  "scriptSha256": "1ae85e5d486c0b25900db1f8793726fc4b3b4017fbc82ecb5ece7e6f8a5c8b7a"
+  "scriptSha256": "48b79a1e13a7207a57da6f6d184c9d7a718e0db3e775306b24703b208f91a1dd"
  },
- "contributors": [
-  {
-   "contributor": "ROS multiplier on the presim (double count, D11; flag OFF)",
-   "deltaBias": -12.92,
-   "deltaMae": 14.88,
-   "deltaSlope": -0.42,
-   "deltaSpreadRatio": 0.836,
-   "from": "P_F",
-   "multiplierRange": [
-    0.655,
-    1.39
+ "contributors": {
+  "ranked": {
+   "weeks2to8": {
+    "effects": [
+     {
+      "absBias": -13.24,
+      "contributor": "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "mae": 11.31,
+      "slopeError": 0.34,
+      "spreadRatioError": 0.906,
+      "with": "I",
+      "without": "P_F"
+     },
+     {
+      "absBias": 75.58,
+      "contributor": "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "mae": 37.94,
+      "slopeError": 0.197,
+      "spreadRatioError": -0.013,
+      "with": "P_F",
+      "without": "P_C0"
+     },
+     {
+      "absBias": 3.8,
+      "contributor": "one scale for every position (vs per-family affine CF)",
+      "mae": 0.59,
+      "slopeError": 0.013,
+      "spreadRatioError": -0.006,
+      "with": "P_C0",
+      "without": "P_CF"
+     },
+     {
+      "absBias": -2.69,
+      "contributor": "one scale for every position (vs per-family rank curve CR)",
+      "mae": 1.45,
+      "slopeError": -0.079,
+      "spreadRatioError": -0.034,
+      "with": "P_C0",
+      "without": "P_CR"
+     },
+     {
+      "absBias": -27.81,
+      "contributor": "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "mae": -1.45,
+      "slopeError": -0.002,
+      "spreadRatioError": 0.065,
+      "with": "P_CF",
+      "without": "P_CF_oracle"
+     },
+     {
+      "absBias": -25.9,
+      "contributor": "availability not modelled, fallback means (vs ORACLE pool)",
+      "mae": -25.36,
+      "slopeError": 0.052,
+      "spreadRatioError": 0.027,
+      "with": "P_F",
+      "without": "P_F_oracle"
+     },
+     {
+      "absBias": -24.9,
+      "contributor": "best-ball max over noisy draws (vs deterministic lineup)",
+      "mae": -24.1,
+      "slopeError": 0.123,
+      "spreadRatioError": 0.139,
+      "with": "P_F",
+      "without": "L_F"
+     }
+    ],
+    "method": "effect = error(with) - error(without); each measured alone against its own comparison arm, no interaction or ordering check",
+    "rankings": {
+     "absBias": [
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "one scale for every position (vs per-family affine CF)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)"
+     ],
+     "mae": [
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "one scale for every position (vs per-family affine CF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)"
+     ],
+     "slopeError": [
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "one scale for every position (vs per-family affine CF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "one scale for every position (vs per-family rank curve CR)"
+     ],
+     "spreadRatioError": [
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "one scale for every position (vs per-family affine CF)",
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "one scale for every position (vs per-family rank curve CR)"
+     ]
+    }
+   },
+   "weeks5to8": {
+    "effects": [
+     {
+      "absBias": -13.04,
+      "contributor": "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "mae": 12.31,
+      "slopeError": 0.408,
+      "spreadRatioError": 0.816,
+      "with": "I",
+      "without": "P_F"
+     },
+     {
+      "absBias": 55.94,
+      "contributor": "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "mae": 27.75,
+      "slopeError": -0.203,
+      "spreadRatioError": -0.303,
+      "with": "P_F",
+      "without": "P_C0"
+     },
+     {
+      "absBias": 1.0,
+      "contributor": "one scale for every position (vs per-family affine CF)",
+      "mae": 0.45,
+      "slopeError": 0.037,
+      "spreadRatioError": 0.034,
+      "with": "P_C0",
+      "without": "P_CF"
+     },
+     {
+      "absBias": 6.98,
+      "contributor": "one scale for every position (vs per-family rank curve CR)",
+      "mae": 1.87,
+      "slopeError": 0.023,
+      "spreadRatioError": 0.045,
+      "with": "P_C0",
+      "without": "P_CR"
+     },
+     {
+      "absBias": -12.46,
+      "contributor": "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "mae": 4.44,
+      "slopeError": 0.05,
+      "spreadRatioError": 0.073,
+      "with": "P_CF",
+      "without": "P_CF_oracle"
+     },
+     {
+      "absBias": -35.11,
+      "contributor": "availability not modelled, fallback means (vs ORACLE pool)",
+      "mae": -34.59,
+      "slopeError": 0.047,
+      "spreadRatioError": 0.004,
+      "with": "P_F",
+      "without": "P_F_oracle"
+     },
+     {
+      "absBias": -26.41,
+      "contributor": "best-ball max over noisy draws (vs deterministic lineup)",
+      "mae": -25.89,
+      "slopeError": 0.075,
+      "spreadRatioError": -0.104,
+      "with": "P_F",
+      "without": "L_F"
+     }
+    ],
+    "method": "effect = error(with) - error(without); each measured alone against its own comparison arm, no interaction or ordering check",
+    "rankings": {
+     "absBias": [
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "one scale for every position (vs per-family affine CF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)"
+     ],
+     "mae": [
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "one scale for every position (vs per-family affine CF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)"
+     ],
+     "slopeError": [
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "one scale for every position (vs per-family affine CF)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)"
+     ],
+     "spreadRatioError": [
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "one scale for every position (vs per-family affine CF)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)"
+     ]
+    }
+   }
+  },
+  "reportedQuantities": {
+   "bestBallLift": {
+    "mean": 26.4,
+    "range": [
+     10.24,
+     51.84
+    ],
+    "shareOfPresimMean": 0.0987
+   },
+   "rosMultiplierRange": [
+    0.597,
+    1.349
    ],
-   "to": "I"
-  },
-  {
-   "contributor": "unit conversion rosValue/2.7 through origin vs one fitted affine scale (C0)",
-   "deltaBias": -81.92,
-   "deltaMae": -27.99,
-   "deltaSlope": 0.414,
-   "deltaSpreadRatio": -0.325,
-   "from": "P_F",
-   "to": "P_C0"
-  },
-  {
-   "contributor": "position (family) scale: one scale (C0) vs per-family (CF / CR)",
-   "deltaBias": 0.93,
-   "deltaMae": -0.63,
-   "deltaMaeCR": -2.02,
-   "deltaSlope": -0.036,
-   "deltaSpreadRatio": 0.034,
-   "from": "P_C0",
-   "to": "P_CF"
-  },
-  {
-   "contributor": "availability not modelled (ORACLE arm, not knowable at forecast time)",
-   "deltaBias": 36.39,
-   "deltaBiasUnderFallback": 34.94,
-   "deltaMae": -4.26,
-   "from": "P_CF",
-   "to": "P_CF_oracle"
-  },
-  {
-   "contributor": "best-ball lineup max over noisy draws (P_F - L_F)",
-   "liftRange": [
-    9.96,
-    51.84
-   ],
-   "liftShareOfPresimMean": 0.098,
-   "meanLift": 26.22
-  },
-  {
-   "contributor": "spread: independent per-player draws with fallback CVs; depth lift",
-   "depthSdMultiplierRange": [
-    1.116,
-    1.138
-   ],
-   "incumbentMeanSd": 28.35,
-   "presimMeanSd": 25.11,
-   "realizedPooledWithinTeamSdWeeks1to8": 46.16,
-   "zRmsAfterConversionCF": 2.165
-  },
-  {
-   "contributor": "unpriced roster players draw 0 (missing treated as zero in the presim)",
-   "realizedStarterPointShareByWeek": {
+   "spread": {
+    "depthSdMultiplierRange": [
+     1.124,
+     1.137
+    ],
+    "incumbentMeanSd": 27.99,
+    "presimMeanSd": 24.76,
+    "realizedPooledWithinTeamSdWeeks1to8": 46.16,
+    "zSdAfterConversionCF": 2.125
+   },
+   "unpricedStarterPointShareByWeek": {
     "1": 0.0205,
     "2": 0.0038,
     "3": 0.0245,
@@ -85,7 +260,7 @@
     "8": 0.0229
    }
   }
- ],
+ },
  "conversions": {
   "2": {
    "C0": {
@@ -1040,7 +1215,7 @@
    }
   }
  },
- "generatedAt": "2026-11-08T11:42:58+00:00",
+ "generatedAt": "2026-11-08T12:16:39+00:00",
  "league": {
   "key": "dynasty_main",
   "scoringFingerprint": "sf1:9e51824690d091f9",
@@ -1072,30 +1247,30 @@
   "fits": {
    "A": {
     "coef": [
-     154.079635,
-     0.742132
+     153.31065,
+     0.745156
     ],
     "dof": 94,
     "n": 96,
-    "s": 51.6009
+    "s": 51.5151
    },
    "S": {
     "coef": [
-     27.906654,
-     0.468054,
-     0.546639
+     28.687501,
+     0.472202,
+     0.541284
     ],
     "dof": 69,
     "n": 72,
-    "s": 47.7493
+    "s": 47.7663
    }
   },
   "note": "descriptive only: week-9 forward forecasts under each arm (\u00a74 M9)",
   "teams": {
    "T01": {
     "A": [
-     437.73,
-     52.76
+     438.11,
+     52.68
     ],
     "B0": [
      347.14,
@@ -1110,12 +1285,12 @@
      48.96
     ],
     "I": [
-     503.82,
-     33.44
+     503.92,
+     33.52
     ],
     "S": [
-     420.78,
-     50.0
+     421.05,
+     50.05
     ],
     "realizedWeeks1to8": [
      391.44,
@@ -1125,7 +1300,7 @@
    "T02": {
     "A": [
      340.44,
-     51.87
+     51.79
     ],
     "B0": [
      347.14,
@@ -1140,12 +1315,12 @@
      48.96
     ],
     "I": [
-     229.9,
-     25.35
+     234.81,
+     25.32
     ],
     "S": [
-     320.4,
-     48.39
+     320.51,
+     48.41
     ],
     "realizedWeeks1to8": [
      320.06,
@@ -1154,8 +1329,8 @@
    },
    "T03": {
     "A": [
-     309.85,
-     52.02
+     309.72,
+     51.94
     ],
     "B0": [
      347.14,
@@ -1170,12 +1345,12 @@
      48.96
     ],
     "I": [
-     166.74,
-     20.82
+     168.64,
+     20.89
     ],
     "S": [
-     298.39,
-     48.31
+     298.36,
+     48.33
     ],
     "realizedWeeks1to8": [
      315.1,
@@ -1184,8 +1359,8 @@
    },
    "T04": {
     "A": [
-     388.76,
-     52.06
+     386.05,
+     51.95
     ],
     "B0": [
      347.14,
@@ -1200,12 +1375,12 @@
      48.96
     ],
     "I": [
-     347.74,
-     32.15
+     353.27,
+     29.74
     ],
     "S": [
-     381.84,
-     48.34
+     380.08,
+     48.31
     ],
     "realizedWeeks1to8": [
      376.7,
@@ -1214,8 +1389,8 @@
    },
    "T05": {
     "A": [
-     363.93,
-     51.9
+     364.02,
+     51.81
     ],
     "B0": [
      347.14,
@@ -1230,12 +1405,12 @@
      48.96
     ],
     "I": [
-     285.12,
-     30.51
+     292.12,
+     30.66
     ],
     "S": [
-     366.2,
-     48.17
+     366.14,
+     48.19
     ],
     "realizedWeeks1to8": [
      376.75,
@@ -1244,8 +1419,8 @@
    },
    "T06": {
     "A": [
-     377.59,
-     51.97
+     378.29,
+     51.89
     ],
     "B0": [
      347.14,
@@ -1260,12 +1435,12 @@
      48.96
     ],
     "I": [
-     337.37,
-     33.6
+     329.62,
+     36.9
     ],
     "S": [
-     376.36,
-     48.18
+     376.71,
+     48.2
     ],
     "realizedWeeks1to8": [
      379.57,
@@ -1274,8 +1449,8 @@
    },
    "T07": {
     "A": [
-     276.13,
-     52.42
+     275.86,
+     52.33
     ],
     "B0": [
      347.14,
@@ -1290,12 +1465,12 @@
      48.96
     ],
     "I": [
-     116.97,
-     18.13
+     110.86,
+     18.14
     ],
     "S": [
-     236.73,
-     49.8
+     236.9,
+     49.82
     ],
     "realizedWeeks1to8": [
      241.19,
@@ -1304,8 +1479,8 @@
    },
    "T08": {
     "A": [
-     381.77,
-     52.0
+     382.53,
+     51.92
     ],
     "B0": [
      347.14,
@@ -1320,12 +1495,12 @@
      48.96
     ],
     "I": [
-     346.84,
-     37.66
+     346.27,
+     35.81
     ],
     "S": [
-     383.64,
-     48.23
+     383.99,
+     48.25
     ],
     "realizedWeeks1to8": [
      388.06,
@@ -1334,8 +1509,8 @@
    },
    "T09": {
     "A": [
-     443.25,
-     52.87
+     443.66,
+     52.79
     ],
     "B0": [
      347.14,
@@ -1350,12 +1525,12 @@
      48.96
     ],
     "I": [
-     522.66,
-     35.15
+     515.34,
+     35.17
     ],
     "S": [
-     448.7,
-     49.22
+     448.76,
+     49.24
     ],
     "realizedWeeks1to8": [
      436.15,
@@ -1364,8 +1539,8 @@
    },
    "T10": {
     "A": [
-     338.36,
-     51.88
+     338.35,
+     51.79
     ],
     "B0": [
      347.14,
@@ -1380,12 +1555,12 @@
      48.96
     ],
     "I": [
-     240.68,
-     27.36
+     235.39,
+     27.48
     ],
     "S": [
-     352.65,
-     48.93
+     352.42,
+     48.96
     ],
     "realizedWeeks1to8": [
      381.46,
@@ -1394,8 +1569,8 @@
    },
    "T11": {
     "A": [
-     294.03,
-     52.18
+     293.83,
+     52.09
     ],
     "B0": [
      347.14,
@@ -1410,12 +1585,12 @@
      48.96
     ],
     "I": [
-     142.13,
-     18.34
+     141.41,
+     18.27
     ],
     "S": [
-     278.28,
-     48.53
+     278.26,
+     48.54
     ],
     "realizedWeeks1to8": [
      296.56,
@@ -1424,8 +1599,8 @@
    },
    "T12": {
     "A": [
-     319.64,
-     51.95
+     319.55,
+     51.87
     ],
     "B0": [
      347.14,
@@ -1440,12 +1615,12 @@
      48.96
     ],
     "I": [
-     186.89,
-     24.62
+     193.44,
+     24.69
     ],
     "S": [
-     275.91,
-     50.2
+     276.21,
+     50.25
     ],
     "realizedWeeks1to8": [
      262.67,
@@ -1618,17 +1793,32 @@
  "summaries": {
   "weeks2to8": {
    "I": {
-    "betweenTeamSdPredicted": 118.58,
+    "betweenTeamSdPredicted": 117.04,
     "betweenTeamSdRealized": 56.99,
-    "betweenTeamSpreadRatio": 2.081,
-    "bias": 66.8,
-    "calibrationSlope": 0.413,
-    "mae": 94.27,
-    "meanPredicted": 278.18,
+    "betweenTeamSpreadRatio": 2.054,
+    "bias": 66.74,
+    "calibrationSlope": 0.426,
+    "mae": 92.09,
+    "meanPredicted": 278.25,
     "meanRealized": 344.98,
-    "meanSd": 28.48,
+    "meanSd": 28.49,
     "n": 84,
-    "zRms": 5.078
+    "zRms": 5.139,
+    "zSd": 4.013
+   },
+   "I_todayInjury": {
+    "betweenTeamSdPredicted": 118.39,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 2.077,
+    "bias": 66.87,
+    "calibrationSlope": 0.413,
+    "mae": 94.35,
+    "meanPredicted": 278.12,
+    "meanRealized": 344.98,
+    "meanSd": 28.44,
+    "n": 84,
+    "zRms": 5.139,
+    "zSd": 4.01
    },
    "L_F": {
     "betweenTeamSdPredicted": 57.49,
@@ -1641,113 +1831,136 @@
     "meanRealized": 344.98,
     "meanSd": null,
     "n": 84,
-    "zRms": null
+    "zRms": null,
+    "zSd": null
    },
    "P_C0": {
-    "betweenTeamSdPredicted": 48.01,
+    "betweenTeamSdPredicted": 47.83,
     "betweenTeamSdRealized": 56.99,
-    "betweenTeamSpreadRatio": 0.842,
-    "bias": -4.33,
-    "calibrationSlope": 0.961,
-    "mae": 42.72,
-    "meanPredicted": 349.31,
+    "betweenTeamSpreadRatio": 0.839,
+    "bias": -4.4,
+    "calibrationSlope": 0.963,
+    "mae": 42.84,
+    "meanPredicted": 349.38,
     "meanRealized": 344.98,
-    "meanSd": 26.77,
+    "meanSd": 26.65,
     "n": 84,
-    "zRms": 2.098
+    "zRms": 2.135,
+    "zSd": 2.125
    },
    "P_CF": {
-    "betweenTeamSdPredicted": 47.51,
+    "betweenTeamSdPredicted": 47.45,
     "betweenTeamSdRealized": 56.99,
-    "betweenTeamSpreadRatio": 0.834,
-    "bias": 0.72,
-    "calibrationSlope": 1.027,
-    "mae": 42.07,
-    "meanPredicted": 344.27,
+    "betweenTeamSpreadRatio": 0.833,
+    "bias": 0.6,
+    "calibrationSlope": 1.024,
+    "mae": 42.25,
+    "meanPredicted": 344.39,
     "meanRealized": 344.98,
-    "meanSd": 26.24,
+    "meanSd": 26.12,
     "n": 84,
-    "zRms": 2.077
+    "zRms": 2.113,
+    "zSd": 2.113
    },
    "P_CF_oracle": {
-    "betweenTeamSdPredicted": 50.99,
+    "betweenTeamSdPredicted": 51.17,
     "betweenTeamSdRealized": 56.99,
-    "betweenTeamSpreadRatio": 0.895,
-    "bias": 28.45,
-    "calibrationSlope": 1.029,
-    "mae": 43.68,
-    "meanPredicted": 316.54,
+    "betweenTeamSpreadRatio": 0.898,
+    "bias": 28.41,
+    "calibrationSlope": 1.026,
+    "mae": 43.7,
+    "meanPredicted": 316.58,
     "meanRealized": 344.98,
     "meanSd": 26.22,
     "n": 84,
-    "zRms": 2.085
+    "zRms": 2.098,
+    "zSd": 1.777
    },
    "P_CR": {
-    "betweenTeamSdPredicted": 45.95,
+    "betweenTeamSdPredicted": 45.86,
     "betweenTeamSdRealized": 56.99,
-    "betweenTeamSpreadRatio": 0.806,
-    "bias": 7.21,
-    "calibrationSlope": 1.117,
-    "mae": 41.21,
-    "meanPredicted": 337.78,
+    "betweenTeamSpreadRatio": 0.805,
+    "bias": 7.09,
+    "calibrationSlope": 1.116,
+    "mae": 41.39,
+    "meanPredicted": 337.9,
     "meanRealized": 344.98,
-    "meanSd": 25.7,
+    "meanSd": 25.57,
     "n": 84,
-    "zRms": 2.034
+    "zRms": 2.065,
+    "zSd": 2.055
    },
    "P_F": {
-    "betweenTeamSdPredicted": 65.69,
+    "betweenTeamSdPredicted": 65.45,
     "betweenTeamSdRealized": 56.99,
-    "betweenTeamSpreadRatio": 1.153,
-    "bias": 79.92,
-    "calibrationSlope": 0.763,
-    "mae": 80.73,
-    "meanPredicted": 265.06,
+    "betweenTeamSpreadRatio": 1.148,
+    "bias": 79.98,
+    "calibrationSlope": 0.766,
+    "mae": 80.78,
+    "meanPredicted": 265.01,
     "meanRealized": 344.98,
-    "meanSd": 25.26,
+    "meanSd": 25.22,
     "n": 84,
-    "zRms": 4.566
+    "zRms": 4.625,
+    "zSd": 2.909
    },
    "P_F_oracle": {
-    "betweenTeamSdPredicted": 63.87,
+    "betweenTeamSdPredicted": 63.9,
     "betweenTeamSdRealized": 56.99,
     "betweenTeamSpreadRatio": 1.121,
-    "bias": 105.99,
-    "calibrationSlope": 0.817,
-    "mae": 106.27,
-    "meanPredicted": 239.0,
+    "bias": 105.88,
+    "calibrationSlope": 0.818,
+    "mae": 106.14,
+    "meanPredicted": 239.11,
     "meanRealized": 344.98,
-    "meanSd": 24.51,
+    "meanSd": 24.62,
     "n": 84,
-    "zRms": 5.68
+    "zRms": 5.641,
+    "zSd": 2.88
    },
    "P_once": {
-    "betweenTeamSdPredicted": 65.69,
+    "betweenTeamSdPredicted": 65.45,
     "betweenTeamSdRealized": 56.99,
-    "betweenTeamSpreadRatio": 1.153,
-    "bias": 79.92,
-    "calibrationSlope": 0.763,
-    "mae": 80.73,
-    "meanPredicted": 265.06,
+    "betweenTeamSpreadRatio": 1.148,
+    "bias": 79.98,
+    "calibrationSlope": 0.766,
+    "mae": 80.78,
+    "meanPredicted": 265.01,
     "meanRealized": 344.98,
-    "meanSd": 27.78,
+    "meanSd": 27.75,
     "n": 84,
-    "zRms": 4.151
+    "zRms": 4.205,
+    "zSd": 2.645
    }
   },
   "weeks5to8": {
    "I": {
-    "betweenTeamSdPredicted": 117.73,
+    "betweenTeamSdPredicted": 116.27,
     "betweenTeamSdRealized": 63.65,
-    "betweenTeamSpreadRatio": 1.85,
-    "bias": 56.22,
-    "calibrationSlope": 0.471,
-    "mae": 84.58,
-    "meanPredicted": 280.34,
+    "betweenTeamSpreadRatio": 1.827,
+    "bias": 55.91,
+    "calibrationSlope": 0.487,
+    "mae": 81.78,
+    "meanPredicted": 280.65,
     "meanRealized": 336.56,
-    "meanSd": 28.35,
+    "meanSd": 27.99,
     "n": 48,
-    "zRms": 4.51
+    "zRms": 4.535,
+    "zSd": 3.611
+   },
+   "I_todayInjury": {
+    "betweenTeamSdPredicted": 117.65,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 1.848,
+    "bias": 56.02,
+    "calibrationSlope": 0.472,
+    "mae": 84.56,
+    "meanPredicted": 280.54,
+    "meanRealized": 336.56,
+    "meanSd": 27.95,
+    "n": 48,
+    "zRms": 4.541,
+    "zSd": 3.618
    },
    "L_F": {
     "betweenTeamSdPredicted": 56.31,
@@ -1760,98 +1973,106 @@
     "meanRealized": 336.56,
     "meanSd": null,
     "n": 48,
-    "zRms": null
+    "zRms": null,
+    "zSd": null
    },
    "P_C0": {
-    "betweenTeamSdPredicted": 43.86,
+    "betweenTeamSdPredicted": 43.67,
     "betweenTeamSdRealized": 63.65,
-    "betweenTeamSpreadRatio": 0.689,
-    "bias": -12.78,
-    "calibrationSlope": 1.305,
-    "mae": 41.71,
-    "meanPredicted": 349.33,
+    "betweenTeamSpreadRatio": 0.686,
+    "bias": -13.01,
+    "calibrationSlope": 1.308,
+    "mae": 41.72,
+    "meanPredicted": 349.56,
     "meanRealized": 336.56,
-    "meanSd": 25.78,
+    "meanSd": 25.69,
     "n": 48,
-    "zRms": 2.174
+    "zRms": 2.228,
+    "zSd": 2.14
    },
    "P_CF": {
-    "betweenTeamSdPredicted": 46.03,
+    "betweenTeamSdPredicted": 45.86,
     "betweenTeamSdRealized": 63.65,
-    "betweenTeamSpreadRatio": 0.723,
-    "bias": -11.85,
-    "calibrationSlope": 1.269,
-    "mae": 41.08,
-    "meanPredicted": 348.4,
+    "betweenTeamSpreadRatio": 0.72,
+    "bias": -12.01,
+    "calibrationSlope": 1.271,
+    "mae": 41.27,
+    "meanPredicted": 348.57,
     "meanRealized": 336.56,
-    "meanSd": 25.78,
+    "meanSd": 25.66,
     "n": 48,
-    "zRms": 2.165
+    "zRms": 2.208,
+    "zSd": 2.125
    },
    "P_CF_oracle": {
-    "betweenTeamSdPredicted": 50.24,
+    "betweenTeamSdPredicted": 50.49,
     "betweenTeamSdRealized": 63.65,
-    "betweenTeamSpreadRatio": 0.789,
-    "bias": 24.54,
-    "calibrationSlope": 1.23,
-    "mae": 36.82,
-    "meanPredicted": 312.01,
+    "betweenTeamSpreadRatio": 0.793,
+    "bias": 24.47,
+    "calibrationSlope": 1.221,
+    "mae": 36.83,
+    "meanPredicted": 312.09,
     "meanRealized": 336.56,
-    "meanSd": 26.02,
+    "meanSd": 25.94,
     "n": 48,
-    "zRms": 1.871
+    "zRms": 1.898,
+    "zSd": 1.681
    },
    "P_CR": {
-    "betweenTeamSdPredicted": 46.72,
+    "betweenTeamSdPredicted": 46.51,
     "betweenTeamSdRealized": 63.65,
-    "betweenTeamSpreadRatio": 0.734,
-    "bias": -5.87,
-    "calibrationSlope": 1.281,
-    "mae": 39.69,
-    "meanPredicted": 342.42,
+    "betweenTeamSpreadRatio": 0.731,
+    "bias": -6.03,
+    "calibrationSlope": 1.285,
+    "mae": 39.85,
+    "meanPredicted": 342.59,
     "meanRealized": 336.56,
-    "meanSd": 25.61,
+    "meanSd": 25.48,
     "n": 48,
-    "zRms": 2.064
+    "zRms": 2.096,
+    "zSd": 2.065
    },
    "P_F": {
-    "betweenTeamSdPredicted": 64.54,
+    "betweenTeamSdPredicted": 64.37,
     "betweenTeamSdRealized": 63.65,
-    "betweenTeamSpreadRatio": 1.014,
-    "bias": 69.14,
-    "calibrationSlope": 0.891,
-    "mae": 69.7,
-    "meanPredicted": 267.42,
+    "betweenTeamSpreadRatio": 1.011,
+    "bias": 68.95,
+    "calibrationSlope": 0.895,
+    "mae": 69.47,
+    "meanPredicted": 267.6,
     "meanRealized": 336.56,
-    "meanSd": 25.11,
+    "meanSd": 24.76,
     "n": 48,
-    "zRms": 3.941
+    "zRms": 3.999,
+    "zSd": 2.558
    },
    "P_F_oracle": {
-    "betweenTeamSdPredicted": 62.89,
+    "betweenTeamSdPredicted": 63.19,
     "betweenTeamSdRealized": 63.65,
-    "betweenTeamSpreadRatio": 0.988,
-    "bias": 104.08,
-    "calibrationSlope": 0.95,
-    "mae": 104.08,
-    "meanPredicted": 232.48,
+    "betweenTeamSpreadRatio": 0.993,
+    "bias": 104.06,
+    "calibrationSlope": 0.942,
+    "mae": 104.06,
+    "meanPredicted": 232.5,
     "meanRealized": 336.56,
-    "meanSd": 24.28,
+    "meanSd": 23.92,
     "n": 48,
-    "zRms": 5.324
+    "zRms": 5.433,
+    "zSd": 2.549
    },
    "P_once": {
-    "betweenTeamSdPredicted": 64.54,
+    "betweenTeamSdPredicted": 64.37,
     "betweenTeamSdRealized": 63.65,
-    "betweenTeamSpreadRatio": 1.014,
-    "bias": 69.14,
-    "calibrationSlope": 0.891,
-    "mae": 69.7,
-    "meanPredicted": 267.42,
+    "betweenTeamSpreadRatio": 1.011,
+    "bias": 68.95,
+    "calibrationSlope": 0.895,
+    "mae": 69.47,
+    "meanPredicted": 267.6,
     "meanRealized": 336.56,
-    "meanSd": 27.63,
+    "meanSd": 27.24,
     "n": 48,
-    "zRms": 3.582
+    "zRms": 3.635,
+    "zSd": 2.325
    }
   }
  },
@@ -1862,90 +2083,102 @@
    "teams": [
     {
      "I": [
-      377.91,
-      31.31
+      374.62,
+      31.05
+     ],
+     "I_todayInjury": [
+      366.69,
+      31.0
      ],
      "L_F": [
       290.1,
       0.0
      ],
      "P_C0": [
-      427.32,
-      34.26
+      418.9,
+      31.19
      ],
      "P_CF": [
-      393.75,
-      29.61
+      387.08,
+      26.71
      ],
      "P_CF_oracle": [
-      370.14,
-      28.31
+      371.03,
+      28.72
      ],
      "P_CR": [
-      365.62,
-      26.76
+      360.92,
+      24.59
      ],
      "P_F": [
-      328.9,
-      27.7
+      319.14,
+      27.43
      ],
      "P_F_oracle": [
-      312.75,
-      30.69
+      310.31,
+      29.12
      ],
      "P_once": [
-      328.9,
-      30.47
+      319.14,
+      30.17
      ],
-     "depthSdMultiplier": 1.1304,
+     "depthSdMultiplier": 1.1322,
      "realized": 325.17,
-     "rosMultiplier": 1.149,
+     "rosMultiplier": 1.1738,
      "team": "T01"
     },
     {
      "I": [
-      225.6,
-      23.64
+      221.97,
+      26.85
+     ],
+     "I_todayInjury": [
+      223.12,
+      26.94
      ],
      "L_F": [
       215.04,
       0.0
      ],
      "P_C0": [
-      349.59,
-      25.24
+      349.96,
+      25.23
      ],
      "P_CF": [
-      329.59,
-      22.7
+      330.88,
+      22.22
      ],
      "P_CF_oracle": [
-      323.26,
-      22.81
+      318.78,
+      25.37
      ],
      "P_CR": [
-      310.57,
-      20.27
+      311.75,
+      19.52
      ],
      "P_F": [
-      243.92,
-      20.83
+      241.24,
+      23.74
      ],
      "P_F_oracle": [
-      234.1,
-      20.83
+      232.44,
+      21.47
      ],
      "P_once": [
-      243.92,
-      22.91
+      241.24,
+      26.11
      ],
-     "depthSdMultiplier": 1.1348,
+     "depthSdMultiplier": 1.1312,
      "realized": 341.75,
-     "rosMultiplier": 0.9249,
+     "rosMultiplier": 0.9201,
      "team": "T02"
     },
     {
      "I": [
+      224.3,
+      23.62
+     ],
+     "I_todayInjury": [
       233.66,
       23.54
      ],
@@ -1981,13 +2214,17 @@
       237.71,
       23.14
      ],
-     "depthSdMultiplier": 1.1191,
+     "depthSdMultiplier": 1.1229,
      "realized": 353.46,
-     "rosMultiplier": 0.983,
+     "rosMultiplier": 0.9436,
      "team": "T03"
     },
     {
      "I": [
+      311.29,
+      30.28
+     ],
+     "I_todayInjury": [
       302.06,
       30.2
      ],
@@ -2023,13 +2260,17 @@
       289.39,
       29.6
      ],
-     "depthSdMultiplier": 1.1224,
+     "depthSdMultiplier": 1.1252,
      "realized": 278.12,
-     "rosMultiplier": 1.0438,
+     "rosMultiplier": 1.0757,
      "team": "T04"
     },
     {
      "I": [
+      311.29,
+      29.9
+     ],
+     "I_todayInjury": [
       301.14,
       29.84
      ],
@@ -2065,57 +2306,65 @@
       287.84,
       29.11
      ],
-     "depthSdMultiplier": 1.1274,
+     "depthSdMultiplier": 1.1297,
      "realized": 323.23,
-     "rosMultiplier": 1.0462,
+     "rosMultiplier": 1.0815,
      "team": "T05"
     },
     {
      "I": [
-      367.18,
-      29.95
+      367.85,
+      31.31
+     ],
+     "I_todayInjury": [
+      372.83,
+      31.26
      ],
      "L_F": [
       286.63,
       0.0
      ],
      "P_C0": [
-      413.13,
-      29.88
+      417.28,
+      32.76
      ],
      "P_CF": [
-      388.46,
-      28.73
+      392.8,
+      29.96
      ],
      "P_CF_oracle": [
-      382.87,
-      28.23
+      380.62,
+      34.32
      ],
      "P_CR": [
-      365.54,
-      25.93
+      368.55,
+      26.72
      ],
      "P_F": [
-      313.19,
-      26.58
+      318.01,
+      27.74
      ],
      "P_F_oracle": [
-      309.17,
-      26.82
+      307.63,
+      32.0
      ],
      "P_once": [
-      313.19,
-      29.24
+      318.01,
+      30.52
      ],
-     "depthSdMultiplier": 1.1268,
+     "depthSdMultiplier": 1.1285,
      "realized": 307.85,
-     "rosMultiplier": 1.1724,
+     "rosMultiplier": 1.1568,
      "team": "T06"
     },
     {
      "I": [
-      92.23,
-      15.44
+      84.6,
+      14.76
+     ],
+     "I_todayInjury": [
+      92.31,
+      14.76
      ],
      "L_F": [
       125.04,
@@ -2138,66 +2387,74 @@
       16.66
      ],
      "P_F": [
-      136.76,
-      13.64
+      136.88,
+      13.04
      ],
      "P_F_oracle": [
       131.56,
       13.98
      ],
      "P_once": [
-      136.76,
-      15.0
+      136.88,
+      14.34
      ],
-     "depthSdMultiplier": 1.1323,
+     "depthSdMultiplier": 1.1317,
      "realized": 310.64,
-     "rosMultiplier": 0.6744,
+     "rosMultiplier": 0.6181,
      "team": "T07"
     },
     {
      "I": [
-      357.34,
-      38.79
+      347.78,
+      38.88
+     ],
+     "I_todayInjury": [
+      358.19,
+      38.88
      ],
      "L_F": [
       283.0,
       0.0
      ],
      "P_C0": [
-      402.77,
-      38.57
+      405.96,
+      35.9
      ],
      "P_CF": [
-      402.01,
-      40.38
+      406.02,
+      38.38
      ],
      "P_CF_oracle": [
-      392.76,
-      42.25
+      391.79,
+      38.16
      ],
      "P_CR": [
-      378.45,
-      36.74
+      382.52,
+      34.96
      ],
      "P_F": [
-      306.16,
-      34.59
+      306.89,
+      34.68
      ],
      "P_F_oracle": [
-      289.72,
-      34.81
+      291.07,
+      32.88
      ],
      "P_once": [
-      306.16,
-      38.05
+      306.89,
+      38.15
      ],
-     "depthSdMultiplier": 1.1213,
+     "depthSdMultiplier": 1.1211,
      "realized": 360.4,
-     "rosMultiplier": 1.1672,
+     "rosMultiplier": 1.1332,
      "team": "T08"
     },
     {
      "I": [
+      537.6,
+      46.46
+     ],
+     "I_todayInjury": [
       546.72,
       46.16
      ],
@@ -2233,57 +2490,65 @@
       389.74,
       45.05
      ],
-     "depthSdMultiplier": 1.1271,
+     "depthSdMultiplier": 1.1343,
      "realized": 461.18,
-     "rosMultiplier": 1.4028,
+     "rosMultiplier": 1.3794,
      "team": "T09"
     },
     {
      "I": [
-      211.75,
-      27.85
+      220.12,
+      27.62
+     ],
+     "I_todayInjury": [
+      212.22,
+      27.49
      ],
      "L_F": [
       223.38,
       0.0
      ],
      "P_C0": [
-      336.34,
-      30.25
+      336.62,
+      27.69
      ],
      "P_CF": [
-      336.28,
-      29.83
+      337.4,
+      27.14
      ],
      "P_CF_oracle": [
-      329.11,
-      31.03
+      337.31,
+      29.11
      ],
      "P_CR": [
-      326.46,
-      28.21
+      327.98,
+      25.79
      ],
      "P_F": [
-      235.3,
-      25.01
+      235.83,
+      24.69
      ],
      "P_F_oracle": [
-      229.88,
-      23.0
+      233.88,
+      24.8
      ],
      "P_once": [
-      235.3,
-      27.52
+      235.83,
+      27.16
      ],
-     "depthSdMultiplier": 1.1135,
+     "depthSdMultiplier": 1.119,
      "realized": 415.16,
-     "rosMultiplier": 0.8999,
+     "rosMultiplier": 0.9334,
      "team": "T10"
     },
     {
      "I": [
-      128.15,
-      20.75
+      132.65,
+      18.36
+     ],
+     "I_todayInjury": [
+      128.81,
+      18.27
      ],
      "L_F": [
       161.82,
@@ -2306,26 +2571,30 @@
       21.15
      ],
      "P_F": [
-      177.71,
-      18.41
+      178.63,
+      16.21
      ],
      "P_F_oracle": [
       171.04,
       15.91
      ],
      "P_once": [
-      177.71,
-      20.25
+      178.63,
+      17.83
      ],
-     "depthSdMultiplier": 1.127,
+     "depthSdMultiplier": 1.1327,
      "realized": 325.79,
-     "rosMultiplier": 0.7211,
+     "rosMultiplier": 0.7426,
      "team": "T11"
     },
     {
      "I": [
-      168.83,
-      24.92
+      173.5,
+      25.33
+     ],
+     "I_todayInjury": [
+      168.05,
+      25.34
      ],
      "L_F": [
       194.39,
@@ -2348,20 +2617,20 @@
       24.59
      ],
      "P_F": [
-      207.06,
-      22.19
+      206.09,
+      22.56
      ],
      "P_F_oracle": [
       199.33,
       21.35
      ],
      "P_once": [
-      207.06,
-      24.41
+      206.09,
+      24.82
      ],
-     "depthSdMultiplier": 1.1232,
+     "depthSdMultiplier": 1.1226,
      "realized": 305.02,
-     "rosMultiplier": 0.8154,
+     "rosMultiplier": 0.8418,
      "team": "T12"
     }
    ]
@@ -2372,48 +2641,56 @@
    "teams": [
     {
      "I": [
-      359.02,
-      33.57
+      359.32,
+      32.92
+     ],
+     "I_todayInjury": [
+      348.7,
+      32.77
      ],
      "L_F": [
       284.4,
       0.0
      ],
      "P_C0": [
-      384.53,
-      31.72
+      378.62,
+      31.84
      ],
      "P_CF": [
-      367.89,
-      28.35
+      364.44,
+      29.12
      ],
      "P_CF_oracle": [
-      357.69,
-      30.45
+      356.68,
+      29.68
      ],
      "P_CR": [
-      369.25,
-      28.6
+      366.05,
+      28.87
      ],
      "P_F": [
-      319.16,
-      29.83
+      309.99,
+      29.12
      ],
      "P_F_oracle": [
-      310.52,
-      30.68
+      308.6,
+      31.28
      ],
      "P_once": [
-      319.16,
-      32.81
+      309.99,
+      32.04
      ],
-     "depthSdMultiplier": 1.1254,
+     "depthSdMultiplier": 1.1302,
      "realized": 401.21,
-     "rosMultiplier": 1.1249,
+     "rosMultiplier": 1.1591,
      "team": "T01"
     },
     {
      "I": [
+      206.16,
+      21.82
+     ],
+     "I_todayInjury": [
       205.74,
       21.81
      ],
@@ -2442,20 +2719,24 @@
       19.22
      ],
      "P_F_oracle": [
-      205.0,
-      18.82
+      205.7,
+      18.01
      ],
      "P_once": [
       228.62,
       21.14
      ],
-     "depthSdMultiplier": 1.1346,
+     "depthSdMultiplier": 1.1353,
      "realized": 327.37,
-     "rosMultiplier": 0.8999,
+     "rosMultiplier": 0.9018,
      "team": "T02"
     },
     {
      "I": [
+      233.74,
+      28.75
+     ],
+     "I_todayInjury": [
       244.4,
       28.57
      ],
@@ -2484,20 +2765,24 @@
       25.54
      ],
      "P_F_oracle": [
-      229.43,
-      22.25
+      231.03,
+      24.93
      ],
      "P_once": [
       243.49,
       28.1
      ],
-     "depthSdMultiplier": 1.1186,
+     "depthSdMultiplier": 1.1255,
      "realized": 346.85,
-     "rosMultiplier": 1.0038,
+     "rosMultiplier": 0.9599,
      "team": "T03"
     },
     {
      "I": [
+      319.44,
+      34.53
+     ],
+     "I_todayInjury": [
       310.4,
       34.51
      ],
@@ -2526,20 +2811,24 @@
       30.6
      ],
      "P_F_oracle": [
-      274.04,
-      25.84
+      273.48,
+      26.09
      ],
      "P_once": [
       293.73,
       33.66
      ],
-     "depthSdMultiplier": 1.1278,
+     "depthSdMultiplier": 1.1285,
      "realized": 355.35,
-     "rosMultiplier": 1.0567,
+     "rosMultiplier": 1.0875,
      "team": "T04"
     },
     {
      "I": [
+      296.44,
+      31.22
+     ],
+     "I_todayInjury": [
       285.89,
       31.15
      ],
@@ -2568,62 +2857,70 @@
       27.61
      ],
      "P_F_oracle": [
-      281.13,
-      25.73
+      281.3,
+      27.58
      ],
      "P_once": [
       277.71,
       30.37
      ],
-     "depthSdMultiplier": 1.1282,
+     "depthSdMultiplier": 1.1306,
      "realized": 391.71,
-     "rosMultiplier": 1.0294,
+     "rosMultiplier": 1.0674,
      "team": "T05"
     },
     {
      "I": [
-      367.13,
-      29.45
+      359.78,
+      34.23
+     ],
+     "I_todayInjury": [
+      365.57,
+      34.15
      ],
      "L_F": [
       281.57,
       0.0
      ],
      "P_C0": [
-      380.68,
-      30.12
+      379.21,
+      28.24
      ],
      "P_CF": [
-      362.12,
-      29.3
+      360.77,
+      27.1
      ],
      "P_CF_oracle": [
-      342.98,
-      30.37
+      337.55,
+      33.03
      ],
      "P_CR": [
-      361.04,
-      28.86
+      359.37,
+      26.55
      ],
      "P_F": [
-      314.66,
-      26.14
+      313.33,
+      30.32
      ],
      "P_F_oracle": [
-      301.08,
-      30.07
+      296.26,
+      33.4
      ],
      "P_once": [
-      314.66,
-      28.76
+      313.33,
+      33.35
      ],
-     "depthSdMultiplier": 1.1265,
+     "depthSdMultiplier": 1.129,
      "realized": 414.69,
-     "rosMultiplier": 1.1667,
+     "rosMultiplier": 1.1483,
      "team": "T06"
     },
     {
      "I": [
+      80.21,
+      14.85
+     ],
+     "I_todayInjury": [
       87.24,
       14.86
      ],
@@ -2652,20 +2949,24 @@
       13.15
      ],
      "P_F_oracle": [
-      102.61,
-      11.47
+      104.21,
+      12.26
      ],
      "P_once": [
       130.07,
       14.46
      ],
-     "depthSdMultiplier": 1.1303,
+     "depthSdMultiplier": 1.1297,
      "realized": 269.59,
-     "rosMultiplier": 0.6707,
+     "rosMultiplier": 0.6167,
      "team": "T07"
     },
     {
      "I": [
+      364.86,
+      38.4
+     ],
+     "I_todayInjury": [
       373.41,
       38.31
      ],
@@ -2701,13 +3002,17 @@
       313.14,
       37.52
      ],
-     "depthSdMultiplier": 1.1233,
+     "depthSdMultiplier": 1.1259,
      "realized": 442.5,
-     "rosMultiplier": 1.1925,
+     "rosMultiplier": 1.1652,
      "team": "T08"
     },
     {
      "I": [
+      536.21,
+      38.53
+     ],
+     "I_todayInjury": [
       546.41,
       38.35
      ],
@@ -2743,13 +3048,17 @@
       392.07,
       37.41
      ],
-     "depthSdMultiplier": 1.1274,
+     "depthSdMultiplier": 1.1328,
      "realized": 418.88,
-     "rosMultiplier": 1.3937,
+     "rosMultiplier": 1.3677,
      "team": "T09"
     },
     {
      "I": [
+      223.16,
+      28.58
+     ],
+     "I_todayInjury": [
       216.6,
       28.41
      ],
@@ -2778,20 +3087,24 @@
       25.44
      ],
      "P_F_oracle": [
-      231.15,
-      24.77
+      232.73,
+      24.9
      ],
      "P_once": [
       235.29,
       27.98
      ],
-     "depthSdMultiplier": 1.1171,
+     "depthSdMultiplier": 1.1238,
      "realized": 446.17,
-     "rosMultiplier": 0.9206,
+     "rosMultiplier": 0.9484,
      "team": "T10"
     },
     {
      "I": [
+      122.12,
+      17.56
+     ],
+     "I_todayInjury": [
       117.57,
       17.55
      ],
@@ -2820,20 +3133,24 @@
       15.52
      ],
      "P_F_oracle": [
-      158.45,
-      15.1
+      159.56,
+      16.22
      ],
      "P_once": [
       168.38,
       17.08
      ],
-     "depthSdMultiplier": 1.1306,
+     "depthSdMultiplier": 1.1311,
      "realized": 314.27,
-     "rosMultiplier": 0.6982,
+     "rosMultiplier": 0.7253,
      "team": "T11"
     },
     {
      "I": [
+      177.66,
+      22.89
+     ],
+     "I_todayInjury": [
       175.62,
       22.94
      ],
@@ -2862,16 +3179,16 @@
       20.32
      ],
      "P_F_oracle": [
-      195.29,
-      20.39
+      192.84,
+      21.18
      ],
      "P_once": [
       208.36,
       22.35
      ],
-     "depthSdMultiplier": 1.1291,
+     "depthSdMultiplier": 1.1269,
      "realized": 225.92,
-     "rosMultiplier": 0.8429,
+     "rosMultiplier": 0.8526,
      "team": "T12"
     }
    ]
@@ -2882,48 +3199,56 @@
    "teams": [
     {
      "I": [
-      372.69,
-      34.2
+      378.32,
+      34.87
+     ],
+     "I_todayInjury": [
+      371.11,
+      34.78
      ],
      "L_F": [
       292.7,
       0.0
      ],
      "P_C0": [
-      389.71,
-      31.63
+      385.02,
+      28.46
      ],
      "P_CF": [
-      375.61,
-      28.9
+      371.4,
+      26.62
      ],
      "P_CF_oracle": [
-      350.88,
-      29.82
+      355.64,
+      25.06
      ],
      "P_CR": [
-      374.49,
-      29.06
+      369.69,
+      26.4
      ],
      "P_F": [
-      322.42,
-      30.41
+      321.05,
+      30.93
      ],
      "P_F_oracle": [
-      300.76,
-      29.93
+      307.15,
+      27.67
      ],
      "P_once": [
-      322.42,
-      33.45
+      321.05,
+      34.02
      ],
-     "depthSdMultiplier": 1.1246,
+     "depthSdMultiplier": 1.1274,
      "realized": 433.64,
-     "rosMultiplier": 1.1559,
+     "rosMultiplier": 1.1784,
      "team": "T01"
     },
     {
      "I": [
+      214.39,
+      23.5
+     ],
+     "I_todayInjury": [
       214.94,
       23.44
      ],
@@ -2952,20 +3277,24 @@
       20.67
      ],
      "P_F_oracle": [
-      208.75,
-      19.65
+      208.56,
+      19.2
      ],
      "P_once": [
       237.64,
       22.74
      ],
-     "depthSdMultiplier": 1.1338,
+     "depthSdMultiplier": 1.1366,
      "realized": 294.3,
-     "rosMultiplier": 0.9044,
+     "rosMultiplier": 0.9022,
      "team": "T02"
     },
     {
      "I": [
+      234.61,
+      33.1
+     ],
+     "I_todayInjury": [
       243.84,
       33.0
      ],
@@ -2994,20 +3323,24 @@
       29.51
      ],
      "P_F_oracle": [
-      239.91,
-      25.66
+      241.84,
+      26.94
      ],
      "P_once": [
       243.66,
       32.46
      ],
-     "depthSdMultiplier": 1.1182,
+     "depthSdMultiplier": 1.1216,
      "realized": 386.18,
-     "rosMultiplier": 1.0008,
+     "rosMultiplier": 0.9629,
      "team": "T03"
     },
     {
      "I": [
+      300.13,
+      33.62
+     ],
+     "I_todayInjury": [
       288.35,
       33.7
      ],
@@ -3036,20 +3369,24 @@
       29.76
      ],
      "P_F_oracle": [
-      262.42,
-      27.5
+      261.21,
+      26.92
      ],
      "P_once": [
       281.68,
       32.74
      ],
-     "depthSdMultiplier": 1.1323,
+     "depthSdMultiplier": 1.1296,
      "realized": 459.36,
-     "rosMultiplier": 1.0237,
+     "rosMultiplier": 1.0655,
      "team": "T04"
     },
     {
      "I": [
+      308.23,
+      33.37
+     ],
+     "I_todayInjury": [
       297.58,
       33.3
      ],
@@ -3078,62 +3415,70 @@
       29.57
      ],
      "P_F_oracle": [
-      259.4,
-      24.53
+      260.29,
+      27.85
      ],
      "P_once": [
       288.37,
       32.53
      ],
-     "depthSdMultiplier": 1.126,
+     "depthSdMultiplier": 1.1282,
      "realized": 417.9,
-     "rosMultiplier": 1.0319,
+     "rosMultiplier": 1.0688,
      "team": "T05"
     },
     {
      "I": [
-      362.51,
-      28.84
+      361.01,
+      35.92
+     ],
+     "I_todayInjury": [
+      366.06,
+      35.82
      ],
      "L_F": [
       280.31,
       0.0
      ],
      "P_C0": [
-      376.4,
-      27.29
+      380.83,
+      28.55
      ],
      "P_CF": [
-      371.51,
-      26.68
+      375.82,
+      29.12
      ],
      "P_CF_oracle": [
-      352.14,
-      30.89
+      349.63,
+      29.46
      ],
      "P_CR": [
-      366.88,
-      25.75
+      371.12,
+      28.45
      ],
      "P_F": [
-      313.03,
-      25.57
+      316.09,
+      31.76
      ],
      "P_F_oracle": [
-      283.16,
-      29.39
+      285.4,
+      30.35
      ],
      "P_once": [
-      313.03,
-      28.13
+      316.09,
+      34.93
      ],
-     "depthSdMultiplier": 1.1278,
+     "depthSdMultiplier": 1.1311,
      "realized": 397.26,
-     "rosMultiplier": 1.1581,
+     "rosMultiplier": 1.1421,
      "team": "T06"
     },
     {
      "I": [
+      87.47,
+      13.9
+     ],
+     "I_todayInjury": [
       95.87,
       13.91
      ],
@@ -3162,62 +3507,70 @@
       12.27
      ],
      "P_F_oracle": [
-      116.67,
-      13.16
+      120.07,
+      12.93
      ],
      "P_once": [
       139.76,
       13.5
      ],
-     "depthSdMultiplier": 1.133,
+     "depthSdMultiplier": 1.1325,
      "realized": 226.57,
-     "rosMultiplier": 0.686,
+     "rosMultiplier": 0.6258,
      "team": "T07"
     },
     {
      "I": [
-      372.53,
-      39.34
+      366.84,
+      42.43
+     ],
+     "I_todayInjury": [
+      374.59,
+      42.28
      ],
      "L_F": [
       288.9,
       0.0
      ],
      "P_C0": [
-      375.58,
-      31.39
+      378.22,
+      34.0
      ],
      "P_CF": [
-      388.81,
-      34.54
+      391.55,
+      38.08
      ],
      "P_CF_oracle": [
-      372.15,
-      34.07
+      374.98,
+      40.01
      ],
      "P_CR": [
-      380.71,
-      33.62
+      383.34,
+      37.22
      ],
      "P_F": [
-      312.6,
-      34.98
+      314.33,
+      37.6
      ],
      "P_F_oracle": [
-      295.04,
-      31.62
+      295.18,
+      37.66
      ],
      "P_once": [
-      312.6,
-      38.48
+      314.33,
+      41.36
      ],
-     "depthSdMultiplier": 1.1246,
+     "depthSdMultiplier": 1.1284,
      "realized": 351.58,
-     "rosMultiplier": 1.1917,
+     "rosMultiplier": 1.1671,
      "team": "T08"
     },
     {
      "I": [
+      533.53,
+      43.79
+     ],
+     "I_todayInjury": [
       544.06,
       43.67
      ],
@@ -3253,13 +3606,17 @@
       390.09,
       42.52
      ],
-     "depthSdMultiplier": 1.1296,
+     "depthSdMultiplier": 1.1327,
      "realized": 441.38,
-     "rosMultiplier": 1.3947,
+     "rosMultiplier": 1.3677,
      "team": "T09"
     },
     {
      "I": [
+      234.77,
+      25.37
+     ],
+     "I_todayInjury": [
       227.65,
       25.27
      ],
@@ -3288,20 +3645,24 @@
       22.58
      ],
      "P_F_oracle": [
-      246.57,
-      24.67
+      241.49,
+      23.88
      ],
      "P_once": [
       243.88,
       24.83
      ],
-     "depthSdMultiplier": 1.1194,
+     "depthSdMultiplier": 1.1237,
      "realized": 375.04,
-     "rosMultiplier": 0.9334,
+     "rosMultiplier": 0.9626,
      "team": "T10"
     },
     {
      "I": [
+      126.33,
+      16.76
+     ],
+     "I_todayInjury": [
       120.47,
       16.71
      ],
@@ -3330,20 +3691,24 @@
       14.83
      ],
      "P_F_oracle": [
-      154.06,
-      15.42
+      154.85,
+      16.71
      ],
      "P_once": [
       173.81,
       16.31
      ],
-     "depthSdMultiplier": 1.1274,
+     "depthSdMultiplier": 1.1305,
      "realized": 293.86,
-     "rosMultiplier": 0.6931,
+     "rosMultiplier": 0.7269,
      "team": "T11"
     },
     {
      "I": [
+      169.2,
+      24.27
+     ],
+     "I_todayInjury": [
       168.43,
       24.32
      ],
@@ -3372,16 +3737,16 @@
       21.53
      ],
      "P_F_oracle": [
-      195.77,
-      19.04
+      197.82,
+      21.43
      ],
      "P_once": [
       203.85,
       23.69
      ],
-     "depthSdMultiplier": 1.1294,
+     "depthSdMultiplier": 1.1271,
      "realized": 284.71,
-     "rosMultiplier": 0.8262,
+     "rosMultiplier": 0.83,
      "team": "T12"
     }
    ]
@@ -3392,50 +3757,58 @@
    "teams": [
     {
      "I": [
-      368.73,
-      29.28
+      370.75,
+      32.67
+     ],
+     "I_todayInjury": [
+      365.95,
+      32.61
      ],
      "L_F": [
       284.05,
       0.0
      ],
      "P_C0": [
-      385.79,
-      25.07
+      383.59,
+      28.68
      ],
      "P_CF": [
-      376.87,
-      24.37
+      374.81,
+      27.19
      ],
      "P_CF_oracle": [
-      360.51,
-      31.78
+      359.35,
+      24.43
      ],
      "P_CR": [
-      378.2,
-      24.8
+      376.53,
+      27.68
      ],
      "P_F": [
-      318.92,
-      25.87
+      316.52,
+      28.81
      ],
      "P_F_oracle": [
-      309.23,
-      29.05
+      302.96,
+      28.06
      ],
      "P_once": [
-      318.92,
-      28.46
+      316.52,
+      31.7
      ],
-     "depthSdMultiplier": 1.1316,
+     "depthSdMultiplier": 1.1337,
      "realized": 456.87,
-     "rosMultiplier": 1.1562,
+     "rosMultiplier": 1.1713,
      "team": "T01"
     },
     {
      "I": [
-      213.9,
-      23.07
+      210.7,
+      20.64
+     ],
+     "I_todayInjury": [
+      211.9,
+      20.53
      ],
      "L_F": [
       209.25,
@@ -3458,68 +3831,76 @@
       19.38
      ],
      "P_F": [
-      236.66,
-      20.43
+      234.44,
+      18.18
      ],
      "P_F_oracle": [
-      190.9,
-      17.17
+      188.86,
+      19.7
      ],
      "P_once": [
-      236.66,
-      22.47
+      234.44,
+      20.0
      ],
-     "depthSdMultiplier": 1.1294,
+     "depthSdMultiplier": 1.1354,
      "realized": 296.38,
-     "rosMultiplier": 0.9038,
+     "rosMultiplier": 0.8987,
      "team": "T02"
     },
     {
      "I": [
-      259.0,
-      32.67
+      255.31,
+      28.07
+     ],
+     "I_todayInjury": [
+      263.27,
+      27.91
      ],
      "L_F": [
       237.13,
       0.0
      ],
      "P_C0": [
-      333.9,
-      25.17
+      343.52,
+      25.55
      ],
      "P_CF": [
-      323.98,
-      25.69
+      331.46,
+      25.26
      ],
      "P_CF_oracle": [
-      308.17,
-      27.59
+      302.67,
+      28.08
      ],
      "P_CR": [
-      323.3,
-      25.3
+      330.76,
+      25.21
      ],
      "P_F": [
-      254.25,
-      29.2
+      258.44,
+      24.94
      ],
      "P_F_oracle": [
-      220.88,
-      25.14
+      221.0,
+      23.72
      ],
      "P_once": [
-      254.25,
-      32.12
+      258.44,
+      27.44
      ],
-     "depthSdMultiplier": 1.1188,
+     "depthSdMultiplier": 1.1255,
      "realized": 370.35,
-     "rosMultiplier": 1.0187,
+     "rosMultiplier": 0.9879,
      "team": "T03"
     },
     {
      "I": [
-      306.98,
-      34.85
+      330.19,
+      32.69
+     ],
+     "I_todayInjury": [
+      311.61,
+      32.83
      ],
      "L_F": [
       266.89,
@@ -3542,110 +3923,122 @@
       28.27
      ],
      "P_F": [
-      296.47,
-      30.81
+      300.94,
+      29.02
      ],
      "P_F_oracle": [
       259.46,
       28.12
      ],
      "P_once": [
-      296.47,
-      33.89
+      300.94,
+      31.93
      ],
-     "depthSdMultiplier": 1.131,
+     "depthSdMultiplier": 1.1264,
      "realized": 436.14,
-     "rosMultiplier": 1.0355,
+     "rosMultiplier": 1.0972,
      "team": "T04"
     },
     {
      "I": [
-      278.84,
-      31.71
+      292.19,
+      28.77
+     ],
+     "I_todayInjury": [
+      280.98,
+      28.75
      ],
      "L_F": [
       253.03,
       0.0
      ],
      "P_C0": [
-      357.36,
-      26.67
+      353.74,
+      25.77
      ],
      "P_CF": [
-      360.38,
-      26.76
+      356.52,
+      24.63
      ],
      "P_CF_oracle": [
-      328.13,
-      24.1
+      331.71,
+      26.2
      ],
      "P_CR": [
-      358.41,
-      26.44
+      354.7,
+      24.17
      ],
      "P_F": [
-      275.56,
-      28.08
+      277.68,
+      25.45
      ],
      "P_F_oracle": [
-      234.8,
-      23.81
+      235.39,
+      24.43
      ],
      "P_once": [
-      275.56,
-      30.88
+      277.68,
+      28.0
      ],
-     "depthSdMultiplier": 1.1295,
+     "depthSdMultiplier": 1.1302,
      "realized": 445.69,
-     "rosMultiplier": 1.0119,
+     "rosMultiplier": 1.0523,
      "team": "T05"
     },
     {
      "I": [
-      360.58,
-      36.04
+      358.06,
+      31.23
+     ],
+     "I_todayInjury": [
+      363.61,
+      31.22
      ],
      "L_F": [
       281.5,
       0.0
      ],
      "P_C0": [
-      373.07,
-      29.34
+      376.13,
+      28.05
      ],
      "P_CF": [
-      373.73,
-      28.31
+      375.39,
+      27.54
      ],
      "P_CF_oracle": [
-      333.53,
-      29.71
+      332.95,
+      29.06
      ],
      "P_CR": [
-      373.84,
-      28.22
+      375.45,
+      27.77
      ],
      "P_F": [
-      308.76,
-      32.01
+      311.36,
+      27.73
      ],
      "P_F_oracle": [
-      265.38,
-      26.95
+      267.79,
+      27.19
      ],
      "P_once": [
-      308.76,
-      35.21
+      311.36,
+      30.5
      ],
-     "depthSdMultiplier": 1.1259,
+     "depthSdMultiplier": 1.1263,
      "realized": 326.18,
-     "rosMultiplier": 1.1678,
+     "rosMultiplier": 1.15,
      "team": "T06"
     },
     {
      "I": [
-      90.5,
-      15.89
+      82.68,
+      14.15
+     ],
+     "I_todayInjury": [
+      90.69,
+      14.15
      ],
      "L_F": [
       128.3,
@@ -3668,66 +4061,74 @@
       15.17
      ],
      "P_F": [
-      138.26,
-      14.05
+      138.54,
+      12.51
      ],
      "P_F_oracle": [
-      122.4,
-      12.23
+      123.08,
+      12.16
      ],
      "P_once": [
-      138.26,
-      15.46
+      138.54,
+      13.77
      ],
-     "depthSdMultiplier": 1.131,
+     "depthSdMultiplier": 1.1305,
      "realized": 272.87,
-     "rosMultiplier": 0.6546,
+     "rosMultiplier": 0.5968,
      "team": "T07"
     },
     {
      "I": [
-      365.44,
-      42.23
+      360.4,
+      37.67
+     ],
+     "I_todayInjury": [
+      367.46,
+      37.67
      ],
      "L_F": [
       285.87,
       0.0
      ],
      "P_C0": [
-      373.46,
-      35.02
+      374.17,
+      31.85
      ],
      "P_CF": [
-      385.27,
-      38.53
+      387.02,
+      37.22
      ],
      "P_CF_oracle": [
-      373.65,
-      34.25
+      374.43,
+      39.35
      ],
      "P_CR": [
-      383.18,
-      38.32
+      384.86,
+      37.36
      ],
      "P_F": [
-      306.41,
-      37.42
+      308.11,
+      33.38
      ],
      "P_F_oracle": [
-      294.69,
-      35.65
+      297.65,
+      34.83
      ],
      "P_once": [
-      306.41,
-      41.16
+      308.11,
+      36.71
      ],
      "depthSdMultiplier": 1.1287,
      "realized": 461.23,
-     "rosMultiplier": 1.1926,
+     "rosMultiplier": 1.1697,
      "team": "T08"
     },
     {
      "I": [
+      504.3,
+      35.78
+     ],
+     "I_todayInjury": [
       519.02,
       35.71
      ],
@@ -3763,15 +4164,19 @@
       378.08,
       34.78
      ],
-     "depthSdMultiplier": 1.1292,
+     "depthSdMultiplier": 1.1315,
      "realized": 417.38,
-     "rosMultiplier": 1.3728,
+     "rosMultiplier": 1.3339,
      "team": "T09"
     },
     {
      "I": [
-      241.6,
-      26.99
+      248.48,
+      28.46
+     ],
+     "I_todayInjury": [
+      242.67,
+      28.36
      ],
      "L_F": [
       236.27,
@@ -3794,26 +4199,30 @@
       24.5
      ],
      "P_F": [
-      251.24,
-      24.07
+      252.35,
+      25.29
      ],
      "P_F_oracle": [
-      225.82,
-      24.77
+      228.14,
+      27.1
      ],
      "P_once": [
-      251.24,
-      26.47
+      252.35,
+      27.82
      ],
-     "depthSdMultiplier": 1.1213,
+     "depthSdMultiplier": 1.1257,
      "realized": 336.87,
-     "rosMultiplier": 0.9616,
+     "rosMultiplier": 0.9847,
      "team": "T10"
     },
     {
      "I": [
-      127.87,
-      16.91
+      134.01,
+      20.51
+     ],
+     "I_todayInjury": [
+      129.31,
+      20.44
      ],
      "L_F": [
       164.3,
@@ -3836,26 +4245,30 @@
       21.58
      ],
      "P_F": [
-      181.34,
-      14.98
+      183.4,
+      18.1
      ],
      "P_F_oracle": [
-      143.97,
-      17.54
+      143.5,
+      16.6
      ],
      "P_once": [
-      181.34,
-      16.47
+      183.4,
+      19.91
      ],
-     "depthSdMultiplier": 1.129,
+     "depthSdMultiplier": 1.133,
      "realized": 221.33,
-     "rosMultiplier": 0.7051,
+     "rosMultiplier": 0.7307,
      "team": "T11"
     },
     {
      "I": [
-      171.94,
-      21.86
+      169.78,
+      23.38
+     ],
+     "I_todayInjury": [
+      168.22,
+      23.41
      ],
      "L_F": [
       192.71,
@@ -3878,20 +4291,20 @@
       22.6
      ],
      "P_F": [
-      209.86,
-      19.4
+      205.31,
+      20.77
      ],
      "P_F_oracle": [
-      179.38,
-      18.93
+      176.87,
+      18.88
      ],
      "P_once": [
-      209.86,
-      21.34
+      205.31,
+      22.85
      ],
-     "depthSdMultiplier": 1.127,
+     "depthSdMultiplier": 1.1256,
      "realized": 243.14,
-     "rosMultiplier": 0.8193,
+     "rosMultiplier": 0.8269,
      "team": "T12"
     }
    ]
@@ -3902,6 +4315,10 @@
    "teams": [
     {
      "I": [
+      368.79,
+      34.16
+     ],
+     "I_todayInjury": [
       366.2,
       34.09
      ],
@@ -3937,15 +4354,19 @@
       318.68,
       33.08
      ],
-     "depthSdMultiplier": 1.1336,
+     "depthSdMultiplier": 1.1358,
      "realized": 330.96,
-     "rosMultiplier": 1.1491,
+     "rosMultiplier": 1.1572,
      "team": "T01"
     },
     {
      "I": [
-      213.36,
-      23.77
+      217.79,
+      20.72
+     ],
+     "I_todayInjury": [
+      214.44,
+      20.7
      ],
      "L_F": [
       212.47,
@@ -3968,194 +4389,214 @@
       19.61
      ],
      "P_F": [
-      237.69,
-      20.98
+      238.9,
+      18.26
      ],
      "P_F_oracle": [
-      206.8,
-      20.06
+      206.62,
+      20.39
      ],
      "P_once": [
-      237.69,
-      23.07
+      238.9,
+      20.09
      ],
-     "depthSdMultiplier": 1.1332,
+     "depthSdMultiplier": 1.1348,
      "realized": 351.36,
-     "rosMultiplier": 0.8976,
+     "rosMultiplier": 0.9116,
      "team": "T02"
     },
     {
      "I": [
-      256.86,
-      30.31
+      255.66,
+      31.41
+     ],
+     "I_todayInjury": [
+      262.95,
+      31.2
      ],
      "L_F": [
       236.44,
       0.0
      ],
      "P_C0": [
-      339.03,
-      27.82
+      346.04,
+      28.9
      ],
      "P_CF": [
-      330.75,
-      26.91
+      338.15,
+      27.3
      ],
      "P_CF_oracle": [
-      327.82,
-      29.25
+      328.49,
+      26.35
      ],
      "P_CR": [
-      325.81,
-      26.15
+      332.75,
+      26.51
      ],
      "P_F": [
-      253.93,
-      27.15
+      259.95,
+      27.95
      ],
      "P_F_oracle": [
       250.32,
-      27.19
+      25.9
      ],
      "P_once": [
-      253.93,
-      29.87
+      259.95,
+      30.74
      ],
-     "depthSdMultiplier": 1.1164,
+     "depthSdMultiplier": 1.1238,
      "realized": 291.78,
-     "rosMultiplier": 1.0116,
+     "rosMultiplier": 0.9835,
      "team": "T03"
     },
     {
      "I": [
-      329.41,
-      35.44
+      339.34,
+      30.5
+     ],
+     "I_todayInjury": [
+      321.66,
+      30.56
      ],
      "L_F": [
       275.03,
       0.0
      ],
      "P_C0": [
-      380.63,
-      30.62
+      374.34,
+      26.96
      ],
      "P_CF": [
-      373.59,
-      30.17
+      366.36,
+      26.9
      ],
      "P_CF_oracle": [
-      328.66,
-      26.36
+      326.6,
+      28.56
      ],
      "P_CR": [
-      374.88,
-      30.81
+      367.29,
+      27.06
      ],
      "P_F": [
-      307.93,
-      31.33
+      300.68,
+      27.01
      ],
      "P_F_oracle": [
-      248.0,
-      25.9
+      247.92,
+      25.35
      ],
      "P_once": [
-      307.93,
-      34.46
+      300.68,
+      29.71
      ],
-     "depthSdMultiplier": 1.1313,
+     "depthSdMultiplier": 1.1291,
      "realized": 383.6,
-     "rosMultiplier": 1.0698,
+     "rosMultiplier": 1.1286,
      "team": "T04"
     },
     {
      "I": [
-      280.25,
-      29.57
+      289.25,
+      28.14
+     ],
+     "I_todayInjury": [
+      277.21,
+      28.12
      ],
      "L_F": [
       252.89,
       0.0
      ],
      "P_C0": [
-      359.55,
-      27.52
+      354.81,
+      24.88
      ],
      "P_CF": [
-      361.42,
-      27.42
+      356.02,
+      25.28
      ],
      "P_CF_oracle": [
-      304.9,
-      24.77
+      303.02,
+      28.54
      ],
      "P_CR": [
-      359.14,
-      27.34
+      353.66,
+      25.19
      ],
      "P_F": [
-      279.23,
-      26.24
+      276.19,
+      24.95
      ],
      "P_F_oracle": [
-      205.99,
-      22.16
+      207.89,
+      24.25
      ],
      "P_once": [
-      279.23,
-      28.86
+      276.19,
+      27.45
      ],
-     "depthSdMultiplier": 1.1269,
+     "depthSdMultiplier": 1.1277,
      "realized": 291.47,
-     "rosMultiplier": 1.0037,
+     "rosMultiplier": 1.0473,
      "team": "T05"
     },
     {
      "I": [
-      340.1,
-      35.26
+      335.11,
+      33.86
+     ],
+     "I_todayInjury": [
+      340.49,
+      33.79
      ],
      "L_F": [
       276.3,
       0.0
      ],
      "P_C0": [
-      366.71,
-      29.8
+      369.09,
+      29.86
      ],
      "P_CF": [
-      364.43,
-      31.04
+      366.92,
+      31.16
      ],
      "P_CF_oracle": [
-      335.4,
-      31.81
+      341.95,
+      31.67
      ],
      "P_CR": [
-      360.38,
-      30.36
+      362.86,
+      30.19
      ],
      "P_F": [
-      297.46,
-      31.43
+      297.8,
+      30.12
      ],
      "P_F_oracle": [
-      273.01,
-      30.59
+      276.77,
+      29.73
      ],
      "P_once": [
-      297.46,
-      34.57
+      297.8,
+      33.13
      ],
-     "depthSdMultiplier": 1.122,
+     "depthSdMultiplier": 1.1242,
      "realized": 375.87,
-     "rosMultiplier": 1.1434,
+     "rosMultiplier": 1.1253,
      "team": "T06"
     },
     {
      "I": [
-      100.7,
-      17.34
+      92.48,
+      15.87
+     ],
+     "I_todayInjury": [
+      100.55,
+      15.87
      ],
      "L_F": [
       133.35,
@@ -4178,24 +4619,28 @@
       16.21
      ],
      "P_F": [
-      148.45,
-      15.31
+      148.22,
+      14.01
      ],
      "P_F_oracle": [
-      132.41,
-      14.92
+      130.21,
+      14.32
      ],
      "P_once": [
-      148.45,
-      16.84
+      148.22,
+      15.41
      ],
-     "depthSdMultiplier": 1.1326,
+     "depthSdMultiplier": 1.1323,
      "realized": 205.66,
-     "rosMultiplier": 0.6784,
+     "rosMultiplier": 0.6239,
      "team": "T07"
     },
     {
      "I": [
+      360.91,
+      32.87
+     ],
+     "I_todayInjury": [
       367.12,
       32.84
      ],
@@ -4231,13 +4676,17 @@
       309.14,
       32.08
      ],
-     "depthSdMultiplier": 1.1262,
+     "depthSdMultiplier": 1.1271,
      "realized": 335.05,
-     "rosMultiplier": 1.1876,
+     "rosMultiplier": 1.1675,
      "team": "T08"
     },
     {
      "I": [
+      514.05,
+      39.74
+     ],
+     "I_todayInjury": [
       529.73,
       39.64
      ],
@@ -4273,15 +4722,19 @@
       381.18,
       38.51
      ],
-     "depthSdMultiplier": 1.1323,
+     "depthSdMultiplier": 1.135,
      "realized": 388.94,
-     "rosMultiplier": 1.3897,
+     "rosMultiplier": 1.3486,
      "team": "T09"
     },
     {
      "I": [
-      235.12,
-      26.92
+      243.59,
+      29.35
+     ],
+     "I_todayInjury": [
+      238.62,
+      29.27
      ],
      "L_F": [
       234.0,
@@ -4304,26 +4757,30 @@
       26.62
      ],
      "P_F": [
-      246.11,
-      24.01
+      249.77,
+      26.1
      ],
      "P_F_oracle": [
-      226.87,
-      25.67
+      224.06,
+      24.44
      ],
      "P_once": [
-      246.11,
-      26.41
+      249.77,
+      28.71
      ],
-     "depthSdMultiplier": 1.1215,
+     "depthSdMultiplier": 1.1244,
      "realized": 374.79,
-     "rosMultiplier": 0.9553,
+     "rosMultiplier": 0.9753,
      "team": "T10"
     },
     {
      "I": [
-      115.9,
-      14.36
+      119.4,
+      17.81
+     ],
+     "I_todayInjury": [
+      118.0,
+      17.83
      ],
      "L_F": [
       152.06,
@@ -4346,26 +4803,30 @@
       21.59
      ],
      "P_F": [
-      169.84,
-      12.68
+      172.91,
+      15.74
      ],
      "P_F_oracle": [
-      146.39,
-      14.71
+      146.32,
+      13.47
      ],
      "P_once": [
-      169.84,
-      13.95
+      172.91,
+      17.31
      ],
-     "depthSdMultiplier": 1.133,
+     "depthSdMultiplier": 1.1314,
      "realized": 265.39,
-     "rosMultiplier": 0.6824,
+     "rosMultiplier": 0.6905,
      "team": "T11"
     },
     {
      "I": [
-      174.8,
-      22.31
+      178.85,
+      21.83
+     ],
+     "I_todayInjury": [
+      176.88,
+      21.85
      ],
      "L_F": [
       195.41,
@@ -4388,20 +4849,20 @@
       22.53
      ],
      "P_F": [
-      210.23,
-      19.79
+      212.73,
+      19.38
      ],
      "P_F_oracle": [
-      146.72,
-      17.82
+      147.47,
+      17.2
      ],
      "P_once": [
-      210.23,
-      21.77
+      212.73,
+      21.32
      ],
-     "depthSdMultiplier": 1.1277,
+     "depthSdMultiplier": 1.1264,
      "realized": 207.73,
-     "rosMultiplier": 0.8315,
+     "rosMultiplier": 0.8408,
      "team": "T12"
     }
    ]
@@ -4412,6 +4873,10 @@
    "teams": [
     {
      "I": [
+      461.87,
+      35.73
+     ],
+     "I_todayInjury": [
       467.03,
       35.72
      ],
@@ -4447,15 +4912,19 @@
       364.01,
       34.55
      ],
-     "depthSdMultiplier": 1.1373,
+     "depthSdMultiplier": 1.1375,
      "realized": 357.71,
-     "rosMultiplier": 1.283,
+     "rosMultiplier": 1.2688,
      "team": "T01"
     },
     {
      "I": [
-      226.72,
-      23.79
+      230.5,
+      24.42
+     ],
+     "I_todayInjury": [
+      228.22,
+      24.27
      ],
      "L_F": [
       219.23,
@@ -4478,26 +4947,30 @@
       21.4
      ],
      "P_F": [
-      246.77,
-      21.06
+      248.4,
+      21.49
      ],
      "P_F_oracle": [
-      216.28,
-      19.46
+      218.78,
+      20.47
      ],
      "P_once": [
-      246.77,
-      23.17
+      248.4,
+      23.64
      ],
-     "depthSdMultiplier": 1.1295,
+     "depthSdMultiplier": 1.136,
      "realized": 344.27,
-     "rosMultiplier": 0.9188,
+     "rosMultiplier": 0.9279,
      "team": "T02"
     },
     {
      "I": [
-      161.69,
-      21.35
+      162.03,
+      20.22
+     ],
+     "I_todayInjury": [
+      161.29,
+      20.1
      ],
      "L_F": [
       180.59,
@@ -4520,68 +4993,76 @@
       20.08
      ],
      "P_F": [
-      203.32,
-      18.94
+      202.82,
+      17.84
      ],
      "P_F_oracle": [
-      170.42,
-      16.47
+      168.78,
+      15.17
      ],
      "P_once": [
-      203.32,
-      20.84
+      202.82,
+      19.62
      ],
-     "depthSdMultiplier": 1.1269,
+     "depthSdMultiplier": 1.1332,
      "realized": 223.17,
-     "rosMultiplier": 0.7953,
+     "rosMultiplier": 0.7989,
      "team": "T03"
     },
     {
      "I": [
-      347.5,
-      35.54
+      367.93,
+      35.64
+     ],
+     "I_todayInjury": [
+      348.29,
+      35.66
      ],
      "L_F": [
       287.54,
       0.0
      ],
      "P_C0": [
-      389.2,
-      30.38
+      388.45,
+      30.0
      ],
      "P_CF": [
-      383.18,
-      29.59
+      380.8,
+      29.73
      ],
      "P_CF_oracle": [
-      336.47,
-      28.63
+      338.02,
+      31.09
      ],
      "P_CR": [
-      375.65,
-      29.5
+      373.65,
+      30.24
      ],
      "P_F": [
-      321.04,
-      31.42
+      321.77,
+      31.53
      ],
      "P_F_oracle": [
-      261.72,
-      28.65
+      265.83,
+      29.77
      ],
      "P_once": [
-      321.04,
-      34.56
+      321.77,
+      34.69
      ],
-     "depthSdMultiplier": 1.131,
+     "depthSdMultiplier": 1.1304,
      "realized": 357.48,
-     "rosMultiplier": 1.0824,
+     "rosMultiplier": 1.1434,
      "team": "T04"
     },
     {
      "I": [
-      294.13,
-      29.71
+      298.19,
+      30.48
+     ],
+     "I_todayInjury": [
+      287.89,
+      30.49
      ],
      "L_F": [
       258.67,
@@ -4604,150 +5085,166 @@
       26.36
      ],
      "P_F": [
-      291.35,
-      26.34
+      285.16,
+      27.03
      ],
      "P_F_oracle": [
-      241.28,
-      24.0
+      239.86,
+      21.93
      ],
      "P_once": [
-      291.35,
-      28.97
+      285.16,
+      29.74
      ],
-     "depthSdMultiplier": 1.1278,
+     "depthSdMultiplier": 1.1274,
      "realized": 352.01,
-     "rosMultiplier": 1.0096,
+     "rosMultiplier": 1.0457,
      "team": "T05"
     },
     {
      "I": [
-      343.09,
-      32.04
+      338.22,
+      34.45
+     ],
+     "I_todayInjury": [
+      346.03,
+      34.49
      ],
      "L_F": [
       277.03,
       0.0
      ],
      "P_C0": [
-      370.56,
-      27.81
+      374.21,
+      28.68
      ],
      "P_CF": [
-      374.84,
-      29.69
+      377.95,
+      29.67
      ],
      "P_CF_oracle": [
-      335.5,
-      31.31
+      332.87,
+      29.82
      ],
      "P_CR": [
-      368.12,
-      29.53
+      371.27,
+      29.07
      ],
      "P_F": [
-      304.18,
-      28.43
+      306.79,
+      30.6
      ],
      "P_F_oracle": [
-      266.54,
-      27.53
+      264.37,
+      28.24
      ],
      "P_once": [
-      304.18,
-      31.27
+      306.79,
+      33.66
      ],
-     "depthSdMultiplier": 1.1272,
+     "depthSdMultiplier": 1.1258,
      "realized": 383.05,
-     "rosMultiplier": 1.1279,
+     "rosMultiplier": 1.1025,
      "team": "T06"
     },
     {
      "I": [
-      119.31,
-      17.15
+      111.62,
+      14.21
+     ],
+     "I_todayInjury": [
+      119.71,
+      14.21
      ],
      "L_F": [
       144.09,
       0.0
      ],
      "P_C0": [
-      282.37,
-      19.19
+      280.03,
+      16.81
      ],
      "P_CF": [
-      277.21,
-      17.24
+      275.38,
+      15.67
      ],
      "P_CF_oracle": [
-      208.37,
-      18.05
+      210.05,
+      16.57
      ],
      "P_CR": [
-      261.18,
-      16.5
+      259.42,
+      15.21
      ],
      "P_F": [
-      163.35,
-      15.1
+      163.9,
+      12.51
      ],
      "P_F_oracle": [
-      124.33,
-      14.58
+      125.7,
+      12.25
      ],
      "P_once": [
-      163.35,
-      16.61
+      163.9,
+      13.76
      ],
-     "depthSdMultiplier": 1.1356,
+     "depthSdMultiplier": 1.1353,
      "realized": 165.97,
-     "rosMultiplier": 0.7304,
+     "rosMultiplier": 0.681,
      "team": "T07"
     },
     {
      "I": [
-      356.95,
-      36.66
+      354.08,
+      40.45
+     ],
+     "I_todayInjury": [
+      358.17,
+      40.42
      ],
      "L_F": [
       287.13,
       0.0
      ],
      "P_C0": [
-      377.85,
-      30.71
+      379.39,
+      33.9
      ],
      "P_CF": [
-      391.32,
-      35.39
+      392.94,
+      37.67
      ],
      "P_CF_oracle": [
-      357.87,
-      36.83
+      358.4,
+      35.96
      ],
      "P_CR": [
-      383.48,
-      36.19
+      384.83,
+      38.21
      ],
      "P_F": [
-      309.95,
-      32.52
+      311.01,
+      35.86
      ],
      "P_F_oracle": [
-      288.64,
-      37.85
+      292.41,
+      33.27
      ],
      "P_once": [
-      309.95,
-      35.77
+      311.01,
+      39.44
      ],
-     "depthSdMultiplier": 1.1274,
+     "depthSdMultiplier": 1.128,
      "realized": 341.4,
-     "rosMultiplier": 1.1516,
+     "rosMultiplier": 1.1385,
      "team": "T08"
     },
     {
      "I": [
+      519.97,
+      38.42
+     ],
+     "I_todayInjury": [
       531.15,
       38.3
      ],
@@ -4783,15 +5280,19 @@
       391.52,
       37.22
      ],
-     "depthSdMultiplier": 1.1321,
+     "depthSdMultiplier": 1.1355,
      "realized": 434.28,
-     "rosMultiplier": 1.3566,
+     "rosMultiplier": 1.3281,
      "team": "T09"
     },
     {
      "I": [
-      256.12,
-      29.32
+      254.72,
+      28.87
+     ],
+     "I_todayInjury": [
+      253.92,
+      28.79
      ],
      "L_F": [
       238.88,
@@ -4814,68 +5315,76 @@
       26.75
      ],
      "P_F": [
-      260.76,
-      26.01
+      258.52,
+      25.54
      ],
      "P_F_oracle": [
-      215.68,
-      22.63
+      211.82,
+      22.36
      ],
      "P_once": [
-      260.76,
-      28.61
+      258.52,
+      28.09
      ],
-     "depthSdMultiplier": 1.1274,
+     "depthSdMultiplier": 1.1303,
      "realized": 402.01,
-     "rosMultiplier": 0.9822,
+     "rosMultiplier": 0.9853,
      "team": "T10"
     },
     {
      "I": [
-      124.45,
-      15.86
+      123.01,
+      15.98
+     ],
+     "I_todayInjury": [
+      123.15,
+      15.99
      ],
      "L_F": [
       153.93,
       0.0
      ],
      "P_C0": [
-      288.95,
-      19.97
+      290.14,
+      19.36
      ],
      "P_CF": [
-      296.38,
-      19.89
+      298.11,
+      18.92
      ],
      "P_CF_oracle": [
-      279.11,
-      20.6
+      274.42,
+      19.44
      ],
      "P_CR": [
-      288.04,
-      19.7
+      290.14,
+      18.49
      ],
      "P_F": [
-      174.4,
-      13.97
+      172.59,
+      14.09
      ],
      "P_F_oracle": [
-      167.41,
-      15.48
+      166.6,
+      14.73
      ],
      "P_once": [
-      174.4,
-      15.37
+      172.59,
+      15.49
      ],
-     "depthSdMultiplier": 1.135,
+     "depthSdMultiplier": 1.1346,
      "realized": 336.9,
-     "rosMultiplier": 0.7136,
+     "rosMultiplier": 0.7128,
      "team": "T11"
     },
     {
      "I": [
-      188.29,
-      25.91
+      189.37,
+      22.36
+     ],
+     "I_todayInjury": [
+      185.33,
+      22.38
      ],
      "L_F": [
       204.12,
@@ -4898,20 +5407,20 @@
       22.72
      ],
      "P_F": [
-      221.87,
-      23.0
+      218.38,
+      19.87
      ],
      "P_F_oracle": [
-      137.89,
-      17.97
+      137.58,
+      16.91
      ],
      "P_once": [
-      221.87,
-      25.3
+      218.38,
+      21.86
      ],
-     "depthSdMultiplier": 1.1266,
+     "depthSdMultiplier": 1.1253,
      "realized": 217.24,
-     "rosMultiplier": 0.8487,
+     "rosMultiplier": 0.8672,
      "team": "T12"
     }
    ]
@@ -4922,6 +5431,10 @@
    "teams": [
     {
      "I": [
+      486.31,
+      34.8
+     ],
+     "I_todayInjury": [
       489.72,
       34.81
      ],
@@ -4957,13 +5470,17 @@
       374.15,
       33.65
      ],
-     "depthSdMultiplier": 1.1379,
+     "depthSdMultiplier": 1.1373,
      "realized": 421.5,
-     "rosMultiplier": 1.3089,
+     "rosMultiplier": 1.2998,
      "team": "T01"
     },
     {
      "I": [
+      238.19,
+      22.74
+     ],
+     "I_todayInjury": [
       232.31,
       22.66
      ],
@@ -4992,20 +5509,24 @@
       20.07
      ],
      "P_F_oracle": [
-      191.16,
-      18.35
+      189.07,
+      17.63
      ],
      "P_once": [
       254.6,
       22.07
      ],
-     "depthSdMultiplier": 1.1294,
+     "depthSdMultiplier": 1.1333,
      "realized": 292.16,
-     "rosMultiplier": 0.9125,
+     "rosMultiplier": 0.9356,
      "team": "T02"
     },
     {
      "I": [
+      163.77,
+      21.5
+     ],
+     "I_todayInjury": [
       162.78,
       21.45
      ],
@@ -5034,62 +5555,70 @@
       19.04
      ],
      "P_F_oracle": [
-      169.23,
-      17.5
+      171.89,
+      16.97
      ],
      "P_once": [
       206.36,
       20.94
      ],
-     "depthSdMultiplier": 1.1265,
+     "depthSdMultiplier": 1.1292,
      "realized": 269.03,
-     "rosMultiplier": 0.7888,
+     "rosMultiplier": 0.7936,
      "team": "T03"
     },
     {
      "I": [
-      350.43,
-      32.86
+      360.09,
+      30.63
+     ],
+     "I_todayInjury": [
+      346.56,
+      30.56
      ],
      "L_F": [
       285.96,
       0.0
      ],
      "P_C0": [
-      384.75,
-      27.68
+      380.31,
+      27.21
      ],
      "P_CF": [
-      378.34,
-      28.57
+      374.58,
+      27.3
      ],
      "P_CF_oracle": [
-      361.94,
-      32.04
+      361.91,
+      27.78
      ],
      "P_CR": [
-      376.87,
-      29.56
+      373.01,
+      27.66
      ],
      "P_F": [
-      318.13,
-      29.14
+      314.63,
+      27.11
      ],
      "P_F_oracle": [
-      306.16,
-      31.76
+      304.04,
+      29.35
      ],
      "P_once": [
-      318.13,
-      32.06
+      314.63,
+      29.82
      ],
-     "depthSdMultiplier": 1.1276,
+     "depthSdMultiplier": 1.1301,
      "realized": 379.79,
-     "rosMultiplier": 1.1015,
+     "rosMultiplier": 1.1445,
      "team": "T04"
     },
     {
      "I": [
+      286.75,
+      26.71
+     ],
+     "I_todayInjury": [
       278.0,
       26.63
      ],
@@ -5118,62 +5647,70 @@
       23.68
      ],
      "P_F_oracle": [
-      251.63,
-      23.21
+      252.67,
+      23.52
      ],
      "P_once": [
       279.14,
       26.05
      ],
-     "depthSdMultiplier": 1.1245,
+     "depthSdMultiplier": 1.1282,
      "realized": 398.56,
-     "rosMultiplier": 0.9959,
+     "rosMultiplier": 1.0273,
      "team": "T05"
     },
     {
      "I": [
-      342.16,
-      33.15
+      336.72,
+      35.29
+     ],
+     "I_todayInjury": [
+      342.61,
+      35.37
      ],
      "L_F": [
       276.18,
       0.0
      ],
      "P_C0": [
-      372.11,
-      28.16
+      375.27,
+      30.15
      ],
      "P_CF": [
-      377.92,
-      28.51
+      381.9,
+      31.08
      ],
      "P_CF_oracle": [
-      353.84,
-      31.92
+      357.54,
+      32.17
      ],
      "P_CR": [
-      370.29,
-      28.29
+      374.19,
+      31.3
      ],
      "P_F": [
-      305.09,
-      29.41
+      305.49,
+      31.38
      ],
      "P_F_oracle": [
-      279.17,
-      30.49
+      284.06,
+      31.1
      ],
      "P_once": [
-      305.09,
-      32.35
+      305.49,
+      34.52
      ],
-     "depthSdMultiplier": 1.1272,
+     "depthSdMultiplier": 1.1245,
      "realized": 358.34,
-     "rosMultiplier": 1.1215,
+     "rosMultiplier": 1.1022,
      "team": "T06"
     },
     {
      "I": [
+      113.27,
+      15.97
+     ],
+     "I_todayInjury": [
       120.97,
       15.98
      ],
@@ -5202,62 +5739,70 @@
       14.08
      ],
      "P_F_oracle": [
-      147.31,
-      15.51
+      146.17,
+      15.95
      ],
      "P_once": [
       167.43,
       15.49
      ],
-     "depthSdMultiplier": 1.1346,
+     "depthSdMultiplier": 1.1338,
      "realized": 203.53,
-     "rosMultiplier": 0.7225,
+     "rosMultiplier": 0.6765,
      "team": "T07"
     },
     {
      "I": [
-      347.52,
-      35.43
+      348.44,
+      36.8
+     ],
+     "I_todayInjury": [
+      351.96,
+      36.83
      ],
      "L_F": [
       281.57,
       0.0
      ],
      "P_C0": [
-      373.21,
-      29.59
+      376.43,
+      29.54
      ],
      "P_CF": [
-      387.53,
-      33.84
+      390.86,
+      33.44
      ],
      "P_CF_oracle": [
-      358.64,
-      34.35
+      361.68,
+      34.04
      ],
      "P_CR": [
-      378.67,
-      34.31
+      381.92,
+      33.97
      ],
      "P_F": [
-      305.11,
-      31.36
+      309.0,
+      32.59
      ],
      "P_F_oracle": [
-      284.7,
-      34.0
+      284.83,
+      33.96
      ],
      "P_once": [
-      305.11,
-      34.49
+      309.0,
+      35.85
      ],
-     "depthSdMultiplier": 1.1299,
+     "depthSdMultiplier": 1.1289,
      "realized": 360.02,
-     "rosMultiplier": 1.139,
+     "rosMultiplier": 1.1276,
      "team": "T08"
     },
     {
      "I": [
+      509.32,
+      35.68
+     ],
+     "I_todayInjury": [
       520.54,
       35.61
      ],
@@ -5293,13 +5838,17 @@
       385.98,
       34.58
      ],
-     "depthSdMultiplier": 1.1329,
+     "depthSdMultiplier": 1.135,
      "realized": 473.83,
-     "rosMultiplier": 1.3486,
+     "rosMultiplier": 1.3196,
      "team": "T09"
     },
     {
      "I": [
+      252.73,
+      30.69
+     ],
+     "I_todayInjury": [
       252.35,
       30.63
      ],
@@ -5328,20 +5877,24 @@
       27.21
      ],
      "P_F_oracle": [
-      227.17,
-      21.84
+      225.71,
+      21.49
      ],
      "P_once": [
       259.78,
       29.93
      ],
-     "depthSdMultiplier": 1.1257,
+     "depthSdMultiplier": 1.128,
      "realized": 385.94,
-     "rosMultiplier": 0.9714,
+     "rosMultiplier": 0.9729,
      "team": "T10"
     },
     {
      "I": [
+      138.74,
+      18.08
+     ],
+     "I_todayInjury": [
       140.74,
       18.11
      ],
@@ -5370,20 +5923,24 @@
       16.02
      ],
      "P_F_oracle": [
-      166.0,
-      14.6
+      165.78,
+      14.22
      ],
      "P_once": [
       187.96,
       17.62
      ],
-     "depthSdMultiplier": 1.1302,
+     "depthSdMultiplier": 1.1288,
      "realized": 295.8,
-     "rosMultiplier": 0.7488,
+     "rosMultiplier": 0.7381,
      "team": "T11"
     },
     {
      "I": [
+      193.32,
+      22.93
+     ],
+     "I_todayInjury": [
       188.44,
       22.87
      ],
@@ -5412,16 +5969,16 @@
       20.33
      ],
      "P_F_oracle": [
-      183.17,
-      21.13
+      181.93,
+      19.39
      ],
      "P_once": [
       224.18,
       22.37
      ],
-     "depthSdMultiplier": 1.1249,
+     "depthSdMultiplier": 1.1276,
      "realized": 313.65,
-     "rosMultiplier": 0.8406,
+     "rosMultiplier": 0.8623,
      "team": "T12"
     }
    ]
@@ -5432,6 +5989,10 @@
    "teams": [
     {
      "I": [
+      503.92,
+      33.52
+     ],
+     "I_todayInjury": [
       503.82,
       33.44
      ],
@@ -5459,13 +6020,17 @@
       382.21,
       32.33
      ],
-     "depthSdMultiplier": 1.138,
+     "depthSdMultiplier": 1.1407,
      "realized": null,
-     "rosMultiplier": 1.3182,
+     "rosMultiplier": 1.3184,
      "team": "T01"
     },
     {
      "I": [
+      234.81,
+      25.32
+     ],
+     "I_todayInjury": [
       229.9,
       25.35
      ],
@@ -5493,13 +6058,17 @@
       251.12,
       24.63
      ],
-     "depthSdMultiplier": 1.1325,
+     "depthSdMultiplier": 1.1311,
      "realized": null,
-     "rosMultiplier": 0.9155,
+     "rosMultiplier": 0.935,
      "team": "T02"
     },
     {
      "I": [
+      168.64,
+      20.89
+     ],
+     "I_todayInjury": [
       166.74,
       20.82
      ],
@@ -5527,47 +6096,55 @@
       209.9,
       20.31
      ],
-     "depthSdMultiplier": 1.1275,
+     "depthSdMultiplier": 1.1311,
      "realized": null,
-     "rosMultiplier": 0.7944,
+     "rosMultiplier": 0.8034,
      "team": "T03"
     },
     {
      "I": [
-      347.74,
-      32.15
+      353.27,
+      29.74
+     ],
+     "I_todayInjury": [
+      343.47,
+      29.75
      ],
      "L_F": [
       283.34,
       0.0
      ],
      "P_C0": [
-      381.64,
-      27.27
+      377.0,
+      26.85
      ],
      "P_CF": [
-      376.99,
-      28.48
+      373.11,
+      27.01
      ],
      "P_CR": [
-      372.52,
-      28.79
+      368.45,
+      26.78
      ],
      "P_F": [
-      316.22,
-      28.46
+      312.34,
+      26.34
      ],
      "P_once": [
-      316.22,
-      31.31
+      312.34,
+      28.97
      ],
-     "depthSdMultiplier": 1.1295,
+     "depthSdMultiplier": 1.1291,
      "realized": null,
-     "rosMultiplier": 1.0997,
+     "rosMultiplier": 1.131,
      "team": "T04"
     },
     {
      "I": [
+      292.12,
+      30.66
+     ],
+     "I_todayInjury": [
       285.12,
       30.51
      ],
@@ -5595,47 +6172,55 @@
       282.77,
       29.75
      ],
-     "depthSdMultiplier": 1.128,
+     "depthSdMultiplier": 1.1339,
      "realized": null,
-     "rosMultiplier": 1.0083,
+     "rosMultiplier": 1.0331,
      "team": "T05"
     },
     {
      "I": [
-      337.37,
-      33.6
+      329.62,
+      36.9
+     ],
+     "I_todayInjury": [
+      338.22,
+      36.93
      ],
      "L_F": [
       273.07,
       0.0
      ],
      "P_C0": [
-      368.91,
-      28.88
+      372.48,
+      30.67
      ],
      "P_CF": [
-      376.59,
-      30.73
+      380.58,
+      32.37
      ],
      "P_CR": [
-      369.69,
-      30.45
+      373.42,
+      32.38
      ],
      "P_F": [
-      301.17,
-      29.82
+      301.92,
+      32.78
      ],
      "P_once": [
-      301.17,
-      32.8
+      301.92,
+      36.05
      ],
-     "depthSdMultiplier": 1.1268,
+     "depthSdMultiplier": 1.1257,
      "realized": null,
-     "rosMultiplier": 1.1202,
+     "rosMultiplier": 1.0918,
      "team": "T06"
     },
     {
      "I": [
+      110.86,
+      18.14
+     ],
+     "I_todayInjury": [
       116.97,
       18.13
      ],
@@ -5663,47 +6248,55 @@
       164.46,
       17.59
      ],
-     "depthSdMultiplier": 1.1335,
+     "depthSdMultiplier": 1.1343,
      "realized": null,
-     "rosMultiplier": 0.7113,
+     "rosMultiplier": 0.6741,
      "team": "T07"
     },
     {
      "I": [
-      346.84,
-      37.66
+      346.27,
+      35.81
+     ],
+     "I_todayInjury": [
+      347.75,
+      35.84
      ],
      "L_F": [
       282.12,
       0.0
      ],
      "P_C0": [
-      372.97,
-      30.37
+      373.16,
+      28.97
      ],
      "P_CF": [
-      385.98,
-      33.27
+      386.36,
+      32.28
      ],
      "P_CR": [
-      375.42,
-      33.23
+      375.67,
+      32.54
      ],
      "P_F": [
-      306.8,
-      33.35
+      307.61,
+      31.74
      ],
      "P_once": [
-      306.8,
-      36.69
+      307.61,
+      34.91
      ],
-     "depthSdMultiplier": 1.1291,
+     "depthSdMultiplier": 1.1283,
      "realized": null,
-     "rosMultiplier": 1.1305,
+     "rosMultiplier": 1.1257,
      "team": "T08"
     },
     {
      "I": [
+      515.34,
+      35.17
+     ],
+     "I_todayInjury": [
       522.66,
       35.15
      ],
@@ -5731,13 +6324,17 @@
       389.65,
       34.15
      ],
-     "depthSdMultiplier": 1.1323,
+     "depthSdMultiplier": 1.1329,
      "realized": null,
-     "rosMultiplier": 1.3414,
+     "rosMultiplier": 1.3226,
      "team": "T09"
     },
     {
      "I": [
+      235.39,
+      27.48
+     ],
+     "I_todayInjury": [
       240.68,
       27.36
      ],
@@ -5765,13 +6362,17 @@
       248.32,
       26.77
      ],
-     "depthSdMultiplier": 1.1242,
+     "depthSdMultiplier": 1.1291,
      "realized": null,
-     "rosMultiplier": 0.9692,
+     "rosMultiplier": 0.9479,
      "team": "T10"
     },
     {
      "I": [
+      141.41,
+      18.27
+     ],
+     "I_todayInjury": [
       142.13,
       18.34
      ],
@@ -5799,13 +6400,17 @@
       188.58,
       17.79
      ],
-     "depthSdMultiplier": 1.1343,
+     "depthSdMultiplier": 1.13,
      "realized": null,
-     "rosMultiplier": 0.7537,
+     "rosMultiplier": 0.7499,
      "team": "T11"
     },
     {
      "I": [
+      193.44,
+      24.69
+     ],
+     "I_todayInjury": [
       186.89,
       24.62
      ],
@@ -5833,9 +6438,9 @@
       223.09,
       24.12
      ],
-     "depthSdMultiplier": 1.1229,
+     "depthSdMultiplier": 1.1261,
      "realized": null,
-     "rosMultiplier": 0.8377,
+     "rosMultiplier": 0.8671,
      "team": "T12"
     }
    ]
