@@ -6103,9 +6103,21 @@ def _ingest_quality_errors(
     the parser's values are untouched.
     """
     out: list[dict[str, str]] = []
-    rows = int(stats.get("dataRows") or 0)
-    dup = int(stats.get("duplicateNames") or 0)
-    if rows and dup / rows >= _DUPLICATE_ROWS_REPORT_FRACTION:
+
+    def _count(key: str) -> int | None:
+        # A counter the parser did not record is UNKNOWN, never 0: the check
+        # it feeds is skipped rather than judged on a fabricated number.
+        value = stats.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return value
+
+    rows = _count("dataRows")
+    if not rows:
+        # Unknown or zero data rows: there is no share to judge.
+        return out
+    dup = _count("duplicateNames")
+    if dup is not None and dup / rows >= _DUPLICATE_ROWS_REPORT_FRACTION:
         out.append(
             {
                 "source": source_key,
@@ -6115,8 +6127,8 @@ def _ingest_quality_errors(
                 "dataRows": str(rows),
             }
         )
-    bad = int(stats.get("invalidNumeric") or 0)
-    if rows and bad / rows >= _INVALID_NUMERIC_REPORT_FRACTION:
+    bad = _count("invalidNumeric")
+    if bad is not None and bad / rows >= _INVALID_NUMERIC_REPORT_FRACTION:
         out.append(
             {
                 "source": source_key,
