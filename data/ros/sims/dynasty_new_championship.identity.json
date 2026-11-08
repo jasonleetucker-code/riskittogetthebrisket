@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-11-08T00:04:52.472070+00:00",
-  "forecastSha256": "9b681cf7f5ab7f5c449659baa56fb73a373498acb1386097a37115e0a6a1f3c0",
+  "computedAt": "2026-11-08T06:48:49.083778+00:00",
+  "forecastSha256": "616afb6e3847cc31a1aa258f1417f82ae2d733f761a34626a28fd816a57b7be4",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "da594aeafe3581b5234ecf940432fcadb5ff19571e1e3aaaef078c4788bf6975",
-    "leagueSnapshotGeneratedAt": "2026-11-08T00:04:52+00:00",
+    "inputsSha256": "13bf49cb01433610659ff18e220855c25a4b774b9342ff4f97c4c7363d2e67c6",
+    "leagueSnapshotGeneratedAt": "2026-11-08T06:48:48+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -14,21 +14,21 @@
       "winners_bracket",
       "losers_bracket"
     ],
-    "leagueSnapshotSha256": "8dcda7274f1c92a8badc404ae2bc464e6747bee9c2f3d3e8ea77a704c8decdec",
+    "leagueSnapshotSha256": "e15e8cc4902d2d9cf3093c2ce15813e85d1b6bde32305fa65aaab681d4e49826",
     "pointsModelFallbackSha256": "67ee9153fce3166a2b8568add3a0af51479077d117b210fd90fa1bd03dc98f96",
     "pointsModelFileSha256": null,
     "pointsModelSource": "fallback-constants",
-    "rosAggregateSha256": "27bce84cf77d1408df40579188f1ef824595a5a765828010d093d64acbe47a37",
-    "rosAggregatedAt": "2026-11-08T00:04:43.723339+00:00",
+    "rosAggregateSha256": "83df630371a3488162374781f8a4ba1a2b03f63ab998a6cf79d737122da4c954",
+    "rosAggregatedAt": "2026-11-08T06:48:43.020051+00:00",
     "teamStrengthFileFresh": true,
-    "teamStrengthFileSha256": "fef89a5a69ec9cafb37c8e598c4302589274d38dc1e1764a833760db7abcd1ce"
+    "teamStrengthFileSha256": "fb375dc0ca27631e68283b4c07ddcce03cae122f957952e1015072b84e3c3fa7"
   },
   "kind": "championship",
   "lastScoredWeek": 8,
   "leagueKey": "dynasty_new",
   "model": {
-    "codeSha": "ace9b2bf2f7ba8d742046b63da8598fdcace0d6f",
-    "codeShaCapturedAt": "2026-11-08T00:04:40.757963+00:00",
+    "codeSha": "05a31adef01d8c3197c4db72abda1d4a635d4598",
+    "codeShaCapturedAt": "2026-11-08T06:48:40.474649+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": false,
@@ -48,6 +48,7 @@
         "BEST_BALL_VARIANCE_BUMP": 1.1,
         "DEFAULT_SIMULATIONS": 10000,
         "DEPTH_VARIANCE_LIFT_MAX": 0.15,
+        "DIVISION_RULE_SOURCE": "https://sleeper.com/blog/how-do-fantasy-playoffs-work",
         "DRAFT_ORDER_RECORD_BASIS": "head_to_head_with_half_win_ties",
         "MAX_SIMULATIONS": 60000,
         "MIN_SIMULATIONS": 2000,
@@ -96,7 +97,7 @@
       },
       "rosEvidenceMethod": "incumbent_presim_plus_ros_multiplier"
     },
-    "simParamsSha256": "680e288f12f2a39e47fe2d2eeedfb3b00f06ce38dbe998541a108460995572f8"
+    "simParamsSha256": "28df10dca574ded8808ada3168d198f3a235b8e14fe794c4261323ddb48e25ff"
   },
   "nSimulations": 2000,
   "nullReasons": {
