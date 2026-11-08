@@ -889,3 +889,31 @@
     display: flex;
   }
 }
+
+/* Keep the working board within reach on phones without dropping coverage. */
+@media (max-width: 480px) {
+  .hero {
+    padding-top: 0;
+    padding-bottom: var(--space-3);
+    margin-bottom: 0;
+  }
+  .trustStrip {
+    row-gap: var(--space-1);
+  }
+  .trustStrip :global(.ds-stat) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px 4px;
+    padding: 4px 6px;
+  }
+  .trustStrip :global(.ds-stat__label) {
+    letter-spacing: 0;
+  }
+  .trustStrip :global(.ds-stat__value) {
+    font-size: 1.4rem;
+  }
+  .trustStrip :global(.ds-stat__meta) {
+    grid-column: 1 / -1;
+  }
+}
