@@ -289,6 +289,68 @@ def test_suggestions_route_stamps_the_balance_it_capped_at(env, monkeypatch):
             assert c["bid"]["aggressive"] <= 80
 
 
+def _contract_without_my_balance():
+    c = _contract()
+    del c["sleeper"]["teams"][0]["faabRemaining"]
+    return c
+
+
+def test_desk_publishes_the_same_known_faab_budget_block(env, monkeypatch):
+    body = _desk(monkeypatch, {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"}).json()
+    block = body["faabBudget"]
+    assert block["state"] == "known"
+    assert block["balance"] == 80
+    assert block["source"] == "roster"
+    assert block["bidsWithheld"] is False
+    assert block["reason"] is None
+    assert body["bids"]["maxRational"] <= 80
+    assert body["standard"] is not None
+
+
+@pytest.mark.parametrize("body", [{"teamOwnerId": "me"}, {}])
+def test_desk_withholds_the_bid_when_the_balance_is_unknown(env, monkeypatch, body):
+    """No faabRemaining on the roster (or no team named): never a bid capped at the league default."""
+    contract = _contract_without_my_balance()
+    res = _desk(monkeypatch, {"addPlayerName": "Hot Pickup", **body}, contract)
+    assert res.status_code == 200
+    out = res.json()
+    assert out["faabBudget"]["state"] == "unknown"
+    assert out["faabBudget"]["balance"] is None
+    assert out["faabBudget"]["bidsWithheld"] is True
+    assert out["faabBudget"]["reason"] == "faab_balance_unknown"
+    assert out["faabBudget"]["source"] is None
+    for key in ("recommended", "conservative", "aggressive", "maxRational"):
+        assert out["bids"][key] is None
+    for key in ("standard", "conservative", "aggressive", "max", "pctOfRemaining"):
+        assert out[key] is None
+    # Balance-independent evidence stays, labelled.
+    assert isinstance(out["bids"]["clearing"], int)
+    assert isinstance(out["objective"]["dollars"], int)
+    assert "balance is unknown" in out["explanation"]
+
+
+def test_a_rostered_unpriced_player_is_unavailable_before_it_is_unpriced(env, monkeypatch):
+    """Availability is checked first: 409, not 422, for a player already on a roster."""
+    contract = _contract()
+    contract["sleeper"]["teams"][1]["players"].append("Unpriced Guy")
+    contract["sleeper"]["teams"][1]["playerIds"].append("p-unp")
+    res = _desk(monkeypatch, {"addPlayerName": "Unpriced Guy", "teamOwnerId": "me"}, contract)
+    assert res.status_code == 409
+    assert res.json()["error"] == "add_player_not_available"
+
+
+def test_a_free_agent_sharing_a_rostered_players_name_is_a_claim_on_the_desk_too(env, monkeypatch):
+    """Same answer as the suggestions list: id-first, so a name twin is not held."""
+    contract = _contract()
+    contract["playersArray"].append(_row("Twin Wr", "WR", 2400, "p-twin-free"))
+    contract["playersArray"].insert(0, _row("Twin Wr", "WR", 2500, "p-twin-held"))
+    contract["sleeper"]["teams"][1]["players"].append("Twin Wr")
+    contract["sleeper"]["teams"][1]["playerIds"].append("p-twin-held")
+    res = _desk(monkeypatch, {"addPlayerName": "Twin Wr", "teamOwnerId": "me"}, contract)
+    assert res.status_code == 200
+    assert res.json()["resolvedAddValue"] == 2400
+
+
 # ── league scoping ───────────────────────────────────────────────────
 
 

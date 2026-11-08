@@ -36,6 +36,7 @@ const POOL_REASON_LABEL = {
   rookie_gate: "pre-draft rookies",
   unpriced: "unpriced",
   position_not_offered: "other positions",
+  position_not_started: "positions this league does not start",
 };
 
 const FAILURE_COPY = {

@@ -8371,18 +8371,9 @@ async def post_waiver_faab_recommend(request: Request):
         return float(v)
 
     priced_add_value = _board_value(add_row)
-    if priced_add_value is None:
-        return JSONResponse(
-            status_code=422,
-            content={
-                "error": "add_player_unpriced",
-                "message": (
-                    f"{add_name} is on the board but not priced — no FAAB figure is quoted "
-                    "for a player whose value is unknown."
-                ),
-                "leagueKey": league_cfg.key,
-            },
-        )
+    # The add's missing price is refused AFTER availability is established
+    # (below): a player already on a roster is a 409 whether or not the board
+    # prices him.
     add_value = priced_add_value
     drop_value: float | None = None
     if not drop_target:
@@ -8414,7 +8405,7 @@ async def post_waiver_faab_recommend(request: Request):
     # live bid is a separate, later, human-reviewed step.
     from src.api import feature_flags as _ff  # noqa: PLC0415
 
-    if _ff.is_enabled("waiver_live_opportunity"):
+    if priced_add_value is not None and _ff.is_enabled("waiver_live_opportunity"):
         try:
             from src.trade import faab_opportunity as _opportunity  # noqa: PLC0415
             from src.trade import faab_shadow as _faab_shadow  # noqa: PLC0415
@@ -8488,21 +8479,11 @@ async def post_waiver_faab_recommend(request: Request):
     # so no figure is quoted.  Matched by Sleeper id where the roster carries
     # ids (two distinct players can share a display name); by name only for a
     # roster that carries none.
-    _add_pid = str(add_row.get("playerId") or "").strip()
-    _holder: dict | None = None
-    _matched_by: str | None = None
-    for _t in sleeper_teams:
-        if not isinstance(_t, dict):
-            continue
-        _ids = {str(x).strip() for x in (_t.get("playerIds") or []) if str(x or "").strip()}
-        if _add_pid and _ids:
-            if _add_pid in _ids:
-                _holder, _matched_by = _t, "playerId"
-                break
-            continue
-        if add_target in {_norm(n) for n in (_t.get("players") or [])}:
-            _holder, _matched_by = _t, "name"
-            break
+    from src.draft.context import league_holder_index as _league_holder_index  # noqa: PLC0415
+
+    _holder, _matched_by = _league_holder_index({"sleeper": {"teams": sleeper_teams}}).holder(
+        add_row.get("playerId"), add_name
+    )
     if _holder is not None:
         _requester = body.get("teamOwnerId") or body.get("ownerId")
         _own = bool(_requester) and str(_holder.get("ownerId") or "") == str(_requester)
@@ -8522,6 +8503,20 @@ async def post_waiver_faab_recommend(request: Request):
                 "leagueKey": league_cfg.key,
             },
         )
+
+    if priced_add_value is None:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "add_player_unpriced",
+                "message": (
+                    f"{add_name} is on the board but not priced — no FAAB figure is quoted "
+                    "for a player whose value is unknown."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+    add_value = priced_add_value
 
     # League FAAB analytics — reuse the cached public-snapshot
     # path so this endpoint doesn't pay the multi-season fetch cost
@@ -8571,6 +8566,12 @@ async def post_waiver_faab_recommend(request: Request):
     # specific team, we use that team's remaining; otherwise the
     # endpoint cannot tell which team is asking and falls back to
     # the league budget as a soft cap.
+    from src.trade.waiver import (  # noqa: PLC0415
+        faab_budget_block as _faab_budget_block,
+        observed_faab_balance as _observed_faab_balance,
+        resolve_faab_balance as _resolve_faab_balance,
+    )
+
     team_faab_remaining: int | None = None
     requested_team = body.get("teamOwnerId") or body.get("ownerId")
     requested_team_matched = False
@@ -8578,9 +8579,7 @@ async def post_waiver_faab_recommend(request: Request):
         for t in sleeper_teams:
             if str(t.get("ownerId") or "") == str(requested_team):
                 requested_team_matched = True
-                rem = t.get("faabRemaining")
-                if isinstance(rem, int):
-                    team_faab_remaining = rem
+                team_faab_remaining = _observed_faab_balance(t.get("faabRemaining"))
                 break
 
     # League budget resolution: analytics summary first, then the
@@ -9139,6 +9138,42 @@ async def post_waiver_faab_recommend(request: Request):
             "reason": "team_not_identified",
             "application": "reported_not_applied",
         }
+
+    # MISSING IS NEVER ZERO: the engine caps a bid at the league budget when
+    # the team's balance is unknown, which would publish a "$N bid" as if the
+    # team could spend that.  The SAME ``faabBudget`` block
+    # ``/api/waiver/suggestions`` publishes states the balance, and with it
+    # unknown every balance-capped figure is withheld (``null``).  What the
+    # player is worth (``objective``) and what he will cost (the clearing band)
+    # do not depend on our balance and stay.
+    _balance, _balance_source = _resolve_faab_balance(None, team_faab_remaining)
+    _withhold = _balance is None
+    rec["faabBudget"] = _faab_budget_block(
+        known_balance=_balance,
+        original_budget=int(league_budget),
+        withheld=_withhold,
+        source=_balance_source,
+        requested_balance=None,
+        observed_balance=team_faab_remaining,
+    )
+    if _withhold:
+        for _k in ("recommended", "conservative", "aggressive", "maxRational"):
+            rec["bids"][_k] = None
+        for _k in ("standard", "conservative", "aggressive", "max"):
+            rec[_k] = None
+        for _k in ("pctOfOriginalBudget", "pctOfRemaining", "winProbability", "teamCeilingDollars"):
+            rec[_k] = None
+        rec["warnings"] = [
+            w for w in rec.get("warnings") or [] if "FAAB left" not in w and "has left" not in w
+        ]
+        rec["warnings"].append(
+            "This team's FAAB balance is unknown — no bid is quoted.  What the player is "
+            "worth and what he is likely to cost are shown; a bid needs a known balance."
+        )
+        rec["explanation"] = (
+            "No bid quoted: this team's FAAB balance is unknown.  The objective worth and "
+            "the expected clearing band are still shown."
+        )
 
     rec["leagueKey"] = league_cfg.key
     rec["resolvedAddValue"] = add_value
