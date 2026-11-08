@@ -31,6 +31,7 @@ import {
   linearScale,
   formatNumber,
 } from "../../lib/chart-primitives.js";
+import { fmtSimulatedShare } from "../../lib/division-odds.js";
 
 function certaintyLabel(kind) {
   if (kind === "posted") return { text: "Exact schedule", color: CHART_COLORS.success };
@@ -137,6 +138,7 @@ export default function PlayoffOddsChart({
   );
   const x = linearScale(0, 1, 0, box.innerWidth);
   const certainty = certaintyLabel(data?.scheduleCertainty || "");
+  const isFinal = data?.scheduleCertainty === "final";
 
   return (
     <svg
@@ -246,7 +248,7 @@ export default function PlayoffOddsChart({
                   rx={2}
                 >
                   <title>
-                    {o.displayName || o.ownerId}: {formatNumber(p * 100, 1)}% ·
+                    {o.displayName || o.ownerId}: {fmtSimulatedShare(p, { final: isFinal })} ·
                     current record {o.currentWins ?? "?"} · PF {formatNumber(o.currentPointsFor, 1)}
                   </title>
                 </rect>
@@ -258,7 +260,9 @@ export default function PlayoffOddsChart({
                 fontSize={11}
                 fill={CHART_COLORS.axisLabel}
               >
-                {isUnknown ? "—" : `${formatNumber(p * 100, 0)}%`}
+                {/* A simulated 0 or 1 is an estimate, not a clinch, until the
+                    season is final: "<1%" / ">99%" (owner directive 2026-11-08). */}
+                {isUnknown ? "—" : fmtSimulatedShare(p, { final: isFinal })}
               </text>
             </g>
           );

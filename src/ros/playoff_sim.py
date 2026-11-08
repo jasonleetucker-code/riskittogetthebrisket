@@ -99,7 +99,11 @@ from src.ros.lineup import (
     solve_optimal_assignment,
 )
 from src.public_league import luck, metrics, playoff_odds
-from src.public_league.playoff_structure import SEED_TYPE_RESEED, resolve_playoff_structure
+from src.public_league.playoff_structure import (
+    SEED_TYPE_RESEED,
+    resolve_division_assignments,
+    resolve_playoff_structure,
+)
 from src.public_league.snapshot import PublicLeagueSnapshot
 
 LOG = logging.getLogger("ros.playoff_sim")
@@ -1214,42 +1218,193 @@ DIVISION_RULE_SOURCE = "https://sleeper.com/blog/how-do-fantasy-playoffs-work"
 
 
 def _division_refusal(structure: Any) -> dict[str, Any] | None:
-    """Why a league's divisions make qualifying unsimulable, or ``None``.
+    """Why a league's divisions make QUALIFYING unsimulable, or ``None``.
 
-    The host qualifies EVERY division winner for the playoffs, whatever its
-    overall record ("If there are divisions, then each division winner will
-    qualify for the playoffs", :data:`DIVISION_RULE_SOURCE`).  This engine
-    seeds on overall record and Points For only, and how the host seeds
-    division winners against wild cards, and breaks a division tie, is not
-    verified — so a league with divisions ON is refused rather than simulated
-    as if it had none (PLAYOFF_PREDICTOR_SPEC §3: division / wild-card
-    qualification rules, fail closed when unverified).  An unreadable
-    ``divisions`` setting is refused the same way.
+    Divisions bear on qualifying only where the league plays them that way.
+    A league whose record (``config/leagues/playoff_rules.json``) says they do
+    not — ``dynasty_main``, owner 2026-11-08: the seven best overall records
+    qualify and are seeded on record, ties to Points For; divisions decide the
+    schedule and a separate payout — is simulated on overall record, never
+    refused.  A league with divisions ON and no record keeps the host default,
+    which qualifies every division winner ("If there are divisions, then each
+    division winner will qualify for the playoffs",
+    :data:`DIVISION_RULE_SOURCE`); how the host seeds those winners against wild
+    cards is not verified, so playoff, bye, seed and title odds are refused
+    (PLAYOFF_PREDICTOR_SPEC §3).  The regular season is still simulated: the
+    draft order and division titles depend on the regular-season record only,
+    so they are published (``regularSeasonOdds``).  An unreadable
+    ``divisions`` setting with no record is refused the same way.
+
+    ``scope: "qualification"`` names what is withheld, so a consumer of the
+    regular-season outputs can tell this refusal from one that stops the run.
     """
-    if not getattr(structure, "divisions_in_play", False):
+    if not getattr(structure, "division_qualification_unknown", False):
         return None
     if structure.divisions_reason:
         return {
             "reason": structure.divisions_reason,
+            "scope": "qualification",
             "detail": (
-                "this league's divisions setting cannot be read, so whether division "
-                "winners qualify ahead of better records is unknown. Playoff, bye, "
-                "seed, title and draft-slot odds are not published. This is not a 0% "
-                "chance for anyone."
+                "this league's divisions setting cannot be read and the league has no "
+                "recorded playoff rule, so whether division winners qualify ahead of "
+                "better records is unknown. Playoff, bye, seed and title odds are not "
+                "published; draft-slot odds follow the regular-season record and still "
+                "are. This is not a 0% chance for anyone."
             ),
         }
     return {
         "reason": "league_divisions_unmodeled",
+        "scope": "qualification",
         "divisions": structure.divisions,
         "source": DIVISION_RULE_SOURCE,
         "detail": (
-            f"this league plays in {structure.divisions} division(s), and the host "
-            "qualifies every division winner for the playoffs whatever its record. "
-            "This simulation seeds on overall record only, and the host's seeding of "
-            "division winners against wild cards is not verified, so playoff, bye, "
-            "seed, title and draft-slot odds are not published. This is not a 0% "
-            "chance for anyone."
+            f"this league plays in {structure.divisions} division(s) and has no recorded "
+            "playoff rule. The host's default qualifies every division winner whatever "
+            "its record, and how it seeds them against wild cards is not verified, so "
+            "playoff, bye, seed and title odds are not published. Draft-slot odds "
+            "follow the regular-season record and still are. This is not a 0% chance "
+            "for anyone."
         ),
+    }
+
+
+def _derived_seed(rng: random.Random, salt: bytes) -> int:
+    """A seed for a side stream, derived from ``rng``'s state WITHOUT
+    consuming it, so the main stream's draws are unchanged and the side
+    stream is not a shifted copy of it.  Deterministic for a seeded ``rng``."""
+    import hashlib  # noqa: PLC0415
+
+    digest = hashlib.sha256(salt + repr(rng.getstate()).encode("ascii")).digest()
+    return int.from_bytes(digest[:8], "big")
+
+
+def _division_assignments_for(snapshot: Any, structure: Any, owners: list[str]) -> Any:
+    """Division assignments for the simulated teams, keyed like the loop.
+
+    Every simulated team must have exactly one division and every division a
+    team; a mismatch with the simulated field is unavailable, never a guess.
+    """
+    from src.public_league.playoff_structure import DivisionAssignments  # noqa: PLC0415
+
+    season = _simulated_season(snapshot)
+    managers = getattr(snapshot, "managers", None)
+    league_id = str(getattr(season, "league_id", "") or "")
+
+    def owner_of(roster_id: Any) -> str:
+        if managers is None or not hasattr(managers, "owner_for_roster"):
+            return ""
+        return metrics.resolve_owner(managers, league_id, roster_id, None)
+
+    assign = resolve_division_assignments(season, structure, owner_of)
+    if assign.available and set(assign.by_owner) != set(owners):
+        return DivisionAssignments(
+            "unavailable", "division_teams_differ_from_simulated_teams", count=assign.count
+        )
+    return assign
+
+
+def _division_row_fields(assign: Any, owner: str, titles: int, n_safe: int) -> dict[str, Any]:
+    """One row's division title fields — absent when no title odds exist."""
+    if not assign.available:
+        return {}
+    division = assign.by_owner.get(owner)
+    lo, hi = _wilson_interval(titles, n_safe)
+    return {
+        "division": division,
+        "divisionName": assign.names.get(division) if division is not None else None,
+        "divisionChampionOdds": round(titles / n_safe, 4),
+        "divisionChampionOddsCi": [round(lo, 4), round(hi, 4)],
+    }
+
+
+#: Row fields that do not depend on who QUALIFIES: published by a
+#: qualification-scoped refusal in ``regularSeasonOdds``.
+_REGULAR_SEASON_ROW_FIELDS = (
+    "ownerId",
+    "displayName",
+    "expectedWins",
+    "draftSlotDistribution",
+    "finalWins",
+    "finalPointsFor",
+    "division",
+    "divisionName",
+    "divisionChampionOdds",
+    "divisionChampionOddsCi",
+)
+
+
+def run_stopping_refusal(payload: Any) -> Any:
+    """The payload's ``unsimulable`` block when it STOPPED the run, else None.
+
+    A qualification-scoped refusal (``scope: "qualification"``) withholds only
+    playoff / bye / seed / title odds; the regular season was simulated and its
+    outputs (draft slots, division titles) stand, so it is not a stop.
+    """
+    block = payload.get("unsimulable") if isinstance(payload, dict) else None
+    if not block:
+        return None
+    if isinstance(block, dict) and block.get("scope") == "qualification":
+        return None
+    return block
+
+
+def draft_slot_rows(payload: Any) -> list[dict[str, Any]]:
+    """The forecast rows that carry draft-slot output.
+
+    The playoff rows normally; the ``regularSeasonOdds`` rows when only
+    qualifying was refused (``_division_refusal``).  Draft-slot consumers read
+    rows through this so a qualification refusal does not silently cost them
+    the draft order, which follows the regular-season record alone.
+    """
+    if not isinstance(payload, dict):
+        return []
+    rows = payload.get("playoffOdds") or []
+    block = payload.get("unsimulable")
+    if not rows and isinstance(block, dict) and block.get("scope") == "qualification":
+        rows = payload.get("regularSeasonOdds") or []
+    return [r for r in rows if isinstance(r, dict)]
+
+
+def _regular_season_only_payload(
+    rows: list[dict[str, Any]],
+    refusal: dict[str, Any],
+    *,
+    completed: int,
+    playoff_seeds: Any,
+    bye_seeds: Any,
+    structure: Any,
+    standings_rule: dict[str, Any],
+    ros_map: dict[str, float],
+    best_ball: bool,
+    model: Any,
+    draft_rule: Any,
+    snapshot: Any,
+    division_payload: dict[str, Any],
+) -> dict[str, Any]:
+    """A run whose QUALIFYING is unknown: no playoff rows, the refusal, and the
+    regular-season outputs that do not depend on qualifying."""
+    regular = [
+        {k: r[k] for k in _REGULAR_SEASON_ROW_FIELDS if k in r}
+        for r in sorted(rows, key=lambda r: str(r.get("ownerId")))
+    ]
+    return {
+        "playoffOdds": [],
+        "regularSeasonOdds": regular,
+        "unsimulable": refusal,
+        **division_payload,
+        "n_simulations": completed,
+        "playoffSeeds": playoff_seeds,
+        "byeSeeds": bye_seeds,
+        "playoffStructure": structure.to_dict(),
+        "standingsRule": standings_rule,
+        "rosStrengthAvailable": ros_strength_available(ros_map),
+        "rosEvidenceMethod": ros_evidence_method(),
+        "bestBallVarianceMode": "depth_aware" if best_ball else "off",
+        "pointsModelSource": model.source,
+        "draftOrderRule": draft_rule,
+        "draftOrderRecordBasis": DRAFT_ORDER_RECORD_BASIS if draft_rule is not None else None,
+        "season": _season_year(snapshot),
+        "regularSeasonProgress": _regular_season_progress(snapshot, structure),
     }
 
 
@@ -1417,7 +1572,16 @@ def simulate_playoff_odds(
     under an assumed format.
     """
     rng = rng or random.Random()
-    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None))
+    # Team-strength rows are roster-derived and therefore leagueKey-scoped
+    # (see team_strength.resolve_snapshot_league_key's docstring); without
+    # this, every league's playoff sim read/wrote the SAME persisted
+    # `team_strength/latest.json` regardless of which league was being
+    # simulated.  Resolved first: the league's recorded playoff rules
+    # (``config/leagues/playoff_rules.json``) are part of its structure.
+    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+    league_key = resolve_snapshot_league_key(snapshot)
+    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None), league_key)
     if playoff_seeds is None:
         playoff_seeds = structure.teams
     if bye_seeds is None:
@@ -1432,14 +1596,6 @@ def simulate_playoff_odds(
         reseed = structure.seed_type == SEED_TYPE_RESEED
     bracket_playable = reseed is not None
     model = points_model or load_points_model()
-    # Team-strength rows are roster-derived and therefore leagueKey-scoped
-    # (see team_strength.resolve_snapshot_league_key's docstring); without
-    # this, every league's playoff sim read/wrote the SAME persisted
-    # `team_strength/latest.json` regardless of which league was being
-    # simulated.
-    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
-
-    league_key = resolve_snapshot_league_key(snapshot)
     if best_ball is None:
         best_ball = _league_best_ball(league_key)
 
@@ -1473,23 +1629,16 @@ def simulate_playoff_odds(
             },
         }
 
-    division_refusal = _division_refusal(structure)
-    if division_refusal is not None:
-        # CW-49: qualifying in a league with divisions is not overall record
-        # alone, and this loop models no division rule — see
-        # ``_division_refusal``.  An explicit ``playoff_seeds`` does not model
-        # division winners either, so it does not bypass this.
-        return {
-            "playoffOdds": [],
-            "n_simulations": 0,
-            "playoffSeeds": playoff_seeds,
-            "byeSeeds": bye_seeds,
-            "rosStrengthAvailable": ros_strength_available(_load_ros_strength_map(league_key)),
-            "bestBallVarianceMode": "depth_aware" if best_ball else "off",
-            "pointsModelSource": model.source,
-            "playoffStructure": structure.to_dict(),
-            "unsimulable": division_refusal,
-        }
+    # Owner 2026-11-08: a league whose divisions are ON and whose record does
+    # not say how they bear on qualifying keeps the host default, which this
+    # loop does not model — see ``_division_refusal``.  That withholds
+    # QUALIFYING (playoff / bye / seed / title odds) only: the regular season
+    # is still simulated, because the draft order and division titles follow
+    # the regular-season record alone.  An explicit ``playoff_seeds`` does not
+    # model division winners either, so it does not bypass this.
+    qualification_refusal = _division_refusal(structure)
+    if qualification_refusal is not None:
+        bracket_playable = False
 
     ros_map = _load_ros_strength_map(league_key)
     pf_by_owner: dict[str, float]
@@ -1668,6 +1817,16 @@ def simulate_playoff_odds(
     final_wins_samples: dict[str, list[float]] = {o: [] for o in owners}
     final_pf_samples: dict[str, list[float]] = {o: [] for o in owners}
 
+    # Division titles (owner 2026-11-08): a SEPARATE question from qualifying.
+    # Champion = best overall record in the division, standings ties broken by
+    # Points For (the league's recorded rule), a further exact tie by a draw.
+    # Its own stream, cloned and advanced past the draft-order stream's start,
+    # so counting titles leaves every playoff, bracket and draft draw unchanged.
+    division_assign = _division_assignments_for(snapshot, structure, owners)
+    division_members = division_assign.members() if division_assign.available else {}
+    division_rng = random.Random(_derived_seed(rng, b"division-titles"))
+    division_title_counts: dict[str, int] = {o: 0 for o in owners}
+
     # DRAFT ORDER keeps its own record basis (#1712 review A).  The owner's
     # rule (docs/picks/DRAFT_ORDER_RULE.md) is "reverse final regular-season
     # record, ties half a win"; it does not say whether median-game results
@@ -1755,6 +1914,12 @@ def simulate_playoff_odds(
             for owner in owners:
                 final_wins_samples[owner].append(record_wins[owner])
                 final_pf_samples[owner].append(sim_pf.get(owner, 0.0))
+        for members in division_members.values():
+            draws = {o: division_rng.random() for o in members}
+            champion_of_division = max(
+                members, key=lambda o: (sim_wins.get(o, 0.0), sim_pf.get(o, 0.0), draws[o])
+            )
+            division_title_counts[champion_of_division] += 1
         for i, owner in enumerate(ranked):
             seed_counts[owner][i] += 1
             wins_total[owner] += sim_wins.get(owner, 0.0)
@@ -1810,6 +1975,15 @@ def simulate_playoff_odds(
         # handful of draws.
         if completed >= min_simulations and completed % SIM_CHECK_EVERY == 0:
             worst_se = max(_proportion_se(playoff_count[o] / completed, completed) for o in owners)
+            if division_members:
+                # Published division-title odds meet the same tolerance.
+                worst_se = max(
+                    worst_se,
+                    max(
+                        _proportion_se(division_title_counts[o] / completed, completed)
+                        for o in owners
+                    ),
+                )
             if worst_se <= odds_se_tolerance:
                 break
 
@@ -1872,6 +2046,9 @@ def simulate_playoff_odds(
                     if draft_rule is not None
                     else {}
                 ),
+                **_division_row_fields(
+                    division_assign, owner, division_title_counts[owner], n_safe
+                ),
             }
         )
     out.sort(key=lambda r: -r["playoffOdds"])
@@ -1896,9 +2073,27 @@ def simulate_playoff_odds(
                 ),
             }
         }
+    division_payload = {"divisionOdds": division_assign.to_dict()}
+    if qualification_refusal is not None:
+        return _regular_season_only_payload(
+            out,
+            qualification_refusal,
+            completed=completed,
+            playoff_seeds=playoff_seeds,
+            bye_seeds=bye_seeds,
+            structure=structure,
+            standings_rule=standings_rule,
+            ros_map=ros_map,
+            best_ball=best_ball,
+            model=model,
+            draft_rule=draft_rule,
+            snapshot=snapshot,
+            division_payload=division_payload,
+        )
     return {
         "playoffOdds": out,
         **unavailable_bracket,
+        **division_payload,
         "n_simulations": completed,
         "converged": worst_se <= odds_se_tolerance,
         "worstPlayoffOddsSe": round(worst_se, 5),
@@ -2117,7 +2312,7 @@ def simulate_trade_impact(
     # different brackets would measure the bracket, not the trade.  The
     # shared-seed argument above applies to the league's rules as much as
     # to the RNG.
-    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None))
+    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None), league_key)
     if playoff_seeds is None:
         playoff_seeds = structure.teams
     if bye_seeds is None:
@@ -2329,7 +2524,11 @@ def cached_forecast_matches_snapshot(cached: dict[str, Any], snapshot: Any) -> b
     season = cached.get("season")
     if season is not None and season != _season_year(snapshot):
         return False
-    structure = resolve_playoff_structure(getattr(snapshot, "current_season", None))
+    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+    structure = resolve_playoff_structure(
+        getattr(snapshot, "current_season", None), resolve_snapshot_league_key(snapshot)
+    )
     cached_structure = cached.get("playoffStructure")
     if isinstance(cached_structure, dict) and cached_structure != structure.to_dict():
         return False

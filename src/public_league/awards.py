@@ -1798,7 +1798,9 @@ def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
         qualified = {r["ownerId"] for r in standings if r["rosterId"] in bracket_rids}
         gate.update(basis="final_bracket", playoffTeams=len(bracket_rids))
     else:
-        structure = resolve_playoff_structure(season)
+        from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+        structure = resolve_playoff_structure(season, resolve_snapshot_league_key(snapshot))
         if not structure.known:
             gate["reason"] = structure.reason or "playoff_field_unknown"
             return gate

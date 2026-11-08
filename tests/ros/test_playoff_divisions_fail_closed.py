@@ -1,18 +1,17 @@
 """CW-49 repairs in the canonical playoff engine (owner directive 2026-11-07).
 
-1. DIVISIONS.  Sleeper qualifies every division winner for the playoffs
-   ("If there are divisions, then each division winner will qualify for the
-   playoffs" — https://sleeper.com/blog/how-do-fantasy-playoffs-work), whatever
-   its overall record.  ``simulate_playoff_odds`` seeds on overall record and
-   Points For only and never read ``settings.divisions``, so a league with
-   divisions ON was simulated as if it had none.  Not hypothetical: the live
-   ``dynasty_main`` stated ``divisions: 3`` on 2026-10-26
-   (``docs/audits/evidence/league_rules_dynasty_main_2026-10-26.json``) and
-   ``divisions: 0`` on 2026-11-07.  PLAYOFF_PREDICTOR_SPEC §3 requires the
-   division / wild-card rule or a fail-closed refusal; the host's seeding of
-   division winners is not verified, so the engine now refuses with a named
-   reason.  A division winner with a losing record is the counter-example the
-   engine could not express: it would publish that team's playoff odds as 0.
+1. DIVISIONS.  Sleeper's DEFAULT qualifies every division winner for the
+   playoffs ("If there are divisions, then each division winner will qualify
+   for the playoffs" — https://sleeper.com/blog/how-do-fantasy-playoffs-work),
+   whatever its overall record, and ``simulate_playoff_odds`` seeds on overall
+   record and Points For only.  CW-49 refused every league with divisions ON;
+   the owner corrected that on 2026-11-08 — ``dynasty_main``'s divisions bear
+   on nothing but the schedule and a payout (``config/leagues/playoff_rules.json``,
+   pinned in ``tests/ros/test_league_division_rules.py``).  What stays here is
+   the UNRECORDED league: divisions ON and no record of how they are played.
+   Its qualifying keeps the unverified host default, so playoff / bye / seed /
+   title odds are withheld with a named, qualification-scoped reason — while
+   the regular season, which decides the draft order, is still simulated.
 
 2. TRADE IMPACT.  ``simulate_trade_impact`` fell through a REFUSED simulation
    with empty deltas, ``meaningfulDeltas: 0`` and the requested count as
@@ -60,7 +59,11 @@ def _snapshot(**settings):
     )
 
 
-def _patched(record, schedule):
+#: A league with no recorded playoff rule (``config/leagues/playoff_rules.json``).
+_UNRECORDED = "unrecorded_test_league"
+
+
+def _patched(record, schedule, league_key=_UNRECORDED):
     dists = {
         o: playoff_sim._TeamDist(
             owner_id=o, mean=100.0 + 5 * i, sd=12.0, pf_to_date=900.0, basis="empirical"
@@ -81,9 +84,7 @@ def _patched(record, schedule):
             playoff_sim, "_build_team_distributions", lambda *a, **k: (dists, dict(pf))
         ),
         mock.patch.object(playoff_odds, "_final_week_set", lambda *a, **k: set(range(1, 9))),
-        mock.patch(
-            "src.ros.team_strength.resolve_snapshot_league_key", lambda *a, **k: "dynasty_main"
-        ),
+        mock.patch("src.ros.team_strength.resolve_snapshot_league_key", lambda *a, **k: league_key),
     )
 
 
@@ -131,25 +132,42 @@ def test_the_structure_reads_the_divisions_setting(raw, divisions, in_play, reas
     assert structure.divisions_in_play is in_play
     assert structure.divisions_reason == reason
     assert structure.to_dict()["divisions"] == divisions
+    # No league key -> no record: divisions ON leave qualifying unknown.
+    assert structure.division_qualification_unknown is in_play
+    assert structure.division_rule == ("unrecorded" if in_play else "no_divisions")
 
 
-# ── the engine refuses a league with divisions ON ──────────────────────
+# ── an UNRECORDED league with divisions ON withholds qualifying only ───
 
 
-def test_a_league_with_divisions_is_refused_with_a_named_reason_not_simulated():
+def test_an_unrecorded_league_with_divisions_withholds_qualifying_with_a_named_reason():
     out = _simulate(_snapshot(divisions=3))
     assert out["playoffOdds"] == []
-    assert out["n_simulations"] == 0
     assert out["unsimulable"]["reason"] == "league_divisions_unmodeled"
+    assert out["unsimulable"]["scope"] == "qualification"
     assert out["unsimulable"]["divisions"] == 3
     assert "not a 0% chance" in out["unsimulable"]["detail"]
     assert out["playoffStructure"]["divisions"] == 3
+    assert out["playoffStructure"]["divisionRule"] == "unrecorded"
+    # The regular season WAS simulated: its outputs that do not depend on
+    # who qualifies are published, and nothing that does depend on it is.
+    assert out["n_simulations"] == 500
+    rows = out["regularSeasonOdds"]
+    assert {r["ownerId"] for r in rows} == set(_OWNERS)
+    for r in rows:
+        assert r["expectedWins"] > 0
+        for withheld in ("playoffOdds", "seedDistribution", "byeOdds", "championshipOdds"):
+            assert withheld not in r
+    # No recorded champion rule either: division titles are unavailable.
+    assert out["divisionOdds"]["state"] == "unavailable"
+    assert out["divisionOdds"]["reason"] == "division_champion_rule_unrecorded"
 
 
 def test_an_unreadable_divisions_setting_is_refused_too():
     out = _simulate(_snapshot(divisions="three"))
     assert out["playoffOdds"] == []
     assert out["unsimulable"]["reason"] == "divisions_setting_not_recognised"
+    assert out["unsimulable"]["scope"] == "qualification"
 
 
 @pytest.mark.parametrize("raw", [0, _ABSENT])
