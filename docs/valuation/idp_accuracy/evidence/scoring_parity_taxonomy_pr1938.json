@@ -1,0 +1,3782 @@
+{
+ "league": {
+  "key": "dynasty_main",
+  "sleeperId": "1312006700437352448",
+  "season": 2026
+ },
+ "scoringFingerprint": "sf1:9e51824690d091f9",
+ "weeks": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6
+ ],
+ "inputs": {
+  "sleeperResponses": {
+   "https://api.sleeper.app/v1/league/1312006700437352448": {
+    "sha256": "2f7ffae0df521456e132f0c1c85b74cd331cae5b5e0bb23dcb1280470b6e618c",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 5106
+   },
+   "https://api.sleeper.app/v1/players/nfl": {
+    "sha256": "c42a00a92146730c962f763de4dd33cb4a142288f534f90c8a9f2ca18806dc8e",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 14662477
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/1": {
+    "sha256": "0e2453cc8cbb5315001d5f990f7f5a8e934d675ee0d809a9dde5d491f1d2d5ff",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 569056
+   },
+   "https://api.sleeper.app/v1/league/1312006700437352448/matchups/1": {
+    "sha256": "9f4d2663ac8a4960d6299ec97199dccba070828e19e0ff0e15b875314b2221b2",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 18649
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/2": {
+    "sha256": "616ce95a9f34e975e12ab2ecba380c525e27bb104e84160c7a748c2e11f5bea1",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 574480
+   },
+   "https://api.sleeper.app/v1/league/1312006700437352448/matchups/2": {
+    "sha256": "ac8be4fffb6c0dc35df103295539a6d4843b75195596b77d7ade21a617e3df02",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 18695
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/3": {
+    "sha256": "255fb568b17433754fb1eaa8858fc2646cf667244c083ee44067f992655172d8",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 573997
+   },
+   "https://api.sleeper.app/v1/league/1312006700437352448/matchups/3": {
+    "sha256": "142ca76bb94e966dad28f699362bb7fd8d6ea71f658c06f82e958807ac1218e0",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 18672
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/4": {
+    "sha256": "6a7e8256ed4e92a61b6a3d73233a54e281ba39c53667b8c61c22be6a43f393d5",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 585518
+   },
+   "https://api.sleeper.app/v1/league/1312006700437352448/matchups/4": {
+    "sha256": "c1c28e4add27364429437778d172fdfa65d9894c4637ae12ab839cda77a913a7",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 18735
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/5": {
+    "sha256": "11ae27fcc6872eb04f3972259fa63bdb510e22e51314198bd0ce962af4f82070",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 555127
+   },
+   "https://api.sleeper.app/v1/league/1312006700437352448/matchups/5": {
+    "sha256": "b8c08a1546f9e2a5b68e3c7f62547b23f20b6ff1c4f7ca154ab697004799966e",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 18732
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/6": {
+    "sha256": "e9086612023efd3beea10174475c7010ae8401305d0b489923ddfeaeb1e7d77e",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 513801
+   },
+   "https://api.sleeper.app/v1/league/1312006700437352448/matchups/6": {
+    "sha256": "3fec893d6fe76fa37901e9aad7f6d4d66bbad200b83a1754dd1b1a3e2b41cdf7",
+    "fetchedAtUtc": "2026-11-08T11:50:01Z",
+    "bytes": 18677
+   }
+  },
+  "nflverseRowsFile": "data\\idp_accuracy\\taxonomy\\nflverse_rows_2026_w1_6.json",
+  "nflverseRowsFileSha256": "d5a30afda3b7029def28900a9b04d3a1c778f90fe92710183fd00f8fec2c577a",
+  "nflverseRowsCanonicalSha256": "d5a30afda3b7029def28900a9b04d3a1c778f90fe92710183fd00f8fec2c577a",
+  "nflverseRowCount": 6488,
+  "pbpArtifactSha256": "abde7c891d396dc3a4c3e154a8cc8c42caf7a8bdc68765c8609abe8f02adb36c",
+  "pbpWeeksCovered": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9
+  ]
+ },
+ "sample": {
+  "rosteredPlayerWeeks": 4171,
+  "hostScored": 3710,
+  "hostWithinTol": 3710,
+  "nflverseJoinedAndScored": 3095
+ },
+ "nflverseCensus": {
+  "match": 2978,
+  "no_nflverse_points_awarded_zero": 1023,
+  "stat_source_disagreement": 109,
+  "identity_name_collision_dropped": 25,
+  "identity_join_miss": 28,
+  "scorer_defect": 8
+ },
+ "nflverseWithinTol": 2978,
+ "nflverseDistribution": {
+  "n": 3095,
+  "withinTol": 2978,
+  "exactMatchRate": 0.962197,
+  "maxAbs": 5.3,
+  "meanAbs": 0.043842,
+  "p50Abs": 0.0,
+  "p99Abs": 1.0,
+  "p999Abs": 5.1994
+ },
+ "nflverseDistributionByGroup": {
+  "DB": {
+   "n": 533,
+   "withinTol": 492,
+   "exactMatchRate": 0.923077,
+   "maxAbs": 5.3,
+   "meanAbs": 0.081147,
+   "p50Abs": 0.0,
+   "p99Abs": 1.33,
+   "p999Abs": 3.6082
+  },
+  "DL": {
+   "n": 422,
+   "withinTol": 403,
+   "exactMatchRate": 0.954976,
+   "maxAbs": 5.2989,
+   "meanAbs": 0.064905,
+   "p50Abs": 0.0,
+   "p99Abs": 1.5442,
+   "p999Abs": 4.8531
+  },
+  "FB": {
+   "n": 4,
+   "withinTol": 1,
+   "exactMatchRate": 0.25,
+   "maxAbs": 1.0,
+   "meanAbs": 0.75,
+   "p50Abs": 1.0,
+   "p99Abs": 1.0,
+   "p999Abs": 1.0
+  },
+  "K": {
+   "n": 122,
+   "withinTol": 121,
+   "exactMatchRate": 0.991803,
+   "maxAbs": 1.33,
+   "meanAbs": 0.010902,
+   "p50Abs": 0.0,
+   "p99Abs": 0.0,
+   "p999Abs": 1.1691
+  },
+  "LB": {
+   "n": 510,
+   "withinTol": 463,
+   "exactMatchRate": 0.907843,
+   "maxAbs": 5.3,
+   "meanAbs": 0.108359,
+   "p50Abs": 0.0,
+   "p99Abs": 2.0732,
+   "p999Abs": 5.2994
+  },
+  "QB": {
+   "n": 199,
+   "withinTol": 198,
+   "exactMatchRate": 0.994975,
+   "maxAbs": 0.8,
+   "meanAbs": 0.00402,
+   "p50Abs": 0.0,
+   "p99Abs": 0.0,
+   "p999Abs": 0.6416
+  },
+  "RB": {
+   "n": 407,
+   "withinTol": 406,
+   "exactMatchRate": 0.997543,
+   "maxAbs": 0.8,
+   "meanAbs": 0.002351,
+   "p50Abs": 0.0,
+   "p99Abs": 0.0033,
+   "p999Abs": 0.4766
+  },
+  "TE": {
+   "n": 279,
+   "withinTol": 278,
+   "exactMatchRate": 0.996416,
+   "maxAbs": 0.8,
+   "meanAbs": 0.002867,
+   "p50Abs": 0.0,
+   "p99Abs": 0.0,
+   "p999Abs": 0.5776
+  },
+  "WR": {
+   "n": 619,
+   "withinTol": 616,
+   "exactMatchRate": 0.995153,
+   "maxAbs": 1.0,
+   "meanAbs": 0.004685,
+   "p50Abs": 0.0,
+   "p99Abs": 0.0033,
+   "p999Abs": 0.8764
+  }
+ },
+ "taxonomy": {
+  "byClass": {
+   "implementation_error": {
+    "playerWeeks": 0,
+    "netPoints": 0.0,
+    "absPoints": 0.0
+   },
+   "source_data_disagreement": {
+    "playerWeeks": 91,
+    "netPoints": 16.3455,
+    "absPoints": 110.8233
+   },
+   "missing_stat_category": {
+    "playerWeeks": 0,
+    "netPoints": 0.0,
+    "absPoints": 0.0
+   },
+   "incorrect_player_identity": {
+    "playerWeeks": 53,
+    "netPoints": -561.3,
+    "absPoints": 561.3
+   },
+   "incorrect_position_classification": {
+    "playerWeeks": 3,
+    "netPoints": 3.0,
+    "absPoints": 3.0
+   },
+   "unavailable_evidence": {
+    "playerWeeks": 0,
+    "netPoints": 0.0,
+    "absPoints": 0.0
+   },
+   "irreconcilable_provider_semantics": {
+    "playerWeeks": 23,
+    "netPoints": 12.7989,
+    "absPoints": 20.7989
+   },
+   "rounding": {
+    "playerWeeks": 0,
+    "netPoints": 0.0,
+    "absPoints": 0.0
+   },
+   "unexplained": {
+    "playerWeeks": 0,
+    "netPoints": 0.0,
+    "absPoints": 0.0
+   }
+  },
+  "bySubclass": {
+   "incorrect_player_identity:identity_join_miss": {
+    "playerWeeks": 28,
+    "netPoints": -241.94,
+    "absPoints": 241.94
+   },
+   "incorrect_player_identity:identity_name_collision_dropped": {
+    "playerWeeks": 25,
+    "netPoints": -319.36,
+    "absPoints": 319.36
+   },
+   "incorrect_position_classification:FB_vs_nflverse_RB": {
+    "playerWeeks": 3,
+    "netPoints": 3.0,
+    "absPoints": 3.0
+   },
+   "irreconcilable_provider_semantics:non_idp_listed_assists_inseparable_from_special_teams": {
+    "playerWeeks": 5,
+    "netPoints": -4.0,
+    "absPoints": 4.0
+   },
+   "irreconcilable_provider_semantics:special_teams_assists_lumped": {
+    "playerWeeks": 18,
+    "netPoints": 16.7989,
+    "absPoints": 16.7989
+   },
+   "source_data_disagreement:bonus_fd_wr": {
+    "playerWeeks": 1,
+    "netPoints": 1.0,
+    "absPoints": 1.0
+   },
+   "source_data_disagreement:idp_hit": {
+    "playerWeeks": 8,
+    "netPoints": -14.84,
+    "absPoints": 19.08
+   },
+   "source_data_disagreement:idp_pd": {
+    "playerWeeks": 4,
+    "netPoints": -10.5978,
+    "absPoints": 21.1978
+   },
+   "source_data_disagreement:idp_tkl_ast": {
+    "playerWeeks": 68,
+    "netPoints": 40.7877,
+    "absPoints": 56.2499
+   },
+   "source_data_disagreement:idp_tkl_solo": {
+    "playerWeeks": 9,
+    "netPoints": 1.3256,
+    "absPoints": 11.9656
+   },
+   "source_data_disagreement:st_tkl_solo": {
+    "playerWeeks": 1,
+    "netPoints": -1.33,
+    "absPoints": 1.33
+   }
+  },
+  "byClassAndPosition": {
+   "source_data_disagreement": {
+    "DB": {
+     "playerWeeks": 32,
+     "netPoints": 9.6178,
+     "absPoints": 35.1178
+    },
+    "K": {
+     "playerWeeks": 1,
+     "netPoints": -1.33,
+     "absPoints": 1.33
+    },
+    "DL": {
+     "playerWeeks": 18,
+     "netPoints": -6.0423,
+     "absPoints": 26.3177
+    },
+    "LB": {
+     "playerWeeks": 39,
+     "netPoints": 13.1,
+     "absPoints": 47.0578
+    },
+    "WR": {
+     "playerWeeks": 1,
+     "netPoints": 1.0,
+     "absPoints": 1.0
+    }
+   },
+   "incorrect_player_identity": {
+    "DL": {
+     "playerWeeks": 6,
+     "netPoints": -65.3,
+     "absPoints": 65.3
+    },
+    "WR": {
+     "playerWeeks": 8,
+     "netPoints": -99.25,
+     "absPoints": 99.25
+    },
+    "DB": {
+     "playerWeeks": 28,
+     "netPoints": -276.64,
+     "absPoints": 276.64
+    },
+    "TE": {
+     "playerWeeks": 3,
+     "netPoints": -20.0,
+     "absPoints": 20.0
+    },
+    "LB": {
+     "playerWeeks": 7,
+     "netPoints": -83.71,
+     "absPoints": 83.71
+    },
+    "RB": {
+     "playerWeeks": 1,
+     "netPoints": -16.4,
+     "absPoints": 16.4
+    }
+   },
+   "incorrect_position_classification": {
+    "FB": {
+     "playerWeeks": 3,
+     "netPoints": 3.0,
+     "absPoints": 3.0
+    }
+   },
+   "irreconcilable_provider_semantics": {
+    "DB": {
+     "playerWeeks": 9,
+     "netPoints": 8.0,
+     "absPoints": 8.0
+    },
+    "TE": {
+     "playerWeeks": 1,
+     "netPoints": -0.8,
+     "absPoints": 0.8
+    },
+    "LB": {
+     "playerWeeks": 8,
+     "netPoints": 7.9989,
+     "absPoints": 7.9989
+    },
+    "WR": {
+     "playerWeeks": 2,
+     "netPoints": -1.6,
+     "absPoints": 1.6
+    },
+    "QB": {
+     "playerWeeks": 1,
+     "netPoints": -0.8,
+     "absPoints": 0.8
+    },
+    "RB": {
+     "playerWeeks": 1,
+     "netPoints": -0.8,
+     "absPoints": 0.8
+    },
+    "DL": {
+     "playerWeeks": 1,
+     "netPoints": 0.8,
+     "absPoints": 0.8
+    }
+   }
+  },
+  "bySide": {
+   "IDP": {
+    "implementation_error": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    },
+    "source_data_disagreement": {
+     "playerWeeks": 89,
+     "netPoints": 16.6755,
+     "absPoints": 108.4933
+    },
+    "missing_stat_category": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    },
+    "incorrect_player_identity": {
+     "playerWeeks": 41,
+     "netPoints": -425.65,
+     "absPoints": 425.65
+    },
+    "incorrect_position_classification": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    },
+    "unavailable_evidence": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    },
+    "irreconcilable_provider_semantics": {
+     "playerWeeks": 18,
+     "netPoints": 16.7989,
+     "absPoints": 16.7989
+    },
+    "rounding": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    },
+    "unexplained": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    }
+   },
+   "OFFENSE": {
+    "implementation_error": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    },
+    "source_data_disagreement": {
+     "playerWeeks": 2,
+     "netPoints": -0.33,
+     "absPoints": 2.33
+    },
+    "missing_stat_category": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    },
+    "incorrect_player_identity": {
+     "playerWeeks": 12,
+     "netPoints": -135.65,
+     "absPoints": 135.65
+    },
+    "incorrect_position_classification": {
+     "playerWeeks": 3,
+     "netPoints": 3.0,
+     "absPoints": 3.0
+    },
+    "unavailable_evidence": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    },
+    "irreconcilable_provider_semantics": {
+     "playerWeeks": 5,
+     "netPoints": -4.0,
+     "absPoints": 4.0
+    },
+    "rounding": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    },
+    "unexplained": {
+     "playerWeeks": 0,
+     "netPoints": 0.0,
+     "absPoints": 0.0
+    }
+   }
+  },
+  "totalMismatchingPlayerWeeks": 170
+ },
+ "hostPaidKeysOnRosteredPlayerWeeks": {
+  "bonus_fd_qb": {
+   "playerWeeks": 194,
+   "points": 796.0,
+   "nflverseCoverage": "scored"
+  },
+  "bonus_fd_rb": {
+   "playerWeeks": 310,
+   "points": 913.0,
+   "nflverseCoverage": "scored"
+  },
+  "bonus_fd_te": {
+   "playerWeeks": 182,
+   "points": 375.0,
+   "nflverseCoverage": "scored"
+  },
+  "bonus_fd_wr": {
+   "playerWeeks": 473,
+   "points": 1114.0,
+   "nflverseCoverage": "scored"
+  },
+  "bonus_rec_wr": {
+   "playerWeeks": 551,
+   "points": 40.14,
+   "nflverseCoverage": "scored"
+  },
+  "fgm_yds": {
+   "playerWeeks": 104,
+   "points": 595.98,
+   "nflverseCoverage": "scored"
+  },
+  "fgmiss_20_29": {
+   "playerWeeks": 1,
+   "points": -3.85,
+   "nflverseCoverage": "scored"
+  },
+  "fgmiss_40_49": {
+   "playerWeeks": 13,
+   "points": -34.3,
+   "nflverseCoverage": "scored"
+  },
+  "fgmiss_50_59": {
+   "playerWeeks": 16,
+   "points": -28.0,
+   "nflverseCoverage": "scored"
+  },
+  "fgmiss_60p": {
+   "playerWeeks": 3,
+   "points": -4.2,
+   "nflverseCoverage": "scored"
+  },
+  "fum_lost": {
+   "playerWeeks": 84,
+   "points": -360.0,
+   "nflverseCoverage": "scored"
+  },
+  "idp_blk_kick": {
+   "playerWeeks": 5,
+   "points": 26.5,
+   "nflverseCoverage": "scored"
+  },
+  "idp_def_td": {
+   "playerWeeks": 6,
+   "points": 38.16,
+   "nflverseCoverage": "scored"
+  },
+  "idp_ff": {
+   "playerWeeks": 103,
+   "points": 462.16,
+   "nflverseCoverage": "scored"
+  },
+  "idp_fum_rec": {
+   "playerWeeks": 53,
+   "points": 172.26,
+   "nflverseCoverage": "scored"
+  },
+  "idp_fum_ret_yd": {
+   "playerWeeks": 11,
+   "points": 21.2222,
+   "nflverseCoverage": "scored"
+  },
+  "idp_hit": {
+   "playerWeeks": 470,
+   "points": 1492.48,
+   "nflverseCoverage": "scored"
+  },
+  "idp_int": {
+   "playerWeeks": 74,
+   "points": 424.0,
+   "nflverseCoverage": "scored"
+  },
+  "idp_int_ret_yd": {
+   "playerWeeks": 51,
+   "points": 95.4443,
+   "nflverseCoverage": "scored"
+  },
+  "idp_pd": {
+   "playerWeeks": 385,
+   "points": 2575.8,
+   "nflverseCoverage": "scored"
+  },
+  "idp_sack": {
+   "playerWeeks": 256,
+   "points": 775.26,
+   "nflverseCoverage": "scored"
+  },
+  "idp_sack_yd": {
+   "playerWeeks": 237,
+   "points": 187.2223,
+   "nflverseCoverage": "scored"
+  },
+  "idp_tkl_ast": {
+   "playerWeeks": 1186,
+   "points": 2426.4,
+   "nflverseCoverage": "scored"
+  },
+  "idp_tkl_loss": {
+   "playerWeeks": 406,
+   "points": 2209.04,
+   "nflverseCoverage": "scored"
+  },
+  "idp_tkl_solo": {
+   "playerWeeks": 1325,
+   "points": 4995.48,
+   "nflverseCoverage": "scored"
+  },
+  "kr_yd": {
+   "playerWeeks": 155,
+   "points": 323.3332,
+   "nflverseCoverage": "scored"
+  },
+  "pass_2pt": {
+   "playerWeeks": 17,
+   "points": 38.0,
+   "nflverseCoverage": "scored"
+  },
+  "pass_cmp": {
+   "playerWeeks": 196,
+   "points": 1458.54,
+   "nflverseCoverage": "scored"
+  },
+  "pass_inc": {
+   "playerWeeks": 197,
+   "points": -1486.06,
+   "nflverseCoverage": "scored"
+  },
+  "pass_int": {
+   "playerWeeks": 97,
+   "points": -508.0,
+   "nflverseCoverage": "scored"
+  },
+  "pass_int_td": {
+   "playerWeeks": 5,
+   "points": -10.0,
+   "nflverseCoverage": "scored"
+  },
+  "pass_sack": {
+   "playerWeeks": 158,
+   "points": -424.0,
+   "nflverseCoverage": "scored"
+  },
+  "pass_td": {
+   "playerWeeks": 152,
+   "points": 1704.0,
+   "nflverseCoverage": "scored"
+  },
+  "pass_yd": {
+   "playerWeeks": 195,
+   "points": 1726.76,
+   "nflverseCoverage": "scored"
+  },
+  "pr_yd": {
+   "playerWeeks": 78,
+   "points": 49.4996,
+   "nflverseCoverage": "scored"
+  },
+  "rec": {
+   "playerWeeks": 1102,
+   "points": 363.0,
+   "nflverseCoverage": "scored"
+  },
+  "rec_0_4": {
+   "playerWeeks": 478,
+   "points": 169.25,
+   "nflverseCoverage": "scored"
+  },
+  "rec_10_19": {
+   "playerWeeks": 636,
+   "points": 807.0,
+   "nflverseCoverage": "scored"
+  },
+  "rec_20_29": {
+   "playerWeeks": 241,
+   "points": 299.0,
+   "nflverseCoverage": "scored"
+  },
+  "rec_2pt": {
+   "playerWeeks": 17,
+   "points": 34.0,
+   "nflverseCoverage": "scored"
+  },
+  "rec_30_39": {
+   "playerWeeks": 91,
+   "points": 120.0,
+   "nflverseCoverage": "scored"
+  },
+  "rec_40p": {
+   "playerWeeks": 85,
+   "points": 182.0,
+   "nflverseCoverage": "scored"
+  },
+  "rec_5_9": {
+   "playerWeeks": 741,
+   "points": 643.5,
+   "nflverseCoverage": "scored"
+  },
+  "rec_td": {
+   "playerWeeks": 218,
+   "points": 1530.0,
+   "nflverseCoverage": "scored"
+  },
+  "rec_yd": {
+   "playerWeeks": 1096,
+   "points": 3989.7,
+   "nflverseCoverage": "scored"
+  },
+  "rush_2pt": {
+   "playerWeeks": 4,
+   "points": 8.0,
+   "nflverseCoverage": "scored"
+  },
+  "rush_att": {
+   "playerWeeks": 653,
+   "points": 47.26,
+   "nflverseCoverage": "scored"
+  },
+  "rush_td": {
+   "playerWeeks": 136,
+   "points": 1026.0,
+   "nflverseCoverage": "scored"
+  },
+  "rush_yd": {
+   "playerWeeks": 644,
+   "points": 1979.3,
+   "nflverseCoverage": "scored"
+  },
+  "st_ff": {
+   "playerWeeks": 5,
+   "points": 21.25,
+   "nflverseCoverage": "scored"
+  },
+  "st_fum_rec": {
+   "playerWeeks": 1,
+   "points": 3.19,
+   "nflverseCoverage": "scored"
+  },
+  "st_tkl_solo": {
+   "playerWeeks": 119,
+   "points": 186.2,
+   "nflverseCoverage": "scored"
+  },
+  "xpm": {
+   "playerWeeks": 113,
+   "points": 656.04,
+   "nflverseCoverage": "scored"
+  },
+  "xpmiss": {
+   "playerWeeks": 13,
+   "points": -47.25,
+   "nflverseCoverage": "scored"
+  }
+ },
+ "mismatches": [
+  {
+   "week": 1,
+   "sid": "12567",
+   "name": "Malaki Starks",
+   "group": "DB",
+   "awarded": 18.26,
+   "computed": 19.06,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +4.000 vs nflverse +5.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     4.0,
+     5.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "11792",
+   "name": "Will Reichard",
+   "group": "K",
+   "awarded": 13.23,
+   "computed": 11.9,
+   "diff": -1.33,
+   "class": "source_data_disagreement",
+   "subclass": "st_tkl_solo",
+   "detail": "st_tkl_solo: host +1.000 vs nflverse +0.000 points",
+   "keysDiffer": {
+    "st_tkl_solo": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "11668",
+   "name": "Byron Murphy II",
+   "group": "DL",
+   "awarded": 6.9,
+   "computed": null,
+   "diff": -6.9,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "6794",
+   "name": "Justin Jefferson",
+   "group": "WR",
+   "awarded": 31.66,
+   "computed": null,
+   "diff": -31.66,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "13376",
+   "name": "Caleb Downs",
+   "group": "DB",
+   "awarded": 17.11,
+   "computed": 17.9111,
+   "diff": 0.8011,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +4.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "5864",
+   "name": "Byron Murphy Jr.",
+   "group": "DB",
+   "awarded": 15.41,
+   "computed": null,
+   "diff": -15.41,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "6118",
+   "name": "Quinnen Williams",
+   "group": "DL",
+   "awarded": 9.29,
+   "computed": 8.49,
+   "diff": -0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "7715",
+   "name": "Cam Bynum",
+   "group": "DB",
+   "awarded": 9.31,
+   "computed": null,
+   "diff": -9.31,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "7670",
+   "name": "Joshua Palmer",
+   "group": "WR",
+   "awarded": 10.77,
+   "computed": null,
+   "diff": -10.77,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "8395",
+   "name": "Dane Belton",
+   "group": "DB",
+   "awarded": 3.46,
+   "computed": 2.13,
+   "diff": -1.33,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_solo",
+   "detail": "idp_tkl_solo: host +2.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_solo": [
+     2.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "12650",
+   "name": "Danny Stutsman",
+   "group": "LB",
+   "awarded": 5.86,
+   "computed": 6.39,
+   "diff": 0.53,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +4.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     4.0,
+     3.0
+    ],
+    "idp_tkl_solo": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "10898",
+   "name": "Tuli Tuipulotu",
+   "group": "DL",
+   "awarded": 17.25,
+   "computed": 15.13,
+   "diff": -2.12,
+   "class": "source_data_disagreement",
+   "subclass": "idp_hit",
+   "detail": "idp_hit: host +3.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_hit": [
+     3.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "13455",
+   "name": "TJ Parker",
+   "group": "DL",
+   "awarded": 0.8,
+   "computed": 1.6,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "11700",
+   "name": "Dru Phillips",
+   "group": "DB",
+   "awarded": 2.66,
+   "computed": null,
+   "diff": -2.66,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "7811",
+   "name": "Talanoa Hufanga",
+   "group": "DB",
+   "awarded": 5.33,
+   "computed": 5.86,
+   "diff": 0.53,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +4.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     5.0,
+     4.0
+    ],
+    "idp_tkl_solo": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "7726",
+   "name": "Derrick Barnes",
+   "group": "LB",
+   "awarded": 31.77,
+   "computed": 32.57,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "6807",
+   "name": "Patrick Queen",
+   "group": "LB",
+   "awarded": 7.46,
+   "computed": 6.66,
+   "diff": -0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +6.000 vs nflverse +5.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     6.0,
+     5.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "13324",
+   "name": "Matt Hibner",
+   "group": "TE",
+   "awarded": 3.15,
+   "computed": null,
+   "diff": -3.15,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "10927",
+   "name": "Jordan Battle",
+   "group": "DB",
+   "awarded": 8.78,
+   "computed": 10.38,
+   "diff": 1.6,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "2617",
+   "name": "Alex Singleton",
+   "group": "LB",
+   "awarded": 15.45,
+   "computed": 14.65,
+   "diff": -0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +11.000 vs nflverse +10.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     11.0,
+     10.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "6901",
+   "name": "Joshua Metellus",
+   "group": "DB",
+   "awarded": 4.79,
+   "computed": null,
+   "diff": -4.79,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "10917",
+   "name": "Byron Young",
+   "group": "LB",
+   "awarded": 0.8,
+   "computed": null,
+   "diff": -0.8,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "4960",
+   "name": "Roquan Smith",
+   "group": "LB",
+   "awarded": 29.58,
+   "computed": 24.2811,
+   "diff": -5.2989,
+   "class": "source_data_disagreement",
+   "subclass": "idp_pd",
+   "detail": "idp_pd: host +2.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_pd": [
+     2.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "8406",
+   "name": "Reed Blankenship",
+   "group": "DB",
+   "awarded": 6.92,
+   "computed": 7.72,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "11510",
+   "name": "Hunter Luepke",
+   "group": "FB",
+   "awarded": 0.71,
+   "computed": 1.71,
+   "diff": 1.0,
+   "class": "incorrect_position_classification",
+   "subclass": "FB_vs_nflverse_RB",
+   "detail": "position-scoped key bonus_fd_rb paid under the provider's listing, not the host's",
+   "keysDiffer": {
+    "bonus_fd_rb": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "13373",
+   "name": "Caden Curry",
+   "group": "DL",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 1,
+   "sid": "8286",
+   "name": "Dax Hill",
+   "group": "DB",
+   "awarded": 9.31,
+   "computed": null,
+   "diff": -9.31,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 1,
+   "sid": "11727",
+   "name": "Payton Wilson",
+   "group": "LB",
+   "awarded": 20.73,
+   "computed": 21.53,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +7.000 vs nflverse +8.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     7.0,
+     8.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "7553",
+   "name": "Kyle Pitts Sr.",
+   "group": "TE",
+   "awarded": 4.15,
+   "computed": 3.35,
+   "diff": -0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "non_idp_listed_assists_inseparable_from_special_teams",
+   "detail": "def_tackle_assists cannot be split into defensive vs special-teams assists",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "6125",
+   "name": "Jeffery Simmons",
+   "group": "DL",
+   "awarded": 25.32,
+   "computed": 20.0211,
+   "diff": -5.2989,
+   "class": "source_data_disagreement",
+   "subclass": "idp_pd",
+   "detail": "idp_pd: host +1.000 vs nflverse +0.000 points",
+   "keysDiffer": {
+    "idp_pd": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "11668",
+   "name": "Byron Murphy II",
+   "group": "DL",
+   "awarded": 1.6,
+   "computed": null,
+   "diff": -1.6,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 2,
+   "sid": "13391",
+   "name": "Jake Golday",
+   "group": "LB",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "6794",
+   "name": "Justin Jefferson",
+   "group": "WR",
+   "awarded": 10.36,
+   "computed": null,
+   "diff": -10.36,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 2,
+   "sid": "5864",
+   "name": "Byron Murphy Jr.",
+   "group": "DB",
+   "awarded": 23.51,
+   "computed": null,
+   "diff": -23.51,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 2,
+   "sid": "5017",
+   "name": "Jessie Bates III",
+   "group": "DB",
+   "awarded": 7.72,
+   "computed": 6.92,
+   "diff": -0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "7715",
+   "name": "Cam Bynum",
+   "group": "DB",
+   "awarded": 9.85,
+   "computed": null,
+   "diff": -9.85,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 2,
+   "sid": "7670",
+   "name": "Joshua Palmer",
+   "group": "WR",
+   "awarded": 12.42,
+   "computed": null,
+   "diff": -12.42,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 2,
+   "sid": "13365",
+   "name": "Anthony Hill Jr.",
+   "group": "LB",
+   "awarded": 10.65,
+   "computed": 11.18,
+   "diff": 0.53,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +4.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     5.0,
+     4.0
+    ],
+    "idp_tkl_solo": [
+     5.0,
+     6.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "11731",
+   "name": "Malik Mustapha",
+   "group": "DB",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "12650",
+   "name": "Danny Stutsman",
+   "group": "LB",
+   "awarded": 2.66,
+   "computed": 4.26,
+   "diff": 1.6,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "11700",
+   "name": "Dru Phillips",
+   "group": "DB",
+   "awarded": 1.33,
+   "computed": null,
+   "diff": -1.33,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 2,
+   "sid": "13457",
+   "name": "Gabe Jacas",
+   "group": "DL",
+   "awarded": 16.07,
+   "computed": 16.8722,
+   "diff": 0.8022,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "13368",
+   "name": "Jermod McCoy",
+   "group": "DB",
+   "awarded": 3.46,
+   "computed": 2.13,
+   "diff": -1.33,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_solo",
+   "detail": "idp_tkl_solo: host +2.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_solo": [
+     2.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "12639",
+   "name": "Malachi Moore",
+   "group": "DB",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "13481",
+   "name": "Bryce Boettcher",
+   "group": "LB",
+   "awarded": 4.26,
+   "computed": 5.06,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "13379",
+   "name": "Josiah Trotter",
+   "group": "LB",
+   "awarded": 12.78,
+   "computed": 13.58,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     6.0,
+     7.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "8112",
+   "name": "Drake London",
+   "group": "WR",
+   "awarded": 14.27,
+   "computed": 13.47,
+   "diff": -0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "non_idp_listed_assists_inseparable_from_special_teams",
+   "detail": "def_tackle_assists cannot be split into defensive vs special-teams assists",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "6901",
+   "name": "Joshua Metellus",
+   "group": "DB",
+   "awarded": 13.02,
+   "computed": null,
+   "diff": -13.02,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 2,
+   "sid": "10917",
+   "name": "Byron Young",
+   "group": "LB",
+   "awarded": 19.22,
+   "computed": null,
+   "diff": -19.22,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 2,
+   "sid": "12140",
+   "name": "Omar Speights",
+   "group": "LB",
+   "awarded": 3.73,
+   "computed": 4.53,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "8406",
+   "name": "Reed Blankenship",
+   "group": "DB",
+   "awarded": 5.59,
+   "computed": 7.71,
+   "diff": 2.12,
+   "class": "source_data_disagreement",
+   "subclass": "idp_hit",
+   "detail": "idp_hit: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_hit": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "11510",
+   "name": "Hunter Luepke",
+   "group": "FB",
+   "awarded": 0.11,
+   "computed": 1.11,
+   "diff": 1.0,
+   "class": "incorrect_position_classification",
+   "subclass": "FB_vs_nflverse_RB",
+   "detail": "position-scoped key bonus_fd_rb paid under the provider's listing, not the host's",
+   "keysDiffer": {
+    "bonus_fd_rb": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "8267",
+   "name": "Nakobe Dean",
+   "group": "LB",
+   "awarded": 20.38,
+   "computed": 21.7056,
+   "diff": 1.3256,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_solo",
+   "detail": "idp_tkl_solo: host +6.000 vs nflverse +7.000 points",
+   "keysDiffer": {
+    "idp_tkl_solo": [
+     6.0,
+     7.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "12591",
+   "name": "Xavier Watts",
+   "group": "DB",
+   "awarded": 12.49,
+   "computed": 13.02,
+   "diff": 0.53,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     1.0
+    ],
+    "idp_tkl_solo": [
+     5.0,
+     6.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "6872",
+   "name": "Kyle Dugger",
+   "group": "DB",
+   "awarded": 1.33,
+   "computed": 2.13,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "13373",
+   "name": "Caden Curry",
+   "group": "DL",
+   "awarded": 1.33,
+   "computed": 2.13,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 2,
+   "sid": "8286",
+   "name": "Dax Hill",
+   "group": "DB",
+   "awarded": 31.32,
+   "computed": null,
+   "diff": -31.32,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 2,
+   "sid": "11727",
+   "name": "Payton Wilson",
+   "group": "LB",
+   "awarded": 13.55,
+   "computed": 14.35,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "11669",
+   "name": "Laiatu Latu",
+   "group": "DL",
+   "awarded": 3.45,
+   "computed": 4.78,
+   "diff": 1.33,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_solo",
+   "detail": "idp_tkl_solo: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_solo": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "11668",
+   "name": "Byron Murphy II",
+   "group": "DL",
+   "awarded": 8.78,
+   "computed": null,
+   "diff": -8.78,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 3,
+   "sid": "13391",
+   "name": "Jake Golday",
+   "group": "LB",
+   "awarded": 1.33,
+   "computed": 2.13,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "6794",
+   "name": "Justin Jefferson",
+   "group": "WR",
+   "awarded": 6.19,
+   "computed": null,
+   "diff": -6.19,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 3,
+   "sid": "5947",
+   "name": "Jakobi Meyers",
+   "group": "WR",
+   "awarded": 22.29,
+   "computed": 21.49,
+   "diff": -0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "non_idp_listed_assists_inseparable_from_special_teams",
+   "detail": "def_tackle_assists cannot be split into defensive vs special-teams assists",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "4032",
+   "name": "Jonathan Allen",
+   "group": "DL",
+   "awarded": 6.64,
+   "computed": 5.84,
+   "diff": -0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "13376",
+   "name": "Caleb Downs",
+   "group": "DB",
+   "awarded": 3.46,
+   "computed": 3.99,
+   "diff": 0.53,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +0.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     0.0
+    ],
+    "idp_tkl_solo": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "5041",
+   "name": "Fred Warner",
+   "group": "LB",
+   "awarded": 23.67,
+   "computed": 24.2,
+   "diff": 0.53,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +10.000 vs nflverse +9.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     10.0,
+     9.0
+    ],
+    "idp_tkl_solo": [
+     7.0,
+     8.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "5864",
+   "name": "Byron Murphy Jr.",
+   "group": "DB",
+   "awarded": 0.8,
+   "computed": null,
+   "diff": -0.8,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 3,
+   "sid": "8330",
+   "name": "Quentin Lake",
+   "group": "DB",
+   "awarded": 10.89,
+   "computed": 11.69,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "12648",
+   "name": "Cody Simon",
+   "group": "LB",
+   "awarded": 0.0,
+   "computed": 1.6,
+   "diff": 1.6,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "13360",
+   "name": "Emmanuel McNeil-Warren",
+   "group": "DB",
+   "awarded": 2.4,
+   "computed": 4.0,
+   "diff": 1.6,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +5.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     5.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "13366",
+   "name": "Joshua Josephs",
+   "group": "DL",
+   "awarded": 8.5,
+   "computed": 9.3,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "11724",
+   "name": "Trevin Wallace",
+   "group": "LB",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "7715",
+   "name": "Cam Bynum",
+   "group": "DB",
+   "awarded": 2.13,
+   "computed": null,
+   "diff": -2.13,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 3,
+   "sid": "7419",
+   "name": "James Pierre",
+   "group": "DB",
+   "awarded": 8.25,
+   "computed": 9.05,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "6949",
+   "name": "Jordyn Brooks",
+   "group": "LB",
+   "awarded": 11.71,
+   "computed": 9.59,
+   "diff": -2.12,
+   "class": "source_data_disagreement",
+   "subclass": "idp_hit",
+   "detail": "idp_hit: host +1.000 vs nflverse +0.000 points",
+   "keysDiffer": {
+    "idp_hit": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "8314",
+   "name": "Jalen Pitre",
+   "group": "DB",
+   "awarded": 12.2,
+   "computed": 6.9,
+   "diff": -5.3,
+   "class": "source_data_disagreement",
+   "subclass": "idp_pd",
+   "detail": "idp_pd: host +2.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_pd": [
+     2.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "13324",
+   "name": "Matt Hibner",
+   "group": "TE",
+   "awarded": 10.75,
+   "computed": null,
+   "diff": -10.75,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 3,
+   "sid": "6901",
+   "name": "Joshua Metellus",
+   "group": "DB",
+   "awarded": 18.31,
+   "computed": null,
+   "diff": -18.31,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 3,
+   "sid": "10935",
+   "name": "Trenton Simpson",
+   "group": "LB",
+   "awarded": 22.04,
+   "computed": 19.92,
+   "diff": -2.12,
+   "class": "source_data_disagreement",
+   "subclass": "idp_hit",
+   "detail": "idp_hit: host +1.000 vs nflverse +0.000 points",
+   "keysDiffer": {
+    "idp_hit": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "8382",
+   "name": "Kingsley Enagbare",
+   "group": "DL",
+   "awarded": 2.66,
+   "computed": 3.46,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "8476",
+   "name": "DaRon Bland",
+   "group": "DB",
+   "awarded": 6.37,
+   "computed": 5.57,
+   "diff": -0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +0.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "10917",
+   "name": "Byron Young",
+   "group": "LB",
+   "awarded": 3.2,
+   "computed": null,
+   "diff": -3.2,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 3,
+   "sid": "12712",
+   "name": "Marcus Harris",
+   "group": "DB",
+   "awarded": 15.4,
+   "computed": null,
+   "diff": -15.4,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 3,
+   "sid": "2216",
+   "name": "Mike Evans",
+   "group": "WR",
+   "awarded": 12.51,
+   "computed": 13.51,
+   "diff": 1.0,
+   "class": "source_data_disagreement",
+   "subclass": "bonus_fd_wr",
+   "detail": "bonus_fd_wr: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "bonus_fd_wr": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "11086",
+   "name": "Ivan Pace Jr.",
+   "group": "LB",
+   "awarded": 7.63,
+   "computed": 8.4333,
+   "diff": 0.8033,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "13555",
+   "name": "Harold Perkins Jr.",
+   "group": "LB",
+   "awarded": 3.46,
+   "computed": 4.26,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "13406",
+   "name": "Kamari Ramsey",
+   "group": "DB",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "13517",
+   "name": "Michael Taaffe",
+   "group": "DB",
+   "awarded": 5.06,
+   "computed": 6.66,
+   "diff": 1.6,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +5.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     5.0
+    ]
+   }
+  },
+  {
+   "week": 3,
+   "sid": "8286",
+   "name": "Dax Hill",
+   "group": "DB",
+   "awarded": 9.56,
+   "computed": null,
+   "diff": -9.56,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 3,
+   "sid": "13364",
+   "name": "Cashius Howell",
+   "group": "DL",
+   "awarded": 5.57,
+   "computed": 6.37,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "6797",
+   "name": "Justin Herbert",
+   "group": "QB",
+   "awarded": 5.01,
+   "computed": 4.21,
+   "diff": -0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "non_idp_listed_assists_inseparable_from_special_teams",
+   "detail": "def_tackle_assists cannot be split into defensive vs special-teams assists",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "11668",
+   "name": "Byron Murphy II",
+   "group": "DL",
+   "awarded": 11.39,
+   "computed": null,
+   "diff": -11.39,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 4,
+   "sid": "10914",
+   "name": "Daiyan Henley",
+   "group": "LB",
+   "awarded": 11.95,
+   "computed": 12.48,
+   "diff": 0.53,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     1.0
+    ],
+    "idp_tkl_solo": [
+     3.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "13376",
+   "name": "Caleb Downs",
+   "group": "DB",
+   "awarded": 7.45,
+   "computed": 8.25,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "5864",
+   "name": "Byron Murphy Jr.",
+   "group": "DB",
+   "awarded": 2.13,
+   "computed": null,
+   "diff": -2.13,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 4,
+   "sid": "8330",
+   "name": "Quentin Lake",
+   "group": "DB",
+   "awarded": 5.06,
+   "computed": 5.86,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +4.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "13360",
+   "name": "Emmanuel McNeil-Warren",
+   "group": "DB",
+   "awarded": 13.53,
+   "computed": 14.33,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "6315",
+   "name": "Tyrel Dodson",
+   "group": "LB",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "7715",
+   "name": "Cam Bynum",
+   "group": "DB",
+   "awarded": 8.75,
+   "computed": null,
+   "diff": -8.75,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 4,
+   "sid": "11647",
+   "name": "Kimani Vidal",
+   "group": "RB",
+   "awarded": 13.0,
+   "computed": 12.2,
+   "diff": -0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "non_idp_listed_assists_inseparable_from_special_teams",
+   "detail": "def_tackle_assists cannot be split into defensive vs special-teams assists",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "7670",
+   "name": "Joshua Palmer",
+   "group": "WR",
+   "awarded": 2.0,
+   "computed": null,
+   "diff": -2.0,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 4,
+   "sid": "10880",
+   "name": "Jack Campbell",
+   "group": "LB",
+   "awarded": 15.17,
+   "computed": 16.5,
+   "diff": 1.33,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_solo",
+   "detail": "idp_tkl_solo: host +5.000 vs nflverse +6.000 points",
+   "keysDiffer": {
+    "idp_tkl_solo": [
+     5.0,
+     6.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "12978",
+   "name": "Elijah Ponder",
+   "group": "DL",
+   "awarded": 19.02,
+   "computed": 19.8244,
+   "diff": 0.8044,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "7841",
+   "name": "Jamien Sherwood",
+   "group": "LB",
+   "awarded": 17.29,
+   "computed": 22.59,
+   "diff": 5.3,
+   "class": "source_data_disagreement",
+   "subclass": "idp_pd",
+   "detail": "idp_pd: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_pd": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "4224",
+   "name": "Chuck Clark",
+   "group": "DB",
+   "awarded": 9.05,
+   "computed": 7.72,
+   "diff": -1.33,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_solo",
+   "detail": "idp_tkl_solo: host +5.000 vs nflverse +4.000 points",
+   "keysDiffer": {
+    "idp_tkl_solo": [
+     5.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "11686",
+   "name": "Javon Bullard",
+   "group": "DB",
+   "awarded": 6.13,
+   "computed": 6.93,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     6.0,
+     7.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "13324",
+   "name": "Matt Hibner",
+   "group": "TE",
+   "awarded": 6.1,
+   "computed": null,
+   "diff": -6.1,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 4,
+   "sid": "8659",
+   "name": "Nate Landman",
+   "group": "LB",
+   "awarded": 9.32,
+   "computed": 10.12,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +6.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     5.0,
+     6.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "12645",
+   "name": "David Walker",
+   "group": "LB",
+   "awarded": 2.66,
+   "computed": 3.46,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "6901",
+   "name": "Joshua Metellus",
+   "group": "DB",
+   "awarded": 10.89,
+   "computed": null,
+   "diff": -10.89,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 4,
+   "sid": "10917",
+   "name": "Byron Young",
+   "group": "LB",
+   "awarded": 35.52,
+   "computed": null,
+   "diff": -35.52,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 4,
+   "sid": "12712",
+   "name": "Marcus Harris",
+   "group": "DB",
+   "awarded": 7.75,
+   "computed": null,
+   "diff": -7.75,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 4,
+   "sid": "8406",
+   "name": "Reed Blankenship",
+   "group": "DB",
+   "awarded": 10.65,
+   "computed": 11.45,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +6.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     5.0,
+     6.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "8367",
+   "name": "D'Marco Jackson",
+   "group": "LB",
+   "awarded": 1.6,
+   "computed": 2.4,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "6941",
+   "name": "Troy Dye",
+   "group": "LB",
+   "awarded": 21.43,
+   "computed": 22.23,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "11086",
+   "name": "Ivan Pace Jr.",
+   "group": "LB",
+   "awarded": 0.8,
+   "computed": 1.6,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "13555",
+   "name": "Harold Perkins Jr.",
+   "group": "LB",
+   "awarded": 20.18,
+   "computed": 20.9789,
+   "diff": 0.7989,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 4,
+   "sid": "8286",
+   "name": "Dax Hill",
+   "group": "DB",
+   "awarded": 6.9,
+   "computed": null,
+   "diff": -6.9,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 5,
+   "sid": "8395",
+   "name": "Dane Belton",
+   "group": "DB",
+   "awarded": 17.14,
+   "computed": 17.9367,
+   "diff": 0.7967,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +4.000 vs nflverse +5.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     4.0,
+     5.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "12567",
+   "name": "Malaki Starks",
+   "group": "DB",
+   "awarded": 18.86,
+   "computed": 19.66,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "11668",
+   "name": "Byron Murphy II",
+   "group": "DL",
+   "awarded": 33.7,
+   "computed": null,
+   "diff": -33.7,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 5,
+   "sid": "10914",
+   "name": "Daiyan Henley",
+   "group": "LB",
+   "awarded": 13.28,
+   "computed": 11.16,
+   "diff": -2.12,
+   "class": "source_data_disagreement",
+   "subclass": "idp_hit",
+   "detail": "idp_hit: host +1.000 vs nflverse +0.000 points",
+   "keysDiffer": {
+    "idp_hit": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "6794",
+   "name": "Justin Jefferson",
+   "group": "WR",
+   "awarded": 19.78,
+   "computed": null,
+   "diff": -19.78,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 5,
+   "sid": "5864",
+   "name": "Byron Murphy Jr.",
+   "group": "DB",
+   "awarded": 30.99,
+   "computed": null,
+   "diff": -30.99,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 5,
+   "sid": "8330",
+   "name": "Quentin Lake",
+   "group": "DB",
+   "awarded": 6.12,
+   "computed": 6.92,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "12648",
+   "name": "Cody Simon",
+   "group": "LB",
+   "awarded": 1.33,
+   "computed": 2.93,
+   "diff": 1.6,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "13360",
+   "name": "Emmanuel McNeil-Warren",
+   "group": "DB",
+   "awarded": 2.66,
+   "computed": 3.46,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "11724",
+   "name": "Trevin Wallace",
+   "group": "LB",
+   "awarded": 3.19,
+   "computed": 3.99,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "7715",
+   "name": "Cam Bynum",
+   "group": "DB",
+   "awarded": 3.46,
+   "computed": null,
+   "diff": -3.46,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 5,
+   "sid": "11739",
+   "name": "Evan Williams",
+   "group": "DB",
+   "awarded": 15.7,
+   "computed": 16.5,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +4.000 vs nflverse +5.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     4.0,
+     5.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "5871",
+   "name": "Zach Allen",
+   "group": "DL",
+   "awarded": 21.69,
+   "computed": 17.45,
+   "diff": -4.24,
+   "class": "source_data_disagreement",
+   "subclass": "idp_hit",
+   "detail": "idp_hit: host +3.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_hit": [
+     3.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "10883",
+   "name": "Will McDonald IV",
+   "group": "DL",
+   "awarded": 16.83,
+   "computed": 18.4311,
+   "diff": 1.6011,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "7782",
+   "name": "Isaiah McDuffie",
+   "group": "LB",
+   "awarded": 5.59,
+   "computed": 6.39,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "11427",
+   "name": "Christian Izien",
+   "group": "DB",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "2617",
+   "name": "Alex Singleton",
+   "group": "LB",
+   "awarded": 13.29,
+   "computed": 12.49,
+   "diff": -0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "11193",
+   "name": "Brenton Cox Jr.",
+   "group": "LB",
+   "awarded": 6.11,
+   "computed": 3.99,
+   "diff": -2.12,
+   "class": "source_data_disagreement",
+   "subclass": "idp_hit",
+   "detail": "idp_hit: host +1.000 vs nflverse +0.000 points",
+   "keysDiffer": {
+    "idp_hit": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "12645",
+   "name": "David Walker",
+   "group": "LB",
+   "awarded": 2.92,
+   "computed": 3.72,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "6901",
+   "name": "Joshua Metellus",
+   "group": "DB",
+   "awarded": 6.12,
+   "computed": null,
+   "diff": -6.12,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 5,
+   "sid": "6921",
+   "name": "Josh Uche",
+   "group": "LB",
+   "awarded": 3.46,
+   "computed": null,
+   "diff": -3.46,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 5,
+   "sid": "10917",
+   "name": "Byron Young",
+   "group": "LB",
+   "awarded": 7.7,
+   "computed": null,
+   "diff": -7.7,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 5,
+   "sid": "12712",
+   "name": "Marcus Harris",
+   "group": "DB",
+   "awarded": 0.8,
+   "computed": null,
+   "diff": -0.8,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 5,
+   "sid": "11510",
+   "name": "Hunter Luepke",
+   "group": "FB",
+   "awarded": 1.84,
+   "computed": 2.84,
+   "diff": 1.0,
+   "class": "incorrect_position_classification",
+   "subclass": "FB_vs_nflverse_RB",
+   "detail": "position-scoped key bonus_fd_rb paid under the provider's listing, not the host's",
+   "keysDiffer": {
+    "bonus_fd_rb": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "11734",
+   "name": "Tyrice Knight",
+   "group": "LB",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "11744",
+   "name": "Dadrion Taylor-Demerson",
+   "group": "DB",
+   "awarded": 6.12,
+   "computed": 6.92,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "13373",
+   "name": "Caden Curry",
+   "group": "DL",
+   "awarded": 1.33,
+   "computed": 2.13,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "13367",
+   "name": "Colton Hood",
+   "group": "DB",
+   "awarded": 2.66,
+   "computed": 3.46,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 5,
+   "sid": "8286",
+   "name": "Dax Hill",
+   "group": "DB",
+   "awarded": 4.79,
+   "computed": null,
+   "diff": -4.79,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 6,
+   "sid": "11700",
+   "name": "Dru Phillips",
+   "group": "DB",
+   "awarded": 4.79,
+   "computed": null,
+   "diff": -4.79,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 6,
+   "sid": "11668",
+   "name": "Byron Murphy II",
+   "group": "DL",
+   "awarded": 2.93,
+   "computed": null,
+   "diff": -2.93,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 6,
+   "sid": "12648",
+   "name": "Cody Simon",
+   "group": "LB",
+   "awarded": 5.57,
+   "computed": 7.17,
+   "diff": 1.6,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "7715",
+   "name": "Cam Bynum",
+   "group": "DB",
+   "awarded": 13.53,
+   "computed": null,
+   "diff": -13.53,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 6,
+   "sid": "13340",
+   "name": "Rueben Bain Jr.",
+   "group": "DL",
+   "awarded": 19.2,
+   "computed": 18.3989,
+   "diff": -0.8011,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     3.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "7670",
+   "name": "Joshua Palmer",
+   "group": "WR",
+   "awarded": 6.07,
+   "computed": null,
+   "diff": -6.07,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 6,
+   "sid": "13363",
+   "name": "David Bailey",
+   "group": "LB",
+   "awarded": 15.93,
+   "computed": 15.13,
+   "diff": -0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +4.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     5.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "11678",
+   "name": "Cooper DeJean",
+   "group": "DB",
+   "awarded": 16.19,
+   "computed": 17.52,
+   "diff": 1.33,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_solo",
+   "detail": "idp_tkl_solo: host +5.000 vs nflverse +6.000 points",
+   "keysDiffer": {
+    "idp_tkl_solo": [
+     5.0,
+     6.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "10898",
+   "name": "Tuli Tuipulotu",
+   "group": "DL",
+   "awarded": 5.85,
+   "computed": 3.73,
+   "diff": -2.12,
+   "class": "source_data_disagreement",
+   "subclass": "idp_hit",
+   "detail": "idp_hit: host +1.000 vs nflverse +0.000 points",
+   "keysDiffer": {
+    "idp_hit": [
+     1.0,
+     0.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "7630",
+   "name": "Greg Newsome II",
+   "group": "DB",
+   "awarded": 8.76,
+   "computed": 8.23,
+   "diff": -0.53,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     1.0,
+     2.0
+    ],
+    "idp_tkl_solo": [
+     2.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "8122",
+   "name": "Zonovan Knight",
+   "group": "RB",
+   "awarded": 16.4,
+   "computed": null,
+   "diff": -16.4,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_join_miss",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 6,
+   "sid": "13389",
+   "name": "Avieon Terrell",
+   "group": "DB",
+   "awarded": 7.45,
+   "computed": 6.12,
+   "diff": -1.33,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_solo",
+   "detail": "idp_tkl_solo: host +5.000 vs nflverse +4.000 points",
+   "keysDiffer": {
+    "idp_tkl_solo": [
+     5.0,
+     4.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "12639",
+   "name": "Malachi Moore",
+   "group": "DB",
+   "awarded": 1.33,
+   "computed": 2.13,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "13379",
+   "name": "Josiah Trotter",
+   "group": "LB",
+   "awarded": 16.75,
+   "computed": 17.55,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +6.000 vs nflverse +7.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     6.0,
+     7.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "8349",
+   "name": "Jake Hansen",
+   "group": "LB",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "10903",
+   "name": "Quan Martin",
+   "group": "DB",
+   "awarded": 1.6,
+   "computed": 2.4,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "10917",
+   "name": "Byron Young",
+   "group": "LB",
+   "awarded": 13.81,
+   "computed": null,
+   "diff": -13.81,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 6,
+   "sid": "12712",
+   "name": "Marcus Harris",
+   "group": "DB",
+   "awarded": 9.03,
+   "computed": null,
+   "diff": -9.03,
+   "class": "incorrect_player_identity",
+   "subclass": "identity_name_collision_dropped",
+   "detail": "name key did not resolve to one nflverse player",
+   "keysDiffer": {}
+  },
+  {
+   "week": 6,
+   "sid": "6941",
+   "name": "Troy Dye",
+   "group": "LB",
+   "awarded": 12.48,
+   "computed": 13.28,
+   "diff": 0.8,
+   "class": "irreconcilable_provider_semantics",
+   "subclass": "special_teams_assists_lumped",
+   "detail": "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "11734",
+   "name": "Tyrice Knight",
+   "group": "LB",
+   "awarded": 8.25,
+   "computed": 9.05,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     2.0,
+     3.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "12591",
+   "name": "Xavier Watts",
+   "group": "DB",
+   "awarded": 7.17,
+   "computed": 8.5,
+   "diff": 1.33,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_solo",
+   "detail": "idp_tkl_solo: host +1.000 vs nflverse +2.000 points",
+   "keysDiffer": {
+    "idp_tkl_solo": [
+     1.0,
+     2.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "13373",
+   "name": "Caden Curry",
+   "group": "DL",
+   "awarded": 0.0,
+   "computed": 0.8,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  },
+  {
+   "week": 6,
+   "sid": "13555",
+   "name": "Harold Perkins Jr.",
+   "group": "LB",
+   "awarded": 7.18,
+   "computed": 7.98,
+   "diff": 0.8,
+   "class": "source_data_disagreement",
+   "subclass": "idp_tkl_ast",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "keysDiffer": {
+    "idp_tkl_ast": [
+     0.0,
+     1.0
+    ]
+   }
+  }
+ ],
+ "wideSampleBdvmImpact": {
+  "method": "dMuPost = (1 - n_prior/(n_prior+weeks)) * (mean nflverse-path PPG - mean host-native PPG) over the same weeks; params config/bdvm/params_v1.json; descriptive only",
+  "join": "GSIS id where Sleeper's directory has one, else unique normalized name; rows with neither are skipped (identity is a separate census class)",
+  "joinCounts": {
+   "gsis": 1068,
+   "name": 5309,
+   "unjoined": 111
+  },
+  "bySide": {
+   "IDP": {
+    "largestMoves": [
+     {
+      "name": "A.J. Terrell",
+      "group": "DB",
+      "weeks": 2,
+      "absDeltaMuPost": 0.53
+     },
+     {
+      "name": "Jalen Pitre",
+      "group": "DB",
+      "weeks": 5,
+      "absDeltaMuPost": 0.408
+     },
+     {
+      "name": "Roquan Smith",
+      "group": "LB",
+      "weeks": 6,
+      "absDeltaMuPost": 0.379
+     },
+     {
+      "name": "Jamien Sherwood",
+      "group": "LB",
+      "weeks": 6,
+      "absDeltaMuPost": 0.379
+     },
+     {
+      "name": "Denzel Ward",
+      "group": "DB",
+      "weeks": 6,
+      "absDeltaMuPost": 0.379
+     }
+    ],
+    "playersWithSamples": 844,
+    "moved": {
+     ">0.01": 297,
+     ">0.1": 172,
+     ">0.25": 30,
+     ">0.5": 1
+    },
+    "maxAbsDeltaMuPost": 0.53,
+    "meanAbsDeltaMuPost": 0.04888,
+    "meanSignedDeltaMuPost": 0.0359,
+    "p95AbsDeltaMuPost": 0.2286
+   },
+   "OFFENSE": {
+    "largestMoves": [
+     {
+      "name": "Colson Yankoff",
+      "group": "TE",
+      "weeks": 6,
+      "absDeltaMuPost": 0.708
+     },
+     {
+      "name": "Kyle Juszczyk",
+      "group": "FB",
+      "weeks": 4,
+      "absDeltaMuPost": 0.4
+     },
+     {
+      "name": "Hunter Luepke",
+      "group": "FB",
+      "weeks": 5,
+      "absDeltaMuPost": 0.364
+     },
+     {
+      "name": "Luke Farrell",
+      "group": "TE",
+      "weeks": 6,
+      "absDeltaMuPost": 0.354
+     },
+     {
+      "name": "DJ Herman",
+      "group": "RB",
+      "weeks": 2,
+      "absDeltaMuPost": 0.125
+     }
+    ],
+    "playersWithSamples": 777,
+    "moved": {
+     ">0.01": 24,
+     ">0.1": 10,
+     ">0.25": 4,
+     ">0.5": 1
+    },
+    "maxAbsDeltaMuPost": 0.7075,
+    "meanAbsDeltaMuPost": 0.00474,
+    "meanSignedDeltaMuPost": -0.00143,
+    "p95AbsDeltaMuPost": 0.0
+   },
+   "ALL": {
+    "largestMoves": [
+     {
+      "name": "Colson Yankoff",
+      "group": "TE",
+      "weeks": 6,
+      "absDeltaMuPost": 0.708
+     },
+     {
+      "name": "A.J. Terrell",
+      "group": "DB",
+      "weeks": 2,
+      "absDeltaMuPost": 0.53
+     },
+     {
+      "name": "Jalen Pitre",
+      "group": "DB",
+      "weeks": 5,
+      "absDeltaMuPost": 0.408
+     },
+     {
+      "name": "Kyle Juszczyk",
+      "group": "FB",
+      "weeks": 4,
+      "absDeltaMuPost": 0.4
+     },
+     {
+      "name": "Roquan Smith",
+      "group": "LB",
+      "weeks": 6,
+      "absDeltaMuPost": 0.379
+     }
+    ],
+    "playersWithSamples": 1621,
+    "moved": {
+     ">0.01": 321,
+     ">0.1": 182,
+     ">0.25": 34,
+     ">0.5": 2
+    },
+    "maxAbsDeltaMuPost": 0.7075,
+    "meanAbsDeltaMuPost": 0.02772,
+    "meanSignedDeltaMuPost": 0.018,
+    "p95AbsDeltaMuPost": 0.1775
+   }
+  }
+ },
+ "sourceTree": {
+  "label": "pr1938",
+  "realizedPointsSha256": "080540a194491d7b0d36102020259f2b93691b0256d332d124a99c20ad90efb6"
+ }
+}
