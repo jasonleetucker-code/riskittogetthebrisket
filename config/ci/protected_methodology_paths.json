@@ -1,19 +1,89 @@
 {
   "_comment": "Files that encode OWNER-RESERVED valuation / forecasting / decision methodology or activation state. Owner: scripts/check_pr_verification_receipt.py (owner master implementation directive 2026-11-08, Priority 4: automated detection of dangerous changes to evaluation methodology). A PR that changes any of these must state, in its Feature verification receipt, a 'Methodology authorization:' line citing the owner decision that authorizes the change, or 'n/a — <reason>' explaining why no methodology, canonical value or activation state changes (e.g. a new flag registered default OFF, a comment-only edit). The check cannot verify the decision itself; it makes the change impossible to miss in review. Automated accounts that the receipt check already exempts (the Hill Autopilot / data refresh bots) are unaffected. Patterns: a trailing '/' matches a directory prefix; otherwise an exact path.",
   "paths": [
-    {"pattern": "src/canonical/player_valuation.py", "concept": "Hill curve constants / canonical value scale"},
-    {"pattern": "config/model_registry/", "concept": "Hill scope-master versions and promotion records"},
-    {"pattern": "config/weights/", "concept": "pick-year discount, TE curve, coverage floors"},
-    {"pattern": "config/trade/package_model.json", "concept": "active package model (geom_q078_v1)"},
-    {"pattern": "config/trade/faab.json", "concept": "FAAB engine parameters"},
-    {"pattern": "config/sources/freshness_v1.json", "concept": "source freshness weighting"},
-    {"pattern": "config/sources/freshness_schedule_v2.json", "concept": "owner-held freshness step schedule"},
-    {"pattern": "config/sources/source_lineage.json", "concept": "source lineage / provider families (voting independence)"},
-    {"pattern": "config/confidence/gate_v1.json", "concept": "confidence gate parameters"},
-    {"pattern": "config/bdvm/params_v1.json", "concept": "BDVM priors"},
-    {"pattern": "config/league_intel/", "concept": "league-intelligence canonical config"},
-    {"pattern": "config/leagues/playoff_rules.json", "concept": "per-league playoff / division rules (owner product decision)"},
-    {"pattern": "config/leagues/draft_order_rules.json", "concept": "per-league rookie draft-order rule (owner decision)"},
-    {"pattern": "src/api/feature_flags.py", "concept": "feature flag registry and defaults (activation state)"}
+    {
+      "pattern": "src/canonical/player_valuation.py",
+      "concept": "Hill curve constants / canonical value scale"
+    },
+    {
+      "pattern": "config/model_registry/",
+      "concept": "Hill scope-master versions and promotion records"
+    },
+    {
+      "pattern": "config/weights/",
+      "concept": "pick-year discount, TE curve, coverage floors"
+    },
+    {
+      "pattern": "config/trade/package_model.json",
+      "concept": "active package model (geom_q078_v1)"
+    },
+    {
+      "pattern": "config/trade/faab.json",
+      "concept": "FAAB engine parameters"
+    },
+    {
+      "pattern": "config/confidence/gate_v1.json",
+      "concept": "confidence gate parameters"
+    },
+    {
+      "pattern": "config/bdvm/params_v1.json",
+      "concept": "BDVM priors"
+    },
+    {
+      "pattern": "config/league_intel/",
+      "concept": "league-intelligence canonical config"
+    },
+    {
+      "pattern": "config/leagues/playoff_rules.json",
+      "concept": "per-league playoff / division rules (owner product decision)"
+    },
+    {
+      "pattern": "config/leagues/draft_order_rules.json",
+      "concept": "per-league rookie draft-order rule (owner decision)"
+    },
+    {
+      "pattern": "src/api/feature_flags.py",
+      "concept": "feature flag registry and defaults (activation state)"
+    },
+    {
+      "pattern": "config/sources/",
+      "concept": "source registry policy: freshness, lineage / families, seasonal and rehabilitation rules"
+    },
+    {
+      "pattern": "src/api/data_contract.py",
+      "concept": "canonical value pipeline (_RANKING_SOURCES weights, voting, blend)"
+    },
+    {
+      "pattern": "src/canonical/tail_policy.py",
+      "concept": "Hill tail saturation policy"
+    },
+    {
+      "pattern": "src/canonical/calibration.py",
+      "concept": "canonical calibration"
+    },
+    {
+      "pattern": "src/valuation_math/package_model.py",
+      "concept": "package model dispatch / geometric utility"
+    },
+    {
+      "pattern": "src/sources/voting_status.py",
+      "concept": "per-source voting status"
+    },
+    {
+      "pattern": "src/league_intel/te_premium.py",
+      "concept": "TE basis conversion / TE demand"
+    },
+    {
+      "pattern": "config/trade/fairness_bands.json",
+      "concept": "trade fairness bands"
+    },
+    {
+      "pattern": "config/trade/decision_engine_v1.json",
+      "concept": "trade decision engine parameters"
+    },
+    {
+      "pattern": "config/leagues/registry.json",
+      "concept": "league registry (settings, starters, profiles)"
+    }
   ]
 }

@@ -116,11 +116,23 @@ _METHODOLOGY_RE = re.compile(
 )
 
 
+class ManifestError(ValueError):
+    """The protected-methodology manifest is missing, unreadable or empty."""
+
+
 def load_protected_paths(path: Path | None = None) -> list[tuple[str, str]]:
-    """``[(pattern, concept)]`` from the manifest.  An unreadable manifest is a
-    usage error upstream (exit 2), never a silent pass."""
-    data = json.loads((path or PROTECTED_MANIFEST).read_text(encoding="utf-8"))
-    return [(str(e["pattern"]), str(e.get("concept") or "")) for e in data["paths"]]
+    """``[(pattern, concept)]`` from the manifest.  Missing, unreadable or EMPTY
+    is a ``ManifestError`` (exit 2 in ``main``), never a silent pass: an empty
+    list would protect nothing."""
+    target = path or PROTECTED_MANIFEST
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+        entries = [(str(e["pattern"]), str(e.get("concept") or "")) for e in data["paths"]]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ManifestError(f"protected methodology manifest unreadable: {target}: {exc}") from exc
+    if not entries or any(not pattern for pattern, _ in entries):
+        raise ManifestError(f"protected methodology manifest lists no usable paths: {target}")
+    return entries
 
 
 def protected_hits(files: list[str], protected: list[tuple[str, str]]) -> list[tuple[str, str]]:
@@ -141,14 +153,30 @@ def methodology_problem(section: str | None) -> str | None:
     """Why the receipt's methodology line is missing or empty, or ``None``."""
     if section is None:
         return f"{METHODOLOGY_LABEL}: field missing (receipt section missing)"
-    value = None
+    # Same reading rules as ``parse_fields``: a line inside a fenced block is
+    # never a field, and continuation lines join the value until the next
+    # bullet or fence.
+    value: list[str] | None = None
+    in_fence = False
     for line in section.split("\n"):
-        m = _METHODOLOGY_RE.match(line)
-        if m:
-            value = m.group(1)
+        if _is_fence(line):
+            in_fence = not in_fence
+            if value is not None:
+                break
+            continue
+        if in_fence:
+            continue
+        if value is None:
+            m = _METHODOLOGY_RE.match(line)
+            if m:
+                value = [m.group(1)]
+            continue
+        if re.match(r"^\s{0,1}(?:[-*+]|\d+[.)])\s+", line):
             break
+        value.append(line)
     if value is None:
         return f"{METHODOLOGY_LABEL}: field missing"
+    value = "\n".join(value).strip()
     problem = field_problem("methodology", value)
     return f"{METHODOLOGY_LABEL}: {problem}" if problem else None
 
@@ -409,7 +437,11 @@ def main(argv: list[str] | None = None) -> int:
         print("error: need --files-from or --base/--head", file=sys.stderr)
         return 2
 
-    code, report = run(body, files, author)
+    try:
+        code, report = run(body, files, author)
+    except ManifestError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     print(report)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:

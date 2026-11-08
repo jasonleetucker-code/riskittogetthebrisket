@@ -356,3 +356,45 @@ def test_shipped_manifest_lists_only_existing_paths():
     for pattern, concept in entries:
         assert concept, pattern
         assert (root / pattern).exists(), f"protected path {pattern} does not exist"
+
+
+def test_a_fenced_methodology_line_does_not_count():
+    b = body().replace(
+        "- State:",
+        "```\n- Methodology authorization: owner decision X\n```\n- State:",
+    )
+    code, rep = mod.run(b, ["config/weights/x.json"], "alice", PROT)
+    assert code == 1 and "Methodology authorization: field missing" in rep
+
+
+def test_a_methodology_value_on_a_continuation_line_counts():
+    b = body().replace(
+        "- State:",
+        "- Methodology authorization:\n  owner decision 2026-10-17 (package model)\n- State:",
+    )
+    assert mod.run(b, ["config/weights/x.json"], "alice", PROT)[0] == 0
+
+
+def test_an_empty_manifest_fails_closed(tmp_path):
+    empty = tmp_path / "m.json"
+    empty.write_text('{"paths": []}', encoding="utf-8")
+    with pytest.raises(mod.ManifestError):
+        mod.load_protected_paths(empty)
+
+
+def test_a_missing_manifest_fails_closed(tmp_path):
+    with pytest.raises(mod.ManifestError):
+        mod.load_protected_paths(tmp_path / "absent.json")
+
+
+def test_cli_exits_2_on_a_broken_manifest(tmp_path, monkeypatch, capsys):
+    bad = tmp_path / "m.json"
+    bad.write_text("{not json", encoding="utf-8")
+    monkeypatch.setattr(mod, "PROTECTED_MANIFEST", bad)
+    bf = tmp_path / "body.md"
+    bf.write_text(body(), encoding="utf-8")
+    files = tmp_path / "files.txt"
+    files.write_text("src/api/x.py\n", encoding="utf-8")
+    code = mod.main(["--body-file", str(bf), "--files-from", str(files), "--author", "alice"])
+    assert code == 2
+    assert "manifest unreadable" in capsys.readouterr().err
