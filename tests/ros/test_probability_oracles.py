@@ -22,9 +22,11 @@ Monte Carlo comparison uses a fixed seed and a 4-sigma binomial tolerance.
 
 from __future__ import annotations
 
+import copy
 import itertools
 import json
 import math
+import pathlib
 import random
 from types import SimpleNamespace
 from unittest import mock
@@ -55,17 +57,57 @@ def _snapshot(playoff_teams: int):
     )
 
 
-def _run(*, record, schedule, means, pf, playoff_teams=2, sims=SIMS, seed=11):
+def assert_pf_gaps_dominate_noise(owners, pf, means, schedule, *, ignore=()):
+    """Guard the design assumption the seeding oracles rest on.
+
+    The enumerations break points-for ties with the STATIC ``pf_to_date``.
+    That is only exact while no simulated season can reorder the owners'
+    final points-for.  A team's final PF is ``pf_to_date`` plus one N(mean,
+    sd) draw per remaining game, so the expected final order must equal the
+    static order with a margin of 8 standard deviations of the difference
+    (sd of a sum of G games, for two teams: sd * sqrt(2 G)).  Owners in
+    ``ignore`` are exempt (a deliberately strong team whose wins, not its PF,
+    decide its seed).  Fails loudly with the offending pair.
+    """
+    games = dict.fromkeys(owners, 0)
+    for _w, a, b in schedule:
+        games[a] += 1
+        games[b] += 1
+    live = [o for o in owners if o not in ignore]
+    expect = {o: pf[o] + games[o] * means[o] for o in live}
+    ranked = sorted(live, key=lambda o: -pf[o])
+    for hi, lo in itertools.pairwise(ranked):
+        margin = 8.0 * 1.0 * math.sqrt(2.0 * max(games[hi], games[lo], 1))
+        assert expect[hi] - expect[lo] > margin, (
+            f"PF-gap assumption violated for {hi} vs {lo}: expected final PF "
+            f"{expect[hi]:.1f} vs {expect[lo]:.1f}, margin {margin:.1f} -- the "
+            "static pf_to_date tiebreak in the enumeration is no longer exact"
+        )
+
+
+def _run_n(
+    *,
+    owners,
+    record,
+    schedule,
+    means,
+    pf,
+    seats,
+    byes=0,
+    reseed=True,
+    sims=SIMS,
+    seed=11,
+    standings_rule=None,
+    ignore_pf_guard=(),
+):
+    assert_pf_gaps_dominate_noise(owners, pf, means, schedule, ignore=ignore_pf_guard)
+    rule = standings_rule or {"medianGame": False, "state": "not_applicable"}
     dists = {
         o: playoff_sim._TeamDist(owner_id=o, mean=means[o], sd=1.0, pf_to_date=pf[o])
-        for o in OWNERS
+        for o in owners
     }
     with (
-        mock.patch.object(
-            playoff_sim,
-            "_current_standings",
-            lambda *a, **k: (record, {"medianGame": False, "state": "not_applicable"}),
-        ),
+        mock.patch.object(playoff_sim, "_current_standings", lambda *a, **k: (record, rule)),
         mock.patch.object(playoff_sim, "_remaining_schedule", lambda *a, **k: schedule),
         mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
         mock.patch.object(playoff_sim, "_league_best_ball", lambda *a, **k: False),
@@ -78,18 +120,32 @@ def _run(*, record, schedule, means, pf, playoff_teams=2, sims=SIMS, seed=11):
         ),
     ):
         out = playoff_sim.simulate_playoff_odds(
-            _snapshot(playoff_teams),
+            _snapshot(seats),
             n_simulations=sims,
             min_simulations=sims,
             max_simulations=sims,
             rng=random.Random(seed),
-            reseed=True,
-            playoff_seeds=playoff_teams,
-            bye_seeds=0,
+            reseed=reseed,
+            playoff_seeds=seats,
+            bye_seeds=byes,
         )
     assert "unsimulable" not in out, out.get("unsimulable")
     out = json.loads(json.dumps(out))
     return out, {r["ownerId"]: r for r in out["playoffOdds"]}
+
+
+def _run(*, record, schedule, means, pf, playoff_teams=2, sims=SIMS, seed=11, ignore_pf_guard=()):
+    return _run_n(
+        owners=OWNERS,
+        record=record,
+        schedule=schedule,
+        means=means,
+        pf=pf,
+        seats=playoff_teams,
+        sims=sims,
+        seed=seed,
+        ignore_pf_guard=ignore_pf_guard,
+    )
 
 
 # --------------------------------------------------------------------------
@@ -183,7 +239,9 @@ def test_one_stronger_team_with_deterministic_games():
     means = {"aa": 100.0, "bb": 100.0, "cc": 100.0, "dd": 140.0}
     schedule = _round_robin([1, 2])
     playoff, champ, _, _ = _expected(RECORD_LEVEL, schedule, means, PF, 2)
-    _payload, rows = _run(record=RECORD_LEVEL, schedule=schedule, means=means, pf=PF)
+    _payload, rows = _run(
+        record=RECORD_LEVEL, schedule=schedule, means=means, pf=PF, ignore_pf_guard=("dd",)
+    )
     assert rows["dd"]["playoffOdds"] == pytest.approx(1.0, abs=1e-9)
     for o in OWNERS:
         assert rows[o]["playoffOdds"] == pytest.approx(playoff[o], abs=_tol(playoff[o])), o
@@ -254,6 +312,9 @@ def test_draft_slot_distribution_matches_enumeration(weeks):
     _, _, _, draft = _expected(RECORD_LEVEL, schedule, EQUAL, PF, 2)
     payload, rows = _run(record=RECORD_LEVEL, schedule=schedule, means=EQUAL, pf=PF)
     assert payload["draftOrderRule"] is not None
+    # The record basis the order ranks on is STATED, not merely implied: with
+    # the median game off it is head-to-head results plus half-win ties.
+    assert payload["draftOrderRecordBasis"] == "head_to_head_with_half_win_ties"
     for o in OWNERS:
         dist = rows[o]["draftSlotDistribution"]
         assert sum(dist) == pytest.approx(1.0, abs=1e-9)
@@ -282,6 +343,479 @@ def test_draft_order_is_reverse_record_before_points_for():
     _payload, rows = _run(record=record, schedule=[], means=EQUAL, pf=PF, sims=2000)
     for slot, owner in enumerate(["aa", "bb", "cc", "dd"]):
         assert rows[owner]["draftSlotDistribution"][slot] == 1.0
+
+
+# --------------------------------------------------------------------------
+# 2b. PF-gap guard, byes / bracket depth, median-game counting
+# --------------------------------------------------------------------------
+def test_pf_gap_guard_fails_loudly_when_the_assumption_stops_holding():
+    # Passes for the suites' own inputs ...
+    assert_pf_gaps_dominate_noise(OWNERS, PF, EQUAL, _round_robin([1, 2]))
+    # ... and fails on gaps the simulated scoring could overturn (3-point gap,
+    # 6 games each at sd 1 -> margin ~27.7), naming the pair.
+    tight = {"aa": 1000.0, "bb": 997.0, "cc": 600.0, "dd": 400.0}
+    with pytest.raises(AssertionError, match="aa vs bb"):
+        assert_pf_gaps_dominate_noise(OWNERS, tight, EQUAL, _round_robin([1, 2]))
+    # A mean advantage that outruns the static gap is caught too (dd, mean 140,
+    # six games: expected final PF 1240 > aa's 1000) unless the team is exempt.
+    strong = {**EQUAL, "dd": 140.0}
+    with pytest.raises(AssertionError, match="dd"):
+        assert_pf_gaps_dominate_noise(OWNERS, PF, strong, _round_robin([1, 2]))
+    assert_pf_gaps_dominate_noise(OWNERS, PF, strong, _round_robin([1, 2]), ignore=("dd",))
+
+
+def _seed_order_n(owners, wins, pf):
+    return sorted(owners, key=lambda o: (-wins[o], -pf[o]))
+
+
+def _bracket(order, means, byes, reseed):
+    """Exact title / final-appearance probabilities for a seeded bracket.
+
+    Rules, from ``docs/playoffs/V1_51_CANONICAL_PLAYOFF_BRACKET.md`` and the
+    bracket convention it records: the top ``byes`` seeds sit out round one;
+    the rest play first-vs-last.  After round one a RESEED league pairs the
+    best surviving seed with the worst every round; a FIXED league keeps the
+    slot order (byes, then round-one winners in game order) and pairs slot s
+    with slot m+1-s, the winner keeping the smaller slot.
+    """
+    champ: dict[str, float] = {}
+    final: dict[str, float] = {}
+    rank = {o: i for i, o in enumerate(order)}
+
+    def games(teams, prob, then):
+        n = len(teams)
+        pairs = [(teams[i], teams[n - 1 - i]) for i in range(n // 2)]
+        mid = [teams[n // 2]] if n % 2 else []
+        for bits in itertools.product((0, 1), repeat=len(pairs)):
+            p, winners = prob, []
+            for (a, b), r in zip(pairs, bits, strict=True):
+                pa = _p_first_wins(means, a, b)
+                p *= pa if r else 1.0 - pa
+                winners.append(a if r else b)
+            if p > 0.0:
+                then(winners + mid, p)
+
+    def rounds(survivors, prob):
+        if reseed:
+            survivors = sorted(survivors, key=rank.__getitem__)
+        if len(survivors) == 1:
+            champ[survivors[0]] = champ.get(survivors[0], 0.0) + prob
+            return
+        if len(survivors) == 2:
+            for o in survivors:
+                final[o] = final.get(o, 0.0) + prob
+        games(survivors, prob, rounds)
+
+    bye_teams, contenders = list(order[:byes]), list(order[byes:])
+    if len(contenders) < 2:
+        rounds(bye_teams + contenders, 1.0)
+    else:
+        games(contenders, 1.0, lambda winners, p: rounds(bye_teams + winners, p))
+    return champ, final
+
+
+def _bracket_expected(owners, record, schedule, means, pf, seats, byes, reseed):
+    """Enumerate the regular season, then the bracket for every seed order."""
+    n = len(owners)
+    playoff = dict.fromkeys(owners, 0.0)
+    bye = dict.fromkeys(owners, 0.0)
+    top = dict.fromkeys(owners, 0.0)
+    champ = dict.fromkeys(owners, 0.0)
+    final = dict.fromkeys(owners, 0.0)
+    seed_dist = {o: [0.0] * n for o in owners}
+    games = [(a, b) for _w, a, b in schedule]
+    for results in itertools.product((0, 1), repeat=len(games)):
+        prob = 1.0
+        wins = {o: float(record[o]["wins"]) for o in owners}
+        for (a, b), r in zip(games, results, strict=True):
+            pa = _p_first_wins(means, a, b)
+            prob *= pa if r else 1.0 - pa
+            wins[a if r else b] += 1
+        if prob == 0.0:
+            continue
+        order = _seed_order_n(owners, wins, pf)
+        for i, o in enumerate(order):
+            seed_dist[o][i] += prob
+            if i < seats:
+                playoff[o] += prob
+            if i < byes:
+                bye[o] += prob
+        top[order[0]] += prob
+        c, f = _bracket(order[:seats], means, byes, reseed)
+        for o, p in c.items():
+            champ[o] += prob * p
+        for o, p in f.items():
+            final[o] += prob * p
+    return {
+        "playoff": playoff,
+        "bye": bye,
+        "top": top,
+        "champ": champ,
+        "final": final,
+        "seeds": seed_dist,
+    }
+
+
+def _assert_matches(rows, exp, owners):
+    for o in owners:
+        for field, key in (
+            ("playoffOdds", "playoff"),
+            ("byeOdds", "bye"),
+            ("topSeedOdds", "top"),
+            ("championshipOdds", "champ"),
+            ("finalsOdds", "final"),
+        ):
+            assert rows[o][field] == pytest.approx(exp[key][o], abs=_tol(exp[key][o])), (o, field)
+        for i, p in enumerate(exp["seeds"][o]):
+            assert rows[o]["seedDistribution"][i] == pytest.approx(p, abs=_tol(p)), (o, i)
+
+
+OWNERS8 = [f"o{i}" for i in range(1, 9)]
+PF8 = {o: 1000.0 - 100.0 * i for i, o in enumerate(OWNERS8)}  # o1 highest
+
+
+@pytest.mark.parametrize("reseed", [True, False])
+def test_six_seats_two_byes_with_random_seeding_matches_enumeration(reseed):
+    # 8 teams, 6 seats, 2 byes (next power of two 8 - 6 teams = 2 byes, the
+    # league's documented derivation).  Two weeks of coin-flip games make the
+    # seeding random; everything downstream is enumerated.
+    record = {o: {"wins": 1, "losses": 1, "ties": 0} for o in OWNERS8}
+    wk1 = [(1, OWNERS8[i], OWNERS8[i + 1]) for i in range(0, 8, 2)]
+    wk2 = [(2, OWNERS8[i], OWNERS8[i + 4]) for i in range(4)]
+    schedule = wk1 + wk2
+    means = dict.fromkeys(OWNERS8, 100.0)
+    exp = _bracket_expected(OWNERS8, record, schedule, means, PF8, 6, 2, reseed)
+    payload, rows = _run_n(
+        owners=OWNERS8,
+        record=record,
+        schedule=schedule,
+        means=means,
+        pf=PF8,
+        seats=6,
+        byes=2,
+        reseed=reseed,
+    )
+    assert payload["byeSeeds"] == 2 and payload["playoffSeeds"] == 6
+    _assert_matches(rows, exp, OWNERS8)
+    assert sum(r["byeOdds"] for r in rows.values()) == pytest.approx(2.0, abs=1e-3)
+    assert sum(r["playoffOdds"] for r in rows.values()) == pytest.approx(6.0, abs=1e-3)
+    assert sum(r["championshipOdds"] for r in rows.values()) == pytest.approx(1.0, abs=1e-3)
+    assert sum(r["finalsOdds"] for r in rows.values()) == pytest.approx(2.0, abs=1e-3)
+    # structural spot checks written by hand: a bye seed is 2 wins from a
+    # title (1/4 on equal strength), a round-one seed needs 3 (1/8).
+    c, _f = _bracket(OWNERS8[:6], means, 2, reseed)
+    assert c["o1"] == pytest.approx(0.25) and c["o3"] == pytest.approx(0.125)
+
+
+def test_fixed_and_reseeded_brackets_differ_and_both_match_enumeration():
+    # Seeds are certain (finished table, o1..o8 descending).  Strengths make
+    # round one go 6 over 3 (o6 200 vs o3 40) and o4/o5 a coin flip, then
+    # o1 160 / o2 130 (every gap >= 30 sd, so those games are certain): a FIXED bracket plays 1 v w(4/5), 2 v 6; a RESEEDED one
+    # plays 1 v 6, 2 v w(4/5) -- so the finalists differ.
+    record = {o: {"wins": 7 - i, "losses": i, "ties": 0} for i, o in enumerate(OWNERS8)}
+    means = {
+        "o1": 160.0,
+        "o2": 130.0,
+        "o3": 40.0,
+        "o4": 100.0,
+        "o5": 100.0,
+        "o6": 200.0,
+        "o7": 100.0,
+        "o8": 100.0,
+    }
+    expected = {}
+    for reseed in (True, False):
+        exp = _bracket_expected(OWNERS8, record, [], means, PF8, 6, 2, reseed)
+        expected[reseed] = exp
+        _payload, rows = _run_n(
+            owners=OWNERS8,
+            record=record,
+            schedule=[],
+            means=means,
+            pf=PF8,
+            seats=6,
+            byes=2,
+            reseed=reseed,
+        )
+        _assert_matches(rows, exp, OWNERS8)
+        # a finished table is certain: seeds 1-2 byes, 1-6 in, 7-8 out
+        assert [rows[o]["byeOdds"] for o in OWNERS8] == [1, 1, 0, 0, 0, 0, 0, 0]
+        assert [rows[o]["playoffOdds"] for o in OWNERS8] == [1, 1, 1, 1, 1, 1, 0, 0]
+    # the case discriminates: the two formats have different finalists
+    assert expected[True]["final"]["o2"] > 0.4 and expected[False]["final"]["o2"] == 0.0
+    assert expected[False]["final"]["o1"] > 0.9 and expected[True]["final"]["o1"] == 0.0
+
+
+def _median_expected(record, schedule, pf, seats):
+    """Enumerate every ordering of the league's scores each week (equal means
+    -> every permutation equally likely).  Each week is two games per team:
+    head-to-head, and a game against the median (top half beats it)."""
+    n = len(OWNERS)
+    weeks = sorted({w for w, _a, _b in schedule})
+    perms = list(itertools.permutations(OWNERS))
+    seed_dist = {o: [0.0] * n for o in OWNERS}
+    draft_dist = {o: [0.0] * n for o in OWNERS}
+    draft_dist_incl_median = {o: [0.0] * n for o in OWNERS}
+    playoff = dict.fromkeys(OWNERS, 0.0)
+    champ = dict.fromkeys(OWNERS, 0.0)
+    for combo in itertools.product(perms, repeat=len(weeks)):
+        w_total = {o: float(record[o]["wins"]) for o in OWNERS}
+        w_h2h = {o: float(record[o]["wins"] - record[o]["medianWins"]) for o in OWNERS}
+        for week, perm in zip(weeks, combo, strict=True):
+            place = {o: i for i, o in enumerate(perm)}  # 0 = highest score
+            for _w, a, b in (g for g in schedule if g[0] == week):
+                winner = a if place[a] < place[b] else b
+                w_total[winner] += 1
+                w_h2h[winner] += 1
+            for o in OWNERS:
+                if place[o] < n // 2:  # strictly above the median
+                    w_total[o] += 1
+        prob = 1.0 / len(perms) ** len(weeks)
+        order = _seed_order_n(OWNERS, w_total, pf)
+        for i, o in enumerate(order):
+            seed_dist[o][i] += prob
+            if i < seats:
+                playoff[o] += prob
+        for i, o in enumerate(sorted(OWNERS, key=lambda o: (w_h2h[o], pf[o]))):
+            draft_dist[o][i] += prob
+        for i, o in enumerate(sorted(OWNERS, key=lambda o: (w_total[o], pf[o]))):
+            draft_dist_incl_median[o][i] += prob
+        c, _f = _bracket(order[:seats], EQUAL, 0, True)
+        for o, p in c.items():
+            champ[o] += prob * p
+    return playoff, champ, seed_dist, draft_dist, draft_dist_incl_median
+
+
+def test_median_game_counts_for_seeding_but_draft_order_stays_head_to_head():
+    # Host record to date counts the median: wins = H2H + median.  aa 2 (1 med),
+    # bb 1 (0 med), cc 1 (1 med), dd 0.  Two remaining weeks, two H2H pairs each.
+    record = {
+        "aa": {"wins": 2, "losses": 0, "ties": 0, "medianWins": 1, "medianTies": 0},
+        "bb": {"wins": 1, "losses": 1, "ties": 0, "medianWins": 0, "medianTies": 0},
+        "cc": {"wins": 1, "losses": 1, "ties": 0, "medianWins": 1, "medianTies": 0},
+        "dd": {"wins": 0, "losses": 2, "ties": 0, "medianWins": 0, "medianTies": 0},
+    }
+    schedule = [
+        (1, "aa", "bb"),
+        (1, "cc", "dd"),
+        (2, "aa", "cc"),
+        (2, "bb", "dd"),
+    ]
+    playoff, champ, seeds, draft, draft_incl = _median_expected(record, schedule, PF, 2)
+    rule = {"medianGame": True, "state": playoff_odds.MEDIAN_COUNTED}
+    payload, rows = _run_n(
+        owners=OWNERS,
+        record=record,
+        schedule=schedule,
+        means=EQUAL,
+        pf=PF,
+        seats=2,
+        sims=SIMS,
+        standings_rule=rule,
+    )
+    # the standings rule and the draft record basis are STATED
+    assert payload["standingsRule"]["state"] == "counted"
+    assert payload["draftOrderRecordBasis"] == "head_to_head_with_half_win_ties"
+    for o in OWNERS:
+        assert rows[o]["playoffOdds"] == pytest.approx(playoff[o], abs=_tol(playoff[o])), o
+        assert rows[o]["championshipOdds"] == pytest.approx(champ[o], abs=_tol(champ[o])), o
+        for i in range(4):
+            assert rows[o]["seedDistribution"][i] == pytest.approx(
+                seeds[o][i], abs=_tol(seeds[o][i])
+            ), (o, i, "seed")
+            assert rows[o]["draftSlotDistribution"][i] == pytest.approx(
+                draft[o][i], abs=_tol(draft[o][i])
+            ), (o, i, "draft")
+    # the case discriminates: counting the median in the draft order would
+    # have given a materially different distribution.
+    assert max(abs(draft[o][i] - draft_incl[o][i]) for o in OWNERS for i in range(4)) > 0.05
+
+
+# --------------------------------------------------------------------------
+# 2c. Unmocked smoke: the public entry point on a REAL archived snapshot
+# --------------------------------------------------------------------------
+# ``tests/fixtures/public_league/median_record_parity_2026w4.json`` is the
+# host's own league state (Sleeper settings, rosters, four scored weeks of
+# matchups).  Nothing below is patched except the ROS data directory (so no
+# box-local file can leak in) and ``best_ball=False`` is passed as the public
+# argument: every other helper the oracle tests above replace runs for real.
+_FIXTURE = (
+    pathlib.Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "public_league"
+    / "median_record_parity_2026w4.json"
+)
+
+
+def _archived_snapshot(key, *, scored, weeks):
+    """The captured league truncated to ``scored`` finished weeks; weeks up to
+    ``weeks`` are posted with 0.0 stubs, reusing the real pairings in rotation
+    (exactly how Sleeper serves an unplayed week)."""
+    league = json.loads(_FIXTURE.read_text(encoding="utf-8"))["leagues"][key]
+    matchups = {}
+    for wk in range(1, weeks + 1):
+        rows = copy.deepcopy(league["matchups"][str((wk - 1) % 4 + 1)])
+        if wk > scored:
+            for r in rows:
+                r["points"] = 0.0
+        matchups[wk] = rows
+    settings = {**league["settings"], "last_scored_leg": scored}
+    season = SimpleNamespace(
+        season=league["season"],
+        league_id=league["leagueId"],
+        league={"settings": settings},
+        num_teams=league["total_rosters"],
+        rosters=league["rosters"],
+        matchups_by_week=matchups,
+        regular_season_weeks=list(range(1, weeks + 1)),
+        winners_bracket=[],
+        losers_bracket=[],
+    )
+    roster_to_owner = {
+        (league["leagueId"], r["roster_id"]): f"o{r['roster_id']:02d}" for r in league["rosters"]
+    }
+    managers = SimpleNamespace(
+        roster_to_owner=roster_to_owner,
+        by_owner_id={o: SimpleNamespace(display_name=o) for o in roster_to_owner.values()},
+    )
+    snap = SimpleNamespace(
+        seasons=[season],
+        current_season=season,
+        managers=managers,
+        root_league_id=league["leagueId"],
+        generated_at="2026-10-08T00:00:00+00:00",
+    )
+    return snap, league
+
+
+def _assert_probability_invariants(out, *, has_draft_rule):
+    rows = out["playoffOdds"]
+    n = len(rows)
+    seats, byes = out["playoffSeeds"], out["byeSeeds"]
+    assert n >= 2 and seats <= n
+    for r in rows:
+        for field in ("playoffOdds", "byeOdds", "topSeedOdds", "missPlayoffsOdds"):
+            assert 0.0 <= r[field] <= 1.0, (r["ownerId"], field)
+        lo, hi = r["playoffOddsCi"]
+        assert 0.0 <= lo <= r["playoffOdds"] + 1e-4 and r["playoffOdds"] - 1e-4 <= hi <= 1.0
+        assert r["playoffOdds"] + r["missPlayoffsOdds"] == pytest.approx(1.0, abs=2e-4)
+        assert sum(r["seedDistribution"]) == pytest.approx(1.0, abs=2e-3)
+    tol = 1e-3  # four-decimal rounding of up to 12 published values
+    assert sum(r["playoffOdds"] for r in rows) == pytest.approx(seats, abs=tol)
+    assert sum(r["byeOdds"] for r in rows) == pytest.approx(byes, abs=tol)
+    assert sum(r["topSeedOdds"] for r in rows) == pytest.approx(1.0, abs=tol)
+    assert sum(r["championshipOdds"] for r in rows) == pytest.approx(1.0, abs=tol)
+    assert sum(r["finalsOdds"] for r in rows) == pytest.approx(2.0, abs=tol)
+    for i in range(n):  # seed matrix: every seed is held by exactly one owner
+        assert sum(r["seedDistribution"][i] for r in rows) == pytest.approx(1.0, abs=tol)
+    if has_draft_rule:
+        assert out["draftOrderRule"] is not None
+        assert out["draftOrderRecordBasis"] == "head_to_head_with_half_win_ties"
+        for r in rows:
+            assert sum(r["draftSlotDistribution"]) == pytest.approx(1.0, abs=2e-3)
+        for i in range(n):
+            col = sum(r["draftSlotDistribution"][i] for r in rows)
+            assert col == pytest.approx(1.0, abs=tol)
+    else:
+        assert out["draftOrderRule"] is None and out["draftOrderRecordBasis"] is None
+        assert all("draftSlotDistribution" not in r for r in rows)
+
+
+@pytest.fixture
+def _hermetic_ros(monkeypatch, tmp_path):
+    """Point the ROS data directory at an empty temp dir and persist a
+    team-strength snapshot through the module's own writer, so the real
+    ``_load_ros_strength_map`` -> ``load_or_compute_team_strength`` path runs
+    (the engine refuses to publish odds with no team evidence, by design)."""
+    from src.api import league_registry
+    from src.ros import team_strength
+
+    # The suite's conftest points the league registry at a missing file; the
+    # real engine resolves the league KEY (draft-order rule, strength file)
+    # from the registry, so aim it at the repo's own.
+    monkeypatch.setenv(
+        "LEAGUE_REGISTRY_PATH",
+        str(pathlib.Path(__file__).resolve().parents[2] / "config" / "leagues" / "registry.json"),
+    )
+    league_registry.reload_registry()
+    monkeypatch.setattr(playoff_sim, "ROS_DATA_DIR", tmp_path)
+    monkeypatch.setattr(team_strength, "ROS_DATA_DIR", tmp_path)
+    for key in ("dynasty_main", "dynasty_new"):
+        size = 12 if key == "dynasty_main" else 10
+        rows = [
+            {
+                "ownerId": f"o{i:02d}",
+                "teamRosStrength": 40.0 + 7.0 * ((i * 5) % size),
+                "startingLineupScore": 100.0 + 3.0 * ((i * 5) % size),
+            }
+            for i in range(1, size + 1)
+        ]
+        team_strength.write_team_strength_snapshot(rows, league_key=key)
+    yield
+    monkeypatch.undo()
+    league_registry.reload_registry()
+
+
+@pytest.mark.parametrize(
+    ("key", "seats", "byes", "median", "draft_rule"),
+    [("dynasty_main", 7, 1, True, True), ("dynasty_new", 6, 2, False, False)],
+)
+def test_unmocked_public_entry_point_on_an_archived_league_holds_every_invariant(
+    _hermetic_ros, key, seats, byes, median, draft_rule
+):
+    snap, _league = _archived_snapshot(key, scored=2, weeks=14)
+    out = playoff_sim.simulate_playoff_odds(
+        snap,
+        n_simulations=1500,
+        min_simulations=1500,
+        max_simulations=1500,
+        rng=random.Random(20261008),
+        best_ball=False,
+    )
+    assert "unsimulable" not in out, out.get("unsimulable")
+    assert out["n_simulations"] == 1500
+    # the bracket is the league's OWN (settings.playoff_teams; byes derived)
+    assert (out["playoffSeeds"], out["byeSeeds"]) == (seats, byes)
+    assert out["standingsRule"]["state"] == ("counted" if median else "not_applicable")
+    _assert_probability_invariants(out, has_draft_rule=draft_rule)
+    # two scored weeks of twelve: nobody is mathematically settled yet
+    assert any(0.0 < r["playoffOdds"] < 1.0 for r in out["playoffOdds"])
+
+
+@pytest.mark.parametrize(("key", "seats"), [("dynasty_main", 7), ("dynasty_new", 6)])
+def test_unmocked_finished_archived_season_is_certain_and_matches_the_host_table(
+    _hermetic_ros, key, seats
+):
+    # Only the four scored weeks exist: the season is OVER, so clinched teams
+    # are exactly 1 and eliminated teams exactly 0.  The expected set is
+    # computed here from the host's own roster records (wins + half-ties, then
+    # higher points for) -- not from the simulator.
+    snap, league = _archived_snapshot(key, scored=4, weeks=4)
+    out = playoff_sim.simulate_playoff_odds(
+        snap,
+        n_simulations=400,
+        min_simulations=400,
+        max_simulations=400,
+        rng=random.Random(3),
+        best_ball=False,
+    )
+    assert "unsimulable" not in out, out.get("unsimulable")
+    pf = {}
+    for rows in league["matchups"].values():
+        for r in rows:
+            pf[r["roster_id"]] = pf.get(r["roster_id"], 0.0) + r["points"]
+    host = {
+        r["roster_id"]: float(r["settings"]["wins"] or 0) + 0.5 * float(r["settings"]["ties"] or 0)
+        for r in league["rosters"]
+    }
+    table = sorted(host, key=lambda rid: (-host[rid], -pf[rid]))
+    qualifiers = {f"o{rid:02d}" for rid in table[:seats]}
+    got = {r["ownerId"]: r["playoffOdds"] for r in out["playoffOdds"]}
+    assert {o for o, p in got.items() if p == 1.0} == qualifiers
+    assert {o for o, p in got.items() if p == 0.0} == set(got) - qualifiers
+    top = {r["ownerId"]: r["topSeedOdds"] for r in out["playoffOdds"]}
+    assert top[f"o{table[0]:02d}"] == 1.0
+    _assert_probability_invariants(out, has_draft_rule=(key == "dynasty_main"))
 
 
 # --------------------------------------------------------------------------
