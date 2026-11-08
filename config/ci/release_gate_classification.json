@@ -743,6 +743,15 @@
     "pr-validation.yml::validate::Every required job succeeded": {
       "category": "blocking"
     },
+    "pr-verification-receipt.yml::receipt::Checkout": {
+      "category": "blocking"
+    },
+    "pr-verification-receipt.yml::receipt::Set up Python": {
+      "category": "blocking"
+    },
+    "pr-verification-receipt.yml::receipt::Check receipt": {
+      "category": "blocking"
+    },
     "prod-e2e-smoke.yml::smoke::Checkout": {
       "category": "blocking"
     },
