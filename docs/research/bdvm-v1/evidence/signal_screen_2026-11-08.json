@@ -1,0 +1,2208 @@
+{
+ "dates": [
+  "2026-07-14",
+  "2026-07-21",
+  "2026-07-28",
+  "2026-08-04",
+  "2026-08-11",
+  "2026-08-18",
+  "2026-08-25",
+  "2026-09-01",
+  "2026-09-08",
+  "2026-09-15",
+  "2026-09-22",
+  "2026-09-29",
+  "2026-10-06",
+  "2026-10-13",
+  "2026-10-20",
+  "2026-10-27",
+  "2026-11-03"
+ ],
+ "newestOrigin": "2026-11-03",
+ "newestSignalCensus": {
+  "BUY": 22,
+  "HOLD": 93,
+  "SELL": 21,
+  "STRONG_BUY": 20,
+  "STRONG_SELL": 639
+ },
+ "newestProxyShare": 1.0,
+ "primary": {
+  "horizon": 14,
+  "perOrigin": [
+   {
+    "origin": "2026-07-14",
+    "horizon": 14,
+    "n": 780,
+    "C0": {
+     "n": 780,
+     "ic": -0.03747591646499734,
+     "n_sell": 639,
+     "sell_hit": 0.20187793427230047,
+     "mean_sell_excess": -0.0012388606012824455,
+     "n_buy": 30,
+     "buy_hit": 0.13333333333333333,
+     "mean_buy_excess": 0.01789326938233786,
+     "base_down": 0.20897435897435898,
+     "base_up": 0.1371794871794872,
+     "labels": {
+      "BUY": 11,
+      "HOLD": 111,
+      "SELL": 17,
+      "STRONG_BUY": 19,
+      "STRONG_SELL": 622
+     }
+    },
+    "C1": {
+     "n": 780,
+     "ic": -0.04669803448280834,
+     "n_sell": 245,
+     "sell_hit": 0.16326530612244897,
+     "mean_sell_excess": -0.0028390329026922096,
+     "n_buy": 201,
+     "buy_hit": 0.1890547263681592,
+     "mean_buy_excess": 0.010716909970989745,
+     "base_down": 0.20897435897435898,
+     "base_up": 0.1371794871794872,
+     "labels": {
+      "BUY": 81,
+      "HOLD": 334,
+      "SELL": 139,
+      "STRONG_BUY": 120,
+      "STRONG_SELL": 106
+     }
+    },
+    "C2": {
+     "n": 780,
+     "ic": -0.03764089927380234,
+     "n_sell": 285,
+     "sell_hit": 0.14736842105263157,
+     "mean_sell_excess": -0.0067117202938824045,
+     "n_buy": 241,
+     "buy_hit": 0.18672199170124482,
+     "mean_buy_excess": 0.010280674121398633,
+     "base_down": 0.20897435897435898,
+     "base_up": 0.1371794871794872,
+     "labels": {
+      "BUY": 80,
+      "HOLD": 254,
+      "SELL": 140,
+      "STRONG_BUY": 161,
+      "STRONG_SELL": 145
+     }
+    },
+    "C3": {
+     "n": 780,
+     "ic": 0.08433442811055751,
+     "n_sell": 203,
+     "sell_hit": 0.2857142857142857,
+     "mean_sell_excess": -4.926430616987807e-05,
+     "n_buy": 183,
+     "buy_hit": 0.14754098360655737,
+     "mean_buy_excess": 0.007218755406699067,
+     "base_down": 0.20897435897435898,
+     "base_up": 0.1371794871794872,
+     "labels": {
+      "BUY": 97,
+      "HOLD": 394,
+      "SELL": 117,
+      "STRONG_BUY": 86,
+      "STRONG_SELL": 86
+     }
+    },
+    "N0": {
+     "n": 780,
+     "ic": -0.05958280411179016,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.20897435897435898,
+     "base_up": 0.1371794871794872,
+     "labels": {
+      "HOLD": 780
+     }
+    }
+   },
+   {
+    "origin": "2026-07-28",
+    "horizon": 14,
+    "n": 779,
+    "C0": {
+     "n": 779,
+     "ic": -0.04266896766113097,
+     "n_sell": 642,
+     "sell_hit": 0.06230529595015576,
+     "mean_sell_excess": -0.0002845042534069112,
+     "n_buy": 29,
+     "buy_hit": 0.0,
+     "mean_buy_excess": -5.6637013014317285e-05,
+     "base_down": 0.06546854942233633,
+     "base_up": 0.07317073170731707,
+     "labels": {
+      "BUY": 11,
+      "HOLD": 108,
+      "SELL": 19,
+      "STRONG_BUY": 18,
+      "STRONG_SELL": 623
+     }
+    },
+    "C1": {
+     "n": 779,
+     "ic": -0.03737524559382301,
+     "n_sell": 239,
+     "sell_hit": 0.058577405857740586,
+     "mean_sell_excess": 0.0001104824629602371,
+     "n_buy": 200,
+     "buy_hit": 0.065,
+     "mean_buy_excess": 4.133996955254544e-05,
+     "base_down": 0.06546854942233633,
+     "base_up": 0.07317073170731707,
+     "labels": {
+      "BUY": 80,
+      "HOLD": 340,
+      "SELL": 134,
+      "STRONG_BUY": 120,
+      "STRONG_SELL": 105
+     }
+    },
+    "C2": {
+     "n": 779,
+     "ic": -0.028926586106467603,
+     "n_sell": 287,
+     "sell_hit": 0.059233449477351915,
+     "mean_sell_excess": -3.0702196477453005e-05,
+     "n_buy": 242,
+     "buy_hit": 0.07024793388429752,
+     "mean_buy_excess": -0.0002153960300272885,
+     "base_down": 0.06546854942233633,
+     "base_up": 0.07317073170731707,
+     "labels": {
+      "BUY": 84,
+      "HOLD": 250,
+      "SELL": 143,
+      "STRONG_BUY": 158,
+      "STRONG_SELL": 144
+     }
+    },
+    "C3": {
+     "n": 779,
+     "ic": -0.054542287613723796,
+     "n_sell": 204,
+     "sell_hit": 0.05392156862745098,
+     "mean_sell_excess": 1.3204026566063805e-05,
+     "n_buy": 181,
+     "buy_hit": 0.03314917127071823,
+     "mean_buy_excess": 4.932793070672582e-05,
+     "base_down": 0.06546854942233633,
+     "base_up": 0.07317073170731707,
+     "labels": {
+      "BUY": 92,
+      "HOLD": 394,
+      "SELL": 119,
+      "STRONG_BUY": 89,
+      "STRONG_SELL": 85
+     }
+    },
+    "N0": {
+     "n": 779,
+     "ic": 0.008565007699361487,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.06546854942233633,
+     "base_up": 0.07317073170731707,
+     "labels": {
+      "HOLD": 779
+     }
+    }
+   },
+   {
+    "origin": "2026-08-11",
+    "horizon": 14,
+    "n": 775,
+    "C0": {
+     "n": 775,
+     "ic": -0.05180444327070072,
+     "n_sell": 641,
+     "sell_hit": 0.23556942277691106,
+     "mean_sell_excess": -0.00016901821845796754,
+     "n_buy": 27,
+     "buy_hit": 0.2222222222222222,
+     "mean_buy_excess": 0.012508968904217791,
+     "base_down": 0.25548387096774194,
+     "base_up": 0.17290322580645162,
+     "labels": {
+      "BUY": 10,
+      "HOLD": 107,
+      "SELL": 21,
+      "STRONG_BUY": 17,
+      "STRONG_SELL": 620
+     }
+    },
+    "C1": {
+     "n": 775,
+     "ic": -0.028817410489798592,
+     "n_sell": 235,
+     "sell_hit": 0.1829787234042553,
+     "mean_sell_excess": -0.004887734385181851,
+     "n_buy": 200,
+     "buy_hit": 0.28,
+     "mean_buy_excess": 0.0024745870576071667,
+     "base_down": 0.25548387096774194,
+     "base_up": 0.17290322580645162,
+     "labels": {
+      "BUY": 79,
+      "HOLD": 340,
+      "SELL": 131,
+      "STRONG_BUY": 121,
+      "STRONG_SELL": 104
+     }
+    },
+    "C2": {
+     "n": 775,
+     "ic": -0.01780866693702224,
+     "n_sell": 284,
+     "sell_hit": 0.16901408450704225,
+     "mean_sell_excess": -0.005848780242133272,
+     "n_buy": 243,
+     "buy_hit": 0.25925925925925924,
+     "mean_buy_excess": 0.002430042768148475,
+     "base_down": 0.25548387096774194,
+     "base_up": 0.17290322580645162,
+     "labels": {
+      "BUY": 85,
+      "HOLD": 248,
+      "SELL": 141,
+      "STRONG_BUY": 158,
+      "STRONG_SELL": 143
+     }
+    },
+    "C3": {
+     "n": 775,
+     "ic": 0.016642698523744195,
+     "n_sell": 204,
+     "sell_hit": 0.27450980392156865,
+     "mean_sell_excess": -0.0062924707133039754,
+     "n_buy": 183,
+     "buy_hit": 0.22404371584699453,
+     "mean_buy_excess": 0.0037119036850291514,
+     "base_down": 0.25548387096774194,
+     "base_up": 0.17290322580645162,
+     "labels": {
+      "BUY": 94,
+      "HOLD": 388,
+      "SELL": 116,
+      "STRONG_BUY": 89,
+      "STRONG_SELL": 88
+     }
+    },
+    "N0": {
+     "n": 775,
+     "ic": -0.10408216783164388,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.25548387096774194,
+     "base_up": 0.17290322580645162,
+     "labels": {
+      "HOLD": 775
+     }
+    }
+   },
+   {
+    "origin": "2026-08-25",
+    "horizon": 14,
+    "n": 765,
+    "C0": {
+     "n": 765,
+     "ic": 0.08387092863761758,
+     "n_sell": 631,
+     "sell_hit": 0.04754358161648178,
+     "mean_sell_excess": -0.00026329270048270975,
+     "n_buy": 27,
+     "buy_hit": 0.14814814814814814,
+     "mean_buy_excess": -0.002562535982818229,
+     "base_down": 0.05751633986928104,
+     "base_up": 0.09019607843137255,
+     "labels": {
+      "BUY": 9,
+      "HOLD": 107,
+      "SELL": 22,
+      "STRONG_BUY": 18,
+      "STRONG_SELL": 609
+     }
+    },
+    "C1": {
+     "n": 765,
+     "ic": 0.054846326365751374,
+     "n_sell": 234,
+     "sell_hit": 0.02564102564102564,
+     "mean_sell_excess": 0.00012165787333052291,
+     "n_buy": 198,
+     "buy_hit": 0.14646464646464646,
+     "mean_buy_excess": 0.0016039801961656895,
+     "base_down": 0.05751633986928104,
+     "base_up": 0.09019607843137255,
+     "labels": {
+      "BUY": 82,
+      "HOLD": 333,
+      "SELL": 129,
+      "STRONG_BUY": 116,
+      "STRONG_SELL": 105
+     }
+    },
+    "C2": {
+     "n": 765,
+     "ic": 0.04105403325880712,
+     "n_sell": 284,
+     "sell_hit": 0.02112676056338028,
+     "mean_sell_excess": 0.00011459226674265996,
+     "n_buy": 240,
+     "buy_hit": 0.125,
+     "mean_buy_excess": 0.0013197196407277862,
+     "base_down": 0.05751633986928104,
+     "base_up": 0.09019607843137255,
+     "labels": {
+      "BUY": 82,
+      "HOLD": 241,
+      "SELL": 147,
+      "STRONG_BUY": 158,
+      "STRONG_SELL": 137
+     }
+    },
+    "C3": {
+     "n": 765,
+     "ic": 0.09560362260870761,
+     "n_sell": 198,
+     "sell_hit": 0.050505050505050504,
+     "mean_sell_excess": 0.00024088247515694034,
+     "n_buy": 181,
+     "buy_hit": 0.1712707182320442,
+     "mean_buy_excess": 0.0003701060888675661,
+     "base_down": 0.05751633986928104,
+     "base_up": 0.09019607843137255,
+     "labels": {
+      "BUY": 93,
+      "HOLD": 386,
+      "SELL": 113,
+      "STRONG_BUY": 88,
+      "STRONG_SELL": 85
+     }
+    },
+    "N0": {
+     "n": 765,
+     "ic": 0.14556133524177464,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.05751633986928104,
+     "base_up": 0.09019607843137255,
+     "labels": {
+      "HOLD": 765
+     }
+    }
+   },
+   {
+    "origin": "2026-09-08",
+    "horizon": 14,
+    "n": 759,
+    "C0": {
+     "n": 759,
+     "ic": 0.10210772345049067,
+     "n_sell": 618,
+     "sell_hit": 0.12944983818770225,
+     "mean_sell_excess": 0.00036295567548783216,
+     "n_buy": 37,
+     "buy_hit": 0.24324324324324326,
+     "mean_buy_excess": 0.001003412422192069,
+     "base_down": 0.13043478260869565,
+     "base_up": 0.18708827404479578,
+     "labels": {
+      "BUY": 17,
+      "HOLD": 104,
+      "SELL": 20,
+      "STRONG_BUY": 20,
+      "STRONG_SELL": 598
+     }
+    },
+    "C1": {
+     "n": 759,
+     "ic": 0.07016675222828923,
+     "n_sell": 229,
+     "sell_hit": 0.11353711790393013,
+     "mean_sell_excess": 0.003046726716588896,
+     "n_buy": 195,
+     "buy_hit": 0.30256410256410254,
+     "mean_buy_excess": 0.00103698308799638,
+     "base_down": 0.13043478260869565,
+     "base_up": 0.18708827404479578,
+     "labels": {
+      "BUY": 84,
+      "HOLD": 335,
+      "SELL": 128,
+      "STRONG_BUY": 111,
+      "STRONG_SELL": 101
+     }
+    },
+    "C2": {
+     "n": 759,
+     "ic": 0.07672129998361032,
+     "n_sell": 273,
+     "sell_hit": 0.10622710622710622,
+     "mean_sell_excess": 0.0015403652013898747,
+     "n_buy": 234,
+     "buy_hit": 0.28205128205128205,
+     "mean_buy_excess": 0.0010503728548230313,
+     "base_down": 0.13043478260869565,
+     "base_up": 0.18708827404479578,
+     "labels": {
+      "BUY": 82,
+      "HOLD": 252,
+      "SELL": 144,
+      "STRONG_BUY": 152,
+      "STRONG_SELL": 129
+     }
+    },
+    "C3": {
+     "n": 759,
+     "ic": 0.0017567262708975487,
+     "n_sell": 191,
+     "sell_hit": 0.15706806282722513,
+     "mean_sell_excess": -0.002092673039131206,
+     "n_buy": 178,
+     "buy_hit": 0.19662921348314608,
+     "mean_buy_excess": 0.0006296390211087015,
+     "base_down": 0.13043478260869565,
+     "base_up": 0.18708827404479578,
+     "labels": {
+      "BUY": 90,
+      "HOLD": 390,
+      "SELL": 106,
+      "STRONG_BUY": 88,
+      "STRONG_SELL": 85
+     }
+    },
+    "N0": {
+     "n": 759,
+     "ic": 0.11981535880865375,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.13043478260869565,
+     "base_up": 0.18708827404479578,
+     "labels": {
+      "HOLD": 759
+     }
+    }
+   },
+   {
+    "origin": "2026-09-22",
+    "horizon": 14,
+    "n": 786,
+    "C0": {
+     "n": 786,
+     "ic": 0.023439021658884097,
+     "n_sell": 647,
+     "sell_hit": 0.1561051004636785,
+     "mean_sell_excess": -0.0006084192831887262,
+     "n_buy": 37,
+     "buy_hit": 0.24324324324324326,
+     "mean_buy_excess": 0.0010629226268574837,
+     "base_down": 0.15139949109414758,
+     "base_up": 0.11959287531806616,
+     "labels": {
+      "BUY": 19,
+      "HOLD": 102,
+      "SELL": 21,
+      "STRONG_BUY": 18,
+      "STRONG_SELL": 626
+     }
+    },
+    "C1": {
+     "n": 786,
+     "ic": 0.03572922727424005,
+     "n_sell": 236,
+     "sell_hit": 0.13983050847457626,
+     "mean_sell_excess": -3.833164986663725e-06,
+     "n_buy": 200,
+     "buy_hit": 0.195,
+     "mean_buy_excess": 0.0007692791543064633,
+     "base_down": 0.15139949109414758,
+     "base_up": 0.11959287531806616,
+     "labels": {
+      "BUY": 85,
+      "HOLD": 350,
+      "SELL": 131,
+      "STRONG_BUY": 115,
+      "STRONG_SELL": 105
+     }
+    },
+    "C2": {
+     "n": 786,
+     "ic": 0.001665968623249221,
+     "n_sell": 283,
+     "sell_hit": 0.13074204946996468,
+     "mean_sell_excess": 9.061175423015715e-05,
+     "n_buy": 245,
+     "buy_hit": 0.17959183673469387,
+     "mean_buy_excess": -0.00011532619134237799,
+     "base_down": 0.15139949109414758,
+     "base_up": 0.11959287531806616,
+     "labels": {
+      "BUY": 91,
+      "HOLD": 258,
+      "SELL": 141,
+      "STRONG_BUY": 154,
+      "STRONG_SELL": 142
+     }
+    },
+    "C3": {
+     "n": 786,
+     "ic": 0.11953357004785246,
+     "n_sell": 200,
+     "sell_hit": 0.225,
+     "mean_sell_excess": -0.0009083744738508539,
+     "n_buy": 186,
+     "buy_hit": 0.12365591397849462,
+     "mean_buy_excess": -0.00016838809050238364,
+     "base_down": 0.15139949109414758,
+     "base_up": 0.11959287531806616,
+     "labels": {
+      "BUY": 97,
+      "HOLD": 400,
+      "SELL": 118,
+      "STRONG_BUY": 89,
+      "STRONG_SELL": 82
+     }
+    },
+    "N0": {
+     "n": 786,
+     "ic": 0.03369033814850889,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.15139949109414758,
+     "base_up": 0.11959287531806616,
+     "labels": {
+      "HOLD": 786
+     }
+    }
+   },
+   {
+    "origin": "2026-10-06",
+    "horizon": 14,
+    "n": 783,
+    "C0": {
+     "n": 783,
+     "ic": -0.04174264495671977,
+     "n_sell": 643,
+     "sell_hit": 0.2286158631415241,
+     "mean_sell_excess": 0.0034055059222916073,
+     "n_buy": 36,
+     "buy_hit": 0.25,
+     "mean_buy_excess": 0.021589642538282675,
+     "base_down": 0.24904214559386972,
+     "base_up": 0.17496807151979565,
+     "labels": {
+      "BUY": 17,
+      "HOLD": 104,
+      "SELL": 19,
+      "STRONG_BUY": 19,
+      "STRONG_SELL": 624
+     }
+    },
+    "C1": {
+     "n": 783,
+     "ic": -0.033752691133796184,
+     "n_sell": 231,
+     "sell_hit": 0.1774891774891775,
+     "mean_sell_excess": 3.644793019697706e-05,
+     "n_buy": 199,
+     "buy_hit": 0.271356783919598,
+     "mean_buy_excess": 0.00977723498679922,
+     "base_down": 0.24904214559386972,
+     "base_up": 0.17496807151979565,
+     "labels": {
+      "BUY": 86,
+      "HOLD": 353,
+      "SELL": 129,
+      "STRONG_BUY": 113,
+      "STRONG_SELL": 102
+     }
+    },
+    "C2": {
+     "n": 783,
+     "ic": -0.03319452398855696,
+     "n_sell": 278,
+     "sell_hit": 0.17266187050359713,
+     "mean_sell_excess": -0.004519865491723867,
+     "n_buy": 244,
+     "buy_hit": 0.26639344262295084,
+     "mean_buy_excess": 0.01084626631099124,
+     "base_down": 0.24904214559386972,
+     "base_up": 0.17496807151979565,
+     "labels": {
+      "BUY": 95,
+      "HOLD": 261,
+      "SELL": 138,
+      "STRONG_BUY": 149,
+      "STRONG_SELL": 140
+     }
+    },
+    "C3": {
+     "n": 783,
+     "ic": 0.031258707788388344,
+     "n_sell": 199,
+     "sell_hit": 0.2814070351758794,
+     "mean_sell_excess": -0.0006975020704157291,
+     "n_buy": 183,
+     "buy_hit": 0.18579234972677597,
+     "mean_buy_excess": 0.011738309183906155,
+     "base_down": 0.24904214559386972,
+     "base_up": 0.17496807151979565,
+     "labels": {
+      "BUY": 90,
+      "HOLD": 401,
+      "SELL": 121,
+      "STRONG_BUY": 93,
+      "STRONG_SELL": 78
+     }
+    },
+    "N0": {
+     "n": 783,
+     "ic": -0.07798950376887442,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.24904214559386972,
+     "base_up": 0.17496807151979565,
+     "labels": {
+      "HOLD": 783
+     }
+    }
+   },
+   {
+    "origin": "2026-10-20",
+    "horizon": 14,
+    "n": 788,
+    "C0": {
+     "n": 788,
+     "ic": -0.18311560651891165,
+     "n_sell": 653,
+     "sell_hit": 0.07503828483920368,
+     "mean_sell_excess": 0.0004283507038628471,
+     "n_buy": 43,
+     "buy_hit": 0.0,
+     "mean_buy_excess": -0.0006908611274393909,
+     "base_down": 0.09517766497461928,
+     "base_up": 0.024111675126903553,
+     "labels": {
+      "BUY": 23,
+      "HOLD": 92,
+      "SELL": 19,
+      "STRONG_BUY": 20,
+      "STRONG_SELL": 634
+     }
+    },
+    "C1": {
+     "n": 788,
+     "ic": -0.17637745485232886,
+     "n_sell": 232,
+     "sell_hit": 0.03879310344827586,
+     "mean_sell_excess": 0.0010902996095842653,
+     "n_buy": 200,
+     "buy_hit": 0.005,
+     "mean_buy_excess": -0.0018761676365177291,
+     "base_down": 0.09517766497461928,
+     "base_up": 0.024111675126903553,
+     "labels": {
+      "BUY": 85,
+      "HOLD": 356,
+      "SELL": 120,
+      "STRONG_BUY": 115,
+      "STRONG_SELL": 112
+     }
+    },
+    "C2": {
+     "n": 788,
+     "ic": -0.16388641717784463,
+     "n_sell": 275,
+     "sell_hit": 0.03272727272727273,
+     "mean_sell_excess": 0.0009535302473233152,
+     "n_buy": 242,
+     "buy_hit": 0.008264462809917356,
+     "mean_buy_excess": -0.0021722456363860807,
+     "base_down": 0.09517766497461928,
+     "base_up": 0.024111675126903553,
+     "labels": {
+      "BUY": 86,
+      "HOLD": 271,
+      "SELL": 131,
+      "STRONG_BUY": 156,
+      "STRONG_SELL": 144
+     }
+    },
+    "C3": {
+     "n": 788,
+     "ic": -0.027221465657582964,
+     "n_sell": 199,
+     "sell_hit": 0.10552763819095477,
+     "mean_sell_excess": 0.0010044711666655902,
+     "n_buy": 182,
+     "buy_hit": 0.01098901098901099,
+     "mean_buy_excess": -0.0005040275275609922,
+     "base_down": 0.09517766497461928,
+     "base_up": 0.024111675126903553,
+     "labels": {
+      "BUY": 90,
+      "HOLD": 407,
+      "SELL": 119,
+      "STRONG_BUY": 92,
+      "STRONG_SELL": 80
+     }
+    },
+    "N0": {
+     "n": 788,
+     "ic": -0.19101552241887845,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.09517766497461928,
+     "base_up": 0.024111675126903553,
+     "labels": {
+      "HOLD": 788
+     }
+    }
+   }
+  ],
+  "summary": {
+   "origins": 8,
+   "C0": {
+    "mean_ic": -0.018423738140683512,
+    "frac_origins_ic_positive": 0.375,
+    "n_sell": 5114,
+    "sell_hit": 0.1421587798201017,
+    "n_buy": 266,
+    "buy_hit": 0.15413533834586465,
+    "base_down": 0.15189058728881738,
+    "base_up": 0.12212389380530973
+   },
+   "C1": {
+    "mean_ic": -0.020284816335534292,
+    "frac_origins_ic_positive": 0.375,
+    "n_sell": 1881,
+    "sell_hit": 0.11270600744284955,
+    "n_buy": 1593,
+    "buy_hit": 0.18141870684243566,
+    "base_down": 0.15189058728881738,
+    "base_up": 0.12212389380530973
+   },
+   "C2": {
+    "mean_ic": -0.02025197395225339,
+    "frac_origins_ic_positive": 0.375,
+    "n_sell": 2249,
+    "sell_hit": 0.10493552690084482,
+    "n_buy": 1931,
+    "buy_hit": 0.1719316416364578,
+    "base_down": 0.15189058728881738,
+    "base_up": 0.12212389380530973
+   },
+   "C3": {
+    "mean_ic": 0.033420750009855116,
+    "frac_origins_ic_positive": 0.75,
+    "n_sell": 1598,
+    "sell_hit": 0.17959949937421776,
+    "n_buy": 1457,
+    "buy_hit": 0.13658201784488674,
+    "base_down": 0.15189058728881738,
+    "base_up": 0.12212389380530973
+   },
+   "N0": {
+    "mean_ic": -0.015629744779111016,
+    "frac_origins_ic_positive": 0.5,
+    "n_sell": 0,
+    "sell_hit": null,
+    "n_buy": 0,
+    "buy_hit": null,
+    "base_down": 0.15189058728881738,
+    "base_up": 0.12212389380530973
+   }
+  },
+  "verdict": {
+   "verdict": "SCREENED",
+   "challengers": {
+    "C1": {
+     "P1": false,
+     "P2": false,
+     "P3": false,
+     "PASS": false
+    },
+    "C2": {
+     "P1": false,
+     "P2": false,
+     "P3": false,
+     "PASS": false
+    },
+    "C3": {
+     "P1": false,
+     "P2": false,
+     "P3": true,
+     "PASS": false
+    }
+   }
+  }
+ },
+ "secondary": {
+  "horizon": 28,
+  "perOrigin": [
+   {
+    "origin": "2026-07-14",
+    "horizon": 28,
+    "n": 779,
+    "C0": {
+     "n": 779,
+     "ic": -0.03458769089045421,
+     "n_sell": 639,
+     "sell_hit": 0.20344287949921752,
+     "mean_sell_excess": -0.0012599659245517668,
+     "n_buy": 30,
+     "buy_hit": 0.13333333333333333,
+     "mean_buy_excess": 0.017591376165452928,
+     "base_down": 0.21181001283697048,
+     "base_up": 0.14505776636713735,
+     "labels": {
+      "BUY": 11,
+      "HOLD": 110,
+      "SELL": 17,
+      "STRONG_BUY": 19,
+      "STRONG_SELL": 622
+     }
+    },
+    "C1": {
+     "n": 779,
+     "ic": -0.051821001973613265,
+     "n_sell": 243,
+     "sell_hit": 0.16049382716049382,
+     "mean_sell_excess": -0.0029665636246812323,
+     "n_buy": 200,
+     "buy_hit": 0.19,
+     "mean_buy_excess": 0.01045069441192052,
+     "base_down": 0.21181001283697048,
+     "base_up": 0.14505776636713735,
+     "labels": {
+      "BUY": 81,
+      "HOLD": 336,
+      "SELL": 138,
+      "STRONG_BUY": 119,
+      "STRONG_SELL": 105
+     }
+    },
+    "C2": {
+     "n": 779,
+     "ic": -0.0369866082724326,
+     "n_sell": 285,
+     "sell_hit": 0.14736842105263157,
+     "mean_sell_excess": -0.0067736261413845564,
+     "n_buy": 241,
+     "buy_hit": 0.1950207468879668,
+     "mean_buy_excess": 0.010116350331901721,
+     "base_down": 0.21181001283697048,
+     "base_up": 0.14505776636713735,
+     "labels": {
+      "BUY": 78,
+      "HOLD": 253,
+      "SELL": 140,
+      "STRONG_BUY": 163,
+      "STRONG_SELL": 145
+     }
+    },
+    "C3": {
+     "n": 779,
+     "ic": 0.07305432838046871,
+     "n_sell": 202,
+     "sell_hit": 0.27722772277227725,
+     "mean_sell_excess": -3.6958380103813415e-05,
+     "n_buy": 182,
+     "buy_hit": 0.14835164835164835,
+     "mean_buy_excess": 0.007210858585618535,
+     "base_down": 0.21181001283697048,
+     "base_up": 0.14505776636713735,
+     "labels": {
+      "BUY": 96,
+      "HOLD": 395,
+      "SELL": 116,
+      "STRONG_BUY": 86,
+      "STRONG_SELL": 86
+     }
+    },
+    "N0": {
+     "n": 779,
+     "ic": -0.04873327643640657,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.21181001283697048,
+     "base_up": 0.14505776636713735,
+     "labels": {
+      "HOLD": 779
+     }
+    }
+   },
+   {
+    "origin": "2026-07-21",
+    "horizon": 28,
+    "n": 776,
+    "C0": {
+     "n": 776,
+     "ic": -0.015412949319966281,
+     "n_sell": 636,
+     "sell_hit": 0.18396226415094338,
+     "mean_sell_excess": -0.00014118172309601174,
+     "n_buy": 29,
+     "buy_hit": 0.13793103448275862,
+     "mean_buy_excess": 0.0003683389767509792,
+     "base_down": 0.19845360824742267,
+     "base_up": 0.19201030927835053,
+     "labels": {
+      "BUY": 11,
+      "HOLD": 111,
+      "SELL": 18,
+      "STRONG_BUY": 18,
+      "STRONG_SELL": 618
+     }
+    },
+    "C1": {
+     "n": 776,
+     "ic": -0.03555470446848328,
+     "n_sell": 239,
+     "sell_hit": 0.12552301255230125,
+     "mean_sell_excess": 0.00018582582722704514,
+     "n_buy": 200,
+     "buy_hit": 0.27,
+     "mean_buy_excess": 8.468086723403192e-05,
+     "base_down": 0.19845360824742267,
+     "base_up": 0.19201030927835053,
+     "labels": {
+      "BUY": 83,
+      "HOLD": 337,
+      "SELL": 135,
+      "STRONG_BUY": 117,
+      "STRONG_SELL": 104
+     }
+    },
+    "C2": {
+     "n": 776,
+     "ic": -0.016149593716751235,
+     "n_sell": 285,
+     "sell_hit": 0.12280701754385964,
+     "mean_sell_excess": -0.0018399288626552962,
+     "n_buy": 241,
+     "buy_hit": 0.24896265560165975,
+     "mean_buy_excess": -0.00011029084344813007,
+     "base_down": 0.19845360824742267,
+     "base_up": 0.19201030927835053,
+     "labels": {
+      "BUY": 80,
+      "HOLD": 250,
+      "SELL": 141,
+      "STRONG_BUY": 161,
+      "STRONG_SELL": 144
+     }
+    },
+    "C3": {
+     "n": 776,
+     "ic": 0.006471182418811152,
+     "n_sell": 202,
+     "sell_hit": 0.21287128712871287,
+     "mean_sell_excess": -0.0011118432128252307,
+     "n_buy": 180,
+     "buy_hit": 0.2222222222222222,
+     "mean_buy_excess": 0.0027043982563829147,
+     "base_down": 0.19845360824742267,
+     "base_up": 0.19201030927835053,
+     "labels": {
+      "BUY": 93,
+      "HOLD": 394,
+      "SELL": 118,
+      "STRONG_BUY": 87,
+      "STRONG_SELL": 84
+     }
+    },
+    "N0": {
+     "n": 776,
+     "ic": -0.01584342763807672,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.19845360824742267,
+     "base_up": 0.19201030927835053,
+     "labels": {
+      "HOLD": 776
+     }
+    }
+   },
+   {
+    "origin": "2026-07-28",
+    "horizon": 28,
+    "n": 773,
+    "C0": {
+     "n": 773,
+     "ic": -0.07074965976688805,
+     "n_sell": 637,
+     "sell_hit": 0.23233908948194662,
+     "mean_sell_excess": -0.0009448148916004937,
+     "n_buy": 28,
+     "buy_hit": 0.21428571428571427,
+     "mean_buy_excess": 0.012003760294063701,
+     "base_down": 0.2522639068564036,
+     "base_up": 0.17464424320827943,
+     "labels": {
+      "BUY": 10,
+      "HOLD": 108,
+      "SELL": 19,
+      "STRONG_BUY": 18,
+      "STRONG_SELL": 618
+     }
+    },
+    "C1": {
+     "n": 773,
+     "ic": -0.04199385888755383,
+     "n_sell": 236,
+     "sell_hit": 0.17796610169491525,
+     "mean_sell_excess": -0.004704098965696428,
+     "n_buy": 198,
+     "buy_hit": 0.2727272727272727,
+     "mean_buy_excess": 0.0021585497980205434,
+     "base_down": 0.2522639068564036,
+     "base_up": 0.17464424320827943,
+     "labels": {
+      "BUY": 79,
+      "HOLD": 339,
+      "SELL": 131,
+      "STRONG_BUY": 119,
+      "STRONG_SELL": 105
+     }
+    },
+    "C2": {
+     "n": 773,
+     "ic": -0.030284308727876404,
+     "n_sell": 286,
+     "sell_hit": 0.15734265734265734,
+     "mean_sell_excess": -0.005624181372808825,
+     "n_buy": 242,
+     "buy_hit": 0.24793388429752067,
+     "mean_buy_excess": 0.001813260306392443,
+     "base_down": 0.2522639068564036,
+     "base_up": 0.17464424320827943,
+     "labels": {
+      "BUY": 84,
+      "HOLD": 245,
+      "SELL": 142,
+      "STRONG_BUY": 158,
+      "STRONG_SELL": 144
+     }
+    },
+    "C3": {
+     "n": 773,
+     "ic": 0.010769622029883758,
+     "n_sell": 205,
+     "sell_hit": 0.2682926829268293,
+     "mean_sell_excess": -0.006321835302320157,
+     "n_buy": 181,
+     "buy_hit": 0.2154696132596685,
+     "mean_buy_excess": 0.0030214739516078453,
+     "base_down": 0.2522639068564036,
+     "base_up": 0.17464424320827943,
+     "labels": {
+      "BUY": 93,
+      "HOLD": 387,
+      "SELL": 119,
+      "STRONG_BUY": 88,
+      "STRONG_SELL": 86
+     }
+    },
+    "N0": {
+     "n": 773,
+     "ic": -0.12442760671216672,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.2522639068564036,
+     "base_up": 0.17464424320827943,
+     "labels": {
+      "HOLD": 773
+     }
+    }
+   },
+   {
+    "origin": "2026-08-04",
+    "horizon": 28,
+    "n": 773,
+    "C0": {
+     "n": 773,
+     "ic": -0.04943944458489619,
+     "n_sell": 639,
+     "sell_hit": 0.2347417840375587,
+     "mean_sell_excess": -0.0017267818934238726,
+     "n_buy": 27,
+     "buy_hit": 0.18518518518518517,
+     "mean_buy_excess": 0.00979411933315968,
+     "base_down": 0.2535575679172057,
+     "base_up": 0.1759379042690815,
+     "labels": {
+      "BUY": 10,
+      "HOLD": 107,
+      "SELL": 19,
+      "STRONG_BUY": 17,
+      "STRONG_SELL": 620
+     }
+    },
+    "C1": {
+     "n": 773,
+     "ic": -0.024125397068838844,
+     "n_sell": 234,
+     "sell_hit": 0.1794871794871795,
+     "mean_sell_excess": -0.006071756346507183,
+     "n_buy": 199,
+     "buy_hit": 0.2914572864321608,
+     "mean_buy_excess": 0.0034029220171793786,
+     "base_down": 0.2535575679172057,
+     "base_up": 0.1759379042690815,
+     "labels": {
+      "BUY": 80,
+      "HOLD": 340,
+      "SELL": 129,
+      "STRONG_BUY": 119,
+      "STRONG_SELL": 105
+     }
+    },
+    "C2": {
+     "n": 773,
+     "ic": -0.015085888453320036,
+     "n_sell": 286,
+     "sell_hit": 0.16433566433566432,
+     "mean_sell_excess": -0.006733867297777625,
+     "n_buy": 241,
+     "buy_hit": 0.26556016597510373,
+     "mean_buy_excess": 0.003943756249007911,
+     "base_down": 0.2535575679172057,
+     "base_up": 0.1759379042690815,
+     "labels": {
+      "BUY": 83,
+      "HOLD": 246,
+      "SELL": 143,
+      "STRONG_BUY": 158,
+      "STRONG_SELL": 143
+     }
+    },
+    "C3": {
+     "n": 773,
+     "ic": 0.019970645130154948,
+     "n_sell": 196,
+     "sell_hit": 0.2653061224489796,
+     "mean_sell_excess": -0.006399418515217972,
+     "n_buy": 178,
+     "buy_hit": 0.2303370786516854,
+     "mean_buy_excess": 0.003142746237746196,
+     "base_down": 0.2535575679172057,
+     "base_up": 0.1759379042690815,
+     "labels": {
+      "BUY": 91,
+      "HOLD": 399,
+      "SELL": 110,
+      "STRONG_BUY": 87,
+      "STRONG_SELL": 86
+     }
+    },
+    "N0": {
+     "n": 773,
+     "ic": -0.10132370502277173,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.2535575679172057,
+     "base_up": 0.1759379042690815,
+     "labels": {
+      "HOLD": 773
+     }
+    }
+   },
+   {
+    "origin": "2026-08-11",
+    "horizon": 28,
+    "n": 763,
+    "C0": {
+     "n": 763,
+     "ic": -0.05014159764493754,
+     "n_sell": 631,
+     "sell_hit": 0.2329635499207607,
+     "mean_sell_excess": -0.00028347189547679654,
+     "n_buy": 27,
+     "buy_hit": 0.18518518518518517,
+     "mean_buy_excess": 0.009783839833565722,
+     "base_down": 0.2516382699868938,
+     "base_up": 0.1834862385321101,
+     "labels": {
+      "BUY": 10,
+      "HOLD": 105,
+      "SELL": 21,
+      "STRONG_BUY": 17,
+      "STRONG_SELL": 610
+     }
+    },
+    "C1": {
+     "n": 763,
+     "ic": -0.03158890363138528,
+     "n_sell": 231,
+     "sell_hit": 0.16883116883116883,
+     "mean_sell_excess": -0.003693657906977519,
+     "n_buy": 197,
+     "buy_hit": 0.29441624365482233,
+     "mean_buy_excess": 0.00459852354684126,
+     "base_down": 0.2516382699868938,
+     "base_up": 0.1834862385321101,
+     "labels": {
+      "BUY": 77,
+      "HOLD": 335,
+      "SELL": 123,
+      "STRONG_BUY": 120,
+      "STRONG_SELL": 108
+     }
+    },
+    "C2": {
+     "n": 763,
+     "ic": -0.02379863257589124,
+     "n_sell": 284,
+     "sell_hit": 0.15845070422535212,
+     "mean_sell_excess": -0.005692075265040379,
+     "n_buy": 240,
+     "buy_hit": 0.26666666666666666,
+     "mean_buy_excess": 0.004133209735822545,
+     "base_down": 0.2516382699868938,
+     "base_up": 0.1834862385321101,
+     "labels": {
+      "BUY": 82,
+      "HOLD": 239,
+      "SELL": 141,
+      "STRONG_BUY": 158,
+      "STRONG_SELL": 143
+     }
+    },
+    "C3": {
+     "n": 763,
+     "ic": 0.00979780378422443,
+     "n_sell": 200,
+     "sell_hit": 0.245,
+     "mean_sell_excess": -0.004640231511139646,
+     "n_buy": 178,
+     "buy_hit": 0.2303370786516854,
+     "mean_buy_excess": 0.004799227615297742,
+     "base_down": 0.2516382699868938,
+     "base_up": 0.1834862385321101,
+     "labels": {
+      "BUY": 91,
+      "HOLD": 385,
+      "SELL": 113,
+      "STRONG_BUY": 87,
+      "STRONG_SELL": 87
+     }
+    },
+    "N0": {
+     "n": 763,
+     "ic": -0.09432170253229555,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.2516382699868938,
+     "base_up": 0.1834862385321101,
+     "labels": {
+      "HOLD": 763
+     }
+    }
+   },
+   {
+    "origin": "2026-08-18",
+    "horizon": 28,
+    "n": 762,
+    "C0": {
+     "n": 762,
+     "ic": -0.09322640692744107,
+     "n_sell": 633,
+     "sell_hit": 0.2259083728278041,
+     "mean_sell_excess": -0.0005539348875956569,
+     "n_buy": 26,
+     "buy_hit": 0.23076923076923078,
+     "mean_buy_excess": 0.010907060554549196,
+     "base_down": 0.24803149606299213,
+     "base_up": 0.17716535433070865,
+     "labels": {
+      "BUY": 10,
+      "HOLD": 103,
+      "SELL": 23,
+      "STRONG_BUY": 16,
+      "STRONG_SELL": 610
+     }
+    },
+    "C1": {
+     "n": 762,
+     "ic": -0.07330199634041706,
+     "n_sell": 232,
+     "sell_hit": 0.13793103448275862,
+     "mean_sell_excess": 0.00013822372858495396,
+     "n_buy": 197,
+     "buy_hit": 0.26903553299492383,
+     "mean_buy_excess": 0.0031550567770198845,
+     "base_down": 0.24803149606299213,
+     "base_up": 0.17716535433070865,
+     "labels": {
+      "BUY": 80,
+      "HOLD": 333,
+      "SELL": 126,
+      "STRONG_BUY": 117,
+      "STRONG_SELL": 106
+     }
+    },
+    "C2": {
+     "n": 762,
+     "ic": -0.0641539935672735,
+     "n_sell": 282,
+     "sell_hit": 0.1347517730496454,
+     "mean_sell_excess": -0.000976850509728753,
+     "n_buy": 240,
+     "buy_hit": 0.24166666666666667,
+     "mean_buy_excess": 0.003211502133085196,
+     "base_down": 0.24803149606299213,
+     "base_up": 0.17716535433070865,
+     "labels": {
+      "BUY": 84,
+      "HOLD": 240,
+      "SELL": 146,
+      "STRONG_BUY": 156,
+      "STRONG_SELL": 136
+     }
+    },
+    "C3": {
+     "n": 762,
+     "ic": -0.04396493562748664,
+     "n_sell": 198,
+     "sell_hit": 0.21717171717171718,
+     "mean_sell_excess": -0.004031196089013378,
+     "n_buy": 176,
+     "buy_hit": 0.21022727272727273,
+     "mean_buy_excess": 0.0036895271421008226,
+     "base_down": 0.24803149606299213,
+     "base_up": 0.17716535433070865,
+     "labels": {
+      "BUY": 84,
+      "HOLD": 388,
+      "SELL": 111,
+      "STRONG_BUY": 92,
+      "STRONG_SELL": 87
+     }
+    },
+    "N0": {
+     "n": 762,
+     "ic": -0.13734376187458663,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.24803149606299213,
+     "base_up": 0.17716535433070865,
+     "labels": {
+      "HOLD": 762
+     }
+    }
+   },
+   {
+    "origin": "2026-08-25",
+    "horizon": 28,
+    "n": 775,
+    "C0": {
+     "n": 775,
+     "ic": 0.12154075741644163,
+     "n_sell": 640,
+     "sell_hit": 0.134375,
+     "mean_sell_excess": -5.2144440750367654e-05,
+     "n_buy": 27,
+     "buy_hit": 0.2962962962962963,
+     "mean_buy_excess": -0.0012868582660371549,
+     "base_down": 0.1329032258064516,
+     "base_up": 0.2,
+     "labels": {
+      "BUY": 9,
+      "HOLD": 108,
+      "SELL": 22,
+      "STRONG_BUY": 18,
+      "STRONG_SELL": 618
+     }
+    },
+    "C1": {
+     "n": 775,
+     "ic": 0.08820886910092866,
+     "n_sell": 234,
+     "sell_hit": 0.11965811965811966,
+     "mean_sell_excess": 0.00309347898376492,
+     "n_buy": 199,
+     "buy_hit": 0.3417085427135678,
+     "mean_buy_excess": 0.0023093289090574402,
+     "base_down": 0.1329032258064516,
+     "base_up": 0.2,
+     "labels": {
+      "BUY": 84,
+      "HOLD": 342,
+      "SELL": 131,
+      "STRONG_BUY": 115,
+      "STRONG_SELL": 103
+     }
+    },
+    "C2": {
+     "n": 775,
+     "ic": 0.09146386035116533,
+     "n_sell": 284,
+     "sell_hit": 0.1056338028169014,
+     "mean_sell_excess": 0.0016408592896453224,
+     "n_buy": 240,
+     "buy_hit": 0.3125,
+     "mean_buy_excess": 0.002325084757575784,
+     "base_down": 0.1329032258064516,
+     "base_up": 0.2,
+     "labels": {
+      "BUY": 82,
+      "HOLD": 251,
+      "SELL": 147,
+      "STRONG_BUY": 158,
+      "STRONG_SELL": 137
+     }
+    },
+    "C3": {
+     "n": 775,
+     "ic": 0.040796130684728475,
+     "n_sell": 199,
+     "sell_hit": 0.15577889447236182,
+     "mean_sell_excess": 0.00045406622251120124,
+     "n_buy": 181,
+     "buy_hit": 0.26519337016574585,
+     "mean_buy_excess": 0.0008871275288667834,
+     "base_down": 0.1329032258064516,
+     "base_up": 0.2,
+     "labels": {
+      "BUY": 96,
+      "HOLD": 395,
+      "SELL": 116,
+      "STRONG_BUY": 85,
+      "STRONG_SELL": 83
+     }
+    },
+    "N0": {
+     "n": 775,
+     "ic": 0.1441961541855907,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.1329032258064516,
+     "base_up": 0.2,
+     "labels": {
+      "HOLD": 775
+     }
+    }
+   },
+   {
+    "origin": "2026-09-01",
+    "horizon": 28,
+    "n": 782,
+    "C0": {
+     "n": 782,
+     "ic": 0.09686014331570043,
+     "n_sell": 636,
+     "sell_hit": 0.13050314465408805,
+     "mean_sell_excess": 0.0005086841284317418,
+     "n_buy": 38,
+     "buy_hit": 0.21052631578947367,
+     "mean_buy_excess": 0.0007435385305484273,
+     "base_down": 0.1329923273657289,
+     "base_up": 0.18286445012787725,
+     "labels": {
+      "BUY": 17,
+      "HOLD": 108,
+      "SELL": 18,
+      "STRONG_BUY": 21,
+      "STRONG_SELL": 618
+     }
+    },
+    "C1": {
+     "n": 782,
+     "ic": 0.06732422673189689,
+     "n_sell": 235,
+     "sell_hit": 0.11914893617021277,
+     "mean_sell_excess": 0.004153604632362785,
+     "n_buy": 200,
+     "buy_hit": 0.3,
+     "mean_buy_excess": 0.0012835289463961042,
+     "base_down": 0.1329923273657289,
+     "base_up": 0.18286445012787725,
+     "labels": {
+      "BUY": 86,
+      "HOLD": 347,
+      "SELL": 132,
+      "STRONG_BUY": 114,
+      "STRONG_SELL": 103
+     }
+    },
+    "C2": {
+     "n": 782,
+     "ic": 0.0705458979190046,
+     "n_sell": 282,
+     "sell_hit": 0.10638297872340426,
+     "mean_sell_excess": 0.0025079891147729507,
+     "n_buy": 243,
+     "buy_hit": 0.27983539094650206,
+     "mean_buy_excess": 0.0011331439392781757,
+     "base_down": 0.1329923273657289,
+     "base_up": 0.18286445012787725,
+     "labels": {
+      "BUY": 86,
+      "HOLD": 257,
+      "SELL": 146,
+      "STRONG_BUY": 157,
+      "STRONG_SELL": 136
+     }
+    },
+    "C3": {
+     "n": 782,
+     "ic": 0.003958177998492896,
+     "n_sell": 198,
+     "sell_hit": 0.15151515151515152,
+     "mean_sell_excess": 0.0018945740321905942,
+     "n_buy": 180,
+     "buy_hit": 0.20555555555555555,
+     "mean_buy_excess": 0.0010871146881981297,
+     "base_down": 0.1329923273657289,
+     "base_up": 0.18286445012787725,
+     "labels": {
+      "BUY": 96,
+      "HOLD": 404,
+      "SELL": 115,
+      "STRONG_BUY": 84,
+      "STRONG_SELL": 83
+     }
+    },
+    "N0": {
+     "n": 782,
+     "ic": 0.11605817742729682,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.1329923273657289,
+     "base_up": 0.18286445012787725,
+     "labels": {
+      "HOLD": 782
+     }
+    }
+   },
+   {
+    "origin": "2026-09-08",
+    "horizon": 28,
+    "n": 758,
+    "C0": {
+     "n": 758,
+     "ic": 0.09894792147160004,
+     "n_sell": 617,
+     "sell_hit": 0.1458670988654781,
+     "mean_sell_excess": 0.00016297181225148575,
+     "n_buy": 37,
+     "buy_hit": 0.2972972972972973,
+     "mean_buy_excess": 0.001897282359523807,
+     "base_down": 0.13852242744063326,
+     "base_up": 0.18469656992084432,
+     "labels": {
+      "BUY": 17,
+      "HOLD": 104,
+      "SELL": 20,
+      "STRONG_BUY": 20,
+      "STRONG_SELL": 597
+     }
+    },
+    "C1": {
+     "n": 758,
+     "ic": 0.08279874702948434,
+     "n_sell": 228,
+     "sell_hit": 0.13596491228070176,
+     "mean_sell_excess": 0.003186003747799963,
+     "n_buy": 194,
+     "buy_hit": 0.29896907216494845,
+     "mean_buy_excess": 0.0019061676580160551,
+     "base_down": 0.13852242744063326,
+     "base_up": 0.18469656992084432,
+     "labels": {
+      "BUY": 83,
+      "HOLD": 336,
+      "SELL": 127,
+      "STRONG_BUY": 111,
+      "STRONG_SELL": 101
+     }
+    },
+    "C2": {
+     "n": 758,
+     "ic": 0.0741744118516615,
+     "n_sell": 274,
+     "sell_hit": 0.12773722627737227,
+     "mean_sell_excess": 0.0016142373289638806,
+     "n_buy": 234,
+     "buy_hit": 0.2777777777777778,
+     "mean_buy_excess": 0.002085416181679797,
+     "base_down": 0.13852242744063326,
+     "base_up": 0.18469656992084432,
+     "labels": {
+      "BUY": 82,
+      "HOLD": 250,
+      "SELL": 145,
+      "STRONG_BUY": 152,
+      "STRONG_SELL": 129
+     }
+    },
+    "C3": {
+     "n": 758,
+     "ic": 0.0787630526447714,
+     "n_sell": 191,
+     "sell_hit": 0.193717277486911,
+     "mean_sell_excess": -0.002960897101923522,
+     "n_buy": 178,
+     "buy_hit": 0.20224719101123595,
+     "mean_buy_excess": 0.0003791570050820841,
+     "base_down": 0.13852242744063326,
+     "base_up": 0.18469656992084432,
+     "labels": {
+      "BUY": 90,
+      "HOLD": 389,
+      "SELL": 106,
+      "STRONG_BUY": 88,
+      "STRONG_SELL": 85
+     }
+    },
+    "N0": {
+     "n": 758,
+     "ic": 0.11464747678764169,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.13852242744063326,
+     "base_up": 0.18469656992084432,
+     "labels": {
+      "HOLD": 758
+     }
+    }
+   },
+   {
+    "origin": "2026-09-15",
+    "horizon": 28,
+    "n": 756,
+    "C0": {
+     "n": 756,
+     "ic": -0.04987390963967561,
+     "n_sell": 620,
+     "sell_hit": 0.2435483870967742,
+     "mean_sell_excess": 0.0030197331087654837,
+     "n_buy": 36,
+     "buy_hit": 0.2777777777777778,
+     "mean_buy_excess": 0.022540737225526467,
+     "base_down": 0.26455026455026454,
+     "base_up": 0.17592592592592593,
+     "labels": {
+      "BUY": 16,
+      "HOLD": 100,
+      "SELL": 21,
+      "STRONG_BUY": 20,
+      "STRONG_SELL": 599
+     }
+    },
+    "C1": {
+     "n": 756,
+     "ic": -0.04617024284443239,
+     "n_sell": 229,
+     "sell_hit": 0.17903930131004367,
+     "mean_sell_excess": 0.0014895990348559116,
+     "n_buy": 197,
+     "buy_hit": 0.26903553299492383,
+     "mean_buy_excess": 0.00858958742049844,
+     "base_down": 0.26455026455026454,
+     "base_up": 0.17592592592592593,
+     "labels": {
+      "BUY": 86,
+      "HOLD": 330,
+      "SELL": 127,
+      "STRONG_BUY": 111,
+      "STRONG_SELL": 102
+     }
+    },
+    "C2": {
+     "n": 756,
+     "ic": -0.04395353007946059,
+     "n_sell": 271,
+     "sell_hit": 0.17343173431734318,
+     "mean_sell_excess": -0.005226281850390298,
+     "n_buy": 238,
+     "buy_hit": 0.2647058823529412,
+     "mean_buy_excess": 0.010123814355278196,
+     "base_down": 0.26455026455026454,
+     "base_up": 0.17592592592592593,
+     "labels": {
+      "BUY": 90,
+      "HOLD": 247,
+      "SELL": 140,
+      "STRONG_BUY": 148,
+      "STRONG_SELL": 131
+     }
+    },
+    "C3": {
+     "n": 756,
+     "ic": 0.022705322197523258,
+     "n_sell": 193,
+     "sell_hit": 0.3005181347150259,
+     "mean_sell_excess": -0.0015854965618183204,
+     "n_buy": 179,
+     "buy_hit": 0.17318435754189945,
+     "mean_buy_excess": 0.011647665150326891,
+     "base_down": 0.26455026455026454,
+     "base_up": 0.17592592592592593,
+     "labels": {
+      "BUY": 92,
+      "HOLD": 384,
+      "SELL": 114,
+      "STRONG_BUY": 87,
+      "STRONG_SELL": 79
+     }
+    },
+    "N0": {
+     "n": 756,
+     "ic": -0.10006173475113156,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.26455026455026454,
+     "base_up": 0.17592592592592593,
+     "labels": {
+      "HOLD": 756
+     }
+    }
+   },
+   {
+    "origin": "2026-09-22",
+    "horizon": 28,
+    "n": 779,
+    "C0": {
+     "n": 779,
+     "ic": -0.04753343614791734,
+     "n_sell": 643,
+     "sell_hit": 0.23483670295489892,
+     "mean_sell_excess": 0.002983721088299033,
+     "n_buy": 36,
+     "buy_hit": 0.2777777777777778,
+     "mean_buy_excess": 0.022540737225526467,
+     "base_down": 0.25673940949935814,
+     "base_up": 0.17329910141206675,
+     "labels": {
+      "BUY": 18,
+      "HOLD": 100,
+      "SELL": 21,
+      "STRONG_BUY": 18,
+      "STRONG_SELL": 622
+     }
+    },
+    "C1": {
+     "n": 779,
+     "ic": -0.045200887658598136,
+     "n_sell": 233,
+     "sell_hit": 0.1759656652360515,
+     "mean_sell_excess": 0.00024127108841051216,
+     "n_buy": 198,
+     "buy_hit": 0.25252525252525254,
+     "mean_buy_excess": 0.007920262658006178,
+     "base_down": 0.25673940949935814,
+     "base_up": 0.17329910141206675,
+     "labels": {
+      "BUY": 83,
+      "HOLD": 348,
+      "SELL": 130,
+      "STRONG_BUY": 115,
+      "STRONG_SELL": 103
+     }
+    },
+    "C2": {
+     "n": 779,
+     "ic": -0.04055851868795458,
+     "n_sell": 283,
+     "sell_hit": 0.17314487632508835,
+     "mean_sell_excess": -0.005274694417937838,
+     "n_buy": 243,
+     "buy_hit": 0.25102880658436216,
+     "mean_buy_excess": 0.010573166465157357,
+     "base_down": 0.25673940949935814,
+     "base_up": 0.17329910141206675,
+     "labels": {
+      "BUY": 92,
+      "HOLD": 253,
+      "SELL": 142,
+      "STRONG_BUY": 151,
+      "STRONG_SELL": 141
+     }
+    },
+    "C3": {
+     "n": 779,
+     "ic": 0.02469099456456562,
+     "n_sell": 198,
+     "sell_hit": 0.29292929292929293,
+     "mean_sell_excess": -0.00175385017517104,
+     "n_buy": 183,
+     "buy_hit": 0.17486338797814208,
+     "mean_buy_excess": 0.013213029099651821,
+     "base_down": 0.25673940949935814,
+     "base_up": 0.17329910141206675,
+     "labels": {
+      "BUY": 92,
+      "HOLD": 398,
+      "SELL": 118,
+      "STRONG_BUY": 91,
+      "STRONG_SELL": 80
+     }
+    },
+    "N0": {
+     "n": 779,
+     "ic": -0.08446410111128153,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.25673940949935814,
+     "base_up": 0.17329910141206675,
+     "labels": {
+      "HOLD": 779
+     }
+    }
+   },
+   {
+    "origin": "2026-09-29",
+    "horizon": 28,
+    "n": 780,
+    "C0": {
+     "n": 780,
+     "ic": -0.05396493176759386,
+     "n_sell": 643,
+     "sell_hit": 0.2332814930015552,
+     "mean_sell_excess": 0.0030681064197147696,
+     "n_buy": 36,
+     "buy_hit": 0.2777777777777778,
+     "mean_buy_excess": 0.0225484639993891,
+     "base_down": 0.2551282051282051,
+     "base_up": 0.17307692307692307,
+     "labels": {
+      "BUY": 17,
+      "HOLD": 101,
+      "SELL": 20,
+      "STRONG_BUY": 19,
+      "STRONG_SELL": 623
+     }
+    },
+    "C1": {
+     "n": 780,
+     "ic": -0.04981207792741283,
+     "n_sell": 233,
+     "sell_hit": 0.17167381974248927,
+     "mean_sell_excess": 0.0002640767199485172,
+     "n_buy": 197,
+     "buy_hit": 0.25380710659898476,
+     "mean_buy_excess": 0.007960467036980829,
+     "base_down": 0.2551282051282051,
+     "base_up": 0.17307692307692307,
+     "labels": {
+      "BUY": 84,
+      "HOLD": 350,
+      "SELL": 130,
+      "STRONG_BUY": 113,
+      "STRONG_SELL": 103
+     }
+    },
+    "C2": {
+     "n": 780,
+     "ic": -0.048331682017844116,
+     "n_sell": 281,
+     "sell_hit": 0.16370106761565836,
+     "mean_sell_excess": -0.0040024618954362145,
+     "n_buy": 245,
+     "buy_hit": 0.2571428571428571,
+     "mean_buy_excess": 0.011270275568138586,
+     "base_down": 0.2551282051282051,
+     "base_up": 0.17307692307692307,
+     "labels": {
+      "BUY": 94,
+      "HOLD": 254,
+      "SELL": 142,
+      "STRONG_BUY": 151,
+      "STRONG_SELL": 139
+     }
+    },
+    "C3": {
+     "n": 780,
+     "ic": 0.023917314256899965,
+     "n_sell": 197,
+     "sell_hit": 0.29441624365482233,
+     "mean_sell_excess": -0.0018484550540139404,
+     "n_buy": 182,
+     "buy_hit": 0.17032967032967034,
+     "mean_buy_excess": 0.013141225913739958,
+     "base_down": 0.2551282051282051,
+     "base_up": 0.17307692307692307,
+     "labels": {
+      "BUY": 92,
+      "HOLD": 401,
+      "SELL": 118,
+      "STRONG_BUY": 90,
+      "STRONG_SELL": 79
+     }
+    },
+    "N0": {
+     "n": 780,
+     "ic": -0.08937291365993708,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.2551282051282051,
+     "base_up": 0.17307692307692307,
+     "labels": {
+      "HOLD": 780
+     }
+    }
+   },
+   {
+    "origin": "2026-10-06",
+    "horizon": 28,
+    "n": 782,
+    "C0": {
+     "n": 782,
+     "ic": -0.06608388462846548,
+     "n_sell": 642,
+     "sell_hit": 0.2336448598130841,
+     "mean_sell_excess": 0.003789003973436044,
+     "n_buy": 36,
+     "buy_hit": 0.2222222222222222,
+     "mean_buy_excess": 0.02075118914554329,
+     "base_down": 0.2570332480818414,
+     "base_up": 0.17391304347826086,
+     "labels": {
+      "BUY": 17,
+      "HOLD": 104,
+      "SELL": 19,
+      "STRONG_BUY": 19,
+      "STRONG_SELL": 623
+     }
+    },
+    "C1": {
+     "n": 782,
+     "ic": -0.059920262562926346,
+     "n_sell": 232,
+     "sell_hit": 0.17672413793103448,
+     "mean_sell_excess": 0.0011050013525388275,
+     "n_buy": 199,
+     "buy_hit": 0.2562814070351759,
+     "mean_buy_excess": 0.007671472248879545,
+     "base_down": 0.2570332480818414,
+     "base_up": 0.17391304347826086,
+     "labels": {
+      "BUY": 85,
+      "HOLD": 351,
+      "SELL": 130,
+      "STRONG_BUY": 114,
+      "STRONG_SELL": 102
+     }
+    },
+    "C2": {
+     "n": 782,
+     "ic": -0.059265419389378016,
+     "n_sell": 278,
+     "sell_hit": 0.17266187050359713,
+     "mean_sell_excess": -0.003631032281968465,
+     "n_buy": 241,
+     "buy_hit": 0.24896265560165975,
+     "mean_buy_excess": 0.008440175859274757,
+     "base_down": 0.2570332480818414,
+     "base_up": 0.17391304347826086,
+     "labels": {
+      "BUY": 91,
+      "HOLD": 263,
+      "SELL": 138,
+      "STRONG_BUY": 150,
+      "STRONG_SELL": 140
+     }
+    },
+    "C3": {
+     "n": 782,
+     "ic": 0.014881828790651364,
+     "n_sell": 198,
+     "sell_hit": 0.2828282828282828,
+     "mean_sell_excess": 0.001300382951470192,
+     "n_buy": 183,
+     "buy_hit": 0.16939890710382513,
+     "mean_buy_excess": 0.010948853584859062,
+     "base_down": 0.2570332480818414,
+     "base_up": 0.17391304347826086,
+     "labels": {
+      "BUY": 92,
+      "HOLD": 401,
+      "SELL": 120,
+      "STRONG_BUY": 91,
+      "STRONG_SELL": 78
+     }
+    },
+    "N0": {
+     "n": 782,
+     "ic": -0.09489323959451823,
+     "n_sell": 0,
+     "sell_hit": null,
+     "mean_sell_excess": null,
+     "n_buy": 0,
+     "buy_hit": null,
+     "mean_buy_excess": null,
+     "base_down": 0.2570332480818414,
+     "base_up": 0.17391304347826086,
+     "labels": {
+      "HOLD": 782
+     }
+    }
+   }
+  ],
+  "summary": {
+   "origins": 13,
+   "C0": {
+    "mean_ic": -0.016435776085730273,
+    "frac_origins_ic_positive": 0.23076923076923078,
+    "n_sell": 8256,
+    "sell_hit": 0.2054263565891473,
+    "n_buy": 413,
+    "buy_hit": 0.23002421307506055,
+    "base_down": 0.21946602908946006,
+    "base_up": 0.17782426778242677
+   },
+   "C1": {
+    "mean_ic": -0.017012114653950104,
+    "frac_origins_ic_positive": 0.23076923076923078,
+    "n_sell": 3039,
+    "sell_hit": 0.15597235932872655,
+    "n_buy": 2575,
+    "buy_hit": 0.2737864077669903,
+    "base_down": 0.21946602908946006,
+    "base_up": 0.17782426778242677
+   },
+   "C2": {
+    "mean_ic": -0.010952615797411606,
+    "frac_origins_ic_positive": 0.23076923076923078,
+    "n_sell": 3661,
+    "sell_hit": 0.14668123463534555,
+    "n_buy": 3129,
+    "buy_hit": 0.25822946628315757,
+    "base_down": 0.21946602908946006,
+    "base_up": 0.17782426778242677
+   },
+   "C3": {
+    "mean_ic": 0.021985497481053027,
+    "frac_origins_ic_positive": 0.9230769230769231,
+    "n_sell": 2577,
+    "sell_hit": 0.24291812184710904,
+    "n_buy": 2341,
+    "buy_hit": 0.20119607005553183,
+    "base_down": 0.21946602908946006,
+    "base_up": 0.17782426778242677
+   },
+   "N0": {
+    "mean_ic": -0.03968335853328024,
+    "frac_origins_ic_positive": 0.23076923076923078,
+    "n_sell": 0,
+    "sell_hit": null,
+    "n_buy": 0,
+    "buy_hit": null,
+    "base_down": 0.21946602908946006,
+    "base_up": 0.17782426778242677
+   }
+  },
+  "verdict": {
+   "verdict": "SCREENED",
+   "challengers": {
+    "C1": {
+     "P1": false,
+     "P2": false,
+     "P3": false,
+     "PASS": false
+    },
+    "C2": {
+     "P1": false,
+     "P2": false,
+     "P3": false,
+     "PASS": false
+    },
+    "C3": {
+     "P1": false,
+     "P2": false,
+     "P3": true,
+     "PASS": false
+    }
+   }
+  }
+ }
+}
