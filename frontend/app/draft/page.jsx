@@ -82,6 +82,7 @@ import {
   buildBdvmPickRows,
   bdvmEntryForRow,
   bdvmSignalEdgeCss,
+  bdvmSignalLabel,
   formatBdvmGap,
   formatBdvmValue,
 } from "@/lib/bdvm";
@@ -1619,7 +1620,7 @@ export function RookieBoard({
                           }
                           const css = bdvmSignalEdgeCss(entry.signal);
                           const title =
-                            `${entry.signal}: ${entry.signalReason} — fundamental ` +
+                            `${bdvmSignalLabel(entry.signal)}: ${entry.signalReason} — fundamental ` +
                             `${formatBdvmValue(entry.fundamental)} vs market ` +
                             `${formatBdvmValue(entry.marketValue)}`;
                           return css ? (

@@ -9,6 +9,8 @@ import path from "node:path";
 
 import { _renderPlainSummary } from "@/components/ui/MonteCarloButton";
 import { postureText } from "@/lib/waiver-advisor";
+import { bdvmSignalLabel } from "@/lib/bdvm";
+import { labelText, reasonText, labelTone } from "@/lib/consensus-edge";
 
 const root = path.resolve(__dirname, "..");
 const read = (p) => fs.readFileSync(path.join(root, p), "utf8");
@@ -66,5 +68,35 @@ describe("source-level wording guards", () => {
       expect(s, f).not.toMatch(/market overvalues|Market overvalues|market is cheap|Market undervalues/);
     }
     expect(read("components/PlayerPopup.jsx")).toContain("a gap, not proof of mispricing");
+  });
+});
+
+describe("STRONG_* bands are labelled as threshold bands", () => {
+  it("BDVM signal display text names the gap band; enum untouched", () => {
+    expect(bdvmSignalLabel("STRONG_BUY")).toBe("Buy · large gap");
+    expect(bdvmSignalLabel("STRONG_SELL")).toBe("Sell · large gap");
+    expect(bdvmSignalLabel("BUY")).toBe("Buy");
+    expect(bdvmSignalLabel("NO_MARKET")).toBe("No market");
+    expect(bdvmSignalLabel("")).toBe("");
+    for (const s of ["STRONG_BUY", "STRONG_SELL", "BUY", "SELL", "HOLD", "NO_MARKET"]) {
+      expect(bdvmSignalLabel(s)).not.toMatch(/strong/i);
+    }
+    expect(read("app/bdvm/page.jsx")).not.toMatch(/Strong (buy|sell)/);
+    expect(read("app/rankings/page.jsx")).toContain("bdvmSignalLabel(entry.signal)");
+    expect(read("app/draft/page.jsx")).toContain("bdvmSignalLabel(entry.signal)");
+  });
+  it("Consensus Edge badge/reason text names the score band; tone and API label untouched", () => {
+    expect(labelText("Strong Buy")).toBe("Buy · large score");
+    expect(labelText("Strong Sell")).toBe("Sell · large score");
+    expect(labelText("Buy")).toBe("Buy");
+    expect(labelText("Conflicted")).toBe("Conflicted");
+    expect(reasonText("score reaches Strong Buy but confidence 69 < 70")).toBe(
+      "score reaches large-score Buy but confidence 69 < 70",
+    );
+    expect(reasonText(null)).toBe(null);
+    expect(labelTone("Strong Buy")).not.toBe(labelTone("Buy"));
+    const page = read("app/consensus-edge/page.jsx");
+    expect(page).not.toMatch(/Strong Buy|Strong Sell/);
+    expect(page).toContain("labelText(row.label)");
   });
 });
