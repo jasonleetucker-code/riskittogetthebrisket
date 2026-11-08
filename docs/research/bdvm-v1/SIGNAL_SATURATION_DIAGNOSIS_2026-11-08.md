@@ -6,8 +6,8 @@ is owner-protected), label enum or value changes in this record. Evaluation code
 `src/bdvm/signal_diagnostics.py` (never imported by the serving path) driven by
 `scripts/evaluate_bdvm_signal.py`.
 
-**Headline (scoped).** The proxy-baseline BDVM evaluated here (100% `is_proxy`, no Clay, no IDP Show,
-no play-by-play supplement) shows no directional skill at 14 days, and 80% of its labels are
+**Headline (scoped).** The proxy-baseline BDVM evaluated here (100% `is_proxy`, no Clay, no IDP Show;
+play-by-play supplement joined) shows no directional skill at 14 days, and 80% of its labels are
 STRONG_SELL mostly because the fundamental and market sit on different curves. Nothing here says
 how a BDVM fed real projection sources would behave.
 
@@ -62,7 +62,7 @@ ranked.
 **Disclosures added after independent review.**
 
 - *Outcome-blind, not label-blind.* The challengers (C1-C3) and the pass thresholds were designed
-  AFTER the 638-STRONG_SELL census and the C2 reduction (639 -> 144) were already known; they were
+  AFTER the 638-STRONG_SELL census and the C2 reduction (639 -> 144) of the first, supplement-less run were already known; they were
   fixed before any forward-outcome number was computed. The preregistration commit also already
   contained `evaluate_origin`, so the metric definitions were frozen with the code, not after it.
 - *Point-in-time.* The harness takes the archive on or up to 2 days after each nominal origin;
@@ -83,62 +83,66 @@ ranked.
 
 **Known limitation declared up front.** The fundamentals here come from the
 reconstructed realised-points baseline (every record `is_proxy`), run locally without the
-play-by-play supplement (nflverse PBP returned HTTP 504) and without the production real
-sources (Mike Clay). Reception-band scoring (about two thirds of reception points on the
-league card) is therefore unscored for WR/RB/TE locally, which depresses those fundamentals
-relative to production. Absolute magnitudes below are a local reproduction, not the
-production board.
+production real sources (Mike Clay, IDP Show). The play-by-play supplement IS joined (the
+script passes `SeasonPbpIndex().for_season`, as the #802 guard requires, and stamps
+`pbpSupplement` in the evidence; an unavailable season would be recorded as missing, never
+silently scored zero). A first run, made when the nflverse PBP download returned HTTP 504,
+scored the reception bands as zero; it was re-run once the artifact built, and every number
+below is from the supplement-joined run (verdicts unchanged; headline counts moved by 2-3
+players, a few IC / hit-rate figures by up to ~0.01-0.03). Absolute magnitudes are a local
+reproduction, not the production board.
 
 ## 1. Reproduction
 
 Pinned input: committed `exports/latest/dynasty_data_2026-11-08.json` -> `build_api_data_contract`
--> `run_valuation(dynasty_main)` with a baseline rebuilt from nflverse (2,011 proxy records plus
-197 rookie draft-slot priors). Production `/api/bdvm/values` needs auth and no BDVM snapshot is
+-> `run_valuation(dynasty_main)` with a baseline rebuilt from nflverse (proxy records plus
+197 rookie draft-slot priors, play-by-play supplement joined). Production `/api/bdvm/values` needs auth and no BDVM snapshot is
 committed (`data/` is gitignored), so this is a **local reproduction**, not the production board.
 
 | | value |
 |---|---|
 | priced players with a market anchor | 794 |
-| STRONG_SELL / HOLD / BUY / SELL / STRONG_BUY | 638 / 94 / 22 / 20 / 20 (80.4% STRONG_SELL) |
+| STRONG_SELL / HOLD / BUY / SELL / STRONG_BUY (newest origin, 795 with market) | 636 / 101 / 14 / 20 / 24 (80.0% STRONG_SELL) |
 | earlier production audit | ~570 of 676 (84%), same shape |
 | projection source | 100% `reconstructedBaseline` or `rookieDraftSlotPrior`; **100% `is_proxy`**, sourceCount 1 |
 | liquidity | median 0.97, all measured; the liquidity factor is not a cause |
 
-Across 17 weekly origins (Jul 14 - Nov 3) the census is stable (e.g. 639 STRONG_SELL at Nov 3):
+Across 17 weekly origins (Jul 14 - Nov 3) the census is stable (e.g. 636 STRONG_SELL at Nov 3):
 the saturation is structural, not a one-day artefact.
 
 ## 2. Ranked causes (local reproduction, newest origin 2026-11-03, n = 795)
 
 1. **Scale / curve-shape mismatch between the two sides of `gap` (dominant).** Both are nominally
    0-10000 and the fundamental is anchored so its single top asset prints 9800, but the
-   distributions are not the same shape. Quantiles fundamental vs market: p10 46 vs 790, p25 182
-   vs 1227, p50 544 vs 1911, p75 1256 vs 2967, p90 2504 vs 4643, p99 5644 vs 7905, a
-   matched-quantile ratio of 0.06, 0.15, 0.28, 0.42, 0.54, 0.71. Sum of fundamental is 42% of
-   sum of market. Median gap is about -1,200; **62.5% of players have gap < -900** (the STRONG_SELL
-   bar) and only 11.4% sit inside the +-400 hold band. Removing ONLY this level/shape difference
+   distributions are not the same shape. Quantiles fundamental vs market: p10 60 vs 790, p25 195
+   vs 1227, p50 536 vs 1911, p75 1267 vs 2967, p90 2493 vs 4643, p99 6337 vs 7905, a
+   matched-quantile ratio of 0.08, 0.16, 0.28, 0.43, 0.54, 0.80. Sum of fundamental is 44% of
+   sum of market. Median gap is about -1,170; **62.9% of players have gap < -900** (the STRONG_SELL
+   bar) and only 12.6% sit inside the +-400 hold band. Removing ONLY this level/shape difference
    (challenger C2: quantile-match the fundamental onto the market's distribution, incumbent
-   thresholds unchanged) moves STRONG_SELL from 639 to 144 (18%) and relabels 630 of 795, so
-   roughly 495 of the 639 STRONG_SELLs are produced by the scale difference alone.
+   thresholds unchanged) moves STRONG_SELL from 636 to 136 (17%) and relabels 633 of 795, so
+   roughly 500 of the 636 STRONG_SELLs are produced by the scale difference alone.
 2. **Single-point anchor.** `calibrate()` pins each strategy's MAX asset to 9800 and raises the rest
-   to gamma = 1.2. The top asset is Drake Maye (QB, 24.5 fpg, 9800) with the next at 7695, so one
-   projection sets the unit for the board; the 1.2 power then compresses the mid-pool (p50 ratio
-   0.28). Methodology observation, not a defect: it is what the owner-protected params say.
-3. **Position-level level shifts.** Sum-of-fundamental / sum-of-market by group: LB 0.21, WR 0.29,
-   RB 0.37, TE 0.50, QB 0.63, DL 0.67, DB 0.68 (STRONG_SELL 150 of 160 LBs). IDP retail prices
+   to gamma = 1.2: one player's projection sets the unit for the board (here the top fundamental
+   is 9800 and the next two print 9170 and 8819), and the 1.2 power compresses the mid-pool
+   (p50 ratio 0.28). Methodology observation, not a defect: it is what the owner-protected
+   params say. (Which player is the anchor changed between the no-supplement and supplement runs,
+   which itself shows how sensitive the unit is to the top projection.)
+3. **Position-level level shifts.** Sum-of-fundamental / sum-of-market by group: LB 0.20, WR 0.39,
+   RB 0.36, QB 0.57, TE 0.60, DL 0.61, DB 0.64 (STRONG_SELL 152 of 160 LBs). IDP retail prices
    carry far more value per fantasy point than the league's replacement-adjusted fundamental
    gives LBs. Partly genuine model/market disagreement, partly cause 1.
-4. **Genuine disagreement exists but is moderate.** Spearman(fundamental, market) = 0.53 overall
-   (WR 0.77, RB 0.76, LB 0.59, DB 0.42). Order agrees far more than level, which is what a scale
+4. **Genuine disagreement exists but is moderate.** Spearman(fundamental, market) = 0.56 overall
+   (WR 0.78, RB 0.76, LB 0.57, DB 0.42). Order agrees far more than level, which is what a scale
    problem rather than an information problem looks like.
 5. **Thresholds are absolute alpha units.** +-400 / +-900 against a median gap near -1,200 are the
    wrong instrument whatever their origin; no repo evidence shows they were derived from this
    distribution. No evidence they were copied from another one either.
 6. **Proxy / stale inputs: cannot be separated locally.** 100% of rows are proxy (share among
-   STRONG_SELL 1.0 vs others 1.0, no contrast). The local build also lacked the play-by-play
-   supplement (nflverse PBP HTTP 504), leaving reception bands unscored for WR/RB/TE. That is NOT
-   the main driver: QB and LB/DB (no reception bands) show sum ratios 0.63 / 0.21 / 0.68, spanning
-   the same range as WR/RB/TE (0.29 / 0.37 / 0.50). In-season actuals were not applied. Real
-   sources (Mike Clay) could change rows but not a board-wide level.
+   STRONG_SELL 1.0 vs others 1.0, no contrast). Joining the play-by-play supplement (reception
+   bands, special teams) moved WR from 0.29 to 0.39 of market and left LB / RB / QB / DB essentially
+   unchanged, so unscored scoring rules were NOT the main driver. In-season actuals were not
+   applied. Real sources (Mike Clay) could change rows but not a board-wide level.
 7. **Formula defect: none found.** gap = fundamental balanced - market, alpha = gap x liquidity
    (median 0.97), thresholds applied in magnitude order; the served ladder is reproduced exactly
    (pinned by test). Source selection: offense uses `ktcCrowdTradesSfTep` (all but 4 rows), IDP
@@ -153,21 +157,21 @@ up 12.2%).
 
 | method | mean IC (14d) [95% origin bootstrap] | IC range over origins | sign-flip p | origins IC>0 | SELL hit [95% origin-cluster CI] (base 15.2%) | BUY hit [CI] (base 12.2%) | P1 | P2 | P3 | verdict |
 |---|---|---|---|---|---|---|---|---|---|---|
-| C0 incumbent | -0.018 [-0.078, 0.038] | -0.183 .. +0.102 | 0.60 | 3/8 | 14.2% [9.4, 19.0] (n 5114) | 15.4% [8.0, 22.3] (n 266) | - | - | - | reference |
+| C0 incumbent | -0.015 [-0.073, 0.040] | -0.176 .. +0.099 | 0.68 | 3/8 | 14.6% [9.6, 19.4] (n 5089) | 12.8% [6.7, 18.8] (n 312) | - | - | - | reference |
 | N0 level-only reference | -0.016 [-0.088, 0.060] | -0.191 .. +0.146 | 0.70 | 4/8 | - | - | - | - | - | reference |
-| C1 percentile gap | -0.020 [-0.073, 0.026] | -0.176 .. +0.070 | 0.55 | 3/8 | 11.3% [7.2, 15.3] | 18.1% [11.3, 24.5] | FAIL | FAIL | FAIL | **FAIL** |
-| C2 scale-aligned, incumbent thresholds | -0.020 [-0.068, 0.022] | -0.164 .. +0.077 | 0.52 | 3/8 | 10.5% [6.6, 14.3] | 17.2% [10.8, 23.2] | FAIL | FAIL | FAIL | **FAIL** |
-| C3 position-relative percentile gap | +0.033 [-0.005, 0.074] | -0.055 .. +0.120 | 0.16 | 6/8 | 18.0% [11.4, 24.4] | 13.7% [8.5, 18.3] | FAIL | FAIL | PASS | **FAIL** |
+| C1 percentile gap | -0.015 [-0.067, 0.029] | -0.170 .. +0.064 | 0.64 | 3/8 | 12.5% [7.9, 16.9] | 17.2% [10.8, 23.2] | FAIL | FAIL | FAIL | **FAIL** |
+| C2 scale-aligned, incumbent thresholds | -0.015 [-0.064, 0.025] | -0.161 .. +0.073 | 0.63 | 3/8 | 11.3% [7.2, 15.3] | 16.4% [10.4, 22.1] | FAIL | FAIL | FAIL | **FAIL** |
+| C3 position-relative percentile gap | +0.033 [-0.006, 0.074] | -0.058 .. +0.122 | 0.18 | 6/8 | 17.7% [11.6, 23.7] | 13.7% [8.5, 18.5] | FAIL | FAIL | PASS | **FAIL** |
 
 Pooled counts repeat the same assets across 8 origins; they are not independent observations,
 which is why the intervals above resample origins (n = 8) and are wide.
 
 Reading:
 
-- For this proxy-baseline BDVM the incumbent's SELL hit rate (14.2%, CI 9.4-19.0) is not
+- For this proxy-baseline BDVM the incumbent's SELL hit rate (14.6%, CI 9.6-19.4) is not
   distinguishable from the unconditional down-rate (15.2%): no directional information is
-  detectable at 14 days. Its mean IC (-0.018) versus the level-only reference (-0.016) is a
-  0.002 difference against a per-origin IC range of -0.18 to +0.10 and CIs spanning zero: pure
+  detectable at 14 days. Its mean IC (-0.015) versus the level-only reference (-0.016) is a
+  0.001 difference against a per-origin IC range of -0.18 to +0.10 and CIs spanning zero: pure
   noise, no ranking between them is supported. This does not show the signal cannot discriminate
   with real projection inputs.
 - No challenger passes. C3 is the only one with a positive IC and a majority of positive origins
@@ -190,7 +194,7 @@ strict-xfail test was written because there is no defect to name.
 
 **Finding.** The saturation is mostly a **scale problem** in the gap, not 570 independent sell
 opinions: fundamental and market share a nominal 0-10000 range but not a curve (fundamental median
-is 28% of market, total 42%). Order agreement is decent (rho 0.53). Whether any version of the
+is 28% of market, total 44%). Order agreement is decent (rho 0.56). Whether any version of the
 signal PREDICTS price movement is **unproven**: neither the incumbent nor the scale-aligned
 challengers show 14-day directional skill in this season's data.
 

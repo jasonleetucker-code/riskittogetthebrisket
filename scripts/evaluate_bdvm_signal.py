@@ -239,22 +239,37 @@ def main() -> int:
     first, last = min(days), max(days)
 
     if args.panel_cache and args.panel_cache.exists():
-        snaps = pickle.loads(args.panel_cache.read_bytes())
+        snaps, pbp_status = pickle.loads(args.panel_cache.read_bytes())
     else:
         from src.api import league_registry as lr  # noqa: PLC0415
         from src.bdvm.baseline import fetch_and_build_baseline  # noqa: PLC0415
 
+        from src.nfl_data.pbp_weekly import SeasonPbpIndex  # noqa: PLC0415
+
         if args.baseline_cache and args.baseline_cache.exists():
-            records = pickle.loads(args.baseline_cache.read_bytes())
+            records, pbp_status = pickle.loads(args.baseline_cache.read_bytes())
         else:
             from src.api.data_contract import build_api_data_contract  # noqa: PLC0415
 
             scoring = build_api_data_contract(load_raw(days[last]))["sleeper"]["scoringSettings"]
+            # Same resolver the production call sites join (#802).  A season
+            # with no artifact resolves to None and its ten play-by-play rules
+            # stay UNSCORED; that is recorded below, never silent.
+            pbp_index = SeasonPbpIndex()
             records, _ = fetch_and_build_baseline(
-                season=2026, as_of=last.isoformat(), scoring_settings=scoring, seasons_back=3
+                season=2026,
+                as_of=last.isoformat(),
+                scoring_settings=scoring,
+                seasons_back=3,
+                pbp_for_season=pbp_index.for_season,
             )
+            pbp_status = {
+                "supplementJoined": not pbp_index.seasons_missing,
+                "seasonsMissing": sorted(pbp_index.seasons_missing),
+            }
             if args.baseline_cache:
-                args.baseline_cache.write_bytes(pickle.dumps(records))
+                args.baseline_cache.write_bytes(pickle.dumps((records, pbp_status)))
+        print(f"play-by-play supplement: {pbp_status}", file=sys.stderr)
         cfg = lr.get_league_by_key("dynasty_main")
         snaps = {}
         d = first
@@ -272,9 +287,12 @@ def main() -> int:
                     print(f"{d} <- {day}: {len(s['rows'])} rows", file=sys.stderr)
             d += timedelta(days=7)
         if args.panel_cache:
-            args.panel_cache.write_bytes(pickle.dumps(snaps))
+            args.panel_cache.write_bytes(pickle.dumps((snaps, pbp_status)))
 
-    result: dict = {"dates": sorted(x.isoformat() for x in snaps)}
+    result: dict = {
+        "dates": sorted(x.isoformat() for x in snaps),
+        "pbpSupplement": pbp_status,
+    }
     # Level census at the newest origin (reproduction of the saturation).
     newest = max(snaps)
     rows = snaps[newest]["rows"]
