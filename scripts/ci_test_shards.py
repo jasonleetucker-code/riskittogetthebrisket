@@ -11,7 +11,7 @@ all of it.
 
 This module splits that IDENTICAL test set across N machines and then proves
 nothing was lost in the split.  It never chooses WHICH tests run: the command,
-the markers and ``-x`` stay byte-identical, and every collected test runs in
+the markers and ``-x`` (since 2026-11-08 ``--maxfail=10``; a failed shard still exits 1) stay byte-identical, and every collected test runs in
 exactly one shard.
 
 Three pieces, one owner

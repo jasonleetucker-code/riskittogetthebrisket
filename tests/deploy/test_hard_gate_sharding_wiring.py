@@ -20,7 +20,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
-HARD_GATE_COMMAND = 'python -m pytest tests/ -x -q --tb=short -m "not livedata"'
+HARD_GATE_COMMAND = 'python -m pytest tests/ --maxfail=10 -q --tb=short -m "not livedata"'
 
 
 def _load(name: str) -> dict:
