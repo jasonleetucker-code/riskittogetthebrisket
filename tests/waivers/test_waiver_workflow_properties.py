@@ -192,7 +192,13 @@ def _protect(env, names):
 
 
 def test_a_suggestions_pool_is_exactly_the_hand_computed_eligible_set(env):
-    env.load(_build_contract(MINE_FULL, 60, _board(), RIVAL))
+    contract = _build_contract(MINE_FULL, 60, _board(), RIVAL)
+    # The add pool also refuses a position the league cannot START (#2136 D1,
+    # ``position_not_started``); the fixture's QB/TE lineup starts no WR or RB.
+    # A FLEX makes every offered position startable, so the filters this test
+    # pins (ownership, K, value floor, single source) are what decide the set.
+    contract["sleeper"]["rosterPositions"] = ["QB", "TE", "FLEX", "BN", "BN"]
+    env.load(contract)
     # Not "Bench WR"/"Star QB" (mine), not "Rival *" (rival's), no K, no
     # sub-floor value, no single-source row.
     assert _pool_names(env.suggest()) == ELIGIBLE_FAS
@@ -254,8 +260,10 @@ def test_b_overspent_negative_balance_never_bids(env):
     assert set(_pool_bids(env.suggest())) == {0}
     payload = env.perfect()
     assert payload["plan"]["totalRecommendedBid"] == 0
-    # A negative balance is not a known spendable budget either.
-    assert payload["budget"]["state"] == "unknown"
+    # An over-spent roster is a KNOWN balance with nothing to spend (#2136 D7),
+    # never "unknown": the balance was observed, it is just below zero.
+    assert payload["budget"]["state"] == "known"
+    assert payload["budget"]["balance"] == 0
 
 
 def test_b_balance_below_engine_ceiling_is_the_cap(env):
