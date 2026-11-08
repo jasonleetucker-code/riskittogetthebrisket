@@ -14,11 +14,12 @@
  */
 export function fmtSimulatedShare(p, { final = false } = {}) {
   if (typeof p !== "number" || !Number.isFinite(p)) return "—";
+  const pct = Math.round(p * 100);
   if (!final) {
-    if (p < 0.005) return "<1%";
-    if (p > 0.995) return ">99%";
+    if (pct <= 0) return "<1%";
+    if (pct >= 100) return ">99%";
   }
-  return `${Math.round(p * 100)}%`;
+  return `${pct}%`;
 }
 
 /**

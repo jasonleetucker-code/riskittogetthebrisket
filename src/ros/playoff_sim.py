@@ -1268,6 +1268,16 @@ def _division_refusal(structure: Any) -> dict[str, Any] | None:
     }
 
 
+def _derived_seed(rng: random.Random, salt: bytes) -> int:
+    """A seed for a side stream, derived from ``rng``'s state WITHOUT
+    consuming it, so the main stream's draws are unchanged and the side
+    stream is not a shifted copy of it.  Deterministic for a seeded ``rng``."""
+    import hashlib  # noqa: PLC0415
+
+    digest = hashlib.sha256(salt + repr(rng.getstate()).encode("ascii")).digest()
+    return int.from_bytes(digest[:8], "big")
+
+
 def _division_assignments_for(snapshot: Any, structure: Any, owners: list[str]) -> Any:
     """Division assignments for the simulated teams, keyed like the loop.
 
@@ -1814,9 +1824,7 @@ def simulate_playoff_odds(
     # so counting titles leaves every playoff, bracket and draft draw unchanged.
     division_assign = _division_assignments_for(snapshot, structure, owners)
     division_members = division_assign.members() if division_assign.available else {}
-    division_rng = random.Random()
-    division_rng.setstate(rng.getstate())
-    division_rng.getrandbits(64)
+    division_rng = random.Random(_derived_seed(rng, b"division-titles"))
     division_title_counts: dict[str, int] = {o: 0 for o in owners}
 
     # DRAFT ORDER keeps its own record basis (#1712 review A).  The owner's
@@ -1967,6 +1975,15 @@ def simulate_playoff_odds(
         # handful of draws.
         if completed >= min_simulations and completed % SIM_CHECK_EVERY == 0:
             worst_se = max(_proportion_se(playoff_count[o] / completed, completed) for o in owners)
+            if division_members:
+                # Published division-title odds meet the same tolerance.
+                worst_se = max(
+                    worst_se,
+                    max(
+                        _proportion_se(division_title_counts[o] / completed, completed)
+                        for o in owners
+                    ),
+                )
             if worst_se <= odds_se_tolerance:
                 break
 

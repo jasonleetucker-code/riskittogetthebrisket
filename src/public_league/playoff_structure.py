@@ -116,6 +116,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -180,9 +181,20 @@ class LeaguePlayoffRules:
             "divisionPlayoffEffect": self.division_playoff_effect,
             "divisionChampion": self.division_champion,
             "divisionChampionTiebreakers": list(self.division_champion_tiebreakers),
-            "source": "config/leagues/playoff_rules.json",
             "approvedAt": self.approved_at,
         }
+
+
+@lru_cache(maxsize=8)
+def _read_rules_file(path: str, mtime_ns: int) -> Any:
+    """The parsed rules file, cached per (path, mtime) — the structure is
+    resolved on every cached-forecast check, so the file is read once per
+    edit rather than once per request.  ``None`` when unreadable."""
+    del mtime_ns  # part of the cache key only
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def league_playoff_rules(
@@ -198,10 +210,12 @@ def league_playoff_rules(
     """
     if not league_key:
         return None
+    rules_path = path or _RULES_PATH
     try:
-        data = json.loads((path or _RULES_PATH).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        mtime = rules_path.stat().st_mtime_ns
+    except OSError:
         return None
+    data = _read_rules_file(str(rules_path), mtime)
     entry = (data.get("rules") or {}).get(str(league_key)) if isinstance(data, Mapping) else None
     if not isinstance(entry, Mapping):
         return None
@@ -482,6 +496,9 @@ class DivisionAssignments:
                 {
                     "rule": self.rules.division_champion,
                     "tiebreakers": list(self.rules.division_champion_tiebreakers),
+                    # The record the league's standings show: the weekly
+                    # median game counts in it when the league counts it.
+                    "recordBasis": "host_standings_record",
                     "affectsPlayoffs": self.rules.divisions_affect_playoffs,
                 }
                 if self.rules is not None and self.rules.division_champion

@@ -58,6 +58,10 @@ describe("fmtSimulatedShare", () => {
     expect(fmtSimulatedShare(0)).toBe("<1%");
     expect(fmtSimulatedShare(1)).toBe(">99%");
     expect(fmtSimulatedShare(0.004)).toBe("<1%");
+    // Exactly on the rounding boundary: an estimate never reads 100% or 0%.
+    expect(fmtSimulatedShare(0.995)).toBe(">99%");
+    expect(fmtSimulatedShare(0.0049)).toBe("<1%");
+    expect(fmtSimulatedShare(0.005)).toBe("1%");
     expect(fmtSimulatedShare(0.4567)).toBe("46%");
   });
 
