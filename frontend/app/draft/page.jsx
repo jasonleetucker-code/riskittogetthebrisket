@@ -1159,9 +1159,9 @@ export function BdvmPickValuesTable({ rows }) {
             <th style={{ width: 90, textAlign: "right" }}>EV</th>
             <th
               style={{ width: 80, textAlign: "right" }}
-              title="Probability the pick returns a startable player"
+              title="Assumed share of picks at this slot that return a startable player, from a placeholder prior table by slot (not fitted to historical drafts)"
             >
-              Hit %
+              Hit % (prior)
             </th>
             {/* API field `median` is the prior table's "mid"
                 outcome bucket, not a distribution median. */}
@@ -5059,7 +5059,7 @@ export default function DraftDashboardPage() {
       {bdvmPickRows.length > 0 && (
         <CollapsiblePanel
           title="Fundamental pick values (BDVM)"
-          subtitle="Rookie-pick EV in the balanced strategy currency — hit rate and outcome spread from the fundamental model, market anchor beside it"
+          subtitle="Rookie-pick EV in the balanced strategy currency — assumed hit rate and outcome spread from a prior table, market anchor beside it"
           defaultCollapsed
         >
           <BdvmPickValuesTable rows={bdvmPickRows} />

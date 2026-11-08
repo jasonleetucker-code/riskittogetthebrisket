@@ -151,7 +151,7 @@ describe("missing is never zero", () => {
   it("labels posture as context, and its absence by reason", () => {
     expect(postureText({ state: "available", label: "RETOOL", confidence: 0.61 })).toEqual({
       label: "RETOOL",
-      note: "61% confidence · context only",
+      note: "61% model share (uncalibrated) · context only",
     });
     expect(postureText({ state: "unavailable", reason: "league_bundle_not_warm" }).note).toBe(
       "posture bundle not built yet",

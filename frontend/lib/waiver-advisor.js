@@ -236,7 +236,7 @@ export function postureText(posture) {
   const conf = fmtPct(posture.confidence);
   return {
     label: posture.label || "Unknown",
-    note: conf ? `${conf} confidence · context only` : "no measured confidence · context only",
+    note: conf ? `${conf} model share (uncalibrated) · context only` : "no measured model share · context only",
   };
 }
 
