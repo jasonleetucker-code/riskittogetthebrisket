@@ -162,8 +162,7 @@ def main() -> int:
             if "floor" in v:
                 cfg["floors"].setdefault(k, v["floor"])
                 cfg.setdefault("ceilings", {})[k] = v["ceiling"]
-        cfg_path.write_text(json.dumps(cfg, indent=2) + "
-", encoding="utf-8")
+        cfg_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
     if args.json:
         Path(args.json).write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     return 0
