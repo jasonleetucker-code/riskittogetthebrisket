@@ -33,6 +33,8 @@ Required for material feature, fix and refactor PRs
 - Remaining unverified behavior and gaps:
 - Production impact and rollback:
 - Independent review and exact-tree validation:
+<!-- Only when the PR changes a file in config/ci/protected_methodology_paths.json: -->
+<!-- - Methodology authorization: <owner decision that authorizes it> | n/a — <why no methodology / value / activation changes> -->
 - State: TESTED_IN_PR / MERGED / DEPLOYED / VERIFIED_IN_PRODUCTION (each with evidence; never inferred)
 
 Enforced by `.github/workflows/pr-verification-receipt.yml` for material PRs: every field

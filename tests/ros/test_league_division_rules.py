@@ -164,7 +164,10 @@ def test_dynasty_main_records_divisions_with_no_playoff_effect():
     assert rules.division_count == 3
     assert rules.divisions_affect_playoffs is False
     assert rules.division_champion == "best_overall_record_in_division"
-    assert rules.division_champion_tiebreakers == ("points_for",)
+    # The payout tiebreaker is NOT confirmed (owner master directive 2026-11-08
+    # §11 / §26): a record tie at the top is reported, never resolved.
+    assert rules.division_champion_tiebreakers == ()
+    assert rules.division_tiebreaker_confirmed is False
 
 
 @pytest.mark.parametrize("host_divisions", [0, 3, "unreadable"])
@@ -340,7 +343,14 @@ def test_counting_division_titles_leaves_every_other_number_bit_identical(tmp_pa
         draft=True,
     )
     assert without["divisionOdds"]["reason"] == "roster_division_missing_or_out_of_range"
-    division_keys = {"division", "divisionName", "divisionChampionOdds", "divisionChampionOddsCi"}
+    division_keys = {
+        "division",
+        "divisionName",
+        "divisionChampionOdds",
+        "divisionChampionOddsCi",
+        "divisionTitleBasis",
+        "divisionTitleTieOdds",
+    }
     strip = [
         {k: v for k, v in r.items() if k not in division_keys}
         for r in with_divisions["playoffOdds"]
@@ -463,3 +473,91 @@ def test_a_league_without_divisions_has_no_division_odds(tmp_path):
     structure = resolve_playoff_structure(season, None)
     assign = resolve_division_assignments(season, structure, lambda rid: "")
     assert assign.state == "not_applicable"
+
+
+# ── an UNCONFIRMED title tiebreaker: ties reported, never resolved ─────
+
+
+def test_unconfirmed_tiebreaker_reports_ties_instead_of_resolving_them(tmp_path):
+    """Same one-week league as the enumeration oracle, but the record leaves
+    the division-title tiebreaker unconfirmed.  By hand (four equally likely
+    outcomes; Points For to date must NOT decide anything now):
+
+      * division 1 {a, b}: a outright only when a wins and b loses -> 1/4;
+        b outright only when b wins and a loses -> 1/4; tied at the top
+        (both win or both lose) -> 1/2, for a AND for b.
+      * division 2 {c, d}: the same, 1/4 / 1/4 / 1/2.
+      * playoff odds are untouched by the division rule: 1/2 each.
+    """
+    snap = _snapshot([("a", 1), ("b", 1), ("c", 2), ("d", 2)])
+    record = {o: _rec(4, 4) for o in "abcd"}
+    pf = {"a": 10_000.0, "b": 20_000.0, "c": 30_000.0, "d": 40_000.0}
+    rules = _rules_file(tmp_path, divisionChampionTiebreakers=[])
+    out = _run(
+        snap,
+        rules,
+        record=record,
+        pf=pf,
+        schedule=[(9, "a", "c"), (9, "b", "d")],
+        n=20_000,
+        seed=11,
+    )
+    tol = 0.015
+    assert out["divisionOdds"]["championRule"]["tiebreakerStatus"] == "unconfirmed"
+    assert out["divisionOdds"]["championRule"]["tiebreakers"] == []
+    for owner in "abcd":
+        row = _row(out, owner)
+        assert row["divisionTitleBasis"] == "outright_only"
+        assert row["divisionChampionOdds"] == pytest.approx(0.25, abs=tol)
+        assert row["divisionTitleTieOdds"] == pytest.approx(0.5, abs=tol)
+        assert row["playoffOdds"] == pytest.approx(0.5, abs=tol)
+    # Outright titles plus the tied seasons cover every season exactly once per
+    # division: P(a out) + P(b out) + P(tie) = 1 (each tie counted once).
+    for x, y in (("a", "b"), ("c", "d")):
+        rx, ry = _row(out, x), _row(out, y)
+        total = rx["divisionChampionOdds"] + ry["divisionChampionOdds"] + rx["divisionTitleTieOdds"]
+        assert total == pytest.approx(1.0, abs=2e-4)
+
+
+def test_a_confirmed_tiebreaker_still_resolves_ties_and_carries_no_tie_field(tmp_path):
+    snap = _snapshot([("a", 1), ("b", 1), ("c", 2), ("d", 2)])
+    record = {o: _rec(4, 4) for o in "abcd"}
+    pf = {"a": 10_000.0, "b": 20_000.0, "c": 30_000.0, "d": 40_000.0}
+    out = _run(snap, _rules_file(tmp_path), record=record, pf=pf, schedule=[], n=200)
+    for owner in "abcd":
+        row = _row(out, owner)
+        assert row["divisionTitleBasis"] == "tiebreaker_applied"
+        assert "divisionTitleTieOdds" not in row
+    assert out["divisionOdds"]["championRule"]["tiebreakerStatus"] == "confirmed"
+
+
+def test_a_finished_season_with_a_division_tie_names_no_champion(tmp_path):
+    """Finished season, division 1 tied 5-3 / 5-3: with the tiebreaker
+    unconfirmed neither team is the division champion (0 outright, 1.0 tied);
+    division 2 has a clear winner."""
+    snap = _snapshot([("a", 1), ("b", 1), ("c", 2), ("d", 2)])
+    record = {"a": _rec(5, 3), "b": _rec(5, 3), "c": _rec(6, 2), "d": _rec(2, 6)}
+    pf = {"a": 900.0, "b": 950.0, "c": 800.0, "d": 700.0}
+    rules = _rules_file(tmp_path, divisionChampionTiebreakers=[])
+    out = _run(snap, rules, record=record, pf=pf, schedule=[], n=200)
+    assert (_row(out, "a")["divisionChampionOdds"], _row(out, "a")["divisionTitleTieOdds"]) == (
+        0.0,
+        1.0,
+    )
+    assert (_row(out, "b")["divisionChampionOdds"], _row(out, "b")["divisionTitleTieOdds"]) == (
+        0.0,
+        1.0,
+    )
+    assert (_row(out, "c")["divisionChampionOdds"], _row(out, "c")["divisionTitleTieOdds"]) == (
+        1.0,
+        0.0,
+    )
+
+
+def test_the_draft_order_record_basis_is_marked_provisional(tmp_path):
+    snap = _snapshot([("a", 1), ("b", 1), ("c", 2), ("d", 2)])
+    record = {o: _rec(4, 4) for o in "abcd"}
+    pf = {o: 900.0 + i for i, o in enumerate("abcd")}
+    out = _run(snap, _rules_file(tmp_path), record=record, pf=pf, schedule=[], n=200, draft=True)
+    assert out["draftOrderRecordBasis"] == "head_to_head_with_half_win_ties"
+    assert out["draftOrderRecordBasisState"] == "provisional_median_game_counting_unresolved"
