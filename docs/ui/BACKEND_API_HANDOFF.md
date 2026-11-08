@@ -55,3 +55,24 @@ Backend additions (no values changed); frontend migration is not done.
 - **Needed:** any "Total value / portfolio total" display should show `equity.totalAssetValue`, or label `totalValue` as "Players". When `totalAssetValue` is `null`, show `totalAssetValueLowerBound` as "at least" with the reason; never render a missing pick value as 0.
 - `/api/bdvm/roster` `meta.directionConcept = "fundamental_horizon_mix"` and `rosTradeDeadline.concept = "deadline_buy_sell_stance"` are NOT the canonical posture (PUSH/HOLD/RETOOL/REBUILD, `/api/gameplan`). Do not present them under the same heading.
 - Schema: `docs/roster_intel/TEAM_SEMANTICS_2026-11-08.md`.
+
+## Division-title ties (#2158, deployed with production after `73320356e`)
+
+`dynasty_main`'s division-payout tiebreaker is **unconfirmed** (owner directive 2026-11-08 §26), so a record tie at the top of a division is reported as a tie and never resolved.
+
+| Field | Where | Meaning |
+|---|---|---|
+| `divisionOdds.championRule.tiebreakerStatus` | `playoffOdds`, `rosPlayoffOdds` | `"unconfirmed"` (dynasty_main) or `"confirmed"` |
+| `divisionTitleBasis` | rows | `"outright_only"` (tiebreaker unconfirmed) or `"tiebreaker_applied"` |
+| `divisionChampionOdds` / `divisionChampionProbability` | rows | with `outright_only`: the share of seasons the team wins its division **outright** |
+| `divisionTitleTieOdds` / `divisionTitleTieProbability` | rows (unconfirmed only) | the share of seasons the team **ties** for its division's best record. In a 3-way tie, all 3 teams count it. |
+
+**Frontend action:** required, to avoid a misleading display.
+- The current Power-tab division table sorts on and shows `divisionChampionProbability`, which is now outright-only.
+- A team tied for the lead can show a low or 0% title chance, with no tie indicator.
+- Show the tie share beside it, e.g. "Div title 41% · tied 18%".
+- Never sum outright and tie shares across a 4-team division; they don't add to 100%.
+
+**Suggested acceptance tests:**
+- finished-season tie: both teams show 0% outright and 100% tied;
+- unconfirmed vs confirmed rendering.
