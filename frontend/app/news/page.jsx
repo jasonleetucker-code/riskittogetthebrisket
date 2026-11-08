@@ -348,7 +348,7 @@ export default function NewsPage() {
             <dd>{news.loading ? "—" : coverage.stories}</dd>
           </div>
           <div>
-            <dt>Players covered</dt>
+            <dt>Player digests</dt>
             <dd>{news.loading ? "—" : coverage.digests}</dd>
           </div>
           <div>
@@ -356,8 +356,8 @@ export default function NewsPage() {
             <dd>{news.loading ? "—" : coverage.alerts}</dd>
           </div>
           <div>
-            <dt>On your roster</dt>
-            <dd>{news.loading ? "—" : coverage.rosterHits}<span>{rosterLabel}</span></dd>
+            <dt>Roster stories</dt>
+            <dd>{news.loading || !selectedTeam ? "—" : coverage.rosterHits}<span>{rosterLabel}</span></dd>
           </div>
           <div>
             <dt>Sources represented</dt>
