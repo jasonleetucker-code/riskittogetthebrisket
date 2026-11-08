@@ -57,7 +57,7 @@ def _registry(tmp_path, *, roster_size=None):
         },
     ]
     path = tmp_path / "registry.json"
-    path.write_text(json.dumps({"defaultLeagueKey": "main", "leagues": leagues}))
+    path.write_text(json.dumps({"defaultLeagueKey": "main", "leagues": leagues}), encoding="utf-8")
     return path
 
 
