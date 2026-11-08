@@ -163,14 +163,15 @@ class TestW10F001BidsRespectTheBalance:
         assert out["bids"]["clearing"] > 0
 
     def test_a_known_zero_balance_is_not_an_unknown_one(self):
-        """MISSING != 0 in both directions: None means "unknown" and falls back to
-        the original budget (documented in ``find_waiver_targets``); a KNOWN $0
-        must never be promoted to a full budget."""
+        """MISSING != 0 in both directions: None is an explicit UNKNOWN (bids withheld,
+        never the original budget presented as the balance); a KNOWN $0 is never
+        promoted to a full budget."""
         known_zero = _rec(3200, remaining=0)["bids"]["recommended"]
         unknown = _rec(3200, remaining=None)["bids"]["recommended"]
         full = _rec(3200, remaining=BUDGET)["bids"]["recommended"]
         assert known_zero == 0
-        assert unknown == full > 0
+        assert unknown is None
+        assert full > 0
 
     def test_a_larger_balance_never_lowers_the_bid(self):
         """The balance is only a CAP: on the dense (<= $40) part of the bid grid a

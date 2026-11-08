@@ -881,10 +881,15 @@ def team_ceiling(
     team_pct = net_pct * need_mult * option_factor
     team_raw = net_raw * need_mult * option_factor
 
-    remaining = team.faab_remaining if team.faab_remaining is not None else budget
-    remaining = max(0, int(remaining))
+    # MISSING IS NEVER THE FULL BUDGET: an unknown balance (``None``) is an explicit
+    # unknown state, not ``budget``.  A known 0 stays 0.  The value side (what he is worth)
+    # does not read the balance; only the balance-capped ceiling is withheld.
+    balance_known = team.faab_remaining is not None
+    remaining: int | None = max(0, int(team.faab_remaining)) if balance_known else None
 
-    ceiling_dollars = min(float(remaining), team_pct * budget)
+    ceiling_dollars = (
+        min(float(remaining), team_pct * budget) if remaining is not None else team_pct * budget
+    )
     # Deliberately NOT capped at ``remaining``.  This is "what he is
     # worth to us", which can exceed what we are able to pay, and it
     # is the numerator of the expected-surplus objective.  Capping it
@@ -905,9 +910,10 @@ def team_ceiling(
         "needMultiplier": need_mult,
         "optionValueFactor": option_factor,
         "optionValueReason": option_reason,
-        "teamCeilingDollars": max(0.0, ceiling_dollars),
+        "teamCeilingDollars": max(0.0, ceiling_dollars) if balance_known else None,
         "teamRawCeilingDollars": max(0.0, raw_dollars),
         "remaining": remaining,
+        "balanceKnown": balance_known,
         "budget": budget,
     }
 
@@ -1235,8 +1241,12 @@ def optimal_bid(
     different targets, so all four numbers stay mutually consistent
     rather than being independent multiples of each other.
     """
-    remaining = team.faab_remaining if team.faab_remaining is not None else league.original_budget
-    remaining = max(0, int(remaining))
+    # The expected clearing price is a statement about the MARKET, not about us, so it is
+    # scanned over the full budget and does not need our balance.  A bid does: with an
+    # unknown balance there is no cap to optimise against, so every balance-capped bid is
+    # withheld (``None``) rather than quoted against the league budget.
+    balance_known = team.faab_remaining is not None
+    remaining = max(0, int(team.faab_remaining)) if balance_known else 0
     # The ceiling that BOUNDS a bid is the RAW one.  The displayed
     # ceiling is capped at 100% of the original budget because that is
     # the honest way to report "what is he worth"; using it as the
@@ -1259,6 +1269,19 @@ def optimal_bid(
         crowd_share=crowd_share,
         trending_share=trending_share,
     )
+
+    if not balance_known:
+        return {
+            "recommended": None,
+            "conservative": None,
+            "aggressive": None,
+            "maxRational": None,
+            "clearing": market_clearing["p50"],
+            "clearingLow": market_clearing["p25"],
+            "clearingHigh": market_clearing["p75"],
+            "winProbability": None,
+            "curve": [],
+        }
 
     if hard_cap <= 0:
         return {
@@ -1477,7 +1500,7 @@ def recommend(
     bids = optimal_bid(
         usable_rivals,
         raw_ceiling_dollars=ceil["teamRawCeilingDollars"],
-        display_ceiling_dollars=ceil["teamCeilingDollars"],
+        display_ceiling_dollars=ceil["teamCeilingDollars"] or 0.0,
         demand_signal=demand_signal,
         league=league,
         team=team,
@@ -1488,9 +1511,9 @@ def recommend(
     )
 
     remaining = ceil["remaining"]
-    if remaining <= 0:
+    if remaining is not None and remaining <= 0:
         warnings.append("This team has no FAAB left — no bid is possible.")
-    if ceil["objectiveDollars"] > remaining and remaining > 0:
+    if remaining is not None and ceil["objectiveDollars"] > remaining and remaining > 0:
         warnings.append(
             f"This player is worth more (${ceil['objectiveDollars']:.0f}) than this team "
             f"has left (${remaining}) — the bid is capped by the balance, not by value."
@@ -1534,9 +1557,15 @@ def recommend(
             "clearingLow": bids["clearingLow"],
             "clearingHigh": bids["clearingHigh"],
         },
-        "pctOfOriginalBudget": round(100.0 * bids["recommended"] / budget, 1),
+        "pctOfOriginalBudget": (
+            round(100.0 * bids["recommended"] / budget, 1)
+            if bids["recommended"] is not None
+            else None
+        ),
         "pctOfRemaining": (
-            round(100.0 * bids["recommended"] / remaining, 1) if remaining > 0 else None
+            round(100.0 * bids["recommended"] / remaining, 1)
+            if remaining is not None and remaining > 0
+            else None
         ),
         "winProbability": bids["winProbability"],
         "confidence": _confidence(factors, cfg),
@@ -1544,7 +1573,16 @@ def recommend(
         "warnings": warnings,
         "explanation": explanation,
         "anchors": anchors.to_dict(),
-        "teamCeilingDollars": int(round(ceil["teamCeilingDollars"])),
+        "teamCeilingDollars": (
+            int(round(ceil["teamCeilingDollars"]))
+            if ceil["teamCeilingDollars"] is not None
+            else None
+        ),
+        "balance": {
+            "state": "known" if ceil["balanceKnown"] else "unknown",
+            "remaining": remaining,
+            "bidsWithheldReason": None if ceil["balanceKnown"] else "team_faab_balance_unknown",
+        },
         "optionValueFactor": round(ceil["optionValueFactor"], 3),
         "needMultiplier": ceil["needMultiplier"],
         "riskPosture": team.risk_posture,
@@ -1565,6 +1603,11 @@ def _explain(
     recommendation — not a restatement of the number."""
     rec = bids["recommended"]
     obj = ceil["objectiveDollars"]
+    if rec is None:
+        return (
+            "No bid quoted: this team's FAAB balance is unknown.  The objective worth and "
+            "the expected clearing band are still shown."
+        )
 
     crowd_pct = (crowd or {}).get("medianPct")
     has_crowd = isinstance(crowd_pct, (int, float))
