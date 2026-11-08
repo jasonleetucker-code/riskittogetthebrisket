@@ -124,6 +124,8 @@ describe("Sports Network News Desk live-contract presentation", () => {
       "aria-selected",
       "true",
     );
+    expect(screen.getByText("Fixture roster")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Fixture roster" })).toBeNull();
     const feature = screen.getByRole("region", { name: "Featured coverage" });
     expect(
       within(feature).getByRole("heading", {

@@ -82,6 +82,8 @@ export default function NewsPage() {
   const { selectedTeam } = useTeam();
   const leagueNames = useLeagueNames(rawData?.sleeper?.teams);
   const rosterNames = selectedTeam?.players || [];
+  // A league-team presentation label, not a player identity or destination.
+  const rosterLabel = String(selectedTeam?.name || "No team selected");
   const news = useNews({ rosterNames, leagueNames });
   // Map normalized player-name key → candidate {team, family} metas
   // from the live board, so name-only news items can still be faceted.
@@ -356,7 +358,7 @@ export default function NewsPage() {
           <div>
             <dt>On your roster</dt>
             <dd>{news.loading ? "—" : coverage.rosterHits}</dd>
-            <span>{selectedTeam?.name || "No team selected"}</span>
+            <span>{rosterLabel}</span>
           </div>
           <div>
             <dt>Sources represented</dt>
