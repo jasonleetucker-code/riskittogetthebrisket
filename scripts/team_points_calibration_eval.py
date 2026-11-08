@@ -118,6 +118,13 @@ def team_id(roster_id: Any) -> str:
     return f"T{int(roster_id):02d}"
 
 
+def redacted_receipts(receipts: Mapping[str, Any]) -> dict[str, Any]:
+    """Cache receipts with the Sleeper league id replaced by the registry key (preregistration §7)."""
+    return {
+        url.replace(LEAGUE_ID, f"<{LEAGUE_KEY}>"): body for url, body in sorted(receipts.items())
+    }
+
+
 def _git(*args: str) -> str | None:
     try:
         out = subprocess.run(
@@ -471,7 +478,7 @@ def evaluate(args: argparse.Namespace) -> int:
                 str(w): {"file": a.snapshot.name, "sha256": a.snapshot_sha256}
                 for w, a in asofs.items()
             },
-            "cache": fetcher.receipts,
+            "cache": redacted_receipts(fetcher.receipts),
             "networkCalls": fetcher.network_calls,
         },
         "holdout": {
@@ -845,7 +852,7 @@ def diagnose(args: argparse.Namespace) -> int:
                 str(w): {"file": a.snapshot.name, "sha256": a.snapshot_sha256}
                 for w, a in asofs.items()
             },
-            "cache": fetcher.receipts,
+            "cache": redacted_receipts(fetcher.receipts),
             "networkCalls": fetcher.network_calls,
         },
         "summaries": summaries,

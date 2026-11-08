@@ -117,3 +117,14 @@ def test_coverage_band_is_about_two_binomial_standard_errors_at_n48():
 def test_team_ids_are_anonymous_indexes():
     assert study.team_id(3) == "T03"
     assert study.team_id("12") == "T12"
+
+
+def test_cache_receipts_never_carry_the_league_id():
+    receipts = {
+        f"{study.SLEEPER}/league/{study.LEAGUE_ID}/matchups/5": {"sha256": "x"},
+        f"{study.SLEEPER}/players/nfl": {"sha256": "y"},
+    }
+    out = study.redacted_receipts(receipts)
+    assert all(study.LEAGUE_ID not in url for url in out)
+    assert f"{study.SLEEPER}/league/<dynasty_main>/matchups/5" in out
+    assert out[f"{study.SLEEPER}/players/nfl"] == {"sha256": "y"}
