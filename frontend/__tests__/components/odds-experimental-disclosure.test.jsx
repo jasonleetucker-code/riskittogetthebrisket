@@ -74,7 +74,7 @@ describe("uncalibrated odds disclosure (owner decision 9)", () => {
       rosStrengthAvailable: true,
     });
     await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
-    expect(screen.getByText("41.0%")).toBeTruthy();
+    expect(screen.getByText("41%")).toBeTruthy();
     expect(screen.getByText(EXACT)).toBeTruthy();
   });
 

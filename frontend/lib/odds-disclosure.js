@@ -16,3 +16,21 @@
  */
 export const ODDS_EXPERIMENTAL_DISCLOSURE =
   "Experimental projection — not yet calibrated against this league's historical outcomes.";
+
+/**
+ * A simulated share (playoff, title, finals, division, draft-slot odds) as a
+ * whole percent.  Owner directive 2026-11-08: a Monte Carlo estimate of exactly
+ * 0 or 1 is not proof — the simulation ran a finite number of seasons — so it
+ * reads "<1%" / ">99%" until the outcome is final.  Whole percents because the
+ * simulator converges to about half a point of standard error: a tenth of a
+ * percent is noise presented as precision.  Missing is a dash, never 0%.
+ */
+export function fmtSimulatedShare(p, { final = false } = {}) {
+  if (typeof p !== "number" || !Number.isFinite(p)) return "—";
+  const pct = Math.round(p * 100);
+  if (!final) {
+    if (pct <= 0) return "<1%";
+    if (pct >= 100) return ">99%";
+  }
+  return `${pct}%`;
+}
