@@ -46,3 +46,24 @@ says otherwise.
 - `regularSeasonOdds` feeds draft-slot views when qualifying is withheld.
 
 Synthetic fixtures: `tests/public_league/test_playoff_odds_divisions.py`, `tests/ros/test_league_division_rules.py`.
+
+## Division-title ties (#2158, deployed with production after `73320356e`)
+
+`dynasty_main`'s division-payout tiebreaker is **unconfirmed** (owner directive 2026-11-08 §26), so a record tie at the top of a division is reported as a tie and never resolved.
+
+| Field | Where | Meaning |
+|---|---|---|
+| `divisionOdds.championRule.tiebreakerStatus` | `playoffOdds`, `rosPlayoffOdds` | `"unconfirmed"` (dynasty_main) or `"confirmed"` |
+| `divisionTitleBasis` | rows | `"outright_only"` (tiebreaker unconfirmed) or `"tiebreaker_applied"` |
+| `divisionChampionOdds` / `divisionChampionProbability` | rows | with `outright_only`: the share of seasons the team wins its division **outright** |
+| `divisionTitleTieOdds` / `divisionTitleTieProbability` | rows (unconfirmed only) | the share of seasons the team **ties** for its division's best record. In a 3-way tie, all 3 teams count it. |
+
+**Frontend action:** required, to avoid a misleading display.
+- The current Power-tab division table sorts on and shows `divisionChampionProbability`, which is now outright-only.
+- A team tied for the lead can show a low or 0% title chance, with no tie indicator.
+- Show the tie share beside it, e.g. "Div title 41% · tied 18%".
+- Never sum outright and tie shares across a 4-team division; they don't add to 100%.
+
+**Suggested acceptance tests:**
+- finished-season tie: both teams show 0% outright and 100% tied;
+- unconfirmed vs confirmed rendering.
