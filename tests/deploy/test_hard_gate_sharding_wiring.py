@@ -10,8 +10,12 @@ runs with no manifest.  These tests pin that wiring structurally.
 
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -127,3 +131,343 @@ def test_validate_no_longer_runs_the_hard_gate_but_keeps_the_advisory_live_tier(
     assert HARD_GATE_COMMAND not in _runs(validate)
     live = next(s for s in _steps(validate) if "-m livedata" in (s.get("run") or ""))
     assert live.get("continue-on-error") is True
+
+
+# ── Release Candidate ───────────────────────────────────────────────────
+#
+# release-candidate.yml validates a merge candidate it BUILDS, so the shards
+# are only one gate if they provably test one tree.  The plan records head SHA,
+# base SHA and the candidate tree hash; every job that reads the candidate
+# rebuilds it from those pinned SHAs and fails unless the tree matches; the
+# aggregator also requires the other gates' tree to be the planned one.
+
+RC = "release-candidate.yml"
+REBUILD_STEP = "Rebuild the candidate and assert it is the planned tree"
+VERDICT_STEP = "Every required job succeeded"
+EM = "—"
+
+# Every gate the release candidate ran before the hard gate was sharded, minus
+# the unit-test step (which moved to the `hard-gate` matrix), in order, with a
+# command each must still run.
+_CANDIDATE_GATES = [
+    (f"Checkout (full history {EM} the check diffs base against head)", None),
+    ("Set up Python", None),
+    ("Install dependencies", "pip install --require-hashes -r requirements-dev.lock.txt"),
+    ("Release-candidate freshness (STRICT)", "--strict"),
+    ("Build the exact merge candidate", 'git merge --no-edit "origin/${{ inputs.base_ref }}"'),
+    ("Python format + lint gates", "python -m ruff format --check ."),
+    ("Governance + planning gates", "python scripts/check_planning_integrity.py"),
+    ("API data contract check (structural lane)", "--lane structural"),
+    (
+        f"Source health (advisory {EM} the deploy gate is the blocking one)",
+        "scripts/check_source_health.py",
+    ),
+    ("Validate dependency graph (pip check)", "python -m pip check"),
+    ("Preflight environment check", "python scripts/check_env.py"),
+    ("Python syntax gate", "py_compile"),
+    ("Python runtime import gate", "import server"),
+    ("Deploy script syntax gate (existing scripts only)", "bash -n"),
+    ("Set up Node.js", None),
+    ("Install frontend dependencies", "npm ci"),
+    ("Frontend unit tests (vitest)", "npm test"),
+    ("Frontend build + bundle-size budget", "npm run check:bundles"),
+]
+
+
+def _step(job: dict, name: str) -> dict:
+    matches = [s for s in _steps(job) if s.get("name") == name]
+    assert len(matches) == 1, f"expected exactly one step named {name!r}"
+    return matches[0]
+
+
+def test_release_candidate_runs_the_hard_gate_only_in_the_sharded_matrix():
+    doc = _load(RC)
+    assert list(_hard_gate_jobs(doc)) == ["hard-gate"]
+    gate = doc["jobs"]["hard-gate"]
+    assert gate["needs"] == "plan"
+    assert gate["strategy"]["fail-fast"] is False
+    assert "fromJSON(needs.plan.outputs.shards)" in str(gate["strategy"]["matrix"]["shard"])
+    assert gate["timeout-minutes"] == "${{ matrix.shard == 'serial' && 180 || 45 }}"
+    step = next(s for s in _steps(gate) if HARD_GATE_COMMAND in (s.get("run") or ""))
+    shard_env = step["env"]["RISKIT_TEST_SHARD"]
+    # Empty on the serial fallback, so the plugin never registers there.
+    assert "matrix.shard != 'serial'" in shard_env and "|| ''" in shard_env
+    assert "needs.plan.outputs.shard_count" in shard_env
+    assert "RISKIT_TEST_SHARD_MANIFEST" in step["env"]
+    upload = next(s for s in _steps(gate) if "upload-artifact" in str(s.get("uses")))
+    assert upload.get("if") == "${{ always() && needs.plan.outputs.mode == 'sharded' }}"
+    # Real-OCR tests run instead of skipping, as in PR Validation and Deploy:
+    # all three gates share one skip budget.
+    assert any(
+        "install -y" in (s.get("run") or "") and "tesseract-ocr" in s["run"] for s in _steps(gate)
+    )
+
+
+def test_release_candidate_runs_the_byte_identical_pr_gate_command():
+    def gate_line(doc: dict, job: str) -> str:
+        step = next(
+            s for s in _steps(doc["jobs"][job]) if HARD_GATE_COMMAND in (s.get("run") or "")
+        )
+        return next(line for line in step["run"].splitlines() if HARD_GATE_COMMAND in line)
+
+    assert gate_line(_load(RC), "hard-gate") == gate_line(_load("pr-validation.yml"), "backend")
+
+
+def test_every_rc_job_that_reads_the_candidate_asserts_the_planned_tree():
+    jobs = _load(RC)["jobs"]
+    planned = {
+        "HEAD_SHA": "${{ needs.plan.outputs.head_sha }}",
+        "BASE_SHA": "${{ needs.plan.outputs.base_sha }}",
+        "CANDIDATE_TREE": "${{ needs.plan.outputs.candidate_tree }}",
+    }
+    for job_id, consumer in (
+        ("hard-gate", HARD_GATE_COMMAND),
+        ("validate", "scripts/ci_test_shards.py verify"),
+    ):
+        steps = _steps(jobs[job_id])
+        checkout = steps[0]
+        assert "actions/checkout" in checkout["uses"]
+        assert checkout["with"]["ref"] == "${{ needs.plan.outputs.head_sha }}"
+        assert checkout["with"]["fetch-depth"] == 0
+        rebuild = _step(jobs[job_id], REBUILD_STEP)
+        assert rebuild["env"] == planned
+        assert "continue-on-error" not in rebuild
+        consumer_at = next(i for i, s in enumerate(steps) if consumer in (s.get("run") or ""))
+        assert steps.index(rebuild) < consumer_at, f"{job_id} reads the tree before asserting it"
+    shard_run = _step(jobs["hard-gate"], REBUILD_STEP)["run"]
+    assert shard_run == _step(jobs["validate"], REBUILD_STEP)["run"]
+    # Merged by the PINNED base SHA, never the moving branch.
+    assert 'git merge --no-edit "${BASE_SHA}"' in shard_run
+    assert "inputs.base_ref" not in shard_run and "origin/" not in shard_run
+    assert "HEAD^{tree}" in shard_run
+    assert '[[ "${tree}" == "${CANDIDATE_TREE}" ]] ||' in shard_run
+
+
+def test_the_plan_records_the_candidate_identity_after_the_strict_check():
+    jobs = _load(RC)["jobs"]
+    plan = jobs["plan"]
+    assert set(plan["outputs"]) == {
+        "head_sha",
+        "base_sha",
+        "candidate_tree",
+        "shards",
+        "shard_count",
+        "mode",
+    }
+    steps = _steps(plan)
+    strict = _step(plan, "Release-candidate freshness (STRICT)")
+    # The same strict gate the candidate job runs, before anything is built.
+    assert strict["run"] == _step(jobs["candidate"], "Release-candidate freshness (STRICT)")["run"]
+    build = next(s for s in steps if s.get("id") == "build")
+    assert steps.index(strict) < steps.index(build)
+    assert 'git merge --no-edit "${base_sha}"' in build["run"]
+    assert "HEAD^{tree}" in build["run"] and "candidate_tree=${tree}" in build["run"]
+    # The head SHA is read before the merge moves HEAD.
+    assert build["run"].index("head_sha=") < build["run"].index("git merge")
+
+
+def test_the_plan_falls_back_to_serial_when_the_candidate_tree_lacks_the_shard_owner():
+    plan = _load(RC)["jobs"]["plan"]
+    steps = _steps(plan)
+    build = next(s for s in steps if s.get("id") == "build")
+    choose = next(s for s in steps if s.get("id") == "plan")
+    # Decided on the merged CANDIDATE tree, not the head alone.
+    assert steps.index(build) < steps.index(choose)
+    run = choose["run"]
+    assert "-f scripts/ci_test_shards.py" in run and "-f config/ci/test_shards.json" in run
+    assert "python scripts/ci_test_shards.py matrix --github-output" in run
+    assert 'shards=["serial"]' in run and "mode=serial" in run and "mode=sharded" in run
+
+
+def test_validate_release_candidate_fails_closed():
+    doc = _load(RC)
+    named = [k for k, j in doc["jobs"].items() if j.get("name") == "Validate Release Candidate"]
+    assert named == ["validate"], "the check name operators read must stay on the verdict job"
+    validate = doc["jobs"]["validate"]
+    assert set(validate["needs"]) == {"plan", "candidate", "hard-gate"}
+    # always(), never !cancelled() or no `if`: a cancelled or failed upstream
+    # must end RED here, not as a skipped job that reads as passed.
+    assert validate["if"] == "${{ always() }}"
+    assert "scripts/ci_test_shards.py verify" in _runs(validate)
+    verdict = _step(validate, VERDICT_STEP)
+    assert verdict["if"] == "${{ always() }}"
+    assert verdict["env"]["GATES_TREE"] == "${{ needs.candidate.outputs.candidate_tree }}"
+    assert verdict["env"]["PLANNED_TREE"] == "${{ needs.plan.outputs.candidate_tree }}"
+    for var in ("PLAN_RESULT", "CANDIDATE_RESULT", "GATE_RESULT"):
+        assert '"${' + var + '}" != "success"' in verdict["run"]
+
+
+def test_no_other_release_candidate_gate_was_removed():
+    candidate = _load(RC)["jobs"]["candidate"]
+    steps = _steps(candidate)
+    assert [s.get("name") for s in steps] == [name for name, _ in _CANDIDATE_GATES]
+    for step, (name, command) in zip(steps, _CANDIDATE_GATES):
+        if command is not None:
+            assert command in (step.get("run") or ""), f"{name!r} no longer runs {command!r}"
+        if name.startswith("Source health"):
+            assert step.get("continue-on-error") is True and step.get("if") == "${{ always() }}"
+        else:
+            # Unconditional and blocking, as before.
+            assert "if" not in step and "continue-on-error" not in step, name
+    assert "needs" not in candidate and "if" not in candidate
+    assert HARD_GATE_COMMAND not in _runs(candidate)
+    # It publishes the tree it validated, for the aggregator's identity check.
+    assert candidate["outputs"]["candidate_tree"] == "${{ steps.build.outputs.candidate_tree }}"
+    build = next(s for s in steps if s.get("id") == "build")
+    assert "candidate_tree=$(git rev-parse --verify 'HEAD^{tree}')" in build["run"]
+
+
+def test_one_release_candidate_at_a_time_on_manual_dispatch_only():
+    doc = _load(RC)
+    assert doc["concurrency"] == {"group": "release-candidate", "cancel-in-progress": False}
+    assert set(doc[True]) == {"workflow_dispatch"}
+
+
+# ── Release Candidate: the shell that enforces it, executed ─────────────
+
+
+def _bash() -> str:
+    bash = shutil.which("bash")
+    if bash is None or shutil.which("git") is None:
+        pytest.skip("needs bash and git")
+    return bash
+
+
+def _clean_env(home: Path) -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    env.update(HOME=str(home), XDG_CONFIG_HOME=str(home), GIT_CONFIG_NOSYSTEM="1")
+    return env
+
+
+def _run_step(script: str, cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [_bash(), "-c", script], cwd=cwd, env=env, capture_output=True, text=True, check=False
+    )
+
+
+_TREE = "a" * 40
+_ALL_GREEN = {
+    "PLAN_RESULT": "success",
+    "CANDIDATE_RESULT": "success",
+    "GATE_RESULT": "success",
+    "MODE": "sharded",
+    "PLANNED_TREE": _TREE,
+    "GATES_TREE": _TREE,
+}
+
+
+@pytest.mark.parametrize(
+    "override, passes",
+    [
+        ({}, True),
+        ({"MODE": "serial"}, True),
+        ({"PLAN_RESULT": "failure"}, False),
+        ({"CANDIDATE_RESULT": "cancelled"}, False),
+        ({"GATE_RESULT": "failure"}, False),
+        ({"GATE_RESULT": "skipped"}, False),
+        ({"GATE_RESULT": "cancelled"}, False),
+        ({"MODE": ""}, False),
+        ({"GATES_TREE": "b" * 40}, False),
+        ({"GATES_TREE": ""}, False),
+        ({"PLANNED_TREE": "", "GATES_TREE": ""}, False),
+    ],
+)
+def test_the_verdict_passes_only_when_everything_succeeded_on_one_tree(tmp_path, override, passes):
+    script = _step(_load(RC)["jobs"]["validate"], VERDICT_STEP)["run"]
+    env = {**_clean_env(tmp_path), **_ALL_GREEN, **override}
+    result = _run_step(script, tmp_path, env)
+    assert (result.returncode == 0) is passes, result.stdout + result.stderr
+
+
+def _git(cwd: Path, env: dict[str, str], *args: str) -> str:
+    identity = ("-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false")
+    return subprocess.run(
+        ["git", *identity, *args], cwd=cwd, env=env, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+@pytest.fixture
+def candidate_repo(tmp_path):
+    """An origin whose head branch and base branch diverged, and the tree of
+    their merge (the release candidate) computed independently."""
+    _bash()
+    env = _clean_env(tmp_path)
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    _git(origin, env, "init", "-q", "-b", "main")
+    _git(origin, env, "config", "uploadpack.allowAnySHA1InWant", "true")
+    (origin / "shared.txt").write_text("root\n", encoding="utf-8")
+    _git(origin, env, "add", "-A")
+    _git(origin, env, "commit", "-q", "-m", "root")
+    _git(origin, env, "checkout", "-q", "-b", "frozen-head")
+    (origin / "head.txt").write_text("head\n", encoding="utf-8")
+    _git(origin, env, "add", "-A")
+    _git(origin, env, "commit", "-q", "-m", "head")
+    _git(origin, env, "checkout", "-q", "main")
+    (origin / "base.txt").write_text("base\n", encoding="utf-8")
+    _git(origin, env, "add", "-A")
+    _git(origin, env, "commit", "-q", "-m", "base moved")
+    head = _git(origin, env, "rev-parse", "frozen-head")
+    base = _git(origin, env, "rev-parse", "main")
+    oracle = tmp_path / "oracle"
+    _git(tmp_path, env, "clone", "-q", str(origin), str(oracle))
+    _git(oracle, env, "checkout", "-q", "--detach", head)
+    _git(oracle, env, "merge", "--no-edit", "-q", base)
+    tree = _git(oracle, env, "rev-parse", "HEAD^{tree}")
+    assert tree != _git(origin, env, "rev-parse", f"{head}^{{tree}}")
+
+    def checkout(name: str, *clone_args: str) -> Path:
+        work = tmp_path / name
+        _git(tmp_path, env, "clone", "-q", *clone_args, str(origin), str(work))
+        _git(work, env, "checkout", "-q", "--detach", head)
+        return work
+
+    return {"env": env, "head": head, "base": base, "tree": tree, "checkout": checkout}
+
+
+def _rebuild(repo: dict, work: Path, **identity: str) -> subprocess.CompletedProcess:
+    script = _step(_load(RC)["jobs"]["hard-gate"], REBUILD_STEP)["run"]
+    env = {
+        **repo["env"],
+        "HEAD_SHA": repo["head"],
+        "BASE_SHA": repo["base"],
+        "CANDIDATE_TREE": repo["tree"],
+        **identity,
+    }
+    return _run_step(script, work, env)
+
+
+def test_the_rebuild_reproduces_the_planned_tree(candidate_repo):
+    work = candidate_repo["checkout"]("shard")
+    result = _rebuild(candidate_repo, work)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _git(work, candidate_repo["env"], "rev-parse", "HEAD^{tree}") == candidate_repo["tree"]
+
+
+def test_the_rebuild_fetches_a_base_the_checkout_lacks(candidate_repo):
+    work = candidate_repo["checkout"]("narrow", "--single-branch", "--branch", "frozen-head")
+    result = _rebuild(candidate_repo, work)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_the_rebuild_fails_closed_on_a_different_tree(candidate_repo):
+    work = candidate_repo["checkout"]("shard")
+    head_tree = _git(work, candidate_repo["env"], "rev-parse", "HEAD^{tree}")
+    result = _rebuild(candidate_repo, work, CANDIDATE_TREE=head_tree)
+    assert result.returncode != 0
+    assert "tree mismatch" in result.stdout + result.stderr
+
+
+def test_the_rebuild_refuses_a_head_other_than_the_planned_one(candidate_repo):
+    work = candidate_repo["checkout"]("shard")
+    result = _rebuild(candidate_repo, work, HEAD_SHA=candidate_repo["base"])
+    assert result.returncode != 0
+    assert "head mismatch" in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("missing", ["HEAD_SHA", "BASE_SHA", "CANDIDATE_TREE"])
+def test_the_rebuild_refuses_a_missing_plan_identity(candidate_repo, missing):
+    work = candidate_repo["checkout"]("shard")
+    result = _rebuild(candidate_repo, work, **{missing: ""})
+    assert result.returncode != 0
+    assert "not a full SHA" in result.stdout + result.stderr

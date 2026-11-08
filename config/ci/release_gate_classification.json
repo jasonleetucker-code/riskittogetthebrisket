@@ -902,10 +902,61 @@
     "release-candidate.yml::candidate::Source health (advisory \u2014 the deploy gate is the blocking one)": {
       "category": "advisory"
     },
-    "release-candidate.yml::candidate::Unit tests (hard gate \u2014 pure logic)": {
+    "release-candidate.yml::candidate::Validate dependency graph (pip check)": {
       "category": "blocking"
     },
-    "release-candidate.yml::candidate::Validate dependency graph (pip check)": {
+    "release-candidate.yml::hard-gate::Checkout the frozen head (full history)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Install dependencies": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Install tesseract-ocr (screenshot import OCR tests)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Rebuild the candidate and assert it is the planned tree": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Set up Python": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Unit tests (hard gate \u2014 pure logic)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Upload shard manifest": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Build the exact merge candidate and record its identity": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Checkout (full history \u2014 the check diffs base against head)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Choose sharded or serial": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Release-candidate freshness (STRICT)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Set up Python": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Checkout the frozen head (full history)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Download shard manifests": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Every required job succeeded": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Prove the sharded hard gate ran every test": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Rebuild the candidate and assert it is the planned tree": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Set up Python": {
       "category": "blocking"
     },
     "retention-backup-proof.yml::prove::Checkout": {
