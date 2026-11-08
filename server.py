@@ -14848,6 +14848,21 @@ def _pregame_archive_health() -> list[dict] | None:
         return None
 
 
+def _forecast_degradation_health() -> list[dict] | None:
+    """Review requests fired by the standing forecast scorecard (ops alerts, MD-104).
+
+    Read from the private scorecard output (``ops_alerts.forecast_degradation_reviews``).
+    ``None`` -- "not checked", never "healthy" -- when that file does not parse.
+    """
+    try:
+        from src.api import ops_alerts  # noqa: PLC0415
+
+        return ops_alerts.forecast_degradation_reviews()
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("forecast degradation check failed: %s", exc)
+        return None
+
+
 @app.get("/api/draft-capital")
 async def get_draft_capital(request: Request, refresh: str = ""):
     """Return draft capital breakdown per team using Sleeper pick ownership
@@ -21663,6 +21678,7 @@ async def run_signal_alerts(request: Request):
             draft_valuation=await run_in_threadpool(_draft_valuation_health),
             pregame_archive=await run_in_threadpool(_pregame_archive_health),
             roster_construction=await run_in_threadpool(_roster_construction_health),
+            forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )

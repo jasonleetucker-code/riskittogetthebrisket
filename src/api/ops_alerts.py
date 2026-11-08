@@ -14,6 +14,10 @@ when any of these conditions hold:
     * A Game Day pregame-projections archive that could not be built, so
       its week's raw weekly-projection log is being kept (one alert per
       league + season + week)
+    * A forecast family whose served model has trailed its simple named baseline
+      under the pre-declared degradation rule (MD-104): a REVIEW REQUEST for the
+      owner, one per league + family + target + model version + rule version.
+      It promotes, demotes and changes nothing.
     * Roster Construction's CURRENT season withheld because its lineup rules
       are contradicted by the host's own matchups (owner decision D2; one
       alert per league + season)
@@ -567,6 +571,88 @@ def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
     return alerts
 
 
+FORECAST_DEGRADATION_PREFIX = "forecast_degradation:"
+_FORECAST_REVIEWS_FILE = "forecast_scorecard.json"
+
+
+def forecast_degradation_reviews(path: Any = None) -> list[dict[str, Any]] | None:
+    """Pending review requests from the standing scorecard, or ``None`` when unknown.
+
+    The scorecard (``scripts/forecast_scorecard.py``) writes its result to the
+    private learning store; this only reads its ``degradationReviews``.  No file
+    means the scorecard has not fired anything (``[]``); a file that does not
+    parse is UNKNOWN (``None``), never "recovered".
+    """
+    import json
+    from pathlib import Path
+
+    target = (
+        Path(path)
+        if path is not None
+        else Path(__file__).resolve().parents[2]
+        / "data"
+        / "learning"
+        / "scorecards"
+        / _FORECAST_REVIEWS_FILE
+    )
+    try:
+        if not target.exists():
+            return []
+        body = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    rows = body.get("degradationReviews") if isinstance(body, dict) else None
+    return [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else None
+
+
+def _check_forecast_degradation(rows: list[dict[str, Any]]) -> list[OpsAlert]:
+    """One review request per fired degradation rule (MD-104).
+
+    ``category`` comes from the review row (it names the rule version and model
+    version), so a new model version or a new rule version is a new review.  The
+    text always states the effect: a request for a human to look, nothing more.
+    """
+    alerts: list[OpsAlert] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        category = row.get("category")
+        if not isinstance(category, str) or not category.startswith(FORECAST_DEGRADATION_PREFIX):
+            continue
+        metric = row.get("metric")
+        ci = row.get("deltaCi95")
+        ci_text = (
+            f", 95% CI {ci[0]:.4f} to {ci[1]:.4f}"
+            if isinstance(ci, list) and len(ci) == 2 and None not in ci
+            else ""
+        )
+        alerts.append(
+            OpsAlert(
+                severity="warning",
+                category=category,
+                title=(
+                    f"Forecast review requested: {row.get('family')} model "
+                    f"{row.get('modelVersion')} trails {row.get('baseline')} "
+                    f"(rule {row.get('ruleVersion')})"
+                ),
+                detail=(
+                    f"League {row.get('leagueKey')}, target {row.get('target')}: the served model's "
+                    f"{metric} is worse than the {row.get('baseline')} baseline by "
+                    f"{row.get('delta'):.4f} (declared margin {row.get('margin')}{ci_text}) on "
+                    f"{row.get('eligible')} identical samples, for {row.get('streak')} consecutive "
+                    f"evaluations (rule requires {row.get('streakRequired')}).  Rule version "
+                    f"{row.get('ruleVersion')} is declared in "
+                    "config/forecast_scorecard/degradation_rule_v1.json.  This is a REVIEW REQUEST "
+                    "only: nothing was promoted, demoted, disabled or changed.  Detail: "
+                    "data/learning/scorecards/forecast_scorecard.json on the box."
+                    if isinstance(row.get("delta"), (int, float))
+                    else "Review requested; see data/learning/scorecards/forecast_scorecard.json."
+                ),
+            )
+        )
+    return alerts
+
+
 def _load_ops_state(path: Any = None) -> dict[str, Any]:
     state = user_kv.get_user_state(_OPS_STATE_USER, path=path)
     return dict(state.get("opsAlertState") or {})
@@ -607,6 +693,12 @@ def _should_fire(
     """Cooldown check.  Returns True when an alert should fire,
     False when it's within the re-alert window."""
     last = state.get(alert.category) or {}
+    if alert.category.startswith(FORECAST_DEGRADATION_PREFIX):
+        # Review requests are deduplicated per incident, not per cooldown window:
+        # once the owner has been told, a persisting condition stays silent.  It
+        # re-arms only after its recovery notice (the condition cleared).
+        delivered = last.get("deliveredAt") or last.get("firedAt")
+        return delivered is None or bool(last.get("recoveryFired"))
     # Audit F-20: the window is spent by a DELIVERED alert, never by the
     # decision to send one.  "We decided to alert", "we attempted delivery"
     # and "the operator was told" are three different facts, and only the
@@ -700,6 +792,7 @@ def check_and_alert(
     draft_valuation: list[dict[str, Any]] | None = None,
     pregame_archive: list[dict[str, Any]] | None = None,
     roster_construction: list[dict[str, Any]] | None = None,
+    forecast_degradation: list[dict[str, Any]] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     kv_path: Any = None,
@@ -722,6 +815,7 @@ def check_and_alert(
     alerts.extend(_check_draft_valuation(draft_valuation or []))
     alerts.extend(_check_pregame_archive(pregame_archive or []))
     alerts.extend(_check_roster_construction(roster_construction or []))
+    alerts.extend(_check_forecast_degradation(forecast_degradation or []))
 
     active_categories = {a.category for a in alerts}
     now = time.time()
@@ -736,6 +830,9 @@ def check_and_alert(
     if roster_construction is None:
         # Not checked (flag lookup or snapshot failed) is UNKNOWN, not recovered.
         active_categories |= {c for c in state if str(c).startswith("roster_construction:")}
+    if forecast_degradation is None:
+        # An unreadable scorecard is UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c).startswith(FORECAST_DEGRADATION_PREFIX)}
 
     # Recovery alerts first — for conditions that were firing but
     # aren't now.
