@@ -37,8 +37,12 @@
   color: var(--sn-cream, #f0eddf);
 }
 .title::after {
-  content: ".";
-  color: var(--sn-coral, #fd633f);
+  content: "";
+  display: inline-block;
+  width: .105em;
+  height: .105em;
+  margin-left: .025em;
+  background: var(--sn-coral, #fd633f);
 }
 .standfirst {
   margin: 0;
@@ -254,9 +258,6 @@
   .leagueRail h2 {
     font-size: 58px;
     margin: 20px 0;
-  }
-  .leagueRail h2 br {
-    display: none;
   }
   .leagueRail > p:not(.eyebrow) {
     font-size: 12px;
