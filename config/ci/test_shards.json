@@ -2,7 +2,7 @@
  "_comment": "Owner: scripts/ci_test_shards.py. shard_count is the PR Validation backend matrix width. min_collected is the hard-gate collection floor and max_skipped the suite-wide skip budget (audit W24-F001): lowering the floor or raising the budget is a reviewed change, never a way to turn a red run green. durations are per-file seconds from a green sharded run; they only steer balance and can never drop a test. Refresh: python scripts/ci_test_shards.py durations --manifests <dir> --write --source <run id>.",
  "shard_count": 8,
  "min_collected": 32500,
- "max_skipped": 290,
+ "max_skipped": 10,
  "durations_source": "PR #2133 run 42411207802 (2026-11-07, all 8 shards green, complete)",
  "durations": {
   "tests/acquisition/test_acquisition_ledger.py": 0.36,

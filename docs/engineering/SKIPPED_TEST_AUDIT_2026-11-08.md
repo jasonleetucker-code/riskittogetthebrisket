@@ -95,3 +95,15 @@ unchanged (the coordinator tightens it after CI reports the count).
    skips when no complete board exists). Acceptance: a guard test that fails when
    `newest_complete_raw_payload()` would return `None` in CI, so "no board" is a
    failure, not a skip.
+
+## Budget tightened (coordinator, after CI)
+
+PR Validation run 42471438554 on this branch: 34,686 collected, **10 skipped** (was 261), 30 xfailed, 0 failed. Every remaining skip names a deterministic environment or data condition, and the shard manifests now carry the `skip_reasons`:
+- 4 privacy tests that need the box-only ROS artifacts;
+- 1 POSIX-only file-replace path, covered by a stub;
+- 3 tests that need the gitignored real-Sleeper cache;
+- 1 declared-exempt pbp call site;
+- 1 refusal path that is unreachable while the flags are registered.
+
+`config/ci/test_shards.json` `max_skipped` goes from 290 to **10**. Any new skip now fails `Validate PR` until it is justified and the budget is raised in a reviewed change.
+
