@@ -218,3 +218,73 @@ def evaluate_origin(
         "base_down": sum(1 for x in forward_excess if x < 0) / n if n else None,
         "base_up": sum(1 for x in forward_excess if x > 0) / n if n else None,
     }
+
+
+# ------------------------------------------------------ uncertainty (origins)
+def bootstrap_mean_ci(
+    values: Sequence[float], *, n_boot: int = 10000, seed: int = 0, level: float = 0.95
+) -> tuple[float, float] | None:
+    """Percentile CI of the mean, resampling ORIGINS (the unit of independence).
+
+    ``None`` below two values.  Deterministic for a fixed seed.  With a handful
+    of origins this interval is wide on purpose: it is the honest width.
+    """
+    import random
+
+    n = len(values)
+    if n < 2:
+        return None
+    rng = random.Random(seed)
+    means = sorted(sum(values[rng.randrange(n)] for _ in range(n)) / n for _ in range(n_boot))
+    tail = (1 - level) / 2
+    return quantile(means, tail), quantile(means, 1 - tail)
+
+
+def cluster_rate_ci(
+    hits_and_n: Sequence[tuple[int, int]],
+    *,
+    n_boot: int = 10000,
+    seed: int = 0,
+    level: float = 0.95,
+) -> tuple[float, float] | None:
+    """CI of a pooled rate sum(hits)/sum(n), resampling whole ORIGINS.
+
+    Within an origin the same assets repeat across origins, so the pooled
+    observation count overstates the independent information; clustering by
+    origin is the conservative correction.
+    """
+    import random
+
+    k = len(hits_and_n)
+    if k < 2 or sum(n for _, n in hits_and_n) == 0:
+        return None
+    rng = random.Random(seed)
+    rates = []
+    for _ in range(n_boot):
+        pick = [hits_and_n[rng.randrange(k)] for _ in range(k)]
+        tot = sum(n for _, n in pick)
+        if tot:
+            rates.append(sum(h for h, _ in pick) / tot)
+    if not rates:
+        return None
+    rates.sort()
+    tail = (1 - level) / 2
+    return quantile(rates, tail), quantile(rates, 1 - tail)
+
+
+def sign_flip_p(values: Sequence[float]) -> float | None:
+    """Exact two-sided sign-flip test of mean = 0 over per-origin values.
+
+    Enumerates all 2^k sign patterns (k <= 20).  Under the null each origin's
+    IC is symmetric about 0.  ``None`` for k < 2 or k > 20.
+    """
+    k = len(values)
+    if k < 2 or k > 20:
+        return None
+    obs = abs(sum(values))
+    count = 0
+    for mask in range(1 << k):
+        tot = sum(v if (mask >> i) & 1 else -v for i, v in enumerate(values))
+        if abs(tot) >= obs - 1e-12:
+            count += 1
+    return count / (1 << k)

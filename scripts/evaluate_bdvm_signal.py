@@ -14,6 +14,7 @@ Exit codes: 0 done, 2 error / insufficient input.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import glob
 import json
 import pickle
@@ -75,8 +76,11 @@ def snapshot_for_day(day: date, path: Path, records, params, cfg) -> dict | None
         registry_roster_settings=cfg.roster_settings,
         idp_enabled=bool(cfg.idp_enabled),
         scoring_profile=str(cfg.scoring_profile or ""),
-        projection_records=records,
-        snapshot_as_of="2026-11-08",
+        # Point-in-time: stamp records AND snapshot with the origin's own
+        # archive day.  Left at the build date, early origins see records
+        # dated in their future and take the stale down-weight.
+        projection_records=[dataclasses.replace(r, as_of=day.isoformat()) for r in records],
+        snapshot_as_of=day.isoformat(),
         season=2026,
     )
     rows = []
@@ -152,20 +156,37 @@ def summarize(per_origin: list[dict]) -> dict:
     res: dict = {"origins": len(per_origin)}
     for name in ("C0", "C1", "C2", "C3", "N0"):
         ics = [o[name]["ic"] for o in per_origin if o[name]["ic"] is not None]
-        sells = sum(o[name]["n_sell"] for o in per_origin)
-        sell_down = sum(round((o[name]["sell_hit"] or 0) * o[name]["n_sell"]) for o in per_origin)
-        buys = sum(o[name]["n_buy"] for o in per_origin)
-        buy_up = sum(round((o[name]["buy_hit"] or 0) * o[name]["n_buy"]) for o in per_origin)
+        sell_pairs = [
+            (round((o[name]["sell_hit"] or 0) * o[name]["n_sell"]), o[name]["n_sell"])
+            for o in per_origin
+        ]
+        buy_pairs = [
+            (round((o[name]["buy_hit"] or 0) * o[name]["n_buy"]), o[name]["n_buy"])
+            for o in per_origin
+        ]
+        sells = sum(n for _, n in sell_pairs)
+        buys = sum(n for _, n in buy_pairs)
         n = sum(o["n"] for o in per_origin)
         base_down = sum(o[name]["base_down"] * o["n"] for o in per_origin) / n if n else None
         base_up = sum(o[name]["base_up"] * o["n"] for o in per_origin) / n if n else None
         res[name] = {
             "mean_ic": (sum(ics) / len(ics)) if ics else None,
+            "ic_sd_across_origins": (
+                (sum((x - sum(ics) / len(ics)) ** 2 for x in ics) / (len(ics) - 1)) ** 0.5
+                if len(ics) > 1
+                else None
+            ),
+            "ic_min": min(ics) if ics else None,
+            "ic_max": max(ics) if ics else None,
+            "mean_ic_ci95_origin_bootstrap": sd.bootstrap_mean_ci(ics),
+            "sign_flip_p_mean_ic_zero": sd.sign_flip_p(ics),
             "frac_origins_ic_positive": (sum(1 for x in ics if x > 0) / len(ics)) if ics else None,
             "n_sell": sells,
-            "sell_hit": (sell_down / sells) if sells else None,
+            "sell_hit": (sum(h for h, _ in sell_pairs) / sells) if sells else None,
+            "sell_hit_ci95_origin_cluster": sd.cluster_rate_ci(sell_pairs),
             "n_buy": buys,
-            "buy_hit": (buy_up / buys) if buys else None,
+            "buy_hit": (sum(h for h, _ in buy_pairs) / buys) if buys else None,
+            "buy_hit_ci95_origin_cluster": sd.cluster_rate_ci(buy_pairs),
             "base_down": base_down,
             "base_up": base_up,
         }
@@ -173,27 +194,29 @@ def summarize(per_origin: list[dict]) -> dict:
 
 
 def verdicts(summary: dict) -> dict:
-    out = {}
     if summary["origins"] < MIN_ORIGINS:
         return {"verdict": "INSUFFICIENT", "reason": f"{summary['origins']} usable origins"}
     inc, nul = summary["C0"], summary["N0"]
+    out = {}
+
+    def beats(mean_ic: float, ref: dict) -> bool:
+        # None means "no reference value", which cannot be beaten by 0.02 of
+        # nothing; a real 0.0 is a real value (never treated as missing).
+        return ref["mean_ic"] is not None and mean_ic >= ref["mean_ic"] + 0.02
+
     for name in ("C1", "C2", "C3"):
         s = summary[name]
-
-        def ok(x):
-            return x is not None
-
         p1 = (
-            ok(s["mean_ic"])
+            s["mean_ic"] is not None
             and s["mean_ic"] >= 0.05
-            and s["mean_ic"] >= (inc["mean_ic"] or -9) + 0.02
-            and s["mean_ic"] >= (nul["mean_ic"] or -9) + 0.02
+            and beats(s["mean_ic"], inc)
+            and beats(s["mean_ic"], nul)
         )
-        sell_ok = ok(s["sell_hit"]) and s["sell_hit"] - s["base_down"] >= 0.05
-        buy_ok = ok(s["buy_hit"]) and s["buy_hit"] - s["base_up"] >= 0.05
-        p2 = sell_ok and buy_ok
-        p3 = ok(s["frac_origins_ic_positive"]) and s["frac_origins_ic_positive"] >= 0.70
-        out[name] = {"P1": p1, "P2": p2, "P3": p3, "PASS": bool(p1 and p2 and p3)}
+        sell_ok = s["sell_hit"] is not None and s["sell_hit"] - s["base_down"] >= 0.05
+        buy_ok = s["buy_hit"] is not None and s["buy_hit"] - s["base_up"] >= 0.05
+        p3 = s["frac_origins_ic_positive"] is not None and s["frac_origins_ic_positive"] >= 0.70
+        out[name] = {"P1": p1, "P2": bool(sell_ok and buy_ok), "P3": p3}
+        out[name]["PASS"] = all(out[name].values())
     return {"verdict": "SCREENED", "challengers": out}
 
 

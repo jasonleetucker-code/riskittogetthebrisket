@@ -119,3 +119,24 @@ class TestEvaluation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestUncertainty(unittest.TestCase):
+    def test_sign_flip_exact(self):
+        # values (+1,+1): patterns ++,+-,-+,-- -> |sum| >= 2 for 2 of 4 -> p = 0.5
+        self.assertAlmostEqual(sd.sign_flip_p([1.0, 1.0]), 0.5)
+        # (+1,-1): |sum| = 0, every pattern qualifies -> p = 1
+        self.assertAlmostEqual(sd.sign_flip_p([1.0, -1.0]), 1.0)
+        self.assertIsNone(sd.sign_flip_p([1.0]))
+
+    def test_bootstrap_ci_constant_and_deterministic(self):
+        self.assertEqual(sd.bootstrap_mean_ci([0.5, 0.5, 0.5]), (0.5, 0.5))
+        a = sd.bootstrap_mean_ci([0.0, 1.0, 2.0, 3.0], n_boot=500, seed=3)
+        self.assertEqual(a, sd.bootstrap_mean_ci([0.0, 1.0, 2.0, 3.0], n_boot=500, seed=3))
+        self.assertLessEqual(a[0], 1.5)
+        self.assertGreaterEqual(a[1], 1.5)
+        self.assertIsNone(sd.bootstrap_mean_ci([1.0]))
+
+    def test_cluster_rate_ci(self):
+        self.assertEqual(sd.cluster_rate_ci([(5, 10), (5, 10), (5, 10)]), (0.5, 0.5))
+        self.assertIsNone(sd.cluster_rate_ci([(0, 0), (0, 0)]))

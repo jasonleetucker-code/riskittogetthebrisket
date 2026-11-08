@@ -6,6 +6,11 @@ is owner-protected), label enum or value changes in this record. Evaluation code
 `src/bdvm/signal_diagnostics.py` (never imported by the serving path) driven by
 `scripts/evaluate_bdvm_signal.py`.
 
+**Headline (scoped).** The proxy-baseline BDVM evaluated here (100% `is_proxy`, no Clay, no IDP Show,
+no play-by-play supplement) shows no directional skill at 14 days, and 80% of its labels are
+STRONG_SELL mostly because the fundamental and market sit on different curves. Nothing here says
+how a BDVM fed real projection sources would behave.
+
 ## 0. Preregistration (committed BEFORE any outcome was computed)
 
 **Question.** Does the served ladder (`market.buy_hold_sell`, absolute alpha =
@@ -53,6 +58,28 @@ SCREEN. A pass authorises a longer preregistered study; it never authorises chan
 threshold or a served label (champion != challenger; model evaluation != promotion).
 If fewer than 6 usable origins exist the verdict is INSUFFICIENT and no challenger is
 ranked.
+
+**Disclosures added after independent review.**
+
+- *Outcome-blind, not label-blind.* The challengers (C1-C3) and the pass thresholds were designed
+  AFTER the 638-STRONG_SELL census and the C2 reduction (639 -> 144) were already known; they were
+  fixed before any forward-outcome number was computed. The preregistration commit also already
+  contained `evaluate_origin`, so the metric definitions were frozen with the code, not after it.
+- *Point-in-time.* The harness takes the archive on or up to 2 days after each nominal origin;
+  in this archive every origin used offset 0 (the tolerance was never exercised), so horizons are
+  exactly 14 / 28 days. Originally `snapshot_as_of` and the baseline `as_of` were both
+  `2026-11-08` for every origin. `as_of` does not feed age (taken from each origin's own contract
+  row) or rookie priors (draft slots, fixed in April); it feeds only the projection staleness
+  weight (records dated after the snapshot take the stale down-weight) and event filtering (no
+  events file present locally). It was fixed to the origin's own day and the whole screen re-run:
+  every primary and secondary number was unchanged (single-source consensus is weight-invariant).
+  The claim "no post-origin outcome enters the fundamental" rests on the baseline using realised
+  seasons <= 2025 only and no 2026 actuals being passed; it is checked by construction, not by
+  an independent audit of nflverse timestamps.
+- *Statistics.* Per-origin IC spread, an origin-level bootstrap CI and an exact sign-flip test are
+  reported below. Pooled hit-rate counts repeat the same assets across origins and are NOT
+  independent, so hit-rate intervals resample whole origins. N0 (score = -market level) is a
+  level-only REFERENCE baseline, not a permutation null.
 
 **Known limitation declared up front.** The fundamentals here come from the
 reconstructed realised-points baseline (every record `is_proxy`), run locally without the
@@ -124,22 +151,28 @@ pairs each; 13 weekly 28-day origins as a descriptive secondary). Hit rates are 
 (excess < 0 / > 0): many assets do not reprice in 14 days, so base rates are low (down 15.2%,
 up 12.2%).
 
-| method | mean IC (14d) | origins IC>0 | SELL hit (base 15.2%) | BUY hit (base 12.2%) | P1 | P2 | P3 | verdict |
-|---|---|---|---|---|---|---|---|---|
-| C0 incumbent | -0.018 | 3/8 | 14.2% (n 5114) | 15.4% (n 266) | - | - | - | reference |
-| N0 level-only null | -0.016 | 4/8 | - | - | - | - | - | null |
-| C1 percentile gap | -0.020 | 3/8 | 11.3% | 18.1% | FAIL | FAIL | FAIL | **FAIL** |
-| C2 scale-aligned, incumbent thresholds | -0.020 | 3/8 | 10.5% | 17.2% | FAIL | FAIL | FAIL | **FAIL** |
-| C3 position-relative percentile gap | +0.033 | 6/8 | 18.0% | 13.7% | FAIL | FAIL | PASS | **FAIL** |
+| method | mean IC (14d) [95% origin bootstrap] | IC range over origins | sign-flip p | origins IC>0 | SELL hit [95% origin-cluster CI] (base 15.2%) | BUY hit [CI] (base 12.2%) | P1 | P2 | P3 | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|
+| C0 incumbent | -0.018 [-0.078, 0.038] | -0.183 .. +0.102 | 0.60 | 3/8 | 14.2% [9.4, 19.0] (n 5114) | 15.4% [8.0, 22.3] (n 266) | - | - | - | reference |
+| N0 level-only reference | -0.016 [-0.088, 0.060] | -0.191 .. +0.146 | 0.70 | 4/8 | - | - | - | - | - | reference |
+| C1 percentile gap | -0.020 [-0.073, 0.026] | -0.176 .. +0.070 | 0.55 | 3/8 | 11.3% [7.2, 15.3] | 18.1% [11.3, 24.5] | FAIL | FAIL | FAIL | **FAIL** |
+| C2 scale-aligned, incumbent thresholds | -0.020 [-0.068, 0.022] | -0.164 .. +0.077 | 0.52 | 3/8 | 10.5% [6.6, 14.3] | 17.2% [10.8, 23.2] | FAIL | FAIL | FAIL | **FAIL** |
+| C3 position-relative percentile gap | +0.033 [-0.005, 0.074] | -0.055 .. +0.120 | 0.16 | 6/8 | 18.0% [11.4, 24.4] | 13.7% [8.5, 18.3] | FAIL | FAIL | PASS | **FAIL** |
+
+Pooled counts repeat the same assets across 8 origins; they are not independent observations,
+which is why the intervals above resample origins (n = 8) and are wide.
 
 Reading:
 
-- The incumbent's SELL hit rate (14.2%) is **below** the unconditional down-rate (15.2%): its
-  5,114 sell-class observations carry no directional information at 14 days. It does not
-  discriminate; it also does not demonstrably mislead (IC -0.018, indistinguishable from the
-  null's -0.016).
+- For this proxy-baseline BDVM the incumbent's SELL hit rate (14.2%, CI 9.4-19.0) is not
+  distinguishable from the unconditional down-rate (15.2%): no directional information is
+  detectable at 14 days. Its mean IC (-0.018) versus the level-only reference (-0.016) is a
+  0.002 difference against a per-origin IC range of -0.18 to +0.10 and CIs spanning zero: pure
+  noise, no ranking between them is supported. This does not show the signal cannot discriminate
+  with real projection inputs.
 - No challenger passes. C3 is the only one with a positive IC and a majority of positive origins
-  (6/8; 12/13 at 28 days) but its mean IC (0.033) is below the 0.05 bar and its BUY hit rate is
+  (6/8 independent windows; 12/13 at 28 days, but those 13 weekly windows OVERLAP and are not
+  independent, so its secondary sign-flip p = 0.022 is descriptive only), but its mean IC (0.033) is below the 0.05 bar and its BUY hit rate is
   barely above base. It earns, at most, a longer preregistered look, not adoption.
 - **Sufficiency.** One season, 8 independent windows, per-origin IC swinging from -0.18 to +0.10
   with the in-season market regime. The verdict is SCREENED, not validated: the outcome evidence

@@ -803,51 +803,125 @@
    "origins": 8,
    "C0": {
     "mean_ic": -0.018423738140683512,
+    "ic_sd_across_origins": 0.08982267753429454,
+    "ic_min": -0.18311560651891165,
+    "ic_max": 0.10210772345049067,
+    "mean_ic_ci95_origin_bootstrap": [
+     -0.07846097715724719,
+     0.03814108621572553
+    ],
+    "sign_flip_p_mean_ic_zero": 0.6015625,
     "frac_origins_ic_positive": 0.375,
     "n_sell": 5114,
     "sell_hit": 0.1421587798201017,
+    "sell_hit_ci95_origin_cluster": [
+     0.09420526212061492,
+     0.19006483705003246
+    ],
     "n_buy": 266,
     "buy_hit": 0.15413533834586465,
+    "buy_hit_ci95_origin_cluster": [
+     0.08029197080291971,
+     0.22264150943396227
+    ],
     "base_down": 0.15189058728881738,
     "base_up": 0.12212389380530973
    },
    "C1": {
     "mean_ic": -0.020284816335534292,
+    "ic_sd_across_origins": 0.07798588647003518,
+    "ic_min": -0.17637745485232886,
+    "ic_max": 0.07016675222828923,
+    "mean_ic_ci95_origin_bootstrap": [
+     -0.07276784489185723,
+     0.025891012510124232
+    ],
+    "sign_flip_p_mean_ic_zero": 0.546875,
     "frac_origins_ic_positive": 0.375,
     "n_sell": 1881,
     "sell_hit": 0.11270600744284955,
+    "sell_hit_ci95_origin_cluster": [
+     0.07158119658119658,
+     0.15251616352201258
+    ],
     "n_buy": 1593,
     "buy_hit": 0.18141870684243566,
+    "buy_hit_ci95_origin_cluster": [
+     0.11284913130615205,
+     0.24527112232030265
+    ],
     "base_down": 0.15189058728881738,
     "base_up": 0.12212389380530973
    },
    "C2": {
     "mean_ic": -0.02025197395225339,
+    "ic_sd_across_origins": 0.07053326959259179,
+    "ic_min": -0.16388641717784463,
+    "ic_max": 0.07672129998361032,
+    "mean_ic_ci95_origin_bootstrap": [
+     -0.06806431473459018,
+     0.021516035477205667
+    ],
+    "sign_flip_p_mean_ic_zero": 0.515625,
     "frac_origins_ic_positive": 0.375,
     "n_sell": 2249,
     "sell_hit": 0.10493552690084482,
+    "sell_hit_ci95_origin_cluster": [
+     0.06601537531261262,
+     0.14253863664557867
+    ],
     "n_buy": 1931,
     "buy_hit": 0.1719316416364578,
+    "buy_hit_ci95_origin_cluster": [
+     0.10788241924416368,
+     0.23204134366925064
+    ],
     "base_down": 0.15189058728881738,
     "base_up": 0.12212389380530973
    },
    "C3": {
     "mean_ic": 0.033420750009855116,
+    "ic_sd_across_origins": 0.06161874967884146,
+    "ic_min": -0.054542287613723796,
+    "ic_max": 0.11953357004785246,
+    "mean_ic_ci95_origin_bootstrap": [
+     -0.005311698142666299,
+     0.07354555930004955
+    ],
+    "sign_flip_p_mean_ic_zero": 0.1640625,
     "frac_origins_ic_positive": 0.75,
     "n_sell": 1598,
     "sell_hit": 0.17959949937421776,
+    "sell_hit_ci95_origin_cluster": [
+     0.1144116697033964,
+     0.24429637937701987
+    ],
     "n_buy": 1457,
     "buy_hit": 0.13658201784488674,
+    "buy_hit_ci95_origin_cluster": [
+     0.08510492367860376,
+     0.1830110497237569
+    ],
     "base_down": 0.15189058728881738,
     "base_up": 0.12212389380530973
    },
    "N0": {
     "mean_ic": -0.015629744779111016,
+    "ic_sd_across_origins": 0.11448668674929309,
+    "ic_min": -0.19101552241887845,
+    "ic_max": 0.14556133524177464,
+    "mean_ic_ci95_origin_bootstrap": [
+     -0.08815949452421826,
+     0.0595855054720736
+    ],
+    "sign_flip_p_mean_ic_zero": 0.703125,
     "frac_origins_ic_positive": 0.5,
     "n_sell": 0,
     "sell_hit": null,
+    "sell_hit_ci95_origin_cluster": null,
     "n_buy": 0,
     "buy_hit": null,
+    "buy_hit_ci95_origin_cluster": null,
     "base_down": 0.15189058728881738,
     "base_up": 0.12212389380530973
    }
@@ -2132,51 +2206,125 @@
    "origins": 13,
    "C0": {
     "mean_ic": -0.016435776085730273,
+    "ic_sd_across_origins": 0.07219654535244135,
+    "ic_min": -0.09322640692744107,
+    "ic_max": 0.12154075741644163,
+    "mean_ic_ci95_origin_bootstrap": [
+     -0.05152306628446503,
+     0.022979872865464893
+    ],
+    "sign_flip_p_mean_ic_zero": 0.418701171875,
     "frac_origins_ic_positive": 0.23076923076923078,
     "n_sell": 8256,
     "sell_hit": 0.2054263565891473,
+    "sell_hit_ci95_origin_cluster": [
+     0.18243414422136556,
+     0.22586938852404403
+    ],
     "n_buy": 413,
     "buy_hit": 0.23002421307506055,
+    "buy_hit_ci95_origin_cluster": [
+     0.2,
+     0.25721153846153844
+    ],
     "base_down": 0.21946602908946006,
     "base_up": 0.17782426778242677
    },
    "C1": {
     "mean_ic": -0.017012114653950104,
+    "ic_sd_across_origins": 0.056509024562293626,
+    "ic_min": -0.07330199634041706,
+    "ic_max": 0.08820886910092866,
+    "mean_ic_ci95_origin_bootstrap": [
+     -0.04408401354363652,
+     0.014265827444895275
+    ],
+    "sign_flip_p_mean_ic_zero": 0.28955078125,
     "frac_origins_ic_positive": 0.23076923076923078,
     "n_sell": 3039,
     "sell_hit": 0.15597235932872655,
+    "sell_hit_ci95_origin_cluster": [
+     0.14285714285714285,
+     0.16826870538746605
+    ],
     "n_buy": 2575,
     "buy_hit": 0.2737864077669903,
+    "buy_hit_ci95_origin_cluster": [
+     0.25436859375528564,
+     0.2918467061842048
+    ],
     "base_down": 0.21946602908946006,
     "base_up": 0.17782426778242677
    },
    "C2": {
     "mean_ic": -0.010952615797411606,
+    "ic_sd_across_origins": 0.05335855676042013,
+    "ic_min": -0.0641539935672735,
+    "ic_max": 0.09146386035116533,
+    "mean_ic_ci95_origin_bootstrap": [
+     -0.03646024750883865,
+     0.01856179075682247
+    ],
+    "sign_flip_p_mean_ic_zero": 0.464111328125,
     "frac_origins_ic_positive": 0.23076923076923078,
     "n_sell": 3661,
     "sell_hit": 0.14668123463534555,
+    "sell_hit_ci95_origin_cluster": [
+     0.13344315183491837,
+     0.15894233918675676
+    ],
     "n_buy": 3129,
     "buy_hit": 0.25822946628315757,
+    "buy_hit_ci95_origin_cluster": [
+     0.24376996805111822,
+     0.2719136202355458
+    ],
     "base_down": 0.21946602908946006,
     "base_up": 0.17782426778242677
    },
    "C3": {
     "mean_ic": 0.021985497481053027,
+    "ic_sd_across_origins": 0.030877609585933146,
+    "ic_min": -0.04396493562748664,
+    "ic_max": 0.0787630526447714,
+    "mean_ic_ci95_origin_bootstrap": [
+     0.005616692482139408,
+     0.038247090547001386
+    ],
+    "sign_flip_p_mean_ic_zero": 0.02197265625,
     "frac_origins_ic_positive": 0.9230769230769231,
     "n_sell": 2577,
     "sell_hit": 0.24291812184710904,
+    "sell_hit_ci95_origin_cluster": [
+     0.21505791505791505,
+     0.26869158878504673
+    ],
     "n_buy": 2341,
     "buy_hit": 0.20119607005553183,
+    "buy_hit_ci95_origin_cluster": [
+     0.18417694598043385,
+     0.21873690642458102
+    ],
     "base_down": 0.21946602908946006,
     "base_up": 0.17782426778242677
    },
    "N0": {
     "mean_ic": -0.03968335853328024,
+    "ic_sd_across_origins": 0.09882957564986869,
+    "ic_min": -0.13734376187458663,
+    "ic_max": 0.1441961541855907,
+    "mean_ic_ci95_origin_bootstrap": [
+     -0.08807492034164732,
+     0.014113648812611809
+    ],
+    "sign_flip_p_mean_ic_zero": 0.1708984375,
     "frac_origins_ic_positive": 0.23076923076923078,
     "n_sell": 0,
     "sell_hit": null,
+    "sell_hit_ci95_origin_cluster": null,
     "n_buy": 0,
     "buy_hit": null,
+    "buy_hit_ci95_origin_cluster": null,
     "base_down": 0.21946602908946006,
     "base_up": 0.17782426778242677
    }
