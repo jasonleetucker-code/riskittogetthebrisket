@@ -22,7 +22,7 @@
 
 ## 1. Team volume layer (every position reads this)
 
-**Double-counting rule for H-VOL1, H3 and E4.** Betting lines may replace a trailing-rate volume input. They may not be added on top of a vendor-informed consensus until the overlap is measured (`07_EVALUATION_DESIGN.md` §6).
+**Double-counting rule for H-VOL1, H3 and E4, binding on the first study.** Betting lines may replace a trailing-rate volume input in a model that uses no vendor projection. No candidate in the first study may combine lines with a vendor-informed consensus, so H3 and E4 run there without line features (`07_EVALUATION_DESIGN.md` gate PG1b). Lifting this needs its own preregistered overlap study.
 
 ```text
 Implied points (nflverse sign: S > 0 favors home)

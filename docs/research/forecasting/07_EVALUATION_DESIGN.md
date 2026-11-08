@@ -105,7 +105,7 @@ Team-level baselines are the trailing team mean with team and pooled spread, alr
 | Selection on survivors | Include players who vanish; treat as absent, not dropped |
 | Feature rights | Inputs with unresolved rights excluded |
 | Researcher degrees of freedom | Disclose earlier looks, as in `TEAM_POINTS_CALIBRATION_RESULTS` §5 |
-| Market double counting | Betting lines enter only against a trailing-rate baseline. They are never an extra feature on a vendor-informed consensus unless the overlap has been measured first, because vendor projections probably already use lines |
+| Market double counting | Banned in the first study: betting lines enter only against a trailing-rate baseline, never alongside a vendor-informed consensus, because vendor projections probably already use lines. Enforced by gate PG1b |
 
 ## 7. Preregistered promotion criteria (proposed)
 
@@ -114,6 +114,7 @@ All must pass for any move from shadow. Passing grants only the right to ask the
 | gate | criterion | proposed threshold |
 |---|---|---|
 | PG1 Rights | Every training and serving input has a recorded permitted-use status | No RED or unresolved input |
+| PG1b Market inputs | The feature manifest (checked with the PG2 receipt) lists no betting-line feature in any candidate that also takes a vendor projection | Zero such candidates in the first study; lifting this needs its own preregistered overlap study |
 | PG2 Reproducibility | Evaluation receipt with code SHA, source hashes, feature manifest, card fingerprint | `src/model_registry/reproducible_evaluation.py` accepts |
 | PG3 Point accuracy | ΔMAE vs the best of B3, B4, B5 and (when it exists) B6, so a candidate cannot pass while losing to current production; Holm-adjusted cluster-block interval excludes zero | At least 0.10 offense, 0.25 IDP league points per player-week |
 | PG4 No position loss | No position significantly worse | Point estimate not worse than −0.10 |
