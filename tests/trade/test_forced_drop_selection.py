@@ -911,258 +911,94 @@ def _assess(ctx, pin, pout, package, mode, monkeypatch):
     )
 
 
-_KINDS = (
-    [("plain", s) for s in range(40)]
-    + [("scarce", s) for s in range(30)]
-    + [("wide_scarce", s) for s in range(30)]
+# Applicable draws are GENERATED, not filtered after the fact (owner master
+# directive 2026-11-08, Priority 5; #2151 follow-up 0).  A seeded random league
+# exercises a property only when its precondition holds (a cleanup is required
+# and has a legal set; a taxi bracket exists to bound; the roster fills every
+# slot without the extra piece).  The draws used to be skipped (240 skips) and
+# then excluded by a hard-coded id list, which kept coverage at whatever share
+# of the first N seeds happened to apply (the taxi sweep ran 38 of 120 seeds).
+# Now each sweep scans seeds in order and keeps the FIRST ``want`` draws whose
+# precondition holds, under the flag the tests run with, so every sweep runs
+# exactly ``want`` applicable draws.  ``test_every_property_sweep_reached_its_
+# applicable_draw_target`` fails loudly if a generator or capacity change ever
+# leaves a sweep short within its scan limit.  Deterministic: same seeds, same
+# order, every shard.
+_SCAN_FACTOR = 8
+
+
+def _with_flag_on(fn):
+    """Evaluate ``fn`` with the forced-drop flag ON (collection time, no fixture),
+    restoring the environment and the flag cache afterwards."""
+    import os  # noqa: PLC0415
+
+    prev = os.environ.get(ENV)
+    os.environ[ENV] = "1"
+    feature_flags.reload()
+    saved_mode = fds.SELECTION_MODE
+    try:
+        return fn()
+    finally:
+        fds.SELECTION_MODE = saved_mode
+        if prev is None:
+            os.environ.pop(ENV, None)
+        else:
+            os.environ[ENV] = prev
+        feature_flags.reload()
+
+
+def _assess_at(ctx, pin, pout, package, mode):
+    fds.SELECTION_MODE = mode
+    return RC.assess_roster_capacity(
+        ctx, incoming_players=pin, outgoing_players=pout, package=package
+    )
+
+
+def _first_applicable(predicate, want):
+    """The first ``want`` seeds (0, 1, 2, ...) for which ``predicate`` holds,
+    scanning at most ``want * _SCAN_FACTOR`` seeds."""
+    found = []
+    for seed in range(want * _SCAN_FACTOR):
+        if predicate(seed):
+            found.append(seed)
+            if len(found) == want:
+                break
+    return found
+
+
+def _cleanup_applies(kind, seed):
+    """A cleanup is required and has a legal set, in BOTH modes, with and
+    without a package (the brute-force and V5/V5-R preconditions)."""
+    c, _ctx0, pin, pout, ctx = _league(kind, seed)
+    for package in (None, _package_for(c, pin, pout)):
+        for mode in MODES:
+            cap = _assess_at(ctx, pin, pout, package, mode)
+            if not cap.over_limit_after or cap.ladder_exhausted:
+                return False
+    return True
+
+
+#: kind -> applicable draws wanted (the sizes the sweep always intended).
+_KIND_TARGETS = {"plain": 40, "scarce": 30, "wide_scarce": 30}
+_KINDS = _with_flag_on(
+    lambda: [
+        (kind, seed)
+        for kind, want in _KIND_TARGETS.items()
+        for seed in _first_applicable(lambda sd, k=kind: _cleanup_applies(k, sd), want)
+    ]
 )
 
-# Seeded draws whose random league does not exercise the property (the trade
-# fits under the cap, the cleanup ladder is exhausted, the taxi bracket is
-# degenerate, or the extra piece fills a slot the roster could not).  These
-# used to be pytest.skip calls inside the tests -- 240 skips in CI, each
-# hiding "the sweep silently got narrower".  They are now excluded from the
-# parametrization by id, and the test ASSERTS its precondition: if a change to
-# the generator or the capacity owner alters which draws apply, the test fails
-# loudly (regenerate the sets from the failing ids) instead of skipping.
-_BRUTE_FORCE_NOT_APPLICABLE = frozenset(
-    {
-        "plain-34-package_consistent-False",
-        "plain-34-package_consistent-True",
-        "plain-34-roster_rational-False",
-        "plain-34-roster_rational-True",
-        "plain-35-package_consistent-False",
-        "plain-35-package_consistent-True",
-        "plain-35-roster_rational-False",
-        "plain-35-roster_rational-True",
-        "plain-6-package_consistent-False",
-        "plain-6-package_consistent-True",
-        "plain-6-roster_rational-False",
-        "plain-6-roster_rational-True",
-        "plain-8-package_consistent-False",
-        "plain-8-package_consistent-True",
-        "plain-8-roster_rational-False",
-        "plain-8-roster_rational-True",
-        "plain-9-package_consistent-False",
-        "plain-9-package_consistent-True",
-        "plain-9-roster_rational-False",
-        "plain-9-roster_rational-True",
-        "scarce-6-package_consistent-False",
-        "scarce-6-package_consistent-True",
-        "scarce-6-roster_rational-False",
-        "scarce-6-roster_rational-True",
-        "scarce-8-package_consistent-False",
-        "scarce-8-package_consistent-True",
-        "scarce-8-roster_rational-False",
-        "scarce-8-roster_rational-True",
-        "scarce-9-package_consistent-False",
-        "scarce-9-package_consistent-True",
-        "scarce-9-roster_rational-False",
-        "scarce-9-roster_rational-True",
-        "wide_scarce-12-package_consistent-False",
-        "wide_scarce-12-package_consistent-True",
-        "wide_scarce-12-roster_rational-False",
-        "wide_scarce-12-roster_rational-True",
-        "wide_scarce-13-package_consistent-False",
-        "wide_scarce-13-package_consistent-True",
-        "wide_scarce-13-roster_rational-False",
-        "wide_scarce-13-roster_rational-True",
-        "wide_scarce-21-package_consistent-False",
-        "wide_scarce-21-package_consistent-True",
-        "wide_scarce-21-roster_rational-False",
-        "wide_scarce-21-roster_rational-True",
-        "wide_scarce-4-package_consistent-False",
-        "wide_scarce-4-package_consistent-True",
-        "wide_scarce-4-roster_rational-False",
-        "wide_scarce-4-roster_rational-True",
-    }
-)
-_V5_V5R_NOT_APPLICABLE = frozenset(
-    {
-        "plain-34",
-        "plain-35",
-        "plain-6",
-        "plain-8",
-        "plain-9",
-        "scarce-6",
-        "scarce-8",
-        "scarce-9",
-        "wide_scarce-12",
-        "wide_scarce-13",
-        "wide_scarce-21",
-        "wide_scarce-4",
-    }
-)
-_TAXI_BOUND_NOT_APPLICABLE = frozenset(
-    {
-        "0-package_consistent",
-        "0-roster_rational",
-        "1-package_consistent",
-        "1-roster_rational",
-        "10-package_consistent",
-        "10-roster_rational",
-        "100-package_consistent",
-        "100-roster_rational",
-        "104-package_consistent",
-        "104-roster_rational",
-        "106-package_consistent",
-        "106-roster_rational",
-        "108-package_consistent",
-        "108-roster_rational",
-        "11-package_consistent",
-        "11-roster_rational",
-        "110-package_consistent",
-        "110-roster_rational",
-        "111-package_consistent",
-        "111-roster_rational",
-        "113-package_consistent",
-        "113-roster_rational",
-        "116-package_consistent",
-        "116-roster_rational",
-        "118-package_consistent",
-        "118-roster_rational",
-        "119-package_consistent",
-        "119-roster_rational",
-        "12-package_consistent",
-        "12-roster_rational",
-        "13-package_consistent",
-        "13-roster_rational",
-        "14-package_consistent",
-        "14-roster_rational",
-        "15-package_consistent",
-        "15-roster_rational",
-        "16-package_consistent",
-        "16-roster_rational",
-        "17-package_consistent",
-        "17-roster_rational",
-        "18-package_consistent",
-        "18-roster_rational",
-        "20-package_consistent",
-        "20-roster_rational",
-        "21-package_consistent",
-        "21-roster_rational",
-        "22-package_consistent",
-        "22-roster_rational",
-        "25-package_consistent",
-        "25-roster_rational",
-        "28-package_consistent",
-        "28-roster_rational",
-        "29-package_consistent",
-        "29-roster_rational",
-        "3-package_consistent",
-        "3-roster_rational",
-        "30-package_consistent",
-        "30-roster_rational",
-        "31-package_consistent",
-        "31-roster_rational",
-        "33-package_consistent",
-        "33-roster_rational",
-        "34-package_consistent",
-        "34-roster_rational",
-        "36-package_consistent",
-        "36-roster_rational",
-        "38-package_consistent",
-        "38-roster_rational",
-        "39-package_consistent",
-        "39-roster_rational",
-        "4-package_consistent",
-        "4-roster_rational",
-        "41-package_consistent",
-        "41-roster_rational",
-        "43-package_consistent",
-        "43-roster_rational",
-        "44-package_consistent",
-        "44-roster_rational",
-        "45-package_consistent",
-        "45-roster_rational",
-        "46-package_consistent",
-        "46-roster_rational",
-        "48-package_consistent",
-        "48-roster_rational",
-        "49-package_consistent",
-        "49-roster_rational",
-        "50-package_consistent",
-        "50-roster_rational",
-        "51-package_consistent",
-        "51-roster_rational",
-        "52-package_consistent",
-        "52-roster_rational",
-        "53-package_consistent",
-        "53-roster_rational",
-        "54-package_consistent",
-        "54-roster_rational",
-        "55-package_consistent",
-        "55-roster_rational",
-        "56-package_consistent",
-        "56-roster_rational",
-        "57-package_consistent",
-        "57-roster_rational",
-        "58-package_consistent",
-        "58-roster_rational",
-        "59-package_consistent",
-        "59-roster_rational",
-        "60-package_consistent",
-        "60-roster_rational",
-        "62-package_consistent",
-        "62-roster_rational",
-        "63-package_consistent",
-        "63-roster_rational",
-        "64-package_consistent",
-        "64-roster_rational",
-        "65-package_consistent",
-        "65-roster_rational",
-        "68-package_consistent",
-        "68-roster_rational",
-        "7-package_consistent",
-        "7-roster_rational",
-        "72-package_consistent",
-        "72-roster_rational",
-        "73-package_consistent",
-        "73-roster_rational",
-        "75-package_consistent",
-        "75-roster_rational",
-        "76-package_consistent",
-        "76-roster_rational",
-        "77-package_consistent",
-        "77-roster_rational",
-        "78-package_consistent",
-        "78-roster_rational",
-        "79-package_consistent",
-        "79-roster_rational",
-        "8-package_consistent",
-        "8-roster_rational",
-        "80-package_consistent",
-        "80-roster_rational",
-        "81-package_consistent",
-        "81-roster_rational",
-        "82-package_consistent",
-        "82-roster_rational",
-        "84-package_consistent",
-        "84-roster_rational",
-        "85-package_consistent",
-        "85-roster_rational",
-        "86-package_consistent",
-        "86-roster_rational",
-        "87-package_consistent",
-        "87-roster_rational",
-        "88-package_consistent",
-        "88-roster_rational",
-        "90-package_consistent",
-        "90-roster_rational",
-        "91-package_consistent",
-        "91-roster_rational",
-        "95-package_consistent",
-        "95-roster_rational",
-        "97-package_consistent",
-        "97-roster_rational",
-        "98-package_consistent",
-        "98-roster_rational",
-        "99-package_consistent",
-        "99-roster_rational",
-    }
-)
-_MONOTONICITY_NOT_APPLICABLE = frozenset(
-    {1, 5, 7, 9, 12, 13, 15, 19, 24, 26, 27, 28, 30, 31, 32, 35}
+
+def _monotonicity_applies(seed):
+    c, us, pin, pout = _random_league(seed)
+    ctx = RC.build_capacity_context(c, None, us, roster_settings=_SMALL)
+    existing, incoming = _post_pool(ctx, pin, pout)
+    return _filled(ctx, [*existing, *incoming]) >= len(ctx.starter_slots)
+
+
+_MONOTONICITY_TARGET = 40
+_MONOTONICITY_SEEDS = _with_flag_on(
+    lambda: _first_applicable(_monotonicity_applies, _MONOTONICITY_TARGET)
 )
 
 
@@ -1171,7 +1007,6 @@ _BRUTE_FORCE_CASES = [
     for kind, seed in _KINDS
     for mode in MODES
     for with_package in (False, True)
-    if f"{kind}-{seed}-{mode}-{with_package}" not in _BRUTE_FORCE_NOT_APPLICABLE
 ]
 
 
@@ -1192,8 +1027,8 @@ def test_selection_and_charge_against_brute_force(flag_on, monkeypatch, kind, se
     package = _package_for(c, pin, pout) if with_package else None
     cap = _assess(ctx, pin, pout, package, mode, monkeypatch)
     assert cap.over_limit_after and not cap.ladder_exhausted, (
-        "precondition (a cleanup is required and has a legal set) no longer holds for this "
-        "draw: regenerate _BRUTE_FORCE_NOT_APPLICABLE"
+        "precondition (a cleanup is required and has a legal set) does not hold for a "
+        "GENERATED draw: _cleanup_applies and this test disagree"
     )
     bf = _Brute(ctx, cap, pin, pout, package)
     assert bf.legal
@@ -1220,9 +1055,7 @@ def test_selection_and_charge_against_brute_force(flag_on, monkeypatch, kind, se
             assert d.release_cost > 0
 
 
-@pytest.mark.parametrize(
-    "kind,seed", [(k, sd) for k, sd in _KINDS if f"{k}-{sd}" not in _V5_V5R_NOT_APPLICABLE]
-)
+@pytest.mark.parametrize("kind,seed", _KINDS)
 def test_v5_charge_never_exceeds_v5r_and_v5r_cut_is_never_dearer(flag_on, monkeypatch, kind,
                                                                  seed):  # fmt: skip
     """The trade-off the owner decides (record §3a), as an identity: V5
@@ -1233,8 +1066,8 @@ def test_v5_charge_never_exceeds_v5r_and_v5r_cut_is_never_dearer(flag_on, monkey
     v5 = _assess(ctx, pin, pout, package, fds.MODE_PACKAGE_CONSISTENT, monkeypatch)
     v5r = _assess(ctx, pin, pout, package, fds.MODE_ROSTER_RATIONAL, monkeypatch)
     assert v5.over_limit_after and not v5.ladder_exhausted and not v5r.ladder_exhausted, (
-        "precondition (a cleanup is required and has a legal set) no longer holds for this "
-        "draw: regenerate _V5_V5R_NOT_APPLICABLE"
+        "precondition (a cleanup is required and has a legal set) does not hold for a "
+        "GENERATED draw: _cleanup_applies and this test disagree"
     )
     assert v5.forced_drop_release_cost <= v5r.forced_drop_release_cost + 1e-6
     bf = _Brute(ctx, v5, pin, pout, package)
@@ -1277,11 +1110,23 @@ def _taxi_unknown_case(seed, mode, monkeypatch):
     return ctx, cap, pin, pout, package
 
 
+def _taxi_bound_applies(seed):
+    """A taxi bracket exists to bound and the ladder is not exhausted, in both
+    modes (the taxi lower-bound test's precondition)."""
+    c, us, pin, pout = _random_wide_league(seed)
+    ctx = RC.build_capacity_context(c, None, us, roster_settings={**_WIDE, "taxiSize": 2})
+    package = _package_for(c, pin, pout)
+    for mode in MODES:
+        cap = _assess_at(ctx, pin, pout, package, mode)
+        if cap.certainty != "partial" or cap.taxi_bound_cleanup is None or cap.ladder_exhausted:
+            return False
+    return True
+
+
+_TAXI_TARGET = 120
+_TAXI_SEEDS = _with_flag_on(lambda: _first_applicable(_taxi_bound_applies, _TAXI_TARGET))
 _TAXI_BOUND_CASES = [
-    pytest.param(seed, mode, id=f"{seed}-{mode}")
-    for seed in range(120)
-    for mode in MODES
-    if f"{seed}-{mode}" not in _TAXI_BOUND_NOT_APPLICABLE
+    pytest.param(seed, mode, id=f"{seed}-{mode}") for seed in _TAXI_SEEDS for mode in MODES
 ]
 
 
@@ -1298,8 +1143,8 @@ def test_taxi_unknown_lower_bound_is_the_cheapest_legal_cleanup_of_the_guarantee
     were strictly below)."""
     ctx, cap, pin, pout, package = _taxi_unknown_case(seed, mode, monkeypatch)
     assert cap.certainty == "partial" and cap.taxi_bound_cleanup is not None, (
-        "precondition (a taxi bracket exists to bound) no longer holds for this draw: "
-        "regenerate _TAXI_BOUND_NOT_APPLICABLE"
+        "precondition (a taxi bracket exists to bound) does not hold for a GENERATED "
+        "draw: _taxi_bound_applies and this test disagree"
     )
     assert not cap.ladder_exhausted
     added = min(cap.over_limit_after_min, max(0, cap.size_after - cap.size_before))
@@ -1604,7 +1449,7 @@ def test_default_mode_is_roster_rational():
     assert fds.rule_id() == fds.RULE_ID_ROSTER_RATIONAL
 
 
-@pytest.mark.parametrize("seed", [sd for sd in range(40) if sd not in _MONOTONICITY_NOT_APPLICABLE])
+@pytest.mark.parametrize("seed", _MONOTONICITY_SEEDS)
 def test_adding_an_incoming_piece_never_lowers_the_receivers_net(flag_on, v5_mode, seed):
     """Monotonicity of the package-consistent (V5) net: receiving one more
     player can always be undone by releasing him, so it never makes the trade
@@ -1626,11 +1471,11 @@ def test_adding_an_incoming_piece_never_lowers_the_receivers_net(flag_on, v5_mod
     # The property's precondition.  When the extra piece fills a slot the
     # roster could not, the lineup guard PROTECTS him (releasing him would
     # empty that slot again), so "release him" is not an available undo —
-    # a documented limit of the guard, not of the charge.  Those draws are
-    # excluded by id (_MONOTONICITY_NOT_APPLICABLE); this asserts the rest.
+    # a documented limit of the guard, not of the charge.  Only draws where
+    # the precondition holds are generated (_monotonicity_applies).
     assert _filled(ctx, [*existing, *incoming]) >= len(ctx.starter_slots), (
-        "precondition (roster fills every slot without the extra piece) no longer holds for "
-        "this draw: regenerate _MONOTONICITY_NOT_APPLICABLE"
+        "precondition (roster fills every slot without the extra piece) does not hold for "
+        "a GENERATED draw: _monotonicity_applies and this test disagree"
     )
     priced = {r["displayName"] for r in c["playersArray"] if r.get("rankDerivedValue")}
     # Precondition 2 (review fix D): the extra piece is CREDITED by the package.
@@ -1779,3 +1624,19 @@ def test_perfect_draft_roster_context_is_identical_flag_on(monkeypatch):
     monkeypatch.delenv(ENV, raising=False)
     feature_flags.reload()
     assert out["0"] == out["1"]
+
+
+def test_every_property_sweep_reached_its_applicable_draw_target():
+    """Each property sweep runs exactly its target number of APPLICABLE draws.
+    A generator or capacity-owner change that makes draws stop applying shows
+    up here as a short sweep, never as silently narrower coverage."""
+    counts = {kind: sum(1 for k, _s in _KINDS if k == kind) for kind in _KIND_TARGETS}
+    assert counts == _KIND_TARGETS
+    assert len(_TAXI_SEEDS) == _TAXI_TARGET
+    assert len(_MONOTONICITY_SEEDS) == _MONOTONICITY_TARGET
+    assert len(_BRUTE_FORCE_CASES) == sum(_KIND_TARGETS.values()) * len(MODES) * 2
+    assert len(_TAXI_BOUND_CASES) == _TAXI_TARGET * len(MODES)
+    # Seeds are distinct and in scan order (deterministic across shards).
+    for kind in _KIND_TARGETS:
+        seeds = [sd for k, sd in _KINDS if k == kind]
+        assert seeds == sorted(set(seeds))
