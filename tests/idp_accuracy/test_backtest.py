@@ -8,6 +8,7 @@ trying (and failing) to read an outcome URL.
 from __future__ import annotations
 
 import json
+import os
 import random
 import subprocess
 from datetime import datetime, timezone
@@ -458,7 +459,9 @@ def test_family_sizes_are_fixed_from_cohort_sizes_alone():
 # ── availability and the history-derived inputs ───────────────────────────────
 
 
-def test_availability_inputs_use_only_admissible_games_and_report_unknown_schedules():
+def test_availability_inputs_use_only_admissible_games_and_report_unknown_schedules(
+    tmp_path, monkeypatch
+):
     info = {
         "1": {"position": "WR", "team": "KC"},
         "2": {"position": "WR", "team": "LAR"},  # Sleeper abbreviation for LA
@@ -466,8 +469,20 @@ def test_availability_inputs_use_only_admissible_games_and_report_unknown_schedu
     }
     universe = {"info": info}
     hist = {"1": {(2025, w): 10.0 for w in range(1, 18)}, "2": {(2025, 1): 5.0}}
-    if not bt.GAMES_CSV.exists():
-        pytest.skip("nflverse schedule cache not present")
+    # Hermetic schedule (the real one is a gitignored cache that CI never has):
+    # KC and LA each play 17 of the 18 weeks (one bye).  nflverse says "LA".
+    games = tmp_path / "schedules__games.csv"
+    lines = ["season,game_type,week,home_team,away_team"]
+    for week in range(1, 19):
+        if week != 6:  # KC bye
+            lines.append(f"2025,REG,{week},KC,OPP{week}")
+        if week != 9:  # LA bye
+            lines.append(f"2025,REG,{week},LA,OPX{week}")
+    games.write_text(os.linesep.join(lines) + os.linesep, encoding="utf-8")
+    real_team_game_weeks = bt.team_game_weeks
+    monkeypatch.setattr(
+        bt, "team_game_weeks", lambda season, games_csv=games: real_team_game_weeks(season, games)
+    )
     av = bt.availability_inputs(
         universe, hist, ["1", "2"], window=[(2025, w) for w in bt.HISTORY_WEEKS]
     )

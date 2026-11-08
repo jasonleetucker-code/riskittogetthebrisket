@@ -170,6 +170,14 @@ def assign_files(
     return assignment
 
 
+def _skip_reason(report) -> str:
+    """The human reason a skipped report carries (``longrepr`` is ``(file, line, "Skipped: why")``)."""
+    longrepr = getattr(report, "longrepr", None)
+    text = longrepr[2] if isinstance(longrepr, tuple) and len(longrepr) == 3 else str(longrepr)
+    text = str(text)
+    return (text[len("Skipped: ") :] if text.startswith("Skipped: ") else text)[:300]
+
+
 def collected_digest(nodeids: Iterable[str]) -> str:
     """Order-independent identity of a set of node ids."""
     h = hashlib.sha256()
@@ -208,6 +216,10 @@ class ShardPlugin:
         # so no per-test verdict can see them.  Every shard collects every
         # module, so each shard records the same list.
         self.collect_skipped: set[str] = set()
+        # Why each skipped node id skipped (observability only: never hashed
+        # or counted, so it cannot change a verdict).  Lets a skip audit read
+        # the reasons straight from the shard artifacts instead of re-running.
+        self.skip_reasons: dict[str, str] = {}
 
     def _deselect(self, config, items) -> None:
         self.collected = [item.nodeid for item in items]
@@ -235,6 +247,8 @@ class ShardPlugin:
                 self.verdicts[report.nodeid] = "xpassed" if report.passed else "xfailed"
             else:
                 self.verdicts[report.nodeid] = report.outcome
+                if report.skipped:
+                    self.skip_reasons[report.nodeid] = _skip_reason(report)
         elif report.failed:
             self.errors += 1
         elif report.skipped and report.when == "setup":
@@ -242,6 +256,8 @@ class ShardPlugin:
             # xfail(run=False)) never reaches the call phase; it is still this
             # test's one verdict.
             self.verdicts[report.nodeid] = "xfailed" if hasattr(report, "wasxfail") else "skipped"
+            if not hasattr(report, "wasxfail"):
+                self.skip_reasons[report.nodeid] = _skip_reason(report)
 
     def _record_collect(self, report) -> None:
         if report.skipped:
@@ -265,6 +281,7 @@ class ShardPlugin:
             "verdict_sha256": collected_digest(self.verdicts),
             "outcomes": self.outcomes(),
             "collect_skipped": sorted(self.collect_skipped),
+            "skip_reasons": dict(sorted(self.skip_reasons.items())),
             "exitstatus": int(exitstatus),
             "file_seconds": {k: round(v, 3) for k, v in sorted(self.file_seconds.items())},
         }
