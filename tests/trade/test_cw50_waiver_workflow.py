@@ -136,6 +136,37 @@ class TestTheAddPoolOnlyOffersPositionsTheLeagueStarts:
         out = w.find_waiver_targets(contract, teams, starters=WITH_IDP)
         assert _offered(out) == {"Free De", "Free Cb"}
 
+    def test_a_free_agent_sharing_a_name_with_a_rostered_player_is_still_offered(self):
+        """Identity is id-first: the roster carries ids, so a name alone proves nothing."""
+        twin_rostered = _p("Twin Wr", "WR", 2500, playerId="id-twin-1")
+        twin_free = _p("Twin Wr", "WR", 2400, playerId="id-twin-2")
+        teams = [{"ownerId": "them", "players": ["Twin Wr"], "playerIds": ["id-twin-1"]}]
+        out = w.find_waiver_targets(_contract(twin_rostered, twin_free), teams, starters=WITH_IDP)
+        offered = [c for items in out["by_position"].values() for c in items]
+        assert [c["name"] for c in offered] == ["Twin Wr"]
+        assert offered[0]["consensusValue"] == 2400
+
+    def test_the_holder_owner_answers_id_first_with_the_name_fallback(self):
+        from src.draft.context import league_holder_index
+
+        contract = {
+            "sleeper": {
+                "teams": [
+                    {"name": "A", "players": ["Twin Wr"], "playerIds": ["id-twin-1"]},
+                    {"name": "B", "players": ["Legacy Guy"], "playerIds": []},
+                ]
+            }
+        }
+        index = league_holder_index(contract)
+        assert index.holder("id-twin-1", "Twin Wr")[0]["name"] == "A"
+        assert index.holder("id-twin-1", "Twin Wr")[1] == "playerId"
+        # Same name, different id, on a roster that carries ids: NOT held.
+        assert index.holder("id-twin-2", "Twin Wr") == (None, None)
+        # No id on the row: matched by name alone.
+        assert index.holder("", "Twin Wr")[1] == "name"
+        # A roster that carries no ids is matched by name.
+        assert index.holder("id-legacy", "Legacy Guy")[0]["name"] == "B"
+
 
 # ── 2. available FAAB: no bid above the balance; unknown is labelled ──────
 

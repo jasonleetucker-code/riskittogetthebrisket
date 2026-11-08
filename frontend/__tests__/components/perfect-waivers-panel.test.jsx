@@ -151,6 +151,20 @@ describe("PerfectWaiversPanel — the plan", () => {
     expect(screen.getByText(/more than one player: Twin Name/)).toBeInTheDocument();
   });
 
+  it("labels a position the league does not start in plain English, never the raw token", async () => {
+    const base = plan();
+    base.freeAgentExclusions = {
+      ...base.freeAgentExclusions,
+      waiverPool: { position_not_started: 7 },
+    };
+    mockFetch(200, base);
+    render(<PerfectWaiversPanel leagueKey="main" ownerId="me" />);
+    expect(
+      await screen.findByText(/7 positions this league does not start/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/position_not_started/)).not.toBeInTheDocument();
+  });
+
   it("does not claim the guarantee for a pair the server could not match", async () => {
     const base = plan();
     base.plan.moves[0].standsAlone = false;

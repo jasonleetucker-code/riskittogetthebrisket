@@ -47,6 +47,8 @@ __all__ = [
     "contract_teams",
     "index_contract_rows",
     "league_rostered_keys",
+    "LeagueHolderIndex",
+    "league_holder_index",
     "list_draft_teams",
     "match_team",
 ]
@@ -144,6 +146,56 @@ def league_rostered_keys(contract: Mapping[str, Any] | None) -> set[str]:
             if _norm(name):
                 keys.add(_norm(name))
     return keys
+
+
+class LeagueHolderIndex:
+    """Which team holds a player — id first, the canonical name fallback second.
+
+    ``league_rostered_keys`` answers "is this key rostered by someone"; this
+    answers "WHICH team", with the same identity rule the waiver surfaces share
+    (the player-identity owner's: a Sleeper id is proof, a name is the fallback
+    only where the roster carries no ids, since two distinct players can share a
+    display name).  A free agent who shares a name with a rostered player is
+    therefore NOT held, on every surface that asks.  Unresolved identity is
+    never a guess: a row with no id is matched by name alone.
+    """
+
+    def __init__(self, teams: Sequence[Mapping[str, Any]]) -> None:
+        self._by_id: dict[str, Mapping[str, Any]] = {}
+        self._by_name_all: dict[str, Mapping[str, Any]] = {}
+        self._by_name_idless: dict[str, Mapping[str, Any]] = {}
+        for team in teams:
+            ids = [_norm(x) for x in (team.get("playerIds") or []) if _norm(x)]
+            names = [_norm(n) for n in (team.get("players") or []) if _norm(n)]
+            for pid in ids:
+                self._by_id.setdefault(pid, team)
+            for nm in names:
+                self._by_name_all.setdefault(nm, team)
+                if not ids:
+                    self._by_name_idless.setdefault(nm, team)
+
+    def holder(self, player_id: Any, name: Any) -> tuple[Mapping[str, Any] | None, str | None]:
+        """``(team, matched_by)``; ``(None, None)`` when nobody holds him."""
+        pid = _norm(player_id)
+        nm = _norm(name)
+        if pid:
+            if pid in self._by_id:
+                return self._by_id[pid], "playerId"
+            if nm and nm in self._by_name_idless:
+                return self._by_name_idless[nm], "name"
+            return None, None
+        if nm and nm in self._by_name_all:
+            return self._by_name_all[nm], "name"
+        return None, None
+
+
+def league_holder_index(contract: Mapping[str, Any] | None) -> LeagueHolderIndex:
+    """The one "which team holds this player" index over a contract's teams.
+
+    Beside :func:`league_rostered_keys`, which answers the set question.  The bid
+    desk and the waiver list both resolve availability through it.
+    """
+    return LeagueHolderIndex(contract_teams(contract))
 
 
 def _roster_size_for(league_key: str | None) -> int | None:

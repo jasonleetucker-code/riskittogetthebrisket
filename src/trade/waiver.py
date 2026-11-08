@@ -377,6 +377,62 @@ def waiver_pool_exclusion_census(
     return out
 
 
+def observed_faab_balance(observed: Any) -> int | None:
+    """The roster row's ``faabRemaining`` when it is a real integer, else ``None``."""
+    return int(observed) if isinstance(observed, int) and not isinstance(observed, bool) else None
+
+
+def resolve_faab_balance(
+    requested_balance: int | None, observed_balance: int | None
+) -> tuple[int | None, str | None]:
+    """``(spendable balance, source)`` from the two possible observations.
+
+    When both are stated the LOWER one caps -- a stale client figure must never
+    lift a bid above what the live roster says the team has (CW-50, #2136).
+    A negative balance (an over-spent roster) is a KNOWN balance with nothing to
+    spend, never an unknown one.  ``(None, None)`` is UNKNOWN, never $0 and
+    never the league budget.
+    """
+    if requested_balance is not None and observed_balance is not None:
+        known = min(requested_balance, observed_balance)
+        source: str | None = "roster" if observed_balance <= requested_balance else "request"
+    elif observed_balance is not None:
+        known, source = observed_balance, "roster"
+    elif requested_balance is not None:
+        known, source = requested_balance, "request"
+    else:
+        return None, None
+    return max(0, known), source
+
+
+def faab_budget_block(
+    *,
+    known_balance: int | None,
+    original_budget: int,
+    withheld: bool,
+    source: str | None,
+    requested_balance: int | None,
+    observed_balance: int | None,
+) -> dict[str, Any]:
+    """THE published ``faabBudget`` field -- one vocabulary on every waiver surface.
+
+    ``/api/waiver/suggestions`` and the bid desk ``/api/waiver/faab-recommend``
+    both build it here.  ``balance`` is the SPENDABLE balance every bid is capped
+    at (``None`` when unknown, never $0 or the league budget); ``source`` names
+    which observation bound it; the raw observations stay beside it.
+    """
+    return {
+        "state": "known" if known_balance is not None else "unknown",
+        "balance": known_balance,
+        "originalBudget": original_budget,
+        "bidsWithheld": bool(withheld),
+        "reason": "faab_balance_unknown" if withheld else None,
+        "source": source,
+        "requestedBalance": requested_balance,
+        "observedBalance": observed_balance,
+    }
+
+
 def find_waiver_targets(
     contract: dict[str, Any],
     sleeper_teams: list[dict[str, Any]] | None,
@@ -466,13 +522,14 @@ def find_waiver_targets(
             "seasonPhase": season_phase,
         }
 
-    rostered = rostered_name_set(sleeper_teams)
     # Ownership is decided by playerId first (the roster's ``playerIds``),
-    # name as the fallback — the same "who is rostered" owner
-    # ``/api/waiver/perfect`` uses, never a second definition.
-    from src.draft.context import league_rostered_keys  # noqa: PLC0415
+    # name as the fallback — ONE "which team holds this player" owner, shared
+    # with the bid desk (``/api/waiver/faab-recommend``), so a free agent who
+    # shares a display name with a rostered player is treated identically on
+    # both surfaces.
+    from src.draft.context import league_holder_index  # noqa: PLC0415
 
-    rostered_keys = league_rostered_keys({"sleeper": {"teams": sleeper_teams or []}})
+    holder_index = league_holder_index({"sleeper": {"teams": sleeper_teams or []}})
 
     rookies_eligible = _rookies_eligible_today()
     positions = waiver_positions(include_kicker_def)
@@ -493,10 +550,9 @@ def find_waiver_targets(
             continue
 
         name = str(row.get("displayName") or row.get("canonicalName") or "")
-        if not name or _normalize_name(name) in rostered:
+        if not name:
             continue
-        row_pid = _normalize_name(row.get("playerId"))
-        if row_pid and row_pid in rostered_keys:
+        if holder_index.holder(row.get("playerId"), name)[0] is not None:
             continue
 
         reason = waiver_candidate_exclusion(
@@ -588,26 +644,12 @@ def find_waiver_targets(
     # to spend, never an unknown one; the raw observations are published
     # beside it in ``faabBudget``.
     observed = own_team_row.get("faabRemaining") if own_team_row is not None else None
-    observed_balance: int | None = (
-        int(observed) if isinstance(observed, int) and not isinstance(observed, bool) else None
-    )
+    observed_balance = observed_faab_balance(observed)
     requested_balance: int | None = (
         int(user_faab_remaining) if user_faab_remaining is not None else None
     )
-    known_balance: int | None
-    balance_source: str | None
-    if requested_balance is not None and observed_balance is not None:
-        known_balance = min(requested_balance, observed_balance)
-        balance_source = "roster" if observed_balance <= requested_balance else "request"
-    elif observed_balance is not None:
-        known_balance, balance_source = observed_balance, "roster"
-    elif requested_balance is not None:
-        known_balance, balance_source = requested_balance, "request"
-    else:
-        known_balance, balance_source = None, None
+    known_balance, balance_source = resolve_faab_balance(requested_balance, observed_balance)
     balance_known = known_balance is not None
-    if known_balance is not None:
-        known_balance = max(0, known_balance)
     # An unknown balance still needs a number for the engine's team layer
     # (objective/clearing do not depend on it); it is the league budget and is
     # NEVER published as a balance — see ``faabBudget`` / withholding below.
@@ -755,19 +797,14 @@ def find_waiver_targets(
         "rookies_excluded": not rookies_eligible,
         "bidMethodology": bid_methodology,
         "seasonPhase": season_phase,
-        "faabBudget": {
-            "state": "known" if balance_known else "unknown",
-            # The SPENDABLE balance every bid is capped at: the lower of the
-            # two observations, never below $0.  ``source`` names which one
-            # bound it; the raw observations stay beside it.
-            "balance": known_balance,
-            "originalBudget": budget,
-            "bidsWithheld": bool(withhold),
-            "reason": "faab_balance_unknown" if withhold else None,
-            "source": balance_source,
-            "requestedBalance": requested_balance,
-            "observedBalance": observed_balance,
-        },
+        "faabBudget": faab_budget_block(
+            known_balance=known_balance,
+            original_budget=budget,
+            withheld=withhold,
+            source=balance_source,
+            requested_balance=requested_balance,
+            observed_balance=observed_balance,
+        ),
         "positionEligibility": (
             {
                 "state": "league_slots",
