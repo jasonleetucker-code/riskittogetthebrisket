@@ -37,7 +37,7 @@ It is pinned by `tests/deploy/test_main_protection_ruleset.py`. The rationale is
 |---|---|---|
 | ruleset `enforcement` | `active` | inert otherwise |
 | target | `~DEFAULT_BRANCH` | `main` |
-| rules | `deletion`, `non_fast_forward`, `pull_request` (0 approvals), `required_status_checks` = `Validate PR`, `strict: false` | 0 approvals because this is a solo repo; strict would chase the 2-hourly data refresh |
+| rules | `deletion`, `non_fast_forward`, `pull_request` (0 approvals), `required_status_checks` = `Validate PR` + `Receipt check`, `strict: false` | 0 approvals because this is a solo repo; strict would chase the 2-hourly data refresh |
 | admin role bypass | **`pull_request`**, not `always` | `always` would give every agent session, which pushes as the same account, direct-main authority. `pull_request` blocks direct pushes. |
 | `DeployKey` bypass | `always` | the box timers (DLF, IDP Show, player context) push data commits with the write deploy key |
 | `Integration 15368` (GitHub Actions) bypass | `always` | scheduled-refresh, refit, Sharp verification and narratives push with `GITHUB_TOKEN`; deploy dispatch keys on those commits (CLAUDE.md W31-F001) |
