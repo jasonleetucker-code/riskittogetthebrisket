@@ -69,6 +69,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.api import injury_evidence
+
 
 # Base discount percentages by severity.
 #
@@ -177,6 +179,9 @@ def compute_injury_discount(
     is_rookie: bool,
     news_for_player: list[dict[str, Any]],
     now_ms: int,
+    player_name: str | None = None,
+    team: Any = None,
+    name_collision: bool = False,
 ) -> dict[str, Any]:
     """Score all news items attached to this player and pick the
     worst-case (highest discount) rule that applies.
@@ -212,9 +217,51 @@ def compute_injury_discount(
         "newsTs": "",
         "adjustedPct": 100.0,
         "offseasonSuppressed": False,
+        # W21-F001: the verdict, and why items did NOT reach the severity table.
+        "evidenceState": "no_news",
+        "evidence": [],
     }
     if not news_for_player:
         return result
+    # Classification + attribution gate (W21-F001).  Only a confirmed/credibly reported
+    # CURRENT injury attributed to THIS player survives; the rest is labelled and dropped.
+    assessed: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    for item in news_for_player:
+        if not isinstance(item, dict):
+            continue
+        a = injury_evidence.assess_item(
+            item, player_name=player_name, position=pos, team=team, name_collision=name_collision
+        )
+        ts = _news_ms(item.get("ts") or item.get("timestamp"))
+        if a["classification"] == injury_evidence.CONFIRMED_INJURY:
+            if ts is None:
+                a = {**a, "classification": "timestamp_unavailable", "reason": "no_parseable_ts"}
+            elif now_ms - ts >= _DECAY_WINDOW_MS:
+                a = {**a, "classification": "stale_report", "reason": "older_than_decay_window"}
+        result["evidence"].append(
+            {
+                "headline": str(item.get("headline") or "")[:160],
+                "classification": a["classification"],
+                "reason": a["reason"],
+            }
+        )
+        assessed.append((item, a))
+    confirmed = [
+        it for it, a in assessed if a["classification"] == injury_evidence.CONFIRMED_INJURY
+    ]
+    resolving = [
+        a
+        for _, a in assessed
+        if a["classification"] in injury_evidence.RESOLVING and a["attributed"]
+    ]
+    if not confirmed:
+        result["evidenceState"] = "no_confirmed_current_injury"
+        return result
+    if resolving:
+        result["evidenceState"] = "contradictory_reports"
+        return result
+    result["evidenceState"] = "confirmed_injury"
+    news_for_player = confirmed
     # Offseason suppressor: injury news during Feb-Aug gets 0%
     # discount because the player will recover before any game
     # matters to dynasty value.  Flag it on the result so the UI
@@ -266,14 +313,9 @@ def compute_injury_discount(
                 continue
         # Age of the news item drives decay.
         ts_ms = _news_ms(item.get("ts") or item.get("timestamp"))
-        if ts_ms is None:
-            # Unknown timestamp — assume brand new so the decay
-            # doesn't under-discount something recent.
-            decay = 1.0
-            age_ms = 0
-        else:
-            age_ms = max(0, now_ms - ts_ms)
-            decay = _decay_factor(age_ms)
+        if ts_ms is None:  # gated above: a missing timestamp is never "brand new"
+            continue
+        decay = _decay_factor(max(0, now_ms - ts_ms))
         if decay <= 0:
             continue
         discount = base * pos_mult * age_mult * decay
@@ -304,6 +346,7 @@ def apply_injury_impact(
     row: dict[str, Any],
     news_for_player: list[dict[str, Any]],
     now_ms: int,
+    name_collision: bool = False,
 ) -> dict[str, Any]:
     """Compute the injury impact for a row and return a payload
     suitable for stamping onto the contract row.
@@ -321,6 +364,11 @@ def apply_injury_impact(
         is_rookie=is_rookie,
         news_for_player=news_for_player,
         now_ms=now_ms,
+        player_name=str(
+            row.get("displayName") or row.get("canonicalName") or row.get("name") or ""
+        ),
+        team=row.get("team"),
+        name_collision=name_collision,
     )
     base_value = row.get("rankDerivedValue")
     try:
