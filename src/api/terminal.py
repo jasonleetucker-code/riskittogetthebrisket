@@ -1048,6 +1048,30 @@ def _signal_alias_key(sleeper_id: str, tag: str) -> str:
 # ── PORTFOLIO INSIGHTS ──────────────────────────────────────────────────
 
 
+def _team_equity_block(
+    contract: dict[str, Any],
+    resolved_team: dict[str, Any],
+    player_value: int | None,
+    player_coverage: float | None,
+) -> dict[str, Any]:
+    """Player / pick / total decomposition for the resolved team (additive).
+
+    ``totalValue`` stays players-only for existing consumers; this block is the
+    honest total, with unknown picks reported rather than valued at 0.
+    """
+    from src.api.pick_value_resolution import pick_rows_by_name  # noqa: PLC0415
+    from src.roster_intel.team_equity import decompose_team_equity  # noqa: PLC0415
+
+    year = contract.get("currentDraftYear")
+    return decompose_team_equity(
+        player_value=player_value,
+        player_coverage=player_coverage,
+        team=resolved_team,
+        pick_rows_by_name=pick_rows_by_name(contract),
+        current_draft_year=year if isinstance(year, int) and not isinstance(year, bool) else None,
+    )
+
+
 def _compute_portfolio_insights(
     resolved_team: dict[str, Any],
     roster_rows: list[dict[str, Any]],
@@ -1451,6 +1475,12 @@ def build_terminal_payload(
     # Defaults we populate further below.
     teamAggregates = {
         "totalValue": None,
+        # ``totalValue`` is the sum of PRICED PLAYERS only -- picks are not in
+        # it (documented known difference vs the client).  ``valueScope`` names
+        # that so the field cannot read as total asset equity; ``equity`` is the
+        # canonical player/pick/total decomposition (team_equity owner).
+        "valueScope": "players_only",
+        "equity": None,
         "delta7d": None,
         "delta30d": None,
         "delta90d": None,
@@ -1521,6 +1551,11 @@ def build_terminal_payload(
             resolved += 1
         coverage = resolved / max(1, len(current_players))
         teamAggregates["totalValue"] = total if resolved else None
+        # Unresolved roster (nothing priced) is UNKNOWN player value, not 0; and
+        # coverage < 1 (unpriced rostered players) makes any total a lower bound.
+        teamAggregates["equity"] = _team_equity_block(
+            contract, resolved_team, total if resolved else None, coverage
+        )
         teamAggregates["tiers"] = tiers if resolved else None
         teamAggregates["rosterCount"] = len(current_players)
         teamAggregates["coverage"] = round(coverage, 3)
@@ -1733,6 +1768,9 @@ def build_terminal_payload(
             rows=rows,
             roster_set=roster_set,
         )
+        if portfolio_block is not None:
+            portfolio_block["valueScope"] = "players_only"
+            portfolio_block["equity"] = teamAggregates.get("equity")
 
     # Watchlist is user-wide, not team-specific.
     watch_names: list[str] = []
@@ -1824,6 +1862,8 @@ def build_terminal_payload(
         payload["watchlist"] = []
         payload["teamAggregates"] = {
             "totalValue": None,
+            "valueScope": "players_only",
+            "equity": None,
             "delta7d": None,
             "delta30d": None,
             "delta90d": None,

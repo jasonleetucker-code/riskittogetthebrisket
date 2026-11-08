@@ -42,6 +42,12 @@ MIN_GAIN_EACH_SIDE = 150.0
 MARKET_FAIRNESS_TOLERANCE_PCT = 12.0
 MAX_RESULTS = 40
 
+#: What ``direction`` means in this payload: the league-relative mix of a
+#: roster's fundamental now-vs-future asset capital.  NOT the canonical
+#: competitive posture (``src.roster_intel.window.competitive_posture``), which
+#: reads playoff/title odds and lineup trajectory.
+DIRECTION_CONCEPT = "fundamental_horizon_mix"
+
 _CONTEND_RATIO = 1.15
 _REBUILD_RATIO = 1.0 / 1.15
 
@@ -233,6 +239,7 @@ def analyze_rosters(
         "meta": {
             "starterFpgMethod": "greedy_by_group (authoritative lineup = src/ros/lineup.py)",
             "directionMethod": "now/future ratio relative to league median",
+            "directionConcept": DIRECTION_CONCEPT,
             "directionThresholds": {"contend": _CONTEND_RATIO, "rebuild": round(_REBUILD_RATIO, 3)},
         },
     }

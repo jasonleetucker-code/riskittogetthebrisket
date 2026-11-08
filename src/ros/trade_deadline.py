@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from src.ros import ROS_DATA_DIR
+from src.ros.direction import CONCEPT as DIRECTION_CONCEPT
 from src.ros.direction import build_roster_age_profile, classify_team
 from src.ros.team_strength import load_or_compute_team_strength
 from src.utils.unknown import Unknown, stamp
@@ -306,4 +307,7 @@ def build_section(snapshot: Any) -> dict[str, Any]:
     return {
         "teams": build_team_directions(league_key=league_key, read_simulations=resolved),
         "simulation": simulation_availability(league_key, resolved=resolved),
+        # Names the concept: this is a deadline buy/sell stance, not the
+        # canonical competitive posture (PUSH/HOLD/RETOOL/REBUILD).
+        "concept": DIRECTION_CONCEPT,
     }
