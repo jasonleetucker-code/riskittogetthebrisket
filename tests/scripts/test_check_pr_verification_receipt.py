@@ -288,3 +288,71 @@ def test_every_high_risk_pattern_is_material():
     for pat in mod.ci_change_scope._HIGH_RISK_PATTERNS:
         sample = pat.replace("**", "x").replace("*", "x")
         assert mod.is_material_path(sample), (pat, sample)
+
+
+# ── protected methodology (owner master directive 2026-11-08, Priority 4) ──
+
+PROT = [("config/trade/package_model.json", "active package model"), ("config/weights/", "weights")]
+
+
+def with_methodology(value):
+    return body().replace("- State:", f"- Methodology authorization: {value}\n- State:")
+
+
+def test_protected_change_without_methodology_line_fails():
+    code, rep = mod.run(body(), ["config/trade/package_model.json"], "alice", PROT)
+    assert code == 1
+    assert "PROTECTED METHODOLOGY" in rep and "active package model" in rep
+    assert "Methodology authorization: field missing" in rep
+
+
+def test_protected_directory_prefix_matches():
+    code, rep = mod.run(body(), ["config/weights/pick_year_discount.json"], "alice", PROT)
+    assert code == 1 and "config/weights/pick_year_discount.json" in rep
+
+
+def test_protected_change_citing_an_owner_decision_passes_and_is_named():
+    b = with_methodology("owner decision 2026-10-17 (package model activation)")
+    code, rep = mod.run(b, ["config/trade/package_model.json"], "alice", PROT)
+    assert code == 0
+    assert "PROTECTED METHODOLOGY" in rep and "Methodology authorization: stated." in rep
+
+
+def test_protected_change_with_reasoned_na_passes():
+    b = with_methodology("n/a — new flag registered default OFF, no default changes")
+    assert mod.run(b, ["config/weights/x.json"], "alice", PROT)[0] == 0
+
+
+@pytest.mark.parametrize("value", ["", "n/a", "tbd"])
+def test_protected_change_with_placeholder_methodology_fails(value):
+    code, rep = mod.run(with_methodology(value), ["config/weights/x.json"], "alice", PROT)
+    assert code == 1 and "Methodology authorization" in rep
+
+
+def test_protected_change_still_requires_the_full_receipt():
+    b = body(drop=("Baseline before the change",)).replace(
+        "- State:", "- Methodology authorization: owner decision 2026-10-17\n- State:"
+    )
+    code, rep = mod.run(b, ["config/trade/package_model.json"], "alice", PROT)
+    assert code == 1 and "Baseline before the change: field missing" in rep
+
+
+def test_unprotected_material_change_needs_no_methodology_line():
+    assert mod.run(body(), ["src/api/x.py"], "alice", PROT)[0] == 0
+
+
+def test_a_similar_but_unprotected_path_does_not_match():
+    assert mod.run(body(), ["config/weights_backup.json"], "alice", PROT)[0] == 0
+
+
+def test_bots_stay_exempt_on_protected_paths():
+    assert mod.run("", ["config/trade/package_model.json"], "github-actions[bot]", PROT)[0] == 0
+
+
+def test_shipped_manifest_lists_only_existing_paths():
+    root = Path(__file__).resolve().parents[2]
+    entries = mod.load_protected_paths()
+    assert entries, "manifest must not be empty"
+    for pattern, concept in entries:
+        assert concept, pattern
+        assert (root / pattern).exists(), f"protected path {pattern} does not exist"

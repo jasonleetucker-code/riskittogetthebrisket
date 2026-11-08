@@ -108,6 +108,15 @@ Never promise every feature is proved merely because automation finishes; never 
 - **Not material** (pass without a receipt): docs/markdown-only, `data/`, `exports/`, `CSVs/`. Tests-only changes get an
   advisory notice, never a failure.
 - **Exempt authors**: `dependabot[bot]` and `github-actions[bot]` (automated refresh commits); the report says so.
+- **Protected methodology** (owner master directive 2026-11-08, Priority 4): a PR that changes a file listed in
+  `config/ci/protected_methodology_paths.json` must also carry a `Methodology authorization:` line in the receipt,
+  either citing the owner decision that authorizes the change or saying `n/a — <reason>` (for example "new flag
+  registered default OFF").
+  - Protected files include Hill constants and the model registry, weights, the package model, FAAB and BDVM
+    parameters, source freshness and lineage, the confidence gate, league playoff and draft-order rules, and flag
+    defaults.
+  - The report names every touched concept either way.
+  - The check cannot verify the decision itself; it makes an owner-reserved change impossible to miss in review.
 - **Fixing a red check**: edit the PR body to complete the listed fields; the check re-runs within seconds. No push needed.
 - **Status**: this is *not yet* a branch-protection required check. Making it required is a repository-settings action
   reserved for the owner. Until then the Integration Authority treats a green receipt check as required for material PRs.

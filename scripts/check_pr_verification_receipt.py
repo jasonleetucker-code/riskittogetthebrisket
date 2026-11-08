@@ -9,6 +9,13 @@ and the "PR verification receipt check" subsection.
 This is NOT a validation-risk classifier (that is scripts/ci_change_scope.py);
 "material" here only decides whether a receipt is required.
 
+Protected methodology (owner master directive 2026-11-08, Priority 4): a PR
+that changes a file listed in ``config/ci/protected_methodology_paths.json``
+(owner-reserved valuation / forecasting / activation state) must also carry a
+``Methodology authorization:`` line in the receipt, citing the owner decision
+or ``n/a — <reason>`` stating why no methodology, value or activation changes.
+The check names the touched concepts either way so review cannot miss them.
+
 Exit codes: 0 pass (or exempt / not material), 1 receipt incomplete, 2 usage.
 """
 
@@ -98,6 +105,52 @@ NA_RE = re.compile(r"^n/?a\b\s*[-–—:]*\s*(.*)$", re.I | re.S)
 STATE_WORDS = ("TESTED_IN_PR", "MERGED", "DEPLOYED", "VERIFIED_IN_PRODUCTION")
 HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$")
 SECTION_TITLE = "feature verification receipt"
+
+PROTECTED_MANIFEST = (
+    Path(__file__).resolve().parents[1] / "config" / "ci" / "protected_methodology_paths.json"
+)
+METHODOLOGY_LABEL = "Methodology authorization"
+_METHODOLOGY_RE = re.compile(
+    r"^\s{0,1}(?:[-*+]|\d+[.)])\s+(?:\*\*)?methodology authorization(?:\*\*)?\s*:(?:\*\*)?\s*(.*)$",
+    re.I,
+)
+
+
+def load_protected_paths(path: Path | None = None) -> list[tuple[str, str]]:
+    """``[(pattern, concept)]`` from the manifest.  An unreadable manifest is a
+    usage error upstream (exit 2), never a silent pass."""
+    data = json.loads((path or PROTECTED_MANIFEST).read_text(encoding="utf-8"))
+    return [(str(e["pattern"]), str(e.get("concept") or "")) for e in data["paths"]]
+
+
+def protected_hits(files: list[str], protected: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """``[(file, concept)]`` for every changed file that is protected."""
+    hits = []
+    for f in files:
+        p = f.replace("\\", "/")
+        if p.startswith("./"):
+            p = p[2:]
+        for pattern, concept in protected:
+            if (pattern.endswith("/") and p.startswith(pattern)) or p == pattern:
+                hits.append((p, concept))
+                break
+    return hits
+
+
+def methodology_problem(section: str | None) -> str | None:
+    """Why the receipt's methodology line is missing or empty, or ``None``."""
+    if section is None:
+        return f"{METHODOLOGY_LABEL}: field missing (receipt section missing)"
+    value = None
+    for line in section.split("\n"):
+        m = _METHODOLOGY_RE.match(line)
+        if m:
+            value = m.group(1)
+            break
+    if value is None:
+        return f"{METHODOLOGY_LABEL}: field missing"
+    problem = field_problem("methodology", value)
+    return f"{METHODOLOGY_LABEL}: {problem}" if problem else None
 
 
 def is_material_path(path: str) -> bool:
@@ -242,9 +295,37 @@ def classify(files: list[str]) -> str:
     return "other"
 
 
-def run(body: str, files: list[str], author: str) -> tuple[int, str]:
+def run(
+    body: str,
+    files: list[str],
+    author: str,
+    protected: list[tuple[str, str]] | None = None,
+) -> tuple[int, str]:
     if author in EXEMPT_AUTHORS:
         return 0, f"EXEMPT: author '{author}' is an automated-refresh account; no receipt required."
+    hits = protected_hits(files, protected if protected is not None else load_protected_paths())
+    if hits:
+        notice = [
+            "PROTECTED METHODOLOGY touched (owner-reserved; config/ci/protected_methodology_paths.json):"
+        ]
+        notice += [f"  - {f} — {concept}" for f, concept in hits]
+        problem = methodology_problem(extract_section(body or ""))
+        code, report = _run_receipt(body, files)
+        if problem:
+            return 1, "\n".join(
+                [
+                    *notice,
+                    f"FAIL: {problem}. Cite the owner decision that authorizes the change, or",
+                    "`n/a — <reason>` stating that no methodology, canonical value or activation state changes.",
+                    "",
+                    report,
+                ]
+            )
+        return code, "\n".join([*notice, f"{METHODOLOGY_LABEL}: stated.", "", report])
+    return _run_receipt(body, files)
+
+
+def _run_receipt(body: str, files: list[str]) -> tuple[int, str]:
     kind = classify(files)
     if kind == "other":
         return (
