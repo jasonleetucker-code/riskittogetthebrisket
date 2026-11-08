@@ -1,6 +1,6 @@
 # 03. Current projection dependency audit
 
-**Status:** read-only trace of `origin/main` at `f90604cba`, 2026-11-08. Paths are repo-relative. Flag values are the registry defaults in `src/api/feature_flags.py`. What the production box overrides through `.env` was not inspectable.
+**Status:** read-only trace of `origin/main` at `f90604cba`, 2026-11-08. Paths are repo-relative. Flag values are the default-state entries in `src/api/feature_flags.py` (that file also has a separate lifecycle table, where LIVE means released, not on). What the production box overrides through `.env` was not inspectable.
 
 Three concepts are kept apart throughout: **market value** (what the asset trades for), **football production** (stat lines and points), and **team-specific utility** (what the asset does for one roster).
 
@@ -23,7 +23,7 @@ Three concepts are kept apart throughout: **market value** (what the asset trade
 |---|---|---|---|---|
 | Dynasty market | 27 registry keys, `_RANKING_SOURCES` in `src/api/data_contract.py` lines 2063-3178: KTC Crowd and Trades, IDPTC, DLF family, IDP Show combined, Dynasty Nerds, FantasyCalc, Signals, OTC, Fantasy Navigator, PFK, Dynasty Daddy, FantasyPros family, Flock, Yahoo/Boone, Draft Sharks | `Dynasty Scraper.py`, `scripts/fetch_*.py` | `CSVs/site_raw/`, `exports/archive/` (history from 2026-07-14) | `_compute_unified_rankings` → `rankDerivedValue` |
 | Market benchmark | KTC Market (`ktcCrowdTradesSfTep`), not a vote | `src/sources/ktc_market.py` | Contract rows | `marketGap*`, `src/trade/finder.py`, `src/bdvm/market.py` |
-| ROS ranks | Six entries in `src/ros/sources/__init__.py::ROS_SOURCES` (below) | `src/ros/scrape.py`, `src/ros/parse.py`, `src/ros/aggregate.py` | `data/ros/aggregate/latest.json`, `history/` (1,366 files from 2026-04-28) | `rosValue` consumers, section 5 |
+| ROS ranks | Six entries in `src/ros/sources/__init__.py::ROS_SOURCES` (below) | `src/ros/scrape.py`, `src/ros/parse.py`, `src/ros/aggregate.py` | `data/ros/aggregate/latest.json`, `history/` (1,366 files from 2026-04-28 when traced; box-local in some checkouts, so not re-verifiable from every tree) | `rosValue` consumers, section 5 |
 
 **ROS registry detail** (measured from `src/ros/sources/__init__.py`):
 

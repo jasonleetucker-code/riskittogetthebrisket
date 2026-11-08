@@ -10,10 +10,10 @@
 
 | id | dataset | upstream | stated terms | commercial | attribution | redistribution | ML training | cost | rating |
 |---|---|---|---|---|---|---|---|---|---|
-| D01 | nflverse play-by-play | NFL game feeds, via nflverse | Repo CC-BY-4.0; nflverse says most data is CC-BY 4.0 except FTN | Allowed by CC-BY | Required | Allowed with attribution | Not addressed; CC-BY has no field-of-use limit | $0 | AMBER+: NFL's own rights not addressed by nflverse |
+| D01 | nflverse play-by-play | NFL game feeds, via nflverse | Repo page states CC-BY-4.0; FTN-derived files carry their own license (D07, D08) | Allowed by CC-BY | Required | Allowed with attribution | Not addressed; CC-BY has no field-of-use limit | $0 | AMBER+: NFL's own rights not addressed by nflverse |
 | D02 | nflverse weekly player stats (`stats_player_week`) | NFL box scores | As D01 | As D01 | Required | As D01 | As D01 | $0 | AMBER+ |
 | D03 | nflverse schedules / `games.csv` (spread, total, moneylines, weather, roof) | Odds and weather source unstated | As D01 | As D01 | Required | As D01 | As D01 | $0 | AMBER: **odds source not stated** |
-| D04 | nflverse snap counts | **Pro Football Reference** | CC-BY claim on repo; PFR terms below still govern the upstream | Unclear | Required | Unclear | **PFR bars ML use** | $0 | **RED for training** `[I]` |
+| D04 | nflverse snap counts | **Pro Football Reference** | CC-BY claim on repo; PFR terms below still govern the upstream | Unclear | Required | Unclear | **PFR bars ML use** | $0 | **RED for training** `[I]`: PFR's terms bar ML use of PFR data; applying that to nflverse's derived file is an inference, not a stated term |
 | D05 | nflverse PFR advanced stats | **PFR** | As D04 | Unclear | Required | Unclear | PFR bars ML use | $0 | **RED for training** `[I]` |
 | D06 | nflverse NGS weekly | NFL Next Gen Stats | As D01; NFL terms below | Unclear | Required | Unclear | NFL silent; bars systematic retrieval without consent | $0 | AMBER |
 | D07 | nflverse participation | NGS to 2022; **FTN 2023+** | **CC-BY-SA 4.0** | Allowed with share-alike | "FTN Data via nflverse" or "NFL NextGenStats via nflverse" | Share-alike | Not addressed; share-alike may reach published derivatives | $0 | AMBER |
@@ -76,7 +76,7 @@
 
 | # | finding | evidence | required action |
 |---|---|---|---|
-| 1 | **PFR rights flow into nflverse snap counts, advanced stats, draft picks and combine.** The CC-BY label on the nflverse repo cannot grant rights nflverse does not hold `[I]` | Snap counts source: `load_snap_counts` doc. PFR terms bar AI use including predictive scoring | Do not train on D04, D05, or PFR-derived D11 without permission or counsel. Consumers exist today: `src/nfl_data/nflverse_direct.py`, `src/playerctx/fetch.py`, `src/bdvm/context.py`. Owner decision |
+| 1 | **PFR rights flow into nflverse snap counts, advanced stats, draft picks and combine.** Open question for counsel: does a CC-BY label on the nflverse repo reach data whose upstream terms restrict it? `[I]` | Snap counts source: `load_snap_counts` doc. PFR terms bar AI use including predictive scoring | Do not train on D04, D05, or PFR-derived D11 without permission or counsel. Consumers exist today: `src/nfl_data/nflverse_direct.py`, `src/playerctx/fetch.py`, `src/bdvm/context.py`. Owner decision |
 | 2 | **ESPN inputs are live while Disney terms bar automated extraction and AI training** | `src/nfl_data/injury_feed.py`, `live_game_state.py`, `depth_charts.py`; `src/bdvm/clay_projections.py`. Census posture `PUBLIC_NO_AUTH`, `licensingStatus` null | Public availability is not a license. Record an owner decision. Do not use Clay rows as training labels until resolved |
 | 3 | **Sleeper's documented API asks commercial users to contact it**; the projections endpoint is undocumented | https://docs.sleeper.com/ ; `config/projections/source_capability_census.json` | Record the owner attestation's basis; contact Sleeper if the site is commercial |
 | 4 | **CC-BY requires attribution on every surface that uses the data** | Six frontend files mention nflverse (`DataInfoBody.jsx`, `GameDayHelp.jsx`, `PlayerPopup.jsx`, `game-day-view.js`, two in `league-comparison`) | Audit whether the BDVM, rankings and waiver surfaces carry it |

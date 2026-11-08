@@ -22,6 +22,8 @@
 
 ## 1. Team volume layer (every position reads this)
 
+**Double-counting rule for H-VOL1, H3 and E4.** Betting lines may replace a trailing-rate volume input. They may not be added on top of a vendor-informed consensus until the overlap is measured (`07_EVALUATION_DESIGN.md` §6).
+
 ```text
 Implied points (nflverse sign: S > 0 favors home)
   I_home = (T + S) / 2        I_away = (T - S) / 2

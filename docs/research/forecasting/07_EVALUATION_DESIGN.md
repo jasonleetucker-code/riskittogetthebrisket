@@ -105,6 +105,7 @@ Team-level baselines are the trailing team mean with team and pooled spread, alr
 | Selection on survivors | Include players who vanish; treat as absent, not dropped |
 | Feature rights | Inputs with unresolved rights excluded |
 | Researcher degrees of freedom | Disclose earlier looks, as in `TEAM_POINTS_CALIBRATION_RESULTS` §5 |
+| Market double counting | Betting lines enter only against a trailing-rate baseline. They are never an extra feature on a vendor-informed consensus unless the overlap has been measured first, because vendor projections probably already use lines |
 
 ## 7. Preregistered promotion criteria (proposed)
 
@@ -114,7 +115,7 @@ All must pass for any move from shadow. Passing grants only the right to ask the
 |---|---|---|
 | PG1 Rights | Every training and serving input has a recorded permitted-use status | No RED or unresolved input |
 | PG2 Reproducibility | Evaluation receipt with code SHA, source hashes, feature manifest, card fingerprint | `src/model_registry/reproducible_evaluation.py` accepts |
-| PG3 Point accuracy | ΔMAE vs the best of B3 and (when it exists) B6; Holm-adjusted cluster-block interval excludes zero | At least 0.10 offense, 0.25 IDP league points per player-week |
+| PG3 Point accuracy | ΔMAE vs the best of B3, B4, B5 and (when it exists) B6, so a candidate cannot pass while losing to current production; Holm-adjusted cluster-block interval excludes zero | At least 0.10 offense, 0.25 IDP league points per player-week |
 | PG4 No position loss | No position significantly worse | Point estimate not worse than −0.10 |
 | PG5 Bias | Absolute bias by position and starter tier | At most 0.25 points per game |
 | PG6 Ordering | Within-position Spearman and top-N hit | Not lower than baseline by more than 0.01 and 0.02 |

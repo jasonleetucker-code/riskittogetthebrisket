@@ -40,7 +40,7 @@
 
 | fact | source |
 |---|---|
-| Exact league scoring exists and matches the host on 3,710 of 3,710 player-weeks | `SCORING_PARITY_TAXONOMY_2026-11-08.md` |
+| Exact league scoring exists and matches the host on 3,710 of 3,710 player-weeks (one league, six weeks, in-sample) | `SCORING_PARITY_TAXONOMY_2026-11-08.md` |
 | The exact lineup solver reproduces Sleeper's best-ball awards | `CLAUDE.md`, `docs/lineup/C2_U1_CANONICAL_LINEUP.md` |
 | The served team distribution is badly scaled and over-spread | `TEAM_POINTS_CALIBRATION_RESULTS_2026-11-08.md` |
 | Simple forecasts outperform the served sim at team level on CRPS and MAE; no challenger passed all gates | Same |
