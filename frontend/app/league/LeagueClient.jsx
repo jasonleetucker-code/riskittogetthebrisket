@@ -49,6 +49,7 @@ import {
 import { buildManagerLookup } from "./shared.jsx";
 import OverviewSection from "./sections/overview.jsx";
 import leagueNavStyles from "./league-shared.module.css";
+import broadcast from "./league-broadcast.module.css";
 import {
   OVERVIEW_TAB,
   PIECE_OF_SHIT_RANKINGS_TAB,
@@ -545,28 +546,56 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
     (league?.seasonsCovered || []).join(", ") ||
     "—";
 
+  const managerCount = Array.isArray(league?.managers)
+    ? league.managers.length
+    : null;
+  const coverageDescription = league
+    ? `${seasonLabel === "—" ? "Season coverage unavailable" : `Seasons: ${seasonLabel}`} · ${managerCount === null ? "Manager coverage unavailable" : `${managerCount} managers`}`
+    : undefined;
+
   return (
-    <section>
-      {advisorTab ? (
-        <PageHeader
-          eyebrow={league?.leagueName || "Chase Upside League"}
-          title={TRADE_ADVISOR_TITLE}
-          description={TRADE_ADVISOR_SUBTITLE}
-        />
-      ) : (
-        <PageHeader
-          eyebrow="Chase Upside League"
-          title={league?.leagueName || "League"}
-          description={
-            league
-              ? `Seasons: ${seasonLabel}` +
-                ` · ${(league.managers || []).length} managers` +
-                ` · Last ${(league.seasonsCovered || []).length || 2} dynasty season${(league.seasonsCovered || []).length === 1 ? "" : "s"}`
-              : undefined
-          }
-        />
-      )}
-      <div className={leagueNavStyles.nav}>
+    <section className={broadcast.page}>
+      <div className={broadcast.masthead}>
+        <div className={broadcast.identity}>
+          {advisorTab ? (
+            <PageHeader
+              eyebrow={league?.leagueName || "Chase Upside League"}
+              title={TRADE_ADVISOR_TITLE}
+              description={TRADE_ADVISOR_SUBTITLE}
+            />
+          ) : (
+            <PageHeader
+              eyebrow="Chase Upside League"
+              title={league?.leagueName || "League"}
+              description={coverageDescription}
+            />
+          )}
+        </div>
+        <aside className={broadcast.record} aria-label="Public league record">
+          <p className={broadcast.recordKicker}>The league record</p>
+          <dl>
+            <div>
+              <dt>Seasons covered</dt>
+              <dd>{seasonLabel === "—" ? "Not yet available" : seasonLabel}</dd>
+            </div>
+            <div>
+              <dt>League managers</dt>
+              <dd>{managerCount === null ? "Unavailable" : managerCount}</dd>
+            </div>
+          </dl>
+          <span className={broadcast.publicLabel}>
+            Public league / No sign-in required
+          </span>
+        </aside>
+      </div>
+      <div className={`${leagueNavStyles.nav} ${broadcast.navigation}`}>
+        <div className={broadcast.navHeading}>
+          <span>Explore the league</span>
+          <span>
+            Viewing:{" "}
+            {tabs.find((tab) => tab.key === activeTab)?.label || "League"}
+          </span>
+        </div>
         {/* Mobile: a dropdown selector so all 20 sections stay reachable
             without needing a horizontally-scrolled tab row. */}
         <div className={`mobile-only ${leagueNavStyles.mobileNav}`}>
@@ -593,6 +622,7 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
       </div>
 
       <div
+        className={broadcast.content}
         role="tabpanel"
         id={tabPanelId("league", activeTab)}
         aria-labelledby={tabId("league", activeTab)}

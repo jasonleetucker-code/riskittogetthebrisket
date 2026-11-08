@@ -1,0 +1,293 @@
+/* Public entry: one broadcast composition, with the public/private boundary
+   in the content rather than an invented set of live statistics. */
+:global(main.shell-main):has(> .landing) {
+  max-width: none;
+  padding-top: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+.landing {
+  min-width: 0;
+}
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.75fr);
+  background: var(--sn-navy, #0b2130);
+  color: var(--sn-cream, #f0eddf);
+}
+.heroCopy {
+  padding: clamp(36px, 5vw, 76px) clamp(24px, 5vw, 76px) 28px;
+  min-width: 0;
+}
+.eyebrow {
+  margin: 0;
+  font: 600 10px/1.5 var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 1.7px;
+}
+.heroCopy > .eyebrow {
+  color: var(--sn-gold, #f7c77f);
+}
+.title {
+  margin: 25px 0 24px;
+  max-width: 7.6ch;
+  font: 700 clamp(84px, 10.2vw, 148px) / 0.84 var(--font-display);
+  letter-spacing: -1.8px;
+  text-transform: uppercase;
+  color: var(--sn-cream, #f0eddf);
+}
+.title::after {
+  content: ".";
+  color: var(--sn-coral, #fd633f);
+}
+.standfirst {
+  margin: 0;
+  font: 400 clamp(20px, 2.1vw, 30px) / 1.4 var(--font-prose, var(--font-ui));
+  color: var(--sn-cream, #f0eddf);
+}
+.introduction {
+  max-width: 410px;
+  margin: 20px 0 0;
+  color: #cbd4ce;
+  font-size: 13px;
+  line-height: 1.9;
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+.actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 35px;
+  min-height: 48px;
+  padding: 13px 20px;
+  font: 600 12px/1.5 var(--font-ui);
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.publicAction {
+  background: var(--sn-coral, #fd633f);
+  color: var(--sn-navy, #0b2130);
+}
+.actions .privateAction {
+  color: var(--sn-cream, #f0eddf);
+  border-color: #82939c;
+}
+.actions a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.actions a:focus-visible {
+  outline: 3px solid var(--sn-gold, #f7c77f);
+  outline-offset: 4px;
+}
+.heroFootnote {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  border-top: 1px solid #536975;
+  margin-top: 45px;
+  padding-top: 17px;
+  font-size: 9px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: #cbd4ce;
+}
+.leagueRail {
+  background: var(--sn-coral, #fd633f);
+  color: var(--sn-navy, #0b2130);
+  padding: clamp(30px, 4vw, 58px) clamp(22px, 3vw, 44px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.leagueRail h2 {
+  font: 700 clamp(48px, 5vw, 72px) / 0.94 var(--font-display);
+  margin: 28px 0 26px;
+  letter-spacing: -0.7px;
+  text-transform: uppercase;
+}
+.leagueRail h2 span {
+  color: var(--sn-navy, #0b2130);
+}
+.leagueRail > p:not(.eyebrow) {
+  font-size: 13px;
+  line-height: 1.8;
+  max-width: 320px;
+}
+.railRule {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #9f3923;
+  margin-top: 32px;
+  padding-top: 18px;
+  font: 600 9px/1.5 var(--font-ui);
+  letter-spacing: 1px;
+}
+.leagueRail > .railCaption {
+  font-size: 11px;
+  margin-top: 15px;
+}
+.pathways {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 48px clamp(24px, 5vw, 76px) 52px;
+  gap: clamp(30px, 6vw, 90px);
+  background: var(--sn-cream, #f0eddf);
+  color: var(--sn-navy, #0b2130);
+}
+.pathways section {
+  min-width: 0;
+  border-top: 2px solid var(--sn-navy, #0b2130);
+  padding-top: 22px;
+}
+.pathways h2 {
+  font: 700 clamp(36px, 3.5vw, 50px) / 1 var(--font-display);
+  letter-spacing: -0.4px;
+  margin: 18px 0;
+}
+.pathways section > p:not(.eyebrow) {
+  max-width: 460px;
+  font-size: 13px;
+  line-height: 1.85;
+}
+.pathways .pathScope {
+  border-top: 1px solid #bdc5b8;
+  padding-top: 17px;
+  margin-top: 24px;
+  font-size: 11px !important;
+  color: #465b63;
+}
+.signoff {
+  margin: 0 clamp(24px, 5vw, 76px);
+  padding: 24px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 20px;
+  border-top: 2px solid var(--sn-navy, #0b2130);
+}
+.signoff > span {
+  font: 700 29px/1 var(--font-display);
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+.signoff p {
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0;
+}
+@media (width < 1000px) {
+  .hero {
+    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  }
+  .heroCopy {
+    padding: 38px 28px 26px;
+  }
+  .title {
+    font-size: 100px;
+  }
+  .leagueRail {
+    padding: 38px 28px;
+  }
+  .leagueRail h2 {
+    font-size: 58px;
+  }
+  .pathways {
+    padding: 35px 28px 40px;
+    gap: 35px;
+  }
+  .pathways h2 {
+    font-size: 40px;
+  }
+}
+@media (width < 600px) {
+  .hero {
+    display: block;
+  }
+  .heroCopy {
+    padding: 33px 20px 25px;
+  }
+  .heroCopy > .eyebrow {
+    font-size: 8px;
+    letter-spacing: 1.2px;
+  }
+  .title {
+    font-size: clamp(86px, 24vw, 112px);
+    margin: 25px 0 23px;
+    max-width: 7.2ch;
+  }
+  .standfirst {
+    font-size: 22px;
+  }
+  .introduction {
+    font-size: 12px;
+    line-height: 1.8;
+    max-width: 310px;
+  }
+  .actions {
+    gap: 10px;
+    margin-top: 23px;
+  }
+  .actions a {
+    padding: 12px 15px;
+    gap: 25px;
+    min-height: 48px;
+    font-size: 11px;
+  }
+  .heroFootnote {
+    margin-top: 30px;
+    font-size: 8px;
+    gap: 20px;
+  }
+  .leagueRail {
+    padding: 30px 20px;
+  }
+  .leagueRail h2 {
+    font-size: 58px;
+    margin: 20px 0;
+  }
+  .leagueRail h2 br {
+    display: none;
+  }
+  .leagueRail > p:not(.eyebrow) {
+    font-size: 12px;
+    max-width: 330px;
+  }
+  .railRule {
+    margin-top: 24px;
+  }
+  .pathways {
+    display: block;
+    padding: 32px 20px;
+  }
+  .pathways section + section {
+    margin-top: 35px;
+  }
+  .pathways h2 {
+    font-size: 41px;
+  }
+  .pathways section > p:not(.eyebrow) {
+    font-size: 12px;
+  }
+  .signoff {
+    margin: 0 20px;
+    padding: 24px 0;
+    display: block;
+  }
+  .signoff > span {
+    font-size: 31px;
+  }
+  .signoff p {
+    margin-top: 12px;
+    font-size: 8px;
+  }
+}

@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import TerminalLayout from "@/components/terminal/TerminalLayout";
-import { SkeletonStat, SkeletonTable, SkeletonText } from "@/components/ds/Skeleton";
-import { Panel } from "@/components/ds/Panel";
-import { Button } from "@/components/ds/Button";
+import {
+  SkeletonStat,
+  SkeletonTable,
+  SkeletonText,
+} from "@/components/ds/Skeleton";
 import styles from "@/components/terminal/terminal.module.css";
+import home from "./home.module.css";
 
 /**
  * Home page — entry point for the app.
@@ -38,7 +41,11 @@ function AuthenticatedHome() {
  */
 function ResolvingHome() {
   return (
-    <div className={styles.page} aria-busy="true" aria-label="Loading dashboard">
+    <div
+      className={styles.page}
+      aria-busy="true"
+      aria-label="Loading dashboard"
+    >
       <section>
         <SkeletonText lines={2} />
         <div className={styles.commandStats} style={{ marginTop: 12 }}>
@@ -74,76 +81,107 @@ function ResolvingHome() {
  */
 function LandingHome({ advisorServed = false }) {
   return (
-    <section className="login-shell psi-editorial">
-      <Panel className="login-panel">
-        {/* A raw h1, not Panel's `title` slot: Panel clamps its heading to
-            h2+ (a panel is normally a region within a page that already
-            has its own h1), but this unauthenticated landing IS the page
-            and needs a real top-level heading. */}
-        <h1
-          style={{
-            margin: "0 0 8px",
-            fontSize: "1.4rem",
-            fontFamily: "var(--font-display)",
-            color: "var(--text-primary)",
-          }}
-        >
-          Chase Upside
-        </h1>
-        <p className="muted" style={{ marginBottom: "var(--space-lg)" }}>
-          Dynasty fantasy football valuation and trade analysis, plus the full
-          public record of our league.
-        </p>
-
-        <div
-          className="grid-responsive"
-          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
-        >
-          <div>
-            <Button
-              as={Link}
-              href="/league"
-              variant="secondary"
-              style={{ display: "block", textAlign: "center", padding: "14px 12px" }}
-            >
+    <section className={`${home.landing} psi-editorial`}>
+      <div className={home.hero}>
+        <div className={home.heroCopy}>
+          <p className={home.eyebrow}>Dynasty football / League intelligence</p>
+          <h1 className={home.title}>Chase Upside</h1>
+          <p className={home.standfirst}>
+            The game changes.
+            <br />
+            Keep your perspective.
+          </p>
+          <p className={home.introduction}>
+            Dynasty fantasy football valuation and trade analysis, plus the full
+            public record of our league.
+          </p>
+          <div className={home.actions}>
+            <Link href="/league" className={home.publicAction}>
               {advisorServed ? "Go to League Hub" : "League"}
-            </Button>
-            <p
-              className="muted text-xs"
-              style={{ marginTop: 8, lineHeight: 1.45, textAlign: "center" }}
-            >
-              {advisorServed ? (
-                <>
-                  Open to everyone: the Brisket Trade Advisor, plus champions,
-                  records, rivalries, weekly recaps and every trade in league history.
-                </>
-              ) : (
-                <>
-                  Open to everyone: champions, records, rivalries, weekly recaps and
-                  every trade in league history.
-                </>
-              )}
-            </p>
+              <span aria-hidden="true">↗</span>
+            </Link>
+            <Link href="/login" className={home.privateAction}>
+              Sign in<span aria-hidden="true">↗</span>
+            </Link>
           </div>
-          <div>
-            <Button
-              as={Link}
-              href="/login"
-              variant="primary"
-              style={{ display: "block", textAlign: "center", padding: "14px 12px" }}
-            >
-              Sign in
-            </Button>
-            <p
-              className="muted text-xs"
-              style={{ marginTop: 8, lineHeight: 1.45, textAlign: "center" }}
-            >
-              Members only: player rankings, trade tools, waiver and draft
-              analysis.
-            </p>
+          <div className={home.heroFootnote}>
+            <span>Public league</span>
+            <span>Private front office</span>
           </div>
         </div>
-      </Panel>
+        <aside
+          className={home.leagueRail}
+          aria-label="Public league experience"
+        >
+          <p className={home.eyebrow}>Open to everyone</p>
+          <h2>
+            Every season
+            <br />
+            leaves a<br />
+            <span>story.</span>
+          </h2>
+          <p>
+            Champions. Records. Rivalries. The games and decisions that become
+            league history.
+          </p>
+          <div className={home.railRule} aria-hidden="true">
+            <span>01 / THE LEAGUE</span>
+            <span>↗</span>
+          </div>
+          <p className={home.railCaption}>
+            {advisorServed ? (
+              <>
+                Open to everyone: the Brisket Trade Advisor, plus champions,
+                records, rivalries, weekly recaps and every trade in league
+                history.
+              </>
+            ) : (
+              <>
+                Open to everyone: champions, records, rivalries, weekly recaps
+                and every trade in league history.
+              </>
+            )}
+          </p>
+        </aside>
+      </div>
+      <div className={home.pathways}>
+        <section className={home.publicPath}>
+          <p className={home.eyebrow}>The public record</p>
+          <h2>
+            The league.
+            <br />
+            The whole story.
+          </h2>
+          <p>
+            Follow the results, revisit the rivalries and explore the people
+            behind the league. A place for the history, not just the standings.
+          </p>
+          <p className={home.pathScope}>
+            Public: champions, records, rivalries, weekly recaps and trade
+            history.
+          </p>
+        </section>
+        <section className={home.privatePath}>
+          <p className={home.eyebrow}>The member workspace</p>
+          <h2>
+            Read the field.
+            <br />
+            Research your move.
+          </h2>
+          <p>
+            Put player rankings, trade tools, waiver and draft analysis into
+            context. Research and decision tools stay behind your account.
+          </p>
+          <p className={home.pathScope}>
+            Members only: player rankings, trade tools, waiver and draft
+            analysis.
+          </p>
+        </section>
+      </div>
+      <div className={home.signoff}>
+        <span>CU / Chase Upside</span>
+        <p>Football intelligence. With perspective.</p>
+      </div>
     </section>
   );
 }
@@ -171,12 +209,15 @@ export default function HomeClient({ advisorServed = false } = {}) {
   useEffect(() => {
     if (authenticated !== false || typeof window === "undefined") return;
     const standalone =
-      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+      (window.matchMedia &&
+        window.matchMedia("(display-mode: standalone)").matches) ||
+      window.navigator.standalone === true;
     if (standalone) window.location.replace("/auction");
   }, [authenticated]);
 
   if (authenticated === true) return <AuthenticatedHome />;
-  if (authenticated === false || resolveTimedOut) return <LandingHome advisorServed={advisorServed} />;
+  if (authenticated === false || resolveTimedOut)
+    return <LandingHome advisorServed={advisorServed} />;
   // ``null`` = auth still resolving: hold the terminal-shaped shell so
   // the (typical) signed-in resolution doesn't replace a 200px landing
   // card with a 4000px dashboard — the site's dominant layout shift.

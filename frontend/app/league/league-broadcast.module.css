@@ -1,0 +1,191 @@
+/* Public league frame. The data owners, tab map and lazy section loading
+   remain the existing public-only pipeline. */
+.page {
+  min-width: 0;
+}
+.masthead {
+  --surface-0: var(--sn-navy, #0b2130);
+  --text-primary: var(--sn-cream, #f0eddf);
+  --text-secondary: #cbd4ce;
+  --text-tertiary: #b5c4c6;
+  --accent: var(--sn-gold, #f7c77f);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 40px;
+  padding: clamp(28px, 3.7vw, 50px);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  border-top: 5px solid var(--sn-coral, #fd633f);
+}
+.identity {
+  min-width: 0;
+  align-self: center;
+}
+.identity :global(.ds-page-header) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.identity :global(.ds-page-header__eyebrow) {
+  color: var(--sn-gold, #f7c77f);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+}
+.identity :global(.ds-page-header__title) {
+  color: var(--sn-cream, #f0eddf);
+  font: 700 clamp(48px, 5.6vw, 78px) / 0.94 var(--font-display);
+  letter-spacing: -0.8px;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.identity :global(.ds-page-header__description) {
+  color: #cbd4ce;
+  margin-top: 18px;
+  max-width: 600px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.record {
+  border-left: 1px solid #54707b;
+  padding-left: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.recordKicker {
+  color: var(--sn-gold, #f7c77f);
+  font: 600 9px/1.5 var(--font-ui);
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  margin: 0 0 16px;
+}
+.record dl {
+  margin: 0;
+}
+.record dl > div {
+  padding: 12px 0;
+  border-top: 1px solid #425f6d;
+}
+.record dt {
+  font-size: 10px;
+  color: #cbd4ce;
+  margin-bottom: 6px;
+}
+.record dd {
+  margin: 0;
+  font: 600 21px/1.25 var(--font-display);
+  color: var(--sn-cream, #f0eddf);
+}
+.publicLabel {
+  margin-top: 16px;
+  font-size: 8px;
+  line-height: 1.6;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #cbd4ce;
+}
+.navigation {
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 2px solid var(--sn-navy, #0b2130);
+  margin-top: 24px;
+  padding-bottom: 6px;
+}
+.navHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 13px 0 10px;
+  font: 600 9px/1.5 var(--font-ui);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.navHeading > span:last-child {
+  color: var(--text-primary);
+}
+.navigation :global(.ds-tabs) {
+  border-bottom: 0;
+  gap: 0;
+  flex-wrap: wrap;
+}
+.navigation :global(.ds-tab) {
+  min-height: 44px;
+  padding-inline: 13px;
+}
+.content {
+  min-width: 0;
+  padding-top: 8px;
+}
+@media (width < 1000px) {
+  .masthead {
+    grid-template-columns: minmax(0, 1fr) 215px;
+    padding: 30px;
+    gap: 28px;
+  }
+  .record {
+    padding-left: 22px;
+  }
+  .identity :global(.ds-page-header__title) {
+    font-size: 58px;
+  }
+}
+@media (width < 768px) {
+  .masthead {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 27px 20px 23px;
+    gap: 25px;
+  }
+  .identity :global(.ds-page-header__eyebrow) {
+    font-size: 8px;
+  }
+  .identity :global(.ds-page-header__title) {
+    font-size: clamp(45px, 12vw, 64px);
+  }
+  .identity :global(.ds-page-header__description) {
+    font-size: 11px;
+    margin-top: 14px;
+  }
+  .record {
+    border-left: 0;
+    border-top: 1px solid #54707b;
+    padding: 17px 0 0;
+    display: block;
+  }
+  .recordKicker {
+    font-size: 8px;
+    margin-bottom: 13px;
+  }
+  .record dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .record dl > div {
+    border-top: 0;
+    padding: 0;
+  }
+  .record dt {
+    font-size: 9px;
+  }
+  .record dd {
+    font-size: 24px;
+  }
+  .publicLabel {
+    display: block;
+    margin-top: 15px;
+    font-size: 7px;
+  }
+  .navigation {
+    margin-top: 20px;
+    padding-bottom: 12px;
+  }
+  .navHeading {
+    font-size: 8px;
+    padding: 12px 0;
+  }
+  .content {
+    padding-top: 2px;
+  }
+}
