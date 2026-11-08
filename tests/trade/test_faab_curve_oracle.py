@@ -277,8 +277,103 @@ def test_zero_balance_is_known_zero_not_unknown():
     assert any("no FAAB left" in w for w in out["warnings"])
     # objective still reports worth: 0 balance must not erase the player's value
     assert out["objective"]["dollars"] == 100
-    # contrast: an UNKNOWN balance (None) means the full original budget, never 0
+    # contrast: an UNKNOWN balance (None) is an explicit unknown state -- bids withheld,
+    # never the full original budget presented as the balance, and never 0.
     unknown = FE.recommend(
         FE.PlayerInput(value=2500), _league(100), _team(None), anchors=_anchors()
     )
-    assert unknown["bids"]["maxRational"] > 0
+    assert unknown["bids"]["maxRational"] is None
+    assert unknown["balance"]["state"] == "unknown"
+    assert out["balance"]["state"] == "known" and out["balance"]["remaining"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Unknown own balance is an explicit unknown state (owner directive 2026-11-08 sec. 14 P9)
+# ---------------------------------------------------------------------------
+
+
+def test_unknown_balance_withholds_every_balance_capped_figure():
+    out = FE.recommend(FE.PlayerInput(value=2500), _league(100), _team(None), anchors=_anchors())
+    assert out["balance"] == {
+        "state": "unknown",
+        "remaining": None,
+        "bidsWithheldReason": "team_faab_balance_unknown",
+    }
+    for k in ("recommended", "conservative", "aggressive", "maxRational"):
+        assert out["bids"][k] is None
+    for k in ("pctOfOriginalBudget", "pctOfRemaining", "winProbability", "teamCeilingDollars"):
+        assert out[k] is None
+    # what he is worth and what he will cost do not depend on our balance
+    assert out["objective"]["dollars"] == 100
+    assert out["bids"]["clearing"] is not None
+    assert "unknown" in out["explanation"]
+    assert not any("has left" in w or "no FAAB left" in w for w in out["warnings"])
+
+
+def test_unknown_balance_market_and_objective_equal_a_known_balance():
+    known = FE.recommend(FE.PlayerInput(value=2500), _league(100), _team(100), anchors=_anchors())
+    unknown = FE.recommend(
+        FE.PlayerInput(value=2500), _league(100), _team(None), anchors=_anchors()
+    )
+    assert unknown["objective"] == known["objective"]
+    for k in ("clearing", "clearingLow", "clearingHigh"):
+        assert unknown["bids"][k] == known["bids"][k]
+
+
+def test_known_zero_stays_zero_and_no_bid_above_zero():
+    out = FE.recommend(FE.PlayerInput(value=9000), _league(100), _team(0), anchors=_anchors())
+    assert out["balance"]["state"] == "known" and out["balance"]["remaining"] == 0
+    for k in ("recommended", "conservative", "aggressive", "maxRational"):
+        assert out["bids"][k] == 0
+
+
+def test_known_37_caps_every_bid_at_37():
+    out = FE.recommend(FE.PlayerInput(value=9000), _league(100), _team(37), anchors=_anchors())
+    assert out["balance"] == {"state": "known", "remaining": 37, "bidsWithheldReason": None}
+    for k in ("recommended", "conservative", "aggressive", "maxRational"):
+        assert 0 <= out["bids"][k] <= 37
+    assert out["bids"]["maxRational"] > 0
+
+
+def test_rival_unknown_balances_are_still_excluded_from_clearing():
+    rivals = [FE.RivalTeam(owner_id=f"r{i}", faab_remaining=None) for i in range(5)]
+    with_unknown = FE.recommend(
+        FE.PlayerInput(value=2500), _league(100), _team(50), anchors=_anchors(), rivals=rivals
+    )
+    none = FE.recommend(FE.PlayerInput(value=2500), _league(100), _team(50), anchors=_anchors())
+    assert with_unknown["bids"] == none["bids"]
+    assert any(
+        f["label"] == "Expected competition" and f["missing"] for f in with_unknown["factors"]
+    )
+
+
+def test_unknown_own_ceiling_is_none_end_to_end_never_zero():
+    """The displayed own ceiling is None (not 0.0) when the balance is unknown, and the bid
+    optimiser accepts None explicitly instead of coercing it."""
+    cfg = FE.FaabConfig()
+    ceil = FE.team_ceiling(
+        FE.PlayerInput(value=2500), _anchors(), _league(100), _team(None), config=cfg
+    )
+    assert ceil["teamCeilingDollars"] is None and ceil["remaining"] is None
+    assert ceil["teamRawCeilingDollars"] > 0
+    out = FE.optimal_bid(
+        [],
+        raw_ceiling_dollars=ceil["teamRawCeilingDollars"],
+        display_ceiling_dollars=None,
+        demand_signal=0.5,
+        league=_league(100),
+        team=_team(40),
+        config=cfg,
+    )
+    # a KNOWN balance with an absent displayed ceiling is bounded by the raw ceiling
+    assert 0 < out["maxRational"] <= 40
+    unknown = FE.optimal_bid(
+        [],
+        raw_ceiling_dollars=ceil["teamRawCeilingDollars"],
+        display_ceiling_dollars=None,
+        demand_signal=0.5,
+        league=_league(100),
+        team=_team(None),
+        config=cfg,
+    )
+    assert unknown["maxRational"] is None and unknown["clearing"] is not None
