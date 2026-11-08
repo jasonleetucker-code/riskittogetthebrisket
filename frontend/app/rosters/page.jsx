@@ -537,9 +537,9 @@ function LeagueEdgeCard({ edges }) {
         <InfoTip label="the league edge map">
           <p>Market price vs. our model, per team.</p>
           <p>
-            <strong>Sell</strong> means the market overvalues their players —
+            <strong>Sell</strong> means the market prices their players above our model —
             they are who you sell to. <strong>Buy</strong> means the market
-            undervalues them.
+            prices them below our model. A gap is not proof the market is wrong.
           </p>
         </InfoTip>
       </div>
@@ -569,7 +569,7 @@ function LeagueEdgeCard({ edges }) {
                     borderRadius: 2,
                     minWidth: t.sellEdge > 0 ? 2 : 0,
                   }}
-                  title={`Market overvalues ${t.sellCount} of their players`}
+                  title={`Market prices ${t.sellCount} of their players above our model`}
                 />
                 <span style={{ fontSize: FONT_2XS, color: "var(--red)", fontFamily: "var(--mono)", minWidth: 40 }}>
                   {t.sellCount} sell
@@ -582,7 +582,7 @@ function LeagueEdgeCard({ edges }) {
                     borderRadius: 2,
                     minWidth: t.buyEdge > 0 ? 2 : 0,
                   }}
-                  title={`Market undervalues ${t.buyCount} of their players`}
+                  title={`Market prices ${t.buyCount} of their players below our model`}
                 />
                 <span style={{ fontSize: FONT_2XS, color: "var(--green)", fontFamily: "var(--mono)" }}>
                   {t.buyCount} buy
@@ -593,13 +593,13 @@ function LeagueEdgeCard({ edges }) {
               <div style={{ fontSize: FONT_2XS, color: "var(--subtext)", paddingLeft: 100 }}>
                 {t.topSells.length > 0 && (
                   <span style={{ color: "var(--red)" }}>
-                    Overvalued: {t.topSells.map((p) => `${p.name} +${p.pct}%`).join(", ")}
+                    Priced above our model: {t.topSells.map((p) => `${p.name} +${p.pct}%`).join(", ")}
                   </span>
                 )}
                 {t.topSells.length > 0 && t.topBuys.length > 0 && " \u00B7 "}
                 {t.topBuys.length > 0 && (
                   <span style={{ color: "var(--green)" }}>
-                    Undervalued: {t.topBuys.map((p) => `${p.name} -${p.pct}%`).join(", ")}
+                    Priced below our model: {t.topBuys.map((p) => `${p.name} -${p.pct}%`).join(", ")}
                   </span>
                 )}
               </div>

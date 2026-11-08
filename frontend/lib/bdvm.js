@@ -290,6 +290,31 @@ export function bdvmEntryForRow(index, row) {
   return (name && index.byName.get(name)) || null;
 }
 
+/**
+ * Display text for a BDVM signal.  STRONG_* is a threshold band on the
+ * fundamental-vs-market gap (alpha magnitude + market liquidity), not a
+ * measured strength of conviction, so the label names the band.  API enum
+ * values are unchanged.
+ */
+export function bdvmSignalLabel(signal) {
+  switch (signal) {
+    case "STRONG_BUY":
+      return "Buy · large gap";
+    case "STRONG_SELL":
+      return "Sell · large gap";
+    case "BUY":
+      return "Buy";
+    case "SELL":
+      return "Sell";
+    case "HOLD":
+      return "Hold";
+    case "NO_MARKET":
+      return "No market";
+    default:
+      return signal || "";
+  }
+}
+
 /** Rankings-page pill class for a BDVM signal — reuses the Edge
  * column's existing edge-buy/edge-sell/edge-hold styling so the two
  * market columns read as one visual language. */

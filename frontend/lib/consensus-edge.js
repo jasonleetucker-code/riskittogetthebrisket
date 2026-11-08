@@ -31,6 +31,24 @@ export function classifyEdgeFailure(status, body) {
 }
 
 /**
+ * Display text for a label.  "Strong" is a score band (score >= the strong
+ * threshold AND confidence >= the strong-confidence floor), not a measured
+ * strength of conviction, so the badge names the band.  The API label
+ * values are unchanged.
+ */
+export function labelText(label) {
+  if (label === "Strong Buy") return "Buy · large score";
+  if (label === "Strong Sell") return "Sell · large score";
+  return label;
+}
+
+/** Same mapping for backend reason strings that quote the band names. */
+export function reasonText(reason) {
+  if (typeof reason !== "string") return reason;
+  return reason.replace(/Strong Buy/g, "large-score Buy").replace(/Strong Sell/g, "large-score Sell");
+}
+
+/**
  * Tone for a label. `conflicted` and `insufficient` deliberately get
  * their own tone rather than reusing "neutral" — the whole point of
  * those states is that they are NOT a mild reading.

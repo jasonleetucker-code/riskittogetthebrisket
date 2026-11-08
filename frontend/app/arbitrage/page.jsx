@@ -125,9 +125,9 @@ function fmtPct(v) {
 }
 
 function edgeActionLabel(action) {
-  if (action === "strong_buy") return "STRONG BUY";
+  if (action === "strong_buy") return "BUY · LARGE GAP";
   if (action === "buy") return "BUY";
-  if (action === "strong_sell") return "STRONG SELL";
+  if (action === "strong_sell") return "SELL · LARGE GAP";
   if (action === "sell") return "SELL";
   return "HOLD";
 }
@@ -157,9 +157,9 @@ function PlayerEdgeTable({ opportunities }) {
               "Public market",
               "Public value",
               "Board − market",
-              "Edge",
-              "Signal",
-              "Confidence",
+              "Edge % (board vs market)",
+              "Threshold signal",
+              "Board confidence",
               "Public-friendly offer",
             ].map((label) => (
               <th

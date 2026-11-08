@@ -112,7 +112,7 @@ describe("Monte Carlo summary on /trade is a value-sensitivity check, never a ve
   });
   it("keeps the original wording off /trade", () => {
     expect(_renderPlainSummary({ winProbA: 0.9, nSims: 2000, bandSources: MEASURED }, sides).headline).toBe(
-      "Side A is the clear winner.",
+      "Side A led in most simulations.",
     );
   });
 });
