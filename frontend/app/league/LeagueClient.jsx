@@ -549,9 +549,7 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
   const managerCount = Array.isArray(league?.managers)
     ? league.managers.length
     : null;
-  const coverageDescription = league
-    ? `${seasonLabel === "—" ? "Season coverage unavailable" : `Seasons: ${seasonLabel}`} · ${managerCount === null ? "Manager coverage unavailable" : `${managerCount} managers`}`
-    : undefined;
+
 
   return (
     <section className={broadcast.page}>
@@ -560,7 +558,7 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
           <PageHeader
             eyebrow={(advisorTab && league?.leagueName) || "Chase Upside League"}
             title={advisorTab ? TRADE_ADVISOR_TITLE : league?.leagueName || "League"}
-            description={advisorTab ? TRADE_ADVISOR_SUBTITLE : coverageDescription}
+            description={advisorTab ? TRADE_ADVISOR_SUBTITLE : seasonLabel === "—" ? "Season coverage unavailable" : undefined}
           />
         </div>
         <aside className={broadcast.record} aria-label="Public league record">
