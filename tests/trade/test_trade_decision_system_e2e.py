@@ -247,8 +247,13 @@ class Env:
         }
 
 
-@pytest.fixture
-def env(tmp_path, monkeypatch):
+@pytest.fixture(scope="module")
+def _client(tmp_path_factory):
+    """ONE app boot for the module: registry, scoring snapshots, projection seam,
+    multi-team flag and the decision-log dir are static; everything a test can
+    change (board contract, postures, ad-hoc patches) is per-test in ``env``."""
+    tmp_path = tmp_path_factory.mktemp("e2e")
+    mp = pytest.MonkeyPatch()
     path = tmp_path / "registry.json"
     path.write_text(
         json.dumps(
@@ -274,11 +279,11 @@ def env(tmp_path, monkeypatch):
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    mp.setenv("LEAGUE_REGISTRY_PATH", str(path))
     league_registry.reload_registry()
-    _install_scoring_snapshots(tmp_path, monkeypatch, {"L-E2E": SCORING_CARD})
-    monkeypatch.setattr(server, "_is_authenticated", lambda r: True)
-    monkeypatch.setattr(
+    _install_scoring_snapshots(tmp_path, mp, {"L-E2E": SCORING_CARD})
+    mp.setattr(server, "_is_authenticated", lambda r: True)
+    mp.setattr(
         bbu,
         "league_scored_ppg_by_id",
         lambda ids, *, season, scoring_settings: (
@@ -286,22 +291,28 @@ def env(tmp_path, monkeypatch):
             {"state": "available", "source": "TEST_PROJECTIONS", "season": season},
         ),
     )
-    monkeypatch.setattr("src.bdvm.actuals.current_nfl_season", lambda today=None: 2026)
-    monkeypatch.setenv("RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS", "1")
+    mp.setattr("src.bdvm.actuals.current_nfl_season", lambda today=None: 2026)
+    mp.setenv("RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS", "1")
     feature_flags.reload()
-    monkeypatch.setenv("RISKIT_TRADE_DECISION_LOG_DIR", str(tmp_path / "decisions"))
-    contract = build_contract()
-    tl.clear_snapshot_memo()
+    mp.setenv("RISKIT_TRADE_DECISION_LOG_DIR", str(tmp_path / "decisions"))
     with TestClient(server.app, raise_server_exceptions=True) as client:
-        monkeypatch.setattr(server, "latest_contract_data", contract)
-        monkeypatch.setattr(
+        mp.setattr(
             server, "_get_auth_session", lambda r: {"username": "tester", "sleeper_user_id": "u1"}
         )
-        yield Env(client, contract, monkeypatch)
+        yield client
     tl.clear_snapshot_memo()
-    monkeypatch.delenv("RISKIT_FEATURE_TRADE_MULTI_TEAM_ANALYSIS", raising=False)
+    mp.undo()
     feature_flags.reload()
     league_registry.reload_registry()
+
+
+@pytest.fixture
+def env(_client, monkeypatch):
+    contract = build_contract()  # fresh board per test: price()/postures never leak
+    tl.clear_snapshot_memo()
+    monkeypatch.setattr(server, "latest_contract_data", contract)
+    yield Env(_client, contract, monkeypatch)
+    tl.clear_snapshot_memo()
 
 
 def _market(result):
@@ -785,14 +796,13 @@ def test_no_suitable_trades_is_an_explicit_empty_with_a_reason(env):
         roster=roster,
         league_rosters=[{"team_name": "Them", "players": [n for _p, n, _pos, _v in ROSTERS[2]]}],
     )
-    # Starter demand (RB x3 incl. flex, etc.) leaves nothing offerable.
-    total = sum(len(out[k]) for k in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades"))
-    if total == 0:
-        assert out["totalSuggestions"] == 0
-        assert out["metadata"]["noResultReason"]
-        assert out["metadata"]["noResultLabel"] == "No qualifying trade found"
-    else:  # still fine: reason must be absent when results exist
-        assert "noResultReason" not in out["metadata"]
+    # The league team's own roster takes the Team Weakness need path, and this
+    # board leaves nothing offerable: the empty answer is forced, and explained.
+    for k in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades"):
+        assert out[k] == []
+    assert out["totalSuggestions"] == 0
+    assert out["metadata"]["noResultReason"] == "no_offerable_surplus_in_quality_pool"
+    assert out["metadata"]["noResultLabel"] == "No qualifying trade found"
 
 
 def test_finder_with_no_resolvable_counterparty_explains_itself(env):
@@ -860,31 +870,30 @@ def test_a_model_discrepancy_is_never_called_an_acceptance_probability(env):
     )
 
 
-def test_every_engine_values_picks_in_aggregates_and_discloses_pick_policy(env):
-    # Analyze/Simulate: picks are inside the aggregate (see the total test).
-    # Finder: its pick policy is explicit metadata (applied + reason).
+def test_finder_publishes_an_explicit_pick_policy(env):
     out = env.post("/api/trade/finder", myTeam="Us", opponentTeams=["Them"])
-    assert "pickGeneration" in out["metadata"]
+    pg = out["metadata"]["pickGeneration"]
+    assert {"applied", "reason", "pickInclusiveReturned"} <= set(pg)
 
 
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "FINDING: /api/trade/suggestions evaluates roster-based dynasty trades but its response "
-        "metadata/rosterAnalysis states NO pick policy — picks are in the asset pool yet are never "
-        "offered or analysed, and nothing in the payload says so (the finder, by contrast, "
-        "publishes metadata.pickGeneration)."
+        "FINDING: /api/trade/suggestions has no pick-policy contract key. Owner directive "
+        "2026-11-08 s21: 'Do not silently omit draft picks from decision engines that are intended "
+        "to evaluate total dynasty assets'; CLAUDE.md C7-PICKGEN-01 rule 5: picks enter generated "
+        "trades only through a posture-aware generator. Suggestions never offers or analyses picks "
+        "and metadata carries no `pickGeneration` (the finder's contract key) stating why."
     ),
 )
-def test_suggestions_discloses_how_picks_are_treated(env):
+def test_suggestions_metadata_publishes_pick_generation(env):
     roster = [n for _p, n, _pos, _v in ROSTERS[1]]
     out = env.post(
         "/api/trade/suggestions",
         roster=roster,
         league_rosters=[{"team_name": "Them", "players": [n for _p, n, _pos, _v in ROSTERS[2]]}],
     )
-    blob = json.dumps(out["metadata"]).lower() + json.dumps(out["rosterAnalysis"]).lower()
-    assert "pick" in blob
+    assert {"applied", "reason"} <= set(out["metadata"]["pickGeneration"])
 
 
 def test_asset_only_mode_keeps_the_same_market_quantity(env):
