@@ -329,20 +329,15 @@
     "netPoints": -10.5978,
     "absPoints": 21.1978
    },
-   "source_data_disagreement:idp_tkl_ast": {
-    "playerWeeks": 68,
-    "netPoints": 40.7877,
-    "absPoints": 56.2499
-   },
-   "source_data_disagreement:idp_tkl_solo": {
-    "playerWeeks": 9,
-    "netPoints": 1.3256,
-    "absPoints": 11.9656
-   },
    "source_data_disagreement:st_tkl_solo": {
     "playerWeeks": 1,
     "netPoints": -1.33,
     "absPoints": 1.33
+   },
+   "source_data_disagreement:unattributed_solo_assist_split": {
+    "playerWeeks": 77,
+    "netPoints": 42.1133,
+    "absPoints": 68.2155
    }
   },
   "byClassAndPosition": {
@@ -600,7 +595,9 @@
     }
    }
   },
-  "totalMismatchingPlayerWeeks": 314
+  "totalMismatchingPlayerWeeks": 314,
+  "multiKeyRows": 29,
+  "note": "class and subclass are assigned by the DOMINANT differing key (largest |host - nflverse| points), not by cause; multiKey marks rows where more than one key differs"
  },
  "hostPaidKeysOnRosteredPlayerWeeks": {
   "bonus_fd_qb": {
@@ -891,7 +888,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -902,14 +900,15 @@
    "computed": 19.06,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +4.000 vs nflverse +5.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +4.000 vs nflverse +5.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      4.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -927,7 +926,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -940,7 +940,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -958,7 +959,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -976,7 +978,8 @@
      1.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -989,7 +992,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1000,14 +1004,15 @@
    "computed": 17.9111,
    "diff": 0.8011,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +3.000 vs nflverse +4.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +4.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1020,7 +1025,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1038,7 +1044,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1049,14 +1056,15 @@
    "computed": 8.49,
    "diff": -0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1074,7 +1082,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1087,7 +1096,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1105,7 +1115,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1123,7 +1134,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1136,7 +1148,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1154,7 +1167,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1172,7 +1186,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1183,14 +1198,15 @@
    "computed": 2.13,
    "diff": -1.33,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_solo",
-   "detail": "idp_tkl_solo: host +2.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_solo: host +2.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_solo": [
      2.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1208,7 +1224,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1219,8 +1236,8 @@
    "computed": 6.39,
    "diff": 0.53,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +4.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +4.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      4.0,
@@ -1230,7 +1247,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 1,
@@ -1248,7 +1266,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1266,7 +1285,8 @@
      3.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1284,7 +1304,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1295,14 +1316,15 @@
    "computed": 1.6,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1315,7 +1337,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1326,8 +1349,8 @@
    "computed": 5.86,
    "diff": 0.53,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +5.000 vs nflverse +4.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +4.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      5.0,
@@ -1337,7 +1360,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 1,
@@ -1348,14 +1372,15 @@
    "computed": 32.57,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1366,14 +1391,15 @@
    "computed": 6.66,
    "diff": -0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +6.000 vs nflverse +5.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +6.000 vs nflverse +5.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      6.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1391,7 +1417,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1409,7 +1436,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1427,7 +1455,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1445,7 +1474,8 @@
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1463,7 +1493,8 @@
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1481,7 +1512,8 @@
      6.0,
      8.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1499,7 +1531,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1512,7 +1545,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1534,7 +1568,8 @@
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 1,
@@ -1552,7 +1587,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1563,14 +1599,15 @@
    "computed": 14.65,
    "diff": -0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +11.000 vs nflverse +10.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +11.000 vs nflverse +10.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      11.0,
      10.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1588,7 +1625,8 @@
      6.0,
      7.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1601,7 +1639,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1619,7 +1658,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1632,7 +1672,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1650,7 +1691,8 @@
      2.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1668,7 +1710,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1679,14 +1722,15 @@
    "computed": 7.72,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1704,7 +1748,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1722,7 +1767,8 @@
      1.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1733,14 +1779,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1753,7 +1800,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 1,
@@ -1764,14 +1812,15 @@
    "computed": 21.53,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +7.000 vs nflverse +8.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +7.000 vs nflverse +8.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      7.0,
      8.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1789,7 +1838,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1807,7 +1857,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1825,7 +1876,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1843,7 +1895,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1856,7 +1909,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1867,14 +1921,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1887,7 +1942,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1905,7 +1961,8 @@
      4.0,
      6.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1923,7 +1980,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1936,7 +1994,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1954,7 +2013,8 @@
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1972,7 +2032,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -1990,7 +2051,8 @@
      0.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2001,14 +2063,15 @@
    "computed": 6.92,
    "diff": -0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      3.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2021,7 +2084,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2039,7 +2103,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2057,7 +2122,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2075,7 +2141,8 @@
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2088,7 +2155,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2099,8 +2167,8 @@
    "computed": 11.18,
    "diff": 0.53,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +5.000 vs nflverse +4.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +4.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      5.0,
@@ -2110,7 +2178,8 @@
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 2,
@@ -2121,14 +2190,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2146,7 +2216,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2168,7 +2239,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 2,
@@ -2186,7 +2258,8 @@
      3.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2204,7 +2277,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2222,7 +2296,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2240,7 +2315,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2258,7 +2334,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2271,7 +2348,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2282,14 +2360,15 @@
    "computed": 16.8722,
    "diff": 0.8022,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2307,7 +2386,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2325,7 +2405,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2343,7 +2424,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2361,7 +2443,8 @@
      4.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2372,14 +2455,15 @@
    "computed": 2.13,
    "diff": -1.33,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_solo",
-   "detail": "idp_tkl_solo: host +2.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_solo: host +2.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_solo": [
      2.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2390,14 +2474,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2408,14 +2493,15 @@
    "computed": 5.06,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2433,7 +2519,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2455,7 +2542,8 @@
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 2,
@@ -2477,7 +2565,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 2,
@@ -2490,7 +2579,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2508,7 +2598,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2526,7 +2617,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2539,7 +2631,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2557,7 +2650,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2579,7 +2673,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 2,
@@ -2597,7 +2692,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2615,7 +2711,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2626,14 +2723,15 @@
    "computed": 21.7056,
    "diff": 1.3256,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_solo",
-   "detail": "idp_tkl_solo: host +6.000 vs nflverse +7.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_solo: host +6.000 vs nflverse +7.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_solo": [
      6.0,
      7.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2644,8 +2742,8 @@
    "computed": 13.02,
    "diff": 0.53,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
@@ -2655,7 +2753,8 @@
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 2,
@@ -2673,7 +2772,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2695,7 +2795,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 2,
@@ -2713,7 +2814,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2724,14 +2826,15 @@
    "computed": 2.13,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2749,7 +2852,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2762,7 +2866,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 2,
@@ -2773,14 +2878,15 @@
    "computed": 14.35,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -2791,14 +2897,15 @@
    "computed": 4.78,
    "diff": 1.33,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_solo",
-   "detail": "idp_tkl_solo: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_solo: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_solo": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -2816,7 +2923,8 @@
      9.0,
      10.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -2829,7 +2937,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 3,
@@ -2851,7 +2960,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 3,
@@ -2864,7 +2974,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 3,
@@ -2882,7 +2993,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -2900,7 +3012,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -2911,14 +3024,15 @@
    "computed": 5.84,
    "diff": -0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      3.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -2929,8 +3043,8 @@
    "computed": 3.99,
    "diff": 0.53,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +0.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +0.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
@@ -2940,7 +3054,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 3,
@@ -2958,7 +3073,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -2969,8 +3085,8 @@
    "computed": 24.2,
    "diff": 0.53,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +10.000 vs nflverse +9.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +10.000 vs nflverse +9.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      10.0,
@@ -2980,7 +3096,8 @@
      7.0,
      8.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 3,
@@ -2993,7 +3110,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3004,14 +3122,15 @@
    "computed": 11.69,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3022,14 +3141,15 @@
    "computed": 1.6,
    "diff": 1.6,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3040,14 +3160,15 @@
    "computed": 4.0,
    "diff": 1.6,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +3.000 vs nflverse +5.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +5.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      3.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3058,14 +3179,15 @@
    "computed": 9.3,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3083,7 +3205,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3094,14 +3217,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3114,7 +3238,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3132,7 +3257,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3154,7 +3280,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 3,
@@ -3172,7 +3299,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3190,7 +3318,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3208,7 +3337,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3226,7 +3356,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3244,7 +3375,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3266,7 +3398,8 @@
      2.0,
      5.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 3,
@@ -3284,7 +3417,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3302,7 +3436,8 @@
      2.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3320,7 +3455,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3338,7 +3474,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3351,7 +3488,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3369,7 +3507,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3387,7 +3526,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3405,7 +3545,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3418,7 +3559,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3436,7 +3578,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3447,14 +3590,15 @@
    "computed": 3.46,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3465,14 +3609,15 @@
    "computed": 5.57,
    "diff": -0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +0.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +0.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3490,7 +3635,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3503,7 +3649,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3516,7 +3663,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3534,7 +3682,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3552,7 +3701,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3570,7 +3720,8 @@
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3581,14 +3732,15 @@
    "computed": 8.4333,
    "diff": 0.8033,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3606,7 +3758,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3624,7 +3777,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3642,7 +3796,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3653,14 +3808,15 @@
    "computed": 4.26,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3671,14 +3827,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3689,14 +3846,15 @@
    "computed": 6.66,
    "diff": 1.6,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +3.000 vs nflverse +5.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +5.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      3.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3709,7 +3867,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 3,
@@ -3720,14 +3879,15 @@
    "computed": 6.37,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3745,7 +3905,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3763,7 +3924,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3781,7 +3943,8 @@
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3799,7 +3962,8 @@
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3812,7 +3976,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3823,8 +3988,8 @@
    "computed": 12.48,
    "diff": 0.53,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
@@ -3834,7 +3999,8 @@
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 4,
@@ -3852,7 +4018,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3870,7 +4037,8 @@
      2.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3892,7 +4060,8 @@
      4.0,
      5.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 4,
@@ -3910,7 +4079,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3923,7 +4093,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3934,14 +4105,15 @@
    "computed": 5.86,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +3.000 vs nflverse +4.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +4.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3959,7 +4131,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3970,14 +4143,15 @@
    "computed": 14.33,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -3995,7 +4169,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4006,14 +4181,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4026,7 +4202,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4044,7 +4221,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4062,7 +4240,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4075,7 +4254,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4093,7 +4273,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4111,7 +4292,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4122,14 +4304,15 @@
    "computed": 16.5,
    "diff": 1.33,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_solo",
-   "detail": "idp_tkl_solo: host +5.000 vs nflverse +6.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_solo: host +5.000 vs nflverse +6.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_solo": [
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4140,14 +4323,15 @@
    "computed": 19.8244,
    "diff": 0.8044,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4165,7 +4349,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4183,7 +4368,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4201,7 +4387,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4212,14 +4399,15 @@
    "computed": 7.72,
    "diff": -1.33,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_solo",
-   "detail": "idp_tkl_solo: host +5.000 vs nflverse +4.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_solo: host +5.000 vs nflverse +4.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_solo": [
      5.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4237,7 +4425,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4255,7 +4444,8 @@
      6.0,
      7.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4277,7 +4467,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 4,
@@ -4295,7 +4486,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4313,7 +4505,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4331,7 +4524,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4349,7 +4543,8 @@
      0.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4362,7 +4557,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4373,14 +4569,15 @@
    "computed": 10.12,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +5.000 vs nflverse +6.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +6.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4398,7 +4595,8 @@
      6.0,
      7.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4409,14 +4607,15 @@
    "computed": 3.46,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4434,7 +4633,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4447,7 +4647,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4465,7 +4666,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4478,7 +4680,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4496,7 +4699,8 @@
      3.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4509,7 +4713,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4520,14 +4725,15 @@
    "computed": 11.45,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +5.000 vs nflverse +6.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +6.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4538,14 +4744,15 @@
    "computed": 2.4,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4567,7 +4774,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 4,
@@ -4578,14 +4786,15 @@
    "computed": 1.6,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4603,7 +4812,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4621,7 +4831,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4639,7 +4850,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4657,7 +4869,8 @@
      0.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4679,7 +4892,8 @@
      6.0,
      7.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 4,
@@ -4697,7 +4911,8 @@
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4715,7 +4930,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4728,7 +4944,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 4,
@@ -4746,7 +4963,8 @@
      5.0,
      7.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4757,14 +4975,15 @@
    "computed": 17.9367,
    "diff": 0.7967,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +4.000 vs nflverse +5.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +4.000 vs nflverse +5.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      4.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4786,7 +5005,8 @@
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 5,
@@ -4804,7 +5024,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4817,7 +5038,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4835,7 +5057,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4853,7 +5076,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4866,7 +5090,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4884,7 +5109,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4897,7 +5123,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4915,7 +5142,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4926,14 +5154,15 @@
    "computed": 6.92,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4951,7 +5180,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -4973,7 +5203,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 5,
@@ -4995,7 +5226,8 @@
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 5,
@@ -5013,7 +5245,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5024,14 +5257,15 @@
    "computed": 3.99,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5044,7 +5278,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5066,7 +5301,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 5,
@@ -5077,14 +5313,15 @@
    "computed": 16.5,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +4.000 vs nflverse +5.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +4.000 vs nflverse +5.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      4.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5102,7 +5339,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5120,7 +5358,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5138,7 +5377,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5156,7 +5396,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5174,7 +5415,8 @@
      3.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5192,7 +5434,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5210,7 +5453,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5228,7 +5472,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5239,14 +5484,15 @@
    "computed": 18.4311,
    "diff": 1.6011,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5264,7 +5510,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5275,14 +5522,15 @@
    "computed": 6.39,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5293,14 +5541,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5311,14 +5560,15 @@
    "computed": 12.49,
    "diff": -0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      3.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5336,7 +5586,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5354,7 +5605,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5365,14 +5617,15 @@
    "computed": 3.72,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5385,7 +5638,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5403,7 +5657,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5421,7 +5676,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5434,7 +5690,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5447,7 +5704,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5465,7 +5723,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5478,7 +5737,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5496,7 +5756,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5514,7 +5775,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5525,14 +5787,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5550,7 +5813,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5561,14 +5825,15 @@
    "computed": 6.92,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5590,7 +5855,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 5,
@@ -5612,7 +5878,8 @@
      0.0,
      2.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 5,
@@ -5625,7 +5892,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 5,
@@ -5643,7 +5911,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5661,7 +5930,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5674,7 +5944,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5692,7 +5963,8 @@
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5705,7 +5977,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5723,7 +5996,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5741,7 +6015,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5752,14 +6027,15 @@
    "computed": 7.17,
    "diff": 1.6,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5777,7 +6053,8 @@
      2.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5790,7 +6067,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5801,14 +6079,15 @@
    "computed": 18.3989,
    "diff": -0.8011,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +3.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      3.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5821,7 +6100,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5839,7 +6119,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5850,14 +6131,15 @@
    "computed": 15.13,
    "diff": -0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +5.000 vs nflverse +4.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +5.000 vs nflverse +4.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      5.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5875,7 +6157,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5886,14 +6169,15 @@
    "computed": 17.52,
    "diff": 1.33,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_solo",
-   "detail": "idp_tkl_solo: host +5.000 vs nflverse +6.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_solo: host +5.000 vs nflverse +6.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_solo": [
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5911,7 +6195,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5922,8 +6207,8 @@
    "computed": 8.23,
    "diff": -0.53,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      1.0,
@@ -5933,7 +6218,8 @@
      2.0,
      1.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 6,
@@ -5946,7 +6232,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_join_miss",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5957,14 +6244,15 @@
    "computed": 6.12,
    "diff": -1.33,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_solo",
-   "detail": "idp_tkl_solo: host +5.000 vs nflverse +4.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_solo: host +5.000 vs nflverse +4.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_solo": [
      5.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -5982,7 +6270,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6004,7 +6293,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 6,
@@ -6022,7 +6312,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6040,7 +6331,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6051,14 +6343,15 @@
    "computed": 17.55,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +6.000 vs nflverse +7.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +6.000 vs nflverse +7.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      6.0,
      7.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6076,7 +6369,8 @@
      4.0,
      5.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6087,14 +6381,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6112,7 +6407,8 @@
      2.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6123,14 +6419,15 @@
    "computed": 2.4,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6143,7 +6440,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6161,7 +6459,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6179,7 +6478,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6192,7 +6492,8 @@
    "class": "incorrect_player_identity",
    "subclass": "identity_name_collision_dropped",
    "detail": "name key did not resolve to one nflverse player",
-   "keysDiffer": {}
+   "keysDiffer": {},
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6210,7 +6511,8 @@
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6228,7 +6530,8 @@
      3.0,
      4.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6250,7 +6553,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": true
   },
   {
    "week": 6,
@@ -6261,14 +6565,15 @@
    "computed": 9.05,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +2.000 vs nflverse +3.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6279,14 +6584,15 @@
    "computed": 8.5,
    "diff": 1.33,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_solo",
-   "detail": "idp_tkl_solo: host +1.000 vs nflverse +2.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_solo: host +1.000 vs nflverse +2.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_solo": [
      1.0,
      2.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6304,7 +6610,8 @@
      5.0,
      6.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6322,7 +6629,8 @@
      2.0,
      3.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6333,14 +6641,15 @@
    "computed": 0.8,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6351,14 +6660,15 @@
    "computed": 7.98,
    "diff": 0.8,
    "class": "source_data_disagreement",
-   "subclass": "idp_tkl_ast",
-   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points",
+   "subclass": "unattributed_solo_assist_split",
+   "detail": "idp_tkl_ast: host +0.000 vs nflverse +1.000 points; cause not established (provider split or special-teams assists)",
    "keysDiffer": {
     "idp_tkl_ast": [
      0.0,
      1.0
     ]
-   }
+   },
+   "multiKey": false
   },
   {
    "week": 6,
@@ -6376,7 +6686,8 @@
      1.0,
      0.0
     ]
-   }
+   },
+   "multiKey": false
   }
  ],
  "wideSampleBdvmImpact": {

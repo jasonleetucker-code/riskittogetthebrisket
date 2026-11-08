@@ -305,11 +305,19 @@ def test_special_teams_assists_are_not_paid_as_defensive_assists():
     assert got == pytest.approx(0.8, abs=ABS)  # only the one defensive assist: 1 x 0.80
 
 
+def _def_stats_are_ungated() -> bool:
+    """True once a position-less row pays defensive stats (PR #1938's behaviour)."""
+    row = {"season": 2026, "week": 1, "def_tackles_solo": 3, PBP_SUPPLEMENT_ROW_KEY: {}}
+    res = compute_weekly_points(row, CARD)
+    return res is not None and res.fantasy_points > 0
+
+
 @pytest.mark.xfail(
-    strict=False,  # PR #1938 un-gates def_* for every row and so XPASSes this by accident
+    not _def_stats_are_ungated(),  # main only: becomes a plain test once #1938 lands
+    strict=True,
     reason="SCORING-PARITY-TAXONOMY F2: a row with no position silently drops every def_* "
     "stat to 0 with nothing in `unscored` (MISSING IS NEVER ZERO). The 6 position-less rows of "
-    "6,488 (2026 wk1-6) are nameless and skipped upstream, so measured impact is nil: latent.  Non-strict on purpose: #1938 resolves it incidentally, and a strict marker would break that PR's CI.",
+    "6,488 (2026 wk1-6) are nameless and skipped upstream, so measured impact is nil: latent.  The marker applies only while the defect exists, so #1938 landing turns it into a plain passing test.",
 )
 def test_a_row_with_no_position_does_not_silently_score_defensive_stats_as_zero():
     row = {"season": 2026, "week": 1, "def_tackles_solo": 3, PBP_SUPPLEMENT_ROW_KEY: {}}

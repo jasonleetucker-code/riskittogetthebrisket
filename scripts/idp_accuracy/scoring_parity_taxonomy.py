@@ -196,7 +196,18 @@ def classify_exception(
             "special_teams_assists_lumped",
             "nflverse def_tackle_assists includes ST assists; supplement carries no st_tkl_ast",
         )
-    # 5. everything else is the two providers disagreeing about a counted stat
+    # 5. a solo/assist count difference with no independent evidence of its cause.  The
+    #    special-teams-assist rule above keys on a special-teams SOLO count (a PROXY: the
+    #    supplement carries no assist evidence), so rows landing here may be the same
+    #    special-teams-assist defect; they are labelled as unattributed rather than as proven
+    #    provider disagreement.
+    if dom in ("idp_tkl_ast", "idp_tkl_solo"):
+        return (
+            "source_data_disagreement",
+            "unattributed_solo_assist_split",
+            f"{dom}: host {host_pts:+.3f} vs nflverse {nfl_pts:+.3f} points; cause not "
+            "established (provider split or special-teams assists)",
+        )
     return (
         "source_data_disagreement",
         dom,
@@ -291,6 +302,7 @@ def build_taxonomy() -> dict[str, Any]:
                 "subclass": sub,
                 "detail": detail,
                 "keysDiffer": e.get("keysDifferHostVsNflverse") or {},
+                "multiKey": len(e.get("keysDifferHostVsNflverse") or {}) > 1,
             }
         )
 
@@ -362,6 +374,10 @@ def build_taxonomy() -> dict[str, Any]:
             "byClassAndPosition": {c: dict(v) for c, v in by_class_pos.items() if v},
             "bySide": by_side,
             "totalMismatchingPlayerWeeks": len(classified),
+            "multiKeyRows": sum(1 for c in classified if c["multiKey"]),
+            "note": "class and subclass are assigned by the DOMINANT differing key (largest "
+            "|host - nflverse| points), not by cause; multiKey marks rows where more than one "
+            "key differs",
         },
         "hostPaidKeysOnRosteredPlayerWeeks": paid_keys,
         "mismatches": classified,

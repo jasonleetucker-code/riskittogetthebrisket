@@ -88,9 +88,14 @@ Exact-match rate by position (joined, scored):
 | incorrect_player_identity : identity_join_miss / name_collision_dropped | 28 / 25 | name key does not resolve to exactly one nflverse player; production drops colliding names by design (-561.3 host pts unmatched, mostly DBs) | open, by design |
 | irreconcilable_provider_semantics : special_teams_assists_lumped | 16 -> 18 | nflverse `def_tackle_assists` includes special-teams assists the host does not pay; the supplement has no `st_tkl_ast` | open |
 | irreconcilable_provider_semantics : non_idp_listed_assists_inseparable | 5 | same cause on non-IDP-listed players; with the gate repaired the assist can be neither paid nor withheld correctly | open (the deliberate residual in #1938) |
-| source_data_disagreement : idp_tkl_ast / idp_tkl_solo | 68 / 9 | gamebook solo/assist split differs between providers (+40.8 / +1.3 net) | open |
+| source_data_disagreement : unattributed_solo_assist_split | 77 (68 assist + 9 solo) | a solo/assist count differs and no independent evidence says why: a provider gamebook split, **or the same special-teams-assist defect as F1** (+42.1 net pts). Not proven provider disagreement | open |
 | source_data_disagreement : idp_hit / idp_pd | 8 / 4 | QB-hit and pass-defended charting differ (-14.8 / -10.6) | open |
 | source_data_disagreement : bonus_fd_wr / st_tkl_solo | 1 / 1 | provider first-down / special-teams tackle charting | open |
+
+**Two caveats on attribution (independent review).**
+
+1. *The assist split is a proxy.* The `special_teams_assists_lumped` rows (16 / 18) are identified by a special-teams SOLO tackle count in the supplement, which is not assist evidence; the supplement has no assist data. The 77 `unattributed_solo_assist_split` rows (68 assist-dominant, 9 solo-dominant) are therefore an upper bound on how many more rows are really F1: up to 77 of the 91 `source_data_disagreement` rows may be the same defect, and the true split between provider disagreement and F1 is unknown until an `st_tkl_ast` key exists.
+2. *Counts are by dominant key, not cause.* Class and subclass are assigned from the single key with the largest |host - nflverse| points. Rows where several keys differ (29 on main, 8 after #1938; `multiKey` in the evidence; 8 of them in the unattributed split) are counted once under that key. A solo-to-assist reclassification, for example, appears under whichever of the two moved more points.
 
 No mismatch was `rounding`, `unavailable_evidence` or `unexplained`. The classifier is a function of the
 row's own evidence (key differences, supplement counts, listings), never the player; its branches are
@@ -123,7 +128,7 @@ player in 2026 wk 1-6.
 * **F2** `test_a_row_with_no_position_does_not_silently_score_defensive_stats_as_zero`: a row with no
   position scores every `def_*` stat 0 with nothing in `unscored` (missing is never zero). Latent: the 6 of
   6,488 position-less rows are nameless and skipped upstream. Plain bug outside #1938's stated scope, but #1938 un-gates `def_*` for every row and so resolves it
-  incidentally (verified: the test XPASSes on #1938's tree), hence a non-strict xfail so it cannot break that PR's CI.
+  incidentally (verified on #1938's tree), hence an xfail conditioned on main only, so it becomes a plain passing test automatically once #1938 lands.
 
 ## 4. Downstream impact on BDVM in-season values (descriptive)
 
