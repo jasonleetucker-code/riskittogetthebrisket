@@ -11,6 +11,14 @@ canonical playoff owner. Neither changes a number any live league gets today.
 | Draft-slot distribution (same run) | Owner decision 2026-10-04 (`docs/picks/DRAFT_ORDER_RULE.md`, `config/leagues/draft_order_rules.json`): worst record picks first; teams tied on record go by lower Points For, recursively; the record is head-to-head with ties as half a win (`DRAFT_ORDER_RECORD_BASIS`). A league with no recorded rule gets no forecast. | Same payload, read by the pick projector and `src/trade/pick_market.py` |
 | Game Day Win Matchup % / Beat League Median %, `src/ros/game_day_sim.py` | `docs/GAME_DAY_PROBABILITY_SPEC.md` §§2–3, 6, 8–9: one joint draw per iteration and a per-draw middle-two median, where landing exactly on it is a tie. Banked points are certain; only the remainder is drawn. Must never publish fabricated 0% or 50% (`NOT_APPLICABLE`, `STANDINGS_RULE_UNVERIFIED`, `UNSIMULABLE`). | `GET /api/matchup/intel` calls `matchup_intel.run_league_simulation`, then `get_cached_league_week_simulation`. `game_day_live_game_state` and `sleeper_weekly_projections` are LIVE. |
 
+## Relationship to #2135 / #2143 (merged)
+Written in parallel with PRs #2135 and #2143, which merged `tests/ros/test_probability_oracles.py` (test-only
+oracles for `playoff_sim`, draft slots and Game Day). That file is NOT the sole coverage and neither is this one.
+The two sets use different, independently written oracles and fixtures over the same engines (this PR adds 8-team
+and fixed-bracket enumeration, metamorphic checks, the closed-form PF tiebreak and exchangeable-league Game Day
+cases), so they cross-check each other; no test here repeats a merged case verbatim. What only this PR adds is the
+two production repairs below and their regression tests.
+
 ## Files
 - `tests/ros/test_playoff_probability_oracles.py`: 29 tests, independent.
 - `tests/game_day/test_game_day_probability_oracles.py`: 9 tests, independent.
