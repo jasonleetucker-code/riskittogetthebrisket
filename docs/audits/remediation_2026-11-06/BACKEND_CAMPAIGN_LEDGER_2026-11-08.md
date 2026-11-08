@@ -3,59 +3,36 @@
 The one integrated implementation and verification ledger required by §29 of
 `docs/owner/BACKEND_MASTER_IMPLEMENTATION_DIRECTIVE_2026-11-08.md`. It lives in the existing remediation folder and
 reuses canonical IDs: the P1 ledger (`P1_LEDGER.md`) and the intake rows MD-97 … MD-115. It does not open a second
-denominator. A row moves only on evidence. Verification states used below:
-- implemented locally / tested locally;
-- TESTED_IN_PR / reviewed;
-- MERGED / DEPLOYED / VERIFIED_IN_PRODUCTION;
-- RESEARCH_COMPLETE_NOT_PROMOTED.
+denominator. A row moves only on evidence. The states run: implemented → TESTED_IN_PR → reviewed → MERGED → DEPLOYED
+→ VERIFIED_IN_PRODUCTION, plus RESEARCH_COMPLETE_NOT_PROMOTED for evaluations.
 
-**As of 2026-11-08 ~11:30Z** (campaign start; Phase 0 baseline). Workers active:
-- A: team-points calibration evaluation (`claude/team-points-calibration-eval`);
-- B: source-ingestion contracts (`claude/source-ingestion-contracts`);
-- C: injury attribution and FAAB unknown balance (`claude/injury-attribution-faab-unknown`).
-
-The coordinator handles records, forced-drop coverage, CI and the league-rule checks.
-
-## Phase 0 baseline (verified 2026-11-08)
-- **main and production:**
-  - production `f8da14ef8` verified with #2149 live: `playoffOdds.divisionOdds` available, recorded rule stamped;
-  - #2150 deployed (`923f7b4c8`);
-  - #2152 deploy in progress (`464662bdf`);
-  - #2151 merged (`486b4da21`, skip budget 10);
-  - #2154 merged (`ab3672210`);
-  - #2153 records merged (`336f81301`).
-- **CI:** PR Validation ~18–20 min, 8 shards, completeness proof; 34,686 collected / 10 skipped / budget 10.
-  - Ruleset `main-protection` has only `deletion` + `non_fast_forward` rules, so **no status check is required**.
-- **P1 ledger:** 56 CLOSED_VERIFIED / 15 PARTIAL / 10 OPEN / 4 owner decisions (85). The campaign rows below cite their IDs.
-- **Open PRs outside the campaign:**
-  - #1884, #1873, #1852 and #1513 are conflicting and protected;
-  - #1938 is owner-reserved;
-  - #2132 and #2112 are frontend-owned and not touched;
-  - #2116 and #1755 are docs;
-  - there are also Dependabot PRs.
+**Checkpoint 2026-11-08 ~13:05Z.** Production `486b4da21` (verified: #2149 division odds live; 34,701-test deploy gate
+with 10 skips against a budget of 10). A deploy of `73320356e` is pending; it carries #2156, #2157, #2158 and #2162. Every
+merged PR was independently reviewed and passed exact-tree PR Validation (8 shards + completeness proof).
 
 ## Matrix
-| P | Work item | Root cause (evidence) | Current state | Implementation / PR | Canonical owner | Authorization | Remaining blocker |
-|---|---|---|---|---|---|---|---|
-| 1 | MD-97 / RPA-LGI-008 | `fallback-constants` points model; simulated team means 117–524 vs realized 241–436, spread about 2.3× (MATH_AUDIT F2) | evaluation infrastructure in progress | worker A: pre-registration, point-in-time evaluation, gates; no served change | `src/ros/playoff_sim.py`, `src/league_intel/sim_calibration.py`, `src/ros_calibration/` | evaluation authorized; promotion gated | owner promotion decision only if a challenger passes |
-| 2 | MD-98 / #1938 / IDP scorer parity | nflverse path matched ~91.8% of host player-weeks (~96.4% with #1938) | not started this campaign | taxonomy plus category tests; #1938 prepared for decision | `src/nfl_data/realized_points.py`, `src/league_intel/scorer.py` | research and tests authorized; #1938 merge owner-reserved | owner decision on #1938 |
-| 3 | MD-99 / W05-F003, W05-F004 | header probe covers 4 sources; header-only CSV skipped silently; 9 / 27 sources lack a floor | in progress (worker B) | schema, header and population contracts; evidence-derived floors; source-health lane | `src/api/data_contract.py` validation, source CSV readers | authorized | — |
-| 4 | MD-100 | no required status checks on main | verified; owner action prepared (`SESSION_HANDOFF.md`) | automated detections where missing | `.github/workflows/*`, `scripts/check_pr_verification_receipt.py`, `scripts/ci_test_shards.py` | detection authorized; rule change owner-only | owner adds required checks with scoped bypass |
-| 5 | MD-101 / W24-F001 | 240 forced-drop draws reclassified, not exercised; 3 real-roster tests skip (33 MB cache absent) | skips 261 → 10, budget 10 (#2151 merged) | deterministic applicable draws (coordinator); trimmed real-roster fixture | `tests/trade/test_forced_drop_selection.py`, `scripts/ci_test_shards.py` | authorized | — |
-| 6 | MD-102 | blanket division refusal (fixed) | #2149 VERIFIED_IN_PRODUCTION | verification of the remaining questions (median game in draft order, payout tiebreaker, Sleeper setting) | `src/public_league/playoff_structure.py`, `config/leagues/playoff_rules.json`, `src/public_league/draft_order.py` | authorized | owner answers on governance rules not provable from evidence |
-| 7 | MD-103 | backup restore never proven (MASTER_CORRECTNESS MD-83) | not started this campaign | backup manifest / checksum validation and a scratch restore drill (needs box access for production) | `deploy/`, backup scripts | authorized; operator steps on the box owner-run | box / operator access |
-| 8 | MD-104 | forecast families evaluated piecemeal | not started | extend the existing archives (`forecast_archive`, `game_day_archive`, `pick_forecast_snapshot`) with scorecards | `src/ros/forecast_archive.py` et al. | authorized | outcomes accrue over time |
-| 9 | MD-105 | engine read an unknown own balance as the full budget (latent; routes guard) | in progress (worker C) | engine-level unknown state; end-to-end waiver workflow tests | `src/trade/faab_engine.py`, `src/trade/waiver.py`, `src/waivers/` | authorized | — |
-| 10 | MD-106 / #1884 | outlier and voting evidence incomplete | not started | reproducible comparisons only | `src/api/data_contract.py` voting, #1884 branch (read-only) | research authorized; promotion gated | gates |
-| 11 | MD-107 | fixed synthetic Monte Carlo band | not started | empirical candidates on held-out data, else unavailable | `src/trade/monte_carlo.py` | research authorized | — |
-| 12 | MD-108 | vendor auction dollars normalized over different populations | not started | common normalization or an explicit non-comparable state | `src/draft/` | authorized | — |
-| 13 | MD-109 | BDVM about 570 / 676 STRONG_SELL | not started | diagnosis plus challenger evaluation | `src/bdvm/market.py` | research authorized; promotion gated | gates |
-| 14 | MD-110 / W21-F001 | contract headline classified as injury → 0.9616 discount | in progress (worker C) | classification and attribution only; methodology unchanged | `src/api/injury_impact.py` | authorized (classification) | — |
-| 15 | MD-111 | competing team-direction classifiers (disagree on 9 / 12) | not started | canonical schemas; migrate consumers | `src/roster_intel/window.py` (posture owner), team strength owners | authorized | — |
-| 16 | MD-112 | decision engines not one system | not started | end-to-end acceptance cases | `src/trade/*` | authorized; public advisor off | — |
-| 17 | MD-113 | IDP / two-TE market gaps | not started | league-aware candidates; evidence for open methodology | `src/trade/finder.py`, `src/league_intel/te_premium.py` | authorized (no multipliers) | — |
-| 18 | MD-114 | `/api/public/league` about 2.7 MB | not started this campaign | section-targeted additive contracts; authenticated measurements | `src/public_league/public_contract.py`, `server.py` routes | authorized | — |
-| 19 | MD-115 | many stale worktrees and PRs | 43 worktrees removed (about 114 GB), 53 preserved; protected PRs untouched | PR dispositions; proven dead code | repo | authorized; protected PRs untouched | owner on protected PRs |
+| P | Work item | Root cause (evidence) | State | PR / SHA | Canonical owner | Authorization / remaining blocker |
+|---|---|---|---|---|---|---|
+| 1 | MD-97 / RPA-LGI-008 | Served team-points model: `rosValue/2.7` with no intercept (first on bias / MAE), ROS multiplier double count (first on spread: 1.01 → 1.85), no availability, sd too narrow. Point-in-time incumbent CRPS 69.0 vs 29–32 for every simple challenger, overconfident. | RESEARCH_COMPLETE_NOT_PROMOTED: no challenger passed every pre-registered gate (one gate-design flaw disclosed); incumbent stays | #2161 (reviewed; merging) | `src/ros/playoff_sim.py`, `src/ros_calibration/team_points.py` | **Owner:** activate `playoff_ros_counted_once` (existing held flag), and/or approve a new pre-registered study on week 9+ |
+| 2 | MD-98 / #1938 | nflverse path 91.6% within 0.01 of host. 137 implementation-error rows (IDP gate at `realized_points.py:696`, ST tackle double count at `:708`), all fixed by #1938 (96.2%). New strict finding F1: special-teams assists paid as defensive assists. | RESEARCH_COMPLETE + 127 category tests | #2162 `73320356e` MERGED | `src/nfl_data/realized_points.py`, `src/league_intel/scorer.py` | **Owner:** #1938 merge decision (brief in `docs/league-intelligence/SCORING_PARITY_TAXONOMY_2026-11-08.md`) |
+| 3 | MD-99 / W05-F003, W05-F004 | Header probe covered 4 / 27 sources; header-only CSVs silent; 9 sources had no floor | TESTED_IN_PR, reviewed. All 27 probed; named `source_ingest_failure`; evidence-derived floors; healthy-board parity 1102 / 1102 | #2159 (CI re-running after the skip-budget catch) | `src/api/data_contract.py` ingestion contract | authorized |
+| 4 | MD-100 | No required status checks on main (ruleset has deletion + non-fast-forward only) | MERGED: protected-methodology detection in the receipt check (21 protected files) | #2157 `e239245c0` | `scripts/check_pr_verification_receipt.py`, `config/ci/protected_methodology_paths.json` | **Owner:** add required checks (`Validate PR`, `Receipt check`) with scoped automation bypass |
+| 5 | MD-101 / W24-F001 | Forced-drop sweeps ran whatever share of seeds applied (taxi 76 / 240) | MERGED: every sweep at its full applicable target (+241 real cases); the skip budget caught a new skip on #2159 and the test was restored | #2156 `658ca7d17`, #2151 `486b4da21` (DEPLOYED) | `tests/trade/test_forced_drop_selection.py`, `scripts/ci_test_shards.py` | 3 real-roster skips need a trimmed fixture (the cache is 33 MB) |
+| 6 | MD-102 | #2149 resolved division-title ties with an assumed tiebreaker | MERGED: tiebreaker unconfirmed, so ties are reported and never resolved; draft-order basis marked provisional | #2158 `b6878891e`; #2149 VERIFIED_IN_PRODUCTION | `src/public_league/playoff_structure.py`, `config/leagues/playoff_rules.json` | **Owner:** payout tiebreaker; median games in draft order (#1712) |
+| 7 | MD-103 | — | VERIFIED: `retention-backup-proof.yml` runs the real backup and restores after each deploy (successes 10:46Z, 11:11Z). Production backup health shows 14 generations in each root. External probe: private / admin endpoints return 401, no foreign CORS, HSTS / nosniff / frame-ancestors / referrer-policy present. | `src/api/backup_health.py`, `deploy/backup/` | **Gap:** backup health does not surface the restore-proof result (follow-up) |
+| 8 | MD-104 | Forecast families evaluated piecemeal | NOT STARTED this checkpoint | — | `src/ros/forecast_archive.py` et al. | outcomes accrue |
+| 9 | MD-105 | Engine read an unknown own balance as the full budget; advisor / streaming / perfect published budget-capped bids for an unknown balance | TESTED_IN_PR, reviewed (fixes in): engine unknown state; publish layers null the bids; the end-to-end suite found W-1 … W-4 | #2160 (CI), #2165 (tests; merges after #2160 with the W-1/W-2/W-3 flips) | `src/trade/faab_engine.py`, `src/waivers/*`, `src/trade/perfect_waivers.py` | W-4 (streaming lists IDP in offense-only leagues) needs a fix PR |
+| 10 | MD-106 / #1884 | — | NOT STARTED | — | voting / outlier owners | research only |
+| 11 | MD-107 | Fixed synthetic Monte Carlo band | NOT STARTED | — | `src/trade/monte_carlo.py` | research |
+| 12 | MD-108 / W10-F004 | Vendor dollars normalized over each vendor's own partial list | TESTED_IN_PR, reviewed (fixes in): intersection-budget rule, order-only, explicit non-comparable states | #2164 (CI) | `src/draft/vendor_comparison.py` | frontend handoff (comparable fields) |
+| 13 | MD-109 | BDVM directional signal: scale mismatch (fundamental totals 44% of market), single-max anchor; proxy-only inputs | RESEARCH_COMPLETE_NOT_PROMOTED: incumbent shows no directional skill (IC −0.015, CI spans 0); challengers fail | #2163 (CI) | `src/bdvm/market.py` | **Owner:** anchor / γ choice; real projection sources first |
+| 14 | MD-110 / W21-F001 | Contract, dropped-in-leagues and ranking headlines reached the injury multiplier (Terminal `injuryAdjustedValue` only; canonical values untouched) | TESTED_IN_PR, reviewed (fixes in): attribution + classification; on the fixture, 29 → 3 discounts, all genuine | #2160 (CI) | `src/api/injury_evidence.py`, `src/api/injury_impact.py` | multiplier methodology stays owner-gated |
+| 15 | MD-111 | Four classifiers disagree on 9 / 12 teams, mostly concept drift (BDVM horizon mix); Terminal `totalValue` silently excluded picks | TESTED_IN_PR, reviewed (fixes in): census, schema, `team_equity` owner, concept stamps | #2166 (CI) | `src/roster_intel/window.py`, `src/roster_intel/team_equity.py` | consolidation needs an owner decision on public vocabulary; frontend handoff |
+| 16 | MD-112 | — | TESTED_IN_PR (36 tests); findings: unpriced player `value: 0` in simulate / analyze asset records; suggestions has no pick-policy disclosure | #2167 (CI) | `src/api/trade_simulator.py`, `src/trade/suggestions.py` | fix PR for the two findings |
+| 17 | MD-113 | — | NOT STARTED | — | `src/trade/finder.py`, `src/league_intel/te_premium.py` | — |
+| 18 | MD-114 | `/api/public/league` about 2.7 MB | NOT STARTED this checkpoint (sitemap / weeklyRecap savings shipped 2026-11-08 under MD-82) | — | `src/public_league/public_contract.py` | needs a frontend consumer for section contracts |
+| 19 | MD-115 | — | 43 worktrees removed (about 114 GB), with preservation and bundles; protected PRs (#1884, #1873, #1852, #1513, #1938) untouched; feature census regenerated | — | repo | **Owner:** 21 dirty and about 26 local-commit worktrees to review |
 
-**Rollback (per row):** every PR is a squash commit, reverted with `git revert <sha>`. No campaign row changes
-canonical values or activates a flag; any later row that does carries its own pinned before / after comparison.
+**Rollback (every row):** squash commits revert with `git revert <sha>`. No campaign PR changed a canonical value or activated
+a flag. #2160 changes Terminal `injuryAdjustedValue` for misattributed rows only (a defect fix). #2158 changes the meaning of
+division-title odds to outright-only, with ties reported.
