@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { rankByRelevance } from "@/lib/news-service";
 
-const mocks = vi.hoisted(() => ({ news: null, openPlayer: vi.fn() }));
+const mocks = vi.hoisted(() => ({ news: null, selectedTeam: null, openPlayer: vi.fn() }));
 vi.mock("@/components/AppShell", () => ({
   useApp: () => ({
     rows: [
@@ -23,7 +23,7 @@ vi.mock("@/components/AppShell", () => ({
 }));
 vi.mock("@/components/useTeam", () => ({
   useTeam: () => ({
-    selectedTeam: { name: "Fixture roster", players: ["Darius Vale"] },
+    selectedTeam: mocks.selectedTeam,
   }),
 }));
 vi.mock("@/components/useNews", () => ({ useNews: () => mocks.news }));
@@ -107,6 +107,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-07T12:00:00Z"));
   mocks.news = healthy();
+  mocks.selectedTeam = { name: "Fixture roster", players: ["Darius Vale"] };
   mocks.openPlayer.mockReset();
 });
 afterEach(() => {
@@ -115,6 +116,16 @@ afterEach(() => {
 });
 
 describe("Sports Network News Desk live-contract presentation", () => {
+  it("does not represent absent roster coverage as a measured zero", () => {
+    mocks.selectedTeam = null;
+    render(<NewsPage />);
+    const roster = screen.getByText("Roster stories").closest("div");
+    expect(roster.querySelector("dd")).toHaveTextContent("—");
+    expect(roster).toHaveTextContent("No team selected");
+    expect(roster.querySelector("dd")).not.toHaveTextContent("0");
+    expect(screen.getByText("Player digests")).toBeInTheDocument();
+  });
+
   it("keeps the canonical title, digest default and source-attributed lead", () => {
     render(<NewsPage />);
     expect(
