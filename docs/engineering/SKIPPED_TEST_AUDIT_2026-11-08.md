@@ -30,20 +30,32 @@ branch, 1 declared-exempt call site.  About 5 are unattributed because their
 files error or time out on Windows (Linux-only deploy/shell tests presumably run
 on CI where `bash`, `jq` and `tesseract` are installed).
 
-## Restored (251 skips removed; expected CI skip count 261 -> about 10)
+## Outcome: 11 skips resolved by real coverage, 240 reclassified (expected CI count 261 -> about 10)
 
-| Change | Skips removed |
+### Restored coverage (10 tests now run) and 1 obsolete test removed
+
+| Change | Skips resolved |
 |---|---:|
-| `test_forced_drop_selection.py`: inapplicable draws are excluded from the parametrization by id (frozensets `_*_NOT_APPLICABLE`); the tests now ASSERT their precondition, so a generator / capacity-owner change that alters which draws apply fails loudly instead of silently narrowing the sweep. Result: 666 passed, 0 skipped (was 666 + 240) | 240 |
 | `test_unslotted_draft_class.py`: the two pinned bundles recovered from git history (`c02426fa6`, `52d78cbc1`) and committed under `tests/fixtures/pick_rollover/` (~670 KB); a missing fixture now fails | 7 |
 | `test_picks_end_to_end.py::test_future_year_picks_project_above_today`: deterministic synthetic rows against `_stamp_pick_value_projections` (incl. out-of-range discount); the live-board form never ran | 1 |
 | `test_private_route_auth_regressions.py::test_signals_restore_league_scoped_bucket_only`: loads the committed registry for the test only, restores the hermetic state | 1 |
 | `idp_accuracy/test_backtest.py::test_availability_inputs_...`: hermetic synthetic schedule CSV | 1 |
-| `test_pick_completeness.py::TestExportParity` removed: `src.api.export_builder` does not exist and nothing else builds a values CSV from the contract; superseded for value integrity by `TestPickCompletenessCensus` in the same module | 1 |
+| `test_pick_completeness.py::TestExportParity` REMOVED (obsolete, not restored): `src.api.export_builder` does not exist and nothing builds a values CSV from the contract; value integrity is covered by `TestPickCompletenessCensus` in the same module | 1 |
+
+### Reclassified, not restored: 240 forced-drop draws
+
+`tests/trade/test_forced_drop_selection.py`: coverage is UNCHANGED.  These draws
+never exercised the property; they used to be skipped and are now excluded from
+the parametrization by id (frozensets `_*_NOT_APPLICABLE`), and each test ASSERTS
+its precondition.  The gain is a loud guard against generator / capacity-owner
+drift (a changed draw fails instead of silently narrowing the sweep) and a skip
+count small enough to tighten the budget.  It is not new coverage: the taxi
+sweep's real coverage remains 76 of 240 seeded cases (brute-force 4 dimensions:
+352 of 400 applicable; v5/v5r 88 of 100; monotonicity 24 of 40).  Result: 666
+passed, 0 skipped (was 666 + 240).
 
 Nothing was weakened, no `xfail` or new skip was added, `max_skipped` is
-unchanged (coordinator: it can be tightened to roughly the remaining count once
-the PR's shard manifests confirm it).
+unchanged (the coordinator tightens it after CI reports the count).
 
 ## Remaining justified or deferred skips
 
@@ -67,6 +79,13 @@ the PR's shard manifests confirm it).
   skip only on Windows and are not in the 261.
 
 ## High-risk skips needing follow-up
+
+0. **Forced-drop sweep depth.** Only 76 of 240 taxi seeds exercise the property.
+   Acceptance test: every forced-drop property test runs at least N applicable
+   draws per scenario (N chosen by the owner of `roster_capacity`, e.g. 100 for
+   the taxi bracket), generated deterministically by construction (a generator
+   that targets the precondition), NOT filtered after the fact; a meta-test
+   asserts the applicable-draw count per scenario >= N.
 
 1. The ~5 unattributed skips. Acceptance: after this PR's shards run, read
    `skip_reasons` from the `backend-shard-*` artifacts, classify, and either fix
