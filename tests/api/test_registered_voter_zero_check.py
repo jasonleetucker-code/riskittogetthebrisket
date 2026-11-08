@@ -131,19 +131,27 @@ def test_a_board_where_everyone_votes_reports_nothing() -> None:
     assert [e for e in _lane(_payload(silent=None)) if e.startswith("source_missing:")] == []
 
 
-def test_the_population_is_the_registry_not_the_floors_config() -> None:
+def test_the_population_is_the_registry_not_the_floors_config(monkeypatch) -> None:
     """Structural, and stated as a PROPERTY rather than a name.
 
-    At least one registered voter carries no floor entry today.  Whichever one
-    that is must still be watched — and if a future change gives every voter a
-    floor, this test stops asserting anything about an empty set and says so
-    rather than passing vacuously.
+    A registered voter that the floors config does not list must still be
+    watched by the zero-row check.  Since #2159 (W05-F004) every registered
+    voter declares a floor, so the property is made observable instead of
+    skipped: voters are REMOVED from the floors map for this test, and each must
+    still raise ``source_missing`` when it goes silent.
     """
-    floors = _load_source_row_floors()
-    unfloored = [k for k in _REGISTERED if k not in floors]
-    if not unfloored:
-        pytest.skip("every registered voter now declares a floor — property not observable here")
-    for key in unfloored:
+    from src.api import data_contract as dc  # noqa: PLC0415
+
+    real = dict(_load_source_row_floors())
+    removed = [k for k in _REGISTERED if k in real][:3]
+    assert removed, "no registered voter carries a floor to remove"
+    monkeypatch.setattr(
+        dc,
+        "_load_source_row_floors",
+        lambda: {k: v for k, v in real.items() if k not in removed},
+    )
+    assert all(k not in dc._load_source_row_floors() for k in removed)
+    for key in removed:
         assert f"source_missing:{key}" in _lane(_payload(silent=key)), key
 
 

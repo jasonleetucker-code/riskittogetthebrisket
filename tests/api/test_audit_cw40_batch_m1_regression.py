@@ -238,7 +238,7 @@ def test_w05_f001_page_rows_come_from_registered_sources_not_scraper_run_names()
 
 
 # ---------------------------------------------------------------------------
-# W05-F003  zero-row / renamed-header CSV is silent                      PARTIAL
+# W05-F003  zero-row / renamed-header CSV is silent                      FIXED_IN_PR #2159 (not yet merged)
 # ---------------------------------------------------------------------------
 
 
@@ -273,25 +273,11 @@ def test_w05_f003_control_missing_file_is_reported(tmp_path):
     assert any(e["source"] == "ktcSfTep" and e["error"] == "file_not_found" for e in errors)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W05-F003 OPEN: the header probe still covers only dlfSf/dlfIdp/fantasyProsIdp/fantasyProsSf "
-    "(data_contract.py ~5700); a renamed vendor header on any other source (ktcSfTep, idpTradeCalc ...) "
-    "leaves sourceParseErrors empty.",
-)
 def test_w05_f003_renamed_header_on_an_unprobed_source_is_reported(tmp_path):
     errs = _enrich_one(tmp_path, "ktcSfTep", "colA,colB\nJosh Allen,9000\n")
     assert errs, "schema drift on ktcSfTep produced no parse error"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W05-F003 OPEN: a header-only (zero usable row) CSV hits `if not csv_lookup: continue` "
-    "(data_contract.py ~6125) with no parse error; only the validator's source_missing (zero rows on the "
-    "built board) catches it, a lane later.",
-)
 def test_w05_f003_header_only_csv_is_reported_as_a_parse_error(tmp_path):
     errs = _enrich_one(tmp_path, "ktcSfTep", "name,value\n")
     assert errs, "an empty-but-valid CSV produced no parse error"
@@ -308,7 +294,7 @@ def test_w05_f003_downstream_zero_rows_is_a_hard_error_for_every_registered_sour
 
 
 # ---------------------------------------------------------------------------
-# W05-F004  sources with no row-count floor                              PARTIAL
+# W05-F004  sources with no row-count floor                              FIXED_IN_PR #2159 (not yet merged)
 # ---------------------------------------------------------------------------
 
 
@@ -320,12 +306,6 @@ def test_w05_f004_retail_anchor_now_has_a_floor_and_zero_is_a_hard_error():
     assert floors["idpTradeCalc"] >= 700
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W05-F004 PARTIAL: zero rows is now a hard error for every registered voter, but 9 of 27 "
-    "registered sources still declare no THIN floor (source_below_floor never fires for them).",
-)
 def test_w05_f004_every_registered_source_declares_a_thin_floor():
     from src.api.data_contract import _load_source_row_floors, get_ranking_source_keys
 
