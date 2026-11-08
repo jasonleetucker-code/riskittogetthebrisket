@@ -177,7 +177,54 @@ def test_c0_rebuild_structure_on_the_pinned_archive(W):
     assert "idp" not in pools and {"offense", "shared_market"} <= pools
 
     d = W.board_diff(base, cand, {})
-    assert d["rowsRising"] == 0 and d["rowsFalling"] > 0.8 * d["comparableRows"]
+    assert d["rowsFalling"] > 0.8 * d["comparableRows"]
+    # C0 lowers every rank-Hill vote and the blend is monotone in its votes, so a
+    # row can only RISE when the outlier filter kept a different set of votes.
+    # "rowsRising == 0" was not an invariant: this rebuild reads today's CSVs and
+    # dataset state, and on 2026-11-08 a data refresh produced one such row
+    # (LaJohntay Wester: a vote the filter dropped under v2 was kept under C0).
+    # Override rows are excluded: a tethered pick and a two-way boost replace the
+    # blend with a value from another population, so its filter set says nothing.
+    base_rows = {r["displayName"]: r for r in base["playersArray"]}
+    risers = [
+        (name, base_rows[name], row)
+        for name, row in ((r["displayName"], r) for r in cand["playersArray"])
+        if name in base_rows
+        and base_rows[name].get("rankDerivedValue")
+        and (row.get("rankDerivedValue") or 0) > base_rows[name]["rankDerivedValue"]
+        and row.get("assetClass") != "pick"
+        and not row.get("twoWayPlayerBoost")
+    ]
+    for name, b_row, c_row in risers:
+        assert set(b_row.get("droppedSources") or []) != set(
+            c_row.get("droppedSources") or []
+        ), f"{name} rose under a lower curve with an unchanged outlier-filter set"
+    # among picks only the rookie-tethered slotted class moves; vendor classes do not
+    b = {r["displayName"]: r for r in base["playersArray"] if r.get("assetClass") == "pick"}
+    c = {r["displayName"]: r for r in cand["playersArray"] if r.get("assetClass") == "pick"}
+    moved = [n for n in b if b[n].get("rankDerivedValue") != c[n].get("rankDerivedValue")]
+    assert moved and all(
+        (b[n].get("pickValueProvenance") or {}).get("class") == "rookie_pool_tether" for n in moved
+    )
+
+
+@pytest.mark.livedata
+def test_c0_magnitudes_on_todays_csvs(W):
+    """Research magnitudes, which depend on the current CSVs and dataset state.
+
+    Not in the hard gate: the archive rebuild reads today's ``CSVs/site_raw`` and
+    ``data/scrape_state``, so these are facts about the latest refresh. The
+    deterministic record of the same claims is
+    ``test_committed_evidence_headline_numbers``.
+    """
+    if not (REPO / "exports" / "archive" / ARCHIVE).is_file():
+        pytest.skip(f"{ARCHIVE} not in this checkout")
+    payload, _ = W.load_archive_payload(ARCHIVE)
+    inc = {sc: W.V2_PARAMS[sc] for sc in W.SCOPES}
+    c0 = {"OFFENSE": (0.077, 1.11), "GLOBAL": (0.088, 0.72), "IDP": (0.024, 1.15)}
+    base = W.build_board(payload, inc)
+    cand = W.build_board(payload, c0)
+    d = W.board_diff(base, cand, {})
     assert (
         d["byPosition"]["WR"]["medianPctValueChange"]
         < -15
@@ -187,13 +234,6 @@ def test_c0_rebuild_structure_on_the_pinned_archive(W):
     inc_drops = W.value_direct_drops(base)["offense"]["rowsWithDroppedValueDirectVote"]
     c0_drops = W.value_direct_drops(cand)["offense"]["rowsWithDroppedValueDirectVote"]
     assert c0_drops > 5 * max(inc_drops, 1)
-    # among picks only the rookie-tethered slotted class moves; vendor classes do not
-    b = {r["displayName"]: r for r in base["playersArray"] if r.get("assetClass") == "pick"}
-    c = {r["displayName"]: r for r in cand["playersArray"] if r.get("assetClass") == "pick"}
-    moved = [n for n in b if b[n].get("rankDerivedValue") != c[n].get("rankDerivedValue")]
-    assert moved and all(
-        (b[n].get("pickValueProvenance") or {}).get("class") == "rookie_pool_tether" for n in moved
-    )
 
 
 # ── the committed evidence says what the proposal says ─────────────────────
