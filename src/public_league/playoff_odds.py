@@ -734,6 +734,11 @@ def compute_playoff_odds(
             row["divisionChampionProbability"] = _probability(
                 {"playoffOdds": season_row.get("divisionChampionOdds")}
             )
+            row["divisionTitleBasis"] = season_row.get("divisionTitleBasis")
+            if "divisionTitleTieOdds" in season_row:
+                row["divisionTitleTieProbability"] = _probability(
+                    {"playoffOdds": season_row.get("divisionTitleTieOdds")}
+                )
         owners.append(row)
 
     out: dict[str, Any] = {

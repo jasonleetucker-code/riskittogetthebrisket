@@ -116,6 +116,11 @@ LOG = logging.getLogger("ros.playoff_sim")
 #: count, and the league's draft history does not settle it
 #: (docs/picks/DRAFT_ORDER_RULE.md).  Changing it is an owner decision.
 DRAFT_ORDER_RECORD_BASIS = "head_to_head_with_half_win_ties"
+#: Whether weekly median-game results count in the rookie-draft order is not
+#: settled by an authoritative source (#1712; the 2025 draft matches reverse record
+#: neither with nor without them).  Owner master directive 2026-11-08 §26: keep a
+#: PROVISIONAL state rather than present the basis as settled.
+DRAFT_ORDER_RECORD_BASIS_STATE = "provisional_median_game_counting_unresolved"
 
 # Magnitude of ROS-strength influence on per-team weekly mean.  Chosen
 # small so empirical history still dominates; tunable via settings.
@@ -1303,18 +1308,32 @@ def _division_assignments_for(snapshot: Any, structure: Any, owners: list[str]) 
     return assign
 
 
-def _division_row_fields(assign: Any, owner: str, titles: int, n_safe: int) -> dict[str, Any]:
-    """One row's division title fields — absent when no title odds exist."""
+def _division_row_fields(
+    assign: Any, owner: str, titles: int, n_safe: int, ties: int = 0
+) -> dict[str, Any]:
+    """One row's division title fields — absent when no title odds exist.
+
+    With a CONFIRMED title tiebreaker ``divisionChampionOdds`` is the share of
+    seasons the team wins its division.  With an UNCONFIRMED one (owner master
+    directive 2026-11-08 §26: withhold the tie-dependent conclusion) it is the
+    share it wins OUTRIGHT, and ``divisionTitleTieOdds`` is the share it ties
+    for the division's best record — a title nobody may resolve by assumption.
+    """
     if not assign.available:
         return {}
     division = assign.by_owner.get(owner)
     lo, hi = _wilson_interval(titles, n_safe)
-    return {
+    confirmed = assign.rules is not None and assign.rules.division_tiebreaker_confirmed
+    out = {
         "division": division,
         "divisionName": assign.names.get(division) if division is not None else None,
         "divisionChampionOdds": round(titles / n_safe, 4),
         "divisionChampionOddsCi": [round(lo, 4), round(hi, 4)],
+        "divisionTitleBasis": "tiebreaker_applied" if confirmed else "outright_only",
     }
+    if not confirmed:
+        out["divisionTitleTieOdds"] = round(ties / n_safe, 4)
+    return out
 
 
 #: Row fields that do not depend on who QUALIFIES: published by a
@@ -1330,6 +1349,8 @@ _REGULAR_SEASON_ROW_FIELDS = (
     "divisionName",
     "divisionChampionOdds",
     "divisionChampionOddsCi",
+    "divisionTitleBasis",
+    "divisionTitleTieOdds",
 )
 
 
@@ -1403,6 +1424,9 @@ def _regular_season_only_payload(
         "pointsModelSource": model.source,
         "draftOrderRule": draft_rule,
         "draftOrderRecordBasis": DRAFT_ORDER_RECORD_BASIS if draft_rule is not None else None,
+        "draftOrderRecordBasisState": (
+            DRAFT_ORDER_RECORD_BASIS_STATE if draft_rule is not None else None
+        ),
         "season": _season_year(snapshot),
         "regularSeasonProgress": _regular_season_progress(snapshot, structure),
     }
@@ -1826,6 +1850,15 @@ def simulate_playoff_odds(
     division_members = division_assign.members() if division_assign.available else {}
     division_rng = random.Random(_derived_seed(rng, b"division-titles"))
     division_title_counts: dict[str, int] = {o: 0 for o in owners}
+    # Seasons in which the team TIES for its division's best record while the
+    # league's title tiebreaker is unconfirmed: the title is undecided, so it
+    # is counted here and never in ``division_title_counts``.
+    division_tie_counts: dict[str, int] = {o: 0 for o in owners}
+    division_tiebreak_confirmed = bool(
+        division_assign.available
+        and division_assign.rules is not None
+        and division_assign.rules.division_tiebreaker_confirmed
+    )
 
     # DRAFT ORDER keeps its own record basis (#1712 review A).  The owner's
     # rule (docs/picks/DRAFT_ORDER_RULE.md) is "reverse final regular-season
@@ -1916,10 +1949,19 @@ def simulate_playoff_odds(
                 final_pf_samples[owner].append(sim_pf.get(owner, 0.0))
         for members in division_members.values():
             draws = {o: division_rng.random() for o in members}
-            champion_of_division = max(
-                members, key=lambda o: (sim_wins.get(o, 0.0), sim_pf.get(o, 0.0), draws[o])
-            )
-            division_title_counts[champion_of_division] += 1
+            if division_tiebreak_confirmed:
+                champion_of_division = max(
+                    members, key=lambda o: (sim_wins.get(o, 0.0), sim_pf.get(o, 0.0), draws[o])
+                )
+                division_title_counts[champion_of_division] += 1
+                continue
+            best = max(sim_wins.get(o, 0.0) for o in members)
+            leaders = [o for o in members if sim_wins.get(o, 0.0) == best]
+            if len(leaders) == 1:
+                division_title_counts[leaders[0]] += 1
+            else:
+                for o in leaders:
+                    division_tie_counts[o] += 1
         for i, owner in enumerate(ranked):
             seed_counts[owner][i] += 1
             wins_total[owner] += sim_wins.get(owner, 0.0)
@@ -2047,7 +2089,11 @@ def simulate_playoff_odds(
                     else {}
                 ),
                 **_division_row_fields(
-                    division_assign, owner, division_title_counts[owner], n_safe
+                    division_assign,
+                    owner,
+                    division_title_counts[owner],
+                    n_safe,
+                    division_tie_counts[owner],
                 ),
             }
         )
@@ -2119,6 +2165,9 @@ def simulate_playoff_odds(
         # (#1712 review A): head-to-head results with half-win ties, never the
         # median game, until the owner says the draft rule counts it.
         "draftOrderRecordBasis": DRAFT_ORDER_RECORD_BASIS if draft_rule is not None else None,
+        "draftOrderRecordBasisState": (
+            DRAFT_ORDER_RECORD_BASIS_STATE if draft_rule is not None else None
+        ),
         "season": _season_year(snapshot),
         # Season progress in the league's own regular-season WEEKS — see
         # ``_regular_season_progress``.  ``None`` = unknown, never zero.
