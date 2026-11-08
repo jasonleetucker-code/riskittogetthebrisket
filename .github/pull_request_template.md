@@ -20,15 +20,23 @@ Material agent work includes its `Agent-OS-Receipt`.
 ## Feature verification receipt
 
 Required for material feature, fix and refactor PRs
-(`docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md` §4 step 9); tiny maintenance may write "n/a".
+(`docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md` §4 step 9); docs/data-only PRs are exempt; otherwise use `n/a — <reason>` per field.
 
-- Intended behavior (latest owner requirement / spec + clause) and prohibited behavior:
+- Intended behavior and prohibited behavior:
+- Controlling owner requirement / spec + clause:
 - Live path (route / flag / audience) and canonical owner:
 - Baseline before the change (for a defect: the reproducing test failed on the old code?):
 - Independent oracle (hand-computed, host truth, reference implementation, frozen fixture) — or "provisional":
 - Positive / negative / edge / missing / stale cases covered:
+- Regression tests protecting existing behavior:
+- Test commands and outcomes (exact commands, actual results):
 - Remaining unverified behavior and gaps:
+- Production impact and rollback:
+- Independent review and exact-tree validation:
 - State: TESTED_IN_PR / MERGED / DEPLOYED / VERIFIED_IN_PRODUCTION (each with evidence; never inferred)
+
+Enforced by `.github/workflows/pr-verification-receipt.yml` for material PRs: every field
+must be filled, or `n/a — <reason>`. Editing the PR body re-runs the check.
 
 ## UI impact (material product/UI changes only)
 

@@ -28,14 +28,14 @@ read and adjudicated but not edited; the repair is recorded below.
 | W19-F003 | CLOSED_VERIFIED | unresolved asset gives `available: False` grade, never a partial grade (`activity.py:132-206`; `server.py:15201`) | closed.py (4) | none |
 | W20-F003 | PARTIAL / REQUIRES_OWNER_DECISION | the raw sum is labelled "Team value" (not strength); picks excluded by documented design (`terminal.py:1070`) | open.py (characterization) | exact question below |
 | W20-F004 | OPEN | `PortfolioSummary.jsx:101` mixes server total (no picks) with local legend (with picks) | open.test.jsx (characterization + `it.fails`) | decision + repair below |
-| W20-F010 | PARTIAL | `pickValue` repaired to an explicit unavailable state; market / consensus / leagueAdjusted still 0.0 (`gameplan.py:525`, `engine.py:257`) | open.py (2 characterization + 1 strict xfail) | repair belongs to PR #2109's file (below) |
+| W20-F010 | CLOSED_VERIFIED (repaired in PR #2128) | `pickValue`, `market`, `consensus` and `leagueAdjusted` all publish `null` + an explicit unavailable state (`engine.py` `RosterValues`) | open.py (passing tests; the strict xfail flipped) | none |
 | W30-F003 | CLOSED_VERIFIED | legacy engine `src/public_league/power.py` deleted (V1-52); one engine, one tab | closed.py (2) | none |
 
-Tally: **10 CLOSED_VERIFIED** (W07-F002, W11-F003/4/5/7, W12-F001/4, W19-F001/3, W30-F003), **3 OPEN** (W07-F003,
-W12-F005, W20-F004), **2 PARTIAL** (W07-F004, W20-F010), **1 PARTIAL / REQUIRES_OWNER_DECISION** (W20-F003), **1
-REQUIRES_OWNER_DECISION** (W12-F007).
+Tally: **11 CLOSED_VERIFIED** (W07-F002, W11-F003/4/5/7, W12-F001/4, W19-F001/3, W20-F010 (PR #2128), W30-F003),
+**3 OPEN** (W07-F003, W12-F005, W20-F004), **1 PARTIAL** (W07-F004), **1 PARTIAL / REQUIRES_OWNER_DECISION**
+(W20-F003), **1 REQUIRES_OWNER_DECISION** (W12-F007).
 Tests: `tests/api/test_audit_cw40_batch_t2_closed.py` (20 pass), `tests/api/test_audit_cw40_batch_t2_open.py` (5 pass,
-3 strict xfail), `frontend/__tests__/audit-cw40-batch-t2-closed.test.js` (7 pass),
+2 strict xfail after PR #2128), `frontend/__tests__/audit-cw40-batch-t2-closed.test.js` (7 pass),
 `frontend/__tests__/audit-cw40-batch-t2-open.test.js` (6 pass, 2 `it.fails`),
 `frontend/__tests__/components/audit-cw40-batch-t2-portfolio.test.jsx` (1 pass, 1 `it.fails`).
 
@@ -136,6 +136,8 @@ Tests: `tests/api/test_audit_cw40_batch_t2_closed.py` (20 pass), `tests/api/test
 **Still open.** `market`, `consensus`, `leagueAdjusted` still publish `0.0` beside `pricedPlayers > 0`.
 **Evidence.** Engine call without `player_values`: three players priced, `market == consensus == leagueAdjusted == 0.0`, `pickValue is None`. AST characterization: the `analyze_roster` call carries no `player_values`. One strict xfail states that it must.
 **Repair (not made: `src/api/gameplan.py` is in PR #2109).** Pass the site-value map `build_league_bundle` already builds (`_index_contract_players`'s `sites`) as `player_values`; and/or make `RosterValues` publish `market` / `consensus` / `leagueAdjusted` as `None` + a state when `player_values` is `None`, exactly as `pick_value` already does (MISSING IS NEVER ZERO). The frontend consumer (`frontend/app/rosters/*`, also in #2109) must render `null` as unavailable before the engine change lands.
+
+**Repaired in this PR.** `RosterValues` now publishes `market` / `consensus` as `null` + `marketState` / `consensusState: "unavailable"` + a reason (`player_values_not_supplied`, or `player_values_incomplete` when a supplied map misses any rostered player, so a partial sum never reads as a total); `leagueAdjusted` is always `null` with `league_adjusted_withdrawn` (withdrawn lens). `gameplan.py` passes `player_values=None` explicitly: `inputs.site_values` is per-source, not `marketValue`/`consensusValue` rows, and no canonical owner supplies a roster total without new methodology. The strict xfail is now a passing test; the /rosters UI never read these fields and keeps withholding them. No value or rank changes.
 
 ## W30-F003 two power-ranking engines on one tab: CLOSED_VERIFIED
 

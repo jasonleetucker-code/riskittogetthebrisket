@@ -22,6 +22,13 @@ Description=Weekly pre-kickoff Game Day prediction capture for __SERVICE_NAME__
 #
 # Every 4 hours does that with margin: a 30h window contains at least
 # seven firings, so the capture survives several consecutive failures.
+#
+# The SAME firings serve the second pre-event kind, `pregame_late`
+# (owner directive 2026-11-07): its window is the 12h before the week's
+# first SUNDAY kickoff, and a half-open 12h window always contains exactly
+# three of these firings whatever the kickoff minute -- pinned against this
+# OnCalendar line by tests/ros/test_game_day_pregame_late_capture.py.  So the schedule
+# below is unchanged; only the service's ExecStart gained the kind.
 # Runs outside the window are cheap — the script exits before fetching
 # any roster.
 [Timer]

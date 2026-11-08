@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 623,
+ "count": 620,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -462,9 +462,6 @@
   "src/ros/team_strength.py::ros_value=float(agg.get(\"rosValue\") or 0.0),",
   "src/ros/trade_deadline.py::rank = float(strength_row.get(\"rank\") or 0.0)",
   "src/ros/trade_deadline.py::total = max(1.0, float(len(strengths) or 1))",
-  "src/roster_intel/engine.py::adjusted += float(row.get(\"leagueAdjustedDynastyValue\") or row.get(\"consensusValue\") or 0.0)",
-  "src/roster_intel/engine.py::consensus += float(row.get(\"consensusValue\") or 0.0)",
-  "src/roster_intel/engine.py::market += float(row.get(\"marketValue\") or 0.0)",
   "src/roster_intel/partner.py::delta = (activity or 0.0) + familiarity",
   "src/roster_intel/partner.py::entered = int(getattr(pp, \"entered_lineup\", 0) or 0)",
   "src/roster_intel/partner.py::gap = abs(float(ours.contend_probability or 0.0) - float(theirs.contend_probability or 0.0))",

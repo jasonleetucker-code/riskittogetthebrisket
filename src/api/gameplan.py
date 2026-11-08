@@ -531,6 +531,12 @@ def build_league_bundle(inputs: LeagueInputs) -> LeagueBundle:
             playoff_odds=odds_rows,
             lineup_scores=lineup_scores,
             championship_unavailable=inputs.championship_unavailable,
+            # W20-F010: deliberately None.  ``inputs.site_values`` is a per-SOURCE value
+            # map, not the ``marketValue`` / ``consensusValue`` rows the rollup reads, and
+            # no canonical owner supplies a roster market/consensus total without new
+            # methodology.  The engine therefore publishes market / consensus as
+            # unavailable (never 0.0) and leagueAdjusted as withdrawn.
+            player_values=None,
         )
 
     starter_levels = {

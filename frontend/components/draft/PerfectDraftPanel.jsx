@@ -507,10 +507,19 @@ export function PerfectDraftPanel({ stats, workspace }) {
           totals.spend > 0 ? Math.round(plan.netValue / totals.spend) : "—"
         }
       />
+      {/* Part 5 (owner directive 2026-11-07): this is the bootstrap share of
+          simulated scenarios in which the plan beats the other leading
+          candidate plans, under source disagreement and an assumed / sampled
+          price range.  It is a sensitivity check, not a calibrated
+          probability, so it is never labelled "Confidence". */}
       <StatTile
-        label="Confidence"
+        label="Stays best in"
         value={confidencePct == null ? "—" : `${confidencePct}%`}
-        meta={planShape(plan)}
+        meta={
+          confidencePct == null
+            ? planShape(plan)
+            : `of simulated scenarios — sensitivity, not a calibrated probability · ${planShape(plan)}`
+        }
       />
     </div>
   );
@@ -807,10 +816,11 @@ export function PerfectDraftPanel({ stats, workspace }) {
           </p>
           <p>
             Prices are the board&apos;s live inflation-adjusted values and are
-            uncertain — confidence is the share of simulated scenarios in which
-            this plan still comes out best, counting both how much sources
-            disagree about each rookie and the chance that bidding pushes the
-            plan past your budget.
+            uncertain — &ldquo;stays best in&rdquo; is the share of simulated
+            scenarios in which this plan still beats the other leading
+            candidate plans, varying each rookie by how much sources disagree
+            about him and each price by the range below. It is a sensitivity
+            check, not a calibrated probability that the plan is right.
           </p>
           <p>
             {priceSigmas.measured

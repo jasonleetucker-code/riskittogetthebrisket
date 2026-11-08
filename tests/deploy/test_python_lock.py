@@ -95,7 +95,13 @@ def test_required_validation_installs_exact_development_graph(path):
             "            pip install -r requirements-dev.txt"
         )
         assert legacy_install in workflow
-        assert workflow.count("pip install -r requirements-dev.txt") == 1
+        # Every floating install sits inside that one named exception.  It
+        # appears once per job that installs the test graph: `validate` and the
+        # `hard-gate` matrix (whose serial fallback is what a legacy rollback
+        # runs), byte-identical so neither can drift into a wider exception.
+        assert workflow.count("pip install -r requirements-dev.txt") == workflow.count(
+            legacy_install
+        )
         workflow = workflow.replace(legacy_install, "")
     assert "pip install -r requirements-dev.txt" not in workflow
 

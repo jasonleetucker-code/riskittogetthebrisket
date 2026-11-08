@@ -332,6 +332,13 @@ class TestDegradedInputs:
                 "playoffWeekStart": 15,
                 "playoffWeekStartSource": "default",
             },
+            "faabBudget": {
+                "state": "unknown",
+                "balance": None,
+                "originalBudget": 100,
+                "bidsWithheld": False,
+                "reason": None,
+            },
         }
 
     def test_non_list_players_array_returns_empty_shape(self):

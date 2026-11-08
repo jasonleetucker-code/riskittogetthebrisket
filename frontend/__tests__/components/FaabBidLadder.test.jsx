@@ -136,9 +136,12 @@ describe("FAAB bid desk — worth and bid are separate groups", () => {
     const tileFor = (label) => within(bid).getByText(label).closest(".ds-stat");
 
     expect(within(tileFor("Recommended")).getByText("$36")).toBeInTheDocument();
+    // Part 5 (owner directive 2026-11-07): P(win | bid) is an uncalibrated
+    // model output, so it is never shown as a plain "chance of winning".
     expect(
-      within(tileFor("Recommended")).getByText(/61% chance of winning/i),
+      within(tileFor("Recommended")).getByText("61% modelled win chance (not calibrated)"),
     ).toBeInTheDocument();
+    expect(within(bid).queryByText(/chance of winning/i)).not.toBeInTheDocument();
     expect(within(tileFor("Conservative")).getByText("$24")).toBeInTheDocument();
     expect(within(tileFor("Aggressive")).getByText("$48")).toBeInTheDocument();
     expect(within(tileFor("Max rational")).getByText("$62")).toBeInTheDocument();

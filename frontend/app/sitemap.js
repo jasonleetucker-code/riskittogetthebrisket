@@ -97,8 +97,22 @@ export default async function sitemap() {
       priority: path === "/" ? 1.0 : 0.7,
     }));
 
-  // Franchise entries — one per manager.
-  const leaguePayload = await _fetchJson("/api/public/league");
+  // Franchise + rivalry entries come from ONE section read.
+  //
+  // The rivalries section payload is {contractVersion, leagueKey, league,
+  // section, data}: its `league` block is the same `_snapshot_envelope`
+  // header the aggregate carries (managers included), and `data` is the
+  // same `rivalries.build_section` output the aggregate nests under
+  // `sections.rivalries`.  Those two lists are all this sitemap reads.
+  //
+  // It used to read the aggregate `/api/public/league` for them: 2,715,235
+  // bytes of JSON across every section (measured on production
+  // 2026-11-08) to use the 12-row manager list and the rivalry pairs.
+  // Next's Data Cache refuses entries over 2 MB, so `revalidate: 600` was
+  // silently inert on it and every regeneration re-fetched and re-parsed
+  // the whole contract.  The section is ~77 KB and caches normally — the
+  // same reasoning `app/league/page.jsx` already applies to its own reads.
+  const leaguePayload = await _fetchJson("/api/public/league/rivalries");
   const managers = leaguePayload?.league?.managers || [];
   const franchiseEntries = managers.map((m) => ({
     url: `${origin}/league/franchise/${encodeURIComponent(m.ownerId)}`,
@@ -108,7 +122,7 @@ export default async function sitemap() {
   }));
 
   // Rivalry entries — one per pair.
-  const rivalries = leaguePayload?.sections?.rivalries?.rivalries || [];
+  const rivalries = leaguePayload?.data?.rivalries || [];
   const rivalryEntries = rivalries.map((r) => {
     const [a, b] = r.ownerIds;
     return {
