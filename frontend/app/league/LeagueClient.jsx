@@ -558,7 +558,7 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
       <div className={broadcast.masthead}>
         <div className={broadcast.identity}>
           <PageHeader
-            eyebrow={advisorTab ? league?.leagueName || "Chase Upside League" : "Chase Upside League"}
+            eyebrow={(advisorTab && league?.leagueName) || "Chase Upside League"}
             title={advisorTab ? TRADE_ADVISOR_TITLE : league?.leagueName || "League"}
             description={advisorTab ? TRADE_ADVISOR_SUBTITLE : coverageDescription}
           />
@@ -581,13 +581,6 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
         </aside>
       </div>
       <div className={`${leagueNavStyles.nav} ${broadcast.navigation}`}>
-        <div className={broadcast.navHeading}>
-          <span>Explore the league</span>
-          <span>
-            Viewing:{" "}
-            {tabs.find((tab) => tab.key === activeTab)?.label || "League"}
-          </span>
-        </div>
         {/* Mobile: a dropdown selector so all 20 sections stay reachable
             without needing a horizontally-scrolled tab row. */}
         <div className={`mobile-only ${leagueNavStyles.mobileNav}`}>
