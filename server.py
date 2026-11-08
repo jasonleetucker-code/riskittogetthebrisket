@@ -12809,6 +12809,8 @@ _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
     "rookieKtcValue",
     "rookieKtcDollar",
     "rookieIdpDollar",
+    "rookieKtcComparableDollar",
+    "rookieIdpComparableDollar",
     # The raw board value the dollar ladder is derived from — the single
     # most proprietary number on the payload, and blocklisted outright by
     # the public-league guard.  Added with the field itself, not after.
@@ -13096,6 +13098,15 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
 
         ktc_raw = _ktc_market_raw(csv)
         idp_raw = csv.get("idpTradeCalc")
+        # Vendors whose observation on THIS row is past its freshness budget
+        # (``freshnessExcludedSources`` holds voting keys; KTC is stale only when
+        # both of its voting boards are).  Read by the vendor comparison layer.
+        _excl = set(p.get("freshnessExcludedSources") or [])
+        _stale_vendors = []
+        if {"ktcCrowdSfTep", "ktcTradesSfTep"} <= _excl:
+            _stale_vendors.append("ktc")
+        if "idpTradeCalc" in _excl:
+            _stale_vendors.append("idpTradeCalc")
         cv = p.get("marketDispersionCV")
         out.append(
             {
@@ -13109,6 +13120,7 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
                 if isinstance(idp_raw, (int, float)) and idp_raw > 0
                 else None,
                 "assetClass": p.get("assetClass"),
+                "staleVendors": _stale_vendors,
                 "dispersionCV": float(cv) if isinstance(cv, (int, float)) and cv > 0 else None,
                 "singleSource": bool(p.get("isSingleSource")),
             }
@@ -14443,6 +14455,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     ktc_by_name: dict[str, float] = {}
     idp_by_name: dict[str, float] = {}
     rookie_ladder_receipt: dict | None = None
+    vendor_comparison: dict | None = None
     if our_rookies:
         raw_values = [r["value"] for r in our_rookies]
         _ladder = _rookie_ladder(
@@ -14465,11 +14478,24 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             our_rookies,
             DRAFT_TOTAL_BUDGET,
         )
+        # Population-safe comparison (MD-108 / W10-F004): ``ktcDollar`` below is
+        # stretched over each vendor's own list and stays for back-compat; these
+        # are the additive, versioned replacements (src/draft/vendor_comparison).
+        from src.draft.vendor_comparison import (  # noqa: PLC0415
+            compare_all_vendors,
+            name_key as _vc_key,
+        )
+
+        _vc_by_vendor, vendor_comparison = compare_all_vendors(our_rookies, rookie_dollar_overrides)
         rookies = [
             {
                 "name": r["name"],
                 "pos": r["pos"],
                 "value": d,
+                "ktcComparableDollar": _vc_by_vendor["ktc"].get(_vc_key(r["name"])),
+                "idpTradeCalcComparableDollar": _vc_by_vendor["idpTradeCalc"].get(
+                    _vc_key(r["name"])
+                ),
                 "ktcDollar": ktc_by_name.get(r["name"].lower()),
                 "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
                 # The board value the dollar ladder was derived FROM.
@@ -14527,6 +14553,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             if "ktcDollar" in rookies[i]:
                 pick["rookieKtcDollar"] = rookies[i]["ktcDollar"]
                 pick["rookieIdpDollar"] = rookies[i]["idpTradeCalcDollar"]
+            if "ktcComparableDollar" in rookies[i]:
+                pick["rookieKtcComparableDollar"] = rookies[i]["ktcComparableDollar"]
+                pick["rookieIdpComparableDollar"] = rookies[i]["idpTradeCalcComparableDollar"]
             if "boardValue" in rookies[i]:
                 pick["rookieBoardValue"] = rookies[i]["boardValue"]
             if "dispersionCV" in rookies[i]:
@@ -14591,6 +14620,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # How ``rookieKtcValue`` was produced (Batch F): the canonical ladder's
         # receipt — curve version, target class, spine years, or the refusal.
         "rookieDollarLadder": rookie_ladder_receipt,
+        # Per-vendor population / state receipt for ``rookie*ComparableDollar``.
+        "vendorComparison": vendor_comparison,
     }
     # ── Every other class this league owns picks in (owner directive
     # 2026-10-17) ──────────────────────────────────────────────────────
