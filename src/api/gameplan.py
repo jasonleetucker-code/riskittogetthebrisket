@@ -531,6 +531,12 @@ def build_league_bundle(inputs: LeagueInputs) -> LeagueBundle:
             playoff_odds=odds_rows,
             lineup_scores=lineup_scores,
             championship_unavailable=inputs.championship_unavailable,
+            # W20-F010: deliberately None.  ``inputs.site_values`` is a per-SOURCE value
+            # map, not the ``marketValue`` / ``consensusValue`` rows the rollup reads, and
+            # no canonical owner supplies a roster market/consensus total without new
+            # methodology.  The engine therefore publishes market / consensus as
+            # unavailable (never 0.0) and leagueAdjusted as withdrawn.
+            player_values=None,
         )
 
     starter_levels = {
@@ -617,6 +623,19 @@ def invalidate_cache(league_key: str | None = None) -> None:
         _BUNDLE_CACHE.pop(league_key, None)
         for key in [k for k in _TEAM_CACHE if k.startswith(f"{league_key}\x00")]:
             _TEAM_CACHE.pop(key, None)
+
+
+def last_built_league_bundle(league_key: str) -> LeagueBundle | None:
+    """The LAST bundle built for ``league_key``, from memory, or ``None``.
+
+    The warm-only read ``league_competitive_postures(build_if_missing=False)``
+    makes, for a latency-sensitive caller that must never trigger the solve
+    (no input load, no disk, no network).  It may predate the latest scrape;
+    a caller says so rather than presenting it as current.
+    """
+    with _CACHE_LOCK:
+        cached = _BUNDLE_CACHE.get(league_key)
+    return None if cached is None else cached[1]
 
 
 def get_league_bundle(

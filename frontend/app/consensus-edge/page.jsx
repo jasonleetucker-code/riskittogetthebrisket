@@ -31,6 +31,8 @@ import {
   formatScore,
   formatValue,
   labelTone,
+  labelText,
+  reasonText,
   positionLeaders,
   rankKey,
 } from "@/lib/consensus-edge";
@@ -174,7 +176,7 @@ function AvailabilityBanner({ board }) {
       )}
       {board.strongLabelsReachable === false && (
         <p className={styles.ceilingNote}>
-          Strong Buy and Strong Sell cannot appear: with {live.length} live
+          The large-score Buy and Sell labels cannot appear: with {live.length} live
           component{live.length === 1 ? "" : "s"} the confidence ceiling is{" "}
           {Math.round(board.confidenceCeiling)}
           {typeof threshold === "number" && (
@@ -290,7 +292,7 @@ function PlayerCard({ row, validation, expanded, onToggle }) {
             )}
           </span>
         </span>
-        <span className={`${styles.label} ${styles[tone]}`}>{row.label}</span>
+        <span className={`${styles.label} ${styles[tone]}`}>{labelText(row.label)}</span>
         <span className={styles.score}>{formatScore(row.score)}</span>
         <span className={styles.confidence}>
           conf {formatConfidence(row.confidence)}
@@ -300,7 +302,7 @@ function PlayerCard({ row, validation, expanded, onToggle }) {
       {expanded && (
         <div className={styles.cardBody}>
           {row.labelReason && (
-            <p className={styles.reason}>{row.labelReason}</p>
+            <p className={styles.reason}>{reasonText(row.labelReason)}</p>
           )}
 
           <ul className={styles.explanation}>

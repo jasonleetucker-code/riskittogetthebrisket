@@ -152,8 +152,12 @@
     "c1a-closure-diagnostics.yml::inventory::Collect the inventory from production": {
       "category": "blocking"
     },
-    "c1a-closure-diagnostics.yml::inventory::Collect privacy-safe performance metadata": {"category": "blocking"},
-    "c1a-closure-diagnostics.yml::inventory::Upload privacy-safe performance metadata": {"category": "blocking"},
+    "c1a-closure-diagnostics.yml::inventory::Collect privacy-safe performance metadata": {
+      "category": "blocking"
+    },
+    "c1a-closure-diagnostics.yml::inventory::Upload privacy-safe performance metadata": {
+      "category": "blocking"
+    },
     "c1a-closure-diagnostics.yml::inventory::Configure production SSH": {
       "category": "blocking"
     },
@@ -235,91 +239,34 @@
     "crowd-faab-diagnostics.yml::crowd-faab-status::Probe crowd FAAB on production": {
       "category": "blocking"
     },
-    "deploy.yml::deploy::Assert the resolved target is present in this clone": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Assert post-deploy verification will actually run": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Checkout (full history for the deploy-skip guard)": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Download tested release artifact": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Guard against skipping or reversing a deploy": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Post-deploy smoke test": {
-      "category": "blocking",
-      "flags": [
-        "conditional_skip"
-      ]
-    },
-    "deploy.yml::deploy::Preflight validate deploy inputs (no SSH)": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Run remote deploy script": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::SSH preflight (connectivity + remote paths)": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Transfer tested release archive to production": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Validate known_hosts entry for target host": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Verify downloaded archive is the validated archive": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Verify live frontend matches the tested artifact": {
-      "category": "blocking"
-    },
-    "deploy.yml::deploy::Validate live data contract": {
-      "category": "blocking",
-      "flags": [
-        "conditional_skip"
-      ]
-    },
     "deploy.yml::resolve::Checkout (workflow commit, full history for resolution)": {
-      "category": "blocking"
-    },
-    "deploy.yml::resolve::Classify exact target release mode": {
       "category": "blocking"
     },
     "deploy.yml::resolve::Resolve the requested ref to one full commit SHA": {
       "category": "blocking"
     },
-    "deploy.yml::validate::API data contract check (FULL lane \u2014 blocking)": {
-      "category": "blocking"
-    },
-    "deploy.yml::validate::Assert the validated tree is the resolved target": {
-      "category": "blocking"
-    },
-    "deploy.yml::validate::Check generated leagues contract": {
+    "deploy.yml::resolve::Classify exact target release mode": {
       "category": "blocking"
     },
     "deploy.yml::validate::Checkout": {
       "category": "blocking"
     },
-    "deploy.yml::validate::Build and test offline backend runtime wheelhouse": {
+    "deploy.yml::validate::Assert the validated tree is the resolved target": {
       "category": "blocking"
     },
-    "deploy.yml::validate::Deploy script syntax gate (existing scripts only)": {
-      "category": "blocking"
-    },
-    "deploy.yml::validate::Frontend bundle-size gate": {
+    "deploy.yml::validate::Set up Python": {
       "category": "blocking"
     },
     "deploy.yml::validate::Install dependencies (requirements-dev.txt)": {
       "category": "blocking"
     },
-    "deploy.yml::validate::Package tested release artifact": {
+    "deploy.yml::validate::Validate dependency graph (pip check)": {
       "category": "blocking"
     },
     "deploy.yml::validate::Preflight environment check": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Python syntax gate": {
       "category": "blocking"
     },
     "deploy.yml::validate::Python format gate (ruff format --check)": {
@@ -331,28 +278,127 @@
     "deploy.yml::validate::Python runtime import gate": {
       "category": "blocking"
     },
-    "deploy.yml::validate::Python syntax gate": {
+    "deploy.yml::validate::Check generated leagues contract": {
       "category": "blocking"
     },
     "deploy.yml::validate::Run live-data tests (advisory \u2014 non-blocking)": {
       "category": "advisory"
     },
-    "deploy.yml::validate::Run unit tests (hard gate \u2014 pure logic)": {
+    "deploy.yml::validate::API data contract check (FULL lane \u2014 blocking)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Validate required deploy artifacts exist": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Deploy script syntax gate (existing scripts only)": {
       "category": "blocking"
     },
     "deploy.yml::validate::Set up Node (for bundle gate)": {
       "category": "blocking"
     },
-    "deploy.yml::validate::Set up Python": {
+    "deploy.yml::validate::Frontend bundle-size gate": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Build and test offline backend runtime wheelhouse": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Package tested release artifact": {
       "category": "blocking"
     },
     "deploy.yml::validate::Upload tested release artifact": {
       "category": "blocking"
     },
-    "deploy.yml::validate::Validate dependency graph (pip check)": {
+    "deploy.yml::test-plan::Checkout the resolved target": {
       "category": "blocking"
     },
-    "deploy.yml::validate::Validate required deploy artifacts exist": {
+    "deploy.yml::test-plan::Set up Python": {
+      "category": "blocking"
+    },
+    "deploy.yml::test-plan::Choose sharded or serial": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Checkout": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Assert the tested tree is the resolved target": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Set up Python": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Install dependencies (requirements-dev.txt)": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Install tesseract-ocr (screenshot import OCR tests)": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Run unit tests (hard gate \u2014 pure logic)": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate::Upload shard manifest": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate-complete::Checkout the resolved target": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate-complete::Set up Python": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate-complete::Download shard manifests": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate-complete::Prove the sharded hard gate ran every test": {
+      "category": "blocking"
+    },
+    "deploy.yml::hard-gate-complete::Every hard-gate job succeeded": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Checkout (full history for the deploy-skip guard)": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Assert the resolved target is present in this clone": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Download tested release artifact": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Verify downloaded archive is the validated archive": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Preflight validate deploy inputs (no SSH)": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Validate known_hosts entry for target host": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::SSH preflight (connectivity + remote paths)": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Guard against skipping or reversing a deploy": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Assert post-deploy verification will actually run": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Transfer tested release archive to production": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Run remote deploy script": {
+      "category": "blocking"
+    },
+    "deploy.yml::deploy::Post-deploy smoke test": {
+      "category": "blocking",
+      "flags": [
+        "conditional_skip"
+      ]
+    },
+    "deploy.yml::deploy::Validate live data contract": {
+      "category": "blocking",
+      "flags": [
+        "conditional_skip"
+      ]
+    },
+    "deploy.yml::deploy::Verify live frontend matches the tested artifact": {
       "category": "blocking"
     },
     "dlf-diagnostics.yml::inventory::Checkout": {
@@ -565,85 +611,145 @@
     "idpshow-onbox-verification.yml::verify::Upload report": {
       "category": "blocking"
     },
-    "pr-validation.yml::validate::API data contract check (structural lane \u2014 blocking)": {
+    "pr-validation.yml::scope::Checkout": {
       "category": "blocking"
     },
-    "pr-validation.yml::validate::Audit finding-status drift gate": {
+    "pr-validation.yml::scope::Set up Python": {
       "category": "blocking"
     },
-    "pr-validation.yml::validate::Check generated leagues contract": {
+    "pr-validation.yml::scope::Detect changed systems (tiered-validation path-awareness)": {
       "category": "blocking"
+    },
+    "pr-validation.yml::scope::Shard plan": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Checkout": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Set up Python": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Install dependencies": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Fetch base branch": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Validate dependency graph (pip check)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Preflight environment check": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Python syntax gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Python format gate (ruff format --check)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Python lint (ruff check \u2014 whole repo, blocking)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Decision-path coercion gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Audit finding-status drift gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Planning integrity gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Product-plan governance gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Python import gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Check generated leagues contract": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::API data contract check (structural lane \u2014 blocking)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Release-candidate freshness (advisory)": {
+      "category": "advisory"
+    },
+    "pr-validation.yml::checks::Source-health check (advisory \u2014 non-blocking)": {
+      "category": "advisory"
+    },
+    "pr-validation.yml::checks::Deploy script syntax gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Set up Node.js": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Install frontend dependencies": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Frontend unit tests (vitest)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Frontend build + bundle-size budget": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::checks::Package and verify frontend release candidate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::backend::Checkout": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::backend::Set up Python": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::backend::Install dependencies": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::backend::Fetch base branch": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::backend::Install tesseract-ocr (screenshot import OCR tests)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::backend::Run unit tests (hard gate \u2014 pure logic)": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::backend::Upload shard manifest": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::livedata::Checkout": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::livedata::Set up Python": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::livedata::Install dependencies": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::livedata::Run live-data tests (advisory \u2014 non-blocking)": {
+      "category": "advisory"
     },
     "pr-validation.yml::validate::Checkout": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Decision-path coercion gate": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Deploy script syntax gate": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Detect changed systems (tiered-validation path-awareness)": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Frontend build + bundle-size budget": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Package and verify frontend release candidate": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Frontend unit tests (vitest)": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Install dependencies": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Install frontend dependencies": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Install tesseract-ocr (screenshot import OCR tests)": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Planning integrity gate": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Preflight environment check": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Product-plan governance gate": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Python format gate (ruff format --check)": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Python import gate": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Python lint (ruff check \u2014 whole repo, blocking)": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Python syntax gate": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Release-candidate freshness (advisory)": {
-      "category": "advisory"
-    },
-    "pr-validation.yml::validate::Run live-data tests (advisory \u2014 non-blocking)": {
-      "category": "advisory"
-    },
-    "pr-validation.yml::validate::Run unit tests (hard gate \u2014 pure logic)": {
-      "category": "blocking"
-    },
-    "pr-validation.yml::validate::Set up Node.js": {
       "category": "blocking"
     },
     "pr-validation.yml::validate::Set up Python": {
       "category": "blocking"
     },
-    "pr-validation.yml::validate::Source-health check (advisory \u2014 non-blocking)": {
-      "category": "advisory"
+    "pr-validation.yml::validate::Download shard manifests": {
+      "category": "blocking"
     },
-    "pr-validation.yml::validate::Validate dependency graph (pip check)": {
+    "pr-validation.yml::validate::Prove the sharded hard gate ran every test": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Every required job succeeded": {
+      "category": "blocking"
+    },
+    "pr-verification-receipt.yml::receipt::Checkout": {
+      "category": "blocking"
+    },
+    "pr-verification-receipt.yml::receipt::Set up Python": {
+      "category": "blocking"
+    },
+    "pr-verification-receipt.yml::receipt::Check receipt": {
       "category": "blocking"
     },
     "prod-e2e-smoke.yml::smoke::Checkout": {
@@ -748,9 +854,6 @@
     "release-candidate.yml::candidate::API data contract check (structural lane)": {
       "category": "blocking"
     },
-    "release-candidate.yml::candidate::Build the exact merge candidate": {
-      "category": "blocking"
-    },
     "release-candidate.yml::candidate::Checkout (full history \u2014 the check diffs base against head)": {
       "category": "blocking"
     },
@@ -784,6 +887,9 @@
     "release-candidate.yml::candidate::Python syntax gate": {
       "category": "blocking"
     },
+    "release-candidate.yml::candidate::Rebuild the candidate and assert it is the planned tree": {
+      "category": "blocking"
+    },
     "release-candidate.yml::candidate::Release-candidate freshness (STRICT)": {
       "category": "blocking"
     },
@@ -796,10 +902,61 @@
     "release-candidate.yml::candidate::Source health (advisory \u2014 the deploy gate is the blocking one)": {
       "category": "advisory"
     },
-    "release-candidate.yml::candidate::Unit tests (hard gate \u2014 pure logic)": {
+    "release-candidate.yml::candidate::Validate dependency graph (pip check)": {
       "category": "blocking"
     },
-    "release-candidate.yml::candidate::Validate dependency graph (pip check)": {
+    "release-candidate.yml::hard-gate::Checkout the frozen head (full history)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Install dependencies": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Install tesseract-ocr (screenshot import OCR tests)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Rebuild the candidate and assert it is the planned tree": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Set up Python": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Unit tests (hard gate \u2014 pure logic)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::hard-gate::Upload shard manifest": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Build the exact merge candidate and record its identity": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Checkout (full history \u2014 the check diffs base against head)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Choose sharded or serial": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Release-candidate freshness (STRICT)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::plan::Set up Python": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Checkout the frozen head (full history)": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Download shard manifests": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Every required job succeeded": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Prove the sharded hard gate ran every test": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Rebuild the candidate and assert it is the planned tree": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::validate::Set up Python": {
       "category": "blocking"
     },
     "retention-backup-proof.yml::prove::Checkout": {

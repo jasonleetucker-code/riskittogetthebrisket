@@ -1668,6 +1668,10 @@ def build_terminal_payload(
         import time as _time_mod
 
         now_ms = int(_time_mod.time() * 1000)
+        # W21-F001: two board rows sharing one name make news attribution unprovable.
+        from collections import Counter as _Counter
+
+        _name_counts = _Counter(_row_name(x).strip().lower() for x in rows)
         for r in roster_rows:
             points = _normalize_points(history_for(_row_name(r)))
             player_news = news_by_player.get(_row_name(r).lower(), [])
@@ -1692,6 +1696,7 @@ def build_terminal_payload(
                 row=r,
                 news_for_player=player_news,
                 now_ms=now_ms,
+                name_collision=_name_counts.get(_row_name(r).strip().lower(), 0) > 1,
             )
             entry = {
                 **ctx,

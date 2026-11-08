@@ -8,6 +8,52 @@
 
 **Execution:** use existing Lane 6; isolated task/worktrees and named file owners; source → API → live component verification; independent review, continuous L0/L1, exact-tree L2 and release L3. Integration retains qualified merge/release ownership and all existing production safety gates. Owner has authorized continuing implementation; do not repeatedly request aesthetic/prototype approval. Do not claim complete until current route coverage, representative populated/error/missing states, keyboard/a11y/mobile/performance and integration evidence agree. Contract and route evidence: `docs/ui/SPORTS_NETWORK_MIGRATION_2026-11-07.md` (within existing UI ledger, not a new product denominator).
 
+## Master implementation directive (backend campaign) — owner, 2026-11-08 (second of the day)
+
+**AUTHORIZED NOW, inside the same remediation program (no second roadmap).** Record:
+`docs/owner/BACKEND_MASTER_IMPLEMENTATION_DIRECTIVE_2026-11-08.md`; intake MD-97 … MD-115; acceptance matrix
+`docs/audits/remediation_2026-11-06/BACKEND_CAMPAIGN_LEDGER_2026-11-08.md`.
+
+- **Authorized to implement:** the 19 non-frontend priorities (calibration evaluation, scoring parity research,
+  ingestion contracts, CI detections, skip and regression work, league-rule verification, backup and security validation,
+  forecast scorecards, decision-engine completion, outlier / voting evidence, trade-uncertainty research, pick
+  normalization, BDVM signal diagnosis, injury attribution, team-semantics unification, trade-system integration,
+  IDP / TE intelligence, backend performance, repository cleanup). Additive, versioned backend contracts only.
+- **Not authorized:** ANY frontend change; methodology or value activation without evidence and approval; #1938; protected
+  flags; the public Trade Advisor; DFS; League Tycoon; Sleeper writes; spending; CI weakening; repository rule changes;
+  root-level infrastructure; exposing private data.
+- At most 4 concurrent editing workers, including the coordinator.
+
+## League rules correction & mathematical integrity directive — owner, 2026-11-08
+
+**AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:
+`docs/owner/LEAGUE_RULES_MATH_INTEGRITY_DIRECTIVE_2026-11-08.md`; intake MD-86 … MD-96.
+
+- **Owner product decision (binding):** `dynasty_main` playoff rules — the seven best overall records qualify, seeded
+  by overall record, ties to points scored; divisions decide the schedule and a separate payout only. Recorded per league in
+  `config/leagues/playoff_rules.json`. Other leagues keep their own rules; an unrecorded division rule fails closed
+  for qualifying only.
+- **Authorized to implement:** that correction (playoff / seed / division-title / draft-slot odds), the mathematical
+  audit with independent oracles, honest product wording, regression and format-matrix coverage, the skipped-test
+  audit (never raising the skip budget), and safe local cleanup.
+- **Not authorized by this directive:** owner-reserved valuation or forecasting methodology changes (e.g. the
+  best-ball points-model calibration stays with its pre-registered study), activation changes, changes to branch
+  protection or required checks, spending, or closing / merging / overwriting historical PRs #1884, #1873, #1852, #1513.
+
+## Master correctness, reliability, performance & CI acceleration directive — owner, 2026-11-07 (fourth)
+
+**AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:
+`docs/owner/MASTER_CORRECTNESS_CI_DIRECTIVE_2026-11-07.md`; intake MD-74 … MD-85.
+
+- **Authorized to implement:** CI/CD measurement and acceleration that keeps every required check (parallel shards
+  with completeness proof, caching, fail-safe change scope, flake repair, build-once identity); routine correctness,
+  data-reliability, false-precision, scoring / trade / FAAB, capture, performance, UX (within the approved design
+  direction), security and evidence-classified dead-code repairs already permitted below.
+- **Not authorized by this directive:** owner-reserved valuation methodology or activation changes, restricted
+  launches, spending, security bypasses, infrastructure changes outside existing authority, changes to branch
+  protection or required checks, unbounded production load.
+- Same order, worker limit (≤ 4), gates and prohibitions as the sections below.
+
 ## Complete sitewide feature verification directive — owner, 2026-11-07 (third directive of the day)
 
 **AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:

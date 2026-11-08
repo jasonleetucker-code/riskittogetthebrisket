@@ -578,39 +578,56 @@ class TestPickValueProjections(unittest.TestCase):
                 self.assertEqual(int(row["pickProjectedDraftValueGainPct"]), 0)
 
     def test_future_year_picks_project_above_today(self) -> None:
-        """Future-year picks (2027+) have ``pickYearDiscount < 1.0``
-        applied, so the projection inverts to a value strictly above
-        today's.  Pin the math: projected = round(rdv / discount)."""
-        future_picks = [
-            r
-            for r in self.picks
-            if int(r.get("pickProjectedDraftYear") or 0) >= 2027
-            and (r.get("rankDerivedValue") or 0) > 0
-            and r.get("pickYearDiscount") is not None
+        """A pick that DOES carry ``pickYearDiscount < 1.0`` projects above
+        today's value: projected = round(rdv / discount), gain >= 0.
+
+        Deterministic on synthetic rows.  The previous form filtered the
+        archived live board for such picks and skipped when there were none --
+        and there are none: since the derived year-step model (Phase 3a is
+        stamp-only) every vendor-priced and derived pick stamps no discount, so
+        the test never ran its body.  The inversion math lives in
+        ``_stamp_pick_value_projections`` and does not depend on the board.
+        """
+        from src.api.data_contract import _stamp_pick_value_projections
+
+        rows = [
+            {
+                "assetClass": "pick",
+                "canonicalName": "2028 Early 1st",
+                "rankDerivedValue": 5000,
+                "pickYearDiscount": 0.8,
+            },
+            {
+                "assetClass": "pick",
+                "canonicalName": "2029 Late 3rd",
+                "rankDerivedValue": 1000,
+                "pickYearDiscount": 0.53,
+            },
+            {"assetClass": "pick", "canonicalName": "2027 Mid 2nd", "rankDerivedValue": 3000},
         ]
-        if not future_picks:
-            self.skipTest("No future-year picks with discount in contract")
-        for row in future_picks:
-            with self.subTest(pick=row.get("canonicalName")):
+        _stamp_pick_value_projections(rows)
+        for row, discount in zip(rows[:2], (0.8, 0.53)):
+            with self.subTest(pick=row["canonicalName"]):
                 rdv = float(row["rankDerivedValue"])
-                discount = float(row["pickYearDiscount"])
                 expected = int(round(rdv / discount))
-                actual = int(row["pickProjectedDraftValue"])
-                # Allow ±1 for rounding noise around the int boundary.
-                self.assertLessEqual(
-                    abs(actual - expected),
-                    1,
-                    f"projection math drifted: rdv={rdv}, discount={discount}, "
-                    f"expected≈{expected}, got {actual}",
-                )
-                self.assertGreater(
-                    actual,
-                    int(rdv),
-                    f"future-year pick must project ABOVE today's value: "
-                    f"rdv={rdv}, projected={actual}",
-                )
-                self.assertGreater(int(row["pickProjectedDraftValueGain"]), 0)
-                self.assertGreater(int(row["pickProjectedDraftValueGainPct"]), 0)
+                self.assertLessEqual(abs(row["pickProjectedDraftValue"] - expected), 1)
+                self.assertGreater(row["pickProjectedDraftValue"], int(rdv))
+                self.assertGreater(row["pickProjectedDraftValueGain"], 0)
+                self.assertGreater(row["pickProjectedDraftValueGainPct"], 0)
+        # No stamp -> effective discount 1.0 -> zero gain.
+        self.assertEqual(rows[2]["pickProjectedDraftValue"], 3000)
+        self.assertEqual(rows[2]["pickProjectedDraftValueGain"], 0)
+        # An out-of-range discount is ignored, never inverted into a loss/gain.
+        bad = [
+            {
+                "assetClass": "pick",
+                "canonicalName": "2028 Early 1st",
+                "rankDerivedValue": 5000,
+                "pickYearDiscount": 1.7,
+            }
+        ]
+        _stamp_pick_value_projections(bad)
+        self.assertEqual(bad[0]["pickProjectedDraftValue"], 5000)
 
     def test_projection_year_matches_canonical_name(self) -> None:
         """``pickProjectedDraftYear`` extracts the year from the

@@ -577,3 +577,26 @@ def test_list_bid_season_phase_is_read_not_rebuilt():
         "reason": "season_phase_not_reported",
         "seasonPhase": None,
     }
+
+
+def test_faab_block_withholds_balance_capped_bids_when_balance_unknown():
+    from src.waivers.advisor import _faab_block
+
+    cand = {
+        "bid": {"reasonable": 33, "aggressive": 50, "lowball": 10},
+        "maxRational": 60,
+        "clearing": 12,
+        "clearingLow": 5,
+        "clearingHigh": 20,
+        "objectiveDollars": 80,
+    }
+    known = _faab_block(cand, "market_aware")
+    assert known["recommendedBid"] == 33 and known["maxRationalBid"]["value"] == 60
+    unknown = _faab_block(cand, "market_aware", balance_known=False)
+    assert unknown["state"] == "unavailable" and unknown["reason"] == "team_faab_balance_unknown"
+    assert unknown["recommendedBid"] is None
+    assert unknown["conservativeBid"] is None and unknown["aggressiveBid"] is None
+    assert unknown["maxRationalBid"]["value"] is None
+    # what he will cost and what he is worth do not depend on our balance
+    assert unknown["expectedWinningBid"]["median"] == 12
+    assert unknown["objectiveDollars"] == 80

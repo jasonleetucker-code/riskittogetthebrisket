@@ -12,8 +12,12 @@ The evidence that a class's draft order is known is a vendor PUBLISHING its
 slots (``pickAnchorsProvenance == published_slot``).  Without it the class
 prices exactly like a future year.
 
-Deterministic: synthetic inputs, plus two pinned, tracked archives straddling
-the rollover (skipped if retention ever prunes them).  Never the live board.
+Deterministic: synthetic inputs, plus two pinned archives straddling the
+rollover, committed under ``tests/fixtures/pick_rollover/`` (copies of tracked
+``exports/archive`` bundles).  They live in the fixtures tree because
+``exports/archive`` is thinned by retention: the two bundles originally named
+here were pruned, which silently skipped every end-to-end test in this file.
+A missing fixture now FAILS rather than skips.  Never the live board.
 """
 
 from __future__ import annotations
@@ -28,15 +32,14 @@ from src.api import data_contract as dc
 from src.api.pick_value_resolution import resolve_pick_value
 from src.identity.picks import MarketPickRef
 
-_ARCHIVE = Path(__file__).resolve().parents[2] / "exports" / "archive"
-_PRE_ROLLOVER = "dynasty_export_20260924_005628.zip"  # 2026 slots published (IDPTC)
-_POST_ROLLOVER = "dynasty_export_20260924_075735.zip"  # 2027 slots only derived
+_ARCHIVE = Path(__file__).resolve().parents[1] / "fixtures" / "pick_rollover"
+_PRE_ROLLOVER = "pre_rollover_20260924_005628.zip"  # 2026 slots published (IDPTC)
+_POST_ROLLOVER = "post_rollover_20260924_075735.zip"  # 2027 slots only derived
 
 
 def _archive_raw(name: str) -> dict:
     path = _ARCHIVE / name
-    if not path.exists():
-        pytest.skip(f"pinned archive {name} not present")
+    assert path.exists(), f"committed rollover fixture {name} is missing"
     with zipfile.ZipFile(path) as zf:
         member = next(
             n for n in zf.namelist() if n.startswith("dynasty_data_") and n.endswith(".json")

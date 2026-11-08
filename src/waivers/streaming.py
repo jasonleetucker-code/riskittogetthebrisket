@@ -422,6 +422,8 @@ def assemble_streaming(
                 table[a.player_id] = _release_cost(a, rung, ladders.get(fam, ()))
         return table
 
+    from src.trade import perfect_waivers as _perfect_waivers  # noqa: PLC0415
+
     # ── free agents ──────────────────────────────────────────────────
     free_agents: list[solver.StreamPlayer] = []
     fa_meta: dict[str, dict[str, Any]] = {}
@@ -471,10 +473,23 @@ def assemble_streaming(
             "team": proj.team if proj else None,
             "dynastyValue": _round(value, 0),
             "dynastyValueState": "priced" if value is not None else "unknown_off_board",
-            "bid": bid,
+            # An engine bid was bounded by the league budget standing in for an unknown
+            # balance; it is not this team's bid, so the published row carries null.
+            "bid": None if (faab_remaining is None and bid_basis == "faab_engine") else bid,
             "bidBasis": bid_basis,
-            "bidDetail": dict(bid_c.bid_detail) if bid_c is not None else None,
+            "bidDetail": (
+                _perfect_waivers.balance_scoped_bid_detail(
+                    bid_c.bid_detail, balance_known=faab_remaining is not None
+                )
+                if bid_c is not None
+                else None
+            ),
             "weeks": detail,
+            **(
+                {"balanceState": "unknown"}
+                if faab_remaining is None and bid_basis == "faab_engine"
+                else {}
+            ),
         }
 
     multiweek = len(projection_sets) > 1
@@ -861,6 +876,7 @@ def _streaming_board(
                 "bid": m["bid"],
                 "bidBasis": m["bidBasis"],
                 "excluded": excluded.get(p.player_id),
+                **({"balanceState": "unknown"} if m.get("balanceState") else {}),
             }
         )
     return out
@@ -1014,7 +1030,8 @@ def compute_streaming(
     by_id, _by_name = index_contract_rows(plan_contract)
 
     raw_balance = team.get("faabRemaining")
-    faab_remaining = int(raw_balance) if isinstance(raw_balance, int) and raw_balance >= 0 else None
+    _observed = waiver_owner.observed_faab_balance(raw_balance)  # bool / non-int -> unknown
+    faab_remaining = max(0, _observed) if _observed is not None else None
 
     cap_ctx = build_capacity_context(
         plan_contract,

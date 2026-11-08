@@ -165,23 +165,23 @@ export function _renderPlainSummary(result, sides, sidesSend = false) {
         ? `Neither package is consistently bigger: Side A's came out bigger in ${pct}% of ${sims} simulations.`
         : `Side ${lead}'s package came out bigger in ${share}% of ${sims} simulations.`;
   } else if (pct >= 80) {
-    headline = "Side A is the clear winner.";
+    headline = "Side A led in most simulations.";
     tone = "strong";
     subline = `Side A came out ahead in ${pct}% of ${sims} simulations.`;
   } else if (pct >= 60) {
-    headline = "Side A is favored.";
+    headline = "Side A led more often.";
     tone = "lean";
     subline = `Side A won ${pct}% of ${sims} simulations.`;
   } else if (pct >= 40) {
     headline = "Coin flip.";
     tone = "even";
-    subline = `Side A won ${pct}% of ${sims} simulations — no clear winner.`;
+    subline = `Side A won ${pct}% of ${sims} simulations — neither side led consistently.`;
   } else if (pct >= 20) {
-    headline = "Side B is favored.";
+    headline = "Side B led more often.";
     tone = "lean";
     subline = `Side B won ${100 - pct}% of ${sims} simulations.`;
   } else {
-    headline = "Side B is the clear winner.";
+    headline = "Side B led in most simulations.";
     tone = "strong";
     subline = `Side B came out ahead in ${100 - pct}% of ${sims} simulations.`;
   }

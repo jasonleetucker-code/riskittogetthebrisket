@@ -83,8 +83,9 @@ jobs:
       # in deploy.yml's "Run unit tests (hard gate — pure logic)" step.
       #
       # It is also a pure DUPLICATE of a gate that already runs on `main`
-      # more often than this one does: deploy.yml's "Validate Build Inputs"
-      # job runs the byte-identical pytest command, with the same
+      # more often than this one does: deploy.yml's hard gate (the
+      # `hard-gate` matrix since 2026-11-07, sharded with a completeness
+      # proof, serial for old targets) runs the byte-identical pytest command, with the same
       # requirements-dev.txt and Python 3.12, against the exact SHA being
       # deployed — on every code push to main AND on every post-refresh
       # deploy dispatch (4-44 deploy runs per day, 2026-09-30..10-07), under

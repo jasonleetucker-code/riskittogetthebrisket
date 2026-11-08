@@ -21,6 +21,7 @@ is only sound while the deploy gate keeps running it, so this module pins:
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -43,6 +44,7 @@ HARD_GATE_COMMAND = 'python -m pytest tests/ -x -q --tb=short -m "not livedata"'
 # `pytest tests/` followed by whitespace or end of line: the WHOLE tree, not a
 # subdirectory such as `tests/model_registry/`.
 _FULL_SUITE = re.compile(r"pytest\s+tests/(?=\s|$)", re.MULTILINE)
+_LIVEDATA_ONLY = re.compile(r"-m\s+livedata(?=\s|$)")
 
 
 def _load(name: str) -> dict:
@@ -68,7 +70,50 @@ def test_the_deploy_gate_still_runs_the_full_hard_gate_suite():
         "job's copy with a budget it fits in."
     )
     _, job = found
-    assert int(job.get("timeout-minutes", 360)) >= FULL_SUITE_MIN_BUDGET_MINUTES
+    # The serial path (a rollback without the shard owner, or an operator's
+    # serial_hard_gate dispatch) runs the WHOLE suite on one runner.
+    serial_budget, _ = _budgets(job)
+    assert serial_budget >= FULL_SUITE_MIN_BUDGET_MINUTES
+
+
+_PER_MODE_TIMEOUT = re.compile(
+    r"^\$\{\{\s*matrix\.shard\s*==\s*'serial'\s*&&\s*(\d+)\s*\|\|\s*(\d+)\s*\}\}$"
+)
+
+
+def _budgets(job: dict) -> tuple[int, int]:
+    """(serial budget, shard budget) of a job's ``timeout-minutes``.
+
+    A plain number budgets both.  The one expression form allowed is the
+    deploy hard gate's per-mode timeout,
+    ``${{ matrix.shard == 'serial' && A || B }}``; anything else is refused
+    rather than guessed at.
+    """
+    raw = job.get("timeout-minutes", 360)
+    if isinstance(raw, int):
+        return raw, raw
+    m = _PER_MODE_TIMEOUT.match(str(raw).strip())
+    assert m, f"unparseable timeout-minutes {raw!r}"
+    return int(m.group(1)), int(m.group(2))
+
+
+def _shard_count() -> int:
+    raw = json.loads((ROOT / "config" / "ci" / "test_shards.json").read_text(encoding="utf-8"))
+    return int(raw["shard_count"])
+
+
+def _min_budget(step: dict) -> int:
+    """The budget a job running this step's slice of the suite needs.
+
+    A step that runs the suite as one of N shards (``RISKIT_TEST_SHARD``,
+    ``scripts/ci_test_shards.py``) carries 1/N of the files: it needs twice its
+    share of the measured runtime (the ~1.8x runner variance, CQ-29) plus ten
+    minutes of setup and collection.  Anything else runs all of it.
+    """
+    env = step.get("env") or {}
+    if "RISKIT_TEST_SHARD" in env:
+        return 2 * -(-FULL_SUITE_MIN_BUDGET_MINUTES // _shard_count()) + 10
+    return FULL_SUITE_MIN_BUDGET_MINUTES
 
 
 def test_no_job_runs_the_full_suite_under_a_budget_it_cannot_finish_in():
@@ -78,15 +123,27 @@ def test_no_job_runs_the_full_suite_under_a_budget_it_cannot_finish_in():
         for job_name, job in (document.get("jobs") or {}).items():
             if not isinstance(job, dict):
                 continue
-            runs_full_suite = any(
-                isinstance(step, dict) and _FULL_SUITE.search(step.get("run") or "")
+            # The livedata subset (``-m livedata``, ~115 tests) is not the
+            # full suite; every other ``pytest tests/`` invocation is.
+            needed = [
+                _min_budget(step)
                 for step in job.get("steps") or []
-            )
-            if not runs_full_suite:
+                if isinstance(step, dict)
+                and _FULL_SUITE.search(step.get("run") or "")
+                and not _LIVEDATA_ONLY.search(step.get("run") or "")
+            ]
+            if not needed:
                 continue
-            budget = int(job.get("timeout-minutes", 360))
-            if budget < FULL_SUITE_MIN_BUDGET_MINUTES:
-                offenders.append(f"{path.name} :: {job_name} (timeout-minutes: {budget})")
+            serial_budget, shard_budget = _budgets(job)
+            # The shard budget must fit the slice each step runs; a per-mode
+            # timeout's serial budget must also fit the WHOLE suite, because
+            # its serial path runs everything on one runner.
+            if shard_budget < max(needed):
+                offenders.append(
+                    f"{path.name} :: {job_name} (timeout-minutes: {shard_budget}, needs {max(needed)})"
+                )
+            if serial_budget != shard_budget and serial_budget < FULL_SUITE_MIN_BUDGET_MINUTES:
+                offenders.append(f"{path.name} :: {job_name} (serial path budget {serial_budget})")
     assert not offenders, (
         "these jobs run the full unit suite (measured ~77 min) under a budget it "
         "cannot finish in, so every run is CANCELLED rather than failed and the "

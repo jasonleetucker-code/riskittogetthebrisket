@@ -81,6 +81,79 @@ Authorized in `docs/EXECUTION_PLAN.md` (same date) inside the same program and i
 | MD-72 | **Execute incrementally (Part 8).** Bounded high-value feature groups, highest-risk first, ≤ 4 workers with separate ownership; continue until done or genuinely blocked; no routine engineering choices sent back to the owner | IN PROGRESS |
 | MD-73 | **Honest, measurable progress (Part 9).** One verification record with the ten states; checkpoint reports with the ten measures and exact commits, PRs, tests, results and evidence paths; never claim the site fully tested without evidence | IN PROGRESS — CW-48 |
 
+## Added 2026-11-08 — Master implementation directive: backend, mathematics, model accuracy, decision intelligence, reliability
+
+Owner directive 2026-11-08 (chat, "MASTER IMPLEMENTATION DIRECTIVE"). Structured record:
+`docs/owner/BACKEND_MASTER_IMPLEMENTATION_DIRECTIVE_2026-11-08.md`. Acceptance matrix:
+`docs/audits/remediation_2026-11-06/BACKEND_CAMPAIGN_LEDGER_2026-11-08.md`. Frontend handoff: `docs/ui/BACKEND_API_HANDOFF.md`.
+**Absolute frontend exclusion** under this directive. Owner-reserved gates are unchanged.
+
+| ID | Requirement | Status |
+|---|---|---|
+| MD-97 | **Best-ball team-points calibration (Priority 1)** | IN PROGRESS — evaluation infrastructure (worker A); promotion gated; RPA-LGI-008 |
+| MD-98 | **Exact league scoring and IDP scorer parity; prepare #1938 for decision (Priority 2)** | AUTHORIZED — research and tests; #1938 merge owner-reserved |
+| MD-99 | **Silent source-ingestion failures, W05-F003 / W05-F004 (Priority 3)** | IN PROGRESS — worker B |
+| MD-100 | **Enforceable CI without losing speed (Priority 4)** | IN PROGRESS — required checks verified absent; owner action prepared; automated detections |
+| MD-101 | **Skipped-test, regression and feature-intent audit (Priority 5)** | IN PROGRESS — #2151 merged (261 → 10 skips, budget 10); forced-drop applicable-draw coverage next |
+| MD-102 | **League playoff / division / draft-order correctness (Priority 6)** | IN PROGRESS — #2149 verified in production; open governance questions under evidence review |
+| MD-103 | **Backup recovery, security validation, reliability (Priority 7)** | AUTHORIZED — box operator steps are owner-run |
+| MD-104 | **Permanent prediction-accuracy and calibration system (Priority 8)** | AUTHORIZED |
+| MD-105 | **Waiver Advisor, FAAB, IDP Streaming as decision systems (Priority 9)** | IN PROGRESS — engine unknown-balance state (worker C) |
+| MD-106 | **Source independence, outlier integrity, IDP voting evidence (Priority 10)** | AUTHORIZED — research only; promotion gated |
+| MD-107 | **Empirically justified trade uncertainty (Priority 11)** | AUTHORIZED — research; unavailable state if unsupported |
+| MD-108 | **Rookie-draft market normalization and pick evidence (Priority 12)** | AUTHORIZED |
+| MD-109 | **BDVM directional-signal saturation (Priority 13)** | AUTHORIZED — diagnosis and challenger evaluation; promotion gated |
+| MD-110 | **Injury-news attribution, W21-F001 (Priority 14)** | IN PROGRESS — classification only (worker C); methodology gated |
+| MD-111 | **Unify team strength, posture, portfolio semantics (Priority 15)** | AUTHORIZED |
+| MD-112 | **Trade Finder / Suggestions / Analyze Trade as one decision system (Priority 16)** | AUTHORIZED — public advisor stays off |
+| MD-113 | **IDP and two-TE market intelligence without invented multipliers (Priority 17)** | AUTHORIZED |
+| MD-114 | **Backend and API performance (Priority 18)** | AUTHORIZED |
+| MD-115 | **Repository cleanup, debt, dependencies, documentation (Priority 19)** | IN PROGRESS — 43 worktrees removed (about 114 GB) with preservation; protected PRs untouched |
+
+## Added 2026-11-08 — League rules correction, mathematical integrity, product honesty, regression coverage
+
+Owner directive 2026-11-08 (chat, "CHASE UPSIDE — NEXT ENGINEERING DIRECTIVE"). Structured record:
+`docs/owner/LEAGUE_RULES_MATH_INTEGRITY_DIRECTIVE_2026-11-08.md`. Authorized in `docs/EXECUTION_PLAN.md` (same date)
+inside the same program and inventory. **Owner product decision recorded: `dynasty_main` divisions carry no playoff
+advantage** (seven best overall records qualify, seeded on record, ties to points scored; divisions = schedule +
+champion payout) — `config/leagues/playoff_rules.json`.
+
+| ID | Requirement | Status |
+|---|---|---|
+| MD-86 | **Read context and verify live state first (Part 1).** Handoff, instructions, PRs #2123–#2148, code; trust nothing unverified; no repeated work; update existing documents | DONE 2026-11-08 — production `828c72ce9` carries #2147; the handoff was verified line by line |
+| MD-87 | **Divisions correction (Part 2 A–E).** Playoff odds on overall record with 7 qualifiers and points for as the tiebreaker; no division berth, seeding or bye; separate division-title odds; draft-slot odds restored; per-league rules, never universal | DONE — #2149 merged `f8da14ef8`, deployed and verified in production 2026-11-08 (divisionOdds available, recorded rule stamped, Power-tab tables) |
+| MD-88 | **Mathematical audit (Part 3).** Inputs / source / method / assumptions / meaning / edge cases / independent oracle for every significant quantitative feature | IN PROGRESS — `docs/engineering/MATH_AUDIT_2026-11-08.md`: feature ledger plus 4 findings. F2: the best-ball points model is uncalibrated at team level (spread about 2.3x actual; RPA-LGI-008, gated study, not changed) |
+| MD-89 | **Misleading product language (Part 4).** "Market overvalues", "Edge", "STRONG BUY", "61% confidence", "Hit %", "clear winner" | DONE — #2150 merged and deployed (`923f7b4c8`); #2149 (chart extremes, Power subtitle); #2152 (Championship / Trade Deadline odds as whole-percent estimates) |
+| MD-90 | **Regression inventory and coverage (Part 5).** Intended behavior, I/O, dependencies, failure behavior, coverage and gaps per major capability; format-combination tests; no superficial tests | IN PROGRESS — feature census regenerated (0 untested routes / pages / bridges / flags; the six "untested" routes were covered by #2087's tests); format-pair isolation test #2154 merged; league-format coverage map plus gaps in `MATH_AUDIT_2026-11-08.md` |
+| MD-91 | **Audit the 261 skipped tests (Part 6).** Classify, restore what is safe, never raise the budget | DONE — #2151 merged `486b4da21`; CI measured 10 skips (was 261): 11 resolved (10 now run, 1 obsolete removed), 240 forced-drop draws reclassified (coverage unchanged, precondition-guarded); skip reasons recorded in shard manifests; budget 290 → 10 |
+| MD-92 | **Preserve the CI gains; receipt enforcement (Part 7).** Nothing weakened; verify whether `Receipt check` is required | VERIFIED: NOT ENFORCED — ruleset `main-protection` has only deletion and non-fast-forward rules (no required status checks at all). Owner action recorded in `SESSION_HANDOFF.md` |
+| MD-93 | **Local disk without losing work (Part 8).** Classify every worktree; remove only what is proven safe | DONE 2026-11-08 — 94 worktrees classified; 39 clean and fully pushed removed (about 104 GB; free space 4.8 GB → 105 GB); 414 MB of ignored non-cache files preserved in `C:\Dev\worktree-preservation-2026-11-08`; 53 with unique or uncommitted work kept |
+| MD-94 | **Four older PRs untouched (Part 9).** #1884, #1873, #1852, #1513 | VERIFIED 2026-11-08 — all OPEN and CONFLICTING, not modified |
+| MD-95 | **Roadmap reassessment (Part 10).** Findings classified; acceptance tests for anything unfinished | IN PROGRESS — `SESSION_HANDOFF.md` ranked priorities |
+| MD-96 | **Delivery and final handoff (Parts 11–12).** P0 → P3 batches; receipts; merge and deploy when safe; handoff A–G | IN PROGRESS |
+
+## Added 2026-11-07 — Master correctness, reliability, performance & CI acceleration
+
+Owner directive 2026-11-07 (chat, "CHASE UPSIDE — MASTER CORRECTNESS, RELIABILITY, PERFORMANCE & CI ACCELERATION
+DIRECTIVE"). Structured record: `docs/owner/MASTER_CORRECTNESS_CI_DIRECTIVE_2026-11-07.md`. Authorized in
+`docs/EXECUTION_PLAN.md` (same date) inside the same program and inventory.
+
+| ID | Requirement | Status |
+|---|---|---|
+| MD-74 | **Reconstruct current truth (Part 1).** Live main / PRs / CI / prior fixes; classify every issue into the eight states inside the existing portfolio | DONE 2026-11-07 — main unblocked (#2129), deploy cause confirmed from logs |
+| MD-75 | **Measure the CI pipeline and set targets (Part 2.1–2.2).** Representative runs, critical path, first-failure time, flakes, reruns; evidence-based targets; ≥ 50% less unnecessary wall time where safe | DONE — serial hard gate 74–106 min = ~93% of Validate PR (8 runs); full runs 78–120 min |
+| MD-76 | **Accelerate CI without weakening it (Part 2.3–2.4).** Measured-runtime shards with honest aggregation, caching, fail-safe change scope, fail-fast, flake repair, benign-main rule, build-once identity; regression tests for change detection | DONE 2026-11-08 — all three hard gates sharded with a completeness proof: PR #2133 (Validate PR 78–120 → ~20 min), deploy #2139 (~105 → 24.5–32.3 min execution, 6 runs), release candidate #2146 (~100 → 19.0 min, run 42436431533); same tests, same 261 skips |
+| MD-77 | **Source freshness and data reliability (Part 3).** Collection vs usable vs served, health/alert accuracy, recovery, replay fixtures, drift coverage | IN PROGRESS — health verified OK 2026-11-07; Game Day capture timer and archive verified on box after deploy (run 42441936899) |
+| MD-78 | **Source independence, confidence and valuation integrity (Part 4).** Lineage, voting, outliers, confidence never rising on lost evidence, 0.30 haircut challengers on holdouts; no activation without the gates | AUTHORIZED |
+| MD-79 | **False precision (Part 5).** Probability / arbitrage / calibration / optimality / interval / forecast-skill wording at source and presentation, with tests | IN PROGRESS — #2137 merged; five wording items need owner decision |
+| MD-80 | **Scoring, trade, roster and FAAB correctness (Part 6).** Independent parity and regression tests per defect; downstream consumers verified | IN PROGRESS — waivers: #2138 (id-first ownership, unknown budget), #2136 (8 defects, one balance field), #2147 (desk unknown balance, one holder owner); playoffs: #2134 (divisions refused, strict parse) |
+| MD-81 | **Predictive validation (Part 7).** Point-in-time capture incl. Week 10 (2026-11-12) and first 2027 pre-auction state; leakage-free evaluation against baselines | IN PROGRESS — #2140 merged and deployed (late pregame snapshot, as-known injuries, board identity, atomic writes); Week 9 captured; Week 10 timer verified |
+| MD-82 | **Performance and UX (Part 8).** Measured p50/p95, payload, requests, memory, interactivity; usability within the approved design direction | IN PROGRESS — baseline #2142; sitemap off the 2.7 MB route #2144 (2.7 MB → 77 KB per rebuild); duplicated weeklyRecap.byKey removed #2145 (~246 KB) |
+| MD-83 | **Security, backups, dead code (Part 9).** Boundaries, isolation, restore capability (operator actions where needed), evidence-classified removals | AUTHORIZED |
+| MD-84 | **Make improvements permanent (Part 10).** Standard / Agent OS / CI updated only where needed, for every model | IN PROGRESS — receipt check #2130 live on every PR (caught real gaps on #2145, #2134, #2136); Agent OS §3 L2/L3 record the sharded gates |
+| MD-85 | **Execute and report measurably (Parts 11–12).** P0-A … P4 batches within the worker limit; real before/after numbers and per-batch evidence | IN PROGRESS |
+
+
 ## Added 2026-11-07 — Session resumption, remediation and continuous verification directive
 
 Owner directive 2026-11-07 (chat, "MASTER SESSION RESUMPTION, REMEDIATION, AND CONTINUOUS VERIFICATION DIRECTIVE").

@@ -25,6 +25,7 @@ import {
   SkeletonTable,
 } from "@/components/ds";
 import styles from "@/app/waivers/waivers.module.css";
+import { planOptimalityText } from "@/lib/waiver-advisor";
 
 const ENDPOINT = "/api/waiver/perfect";
 
@@ -35,6 +36,7 @@ const POOL_REASON_LABEL = {
   rookie_gate: "pre-draft rookies",
   unpriced: "unpriced",
   position_not_offered: "other positions",
+  position_not_started: "positions this league does not start",
 };
 
 const FAILURE_COPY = {
@@ -273,7 +275,13 @@ export default function PerfectWaiversPanel({ leagueKey, ownerId }) {
             Starters filled {plan.startersFilledBefore}→{plan.startersFilledAfter} of{" "}
             {plan.starterSlots}
           </span>
-          {solver.provenOptimal ? <Badge tone="positive">Proven optimal</Badge> : null}
+          {/* Part 5 (owner directive 2026-11-07): the proof covers the free
+              agents the solver considered, not the whole wire — players
+              outside the pool's rules or unpriced were never searched (they
+              are listed below), so the badge names its scope. */}
+          {solver.provenOptimal ? (
+            <Badge tone="positive">{planOptimalityText(solver).badge}</Badge>
+          ) : null}
         </div>
         <DataTable
           caption="Perfect Waivers plan: each add paired with the release it replaces, best gain first"

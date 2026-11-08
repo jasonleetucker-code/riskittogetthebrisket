@@ -1063,6 +1063,28 @@ def free_agent_candidates(
     return free_agents, fa_excluded, ambiguous_names
 
 
+#: Engine bid figures that are bounded by the team's own balance.  ``clearing`` (what the
+#: market will charge) and ``confidence`` do not depend on it.
+_BALANCE_CAPPED_BID_KEYS = ("recommended", "aggressive", "conservative", "maxRational")
+
+
+def balance_scoped_bid_detail(detail: Mapping[str, Any], *, balance_known: bool) -> dict[str, Any]:
+    """A published bid-detail block that never quotes a balance-capped bid for an UNKNOWN balance.
+
+    ``find_waiver_targets`` bounds every bid by ``cap = league budget`` when the team's balance
+    is unknown; publishing those numbers would present the full budget as the team's balance
+    (MISSING IS NEVER ZERO).  Known balance: returned unchanged.
+    """
+    out = dict(detail)
+    if balance_known:
+        return out
+    for key in _BALANCE_CAPPED_BID_KEYS:
+        if key in out:
+            out[key] = None
+    out["balanceState"] = "unknown"
+    return out
+
+
 def build_perfect_waivers(
     contract: Mapping[str, Any] | None,
     *,
@@ -1235,7 +1257,9 @@ def build_perfect_waivers(
         )
         & rostered
     ]
-    pool_census = waiver_pool_exclusion_census(unrostered_rows)
+    pool_census = waiver_pool_exclusion_census(
+        unrostered_rows, starter_slots=starter_slots, slot_eligibility=slot_eligibility
+    )
 
     # Unpriced free agents: reported, never valued at zero.
     unpriced_fa = 0
@@ -1260,7 +1284,14 @@ def build_perfect_waivers(
 
     # ── Budget ────────────────────────────────────────────────────
     raw_balance = team.get("faabRemaining")
-    budget = int(raw_balance) if isinstance(raw_balance, int) and raw_balance >= 0 else None
+    # A negative balance (an over-spent roster) is a KNOWN balance with
+    # nothing to spend, not an unknown one (CW-50) — the same split
+    # ``find_waiver_targets`` makes for its cap.
+    budget = (
+        max(0, int(raw_balance))
+        if isinstance(raw_balance, int) and not isinstance(raw_balance, bool)
+        else None
+    )
 
     result = solve_perfect_waivers(
         roster,
@@ -1303,7 +1334,9 @@ def build_perfect_waivers(
                     "name": fa.name,
                     "position": fa.position,
                     "value": _round(fa.value),
-                    "bid": dict(fa.bid_detail),
+                    "bid": balance_scoped_bid_detail(
+                        fa.bid_detail, balance_known=budget is not None
+                    ),
                 },
                 "release": release,
                 "gain": _round(p["gain"]),

@@ -58,6 +58,10 @@ __all__ = [
 ]
 
 
+def _round_or_none(value: float | None) -> float | None:
+    return None if value is None else round(value, 3)
+
+
 @dataclass(frozen=True)
 class RosterValues:
     """Value rollups across the parallel scales (LI-4 schema).
@@ -68,9 +72,16 @@ class RosterValues:
     that makes a trade findable.
     """
 
-    market: float = 0.0
-    consensus: float = 0.0
-    league_adjusted: float = 0.0
+    #: ``None`` means NOT MEASURED, never a measured 0.0 (W20-F010).  ``market`` /
+    #: ``consensus`` are real only when the caller supplied a value for EVERY rostered
+    #: player; a partial sum would present missing-as-zero as a total.
+    market: float | None = None
+    consensus: float | None = None
+    #: The league-adjusted lens is WITHDRAWN (CLAUDE.md "valuation_mode: accepted,
+    #: ignored, and stamped"): always ``None``, reason ``league_adjusted_withdrawn``.
+    league_adjusted: float | None = None
+    market_reason: str | None = "player_values_not_supplied"
+    consensus_reason: str | None = "player_values_not_supplied"
     ros: float = 0.0
     # Starting-lineup ROS value vs everything else.
     starters_ros: float = 0.0
@@ -91,9 +102,17 @@ class RosterValues:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "market": round(self.market, 3),
-            "consensus": round(self.consensus, 3),
-            "leagueAdjusted": round(self.league_adjusted, 3),
+            "market": _round_or_none(self.market),
+            "marketState": "unavailable" if self.market is None else "supplied",
+            "marketUnavailableReason": self.market_reason if self.market is None else None,
+            "consensus": _round_or_none(self.consensus),
+            "consensusState": "unavailable" if self.consensus is None else "supplied",
+            "consensusUnavailableReason": (
+                self.consensus_reason if self.consensus is None else None
+            ),
+            "leagueAdjusted": None,
+            "leagueAdjustedState": "unavailable",
+            "leagueAdjustedUnavailableReason": "league_adjusted_withdrawn",
             "ros": round(self.ros, 3),
             "startersRos": round(self.starters_ros, 3),
             "benchRos": round(self.bench_ros, 3),
@@ -267,9 +286,21 @@ def _rollup_values(
     portfolio is what you would trade, not what you would score.
     """
     pv = player_values or {}
-    market = consensus = adjusted = ros = starters = bench = 0.0
+    ros = starters = bench = 0.0
+    market_sum = consensus_sum = 0.0
+    market_missing = consensus_missing = 0
     priced = unpriced = 0
     for p in pool:
+        row = pv.get(p.player_id) or pv.get(p.canonical_name) or {}
+        m, c = row.get("marketValue"), row.get("consensusValue")
+        if isinstance(m, (int, float)) and not isinstance(m, bool):
+            market_sum += float(m)
+        else:
+            market_missing += 1
+        if isinstance(c, (int, float)) and not isinstance(c, bool):
+            consensus_sum += float(c)
+        else:
+            consensus_missing += 1
         if not is_priced(p):
             # UNKNOWN, not zero: no value arithmetic, still counted as a
             # body the board could not price.
@@ -284,14 +315,22 @@ def _rollup_values(
             starters += max(0.0, p.ros_value)
         else:
             bench += max(0.0, p.ros_value)
-        row = pv.get(p.player_id) or pv.get(p.canonical_name) or {}
-        market += float(row.get("marketValue") or 0.0)
-        consensus += float(row.get("consensusValue") or 0.0)
-        adjusted += float(row.get("leagueAdjustedDynastyValue") or row.get("consensusValue") or 0.0)
+
+    def _lane(total: float, missing: int) -> tuple[float | None, str | None]:
+        if player_values is None:
+            return None, "player_values_not_supplied"
+        if not pool or missing:
+            return None, "player_values_incomplete"
+        return total, None
+
+    market, market_reason = _lane(market_sum, market_missing)
+    consensus, consensus_reason = _lane(consensus_sum, consensus_missing)
     return RosterValues(
         market=market,
         consensus=consensus,
-        league_adjusted=adjusted,
+        league_adjusted=None,
+        market_reason=market_reason,
+        consensus_reason=consensus_reason,
         ros=ros,
         starters_ros=starters,
         bench_ros=bench,

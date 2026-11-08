@@ -71,6 +71,44 @@ class PublicLeagueRouteTests(unittest.TestCase):
         self.assertIn("data", body)
         self.assertIn("currentChampion", body["data"])
 
+    def test_rivalries_section_carries_what_the_sitemap_reads(self) -> None:
+        # ``frontend/app/sitemap.js`` reads the 12-row manager list and the
+        # rivalry pairs from ``/api/public/league/rivalries`` instead of the
+        # multi-megabyte aggregate.  That is only correct while the section
+        # payload answers both questions identically to the aggregate:
+        # ``league.managers`` (same envelope header) and ``data.rivalries``
+        # (same builder output the aggregate nests under
+        # ``sections.rivalries``).  Pin that parity, the serving projection,
+        # and the size relationship that motivated the switch.
+        from src.public_league.public_contract import assert_public_payload_safe
+
+        agg_r = self.client.get("/api/public/league")
+        sec_r = self.client.get("/api/public/league/rivalries")
+        self.assertEqual(agg_r.status_code, 200)
+        self.assertEqual(sec_r.status_code, 200)
+        agg, sec = agg_r.json(), sec_r.json()
+
+        self.assertEqual(sec["section"], "rivalries")
+        managers = sec["league"]["managers"]
+        self.assertTrue(managers, "precondition: fixture has managers")
+        self.assertEqual(managers, agg["league"]["managers"])
+        self.assertEqual(
+            [m["ownerId"] for m in managers],
+            [m["ownerId"] for m in agg["league"]["managers"]],
+        )
+        rivalries = sec["data"]["rivalries"]
+        self.assertTrue(rivalries, "precondition: fixture has rivalries")
+        self.assertEqual(rivalries, agg["sections"]["rivalries"]["rivalries"])
+        for r in rivalries:
+            self.assertEqual(len(r["ownerIds"]), 2)
+
+        # Same public/private boundary on the narrower path.
+        assert_public_payload_safe(sec)
+        self.assertIn("public", sec_r.headers.get("cache-control", ""))
+        # The point of the switch: the section is a small fraction of the
+        # aggregate body.
+        self.assertLess(len(sec_r.content) * 5, len(agg_r.content))
+
     def test_franchise_owner_narrowed_detail(self) -> None:
         r = self.client.get("/api/public/league/franchise?owner=owner-B")
         self.assertEqual(r.status_code, 200)

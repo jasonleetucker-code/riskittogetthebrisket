@@ -71,6 +71,15 @@ At minimum establish, where the host/settings make them knowable:
 - playoff bracket length/round count;
 - seeding behavior;
 - division/wild-card qualification rules if applicable;
+  - **Per league, recorded (owner 2026-11-08):** whether divisions bear on qualifying, seeding and
+    tiebreaks is a league FACT in `config/leagues/playoff_rules.json` (owner
+    `src/public_league/playoff_structure.py::league_playoff_rules`). `dynasty_main`: the seven best overall
+    records qualify, seeded on overall record, ties (any size) to most points scored; divisions decide the
+    schedule and a separate champion payout only. A league with divisions ON and no record keeps the host
+    default (every division winner qualifies), which is not modelled: qualifying / seeding / title odds are
+    refused with `scope: "qualification"`, while draft-slot odds (regular-season record only) are still
+    published in `regularSeasonOdds`. Division-title odds (`divisionChampionOdds`) are a separate output, never
+    merged with playoff odds.
 - regular-season tiebreak rules used to establish seeds;
 - playoff reseeding behavior if applicable;
 - any host-specific configuration that changes standings, qualification, seeding, or byes.

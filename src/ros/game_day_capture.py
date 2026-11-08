@@ -42,7 +42,7 @@ to infer it from the row count.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
 from zoneinfo import ZoneInfo
 
@@ -102,6 +102,42 @@ _NFL_CLOCK = ZoneInfo("America/New_York")
 #: times a day cannot miss it, and narrow enough that the capture is not
 #: taken days early against a roster that will still change.
 CAPTURE_WINDOW_HOURS: float = 30.0
+
+#: The two PRE-EVENT capture kinds, each gated on its own kickoff.
+PREGAME_KIND = "pregame"
+PREGAME_LATE_KIND = "pregame_late"
+PREGAME_KINDS: tuple[str, ...] = (PREGAME_KIND, PREGAME_LATE_KIND)
+
+#: How long before the week's first SUNDAY kickoff the ``pregame_late``
+#: capture window opens (owner directive 2026-11-07, Part 7).
+#:
+#: ``pregame`` is taken inside 30h of the week's FIRST kickoff -- in practice
+#: Wednesday evening before Thursday Night Football -- so Sunday and Monday
+#: games were only ever archived against inputs four days stale: before the
+#: Friday injury report, Saturday's IR moves and the weekend's waiver and
+#: free-agent roster changes.  ``pregame_late`` re-observes the same state
+#: before Sunday's first game.
+#:
+#: 12 hours, against a timer that fires at 00/04/08/12/16/20 UTC: a
+#: half-open 12h window always contains EXACTLY three firings whatever the
+#: kickoff minute (pinned against the installed timer's own ``OnCalendar``
+#: in ``tests/ros/test_game_day_pregame_late_capture.py``), so the capture
+#: survives two consecutive failed runs.  For a 1pm ET Sunday it lands Sunday 06:00-10:00
+#: UTC, after Saturday's final designations; for a 9:30am ET international
+#: game, 02:30-06:30 UTC.  Saturday games (late season) are NOT "before"
+#: this snapshot -- the kickoff it precedes is recorded on every snapshot
+#: (``provenance.precedesKickoffUtc``) so no reader has to infer it.
+LATE_CAPTURE_WINDOW_HOURS: float = 12.0
+
+#: ``(season, week)`` from which ``pregame_late`` is collected.  Earlier weeks
+#: never had the capture kind; a closed window there is "never collected",
+#: not a lost observation, and must not page.  The same posture as
+#: ``src.history.store.HISTORY_FLOOR``: the floor is a fact about when
+#: collection started, nothing is backfilled before it.
+PREGAME_LATE_FIRST_WEEK: tuple[int, int] = (2026, 10)
+
+#: ``date.weekday()`` of Sunday.
+_SUNDAY = 6
 
 
 class GameDayCaptureRefusal(RuntimeError):
@@ -422,7 +458,42 @@ def first_kickoff_utc(
     The times are US Eastern and the season crosses the DST boundary, so
     they are localised through a real zone rather than a fixed offset.
     """
-    best: datetime | None = None
+    kickoffs = _week_kickoffs(schedule_rows, season=season, week=week)
+    return min((utc for utc, _local in kickoffs), default=None)
+
+
+def _week_kickoffs(
+    schedule_rows: Sequence[Mapping[str, Any]] | None,
+    *,
+    season: int,
+    week: int,
+) -> list[tuple[datetime, datetime]]:
+    """``(kickoff UTC, kickoff US-Eastern)`` for every usable row of one week.
+
+    Rows of another season/week, or with an absent or unparseable date/time,
+    are skipped -- never guessed.  A caller that must know whether a skipped
+    row could have been the answer reads :func:`_week_schedule` instead.
+    """
+    return _week_schedule(schedule_rows, season=season, week=week)[0]
+
+
+def _week_schedule(
+    schedule_rows: Sequence[Mapping[str, Any]] | None,
+    *,
+    season: int,
+    week: int,
+) -> tuple[list[tuple[datetime, datetime]], list[date | None]]:
+    """``(kickoffs, untimed)`` for one week -- the single parser of nflverse
+    ``gameday`` + ``gametime`` for this module.
+
+    ``kickoffs`` is ``(UTC, US-Eastern)`` per row with a parseable date AND
+    time.  ``untimed`` holds, per row of THIS week without a usable kickoff,
+    its calendar date -- or ``None`` when even the date is absent or
+    unparseable.  Kept rather than dropped: a Sunday-dated game whose time is
+    blank or "TBD" is still a Sunday game, and it may be the earliest one.
+    """
+    out: list[tuple[datetime, datetime]] = []
+    untimed: list[date | None] = []
     for row in schedule_rows or ():
         if not isinstance(row, Mapping):
             continue
@@ -433,18 +504,60 @@ def first_kickoff_utc(
                 continue
         except (TypeError, ValueError):
             continue
-        day = str(row.get("gameday") or "").strip()
+        day_text = str(row.get("gameday") or "").strip()
         clock = str(row.get("gametime") or "").strip()
-        if not day or not clock:
+        try:
+            day = datetime.strptime(day_text, "%Y-%m-%d").date()
+        except ValueError:
+            untimed.append(None)
             continue
         try:
-            naive = datetime.strptime(f"{day} {clock}", "%Y-%m-%d %H:%M")
+            naive = datetime.strptime(f"{day_text} {clock}", "%Y-%m-%d %H:%M")
         except ValueError:
+            untimed.append(day)
             continue
-        when = naive.replace(tzinfo=_NFL_CLOCK).astimezone(timezone.utc)
-        if best is None or when < best:
-            best = when
-    return best
+        local = naive.replace(tzinfo=_NFL_CLOCK)
+        out.append((local.astimezone(timezone.utc), local))
+    return out, untimed
+
+
+def first_sunday_kickoff_utc(
+    schedule_rows: Sequence[Mapping[str, Any]] | None,
+    *,
+    season: int,
+    week: int,
+) -> tuple[datetime | None, str | None]:
+    """``(earliest kickoff on the week's SUNDAY, None)``, or ``(None, reason)``.
+
+    "Sunday" is the US-Eastern calendar date nflverse publishes the game on,
+    never an assumed weekday offset from the first kickoff: Thursday and
+    Saturday games (and Friday international openers) are skipped, a 9:30am
+    ET London game IS the Sunday kickoff, and a Wednesday opener changes
+    nothing.
+
+    Reasons, kept apart because they mean opposite things:
+
+    * ``no_schedule_rows_for_week`` -- UNKNOWN; the caller must not treat it
+      as "no Sunday game".
+    * ``sunday_game_without_kickoff_time`` / ``game_without_parseable_date``
+      -- UNKNOWN: a Sunday-dated row with a blank or "TBD" time (or a row of
+      the week with no readable date at all, which may be a Sunday game) could
+      be the EARLIEST Sunday kickoff, so neither "no Sunday game" nor "the
+      earliest timed Sunday game" can be proven.
+    * ``no_sunday_game`` -- the slate was read, every row of the week is
+      dated, and none is on a Sunday; the late capture does not apply.
+    """
+    kickoffs, untimed = _week_schedule(schedule_rows, season=season, week=week)
+    if None in untimed:
+        return None, "game_without_parseable_date"
+    if any(day.weekday() == _SUNDAY for day in untimed if day is not None):
+        return None, "sunday_game_without_kickoff_time"
+    if not kickoffs:
+        return None, "no_schedule_rows_for_week"
+    sundays = [utc for utc, local in kickoffs if local.date().weekday() == _SUNDAY]
+    if not sundays:
+        return None, "no_sunday_game"
+    return min(sundays), None
 
 
 def pregame_window_state(
@@ -498,9 +611,12 @@ def pregame_capture_gaps(
     expected_team_ids: Sequence[Any],
     snapshots: Sequence[Any],
     first_kickoff: datetime | None,
+    capture_kind: str = PREGAME_KIND,
 ) -> list[str]:
-    """Team ids of one league-week that have NO pregame snapshot captured
-    before ``first_kickoff`` -- sorted, empty when the week is fully captured.
+    """Team ids of one league-week that have NO ``capture_kind`` snapshot
+    captured before ``first_kickoff`` -- sorted, empty when the week is fully
+    captured.  For ``pregame_late`` the caller passes the first SUNDAY
+    kickoff: that is the instant the late snapshot claims to precede.
 
     This is the question a closed window actually asks.  "Kickoff has passed"
     alone is not a lost observation: the timer keeps firing every four hours
@@ -517,7 +633,7 @@ def pregame_capture_gaps(
     """
     captured: set[str] = set()
     for snap in snapshots:
-        if getattr(snap, "capture_kind", None) != "pregame":
+        if getattr(snap, "capture_kind", None) != capture_kind:
             continue
         if first_kickoff is not None:
             try:
@@ -565,3 +681,103 @@ def week_one_waiver_guard(
     if any(t.get("status") not in {"complete", "failed"} for t in newest_rows):
         return False, "newest waiver batch is not terminal"
     return True, f"observed Wednesday waiver batch {batch.isoformat()}; no pending claims"
+
+
+def late_pregame_window_state(
+    *,
+    season: int,
+    week: int,
+    sunday_kickoff: datetime | None,
+    kickoff_reason: str | None,
+    now: datetime | None = None,
+    window_hours: float = LATE_CAPTURE_WINDOW_HOURS,
+) -> tuple[str, str]:
+    """``(state, explanation)`` for the ``pregame_late`` window.
+
+    The states of :func:`pregame_window_state`, plus ``not_applicable`` (a
+    week before :data:`PREGAME_LATE_FIRST_WEEK`, or a slate with no Sunday
+    game).  ``unknown`` here is NOT "proceed" the way it is for ``pregame``:
+    that capture still has the score gate behind it (no score can precede
+    the first game), but by Sunday the Thursday game HAS scored, so nothing
+    but the schedule can prove a late capture is pre-Sunday.  The caller
+    refuses it.
+    """
+    if (int(season), int(week)) < PREGAME_LATE_FIRST_WEEK:
+        floor_season, floor_week = PREGAME_LATE_FIRST_WEEK
+        return (
+            "not_applicable",
+            f"pregame_late collection starts {floor_season} week {floor_week}; "
+            f"{season} week {week} was never collected",
+        )
+    if sunday_kickoff is None:
+        if kickoff_reason == "no_sunday_game":
+            return "not_applicable", "the slate has no Sunday game this week"
+        return "unknown", f"no Sunday kickoff could be resolved ({kickoff_reason})"
+    return pregame_window_state(first_kickoff=sunday_kickoff, now=now, window_hours=window_hours)
+
+
+def combine_exit_codes(codes: Sequence[int]) -> int:
+    """One process exit code for several capture kinds run together.
+
+    Same precedence the single-kind run already uses (``refusals`` are
+    reported ahead of ``failures``): 3 (an observation lost) > 1 (a hard
+    error) > 0 (captured, or already was) > 2 (nothing to do).  So a quiet
+    "too early" for one kind can never mask another kind's loss or error.
+    """
+    seen = set(codes)
+    for code in (3, 1, 0):
+        if code in seen:
+            return code
+    return 2
+
+
+# ── per-snapshot provenance ──────────────────────────────────────────
+#
+# The injury / board context BLOCKS are built in
+# ``src/ros/game_day_capture_context.py`` (script-only; its docstring says
+# why they must stay off this request-path module).  This section only
+# summarises blocks it is handed.
+
+
+def _context_summary(block: Mapping[str, Any], keys: Sequence[str]) -> dict[str, Any]:
+    if block.get("state") != "known":
+        return {"state": block.get("state"), "reason": block.get("reason")}
+    return {"state": "known", **{k: block.get(k) for k in keys}}
+
+
+def snapshot_provenance(
+    build: CaptureBuild,
+    *,
+    precedes_kickoff: datetime | None,
+    precedes_basis: str,
+    injuries: Mapping[str, Any],
+    canonical_board: Mapping[str, Any],
+    capture_context: Mapping[str, Any],
+    code_revision: Mapping[str, Any],
+) -> dict[str, Any]:
+    """The small per-team provenance block every new snapshot carries.
+
+    Full injury entries live once per run in the capture-context file
+    (``captureContext.path`` + its ``sha256``); each snapshot carries the
+    identifying hashes so it can be checked against that file without
+    duplicating ~300 injury rows into every team.
+    """
+    return {
+        "schema": "game-day-snapshot-provenance/v1",
+        "precedesKickoffUtc": precedes_kickoff.isoformat() if precedes_kickoff else None,
+        "precedesKickoffBasis": precedes_basis,
+        "codeRevision": dict(code_revision),
+        "projectionInputs": {
+            "estimateSourceLabel": build.estimate_source_label,
+            "sourcesLoaded": list(build.sources_loaded),
+            "sourcesUnavailable": list(build.sources_unavailable),
+            "starterSlotSource": build.starter_slot_source,
+        },
+        "injuries": _context_summary(
+            injuries, ("contentSha256", "snapshotFetchedAt", "lastObservedAt", "entryCount")
+        ),
+        "canonicalBoardAtCapture": _context_summary(
+            canonical_board, ("payloadSha256", "scrapeTimestamp", "source", "usedByEstimates")
+        ),
+        "captureContext": dict(capture_context),
+    }

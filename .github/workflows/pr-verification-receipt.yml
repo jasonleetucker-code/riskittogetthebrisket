@@ -1,0 +1,34 @@
+name: PR Verification Receipt
+
+# CW-53 (owner directive 2026-11-07): material PRs must carry a filled
+# "Feature verification receipt". Editing the PR body re-runs this in seconds.
+# Not (yet) a branch-protection required check; see
+# docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: pr-verification-receipt-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  receipt:
+    name: Receipt check
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Check receipt
+        run: python scripts/check_pr_verification_receipt.py

@@ -19,6 +19,7 @@ import {
   isStaleAdvisorPayload,
   lineupText,
   maxRationalText,
+  planOptimalityText,
   planStatusLabel,
   postureText,
   recommendedBidText,
@@ -120,16 +121,37 @@ describe("missing is never zero", () => {
   });
 
   it("names the plan status and release verbatim", () => {
-    expect(planStatusLabel({ status: "in_plan" }).label).toBe("In optimal plan");
+    // A candidate row cannot see whether the plan was PROVEN optimal (Part 5).
+    expect(planStatusLabel({ status: "in_plan" }).label).toBe("In plan");
     expect(planStatusLabel(null).label).toBe("Plan unavailable");
     expect(releaseText({ kind: "drop", name: "Weak TE" })).toBe("Drop Weak TE");
     expect(releaseText({ kind: "openSpot" })).toBe("Open roster spot");
   });
 
+  it("calls a plan optimal only when the solver proved it (Part 5)", () => {
+    expect(planOptimalityText({ provenOptimal: true, freeAgentsConsidered: 1 })).toEqual({
+      label: "Optimal plan",
+      proven: true,
+      note: "proven optimal over the 1 free agent considered",
+      badge: "Proven optimal over the 1 free agent considered",
+    });
+    expect(planOptimalityText({ provenOptimal: true }).note).toBe(
+      "proven optimal over the free agents considered",
+    );
+    expect(planOptimalityText({ provenOptimal: false, freeAgentsConsidered: 9 })).toEqual({
+      label: "Best plan found",
+      proven: false,
+      note: "not proven optimal",
+    });
+    // Missing proof is not proof.
+    expect(planOptimalityText(undefined).label).toBe("Best plan found");
+    expect(planOptimalityText({}).note).toBe("optimality not stated");
+  });
+
   it("labels posture as context, and its absence by reason", () => {
     expect(postureText({ state: "available", label: "RETOOL", confidence: 0.61 })).toEqual({
       label: "RETOOL",
-      note: "61% confidence · context only",
+      note: "61% model share (uncalibrated) · context only",
     });
     expect(postureText({ state: "unavailable", reason: "league_bundle_not_warm" }).note).toBe(
       "posture bundle not built yet",

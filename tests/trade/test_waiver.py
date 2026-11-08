@@ -332,6 +332,26 @@ class TestDegradedInputs:
                 "playoffWeekStart": 15,
                 "playoffWeekStartSource": "default",
             },
+            # CW-50: the balance state (with which observation set it) and
+            # whether the league lineup filtered the pool are stated even on an
+            # empty board.
+            "faabBudget": {
+                "state": "unknown",
+                "balance": None,
+                "originalBudget": 100,
+                "bidsWithheld": False,
+                "reason": None,
+                "source": None,
+                "requestedBalance": None,
+                "observedBalance": None,
+            },
+            "positionEligibility": {
+                "state": "unverified",
+                "owner": "src/ros/lineup.py::resolve_starter_slots",
+                "reason": "league_starter_slots_unknown",
+                "slotSource": None,
+                "excluded": 0,
+            },
         }
 
     def test_non_list_players_array_returns_empty_shape(self):

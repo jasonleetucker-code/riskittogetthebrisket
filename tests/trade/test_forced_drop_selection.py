@@ -911,16 +911,106 @@ def _assess(ctx, pin, pout, package, mode, monkeypatch):
     )
 
 
-_KINDS = (
-    [("plain", s) for s in range(40)]
-    + [("scarce", s) for s in range(30)]
-    + [("wide_scarce", s) for s in range(30)]
+# Applicable draws are GENERATED, not filtered after the fact (owner master
+# directive 2026-11-08, Priority 5; #2151 follow-up 0).  A seeded random league
+# exercises a property only when its precondition holds (a cleanup is required
+# and has a legal set; a taxi bracket exists to bound; the roster fills every
+# slot without the extra piece).  The draws used to be skipped (240 skips) and
+# then excluded by a hard-coded id list, which kept coverage at whatever share
+# of the first N seeds happened to apply (the taxi sweep ran 38 of 120 seeds).
+# Now each sweep scans seeds in order and keeps the FIRST ``want`` draws whose
+# precondition holds, under the flag the tests run with, so every sweep runs
+# exactly ``want`` applicable draws.  ``test_every_property_sweep_reached_its_
+# applicable_draw_target`` fails loudly if a generator or capacity change ever
+# leaves a sweep short within its scan limit.  Deterministic: same seeds, same
+# order, every shard.
+_SCAN_FACTOR = 8
+
+
+def _with_flag_on(fn):
+    """Evaluate ``fn`` with the forced-drop flag ON (collection time, no fixture),
+    restoring the environment and the flag cache afterwards."""
+    import os  # noqa: PLC0415
+
+    prev = os.environ.get(ENV)
+    os.environ[ENV] = "1"
+    feature_flags.reload()
+    saved_mode = fds.SELECTION_MODE
+    try:
+        return fn()
+    finally:
+        fds.SELECTION_MODE = saved_mode
+        if prev is None:
+            os.environ.pop(ENV, None)
+        else:
+            os.environ[ENV] = prev
+        feature_flags.reload()
+
+
+def _assess_at(ctx, pin, pout, package, mode):
+    fds.SELECTION_MODE = mode
+    return RC.assess_roster_capacity(
+        ctx, incoming_players=pin, outgoing_players=pout, package=package
+    )
+
+
+def _first_applicable(predicate, want):
+    """The first ``want`` seeds (0, 1, 2, ...) for which ``predicate`` holds,
+    scanning at most ``want * _SCAN_FACTOR`` seeds."""
+    found = []
+    for seed in range(want * _SCAN_FACTOR):
+        if predicate(seed):
+            found.append(seed)
+            if len(found) == want:
+                break
+    return found
+
+
+def _cleanup_applies(kind, seed):
+    """A cleanup is required and has a legal set, in BOTH modes, with and
+    without a package (the brute-force and V5/V5-R preconditions)."""
+    c, _ctx0, pin, pout, ctx = _league(kind, seed)
+    for package in (None, _package_for(c, pin, pout)):
+        for mode in MODES:
+            cap = _assess_at(ctx, pin, pout, package, mode)
+            if not cap.over_limit_after or cap.ladder_exhausted:
+                return False
+    return True
+
+
+#: kind -> applicable draws wanted (the sizes the sweep always intended).
+_KIND_TARGETS = {"plain": 40, "scarce": 30, "wide_scarce": 30}
+_KINDS = _with_flag_on(
+    lambda: [
+        (kind, seed)
+        for kind, want in _KIND_TARGETS.items()
+        for seed in _first_applicable(lambda sd, k=kind: _cleanup_applies(k, sd), want)
+    ]
 )
 
 
-@pytest.mark.parametrize("with_package", [False, True])
-@pytest.mark.parametrize("mode", MODES)
-@pytest.mark.parametrize("kind,seed", _KINDS)
+def _monotonicity_applies(seed):
+    c, us, pin, pout = _random_league(seed)
+    ctx = RC.build_capacity_context(c, None, us, roster_settings=_SMALL)
+    existing, incoming = _post_pool(ctx, pin, pout)
+    return _filled(ctx, [*existing, *incoming]) >= len(ctx.starter_slots)
+
+
+_MONOTONICITY_TARGET = 40
+_MONOTONICITY_SEEDS = _with_flag_on(
+    lambda: _first_applicable(_monotonicity_applies, _MONOTONICITY_TARGET)
+)
+
+
+_BRUTE_FORCE_CASES = [
+    pytest.param(kind, seed, mode, with_package, id=f"{kind}-{seed}-{mode}-{with_package}")
+    for kind, seed in _KINDS
+    for mode in MODES
+    for with_package in (False, True)
+]
+
+
+@pytest.mark.parametrize("kind,seed,mode,with_package", _BRUTE_FORCE_CASES)
 def test_selection_and_charge_against_brute_force(flag_on, monkeypatch, kind, seed, mode,
                                                   with_package):  # fmt: skip
     """Exactness of both modes over every lineup-legal cut set, with inert and
@@ -936,8 +1026,10 @@ def test_selection_and_charge_against_brute_force(flag_on, monkeypatch, kind, se
     c, _ctx0, pin, pout, ctx = _league(kind, seed)
     package = _package_for(c, pin, pout) if with_package else None
     cap = _assess(ctx, pin, pout, package, mode, monkeypatch)
-    if not cap.over_limit_after or cap.ladder_exhausted:
-        pytest.skip("trade fits or no legal cleanup")
+    assert cap.over_limit_after and not cap.ladder_exhausted, (
+        "precondition (a cleanup is required and has a legal set) does not hold for a "
+        "GENERATED draw: _cleanup_applies and this test disagree"
+    )
     bf = _Brute(ctx, cap, pin, pout, package)
     assert bf.legal
     chosen = bf.selected(cap)
@@ -973,8 +1065,10 @@ def test_v5_charge_never_exceeds_v5r_and_v5r_cut_is_never_dearer(flag_on, monkey
     package = _package_for(c, pin, pout)
     v5 = _assess(ctx, pin, pout, package, fds.MODE_PACKAGE_CONSISTENT, monkeypatch)
     v5r = _assess(ctx, pin, pout, package, fds.MODE_ROSTER_RATIONAL, monkeypatch)
-    if not v5.over_limit_after or v5.ladder_exhausted or v5r.ladder_exhausted:
-        pytest.skip("trade fits or no legal cleanup")
+    assert v5.over_limit_after and not v5.ladder_exhausted and not v5r.ladder_exhausted, (
+        "precondition (a cleanup is required and has a legal set) does not hold for a "
+        "GENERATED draw: _cleanup_applies and this test disagree"
+    )
     assert v5.forced_drop_release_cost <= v5r.forced_drop_release_cost + 1e-6
     bf = _Brute(ctx, v5, pin, pout, package)
     assert bf.own(bf.selected(v5r)) <= bf.own(bf.selected(v5)) + 1e-6
@@ -1016,8 +1110,27 @@ def _taxi_unknown_case(seed, mode, monkeypatch):
     return ctx, cap, pin, pout, package
 
 
-@pytest.mark.parametrize("mode", MODES)
-@pytest.mark.parametrize("seed", range(120))
+def _taxi_bound_applies(seed):
+    """A taxi bracket exists to bound and the ladder is not exhausted, in both
+    modes (the taxi lower-bound test's precondition)."""
+    c, us, pin, pout = _random_wide_league(seed)
+    ctx = RC.build_capacity_context(c, None, us, roster_settings={**_WIDE, "taxiSize": 2})
+    package = _package_for(c, pin, pout)
+    for mode in MODES:
+        cap = _assess_at(ctx, pin, pout, package, mode)
+        if cap.certainty != "partial" or cap.taxi_bound_cleanup is None or cap.ladder_exhausted:
+            return False
+    return True
+
+
+_TAXI_TARGET = 120
+_TAXI_SEEDS = _with_flag_on(lambda: _first_applicable(_taxi_bound_applies, _TAXI_TARGET))
+_TAXI_BOUND_CASES = [
+    pytest.param(seed, mode, id=f"{seed}-{mode}") for seed in _TAXI_SEEDS for mode in MODES
+]
+
+
+@pytest.mark.parametrize("seed,mode", _TAXI_BOUND_CASES)
 def test_taxi_unknown_lower_bound_is_the_cheapest_legal_cleanup_of_the_guaranteed_count(
     flag_on, monkeypatch, seed, mode
 ):  # fmt: skip
@@ -1029,8 +1142,11 @@ def test_taxi_unknown_lower_bound_is_the_cheapest_legal_cleanup_of_the_guarantee
     above the cheapest ``k`` of the worst-case drops (23 of 462 random cases
     were strictly below)."""
     ctx, cap, pin, pout, package = _taxi_unknown_case(seed, mode, monkeypatch)
-    if cap.certainty != "partial" or cap.taxi_bound_cleanup is None or cap.ladder_exhausted:
-        pytest.skip("no taxi bracket to bound")
+    assert cap.certainty == "partial" and cap.taxi_bound_cleanup is not None, (
+        "precondition (a taxi bracket exists to bound) does not hold for a GENERATED "
+        "draw: _taxi_bound_applies and this test disagree"
+    )
+    assert not cap.ladder_exhausted
     added = min(cap.over_limit_after_min, max(0, cap.size_after - cap.size_before))
     bf = _Brute(ctx, cap, pin, pout, package)
     base = _filled(ctx, bf.pool)
@@ -1333,7 +1449,7 @@ def test_default_mode_is_roster_rational():
     assert fds.rule_id() == fds.RULE_ID_ROSTER_RATIONAL
 
 
-@pytest.mark.parametrize("seed", range(40))
+@pytest.mark.parametrize("seed", _MONOTONICITY_SEEDS)
 def test_adding_an_incoming_piece_never_lowers_the_receivers_net(flag_on, v5_mode, seed):
     """Monotonicity of the package-consistent (V5) net: receiving one more
     player can always be undone by releasing him, so it never makes the trade
@@ -1352,12 +1468,15 @@ def test_adding_an_incoming_piece_never_lowers_the_receivers_net(flag_on, v5_mod
         return package.gap() - (cost or 0.0)
 
     existing, incoming = _post_pool(ctx, pin, pout)
-    if _filled(ctx, [*existing, *incoming]) < len(ctx.starter_slots):
-        # The property's precondition.  When the extra piece fills a slot the
-        # roster could not, the lineup guard PROTECTS him (releasing him would
-        # empty that slot again), so "release him" is not an available undo —
-        # a documented limit of the guard, not of the charge.
-        pytest.skip("roster cannot fill every slot without the extra piece")
+    # The property's precondition.  When the extra piece fills a slot the
+    # roster could not, the lineup guard PROTECTS him (releasing him would
+    # empty that slot again), so "release him" is not an available undo —
+    # a documented limit of the guard, not of the charge.  Only draws where
+    # the precondition holds are generated (_monotonicity_applies).
+    assert _filled(ctx, [*existing, *incoming]) >= len(ctx.starter_slots), (
+        "precondition (roster fills every slot without the extra piece) does not hold for "
+        "a GENERATED draw: _monotonicity_applies and this test disagree"
+    )
     priced = {r["displayName"] for r in c["playersArray"] if r.get("rankDerivedValue")}
     # Precondition 2 (review fix D): the extra piece is CREDITED by the package.
     # An unpriced piece takes a spot with no package credit and its release is
@@ -1505,3 +1624,19 @@ def test_perfect_draft_roster_context_is_identical_flag_on(monkeypatch):
     monkeypatch.delenv(ENV, raising=False)
     feature_flags.reload()
     assert out["0"] == out["1"]
+
+
+def test_every_property_sweep_reached_its_applicable_draw_target():
+    """Each property sweep runs exactly its target number of APPLICABLE draws.
+    A generator or capacity-owner change that makes draws stop applying shows
+    up here as a short sweep, never as silently narrower coverage."""
+    counts = {kind: sum(1 for k, _s in _KINDS if k == kind) for kind in _KIND_TARGETS}
+    assert counts == _KIND_TARGETS
+    assert len(_TAXI_SEEDS) == _TAXI_TARGET
+    assert len(_MONOTONICITY_SEEDS) == _MONOTONICITY_TARGET
+    assert len(_BRUTE_FORCE_CASES) == sum(_KIND_TARGETS.values()) * len(MODES) * 2
+    assert len(_TAXI_BOUND_CASES) == _TAXI_TARGET * len(MODES)
+    # Seeds are distinct and in scan order (deterministic across shards).
+    for kind in _KIND_TARGETS:
+        seeds = [sd for k, sd in _KINDS if k == kind]
+        assert seeds == sorted(set(seeds))

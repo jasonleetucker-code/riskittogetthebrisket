@@ -63,6 +63,7 @@ import {
   buildBdvmIndex,
   bdvmEntryForRow,
   bdvmSignalEdgeCss,
+  bdvmSignalLabel,
   formatBdvmGap,
   formatBdvmValue,
 } from "@/lib/bdvm";
@@ -1375,7 +1376,7 @@ export default function RankingsPage() {
               "gap partly reflects information the market has and it does not"
             : "";
           const title =
-            `${entry.signal}: ${entry.signalReason} — fundamental ` +
+            `${bdvmSignalLabel(entry.signal)}: ${entry.signalReason} — fundamental ` +
             `${formatBdvmValue(entry.fundamental)} vs market ` +
             `${formatBdvmValue(entry.marketValue)}${proxyNote}`;
           const shown = entry.anyProxy

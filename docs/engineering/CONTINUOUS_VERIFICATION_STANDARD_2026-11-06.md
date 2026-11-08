@@ -93,3 +93,30 @@ Work in the existing sitewide remediation program, respecting its higher-priorit
 - clear `VERIFIED / PARTIAL / UNVERIFIED / BLOCKED` status after each accepted PR, independent review and production evidence.
 
 Never promise every feature is proved merely because automation finishes; never mark a contract `VERIFIED` without a concrete positive and relevant negative observation. Stop or escalate only on a genuine owner-reserved methodology/launch decision, unavailable access, overlapping active file claim, or an unsafe load/promotion action. Continue independent authorized work.
+
+## 8. PR verification receipt check (CW-53, owner directive 2026-11-07)
+
+`.github/workflows/pr-verification-receipt.yml` runs `scripts/check_pr_verification_receipt.py` on every PR
+(opened / edited / synchronize / reopened / ready_for_review) and enforces §4 step 9.
+
+- **Material** = the diff touches `src/`, `server.py`, `Dynasty Scraper.py`, `frontend/` (excluding
+  `frontend/__tests__/` and `*.test.*` / `*.spec.*`), `deploy/`, `config/`, `.github/workflows/`, or `scripts/`
+  (excluding `scripts/research/`). A material PR must have a `## Feature verification receipt` section in which every
+  field of `.github/pull_request_template.md` is filled — not empty, not template placeholder text. A field that does
+  not apply may say `n/a — <reason>` (a reason of a few words is required). The State field must name one of
+  `TESTED_IN_PR / MERGED / DEPLOYED / VERIFIED_IN_PRODUCTION`.
+- **Not material** (pass without a receipt): docs/markdown-only, `data/`, `exports/`, `CSVs/`. Tests-only changes get an
+  advisory notice, never a failure.
+- **Exempt authors**: `dependabot[bot]` and `github-actions[bot]` (automated refresh commits); the report says so.
+- **Protected methodology** (owner master directive 2026-11-08, Priority 4): a PR that changes a file listed in
+  `config/ci/protected_methodology_paths.json` must also carry a `Methodology authorization:` line in the receipt,
+  either citing the owner decision that authorizes the change or saying `n/a — <reason>` (for example "new flag
+  registered default OFF").
+  - Protected files include Hill constants and the model registry, weights, the package model, FAAB and BDVM
+    parameters, source freshness and lineage, the confidence gate, league playoff and draft-order rules, and flag
+    defaults.
+  - The report names every touched concept either way.
+  - The check cannot verify the decision itself; it makes an owner-reserved change impossible to miss in review.
+- **Fixing a red check**: edit the PR body to complete the listed fields; the check re-runs within seconds. No push needed.
+- **Status**: this is *not yet* a branch-protection required check. Making it required is a repository-settings action
+  reserved for the owner. Until then the Integration Authority treats a green receipt check as required for material PRs.

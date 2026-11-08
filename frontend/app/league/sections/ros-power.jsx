@@ -16,6 +16,7 @@ import { Card } from "../shared-server.jsx";
 import { Avatar, nameFor } from "../shared.jsx";
 import PlayoffOddsChart from "@/components/graphs/PlayoffOddsChart";
 import OddsExperimentalNote from "@/components/league/OddsExperimentalNote";
+import DivisionOddsTable from "@/components/league/DivisionOddsTable";
 import { ImpactValue } from "@/components/league/ScheduleImpact";
 import { interpretation, teamRowFor } from "@/lib/schedule-impact";
 
@@ -831,7 +832,7 @@ export default function RosPowerSection({ managers } = {}) {
       {oddsData && Array.isArray(oddsData.owners) && oddsData.owners.length > 0 ? (
         <Card
           title="Playoff odds"
-          subtitle="Monte Carlo over remaining regular-season weeks; samples each owner's score from their actual weekly history."
+          subtitle="Simulated estimate over the remaining regular-season weeks, from each team's projected weekly scoring (its current roster in best-ball leagues, otherwise its weekly history)."
         >
           {/* Only beside actual probabilities: a preseason / refused chart
               shows none, and a refusal is not a projection. */}
@@ -839,6 +840,7 @@ export default function RosPowerSection({ managers } = {}) {
             <OddsExperimentalNote />
           ) : null}
           <PlayoffOddsChart data={oddsData} />
+          <DivisionOddsTable data={oddsData} />
         </Card>
       ) : null}
       {oddsError ? (

@@ -1,0 +1,3248 @@
+{
+ "code": {
+  "codeDirty": false,
+  "codeSha": "2724b7f3d0eb0b8639dea91cf59c22b7a5014f4a",
+  "librarySha256": "509272c788341632562cb88289598fc2e28a2e82a626b04850c6b8ab57abdf2c",
+  "preregistration": "docs/league-intelligence/TEAM_POINTS_CALIBRATION_PREREGISTRATION_2026-11-08.md",
+  "preregistrationCommit": "b7aa4ac219c9a6c1c3cae34427d35e331f3f91cb",
+  "preregistrationCommitFiles": [
+   "docs/league-intelligence/TEAM_POINTS_CALIBRATION_PREREGISTRATION_2026-11-08.md"
+  ],
+  "preregistrationIsAncestor": true,
+  "scriptSha256": "48b79a1e13a7207a57da6f6d184c9d7a718e0db3e775306b24703b208f91a1dd"
+ },
+ "development": {
+  "armsWithoutEvidence": [
+   "S"
+  ],
+  "summaries": {
+   "A": {
+    "betweenTeamSpreadRatio": 0.5875,
+    "bias": 1.2588,
+    "brierBinary": 0.1346,
+    "brierH2h": 0.1135,
+    "brierMedian": 0.1451,
+    "calibrationSlope": 1.4394,
+    "concordance": 0.8258,
+    "concordancePairs": 132.0,
+    "coverage80": 0.875,
+    "crps": 26.0094,
+    "logLossBinary": 0.4347,
+    "logLossH2h": 0.3899,
+    "logLossMedian": 0.4571,
+    "mae": 35.5472,
+    "meanSd": 53.7298,
+    "nH2h": 12.0,
+    "nMedian": 24.0,
+    "nTeamWeeks": 24.0,
+    "zMean": 0.0257,
+    "zRms": 0.861,
+    "zSd": 0.8606
+   },
+   "B0": {
+    "betweenTeamSpreadRatio": 0.0,
+    "bias": 9.1335,
+    "brierBinary": 0.2515,
+    "brierH2h": 0.25,
+    "brierMedian": 0.2522,
+    "calibrationSlope": 0.1715,
+    "concordance": 0.5,
+    "concordancePairs": 132.0,
+    "coverage80": 0.7083,
+    "crps": 40.4228,
+    "logLossBinary": 0.6961,
+    "logLossH2h": 0.6931,
+    "logLossMedian": 0.6976,
+    "mae": 59.5862,
+    "meanSd": 63.4377,
+    "nH2h": 12.0,
+    "nMedian": 24.0,
+    "nTeamWeeks": 24.0,
+    "zMean": 0.1443,
+    "zRms": 1.0884,
+    "zSd": 1.0788
+   },
+   "B1": {
+    "betweenTeamSpreadRatio": 0.7569,
+    "bias": 9.1335,
+    "brierBinary": 0.1511,
+    "brierH2h": 0.1629,
+    "brierMedian": 0.1452,
+    "calibrationSlope": 1.0227,
+    "concordance": 0.7955,
+    "concordancePairs": 132.0,
+    "coverage80": 0.7083,
+    "crps": 30.2399,
+    "logLossBinary": 0.4614,
+    "logLossH2h": 0.4767,
+    "logLossMedian": 0.4537,
+    "mae": 38.6412,
+    "meanSd": 50.2868,
+    "nH2h": 12.0,
+    "nMedian": 24.0,
+    "nTeamWeeks": 24.0,
+    "zMean": -3.9341,
+    "zRms": 17.7228,
+    "zSd": 17.2806
+   },
+   "B2": {
+    "betweenTeamSpreadRatio": 0.7569,
+    "bias": 9.1335,
+    "brierBinary": 0.1668,
+    "brierH2h": 0.166,
+    "brierMedian": 0.1672,
+    "calibrationSlope": 1.0227,
+    "concordance": 0.7955,
+    "concordancePairs": 132.0,
+    "coverage80": 0.9583,
+    "crps": 27.9277,
+    "logLossBinary": 0.5087,
+    "logLossH2h": 0.4936,
+    "logLossMedian": 0.5162,
+    "mae": 38.6412,
+    "meanSd": 59.8921,
+    "nH2h": 12.0,
+    "nMedian": 24.0,
+    "nTeamWeeks": 24.0,
+    "zMean": 0.1517,
+    "zRms": 0.8506,
+    "zSd": 0.837
+   },
+   "I": {
+    "betweenTeamSpreadRatio": 1.9003,
+    "bias": 88.4311,
+    "brierBinary": 0.13,
+    "brierH2h": 0.0841,
+    "brierMedian": 0.153,
+    "calibrationSlope": 0.431,
+    "concordance": 0.8258,
+    "concordancePairs": 132.0,
+    "coverage80": 0.1667,
+    "crps": 92.2462,
+    "logLossBinary": 0.5793,
+    "logLossH2h": 0.5537,
+    "logLossMedian": 0.5921,
+    "mae": 107.1601,
+    "meanSd": 29.3817,
+    "nH2h": 12.0,
+    "nMedian": 24.0,
+    "nTeamWeeks": 24.0,
+    "zMean": 3.9777,
+    "zRms": 5.5866,
+    "zSd": 3.9228
+   },
+   "I_todayInjury": {
+    "betweenTeamSpreadRatio": 1.9238,
+    "bias": 88.575,
+    "brierBinary": 0.1268,
+    "brierH2h": 0.0861,
+    "brierMedian": 0.1472,
+    "calibrationSlope": 0.4151,
+    "concordance": 0.8258,
+    "concordancePairs": 132.0,
+    "coverage80": 0.0833,
+    "crps": 94.5012,
+    "logLossBinary": 0.602,
+    "logLossH2h": 0.6543,
+    "logLossMedian": 0.5759,
+    "mae": 109.6769,
+    "meanSd": 29.3157,
+    "nH2h": 12.0,
+    "nMedian": 24.0,
+    "nTeamWeeks": 24.0,
+    "zMean": 3.9866,
+    "zRms": 5.6048,
+    "zSd": 3.9396
+   }
+  }
+ },
+ "downstreamPlayoffTitle": "INSUFFICIENT_BY_CONSTRUCTION: no completed 2026 season",
+ "generatedAt": "2026-11-08T12:15:51+00:00",
+ "holdout": {
+  "deltasIncumbentMinusChallenger": {
+   "A": {
+    "abs": {
+     "clusters": 12.0,
+     "delta": 36.42196,
+     "hi95": 57.73784,
+     "lo95": 16.2543,
+     "reps": 2000.0
+    },
+    "crps": {
+     "clusters": 12.0,
+     "delta": 36.9658,
+     "hi95": 57.11402,
+     "lo95": 17.77031,
+     "reps": 2000.0
+    },
+    "ll": {
+     "clusters": 12.0,
+     "delta": 0.246,
+     "hi95": 0.48191,
+     "lo95": 0.04917,
+     "reps": 2000.0
+    }
+   },
+   "B1": {
+    "abs": {
+     "clusters": 12.0,
+     "delta": 39.82247,
+     "hi95": 61.54554,
+     "lo95": 19.41712,
+     "reps": 2000.0
+    },
+    "crps": {
+     "clusters": 12.0,
+     "delta": 38.80233,
+     "hi95": 59.03753,
+     "lo95": 19.94299,
+     "reps": 2000.0
+    },
+    "ll": {
+     "clusters": 12.0,
+     "delta": 0.25608,
+     "hi95": 0.48061,
+     "lo95": 0.05735,
+     "reps": 2000.0
+    }
+   },
+   "B2": {
+    "abs": {
+     "clusters": 12.0,
+     "delta": 39.82247,
+     "hi95": 61.54554,
+     "lo95": 19.41712,
+     "reps": 2000.0
+    },
+    "crps": {
+     "clusters": 12.0,
+     "delta": 39.95076,
+     "hi95": 60.42351,
+     "lo95": 20.77916,
+     "reps": 2000.0
+    },
+    "ll": {
+     "clusters": 12.0,
+     "delta": 0.25202,
+     "hi95": 0.47364,
+     "lo95": 0.05289,
+     "reps": 2000.0
+    }
+   },
+   "S": {
+    "abs": {
+     "clusters": 12.0,
+     "delta": 38.36675,
+     "hi95": 59.83134,
+     "lo95": 18.03037,
+     "reps": 2000.0
+    },
+    "crps": {
+     "clusters": 12.0,
+     "delta": 39.38578,
+     "hi95": 59.97117,
+     "lo95": 19.66903,
+     "reps": 2000.0
+    },
+    "ll": {
+     "clusters": 12.0,
+     "delta": 0.27414,
+     "hi95": 0.48775,
+     "lo95": 0.08925,
+     "reps": 2000.0
+    }
+   }
+  },
+  "gates": {
+   "A": {
+    "failed": [
+     "TG1",
+     "TG2",
+     "TG3"
+    ],
+    "gates": {
+     "TG1": "FAIL",
+     "TG2": "FAIL",
+     "TG3": "FAIL",
+     "TG4": "PASS",
+     "TG5": "PASS"
+    },
+    "references": [
+     "B1",
+     "B2"
+    ],
+    "verdict": "DOES_NOT_PASS"
+   },
+   "B1": {
+    "failed": [
+     "TG1",
+     "TG3",
+     "TG4",
+     "TG5"
+    ],
+    "gates": {
+     "TG1": "FAIL",
+     "TG2": "PASS",
+     "TG3": "FAIL",
+     "TG4": "FAIL",
+     "TG5": "FAIL"
+    },
+    "references": [
+     "B2"
+    ],
+    "verdict": "DOES_NOT_PASS"
+   },
+   "B2": {
+    "failed": [
+     "TG2",
+     "TG3",
+     "TG5"
+    ],
+    "gates": {
+     "TG1": "PASS",
+     "TG2": "FAIL",
+     "TG3": "FAIL",
+     "TG4": "PASS",
+     "TG5": "FAIL"
+    },
+    "references": [
+     "B1"
+    ],
+    "verdict": "DOES_NOT_PASS"
+   },
+   "S": {
+    "failed": [
+     "TG1",
+     "TG3"
+    ],
+    "gates": {
+     "TG1": "FAIL",
+     "TG2": "PASS",
+     "TG3": "FAIL",
+     "TG4": "PASS",
+     "TG5": "PASS"
+    },
+    "references": [
+     "B1",
+     "B2"
+    ],
+    "verdict": "DOES_NOT_PASS"
+   }
+  },
+  "horizon": {
+   "A": {
+    "expectedWinsBias": 0.0,
+    "expectedWinsMae": 0.8437,
+    "n": 48.0,
+    "projectedPfBias": -69.3676,
+    "projectedPfMae": 87.5775
+   },
+   "B0": {
+    "expectedWinsBias": -0.0,
+    "expectedWinsMae": 1.7089,
+    "n": 48.0,
+    "projectedPfBias": -49.7193,
+    "projectedPfMae": 134.5721
+   },
+   "B1": {
+    "expectedWinsBias": 0.0,
+    "expectedWinsMae": 0.6699,
+    "n": 48.0,
+    "projectedPfBias": -49.7193,
+    "projectedPfMae": 70.9042
+   },
+   "B2": {
+    "expectedWinsBias": 0.0,
+    "expectedWinsMae": 0.7114,
+    "n": 48.0,
+    "projectedPfBias": -49.7193,
+    "projectedPfMae": 70.9042
+   },
+   "I": {
+    "expectedWinsBias": -0.0,
+    "expectedWinsMae": 0.7205,
+    "n": 48.0,
+    "projectedPfBias": 141.2721,
+    "projectedPfMae": 182.0027
+   },
+   "I_todayInjury": {
+    "expectedWinsBias": 0.0,
+    "expectedWinsMae": 0.7656,
+    "n": 48.0,
+    "projectedPfBias": 141.6041,
+    "projectedPfMae": 190.4965
+   },
+   "S": {
+    "expectedWinsBias": -0.0,
+    "expectedWinsMae": 0.719,
+    "n": 48.0,
+    "projectedPfBias": -62.4812,
+    "projectedPfMae": 83.1548
+   }
+  },
+  "incumbentInputs": {
+   "I_todayInjury": "first run: today's directory injury flags (look-ahead)",
+   "gated": "I: point-in-time join, no injury flags (post-freeze correction)",
+   "strippedDirectoryFields": [
+    "injury_status",
+    "injury_body_part",
+    "injury_notes",
+    "injury_start_date",
+    "practice_participation",
+    "practice_description"
+   ]
+  },
+  "perWeek": {
+   "5": {
+    "A": {
+     "bias": -7.9698,
+     "brierBinary": 0.1522,
+     "concordance": 0.803,
+     "crps": 33.8535,
+     "logLossBinary": 0.4653,
+     "mae": 49.932
+    },
+    "B0": {
+     "bias": -0.6931,
+     "brierBinary": 0.2506,
+     "concordance": 0.5,
+     "crps": 50.1561,
+     "logLossBinary": 0.6944,
+     "mae": 74.2408
+    },
+    "B1": {
+     "bias": -0.6931,
+     "brierBinary": 0.1662,
+     "concordance": 0.7727,
+     "crps": 33.1841,
+     "logLossBinary": 0.4708,
+     "mae": 49.464
+    },
+    "B2": {
+     "bias": -0.6931,
+     "brierBinary": 0.1824,
+     "concordance": 0.7727,
+     "crps": 32.7611,
+     "logLossBinary": 0.5177,
+     "mae": 49.464
+    },
+    "I": {
+     "bias": 80.6329,
+     "brierBinary": 0.183,
+     "concordance": 0.8182,
+     "crps": 85.1765,
+     "logLossBinary": 0.8268,
+     "mae": 100.4322
+    },
+    "I_todayInjury": {
+     "bias": 80.8107,
+     "brierBinary": 0.1867,
+     "concordance": 0.8333,
+     "crps": 88.6199,
+     "logLossBinary": 0.9727,
+     "mae": 103.9882
+    },
+    "S": {
+     "bias": -8.7501,
+     "brierBinary": 0.1564,
+     "concordance": 0.7879,
+     "crps": 31.7388,
+     "logLossBinary": 0.4631,
+     "mae": 48.1643
+    }
+   },
+   "6": {
+    "A": {
+     "bias": -47.1706,
+     "brierBinary": 0.1955,
+     "concordance": 0.7727,
+     "crps": 36.3198,
+     "logLossBinary": 0.5525,
+     "mae": 51.5252
+    },
+    "B0": {
+     "bias": -40.707,
+     "brierBinary": 0.2496,
+     "concordance": 0.5,
+     "crps": 41.3863,
+     "logLossBinary": 0.6923,
+     "mae": 56.1801
+    },
+    "B1": {
+     "bias": -40.707,
+     "brierBinary": 0.1988,
+     "concordance": 0.7727,
+     "crps": 35.859,
+     "logLossBinary": 0.5896,
+     "mae": 47.6863
+    },
+    "B2": {
+     "bias": -40.707,
+     "brierBinary": 0.1811,
+     "concordance": 0.7727,
+     "crps": 33.1813,
+     "logLossBinary": 0.5261,
+     "mae": 47.6863
+    },
+    "I": {
+     "bias": 40.6149,
+     "brierBinary": 0.2998,
+     "concordance": 0.7727,
+     "crps": 59.9887,
+     "logLossBinary": 1.1837,
+     "mae": 72.0823
+    },
+    "I_todayInjury": {
+     "bias": 40.729,
+     "brierBinary": 0.2861,
+     "concordance": 0.7727,
+     "crps": 62.562,
+     "logLossBinary": 1.1553,
+     "mae": 75.4121
+    },
+    "S": {
+     "bias": -46.1644,
+     "brierBinary": 0.1939,
+     "concordance": 0.7879,
+     "crps": 35.9795,
+     "logLossBinary": 0.5446,
+     "mae": 51.5952
+    }
+   },
+   "7": {
+    "A": {
+     "bias": -34.5308,
+     "brierBinary": 0.0984,
+     "concordance": 0.803,
+     "crps": 36.3911,
+     "logLossBinary": 0.3304,
+     "mae": 50.45
+    },
+    "B0": {
+     "bias": -24.515,
+     "brierBinary": 0.2494,
+     "concordance": 0.5,
+     "crps": 44.7065,
+     "logLossBinary": 0.692,
+     "mae": 54.7992
+    },
+    "B1": {
+     "bias": -24.515,
+     "brierBinary": 0.0935,
+     "concordance": 0.8182,
+     "crps": 30.2875,
+     "logLossBinary": 0.3084,
+     "mae": 41.1622
+    },
+    "B2": {
+     "bias": -24.515,
+     "brierBinary": 0.0982,
+     "concordance": 0.8182,
+     "crps": 29.5219,
+     "logLossBinary": 0.3293,
+     "mae": 41.1622
+    },
+    "I": {
+     "bias": 41.9998,
+     "brierBinary": 0.102,
+     "concordance": 0.803,
+     "crps": 65.3794,
+     "logLossBinary": 0.3642,
+     "mae": 77.4952
+    },
+    "I_todayInjury": {
+     "bias": 42.1091,
+     "brierBinary": 0.1092,
+     "concordance": 0.7879,
+     "crps": 67.0383,
+     "logLossBinary": 0.3936,
+     "mae": 79.2685
+    },
+    "S": {
+     "bias": -26.9763,
+     "brierBinary": 0.0874,
+     "concordance": 0.803,
+     "crps": 32.455,
+     "logLossBinary": 0.2947,
+     "mae": 47.734
+    }
+   },
+   "8": {
+    "A": {
+     "bias": -11.3552,
+     "brierBinary": 0.1084,
+     "concordance": 0.8636,
+     "crps": 21.5668,
+     "logLossBinary": 0.3676,
+     "mae": 29.5066
+    },
+    "B0": {
+     "bias": -1.2912,
+     "brierBinary": 0.2513,
+     "concordance": 0.5,
+     "crps": 40.4644,
+     "logLossBinary": 0.6957,
+     "mae": 59.1002
+    },
+    "B1": {
+     "bias": -1.2912,
+     "brierBinary": 0.0858,
+     "concordance": 0.7879,
+     "crps": 21.4543,
+     "logLossBinary": 0.3067,
+     "mae": 29.4993
+    },
+    "B2": {
+     "bias": -1.2912,
+     "brierBinary": 0.0887,
+     "concordance": 0.7879,
+     "crps": 20.727,
+     "logLossBinary": 0.3188,
+     "mae": 29.4993
+    },
+    "I": {
+     "bias": 60.375,
+     "brierBinary": 0.0924,
+     "concordance": 0.8636,
+     "crps": 65.4497,
+     "logLossBinary": 0.3251,
+     "mae": 77.0921
+    },
+    "I_todayInjury": {
+     "bias": 60.4308,
+     "brierBinary": 0.0917,
+     "concordance": 0.8485,
+     "crps": 67.7874,
+     "logLossBinary": 0.3502,
+     "mae": 79.5867
+    },
+    "S": {
+     "bias": 1.1836,
+     "brierBinary": 0.0824,
+     "concordance": 0.8182,
+     "crps": 18.2777,
+     "logLossBinary": 0.3009,
+     "mae": 26.1412
+    }
+   }
+  },
+  "recommendation": null,
+  "summaries": {
+   "A": {
+    "betweenTeamSpreadRatio": 0.7097,
+    "bias": -25.2566,
+    "brierBinary": 0.1386,
+    "brierH2h": 0.1336,
+    "brierMedian": 0.1411,
+    "calibrationSlope": 1.2654,
+    "concordance": 0.8106,
+    "concordancePairs": 264.0,
+    "coverage80": 0.6875,
+    "crps": 32.0328,
+    "logLossBinary": 0.429,
+    "logLossH2h": 0.4174,
+    "logLossMedian": 0.4347,
+    "mae": 45.3535,
+    "meanSd": 51.9593,
+    "nH2h": 24.0,
+    "nMedian": 48.0,
+    "nTeamWeeks": 48.0,
+    "zMean": -0.4856,
+    "zRms": 1.0767,
+    "zSd": 0.9609
+   },
+   "B0": {
+    "betweenTeamSpreadRatio": 0.0,
+    "bias": -16.8016,
+    "brierBinary": 0.2502,
+    "brierH2h": 0.25,
+    "brierMedian": 0.2503,
+    "calibrationSlope": -0.3093,
+    "concordance": 0.5,
+    "concordancePairs": 264.0,
+    "coverage80": 0.7083,
+    "crps": 44.1783,
+    "logLossBinary": 0.6936,
+    "logLossH2h": 0.6931,
+    "logLossMedian": 0.6938,
+    "mae": 61.0801,
+    "meanSd": 69.5018,
+    "nH2h": 24.0,
+    "nMedian": 48.0,
+    "nTeamWeeks": 48.0,
+    "zMean": -0.2401,
+    "zRms": 1.1205,
+    "zSd": 1.0945
+   },
+   "B1": {
+    "betweenTeamSpreadRatio": 0.8369,
+    "bias": -16.8016,
+    "brierBinary": 0.1361,
+    "brierH2h": 0.1217,
+    "brierMedian": 0.1433,
+    "calibrationSlope": 1.091,
+    "concordance": 0.7879,
+    "concordancePairs": 264.0,
+    "coverage80": 0.7292,
+    "crps": 30.1962,
+    "logLossBinary": 0.4189,
+    "logLossH2h": 0.3803,
+    "logLossMedian": 0.4381,
+    "mae": 41.9529,
+    "meanSd": 48.9101,
+    "nH2h": 24.0,
+    "nMedian": 48.0,
+    "nTeamWeeks": 48.0,
+    "zMean": -0.4544,
+    "zRms": 1.4105,
+    "zSd": 1.3353
+   },
+   "B2": {
+    "betweenTeamSpreadRatio": 0.8369,
+    "bias": -16.8016,
+    "brierBinary": 0.1376,
+    "brierH2h": 0.1237,
+    "brierMedian": 0.1446,
+    "calibrationSlope": 1.091,
+    "concordance": 0.7879,
+    "concordancePairs": 264.0,
+    "coverage80": 0.8333,
+    "crps": 29.0478,
+    "logLossBinary": 0.4229,
+    "logLossH2h": 0.3848,
+    "logLossMedian": 0.442,
+    "mae": 41.9529,
+    "meanSd": 51.5464,
+    "nH2h": 24.0,
+    "nMedian": 48.0,
+    "nTeamWeeks": 48.0,
+    "zMean": -0.3257,
+    "zRms": 0.981,
+    "zSd": 0.9254
+   },
+   "I": {
+    "betweenTeamSpreadRatio": 1.8266,
+    "bias": 55.9057,
+    "brierBinary": 0.1693,
+    "brierH2h": 0.1568,
+    "brierMedian": 0.1756,
+    "calibrationSlope": 0.4874,
+    "concordance": 0.8144,
+    "concordancePairs": 264.0,
+    "coverage80": 0.2708,
+    "crps": 68.9986,
+    "logLossBinary": 0.675,
+    "logLossH2h": 0.6223,
+    "logLossMedian": 0.7013,
+    "mae": 81.7754,
+    "meanSd": 27.985,
+    "nH2h": 24.0,
+    "nMedian": 48.0,
+    "nTeamWeeks": 48.0,
+    "zMean": 2.7437,
+    "zRms": 4.5354,
+    "zSd": 3.6113
+   },
+   "I_todayInjury": {
+    "betweenTeamSpreadRatio": 1.8484,
+    "bias": 56.0199,
+    "brierBinary": 0.1684,
+    "brierH2h": 0.1681,
+    "brierMedian": 0.1686,
+    "calibrationSlope": 0.472,
+    "concordance": 0.8106,
+    "concordancePairs": 264.0,
+    "coverage80": 0.25,
+    "crps": 71.5019,
+    "logLossBinary": 0.718,
+    "logLossH2h": 0.7049,
+    "logLossMedian": 0.7245,
+    "mae": 84.5639,
+    "meanSd": 27.9521,
+    "nH2h": 24.0,
+    "nMedian": 48.0,
+    "nTeamWeeks": 48.0,
+    "zMean": 2.7451,
+    "zRms": 4.5413,
+    "zSd": 3.6177
+   },
+   "S": {
+    "betweenTeamSpreadRatio": 0.8792,
+    "bias": -20.1768,
+    "brierBinary": 0.13,
+    "brierH2h": 0.1211,
+    "brierMedian": 0.1345,
+    "calibrationSlope": 1.0361,
+    "concordance": 0.7992,
+    "concordancePairs": 264.0,
+    "coverage80": 0.7292,
+    "crps": 29.6128,
+    "logLossBinary": 0.4008,
+    "logLossH2h": 0.3783,
+    "logLossMedian": 0.4121,
+    "mae": 43.4087,
+    "meanSd": 50.6242,
+    "nH2h": 24.0,
+    "nMedian": 48.0,
+    "nTeamWeeks": 48.0,
+    "zMean": -0.3949,
+    "zRms": 1.0132,
+    "zSd": 0.933
+   }
+  }
+ },
+ "league": {
+  "key": "dynasty_main",
+  "medianGame": true,
+  "scoringFingerprint": "sf1:9e51824690d091f9",
+  "slots": [
+   "QB",
+   "RB",
+   "RB",
+   "WR",
+   "WR",
+   "WR",
+   "TE",
+   "TE",
+   "FLEX",
+   "FLEX",
+   "SUPER_FLEX",
+   "K",
+   "DL",
+   "DL",
+   "DL",
+   "LB",
+   "LB",
+   "LB",
+   "DB",
+   "DB",
+   "DB"
+  ]
+ },
+ "pointsModel": {
+  "incumbentModel": {
+   "cvByPosition": {
+    "CB": 0.55,
+    "DB": 0.5,
+    "DE": 0.55,
+    "DL": 0.55,
+    "DT": 0.55,
+    "EDGE": 0.55,
+    "LB": 0.45,
+    "QB": 0.32,
+    "RB": 0.55,
+    "S": 0.5,
+    "TE": 0.65,
+    "WR": 0.6
+   },
+   "defaultCv": 0.55,
+   "generatedAt": null,
+   "rosValuePerPoint": 2.7,
+   "sampleSize": 0,
+   "source": "fallback-constants"
+  },
+  "loaderSourceInThisCheckout": "fallback-constants"
+ },
+ "promotes": false,
+ "receipts": {
+  "cache": {
+   "https://api.sleeper.app/v1/league/<dynasty_main>": {
+    "bytes": 5106,
+    "cachedAtUtc": "2026-11-08T11:23:06Z",
+    "sha256": "2f7ffae0df521456e132f0c1c85b74cd331cae5b5e0bb23dcb1280470b6e618c"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/1": {
+    "bytes": 18649,
+    "cachedAtUtc": "2026-11-08T11:23:07Z",
+    "sha256": "9f4d2663ac8a4960d6299ec97199dccba070828e19e0ff0e15b875314b2221b2"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/2": {
+    "bytes": 18695,
+    "cachedAtUtc": "2026-11-08T11:23:07Z",
+    "sha256": "ac8be4fffb6c0dc35df103295539a6d4843b75195596b77d7ade21a617e3df02"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/3": {
+    "bytes": 18672,
+    "cachedAtUtc": "2026-11-08T11:23:08Z",
+    "sha256": "142ca76bb94e966dad28f699362bb7fd8d6ea71f658c06f82e958807ac1218e0"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/4": {
+    "bytes": 18735,
+    "cachedAtUtc": "2026-11-08T11:23:09Z",
+    "sha256": "c1c28e4add27364429437778d172fdfa65d9894c4637ae12ab839cda77a913a7"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/5": {
+    "bytes": 18732,
+    "cachedAtUtc": "2026-11-08T11:23:09Z",
+    "sha256": "b8c08a1546f9e2a5b68e3c7f62547b23f20b6ff1c4f7ca154ab697004799966e"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/6": {
+    "bytes": 18677,
+    "cachedAtUtc": "2026-11-08T11:23:10Z",
+    "sha256": "3fec893d6fe76fa37901e9aad7f6d4d66bbad200b83a1754dd1b1a3e2b41cdf7"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/7": {
+    "bytes": 18623,
+    "cachedAtUtc": "2026-11-08T11:23:10Z",
+    "sha256": "4c0a4ea6cea104dac68d9c3797c204d05a82e5a4d63a3570e42a28fba71bca6b"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/8": {
+    "bytes": 18696,
+    "cachedAtUtc": "2026-11-08T11:23:11Z",
+    "sha256": "7b7e09952f1f5f50ebd39a23f9784232272c1479668f53b2605ef91a89196617"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/rosters": {
+    "bytes": 14796,
+    "cachedAtUtc": "2026-11-08T11:23:06Z",
+    "sha256": "02d1a0c50f34966d9b1c7936403a1fd10958b3797158f3423f788ffc0543a959"
+   },
+   "https://api.sleeper.app/v1/players/nfl": {
+    "bytes": 14662477,
+    "cachedAtUtc": "2026-11-08T11:23:14Z",
+    "sha256": "e3ba74b6ab05cd5f359fa44c5329d9ef46e938e410fb6880fcf456a55cc13245"
+   },
+   "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv": {
+    "bytes": 2188934,
+    "cachedAtUtc": "2026-11-08T11:23:06Z",
+    "sha256": "d2cd748c24a91fed676ff5578612de1bd673da13b7892d7ac3580b7b31776a7c"
+   }
+  },
+  "networkCalls": 0,
+  "snapshots": {
+   "1": {
+    "file": "2026-09-09T21-17-37.092580+00-00.json",
+    "sha256": "6585f7dcec86286db16055c85e30a2e2a2097c2200838c0ea2173c0278ad8cae"
+   },
+   "2": {
+    "file": "2026-09-17T21-51-47.384808+00-00.json",
+    "sha256": "d3f08e17b6980b448390e00f502ad81cff22be847815fcb0bd83b8e4fc5d768d"
+   },
+   "3": {
+    "file": "2026-09-24T23-24-45.550335+00-00.json",
+    "sha256": "fe195dc04cc9719b35a3c6886882cf0eb54cfe4e97174af233055ae64a9074a7"
+   },
+   "4": {
+    "file": "2026-09-30T13-07-10.115786+00-00.json",
+    "sha256": "fd4f3a861ad44599bbfe59705663c7ca3ea13dae50db8a891c8bfcfadb8da0e6"
+   },
+   "5": {
+    "file": "2026-10-08T20-15-39.079400+00-00.json",
+    "sha256": "538cd0566b3b507e554c2370ba8b655266755a5411a777f8542c50732112d570"
+   },
+   "6": {
+    "file": "2026-10-15T21-53-29.185259+00-00.json",
+    "sha256": "cc059ae846980afadc75624a86f87a0225d1535f7aa7981206a478203759622f"
+   },
+   "7": {
+    "file": "2026-10-22T22-01-15.898990+00-00.json",
+    "sha256": "f3f87cc4136011ec6555f3b063d262fbefdf9d41a4c39643f0f94116a9ec2c60"
+   },
+   "8": {
+    "file": "2026-10-29T19-58-09.845578+00-00.json",
+    "sha256": "33b81514a20f5c254ff9832d2f75f78f07b6cf39e4915daef143f3df4ded56ea"
+   }
+  }
+ },
+ "seeds": {
+  "bootstrap": 20261108,
+  "bootstrapReps": 2000,
+  "medianBase": 20261108,
+  "medianDraws": 20000,
+  "presim": 20260428
+ },
+ "split": {
+  "development": [
+   3,
+   4
+  ],
+  "holdout": [
+   5,
+   6,
+   7,
+   8
+  ]
+ },
+ "status": "RESEARCH_EVIDENCE_NOT_FOR_PROMOTION",
+ "weeks": {
+  "3": {
+   "fits": {
+    "A": {
+     "coef": [
+      227.774008,
+      0.510052
+     ],
+     "dof": 22,
+     "n": 24,
+     "s": 52.8013
+    },
+    "S": null
+   },
+   "rosterSource": "matchups_week_3",
+   "snapshot": "2026-09-24T23-24-45.550335+00-00.json",
+   "teams": {
+    "T01": {
+     "A": [
+      385.89,
+      55.03
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      364.81,
+      68.67
+     ],
+     "B2": [
+      364.81,
+      67.04
+     ],
+     "I": [
+      359.32,
+      32.92
+     ],
+     "I_todayInjury": [
+      348.7,
+      32.77
+     ],
+     "realized": 401.21
+    },
+    "T02": {
+     "A": [
+      344.38,
+      53.95
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      327.31,
+      25.01
+     ],
+     "B2": [
+      327.31,
+      67.04
+     ],
+     "I": [
+      206.16,
+      21.82
+     ],
+     "I_todayInjury": [
+      205.74,
+      21.81
+     ],
+     "realized": 327.37
+    },
+    "T03": {
+     "A": [
+      351.97,
+      53.89
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      316.71,
+      63.65
+     ],
+     "B2": [
+      316.71,
+      67.04
+     ],
+     "I": [
+      233.74,
+      28.75
+     ],
+     "I_todayInjury": [
+      244.4,
+      28.57
+     ],
+     "realized": 346.85
+    },
+    "T04": {
+     "A": [
+      377.59,
+      54.54
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      320.95,
+      74.18
+     ],
+     "B2": [
+      320.95,
+      67.04
+     ],
+     "I": [
+      319.44,
+      34.53
+     ],
+     "I_todayInjury": [
+      310.4,
+      34.51
+     ],
+     "realized": 355.35
+    },
+    "T05": {
+     "A": [
+      369.42,
+      54.19
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      358.34,
+      60.8
+     ],
+     "B2": [
+      358.34,
+      67.04
+     ],
+     "I": [
+      296.44,
+      31.22
+     ],
+     "I_todayInjury": [
+      285.89,
+      31.15
+     ],
+     "realized": 391.71
+    },
+    "T06": {
+     "A": [
+      387.59,
+      55.15
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      390.58,
+      143.28
+     ],
+     "B2": [
+      390.58,
+      67.04
+     ],
+     "I": [
+      359.78,
+      34.23
+     ],
+     "I_todayInjury": [
+      365.57,
+      34.15
+     ],
+     "realized": 414.69
+    },
+    "T07": {
+     "A": [
+      294.12,
+      57.24
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      292.67,
+      31.12
+     ],
+     "B2": [
+      292.67,
+      67.04
+     ],
+     "I": [
+      80.21,
+      14.85
+     ],
+     "I_todayInjury": [
+      87.24,
+      14.86
+     ],
+     "realized": 269.59
+    },
+    "T08": {
+     "A": [
+      387.49,
+      55.14
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      406.35,
+      79.59
+     ],
+     "B2": [
+      406.35,
+      67.04
+     ],
+     "I": [
+      364.86,
+      38.4
+     ],
+     "I_todayInjury": [
+      373.41,
+      38.31
+     ],
+     "realized": 442.5
+    },
+    "T09": {
+     "A": [
+      427.75,
+      59.41
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      457.27,
+      6.76
+     ],
+     "B2": [
+      457.27,
+      67.04
+     ],
+     "I": [
+      536.21,
+      38.53
+     ],
+     "I_todayInjury": [
+      546.41,
+      38.35
+     ],
+     "realized": 418.88
+    },
+    "T10": {
+     "A": [
+      347.79,
+      53.91
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      365.42,
+      86.16
+     ],
+     "B2": [
+      365.42,
+      67.04
+     ],
+     "I": [
+      223.16,
+      28.58
+     ],
+     "I_todayInjury": [
+      216.6,
+      28.41
+     ],
+     "realized": 446.17
+    },
+    "T11": {
+     "A": [
+      313.66,
+      55.39
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      322.45,
+      5.79
+     ],
+     "B2": [
+      322.45,
+      67.04
+     ],
+     "I": [
+      122.12,
+      17.56
+     ],
+     "I_todayInjury": [
+      117.57,
+      17.55
+     ],
+     "realized": 314.27
+    },
+    "T12": {
+     "A": [
+      334.05,
+      54.23
+     ],
+     "B0": [
+      352.28,
+      62.67
+     ],
+     "B1": [
+      304.5,
+      0.91
+     ],
+     "B2": [
+      304.5,
+      67.04
+     ],
+     "I": [
+      177.66,
+      22.89
+     ],
+     "I_todayInjury": [
+      175.62,
+      22.94
+     ],
+     "realized": 225.92
+    }
+   }
+  },
+  "4": {
+   "fits": {
+    "A": {
+     "coef": [
+      211.362763,
+      0.579557
+     ],
+     "dof": 34,
+     "n": 36,
+     "s": 50.8471
+    },
+    "S": null
+   },
+   "rosterSource": "matchups_week_4",
+   "snapshot": "2026-09-30T13-07-10.115786+00-00.json",
+   "teams": {
+    "T01": {
+     "A": [
+      397.43,
+      52.37
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      376.95,
+      51.81
+     ],
+     "B2": [
+      376.95,
+      52.75
+     ],
+     "I": [
+      378.32,
+      34.87
+     ],
+     "I_todayInjury": [
+      371.11,
+      34.78
+     ],
+     "realized": 433.64
+    },
+    "T02": {
+     "A": [
+      349.09,
+      51.57
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      327.33,
+      16.67
+     ],
+     "B2": [
+      327.33,
+      52.75
+     ],
+     "I": [
+      214.39,
+      23.5
+     ],
+     "I_todayInjury": [
+      214.94,
+      23.44
+     ],
+     "realized": 294.3
+    },
+    "T03": {
+     "A": [
+      352.58,
+      51.55
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      326.76,
+      46.95
+     ],
+     "B2": [
+      326.76,
+      52.75
+     ],
+     "I": [
+      234.61,
+      33.1
+     ],
+     "I_todayInjury": [
+      243.84,
+      33.0
+     ],
+     "realized": 386.18
+    },
+    "T04": {
+     "A": [
+      374.61,
+      51.72
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      332.42,
+      54.51
+     ],
+     "B2": [
+      332.42,
+      52.75
+     ],
+     "I": [
+      300.13,
+      33.62
+     ],
+     "I_todayInjury": [
+      288.35,
+      33.7
+     ],
+     "realized": 459.36
+    },
+    "T05": {
+     "A": [
+      378.49,
+      51.79
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      369.46,
+      46.24
+     ],
+     "B2": [
+      369.46,
+      52.75
+     ],
+     "I": [
+      308.23,
+      33.37
+     ],
+     "I_todayInjury": [
+      297.58,
+      33.3
+     ],
+     "realized": 417.9
+    },
+    "T06": {
+     "A": [
+      394.56,
+      52.26
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      398.61,
+      96.87
+     ],
+     "B2": [
+      398.61,
+      52.75
+     ],
+     "I": [
+      361.01,
+      35.92
+     ],
+     "I_todayInjury": [
+      366.06,
+      35.82
+     ],
+     "realized": 397.26
+    },
+    "T07": {
+     "A": [
+      292.36,
+      53.44
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      284.98,
+      25.83
+     ],
+     "B2": [
+      284.98,
+      52.75
+     ],
+     "I": [
+      87.47,
+      13.9
+     ],
+     "I_todayInjury": [
+      95.87,
+      13.91
+     ],
+     "realized": 226.57
+    },
+    "T08": {
+     "A": [
+      393.54,
+      52.22
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      418.4,
+      58.28
+     ],
+     "B2": [
+      418.4,
+      52.75
+     ],
+     "I": [
+      366.84,
+      42.43
+     ],
+     "I_todayInjury": [
+      374.59,
+      42.28
+     ],
+     "realized": 351.58
+    },
+    "T09": {
+     "A": [
+      437.44,
+      54.64
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      444.48,
+      25.99
+     ],
+     "B2": [
+      444.48,
+      52.75
+     ],
+     "I": [
+      533.53,
+      43.79
+     ],
+     "I_todayInjury": [
+      544.06,
+      43.67
+     ],
+     "realized": 441.38
+    },
+    "T10": {
+     "A": [
+      352.71,
+      51.55
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      392.33,
+      78.73
+     ],
+     "B2": [
+      392.33,
+      52.75
+     ],
+     "I": [
+      234.77,
+      25.37
+     ],
+     "I_todayInjury": [
+      227.65,
+      25.27
+     ],
+     "realized": 375.04
+    },
+    "T11": {
+     "A": [
+      312.1,
+      52.45
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      319.72,
+      6.68
+     ],
+     "B2": [
+      319.72,
+      52.75
+     ],
+     "I": [
+      126.33,
+      16.76
+     ],
+     "I_todayInjury": [
+      120.47,
+      16.71
+     ],
+     "realized": 293.86
+    },
+    "T12": {
+     "A": [
+      329.5,
+      51.88
+     ],
+     "B0": [
+      355.81,
+      64.21
+     ],
+     "B1": [
+      278.3,
+      52.39
+     ],
+     "B2": [
+      278.3,
+      52.75
+     ],
+     "I": [
+      169.2,
+      24.27
+     ],
+     "I_todayInjury": [
+      168.43,
+      24.32
+     ],
+     "realized": 284.71
+    }
+   }
+  },
+  "5": {
+   "fits": {
+    "A": {
+     "coef": [
+      192.421653,
+      0.654313
+     ],
+     "dof": 46,
+     "n": 48,
+     "s": 48.867
+    },
+    "S": {
+     "coef": [
+      104.582826,
+      0.61173,
+      0.279124
+     ],
+     "dof": 21,
+     "n": 24,
+     "s": 45.5427
+    }
+   },
+   "rosterSource": "matchups_week_5",
+   "snapshot": "2026-10-08T20-15-39.079400+00-00.json",
+   "teams": {
+    "T01": {
+     "A": [
+      399.52,
+      49.84
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      391.12,
+      51.79
+     ],
+     "B2": [
+      391.12,
+      51.53
+     ],
+     "I": [
+      370.75,
+      32.67
+     ],
+     "I_todayInjury": [
+      365.95,
+      32.61
+     ],
+     "S": [
+      407.38,
+      47.11
+     ],
+     "realized": 456.87
+    },
+    "T02": {
+     "A": [
+      345.82,
+      49.41
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      319.07,
+      22.69
+     ],
+     "B2": [
+      319.07,
+      51.53
+     ],
+     "I": [
+      210.7,
+      20.64
+     ],
+     "I_todayInjury": [
+      211.9,
+      20.53
+     ],
+     "S": [
+      337.06,
+      47.16
+     ],
+     "realized": 296.38
+    },
+    "T03": {
+     "A": [
+      361.52,
+      49.38
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      341.61,
+      49.81
+     ],
+     "B2": [
+      341.61,
+      51.53
+     ],
+     "I": [
+      255.31,
+      28.07
+     ],
+     "I_todayInjury": [
+      263.27,
+      27.91
+     ],
+     "S": [
+      358.03,
+      46.66
+     ],
+     "realized": 370.35
+    },
+    "T04": {
+     "A": [
+      389.33,
+      49.64
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      364.15,
+      83.03
+     ],
+     "B2": [
+      364.15,
+      51.53
+     ],
+     "I": [
+      330.19,
+      32.69
+     ],
+     "I_todayInjury": [
+      311.61,
+      32.83
+     ],
+     "S": [
+      390.32,
+      47.1
+     ],
+     "realized": 436.14
+    },
+    "T05": {
+     "A": [
+      374.11,
+      49.44
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      381.57,
+      45.49
+     ],
+     "B2": [
+      381.57,
+      51.53
+     ],
+     "I": [
+      292.19,
+      28.77
+     ],
+     "I_todayInjury": [
+      280.98,
+      28.75
+     ],
+     "S": [
+      380.95,
+      47.01
+     ],
+     "realized": 445.69
+    },
+    "T06": {
+     "A": [
+      396.15,
+      49.77
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      398.27,
+      76.58
+     ],
+     "B2": [
+      398.27,
+      51.53
+     ],
+     "I": [
+      358.06,
+      31.23
+     ],
+     "I_todayInjury": [
+      363.61,
+      31.22
+     ],
+     "S": [
+      406.22,
+      47.27
+     ],
+     "realized": 326.18
+    },
+    "T07": {
+     "A": [
+      283.07,
+      50.84
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      270.38,
+      38.51
+     ],
+     "B2": [
+      270.38,
+      51.53
+     ],
+     "I": [
+      82.68,
+      14.15
+     ],
+     "I_todayInjury": [
+      90.69,
+      14.15
+     ],
+     "S": [
+      264.8,
+      49.53
+     ],
+     "realized": 272.87
+    },
+    "T08": {
+     "A": [
+      394.02,
+      49.72
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      401.69,
+      59.31
+     ],
+     "B2": [
+      401.69,
+      51.53
+     ],
+     "I": [
+      360.4,
+      37.67
+     ],
+     "I_todayInjury": [
+      367.46,
+      37.67
+     ],
+     "S": [
+      405.19,
+      47.48
+     ],
+     "realized": 461.23
+    },
+    "T09": {
+     "A": [
+      439.8,
+      51.14
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      443.7,
+      20.62
+     ],
+     "B2": [
+      443.7,
+      51.53
+     ],
+     "I": [
+      504.3,
+      35.78
+     ],
+     "I_todayInjury": [
+      519.02,
+      35.71
+     ],
+     "S": [
+      459.71,
+      49.65
+     ],
+     "realized": 417.38
+    },
+    "T10": {
+     "A": [
+      357.54,
+      49.37
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      388.01,
+      62.98
+     ],
+     "B2": [
+      388.01,
+      51.53
+     ],
+     "I": [
+      248.48,
+      28.46
+     ],
+     "I_todayInjury": [
+      242.67,
+      28.36
+     ],
+     "S": [
+      367.26,
+      48.83
+     ],
+     "realized": 336.87
+    },
+    "T11": {
+     "A": [
+      312.42,
+      49.92
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      313.26,
+      15.39
+     ],
+     "B2": [
+      313.26,
+      51.53
+     ],
+     "I": [
+      134.01,
+      20.51
+     ],
+     "I_todayInjury": [
+      129.31,
+      20.44
+     ],
+     "S": [
+      304.21,
+      47.75
+     ],
+     "realized": 221.33
+    },
+    "T12": {
+     "A": [
+      326.76,
+      49.63
+     ],
+     "B0": [
+      357.73,
+      66.01
+     ],
+     "B1": [
+      279.9,
+      41.57
+     ],
+     "B2": [
+      279.9,
+      51.53
+     ],
+     "I": [
+      169.78,
+      23.38
+     ],
+     "I_todayInjury": [
+      168.22,
+      23.41
+     ],
+     "S": [
+      308.31,
+      49.5
+     ],
+     "realized": 243.14
+    }
+   }
+  },
+  "6": {
+   "fits": {
+    "A": {
+     "coef": [
+      174.132047,
+      0.71982
+     ],
+     "dof": 58,
+     "n": 60,
+     "s": 50.4182
+    },
+    "S": {
+     "coef": [
+      76.537466,
+      0.641655,
+      0.327783
+     ],
+     "dof": 33,
+     "n": 36,
+     "s": 48.1762
+    }
+   },
+   "rosterSource": "matchups_week_6",
+   "snapshot": "2026-10-15T21-53-29.185259+00-00.json",
+   "teams": {
+    "T01": {
+     "A": [
+      403.53,
+      51.22
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      404.27,
+      54.49
+     ],
+     "B2": [
+      404.27,
+      51.46
+     ],
+     "I": [
+      368.79,
+      34.16
+     ],
+     "I_todayInjury": [
+      366.2,
+      34.09
+     ],
+     "S": [
+      413.53,
+      49.5
+     ],
+     "realized": 330.96
+    },
+    "T02": {
+     "A": [
+      346.1,
+      50.86
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      314.53,
+      22.23
+     ],
+     "B2": [
+      314.53,
+      51.46
+     ],
+     "I": [
+      217.79,
+      20.72
+     ],
+     "I_todayInjury": [
+      214.44,
+      20.7
+     ],
+     "S": [
+      332.93,
+      49.72
+     ],
+     "realized": 351.36
+    },
+    "T03": {
+     "A": [
+      361.25,
+      50.84
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      347.36,
+      44.55
+     ],
+     "B2": [
+      347.36,
+      51.46
+     ],
+     "I": [
+      255.66,
+      31.41
+     ],
+     "I_todayInjury": [
+      262.95,
+      31.2
+     ],
+     "S": [
+      357.19,
+      48.89
+     ],
+     "realized": 291.78
+    },
+    "T04": {
+     "A": [
+      390.57,
+      51.04
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      378.55,
+      78.78
+     ],
+     "B2": [
+      378.55,
+      51.46
+     ],
+     "I": [
+      339.34,
+      30.5
+     ],
+     "I_todayInjury": [
+      321.66,
+      30.56
+     ],
+     "S": [
+      393.55,
+      49.07
+     ],
+     "realized": 383.6
+    },
+    "T05": {
+     "A": [
+      372.94,
+      50.88
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      394.39,
+      49.77
+     ],
+     "B2": [
+      394.39,
+      51.46
+     ],
+     "I": [
+      289.25,
+      28.14
+     ],
+     "I_todayInjury": [
+      277.21,
+      28.12
+     ],
+     "S": [
+      383.03,
+      49.96
+     ],
+     "realized": 291.47
+    },
+    "T06": {
+     "A": [
+      388.49,
+      51.01
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      383.86,
+      73.96
+     ],
+     "B2": [
+      383.86,
+      51.46
+     ],
+     "I": [
+      335.11,
+      33.86
+     ],
+     "I_todayInjury": [
+      340.49,
+      33.79
+     ],
+     "S": [
+      393.44,
+      49.07
+     ],
+     "realized": 375.87
+    },
+    "T07": {
+     "A": [
+      280.82,
+      51.91
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      270.87,
+      32.7
+     ],
+     "B2": [
+      270.87,
+      51.46
+     ],
+     "I": [
+      92.48,
+      15.87
+     ],
+     "I_todayInjury": [
+      100.55,
+      15.87
+     ],
+     "S": [
+      260.43,
+      50.86
+     ],
+     "realized": 205.66
+    },
+    "T08": {
+     "A": [
+      396.65,
+      51.12
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      413.6,
+      58.17
+     ],
+     "B2": [
+      413.6,
+      51.46
+     ],
+     "I": [
+      360.91,
+      32.87
+     ],
+     "I_todayInjury": [
+      367.12,
+      32.84
+     ],
+     "S": [
+      410.47,
+      50.1
+     ],
+     "realized": 335.05
+    },
+    "T09": {
+     "A": [
+      448.51,
+      52.34
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      438.44,
+      21.74
+     ],
+     "B2": [
+      438.44,
+      51.46
+     ],
+     "I": [
+      514.05,
+      39.74
+     ],
+     "I_todayInjury": [
+      529.73,
+      39.64
+     ],
+     "S": [
+      464.84,
+      50.95
+     ],
+     "realized": 388.94
+    },
+    "T10": {
+     "A": [
+      353.92,
+      50.84
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      377.78,
+      59.03
+     ],
+     "B2": [
+      377.78,
+      51.46
+     ],
+     "I": [
+      243.59,
+      29.35
+     ],
+     "I_todayInjury": [
+      238.62,
+      29.27
+     ],
+     "S": [
+      360.64,
+      49.99
+     ],
+     "realized": 374.79
+    },
+    "T11": {
+     "A": [
+      298.6,
+      51.48
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      294.87,
+      46.89
+     ],
+     "B2": [
+      294.87,
+      51.46
+     ],
+     "I": [
+      119.4,
+      17.81
+     ],
+     "I_todayInjury": [
+      118.0,
+      17.83
+     ],
+     "S": [
+      284.14,
+      50.02
+     ],
+     "realized": 265.39
+    },
+    "T12": {
+     "A": [
+      327.26,
+      51.01
+     ],
+     "B0": [
+      357.59,
+      69.82
+     ],
+     "B1": [
+      272.55,
+      39.61
+     ],
+     "B2": [
+      272.55,
+      51.46
+     ],
+     "I": [
+      178.85,
+      21.83
+     ],
+     "I_todayInjury": [
+      176.88,
+      21.85
+     ],
+     "S": [
+      302.37,
+      52.24
+     ],
+     "realized": 207.73
+    }
+   }
+  },
+  "7": {
+   "fits": {
+    "A": {
+     "coef": [
+      167.947232,
+      0.713279
+     ],
+     "dof": 70,
+     "n": 72,
+     "s": 51.928
+    },
+    "S": {
+     "coef": [
+      75.098378,
+      0.610066,
+      0.322696
+     ],
+     "dof": 45,
+     "n": 48,
+     "s": 50.3609
+    }
+   },
+   "rosterSource": "matchups_week_7",
+   "snapshot": "2026-10-22T22-01-15.898990+00-00.json",
+   "teams": {
+    "T01": {
+     "A": [
+      427.58,
+      53.25
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      392.05,
+      57.91
+     ],
+     "B2": [
+      392.05,
+      51.8
+     ],
+     "I": [
+      461.87,
+      35.73
+     ],
+     "I_todayInjury": [
+      467.03,
+      35.72
+     ],
+     "S": [
+      423.68,
+      53.18
+     ],
+     "realized": 357.71
+    },
+    "T02": {
+     "A": [
+      345.12,
+      52.29
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      320.67,
+      25.46
+     ],
+     "B2": [
+      320.67,
+      51.8
+     ],
+     "I": [
+      230.5,
+      24.42
+     ],
+     "I_todayInjury": [
+      228.22,
+      24.27
+     ],
+     "S": [
+      330.12,
+      51.55
+     ],
+     "realized": 344.27
+    },
+    "T03": {
+     "A": [
+      312.61,
+      52.53
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      338.1,
+      46.31
+     ],
+     "B2": [
+      338.1,
+      51.8
+     ],
+     "I": [
+      162.03,
+      20.22
+     ],
+     "I_todayInjury": [
+      161.29,
+      20.1
+     ],
+     "S": [
+      307.93,
+      51.84
+     ],
+     "realized": 223.17
+    },
+    "T04": {
+     "A": [
+      397.46,
+      52.64
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      379.39,
+      69.52
+     ],
+     "B2": [
+      379.39,
+      51.8
+     ],
+     "I": [
+      367.93,
+      35.64
+     ],
+     "I_todayInjury": [
+      348.29,
+      35.66
+     ],
+     "S": [
+      393.83,
+      51.59
+     ],
+     "realized": 357.48
+    },
+    "T05": {
+     "A": [
+      371.35,
+      52.36
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      377.24,
+      63.14
+     ],
+     "B2": [
+      377.24,
+      51.8
+     ],
+     "I": [
+      298.19,
+      30.48
+     ],
+     "I_todayInjury": [
+      287.89,
+      30.49
+     ],
+     "S": [
+      370.8,
+      50.98
+     ],
+     "realized": 352.01
+    },
+    "T06": {
+     "A": [
+      386.77,
+      52.5
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      382.53,
+      65.32
+     ],
+     "B2": [
+      382.53,
+      51.8
+     ],
+     "I": [
+      338.22,
+      34.45
+     ],
+     "I_todayInjury": [
+      346.03,
+      34.49
+     ],
+     "S": [
+      385.7,
+      51.13
+     ],
+     "realized": 383.05
+    },
+    "T07": {
+     "A": [
+      284.85,
+      53.0
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      260.0,
+      40.73
+     ],
+     "B2": [
+      260.0,
+      51.8
+     ],
+     "I": [
+      111.62,
+      14.21
+     ],
+     "I_todayInjury": [
+      119.71,
+      14.21
+     ],
+     "S": [
+      258.99,
+      52.81
+     ],
+     "realized": 165.97
+    },
+    "T08": {
+     "A": [
+      389.79,
+      52.54
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      400.51,
+      61.9
+     ],
+     "B2": [
+      400.51,
+      51.8
+     ],
+     "I": [
+      354.08,
+      40.45
+     ],
+     "I_todayInjury": [
+      358.17,
+      40.42
+     ],
+     "S": [
+      394.08,
+      51.29
+     ],
+     "realized": 341.4
+    },
+    "T09": {
+     "A": [
+      447.21,
+      53.79
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      430.19,
+      29.05
+     ],
+     "B2": [
+      430.19,
+      51.8
+     ],
+     "I": [
+      519.97,
+      38.42
+     ],
+     "I_todayInjury": [
+      531.15,
+      38.3
+     ],
+     "S": [
+      452.77,
+      53.05
+     ],
+     "realized": 434.28
+    },
+    "T10": {
+     "A": [
+      352.35,
+      52.29
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      377.28,
+      52.07
+     ],
+     "B2": [
+      377.28,
+      51.8
+     ],
+     "I": [
+      254.72,
+      28.87
+     ],
+     "I_todayInjury": [
+      253.92,
+      28.79
+     ],
+     "S": [
+      354.56,
+      51.46
+     ],
+     "realized": 402.01
+    },
+    "T11": {
+     "A": [
+      291.05,
+      52.87
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      289.96,
+      43.35
+     ],
+     "B2": [
+      289.96,
+      51.8
+     ],
+     "I": [
+      123.01,
+      15.98
+     ],
+     "I_todayInjury": [
+      123.15,
+      15.99
+     ],
+     "S": [
+      273.96,
+      51.87
+     ],
+     "realized": 336.9
+    },
+    "T12": {
+     "A": [
+      323.71,
+      52.41
+     ],
+     "B0": [
+      350.81,
+      70.28
+     ],
+     "B1": [
+      261.75,
+      45.13
+     ],
+     "B2": [
+      261.75,
+      51.8
+     ],
+     "I": [
+      189.37,
+      22.36
+     ],
+     "I_todayInjury": [
+      185.33,
+      22.38
+     ],
+     "S": [
+      292.79,
+      54.98
+     ],
+     "realized": 217.24
+    }
+   }
+  },
+  "8": {
+   "fits": {
+    "A": {
+     "coef": [
+      161.8539,
+      0.71777
+     ],
+     "dof": 82,
+     "n": 84,
+     "s": 53.4334
+    },
+    "S": {
+     "coef": [
+      31.785455,
+      0.443582,
+      0.553452
+     ],
+     "dof": 57,
+     "n": 60,
+     "s": 50.903
+    }
+   },
+   "rosterSource": "matchups_week_8",
+   "snapshot": "2026-10-29T19-58-09.845578+00-00.json",
+   "teams": {
+    "T01": {
+     "A": [
+      430.41,
+      54.71
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      387.15,
+      54.13
+     ],
+     "B2": [
+      387.15,
+      51.4
+     ],
+     "I": [
+      486.31,
+      34.8
+     ],
+     "I_todayInjury": [
+      489.72,
+      34.81
+     ],
+     "S": [
+      412.02,
+      53.81
+     ],
+     "realized": 421.5
+    },
+    "T02": {
+     "A": [
+      344.6,
+      53.75
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      324.04,
+      24.9
+     ],
+     "B2": [
+      324.04,
+      51.4
+     ],
+     "I": [
+      238.19,
+      22.74
+     ],
+     "I_todayInjury": [
+      232.31,
+      22.66
+     ],
+     "S": [
+      324.06,
+      51.78
+     ],
+     "realized": 292.16
+    },
+    "T03": {
+     "A": [
+      309.97,
+      53.94
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      321.68,
+      62.51
+     ],
+     "B2": [
+      321.68,
+      51.4
+     ],
+     "I": [
+      163.77,
+      21.5
+     ],
+     "I_todayInjury": [
+      162.78,
+      21.45
+     ],
+     "S": [
+      301.36,
+      51.67
+     ],
+     "realized": 269.03
+    },
+    "T04": {
+     "A": [
+      387.68,
+      53.98
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      376.26,
+      63.43
+     ],
+     "B2": [
+      376.26,
+      51.4
+     ],
+     "I": [
+      360.09,
+      30.63
+     ],
+     "I_todayInjury": [
+      346.56,
+      30.56
+     ],
+     "S": [
+      379.59,
+      51.7
+     ],
+     "realized": 379.79
+    },
+    "T05": {
+     "A": [
+      362.21,
+      53.78
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      373.64,
+      57.95
+     ],
+     "B2": [
+      373.64,
+      51.4
+     ],
+     "I": [
+      286.75,
+      26.71
+     ],
+     "I_todayInjury": [
+      278.0,
+      26.63
+     ],
+     "S": [
+      362.39,
+      51.4
+     ],
+     "realized": 398.56
+    },
+    "T06": {
+     "A": [
+      381.12,
+      53.91
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      382.6,
+      59.02
+     ],
+     "B2": [
+      382.6,
+      51.4
+     ],
+     "I": [
+      336.72,
+      35.29
+     ],
+     "I_todayInjury": [
+      342.61,
+      35.37
+     ],
+     "S": [
+      379.05,
+      51.49
+     ],
+     "realized": 358.34
+    },
+    "T07": {
+     "A": [
+      282.03,
+      54.34
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      246.57,
+      52.89
+     ],
+     "B2": [
+      246.57,
+      51.4
+     ],
+     "I": [
+      113.27,
+      15.97
+     ],
+     "I_todayInjury": [
+      120.97,
+      15.98
+     ],
+     "S": [
+      242.52,
+      53.52
+     ],
+     "realized": 203.53
+    },
+    "T08": {
+     "A": [
+      383.65,
+      53.93
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      392.07,
+      60.81
+     ],
+     "B2": [
+      392.07,
+      51.4
+     ],
+     "I": [
+      348.44,
+      36.8
+     ],
+     "I_todayInjury": [
+      351.96,
+      36.83
+     ],
+     "S": [
+      385.84,
+      51.55
+     ],
+     "realized": 360.02
+    },
+    "T09": {
+     "A": [
+      438.9,
+      54.91
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      430.77,
+      26.3
+     ],
+     "B2": [
+      430.77,
+      51.4
+     ],
+     "I": [
+      509.32,
+      35.68
+     ],
+     "I_todayInjury": [
+      520.54,
+      35.61
+     ],
+     "S": [
+      441.41,
+      52.76
+     ],
+     "realized": 473.83
+    },
+    "T10": {
+     "A": [
+      348.31,
+      53.75
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      380.82,
+      48.1
+     ],
+     "B2": [
+      380.82,
+      51.4
+     ],
+     "I": [
+      252.73,
+      30.69
+     ],
+     "I_todayInjury": [
+      252.35,
+      30.63
+     ],
+     "S": [
+      357.78,
+      51.95
+     ],
+     "realized": 385.94
+    },
+    "T11": {
+     "A": [
+      296.77,
+      54.11
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      296.66,
+      43.52
+     ],
+     "B2": [
+      296.66,
+      51.4
+     ],
+     "I": [
+      138.74,
+      18.08
+     ],
+     "I_todayInjury": [
+      140.74,
+      18.11
+     ],
+     "S": [
+      279.35,
+      51.9
+     ],
+     "realized": 295.8
+    },
+    "T12": {
+     "A": [
+      322.77,
+      53.83
+     ],
+     "B0": [
+      347.3,
+      71.91
+     ],
+     "B1": [
+      255.39,
+      44.57
+     ],
+     "B2": [
+      255.39,
+      51.4
+     ],
+     "I": [
+      193.32,
+      22.93
+     ],
+     "I_todayInjury": [
+      188.44,
+      22.87
+     ],
+     "S": [
+      272.58,
+      55.26
+     ],
+     "realized": 313.65
+    }
+   }
+  }
+ }
+}

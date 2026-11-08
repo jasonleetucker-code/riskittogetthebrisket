@@ -125,9 +125,9 @@ function fmtPct(v) {
 }
 
 function edgeActionLabel(action) {
-  if (action === "strong_buy") return "STRONG BUY";
+  if (action === "strong_buy") return "BUY · LARGE GAP";
   if (action === "buy") return "BUY";
-  if (action === "strong_sell") return "STRONG SELL";
+  if (action === "strong_sell") return "SELL · LARGE GAP";
   if (action === "sell") return "SELL";
   return "HOLD";
 }
@@ -156,10 +156,10 @@ function PlayerEdgeTable({ opportunities }) {
               "Our value",
               "Public market",
               "Public value",
-              "Hidden surplus",
-              "Edge",
-              "Signal",
-              "Confidence",
+              "Board − market",
+              "Edge % (board vs market)",
+              "Threshold signal",
+              "Board confidence",
               "Public-friendly offer",
             ].map((label) => (
               <th
@@ -613,7 +613,7 @@ export default function ArbitragePage() {
       <PageHeader
         eyebrow="Trades"
         title="Market Disagreement"
-        description="Find trades that matter: better players your league's markets undervalue, built into packages the other side can still see as fair."
+        description="Find trades that matter: better players your league's markets price below our board, built into packages the other side can still see as fair. A disagreement is not proof the market is wrong."
       />
 
       {dataError ? <Banner tone="negative">{String(dataError)}</Banner> : null}
