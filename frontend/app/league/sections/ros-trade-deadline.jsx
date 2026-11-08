@@ -60,6 +60,13 @@ function fmtPct(v) {
   return fmtSimulatedShare(Number(v));
 }
 
+// The Strength column is a DETERMINISTIC team-strength percentile, not a
+// simulated probability: it keeps its own exact one-decimal form.
+function fmtPercentile(v) {
+  if (v == null || !Number.isFinite(Number(v))) return "—";
+  return `${(Number(v) * 100).toFixed(1)}%`;
+}
+
 export default function RosTradeDeadlineSection() {
   const [data, setData] = useState(() => _cache.data);
   const [error, setError] = useState(_cache.error);
@@ -135,7 +142,7 @@ export default function RosTradeDeadlineSection() {
                 {fmtPct(row.playoffOdds)}
               </td>
               <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>
-                {fmtPct(row.rosStrengthPercentile)}
+                {fmtPercentile(row.rosStrengthPercentile)}
               </td>
               <td>
                 <div

@@ -107,6 +107,39 @@ describe("uncalibrated odds disclosure (owner decision 9)", () => {
     expect(screen.getByText(EXACT)).toBeTruthy();
   });
 
+  it("Trade Deadline: simulated odds read as estimates; the Strength percentile stays exact", async () => {
+    // Owner 2026-11-08: a simulated 0/1 is "<1%"/">99%", never "0.0%"/"100.0%".
+    // Strength is a deterministic team-strength percentile, not a simulation:
+    // it keeps its exact one-decimal form, including at 0.0 and 1.0.
+    await renderSection("../../app/league/sections/ros-trade-deadline.jsx", {
+      teams: [
+        {
+          ownerId: "o1",
+          displayName: "Bob",
+          championshipOdds: 0,
+          playoffOdds: 1,
+          rosStrengthPercentile: 1,
+          label: "Buyer",
+        },
+        {
+          ownerId: "o2",
+          displayName: "Cy",
+          championshipOdds: 0.2346,
+          playoffOdds: 0.5,
+          rosStrengthPercentile: 0,
+          label: "Seller",
+        },
+      ],
+    });
+    await waitFor(() => expect(screen.getByText("Bob")).toBeTruthy());
+    expect(screen.getByText("<1%")).toBeTruthy();
+    expect(screen.getByText(">99%")).toBeTruthy();
+    expect(screen.getByText("23%")).toBeTruthy();
+    expect(screen.getByText("50%")).toBeTruthy();
+    expect(screen.getByText("100.0%")).toBeTruthy(); // Strength, deterministic
+    expect(screen.getByText("0.0%")).toBeTruthy(); // Strength, deterministic
+  });
+
   describe("Power Rankings 'Playoff odds' card", () => {
     const POWER = {
       currentRanking: [
