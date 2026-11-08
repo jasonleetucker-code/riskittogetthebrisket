@@ -9,8 +9,11 @@
   "backend_process_started_at": "2026-11-08T00:11:20Z (about 6 min before window: first samples after restart are cold)",
   "skipped": [
    "Playwright page-level metrics (requests count, FCP, long tasks) not re-run; budget",
-   "auth-gated: /draft, /bdvm, /api/bdvm/values, /api/sharp/roster-percentage, /api/data, /api/public/league/rosTeamStrength (all 401 anonymous); /api/health now 200 vs 503 baseline"
-  ]
+   "auth-gated targets (/draft, /bdvm, /api/bdvm/values, /api/sharp/roster-percentage, /api/data, /api/public/league/rosTeamStrength) return 401 anonymously: where they appear in `targets`/`comparison` the timings are of the anonymous 401 response only, NOT of the data payload, which was not measured",
+   "/api/health is now 200 vs 503 in the baseline"
+  ],
+  "spacing_seconds": 1.1,
+  "notes_on_baseline": "The 2026-11-06 baseline for /api/public/league has only 3 samples; its p95 equals its max. Baseline 'first sample' values are not necessarily cold-start: e.g. /api/draft-capital's baseline 3,222 ms was its 4th sample (first was 855 ms)."
  },
  "targets": {
   "/": {
