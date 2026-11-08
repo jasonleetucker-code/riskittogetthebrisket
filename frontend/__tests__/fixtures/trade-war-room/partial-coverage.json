@@ -442,7 +442,7 @@
     },
     "postureParamsVersion": "posture_v1_prior",
     "projectionBasis": null,
-    "requestHash": "7f2804e3b7bbd825235ba6e0c100467bb23443cd2fa2a5879af247de1c625598",
+    "requestHash": "1d10fba6a20096a219ab9c1747ee3b28a960249801abf470929132a52ea761c2",
     "scoringFingerprint": null,
     "strategy": {
      "inferredClassification": "PUSH",
@@ -1364,7 +1364,7 @@
    }
   },
   "tiers": {
-   "depth": 3,
+   "depth": 2,
    "elite": 0,
    "high": 0,
    "mid": 4
@@ -1454,7 +1454,7 @@
    }
   },
   "tiers": {
-   "depth": -1,
+   "depth": 0,
    "elite": 0,
    "high": 1,
    "mid": 0
@@ -2172,9 +2172,10 @@
    "quarantined": false,
    "rank": null,
    "sourceLabel": "RB Unpriced",
-   "tier": "depth",
-   "value": 0,
-   "valueFreshness": null
+   "tier": null,
+   "value": null,
+   "valueFreshness": null,
+   "valueState": "unpriced"
   }
  ],
  "team": {
