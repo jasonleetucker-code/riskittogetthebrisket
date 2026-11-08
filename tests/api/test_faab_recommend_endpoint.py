@@ -517,17 +517,45 @@ def test_overlay_faab_budget_beats_hardcoded_fallback(faab_env, monkeypatch):
     league's real setting), not the hard-coded $100 — otherwise every
     bid in a $200 league is halved."""
 
+    # The whole league scales: a $200 league whose balances are double the
+    # $100 league's.  The team is NAMED so its balance is known — before
+    # #2147 this test posted no team, and the desk silently capped the
+    # unknown balance at the league budget ("max == 200"), the very
+    # missing-is-never-zero defect #2147 removes.  The test's intent — the
+    # budget comes from the roster block, never a hard-coded $100 — is kept.
+    def budget_200(contract):
+        for t in contract["sleeper"]["teams"]:
+            t["faabBudget"] = 200
+            t["faabRemaining"] = 2 * t["faabRemaining"]
+
+    body = {"addPlayerName": "Hot Pickup", "teamOwnerId": "me"}
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res_200 = _post(c, monkeypatch, body, mutate=budget_200)
+        res_100 = _post(c, monkeypatch, body)
+    p200, p100 = res_200.json(), res_100.json()
+    assert p200["faabBudget"]["originalBudget"] == 200  # read from the roster block
+    assert p100["faabBudget"]["originalBudget"] == 100
+    assert p200["faabBudget"]["state"] == p100["faabBudget"]["state"] == "known"
+    assert p200["max"] is not None and p100["max"] is not None
+    assert abs(p200["max"] - 2 * p100["max"]) <= 1  # cap scales with the league
+    assert abs(p200["standard"] - 2 * p100["standard"]) <= 1  # bids scale with budget
+
+
+def test_unknown_team_balance_withholds_the_bid_but_keeps_the_real_budget(faab_env, monkeypatch):
+    """No team named → the balance is UNKNOWN: no bid is quoted (never the
+    league budget as a stand-in), while the league's real budget is still
+    the one published."""
+
     def budget_200(contract):
         for t in contract["sleeper"]["teams"]:
             t["faabBudget"] = 200
 
     with TestClient(server.app, raise_server_exceptions=True) as c:
-        res_200 = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"}, mutate=budget_200)
-        res_100 = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"})
-    p200, p100 = res_200.json(), res_100.json()
-    assert p200["max"] == 200  # cap follows the league's real budget
-    assert p100["max"] == 100
-    assert p200["standard"] == 2 * p100["standard"]  # bids scale with budget
+        res = _post(c, monkeypatch, {"addPlayerName": "Hot Pickup"}, mutate=budget_200)
+    p = res.json()
+    assert p["faabBudget"]["state"] == "unknown"
+    assert p["faabBudget"]["originalBudget"] == 200
+    assert p["max"] is None and p["standard"] is None
 
 
 def test_unmatched_team_owner_skips_contention(faab_env, monkeypatch):
