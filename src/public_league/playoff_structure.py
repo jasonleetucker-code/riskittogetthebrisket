@@ -62,6 +62,25 @@ reproduced, so title odds fail closed (``seed_type is None`` with
 ``seed_type_reason``) while qualifying — which seeding does not affect —
 still resolves.
 
+Divisions are READ, not ignored (CW-49, 2026-11-07)
+─────────────────────────────────────────────────
+Sleeper's ``settings.divisions`` splits a league into divisions, and the host
+qualifies every division winner for the playoffs ("If there are divisions,
+then each division winner will qualify for the playoffs",
+https://sleeper.com/blog/how-do-fantasy-playoffs-work), whatever its overall
+record.  The canonical simulator seeds on overall record only, and the host's
+rules for seeding division winners against wild cards and for breaking a
+division tie are not verified, so a league whose divisions are ON is not a
+format the simulator can play: :attr:`PlayoffStructure.divisions_in_play`
+says so and the simulator refuses with a named reason.  Measured: the live
+``dynasty_main`` stated ``divisions: 3`` on 2026-10-26
+(``docs/audits/evidence/league_rules_dynasty_main_2026-10-26.json``) and
+``divisions: 0`` on 2026-11-07, so its odds were computed without the
+division-winner rule while divisions were on.  ``0`` is off.  An ABSENT
+setting is read as no divisions: the host states a count only for a league
+that configured divisions (``dynasty_new`` omits the key); a present value
+that is not a non-negative integer is unknown and refused too.
+
 Missing is never six
 ────────────────────
 A league that does not publish ``playoff_teams`` has an UNKNOWN bracket,
@@ -93,6 +112,7 @@ REASON_NO_PLAYOFF_TEAMS = "league_settings_omit_playoff_teams"
 REASON_IMPLAUSIBLE = "playoff_teams_outside_a_plausible_range"
 REASON_NO_SEED_TYPE = "league_settings_omit_playoff_seed_type"
 REASON_UNKNOWN_SEED_TYPE = "playoff_seed_type_not_recognised"
+REASON_UNKNOWN_DIVISIONS = "divisions_setting_not_recognised"
 
 #: ``playoff_seed_type`` -> bracket rule.  Only the two values the host
 #: documents in its settings UI (default / re-seed) are recognised.
@@ -132,6 +152,17 @@ class PlayoffStructure:
     #: bracket only — qualifying (``known``) does not depend on it.
     seed_type: str | None = None
     seed_type_reason: str = ""
+    #: ``settings.divisions``: ``0`` = off, ``n >= 1`` = the league plays in
+    #: ``n`` divisions.  ``None`` when the setting is absent (no division
+    #: structure configured) or unreadable (``divisions_reason`` names it).
+    divisions: int | None = None
+    divisions_reason: str = ""
+
+    @property
+    def divisions_in_play(self) -> bool:
+        """True when qualifying may depend on a division rule the simulator
+        does not model: divisions are ON, or the setting is unreadable."""
+        return bool(self.divisions_reason) or (self.divisions is not None and self.divisions > 0)
 
     @property
     def known(self) -> bool:
@@ -158,6 +189,8 @@ class PlayoffStructure:
             "reason": self.reason,
             "seedType": self.seed_type,
             "seedTypeReason": self.seed_type_reason,
+            "divisions": self.divisions,
+            "divisionsReason": self.divisions_reason,
         }
 
 
@@ -168,6 +201,26 @@ def _int_or_none(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _whole_count_or_none(value: Any) -> int | None:
+    """A count that Sleeper stated exactly, or ``None``.
+
+    Stricter than :func:`_int_or_none`, which truncates: ``int(0.5)`` is 0,
+    so a malformed ``divisions: 0.5`` would read as "no divisions" and the
+    league would be simulated — failing OPEN.  Here only an int, a string of
+    digits, or a float with no fractional part is a count; anything else is
+    unrecognised and the caller fails closed.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else None
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value.strip())
+    return None
 
 
 def resolve_playoff_structure(season: Any) -> PlayoffStructure:
@@ -201,6 +254,16 @@ def resolve_playoff_structure(season: Any) -> PlayoffStructure:
         code = _int_or_none(raw_seed_type)
         seed_type = _SEED_TYPES.get(code) if code is not None else None
         seed_reason = "" if seed_type is not None else REASON_UNKNOWN_SEED_TYPE
+    # A MISSING key is "no divisions" (dynasty_new and the pre-draft league
+    # omit it; the 2025 dynasty_main stored an explicit 0 once divisions were
+    # off).  A key that is PRESENT but null, fractional or unparseable is not
+    # a statement of zero — it is unrecognised, and the engine refuses.
+    divisions_present = isinstance(settings, dict) and "divisions" in settings
+    raw_divisions = settings.get("divisions")
+    divisions = _whole_count_or_none(raw_divisions)
+    divisions_reason = ""
+    if divisions_present and (divisions is None or divisions < 0):
+        divisions, divisions_reason = None, REASON_UNKNOWN_DIVISIONS
     return PlayoffStructure(
         teams,
         byes_for_teams(teams),
@@ -208,4 +271,6 @@ def resolve_playoff_structure(season: Any) -> PlayoffStructure:
         "league_settings",
         seed_type=seed_type,
         seed_type_reason=seed_reason,
+        divisions=divisions,
+        divisions_reason=divisions_reason,
     )
