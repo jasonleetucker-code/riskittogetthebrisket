@@ -436,10 +436,14 @@ def test_unknown_faab_balance_is_not_borrowed_from_another_league():
     assert a1 == a2 and b1 == b2
     # A: worth up to its whole $100 budget, but capped by its known $30 balance.
     assert (a1["budget"], a1["remaining"], a1["teamCeilingDollars"]) == (100, 30, 30.0)
-    # B: its own $200 original budget; the $30 from A never caps it.
+    # B: its own $200 original budget; the $30 from A never caps it.  B's own
+    # balance is UNKNOWN, so its balance-capped ceiling is unknown too (#2160:
+    # never the full budget, never A's $30) while its uncapped worth stays
+    # published from B's own budget.
     assert b1["budget"] == 200
-    assert b1["remaining"] != 30
-    assert b1["teamCeilingDollars"] > 30.0
+    assert b1["remaining"] is None
+    assert b1["teamCeilingDollars"] is None
+    assert b1["teamRawCeilingDollars"] is not None and b1["teamRawCeilingDollars"] > 30.0
     # Objective worth is a function of format and player, not of either team's balance.
     assert a1["objectivePct"] == b1["objectivePct"]
 

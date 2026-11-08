@@ -765,3 +765,28 @@ def test_partial_baseline_fill_is_disclosed():
     res = solve(roster, fas, slots, open_spots=open_spots)
     assert res.baseline_fill < len(slots)
     assert any("not necessarily the same slots" in n for n in res.notes)
+
+
+# ---------------------------------------------------------------------------
+# Unknown balance never publishes a balance-capped bid (the budget stands in for it upstream)
+# ---------------------------------------------------------------------------
+
+
+def test_unknown_balance_publishes_no_balance_capped_bid_detail():
+    out = _build(_contract(faab=None), bids={"Free TE": 0})
+    moves = out["plan"]["moves"]
+    assert moves  # zero-bid claims still plan
+    for m in moves:
+        bid = m["add"]["bid"]
+        assert bid["balanceState"] == "unknown"
+        for k in ("recommended", "aggressive", "conservative", "maxRational"):
+            assert bid[k] is None
+        assert "clearing" in bid
+
+
+def test_known_balance_bid_detail_is_unchanged():
+    out = _build(_contract(faab=50), bids={"Free TE": 0})
+    for m in out["plan"]["moves"]:
+        bid = m["add"]["bid"]
+        assert "balanceState" not in bid
+        assert bid["recommended"] == 0 and bid["maxRational"] == 0
