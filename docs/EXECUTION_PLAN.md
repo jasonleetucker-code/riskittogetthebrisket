@@ -1,5 +1,21 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Master implementation directive (backend campaign) — owner, 2026-11-08 (second of the day)
+
+**AUTHORIZED NOW, inside the same remediation program (no second roadmap).** Record:
+`docs/owner/BACKEND_MASTER_IMPLEMENTATION_DIRECTIVE_2026-11-08.md`; intake MD-97 … MD-115; acceptance matrix
+`docs/audits/remediation_2026-11-06/BACKEND_CAMPAIGN_LEDGER_2026-11-08.md`.
+
+- **Authorized to implement:** the 19 non-frontend priorities (calibration evaluation, scoring parity research,
+  ingestion contracts, CI detections, skip and regression work, league-rule verification, backup and security validation,
+  forecast scorecards, decision-engine completion, outlier / voting evidence, trade-uncertainty research, pick
+  normalization, BDVM signal diagnosis, injury attribution, team-semantics unification, trade-system integration,
+  IDP / TE intelligence, backend performance, repository cleanup). Additive, versioned backend contracts only.
+- **Not authorized:** ANY frontend change; methodology or value activation without evidence and approval; #1938; protected
+  flags; the public Trade Advisor; DFS; League Tycoon; Sleeper writes; spending; CI weakening; repository rule changes;
+  root-level infrastructure; exposing private data.
+- At most 4 concurrent editing workers, including the coordinator.
+
 ## League rules correction & mathematical integrity directive — owner, 2026-11-08
 
 **AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:
