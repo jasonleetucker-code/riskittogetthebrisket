@@ -114,7 +114,7 @@ All must pass for any move from shadow. Passing grants only the right to ask the
 | gate | criterion | proposed threshold |
 |---|---|---|
 | PG1 Rights | Every training and serving input has a recorded permitted-use status | No RED or unresolved input |
-| PG1b Market inputs | The feature manifest (checked with the PG2 receipt) lists no betting-line feature in any candidate that also takes a vendor projection | Zero such candidates in the first study; lifting this needs its own preregistered overlap study |
+| PG1b Market inputs | The feature manifest (checked with the PG2 receipt) lists no betting-line feature in any candidate that also takes a vendor projection. Anything derived from lines, such as implied team totals or spread, counts as a line feature | Zero such candidates in the first study; lifting this needs its own preregistered overlap study |
 | PG2 Reproducibility | Evaluation receipt with code SHA, source hashes, feature manifest, card fingerprint | `src/model_registry/reproducible_evaluation.py` accepts |
 | PG3 Point accuracy | ΔMAE vs the best of B3, B4, B5 and (when it exists) B6, so a candidate cannot pass while losing to current production; Holm-adjusted cluster-block interval excludes zero | At least 0.10 offense, 0.25 IDP league points per player-week |
 | PG4 No position loss | No position significantly worse | Point estimate not worse than −0.10 |
