@@ -515,18 +515,7 @@ def test_unknown_balance_is_unknown_never_zero_and_never_the_budget(env):
     assert stream["plan"] is None or stream["plan"]["faabTotal"] == 0  # nothing paid
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "FINDING W-1: POST /api/waiver/advisor with an UNKNOWN FAAB balance states "
-        "faab.state='unknown' yet every candidate carries a numeric faab.recommendedBid "
-        "(69.0 on the fixture) and faab.maxRationalBid {state:'available', value:100.0, "
-        "meaning:'bounded by its balance'}: the ORIGINAL BUDGET presented as the team's "
-        "cap. /api/waiver/faab-recommend and /api/waiver/suggestions withhold both "
-        "(bids=None, bidsWithheld=True) for the same context. "
-        "src/waivers/advisor.py::_faab_block does not gate on the team's balance state."
-    ),
-)
+# W-1: was a strict-xfail finding; fixed by #2160 (unknown/overspent balance contract).
 def test_finding_advisor_withholds_bids_when_the_balance_is_unknown(env):
     env.load(_contract(balance=_OMIT))
     adv = env.post(ADVISOR)
@@ -536,17 +525,7 @@ def test_finding_advisor_withholds_bids_when_the_balance_is_unknown(env):
         assert cand["faab"]["maxRationalBid"]["value"] is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "FINDING W-2: POST /api/waiver/streaming with an UNKNOWN FAAB balance still prints "
-        "the engine list bid on every streamingBoard row (bid=69, bidBasis='faab_engine') "
-        "although faab.state='unknown_zero_claims_only'. The solver correctly plans $0 "
-        "claims only, but the board shows a price the team cannot be told to pay; the desk "
-        "and suggestions withhold the same figure. src/waivers/streaming.py: the fa_meta "
-        "bid is not gated on faab_remaining."
-    ),
-)
+# W-2: was a strict-xfail finding; fixed by #2160 (unknown/overspent balance contract).
 def test_finding_streaming_board_withholds_bids_when_the_balance_is_unknown(env):
     env.load(_contract(balance=_OMIT))
     board = env.stream(dynastyBudget=100_000)["streamingBoard"]
@@ -554,18 +533,7 @@ def test_finding_streaming_board_withholds_bids_when_the_balance_is_unknown(env)
     assert all(row["bid"] is None for row in board)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "FINDING W-3: an OVERSPENT (negative) observed balance is classified three ways. "
-        "/api/waiver/perfect, /faab-recommend and /suggestions say state='known', "
-        "balance=0 (#2136 D7: observed, nothing to spend); /api/waiver/advisor says "
-        "faab.state='unknown', remaining=None; /api/waiver/streaming says "
-        "state='unknown_zero_claims_only'. Safe in effect (every bid is $0) but one "
-        "context contradicts itself about whether the balance is known. advisor.py and "
-        "streaming.py both coerce `int(raw) if raw >= 0 else None`."
-    ),
-)
+# W-3: was a strict-xfail finding; fixed by #2160 (unknown/overspent balance contract).
 def test_finding_overspent_balance_is_classified_the_same_on_every_surface(env):
     env.load(_contract(balance=-7))
     assert env.post(PERFECT)["budget"]["state"] == "known"
