@@ -2310,6 +2310,16 @@ def generate_suggestions_from_pool(
             "opponentRostersProvided": len(league_rosters) if league_rosters else 0,
             "opponentRostersAnalyzed": len(opponent_analyses),
             "needSource": need_source,
+            # C7-PICKGEN-01 rule 5: the same disclosure key the finder publishes.
+            # Suggestions never offers or adds a draft pick (picks enter generated
+            # trades only through the finder's posture-aware generator), and says
+            # so rather than omitting picks silently.  Policy only; generation is
+            # unchanged.
+            "pickGeneration": {
+                "applied": False,
+                "reason": "suggestions_do_not_generate_picks",
+                "pickInclusiveReturned": 0,
+            },
             **({"positionalFloor": positional_floor} if positional_floor is not None else {}),
             **({"rosterAnalysisPool": "full_board"} if roster_pool is not None else {}),
             **({"lockedOutgoing": lock.to_dict()} if locked_keys else {}),

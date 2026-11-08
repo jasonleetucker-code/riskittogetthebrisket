@@ -843,10 +843,27 @@ def _streaming_board(
 ) -> list[dict[str, Any]]:
     """Available defenders ranked by what ONE of them adds to this lineup
     (no drop), then by weighted projected points — not by dynasty value."""
+    from src.ros.lineup import RosterPlayer, player_fills_any_slot  # noqa: PLC0415
+
     gains = solver.solo_gains(inp)
     rows = []
     for p in inp.free_agents:
         if p.player_id not in gains:
+            continue
+        # W-4: a player who can fill none of THIS league's started slots is not
+        # a candidate (same predicate the solver and the add pool use).  The
+        # slots are the league's resolved lineup, never a position constant.
+        if inp.slots and not player_fills_any_slot(
+            RosterPlayer(
+                player_id=p.player_id,
+                canonical_name=p.name,
+                position=p.position,
+                ros_value=1.0,
+                fantasy_positions=p.fantasy_positions,
+            ),
+            inp.slots,
+            slot_eligibility=inp.slot_eligibility,
+        ):
             continue
         projected = sum(
             w * float(v) for w, v in zip(weights, p.weekly_points, strict=False) if v is not None
