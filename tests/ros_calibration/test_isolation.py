@@ -18,8 +18,15 @@ ALLOWED_IMPORTERS = {
     # Research-only frozen Week 8 confirmation (PR #2035).  Nothing live imports
     # it: pinned by test_no_live_module_imports_the_confirmation_runner below.
     "scripts/ros_scale_week8_confirmation.py",
+    # Research-only team-level points calibration (F2, 2026-11-08).  Nothing live
+    # imports it: pinned by test_no_live_module_imports_the_confirmation_runner below.
+    "scripts/team_points_calibration_eval.py",
 }
-RESEARCH_SCRIPTS = ("ros_scale_calibration_study", "ros_scale_week8_confirmation")
+RESEARCH_SCRIPTS = (
+    "ros_scale_calibration_study",
+    "ros_scale_week8_confirmation",
+    "team_points_calibration_eval",
+)
 ALLOWED_SRC_IMPORTS = {
     "src.ros.lineup": {"lineup_position"},
     "src.league_intel.replacement": {"compute_replacement_levels", "normalize_base_position"},
