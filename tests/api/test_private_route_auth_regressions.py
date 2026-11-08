@@ -225,12 +225,27 @@ def test_signals_restore_bad_body_is_4xx_never_500(client, kwargs):
     assert 400 <= res.status_code < 500
 
 
-def test_signals_restore_league_scoped_bucket_only(client):
+def test_signals_restore_league_scoped_bucket_only(client, monkeypatch):
+    from pathlib import Path
+
     from src.api import league_registry
 
-    cfg = league_registry.get_league_by_key("dynasty_main")
-    if cfg is None or not cfg.active:
-        pytest.skip("dynasty_main not active in this registry")
+    # The suite points the registry at a nonexistent file (tests/conftest.py)
+    # so it is hermetic -- which made this test skip on every run.  Load the
+    # committed registry for this test only, and restore the hermetic state.
+    registry = Path(__file__).resolve().parents[2] / "config" / "leagues" / "registry.json"
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(registry))
+    league_registry.reload_registry()
+    try:
+        cfg = league_registry.get_league_by_key("dynasty_main")
+        assert cfg is not None and cfg.active, "committed registry must carry dynasty_main active"
+        _restore_league_scoped_bucket_only(client, cfg)
+    finally:
+        monkeypatch.undo()
+        league_registry.reload_registry()
+
+
+def _restore_league_scoped_bucket_only(client, cfg):
     user_kv.dismiss_signal(OTHER, "s", league_key=cfg.key)
     user_kv.dismiss_signal(OTHER, "s")  # flat bucket
     res = client.post(

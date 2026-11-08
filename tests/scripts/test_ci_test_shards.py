@@ -374,6 +374,14 @@ def test_the_plugin_partitions_a_real_run_and_counts_one_verdict_per_test(tmp_pa
     assert totals["skipped_modules"] == 1
     assert all(m["collect_skipped"] == ["test_epsilon.py"] for m in manifests)
 
+    # Skip REASONS are recorded for a skip audit (observability only: they are
+    # not part of the verdict digest or any count).
+    reasons = {k: v for m in manifests for k, v in m["skip_reasons"].items()}
+    assert reasons == {
+        "test_alpha.py::test_setup_skip": "setup-phase skip",
+        "test_alpha.py::test_call_skip": "call-phase skip",
+    }
+
     # Budget = 2 test skips + 1 module skip.
     config = ShardConfig(shard_count=count, min_collected=12, max_skipped=3, durations={})
     assert verify_manifests(manifests, config) == []

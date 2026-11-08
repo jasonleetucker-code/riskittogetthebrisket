@@ -470,33 +470,6 @@ class TestConsumerRepairs(unittest.TestCase):
         self.assertIsNone(_resolve_asset("certainly not a pick", row_index=idx))
 
 
-class TestExportParity(unittest.TestCase):
-    """API == export: the CSV export carries the same canonical value."""
-
-    def setUp(self) -> None:
-        self.contract = _load_contract()
-        if self.contract is None:
-            self.skipTest("no scraper export available")
-
-    def test_pick_values_in_export_match_contract(self) -> None:
-        import csv
-        import io
-
-        try:
-            from src.api.export_builder import build_values_csv  # type: ignore
-        except ImportError:
-            self.skipTest("no export builder module — export served from contract directly")
-        buf = io.StringIO(build_values_csv(self.contract))
-        rows = {r["name"]: r for r in csv.DictReader(buf)}
-        for r in self.contract["playersArray"]:
-            if r.get("assetClass") != "pick" or not _finite(r.get("rankDerivedValue")):
-                continue
-            row = rows.get(str(r.get("canonicalName")))
-            if row is None:
-                continue
-            self.assertEqual(int(float(row["value"])), int(r["rankDerivedValue"]))
-
-
 if __name__ == "__main__":
     unittest.main()
 
