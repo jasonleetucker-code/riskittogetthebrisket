@@ -648,3 +648,22 @@ def test_drop_policy_errors_map_to_stable_codes(monkeypatch):
     ):
         with pytest.raises(ValueError, match=code):
             run(exc)
+
+
+def test_unknown_balance_nulls_the_board_row_bid_but_known_balance_keeps_it():
+    def board_rows(faab):
+        out = _run(
+            ROSTER,
+            [("fa_lb", "LB", 11.0)],
+            _base_assess(),
+            bids={"fa_lb": 5},
+            board={"fa_lb": {"rankDerivedValue": 100.0}},
+            faab=faab,
+        )
+        return [r for r in out["streamingBoard"] if r["playerId"] == "fa_lb"]
+
+    unknown = board_rows(None)
+    assert unknown and all(r["bid"] is None for r in unknown)
+    assert all(r["bidBasis"] == "faab_engine" and r["balanceState"] == "unknown" for r in unknown)
+    known = board_rows(100)
+    assert known and all(r["bid"] == 5 and "balanceState" not in r for r in known)

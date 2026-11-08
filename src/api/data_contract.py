@@ -1587,6 +1587,29 @@ def _load_source_row_floors() -> dict[str, int]:
     return dict(default)
 
 
+def _load_source_row_ceilings() -> dict[str, int]:
+    """Optional per-source "unexpectedly large" markers (report-only).
+
+    ``config/weights/source_row_floors.json::ceilings`` — derived by
+    ``scripts/derive_source_row_floors.py`` as twice the largest matched
+    population the source's own history supports.  Missing file / key / bad
+    value = no marker for that source: absence of a ceiling means absence of
+    the report, never a refusal.
+    """
+    cfg_path = Path(__file__).resolve().parents[2] / "config" / "weights" / "source_row_floors.json"
+    try:
+        raw = json.loads(cfg_path.read_text(encoding="utf-8")).get("ceilings")
+    except (OSError, ValueError, AttributeError):
+        return {}
+    out: dict[str, int] = {}
+    for key, val in raw.items() if isinstance(raw, dict) else ():
+        try:
+            out[str(key)] = int(val)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 # ── Pick-count floor ─────────────────────────────────────────────────────
 # Minimum draft-pick count on the board.  Live currently carries 126
 # (4 years × multiple slots each).  Floor set to 80% baseline so an
@@ -5351,6 +5374,12 @@ _SOURCE_CSV_PARSE_CACHE: dict[
     str, tuple[float, dict[str, list[tuple[str, int, float | None]]], dict[str, str] | None]
 ] = {}
 
+# W05-F003/F004: per-CSV ingestion quality counters (rows read, blank names,
+# invalid numeric fields, duplicate names), keyed like ``_SOURCE_CSV_PARSE_CACHE``
+# and refreshed on exactly the same mtime.  Side table, not a wider cache tuple,
+# so the (mtime, lookup, schema_err) shape every reader relies on is unchanged.
+_SOURCE_CSV_INGEST_STATS: dict[str, dict[str, int]] = {}
+
 # C1-ID-01 CUTOVER: summary of the most recent contract-build CSV-join,
 # now decided solely by src/identity/resolution.match_row_to_source_entry.
 # Written by _enrich_from_source_csvs, stamped into the contract payload as
@@ -5660,6 +5689,11 @@ def _parse_source_csv_cached(
 
     csv_lookup: dict[str, list[tuple[str, int, float | None]]] = {}
     schema_err: dict[str, str] | None = None
+    # Registered up front so EVERY return path (probe, schema, exception)
+    # overwrites the previous parse's counters instead of leaving a stale
+    # "good" count beside a now-broken file.
+    _st = {"dataRows": 0, "blankNames": 0, "invalidNumeric": 0, "duplicateNames": 0}
+    _SOURCE_CSV_INGEST_STATS[cache_key] = _st
 
     _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
     # DLF raw CSV exports carry both ``Rank`` (ordinal) and ``Avg``
@@ -5733,7 +5767,12 @@ def _parse_source_csv_cached(
             schema_err = {
                 "source": source_key,
                 "path": str(csv_rel),
-                "error": "schema_mismatch",
+                # A 0-byte file is an empty source, not a renamed header.
+                "error": (
+                    "source_empty"
+                    if not header_line and csv_path.stat().st_size == 0
+                    else "schema_mismatch"
+                ),
                 "header": header_line[:200],
             }
             _LOGGER.warning(
@@ -5743,6 +5782,60 @@ def _parse_source_csv_cached(
             )
             _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
             return csv_lookup, schema_err
+
+    # ── Universal schema probe (W05-F003) ────────────────────────────
+    # Every registered source, not just the four above: a vendor header
+    # rename must be a NAMED error, never a quiet empty lookup.  The probe is
+    # exactly the loader's own contract — the row loop below reads a name
+    # alias plus a rank/value alias — so it can only fail when the loop would
+    # have skipped every row anyway (no value can change on a healthy board).
+    # An empty (0-byte) file has no header at all: ``source_empty``.
+    _cfg_probe = _SOURCE_CSV_PATHS.get(source_key)
+    _is_value_order = (
+        signal == "rank"
+        and isinstance(_cfg_probe, dict)
+        and _cfg_probe.get("rank_from") == "value_order"
+    )
+    try:
+        with csv_path.open("r", encoding="utf-8-sig", newline="") as f_hdr:
+            _hdr_cols = next(_csv.reader(f_hdr), None)
+    except Exception:  # noqa: BLE001 - surfaced by the row loop's own handler
+        _hdr_cols = None
+    if _hdr_cols is not None:
+        _cols = {c.strip() for c in _hdr_cols}
+        _missing: list[str] = []
+        if not any(a in _cols for a in _NAME_ALIASES):
+            _missing.append("name")
+        if signal == "rank" and not _is_value_order:
+            if not any(a in _cols for a in _RANK_ALIASES):
+                _missing.append("rank")
+        elif not any(a in _cols for a in _VALUE_ALIASES):
+            _missing.append("value")
+        if _missing:
+            schema_err = {
+                "source": source_key,
+                "path": str(csv_rel),
+                "error": "schema_mismatch",
+                "missingColumns": ",".join(_missing),
+                "header": ",".join(_hdr_cols)[:200],
+            }
+            _LOGGER.warning(
+                "Schema probe: %s missing %s (header %s); skipping rows",
+                source_key,
+                _missing,
+                ",".join(_hdr_cols)[:120],
+            )
+            _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
+            return csv_lookup, schema_err
+    elif csv_path.exists() and csv_path.stat().st_size == 0:
+        schema_err = {
+            "source": source_key,
+            "path": str(csv_rel),
+            "error": "source_empty",
+            "header": "",
+        }
+        _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
+        return csv_lookup, schema_err
 
     # Rank derived from the published VALUE ORDER (``rank_from: value_order``
     # in ``_SOURCE_CSV_PATHS``): competition ranks over the CSV's own value
@@ -5776,12 +5869,23 @@ def _parse_source_csv_cached(
         except OSError:
             _value_order_ranks = {}
 
+    _seen_names: set[tuple[str, str]] = set()
     try:
         with csv_path.open("r", encoding="utf-8-sig") as f:
             for _row_no, csvrow in enumerate(_csv.DictReader(f)):
+                _st["dataRows"] += 1
                 name = _pick(csvrow, _NAME_ALIASES).strip()
                 if not name:
+                    _st["blankNames"] += 1
                     continue
+                _dup_key = (
+                    name.lower(),
+                    _pick(csvrow, ("position", "Position", "pos", "Pos")).upper(),
+                )
+                if _dup_key in _seen_names:
+                    _st["duplicateNames"] += 1
+                else:
+                    _seen_names.add(_dup_key)
                 key = _canonical_match_key(name)
                 if not key:
                     continue
@@ -5796,6 +5900,7 @@ def _parse_source_csv_cached(
                     try:
                         rank_val = float(str(raw).strip())
                     except (TypeError, ValueError):
+                        _st["invalidNumeric"] += 1
                         continue
                     if rank_val <= 0:
                         continue
@@ -5859,12 +5964,15 @@ def _parse_source_csv_cached(
                             (name, parsed_val, orig_rank, None, sid or None)
                         )
                     except (ValueError, TypeError):
+                        _st["invalidNumeric"] += 1
                         continue
     except Exception as exc:  # noqa: BLE001
         schema_err = {
             "source": source_key,
             "path": str(csv_rel),
-            "error": f"{type(exc).__name__}: {exc}",
+            # Named kind (a source-health error), the exception kept as detail.
+            "error": "parse_exception",
+            "detail": f"{type(exc).__name__}: {exc}"[:300],
         }
         _LOGGER.warning(
             "Failed to parse source CSV %s (%s): %s",
@@ -5875,6 +5983,17 @@ def _parse_source_csv_cached(
         # Don't cache parse failures — next rebuild retries.
         return csv_lookup, schema_err
 
+    # Header present but nothing usable behind it.  Named, not skipped
+    # (W05-F003): a header-only CSV is a vendor returning nothing, and an
+    # all-invalid one is a vendor changing a value format.
+    if not csv_lookup:
+        schema_err = {
+            "source": source_key,
+            "path": str(csv_rel),
+            "error": "source_empty" if _st["dataRows"] == 0 else "no_usable_rows",
+            "dataRows": str(_st["dataRows"]),
+            "invalidNumeric": str(_st["invalidNumeric"]),
+        }
     _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
     return csv_lookup, schema_err
 
@@ -5964,11 +6083,70 @@ def _select_fp_meta(
     return None
 
 
+#: A CSV where at least this share of data rows carries an unparseable numeric
+#: field, or repeats an earlier (name, position) row, is a vendor format change
+#: or a double-listed file, not noise.  PRIOR, recorded with its measurement in
+#: docs/sources/SOURCE_ROW_FLOORS.md (healthy boards on 2026-11-08: invalid 0%,
+#: duplicates <= 2.8% because vendors really list same-name players twice);
+#: below it the counts are stamped in ``sourceIngestHealth`` but raise nothing.
+_INVALID_NUMERIC_REPORT_FRACTION: float = 0.10
+_DUPLICATE_ROWS_REPORT_FRACTION: float = 0.10
+
+
+def _ingest_quality_errors(
+    source_key: str, csv_rel: str, stats: Mapping[str, int]
+) -> list[dict[str, str]]:
+    """Additive ``sourceParseErrors`` for a CSV that parsed but is suspect.
+
+    Duplicate player rows at scale (the same published name+position repeated
+    across a board: a file listed twice would otherwise double-vote) and a high invalid-numeric share.  Reported only —
+    the parser's values are untouched.
+    """
+    out: list[dict[str, str]] = []
+
+    def _count(key: str) -> int | None:
+        # A counter the parser did not record is UNKNOWN, never 0: the check
+        # it feeds is skipped rather than judged on a fabricated number.
+        value = stats.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            return None
+        return value
+
+    rows = _count("dataRows")
+    if not rows:
+        # Unknown or zero data rows: there is no share to judge.
+        return out
+    dup = _count("duplicateNames")
+    if dup is not None and dup / rows >= _DUPLICATE_ROWS_REPORT_FRACTION:
+        out.append(
+            {
+                "source": source_key,
+                "path": str(csv_rel),
+                "error": "duplicate_rows",
+                "duplicateNames": str(dup),
+                "dataRows": str(rows),
+            }
+        )
+    bad = _count("invalidNumeric")
+    if bad is not None and bad / rows >= _INVALID_NUMERIC_REPORT_FRACTION:
+        out.append(
+            {
+                "source": source_key,
+                "path": str(csv_rel),
+                "error": "invalid_numeric_fields",
+                "invalidNumeric": str(bad),
+                "dataRows": str(rows),
+            }
+        )
+    return out
+
+
 def _enrich_from_source_csvs(
     players_array: list[dict[str, Any]],
     *,
     parse_errors: list[dict[str, str]] | None = None,
     csv_root: "Path | None" = None,
+    ingest_health: dict[str, dict[str, int]] | None = None,
 ) -> dict[str, dict[str, dict[str, Any]]]:
     """Fill missing canonicalSiteValues from source CSV exports.
 
@@ -6111,10 +6289,15 @@ def _enrich_from_source_csvs(
             continue
 
         csv_lookup, schema_err = _parse_source_csv_cached(csv_path, source_key, signal, csv_rel)
+        _stats = _SOURCE_CSV_INGEST_STATS.get(str(csv_path))
+        if ingest_health is not None and _stats is not None:
+            ingest_health[source_key] = dict(_stats)
         if schema_err is not None:
             if parse_errors is not None:
                 parse_errors.append(schema_err)
             continue
+        if parse_errors is not None and _stats is not None:
+            parse_errors.extend(_ingest_quality_errors(source_key, csv_rel, _stats))
 
         if not csv_lookup:
             continue
@@ -16073,8 +16256,12 @@ def build_api_data_contract(
     # Enrich players with source CSV values that may be missing from the
     # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
     source_parse_errors: list[dict[str, str]] = []
+    source_ingest_health: dict[str, dict[str, int]] = {}
     csv_index = _enrich_from_source_csvs(
-        players_array, parse_errors=source_parse_errors, csv_root=csv_root
+        players_array,
+        parse_errors=source_parse_errors,
+        csv_root=csv_root,
+        ingest_health=source_ingest_health,
     )
     _stamp_ktc_value_source_diagnostics(players_array)
 
@@ -16575,6 +16762,9 @@ def build_api_data_contract(
         "validationSummary": validation_summary,
         "pickAliases": pick_aliases or {},
         "sourceParseErrors": source_parse_errors,
+        # W05-F003: per-CSV rows read / blank names / invalid numeric fields /
+        # duplicate names, so "how bad was this file" survives the build.
+        "sourceIngestHealth": source_ingest_health,
         # C1-ID-01: which owner decided this build's source-CSV joins.  The
         # scraper site's twin artifact is data/scrape_state/identity_dual_read.json.
         "identityJoin": _LAST_CONTRACT_JOIN_SUMMARY,
@@ -17404,6 +17594,11 @@ _SOURCE_HEALTH_ERROR_KINDS: tuple[str, ...] = (
     "partial_run_critical:",
     # A registered source contributed zero non-zero values to the board.
     "source_missing:",
+    # W05-F003: a registered source's CSV arrived unreadable as a source — a
+    # renamed/missing required column, a header-only or empty file, or no
+    # usable row.  Only the vendor can cause it, and it is named earlier and
+    # more specifically than ``source_missing`` (which still backstops it).
+    "source_ingest_failure:",
     # Fewer pick rows than the floor: the pick markets did not deliver.
     "pick_count_below_floor:",
     "pickAnchors missing from payload",
@@ -17412,6 +17607,40 @@ _SOURCE_HEALTH_ERROR_KINDS: tuple[str, ...] = (
     # markets, not a claim about our aggregation code.
     "implausibly small IDP pool in playersArray",
 )
+
+
+#: ``sourceParseErrors`` kinds that mean the source delivered nothing readable
+#: as a source (as opposed to ``duplicate_rows`` / ``invalid_numeric_fields``,
+#: which are reported but leave usable rows behind).
+_REPORT_ONLY_PARSE_ERRORS: frozenset[str] = frozenset({"duplicate_rows", "invalid_numeric_fields"})
+
+#: Class-phase (rookie) sources: their population follows the draft calendar,
+#: and the two rookie boards describe the SAME class, so they thin together at
+#: a season transition.  They still warn (``source_below_floor``) but do not
+#: count toward the two-sources-below-floor ``degraded`` flip.
+_CLASS_PHASE_FLOOR_SOURCES: frozenset[str] = frozenset(
+    {"dlfRookieSf", "dlfRookieIdp", "flockFantasySfRookies"}
+)
+_INGEST_FAILURE_ERRORS: frozenset[str] = frozenset(
+    {"schema_mismatch", "source_empty", "no_usable_rows", "parse_exception"}
+)
+
+
+def _ingest_excused_sources(payload: Mapping[str, Any]) -> frozenset[str]:
+    """Sources whose empty/unreadable CSV is the declared state, not a failure.
+
+    The same two excusals ``source_missing`` honours, read the same way: a
+    private box-local source its host declares NOT PROVISIONED, and a declared
+    seasonal source the board records as inactive.  Anything else fails closed.
+    """
+    from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
+
+    absent = private_sources_absent_by_design(payload.get("privateSourceAvailability"))
+    try:
+        declared = frozenset(_seasonal.load_policies())
+    except _seasonal.SeasonalPolicyError:
+        declared = frozenset()
+    return frozenset(absent) | (_seasonal.contract_inactive_sources(payload) & declared)
 
 
 def _is_source_health_error(message: str) -> bool:
@@ -17642,6 +17871,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     # source is missing, we flip the overall status to degraded.
     if len(players_array) >= 250:
         row_floors = _load_source_row_floors()
+        row_ceilings = _load_source_row_ceilings()
         # "Is it GONE?" and "is it THIN?" are different questions, and only the
         # second needs a calibrated number.  The population for the first is the
         # REGISTRY — every source we are entitled to expect a vote from — union
@@ -17720,7 +17950,14 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 any_source_missing = True
             elif threshold is not None and count < threshold:
                 warnings.append(f"source_below_floor:{src_key}:{count}:{threshold}")
-                below_floor_count += 1
+                if src_key not in _CLASS_PHASE_FLOOR_SOURCES:
+                    below_floor_count += 1
+            ceiling = row_ceilings.get(src_key)
+            if ceiling is not None and count > ceiling:
+                # REPORTED, never refused and never degrading: a population
+                # far above anything seen may be a vendor widening its board
+                # (legitimate) or a double-listed file.  Only a person can say.
+                warnings.append(f"source_above_expected:{src_key}:{count}:{ceiling}")
 
         if any_source_missing or below_floor_count >= 2:
             degraded = True
@@ -17995,13 +18232,25 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     # ── sourceParseErrors surfaced from _enrich_from_source_csvs ────────
     parse_errors_list = payload.get("sourceParseErrors")
     if isinstance(parse_errors_list, list) and parse_errors_list:
+        ingest_excused = _ingest_excused_sources(payload)
         for perr in parse_errors_list[:50]:
             if not isinstance(perr, dict):
                 continue
             warnings.append(
                 f"source_parse_error:{perr.get('source', '?')}:{perr.get('error', '?')}"
             )
-        degraded = True
+            # Schema-level failures are ALSO source-health errors (W05-F003),
+            # unless the source is absent by declared design (private, not
+            # provisioned) or inside its declared seasonal-inactive window.
+            if (
+                perr.get("error") in _INGEST_FAILURE_ERRORS
+                and str(perr.get("source")) not in ingest_excused
+            ):
+                errors.append(
+                    f"source_ingest_failure:{perr.get('source', '?')}:{perr.get('error')}"
+                )
+            if perr.get("error") not in _REPORT_ONLY_PARSE_ERRORS:
+                degraded = True
 
     # ── Withheld votes / reduced pick evidence (owner 2026-10-07) ────────
     # A source whose content aged past the freshness quarantine (or whose

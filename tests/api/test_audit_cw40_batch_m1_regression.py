@@ -238,7 +238,7 @@ def test_w05_f001_page_rows_come_from_registered_sources_not_scraper_run_names()
 
 
 # ---------------------------------------------------------------------------
-# W05-F003  zero-row / renamed-header CSV is silent                      PARTIAL
+# W05-F003  zero-row / renamed-header CSV is silent                      FIXED_IN_PR #2159 (not yet merged)
 # ---------------------------------------------------------------------------
 
 
@@ -273,25 +273,11 @@ def test_w05_f003_control_missing_file_is_reported(tmp_path):
     assert any(e["source"] == "ktcSfTep" and e["error"] == "file_not_found" for e in errors)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W05-F003 OPEN: the header probe still covers only dlfSf/dlfIdp/fantasyProsIdp/fantasyProsSf "
-    "(data_contract.py ~5700); a renamed vendor header on any other source (ktcSfTep, idpTradeCalc ...) "
-    "leaves sourceParseErrors empty.",
-)
 def test_w05_f003_renamed_header_on_an_unprobed_source_is_reported(tmp_path):
     errs = _enrich_one(tmp_path, "ktcSfTep", "colA,colB\nJosh Allen,9000\n")
     assert errs, "schema drift on ktcSfTep produced no parse error"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W05-F003 OPEN: a header-only (zero usable row) CSV hits `if not csv_lookup: continue` "
-    "(data_contract.py ~6125) with no parse error; only the validator's source_missing (zero rows on the "
-    "built board) catches it, a lane later.",
-)
 def test_w05_f003_header_only_csv_is_reported_as_a_parse_error(tmp_path):
     errs = _enrich_one(tmp_path, "ktcSfTep", "name,value\n")
     assert errs, "an empty-but-valid CSV produced no parse error"
@@ -308,7 +294,7 @@ def test_w05_f003_downstream_zero_rows_is_a_hard_error_for_every_registered_sour
 
 
 # ---------------------------------------------------------------------------
-# W05-F004  sources with no row-count floor                              PARTIAL
+# W05-F004  sources with no row-count floor                              FIXED_IN_PR #2159 (not yet merged)
 # ---------------------------------------------------------------------------
 
 
@@ -320,12 +306,6 @@ def test_w05_f004_retail_anchor_now_has_a_floor_and_zero_is_a_hard_error():
     assert floors["idpTradeCalc"] >= 700
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W05-F004 PARTIAL: zero rows is now a hard error for every registered voter, but 9 of 27 "
-    "registered sources still declare no THIN floor (source_below_floor never fires for them).",
-)
 def test_w05_f004_every_registered_source_declares_a_thin_floor():
     from src.api.data_contract import _load_source_row_floors, get_ranking_source_keys
 
@@ -593,7 +573,7 @@ def test_w18_f002_the_server_stamps_readiness_from_the_merge_result():
 
 
 # ---------------------------------------------------------------------------
-# W21-F001  injury impact is a direct news -> value multiplier               OPEN
+# W21-F001  injury impact attribution gate (classification + identity)   REPAIRED
 # ---------------------------------------------------------------------------
 
 
@@ -618,19 +598,18 @@ def test_w21_f001_control_classifier_now_labels_the_headline_a_positive_transact
     ) == ("watch", "transaction", "positive")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="W21-F001 OPEN: apply_injury_impact (terminal.py:1662) still multiplies rankDerivedValue by "
-    "adjustedPct from a single item's severity -- no structured claim, corroboration, confidence or "
-    "module input. Repair is owner methodology (delete injuryAdjustedValue or route via the BDVM "
-    "news_events module-input path).",
-)
 def test_w21_f001_a_single_headline_never_reprices_a_value():
     from src.api.injury_impact import apply_injury_impact
 
     out = apply_injury_impact(
-        row={"pos": "RB", "age": 24, "rankDerivedValue": 9706, "rookie": False},
+        row={
+            "pos": "RB",
+            "age": 24,
+            "rankDerivedValue": 9706,
+            "rookie": False,
+            "displayName": "Bijan Robinson",
+            "team": "ATL",
+        },
         news_for_player=[_bijan_headline_item()],
         now_ms=_NOW,
     )
@@ -674,3 +653,38 @@ def test_w29_f002_league_adjusted_lens_is_withdrawn_and_never_writes_a_canonical
     from src.api import data_contract
 
     assert not hasattr(data_contract, "apply_valuation_factors")
+
+
+def test_w21_f001_pinned_before_after_on_the_recorded_news_fixture():
+    """Every player in the recorded /api/news fixture, priced at a fixed 5000 with the item's own
+    position/team.  Before the gate (origin/main) 29 of 40 players were discounted, 26 of them by
+    non-injury items (contract extension, "dropped in N leagues" add/drop counts, transactions,
+    punch/ejection, roster ranking lists).  After: only the three genuine injury reports remain."""
+    from src.api.injury_impact import apply_injury_impact
+
+    items = json.loads((EVIDENCE / "W21" / "api-news.json").read_text(encoding="utf-8"))["items"]
+    now = int(_dt.datetime(2026, 10, 15, 12, tzinfo=_dt.timezone.utc).timestamp() * 1000)
+    ts = _dt.datetime(2026, 10, 15, 11, tzinfo=_dt.timezone.utc).isoformat()
+    by: dict[str, list[dict]] = {}
+    meta: dict[str, dict] = {}
+    for it in items:
+        it = dict(it, ts=ts)
+        for p in it.get("players") or []:
+            by.setdefault(p["name"], []).append(it)
+            meta.setdefault(p["name"], p)
+    discounted = set()
+    for name, its in by.items():
+        row = {
+            "displayName": name,
+            "pos": meta[name].get("position"),
+            "team": meta[name].get("team"),
+            "age": 26,
+            "rankDerivedValue": 5000,
+        }
+        out = apply_injury_impact(row=row, news_for_player=its, now_ms=now)
+        if out["appliedDiscountPct"]:
+            discounted.add(name)
+            assert out["evidenceState"] == "confirmed_injury"
+        else:
+            assert out["adjustedValue"] == 5000
+    assert discounted == {"Coby Bryant", "Jalon Walker", "Kenyon Sadiq"}
