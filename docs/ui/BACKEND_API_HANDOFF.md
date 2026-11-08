@@ -48,6 +48,15 @@ says otherwise.
 
 Synthetic fixtures: `tests/public_league/test_playoff_odds_divisions.py`, `tests/ros/test_league_division_rules.py`.
 
+## Team equity and direction concept stamps (2026-11-08)
+
+Backend additions (no values changed); frontend migration is not done.
+
+- `/api/terminal` `teamAggregates` and `portfolio` now carry `valueScope: "players_only"` and `equity`: `{playerValue, pickValue, pricedPickValue, pickCount, pricedPickCount, unpricedPickCount, pickValueState (complete|partial_unpriced|unavailable), pickValueReason, totalAssetValue, totalAssetValueLowerBound}`. `totalValue` is unchanged and still excludes picks.
+- **Needed:** any "Total value / portfolio total" display should show `equity.totalAssetValue`, or label `totalValue` as "Players". When `totalAssetValue` is `null`, show `totalAssetValueLowerBound` as "at least" with the reason; never render a missing pick value as 0.
+- `/api/bdvm/roster` `meta.directionConcept = "fundamental_horizon_mix"` and `rosTradeDeadline.concept = "deadline_buy_sell_stance"` are NOT the canonical posture (PUSH/HOLD/RETOOL/REBUILD, `/api/gameplan`). Do not present them under the same heading.
+- Schema: `docs/roster_intel/TEAM_SEMANTICS_2026-11-08.md`.
+
 ## `vendorComparison` contract (vc_v1, 2026-11-08)
 Rule `intersection_budget_reallocation`: over the rookies BOTH the vendor lists (fresh, positive) and our canonical ladder prices, pair the vendor's order with OUR dollars over those same rookies. Vendor total equals our total over the common set; a vendor that orders them as we do has a gap of exactly 0; ties share the mean. States: `comparable`, `no_vendor_observations` (reason `vendor_lists_no_rookies` or `stale`), `insufficient_coverage` (common < 12 or < 50% of the pool; declared priors), `our_dollars_unavailable`, `ambiguous_identity`. Synthetic fixtures: `tests/draft/test_vendor_comparison.py`.
 
