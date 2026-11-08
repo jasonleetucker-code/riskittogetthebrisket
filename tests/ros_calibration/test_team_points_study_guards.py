@@ -128,3 +128,86 @@ def test_cache_receipts_never_carry_the_league_id():
     assert all(study.LEAGUE_ID not in url for url in out)
     assert f"{study.SLEEPER}/league/<dynasty_main>/matchups/5" in out
     assert out[f"{study.SLEEPER}/players/nfl"] == {"sha256": "y"}
+
+
+# ── the incumbent's inputs are point-in-time too (review fix 2026-11-08) ─────────────
+
+
+def _directory():
+    return {
+        "1": {"full_name": "Alpha One", "position": "QB", "fantasy_positions": ["QB"]},
+        "2": {
+            "full_name": "Bravo Two",
+            "position": "QB",
+            "fantasy_positions": ["QB"],
+            "injury_status": "Out",
+            "injury_body_part": "Knee",
+        },
+        "3": {"full_name": "Charlie Three", "position": "RB", "fantasy_positions": ["RB"]},
+    }
+
+
+def test_point_in_time_directory_strips_todays_health_only():
+    pit = study.point_in_time_directory(_directory())
+    assert "injury_status" not in pit["2"] and "injury_body_part" not in pit["2"]
+    assert pit["2"]["full_name"] == "Bravo Two"
+    assert pit["2"]["fantasy_positions"] == ["QB"]
+    assert _directory()["2"]["injury_status"] == "Out"  # input untouched
+
+
+def test_incumbent_team_strength_ignores_todays_injury_flags():
+    snapshot = [
+        {"canonicalName": "alpha one", "position": "QB", "rosValue": 40.0},
+        {"canonicalName": "bravo two", "position": "QB", "rosValue": 80.0},
+        {"canonicalName": "charlie three", "position": "RB", "rosValue": 30.0},
+    ]
+    rosters = [{"roster_id": 1, "players": ["1", "2", "3"]}]
+    slots = ["QB", "RB"]
+    pit = study.team_strength_rows(
+        rosters, study.point_in_time_directory(_directory()), snapshot, slots
+    )
+    leaky = study.team_strength_rows(rosters, _directory(), snapshot, slots)
+    clean = {
+        k: {kk: vv for kk, vv in v.items() if not kk.startswith("injury")}
+        for k, v in _directory().items()
+    }
+    reference = study.team_strength_rows(rosters, clean, snapshot, slots)
+    assert all(not p["injured"] for p in pit[0]["fullRoster"])
+    assert pit[0]["teamRosStrength"] == reference[0]["teamRosStrength"]
+    # Today's flag would move the incumbent's ROS strength (the look-ahead that was removed).
+    assert leaky[0]["teamRosStrength"] != pit[0]["teamRosStrength"]
+
+
+def test_incumbent_never_reads_realized_weeks_at_or_after_the_target():
+    rows = [
+        {
+            "ownerId": "T01",
+            "teamRosStrength": 70.0,
+            "startingLineupScore": 100.0,
+            "benchDepthScore": 30.0,
+        },
+        {
+            "ownerId": "T02",
+            "teamRosStrength": 50.0,
+            "startingLineupScore": 100.0,
+            "benchDepthScore": 20.0,
+        },
+    ]
+    asof = study.AsOf(5, Path("x"), "", [], rows, "test")
+    realized = {w: {"T01": 300.0 + w, "T02": 280.0 - w} for w in range(1, 9)}
+    tampered = {w: dict(v) for w, v in realized.items()}
+    for w in (5, 6, 7, 8):
+        tampered[w] = {"T01": -1e6, "T02": 1e6}
+    # Presim basis for T01; T02 has no presim, so it takes the EMPIRICAL basis,
+    # the arm that reads realized history.
+    presim = {"T01": (290.0, 25.0)}
+    for once in (False, True):
+        base = study.production_distributions(
+            asof, presim, tp.RealizedView(realized, 5), ros_counted_once=once
+        )
+        again = study.production_distributions(
+            asof, presim, tp.RealizedView(tampered, 5), ros_counted_once=once
+        )
+        assert base == again
+    with pytest.raises(tp.LeakageError):
+        tp.RealizedView(realized, 5).score(5, "T02")

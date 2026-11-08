@@ -377,3 +377,70 @@ def test_recommendation_prefers_fewer_parameters_within_the_tie_band():
     # B2 is best by 0.6 < 1.0 over S and 1.1 over A: A is outside the band, S is within.
     assert tp.recommend(summaries, verdicts) == "S"
     assert tp.recommend(summaries, {c: {"verdict": "DOES_NOT_PASS"} for c in summaries}) is None
+
+
+# ── review fixes (2026-11-08) ────────────────────────────────────────────────────────
+
+
+def test_symmetric_interval_leaves_equal_counts_outside_for_any_n():
+    for n in (100, 2000, 37):
+        vals = list(range(n))
+        lo, hi = tp.symmetric_interval(vals)
+        k = int(0.025 * n)
+        assert sum(1 for v in vals if v < lo) == k
+        assert sum(1 for v in vals if v > hi) == k
+    # n = 100: k = 2, so the interval is the 3rd smallest and the 3rd largest.
+    assert tp.symmetric_interval(list(range(100))) == (2, 97)
+
+
+def test_z_sd_separates_spread_from_bias():
+    # Errors (y − μ) of +10 and +30 with σ = 10: z = 1 and 3.
+    # z-RMS = √((1 + 9)/2) = √5; z mean = 2; z SD (population) = 1.
+    week = tp.WeekInputs(
+        week=5,
+        realized={"a": 110.0, "b": 130.0},
+        pairs=[("a", "b")],
+        forecasts={"X": {"a": (100.0, 10.0), "b": (100.0, 10.0)}},
+    )
+    recs, _ = tp.score_week(week, ["X"], _median, draws=100, seed=1)
+    s = tp.summarize_arm(recs, [week], "X")
+    assert s["zRms"] == pytest.approx(math.sqrt(5))
+    assert s["zMean"] == pytest.approx(2.0)
+    assert s["zSd"] == pytest.approx(1.0)
+    assert s["zRms"] ** 2 == pytest.approx(s["zMean"] ** 2 + s["zSd"] ** 2)
+
+
+def test_rank_contributors_is_computed_per_metric_from_arm_pairs():
+    summaries = {
+        "base": {"bias": 10.0, "mae": 40.0, "betweenTeamSpreadRatio": 1.0, "calibrationSlope": 1.0},
+        "stretch": {
+            "bias": 5.0,
+            "mae": 50.0,
+            "betweenTeamSpreadRatio": 1.8,
+            "calibrationSlope": 0.5,
+        },
+        "shift": {
+            "bias": 70.0,
+            "mae": 70.0,
+            "betweenTeamSpreadRatio": 1.1,
+            "calibrationSlope": 0.9,
+        },
+        "missing": None,
+    }
+    out = tp.rank_contributors(
+        summaries,
+        [("stretch", "stretch", "base"), ("shift", "shift", "base"), ("gone", "missing", "base")],
+    )
+    eff = {r["contributor"]: r for r in out["effects"]}
+    # Hand: stretch adds |5|-|10| = -5 bias, +10 MAE, 0.8 spread error, 0.5 slope error.
+    assert eff["stretch"]["absBias"] == pytest.approx(-5.0)
+    assert eff["stretch"]["mae"] == pytest.approx(10.0)
+    assert eff["stretch"]["spreadRatioError"] == pytest.approx(0.8)
+    assert eff["stretch"]["slopeError"] == pytest.approx(0.5)
+    assert eff["shift"]["absBias"] == pytest.approx(60.0)
+    assert eff["gone"]["mae"] is None
+    assert out["rankings"]["spreadRatioError"] == ["stretch", "shift"]
+    assert out["rankings"]["slopeError"] == ["stretch", "shift"]
+    assert out["rankings"]["absBias"] == ["shift", "stretch"]
+    assert out["rankings"]["mae"] == ["shift", "stretch"]
+    assert "no interaction or ordering check" in out["method"]

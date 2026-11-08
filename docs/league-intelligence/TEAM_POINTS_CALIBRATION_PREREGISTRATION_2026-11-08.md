@@ -246,3 +246,27 @@ gitignored cache.
 ---
 
 *Freeze line. Anything below is a dated addendum written after results were known.*
+
+### Addendum 2026-11-08: post-freeze correction to the incumbent's inputs (after results were known)
+
+The independent review of PR #2161 found a look-ahead in the **incumbent** arm. `hydrate_roster_players` sets each
+player's `injured` flag from **today's** Sleeper directory (`injury_status`). That flag moves team strength (lineup
+and bench scores, health), and so the incumbent's ROS multiplier and depth lift, for every evaluated week. Today's
+injury state was not knowable at a past week's kickoff, so this violated §1's leakage rule.
+
+The correction:
+- The point-in-time join now strips today's health fields (`injury_status` and the related fields). Injury state is
+  UNKNOWN for a past week and is read as not flagged. No archived as-of injury source exists.
+- The gated incumbent `I` uses that join.
+- The first run's incumbent is kept as a reported-only arm, `I_todayInjury`, and both numbers are published.
+- Nothing else changed: the challengers' inputs, the split, the metrics, the thresholds, the seeds and the gates are
+  all as frozen above. The presim never read the injury flag, so A and S are unaffected.
+
+The correction can only make the incumbent better on its own inputs, so it makes every "beat the incumbent" gate
+harder for the challengers, never easier.
+
+The same review asked for these reporting changes, also post-freeze and never gated:
+- the per-week metrics;
+- z-SD, the bias-free part of z-RMS;
+- the contributor ranking computed from the diagnosis metrics instead of typed by hand;
+- a percentile interval written explicitly symmetric. It gives identical values at B = 2,000.

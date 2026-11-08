@@ -33,7 +33,7 @@ import random
 import statistics
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -88,6 +88,10 @@ FORBIDDEN_DIRS = (
 )
 
 ARMS_GATED = ("I", "B0", "B1", "B2", "A", "S")
+#: The incumbent as first run, with TODAY's directory injury flags in its team-strength
+#: inputs (not knowable at a past kickoff).  Scored and reported, never gated.
+INCUMBENT_TODAY_INJURY = "I_todayInjury"
+ARMS_SCORED = ARMS_GATED + (INCUMBENT_TODAY_INJURY,)
 
 
 class Refusal(v1.StudyRefusal):
@@ -258,10 +262,67 @@ class AsOf:
     snapshot_players: list[dict[str, Any]]
     rows: list[dict[str, Any]]  # production team-strength rows, ownerId = anonymous team id
     roster_source: str
+    #: The same rows hydrated with TODAY's directory injury flags.  Not knowable at a
+    #: past kickoff: kept only to report the pre-correction incumbent (results §5).
+    rows_today_injury: list[dict[str, Any]] | None = None
+
+
+#: Directory fields that describe a player's CURRENT health.  ``hydrate_roster_players``
+#: reads ``injury_status`` into ``injured``, which moves team strength (lineup and bench
+#: scores, health) and therefore the incumbent's ROS multiplier and depth lift.  Today's
+#: value is not knowable at a past week's kickoff and no as-of injury source is archived,
+#: so the point-in-time join strips these fields: injury state is UNKNOWN, read as not
+#: flagged.  Post-freeze correction to the incumbent's inputs (results §5, prereg addendum).
+CURRENT_HEALTH_FIELDS = (
+    "injury_status",
+    "injury_body_part",
+    "injury_notes",
+    "injury_start_date",
+    "practice_participation",
+    "practice_description",
+)
+
+
+def point_in_time_directory(directory: Mapping[str, Any]) -> dict[str, Any]:
+    """The player directory without today's health fields (identity and eligibility kept)."""
+    return {
+        pid: (
+            {k: v for k, v in meta.items() if k not in CURRENT_HEALTH_FIELDS}
+            if isinstance(meta, dict)
+            else meta
+        )
+        for pid, meta in directory.items()
+    }
+
+
+def team_strength_rows(
+    roster_rows: Sequence[Mapping[str, Any]],
+    directory: Mapping[str, Any],
+    snapshot_players: list[dict[str, Any]],
+    slots: list[str],
+) -> list[dict[str, Any]]:
+    """Production join (``hydrate_roster_players`` + ``compute_team_strength``) for one week."""
+    teams = [
+        {
+            "ownerId": team_id(r["roster_id"]),
+            "rosterId": r["roster_id"],
+            "teamName": "",
+            "players": hydrate_roster_players(
+                [str(p) for p in (r.get("players") or [])],
+                directory,  # type: ignore[arg-type]
+            ),
+        }
+        for r in roster_rows
+    ]
+    return compute_team_strength(teams, aggregated_players=snapshot_players, starter_slots=slots)
 
 
 def as_of(inputs: Inputs, week: int, slots: list[str]) -> AsOf:
-    """Week ``week``'s pre-kickoff snapshot + that week's roster, through the production join."""
+    """Week ``week``'s pre-kickoff snapshot + that week's roster, through the production join.
+
+    ``rows`` use the point-in-time directory (no injury flags); ``rows_today_injury``
+    reproduce the first run's join with today's flags, for the reported-only arm.
+    """
     kickoff = inputs.schedule[week].first_kickoff_utc
     snap = v1.snapshot_before(kickoff)
     players = v1.load_snapshot_players(snap)
@@ -273,19 +334,9 @@ def as_of(inputs: Inputs, week: int, slots: list[str]) -> AsOf:
         source = "current_rosters"
     else:
         raise Refusal(f"no roster source for week {week}")
-    teams = [
-        {
-            "ownerId": team_id(r["roster_id"]),
-            "rosterId": r["roster_id"],
-            "teamName": "",
-            "players": hydrate_roster_players(
-                [str(p) for p in (r.get("players") or [])], inputs.directory
-            ),
-        }
-        for r in src
-    ]
-    rows = compute_team_strength(teams, aggregated_players=players, starter_slots=slots)
-    return AsOf(week, snap, v1.sha256_file(snap), players, rows, source)
+    rows = team_strength_rows(src, point_in_time_directory(inputs.directory), players, slots)
+    rows_today = team_strength_rows(src, inputs.directory, players, slots)
+    return AsOf(week, snap, v1.sha256_file(snap), players, rows, source, rows_today)
 
 
 def presim(asof_k: AsOf, slots: list[str], model: Any, rosters: Any = None) -> dict[str, Any]:
@@ -343,6 +394,11 @@ def build_week_forecasts(
     view = tp.RealizedView(realized, k)
     inc = production_distributions(asof_k, presim_by_week[k], view, ros_counted_once=False)
     out: dict[str, dict[str, tuple[float, float] | None]] = {"I": dict(inc)}
+    if asof_k.rows_today_injury is not None:
+        leaky = replace(asof_k, rows=asof_k.rows_today_injury)
+        out[INCUMBENT_TODAY_INJURY] = dict(
+            production_distributions(leaky, presim_by_week[k], view, ros_counted_once=False)
+        )
     out.update(cands)
     return out, {name: _fit_dict(f) for name, f in fits.items()}
 
@@ -374,12 +430,12 @@ def evaluate(args: argparse.Namespace) -> int:
     }
     dev_arms = [
         a
-        for a in ARMS_GATED
+        for a in ARMS_SCORED
         if all(d is not None for k in DEVELOPMENT for d in built[k][0][a].values())
     ]
     for k in DEVELOPMENT + HOLDOUT:
         forecasts, fits = built[k]
-        arms_k = ARMS_GATED if k in HOLDOUT else tuple(dev_arms)
+        arms_k = ARMS_SCORED if k in HOLDOUT else tuple(dev_arms)
         complete = {a: {t: d for t, d in forecasts[a].items() if d is not None} for a in arms_k}
         wi = tp.WeekInputs(week=k, realized=realized[k], pairs=pairs[k], forecasts=complete)
         tp.require_complete(wi, arms_k)
@@ -414,12 +470,25 @@ def evaluate(args: argparse.Namespace) -> int:
             med[k] = m
         return recs, med
 
-    hold_recs, hold_med = score_block(HOLDOUT, ARMS_GATED)
+    hold_recs, hold_med = score_block(HOLDOUT, ARMS_SCORED)
     dev_recs, _ = score_block(DEVELOPMENT, dev_arms)
     hold_weeks = [weeks[k] for k in HOLDOUT]
     dev_weeks = [weeks[k] for k in DEVELOPMENT]
-    summaries = {a: tp.summarize_arm(hold_recs, hold_weeks, a) for a in ARMS_GATED}
+    summaries = {a: tp.summarize_arm(hold_recs, hold_weeks, a) for a in ARMS_SCORED}
     dev_summaries = {a: tp.summarize_arm(dev_recs, dev_weeks, a) for a in dev_arms}
+    # Per-week reading (reported, never gated): the team-cluster bootstrap does not
+    # resample week-wide shocks, so each holdout week is also shown on its own.
+    per_week = {}
+    for k in HOLDOUT:
+        recs_k, _m = score_block((k,), ARMS_SCORED)
+        per_week[str(k)] = {
+            a: {
+                m: _r(v)
+                for m, v in tp.summarize_arm(recs_k, [weeks[k]], a).items()
+                if m in ("bias", "mae", "crps", "logLossBinary", "brierBinary", "concordance")
+            }
+            for a in ARMS_SCORED
+        }
 
     tw = [r for r in hold_recs if r.kind == "team_week"]
     binary = [r for r in hold_recs if r.kind in ("h2h", "median")]
@@ -440,7 +509,7 @@ def evaluate(args: argparse.Namespace) -> int:
     recommendation = tp.recommend(summaries, verdicts)
 
     horizon = {}
-    for a in ARMS_GATED:
+    for a in ARMS_SCORED:
         horizon[a] = tp.horizon_errors(
             {k: weeks[k].forecasts[a] for k in HOLDOUT},
             {k: hold_med[k][a] for k in HOLDOUT},
@@ -490,10 +559,16 @@ def evaluate(args: argparse.Namespace) -> int:
             "gates": verdicts,
             "recommendation": recommendation,
             "horizon": {a: {k: _r(v) for k, v in h.items()} for a, h in horizon.items()},
+            "perWeek": per_week,
+            "incumbentInputs": {
+                "gated": "I: point-in-time join, no injury flags (post-freeze correction)",
+                INCUMBENT_TODAY_INJURY: "first run: today's directory injury flags (look-ahead)",
+                "strippedDirectoryFields": list(CURRENT_HEALTH_FIELDS),
+            },
         },
         "development": {
             "summaries": {a: {k: _r(v) for k, v in s.items()} for a, s in dev_summaries.items()},
-            "armsWithoutEvidence": [a for a in ARMS_GATED if a not in dev_arms],
+            "armsWithoutEvidence": [a for a in ARMS_SCORED if a not in dev_arms],
         },
         "weeks": week_detail,
         "downstreamPlayoffTitle": "INSUFFICIENT_BY_CONSTRUCTION: no completed 2026 season",
@@ -563,6 +638,7 @@ def _arm_stats(rows: list[dict[str, Any]], arm: str) -> dict[str, Any]:
         per_y.setdefault(r["team"], []).append(r["realized"])
     sd_mu = statistics.pstdev([statistics.fmean(v) for v in per_mu.values()])
     sd_y = statistics.pstdev([statistics.fmean(v) for v in per_y.values()])
+    zs = [(y - m) / s for y, m, s in zip(ys, mus, sds)]
     return {
         "n": len(rows),
         "bias": _r(statistics.fmean(y - m for y, m in zip(ys, mus)), 2),
@@ -571,6 +647,7 @@ def _arm_stats(rows: list[dict[str, Any]], arm: str) -> dict[str, Any]:
         "zRms": _r(
             math.sqrt(statistics.fmean(((y - m) / s) ** 2 for y, m, s in zip(ys, mus, sds))), 3
         ),
+        "zSd": _r(statistics.pstdev(zs), 3),
         "meanSd": _r(statistics.fmean(sds), 2),
         "meanPredicted": _r(statistics.fmean(mus), 2),
         "meanRealized": _r(statistics.fmean(ys), 2),
@@ -680,6 +757,10 @@ def diagnose(args: argparse.Namespace) -> int:
             "I": production_distributions(a, p_f, view, ros_counted_once=False),
             "P_once": production_distributions(a, p_f, view, ros_counted_once=True),
         }
+        if a.rows_today_injury is not None:
+            arms[INCUMBENT_TODAY_INJURY] = production_distributions(
+                replace(a, rows=a.rows_today_injury), p_f, view, ros_counted_once=False
+            )
         for mid, conv in convs.items():
             arms[f"P_{mid}"] = presim(a, slots, _ConversionModel(conv, ladders))
         if k in FINAL_WEEKS:
@@ -755,10 +836,21 @@ def diagnose(args: argparse.Namespace) -> int:
         if arm == "L_F":
             # A deterministic sum has no spread: z-RMS and sd are undefined, not zero.
             st = _arm_stats([{**r, arm: [r[arm][0], 1.0]} for r in rs], arm)
-            return {**st, "zRms": None, "meanSd": None}
+            return {**st, "zRms": None, "zSd": None, "meanSd": None}
         return _arm_stats(rs, arm)
 
-    arm_names = ("L_F", "P_F", "I", "P_once", "P_C0", "P_CF", "P_CR", "P_F_oracle", "P_CF_oracle")
+    arm_names = (
+        "L_F",
+        "P_F",
+        "I",
+        INCUMBENT_TODAY_INJURY,
+        "P_once",
+        "P_C0",
+        "P_CF",
+        "P_CR",
+        "P_F_oracle",
+        "P_CF_oracle",
+    )
     summaries = {
         label: {arm: block(ws, arm) for arm in arm_names}
         for label, ws in (("weeks5to8", HOLDOUT), ("weeks2to8", tuple(range(2, 9))))
@@ -770,74 +862,49 @@ def diagnose(args: argparse.Namespace) -> int:
     lifts = [r["P_F"][0] - r["L_F"][0] for r in hold_rows]
     mults = [r["rosMultiplier"] for r in hold_rows]
     depth_m = [r["depthSdMultiplier"] for r in hold_rows]
-    s = summaries["weeks5to8"]
 
-    def delta(a: str, b: str, key: str) -> float | None:
-        if s.get(a) is None or s.get(b) is None:
-            return None
-        return _r(s[b][key] - s[a][key], 3)
-
-    contributors = [
-        {
-            "contributor": "ROS multiplier on the presim (double count, D11; flag OFF)",
-            "from": "P_F",
-            "to": "I",
-            "deltaSpreadRatio": delta("P_F", "I", "betweenTeamSpreadRatio"),
-            "deltaSlope": delta("P_F", "I", "calibrationSlope"),
-            "deltaMae": delta("P_F", "I", "mae"),
-            "deltaBias": delta("P_F", "I", "bias"),
-            "multiplierRange": [_r(min(mults), 3), _r(max(mults), 3)],
-        },
-        {
-            "contributor": "unit conversion rosValue/2.7 through origin vs one fitted affine scale (C0)",
-            "from": "P_F",
-            "to": "P_C0",
-            "deltaSpreadRatio": delta("P_F", "P_C0", "betweenTeamSpreadRatio"),
-            "deltaSlope": delta("P_F", "P_C0", "calibrationSlope"),
-            "deltaMae": delta("P_F", "P_C0", "mae"),
-            "deltaBias": delta("P_F", "P_C0", "bias"),
-        },
-        {
-            "contributor": "position (family) scale: one scale (C0) vs per-family (CF / CR)",
-            "from": "P_C0",
-            "to": "P_CF",
-            "deltaSpreadRatio": delta("P_C0", "P_CF", "betweenTeamSpreadRatio"),
-            "deltaSlope": delta("P_C0", "P_CF", "calibrationSlope"),
-            "deltaMae": delta("P_C0", "P_CF", "mae"),
-            "deltaMaeCR": delta("P_C0", "P_CR", "mae"),
-            "deltaBias": delta("P_C0", "P_CF", "bias"),
-        },
-        {
-            "contributor": "availability not modelled (ORACLE arm, not knowable at forecast time)",
-            "from": "P_CF",
-            "to": "P_CF_oracle",
-            "deltaMae": delta("P_CF", "P_CF_oracle", "mae"),
-            "deltaBias": delta("P_CF", "P_CF_oracle", "bias"),
-            "deltaBiasUnderFallback": delta("P_F", "P_F_oracle", "bias"),
-        },
-        {
-            "contributor": "best-ball lineup max over noisy draws (P_F - L_F)",
-            "meanLift": _r(statistics.fmean(lifts), 2),
-            "liftRange": [_r(min(lifts), 2), _r(max(lifts), 2)],
-            "liftShareOfPresimMean": _r(
-                statistics.fmean(r["P_F"][0] - r["L_F"][0] for r in hold_rows)
-                / statistics.fmean(r["P_F"][0] for r in hold_rows),
-                4,
+    # Each contributor is a (with, without) arm pair; its effect on each error metric is
+    # computed from the summaries above, never typed in (rank_contributors).
+    contributor_pairs = (
+        ("ROS multiplier re-applied to the presim (D11 double count, flag OFF)", "I", "P_F"),
+        ("through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)", "P_F", "P_C0"),
+        ("one scale for every position (vs per-family affine CF)", "P_C0", "P_CF"),
+        ("one scale for every position (vs per-family rank curve CR)", "P_C0", "P_CR"),
+        (
+            "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+            "P_CF",
+            "P_CF_oracle",
+        ),
+        ("availability not modelled, fallback means (vs ORACLE pool)", "P_F", "P_F_oracle"),
+        ("best-ball max over noisy draws (vs deterministic lineup)", "P_F", "L_F"),
+    )
+    ranked = {
+        label: tp.rank_contributors(block_summaries, contributor_pairs)
+        for label, block_summaries in summaries.items()
+    }
+    for block_rank in ranked.values():
+        for row in block_rank["effects"]:
+            for metric in tp.CONTRIBUTOR_ERRORS:
+                row[metric] = _r(row[metric], 3)
+    s_hold = summaries["weeks5to8"]
+    reported = {
+        "rosMultiplierRange": [_r(min(mults), 3), _r(max(mults), 3)],
+        "bestBallLift": {
+            "mean": _r(statistics.fmean(lifts), 2),
+            "range": [_r(min(lifts), 2), _r(max(lifts), 2)],
+            "shareOfPresimMean": _r(
+                statistics.fmean(lifts) / statistics.fmean(r["P_F"][0] for r in hold_rows), 4
             ),
         },
-        {
-            "contributor": "spread: independent per-player draws with fallback CVs; depth lift",
-            "presimMeanSd": s["P_F"]["meanSd"] if s.get("P_F") else None,
-            "incumbentMeanSd": s["I"]["meanSd"] if s.get("I") else None,
+        "spread": {
+            "presimMeanSd": s_hold["P_F"]["meanSd"],
+            "incumbentMeanSd": s_hold["I"]["meanSd"],
             "depthSdMultiplierRange": [_r(min(depth_m), 3), _r(max(depth_m), 3)],
             "realizedPooledWithinTeamSdWeeks1to8": _r(within, 2),
-            "zRmsAfterConversionCF": s["P_CF"]["zRms"] if s.get("P_CF") else None,
+            "zSdAfterConversionCF": s_hold["P_CF"]["zSd"],
         },
-        {
-            "contributor": "unpriced roster players draw 0 (missing treated as zero in the presim)",
-            "realizedStarterPointShareByWeek": unpriced,
-        },
-    ]
+        "unpricedStarterPointShareByWeek": unpriced,
+    }
 
     payload = {
         "promotes": False,
@@ -856,7 +923,7 @@ def diagnose(args: argparse.Namespace) -> int:
             "networkCalls": fetcher.network_calls,
         },
         "summaries": summaries,
-        "contributors": contributors,
+        "contributors": {"ranked": ranked, "reportedQuantities": reported},
         "conversions": conversions,
         "liveWeek9": live_candidates,
         "weeks": per_week,

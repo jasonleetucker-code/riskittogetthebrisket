@@ -524,6 +524,7 @@ def summarize_arm(recs: Sequence[Record], weeks: Sequence[WeekInputs], arm: str)
     sd_mu = statistics.pstdev([statistics.fmean(v) for v in per_team_mu.values()])
     sd_y = statistics.pstdev([statistics.fmean(v) for v in per_team_y.values()])
     zr = _mean(tw, arm, "z2")
+    zs = [r.values[arm]["err"] / r.values[arm]["sd"] for r in tw]
     return {
         "nTeamWeeks": len(tw),
         "nH2h": len(h2h),
@@ -532,6 +533,10 @@ def summarize_arm(recs: Sequence[Record], weeks: Sequence[WeekInputs], arm: str)
         "mae": _mean(tw, arm, "abs"),
         "calibrationSlope": calibration_slope(mu, ys),
         "zRms": math.sqrt(zr) if zr is not None else None,
+        # SD of standardized errors with their mean removed: the spread part of z-RMS
+        # alone (z-RMS² = mean(z)² + zSd²), so a bias cannot read as a spread error.
+        "zSd": statistics.pstdev(zs) if len(zs) > 1 else None,
+        "zMean": statistics.fmean(zs) if zs else None,
         "coverage80": _mean(tw, arm, "cov80"),
         "crps": _mean(tw, arm, "crps"),
         "meanSd": _mean(tw, arm, "sd"),
@@ -548,6 +553,21 @@ def summarize_arm(recs: Sequence[Record], weeks: Sequence[WeekInputs], arm: str)
 
 
 # ── team-cluster bootstrap ───────────────────────────────────────────────────────────
+
+
+def symmetric_interval(values: Sequence[float], level: float = 0.95) -> tuple[float, float]:
+    """Percentile interval with the same count of values strictly outside on each side.
+
+    ``k = floor((1 − level)/2 · n)``; ``lo`` is the (k+1)-th smallest and ``hi`` the
+    (k+1)-th largest, so exactly ``k`` values lie below ``lo`` and ``k`` above ``hi``
+    for any ``n``.
+    """
+    ordered = sorted(values)
+    n = len(ordered)
+    if n == 0:
+        raise InsufficientEvidence("no values for an interval")
+    k = int((1.0 - level) / 2.0 * n)
+    return ordered[k], ordered[n - 1 - k]
 
 
 def paired_cluster_bootstrap(
@@ -585,9 +605,7 @@ def paired_cluster_bootstrap(
         for _ in teams:
             counts[rng.randrange(len(teams))] += 1
         stats_.append(float((counts * s).sum() / (counts * wv).sum()))
-    stats_.sort()
-    lo = stats_[int(0.025 * reps)]
-    hi = stats_[int(0.975 * reps) - 1]
+    lo, hi = symmetric_interval(stats_)
     return {"delta": point, "lo95": lo, "hi95": hi, "reps": reps, "clusters": len(teams)}
 
 
@@ -636,6 +654,57 @@ def horizon_errors(
         "projectedPfBias": statistics.fmean(pf_err),
         "expectedWinsMae": statistics.fmean(abs(e) for e in win_err),
         "expectedWinsBias": statistics.fmean(win_err),
+    }
+
+
+# ── diagnosis: contributor effects ───────────────────────────────────────────────────
+
+#: How far an arm is from calibrated, per metric family.  Level: |bias|, MAE.  Spread:
+#: |between-team spread ratio − 1|, |calibration slope − 1|.
+CONTRIBUTOR_ERRORS: dict[str, Callable[[Mapping[str, Any]], float]] = {
+    "absBias": lambda s: abs(s["bias"]),
+    "mae": lambda s: s["mae"],
+    "spreadRatioError": lambda s: abs(s["betweenTeamSpreadRatio"] - 1.0),
+    "slopeError": lambda s: abs(s["calibrationSlope"] - 1.0),
+}
+
+
+def rank_contributors(
+    summaries: Mapping[str, Mapping[str, Any] | None],
+    contributors: Sequence[tuple[str, str, str]],
+) -> dict[str, Any]:
+    """Effect of each contributor = error(arm WITH it) − error(arm WITHOUT it), per metric.
+
+    ``contributors`` are ``(name, with_arm, without_arm)``.  A positive effect means the
+    contributor adds that error.  Each effect is measured ALONE against its own
+    comparison arm: no interaction or ordering check, so effects need not add up.
+    Rankings are per metric, largest effect first; an effect that cannot be measured
+    (an arm or metric is missing) is ``None`` and left out of the ranking.
+    """
+    effects = []
+    for name, with_arm, without_arm in contributors:
+        sw, so = summaries.get(with_arm), summaries.get(without_arm)
+        row: dict[str, Any] = {"contributor": name, "with": with_arm, "without": without_arm}
+        for metric, err in CONTRIBUTOR_ERRORS.items():
+            try:
+                row[metric] = err(sw) - err(so)  # type: ignore[arg-type]
+            except (TypeError, KeyError):
+                row[metric] = None
+        effects.append(row)
+    rankings = {
+        metric: [
+            r["contributor"]
+            for r in sorted((r for r in effects if r[metric] is not None), key=lambda r: -r[metric])
+        ]
+        for metric in CONTRIBUTOR_ERRORS
+    }
+    return {
+        "method": (
+            "effect = error(with) - error(without); each measured alone against its own "
+            "comparison arm, no interaction or ordering check"
+        ),
+        "effects": effects,
+        "rankings": rankings,
     }
 
 
@@ -722,9 +791,11 @@ __all__ = [
     "outcome",
     "paired_cluster_bootstrap",
     "pooled_within_sd",
+    "rank_contributors",
     "recommend",
     "require_complete",
     "score_week",
     "summarize_arm",
+    "symmetric_interval",
     "win_probability",
 ]
