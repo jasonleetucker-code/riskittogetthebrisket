@@ -73,6 +73,28 @@ Authorized in `docs/EXECUTION_PLAN.md` (same date) inside the same program and i
 | MD-72 | **Execute incrementally (Part 8).** Bounded high-value feature groups, highest-risk first, ≤ 4 workers with separate ownership; continue until done or genuinely blocked; no routine engineering choices sent back to the owner | IN PROGRESS |
 | MD-73 | **Honest, measurable progress (Part 9).** One verification record with the ten states; checkpoint reports with the ten measures and exact commits, PRs, tests, results and evidence paths; never claim the site fully tested without evidence | IN PROGRESS — CW-48 |
 
+## Added 2026-11-08 — League rules correction, mathematical integrity, product honesty, regression coverage
+
+Owner directive 2026-11-08 (chat, "CHASE UPSIDE — NEXT ENGINEERING DIRECTIVE"). Structured record:
+`docs/owner/LEAGUE_RULES_MATH_INTEGRITY_DIRECTIVE_2026-11-08.md`. Authorized in `docs/EXECUTION_PLAN.md` (same date)
+inside the same program and inventory. **Owner product decision recorded: `dynasty_main` divisions carry no playoff
+advantage** (seven best overall records qualify, seeded on record, ties to points scored; divisions = schedule +
+champion payout) — `config/leagues/playoff_rules.json`.
+
+| ID | Requirement | Status |
+|---|---|---|
+| MD-86 | **Read context and verify live state first (Part 1).** Handoff, instructions, PRs #2123–#2148, code; trust nothing unverified; no repeated work; update existing documents | DONE 2026-11-08 — production `828c72ce9` carries #2147; the handoff was verified line by line |
+| MD-87 | **Divisions correction (Part 2 A–E).** Playoff odds on overall record with 7 qualifiers and points for as the tiebreaker; no division berth, seeding or bye; separate division-title odds; draft-slot odds restored; per-league rules, never universal | DONE — #2149 merged `f8da14ef8`, deployed and verified in production 2026-11-08 (divisionOdds available, recorded rule stamped, Power-tab tables) |
+| MD-88 | **Mathematical audit (Part 3).** Inputs / source / method / assumptions / meaning / edge cases / independent oracle for every significant quantitative feature | IN PROGRESS — `docs/engineering/MATH_AUDIT_2026-11-08.md`: feature ledger plus 4 findings. F2: the best-ball points model is uncalibrated at team level (spread about 2.3x actual; RPA-LGI-008, gated study, not changed) |
+| MD-89 | **Misleading product language (Part 4).** "Market overvalues", "Edge", "STRONG BUY", "61% confidence", "Hit %", "clear winner" | DONE — #2150 merged and deployed (`923f7b4c8`); #2149 (chart extremes, Power subtitle); #2152 (Championship / Trade Deadline odds as whole-percent estimates) |
+| MD-90 | **Regression inventory and coverage (Part 5).** Intended behavior, I/O, dependencies, failure behavior, coverage and gaps per major capability; format-combination tests; no superficial tests | IN PROGRESS — feature census regenerated (0 untested routes / pages / bridges / flags; the six "untested" routes were covered by #2087's tests); format-pair isolation test #2154 merged; league-format coverage map plus gaps in `MATH_AUDIT_2026-11-08.md` |
+| MD-91 | **Audit the 261 skipped tests (Part 6).** Classify, restore what is safe, never raise the budget | DONE — #2151 merged `486b4da21`; CI measured 10 skips (was 261): 11 resolved (10 now run, 1 obsolete removed), 240 forced-drop draws reclassified (coverage unchanged, precondition-guarded); skip reasons recorded in shard manifests; budget 290 → 10 |
+| MD-92 | **Preserve the CI gains; receipt enforcement (Part 7).** Nothing weakened; verify whether `Receipt check` is required | VERIFIED: NOT ENFORCED — ruleset `main-protection` has only deletion and non-fast-forward rules (no required status checks at all). Owner action recorded in `SESSION_HANDOFF.md` |
+| MD-93 | **Local disk without losing work (Part 8).** Classify every worktree; remove only what is proven safe | DONE 2026-11-08 — 94 worktrees classified; 39 clean and fully pushed removed (about 104 GB; free space 4.8 GB → 105 GB); 414 MB of ignored non-cache files preserved in `C:\Dev\worktree-preservation-2026-11-08`; 53 with unique or uncommitted work kept |
+| MD-94 | **Four older PRs untouched (Part 9).** #1884, #1873, #1852, #1513 | VERIFIED 2026-11-08 — all OPEN and CONFLICTING, not modified |
+| MD-95 | **Roadmap reassessment (Part 10).** Findings classified; acceptance tests for anything unfinished | IN PROGRESS — `SESSION_HANDOFF.md` ranked priorities |
+| MD-96 | **Delivery and final handoff (Parts 11–12).** P0 → P3 batches; receipts; merge and deploy when safe; handoff A–G | IN PROGRESS |
+
 ## Added 2026-11-07 — Master correctness, reliability, performance & CI acceleration
 
 Owner directive 2026-11-07 (chat, "CHASE UPSIDE — MASTER CORRECTNESS, RELIABILITY, PERFORMANCE & CI ACCELERATION

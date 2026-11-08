@@ -3,65 +3,81 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-11-08 ~03:30Z.** Agent-OS-Receipt `741230de`.
+**As of 2026-11-08 ~11:15Z.** Agent-OS-Receipt `741230de`.
 
 ## Mode
-- Four owner directives of 2026-11-07 in force inside one program (CW-01 … CW-53,
-  `docs/audits/remediation_2026-11-06/`); latest is the master correctness / CI directive
-  (`docs/owner/MASTER_CORRECTNESS_CI_DIRECTIVE_2026-11-07.md`, MD-74 … 85). Authorization: `docs/EXECUTION_PLAN.md`.
-- Standing permission to merge anything ready (green CI + independent review); owner gates stay binding.
+- Owner directive 2026-11-08 (league rules, mathematical integrity, product honesty, regression, repository
+  reliability): `docs/owner/LEAGUE_RULES_MATH_INTEGRITY_DIRECTIVE_2026-11-08.md`, intake MD-86 … MD-96. It sits
+  on top of the four 2026-11-07 directives (MD-65 … MD-85), all inside the remediation program
+  (`docs/audits/remediation_2026-11-06/`). Authorization: `docs/EXECUTION_PLAN.md`.
+- Standing permission to merge anything ready (green CI and independent review); owner gates stay binding.
 
-## Production and main
-- Production `de7b8dc9d` at 03:15Z (#2134 + #2136 live); the deploy for `7079e2689` (#2147) follows.
-- Main green. **No PR from this session is open.** Still open from earlier sessions, untouched here and in merge
-  conflict: #1884 (outlier integrity v2, default OFF), #1873, #1852, #1513; plus owner-reserved #1938 and docs /
-  codex / dependabot PRs. Merged since 2026-11-07: #2129, #2131, #2133, #2128, #2123,
-  #2135, #2137, #2138, #2139, #2141, #2140, #2130, #2142, #2143, #2144, #2145, #2146, #2134, #2136, #2147.
+## Owner product decision recorded (binding)
+- `dynasty_main`:
+  - Qualifying and seeding: the 7 best OVERALL records qualify, seeded by record; standings ties of any size go to most points scored.
+  - Divisions (3) decide the schedule and a separate champion payout only. No berth, no seeding advantage, no bye.
+  - One owner: `config/leagues/playoff_rules.json` → `src/public_league/playoff_structure.py::league_playoff_rules`.
+  - Host evidence: the 2025 bracket seeded a four-way 15-11 tie strictly by points for.
+- **Live Sleeper fact:** `settings.divisions` is 0 today. It was 3 on 2026-10-26; rosters still carry division 1–3 and the league metadata names them. Sleeper's default qualifies division winners when that setting is on, which contradicts the league rule. Keeping it at 0 keeps the host bracket and this site's odds in agreement.
 
-## CI — all three hard gates sharded and proven (directive Part 2, MD-76 DONE)
-| gate | before | after (measured) |
+## Delivered this session (2026-11-08)
+| PR | What | State |
 |---|---|---|
-| PR Validation | 78–120 min (serial step 74–106) | ~20 min (run 42411207802) |
-| Deploy Production (execution) | ~105 min (validate 96.4) | 24.5–32.3 min over 6 runs |
-| Release Candidate | ~100 min | 19.0 min (run 42436431533, tree `5eb4a3de…` agreed on every job) |
-- One owner `scripts/ci_test_shards.py` + `config/ci/test_shards.json` (8 shards, floor 32,500, skip budget 290;
-  durations refreshed from a complete run). Completeness proof in `Validate PR`, `Hard gate complete`,
-  `Validate Release Candidate`. Deploy falls back to serial for targets without the owner or on
-  `serial_hard_gate` dispatch; RC refuses a partial re-run ("re-run ALL jobs").
-- Receipt check (#2130) runs on every PR; the State must be TESTED_IN_PR / MERGED / DEPLOYED /
-  VERIFIED_IN_PRODUCTION and all twelve labels present. A body edit re-runs it.
-- Runner contention: ~12 jobs per full PR vs GitHub Free's 20 — shards start staggered under load.
+| #2149 | Divisions per league; division-title odds (separate RNG stream, playoff numbers bit-identical); an unrecorded rule withholds qualifying only and keeps draft slots (`regularSeasonOdds`); public section and Power-tab table; "<1%"/">99%" on the chart; honest Power subtitle | MERGED `f8da14ef8`, DEPLOYED, VERIFIED in production: `playoffOdds` carries `divisionRule: recorded_no_playoff_effect` and `divisionOdds` available (9,000 sims); the Power tab renders the division tables, the note and "<1%"/">99%" |
+| #2150 | Honest copy: market gap, Edge %, BUY · LARGE GAP, model share (uncalibrated), Hit % (prior), Monte Carlo "led in most simulations"; BDVM / Consensus Edge strong labels aligned | MERGED `923f7b4c8`, DEPLOYED (production reported `923f7b4c8` at 10:46Z) |
+| #2151 | Skipped-test audit: 11 skips resolved (10 now run, 1 obsolete removed), 240 forced-drop draws reclassified (coverage unchanged, precondition-guarded), skip reasons recorded in shard manifests; **skip budget 290 → 10** | MERGED `486b4da21`; CI on the merged tree: 34,686 collected, 10 skipped, budget 10, 0 failed |
+| #2152 | Season-simulator odds as whole-percent estimates on the Championship and Trade Deadline tabs (one formatter, `frontend/lib/odds-disclosure.js`); Trade Deadline Strength stays exact (deterministic percentile) | MERGED `464662bdf`; deploy in progress at writing |
+| #2154 | Format-pair isolation test: two synthetic leagues differing on every axis; lineup, playoff structure and divisions, roster cap, FAAB comparability and engine, waiver gate; called A/B/A/B against hand-derived expectations | MERGED `ab3672210` (tests only) |
+| (records) | Directive record, MD-86 … MD-96, plan entry, `docs/engineering/MATH_AUDIT_2026-11-08.md`, regenerated feature census, this handoff | this PR |
 
-## Correctness / capture / performance landed
-- Waivers: #2138, #2136, #2147 — id-first ownership with ONE holder owner (`src/draft/context.py::league_holder_index`),
-  ONE balance field `faabBudget` (unknown withholds bids on /suggestions and the desk; lower of requested and
-  observed wins; over-spent = known $0), position_not_started, desk refusals.
-- Playoffs: #2134 refuses leagues with divisions (`league_divisions_unmodeled`), strict integral parse.
-- Oracles: #2135, #2143 (playoff / title / draft slot / Game Day vs exact enumeration).
-- False precision: #2137. Gameplan unavailable-not-zero #2128; alert cooldown #2123.
-- Capture: #2140 deployed — late pregame snapshot, as-known injuries, board identity, atomic writes; box verified
-  (run 42441936899: timer enabled, exit-code policy correct, 198 snapshots readable).
-- Performance: baseline #2142; sitemap #2144 (2.7 MB → 77 KB per rebuild); `weeklyRecap.byKey` removed #2145 (~246 KB).
+## Math audit (`docs/engineering/MATH_AUDIT_2026-11-08.md`)
+- **F2, the biggest open model issue (not changed):** the best-ball points model is uncalibrated at TEAM level.
+  - Simulated weekly means run 117–524 against a realized 241–436. The spread between teams is about 2.3× the real one.
+  - Odds therefore sit at 0/100 by Week 8, and projected PF is inflated (Brent: 6,632 projected vs a 6,105 pace).
+  - It is RPA-LGI-008, covered by the pre-registered study `docs/league-intelligence/ROS_SCALE_CALIBRATION_*`, and changing the model is owner/gate reserved.
+  - Recommendation: add team-level mean/sd checks to that study's gates.
+- **Qualifying is robust to F2 today:** the median game doubles the record gap, and an independent realized-score simulation agrees.
+- **Verified inert:** `src/waivers/advisor.py` `max(0, int(balance or 0))` changes nothing, because `season_option_value` never reads `faab_remaining`.
+
+## CI (unchanged, nothing weakened)
+- PR Validation ~18–20 min; shards 10–16 min each, 8 shards; deploy and RC sharded as recorded on 2026-11-08.
+- **Receipt check is NOT enforced.** The `main-protection` ruleset has only `deletion` and `non_fast_forward` rules: no required status checks at all, not even `Validate PR`. Owner action:
+  - Settings → Rules → Rulesets → `main-protection` → add **Require status checks to pass** with `Validate PR` and `Receipt check` (source GitHub Actions).
+  - **Bypass needed:** automation pushes straight to `main` (github-actions[bot] via `GITHUB_TOKEN` in `scheduled-refresh.yml` and the refit/narratives/sharp workflows; the box deploy keys behind "DLF Fetch (prod)" and "IDP Show Fetch (prod)"). Add those as bypass actors.
+  - Then confirm the next scheduled refresh still lands. Deploy dispatch keys on those commits (W31-F001).
+- **Skip budget:** `max_skipped` is now 10 (#2151 merged; measured 10). Every remaining skip names a deterministic environment or data reason in the shard manifests' `skip_reasons`. Any new skip now fails the gate until it is justified.
+
+## Machine (2026-11-08)
+- **Worktrees:** 94 classified; 43 removed (~114 GB). Free space on C: went from 4.8 GB to 115 GB.
+  - 39 were clean and fully pushed.
+  - 4 had only local commits, proven already in main (`git merge-tree` against main is a no-op), with verified bundles in `C:\Dev\worktree-preservation-2026-11-08\bundles`.
+  - 414 MB of ignored non-cache files (research caches, private census output, test databases) were copied to `C:\Dev\worktree-preservation-2026-11-08\`.
+- **Kept (~48, ~135 GB):**
+  - 21 with uncommitted or untracked work, incl. Codex `chase-performance` at 26 GB with 2 modified + 1 untracked file;
+  - ~26 with commits that exist only locally, mostly squash-merged branches whose remote copies were deleted.
+- **Next storage step (owner):** review the 21 dirty worktrees. For the local-commit ones, `git bundle create <file> HEAD --not --remotes` and then `git worktree remove` makes them safe.
+- **Main checkout `frontend\node_modules` is empty:** it was wiped on 2026-10-26 (see the memory note on junction deletion). That is not needed unless you run the frontend from the main checkout; then run `cd frontend && npm ci` there. Each worktree runs its own `npm ci` (~20 s).
+
+## Open PRs outside this session (untouched, verified 2026-11-08)
+- **Earlier sessions:** #1884 (outlier integrity v2, default OFF), #1873 (package-model ledger, stacked on #1833), #1852 (Trade Market P1+P3) and #1513 (Manager of the Year, validation track) are all OPEN and CONFLICTING, and were not modified.
+- **Owner-reserved and other:** #1938 is owner-reserved. #2132 and #2112 are Codex prototypes and docs; #2116 and #1755 are docs; there are also Dependabot PRs.
 
 ## Owner decisions pending
-- #2137 wording left unchanged: "market overvalues", /arbitrage "Edge"/"STRONG BUY", Waiver Advisor "61% confidence",
-  BDVM "Hit %", Monte Carlo "clear winner".
-- #2134 owner question 1: the divisions refusal also withholds draft-slot odds that divisions cannot affect.
-- Making `Receipt check` a required status check (repository setting).
-- Unchanged: #1938 reserved; backup runbook / #1938 impact need box access; decision register + methodology proposals.
+- Division-champion tiebreaker: it applies the league's standings rule (points for). Confirm, or name another.
+- Keep the Sleeper `divisions` setting at 0 (see above)?
+- Make `Validate PR` + `Receipt check` required, with automation bypass.
+- Unchanged: #1938; the draft-order record basis (does the median game count? #1712); the F2 calibration path.
 
-## Next dependency-ready units
-- `src/waivers/advisor.py:~493` `max(0, int(balance or 0))` (inert today, flag off) → pass None.
-- `/api/public/league` still 2.7 → ~2.47 MB: archives (816 KB) and activity feed (458 KB) dominate (#2144 analysis).
-- P1 ledger: 56 / 15 / 10 / 4 of 85 (W24-F001 PARTIAL: union skip census missing).
-- MD-78 (source independence / 0.30 haircut challengers), MD-83 (security / backups), CW-48 verification states.
+## Next dependency-ready units (ranked)
+1. Verify the #2152 deploy on the Championship and Trade Deadline tabs (production after `464662bdf`); confirm the next deploy's hard gate passes under budget 10.
+2. Forced-drop property coverage: at least N applicable draws per scenario, generated deterministically (#2151 follow-up 0).
+3. The FAAB engine's latent default: `team_ceiling` reads an unknown own balance as the full budget. Every live caller guards today: the faab-recommend route withholds, `waiver.py` passes a known cap, and the advisor reads only `season_option_value`. A defensive engine-level refusal is a small follow-up.
+4. Three real-Sleeper-cache skips: the cache is 33 MB, so extract a trimmed committed fixture that still pins the scoring fingerprint and the 72/72 best-ball team-weeks.
+5. MD-78 (0.30 haircut challengers, evaluation only), MD-83 (security and backups), `/api/public/league` payload (archives 816 KB, activity 458 KB).
 
-## Machine / hazards
-- Drive C: ~12–15 GB free (97–98%); ~25 older worktrees from earlier sessions remain (not removed — may hold unpushed
-  work). The main checkout's `frontend\node_modules` is empty. One locked file under `rib-public-league-perf`.
-- A dry run of `game-day-capture.yml` shares the `production-deploy` group: dispatch it only while no deploy is
-  pending (a pending dispatch displaces / is displaced by a deploy).
+## Hazards
+- A `game-day-capture.yml` dry run shares the `production-deploy` group: dispatch it only while no deploy is pending.
 - New workflow steps need entries in `config/ci/release_gate_classification.json`.
-- Sharding exposes order-dependent tests: fix the test's isolation, never re-serialize.
-- Never "fixes #<open PR>"; never `git stash`; never `git commit -a`; Ruff only via `bash scripts/format_python_changes.sh`;
-  heredocs through the Bash tool unescape `\\n` (use the Edit tool for escaped literals).
+- Sharding exposes order-dependent tests: fix the isolation, never re-serialize.
+- Never "fixes #<open PR>"; never `git stash`; never `git commit -a`. Ruff only via `bash scripts/format_python_changes.sh`.
+- Heredocs through the Bash tool can mangle escapes. Write edit scripts to the scratchpad with the Write tool.
