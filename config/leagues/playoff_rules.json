@@ -4,16 +4,22 @@
     "dynasty_main": {
       "qualification": "overall_record",
       "seeding": "overall_record",
-      "standingsTiebreakers": ["points_for"],
+      "standingsTiebreakers": [
+        "points_for"
+      ],
       "divisionCount": 3,
       "divisionPlayoffEffect": "none",
-      "divisionPurposes": ["schedule", "champion_payout"],
+      "divisionPurposes": [
+        "schedule",
+        "champion_payout"
+      ],
       "divisionChampion": "best_overall_record_in_division",
-      "divisionChampionTiebreakers": ["points_for"],
+      "divisionChampionTiebreakers": [],
       "approvedBy": "owner",
       "approvedAt": "2026-11-08",
-      "description": "12 teams, 3 divisions, regular season weeks 1-14, 7 playoff teams. The seven best OVERALL records qualify and are seeded 1-7 by overall record; standings ties (any number of teams) are broken by most points scored. Divisions decide the schedule and a separate division-champion payout only: no automatic berth, no seeding advantage, no bye. Division champion = best overall record within the division, ties broken by the league's standings tiebreaker (most points scored).",
-      "evidence": "Owner directive 2026-11-08 (league rules table). Host brackets agree: 2025 winners_bracket seeded a four-way 15-11 tie strictly by points for (rosters 8, 2, 5, 3 at 5567 / 5561 / 5549 / 5381 -> seeds 2-5; round one 5 v 3, round two 8 v 2), and the 2024 bracket is top-5 by record. Live Sleeper settings on 2026-11-08: divisions 0, playoff_teams 7, playoff_seed_type 1, rosters carry division 1-3 with metadata names."
+      "description": "12 teams, 3 divisions, regular season weeks 1-14, 7 playoff teams. The seven best OVERALL records qualify and are seeded 1-7 by overall record; standings ties (any number of teams) are broken by most points scored. Divisions decide the schedule and a separate division-champion payout only: no automatic berth, no seeding advantage, no bye. Division champion = best overall record within the division. The tiebreaker for a division-title (payout) tie is NOT confirmed (owner master directive 2026-11-08 §11 and §26: withhold that conclusion rather than invent one), so an exact record tie at the top of a division is reported as a tie, never resolved.",
+      "evidence": "Owner directive 2026-11-08 (league rules table). Host brackets agree: 2025 winners_bracket seeded a four-way 15-11 tie strictly by points for (rosters 8, 2, 5, 3 at 5567 / 5561 / 5549 / 5381 -> seeds 2-5; round one 5 v 3, round two 8 v 2), and the 2024 bracket is top-5 by record. Live Sleeper settings on 2026-11-08: divisions 0, playoff_teams 7, playoff_seed_type 1, rosters carry division 1-3 with metadata names.",
+      "divisionChampionTiebreakerStatus": "unconfirmed"
     }
   }
 }

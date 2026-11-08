@@ -172,6 +172,13 @@ class LeaguePlayoffRules:
     def divisions_affect_playoffs(self) -> bool:
         return self.division_playoff_effect != "none"
 
+    @property
+    def division_tiebreaker_confirmed(self) -> bool:
+        """True when the record states how a division-title tie is broken.  An
+        empty list is UNCONFIRMED: a record tie at the top is reported, never
+        resolved by an assumed rule."""
+        return bool(self.division_champion_tiebreakers)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "qualification": self.qualification,
@@ -230,7 +237,7 @@ def league_playoff_rules(
         or tiebreakers != _TIEBREAKERS
         or effect != "none"
         or (champion is not None and champion not in _CHAMPION_RULES)
-        or (champion is not None and champ_tiebreakers != _TIEBREAKERS)
+        or (champion is not None and champ_tiebreakers not in ((), _TIEBREAKERS))
         or (count is not None and count < 1)
     ):
         return None
@@ -496,6 +503,9 @@ class DivisionAssignments:
                 {
                     "rule": self.rules.division_champion,
                     "tiebreakers": list(self.rules.division_champion_tiebreakers),
+                    "tiebreakerStatus": (
+                        "confirmed" if self.rules.division_tiebreaker_confirmed else "unconfirmed"
+                    ),
                     # The record the league's standings show: the weekly
                     # median game counts in it when the league counts it.
                     "recordBasis": "host_standings_record",
