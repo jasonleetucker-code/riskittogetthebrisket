@@ -1,0 +1,69 @@
+{
+  "ruleVersion": "forecast_degradation_v1",
+  "declaredAt": "2026-11-08",
+  "authority": "docs/EXECUTION_PLAN.md MD-104; owner directive 2026-11-08 Priority 9",
+  "classification": "PRIOR / HEURISTIC (docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md section 2). Declared and committed BEFORE any outcome was scored; changing any value below is a new ruleVersion, never an edit in place.",
+  "effect": "REVIEW REQUEST ONLY. A fired rule emits an owner-visible alert. It never promotes, demotes, disables or alters any forecast, value, flag or served response.",
+  "statCorrectionWaitHours": 72,
+  "statCorrectionWaitNote": "An outcome counts only once the host has had this long since it was last (re)published, so a Sleeper stat correction cannot rewrite a scored outcome.",
+  "bootstrap": {"b": 2000, "seed": 20261108, "level": 0.95},
+  "consecutiveEvaluations": 3,
+  "consecutiveNote": "Consecutive evaluations on DIFFERENT eligible sample sets. Re-running on identical data does not advance the streak.",
+  "worseThanBaselineRule": "served_metric - baseline_metric >= margin (lower is better for every metric below). Equality fires; anything smaller does not. Both arms are scored on the identical samples.",
+  "servedModel": "the model version of the most recent forecast for that league and family; other versions are scored as their own cohorts and are never pooled, and never trigger",
+  "families": {
+    "season_playoff_odds": {
+      "metric": "brier",
+      "baseline": "uniform_base_rate",
+      "baselineDefinition": "every team forecast at playoffTeams / teams in the league, taken from the forecast's own playoffStructure",
+      "margin": 0.005,
+      "minEligible": 36,
+      "minClusters": 12,
+      "minSeasons": 2,
+      "clusterBy": "team_season"
+    },
+    "season_title_odds": {
+      "metric": "brier",
+      "baseline": "uniform_base_rate",
+      "baselineDefinition": "every team forecast at 1 / teams in the forecast",
+      "margin": 0.005,
+      "minEligible": 36,
+      "minClusters": 12,
+      "minSeasons": 2,
+      "clusterBy": "team_season"
+    },
+    "game_day_win": {
+      "metric": "brier",
+      "baseline": "coin_flip_0.5",
+      "baselineDefinition": "every head-to-head forecast at 0.5",
+      "stateBasis": "pregame",
+      "margin": 0.005,
+      "minEligible": 100,
+      "minClusters": 8,
+      "minSeasons": 1,
+      "clusterBy": "league_week"
+    },
+    "game_day_median": {
+      "metric": "brier",
+      "baseline": "coin_flip_0.5",
+      "baselineDefinition": "every beat-the-median forecast at 0.5",
+      "stateBasis": "pregame",
+      "margin": 0.005,
+      "minEligible": 120,
+      "minClusters": 8,
+      "minSeasons": 1,
+      "clusterBy": "league_week"
+    },
+    "team_weekly_points": {
+      "metric": "mae",
+      "baseline": "trailing_team_mean",
+      "baselineDefinition": "the roster's mean realized score over its earlier weeks of the same season whose outcome was already known when the forecast was made; a sample with no such week is dropped from BOTH arms",
+      "stateBasis": "pregame",
+      "marginPoints": 0.25,
+      "minEligible": 120,
+      "minClusters": 8,
+      "minSeasons": 1,
+      "clusterBy": "league_week"
+    }
+  }
+}
