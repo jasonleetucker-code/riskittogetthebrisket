@@ -73,6 +73,17 @@ Authorized in `docs/EXECUTION_PLAN.md` (same date) inside the same program and i
 | MD-72 | **Execute incrementally (Part 8).** Bounded high-value feature groups, highest-risk first, ≤ 4 workers with separate ownership; continue until done or genuinely blocked; no routine engineering choices sent back to the owner | IN PROGRESS |
 | MD-73 | **Honest, measurable progress (Part 9).** One verification record with the ten states; checkpoint reports with the ten measures and exact commits, PRs, tests, results and evidence paths; never claim the site fully tested without evidence | IN PROGRESS — CW-48 |
 
+## Added 2026-11-08 — Unified engineering, mathematics and forecasting research directive
+
+Owner directive 2026-11-08 (chat, third of the day). Structured record and priority map:
+`docs/owner/UNIFIED_ENGINEERING_FORECASTING_DIRECTIVE_2026-11-08.md`. Its engineering priorities map to the rows below
+(MD-59, MD-97 … MD-115). Frontend remains excluded; the forecasting program is research only; owner-reserved gates are unchanged.
+
+| ID | Requirement | State |
+|---|---|---|
+| MD-116 | **Independent football forecasting research program (Parts 10–28, 33):** methodology, data and licensing, dependency audit, architecture, formula library, evaluation design, governance, integration map, backlog. No training, deployment or activation | IN PROGRESS — `docs/research/forecasting/` |
+| MD-117 | **Owner decision briefs (Part 29)** | DONE when merged — `docs/owner/DECISION_BRIEFS_2026-11-08.md` |
+
 ## Added 2026-11-08 — Master implementation directive: backend, mathematics, model accuracy, decision intelligence, reliability
 
 Owner directive 2026-11-08 (chat, "MASTER IMPLEMENTATION DIRECTIVE"). Structured record:
