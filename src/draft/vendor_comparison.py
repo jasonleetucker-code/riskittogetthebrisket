@@ -26,7 +26,9 @@ Properties (all tested against hand-computed cases):
     both sides;
   * a vendor that orders C exactly as we do has a gap of exactly 0;
   * the gap measures ORDER disagreement only.  Vendor magnitude is not
-    re-priced (the vendor's raw value is untouched and travels separately).
+    re-priced (the vendor's raw value is untouched and travels separately), so
+    the SAME order with very different magnitudes reads as a 0 gap: this is an
+    ORDER comparison, not "the vendor agrees on price".
 
 The number is DERIVED, never a vendor quote: ``quoteKind`` says so.  Where the
 comparison is not defensible the state is explicit and the dollar is ``None`` -
@@ -66,8 +68,13 @@ VENDORS: dict[str, dict[str, str]] = {
 }
 
 
+def name_key(name: Any) -> str:
+    """The ONE join key for this layer (strip + casefold); consumers must use it."""
+    return str(name or "").strip().lower()
+
+
 def _name_key(row: Mapping[str, Any]) -> str:
-    return str(row.get("name") or "").strip().lower()
+    return name_key(row.get("name"))
 
 
 def compare_vendor(

@@ -14481,7 +14481,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # Population-safe comparison (MD-108 / W10-F004): ``ktcDollar`` below is
         # stretched over each vendor's own list and stays for back-compat; these
         # are the additive, versioned replacements (src/draft/vendor_comparison).
-        from src.draft.vendor_comparison import compare_all_vendors  # noqa: PLC0415
+        from src.draft.vendor_comparison import (  # noqa: PLC0415
+            compare_all_vendors,
+            name_key as _vc_key,
+        )
 
         _vc_by_vendor, vendor_comparison = compare_all_vendors(our_rookies, rookie_dollar_overrides)
         rookies = [
@@ -14489,9 +14492,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 "name": r["name"],
                 "pos": r["pos"],
                 "value": d,
-                "ktcComparableDollar": _vc_by_vendor["ktc"].get(r["name"].lower()),
+                "ktcComparableDollar": _vc_by_vendor["ktc"].get(_vc_key(r["name"])),
                 "idpTradeCalcComparableDollar": _vc_by_vendor["idpTradeCalc"].get(
-                    r["name"].lower()
+                    _vc_key(r["name"])
                 ),
                 "ktcDollar": ktc_by_name.get(r["name"].lower()),
                 "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
