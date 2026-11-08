@@ -609,3 +609,32 @@ owned by its author; this campaign changes neither and performs no operations wo
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 # **Chase Upside private ChatGPT MCP plugin (owner directive 2026-10-25).** Scoped read-only owner-only ChatGPT Sites MCP tools for rankings, canonical player identity, league context, Sleeper rosters and trade analysis; reuse API/analytics owners; include IDs, freshness, confidence, provenance and explicit missing states. No public access, writes, merge or deploy. Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c` (`codex/chase-upside-private-mcp`)
     shared files: `.env.example`, `server.py`, `src/api/chase_upside_mcp.py`, `sites/chase-upside-mcp/**`, `tests/api/test_chase_upside_mcp.py`, `docs/ops/CHATGPT_MCP_SETUP.md`, `docs/EXECUTION_PLAN.md`, `docs/OWNER_REQUESTED_TODO.md`, `docs/WORK_CLAIMS.md`
+
+
+## Sports Network production frontend — owner continuation 2026-11-07
+
+| Work | Files | Contract | Branch | Status |
+|---|---|---|---|---|
+| Coordinator / design custodian: canonical foundation, fonts, Rankings, cross-route migration and evidence; stable live contracts, no backend calculations. Agent-OS-Receipt: 741230def70b1c94b9924192ee784bb7241b91a6 | `frontend/app/{layout.jsx,tokens.css,globals.css,ds.css}`, `frontend/app/fonts/**`, `frontend/app/rankings/**`, coordinated remaining route presentation, frontend design/contrast tests, existing governance/UI evidence docs | Existing Lane 6 / Sports Network owner continuation | `codex/sports-network-production` | implemented — local gates and independent review recorded in migration evidence; final PR CI / Integration / release pending |
+| News presentation worker: newsroom composition; preserve useNews/services/digests/facets/identity and unavailable behavior; no shared foundation edits | `frontend/app/news/{page.jsx,news.module.css,loading.jsx}`, `frontend/__tests__/**/sports-network-news*` | Same program | `codex/sports-network-news` | done — source integrated and locally verified in production branch; release pending |
+| Player presentation worker: personnel dossier over existing real ownership/value/research paths; no new valuation or fixture data | `frontend/app/players/[playerId]/{page.jsx,player-file.module.css,loading.jsx}`, `frontend/__tests__/**/sports-network-player*` | Same program | `codex/sports-network-player` | done — source integrated and locally verified in production branch; release pending |
+| Shell presentation worker: same NAV_MODEL/access/capabilities/search/team/league semantics, sports masthead and mobile chrome; no nav model edits | `frontend/components/shell/**`, `frontend/app/shell.css`, `frontend/__tests__/**/sports-network-shell*` | Same program | `codex/sports-network-shell` | done — source integrated and locally verified in production branch; release pending |
+
+| Public/landing continuation worker: public-safe sports-network composition; preserve advisor/bootstrap/auth and all public league tabs/contracts | `frontend/app/HomeClient.jsx`, new scoped home CSS, `frontend/app/league/LeagueClient.jsx`, `frontend/app/league/league-shared.module.css` or new league scoped CSS, focused `sports-network-public*` tests | Same program | `codex/sports-network-public` | done — source integrated and locally verified in production branch; release pending |
+
+| Chart presentation continuation: adapt actual SVG/legend/axis presentation to the approved canvas, preserve numerical geometry/source identity and D14 categorical order/thresholds | `frontend/lib/chart-primitives.js`, `frontend/components/graphs/**`, `frontend/components/PlayerRankHistoryChart.jsx`, focused chart presentation tests; no other shared tokens/route edits | Same program | `codex/sports-network-charts` | done — source integrated and locally verified in production branch; release pending |
+
+November 8 review continuation: coordinator also owns the bounded presentation/a11y repairs in
+`frontend/app/{AppShellWrapper.jsx,error.jsx,edge/page.jsx,league-comparison/sections/**,league/sections/{overview,streaks,superlatives}.jsx,league/week/[season]/[week]/page.jsx,players/compare/page.jsx,draft/page.jsx,rosters/page.jsx,trade/trade-layout.jsx}`,
+`frontend/components/{PullToRefresh.jsx,TeamStrengthCard.jsx,ds/EmptyState.jsx}`, and the existing
+`tests/e2e/specs/psi-rankings-player-a11y.spec.js` focus regression. These repair actual integrated
+contrast/landmark/heading findings; no canonical calculation or access policy changes. Independent
+read-only review found no source blocker. Implementation source `26c5d4092`; full local suite
+`c40ad6987`: 430 files, 5,536 pass, 3 expected failures. Final CSS refinement separately checked.
+Runtime/source evidence and retained limits are in `docs/ui/SPORTS_NETWORK_MIGRATION_2026-11-07.md`.
+Agent-OS-Receipt: 741230def70b1c94b9924192ee784bb7241b91a6
+
+Sports Network review package: draft #2171. Final implementation source `5cf6b892a` (News missing-roster
+regression107pass); integration freshness merge `2d88d7fba` changed no frontend file. Final build,
+19/19budgets/privacy and12flagship/comparison scans pass; full prior suite5536pass/3expectedfail and
+24family zero-violation scans retain their exact source receipts. Release/production unapproved.

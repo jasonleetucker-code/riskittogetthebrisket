@@ -192,7 +192,7 @@ function Stat({ label, value, color, accent }) {
   return (
     <div
       style={{
-        background: "rgba(8, 19, 44, 0.45)",
+        background: "var(--surface-2)",
         border: "1px solid var(--border)",
         borderRadius: 6,
         padding: "6px 8px",
@@ -251,7 +251,7 @@ function PlayerSearch({ rows, value, onChange, label }) {
             right: 0,
             zIndex: 30,
             marginTop: 4,
-            background: "rgba(8, 19, 44, 0.96)",
+            background: "var(--surface-1)",
             border: "1px solid var(--border-bright)",
             borderRadius: 6,
             padding: 4,

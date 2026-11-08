@@ -277,7 +277,7 @@ export default function TeamStrengthCard({ loading, data, failure }) {
 
       {ladder.length > 0 && (
         <div className="team-strength-ladder">
-          <h3 className="team-strength-subtitle">League Team Strength</h3>
+          <h2 className="team-strength-subtitle">League Team Strength</h2>
           <div className="table-wrap">
             <table>
               <thead>

@@ -22,17 +22,19 @@
  * in one place.
  */
 export const CHART_COLORS = {
-  axis: "#64748b",        // slate-500
-  axisLabel: "#94a3b8",   // slate-400
-  grid: "#1e293b",        // slate-800 — subtle, for value lines
-  bg: "transparent",
-  accent: "#38bdf8",      // sky-400 — primary data color
-  accentMuted: "#0e7490", // cyan-700
-  danger: "#f97316",      // orange-500 — outliers / drops
-  warn: "#facc15",        // yellow-400 — caution / medium
-  success: "#22c55e",     // green-500 — high confidence
-  positive: "#10b981",    // emerald-500
-  negative: "#ef4444",    // red-500
+  // Contextual references also serve callers outside graphs/. Never append
+  // hex-alpha suffixes: use SVG opacity so CSS variable scopes remain valid.
+  axis: "var(--chart-axis, #52636c)",
+  axisLabel: "var(--chart-axis, #52636c)",
+  grid: "var(--chart-grid, rgba(11, 33, 48, 0.1))",
+  bg: "var(--chart-background, var(--surface-1, #f7f5ec))",
+  accent: "var(--chart-accent, var(--info-text, #1f528f))",
+  accentMuted: "var(--chart-accent-muted, var(--text-secondary, #3f5360))",
+  danger: "var(--chart-danger, var(--data-down-text, #a8431a))",
+  warn: "var(--chart-warning, var(--warning-text, #7d4f16))",
+  success: "var(--chart-success, var(--positive-text, #10683e))",
+  positive: "var(--chart-success, var(--positive-text, #10683e))",
+  negative: "var(--chart-negative, var(--negative-text, #a82e38))",
   // Categorical palette — the design system's --chart-1..6 slots, in their
   // validated fixed order (Owner Decision 14 / #1428).  These are CSS
   // custom-property REFERENCES, not hex literals, so each chart resolves
@@ -56,12 +58,44 @@ export const CHART_COLORS = {
   ],
   // Confidence-bucket palette — must match display-helpers.js::confBadgeClass.
   confidence: {
-    high: "#22c55e",
-    medium: "#facc15",
-    low: "#ef4444",
-    none: "#64748b",
+    high: "var(--chart-success, var(--positive-text, #10683e))",
+    medium: "var(--chart-warning, var(--warning-text, #7d4f16))",
+    low: "var(--chart-negative, var(--negative-text, #a82e38))",
+    none: "var(--chart-axis, #52636c)",
   },
 };
+
+// Existing >6-category hues are retained on an explicit inverse canvas. This
+// scope changes presentation only; D14's six slots and series ordering stay put.
+export const INVERSE_CHART_STYLE = {
+  background: "#0b2130",
+  color: "#f0eddf",
+  "--chart-background": "#0b2130",
+  "--chart-axis": "#bdced9",
+  "--chart-grid": "rgba(189, 206, 217, 0.22)",
+  "--chart-accent": "#38bdf8",
+  "--chart-accent-muted": "#67c5d8",
+  "--chart-danger": "#fb923c",
+  "--chart-warning": "#f7c77f",
+  "--chart-success": "#4ade80",
+  "--chart-negative": "#fb7185",
+  "--text": "#f0eddf",
+  "--text-primary": "#f0eddf",
+  "--text-secondary": "#bdced9",
+  "--text-tertiary": "#bdced9",
+  "--muted": "#bdced9",
+  "--subtext": "#bdced9",
+  "--cyan": "#67c5d8",
+  "--green": "#4ade80",
+  "--red": "#fb7185",
+  "--border": "rgba(189, 206, 217, 0.3)",
+};
+
+export const SOURCE_MARK_OPACITY = 0.9;
+// Stable, non-color identification; paired with source names in both legends.
+export function sourceLineDash(index) {
+  return [undefined, "6 2", "2 2", "8 2 2 2", "10 3", "3 2 1 2"][index % 6];
+}
 
 /**
  * Linear interpolation from one numeric range to another.

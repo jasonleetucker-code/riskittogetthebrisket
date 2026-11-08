@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
 import { isTopRankedForEdgePremium } from "@/lib/edge-helpers";
@@ -11,7 +12,11 @@ import {
   marketGapAtLeast,
   marketGapRatioOf,
 } from "@/lib/display-helpers";
-import ConfidenceValueScatter from "@/components/graphs/ConfidenceValueScatter";
+// Keep the optional SVG research module out of the initial table payload.
+const ConfidenceValueScatter = dynamic(
+  () => import("@/components/graphs/ConfidenceValueScatter"),
+  { loading: () => <p role="status">Loading source spread chart…</p> },
+);
 import {
   EDGE_SECTION_LIMIT,
   EDGE_PREMIUM_LIMIT,

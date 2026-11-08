@@ -1,3 +1,5 @@
+> **LATEST OWNER EXECUTION DIRECTION — 2026-11-07:** Sports Network has advanced from isolated prototype research to owner-authorized frontend implementation ("continue until its fully implemented"). The prior permanent PSI aesthetic lock and prototype-only production restriction are superseded for this program. Preserve feature/data/privacy/accessibility/performance invariants. Read `docs/EXECUTION_PLAN.md` and `docs/ui/SPORTS_NETWORK_MIGRATION_2026-11-07.md`. Existing Lane 6 and Integration/release gates remain canonical.
+
 # Design System — Premium Sports Intelligence
 
 ## Current PSI authority — 2026-09-24 (#1421)
@@ -379,3 +381,18 @@ diff and obvious in a build.
 | `frontend/components/ds/*` | The library + `token-contract.js` |
 | `frontend/app/design/*` | Living style reference (`/design`, unlinked, noindex) |
 | `frontend/__tests__/components/ds/*` | DataTable behavior, Badge/Movement semantics, token contract |
+
+
+## Sports Network canonical foundation — approved 2026-11-07
+
+| Role | Canonical token / implementation |
+|---|---|
+| Broadcast inverse | `--sn-navy: #0b2130` |
+| Vivid editorial/action plane | `--sn-coral: #fd633f` (navy text) |
+| Research canvas | `--sn-cream: #f0eddf`; all existing root/light/PSI consumers share this brand |
+| Selective inverse emphasis | `--sn-gold: #f7c77f` |
+| Display typography | `--font-display` → locally vendored Barlow Condensed Bold |
+| Interface, reading and tabular data | `--font-ui`, `--font-prose`, `--font-data` → locally vendored IBM Plex Sans; tabular numerals retained |
+| Small accent text | `--accent: #a3341c`, the AA dark step in the same coral family; primary action planes use bright coral/navy |
+
+The existing six categorical chart hues/order and CVD/contrast floors are preserved using their validated light-surface variants. `.psi-editorial` remains a compatibility selector, not a competing future visual identity. Legacy global aliases point to semantic tokens so old routes cannot retain a separate black/yellow skin. Licenses reside beside local font assets; no font-CDN traffic. Production route names, access/capabilities, data contracts and calculation owners are unaffected by this design foundation.

@@ -5,32 +5,23 @@ import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import PullToRefresh from "@/components/PullToRefresh";
 import { EARLY_CONTRACT_SCRIPT } from "@/lib/early-contract";
 
-// Redesign R0: actually load the fonts the token layer names. The audit
-// found Inter + JetBrains Mono referenced in CSS but never loaded — every
-// platform silently fell back to Segoe UI / Courier-class stacks.
-//
-// next/font/local with CHECKED-IN woff2 assets (app/fonts/): the build
-// must never contact fonts.googleapis.com — production builders are
-// network-restricted, so next/font/google would fail the build. The
-// vendored files are the official variable fonts, latin subset only
-// (~48 KB + ~40 KB); accented latin-1 glyphs are included via U+00xx,
-// anything beyond falls back through the stacks below. Both are exposed
-// as CSS variables consumed by tokens.css (--font-ui / --font-data) and
-// by the legacy --font / --mono stacks in globals.css; display:swap so
-// text renders immediately on first visit.
-const inter = localFont({
-  src: "./fonts/inter-latin-var.woff2",
-  weight: "100 900",
-  style: "normal",
+// Approved Sports Network typography, locally vendored with OFL licenses.
+// No font CDN requests or build-time network access. Plex provides readable
+// interface/prose text and tabular data; Barlow supplies the broadcast identity.
+const plex = localFont({
+  src: "./fonts/ibm-plex-sans-latin-var.woff2",
+  weight: "100 700",
   display: "swap",
   variable: "--font-sans",
+  adjustFontFallback: "Arial",
 });
-const jetbrainsMono = localFont({
-  src: "./fonts/jetbrains-mono-latin-var.woff2",
-  weight: "100 800",
-  style: "normal",
+const broadcast = localFont({
+  src: "./fonts/barlow-condensed-bold-latin.woff2",
+  weight: "700",
   display: "swap",
-  variable: "--font-mono",
+  variable: "--font-broadcast",
+  fallback: ["Impact", "Arial Narrow", "sans-serif"],
+  adjustFontFallback: false,
 });
 
 export const metadata = {
@@ -39,7 +30,8 @@ export const metadata = {
   // name nothing else in the product uses — so every browser tab and
   // bookmark disagreed with the site itself.
   title: "Chase Upside",
-  description: "Dynasty fantasy football rankings, trade analysis and league history",
+  description:
+    "Dynasty fantasy football rankings, trade analysis and league history",
   manifest: "/manifest.webmanifest",
   // Tell Safari + Chrome this is an installable "app".  The
   // display / theme color come from the PWA manifest for the
@@ -54,13 +46,13 @@ export const metadata = {
   // the Android Chrome URL bar tint when the user is on the site.
   // Terminal: the mobile browser-chrome colour follows the page surface,
   // not a franchise hex. Was #4F2185 (Vikings purple).
-  themeColor: "#0b0d10",
 };
 
 // Explicit viewport so Next.js does not fall back to a stale default.
 // viewport-fit=cover lets content extend under the iOS home-indicator,
 // and we leave user-scalable enabled so accessibility zoom still works.
 export const viewport = {
+  themeColor: "#0b2130",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -68,7 +60,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${plex.variable} ${broadcast.variable}`}>
       <head>
         {/* Starts the Rankings/Trade board request during HTML parse, so it
             overlaps the chunk download and hydration instead of waiting for

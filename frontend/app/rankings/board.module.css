@@ -36,23 +36,35 @@
 @media (max-width: 768px) {
   .page {
     margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
-      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)));
+      calc(
+        -1 *
+          (
+            var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) +
+              var(--space-md)
+          )
+      );
     padding: var(--space-sm) var(--space-sm)
-      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
+      calc(
+        var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)
+      );
   }
 }
 
 @media (max-width: 420px) {
   .page {
-    margin: -6px -6px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
-    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+    margin: -6px -6px
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
   }
 }
 
 @media (max-width: 360px) {
   .page {
-    margin: -4px -4px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px));
-    padding: 4px 4px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+    margin: -4px -4px
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px));
+    padding: 4px 4px
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
   }
 }
 
@@ -65,8 +77,10 @@
    rest of the board without inventing a ninth size. */
 .hero :global(.ds-page-header__title) {
   font-family: var(--font-display);
-  font-size: var(--font-size-3xl);
-  font-style: italic;
+  font-size: clamp(3rem, 5.5vw, 5rem);
+  font-style: normal;
+  text-transform: uppercase;
+  line-height: 0.95;
 }
 .hero :global(.ds-page-header__eyebrow) {
   font-family: var(--font-data);
@@ -719,7 +733,7 @@
 .auditMissing {
   margin: 0;
   color: var(--text-tertiary);
-  font-style: italic;
+  font-style: normal;
 }
 .auditSummary {
   display: flex;
@@ -786,4 +800,120 @@
 .lensRow > :first-child {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Sports Network board: compact evidence tape, then the working table. */
+.hero {
+  border-bottom: 2px solid var(--sn-navy);
+  padding-bottom: var(--space-5);
+}
+.hero :global(.ds-page-header__eyebrow) {
+  font-family: var(--font-ui);
+  letter-spacing: 0.12em;
+}
+.trustStrip {
+  gap: 0;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: var(--space-3);
+}
+.trustStrip :global(.ds-stat) {
+  padding: var(--space-2) var(--space-3);
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+.trustStrip :global(.ds-stat__label) {
+  font-size: var(--font-size-2xs);
+}
+.trustStrip :global(.ds-stat__value) {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+}
+.page :global(.ds-table__head) {
+  background: var(--surface-2);
+}
+.page :global(.ds-table__cell--num) {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 768px) {
+  .hero :global(.ds-page-header__title) {
+    font-size: 3.5rem;
+  }
+  .trustStrip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: var(--space-2);
+  }
+  .trustFootnote {
+    text-align: left;
+    padding-top: var(--space-2);
+  }
+}
+@media (max-width: 480px) {
+  .hero {
+    gap: var(--space-3);
+  }
+  .hero :global(.ds-page-header__title) {
+    font-size: 3rem;
+  }
+  .hero :global(.ds-page-header__description) {
+    font-size: var(--font-size-xs);
+  }
+  .trustStrip :global(.ds-stat) {
+    padding: var(--space-2);
+  }
+}
+
+.toolsArea {
+  min-width: 0;
+}
+.toolsBody {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.toolsToggle {
+  display: none;
+}
+@media (max-width: 768px) {
+  .toolsToggle {
+    display: inline-flex;
+    min-height: 44px;
+  }
+  .toolsBody {
+    display: none;
+    padding-top: var(--space-3);
+  }
+  .toolsBody.toolsExpanded {
+    display: flex;
+  }
+}
+
+/* Keep the working board within reach on phones without dropping coverage. */
+@media (max-width: 480px) {
+  .hero {
+    padding-top: 0;
+    padding-bottom: var(--space-3);
+    margin-bottom: 0;
+  }
+  .trustStrip {
+    row-gap: var(--space-1);
+  }
+  .trustStrip :global(.ds-stat) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 2px 4px;
+    padding: 4px 6px;
+  }
+  .trustStrip :global(.ds-stat__label) {
+    letter-spacing: 0;
+  }
+  .trustStrip :global(.ds-stat__value) {
+    font-size: 1.4rem;
+  }
+  .trustStrip :global(.ds-stat__meta) {
+    grid-column: 1 / -1;
+  }
 }

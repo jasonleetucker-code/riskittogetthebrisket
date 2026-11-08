@@ -123,7 +123,7 @@ export default function TierGapWaterfall({
               width={6}
               height={h}
               fill={fill}
-              fillOpacity={0.7}
+              fillOpacity={0.9}
               rx={1}
             >
               <title>Gap at rank {i + 1}→{i + 2}: {formatNumber(g)}</title>

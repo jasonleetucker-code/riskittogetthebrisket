@@ -158,7 +158,7 @@ export default function PullToRefresh() {
           width: 36,
           height: 36,
           borderRadius: "50%",
-          background: "var(--bg-elevated, #1a1a24)",
+          background: "var(--surface-1)",
           boxShadow: "0 4px 12px rgba(0,0,0,0.35)",
           display: "flex",
           alignItems: "center",
@@ -170,7 +170,7 @@ export default function PullToRefresh() {
           height="18"
           viewBox="0 0 24 24"
           fill="none"
-          stroke={armed || refreshing ? "var(--amber, #f5b342)" : "var(--text, #e7e7ee)"}
+          stroke={armed || refreshing ? "var(--amber)" : "var(--text-primary)"}
           strokeWidth="2.4"
           strokeLinecap="round"
           strokeLinejoin="round"

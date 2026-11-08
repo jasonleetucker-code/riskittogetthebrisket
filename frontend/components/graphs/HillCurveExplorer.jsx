@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 
 import {
   CHART_COLORS,
+  INVERSE_CHART_STYLE,
   chartBox,
   categoricalColor,
   linearScale,
@@ -222,6 +223,7 @@ export default function HillCurveExplorer({
 
   const svg = (
     <svg
+      style={INVERSE_CHART_STYLE}
       viewBox={box.viewBox}
       width="100%"
       height={height}
@@ -366,7 +368,7 @@ export default function HillCurveExplorer({
   // wrapping chip row below.  Keeps labels readable instead of
   // scaling them down with the SVG viewBox.
   return (
-    <div>
+    <div style={INVERSE_CHART_STYLE}>
       {svg}
       <div
         style={{

@@ -36,6 +36,7 @@ import {
   Movement,
   Panel,
   PageHeader,
+  playerProfileHref,
   SkeletonText,
   StatTile,
   Tabs,
@@ -71,11 +72,15 @@ import styles from "./player-file.module.css";
 // next/dynamic — see CLAUDE.md "Perfect Draft"). The collapsed panel below
 // does not mount it until opened, so neither the chunk nor the fetch costs
 // anything until a reader asks.
-const ValueExplainDetail = lazy(() => import("@/components/ValueExplainDetail"));
+const ValueExplainDetail = lazy(
+  () => import("@/components/ValueExplainDetail"),
+);
 // "Why it moved" (IC-7): the contributing evidence between the current
 // board generation and the previous one, read from the temporal ledger.
 // Same lazy, mount-on-open posture as the value explanation above.
-const ValueMovementDetail = lazy(() => import("@/components/ValueMovementDetail"));
+const ValueMovementDetail = lazy(
+  () => import("@/components/ValueMovementDetail"),
+);
 
 function findRowByPlayerId(rows, rawParam) {
   if (!Array.isArray(rows) || !rawParam) return null;
@@ -90,7 +95,10 @@ function findRowByPlayerId(rows, rawParam) {
   // Name fallback (case-insensitive exact match) — covers a pick or an
   // identity the join missed, the same fallback /players/compare uses.
   const targetLower = target.toLowerCase();
-  return rows.find((r) => String(r?.name || "").toLowerCase() === targetLower) || null;
+  return (
+    rows.find((r) => String(r?.name || "").toLowerCase() === targetLower) ||
+    null
+  );
 }
 
 // Position rank against the FULL ranked board — same derivation as
@@ -103,7 +111,9 @@ function computePositionRank(row, allRows) {
   const pos = String(row.pos).toUpperCase().split("/")[0];
   const samePosition = allRows
     .filter((r) => {
-      const p = String(r?.pos || "").toUpperCase().split("/")[0];
+      const p = String(r?.pos || "")
+        .toUpperCase()
+        .split("/")[0];
       if (p !== pos) return false;
       const v = Number(r?.rankDerivedValue);
       return Number.isFinite(v) && v > 0;
@@ -140,19 +150,64 @@ export default function PlayerFilePage() {
   const params = useParams();
   const playerId = params?.playerId;
   const { rows, rawData, loading, error, failure, retry } = useApp();
-  const { state: userState, toggleWatchlist, serverBacked: userStateServerBacked } = useUserState();
+  const {
+    state: userState,
+    toggleWatchlist,
+    serverBacked: userStateServerBacked,
+  } = useUserState();
   const [tab, setTab] = useState("overview");
 
-  const row = useMemo(() => findRowByPlayerId(rows, playerId), [rows, playerId]);
+  const row = useMemo(
+    () => findRowByPlayerId(rows, playerId),
+    [rows, playerId],
+  );
 
   const rank = row ? resolvedRank(row) : Infinity;
-  const positionRank = useMemo(() => computePositionRank(row, rows), [row, rows]);
-  const ownership = useMemo(() => computeOwnership(row, rawData, rows), [row, rawData, rows]);
+  const positionRank = useMemo(
+    () => computePositionRank(row, rows),
+    [row, rows],
+  );
+  const ownership = useMemo(
+    () => computeOwnership(row, rawData, rows),
+    [row, rawData, rows],
+  );
   const edge = useMemo(() => (row ? getPlayerEdge(row) : null), [row]);
   const valueChain = useMemo(() => computeValueChain(row), [row]);
   const siteDetails = useMemo(() => computeSiteDetails(row, []), [row]);
-  const consensusText = useMemo(() => computeConsensusText(siteDetails), [siteDetails]);
+  const consensusText = useMemo(
+    () => computeConsensusText(siteDetails),
+    [siteDetails],
+  );
   const confidence = useMemo(() => confidenceDisplay(row), [row]);
+  // Peers are display ordinals over the SAME backend-stamped board values
+  // used by computePositionRank above. No value, projection or score is made here.
+  const positionalPeers = useMemo(() => {
+    if (!row?.pos || !Array.isArray(rows)) return [];
+    const position = String(row.pos).toUpperCase().split("/")[0];
+    const ranked = rows
+      .filter(
+        (candidate) =>
+          String(candidate?.pos || "")
+            .toUpperCase()
+            .split("/")[0] === position &&
+          Number.isFinite(Number(candidate?.rankDerivedValue)) &&
+          Number(candidate.rankDerivedValue) > 0,
+      )
+      .sort((a, b) => Number(b.rankDerivedValue) - Number(a.rankDerivedValue));
+    const currentIndex = ranked.findIndex(
+      (candidate) => candidate === row || candidate.name === row.name,
+    );
+    const nearby = ranked
+      .map((candidate, index) => ({ row: candidate, positionRank: index + 1 }))
+      .filter(
+        (candidate) => candidate.row !== row && candidate.row.name !== row.name,
+      );
+    const start = Math.min(
+      Math.max(0, currentIndex - 2),
+      Math.max(0, nearby.length - 4),
+    );
+    return nearby.slice(start, start + 4);
+  }, [row, rows]);
 
   // Every return path — including these early ones — renders inside
   // the same .psi-editorial-scoped section. A first version returned
@@ -170,7 +225,12 @@ export default function PlayerFilePage() {
   if (failure) {
     return (
       <section className={`${styles.page} psi-editorial`}>
-        <FailureState failure={failure} onRetry={retry} context="player profile" variant="block" />
+        <FailureState
+          failure={failure}
+          onRetry={retry}
+          context="player profile"
+          variant="block"
+        />
       </section>
     );
   }
@@ -180,7 +240,13 @@ export default function PlayerFilePage() {
         <EmptyState
           title="Couldn't load player data"
           description={error}
-          action={retry ? <Button variant="secondary" size="sm" onClick={retry}>Try again</Button> : null}
+          action={
+            retry ? (
+              <Button variant="secondary" size="sm" onClick={retry}>
+                Try again
+              </Button>
+            ) : null
+          }
         />
       </section>
     );
@@ -201,23 +267,48 @@ export default function PlayerFilePage() {
     );
   }
 
-  const value = Number(row.values?.full) > 0 ? Math.round(Number(row.values.full)) : null;
+  const value =
+    Number(row.values?.full) > 0 ? Math.round(Number(row.values.full)) : null;
   const watching = (userState?.watchlist || []).some(
     (x) => String(x).toLowerCase() === String(row.name || "").toLowerCase(),
   );
 
   return (
     <section className={`${styles.page} psi-editorial`}>
-      <PageHeader
-        className={styles.hero}
-        eyebrow={`Player File / ${row.pos}${row.raw?.team ? ` — ${row.raw.team}` : ""}`}
-        title={row.name}
-        description={
-          ownership?.ownerLabel
-            ? `Owned by ${ownership.ownerLabel}${ownership.positionLabel ? ` · ${ownership.positionLabel} on roster` : ""}`
-            : "Unrostered in your league"
-        }
-        actions={
+      <div className={styles.breadcrumb}>
+        <Link href="/rankings">← Back to Rankings</Link>
+        <span>Player File / {row.raw?.team || row.team || row.pos}</span>
+      </div>
+
+      <section
+        className={styles.heroFrame}
+        aria-label="Player identity and valuation"
+      >
+        <div className={styles.heroIdentity}>
+          <PageHeader
+            className={styles.hero}
+            eyebrow={`Player File / ${row.pos}${row.raw?.team ? ` / ${row.raw.team}` : ""}`}
+            title={row.name}
+            description={
+              ownership?.ownerLabel
+                ? `Owned by ${ownership.ownerLabel}${ownership.positionLabel ? ` · ${ownership.positionLabel} on roster` : ""}`
+                : Array.isArray(rawData?.sleeper?.teams) &&
+                    rawData.sleeper.teams.length > 0
+                  ? "Unrostered in your league"
+                  : "Roster ownership unavailable"
+            }
+          />
+          <div className={styles.identityMeta}>
+            <Badge>{row.pos}</Badge>
+            {row.raw?.team && <span>{row.raw.team}</span>}
+            {row.age != null && <span>Age {row.age}</span>}
+            {row.yearsExp != null && (
+              <span>
+                {row.yearsExp === 0 ? "Rookie year" : `${row.yearsExp} yr exp`}
+              </span>
+            )}
+            {row.raw?.rookie && <Badge tone="info">ROOKIE</Badge>}
+          </div>
           <div className={styles.actions}>
             <Button
               size="sm"
@@ -254,79 +345,108 @@ export default function PlayerFilePage() {
             </Button>
             <ValueExplainHelp methodology={rawData?.methodology} />
           </div>
-        }
-      />
-
-      <div className={styles.identityRow}>
-        <PlayerImage
-          playerId={row.raw?.playerId}
-          team={row.raw?.team || row.team}
-          position={row.pos}
-          name={row.name}
-          size={72}
-        />
-        <div className={styles.identityMeta}>
-          <Badge>{row.pos}</Badge>
-          {row.raw?.team && <span>{row.raw.team}</span>}
-          {row.age != null && <span>age {row.age}</span>}
-          {row.yearsExp != null && (
-            <span>{row.yearsExp === 0 ? "rookie year" : `${row.yearsExp} yr exp`}</span>
-          )}
-          {row.raw?.rookie && <Badge tone="info">ROOKIE</Badge>}
         </div>
-      </div>
+        <div className={styles.heroPortrait}>
+          <span className={styles.portraitPosition} aria-hidden="true">
+            {row.pos}
+          </span>
+          <PlayerImage
+            playerId={row.raw?.playerId}
+            team={row.raw?.team || row.team}
+            position={row.pos}
+            name={row.name}
+            size={280}
+            rounded={false}
+            className={styles.portraitImage}
+          />
+          <span className={styles.portraitCaption}>
+            {row.raw?.team || row.team || "PLAYER FILE"} / {row.pos}
+          </span>
+        </div>
+        <aside
+          className={styles.heroValuation}
+          aria-label="Current dynasty valuation"
+        >
+          <p className={styles.heroKicker}>The dynasty picture</p>
+          <StatTile
+            size="lg"
+            bare
+            label={
+              <>
+                Our Value
+                <ExplainTip topic="value" label="Our Value" />
+              </>
+            }
+            value={value != null ? value.toLocaleString() : "not priced"}
+          />
+          {rank < Infinity && (
+            <StatTile
+              label={
+                <>
+                  Overall rank
+                  <ExplainTip topic="rankVsValue" label="rank vs value" />
+                </>
+              }
+              value={`#${rank}`}
+              // Past the backend's rank limit the board shows a DISPLAY
+              // position (value order), not an official rank — say so
+              // rather than present #983 as if it were one.
+              meta={
+                row.canonicalConsensusRank == null
+                  ? "display order — not officially ranked"
+                  : undefined
+              }
+            />
+          )}
+          {positionRank != null && (
+            <StatTile
+              bare
+              label="Position rank"
+              value={`${row.pos}${positionRank}`}
+            />
+          )}
+        </aside>
+      </section>
 
-      <div className={styles.summaryStrip}>
-        {/* Each headline number carries its own short explanation (one
-            copy owner: lib/value-explainers.js); the long form is the
-            "How values work" dialog in the header. */}
-        <StatTile
-          size="lg"
-          label={
-            <>
-              Our Value
-              <ExplainTip topic="value" label="Our Value" />
-            </>
-          }
-          value={value != null ? value.toLocaleString() : "not priced"}
-        />
-        {rank < Infinity && (
+      <div className={styles.contextBand}>
+        <div className={styles.summaryStrip}>
+          {/* Always rendered: a missing grade reads "None — …", never an
+            absent tile a reader could mistake for "not applicable". */}
           <StatTile
             label={
               <>
-                Overall rank
-                <ExplainTip topic="rankVsValue" label="rank vs value" />
+                Confidence
+                <ExplainTip
+                  topic={
+                    confidence.level === "none"
+                      ? "missingConfidence"
+                      : "confidence"
+                  }
+                  label="confidence"
+                />
               </>
             }
-            value={`#${rank}`}
-            // Past the backend's rank limit the board shows a DISPLAY
-            // position (value order), not an official rank — say so
-            // rather than present #983 as if it were one.
-            meta={row.canonicalConsensusRank == null ? "display order — not officially ranked" : undefined}
+            value={confidence.label}
           />
-        )}
-        {positionRank != null && <StatTile label="Position rank" value={`${row.pos}${positionRank}`} />}
-        {/* Always rendered: a missing grade reads "None — …", never an
-            absent tile a reader could mistake for "not applicable". */}
-        <StatTile
-          label={
-            <>
-              Confidence
-              <ExplainTip
-                topic={confidence.level === "none" ? "missingConfidence" : "confidence"}
-                label="confidence"
-              />
-            </>
-          }
-          value={confidence.label}
-        />
-        {row.siteCount > 0 && (
-          <StatTile
-            label="Sources"
-            value={String(row.siteCount)}
-            meta={row.canonicalTierId ? `Tier ${row.canonicalTierId}` : undefined}
-          />
-        )}
+          {row.siteCount > 0 && (
+            <StatTile
+              label="Sources"
+              value={String(row.siteCount)}
+              meta={
+                row.canonicalTierId ? `Tier ${row.canonicalTierId}` : undefined
+              }
+            />
+          )}
+        </div>
+        <div className={styles.boardContext}>
+          <span className={styles.contextLabel}>
+            Evidence, with perspective
+          </span>
+          <BoardClocks rawData={rawData} tip={false} />
+          <Button as={Link} href="/news" variant="ghost" size="sm">
+            Open News Desk ↗
+          </Button>
+        </div>
       </div>
 
       <Tabs
@@ -339,87 +459,166 @@ export default function PlayerFilePage() {
       />
 
       <TabPanel id="overview" active={tab}>
-        <div className={styles.tabStack}>
-          {edge?.signal && (
-            <Panel
-              title={edge.signal === "BUY" ? "Buy Low" : "Sell High"}
-              dense
-            >
-              {edge.signal === "BUY"
-                ? `Our consensus is ${edge.valueGapPct}% above KTC — a gap, not proof of mispricing.`
-                : `KTC is ${edge.valueGapPct}% above our consensus — a gap, not proof of mispricing.`}
-              {edge.edgePct > 0 && ` ~${edge.edgePct}% value gap.`}
+        <div className={styles.overviewGrid}>
+          <div className={styles.tabStack}>
+            <Panel title="Rank history" subtitle="180-day trajectory" flush>
+              <PlayerRankHistoryChart row={row} />
             </Panel>
-          )}
-          {valueChain.length > 0 && (
-            <Panel title="Value chain" subtitle="How we arrived at Our Value">
-              {valueChain.map((stage, i) => (
-                <div key={stage.key} className={styles.chainStage}>
-                  <div className={styles.chainIndex}>{i + 1}</div>
-                  <div className={styles.chainBody}>
-                    <div className={styles.chainLabel}>{stage.label}</div>
-                    <div className={styles.chainDescription}>{stage.description}</div>
-                  </div>
-                  <div className={styles.chainValue}>
-                    {stage.value.toLocaleString()}
-                    {stage.delta !== null && stage.delta !== 0 && (
-                      <div>
-                        <Movement delta={stage.delta} />
+
+            {edge?.signal && (
+              <Panel
+                title={edge.signal === "BUY" ? "Buy Low" : "Sell High"}
+                dense
+              >
+                {edge.signal === "BUY"
+                  ? `Our consensus is ${edge.valueGapPct}% above KTC — a gap, not proof of mispricing.`
+                  : `KTC is ${edge.valueGapPct}% above our consensus — a gap, not proof of mispricing.`}
+                {edge.edgePct > 0 && ` ~${edge.edgePct}% value gap.`}
+              </Panel>
+            )}
+            {valueChain.length > 0 && (
+              <Panel title="Value chain" subtitle="How we arrived at Our Value">
+                {valueChain.map((stage, i) => (
+                  <div key={stage.key} className={styles.chainStage}>
+                    <div className={styles.chainIndex}>{i + 1}</div>
+                    <div className={styles.chainBody}>
+                      <div className={styles.chainLabel}>{stage.label}</div>
+                      <div className={styles.chainDescription}>
+                        {stage.description}
                       </div>
-                    )}
+                    </div>
+                    <div className={styles.chainValue}>
+                      {stage.value.toLocaleString()}
+                      {stage.delta !== null && stage.delta !== 0 && (
+                        <div>
+                          <Movement delta={stage.delta} />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </Panel>
-          )}
-          <Panel
-            title="Why this confidence"
-            subtitle="The evidence checks behind the value; the label names the limiting ones"
-            dense
-          >
-            <ConfidenceEvidence row={row} />
-          </Panel>
-          <Panel title="Rank history" subtitle="180-day trajectory" flush>
-            <PlayerRankHistoryChart row={row} />
-          </Panel>
-          {/* Why the value moved since the previous board: contributing
+                ))}
+              </Panel>
+            )}
+            {/* Why the value moved since the previous board: contributing
               evidence from the temporal ledger, never an asserted cause and
               never an additive split (private, session-gated endpoint). */}
-          <CollapsiblePanel
-            title="Why it moved"
-            subtitle="What changed in the recorded evidence since the previous board — not additive"
-            defaultCollapsed
-            mountCollapsedChildren={false}
-            dense
-          >
-            <Suspense
-              fallback={
-                <div role="status" aria-label="Loading why the value moved">
-                  <SkeletonText lines={4} />
-                </div>
-              }
+            <CollapsiblePanel
+              title="Why it moved"
+              subtitle="What changed in the recorded evidence since the previous board — not additive"
+              defaultCollapsed
+              mountCollapsedChildren={false}
+              dense
             >
-              <ValueMovementDetail
-                playerKey={String(row.raw?.playerId || row.playerId || row.name || "")}
-                customMix={Boolean(rawData?.rankingsOverride?.isCustomized)}
-              />
-            </Suspense>
-          </CollapsiblePanel>
+              <Suspense
+                fallback={
+                  <div role="status" aria-label="Loading why the value moved">
+                    <SkeletonText lines={4} />
+                  </div>
+                }
+              >
+                <ValueMovementDetail
+                  playerKey={String(
+                    row.raw?.playerId || row.playerId || row.name || "",
+                  )}
+                  customMix={Boolean(rawData?.rankingsOverride?.isCustomized)}
+                />
+              </Suspense>
+            </CollapsiblePanel>
+          </div>
+          <aside
+            className={styles.researchRail}
+            aria-label="Positional context and evidence"
+          >
+            <section
+              className={styles.peerSection}
+              aria-labelledby="player-file-peers"
+            >
+              <p className={styles.sectionKicker}>The positional picture</p>
+              <h2 id="player-file-peers">
+                Same position.
+                <br /> Different cases.
+              </h2>
+              {positionalPeers.length > 0 ? (
+                <ol className={styles.peerList}>
+                  {positionalPeers.map(
+                    ({ row: peer, positionRank: peerRank }) => {
+                      const peerId = peer.raw?.playerId || peer.playerId;
+                      return (
+                        <li key={peerId || peer.name}>
+                          <span className={styles.peerRank}>
+                            {row.pos}
+                            {peerRank}
+                          </span>
+                          <div className={styles.peerIdentity}>
+                            {peerId ? (
+                              <Link
+                                href={playerProfileHref(peer)}
+                              >
+                                {peer.name}
+                              </Link>
+                            ) : (
+                              <strong>{peer.name}</strong>
+                            )}
+                            <span>
+                              {peer.raw?.team ||
+                                peer.team ||
+                                "Team unavailable"}
+                            </span>
+                          </div>
+                          <span className={styles.peerValue}>
+                            {Math.round(
+                              Number(peer.rankDerivedValue),
+                            ).toLocaleString()}
+                          </span>
+                        </li>
+                      );
+                    },
+                  )}
+                </ol>
+              ) : (
+                <p className={styles.peerEmpty}>
+                  No priced positional peers are available on this board.
+                </p>
+              )}
+              <Link
+                className={styles.peerCompare}
+                href={`/players/compare?p1=${encodeURIComponent(row.name)}`}
+              >
+                Compare the field ↗
+              </Link>
+            </section>
+            <Panel
+              title="Why this confidence"
+              subtitle="The evidence checks behind the value; the label names the limiting ones"
+              dense
+            >
+              <ConfidenceEvidence row={row} />
+            </Panel>
+          </aside>
         </div>
       </TabPanel>
 
       <TabPanel id="market" active={tab}>
         <div className={styles.tabStack}>
           {siteDetails.length > 0 ? (
-            <Panel title="Source breakdown" subtitle={consensusText || undefined}>
+            <Panel
+              title="Source breakdown"
+              subtitle={consensusText || undefined}
+            >
               {siteDetails.map((s) => (
                 <div key={s.key} className={styles.sourceRow}>
-                  <div className={styles.sourceLabel} title={s.key}>{s.label}</div>
+                  <div className={styles.sourceLabel} title={s.key}>
+                    {s.label}
+                  </div>
                   <div className={styles.sourceTrack}>
                     <div
                       className={[
                         styles.sourceFill,
-                        s.pct >= 90 ? styles.sourceFillHigh : s.pct >= 50 ? styles.sourceFillMid : styles.sourceFillLow,
+                        s.pct >= 90
+                          ? styles.sourceFillHigh
+                          : s.pct >= 50
+                            ? styles.sourceFillMid
+                            : styles.sourceFillLow,
                       ].join(" ")}
                       style={{ width: `${Math.min(100, s.pct)}%` }}
                     />
@@ -427,7 +626,10 @@ export default function PlayerFilePage() {
                   <div className={styles.sourceValue}>
                     {Math.round(s.value).toLocaleString()}
                     {s.native != null && (
-                      <span className={styles.sourceNative}> ({s.native.toLocaleString()})</span>
+                      <span className={styles.sourceNative}>
+                        {" "}
+                        ({s.native.toLocaleString()})
+                      </span>
                     )}
                   </div>
                 </div>
@@ -449,9 +651,15 @@ export default function PlayerFilePage() {
                 ? Math.round(Number(row.ktcMarket.value)).toLocaleString()
                 : "not covered by KTC"}
               <span className={styles.benchmarkNote}>
-                {" "}— KTC&rsquo;s own published Crowd+Trades number, for comparison only; it is not blended into Our Value.
+                {" "}
+                — KTC&rsquo;s own published Crowd+Trades number, for comparison
+                only; it is not blended into Our Value.
               </span>
-              <ExplainTip topic="provenance" label="where values come from" side="top" />
+              <ExplainTip
+                topic="provenance"
+                label="where values come from"
+                side="top"
+              />
             </p>
           )}
           <Panel
@@ -485,7 +693,9 @@ export default function PlayerFilePage() {
               }
             >
               <ValueExplainDetail
-                playerKey={String(row.raw?.playerId || row.playerId || row.name || "")}
+                playerKey={String(
+                  row.raw?.playerId || row.playerId || row.name || "",
+                )}
                 customMix={Boolean(rawData?.rankingsOverride?.isCustomized)}
               />
             </Suspense>
@@ -494,11 +704,15 @@ export default function PlayerFilePage() {
             Number.isFinite(row?.pickProjectedDraftValue) &&
             Number(row?.pickProjectedDraftValueGain) > 0 && (
               <Panel title="Projected at draft" dense>
-                ~{Number(row.pickProjectedDraftValue).toLocaleString()} by the {row.pickProjectedDraftYear} draft
+                ~{Number(row.pickProjectedDraftValue).toLocaleString()} by the{" "}
+                {row.pickProjectedDraftYear} draft
                 {Number(row.pickProjectedDraftValueGainPct) > 0 && (
                   <>
                     {" · "}
-                    <Movement delta={Number(row.pickProjectedDraftValueGainPct)} format={(n) => `${n}%`} />
+                    <Movement
+                      delta={Number(row.pickProjectedDraftValueGainPct)}
+                      format={(n) => `${n}%`}
+                    />
                     {" gain"}
                   </>
                 )}
@@ -537,7 +751,11 @@ export default function PlayerFilePage() {
       <TabPanel id="intel" active={tab}>
         <div className={styles.tabStack}>
           <IntelContextSection row={row} />
-          <PlayerNewsSection playerName={row.name} position={row.pos} team={row.raw?.team} />
+          <PlayerNewsSection
+            playerName={row.name}
+            position={row.pos}
+            team={row.raw?.team}
+          />
         </div>
       </TabPanel>
     </section>

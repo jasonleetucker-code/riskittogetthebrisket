@@ -151,7 +151,7 @@ export function DecisionSummary({ summary }) {
   return (
     <section
       className={styles.decisionSummary}
-      aria-labelledby="trade-decision-summary-title"
+      aria-label="Decision summary"
       data-testid="decision-summary"
       data-decision-state={decision ? "ok" : status}
     >

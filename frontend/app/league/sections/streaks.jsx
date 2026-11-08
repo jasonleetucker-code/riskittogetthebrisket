@@ -17,9 +17,9 @@ import { Avatar, Card, EmptyCard, nameFor } from "../shared.jsx";
 function StreakTypeLabel(type) {
   switch (type) {
     case "winStreak":
-      return { label: "Win streak", color: "#2ecc71", suffix: "W" };
+      return { label: "Win streak", color: "var(--green)", suffix: "W" };
     case "lossStreak":
-      return { label: "Loss streak", color: "#ff6b6b", suffix: "L" };
+      return { label: "Loss streak", color: "var(--red)", suffix: "L" };
     case "tie":
       return { label: "Tie", color: "var(--subtext)", suffix: "T" };
     case "none":
@@ -85,8 +85,8 @@ function RecordCard({ rec, managers }) {
 function NotableRow({ n, managers }) {
   const cat = n.category;
   const color =
-    cat === "highestSingleWeek" ? "#2ecc71"
-    : cat === "lowestSingleWeek" ? "#ff6b6b"
+    cat === "highestSingleWeek" ? "var(--green)"
+    : cat === "lowestSingleWeek" ? "var(--red)"
     : cat === "biggestBlowout" ? "#4fc3f7"
     : cat === "badBeat" ? "#ffa726"
     : "var(--subtext)";
@@ -260,7 +260,7 @@ export default function StreaksSection({ data, managers }) {
                     key={`win-${s.ownerId}`}
                     s={s}
                     managers={managers}
-                    color="#2ecc71"
+                    color="var(--green)"
                     suffix="W"
                   />
                 ))
@@ -276,7 +276,7 @@ export default function StreaksSection({ data, managers }) {
                     key={`loss-${s.ownerId}`}
                     s={s}
                     managers={managers}
-                    color="#ff6b6b"
+                    color="var(--red)"
                     suffix="L"
                   />
                 ))

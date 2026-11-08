@@ -102,6 +102,8 @@ export default function SourceContributionBars({
                 height={barHeight}
                 fill={fill}
                 fillOpacity={opacity}
+                stroke={fill}
+                strokeDasharray={e.notVoting ? "3 2" : undefined}
                 rx={2}
               />
               {e.dropped && !e.notVoting ? (

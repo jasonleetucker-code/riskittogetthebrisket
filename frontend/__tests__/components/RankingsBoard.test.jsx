@@ -149,6 +149,30 @@ beforeEach(() => {
 });
 
 describe("rankings board", () => {
+  it("keeps research lazy while retaining the board and expandable edge controls", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    const disclosure = screen.getByRole("button", { name: /Market research/i });
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: /^(Show|Hide) edge$/ })).toBeNull();
+    expect(renderedNames()).toHaveLength(4);
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /^(Show|Hide) edge$/ })).toBeInTheDocument();
+    await user.click(disclosure);
+    expect(renderedNames()).toHaveLength(4);
+  });
+
+  it("exposes one mobile tools disclosure without duplicating export actions", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    const tools = screen.getByRole("button", { name: /Board tools/ });
+    expect(tools).toHaveAttribute("aria-expanded", "false");
+    await user.click(tools);
+    expect(tools).toHaveAttribute("aria-expanded", "true");
+    expect(document.getElementById(tools.getAttribute("aria-controls"))).toBeTruthy();
+  });
+
   it("renders a row per eligible player, in backend rank order", () => {
     render(<RankingsPage />);
     expect(renderedNames()).toEqual([

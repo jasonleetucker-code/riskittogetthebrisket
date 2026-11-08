@@ -1,0 +1,1175 @@
+{
+  "schema": "sports-network-migration-evidence/v1",
+  "date": "2026-11-08",
+  "implementationSha": "5cf6b892ac9b19910feb27970c6c51edc67ea1dc",
+  "frontendTree": "2ca463a1ad44723e3055a877205c6d6b62cc037a",
+  "productionStatus": "NOT_DEPLOYED_OR_VERIFIED_BY_THIS_RECEIPT",
+  "scope": "existing Lane6; 61 unchanged page identities and access/activation contracts",
+  "fullSuite": {
+    "sha": "c40ad6987875b99d53ac91efef6fdbafa17c52aa",
+    "files": 430,
+    "passed": 5536,
+    "expectedFailures": 3,
+    "unexpectedFailures": 0,
+    "durationSeconds": 396.46,
+    "runtime": "Node20.20.2",
+    "command": "cd frontend; npx --yes --package=node@20 node node_modules/vitest/vitest.mjs run --maxWorkers=2"
+  },
+  "finalCssDelta": {
+    "sha": "26c5d409295ec113fcbcf8d7c7306ef47454e01d",
+    "unitFiles": 2,
+    "unitPassed": 39,
+    "unexpectedFailures": 0,
+    "changes": "News lead top alignment; compact phone summary typography and spacing; no data/control logic changes"
+  },
+  "productionBuild": {
+    "sha": "5cf6b892ac9b19910feb27970c6c51edc67ea1dc",
+    "builder": "Next16.4.3 webpack under Node20.20.2",
+    "routeEntries": 115,
+    "pageBudgetsMeasured": 19,
+    "pageBudgetsPassed": 19,
+    "budgetsRaised": false,
+    "privacy": "PASS; lazy advisor9.9KB/11KB; team-step9.9KB/10KB",
+    "budgetOutput": "[check-bundle-sizes] per-page chunk sizes:\n  /page                     85.6 KB / 90 KB budget   ok    (4.4 KB headroom)\n  /rankings/page            65.1 KB / 75 KB budget   ok    (9.9 KB headroom)\n  /trade/page               92.0 KB / 93 KB budget   ok    (1.0 KB headroom)\n  /draft/page              128.7 KB / 150 KB budget   ok    (21.3 KB headroom)\n  /edge/page                22.3 KB / 30 KB budget   ok    (7.7 KB headroom)\n  /finder/page               1.0 KB / 20 KB budget   ok    (19.0 KB headroom)\n  /angle/page               28.0 KB / 30 KB budget   ok    (2.0 KB headroom)\n  /league/page              50.0 KB / 50 KB budget   ok    (0.0 KB headroom)\n  /rosters/page             35.4 KB / 40 KB budget   ok    (4.6 KB headroom)\n  /trades/page              27.9 KB / 32 KB budget   ok    (4.1 KB headroom)\n  /waivers/page             32.0 KB / 61 KB budget   ok    (29.0 KB headroom)\n  /settings/page            40.3 KB / 60 KB budget   ok    (19.7 KB headroom)\n  /login/page                8.5 KB / 15 KB budget   ok    (6.5 KB headroom)\n  /more/page                 2.7 KB / 10 KB budget   ok    (7.3 KB headroom)\n  /dfs/page                 31.6 KB / 34 KB budget   ok    (2.4 KB headroom)\n  /admin/model-lab/page     33.0 KB / 35 KB budget   ok    (2.0 KB headroom)\n  /arbitrage/page           76.5 KB / 82 KB budget   ok    (5.5 KB headroom)\n  /waiver-advisor/page      24.1 KB / 31 KB budget   ok    (6.9 KB headroom)\n  /roster-construction/page    17.6 KB / 19 KB budget   ok    (1.4 KB headroom)\n[check-bundle-sizes] measured 19 of 19 budgeted pages\n[check-bundle-sizes] all pages under budget ✓\n[advisor-bundle] lazy advisor chunks: 2 (9.9 KB gzip, budget 11 KB); team-step chunk(s): 7723.78777e7c999844fa.js (9.9 KB gzip, budget 10 KB)\n[advisor-bundle] PASS\n"
+  },
+  "builtBrowser": {
+    "sha": "5cf6b892ac9b19910feb27970c6c51edc67ea1dc",
+    "browser": "Chromium153",
+    "runtime": "Node20.20.2 Next production server",
+    "transport": "loopback3200 frontend; transparent actual-response API routing to FastAPI8200, test-only local session; no fixture response replacement",
+    "flagshipAndComparison": [
+      {
+        "name": "rankings",
+        "width": 1440,
+        "usableMs": 3144,
+        "scanCompleteMs": 6898,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 190.328125,
+        "headerBottom": 89,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "player",
+        "width": 1440,
+        "usableMs": 2458,
+        "scanCompleteMs": 3362,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 294.28125,
+        "headerBottom": 89,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "news",
+        "width": 1440,
+        "usableMs": 1826,
+        "scanCompleteMs": 2837,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 190.328125,
+        "headerBottom": 89,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "comparison",
+        "width": 1440,
+        "usableMs": 1828,
+        "scanCompleteMs": 2781,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 150.390625,
+        "headerBottom": 89,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "rankings",
+        "width": 768,
+        "usableMs": 2234,
+        "scanCompleteMs": 5525,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 204.328125,
+        "headerBottom": 119,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "player",
+        "width": 768,
+        "usableMs": 2247,
+        "scanCompleteMs": 3099,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 294.28125,
+        "headerBottom": 119,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "news",
+        "width": 768,
+        "usableMs": 1788,
+        "scanCompleteMs": 2691,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 204.328125,
+        "headerBottom": 119,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "comparison",
+        "width": 768,
+        "usableMs": 1713,
+        "scanCompleteMs": 2622,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 168.390625,
+        "headerBottom": 119,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "rankings",
+        "width": 390,
+        "usableMs": 2190,
+        "scanCompleteMs": 4356,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 191.71875,
+        "headerBottom": 0,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "player",
+        "width": 390,
+        "usableMs": 2144,
+        "scanCompleteMs": 2985,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 298.3125,
+        "headerBottom": 0,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "news",
+        "width": 390,
+        "usableMs": 1770,
+        "scanCompleteMs": 2670,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 207.71875,
+        "headerBottom": 0,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      },
+      {
+        "name": "comparison",
+        "width": 390,
+        "usableMs": 1721,
+        "scanCompleteMs": 2672,
+        "overflow": false,
+        "scrollY": 0,
+        "headingY": 171.78125,
+        "headerBottom": 0,
+        "h1": 1,
+        "violations": [],
+        "pageErrors": []
+      }
+    ],
+    "families": {
+      "sha": "c40ad6987875b99d53ac91efef6fdbafa17c52aa",
+      "results": [
+        {
+          "name": "home",
+          "width": 1440,
+          "usableMs": 2616,
+          "scanCompleteMs": 3996,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 190.328125,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "league",
+          "width": 1440,
+          "usableMs": 2072,
+          "scanCompleteMs": 3841,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 278.875,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "trade",
+          "width": 1440,
+          "usableMs": 1744,
+          "scanCompleteMs": 2756,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 190.328125,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "rosters",
+          "width": 1440,
+          "usableMs": 2362,
+          "scanCompleteMs": 4555,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 165.390625,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "draft",
+          "width": 1440,
+          "usableMs": 2100,
+          "scanCompleteMs": 10917,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 210.328125,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "compare",
+          "width": 1440,
+          "usableMs": 2289,
+          "scanCompleteMs": 2878,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 165.390625,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "waivers",
+          "width": 1440,
+          "usableMs": 1780,
+          "scanCompleteMs": 3311,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 210.328125,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "settings",
+          "width": 1440,
+          "usableMs": 1956,
+          "scanCompleteMs": 6133,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 165.390625,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "edge",
+          "width": 1440,
+          "usableMs": 1792,
+          "scanCompleteMs": 4836,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 190.328125,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "angle",
+          "width": 1440,
+          "usableMs": 1903,
+          "scanCompleteMs": 3420,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 210.328125,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "trades",
+          "width": 1440,
+          "usableMs": 1895,
+          "scanCompleteMs": 36163,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 210.328125,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "construction",
+          "width": 1440,
+          "usableMs": 1862,
+          "scanCompleteMs": 2440,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 190.328125,
+          "headerBottom": 89,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "home",
+          "width": 390,
+          "usableMs": 1788,
+          "scanCompleteMs": 2760,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 207.71875,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "league",
+          "width": 390,
+          "usableMs": 1838,
+          "scanCompleteMs": 3223,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 219.375,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "trade",
+          "width": 390,
+          "usableMs": 1984,
+          "scanCompleteMs": 2876,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 207.71875,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "rosters",
+          "width": 390,
+          "usableMs": 2158,
+          "scanCompleteMs": 4181,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 180.78125,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "draft",
+          "width": 390,
+          "usableMs": 1920,
+          "scanCompleteMs": 9481,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 213.71875,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "compare",
+          "width": 390,
+          "usableMs": 2172,
+          "scanCompleteMs": 2754,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 180.78125,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "waivers",
+          "width": 390,
+          "usableMs": 1751,
+          "scanCompleteMs": 2843,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 213.71875,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "settings",
+          "width": 390,
+          "usableMs": 1891,
+          "scanCompleteMs": 5565,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 180.78125,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "edge",
+          "width": 390,
+          "usableMs": 1725,
+          "scanCompleteMs": 4592,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 207.71875,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "angle",
+          "width": 390,
+          "usableMs": 1718,
+          "scanCompleteMs": 3201,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 213.71875,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "trades",
+          "width": 390,
+          "usableMs": 1744,
+          "scanCompleteMs": 36233,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 213.71875,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        },
+        {
+          "name": "construction",
+          "width": 390,
+          "usableMs": 1824,
+          "scanCompleteMs": 2440,
+          "overflow": false,
+          "scrollY": 0,
+          "headingY": 207.71875,
+          "headerBottom": 0,
+          "h1": 1,
+          "violations": [],
+          "pageErrors": []
+        }
+      ]
+    },
+    "referenceSuite": {
+      "sha": "c40ad6987875b99d53ac91efef6fdbafa17c52aa",
+      "spec": "tests/e2e/specs/psi-rankings-player-a11y.spec.js",
+      "passed": 8,
+      "failed": 0,
+      "durationSeconds": 60,
+      "covers": [
+        "populated board semantics and axe",
+        "sort keyboard and visible focus",
+        "player popup focus return",
+        "all player tabs and axe",
+        "roving tab keyboard",
+        "direct profile deep link",
+        "reduced motion",
+        "initial/client-navigation/Back heading clearance"
+      ]
+    },
+    "screenshots": [
+      {
+        "file": ".agent-runtime/built-browser/rankings-1440.png",
+        "sha256": "dd7e96e67520ff350928810bdb0220e47b73186fff451d114995fdc276fdeab0",
+        "privacy": "local private snapshot; excluded from Git and public artifacts"
+      },
+      {
+        "file": ".agent-runtime/built-browser/rankings-768.png",
+        "sha256": "9449f6ce11a1d068fc0783764ebd42f0cce99756c370297599c6af6e087bbd8f",
+        "privacy": "local private snapshot; excluded from Git and public artifacts"
+      },
+      {
+        "file": ".agent-runtime/built-browser/rankings-390.png",
+        "sha256": "c6521f0641ec0cadfeb0383b75427aeec415c0806a44823cb5dd103199b1647e",
+        "privacy": "local private snapshot; excluded from Git and public artifacts"
+      },
+      {
+        "file": ".agent-runtime/built-browser/player-1440.png",
+        "sha256": "b2652887375ac5c5cd5acf01f05444c12c92dfcace6838e3a227f6f777f247e5",
+        "privacy": "local private snapshot; excluded from Git and public artifacts"
+      },
+      {
+        "file": ".agent-runtime/built-browser/player-768.png",
+        "sha256": "8361d39a475518b1dacbe019380bfaeaa71bdad012a52deba378fd16af52ffd5",
+        "privacy": "local private snapshot; excluded from Git and public artifacts"
+      },
+      {
+        "file": ".agent-runtime/built-browser/player-390.png",
+        "sha256": "64c9c55bc3b02a69ed6e49c643723fc5f32f5dbb0bc0fc4953e3f7b1d6b1a16d",
+        "privacy": "local private snapshot; excluded from Git and public artifacts"
+      },
+      {
+        "file": ".agent-runtime/built-browser/news-1440.png",
+        "sha256": "20b3e6b748941ea7c5e4726db41b73b92935f90a45949717a1ec146cc877951c",
+        "privacy": "local private snapshot; excluded from Git and public artifacts"
+      },
+      {
+        "file": ".agent-runtime/built-browser/news-768.png",
+        "sha256": "d07508b0a324b0279ed3682c743ffb9582f606294988ea313373dfccd662efb5",
+        "privacy": "local private snapshot; excluded from Git and public artifacts"
+      },
+      {
+        "file": ".agent-runtime/built-browser/news-390.png",
+        "sha256": "84777f8a7bc0ba563ffca5b62d009439f4c33dec7c74313c33762c39b696be1e",
+        "privacy": "local private snapshot; excluded from Git and public artifacts"
+      }
+    ]
+  },
+  "localPerformance": {
+    "implementationSha": "26c5d4092",
+    "runtime": "Node20.20.2; Next16.4.3 production build; Chromium153; local backend snapshot; no throttling",
+    "limitations": "Local warm process; first run cold browser cache. Not production, field Web Vitals, INP or a before/after controlled comparison.",
+    "navigation": [
+      {
+        "route": "/rankings",
+        "run": 1,
+        "usableMs": 759,
+        "ttfbMs": 7.299999997019768,
+        "domContentLoadedMs": 40.099999994039536,
+        "firstContentfulPaintMs": 132
+      },
+      {
+        "route": "/rankings",
+        "run": 2,
+        "usableMs": 657,
+        "ttfbMs": 17.100000008940697,
+        "domContentLoadedMs": 52.099999994039536,
+        "firstContentfulPaintMs": 108
+      },
+      {
+        "route": "/rankings",
+        "run": 3,
+        "usableMs": 532,
+        "ttfbMs": 12.900000005960464,
+        "domContentLoadedMs": 39.900000005960464,
+        "firstContentfulPaintMs": 76
+      },
+      {
+        "route": "/players/4984",
+        "run": 1,
+        "usableMs": 615,
+        "ttfbMs": 41.29999999701977,
+        "domContentLoadedMs": 59,
+        "firstContentfulPaintMs": 72
+      },
+      {
+        "route": "/players/4984",
+        "run": 2,
+        "usableMs": 664,
+        "ttfbMs": 24,
+        "domContentLoadedMs": 39,
+        "firstContentfulPaintMs": 52
+      },
+      {
+        "route": "/players/4984",
+        "run": 3,
+        "usableMs": 724,
+        "ttfbMs": 19.19999998807907,
+        "domContentLoadedMs": 37,
+        "firstContentfulPaintMs": 72
+      },
+      {
+        "route": "/news",
+        "run": 1,
+        "usableMs": 294,
+        "ttfbMs": 13,
+        "domContentLoadedMs": 36.29999999701977,
+        "firstContentfulPaintMs": 120
+      },
+      {
+        "route": "/news",
+        "run": 2,
+        "usableMs": 323,
+        "ttfbMs": 26.700000002980232,
+        "domContentLoadedMs": 50.79999999701977,
+        "firstContentfulPaintMs": 80
+      },
+      {
+        "route": "/news",
+        "run": 3,
+        "usableMs": 683,
+        "ttfbMs": 21.900000005960464,
+        "domContentLoadedMs": 57,
+        "firstContentfulPaintMs": 72
+      }
+    ],
+    "searchSettledMs": 172
+  },
+  "routes": [
+    {
+      "route": "/",
+      "file": "app/page.jsx",
+      "access": "public",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/admin",
+      "file": "app/admin/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/admin/model-lab",
+      "file": "app/admin/model-lab/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/admin/sharp-identities",
+      "file": "app/admin/sharp-identities/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/angle",
+      "file": "app/angle/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/arbitrage",
+      "file": "app/arbitrage/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/auction",
+      "file": "app/auction/page.jsx",
+      "access": "self_authed",
+      "status": "intentionally_hidden",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/auction/[roomId]",
+      "file": "app/auction/[roomId]/page.jsx",
+      "access": "self_authed",
+      "status": "intentionally_hidden",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/auction/join",
+      "file": "app/auction/join/page.jsx",
+      "access": "self_authed",
+      "status": "intentionally_hidden",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/auction/notifications",
+      "file": "app/auction/notifications/page.jsx",
+      "access": "self_authed",
+      "status": "intentionally_hidden",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/auction/reset",
+      "file": "app/auction/reset/page.jsx",
+      "access": "self_authed",
+      "status": "intentionally_hidden",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/bdvm",
+      "file": "app/bdvm/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/consensus-edge",
+      "file": "app/consensus-edge/page.jsx",
+      "access": "private",
+      "status": "disabled_by_flag",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/design",
+      "file": "app/design/page.jsx",
+      "access": "dev",
+      "status": "dev_reference",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/dfs",
+      "file": "app/dfs/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/draft",
+      "file": "app/draft/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/edge",
+      "file": "app/edge/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/finder",
+      "file": "app/finder/page.jsx",
+      "access": "redirect",
+      "status": "redirect",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/game-day",
+      "file": "app/game-day/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/idptc-rookies",
+      "file": "app/idptc-rookies/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/intel",
+      "file": "app/intel/page.jsx",
+      "access": "redirect",
+      "status": "redirect",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league",
+      "file": "app/league/page.jsx",
+      "access": "public",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league-comparison",
+      "file": "app/league-comparison/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league/activity",
+      "file": "app/league/activity/page.jsx",
+      "access": "public",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league/articles/[season]/[week]",
+      "file": "app/league/articles/[season]/[week]/page.jsx",
+      "access": "public",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league/articles/[season]/[week]/[matchupId]/[mode]",
+      "file": "app/league/articles/[season]/[week]/[matchupId]/[mode]/page.jsx",
+      "access": "public",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league/franchise/[owner]",
+      "file": "app/league/franchise/[owner]/page.jsx",
+      "access": "public",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league/insider-trading",
+      "file": "app/league/insider-trading/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league/player/[playerId]",
+      "file": "app/league/player/[playerId]/page.jsx",
+      "access": "public",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league/rivalry/[pair]",
+      "file": "app/league/rivalry/[pair]/page.jsx",
+      "access": "public",
+      "status": "share_target",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league/week/[season]/[week]",
+      "file": "app/league/week/[season]/[week]/page.jsx",
+      "access": "public",
+      "status": "share_target",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/league/weekly/[season]/[week]/[matchup]",
+      "file": "app/league/weekly/[season]/[week]/[matchup]/page.jsx",
+      "access": "public",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/login",
+      "file": "app/login/page.jsx",
+      "access": "public",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/managers",
+      "file": "app/managers/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/managers/compare",
+      "file": "app/managers/compare/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/managers/leaderboards",
+      "file": "app/managers/leaderboards/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/managers/league/[leagueId]",
+      "file": "app/managers/league/[leagueId]/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/market/sharp-people",
+      "file": "app/market/sharp-people/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/market/sharp-people/[personId]",
+      "file": "app/market/sharp-people/[personId]/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/market/sharp-roster-percentage",
+      "file": "app/market/sharp-roster-percentage/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/market/sharp-tracker",
+      "file": "app/market/sharp-tracker/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/market/trade-database",
+      "file": "app/market/trade-database/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/more",
+      "file": "app/more/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/news",
+      "file": "app/news/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/phases",
+      "file": "app/phases/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/players/[playerId]",
+      "file": "app/players/[playerId]/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/players/compare",
+      "file": "app/players/compare/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/rankings",
+      "file": "app/rankings/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/rankings/[position]",
+      "file": "app/rankings/[position]/page.jsx",
+      "access": "redirect",
+      "status": "redirect",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/roster-construction",
+      "file": "app/roster-construction/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/rosters",
+      "file": "app/rosters/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/settings",
+      "file": "app/settings/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/tools/ros-data-health",
+      "file": "app/tools/ros-data-health/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/tools/source-health",
+      "file": "app/tools/source-health/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/tools/trade-coverage",
+      "file": "app/tools/trade-coverage/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/trade",
+      "file": "app/trade/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/trades",
+      "file": "app/trades/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/trending",
+      "file": "app/trending/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/waiver-advisor",
+      "file": "app/waiver-advisor/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/waiver-wire/r7k4q9m2",
+      "file": "app/waiver-wire/r7k4q9m2/page.jsx",
+      "access": "unlisted",
+      "status": "intentionally_hidden",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    },
+    {
+      "route": "/waivers",
+      "file": "app/waivers/page.jsx",
+      "access": "private",
+      "status": "working",
+      "foundation": "canonical root tokens/fonts/DS and legacy aliases; access/activation unchanged",
+      "visualCoverage": "representative family probes only; no claim each individual route/state was rendered"
+    }
+  ],
+  "remainingGaps": [
+    "Production integration, deployment and field checks remain separate gates.",
+    "All61routes mechanically inventoried; representative families rendered, not every route/state combination.",
+    "Local source-history endpoint returned insufficient snapshots; missing UI verified, populated histories covered by deterministic existing component fixtures.",
+    "Nonzero pre-navigation Back scroll restoration is not independently asserted by the new focus test.",
+    "No field Web Vitals, INP, throttled mobile performance or controlled pre/post performance comparison.",
+    "Local real-snapshot screenshots contain private league context and must not be published.",
+    "League page meets50KB budget with very little headroom."
+  ],
+  "agentOsReceipt": "741230def70b1c94b9924192ee784bb7241b91a6",
+  "independentReview": "No source blocker identified at c40ad6987; final CSS changes separately targeted and browser scanned.",
+  "latestNewsDelta": {
+    "sha": "5cf6b892ac9b19910feb27970c6c51edc67ea1dc",
+    "testFiles": 3,
+    "passed": 107,
+    "unexpectedFailures": 0,
+    "cases": "Missing selected roster remains unavailable; explicit digest/story count units; canonical News service and player destination guard retained."
+  },
+  "integrationReconciliation": {
+    "mergeSha": "2d88d7fba9edbcb09aff5dd9f6fbe909e332c8a1",
+    "base": "5642d192ea88e935d34c4924ceae4917ef7e664b",
+    "classification": "RELEVANT_BASE_MOVE: additive roster API dependency plus provenance-inspected DLF/IDP refresh and handoff records",
+    "frontendChanges": false,
+    "compatibility": "Existing totalValue semantics retained; added metadata unconsumed by this migration. No frontend conflict or changed source tree."
+  }
+}

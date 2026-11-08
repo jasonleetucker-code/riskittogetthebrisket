@@ -143,6 +143,7 @@ export default function ActivityHeatmap({
               height={cellSize}
               fill={fill}
               fillOpacity={opacity}
+              stroke={c.count > 0 ? CHART_COLORS.accent : "none"}
               rx={2}
             >
               <title>

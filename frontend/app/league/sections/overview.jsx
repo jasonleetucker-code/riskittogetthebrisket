@@ -147,13 +147,13 @@ function OverviewSection({ managers, data, onNavigate }) {
                 </div>
               </div>
               <div style={{ fontFamily: "var(--mono)", fontSize: "0.8rem", marginTop: 6 }}>
-                Power <strong style={{ color: "#2ecc71" }}>{fmtPoints(powerLeader.power)}</strong>
+                Power <strong style={{ color: "var(--green)" }}>{fmtPoints(powerLeader.power)}</strong>
                 <span style={{ color: "var(--subtext)", marginLeft: 8 }}>{powerLeader.record}</span>
                 {powerLeader.weekRankDelta > 0 && (
-                  <span style={{ color: "#2ecc71", marginLeft: 8 }}>▲{powerLeader.weekRankDelta}</span>
+                  <span style={{ color: "var(--green)", marginLeft: 8 }}>▲{powerLeader.weekRankDelta}</span>
                 )}
                 {powerLeader.weekRankDelta < 0 && (
-                  <span style={{ color: "#ff6b6b", marginLeft: 8 }}>▼{Math.abs(powerLeader.weekRankDelta)}</span>
+                  <span style={{ color: "var(--red)", marginLeft: 8 }}>▼{Math.abs(powerLeader.weekRankDelta)}</span>
                 )}
               </div>
               <div style={{ marginTop: 10 }}>
@@ -171,7 +171,7 @@ function OverviewSection({ managers, data, onNavigate }) {
                   <Avatar managers={managers} ownerId={luckyUnlucky.lucky.ownerId} size={22} />
                   <div style={{ flex: 1, fontSize: "0.78rem" }}>
                     <strong>{luckyUnlucky.lucky.displayName}</strong>
-                    <span style={{ color: "#2ecc71", marginLeft: 6, fontFamily: "var(--mono)" }}>
+                    <span style={{ color: "var(--green)", marginLeft: 6, fontFamily: "var(--mono)" }}>
                       +{fmtPoints(luckyUnlucky.lucky.luckDelta)}
                     </span>
                   </div>
@@ -182,7 +182,7 @@ function OverviewSection({ managers, data, onNavigate }) {
                   <Avatar managers={managers} ownerId={luckyUnlucky.unlucky.ownerId} size={22} />
                   <div style={{ flex: 1, fontSize: "0.78rem" }}>
                     <strong>{luckyUnlucky.unlucky.displayName}</strong>
-                    <span style={{ color: "#ff6b6b", marginLeft: 6, fontFamily: "var(--mono)" }}>
+                    <span style={{ color: "var(--red)", marginLeft: 6, fontFamily: "var(--mono)" }}>
                       {fmtPoints(luckyUnlucky.unlucky.luckDelta)}
                     </span>
                   </div>

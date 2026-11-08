@@ -55,6 +55,7 @@ export default function NavMenu({
   // open); only a genuine second click closes. Keyboard activation
   // never sets the flag, so Enter/Space toggle cleanly.
   const openedByHover = useRef(false);
+  const focusOnOpen = useRef(null);
 
   const cancelClose = useCallback(() => {
     if (closeTimer.current) {
@@ -72,31 +73,45 @@ export default function NavMenu({
     setOpen(false);
   }, [pathname]);
   useEffect(() => cancelClose, [cancelClose]);
+  useEffect(() => {
+    if (!open || !focusOnOpen.current) return;
+    const nodes = wrapRef.current?.querySelectorAll('[role="menuitem"]');
+    const target =
+      focusOnOpen.current === "first" ? nodes?.[0] : nodes?.[nodes.length - 1];
+    focusOnOpen.current = null;
+    target?.focus();
+  }, [open]);
 
-  const onKeyDown = useCallback(
-    (e) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        triggerRef.current?.focus();
+  const onKeyDown = useCallback((e) => {
+    if (e.key === "Escape") {
+      setOpen(false);
+      triggerRef.current?.focus();
+      return;
+    }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const nodes = Array.from(
+        wrapRef.current?.querySelectorAll('[role="menuitem"]') || [],
+      );
+      if (nodes.length === 0) {
+        focusOnOpen.current = e.key === "ArrowDown" ? "first" : "last";
+        openedByHover.current = false;
+        setOpen(true);
         return;
       }
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const nodes = Array.from(
-          wrapRef.current?.querySelectorAll('[role="menuitem"]') || []
-        );
-        if (nodes.length === 0) return;
-        const idx = nodes.indexOf(document.activeElement);
-        const next =
-          e.key === "ArrowDown"
+      const idx = nodes.indexOf(document.activeElement);
+      const next =
+        idx < 0
+          ? e.key === "ArrowDown"
+            ? nodes[0]
+            : nodes[nodes.length - 1]
+          : e.key === "ArrowDown"
             ? nodes[(idx + 1) % nodes.length]
             : nodes[(idx - 1 + nodes.length) % nodes.length];
-        setOpen(true);
-        next?.focus();
-      }
-    },
-    []
-  );
+      setOpen(true);
+      next?.focus();
+    }
+  }, []);
 
   const onBlur = useCallback((e) => {
     if (wrapRef.current && !wrapRef.current.contains(e.relatedTarget)) {
@@ -115,7 +130,9 @@ export default function NavMenu({
       aria-current={isNavActive(item.href, pathname) ? "page" : undefined}
     >
       <span>{item.label}</span>
-      {item.hint ? <span className="shell-menu-item-hint">{item.hint}</span> : null}
+      {item.hint ? (
+        <span className="shell-menu-item-hint">{item.hint}</span>
+      ) : null}
     </Link>
   );
 
@@ -137,12 +154,16 @@ export default function NavMenu({
         <Link
           href={href}
           className={`shell-nav-link shell-nav-link--group${active ? " shell-nav-link--active" : ""}`}
-          aria-current={active && isNavActive(href, pathname) ? "page" : undefined}
+          aria-current={
+            active && isNavActive(href, pathname) ? "page" : undefined
+          }
         >
           {label}
         </Link>
       ) : (
-        <span className={`shell-nav-link shell-nav-link--group${active ? " shell-nav-link--active" : ""}`}>
+        <span
+          className={`shell-nav-link shell-nav-link--group${active ? " shell-nav-link--active" : ""}`}
+        >
           {label}
         </span>
       )}

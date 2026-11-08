@@ -1,16 +1,17 @@
-import { SkeletonTable } from "@/components/ds/Skeleton";
+import { SkeletonText } from "@/components/ds/Skeleton";
+import styles from "./news.module.css";
 
-/**
- * Route-level loading UI (/news).  Rendered by the App Router the
- * instant a navigation starts, before the route segment's JS chunk
- * loads and the client page hydrates — the page previously showed
- * nothing during that window.  Uses the shared token-styled skeleton
- * so there is no layout shift when real content lands.
- */
+/** Stable newsroom-shaped loading, before the live shared feed resolves. */
 export default function Loading() {
   return (
-    <div style={{ padding: "16px" }} aria-busy="true" aria-live="polite">
-      <SkeletonTable rows={10} columns={5} />
+    <div className={styles.page} aria-busy="true" aria-label="Loading news">
+      <div className={styles.loadingTitle}>
+        <SkeletonText lines={2} />
+      </div>
+      <div className={styles.loadingLead}>
+        <SkeletonText lines={4} />
+      </div>
+      <SkeletonText lines={6} />
     </div>
   );
 }

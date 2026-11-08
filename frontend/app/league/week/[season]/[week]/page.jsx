@@ -127,7 +127,7 @@ export default async function WeeklyRecapPage({ params }) {
           {mvp && (
             <SuperlativeCard
               label="Weekly MVP"
-              color="#2ecc71"
+              color="var(--green)"
               managers={managers}
               ownerId={mvp.ownerId}
               displayName={mvp.displayName}
@@ -160,7 +160,7 @@ export default async function WeeklyRecapPage({ params }) {
           {bust && (
             <SuperlativeCard
               label="Weekly bust"
-              color="#ff6b6b"
+              color="var(--red)"
               managers={managers}
               ownerId={bust.ownerId}
               displayName={bust.displayName}
@@ -352,7 +352,7 @@ function SideBlock({ side, managers, won, align }) {
       >
         {align === "left" && <Avatar managers={managers} ownerId={side.ownerId} size={20} />}
         <div style={{ textAlign: align }}>
-          <div style={{ fontWeight: won ? 800 : 500, color: won ? "#2ecc71" : "inherit" }}>
+          <div style={{ fontWeight: won ? 800 : 500, color: won ? "var(--green)" : "inherit" }}>
             {nameFor(managers, side.ownerId)}
           </div>
           <div style={{ fontSize: "0.64rem", color: "var(--subtext)" }}>{side.teamName}</div>
@@ -364,7 +364,7 @@ function SideBlock({ side, managers, won, align }) {
           fontFamily: "var(--mono)",
           fontSize: "1rem",
           fontWeight: 800,
-          color: won ? "#2ecc71" : "var(--subtext)",
+          color: won ? "var(--green)" : "var(--subtext)",
           marginTop: 2,
         }}
       >

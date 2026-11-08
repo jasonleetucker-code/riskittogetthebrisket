@@ -18,7 +18,7 @@ export default function GlobalError({ error, reset }) {
   return (
     <section style={{ padding: "40px 20px", maxWidth: 600, margin: "0 auto" }}>
       <h1 style={{ fontSize: "1.3rem", marginBottom: 12 }}>Something went wrong</h1>
-      <p style={{ color: "#999", fontSize: "0.88rem", marginBottom: 16 }}>
+      <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem", marginBottom: 16 }}>
         A client-side error occurred. This is usually temporary.
       </p>
 
@@ -64,7 +64,7 @@ export default function GlobalError({ error, reset }) {
             borderRadius: 6,
             border: "1px solid #444",
             background: "transparent",
-            color: "#999",
+            color: "var(--text-secondary)",
             cursor: "pointer",
             fontSize: "0.82rem",
           }}

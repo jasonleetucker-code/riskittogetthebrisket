@@ -227,6 +227,25 @@ async function expectPlayerFilePopulated(page, name) {
 // ── Rankings ─────────────────────────────────────────────────────────────
 
 test.describe("PSI reference a11y matrix: /rankings (populated)", () => {
+  test("route focus keeps headings clear of sticky chrome on load, navigation and Back", async ({ authedPage: page }) => {
+    async function expectHeadingBelowChrome() {
+      await expect.poll(() => page.evaluate(() => {
+        const heading = document.querySelector("h1")?.getBoundingClientRect();
+        const chrome = [...document.querySelectorAll(".shell-topbar, .shell-mobile-topbar")]
+          .map(node => node.getBoundingClientRect()).filter(box => box.height > 0);
+        return !!heading && heading.top >= Math.max(0, ...chrome.map(box => box.bottom));
+      })).toBe(true);
+    }
+    await gotoRankingsBoard(page);
+    await expectHeadingBelowChrome();
+    await openPlayerFileFromBoard(page);
+    await expectHeadingBelowChrome();
+    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("main");
+    await page.goBack();
+    await expect(page.getByRole("heading", { level: 1, name: "Rankings", exact: true })).toBeVisible();
+    await expectHeadingBelowChrome();
+  });
+
   test("board table semantics, axe and viewport evidence", async ({ authedPage: page }, testInfo) => {
     const errors = [];
     page.on("pageerror", (e) => {

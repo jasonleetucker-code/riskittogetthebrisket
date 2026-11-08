@@ -169,7 +169,7 @@ export default function ConfidenceValueScatter({
               cy={y(p.y)}
               r={3.5}
               fill={CHART_COLORS.confidence[p.bucket] || CHART_COLORS.confidence.none}
-              fillOpacity={0.8}
+              fillOpacity={0.9}
               stroke={CHART_COLORS.bg}
               strokeWidth={0.5}
               pointerEvents="none"

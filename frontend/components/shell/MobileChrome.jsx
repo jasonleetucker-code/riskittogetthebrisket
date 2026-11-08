@@ -21,6 +21,7 @@ import { Drawer, Icon } from "@/components/ds";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import NavLinkList from "@/components/shell/NavLinkList";
+import Brand from "@/components/shell/Brand";
 import {
   MOBILE_TABS,
   MOBILE_TABS_PUBLIC,
@@ -45,14 +46,19 @@ function DrawerGroup({ label, items, pathname, onNavigate }) {
 // See the note on TopBar: `searchEnabled` is not derivable from
 // `authenticated`, because signed-in routes exist that load no player
 // contract.  Defaults true so existing callers are unaffected.
-export function MobileTopBar({ authenticated, onSearch, searchEnabled = true }) {
+export function MobileTopBar({
+  authenticated,
+  onSearch,
+  searchEnabled = true,
+}) {
   const pathname = usePathname();
   return (
-    <header className="shell-mobile-topbar psi-editorial" data-html2canvas-ignore>
-      <span className="shell-mobile-title">{pageTitleFor(pathname)}</span>
-      <div className="shell-mobile-actions">
-        {authenticated && <LeagueSwitcher variant="mobile" />}
-        {authenticated && <TeamSwitcher variant="mobile" />}
+    <header
+      className="shell-mobile-topbar psi-editorial"
+      data-html2canvas-ignore
+    >
+      <div className="shell-mobile-masthead">
+        <Brand compact />
         {authenticated && searchEnabled && (
           <button
             type="button"
@@ -64,11 +70,24 @@ export function MobileTopBar({ authenticated, onSearch, searchEnabled = true }) 
           </button>
         )}
       </div>
+      <div className="shell-mobile-context">
+        <span className="shell-mobile-title">{pageTitleFor(pathname)}</span>
+        <div className="shell-mobile-actions">
+          {authenticated && <LeagueSwitcher variant="mobile" />}
+          {authenticated && <TeamSwitcher variant="mobile" />}
+        </div>
+      </div>
     </header>
   );
 }
 
-export function MobileTabBar({ authenticated, isAdmin, capabilities, isPublic, onLogout }) {
+export function MobileTabBar({
+  authenticated,
+  isAdmin,
+  capabilities,
+  isPublic,
+  onLogout,
+}) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const previousPathnameRef = useRef(pathname);
@@ -126,15 +145,21 @@ export function MobileTabBar({ authenticated, isAdmin, capabilities, isPublic, o
 
   const groups = authenticated
     ? [...model, { ...SYSTEM_MODEL, items: systemItemsFor({ isAdmin }) }]
-    : model.map((g) => {
-        if (!g.items) return isPublic(g.href) ? g : null;
-        const items = g.items.filter((i) => isPublic(i.href));
-        return items.length ? { ...g, items } : null;
-      }).filter(Boolean);
+    : model
+        .map((g) => {
+          if (!g.items) return isPublic(g.href) ? g : null;
+          const items = g.items.filter((i) => isPublic(i.href));
+          return items.length ? { ...g, items } : null;
+        })
+        .filter(Boolean);
 
   return (
     <>
-      <nav className="shell-tabbar psi-editorial" aria-label="Primary" data-html2canvas-ignore>
+      <nav
+        className="shell-tabbar psi-editorial"
+        aria-label="Primary"
+        data-html2canvas-ignore
+      >
         {tabs.map((tab) => (
           <Link
             key={tab.href}
@@ -162,7 +187,7 @@ export function MobileTabBar({ authenticated, isAdmin, capabilities, isPublic, o
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         title="Menu"
-        className="psi-editorial"
+        className="psi-editorial shell-menu-drawer"
       >
         {groups.map((group) => (
           <DrawerGroup
