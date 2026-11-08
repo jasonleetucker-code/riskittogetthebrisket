@@ -15,7 +15,6 @@ import {
   SegmentedControl,
   Select,
   SkeletonText,
-  StatTile,
   Tabs,
   tabPanelId,
 } from "@/components/ds";
@@ -94,6 +93,7 @@ export default function NewsPage() {
   const [teamFilter, setTeamFilter] = useState("ALL");
   const [posFilter, setPosFilter] = useState("ALL");
   const [sourceFilter, setSourceFilter] = useState("ALL");
+  const [wireIndex, setWireIndex] = useState(0);
 
   // Source options from whatever the live feed actually contains.
   const sourceOptions = useMemo(() => {
@@ -132,7 +132,9 @@ export default function NewsPage() {
   const filteredDigests = useMemo(() => {
     let list = Array.isArray(news.digests) ? news.digests : [];
     if (scope === "roster") {
-      list = list.filter((d) => rosterKeys.has(normalizePlayerNameKey(d.player)));
+      list = list.filter((d) =>
+        rosterKeys.has(normalizePlayerNameKey(d.player)),
+      );
     } else if (scope === "league") {
       list = list.filter((d) => {
         const key = normalizePlayerNameKey(d.player);
@@ -140,7 +142,9 @@ export default function NewsPage() {
       });
     }
     if (teamFilter !== "ALL") {
-      list = list.filter((d) => String(d.team || "").toUpperCase() === teamFilter);
+      list = list.filter(
+        (d) => String(d.team || "").toUpperCase() === teamFilter,
+      );
     }
     if (posFilter !== "ALL") {
       list = list.filter((d) => positionFamily(d.position) === posFilter);
@@ -158,7 +162,9 @@ export default function NewsPage() {
         const key = normalizePlayerNameKey(d.player);
         return (
           (qKey && key.includes(qKey)) ||
-          String(d.player || "").toLowerCase().includes(q.toLowerCase())
+          String(d.player || "")
+            .toLowerCase()
+            .includes(q.toLowerCase())
         );
       });
     }
@@ -182,13 +188,16 @@ export default function NewsPage() {
     // see filterByPlayerFacets for the conjunction-per-mention rule.
     items = filterByPlayerFacets(items, { teamFilter, posFilter, playerMeta });
     if (sourceFilter !== "ALL") {
-      items = items.filter((item) => String(item?.provider || "") === sourceFilter);
+      items = items.filter(
+        (item) => String(item?.provider || "") === sourceFilter,
+      );
     }
     const q = query.trim().toLowerCase();
     if (q) {
       const qKey = normalizePlayerNameKey(q);
       items = items.filter((item) => {
-        const text = `${item?.headline || ""}\n${item?.body || ""}`.toLowerCase();
+        const text =
+          `${item?.headline || ""}\n${item?.body || ""}`.toLowerCase();
         if (text.includes(q)) return true;
         return itemPlayerNames(item).some((n) => {
           const key = normalizePlayerNameKey(n);
@@ -197,7 +206,15 @@ export default function NewsPage() {
       });
     }
     return items.slice(0, MAX_ITEMS);
-  }, [news.scored, scope, teamFilter, posFilter, sourceFilter, query, playerMeta]);
+  }, [
+    news.scored,
+    scope,
+    teamFilter,
+    posFilter,
+    sourceFilter,
+    query,
+    playerMeta,
+  ]);
 
   // ── Coverage strip: what the desk is actually looking at.
   const coverage = useMemo(() => {
@@ -224,14 +241,95 @@ export default function NewsPage() {
     view === "players" ? filteredDigests.length : filteredStories.length;
   const totalCount = view === "players" ? coverage.digests : coverage.stories;
   const isFiltered = activeCount !== totalCount;
+  // Editorial ordering is presentation only: existing scope, source and
+  // conjunction-per-mention filtering above remain the canonical inputs.
+  const chronologicalStories = useMemo(
+    () =>
+      [...filteredStories].sort(
+        (a, b) => publishedMillis(b.ts) - publishedMillis(a.ts),
+      ),
+    [filteredStories],
+  );
+  const focusStories = useMemo(() => {
+    const priority = { alert: 0, watch: 1, info: 2 };
+    return chronologicalStories
+      .slice(1)
+      .sort(
+        (a, b) =>
+          (priority[a.severity] ?? 3) - (priority[b.severity] ?? 3) ||
+          publishedMillis(b.ts) - publishedMillis(a.ts),
+      )
+      .slice(0, 3);
+  }, [chronologicalStories]);
+  // A dated seven-day archive is not a live ticker. Only reports published
+  // within the past day enter the manual wire; their actual date stays visible.
+  const wireStories = chronologicalStories.filter((item) => {
+    const age = Date.now() - publishedMillis(item.ts);
+    return (
+      publishedMillis(item.ts) > 0 && age >= 0 && age <= 24 * 60 * 60 * 1000
+    );
+  });
+  const wireStory = wireStories.length
+    ? wireStories[wireIndex % wireStories.length]
+    : null;
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        eyebrow="News"
-        title="News"
-        description="Every source, deduplicated and combined per player. Rolling 7-day window."
-      />
+      <div className={styles.masthead}>
+        <PageHeader
+          className={styles.pageHeading}
+          eyebrow="The football newsroom"
+          title="News"
+          description="The report. The context. The next question."
+        />
+        <div className={styles.edition}>
+          <span>NFL INTELLIGENCE DESK</span>
+          <strong>Keep the whole field in view.</strong>
+          <p>
+            Source-attributed reports and player research · rolling 7-day
+            window.
+          </p>
+        </div>
+      </div>
+
+      {!news.loading && !news.unavailable && wireStory && (
+        <section className={styles.wire} aria-label="Report wire">
+          <span className={styles.wireLabel}>
+            THE WIRE <span aria-hidden="true">↗</span>
+          </span>
+          <div className={styles.wireCopy}>
+            <SourceHeadline item={wireStory} className={styles.wireHeadline} />
+            <span>
+              {wireStory.providerLabel ||
+                wireStory.provider ||
+                "Source unavailable"}{" "}
+              · <PublishedTime value={wireStory.ts} />
+            </span>
+          </div>
+          <div className={styles.wireControls}>
+            <button
+              type="button"
+              disabled={wireStories.length < 2}
+              aria-label="Previous report"
+              onClick={() =>
+                setWireIndex(
+                  (wireIndex - 1 + wireStories.length) % wireStories.length,
+                )
+              }
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              disabled={wireStories.length < 2}
+              aria-label="Next report"
+              onClick={() => setWireIndex((wireIndex + 1) % wireStories.length)}
+            >
+              →
+            </button>
+          </div>
+        </section>
+      )}
 
       {news.unavailable && (
         <Banner tone="negative" title="News unavailable">
@@ -242,24 +340,32 @@ export default function NewsPage() {
       )}
 
       {!news.unavailable && (
-        <div className={styles.coverage}>
-          <StatTile label="Stories" value={news.loading ? "—" : coverage.stories} />
-          <StatTile label="Players covered" value={news.loading ? "—" : coverage.digests} />
-          <StatTile
-            label="Alerts"
-            value={news.loading ? "—" : coverage.alerts}
-            meta={coverage.alerts > 0 ? "injury / status" : "none this week"}
-          />
-          <StatTile
-            label="On your roster"
-            value={news.loading ? "—" : coverage.rosterHits}
-            meta={selectedTeam?.name || "no team selected"}
-          />
-          <StatTile label="Sources live" value={news.loading ? "—" : coverage.sources} />
-        </div>
+        <dl className={styles.coverage} aria-label="News coverage">
+          <div>
+            <dt>Stories</dt>
+            <dd>{news.loading ? "—" : coverage.stories}</dd>
+          </div>
+          <div>
+            <dt>Players covered</dt>
+            <dd>{news.loading ? "—" : coverage.digests}</dd>
+          </div>
+          <div>
+            <dt>Injury / status alerts</dt>
+            <dd>{news.loading ? "—" : coverage.alerts}</dd>
+          </div>
+          <div>
+            <dt>On your roster</dt>
+            <dd>{news.loading ? "—" : coverage.rosterHits}</dd>
+            <span>{selectedTeam?.name || "No team selected"}</span>
+          </div>
+          <div>
+            <dt>Sources represented</dt>
+            <dd>{news.loading ? "—" : coverage.sources}</dd>
+          </div>
+        </dl>
       )}
 
-      <Panel flush>
+      <Panel flush className={styles.desk}>
         <div className={`news-controls ${styles.controls}`}>
           <Tabs
             tabs={VIEW_TABS}
@@ -326,6 +432,85 @@ export default function NewsPage() {
           </Select>
         </div>
 
+        {!news.loading &&
+          !news.unavailable &&
+          chronologicalStories.length > 0 && (
+            <section className={styles.leadGrid} aria-label="Featured coverage">
+              <article className={styles.lead}>
+                <p className={styles.kicker}>
+                  LATEST AVAILABLE REPORT /{" "}
+                  {chronologicalStories[0].kind || "NFL"}
+                </p>
+                <h2>
+                  <SourceHeadline item={chronologicalStories[0]} />
+                </h2>
+                {chronologicalStories[0].body && (
+                  <p className={styles.leadSummary}>
+                    {chronologicalStories[0].body}
+                  </p>
+                )}
+                <div className={styles.leadAttribution}>
+                  <span>
+                    {chronologicalStories[0].providerLabel ||
+                      chronologicalStories[0].provider ||
+                      "Source unavailable"}
+                  </span>
+                  <PublishedTime value={chronologicalStories[0].ts} />
+                </div>
+                <PlayerMentions
+                  item={chronologicalStories[0]}
+                  onPlayerClick={openPlayerPopup}
+                />
+              </article>
+              {focusStories.length > 0 && (
+                <aside
+                  className={styles.priority}
+                  aria-label="Reports in focus"
+                >
+                  <p className={styles.kicker}>THE SHORT LIST</p>
+                  <h2>
+                    What matters next<span aria-hidden="true">.</span>
+                  </h2>
+                  <ol>
+                    {focusStories.map((item, index) => (
+                      <li key={item.id || `${item.ts}-${item.headline}`}>
+                        <span className={styles.priorityNumber}>
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <div>
+                          <p className={styles.priorityMeta}>
+                            {item.severity || "report"} /{" "}
+                            {item.providerLabel ||
+                              item.provider ||
+                              "Source unavailable"}
+                          </p>
+                          <h3>
+                            <SourceHeadline item={item} />
+                          </h3>
+                          <PublishedTime value={item.ts} />
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                  <p className={styles.priorityNote}>
+                    Provider alert and watch flags guide this list. A flag is
+                    not confirmation of a report.
+                  </p>
+                </aside>
+              )}
+            </section>
+          )}
+        <div className={styles.feedHeading}>
+          <p className={styles.kicker}>
+            {view === "players" ? "THE PLAYER PICTURE" : "AROUND THE LEAGUE"}
+          </p>
+          <h2>
+            {view === "players"
+              ? "Put the reports together."
+              : "Every development. In order."}
+          </h2>
+        </div>
+
         <div
           id={tabPanelId("news-view", view)}
           role="tabpanel"
@@ -353,7 +538,7 @@ export default function NewsPage() {
 
           {!news.loading && !news.unavailable && view === "stories" && (
             <StoryList
-              items={filteredStories}
+              items={chronologicalStories}
               scope={scope}
               onPlayerClick={openPlayerPopup}
             />
@@ -369,6 +554,26 @@ export default function NewsPage() {
           />
         )}
       </Panel>
+      <aside
+        className={styles.researchRail}
+        aria-label="Continue your research"
+      >
+        <div>
+          <p className={styles.kicker}>FROM THE FRONT OFFICE</p>
+          <h2>
+            A headline is the start.
+            <br />
+            Put it in perspective.
+          </h2>
+        </div>
+        <p>
+          Compare the latest report with player value, historical movement and
+          the rest of the position.
+        </p>
+        <a href="/rankings">
+          Rankings <span aria-hidden="true">↗</span>
+        </a>
+      </aside>
     </div>
   );
 }
@@ -378,7 +583,8 @@ function PanelFootnote({ count, total, filtered, view }) {
   return (
     <p className={styles.footnote}>
       Showing <span className={styles.digestCount}>{count}</span>
-      {filtered ? ` of ${total}` : ""} {count === 1 ? noun : `${noun}s`} · last 7 days
+      {filtered ? ` of ${total}` : ""} {count === 1 ? noun : `${noun}s`} · last
+      7 days
     </p>
   );
 }
@@ -388,7 +594,9 @@ function DigestList({ digests, hasAny, scope, onPlayerClick, onShowStories }) {
   if (digests.length === 0) {
     return (
       <EmptyState
-        title={hasAny ? "No players match these filters" : "No player digests yet"}
+        title={
+          hasAny ? "No players match these filters" : "No player digests yet"
+        }
         description={
           hasAny
             ? scope === "roster"
@@ -435,11 +643,13 @@ function DigestRow({ digest, onPlayerClick }) {
           {digest.position ? (
             <span className={styles.digestPos}>{digest.position}</span>
           ) : null}
-          {digest.team ? <span className={styles.digestPos}>{digest.team}</span> : null}
+          {digest.team ? (
+            <span className={styles.digestPos}>{digest.team}</span>
+          ) : null}
         </span>
         <span className={styles.digestIdentityMeta}>
-          <span className={styles.digestCount}>{digest.storyCount}</span> stories ·{" "}
-          {timeAgo(digest.latestTs)}
+          <span className={styles.digestCount}>{digest.storyCount}</span>{" "}
+          stories · {timeAgo(digest.latestTs)}
         </span>
       </div>
       <div className={styles.digestBody}>
@@ -487,7 +697,6 @@ function StoryList({ items, scope, onPlayerClick }) {
 function StoryRow({ item, onPlayerClick }) {
   // Every mentioned player gets a button; __matchedOn only drives the
   // roster/league/general emphasis.
-  const mentions = buildMentionButtons(item);
   const tone = SEVERITY_TONE[item.severity] || "neutral";
   const rosterRelevant = item.__relevance >= 100;
   return (
@@ -497,7 +706,9 @@ function StoryRow({ item, onPlayerClick }) {
       }`.trim()}
     >
       <div className={styles.meta}>
-        <span className={styles.metaTime}>{timeAgo(item.ts)}</span>
+        <span className={styles.metaTime}>
+          <PublishedTime value={item.ts} relative />
+        </span>
         <span className={styles.metaSource}>
           {item.providerLabel || item.provider || "—"}
         </span>
@@ -520,27 +731,7 @@ function StoryRow({ item, onPlayerClick }) {
         )}
       </h3>
       {item.body ? <p className={styles.body}>{item.body}</p> : null}
-      {mentions.length > 0 && (
-        <div className={styles.mentions}>
-          {mentions.map((m) => (
-            <button
-              key={m.name + m.scope}
-              type="button"
-              className={`${styles.mention} ${
-                m.scope === "roster"
-                  ? styles.mentionRoster
-                  : m.scope === "league"
-                    ? styles.mentionLeague
-                    : ""
-              }`.trim()}
-              onClick={() => onPlayerClick?.(m.name)}
-              title={`Open ${m.name}`}
-            >
-              {m.name}
-            </button>
-          ))}
-        </div>
-      )}
+      <PlayerMentions item={item} onPlayerClick={onPlayerClick} />
     </li>
   );
 }
@@ -555,4 +746,61 @@ function FeedSkeleton({ rows = 6 }) {
       ))}
     </ul>
   );
+}
+
+function publishedMillis(value) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function PublishedTime({ value, relative = false }) {
+  if (!publishedMillis(value)) return <span>Publication time unavailable</span>;
+  const absolute =
+    new Date(value).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "UTC",
+    }) + " UTC";
+  return (
+    <time dateTime={value} title={absolute}>
+      {relative ? `${timeAgo(value)} · ${absolute}` : absolute}
+    </time>
+  );
+}
+
+function SourceHeadline({ item, className }) {
+  return item.url ? (
+    <a
+      className={className}
+      href={item.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Open source article"
+    >
+      {item.headline}
+    </a>
+  ) : (
+    <span className={className}>{item.headline}</span>
+  );
+}
+
+function PlayerMentions({ item, onPlayerClick }) {
+  const mentions = buildMentionButtons(item);
+  return mentions.length > 0 ? (
+    <div className={styles.mentions}>
+      {mentions.map((m) => (
+        <button
+          key={m.name + m.scope}
+          type="button"
+          className={`${styles.mention} ${m.scope === "roster" ? styles.mentionRoster : m.scope === "league" ? styles.mentionLeague : ""}`.trim()}
+          onClick={() => onPlayerClick?.(m.name)}
+          title={`Open ${m.name}`}
+        >
+          {m.name}
+        </button>
+      ))}
+    </div>
+  ) : null;
 }

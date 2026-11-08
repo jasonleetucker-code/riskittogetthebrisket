@@ -1,65 +1,349 @@
-/* news.module.css — /news structural styles (R3, token-driven).
-   Severity/tone color lives on ds Badge; everything here is layout,
-   density, and the two feed idioms (digest rows + story rows). */
-
+/* Sports Network newsroom: one editorial desk over the shared live feed.
+   Source attribution, timestamp and player identities remain data-owned. */
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 24px;
+  min-width: 0;
 }
-
-/* ── Coverage strip ───────────────────────────────────────────────── */
+.masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 36px;
+  border-bottom: 2px solid var(--text-primary);
+  padding-bottom: 24px;
+}
+.pageHeading {
+  margin: 0;
+  min-width: 0;
+}
+.pageHeading :global(.ds-page-header__eyebrow) {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--text-secondary);
+}
+.pageHeading :global(.ds-page-header__title) {
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: clamp(72px, 8vw, 112px);
+  line-height: 0.92;
+  text-transform: uppercase;
+  letter-spacing: -0.015em;
+}
+.pageHeading :global(.ds-page-header__description) {
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.edition {
+  max-width: 280px;
+  padding-bottom: 4px;
+}
+.edition > span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.edition > strong {
+  display: block;
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+.edition > p {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+.wire {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+  margin-top: -8px;
+  min-width: 0;
+}
+.wireLabel {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px;
+  background: var(--sn-coral, #fd633f);
+  color: var(--sn-navy, #0b2130);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.wireCopy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 18px;
+}
+.wireHeadline {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  color: var(--text-primary);
+}
+.wireCopy > span {
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+.wireControls {
+  display: flex;
+  flex-shrink: 0;
+}
+.wireControls > button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-left: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 20px;
+  cursor: pointer;
+}
+.wireControls > button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.wireControls > button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
 .coverage {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-2);
+  gap: 0;
+  margin: 0;
+  border-bottom: 1px solid var(--border-default);
 }
-@media (width < 768px) {
-  .coverage {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.coverage > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  padding: 0 20px 17px;
+  border-right: 1px solid var(--border-default);
 }
-
-/* ── Controls ─────────────────────────────────────────────────────── */
+.coverage > div:first-child {
+  padding-left: 0;
+}
+.coverage > div:last-child {
+  border-right: 0;
+}
+.coverage dt {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.coverage dd {
+  margin: 0 0 0 auto;
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--text-primary);
+}
+.coverage > div > span {
+  font-size: 9px;
+  width: 100%;
+  color: var(--text-tertiary);
+}
+.desk {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
 .controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-default);
 }
 .controlsSearch {
   flex: 1;
-  min-width: 180px;
+  min-width: 200px;
 }
 .controlsSelect {
   width: auto;
-  min-width: 120px;
+  min-width: 140px;
 }
 .controlsSpacer {
   flex: 1;
 }
-
-/* ── Shared feed scaffolding ──────────────────────────────────────── */
+.leadGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 24px;
+  border-top: 2px solid var(--text-primary);
+  border-bottom: 1px solid var(--border-default);
+}
+.leadGrid:has(.priority) {
+  grid-template-columns: minmax(0, 1fr) minmax(265px, 0.45fr);
+}
+.lead {
+  padding: 34px 38px 34px 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+.kicker {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+.lead h2 {
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: clamp(40px, 4.7vw, 70px);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin: 20px 0;
+  overflow-wrap: anywhere;
+}
+.lead h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+.lead h2 a:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+.leadSummary {
+  margin: 0 0 24px;
+  font-family: var(--font-prose, var(--font-ui));
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--text-secondary);
+  max-width: 640px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.leadAttribution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+.leadAttribution > span {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.priority {
+  padding: 30px 26px;
+  background: var(--sn-coral, #fd633f);
+  color: var(--sn-navy, #0b2130);
+}
+.priority > h2 {
+  margin: 16px 0 25px;
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: 52px;
+  line-height: 0.95;
+  text-transform: uppercase;
+  max-width: 240px;
+}
+.priority > h2 > span {
+  color: var(--sn-cream, #f0eddf);
+}
+.priority ol {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.priority li {
+  display: flex;
+  gap: 15px;
+  padding: 18px 0;
+  border-top: 1px solid #9b3d28;
+}
+.priorityNumber {
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: 29px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.priorityMeta {
+  font-size: 8px;
+  font-weight: 550;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  margin: 0 0 7px;
+}
+.priority h3 {
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: 25px;
+  line-height: 1.1;
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+.priority h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+.priority h3 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.priority time,
+.priorityNote {
+  font-size: 9px;
+  line-height: 1.7;
+}
+.priorityNote {
+  border-top: 1px solid #9b3d28;
+  padding-top: 16px;
+  margin: 0;
+}
+.feedHeading {
+  padding: 30px 0 22px;
+  border-bottom: 2px solid var(--text-primary);
+}
+.feedHeading h2 {
+  margin: 10px 0 0;
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: 38px;
+  line-height: 1.08;
+}
 .feed {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .feed > li + li {
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border-default);
 }
-
-/* Meta line: time · source · severity. Mono for the timestamp so
-   the column edge stays put as ages tick over. */
 .meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2);
-  font-size: var(--font-size-2xs);
-  color: var(--text-tertiary);
+  gap: 10px;
+  font-size: 10px;
+  color: var(--text-secondary);
 }
 .metaTime {
   font-family: var(--font-data);
@@ -68,29 +352,27 @@
 }
 .metaSource {
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: 0.08em;
 }
-
-/* ── Story rows ───────────────────────────────────────────────────── */
 .story {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
+  gap: 10px;
+  padding: 24px 0;
 }
 .story:hover {
   background: var(--surface-hover);
 }
-/* Roster-relevant stories get a gold edge — the one place accent
-   earns its keep in the feed: "this is about YOUR guy". */
 .storyRoster {
-  box-shadow: inset 2px 0 0 var(--accent);
+  border-left: 3px solid var(--accent);
+  padding-left: 18px;
 }
 .headline {
   margin: 0;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-snug);
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.15;
   color: var(--text-primary);
 }
 .headlineLink {
@@ -99,14 +381,14 @@
 }
 .headlineLink:hover {
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 4px;
 }
 .body {
   margin: 0;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-normal);
+  font-family: var(--font-prose, var(--font-ui));
+  font-size: 13px;
+  line-height: 1.8;
   color: var(--text-secondary);
-  /* Two lines is the scan budget; the source link carries the rest. */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -116,17 +398,18 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1);
+  gap: 8px;
 }
 .mention {
   font-family: var(--font-ui);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-medium);
+  font-size: 11px;
+  font-weight: 550;
   color: var(--text-secondary);
-  background: var(--surface-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-1);
-  padding: 1px var(--space-2);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border-default);
+  padding: 6px 0;
+  min-height: 36px;
   cursor: pointer;
 }
 .mention:hover {
@@ -140,74 +423,66 @@
 .mentionLeague {
   color: var(--text-primary);
 }
-
-/* ── Digest rows ──────────────────────────────────────────────────── */
-/* Identity rail + digest body. The fixed identity column is what
-   makes the list scan like a terminal rather than a blog roll. */
 .digest {
   display: grid;
-  grid-template-columns: minmax(140px, 200px) 1fr;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
+  grid-template-columns: minmax(170px, 230px) minmax(0, 1fr);
+  gap: 30px;
+  padding: 28px 0;
 }
 .digest:hover {
   background: var(--surface-hover);
 }
-@media (width < 768px) {
-  .digest {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
-  }
-}
 .digestIdentity {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 7px;
   min-width: 0;
 }
 .digestPlayer {
   display: inline-flex;
   align-items: baseline;
-  gap: var(--space-1);
+  gap: 4px;
   background: none;
   border: 0;
   padding: 0;
   margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--line-height-tight);
+  min-height: 36px;
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.05;
   color: var(--text-primary);
   text-align: left;
   cursor: pointer;
 }
 .digestPlayer:hover {
-  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 .digestIdentityMeta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-2xs);
-  color: var(--text-tertiary);
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-secondary);
 }
 .digestPos {
   font-family: var(--font-data);
   text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: 0.07em;
 }
 .digestBody {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 12px;
   min-width: 0;
 }
-/* The synthesized digest text. Mechanical today (one attributed line
-   per story from src/news/digest.py); LLM prose slots in unchanged. */
 .digestSummary {
   margin: 0;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-normal);
+  font-family: var(--font-prose, var(--font-ui));
+  font-size: 13px;
+  line-height: 1.85;
   color: var(--text-secondary);
   white-space: pre-line;
 }
@@ -215,21 +490,328 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1);
-  font-size: var(--font-size-2xs);
-  color: var(--text-tertiary);
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--text-secondary);
 }
 .digestCount {
   font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
 }
-
-/* Panel footnote: the count line under a populated feed. */
 .footnote {
   margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border-subtle);
-  font-size: var(--font-size-2xs);
-  color: var(--text-tertiary);
+  padding: 20px 0;
+  border-top: 1px solid var(--border-default);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.loadingTitle {
+  width: 220px;
+  margin-bottom: 30px;
+}
+.loadingLead {
+  padding: 35px 0;
+  border-top: 2px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-default);
+  margin-bottom: 24px;
+}
+@media (max-width: 1000px) {
+  .masthead {
+    gap: 25px;
+  }
+  .edition {
+    max-width: 230px;
+  }
+  .edition > strong {
+    font-size: 28px;
+  }
+  .coverage > div {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .coverage dt {
+    font-size: 9px;
+  }
+  .coverage dd {
+    font-size: 28px;
+  }
+  .controlsSelect {
+    min-width: 120px;
+  }
+  .leadGrid:has(.priority) {
+    grid-template-columns: minmax(0, 1fr) 270px;
+  }
+  .lead {
+    padding: 28px 25px 28px 0;
+  }
+  .lead h2 {
+    font-size: 49px;
+  }
+  .priority {
+    padding: 26px 22px;
+  }
+  .priority > h2 {
+    font-size: 46px;
+  }
+  .priority h3 {
+    font-size: 25px;
+  }
+  .digest {
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+@media (max-width: 767px) {
+  .page {
+    gap: 20px;
+  }
+  .masthead {
+    display: block;
+    padding-bottom: 20px;
+  }
+  .pageHeading :global(.ds-page-header__title) {
+    font-size: 82px;
+  }
+  .edition {
+    max-width: none;
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 15px;
+  }
+  .edition > span {
+    font-size: 8px;
+    margin: 0;
+  }
+  .edition > strong {
+    font-size: 24px;
+  }
+  .edition > p {
+    width: 100%;
+    margin: 0;
+    font-size: 11px;
+  }
+  .coverage {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 15px;
+  }
+  .coverage > div {
+    padding: 0 12px 12px;
+  }
+  .coverage > div:nth-child(4) {
+    padding-left: 0;
+  }
+  .coverage > div:nth-child(3) {
+    border-right: 0;
+  }
+  .coverage dd {
+    font-size: 26px;
+  }
+  .coverage dt {
+    font-size: 9px;
+  }
+  .coverage > div > span {
+    font-size: 8px;
+  }
+  .wireLabel {
+    padding: 12px;
+    font-size: 8px;
+    gap: 6px;
+  }
+  .wireCopy {
+    padding: 10px 12px;
+  }
+  .wireCopy > span {
+    font-size: 8px;
+  }
+  .wireHeadline {
+    font-size: 10px;
+  }
+  .wireControls > button {
+    min-width: 36px;
+  }
+  .leadGrid:has(.priority) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lead {
+    padding: 28px 0;
+  }
+  .lead h2 {
+    font-size: 48px;
+    margin: 17px 0;
+  }
+  .leadSummary {
+    font-size: 13px;
+    -webkit-line-clamp: 4;
+  }
+  .priority {
+    padding: 26px 20px;
+  }
+  .priority > h2 {
+    max-width: none;
+    font-size: 43px;
+    margin-bottom: 20px;
+  }
+  .priority h3 {
+    font-size: 28px;
+  }
+  .priorityMeta {
+    font-size: 9px;
+  }
+  .priority li {
+    padding: 20px 0;
+  }
+  .priority time,
+  .priorityNote {
+    font-size: 10px;
+  }
+  .controls {
+    gap: 12px;
+    padding: 12px 0;
+  }
+  .controlsSearch {
+    min-width: 100%;
+    width: 100%;
+  }
+  .controlsSelect {
+    flex: 1;
+    min-width: 0;
+  }
+  .controlsSpacer {
+    display: none;
+  }
+  .controls :global(.ds-tabs) {
+    max-width: 100%;
+  }
+  .feedHeading {
+    padding-top: 28px;
+  }
+  .feedHeading h2 {
+    font-size: 32px;
+  }
+  .headline {
+    font-size: 29px;
+  }
+  .story {
+    padding: 22px 0;
+  }
+  .storyRoster {
+    padding-left: 13px;
+  }
+  .meta {
+    font-size: 9px;
+    gap: 8px;
+  }
+  .body {
+    font-size: 12px;
+  }
+  .digest {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 24px 0;
+  }
+  .digestPlayer {
+    font-size: 31px;
+  }
+  .digestIdentity {
+    gap: 6px;
+  }
+  .digestSummary {
+    font-size: 12px;
+  }
+  .mention {
+    min-height: 44px;
+    font-size: 11px;
+  }
+  .kicker {
+    font-size: 9px;
+  }
+  .leadAttribution {
+    font-size: 9px;
+    gap: 8px;
+  }
+  .wireControls > button:first-child {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page * {
+    scroll-behavior: auto;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.researchRail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  padding: 32px;
+  background: var(--sn-navy, #0b2130);
+  color: var(--sn-cream, #f0eddf);
+}
+.researchRail h2 {
+  font-family: var(--font-display, Impact, sans-serif);
+  font-size: 36px;
+  line-height: 1;
+  margin: 14px 0 0;
+  color: inherit;
+}
+.researchRail > .kicker,
+.researchRail .kicker {
+  color: var(--sn-gold, #f7c77f);
+}
+.researchRail > p {
+  font-size: 12px;
+  max-width: 300px;
+  margin: 0;
+  color: #d0d8d5;
+  line-height: 1.8;
+}
+.researchRail > a {
+  padding: 12px 18px;
+  min-height: 44px;
+  background: var(--sn-cream, #f0eddf);
+  color: var(--sn-navy, #0b2130);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.researchRail > a:focus-visible {
+  outline: 3px solid var(--sn-gold, #f7c77f);
+  outline-offset: 4px;
+}
+@media (max-width: 767px) {
+  .researchRail {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 28px 22px;
+    gap: 20px;
+  }
+  .researchRail h2 {
+    font-size: 35px;
+  }
+  .researchRail > p {
+    font-size: 12px;
+    max-width: none;
+  }
+}
+
+/* Keep the lead within reach on a phone; the edition standfirst is secondary
+   to the canonical heading, scope and actual source timestamps. */
+@media (max-width: 767px) {
+  .edition {
+    display: none;
+  }
+  .controls :global(.ds-tab),
+  .controls :global(.ds-segmented__option) {
+    font-size: 10px;
+    padding-inline: 9px;
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
