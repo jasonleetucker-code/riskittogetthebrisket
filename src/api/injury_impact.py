@@ -91,6 +91,9 @@ _DECAY_WINDOW_MS: int = 30 * 24 * 3600 * 1000
 # Maximum discount.  Capped low for dynasty.
 _MAX_DISCOUNT_PCT: float = 5.0
 
+# A report timestamped later than now + this is not evidence of a current injury.
+_FUTURE_SKEW_MS: int = 5 * 60 * 1000
+
 
 # NFL offseason months (inclusive).  February through August is
 # the window where news-driven price shocks should be dampened to
@@ -154,10 +157,12 @@ def _age_multiplier(age: Any, is_rookie: bool) -> float:
 def _news_ms(iso: Any) -> int | None:
     if not isinstance(iso, str):
         return None
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     try:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        if dt.tzinfo is None:  # naive ISO strings are UTC, never the host's local time
+            dt = dt.replace(tzinfo=timezone.utc)
         return int(dt.timestamp() * 1000)
     except (ValueError, TypeError):
         return None
@@ -236,6 +241,8 @@ def compute_injury_discount(
         if a["classification"] == injury_evidence.CONFIRMED_INJURY:
             if ts is None:
                 a = {**a, "classification": "timestamp_unavailable", "reason": "no_parseable_ts"}
+            elif ts > now_ms + _FUTURE_SKEW_MS:
+                a = {**a, "classification": "future_dated_report", "reason": "ts_after_now"}
             elif now_ms - ts >= _DECAY_WINDOW_MS:
                 a = {**a, "classification": "stale_report", "reason": "older_than_decay_window"}
         result["evidence"].append(

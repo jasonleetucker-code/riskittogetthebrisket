@@ -15,7 +15,7 @@ def _news(
     impact: str | None = "negative",
     headline: str = "Test Player suffered a torn ACL",
 ) -> dict:
-    ts = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
+    ts = datetime(2026, 5, 15, tzinfo=timezone.utc) - timedelta(hours=hours_ago)
     players = [{"name": "Test Player", "impact": impact}] if impact else []
     return {
         "severity": severity,
@@ -448,3 +448,90 @@ def test_unavailable_identity_or_evidence_never_discounts():
     assert out["appliedDiscountPct"] == 0.0 and out["adjustedValue"] == 8000
     out = _apply([])
     assert out["evidenceState"] == "no_news"
+
+
+# ---------------------------------------------------------------------------
+# Review S1/S2/S3: negation/return/hedge words are scoped to the injury CLAIM
+# ---------------------------------------------------------------------------
+
+from src.api import injury_evidence as _ev  # noqa: E402
+
+
+def _cls(text):
+    item = {"headline": text, "players": [{"name": "Test Player"}]}
+    return _ev.assess_item(item, player_name="Test Player")["classification"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # S1: return / negation words that CONFIRM an injury
+        "Test Player (knee) questionable to return",
+        "Test Player carted off, will not return",
+        "Test Player is doubtful to return with a hamstring strain",
+        "Test Player not cleared to practice with hamstring injury",
+        "Test Player hasn't been cleared after a concussion",
+        "MRI showed no structural damage but Test Player's ankle sprain keeps him out",
+        "Test Player torn ACL, expected return in 9 months",
+        # S2: a hedged duration / availability of a STATED injury is still an injury
+        "Test Player suffered a torn ACL and could miss the rest of the season",
+        "Test Player (ankle) may not play Sunday",
+        # S3: availability loss without a body part
+        "Test Player will miss 4-6 weeks",
+        "Test Player out indefinitely",
+        "Test Player ruled out for Sunday",
+        "Test Player placed on IR",
+    ],
+)
+def test_claim_scoped_language_is_injury_evidence(text):
+    assert _cls(text) == _ev.CONFIRMED_INJURY
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        # genuine resolution still resolves
+        ("Test Player returned to practice", _ev.RETURN_TO_PLAY),
+        ("Test Player returns to practice after ankle injury", _ev.RETURN_TO_PLAY),
+        ("Test Player activated from IR", _ev.RETURN_TO_PLAY),
+        ("Test Player cleared to play Sunday", _ev.NEGATED),
+        ("Test Player has no injury", _ev.NEGATED),
+        ("Test Player is not injured", _ev.NEGATED),
+        ("MRI showed no structural damage for Test Player", _ev.NEGATED),
+        # pure speculation about whether an injury exists is not evidence
+        ("Test Player could be dealing with an injury", _ev.SPECULATION),
+        ("Test Player may have aggravated his hamstring", _ev.SPECULATION),
+    ],
+)
+def test_genuine_resolution_and_pure_speculation_are_not_injury_evidence(text, expected):
+    assert _cls(text) == expected
+
+
+def test_availability_loss_for_non_injury_reason_is_not_injury_evidence():
+    assert _cls("Test Player will miss the next 2 games due to suspension") != _ev.CONFIRMED_INJURY
+    assert _cls("Test Player will miss two games for personal reasons") != _ev.CONFIRMED_INJURY
+
+
+def test_confirming_phrases_do_not_veto_a_confirmed_injury():
+    items = [
+        _item("Test Player suffered a torn ACL", hours_ago=5),
+        _item("Test Player (knee) questionable to return", hours_ago=1),
+        _item("Test Player carted off, will not return", hours_ago=2),
+    ]
+    out = _apply(items)
+    assert out["evidenceState"] == "confirmed_injury" and out["appliedDiscountPct"] > 0
+
+
+def test_future_dated_report_is_not_current_evidence():
+    item = _item("Test Player suffered a torn ACL", hours_ago=-24)
+    out = _apply([item])
+    _assert_untouched(out)
+    assert out["evidence"][0]["classification"] == "future_dated_report"
+
+
+def test_naive_iso_timestamp_is_utc_not_local_time():
+    ms = injury_impact._news_ms("2026-10-14T23:00:00")
+    assert ms == int(datetime(2026, 10, 14, 23, tzinfo=timezone.utc).timestamp() * 1000)
+    item = _item("Test Player suffered a torn ACL")
+    item["ts"] = "2026-10-14T23:00:00"
+    assert _apply([item])["appliedDiscountPct"] > 0

@@ -345,3 +345,35 @@ def test_rival_unknown_balances_are_still_excluded_from_clearing():
     assert any(
         f["label"] == "Expected competition" and f["missing"] for f in with_unknown["factors"]
     )
+
+
+def test_unknown_own_ceiling_is_none_end_to_end_never_zero():
+    """The displayed own ceiling is None (not 0.0) when the balance is unknown, and the bid
+    optimiser accepts None explicitly instead of coercing it."""
+    cfg = FE.FaabConfig()
+    ceil = FE.team_ceiling(
+        FE.PlayerInput(value=2500), _anchors(), _league(100), _team(None), config=cfg
+    )
+    assert ceil["teamCeilingDollars"] is None and ceil["remaining"] is None
+    assert ceil["teamRawCeilingDollars"] > 0
+    out = FE.optimal_bid(
+        [],
+        raw_ceiling_dollars=ceil["teamRawCeilingDollars"],
+        display_ceiling_dollars=None,
+        demand_signal=0.5,
+        league=_league(100),
+        team=_team(40),
+        config=cfg,
+    )
+    # a KNOWN balance with an absent displayed ceiling is bounded by the raw ceiling
+    assert 0 < out["maxRational"] <= 40
+    unknown = FE.optimal_bid(
+        [],
+        raw_ceiling_dollars=ceil["teamRawCeilingDollars"],
+        display_ceiling_dollars=None,
+        demand_signal=0.5,
+        league=_league(100),
+        team=_team(None),
+        config=cfg,
+    )
+    assert unknown["maxRational"] is None and unknown["clearing"] is not None

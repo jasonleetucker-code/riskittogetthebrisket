@@ -221,7 +221,9 @@ def _join_board_row(
 # ── FAAB block (engine numbers, labelled) ────────────────────────────
 
 
-def _faab_block(cand: Mapping[str, Any], methodology: str | None) -> dict[str, Any]:
+def _faab_block(
+    cand: Mapping[str, Any], methodology: str | None, *, balance_known: bool = True
+) -> dict[str, Any]:
     """The engine's standalone bid numbers for one candidate, kept apart.
 
     ``expectedWinningBid`` is a MARKET estimate (the engine's modelled clearing
@@ -230,9 +232,16 @@ def _faab_block(cand: Mapping[str, Any], methodology: str | None) -> dict[str, A
     UNAVAILABLE rather than invented.
     """
     bid = cand.get("bid") if isinstance(cand.get("bid"), Mapping) else None
-    recommended = _num(bid.get("reasonable")) if bid else None
     market_aware = methodology == "market_aware"
-    if recommended is None:
+    if not balance_known:
+        # The list's bids were bounded by the league budget standing in for an unknown
+        # balance; none of them is this team's bid (MISSING IS NEVER THE FULL BUDGET).
+        bid = None
+    recommended = _num(bid.get("reasonable")) if bid else None
+    if not balance_known:
+        state = "unavailable"
+        reason = "team_faab_balance_unknown"
+    elif recommended is None:
         state = "unavailable"
         reason = "engine_returned_no_bid"
     elif market_aware:
@@ -259,7 +268,7 @@ def _faab_block(cand: Mapping[str, Any], methodology: str | None) -> dict[str, A
             "median": None,
             "high": None,
         }
-    max_rational = _num(cand.get("maxRational")) if market_aware else None
+    max_rational = _num(cand.get("maxRational")) if market_aware and balance_known else None
     return {
         "state": state,
         "reason": reason,
@@ -631,6 +640,8 @@ def assemble_waiver_advisor(
     if team is None:
         raise ValueError("unknown_team")
 
+    _raw_faab = team.get("faabRemaining")
+    _balance_known = isinstance(_raw_faab, int) and _raw_faab >= 0
     notes: list[str] = []
     targets = waiver_targets if isinstance(waiver_targets, Mapping) else {}
     methodology = targets.get("bidMethodology")
@@ -715,7 +726,7 @@ def assemble_waiver_advisor(
                 "lineup": lineup.impact(row, name, value),
                 "plan": _plan_block(str(row.get("playerId") or name), moves, nxt),
                 "capacity": _capacity_block(capacity_context, name),
-                "faab": _faab_block(cand, methodology),
+                "faab": _faab_block(cand, methodology, balance_known=_balance_known),
             }
         )
 

@@ -1221,7 +1221,7 @@ def optimal_bid(
     rivals: Sequence[RivalTeam],
     *,
     raw_ceiling_dollars: float,
-    display_ceiling_dollars: float,
+    display_ceiling_dollars: float | None,
     demand_signal: float,
     league: LeagueContext,
     team: TeamContext,
@@ -1253,7 +1253,11 @@ def optimal_bid(
     # search bound would make every player above the all-in line share
     # one cap and collapse the ladder — a 9999 player and a 2341
     # player would draw the same bid.
-    hard_cap = int(min(remaining, math.floor(max(raw_ceiling_dollars, display_ceiling_dollars))))
+    # ``display_ceiling_dollars`` is ``None`` when the team's own ceiling is UNKNOWN (balance
+    # unknown); that is never 0.  The raw ceiling (>= the displayed one by construction) is the
+    # bound that matters, so an absent displayed figure simply does not participate.
+    ceiling_bound = max(c for c in (raw_ceiling_dollars, display_ceiling_dollars) if c is not None)
+    hard_cap = int(min(remaining, math.floor(ceiling_bound)))
 
     # The expected clearing price is a statement about the MARKET, not
     # about us, so it is scanned over the full budget rather than over
@@ -1500,7 +1504,7 @@ def recommend(
     bids = optimal_bid(
         usable_rivals,
         raw_ceiling_dollars=ceil["teamRawCeilingDollars"],
-        display_ceiling_dollars=ceil["teamCeilingDollars"] or 0.0,
+        display_ceiling_dollars=ceil["teamCeilingDollars"],
         demand_signal=demand_signal,
         league=league,
         team=team,

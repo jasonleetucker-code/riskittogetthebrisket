@@ -422,6 +422,8 @@ def assemble_streaming(
                 table[a.player_id] = _release_cost(a, rung, ladders.get(fam, ()))
         return table
 
+    from src.trade import perfect_waivers as _perfect_waivers  # noqa: PLC0415
+
     # ── free agents ──────────────────────────────────────────────────
     free_agents: list[solver.StreamPlayer] = []
     fa_meta: dict[str, dict[str, Any]] = {}
@@ -473,7 +475,13 @@ def assemble_streaming(
             "dynastyValueState": "priced" if value is not None else "unknown_off_board",
             "bid": bid,
             "bidBasis": bid_basis,
-            "bidDetail": dict(bid_c.bid_detail) if bid_c is not None else None,
+            "bidDetail": (
+                _perfect_waivers.balance_scoped_bid_detail(
+                    bid_c.bid_detail, balance_known=faab_remaining is not None
+                )
+                if bid_c is not None
+                else None
+            ),
             "weeks": detail,
         }
 

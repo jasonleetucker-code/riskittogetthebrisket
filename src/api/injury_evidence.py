@@ -40,6 +40,9 @@ def _rx(words: tuple[str, ...]) -> re.Pattern[str]:
     return re.compile(r"\b(?:" + "|".join(words) + r")\b", re.IGNORECASE)
 
 
+# GENUINE resolution only.  Negation/return words are scoped to the injury CLAIM: "not cleared",
+# "will not return", "questionable to return" CONFIRM an injury and are rewritten (below) before
+# the resolution patterns run.
 _NEGATED = _rx(
     (
         r"no injur\w*",
@@ -51,10 +54,22 @@ _NEGATED = _rx(
         r"cleared",
         r"avoided (?:a |any )?(?:serious |major )?injury",
         r"no structural damage",
-        r"not (?:hurt|seriously hurt)",
-        r"injury (?:fears|concerns|scare) (?:eased|allayed|unfounded)",
         r"dodged (?:a |an )?injury",
+        r"injury (?:fears|concerns|scare) (?:eased|allayed|unfounded)",
     )
+)
+# "not cleared", "hasn't been cleared", "not yet cleared" -> the player is NOT cleared: an injury.
+_NOT_CLEARED = re.compile(
+    r"\b(?:not|never|n't|yet|without)(?:\W+\w+){0,2}?\W+cleared\b", re.IGNORECASE
+)
+# Negated / hedged RETURN is an availability loss, i.e. injury-confirming.
+_NEG_RETURN = re.compile(
+    r"\b(?:(?:will|would|could)\s+not|won'?t|wouldn'?t|not\s+(?:expected|likely)\s+to|"
+    r"unlikely\s+to|unable\s+to|did\s+not|didn'?t|doesn'?t|does\s+not|questionable\s+to|"
+    r"doubtful\s+to|not\s+able\s+to|no\s+timetable\s+(?:for|to)|"
+    r"(?:expected|projected|potential|target\w*)(?:\s+a)?)"
+    r"\s+(?:\w+\s+)?return\w*|\breturn\w*\s+(?:in|by|around|after\s+\d|no\s+earlier)\b",
+    re.IGNORECASE,
 )
 _RETURN = _rx(
     (
@@ -98,14 +113,15 @@ _HISTORICAL = _rx(
         r"former injur\w*",
     )
 )
+# Hedges on whether an injury EXISTS.  A hedged duration/availability ("could miss the rest of
+# the season", "may not play Sunday") hedges the consequence of a stated injury, not its existence.
 _SPECULATION = _rx(
     (
         r"rumou?rs?",
         r"speculat\w*",
         r"unconfirmed",
-        r"could",
-        r"might",
-        r"may",
+        r"(?:could|might|may)\s+(?:possibly\s+)?(?:be|have)\s+(?:been\s+)?"
+        r"(?:dealing|suffering|nursing|hurt|injured|aggravat\w*|re-?injur\w*|suffer\w*|tweak\w*|battling)",
         r"fears?",
         r"unclear",
         r"unknown",
@@ -157,6 +173,12 @@ _INJURY = _rx(
         r"day[- ]to[- ]day",
         r"carted off",
         r"left the game",
+        # availability loss without a body part
+        r"\b(?:will|to|expected to|likely to)\s+miss\s+(?:the\s+)?(?:next|rest|remainder|\d|several|multiple|extended)",
+        r"out\s+indefinitely",
+        r"sidelined",
+        r"week[- ]to[- ]week",
+        r"out\s+(?:until|through|vs|against|for\s+(?:sunday|monday|thursday|saturday|friday))",
     )
 )
 _CONTRACT = _rx(
@@ -175,7 +197,17 @@ _CONTRACT = _rx(
     )
 )
 _TRANSACTION = _rx((r"trade", r"traded", r"acquire\w*", r"released", r"waived", r"claimed", r"cut"))
-_SUSPENSION = _rx((r"suspen\w*", r"arrest\w*", r"banned", r"violat\w*"))
+_SUSPENSION = _rx(
+    (
+        r"suspen\w*",
+        r"arrest\w*",
+        r"banned",
+        r"violat\w*",
+        r"personal (?:reasons|matter\w*)",
+        r"family",
+        r"bereavement",
+    )
+)
 _COACHING = _rx(
     (r"coach\w*", r"coordinator", r"play[- ]?calling", r"fired", r"hired", r"depth chart")
 )
@@ -209,11 +241,24 @@ def _clauses(item: dict[str, Any]) -> list[str]:
     return out
 
 
+def _scope_resolution(clause: str) -> str:
+    """Rewrite negated/hedged returns and negated clearances into injury-CONFIRMING wording so
+    resolution patterns only ever see genuine resolution."""
+    out = _NEG_RETURN.sub(" out ", clause)
+    out = _NOT_CLEARED.sub(" injured ", out)
+    return out
+
+
 def _classify_clause(clause: str) -> str:
     """Classify ONE clause that names the player."""
-    if _NEGATED.search(clause):
+    text = _scope_resolution(clause)
+    # An absence-of-finding phrase ("no structural damage") does not cancel an injury named
+    # elsewhere in the clause ("... but ankle sprain keeps him out").
+    residue = _NEGATED.sub(" ", text)
+    residual_injury = _INJURY.search(residue)
+    if _NEGATED.search(text) and not residual_injury:
         return NEGATED
-    inj = _INJURY.search(clause)
+    inj = residual_injury
     other_hits = [
         label
         for label, rx in (
@@ -222,9 +267,9 @@ def _classify_clause(clause: str) -> str:
             (SUSPENSION, _SUSPENSION),
             (COACHING, _COACHING),
         )
-        if rx.search(clause)
+        if rx.search(text)
     ]
-    ret = _RETURN.search(clause)
+    ret = _RETURN.search(text)
     if not inj:
         if ret:
             return RETURN_TO_PLAY
@@ -235,11 +280,11 @@ def _classify_clause(clause: str) -> str:
         # Injury vocabulary and a non-injury topic in one clause: unprovable which one the
         # claim is about.  Fail closed.
         return AMBIGUOUS
-    if _HISTORICAL.search(clause):
+    if _HISTORICAL.search(text):
         return HISTORICAL
-    if _RECOVERY.search(clause):
+    if _RECOVERY.search(text):
         return RECOVERY_UPDATE
-    if _SPECULATION.search(clause):
+    if _SPECULATION.search(text):
         return SPECULATION
     return CONFIRMED_INJURY
 
