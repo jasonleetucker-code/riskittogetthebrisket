@@ -31,7 +31,7 @@ import {
   linearScale,
   formatNumber,
 } from "../../lib/chart-primitives.js";
-import { fmtSimulatedShare } from "../../lib/division-odds.js";
+import { fmtSimulatedShare } from "../../lib/odds-disclosure.js";
 
 function certaintyLabel(kind) {
   if (kind === "posted") return { text: "Exact schedule", color: CHART_COLORS.success };

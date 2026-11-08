@@ -7,20 +7,10 @@
 // a division champion can miss the playoffs and a non-champion can qualify.
 // This module only groups and formats backend numbers — it computes no odds.
 
-/**
- * A simulated share as a percent.  A Monte Carlo estimate of exactly 0 or 1
- * is not proof (the simulation ran a finite number of seasons), so it reads
- * "<1%" / ">99%" until the season is final, when the outcome is a fact.
- */
-export function fmtSimulatedShare(p, { final = false } = {}) {
-  if (typeof p !== "number" || !Number.isFinite(p)) return "—";
-  const pct = Math.round(p * 100);
-  if (!final) {
-    if (pct <= 0) return "<1%";
-    if (pct >= 100) return ">99%";
-  }
-  return `${pct}%`;
-}
+// The formatter is owned by the odds-presentation module; re-exported here.
+import { fmtSimulatedShare } from "./odds-disclosure.js";
+
+export { fmtSimulatedShare };
 
 /**
  * ``[{ division, name, teams: [{ownerId, displayName, currentWins,
