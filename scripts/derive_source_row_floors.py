@@ -16,8 +16,12 @@ Floor rule (recorded in ``docs/sources/SOURCE_ROW_FLOORS.md``):
                  legitimately changes with the draft calendar
     floor      = floor(fraction * ratio * robust_min)
 
-Usage:  python scripts/derive_source_row_floors.py [--keys a,b] [--json out.json]
-Read-only: it prints evidence; nothing is written unless ``--json`` is given.
+    ceiling    = 2 * raw max   (report-only ``source_above_expected``)
+
+Usage:  python scripts/derive_source_row_floors.py [--keys a,b] [--json out.json] [--write-config]
+Read-only unless ``--json`` / ``--write-config`` is given.  ``--write-config`` adds floors for
+sources that declare none and sets their ceilings in config/weights/source_row_floors.json.
+It also prints the reference board (archive name + sha256) the match ratios were measured on.
 """
 
 from __future__ import annotations
@@ -63,6 +67,19 @@ def history_counts(csv_rel: str, source_key: str, signal: str) -> list[int]:
     return counts
 
 
+def reference_board() -> tuple[str | None, str | None]:
+    """(archive file name, sha256) of the board the match ratios use."""
+    import hashlib
+
+    sys.path.insert(0, str(REPO / "tests"))
+    from archive_fixtures import ARCHIVE, newest_complete_raw_payload
+
+    _, name = newest_complete_raw_payload()
+    if not name:
+        return None, None
+    return name, hashlib.sha256((ARCHIVE / name).read_bytes()).hexdigest()
+
+
 def reference_ratio(keys: list[str]) -> dict[str, tuple[int, int]]:
     """(built, raw) on the newest complete archived board, current repo CSVs."""
     sys.path.insert(0, str(REPO / "tests"))
@@ -96,6 +113,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--keys", default="")
     ap.add_argument("--json", default="")
+    ap.add_argument("--write-config", action="store_true")
     args = ap.parse_args()
     from src.api import data_contract as dc
 
@@ -132,8 +150,20 @@ def main() -> int:
             "matchRatio": round(ratio, 4),
             "fraction": frac,
             "floor": int(frac * ratio * robust_min),
+            "ceiling": 2 * max(counts),
         }
         print(k, json.dumps(report[k]))
+    board_name, board_sha = reference_board()
+    print(f"reference board: {board_name} sha256={board_sha}")
+    if args.write_config:
+        cfg_path = REPO / "config" / "weights" / "source_row_floors.json"
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        for k, v in report.items():
+            if "floor" in v:
+                cfg["floors"].setdefault(k, v["floor"])
+                cfg.setdefault("ceilings", {})[k] = v["ceiling"]
+        cfg_path.write_text(json.dumps(cfg, indent=2) + "
+", encoding="utf-8")
     if args.json:
         Path(args.json).write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     return 0

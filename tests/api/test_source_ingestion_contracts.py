@@ -251,3 +251,49 @@ def test_floor_config_is_valid_json_with_floors_and_ceilings():
     )
     assert all(isinstance(v, int) and v > 0 for v in cfg["floors"].values())
     assert all(cfg["ceilings"][k] > cfg["floors"][k] for k in cfg["ceilings"])
+
+
+# ---- review follow-ups ------------------------------------------------------------
+
+
+def test_undecodable_file_is_a_parse_exception_source_health_error(tmp_path):
+    errs = _ingest(tmp_path, "ktcSfTep", b"name,value\n\xff\xfe\x00bad,\x80\x81\n" * 3)
+    assert [e["error"] for e in errs] == ["parse_exception"]
+    assert "Error" in errs[0]["detail"]
+    pe = [{"source": "ktcSfTep", "path": "x", "error": "parse_exception"}]
+    report = validate_api_data_contract(_payload({}, parse_errors=pe))
+    assert "source_ingest_failure:ktcSfTep:parse_exception" in report["sourceHealthErrors"]
+
+
+def test_ingest_stats_are_reset_when_a_good_file_turns_bad(tmp_path):
+    key = "ktcSfTep"
+    path = tmp_path / _entry(key)[0]
+    assert _ingest(tmp_path, key, _good(key, _valid_rows(50, rank=False))) == []
+    assert dc._SOURCE_CSV_INGEST_STATS[str(path)]["dataRows"] == 50
+    import os
+
+    st = path.stat()
+    errs = _ingest(tmp_path, key, "colA,colB\nx,1\n")  # renamed header: early return
+    os.utime(path, (st.st_atime, st.st_mtime + 5))  # defeat same-mtime cache
+    errs = _ingest(tmp_path, key, "colA,colB\nx,1\n")
+    assert [e["error"] for e in errs] == ["schema_mismatch"]
+    assert dc._SOURCE_CSV_INGEST_STATS[str(path)]["dataRows"] == 0
+
+
+@pytest.mark.parametrize("kind", ["duplicate_rows", "invalid_numeric_fields"])
+def test_report_only_findings_do_not_flip_degraded(kind):
+    clean = validate_api_data_contract(_payload({}))
+    pe = [{"source": "ktcSfTep", "path": "x", "error": kind}]
+    report = validate_api_data_contract(_payload({}, parse_errors=pe))
+    assert report["status"] == clean["status"]
+    assert f"source_parse_error:ktcSfTep:{kind}" in report["warnings"]
+
+
+def test_rookie_boards_thinning_together_do_not_flip_degraded_but_still_warn():
+    floors = _load_source_row_floors()
+    clean = validate_api_data_contract(_payload({}))
+    thin = {"dlfRookieSf": floors["dlfRookieSf"] // 2, "dlfRookieIdp": floors["dlfRookieIdp"] // 2}
+    report = validate_api_data_contract(_payload(thin))
+    assert report["status"] == clean["status"]
+    for k in thin:
+        assert any(w.startswith(f"source_below_floor:{k}:") for w in report["warnings"])

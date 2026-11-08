@@ -123,9 +123,9 @@ rows read back as 911) and `..._page_rows_come_from_registered_sources_not_scrap
 `tests/api/test_source_health_population.py` and `frontend/__tests__/components/source-health-strip.test.jsx`
 (population cases).
 
-## W05-F003 (zero-row / renamed-header CSV is silent) - CLOSED 2026-11-08
+## W05-F003 (zero-row / renamed-header CSV is silent) - FIXED_IN_PR #2159 (not yet merged)
 
-Closed by the universal probe + `source_empty` / `no_usable_rows` / `schema_mismatch` named errors (`source_ingest_failure:` source-health kind); see `docs/sources/SOURCE_ROW_FLOORS.md`. The historical analysis below is retained.
+Fixed in PR #2159 by the universal probe + `source_empty` / `no_usable_rows` / `schema_mismatch` named errors (`source_ingest_failure:` source-health kind); see `docs/sources/SOURCE_ROW_FLOORS.md`. The historical analysis below is retained.
 
 **Claim.** Only file-missing appends a parse error; a header-only CSV and a vendor header rename on 18 of 22
 sources vanish with `sourceParseErrors == []`.
@@ -149,9 +149,9 @@ column per source) and emit `source_empty:<key>` for a cleanly parsed zero-row C
 `sourceParseErrors` entries. Pure ingestion-health change, no value effect; gate is the existing structural lane
 (a warning, so a structural lane remains green).
 
-## W05-F004 (sources with no row-count floor) - CLOSED 2026-11-08
+## W05-F004 (sources with no row-count floor) - FIXED_IN_PR #2159 (not yet merged)
 
-Closed: all nine floors added from git-history evidence (`scripts/derive_source_row_floors.py`, `docs/sources/SOURCE_ROW_FLOORS.md`). The historical analysis below is retained.
+Fixed in PR #2159: all nine floors added from git-history evidence (`scripts/derive_source_row_floors.py`, `docs/sources/SOURCE_ROW_FLOORS.md`). The historical analysis below is retained.
 
 **Claim.** 9 of 21 registered sources had no floor; deleting `ktcSfTep` left `contractHealth` healthy.
 

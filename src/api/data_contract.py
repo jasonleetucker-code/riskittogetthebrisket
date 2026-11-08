@@ -5689,6 +5689,11 @@ def _parse_source_csv_cached(
 
     csv_lookup: dict[str, list[tuple[str, int, float | None]]] = {}
     schema_err: dict[str, str] | None = None
+    # Registered up front so EVERY return path (probe, schema, exception)
+    # overwrites the previous parse's counters instead of leaving a stale
+    # "good" count beside a now-broken file.
+    _st = {"dataRows": 0, "blankNames": 0, "invalidNumeric": 0, "duplicateNames": 0}
+    _SOURCE_CSV_INGEST_STATS[cache_key] = _st
 
     _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
     # DLF raw CSV exports carry both ``Rank`` (ordinal) and ``Avg``
@@ -5864,7 +5869,6 @@ def _parse_source_csv_cached(
         except OSError:
             _value_order_ranks = {}
 
-    _st = {"dataRows": 0, "blankNames": 0, "invalidNumeric": 0, "duplicateNames": 0}
     _seen_names: set[tuple[str, str]] = set()
     try:
         with csv_path.open("r", encoding="utf-8-sig") as f:
@@ -5966,7 +5970,9 @@ def _parse_source_csv_cached(
         schema_err = {
             "source": source_key,
             "path": str(csv_rel),
-            "error": f"{type(exc).__name__}: {exc}",
+            # Named kind (a source-health error), the exception kept as detail.
+            "error": "parse_exception",
+            "detail": f"{type(exc).__name__}: {exc}"[:300],
         }
         _LOGGER.warning(
             "Failed to parse source CSV %s (%s): %s",
@@ -5988,7 +5994,6 @@ def _parse_source_csv_cached(
             "dataRows": str(_st["dataRows"]),
             "invalidNumeric": str(_st["invalidNumeric"]),
         }
-    _SOURCE_CSV_INGEST_STATS[cache_key] = _st
     _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
     return csv_lookup, schema_err
 
@@ -17595,8 +17600,17 @@ _SOURCE_HEALTH_ERROR_KINDS: tuple[str, ...] = (
 #: ``sourceParseErrors`` kinds that mean the source delivered nothing readable
 #: as a source (as opposed to ``duplicate_rows`` / ``invalid_numeric_fields``,
 #: which are reported but leave usable rows behind).
+_REPORT_ONLY_PARSE_ERRORS: frozenset[str] = frozenset({"duplicate_rows", "invalid_numeric_fields"})
+
+#: Class-phase (rookie) sources: their population follows the draft calendar,
+#: and the two rookie boards describe the SAME class, so they thin together at
+#: a season transition.  They still warn (``source_below_floor``) but do not
+#: count toward the two-sources-below-floor ``degraded`` flip.
+_CLASS_PHASE_FLOOR_SOURCES: frozenset[str] = frozenset(
+    {"dlfRookieSf", "dlfRookieIdp", "flockFantasySfRookies"}
+)
 _INGEST_FAILURE_ERRORS: frozenset[str] = frozenset(
-    {"schema_mismatch", "source_empty", "no_usable_rows"}
+    {"schema_mismatch", "source_empty", "no_usable_rows", "parse_exception"}
 )
 
 
@@ -17924,7 +17938,8 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 any_source_missing = True
             elif threshold is not None and count < threshold:
                 warnings.append(f"source_below_floor:{src_key}:{count}:{threshold}")
-                below_floor_count += 1
+                if src_key not in _CLASS_PHASE_FLOOR_SOURCES:
+                    below_floor_count += 1
             ceiling = row_ceilings.get(src_key)
             if ceiling is not None and count > ceiling:
                 # REPORTED, never refused and never degrading: a population
@@ -18222,7 +18237,8 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 errors.append(
                     f"source_ingest_failure:{perr.get('source', '?')}:{perr.get('error')}"
                 )
-        degraded = True
+            if perr.get("error") not in _REPORT_ONLY_PARSE_ERRORS:
+                degraded = True
 
     # ── Withheld votes / reduced pick evidence (owner 2026-10-07) ────────
     # A source whose content aged past the freshness quarantine (or whose

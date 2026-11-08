@@ -14,11 +14,13 @@ only where the row loop would have skipped every row anyway, so no value on a he
 | `schema_mismatch` (+ `missingColumns`) | renamed or missing required column | source-health ERROR `source_ingest_failure:<key>:schema_mismatch` |
 | `source_empty` | 0-byte file or header-only file | source-health ERROR `source_ingest_failure:<key>:source_empty` |
 | `no_usable_rows` | rows present, none parseable | source-health ERROR `source_ingest_failure:<key>:no_usable_rows` |
+| `parse_exception` (+ `detail`) | the parser raised (truncated/binary/undecodable file) | source-health ERROR `source_ingest_failure:<key>:parse_exception` |
 | `invalid_numeric_fields` | >= 10% of data rows carry an unparseable number | warning only |
 | `duplicate_rows` | >= 10% of data rows repeat an earlier (name, position) | warning only |
 
 `source_ingest_failure:` is in `_SOURCE_HEALTH_ERROR_KINDS` (full lane only; never structural). Sources absent by design
 (private, not provisioned) or inside their declared seasonal-inactive window are excused, exactly as `source_missing` is.
+`duplicate_rows` / `invalid_numeric_fields` are report-only: they warn but do not flip `degraded`. Counters are reset on every parse (including every early-return path), so `sourceIngestHealth` never shows a previous good file's numbers for a now-broken one.
 Per-CSV counters are stamped as `sourceIngestHealth` (dataRows, blankNames, invalidNumeric, duplicateNames).
 The 10% thresholds are PRIORS: on the 2026-11-08 repo CSVs invalid numeric was 0% everywhere and duplicates peaked at
 2.8% (fantasyProsIdp 9/319), because vendors genuinely list same-name players twice.
@@ -33,6 +35,17 @@ DraftSharks CSVs), counted with the contract's own parser.
     fraction   = 0.8, or 0.5 for class-phase rookie sources (population follows the draft calendar)
     floor      = floor(fraction * ratio * robust_min)
     ceiling    = 2 * raw max   (report-only)
+
+Reference board for the match ratios: `exports/archive/dynasty_export_20261108_064538.zip`,
+sha256 `05e95134d5dc093263890f1369f6f0e060e2e48a76aad51b5193d7f00a7f74b3`, built against the repo CSVs at the
+commit that added the floors. The 2x ceilings and the config write are produced by the same script
+(`python scripts/derive_source_row_floors.py --keys <list> --write-config`); floors are only added where none exists.
+
+Seasonal transitions: `dlfRookieSf`, `dlfRookieIdp` and `flockFantasySfRookies` describe class-phase populations and
+thin together at a draft-season change. They keep their (0.5-fraction) floors and still emit `source_below_floor`
+warnings, but are excluded from the "two or more sources below floor" `degraded` flip
+(`_CLASS_PHASE_FLOOR_SOURCES`); a collapse to zero still raises `source_missing` unless the declared seasonal policy
+excuses it.
 
 Collapsed observations (a degraded scrape) are excluded from the minimum because they are exactly the event a floor
 must catch. Reproduce: `python scripts/derive_source_row_floors.py`.

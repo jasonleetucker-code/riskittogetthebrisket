@@ -238,7 +238,7 @@ def test_w05_f001_page_rows_come_from_registered_sources_not_scraper_run_names()
 
 
 # ---------------------------------------------------------------------------
-# W05-F003  zero-row / renamed-header CSV is silent                      CLOSED
+# W05-F003  zero-row / renamed-header CSV is silent                      FIXED_IN_PR #2159 (not yet merged)
 # ---------------------------------------------------------------------------
 
 
@@ -294,7 +294,7 @@ def test_w05_f003_downstream_zero_rows_is_a_hard_error_for_every_registered_sour
 
 
 # ---------------------------------------------------------------------------
-# W05-F004  sources with no row-count floor                              CLOSED
+# W05-F004  sources with no row-count floor                              FIXED_IN_PR #2159 (not yet merged)
 # ---------------------------------------------------------------------------
 
 
