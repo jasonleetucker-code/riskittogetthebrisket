@@ -1,0 +1,681 @@
+{
+ "method": {
+  "script": "ad hoc curl loop (no committed measurement script exists; baseline was also ad hoc curl + Playwright); loop = Python subprocess curl, GET only, 5 sequential samples/target at ~1.1s spacing + 1 identity-encoding request for raw size, no parallelism, ~90 requests total",
+  "samples_per_target": 5,
+  "p95_note": "p95 of 5 samples == max",
+  "window_utc": "2026-11-08T00:17:34.147287Z to 2026-11-08T00:20:38.832499Z",
+  "vantage": "single local Windows client (not the baseline sandbox proxy)",
+  "production_build_commit": "bd7d1af8675b817d53a7e4caefde04596c90548b",
+  "backend_process_started_at": "2026-11-08T00:11:20Z (about 6 min before window: first samples after restart are cold)",
+  "skipped": [
+   "Playwright page-level metrics (requests count, FCP, long tasks) not re-run; budget",
+   "auth-gated: /draft, /bdvm, /api/bdvm/values, /api/sharp/roster-percentage, /api/data, /api/public/league/rosTeamStrength (all 401 anonymous); /api/health now 200 vs 503 baseline"
+  ]
+ },
+ "targets": {
+  "/": {
+   "samples_ms": [
+    490,
+    429,
+    473,
+    430,
+    572
+   ],
+   "p50_ms": 473,
+   "p95_ms": 572,
+   "max_ms": 572,
+   "bytes_raw": 47035,
+   "bytes_gzip": 5832,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "s-maxage=60, stale-while-revalidate=31535940",
+    "etag": "\"yfq2rl8oz910aj\"",
+    "content-encoding": "gzip"
+   }
+  },
+  "/league": {
+   "samples_ms": [
+    677,
+    530,
+    712,
+    496,
+    483
+   ],
+   "p50_ms": 530,
+   "p95_ms": 712,
+   "max_ms": 712,
+   "bytes_raw": 93832,
+   "bytes_gzip": 14128,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+    "content-encoding": "gzip"
+   }
+  },
+  "/api/status": {
+   "samples_ms": [
+    877,
+    530,
+    760,
+    644,
+    604
+   ],
+   "p50_ms": 644,
+   "p95_ms": 877,
+   "max_ms": 877,
+   "bytes_raw": 17949,
+   "bytes_gzip": 4833,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "private, max-age=15, stale-while-revalidate=30",
+    "content-encoding": "gzip"
+   }
+  },
+  "/api/draft-capital": {
+   "samples_ms": [
+    5215,
+    482,
+    506,
+    644,
+    403
+   ],
+   "p50_ms": 506,
+   "p95_ms": 5215,
+   "max_ms": 5215,
+   "bytes_raw": 145780,
+   "bytes_gzip": 8684,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "private, max-age=60, stale-while-revalidate=300",
+    "content-encoding": "gzip"
+   }
+  },
+  "/api/health": {
+   "samples_ms": [
+    431,
+    2825,
+    522,
+    431,
+    714
+   ],
+   "p50_ms": 522,
+   "p95_ms": 2825,
+   "max_ms": 2825,
+   "bytes_raw": 3223,
+   "bytes_gzip": 1201,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "content-encoding": "gzip"
+   }
+  },
+  "/api/leagues": {
+   "samples_ms": [
+    557,
+    403,
+    385,
+    476,
+    432
+   ],
+   "p50_ms": 432,
+   "p95_ms": 557,
+   "max_ms": 557,
+   "bytes_raw": 853,
+   "bytes_gzip": 853,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "no-store"
+   }
+  },
+  "/api/league/articles": {
+   "samples_ms": [
+    479,
+    486,
+    593,
+    401,
+    478
+   ],
+   "p50_ms": 479,
+   "p95_ms": 593,
+   "max_ms": 593,
+   "bytes_raw": 4631,
+   "bytes_gzip": 1607,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "public, max-age=120",
+    "content-encoding": "gzip"
+   }
+  },
+  "/api/public/league/overview": {
+   "samples_ms": [
+    469,
+    395,
+    411,
+    463,
+    398
+   ],
+   "p50_ms": 411,
+   "p95_ms": 469,
+   "max_ms": 469,
+   "bytes_raw": 14485,
+   "bytes_gzip": 3562,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "public, max-age=60, stale-while-revalidate=300",
+    "content-encoding": "gzip"
+   }
+  },
+  "/api/public/league": {
+   "samples_ms": [
+    1158,
+    940,
+    982,
+    1067,
+    1309
+   ],
+   "p50_ms": 1067,
+   "p95_ms": 1309,
+   "max_ms": 1309,
+   "bytes_raw": 2715235,
+   "bytes_gzip": 263141,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "public, max-age=60, stale-while-revalidate=300",
+    "content-encoding": "gzip"
+   }
+  },
+  "/api/public/league/rosTeamStrength": {
+   "samples_ms": [
+    416,
+    543,
+    428,
+    425,
+    585
+   ],
+   "p50_ms": 428,
+   "p95_ms": 585,
+   "max_ms": 585,
+   "bytes_raw": 146,
+   "bytes_gzip": 146,
+   "status": [
+    "401"
+   ],
+   "cache_headers": {}
+  },
+  "/api/public/league/activity": {
+   "samples_ms": [
+    725,
+    653,
+    671,
+    760,
+    587
+   ],
+   "p50_ms": 671,
+   "p95_ms": 760,
+   "max_ms": 760,
+   "bytes_raw": 206165,
+   "bytes_gzip": 17210,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "public, max-age=60, stale-while-revalidate=300",
+    "content-encoding": "gzip"
+   }
+  },
+  "/api/public/league/rosPower": {
+   "samples_ms": [
+    829,
+    660,
+    680,
+    1316,
+    799
+   ],
+   "p50_ms": 799,
+   "p95_ms": 1316,
+   "max_ms": 1316,
+   "bytes_raw": 272796,
+   "bytes_gzip": 21954,
+   "status": [
+    "200"
+   ],
+   "cache_headers": {
+    "cache-control": "public, max-age=60, stale-while-revalidate=300",
+    "content-encoding": "gzip"
+   }
+  },
+  "/api/sharp/roster-percentage": {
+   "samples_ms": [
+    520,
+    427,
+    522,
+    534,
+    567
+   ],
+   "p50_ms": 522,
+   "p95_ms": 567,
+   "max_ms": 567,
+   "bytes_raw": 55,
+   "bytes_gzip": 55,
+   "status": [
+    "401"
+   ],
+   "cache_headers": {
+    "cache-control": "no-store"
+   }
+  },
+  "/api/bdvm/values": {
+   "samples_ms": [
+    551,
+    545,
+    599,
+    549,
+    442
+   ],
+   "p50_ms": 549,
+   "p95_ms": 599,
+   "max_ms": 599,
+   "bytes_raw": 55,
+   "bytes_gzip": 55,
+   "status": [
+    "401"
+   ],
+   "cache_headers": {
+    "cache-control": "no-store"
+   }
+  },
+  "/api/data?view=app": {
+   "samples_ms": [
+    404,
+    560,
+    513,
+    419,
+    452
+   ],
+   "p50_ms": 452,
+   "p95_ms": 560,
+   "max_ms": 560,
+   "bytes_raw": 55,
+   "bytes_gzip": 55,
+   "status": [
+    "401"
+   ],
+   "cache_headers": {
+    "cache-control": "no-store"
+   }
+  }
+ },
+ "baseline_2026-11-06": {
+  "/": {
+   "samples_ms": [
+    492,
+    499,
+    514,
+    642,
+    800
+   ],
+   "p50_ms": 514,
+   "p95_ms": 800,
+   "bytes_gzip_or_as_served": 5830,
+   "status": [
+    "200"
+   ]
+  },
+  "/league": {
+   "samples_ms": [
+    648,
+    722,
+    835,
+    836,
+    892
+   ],
+   "p50_ms": 835,
+   "p95_ms": 892,
+   "bytes_gzip_or_as_served": 14134,
+   "status": [
+    "200"
+   ]
+  },
+  "/api/status": {
+   "samples_ms": [
+    1225,
+    1254,
+    1399,
+    1680,
+    15783
+   ],
+   "p50_ms": 1399,
+   "p95_ms": 15783,
+   "bytes_gzip_or_as_served": 5836,
+   "status": [
+    "200"
+   ]
+  },
+  "/api/draft-capital": {
+   "samples_ms": [
+    401,
+    406,
+    534,
+    855,
+    3222
+   ],
+   "p50_ms": 534,
+   "p95_ms": 3222,
+   "bytes_gzip_or_as_served": 8684,
+   "status": [
+    "200"
+   ]
+  },
+  "/api/health": {
+   "samples_ms": [
+    401,
+    458,
+    515,
+    555,
+    652
+   ],
+   "p50_ms": 515,
+   "p95_ms": 652,
+   "bytes_gzip_or_as_served": 1356,
+   "status": [
+    "503"
+   ]
+  },
+  "/api/leagues": {
+   "samples_ms": [
+    404,
+    406,
+    417,
+    459,
+    485
+   ],
+   "p50_ms": 417,
+   "p95_ms": 485,
+   "bytes_gzip_or_as_served": 853,
+   "status": [
+    "200"
+   ]
+  },
+  "/api/league/articles": {
+   "samples_ms": [
+    418,
+    431,
+    433,
+    452,
+    454
+   ],
+   "p50_ms": 433,
+   "p95_ms": 454,
+   "bytes_gzip_or_as_served": 1607,
+   "status": [
+    "200"
+   ]
+  },
+  "/api/public/league/overview": {
+   "samples_ms": [
+    442,
+    447,
+    452,
+    464,
+    89819
+   ],
+   "p50_ms": 452,
+   "p95_ms": 89819,
+   "bytes_gzip_or_as_served": 3564,
+   "status": [
+    "200"
+   ]
+  },
+  "/api/public/league": {
+   "samples_ms": [
+    939,
+    1121,
+    1196
+   ],
+   "p50_ms": 1121,
+   "p95_ms": 1196,
+   "bytes_gzip_or_as_served": 263007,
+   "status": [
+    "200"
+   ]
+  },
+  "/api/public/league/rosTeamStrength": {
+   "samples_ms": [
+    400,
+    420,
+    608
+   ],
+   "p50_ms": 420,
+   "p95_ms": 608,
+   "bytes_gzip_or_as_served": 146,
+   "bytes_raw": 146,
+   "status": [
+    "401"
+   ]
+  },
+  "/api/public/league/activity": {
+   "samples_ms": [
+    457,
+    644,
+    1928
+   ],
+   "p50_ms": 644,
+   "p95_ms": 1928,
+   "bytes_gzip_or_as_served": 17200,
+   "bytes_raw": 206155,
+   "status": [
+    "200"
+   ]
+  },
+  "/api/public/league/rosPower": {
+   "samples_ms": [
+    648,
+    856,
+    874
+   ],
+   "p50_ms": 856,
+   "p95_ms": 874,
+   "bytes_gzip_or_as_served": 21951,
+   "bytes_raw": 272796,
+   "status": [
+    "200"
+   ]
+  }
+ },
+ "comparison": {
+  "/": {
+   "p50_now": 473,
+   "p50_base": 514,
+   "p95_now": 572,
+   "p95_base": 800,
+   "p50_delta_pct": -8,
+   "verdict": "unchanged",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/league": {
+   "p50_now": 530,
+   "p50_base": 835,
+   "p95_now": 712,
+   "p95_base": 892,
+   "p50_delta_pct": -37,
+   "verdict": "better",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/api/status": {
+   "p50_now": 644,
+   "p50_base": 1399,
+   "p95_now": 877,
+   "p95_base": 15783,
+   "p50_delta_pct": -54,
+   "verdict": "better",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/api/draft-capital": {
+   "p50_now": 506,
+   "p50_base": 534,
+   "p95_now": 5215,
+   "p95_base": 3222,
+   "p50_delta_pct": -5,
+   "verdict": "unchanged",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/api/health": {
+   "p50_now": 522,
+   "p50_base": 515,
+   "p95_now": 2825,
+   "p95_base": 652,
+   "p50_delta_pct": 1,
+   "verdict": "unchanged",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "503"
+   ]
+  },
+  "/api/leagues": {
+   "p50_now": 432,
+   "p50_base": 417,
+   "p95_now": 557,
+   "p95_base": 485,
+   "p50_delta_pct": 4,
+   "verdict": "unchanged",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/api/league/articles": {
+   "p50_now": 479,
+   "p50_base": 433,
+   "p95_now": 593,
+   "p95_base": 454,
+   "p50_delta_pct": 11,
+   "verdict": "unchanged",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/api/public/league/overview": {
+   "p50_now": 411,
+   "p50_base": 452,
+   "p95_now": 469,
+   "p95_base": 89819,
+   "p50_delta_pct": -9,
+   "verdict": "unchanged",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/api/public/league": {
+   "p50_now": 1067,
+   "p50_base": 1121,
+   "p95_now": 1309,
+   "p95_base": 1196,
+   "p50_delta_pct": -5,
+   "verdict": "unchanged",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/api/public/league/rosTeamStrength": {
+   "p50_now": 428,
+   "p50_base": 420,
+   "p95_now": 585,
+   "p95_base": 608,
+   "p50_delta_pct": 2,
+   "verdict": "unchanged",
+   "status_now": [
+    "401"
+   ],
+   "status_base": [
+    "401"
+   ]
+  },
+  "/api/public/league/activity": {
+   "p50_now": 671,
+   "p50_base": 644,
+   "p95_now": 760,
+   "p95_base": 1928,
+   "p50_delta_pct": 4,
+   "verdict": "unchanged",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/api/public/league/rosPower": {
+   "p50_now": 799,
+   "p50_base": 856,
+   "p95_now": 1316,
+   "p95_base": 874,
+   "p50_delta_pct": -7,
+   "verdict": "unchanged",
+   "status_now": [
+    "200"
+   ],
+   "status_base": [
+    "200"
+   ]
+  },
+  "/api/sharp/roster-percentage": {
+   "verdict": "no baseline (new target)"
+  },
+  "/api/bdvm/values": {
+   "verdict": "no baseline (new target)"
+  },
+  "/api/data?view=app": {
+   "verdict": "no baseline (new target)"
+  }
+ }
+}
