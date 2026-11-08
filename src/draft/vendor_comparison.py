@@ -40,6 +40,9 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+# The KTC market's source key has ONE owner (tests/sources/test_ktc_signal_architecture.py).
+from src.sources.ktc_market import KTC_MARKET_KEY
+
 COMPARISON_VERSION = "vc_v1"
 METHOD = "intersection_budget_reallocation"
 QUOTE_KIND = "derived_comparison_not_a_vendor_quote"
@@ -59,7 +62,7 @@ STATE_AMBIGUOUS = "ambiguous_identity"
 # market (one provider); IDPTC is a second provider.  They are never merged, and
 # a vendor is one provider however many boards it publishes.
 VENDORS: dict[str, dict[str, str]] = {
-    "ktc": {"rawKey": "ktcRaw", "provider": "KeepTradeCut", "source": "ktcCrowdTradesSfTep"},
+    "ktc": {"rawKey": "ktcRaw", "provider": "KeepTradeCut", "source": KTC_MARKET_KEY},
     "idpTradeCalc": {
         "rawKey": "idpRaw",
         "provider": "IDP Trade Calculator",
