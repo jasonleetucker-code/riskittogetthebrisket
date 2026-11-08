@@ -3,7 +3,7 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-11-08 ~11:00Z.** Agent-OS-Receipt `741230de`.
+**As of 2026-11-08 ~11:15Z.** Agent-OS-Receipt `741230de`.
 
 ## Mode
 - Owner directive 2026-11-08 (league rules, mathematical integrity, product honesty, regression, repository
@@ -23,10 +23,11 @@ acting: a previous session's workers are NOT running in a new session.
 ## Delivered this session (2026-11-08)
 | PR | What | State |
 |---|---|---|
-| #2149 | Divisions per league; division-title odds (separate RNG stream, playoff numbers bit-identical); an unrecorded rule withholds qualifying only and keeps draft slots (`regularSeasonOdds`); public section and Power-tab table; "<1%"/">99%" on the chart; honest Power subtitle | MERGED `f8da14ef8`; deploy pending at writing |
-| #2150 | Honest copy: market gap, Edge %, BUY · LARGE GAP, model share (uncalibrated), Hit % (prior), Monte Carlo "led in most simulations"; BDVM / Consensus Edge strong labels aligned | MERGED `923f7b4c8`; deploying |
-| #2151 | Skipped-test audit: 11 skips resolved (10 now run, 1 obsolete removed), 240 forced-drop draws reclassified (coverage unchanged, precondition-guarded), skip reasons recorded in shard manifests | OPEN, CI running |
-| #2152 | Season-simulator odds as whole-percent estimates on the Championship and Trade Deadline tabs (one formatter, `frontend/lib/odds-disclosure.js`) | OPEN, CI + review running |
+| #2149 | Divisions per league; division-title odds (separate RNG stream, playoff numbers bit-identical); an unrecorded rule withholds qualifying only and keeps draft slots (`regularSeasonOdds`); public section and Power-tab table; "<1%"/">99%" on the chart; honest Power subtitle | MERGED `f8da14ef8`, DEPLOYED, VERIFIED in production: `playoffOdds` carries `divisionRule: recorded_no_playoff_effect` and `divisionOdds` available (9,000 sims); the Power tab renders the division tables, the note and "<1%"/">99%" |
+| #2150 | Honest copy: market gap, Edge %, BUY · LARGE GAP, model share (uncalibrated), Hit % (prior), Monte Carlo "led in most simulations"; BDVM / Consensus Edge strong labels aligned | MERGED `923f7b4c8`, DEPLOYED (production reported `923f7b4c8` at 10:46Z) |
+| #2151 | Skipped-test audit: 11 skips resolved (10 now run, 1 obsolete removed), 240 forced-drop draws reclassified (coverage unchanged, precondition-guarded), skip reasons recorded in shard manifests; **skip budget 290 → 10** | MERGED `486b4da21`; CI on the merged tree: 34,686 collected, 10 skipped, budget 10, 0 failed |
+| #2152 | Season-simulator odds as whole-percent estimates on the Championship and Trade Deadline tabs (one formatter, `frontend/lib/odds-disclosure.js`); Trade Deadline Strength stays exact (deterministic percentile) | MERGED `464662bdf`; deploy in progress at writing |
+| #2154 | Format-pair isolation test: two synthetic leagues differing on every axis; lineup, playoff structure and divisions, roster cap, FAAB comparability and engine, waiver gate; called A/B/A/B against hand-derived expectations | MERGED `ab3672210` (tests only) |
 | (records) | Directive record, MD-86 … MD-96, plan entry, `docs/engineering/MATH_AUDIT_2026-11-08.md`, regenerated feature census, this handoff | this PR |
 
 ## Math audit (`docs/engineering/MATH_AUDIT_2026-11-08.md`)
@@ -44,7 +45,7 @@ acting: a previous session's workers are NOT running in a new session.
   - Settings → Rules → Rulesets → `main-protection` → add **Require status checks to pass** with `Validate PR` and `Receipt check` (source GitHub Actions).
   - **Bypass needed:** automation pushes straight to `main` (github-actions[bot] via `GITHUB_TOKEN` in `scheduled-refresh.yml` and the refit/narratives/sharp workflows; the box deploy keys behind "DLF Fetch (prod)" and "IDP Show Fetch (prod)"). Add those as bypass actors.
   - Then confirm the next scheduled refresh still lands. Deploy dispatch keys on those commits (W31-F001).
-- **Skip budget:** `max_skipped` is still 290. After #2151's shards report the real count (about 10), tighten it in `config/ci/test_shards.json`. That file is high-risk scope, so the change runs full CI.
+- **Skip budget:** `max_skipped` is now 10 (#2151 merged; measured 10). Every remaining skip names a deterministic environment or data reason in the shard manifests' `skip_reasons`. Any new skip now fails the gate until it is justified.
 
 ## Machine (2026-11-08)
 - **Worktrees:** 94 classified; 43 removed (~114 GB). Free space on C: went from 4.8 GB to 115 GB.
@@ -68,10 +69,10 @@ acting: a previous session's workers are NOT running in a new session.
 - Unchanged: #1938; the draft-order record basis (does the median game count? #1712); the F2 calibration path.
 
 ## Next dependency-ready units (ranked)
-1. Merge #2151 and #2152 when green and reviewed; tighten `max_skipped`; verify production for #2149 / #2150 / #2152 (Power-tab division table, rosPlayoffOdds `divisionOdds`).
+1. Verify the #2152 deploy on the Championship and Trade Deadline tabs (production after `464662bdf`); confirm the next deploy's hard gate passes under budget 10.
 2. Forced-drop property coverage: at least N applicable draws per scenario, generated deterministically (#2151 follow-up 0).
-3. Format-pair contamination test (one fixture, two leagues; acceptance in the math audit).
-4. The remaining ~10 skips: read `skip_reasons` from #2151's shard manifests; three real-Sleeper-cache tests.
+3. The FAAB engine's latent default: `team_ceiling` reads an unknown own balance as the full budget. Every live caller guards today: the faab-recommend route withholds, `waiver.py` passes a known cap, and the advisor reads only `season_option_value`. A defensive engine-level refusal is a small follow-up.
+4. Three real-Sleeper-cache skips: the cache is 33 MB, so extract a trimmed committed fixture that still pins the scoring fingerprint and the 72/72 best-ball team-weeks.
 5. MD-78 (0.30 haircut challengers, evaluation only), MD-83 (security and backups), `/api/public/league` payload (archives 816 KB, activity 458 KB).
 
 ## Hazards
