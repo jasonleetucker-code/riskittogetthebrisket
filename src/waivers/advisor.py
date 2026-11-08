@@ -640,8 +640,10 @@ def assemble_waiver_advisor(
     if team is None:
         raise ValueError("unknown_team")
 
-    _raw_faab = team.get("faabRemaining")
-    _balance_known = isinstance(_raw_faab, int) and _raw_faab >= 0
+    from src.trade import waiver as _waiver_owner  # noqa: PLC0415
+
+    _observed_balance = _waiver_owner.observed_faab_balance(team.get("faabRemaining"))
+    _balance_known = _observed_balance is not None
     notes: list[str] = []
     targets = waiver_targets if isinstance(waiver_targets, Mapping) else {}
     methodology = targets.get("bidMethodology")
@@ -732,8 +734,7 @@ def assemble_waiver_advisor(
 
     perfect = perfect_waivers if isinstance(perfect_waivers, Mapping) else {}
     budget = perfect.get("budget") or {}
-    raw_balance = team.get("faabRemaining")
-    balance = int(raw_balance) if isinstance(raw_balance, int) and raw_balance >= 0 else None
+    balance = max(0, _observed_balance) if _observed_balance is not None else None
     league_budget = int(faab_inputs.get("league_budget") or 100)
     history_state = "available" if faab_inputs.get("market_priors") else "missing"
 

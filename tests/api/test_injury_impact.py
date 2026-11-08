@@ -481,6 +481,11 @@ def _cls(text):
         "Test Player out indefinitely",
         "Test Player ruled out for Sunday",
         "Test Player placed on IR",
+        # re-review 3: a hedged / possible return never resolves a stated injury
+        "Test Player out indefinitely with a hamstring injury but could return next week",
+        "Test Player hopes to return from a knee injury",
+        "Test Player (knee) expected to return in 3 weeks",
+        "Test Player has not been cleared from concussion protocol",
     ],
 )
 def test_claim_scoped_language_is_injury_evidence(text):
@@ -496,6 +501,9 @@ def test_claim_scoped_language_is_injury_evidence(text):
         ("Test Player activated from IR", _ev.RETURN_TO_PLAY),
         ("Test Player cleared to play Sunday", _ev.NEGATED),
         ("Test Player has no injury", _ev.NEGATED),
+        # re-review 2: genuine clearance resolves, even when the injury word is in the phrase
+        ("Test Player cleared concussion protocol", _ev.NEGATED),
+        ("Test Player cleared to return", _ev.NEGATED),
         ("Test Player is not injured", _ev.NEGATED),
         ("MRI showed no structural damage for Test Player", _ev.NEGATED),
         # pure speculation about whether an injury exists is not evidence

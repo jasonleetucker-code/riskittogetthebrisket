@@ -51,6 +51,9 @@ _NEGATED = _rx(
         r"wasn'?t injured",
         r"injury[- ]free",
         r"free of injury",
+        # genuine clearance (a "not cleared" is rewritten to an injury BEFORE this runs)
+        r"cleared\s+(?:from\s+|out\s+of\s+|of\s+)?(?:the\s+)?(?:concussion\s+)?protocol",
+        r"cleared\s+(?:to|for)\s+(?:return|play|practice|resume|participate|contact|full)\w*",
         r"cleared",
         r"avoided (?:a |any )?(?:serious |major )?injury",
         r"no structural damage",
@@ -67,6 +70,8 @@ _NEG_RETURN = re.compile(
     r"\b(?:(?:will|would|could)\s+not|won'?t|wouldn'?t|not\s+(?:expected|likely)\s+to|"
     r"unlikely\s+to|unable\s+to|did\s+not|didn'?t|doesn'?t|does\s+not|questionable\s+to|"
     r"doubtful\s+to|not\s+able\s+to|no\s+timetable\s+(?:for|to)|"
+    r"(?:could|may|might|should|possibly|potentially|hopes?\s+to|hoping\s+to|aims?\s+to|"
+    r"expected\s+to|likely\s+to)|"
     r"(?:expected|projected|potential|target\w*)(?:\s+a)?)"
     r"\s+(?:\w+\s+)?return\w*|\breturn\w*\s+(?:in|by|around|after\s+\d|no\s+earlier)\b",
     re.IGNORECASE,
