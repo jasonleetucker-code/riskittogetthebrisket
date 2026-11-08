@@ -11,6 +11,13 @@ Rules (owner directive 2026-11-08 Priority 15, MISSING IS NEVER ZERO):
 * ``totalAssetValue = playerValue + pickValue`` ONLY when pick ownership was
   observed AND every held pick priced.  Otherwise it is ``None`` and the
   partial figure is published as ``totalAssetValueLowerBound`` with the reason.
+* ``player_value`` is ``None`` when no rostered player priced (unknown, not 0);
+  ``player_coverage < 1`` (some rostered players unpriced) means the player sum
+  is partial, so ``totalAssetValue`` is withheld and only the labelled lower
+  bound is published.  A total is never "complete" on partial player evidence.
+* A pick value <= 0 is UNRESOLVED, exactly like a player: the shared resolver
+  (``pick_value_resolution._finite_value``) only prices ``rankDerivedValue > 0``,
+  so a zero pick is counted in ``unpricedPickCount``, never summed as 0.
 * Unobserved ownership is ``pickValue: None`` (state ``unavailable``), never 0.
 * An unpriced held pick is counted in ``unpricedPickCount`` and excluded from
   ``pricedPickValue``; it is not valued at 0 inside a claimed total.
@@ -30,9 +37,30 @@ PICKS_PARTIAL = "partial_unpriced"
 PICKS_UNAVAILABLE = "unavailable"
 
 
+PLAYERS_COMPLETE = "complete"
+PLAYERS_PARTIAL = "partial_unpriced"
+PLAYERS_UNAVAILABLE = "unavailable"
+
+
+def _player_state(value: int | float | None, coverage: float | None) -> str:
+    if value is None:
+        return PLAYERS_UNAVAILABLE
+    if coverage is None or coverage < 1.0:
+        return PLAYERS_PARTIAL
+    return PLAYERS_COMPLETE
+
+
+def _lb(player_value: int | float | None, picks: int | float) -> int | float | None:
+    """Lower bound: priced evidence only; ``None`` when there is none at all."""
+    if player_value is None:
+        return picks if picks else None
+    return player_value + picks
+
+
 def decompose_team_equity(
     *,
-    player_value: int | float,
+    player_value: int | float | None,
+    player_coverage: float | None = 1.0,
     team: Mapping[str, Any] | None,
     pick_rows_by_name: Mapping[str, dict[str, Any]],
     current_draft_year: int | None,
@@ -45,6 +73,8 @@ def decompose_team_equity(
     """
     out: dict[str, Any] = {
         "playerValue": player_value,
+        "playerCoverage": player_coverage,
+        "playerValueState": _player_state(player_value, player_coverage),
         "pickValue": None,
         "pricedPickValue": None,
         "pickCount": None,
@@ -61,16 +91,16 @@ def decompose_team_equity(
     reason = team_pick_ownership_unavailable_reason(team)
     if reason is not None:
         out["pickValueReason"] = reason
-        out["totalAssetValueLowerBound"] = player_value
+        out["totalAssetValueLowerBound"] = _lb(player_value, 0)
         return out
     details = team.get("pickDetails")
     if not isinstance(details, list):
         out["pickValueReason"] = "pick_inventory_not_published"
-        out["totalAssetValueLowerBound"] = player_value
+        out["totalAssetValueLowerBound"] = _lb(player_value, 0)
         return out
     if current_draft_year is None:
         out["pickValueReason"] = "current_draft_year_unknown"
-        out["totalAssetValueLowerBound"] = player_value
+        out["totalAssetValueLowerBound"] = _lb(player_value, 0)
         return out
 
     priced = 0
@@ -101,10 +131,11 @@ def decompose_team_equity(
     if unpriced:
         out["pickValueState"] = PICKS_PARTIAL
         out["pickValueReason"] = "held_picks_unpriced"
-        out["totalAssetValueLowerBound"] = player_value + total
+        out["totalAssetValueLowerBound"] = _lb(player_value, total)
         return out
     out["pickValue"] = total
     out["pickValueState"] = PICKS_COMPLETE
-    out["totalAssetValue"] = player_value + total
-    out["totalAssetValueLowerBound"] = player_value + total
+    out["totalAssetValueLowerBound"] = _lb(player_value, total)
+    if out["playerValueState"] == PLAYERS_COMPLETE:
+        out["totalAssetValue"] = player_value + total  # type: ignore[operator]
     return out

@@ -8,7 +8,7 @@ This record carries no product authority; it names what each existing surface me
 | Surface | Concept it actually measures | Inputs | Consumers | Names its concept? |
 |---|---|---|---|---|
 | `roster_intel/window.py::competitive_posture` | **Competitive posture** PUSH/HOLD/RETOOL/REBUILD (CANONICAL) | competitive window: title/playoff-odds percentile (else lineup-score rank), lineup-entrant age trajectory, season timing | `/api/gameplan`, trade Analyze (`strategicPosture`), simulator, finder pick packages, waivers | yes |
-| `ros/direction.py::classify_team` + `trade_deadline.py` | Public **deadline buy/sell stance** (7 labels) | playoff odds, title odds, vet count (strength percentile only in summary text) | public `rosTradeDeadline` section, frontend deadline views | now: section `concept`, module `CONCEPT` |
+| `ros/direction.py::classify_team` + `trade_deadline.py` | **Deadline buy/sell stance** (7 labels) | playoff odds, title odds, vet count (strength percentile only in summary text) | `rosTradeDeadline` section (a PRIVATE_INTELLIGENCE_SECTIONS member, `public_contract.py`), frontend deadline views | now: section `concept`, module `CONCEPT` |
 | `ros/championship.py::_contender_tier` | **Title-odds presentation tier** (Favorite ... Rebuilder / Seller) | title odds, playoff odds | public championship section | label is presentation only |
 | `bdvm/roster.py::_directions_relative` | **Fundamental horizon mix** contend/retool/rebuild (now vs future asset capital, league-median relative) | BDVM contender vs rebuilder capital ratio | `/api/bdvm/roster`, /bdvm | now: `meta.directionConcept` |
 | `roster_intel/strength.py` | Starting-lineup + best-ball strength by position group | canonical lineup assignment | gameplan | yes |
@@ -67,11 +67,11 @@ Rule: a surface using another concept's vocabulary must carry a `concept` /
 
 - `team_equity.decompose_team_equity` (new, arithmetic only; reuses the pick resolver).
 - `/api/terminal`: `teamAggregates.valueScope`, `teamAggregates.equity`, `portfolio.valueScope`, `portfolio.equity`. `totalValue` is byte-identical.
-- `/api/bdvm/roster` `meta.directionConcept`; public `rosTradeDeadline.concept`.
+- `/api/bdvm/roster` `meta.directionConcept`; `rosTradeDeadline.concept` (private intelligence section).
 
 ## 5. Remaining consolidation plan
 
 1. Frontend migrates the terminal "Total" to `equity.totalAssetValue` / shows scope (handoff entry).
-2. Collapse the deadline stance onto posture inputs (needs owner decision on public vocabulary).
+2. Collapse the deadline stance onto posture inputs (needs owner decision on the user-facing vocabulary).
 3. Inventory `src/trade/finder.py`, `team_impact.py`, `trade_decision.py` consumers of the posture labels (read posture, not re-derive).
 4. Add a `concept` stamp to `/api/gameplan` windows and `/api/ros/team-strength` rows.

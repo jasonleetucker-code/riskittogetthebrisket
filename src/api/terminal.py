@@ -1049,7 +1049,10 @@ def _signal_alias_key(sleeper_id: str, tag: str) -> str:
 
 
 def _team_equity_block(
-    contract: dict[str, Any], resolved_team: dict[str, Any], player_value: int
+    contract: dict[str, Any],
+    resolved_team: dict[str, Any],
+    player_value: int | None,
+    player_coverage: float | None,
 ) -> dict[str, Any]:
     """Player / pick / total decomposition for the resolved team (additive).
 
@@ -1062,6 +1065,7 @@ def _team_equity_block(
     year = contract.get("currentDraftYear")
     return decompose_team_equity(
         player_value=player_value,
+        player_coverage=player_coverage,
         team=resolved_team,
         pick_rows_by_name=pick_rows_by_name(contract),
         current_draft_year=year if isinstance(year, int) and not isinstance(year, bool) else None,
@@ -1547,7 +1551,11 @@ def build_terminal_payload(
             resolved += 1
         coverage = resolved / max(1, len(current_players))
         teamAggregates["totalValue"] = total if resolved else None
-        teamAggregates["equity"] = _team_equity_block(contract, resolved_team, total)
+        # Unresolved roster (nothing priced) is UNKNOWN player value, not 0; and
+        # coverage < 1 (unpriced rostered players) makes any total a lower bound.
+        teamAggregates["equity"] = _team_equity_block(
+            contract, resolved_team, total if resolved else None, coverage
+        )
         teamAggregates["tiers"] = tiers if resolved else None
         teamAggregates["rosterCount"] = len(current_players)
         teamAggregates["coverage"] = round(coverage, 3)
