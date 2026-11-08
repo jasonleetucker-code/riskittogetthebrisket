@@ -13,7 +13,9 @@ acting: a previous session's workers are NOT running in a new session.
 
 ## Production and main
 - Production `de7b8dc9d` at 03:15Z (#2134 + #2136 live); the deploy for `7079e2689` (#2147) follows.
-- Main green. **Open ours: none** (only owner-reserved #1938). Merged since 2026-11-07: #2129, #2131, #2133, #2128, #2123,
+- Main green. **No PR from this session is open.** Still open from earlier sessions, untouched here and in merge
+  conflict: #1884 (outlier integrity v2, default OFF), #1873, #1852, #1513; plus owner-reserved #1938 and docs /
+  codex / dependabot PRs. Merged since 2026-11-07: #2129, #2131, #2133, #2128, #2123,
   #2135, #2137, #2138, #2139, #2141, #2140, #2130, #2142, #2143, #2144, #2145, #2146, #2134, #2136, #2147.
 
 ## CI — all three hard gates sharded and proven (directive Part 2, MD-76 DONE)
