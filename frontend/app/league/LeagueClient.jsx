@@ -557,19 +557,11 @@ function LeaguePage({ initialContract = null, initialTab = null, initialAdvisor 
     <section className={broadcast.page}>
       <div className={broadcast.masthead}>
         <div className={broadcast.identity}>
-          {advisorTab ? (
-            <PageHeader
-              eyebrow={league?.leagueName || "Chase Upside League"}
-              title={TRADE_ADVISOR_TITLE}
-              description={TRADE_ADVISOR_SUBTITLE}
-            />
-          ) : (
-            <PageHeader
-              eyebrow="Chase Upside League"
-              title={league?.leagueName || "League"}
-              description={coverageDescription}
-            />
-          )}
+          <PageHeader
+            eyebrow={advisorTab ? league?.leagueName || "Chase Upside League" : "Chase Upside League"}
+            title={advisorTab ? TRADE_ADVISOR_TITLE : league?.leagueName || "League"}
+            description={advisorTab ? TRADE_ADVISOR_SUBTITLE : coverageDescription}
+          />
         </div>
         <aside className={broadcast.record} aria-label="Public league record">
           <p className={broadcast.recordKicker}>The league record</p>

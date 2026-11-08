@@ -84,7 +84,7 @@ function ChartPanel({ title, children, wide }) {
       <div className="muted text-xs" style={{ textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
         {title}
       </div>
-      <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 6, padding: 8 }}>
+      <div style={{ background: "var(--surface-1)", borderRadius: 6, padding: 8 }}>
         {children}
       </div>
     </div>

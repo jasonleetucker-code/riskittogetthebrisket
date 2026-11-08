@@ -38,7 +38,7 @@ function SuperlativesSection({ managers, data }) {
                 border: "1px solid var(--border)",
                 borderRadius: "var(--radius)",
                 padding: 12,
-                background: "rgba(15, 28, 59, 0.45)",
+                background: "var(--surface-2)",
               }}
             >
               <div
