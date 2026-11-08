@@ -1,5 +1,21 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## League rules correction & mathematical integrity directive — owner, 2026-11-08
+
+**AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:
+`docs/owner/LEAGUE_RULES_MATH_INTEGRITY_DIRECTIVE_2026-11-08.md`; intake MD-86 … MD-96.
+
+- **Owner product decision (binding):** `dynasty_main` playoff rules — the seven best overall records qualify, seeded
+  by overall record, ties to points scored; divisions decide the schedule and a separate payout only. Recorded per league in
+  `config/leagues/playoff_rules.json`. Other leagues keep their own rules; an unrecorded division rule fails closed
+  for qualifying only.
+- **Authorized to implement:** that correction (playoff / seed / division-title / draft-slot odds), the mathematical
+  audit with independent oracles, honest product wording, regression and format-matrix coverage, the skipped-test
+  audit (never raising the skip budget), and safe local cleanup.
+- **Not authorized by this directive:** owner-reserved valuation or forecasting methodology changes (e.g. the
+  best-ball points-model calibration stays with its pre-registered study), activation changes, changes to branch
+  protection or required checks, spending, or closing / merging / overwriting historical PRs #1884, #1873, #1852, #1513.
+
 ## Master correctness, reliability, performance & CI acceleration directive — owner, 2026-11-07 (fourth)
 
 **AUTHORIZED NOW, inside the same remediation and continuous-QA program (no second roadmap).** Record:

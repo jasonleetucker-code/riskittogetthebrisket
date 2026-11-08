@@ -1,33 +1,33 @@
 {
- "asOfCommit": "4e3193a6b0dbb906e123be9ad23b7d35eda41f2b",
+ "asOfCommit": "09e57ea7fd3fad3bd35176aa04e1c715efc65324",
  "byClass": {
   "a": {
    "label": "mutating / auth / admin route",
-   "noTestRefFound": 5,
+   "noTestRefFound": 0,
    "total": 148,
    "weakMatchOnly": 0
   },
   "b": {
    "label": "value / money / probability surface",
-   "noTestRefFound": 1,
-   "total": 74,
+   "noTestRefFound": 0,
+   "total": 75,
    "weakMatchOnly": 5
   },
   "c": {
    "label": "flag default-ON",
    "noTestRefFound": 0,
-   "total": 27,
+   "total": 28,
    "weakMatchOnly": 1
   },
   "d": {
    "label": "scheduled job",
    "noTestRefFound": 9,
-   "total": 52,
+   "total": 54,
    "weakMatchOnly": 0
   },
   "e": {
    "label": "other",
-   "noTestRefFound": 2,
+   "noTestRefFound": 0,
    "total": 195,
    "weakMatchOnly": 15
   }
@@ -37,7 +37,7 @@
    "tests/api/test_private_auth.py": 41
   },
   "flag": {
-   "tests/api/test_feature_flags.py": 37
+   "tests/api/test_feature_flags.py": 38
   },
   "page": {
    "frontend/__tests__/nav-model.test.js": 38,
@@ -207,8 +207,8 @@
   },
   {
    "auth": "admin",
-   "bestMatchKind": null,
-   "evidence": "none",
+   "bestMatchKind": "literal-path",
+   "evidence": "strong",
    "flagGate": null,
    "handlers": [
     "get_admin_scrape_telemetry"
@@ -223,9 +223,18 @@
    ],
    "riskScore": 2,
    "surface": "backendRoute",
-   "testFrameworks": [],
-   "testRefCount": 0,
-   "testRefs": []
+   "testFrameworks": [
+    "pytest"
+   ],
+   "testRefCount": 1,
+   "testRefs": [
+    {
+     "file": "tests/api/test_private_route_auth_regressions.py",
+     "kinds": [
+      "literal-path"
+     ]
+    }
+   ]
   },
   {
    "auth": "admin",
@@ -1742,10 +1751,16 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 66,
+   "testRefCount": 69,
    "testRefs": [
     {
      "file": "frontend/__tests__/app-shell-route-gates.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/draft-feed.test.js",
      "kinds": [
       "literal-path"
      ]
@@ -1794,6 +1809,18 @@
     },
     {
      "file": "tests/api/test_array_view.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_tep_override_regression.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_w26_f003_regression.py",
      "kinds": [
       "literal-path"
      ]
@@ -2289,7 +2316,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 113,
+   "testRefCount": 117,
    "testRefs": [
     {
      "file": "frontend/__tests__/chart-primitives.test.js",
@@ -2509,6 +2536,12 @@
      ]
     },
     {
+     "file": "tests/api/test_draft_contract_view_fields.py",
+     "kinds": [
+      "handler-name"
+     ]
+    },
+    {
      "file": "tests/api/test_draft_optimizer_cache_key.py",
      "kinds": [
       "handler-name"
@@ -2672,6 +2705,12 @@
     },
     {
      "file": "tests/consensus_edge/test_wiring.py",
+     "kinds": [
+      "handler-name"
+     ]
+    },
+    {
+     "file": "tests/deploy/test_hard_gate_sharding_wiring.py",
      "kinds": [
       "handler-name"
      ]
@@ -2852,6 +2891,12 @@
      ]
     },
     {
+     "file": "tests/public_league/test_memo_stale_while_revalidate.py",
+     "kinds": [
+      "handler-name"
+     ]
+    },
+    {
      "file": "tests/public_league/test_overview_memo.py",
      "kinds": [
       "handler-name"
@@ -2883,6 +2928,12 @@
     },
     {
      "file": "tests/ros/test_power_v2_season_scoping.py",
+     "kinds": [
+      "handler-name"
+     ]
+    },
+    {
+     "file": "tests/ros/test_probability_oracles.py",
      "kinds": [
       "handler-name"
      ]
@@ -3847,7 +3898,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 12,
+   "testRefCount": 13,
    "testRefs": [
     {
      "file": "frontend/__tests__/dynasty-data-bridge-no-disk-fallback.test.js",
@@ -3875,6 +3926,12 @@
     },
     {
      "file": "frontend/__tests__/trade-advisor-isolation.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_w26_f003_regression.py",
      "kinds": [
       "literal-path"
      ]
@@ -3942,10 +3999,35 @@
    "riskScore": 1,
    "surface": "backendRoute",
    "testFrameworks": [
-    "pytest"
+    "pytest",
+    "vitest"
    ],
-   "testRefCount": 8,
+   "testRefCount": 13,
    "testRefs": [
+    {
+     "file": "frontend/__tests__/components/team-gameplan-section.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/gameplan-bridge-route.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_t2_open.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_w20_f001_regression.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
     {
      "file": "tests/api/test_feature_flag_endpoint_reachability.py",
      "kinds": [
@@ -3955,6 +4037,12 @@
     },
     {
      "file": "tests/api/test_gameplan_endpoint.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_gameplan_rosters_surface_contract.py",
      "kinds": [
       "literal-path"
      ]
@@ -4018,10 +4106,16 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 25,
+   "testRefCount": 26,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/stale-data-banner-interrupted.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_s_closed.py",
      "kinds": [
       "literal-path"
      ]
@@ -5388,8 +5482,14 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 5,
+   "testRefCount": 6,
    "testRefs": [
+    {
+     "file": "frontend/__tests__/audit-w09-f007-regression.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
     {
      "file": "frontend/__tests__/news-proxy-route.test.js",
      "kinds": [
@@ -5671,7 +5771,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 19,
+   "testRefCount": 21,
    "testRefs": [
     {
      "file": "frontend/__tests__/e2e-public-league-cold-section-timeout.test.js",
@@ -5681,6 +5781,12 @@
     },
     {
      "file": "frontend/__tests__/public-league.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/sitemap-section-reads.test.js",
      "kinds": [
       "literal-path"
      ]
@@ -5753,6 +5859,12 @@
     },
     {
      "file": "tests/public_league/test_contract_bytes_cache.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/public_league/test_memo_stale_while_revalidate.py",
      "kinds": [
       "literal-path"
      ]
@@ -6160,7 +6272,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 42,
+   "testRefCount": 44,
    "testRefs": [
     {
      "file": "frontend/__tests__/activity-feed.test.js",
@@ -6237,6 +6349,12 @@
     },
     {
      "file": "frontend/__tests__/service-worker-public-league-cache.test.js",
+     "kinds": [
+      "template-pattern"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/sitemap-section-reads.test.js",
      "kinds": [
       "template-pattern"
      ]
@@ -6388,6 +6506,12 @@
     },
     {
      "file": "tests/public_league/test_matchup_and_player.py",
+     "kinds": [
+      "template-pattern"
+     ]
+    },
+    {
+     "file": "tests/public_league/test_memo_stale_while_revalidate.py",
      "kinds": [
       "template-pattern"
      ]
@@ -6441,7 +6565,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 42,
+   "testRefCount": 44,
    "testRefs": [
     {
      "file": "frontend/__tests__/activity-feed.test.js",
@@ -6517,6 +6641,12 @@
     },
     {
      "file": "frontend/__tests__/service-worker-public-league-cache.test.js",
+     "kinds": [
+      "template-pattern"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/sitemap-section-reads.test.js",
      "kinds": [
       "template-pattern"
      ]
@@ -6669,6 +6799,12 @@
     },
     {
      "file": "tests/public_league/test_matchup_and_player.py",
+     "kinds": [
+      "template-pattern"
+     ]
+    },
+    {
+     "file": "tests/public_league/test_memo_stale_while_revalidate.py",
      "kinds": [
       "template-pattern"
      ]
@@ -6981,8 +7117,8 @@
   },
   {
    "auth": "private",
-   "bestMatchKind": null,
-   "evidence": "none",
+   "bestMatchKind": "literal-path",
+   "evidence": "strong",
    "flagGate": null,
    "handlers": [
     "get_sources"
@@ -6997,9 +7133,18 @@
    ],
    "riskScore": 1,
    "surface": "backendRoute",
-   "testFrameworks": [],
-   "testRefCount": 0,
-   "testRefs": []
+   "testFrameworks": [
+    "pytest"
+   ],
+   "testRefCount": 1,
+   "testRefs": [
+    {
+     "file": "tests/api/test_private_route_auth_regressions.py",
+     "kinds": [
+      "literal-path"
+     ]
+    }
+   ]
   },
   {
    "auth": "private",
@@ -7844,8 +7989,8 @@
   },
   {
    "auth": "private",
-   "bestMatchKind": null,
-   "evidence": "none",
+   "bestMatchKind": "literal-path",
+   "evidence": "strong",
    "flagGate": null,
    "handlers": [
     "get_sharp_roster_percentage_audit"
@@ -7858,9 +8003,25 @@
    "riskReasons": [],
    "riskScore": 0,
    "surface": "backendRoute",
-   "testFrameworks": [],
-   "testRefCount": 0,
-   "testRefs": []
+   "testFrameworks": [
+    "pytest",
+    "vitest"
+   ],
+   "testRefCount": 2,
+   "testRefs": [
+    {
+     "file": "frontend/__tests__/auth-logout-and-sharp-audit-bridge-route.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_private_route_auth_regressions.py",
+     "kinds": [
+      "literal-path"
+     ]
+    }
+   ]
   },
   {
    "auth": "private",
@@ -7883,10 +8044,16 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 4,
+   "testRefCount": 5,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/market-ticker-buy-sell.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_w12_f003_regression.py",
      "kinds": [
       "literal-path"
      ]
@@ -8656,7 +8823,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 8,
+   "testRefCount": 9,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/TradeProtectionsEditor.test.jsx",
@@ -8702,6 +8869,12 @@
     },
     {
      "file": "tests/e2e/test_prod_auth_route_inventory.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/waivers/test_waiver_workflow_properties.py",
      "kinds": [
       "literal-path"
      ]
@@ -8775,10 +8948,16 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 25,
+   "testRefCount": 26,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/stale-data-banner-interrupted.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_s_closed.py",
      "kinds": [
       "literal-path"
      ]
@@ -10587,10 +10766,16 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 7,
+   "testRefCount": 8,
    "testRefs": [
     {
      "file": "tests/api/test_admin_endpoints.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_s_closed.py",
      "kinds": [
       "literal-path"
      ]
@@ -10635,8 +10820,8 @@
   },
   {
    "auth": "public",
-   "bestMatchKind": null,
-   "evidence": "none",
+   "bestMatchKind": "literal-path",
+   "evidence": "strong",
    "flagGate": null,
    "handlers": [
     "auth_logout"
@@ -10652,9 +10837,25 @@
    ],
    "riskScore": 5,
    "surface": "backendRoute",
-   "testFrameworks": [],
-   "testRefCount": 0,
-   "testRefs": []
+   "testFrameworks": [
+    "pytest",
+    "vitest"
+   ],
+   "testRefCount": 2,
+   "testRefs": [
+    {
+     "file": "frontend/__tests__/auth-logout-and-sharp-audit-bridge-route.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_private_route_auth_regressions.py",
+     "kinds": [
+      "literal-path"
+     ]
+    }
+   ]
   },
   {
    "auth": "private",
@@ -12008,7 +12209,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 15,
+   "testRefCount": 17,
    "testRefs": [
     {
      "file": "frontend/__tests__/dynasty-data-dedup.test.js",
@@ -12024,6 +12225,18 @@
     },
     {
      "file": "frontend/__tests__/site-overrides.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_s_closed.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_tep_override_regression.py",
      "kinds": [
       "literal-path"
      ]
@@ -12104,8 +12317,8 @@
   },
   {
    "auth": "admin",
-   "bestMatchKind": null,
-   "evidence": "none",
+   "bestMatchKind": "literal-path",
+   "evidence": "strong",
    "flagGate": null,
    "handlers": [
     "post_refresh"
@@ -12122,9 +12335,18 @@
    ],
    "riskScore": 7,
    "surface": "backendRoute",
-   "testFrameworks": [],
-   "testRefCount": 0,
-   "testRefs": []
+   "testFrameworks": [
+    "pytest"
+   ],
+   "testRefCount": 1,
+   "testRefs": [
+    {
+     "file": "tests/api/test_private_route_auth_regressions.py",
+     "kinds": [
+      "literal-path"
+     ]
+    }
+   ]
   },
   {
    "auth": "admin",
@@ -12147,10 +12369,18 @@
    "surface": "backendRoute",
    "testFrameworks": [
     "playwright",
-    "pytest"
+    "pytest",
+    "vitest"
    ],
-   "testRefCount": 2,
+   "testRefCount": 3,
    "testRefs": [
+    {
+     "file": "frontend/__tests__/audit-w09-f007-regression.test.js",
+     "kinds": [
+      "handler-name",
+      "literal-path"
+     ]
+    },
     {
      "file": "tests/api/test_operator_admin_gate.py",
      "kinds": [
@@ -12286,8 +12516,14 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 6,
+   "testRefCount": 7,
    "testRefs": [
+    {
+     "file": "tests/api/test_audit_w12_f006_regression.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
     {
      "file": "tests/api/test_bdvm_signal_alerts.py",
      "kinds": [
@@ -13123,7 +13359,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 21,
+   "testRefCount": 22,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/trade-simulation-panel-final-roster.test.jsx",
@@ -13139,6 +13375,12 @@
     },
     {
      "file": "frontend/__tests__/components/trade-simulation-panel-roster-capacity.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_t1_closed.py",
      "kinds": [
       "literal-path"
      ]
@@ -13342,8 +13584,14 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 8,
+   "testRefCount": 9,
    "testRefs": [
+    {
+     "file": "frontend/__tests__/audit-w09-f007-regression.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
     {
      "file": "frontend/__tests__/components/trade-tce-page.test.jsx",
      "kinds": [
@@ -13465,8 +13713,8 @@
   },
   {
    "auth": "private",
-   "bestMatchKind": null,
-   "evidence": "none",
+   "bestMatchKind": "literal-path",
+   "evidence": "strong",
    "flagGate": null,
    "handlers": [
     "restore_signal_api"
@@ -13481,9 +13729,18 @@
    ],
    "riskScore": 4,
    "surface": "backendRoute",
-   "testFrameworks": [],
-   "testRefCount": 0,
-   "testRefs": []
+   "testFrameworks": [
+    "pytest"
+   ],
+   "testRefCount": 1,
+   "testRefs": [
+    {
+     "file": "tests/api/test_private_route_auth_regressions.py",
+     "kinds": [
+      "literal-path"
+     ]
+    }
+   ]
   },
   {
    "auth": "private",
@@ -13560,7 +13817,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 6,
+   "testRefCount": 8,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/idp-streaming-panel.test.jsx",
@@ -13587,6 +13844,12 @@
      ]
     },
     {
+     "file": "tests/api/test_waiver_routes_faab_config_refusal.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/api/test_waiver_streaming_endpoint.py",
      "kinds": [
       "literal-path"
@@ -13594,6 +13857,12 @@
     },
     {
      "file": "tests/e2e/specs/waiver-advisor-streaming.spec.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/trade/test_cw50_waiver_workflow.py",
      "kinds": [
       "literal-path"
      ]
@@ -13676,7 +13945,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 10,
+   "testRefCount": 12,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/FaabBidLadder.test.jsx",
@@ -13688,6 +13957,18 @@
      "file": "frontend/__tests__/components/FaabContention.test.jsx",
      "kinds": [
       "handler-name"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/components/FaabDeskRefusal.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_cw50_waiver_desk.py",
+     "kinds": [
+      "literal-path"
      ]
     },
     {
@@ -13764,10 +14045,16 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 3,
+   "testRefCount": 6,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/perfect-waivers-panel.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_cw50_waiver_desk.py",
      "kinds": [
       "literal-path"
      ]
@@ -13782,6 +14069,18 @@
      "file": "tests/e2e/specs/prod-auth/train2-private-surfaces.spec.js",
      "kinds": [
       "handler-name",
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/trade/test_cw50_waiver_workflow.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/waivers/test_waiver_workflow_properties.py",
+     "kinds": [
       "literal-path"
      ]
     }
@@ -13818,7 +14117,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 4,
+   "testRefCount": 6,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/idp-streaming-panel.test.jsx",
@@ -13833,6 +14132,12 @@
      ]
     },
     {
+     "file": "tests/api/test_waiver_routes_faab_config_refusal.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/api/test_waiver_streaming_endpoint.py",
      "kinds": [
       "literal-path"
@@ -13840,6 +14145,12 @@
     },
     {
      "file": "tests/e2e/specs/waiver-advisor-streaming.spec.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/trade/test_cw50_waiver_workflow.py",
      "kinds": [
       "literal-path"
      ]
@@ -13870,7 +14181,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 8,
+   "testRefCount": 12,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/waiver-faab-bids.test.jsx",
@@ -13897,6 +14208,18 @@
      ]
     },
     {
+     "file": "tests/api/test_cw50_waiver_desk.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_faab_integrity_surfaces.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/api/test_waiver_perfect_endpoint.py",
      "kinds": [
       "literal-path"
@@ -13915,7 +14238,19 @@
      ]
     },
     {
+     "file": "tests/trade/test_cw50_waiver_workflow.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/trade/test_waiver.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/waivers/test_waiver_workflow_properties.py",
      "kinds": [
       "literal-path"
      ]
@@ -14058,7 +14393,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 8,
+   "testRefCount": 9,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/TradeProtectionsEditor.test.jsx",
@@ -14107,6 +14442,12 @@
      "kinds": [
       "literal-path"
      ]
+    },
+    {
+     "file": "tests/waivers/test_waiver_workflow_properties.py",
+     "kinds": [
+      "literal-path"
+     ]
     }
    ]
   },
@@ -14124,7 +14465,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 7,
+   "testRefCount": 8,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/advisor-flag-off-surfaces.test.jsx",
@@ -14158,6 +14499,12 @@
     },
     {
      "file": "tests/deploy/test_stage_release_artifact.py",
+     "kinds": [
+      "page-import"
+     ]
+    },
+    {
+     "file": "tests/scripts/test_check_pr_verification_receipt.py",
      "kinds": [
       "page-import"
      ]
@@ -14361,9 +14708,10 @@
    "surface": "page",
    "testFrameworks": [
     "playwright",
+    "pytest",
     "vitest"
    ],
-   "testRefCount": 6,
+   "testRefCount": 7,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/angle-refinement.test.jsx",
@@ -14388,6 +14736,12 @@
      "file": "frontend/__tests__/public-routes.test.js",
      "kinds": [
       "enumerating-file"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_t1_open.py",
+     "kinds": [
+      "page-import"
      ]
     },
     {
@@ -14421,10 +14775,16 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 23,
+   "testRefCount": 24,
    "testRefs": [
     {
      "file": "frontend/__tests__/arbitrage-board-regression.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/arbitrage-naming.test.js",
      "kinds": [
       "literal-path"
      ]
@@ -14985,7 +15345,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 20,
+   "testRefCount": 22,
    "testRefs": [
     {
      "file": "frontend/__tests__/a11y-clickable-keyboard.test.js",
@@ -14997,6 +15357,13 @@
      "file": "frontend/__tests__/app-shell-route-gates.test.js",
      "kinds": [
       "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/audit-w10-f003-regression.test.js",
+     "kinds": [
+      "literal-path",
+      "page-import"
      ]
     },
     {
@@ -15058,6 +15425,12 @@
      "file": "tests/api/test_draft_capital_public_redaction.py",
      "kinds": [
       "page-import"
+     ]
+    },
+    {
+     "file": "tests/api/test_draft_contract_view_fields.py",
+     "kinds": [
+      "literal-path"
      ]
     },
     {
@@ -15126,13 +15499,19 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 12,
+   "testRefCount": 14,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/edge-page-market-gap.test.jsx",
      "kinds": [
       "literal-path",
       "page-import"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/components/honest-coverage-w27-w10.test.jsx",
+     "kinds": [
+      "literal-path"
      ]
     },
     {
@@ -15157,6 +15536,12 @@
      "file": "frontend/__tests__/public-routes.test.js",
      "kinds": [
       "enumerating-file"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_t2_closed.py",
+     "kinds": [
+      "page-import"
      ]
     },
     {
@@ -15426,7 +15811,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 48,
+   "testRefCount": 49,
    "testRefs": [
     {
      "file": "frontend/__tests__/a11y-clickable-keyboard.test.js",
@@ -15526,6 +15911,12 @@
     },
     {
      "file": "frontend/__tests__/sitemap-public-only.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/sitemap-section-reads.test.js",
      "kinds": [
       "literal-path"
      ]
@@ -15945,7 +16336,7 @@
     "playwright",
     "vitest"
    ],
-   "testRefCount": 7,
+   "testRefCount": 8,
    "testRefs": [
     {
      "file": "frontend/__tests__/app-shell-route-gates.test.js",
@@ -15971,6 +16362,12 @@
      "file": "frontend/__tests__/public-routes.test.js",
      "kinds": [
       "enumerating-file"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/sitemap-section-reads.test.js",
+     "kinds": [
+      "template-pattern"
      ]
     },
     {
@@ -16132,7 +16529,7 @@
     "playwright",
     "vitest"
    ],
-   "testRefCount": 5,
+   "testRefCount": 6,
    "testRefs": [
     {
      "file": "frontend/__tests__/nav-model.test.js",
@@ -16144,6 +16541,12 @@
      "file": "frontend/__tests__/public-routes.test.js",
      "kinds": [
       "enumerating-file"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/sitemap-section-reads.test.js",
+     "kinds": [
+      "template-pattern"
      ]
     },
     {
@@ -16262,7 +16665,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 17,
+   "testRefCount": 18,
    "testRefs": [
     {
      "file": "frontend/__tests__/app-shell-route-gates.test.js",
@@ -16272,6 +16675,12 @@
     },
     {
      "file": "frontend/__tests__/components/auction-owner-login.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/components/ros-team-strength-auth-state.test.jsx",
      "kinds": [
       "literal-path"
      ]
@@ -17315,7 +17724,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 61,
+   "testRefCount": 62,
    "testRefs": [
     {
      "file": "frontend/__tests__/app-shell-route-gates.test.js",
@@ -17441,6 +17850,12 @@
      "file": "frontend/__tests__/public-routes.test.js",
      "kinds": [
       "enumerating-file"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/safe-next.test.js",
+     "kinds": [
+      "literal-path"
      ]
     },
     {
@@ -17797,7 +18212,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 37,
+   "testRefCount": 39,
    "testRefs": [
     {
      "file": "frontend/__tests__/a11y-failure-not-empty.test.js",
@@ -17856,6 +18271,12 @@
      ]
     },
     {
+     "file": "tests/api/test_audit_w20_f001_regression.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/api/test_draft_capital.py",
      "kinds": [
       "literal-path"
@@ -17881,6 +18302,12 @@
     },
     {
      "file": "tests/api/test_draft_capital_years.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_gameplan_rosters_surface_contract.py",
      "kinds": [
       "literal-path"
      ]
@@ -18042,7 +18469,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 19,
+   "testRefCount": 20,
    "testRefs": [
     {
      "file": "frontend/__tests__/app-shell-route-gates.test.js",
@@ -18117,6 +18544,12 @@
      "file": "frontend/__tests__/route-gate-no-player-data-transitive.test.js",
      "kinds": [
       "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_t2_closed.py",
+     "kinds": [
+      "page-import"
      ]
     },
     {
@@ -18394,7 +18827,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 83,
+   "testRefCount": 86,
    "testRefs": [
     {
      "file": "frontend/__tests__/a11y-tab-roles.test.js",
@@ -18406,6 +18839,12 @@
      "file": "frontend/__tests__/app-shell-route-gates.test.js",
      "kinds": [
       "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/audit-cw40-batch-t1.test.js",
+     "kinds": [
+      "page-import"
      ]
     },
     {
@@ -18696,6 +19135,12 @@
      ]
     },
     {
+     "file": "frontend/__tests__/safe-next.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "frontend/__tests__/trade-on-demand-sections.test.js",
      "kinds": [
       "literal-path",
@@ -18744,6 +19189,12 @@
     },
     {
      "file": "frontend/__tests__/trade-stack-withdrawn.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_s_closed.py",
      "kinds": [
       "literal-path"
      ]
@@ -19223,7 +19674,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 16,
+   "testRefCount": 18,
    "testRefs": [
     {
      "file": "frontend/__tests__/app-shell-route-gates.test.js",
@@ -19266,6 +19717,18 @@
      "file": "frontend/__tests__/public-routes.test.js",
      "kinds": [
       "enumerating-file"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_t2_closed.py",
+     "kinds": [
+      "page-import"
+     ]
+    },
+    {
+     "file": "tests/api/test_faab_integrity_surfaces.py",
+     "kinds": [
+      "page-import"
      ]
     },
     {
@@ -20020,7 +20483,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 12,
+   "testRefCount": 13,
    "testRefs": [
     {
      "file": "frontend/__tests__/dynasty-data-bridge-no-disk-fallback.test.js",
@@ -20049,6 +20512,12 @@
     },
     {
      "file": "frontend/__tests__/trade-advisor-isolation.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_w26_f003_regression.py",
      "kinds": [
       "literal-path"
      ]
@@ -20097,6 +20566,109 @@
     }
    ],
    "url": "/api/dynasty-data"
+  },
+  {
+   "auth": "bridge (enforced by backend)",
+   "bestMatchKind": "literal-path",
+   "evidence": "strong",
+   "file": "frontend/app/api/gameplan/route.js",
+   "id": "BRIDGE GET /api/gameplan",
+   "methods": [
+    "GET"
+   ],
+   "riskClass": "b",
+   "riskReasons": [
+    "value-producing path"
+   ],
+   "riskScore": 1,
+   "surface": "bridgeRoute",
+   "testFrameworks": [
+    "pytest",
+    "vitest"
+   ],
+   "testRefCount": 13,
+   "testRefs": [
+    {
+     "file": "frontend/__tests__/components/team-gameplan-section.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/gameplan-bridge-route.test.js",
+     "kinds": [
+      "literal-path",
+      "route-import"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_t2_open.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_w20_f001_regression.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_feature_flag_endpoint_reachability.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_gameplan_endpoint.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_gameplan_rosters_surface_contract.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_league_adjusted_endpoint.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_private_auth.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_roster_intelligence.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/roster_intel/test_position_vocabulary.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/roster_intel/test_strength_weakness_single_owner.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/trade/test_constraints_reach_every_generator.py",
+     "kinds": [
+      "literal-path"
+     ]
+    }
+   ],
+   "url": "/api/gameplan"
   },
   {
    "auth": "bridge (enforced by backend)",
@@ -20979,8 +21551,14 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 5,
+   "testRefCount": 6,
    "testRefs": [
+    {
+     "file": "frontend/__tests__/audit-w09-f007-regression.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
     {
      "file": "frontend/__tests__/news-proxy-route.test.js",
      "kinds": [
@@ -21165,7 +21743,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 19,
+   "testRefCount": 21,
    "testRefs": [
     {
      "file": "frontend/__tests__/e2e-public-league-cold-section-timeout.test.js",
@@ -21175,6 +21753,12 @@
     },
     {
      "file": "frontend/__tests__/public-league.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/sitemap-section-reads.test.js",
      "kinds": [
       "literal-path"
      ]
@@ -21252,6 +21836,12 @@
      ]
     },
     {
+     "file": "tests/public_league/test_memo_stale_while_revalidate.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/public_league/test_overview_memo.py",
      "kinds": [
       "literal-path"
@@ -21302,7 +21892,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 42,
+   "testRefCount": 44,
    "testRefs": [
     {
      "file": "frontend/__tests__/activity-feed.test.js",
@@ -21378,6 +21968,12 @@
     },
     {
      "file": "frontend/__tests__/service-worker-public-league-cache.test.js",
+     "kinds": [
+      "template-pattern"
+     ]
+    },
+    {
+     "file": "frontend/__tests__/sitemap-section-reads.test.js",
      "kinds": [
       "template-pattern"
      ]
@@ -21528,6 +22124,12 @@
     },
     {
      "file": "tests/public_league/test_matchup_and_player.py",
+     "kinds": [
+      "template-pattern"
+     ]
+    },
+    {
+     "file": "tests/public_league/test_memo_stale_while_revalidate.py",
      "kinds": [
       "template-pattern"
      ]
@@ -22391,8 +22993,8 @@
   },
   {
    "auth": "bridge (enforced by backend)",
-   "bestMatchKind": null,
-   "evidence": "none",
+   "bestMatchKind": "literal-path",
+   "evidence": "strong",
    "file": "frontend/app/api/sharp/roster-percentage/audit/route.js",
    "id": "BRIDGE GET /api/sharp/roster-percentage/audit",
    "methods": [
@@ -22402,9 +23004,26 @@
    "riskReasons": [],
    "riskScore": 0,
    "surface": "bridgeRoute",
-   "testFrameworks": [],
-   "testRefCount": 0,
-   "testRefs": [],
+   "testFrameworks": [
+    "pytest",
+    "vitest"
+   ],
+   "testRefCount": 2,
+   "testRefs": [
+    {
+     "file": "frontend/__tests__/auth-logout-and-sharp-audit-bridge-route.test.js",
+     "kinds": [
+      "literal-path",
+      "route-import"
+     ]
+    },
+    {
+     "file": "tests/api/test_private_route_auth_regressions.py",
+     "kinds": [
+      "literal-path"
+     ]
+    }
+   ],
    "url": "/api/sharp/roster-percentage/audit"
   },
   {
@@ -22425,10 +23044,16 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 4,
+   "testRefCount": 5,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/market-ticker-buy-sell.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_w12_f003_regression.py",
      "kinds": [
       "literal-path"
      ]
@@ -23122,8 +23747,8 @@
   },
   {
    "auth": "bridge (enforced by backend)",
-   "bestMatchKind": null,
-   "evidence": "none",
+   "bestMatchKind": "literal-path",
+   "evidence": "strong",
    "file": "frontend/app/api/auth/logout/route.js",
    "id": "BRIDGE POST /api/auth/logout",
    "methods": [
@@ -23136,9 +23761,26 @@
    ],
    "riskScore": 5,
    "surface": "bridgeRoute",
-   "testFrameworks": [],
-   "testRefCount": 0,
-   "testRefs": [],
+   "testFrameworks": [
+    "pytest",
+    "vitest"
+   ],
+   "testRefCount": 2,
+   "testRefs": [
+    {
+     "file": "frontend/__tests__/auth-logout-and-sharp-audit-bridge-route.test.js",
+     "kinds": [
+      "literal-path",
+      "route-import"
+     ]
+    },
+    {
+     "file": "tests/api/test_private_route_auth_regressions.py",
+     "kinds": [
+      "literal-path"
+     ]
+    }
+   ],
    "url": "/api/auth/logout"
   },
   {
@@ -23357,7 +23999,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 14,
+   "testRefCount": 16,
    "testRefs": [
     {
      "file": "frontend/__tests__/dynasty-data-dedup.test.js",
@@ -23374,6 +24016,18 @@
     },
     {
      "file": "frontend/__tests__/site-overrides.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_cw40_batch_s_closed.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_tep_override_regression.py",
      "kinds": [
       "literal-path"
      ]
@@ -23464,10 +24118,17 @@
    "surface": "bridgeRoute",
    "testFrameworks": [
     "playwright",
-    "pytest"
+    "pytest",
+    "vitest"
    ],
-   "testRefCount": 2,
+   "testRefCount": 3,
    "testRefs": [
+    {
+     "file": "frontend/__tests__/audit-w09-f007-regression.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
     {
      "file": "tests/api/test_operator_admin_gate.py",
      "kinds": [
@@ -24241,8 +24902,14 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 8,
+   "testRefCount": 9,
    "testRefs": [
+    {
+     "file": "frontend/__tests__/audit-w09-f007-regression.test.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
     {
      "file": "frontend/__tests__/components/trade-tce-page.test.jsx",
      "kinds": [
@@ -24351,7 +25018,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 6,
+   "testRefCount": 8,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/idp-streaming-panel.test.jsx",
@@ -24378,6 +25045,12 @@
      ]
     },
     {
+     "file": "tests/api/test_waiver_routes_faab_config_refusal.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/api/test_waiver_streaming_endpoint.py",
      "kinds": [
       "literal-path"
@@ -24385,6 +25058,12 @@
     },
     {
      "file": "tests/e2e/specs/waiver-advisor-streaming.spec.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/trade/test_cw50_waiver_workflow.py",
      "kinds": [
       "literal-path"
      ]
@@ -24457,10 +25136,16 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 3,
+   "testRefCount": 6,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/perfect-waivers-panel.test.jsx",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_cw50_waiver_desk.py",
      "kinds": [
       "literal-path"
      ]
@@ -24473,6 +25158,18 @@
     },
     {
      "file": "tests/e2e/specs/prod-auth/train2-private-surfaces.spec.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/trade/test_cw50_waiver_workflow.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/waivers/test_waiver_workflow_properties.py",
      "kinds": [
       "literal-path"
      ]
@@ -24501,7 +25198,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 4,
+   "testRefCount": 6,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/idp-streaming-panel.test.jsx",
@@ -24516,6 +25213,12 @@
      ]
     },
     {
+     "file": "tests/api/test_waiver_routes_faab_config_refusal.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/api/test_waiver_streaming_endpoint.py",
      "kinds": [
       "literal-path"
@@ -24523,6 +25226,12 @@
     },
     {
      "file": "tests/e2e/specs/waiver-advisor-streaming.spec.js",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/trade/test_cw50_waiver_workflow.py",
      "kinds": [
       "literal-path"
      ]
@@ -24551,7 +25260,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 8,
+   "testRefCount": 12,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/waiver-faab-bids.test.jsx",
@@ -24579,6 +25288,18 @@
      ]
     },
     {
+     "file": "tests/api/test_cw50_waiver_desk.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/api/test_faab_integrity_surfaces.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/api/test_waiver_perfect_endpoint.py",
      "kinds": [
       "literal-path"
@@ -24597,7 +25318,19 @@
      ]
     },
     {
+     "file": "tests/trade/test_cw50_waiver_workflow.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
      "file": "tests/trade/test_waiver.py",
+     "kinds": [
+      "literal-path"
+     ]
+    },
+    {
+     "file": "tests/waivers/test_waiver_workflow_properties.py",
      "kinds": [
       "literal-path"
      ]
@@ -24823,6 +25556,47 @@
   },
   {
    "bestMatchKind": "quoted-flag-name",
+   "default": true,
+   "evidence": "strong",
+   "gateStatus": "LIVE",
+   "id": "FLAG confidence_cured_rejection_guard",
+   "name": "confidence_cured_rejection_guard",
+   "ownerHeld": null,
+   "riskClass": "c",
+   "riskReasons": [
+    "default ON",
+    "LIVE"
+   ],
+   "riskScore": 2,
+   "surface": "flag",
+   "testFrameworks": [
+    "pytest"
+   ],
+   "testRefCount": 3,
+   "testRefs": [
+    {
+     "file": "tests/api/test_confidence_cured_rejection_guard.py",
+     "kinds": [
+      "env-var",
+      "quoted-flag-name"
+     ]
+    },
+    {
+     "file": "tests/api/test_dlf_offense_only_vote.py",
+     "kinds": [
+      "quoted-flag-name"
+     ]
+    },
+    {
+     "file": "tests/api/test_feature_flags.py",
+     "kinds": [
+      "enumerating-file"
+     ]
+    }
+   ]
+  },
+  {
+   "bestMatchKind": "quoted-flag-name",
    "default": false,
    "evidence": "strong",
    "gateStatus": "LIVE",
@@ -24837,7 +25611,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 38,
+   "testRefCount": 39,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/market-ticker-buy-sell.test.jsx",
@@ -24872,6 +25646,12 @@
     },
     {
      "file": "frontend/__tests__/signal-ticker.test.js",
+     "kinds": [
+      "quoted-flag-name"
+     ]
+    },
+    {
+     "file": "tests/api/test_audit_w12_f003_regression.py",
      "kinds": [
       "quoted-flag-name"
      ]
@@ -25430,7 +26210,7 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 4,
+   "testRefCount": 5,
    "testRefs": [
     {
      "file": "tests/api/test_feature_flag_reachability.py",
@@ -25454,6 +26234,12 @@
      "file": "tests/nfl_data/test_refresh_injury_feed_capture.py",
      "kinds": [
       "env-var"
+     ]
+    },
+    {
+     "file": "tests/ros/test_game_day_pregame_late_capture.py",
+     "kinds": [
+      "quoted-flag-name"
      ]
     }
    ]
@@ -25849,7 +26635,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 7,
+   "testRefCount": 8,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/idp-streaming-panel.test.jsx",
@@ -25871,6 +26657,12 @@
     },
     {
      "file": "tests/api/test_waiver_advisor_nav_capability.py",
+     "kinds": [
+      "quoted-flag-name"
+     ]
+    },
+    {
+     "file": "tests/api/test_waiver_routes_faab_config_refusal.py",
      "kinds": [
       "quoted-flag-name"
      ]
@@ -26255,8 +27047,14 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 4,
+   "testRefCount": 5,
    "testRefs": [
+    {
+     "file": "frontend/__tests__/audit-w10-f003-regression.test.js",
+     "kinds": [
+      "quoted-flag-name"
+     ]
+    },
     {
      "file": "frontend/__tests__/components/PerfectDraftPanel.test.jsx",
      "kinds": [
@@ -27133,7 +27931,7 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 15,
+   "testRefCount": 16,
    "testRefs": [
     {
      "file": "tests/api/test_feature_flags.py",
@@ -27174,6 +27972,12 @@
     },
     {
      "file": "tests/model_registry/test_learning_boundary.py",
+     "kinds": [
+      "bare-identifier"
+     ]
+    },
+    {
+     "file": "tests/ros/idp_opportunity/test_prospective_eval.py",
      "kinds": [
       "bare-identifier"
      ]
@@ -27895,7 +28699,7 @@
     "pytest",
     "vitest"
    ],
-   "testRefCount": 7,
+   "testRefCount": 8,
    "testRefs": [
     {
      "file": "frontend/__tests__/components/waiver-advisor-page.test.jsx",
@@ -27923,6 +28727,12 @@
     },
     {
      "file": "tests/api/test_waiver_advisor_nav_capability.py",
+     "kinds": [
+      "quoted-flag-name"
+     ]
+    },
+    {
+     "file": "tests/api/test_waiver_routes_faab_config_refusal.py",
      "kinds": [
       "quoted-flag-name"
      ]
@@ -28025,8 +28835,14 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 5,
+   "testRefCount": 6,
    "testRefs": [
+    {
+     "file": "tests/deploy/test_hard_gate_sharding_wiring.py",
+     "kinds": [
+      "exec-script"
+     ]
+    },
     {
      "file": "tests/deploy/test_post_deploy_verification_is_honest.py",
      "kinds": [
@@ -28141,7 +28957,7 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 9,
+   "testRefCount": 10,
    "testRefs": [
     {
      "file": "tests/canonical/test_player_valuation.py",
@@ -28165,6 +28981,12 @@
      "file": "tests/deploy/test_calibration_issue_tracking_is_self_healing.py",
      "kinds": [
       "workflow-file"
+     ]
+    },
+    {
+     "file": "tests/deploy/test_hard_gate_sharding_wiring.py",
+     "kinds": [
+      "exec-script"
      ]
     },
     {
@@ -28281,8 +29103,14 @@
     "playwright",
     "pytest"
    ],
-   "testRefCount": 11,
+   "testRefCount": 12,
    "testRefs": [
+    {
+     "file": "tests/api/test_audit_cw40_batch_s_open.py",
+     "kinds": [
+      "workflow-file"
+     ]
+    },
     {
      "file": "tests/deploy/test_calibration_issue_tracking_is_self_healing.py",
      "kinds": [
@@ -28641,7 +29469,7 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 56,
+   "testRefCount": 57,
    "testRefs": [
     {
      "file": "tests/adapters/test_dlf_scraper.py",
@@ -28786,6 +29614,12 @@
      "file": "tests/deploy/test_draft_data_sync_survives_curl_failure.py",
      "kinds": [
       "workflow-file"
+     ]
+    },
+    {
+     "file": "tests/deploy/test_hard_gate_sharding_wiring.py",
+     "kinds": [
+      "exec-script"
      ]
     },
     {
@@ -29013,7 +29847,7 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 14,
+   "testRefCount": 15,
    "testRefs": [
     {
      "file": "tests/api/test_blend_integrity.py",
@@ -29055,6 +29889,12 @@
      "file": "tests/deploy/test_full_suite_budgets.py",
      "kinds": [
       "workflow-file"
+     ]
+    },
+    {
+     "file": "tests/deploy/test_hard_gate_sharding_wiring.py",
+     "kinds": [
+      "exec-script"
      ]
     },
     {
@@ -29394,8 +30234,14 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 1,
+   "testRefCount": 2,
    "testRefs": [
+    {
+     "file": "tests/deploy/test_timer_unit_integrity.py",
+     "kinds": [
+      "unit-name"
+     ]
+    },
     {
      "file": "tests/deploy/test_timers_are_utc.py",
      "kinds": [
@@ -29569,6 +30415,40 @@
    "bestMatchKind": "unit-name",
    "evidence": "strong",
    "execScripts": [
+    "scripts/game_day_calibration_scorecard.py",
+    "scripts/projection_scorecard.py",
+    "scripts/run_forecast_calibration_ledger.py"
+   ],
+   "file": "deploy/systemd/dynasty-forecast-calibration-ledger.timer.template",
+   "id": "JOB systemd-timer dynasty-forecast-calibration-ledger",
+   "kind": "systemd-timer",
+   "name": "dynasty-forecast-calibration-ledger",
+   "riskClass": "d",
+   "riskReasons": [
+    "systemd-timer"
+   ],
+   "riskScore": 1,
+   "schedule": [
+    "Tue,Wed *-*-* 13:40:00 UTC"
+   ],
+   "surface": "job",
+   "testFrameworks": [
+    "pytest"
+   ],
+   "testRefCount": 1,
+   "testRefs": [
+    {
+     "file": "tests/deploy/test_forecast_calibration_ledger_timer.py",
+     "kinds": [
+      "unit-name"
+     ]
+    }
+   ]
+  },
+  {
+   "bestMatchKind": "unit-name",
+   "evidence": "strong",
+   "execScripts": [
     "scripts/capture_game_day_predictions.py"
    ],
    "file": "deploy/systemd/dynasty-game-day-capture.timer.template",
@@ -29587,7 +30467,7 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 2,
+   "testRefCount": 3,
    "testRefs": [
     {
      "file": "tests/deploy/test_all_timers_are_wired.py",
@@ -29599,6 +30479,12 @@
      "file": "tests/ros/test_game_day_capture.py",
      "kinds": [
       "exec-script",
+      "unit-name"
+     ]
+    },
+    {
+     "file": "tests/ros/test_game_day_pregame_late_capture.py",
+     "kinds": [
       "unit-name"
      ]
     }
@@ -30056,6 +30942,57 @@
    "bestMatchKind": "unit-name",
    "evidence": "strong",
    "execScripts": [
+    "scripts/backtest_perfect_draft.py",
+    "scripts/capture_pre_auction_snapshot.py"
+   ],
+   "file": "deploy/systemd/dynasty-pre-auction-snapshot.timer.template",
+   "id": "JOB systemd-timer dynasty-pre-auction-snapshot",
+   "kind": "systemd-timer",
+   "name": "dynasty-pre-auction-snapshot",
+   "riskClass": "d",
+   "riskReasons": [
+    "systemd-timer"
+   ],
+   "riskScore": 1,
+   "schedule": [
+    "*-*-* 11:40:00 UTC"
+   ],
+   "surface": "job",
+   "testFrameworks": [
+    "pytest"
+   ],
+   "testRefCount": 4,
+   "testRefs": [
+    {
+     "file": "tests/deploy/test_pre_auction_snapshot_unit_exit_codes.py",
+     "kinds": [
+      "unit-name"
+     ]
+    },
+    {
+     "file": "tests/draft/test_backtest_snapshot_hydration.py",
+     "kinds": [
+      "exec-script"
+     ]
+    },
+    {
+     "file": "tests/draft/test_pre_auction_capture.py",
+     "kinds": [
+      "exec-script"
+     ]
+    },
+    {
+     "file": "tests/sharp/test_cohort_snapshot.py",
+     "kinds": [
+      "exec-script"
+     ]
+    }
+   ]
+  },
+  {
+   "bestMatchKind": "unit-name",
+   "evidence": "strong",
+   "execScripts": [
     "scripts/refresh_reception_depth.py"
    ],
    "file": "deploy/systemd/dynasty-reception-depth.timer.template",
@@ -30317,8 +31254,14 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 1,
+   "testRefCount": 2,
    "testRefs": [
+    {
+     "file": "tests/deploy/test_timer_unit_integrity.py",
+     "kinds": [
+      "unit-name"
+     ]
+    },
     {
      "file": "tests/deploy/test_timers_are_utc.py",
      "kinds": [
@@ -30551,7 +31494,7 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 4,
+   "testRefCount": 5,
    "testRefs": [
     {
      "file": "tests/api/test_backup_health.py",
@@ -30574,6 +31517,12 @@
     },
     {
      "file": "tests/deploy/test_state_backup_installer.py",
+     "kinds": [
+      "unit-name"
+     ]
+    },
+    {
+     "file": "tests/deploy/test_timer_unit_integrity.py",
      "kinds": [
       "unit-name"
      ]
@@ -30602,7 +31551,7 @@
    "testFrameworks": [
     "pytest"
    ],
-   "testRefCount": 2,
+   "testRefCount": 3,
    "testRefs": [
     {
      "file": "tests/api/test_backup_health.py",
@@ -30615,17 +31564,17 @@
      "kinds": [
       "unit-name"
      ]
+    },
+    {
+     "file": "tests/deploy/test_timer_unit_integrity.py",
+     "kinds": [
+      "unit-name"
+     ]
     }
    ]
   }
  ],
  "rankedGapIds": [
-  "POST /api/ros/refresh",
-  "POST /api/auth/logout",
-  "BRIDGE POST /api/auth/logout",
-  "POST /api/user/signals/restore",
-  "GET /api/admin/scrape-telemetry",
-  "GET /api/ros/sources",
   "JOB systemd-timer dynasty-board-snapshot",
   "JOB systemd-timer dynasty-dfs-auto-refresh",
   "JOB systemd-timer dynasty-faab-history",
@@ -30635,8 +31584,6 @@
   "JOB systemd-timer dynasty-signals-auth-renew",
   "JOB systemd-timer dynasty-trending-history-refresh",
   "JOB systemd-timer dynasty-weekly-projection-capture",
-  "GET /api/sharp/roster-percentage/audit",
-  "BRIDGE GET /api/sharp/roster-percentage/audit",
   "GET /api/ros/health",
   "PAGE /auction/join",
   "PAGE /auction/notifications",
@@ -30660,31 +31607,31 @@
   "FLAG value_confidence_intervals"
  ],
  "schema": "feature_census.v1",
- "testFileCount": 1817,
+ "testFileCount": 1904,
  "totals": {
   "backendRoute": {
-   "noTestRefFound": 6,
+   "noTestRefFound": 0,
    "total": 229,
    "weakMatchOnly": 9,
-   "withTestRef": 223
+   "withTestRef": 229
   },
   "bridgeRoute": {
-   "noTestRefFound": 2,
-   "total": 87,
+   "noTestRefFound": 0,
+   "total": 88,
    "weakMatchOnly": 0,
-   "withTestRef": 85
+   "withTestRef": 88
   },
   "flag": {
    "noTestRefFound": 0,
-   "total": 67,
+   "total": 68,
    "weakMatchOnly": 5,
-   "withTestRef": 67
+   "withTestRef": 68
   },
   "job": {
    "noTestRefFound": 9,
-   "total": 52,
+   "total": 54,
    "weakMatchOnly": 0,
-   "withTestRef": 43
+   "withTestRef": 45
   },
   "page": {
    "noTestRefFound": 0,
