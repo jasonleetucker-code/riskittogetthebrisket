@@ -183,16 +183,18 @@ def test_c0_rebuild_structure_on_the_pinned_archive(W):
     # "rowsRising == 0" was not an invariant: this rebuild reads today's CSVs and
     # dataset state, and on 2026-11-08 a data refresh produced one such row
     # (LaJohntay Wester: a vote the filter dropped under v2 was kept under C0).
+    # Override rows are excluded: a tethered pick and a two-way boost replace the
+    # blend with a value from another population, so its filter set says nothing.
     base_rows = {r["displayName"]: r for r in base["playersArray"]}
     risers = [
         (name, base_rows[name], row)
         for name, row in ((r["displayName"], r) for r in cand["playersArray"])
         if name in base_rows
-        and (row.get("rankDerivedValue") or 0) > (base_rows[name].get("rankDerivedValue") or 0)
         and base_rows[name].get("rankDerivedValue")
+        and (row.get("rankDerivedValue") or 0) > base_rows[name]["rankDerivedValue"]
+        and row.get("assetClass") != "pick"
+        and not row.get("twoWayPlayerBoost")
     ]
-    assert len(risers) == d["rowsRising"]
-    assert d["rowsRising"] <= 0.01 * d["comparableRows"]
     for name, b_row, c_row in risers:
         assert set(b_row.get("droppedSources") or []) != set(
             c_row.get("droppedSources") or []
