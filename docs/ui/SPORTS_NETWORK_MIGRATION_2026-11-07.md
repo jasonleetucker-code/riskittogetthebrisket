@@ -30,7 +30,7 @@ The global token/type migration must reach both current semantic components and 
 
 ## Implementation and evidence — November 8
 
-Implementation source: `26c5d4092` (the final change is CSS-only refinement); full-suite source `c40ad6987875b99d53ac91efef6fdbafa17c52aa`. Integration/deployment remain separate, unverified states until their actual receipts exist. The independently reviewed prototype is draft PR #2132; the historical owner charter is [open #2112](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/2112), file `docs/owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md` on that proposal. Its original prototype-only boundary is superseded by the explicit continuation captured in the execution plan. This record is linked through the existing UI ledger and owner intake.
+Implementation source: `5cf6b892a` (last change distinguishes unavailable News roster coverage from zero); full-suite source `c40ad6987875b99d53ac91efef6fdbafa17c52aa`. Integration/deployment remain separate, unverified states until their actual receipts exist. The independently reviewed prototype is draft PR #2132; the historical owner charter is [open #2112](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/2112), file `docs/owner/FRONTEND_EXPERIENCE_REBUILD_RESEARCH_CHARTER_2026-11-07.md` on that proposal. Its original prototype-only boundary is superseded by the explicit continuation captured in the execution plan. This record is linked through the existing UI ledger and owner intake.
 
 ### Live execution and contract mapping
 
@@ -110,3 +110,17 @@ Final implementation `26c5d4092`: build passed115routeentries,19/19 budgets and 
 39 targeted tests passed after CSS refinement. Final12flagship/comparison scans and24representative
 family scans have zero axe violations, page errors and document overflow. Nine flagship screenshots
 were inspected visually; phone table density and News lead alignment were revised and rendered again.
+
+
+Final News review follow-up `631d86e4a` / `5cf6b892a`: label the displayed units as **Player digests**
+and **Roster stories**; absent selected-team coverage is unavailable rather than a measured zero.
+Regression + News service/player-identity guards: **107/107 pass**, three files. Rebuilt final source:
+115routeentries,19/19unchanged bundle budgets and public-bundle privacy pass; refreshed12viewport
+scans have zero axe/page errors/document overflow. Screenshot hashes in the machine receipt are
+from this final build. Draft review PR: [#2171](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/2171).
+
+Integration freshness reconciliation `2d88d7fba` merges current-main `5642d192e`: additive roster
+metadata (existing totalValue semantics retained), inspected DLF/IDP refreshes and session records.
+This is classified as a relevant API dependency move, not assumed benign from automation authorship.
+The merge changed no frontend file; frontend tree exactly matches tested/built `5cf6b892a`.
+Exact PR CI and deployment remain separate states; do not infer production approval from this draft.
