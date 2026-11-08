@@ -321,7 +321,12 @@ governance/planning gates, the runtime import gate and the API contract check
 stay unconditional: they are cheap and are cross-cutting safety nets, not
 per-domain suites that should ever be skipped. Any change-detection failure
 defaults to running everything — this mechanism can only ever widen validation
-on its own error, never narrow it. **Related work should generally land as ONE
+on its own error, never narrow it. The backend hard gate runs as N parallel,
+duration-balanced shards of the identical command (2026-11-07; owner
+`scripts/ci_test_shards.py`, config `config/ci/test_shards.json`), and the
+required `Validate PR` check passes only when the shard manifests prove every
+collected test ran exactly once, the collection floor holds and the skip budget
+is not exceeded — splitting the suite never drops a test. **Related work should generally land as ONE
 integration PR** covering a coherent development phase, not one PR per tiny
 edit — see "Development operating model" below for how this reconciles with
 `ASSISTANT_COORDINATION.md`'s branch rules.
@@ -337,7 +342,13 @@ style gate, while one is active and incomplete). This is
 which this policy does not replace, only names in the L0-L3 vocabulary) and
 `.github/workflows/deploy.yml`. Neither file gained any path-awareness or
 skip logic under this policy — every step in both runs unconditionally, every
-time, exactly as before. Existing owner-approved production acceptance
+time, exactly as before. Since 2026-11-07 `deploy.yml` runs its hard gate as
+parallel shards with the same manifest completeness proof as PR Validation
+(serial on one runner for a target without the shard owner, or on an operator's
+`serial_hard_gate` dispatch), and `release-candidate.yml` likewise (serial only
+for a candidate tree without the shard owner), every shard asserting it tests
+the planned candidate tree; that changes where tests run, never which.
+Existing owner-approved production acceptance
 contracts remain authoritative and are not superseded by the existence of this
 faster development workflow.
 

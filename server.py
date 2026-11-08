@@ -7595,6 +7595,7 @@ async def post_waiver_suggestions(request: Request):
             starters=inputs["starters"],
             roster_size=inputs["roster_size"],
             market_priors=inputs["market_priors"],
+            withhold_bids_when_balance_unknown=True,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Waiver suggestions failed: {exc}")

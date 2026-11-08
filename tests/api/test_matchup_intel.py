@@ -377,11 +377,15 @@ class ArchiveEvidenceTests(unittest.TestCase):
         # A later capture is a DIFFERENT observation, not a fresher version
         # of the same one, so the pregame evidence is the earliest.
         class _Snap:
-            def __init__(self, at, kind="pregame"):
+            def __init__(self, at, kind="pregame", team="1"):
                 self.captured_at = at
                 self.capture_kind = kind
+                self.team_id = team
 
-        snaps = [_Snap("2026-09-09T18:02:11+00:00"), _Snap("2026-09-09T20:30:00+00:00")]
+        snaps = [
+            _Snap("2026-09-09T18:02:11+00:00", team="1"),
+            _Snap("2026-09-09T20:30:00+00:00", team="2"),
+        ]
         with (
             _patch_fetch(),
             _patch_estimates(),
@@ -394,6 +398,67 @@ class ArchiveEvidenceTests(unittest.TestCase):
         self.assertEqual(arch["capturedAt"], "2026-09-09T18:02:11+00:00")
         self.assertEqual(arch["latestCapturedAt"], "2026-09-09T20:30:00+00:00")
         self.assertEqual(arch["captureKinds"], ["pregame"])
+
+    def test_a_late_snapshot_does_not_double_the_team_count(self) -> None:
+        # 2026-11-07: a team now carries `pregame` AND `pregame_late`. Two
+        # teams with both kinds are still two teams, and the earliest stamp is
+        # still the early pregame evidence.
+        class _Snap:
+            def __init__(self, at, kind, team):
+                self.captured_at = at
+                self.capture_kind = kind
+                self.team_id = team
+
+        snaps = [
+            _Snap("2026-11-11T20:00:05+00:00", "pregame", "1"),
+            _Snap("2026-11-11T20:00:06+00:00", "pregame", "2"),
+            _Snap("2026-11-15T08:00:05+00:00", "pregame_late", "1"),
+            _Snap("2026-11-15T08:00:06+00:00", "pregame_late", "2"),
+        ]
+        with (
+            _patch_fetch(),
+            _patch_estimates(),
+            mock.patch("src.ros.game_day_archive.load_snapshots_for_week", return_value=snaps),
+        ):
+            out = _build()
+        arch = out["lineage"]["archive"]
+        self.assertEqual(arch["teamsCaptured"], 2)
+        self.assertEqual(arch["teamsCapturedByKind"], {"pregame": 2, "pregame_late": 2})
+        self.assertEqual(arch["captureKinds"], ["pregame", "pregame_late"])
+        self.assertEqual(arch["capturedAt"], "2026-11-11T20:00:05+00:00")
+
+    def test_a_damaged_archive_file_is_counted_not_hidden_and_hides_nothing_else(self) -> None:
+        # PR #2140 review: one truncated file used to make the whole week
+        # unreadable; now the readable teams still count and the damaged file
+        # is reported, and a week with ONLY damaged files is not "not captured".
+        from src.ros import game_day_archive as gda
+
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        with mock.patch.object(gda, "ARCHIVE_ROOT", tmp):
+            gda.record_snapshot(
+                league_key="lk",
+                season=2026,
+                week=10,
+                team_id="1",
+                capture_kind="pregame",
+                scoring_config_id="sf1:x",
+                starter_slots=("QB",),
+                roster=(
+                    gda.PlayerPointEstimate(player_id="p1", position="QB", is_lineup_eligible=True),
+                ),
+            )
+            week_dir = tmp / "2026" / "lk" / "week_10"
+            (week_dir / "2_pregame.json").write_text('{"league_key": "lk", "sea', encoding="utf-8")
+            arch = matchup_intel._archive_evidence("lk", 2026, 10)
+            self.assertEqual(arch["state"], "captured")
+            self.assertEqual(arch["teamsCaptured"], 1)
+            self.assertEqual(arch["unreadableFiles"], 1)
+
+            (week_dir / "1_pregame.json").unlink()
+            arch = matchup_intel._archive_evidence("lk", 2026, 10)
+            self.assertEqual(arch["state"], "unreadable")
+            self.assertEqual(arch["unreadableFiles"], 1)
 
 
 def _row(*, home, away, gametime, gameday="2026-09-07"):

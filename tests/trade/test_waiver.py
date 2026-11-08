@@ -332,14 +332,18 @@ class TestDegradedInputs:
                 "playoffWeekStart": 15,
                 "playoffWeekStartSource": "default",
             },
-            # CW-50: the balance the bids were capped at, and whether the
-            # league lineup filtered the pool, are stated even on an empty board.
-            "faabBalance": {
+            # CW-50: the balance state (with which observation set it) and
+            # whether the league lineup filtered the pool are stated even on an
+            # empty board.
+            "faabBudget": {
                 "state": "unknown",
+                "balance": None,
+                "originalBudget": 100,
+                "bidsWithheld": False,
+                "reason": None,
                 "source": None,
-                "remaining": None,
-                "bidCap": 100,
-                "assumption": "bids_capped_at_league_original_budget",
+                "requestedBalance": None,
+                "observedBalance": None,
             },
             "positionEligibility": {
                 "state": "unverified",

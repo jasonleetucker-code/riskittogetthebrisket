@@ -97,6 +97,11 @@ on:
         required: false
         default: false
         type: boolean
+      serial_hard_gate:
+        description: "Run the unit-test hard gate on ONE runner (the pre-2026-11-07 serial gate: no shard manifests, no skip budget) instead of shards. For a rollback whose tree no longer fits the current skip budget. Normally leave false."
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: production-deploy
@@ -184,7 +189,10 @@ jobs:
     # the hard suite now takes ~105-110 min (PR Validation jobs of 109-112
     # min that day); a validate job cancelled at the 120-minute wall would
     # silently block the deploy. Runner headroom only.
-    timeout-minutes: 180
+    # 180 -> 60 (2026-11-07): the unit suite moved to the `hard-gate` jobs
+    # below; this job's remaining gates, frontend build and wheelhouse took
+    # ~6 min on run 42370375128.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -326,42 +334,14 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m scripts.generate_leagues_contract --check
-      - name: Run unit tests (hard gate — pure logic)
-        shell: bash
-        env:
-          ALLOW_DEFAULT_LOGIN_DEV: "1"
-          # Same policy as pr-validation.yml, and it matters more here:
-          # ``server`` enables its uptime watchdog by default, so every
-          # TestClient probes the live site and its shutdown joins that
-          # thread.  With production's ``/api/`` wedged, this step ran
-          # long enough to burn the job's 20-minute budget — which would
-          # block the very deploy that could fix production.
-          # ``tests/conftest.py`` sets the same default; stated here so
-          # the policy is visible in the workflow.
-          UPTIME_CHECK_ENABLED: "0"
-        run: |
-          set -Eeuo pipefail
-          # Hard gate: real code regressions block the deploy.  Data-
-          # coupled tests are advisory below — the #451 served-board
-          # coverage gate in verify-deploy.sh is the real deploy-time
-          # guard against genuine source degradation, so a routine
-          # scrape-churn dip must not false-block a deploy.
-          # Runner speed varies ~1.8x between GitHub-hosted runners: over 38
-          # jobs (CQ-29, 2026-10-19) this step's time tracked the same job's
-          # live-data step at r=0.98 (40-77 min), so the variance is the
-          # machine, not the suite.  Record the CPU and the slowest tests so a
-          # slow run is diagnosable from its own log.  Output only — the
-          # command, markers and -x are unchanged.
-          grep -m1 'model name' /proc/cpuinfo || true
-          python -m pytest tests/ -x -q --tb=short -m "not livedata" --durations=30 --durations-min=5
-
       - name: Run live-data tests (advisory — non-blocking)
         if: ${{ always() }}
         continue-on-error: true
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
-          # Advisory, but it spends the same job budget.
+          # Advisory, but it spends the same job budget.  (The hard gate itself
+          # runs in the sharded `hard-gate` jobs.)
           UPTIME_CHECK_ENABLED: "0"
         run: |
           set -Eeuo pipefail
@@ -490,10 +470,244 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+  # ── The hard gate, sharded (2026-11-07) ─────────────────────────────────
+  # The serial hard gate was 90.5 of the 96.4 minutes of the last successful
+  # deploy's validate job (run 42370375128), and every merge waited behind it.
+  # It now runs as the same N duration-balanced shards PR Validation uses
+  # (owner: scripts/ci_test_shards.py) — but only when the TARGET tree carries
+  # that owner.  A rollback to an older commit, or any legacy-mode target, runs
+  # the old serial command on one runner: the deploy gate never depends on
+  # tooling the tree being shipped does not have.
+  test-plan:
+    name: Plan the hard gate
+    runs-on: ubuntu-latest
+    needs: resolve
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      shard_count: ${{ steps.plan.outputs.shard_count }}
+      mode: ${{ steps.plan.outputs.mode }}
+    steps:
+      - name: Checkout the resolved target
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Choose sharded or serial
+        id: plan
+        env:
+          RELEASE_MODE: ${{ needs.resolve.outputs.release_mode }}
+          FORCE_SERIAL: ${{ inputs.serial_hard_gate || false }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ "${FORCE_SERIAL}" == "true" ]]; then
+            echo "::notice title=Serial hard gate (operator)::serial_hard_gate was requested on dispatch."
+            {
+              echo 'shards=["serial"]'
+              echo "shard_count=1"
+              echo "mode=serial"
+            } >> "$GITHUB_OUTPUT"
+          elif [[ "${RELEASE_MODE}" == "artifact" && -f scripts/ci_test_shards.py && -f config/ci/test_shards.json ]]; then
+            python scripts/ci_test_shards.py matrix --github-output
+            echo "mode=sharded" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice title=Serial hard gate::the target tree has no shard owner (or is a legacy release); running the whole suite on one runner."
+            {
+              echo 'shards=["serial"]'
+              echo "shard_count=1"
+              echo "mode=serial"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+  hard-gate:
+    name: Hard gate (${{ matrix.shard }}/${{ needs.test-plan.outputs.shard_count }})
+    runs-on: ubuntu-latest
+    needs: [resolve, test-plan]
+    # 180 for the serial fallback (the whole suite, ~90-110 min on a slow
+    # runner); 45 for a shard (~1/8 of it), so a hung shard releases the
+    # production-deploy group in 45 minutes rather than three hours.  A finite
+    # hang bound either way — tests/deploy/test_full_suite_budgets.py.
+    timeout-minutes: ${{ matrix.shard == 'serial' && 180 || 45 }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.test-plan.outputs.shards) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Full history: Consensus Edge's as-of panel tests reconstruct past
+          # boards with `git show` and SKIP on a shallow clone (see validate).
+          fetch-depth: 0
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Assert the tested tree is the resolved target
+        env:
+          TARGET_SHA: ${{ needs.resolve.outputs.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${TARGET_SHA}" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::resolved target is not a full SHA"; exit 1; }
+          HEAD_SHA="$(git rev-parse HEAD)"
+          [[ "${HEAD_SHA}" == "${TARGET_SHA}" ]] || { echo "::error title=Hard-gate checkout mismatch::testing ${HEAD_SHA}, resolved ${TARGET_SHA}"; exit 1; }
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements-dev.txt
+
+      - name: Install dependencies (requirements-dev.txt)
+        env:
+          RELEASE_MODE: ${{ needs.resolve.outputs.release_mode }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          if [[ "${RELEASE_MODE}" == "artifact" ]]; then
+            [[ -f "requirements-dev.lock.txt" ]] || { echo "::error title=Missing dev lock::requirements-dev.lock.txt is required for tests."; exit 1; }
+            python scripts/python_lock.py check
+            pip install --require-hashes -r requirements-dev.lock.txt
+          elif [[ "${RELEASE_MODE}" == "legacy" ]]; then
+            echo "::notice::Explicit historical rollback: installing the target's legacy requirements-dev.txt. Exact Python lock identity is unavailable."
+            pip install -r requirements-dev.txt
+          else
+            echo "::error::unknown release mode ${RELEASE_MODE}"
+            exit 1
+          fi
+
+      - name: Install tesseract-ocr (screenshot import OCR tests)
+        # Same as PR Validation: the real-OCR tests (``@pytest.mark.tesseract``)
+        # RUN here instead of skipping, so the deploy gate is at least as strict
+        # as the PR gate and both are measured against one skip budget.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Retries: a flaky apt mirror must not block a production deploy.
+          sudo apt-get -o Acquire::Retries=3 update -q
+          sudo apt-get -o Acquire::Retries=3 install -y -q --no-install-recommends tesseract-ocr
+          tesseract --version | head -1
+
+      - name: Run unit tests (hard gate — pure logic)
+        shell: bash
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+          # Same policy as pr-validation.yml, and it matters more here:
+          # ``server`` enables its uptime watchdog by default, so every
+          # TestClient would probe the live site — and with production wedged
+          # that would block the very deploy that could fix it.
+          UPTIME_CHECK_ENABLED: "0"
+          # Empty on the serial fallback: the plugin then never registers and
+          # the command runs exactly as it always did.
+          RISKIT_TEST_SHARD: ${{ matrix.shard != 'serial' && format('{0}/{1}', matrix.shard, needs.test-plan.outputs.shard_count) || '' }}
+          RISKIT_TEST_SHARD_MANIFEST: ${{ runner.temp }}/shard-manifest/shard-${{ matrix.shard }}.json
+        run: |
+          set -Eeuo pipefail
+          # Hard gate: real code regressions block the deploy.  Data-coupled
+          # tests are advisory (validate job) — the #451 served-board coverage
+          # gate in verify-deploy.sh is the real deploy-time guard against
+          # genuine source degradation.  Runner speed varies ~1.8x between
+          # GitHub-hosted runners (CQ-29); record the CPU and slowest tests.
+          grep -m1 'model name' /proc/cpuinfo || true
+          python -m pytest tests/ -x -q --tb=short -m "not livedata" --durations=30 --durations-min=5
+
+      - name: Upload shard manifest
+        if: ${{ always() && needs.test-plan.outputs.mode == 'sharded' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-hard-gate-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard-manifest/shard-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 14
+          # "Re-run failed jobs" re-uploads the same name; the re-run's
+          # manifest must replace the failed attempt's.
+          overwrite: true
+
+  hard-gate-complete:
+    # What `deploy` waits on.  On the sharded path it proves, from every
+    # shard's manifest, that the shards together executed every collected test
+    # exactly once, the collection floor holds and the skip budget is not
+    # exceeded.  Deliberately NO job-level `if`: when any shard fails or is
+    # cancelled this job is SKIPPED, and `deploy` (implicit success() over its
+    # needs) is skipped with it — fail-closed.  Unlike a PR's required check,
+    # a skipped job here cannot wave anything through.  (A job-level `if` would
+    # also break the production-deploy concurrency rule,
+    # tests/deploy/test_production_deploy_concurrency.py.)
+    name: Hard gate complete
+    runs-on: ubuntu-latest
+    needs: [resolve, test-plan, hard-gate]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the resolved target
+        if: ${{ needs.test-plan.outputs.mode == 'sharded' }}
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Set up Python
+        if: ${{ needs.test-plan.outputs.mode == 'sharded' }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Download shard manifests
+        if: ${{ needs.test-plan.outputs.mode == 'sharded' }}
+        uses: actions/download-artifact@v4
+        with:
+          pattern: deploy-hard-gate-shard-*
+          path: shard-manifests
+
+      - name: Prove the sharded hard gate ran every test
+        if: ${{ needs.test-plan.outputs.mode == 'sharded' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/ci_test_shards.py verify --manifests shard-manifests
+
+      - name: Every hard-gate job succeeded
+        shell: bash
+        env:
+          PLAN_RESULT: ${{ needs.test-plan.result }}
+          GATE_RESULT: ${{ needs.hard-gate.result }}
+          MODE: ${{ needs.test-plan.outputs.mode }}
+        run: |
+          set -Eeuo pipefail
+          echo "plan=${PLAN_RESULT} gate=${GATE_RESULT} mode=${MODE}"
+          fail=0
+          if [[ "${PLAN_RESULT}" != "success" ]]; then
+            echo "::error::hard-gate planning did not succeed (${PLAN_RESULT})"
+            fail=1
+          fi
+          if [[ "${GATE_RESULT}" != "success" ]]; then
+            echo "::error::hard gate did not succeed (${GATE_RESULT})"
+            fail=1
+          fi
+          if [[ "${MODE}" != "sharded" && "${MODE}" != "serial" ]]; then
+            echo "::error::hard-gate mode unknown (${MODE:-empty})"
+            fail=1
+          fi
+          exit "${fail}"
+
   deploy:
     name: Deploy To Production
     runs-on: ubuntu-latest
-    needs: [resolve, validate]
+    # hard-gate-complete is the sharded (or serial-fallback) unit suite plus its
+    # completeness proof; it succeeds only when that gate passed.
+    needs: [resolve, validate, hard-gate-complete]
     timeout-minutes: 25
     environment: production
     env:

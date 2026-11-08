@@ -536,6 +536,11 @@ function BidGroup({ data, confidence, headingId }) {
   const maxRational = bids?.maxRational ?? data?.max;
   const clearing = bids?.clearing;
 
+  // Part 5 (owner directive 2026-11-07): ``winProbability`` is P(win | bid)
+  // read off the engine's fitted rival-bid model (or its configured priors
+  // when the league has no bid history).  No calibration of that curve
+  // against realized claims exists, so it is labelled a modelled,
+  // uncalibrated chance — never a plain "chance of winning".
   const winPct = fmtProbability(data?.winProbability);
   const pctOriginal = fmtPct(data?.pctOfOriginalBudget, 1);
   const pctRemaining = fmtPct(data?.pctOfRemaining, 1);
@@ -584,7 +589,7 @@ function BidGroup({ data, confidence, headingId }) {
           size="lg"
           label="Recommended"
           value={fmtBid(recommended)}
-          meta={winPct ? `${winPct} chance of winning` : null}
+          meta={winPct ? `${winPct} modelled win chance (not calibrated)` : null}
         />
         <StatTile label="Conservative" value={fmtBid(conservative)} />
         <StatTile label="Aggressive" value={fmtBid(aggressive)} />

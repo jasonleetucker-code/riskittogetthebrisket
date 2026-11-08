@@ -4,6 +4,8 @@ After=network-online.target
 Wants=network-online.target
 
 # Writes data/game_day/predictions/<season>/<league>/week_<n>/<team>_<kind>.json
+# (kind = pregame | pregame_late) plus one per-run capture-context file
+# data/game_day/capture_context/<season>/week_<n>/<kind>__<UTC instant>.json
 # via scripts/capture_game_day_predictions.py, which is the missing caller
 # for src/ros/game_day_archive.py (C5-GD-02).
 #
@@ -65,7 +67,13 @@ User=__APP_USER__
 Group=__APP_USER__
 WorkingDirectory=__APP_DIR__
 EnvironmentFile=-__APP_DIR__/.env
-ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/capture_game_day_predictions.py --capture-kind pregame --run-id systemd-timer
+# Two pre-event kinds per firing, each gated on its OWN kickoff (owner
+# directive 2026-11-07, Part 7): `pregame` before the week's first kickoff,
+# `pregame_late` before its first SUNDAY kickoff.  One process, one exit
+# code (3 > 1 > 0 > 2), so a quiet "too early" for one kind never masks the
+# other's loss -- which two ExecStart lines would not give: a non-success
+# exit of the first stops the second.
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/capture_game_day_predictions.py --capture-kind pregame --capture-kind pregame_late --run-id systemd-timer
 StandardOutput=journal
 StandardError=journal
 # A handful of Sleeper reads per league plus one projection-snapshot load.

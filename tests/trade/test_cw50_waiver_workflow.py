@@ -172,17 +172,23 @@ def _bids(out: dict) -> list[int]:
 
 
 class TestEveryBidRespectsTheBalanceAndSaysWhereItCameFrom:
+    """One published balance state: ``faabBudget`` (#2138's field; #2136's
+    ``faabBalance`` was folded into it on reconciliation, never shipped beside it)."""
+
     def test_known_roster_balance_caps_every_bid_and_is_stamped(self):
         out = w.find_waiver_targets(
             _bid_contract(), _league_teams(7), team_owner_id="me", starters=OFFENSE_ONLY
         )
         assert max(_bids(out)) <= 7
-        assert out["faabBalance"] == {
+        assert out["faabBudget"] == {
             "state": "known",
+            "balance": 7,
+            "originalBudget": 100,
+            "bidsWithheld": False,
+            "reason": None,
             "source": "roster",
-            "remaining": 7,
-            "bidCap": 7,
-            "assumption": None,
+            "requestedBalance": None,
+            "observedBalance": 7,
         }
 
     def test_a_stale_requested_balance_never_lifts_the_cap_above_the_observed_one(self):
@@ -195,26 +201,52 @@ class TestEveryBidRespectsTheBalanceAndSaysWhereItCameFrom:
             user_faab_remaining=50,
         )
         assert max(_bids(out)) <= 10
-        assert out["faabBalance"]["bidCap"] == 10
-        assert out["faabBalance"]["requestedRemaining"] == 50
+        budget = out["faabBudget"]
+        assert budget["balance"] == 10
+        assert budget["source"] == "roster"
+        assert budget["requestedBalance"] == 50
+        assert budget["observedBalance"] == 10
+
+    def test_a_lower_requested_balance_still_caps_below_the_roster(self):
+        """The other direction: the request is the lower observation, so it binds."""
+        out = w.find_waiver_targets(
+            _bid_contract(),
+            _league_teams(60),
+            team_owner_id="me",
+            starters=OFFENSE_ONLY,
+            user_faab_remaining=4,
+        )
+        assert max(_bids(out)) <= 4
+        assert out["faabBudget"]["balance"] == 4
+        assert out["faabBudget"]["source"] == "request"
 
     def test_unknown_balance_is_labelled_unknown_never_presented_as_known(self):
         out = w.find_waiver_targets(
             _bid_contract(), _league_teams(...), team_owner_id="me", starters=OFFENSE_ONLY
         )
-        bal = out["faabBalance"]
-        assert bal["state"] == "unknown"
-        assert bal["remaining"] is None
-        assert bal["source"] is None
-        assert bal["assumption"] == "bids_capped_at_league_original_budget"
+        budget = out["faabBudget"]
+        assert budget["state"] == "unknown"
+        assert budget["balance"] is None
+        assert budget["source"] is None
+        assert budget["observedBalance"] is None
 
     def test_known_zero_stays_zero(self):
         out = w.find_waiver_targets(
             _bid_contract(), _league_teams(0), team_owner_id="me", starters=OFFENSE_ONLY
         )
         assert max(_bids(out)) == 0
-        assert out["faabBalance"]["state"] == "known"
-        assert out["faabBalance"]["remaining"] == 0
+        assert out["faabBudget"]["state"] == "known"
+        assert out["faabBudget"]["balance"] == 0
+
+    def test_an_overspent_roster_is_a_known_zero_with_the_raw_figure_beside_it(self):
+        out = w.find_waiver_targets(
+            _bid_contract(), _league_teams(-5), team_owner_id="me", starters=OFFENSE_ONLY
+        )
+        assert max(_bids(out)) == 0
+        budget = out["faabBudget"]
+        assert budget["state"] == "known"
+        assert budget["balance"] == 0
+        assert budget["observedBalance"] == -5
 
 
 # ── 3–5. Perfect Waivers: capacity, protection, NO TRANSACTION, balance ──

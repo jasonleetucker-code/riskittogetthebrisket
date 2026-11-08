@@ -41,6 +41,7 @@ on:
         type: choice
         options:
           - pregame
+          - pregame_late
           - in_game
           - postgame
       league:

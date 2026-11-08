@@ -393,7 +393,7 @@ def test_luck_rows_are_manager_rows_and_the_team_view_stays_available(snap):
 
 def test_weekly_recap_sides_and_trade_parties_follow_the_week(snap):
     section = weekly_recap.build_section(snap)
-    recaps = section["byKey"]
+    recaps = {f"{r['season']}:{r['week']}": r for r in section["weeks"]}
     for key, recap in recaps.items():
         season, week = key.split(":")
         for m in recap["matchups"]:

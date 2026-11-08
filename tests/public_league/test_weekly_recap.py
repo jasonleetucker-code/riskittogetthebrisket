@@ -15,8 +15,16 @@ class WeeklyRecapSectionTests(unittest.TestCase):
         cls.data = build_section(cls.snapshot)
 
     def test_top_level_shape(self) -> None:
-        for key in ("seasonsCovered", "weeks", "byKey", "latest"):
+        for key in ("seasonsCovered", "weeks", "latest"):
             self.assertIn(key, self.data)
+
+    def test_by_key_is_not_emitted_and_weeks_are_unique_by_key(self) -> None:
+        # byKey was an exact duplicate of ``weeks`` (perf unit 2026-11-08).
+        self.assertNotIn("byKey", self.data)
+        keys = [f"{r['season']}:{r['week']}" for r in self.data["weeks"]]
+        self.assertTrue(keys)
+        self.assertEqual(len(keys), len(set(keys)))
+        self.assertEqual(self.data["latest"], self.data["weeks"][0])
 
     def test_every_recap_has_required_fields(self) -> None:
         for recap in self.data["weeks"]:
@@ -44,7 +52,7 @@ class WeeklyRecapSectionTests(unittest.TestCase):
 
     def test_week_2_of_2025_has_expected_superlatives(self) -> None:
         # Fixture: 2025 wk2 → A 145.8 beats C 142.1 (close), B 165.0 beats D 95.6 (blowout).
-        recap = self.data["byKey"]["2025:2"]
+        recap = next(r for r in self.data["weeks"] if (r["season"], r["week"]) == ("2025", 2))
         self.assertIsNotNone(recap)
         # MVP: highest scorer is owner-B at 165.0.
         self.assertEqual(recap["mvp"]["ownerId"], "owner-B")
@@ -58,12 +66,6 @@ class WeeklyRecapSectionTests(unittest.TestCase):
         # Nailbiter: A beats C by 3.7.
         self.assertEqual(recap["nailBiter"]["margin"], 3.7)
         self.assertEqual(recap["nailBiter"]["winner"]["ownerId"], "owner-A")
-
-    def test_bykey_maps_every_week(self) -> None:
-        for recap in self.data["weeks"]:
-            key = f"{recap['season']}:{recap['week']}"
-            self.assertIn(key, self.data["byKey"])
-            self.assertIs(self.data["byKey"][key], recap)
 
     def test_weeks_sorted_newest_first(self) -> None:
         weeks = self.data["weeks"]

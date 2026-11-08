@@ -393,8 +393,21 @@ def find_waiver_targets(
     roster_size: int | None = 0,
     market_priors: Any = None,
     today: Any = None,
+    withhold_bids_when_balance_unknown: bool = False,
 ) -> dict[str, Any]:
     """Return waiver-wire suggestions grouped by position.
+
+    ``faabBudget`` on the result states whether the requesting team's FAAB
+    balance is KNOWN (the lower of the request balance and the roster row's
+    ``faabRemaining`` when both are stated, else whichever is; ``source``
+    names which observation bound it) or UNKNOWN.  An unknown balance used to fall back to
+    ``cap = league budget`` and publish bids as if they were capped to a
+    known $100 (MISSING IS NEVER ZERO).  With
+    ``withhold_bids_when_balance_unknown`` the three balance-capped bids and
+    ``maxRational`` are published as ``null`` instead; the objective ceiling
+    and the market clearing band do not depend on our balance and stay.  Left
+    False for callers that carry their own explicit balance state
+    (``/api/waiver/perfect``, the advisor) so their plans are unchanged.
 
     Season phase (IST-7, owner directive 2026-10-29): the engine's
     ``LeagueContext`` carries the CURRENT NFL week and in-season state from
@@ -454,6 +467,12 @@ def find_waiver_targets(
         }
 
     rostered = rostered_name_set(sleeper_teams)
+    # Ownership is decided by playerId first (the roster's ``playerIds``),
+    # name as the fallback — the same "who is rostered" owner
+    # ``/api/waiver/perfect`` uses, never a second definition.
+    from src.draft.context import league_rostered_keys  # noqa: PLC0415
+
+    rostered_keys = league_rostered_keys({"sleeper": {"teams": sleeper_teams or []}})
 
     rookies_eligible = _rookies_eligible_today()
     positions = waiver_positions(include_kicker_def)
@@ -475,6 +494,9 @@ def find_waiver_targets(
 
         name = str(row.get("displayName") or row.get("canonicalName") or "")
         if not name or _normalize_name(name) in rostered:
+            continue
+        row_pid = _normalize_name(row.get("playerId"))
+        if row_pid and row_pid in rostered_keys:
             continue
 
         reason = waiver_candidate_exclusion(
@@ -559,38 +581,38 @@ def find_waiver_targets(
     # Two possible observations of the balance: the caller's (the client
     # sends the one its own contract carries) and the resolved roster's (the
     # live teams overlay, the only roster source that carries balances).  When
-    # both are known the LOWER one caps — a stale client figure must never
-    # lift a bid above what the live roster says the team has (CW-50:
-    # measured, a $50 request against a $10 roster quoted a $49 bid).
+    # both are stated the LOWER one caps — a stale client figure must never
+    # lift a bid above what the live roster says the team has (CW-50, #2136:
+    # measured, a $50 request against a $10 roster quoted a $49 bid).  A
+    # negative balance (an over-spent roster) is a KNOWN balance with nothing
+    # to spend, never an unknown one; the raw observations are published
+    # beside it in ``faabBudget``.
     observed = own_team_row.get("faabRemaining") if own_team_row is not None else None
-    observed_known = isinstance(observed, int) and not isinstance(observed, bool)
-    known_remaining: int | None
-    if user_faab_remaining is not None and observed_known:
-        known_remaining = min(int(user_faab_remaining), int(observed))
-        balance_source: str | None = "roster"
-    elif observed_known:
-        known_remaining = int(observed)
-        balance_source = "roster"
-    elif user_faab_remaining is not None:
-        known_remaining = int(user_faab_remaining)
-        balance_source = "request"
+    observed_balance: int | None = (
+        int(observed) if isinstance(observed, int) and not isinstance(observed, bool) else None
+    )
+    requested_balance: int | None = (
+        int(user_faab_remaining) if user_faab_remaining is not None else None
+    )
+    known_balance: int | None
+    balance_source: str | None
+    if requested_balance is not None and observed_balance is not None:
+        known_balance = min(requested_balance, observed_balance)
+        balance_source = "roster" if observed_balance <= requested_balance else "request"
+    elif observed_balance is not None:
+        known_balance, balance_source = observed_balance, "roster"
+    elif requested_balance is not None:
+        known_balance, balance_source = requested_balance, "request"
     else:
-        # UNKNOWN balance.  The list keeps its documented fallback (bids are
-        # capped at the league's original budget so the columns render), but
-        # it is now LABELLED rather than presented as a known balance.
-        known_remaining = None
-        balance_source = None
-    cap = max(0, int(budget if known_remaining is None else known_remaining))
-    faab_balance: dict[str, Any] = {
-        "state": "unknown" if balance_source is None else "known",
-        "source": balance_source,
-        "remaining": known_remaining,
-        "bidCap": cap,
-        "assumption": ("bids_capped_at_league_original_budget" if balance_source is None else None),
-    }
-    if user_faab_remaining is not None and observed_known:
-        faab_balance["requestedRemaining"] = int(user_faab_remaining)
-        faab_balance["observedRemaining"] = int(observed)
+        known_balance, balance_source = None, None
+    balance_known = known_balance is not None
+    if known_balance is not None:
+        known_balance = max(0, known_balance)
+    # An unknown balance still needs a number for the engine's team layer
+    # (objective/clearing do not depend on it); it is the league budget and is
+    # NEVER published as a balance — see ``faabBudget`` / withholding below.
+    cap = max(0, int(known_balance if known_balance is not None else budget))
+    withhold = withhold_bids_when_balance_unknown and not balance_known
 
     if own_team_row is not None:
         bid_methodology = "market_aware"
@@ -671,7 +693,7 @@ def find_waiver_targets(
                     c.clearing_low = int(bids["clearingLow"])
                 if isinstance(bids.get("clearingHigh"), (int, float)):
                     c.clearing_high = int(bids["clearingHigh"])
-                c.max_rational = int(bids["maxRational"])
+                c.max_rational = None if withhold else int(bids["maxRational"])
                 c.objective_dollars = int(rec["objective"]["dollars"])
                 c.confidence = rec.get("confidence")
     else:
@@ -687,6 +709,12 @@ def find_waiver_targets(
                 c.bid_aggressive = min(agg, cap)
                 c.bid_reasonable = min(reas, cap)
                 c.bid_lowball = min(low, cap)
+
+    if withhold:
+        for cs in candidates_by_position.values():
+            for c in cs:
+                c.bid_aggressive = c.bid_reasonable = c.bid_lowball = None
+                c.max_rational = None
 
     out_by_position: dict[str, list[dict[str, Any]]] = {}
     total = 0
@@ -727,7 +755,19 @@ def find_waiver_targets(
         "rookies_excluded": not rookies_eligible,
         "bidMethodology": bid_methodology,
         "seasonPhase": season_phase,
-        "faabBalance": faab_balance,
+        "faabBudget": {
+            "state": "known" if balance_known else "unknown",
+            # The SPENDABLE balance every bid is capped at: the lower of the
+            # two observations, never below $0.  ``source`` names which one
+            # bound it; the raw observations stay beside it.
+            "balance": known_balance,
+            "originalBudget": budget,
+            "bidsWithheld": bool(withhold),
+            "reason": "faab_balance_unknown" if withhold else None,
+            "source": balance_source,
+            "requestedBalance": requested_balance,
+            "observedBalance": observed_balance,
+        },
         "positionEligibility": (
             {
                 "state": "league_slots",

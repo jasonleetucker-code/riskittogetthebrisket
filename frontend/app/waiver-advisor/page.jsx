@@ -55,6 +55,7 @@ import {
   forcedDropText,
   lineupText,
   maxRationalText,
+  planOptimalityText,
   planStatusLabel,
   postureText,
   reasonText,
@@ -119,6 +120,7 @@ function TeamContext({ payload }) {
   const posture = postureText(payload.posture);
   const plan = payload.plan?.summary || null;
   const capacity = payload.plan?.capacity || null;
+  const optimality = planOptimalityText(payload.plan?.solver);
   return (
     <div className={styles.summaryGrid} data-testid="advisor-team-context">
       <StatTile
@@ -136,7 +138,7 @@ function TeamContext({ payload }) {
         meta={posture.note}
       />
       <StatTile
-        label="Optimal plan"
+        label={optimality.label}
         value={
           plan
             ? `${plan.addCount} add${plan.addCount === 1 ? "" : "s"}`
@@ -144,7 +146,7 @@ function TeamContext({ payload }) {
         }
         meta={
           plan
-            ? `net ${fmtSigned(plan.netValueGain) ?? "—"} board value`
+            ? `net ${fmtSigned(plan.netValueGain) ?? "—"} board value · ${optimality.note}`
             : undefined
         }
       />

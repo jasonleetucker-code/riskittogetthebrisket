@@ -281,8 +281,9 @@ def test_suggestions_route_stamps_the_balance_it_capped_at(env, monkeypatch):
     )
     assert res.status_code == 200
     body = res.json()
-    assert body["faabBalance"]["state"] == "known"
-    assert body["faabBalance"]["bidCap"] == 80
+    assert body["faabBudget"]["state"] == "known"
+    assert body["faabBudget"]["balance"] == 80
+    assert body["faabBudget"]["source"] == "roster"
     for items in body["by_position"].values():
         for c in items:
             assert c["bid"]["aggressive"] <= 80

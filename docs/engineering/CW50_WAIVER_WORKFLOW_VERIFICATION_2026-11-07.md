@@ -52,7 +52,7 @@ behaviours: Perfect Waivers capacity / protection / NO TRANSACTION, league scopi
 | # | Defect | Root cause | Repair (canonical owner) |
 |---|---|---|---|
 | D1 | The backend add pool offered defenders (and any position) to a league whose lineup cannot start them. Reached Perfect Waivers / Advisor / list | `find_waiver_targets` offered a fixed position set; only the page gated IDP | `waiver_candidate_exclusion` refuses `position_not_started` when the league's slots are known, decided by the new `lineup.player_fills_any_slot` (the solver's own predicate, configured flex honoured), slots from `lineup.resolve_starter_slots`. Unknown lineup refuses nothing and is stamped `positionEligibility.state: "unverified"`. Measured on the 2026-11-07 board for `dynasty_main`: 216 candidates gated vs ungated, identical |
-| D2 | A stale client balance lifted the bid cap above the live roster's balance: a $50 request against an observed $10 quoted a **$49** bid. Unknown balance was silently capped at the full budget, unlabelled | the request balance took precedence over the observed one | the lower of the two caps; `faabBalance` (`state`, `source`, `remaining`, `bidCap`, `assumption`) stamped on every list response |
+| D2 | A stale client balance lifted the bid cap above the live roster's balance: a $50 request against an observed $10 quoted a **$49** bid. Unknown balance was silently capped at the full budget, unlabelled | the request balance took precedence over the observed one | the lower of the two caps; folded into the ONE published balance state, `faabBudget` (#2138): `balance` is the spendable balance (never below $0), `source` names which observation bound it, `requestedBalance` / `observedBalance` carry the raw figures. The unknown half was fixed by #2138 (bids withheld on `/suggestions`) and is not duplicated here |
 | D3 | Desk priced an add the board does not price at $0 (`rankDerivedValue or 0`) | coercion | 422 `add_player_unpriced`; no figure |
 | D4 | Desk charged a named drop that was unpriced or not on the board nothing, and said "replacement level — free" (violates `ODR-SR-UNPRICED`) | coercion | 422 `drop_player_unpriced` with `dropValueState`; `resolvedDropValue` is `null` (not `0.0`) when no drop is named, `dropValueState` beside it |
 | D5 | Desk quoted a bid for a player already on a roster in the league (another team's, or the requester's own) | no availability check | 409 `add_player_not_available` (`rosteredBy`, `onYourRoster`, `matchedBy` — Sleeper id first, name only for a roster without ids) |
@@ -61,10 +61,10 @@ behaviours: Perfect Waivers capacity / protection / NO TRANSACTION, league scopi
 | D8 | The desk panel printed refusals as a raw `API 4xx: {...}` under "FAAB recommender unavailable" | — | `deskRefusal` renders the backend sentence under "No bid for this claim" |
 
 Coercion baseline: the two removed `server.py` `or 0` entries are deleted from
-`config/coercion_baseline.json` (623 → 621).
+`config/coercion_baseline.json` (on the reconciled tree 620 → 618).
 
 Two existing tests were updated, neither weakened: the empty-board shape test in
-`tests/trade/test_waiver.py` now pins `faabBalance` / `positionEligibility` exactly, and
+`tests/trade/test_waiver.py` now pins `faabBudget` / `positionEligibility` exactly, and
 `test_waiver_pool_filters_are_disclosed_by_reason` gains a FLEX so its WRs stay startable
 (its value / source / kicker / unpriced reasons stay under test); the new
 `test_unstartable_position_is_disclosed_by_reason` pins `position_not_started` on the
@@ -77,15 +77,23 @@ passed; waiver/FAAB vitest suites 250 passed.
 
 ## Owner questions (methodology — not changed here)
 
-1. **Unknown own balance on the list.** When the team's FAAB balance cannot be
-   observed, should `/api/waiver/suggestions` keep capping bids at the league's
-   original budget (current, now labelled `faabBalance.state: "unknown"`), or withhold
-   paid bids as Perfect Waivers and streaming already do ($0 claims only)? CW-10 pinned
-   the engine's full-budget fallback as intended; the surfaces disagree.
+1. ~~Unknown own balance on the list~~ — answered by #2138 (merged): `/api/waiver/suggestions`
+   withholds balance-capped bids and states `faabBudget.state: "unknown"`.
 2. **Full roster with no drop chosen at the desk.** The desk now names the forced
    release but still prices the claim as if no drop were needed. Should the desk charge
    the forced release's cost (the cheapest legal rung) once
    `forced_drop_cheapest_legal` is decided?
+
+## Reconciled with #2138 (2026-11-07)
+
+#2138 (merged first) verified the same workflow through the routes and fixed two of the
+same defects. On reconciliation: `faabBudget` is the only balance-state field
+(`faabBalance` folded in, never shipped beside it); #2138's id-first rostered check in
+`find_waiver_targets` and its unknown-balance withholding are kept as the implementation,
+#2136's duplicates dropped. Two #2138 property tests changed because they encoded the
+opposite of D1 / D7: the eligible-set test's fixture lineup gains a FLEX (its QB/TE
+lineup starts no WR/RB, so D1 would refuse them before the filters the test pins), and
+the over-spent test now expects a known $0 balance.
 
 ## Gaps and limitations
 
