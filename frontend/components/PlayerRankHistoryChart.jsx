@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import { rankFromValue } from "@/lib/value-history";
+import { INVERSE_CHART_STYLE, SOURCE_MARK_OPACITY, sourceLineDash } from "@/lib/chart-primitives";
 
 /**
  * PlayerRankHistoryChart — 180-day per-source + blended value chart.
@@ -80,6 +81,16 @@ const SOURCE_PALETTE = [
 
 function colorForSource(key, index) {
   return SOURCE_PALETTE[index % SOURCE_PALETTE.length];
+}
+
+function SourceSwatch({ color, index }) {
+  return (
+    <svg className="player-rank-chart-swatch" viewBox="0 0 24 10"
+      style={{ width: 24, minWidth: 24, height: 10 }} aria-hidden="true">
+      <path d="M0 5H24" fill="none" stroke={color} strokeWidth={2}
+        strokeOpacity={SOURCE_MARK_OPACITY} strokeDasharray={sourceLineDash(index)} />
+    </svg>
+  );
 }
 
 // Source label lookup: prefer the display label from the registry,
@@ -417,14 +428,14 @@ export default function PlayerRankHistoryChart({
   if (!row) return null;
 
   if (state.loading && !geometry) {
-    return <div className="player-rank-chart player-rank-chart--loading">Loading value history…</div>;
+    return <div style={INVERSE_CHART_STYLE} className="player-rank-chart player-rank-chart--loading">Loading value history…</div>;
   }
   if (state.error) {
-    return <div className="player-rank-chart player-rank-chart--error">Value history unavailable.</div>;
+    return <div style={INVERSE_CHART_STYLE} className="player-rank-chart player-rank-chart--error">Value history unavailable.</div>;
   }
   if (!geometry) {
     return (
-      <div className="player-rank-chart player-rank-chart--empty">
+      <div style={INVERSE_CHART_STYLE} className="player-rank-chart player-rank-chart--empty">
         Not enough value history yet (need at least two snapshots).
       </div>
     );
@@ -434,7 +445,7 @@ export default function PlayerRankHistoryChart({
   const trendTone = blendedDelta > 0 ? "up" : blendedDelta < 0 ? "down" : "flat";
 
   return (
-    <div className="player-rank-chart" role="group" aria-label="Per-source value history over the last 180 days">
+    <div style={INVERSE_CHART_STYLE} className="player-rank-chart" role="group" aria-label="Per-source value history over the last 180 days">
       <div className="player-rank-chart-head">
         <span className="player-rank-chart-label">
           Value history · 180d
@@ -458,14 +469,15 @@ export default function PlayerRankHistoryChart({
         preserveAspectRatio="none"
       >
         {/* Thin per-source lines first so the blended line overlays */}
-        {sourcePaths.map((s) => (
+        {sourcePaths.map((s, sourceIndex) => (
           <path
             key={s.key}
             d={s.path}
             fill="none"
             stroke={s.color}
+            strokeDasharray={sourceLineDash(sourceIndex)}
             strokeWidth={1}
-            strokeOpacity={0.55}
+            strokeOpacity={SOURCE_MARK_OPACITY}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -499,13 +511,9 @@ export default function PlayerRankHistoryChart({
             </span>
           )}
         </span>
-        {sourcePaths.map((s) => (
+        {sourcePaths.map((s, sourceIndex) => (
           <span key={s.key} className="player-rank-chart-legend-source">
-            <span
-              className="player-rank-chart-swatch"
-              style={{ background: s.color, opacity: 0.55 }}
-              aria-hidden="true"
-            />
+            <SourceSwatch color={s.color} index={sourceIndex} />
             <span>{s.label}</span>
             {Number.isFinite(s.first) && Number.isFinite(s.last) && (
               <span className="player-rank-chart-legend-range">
@@ -567,14 +575,15 @@ export default function PlayerRankHistoryChart({
             preserveAspectRatio="none"
           >
             {/* Thin per-source lines first so the blended line overlays */}
-            {rankGeometry.sourcePaths.map((s) => (
+            {rankGeometry.sourcePaths.map((s, sourceIndex) => (
               <path
                 key={s.key}
                 d={s.path}
                 fill="none"
                 stroke={s.color}
+                strokeDasharray={sourceLineDash(sourceIndex)}
                 strokeWidth={1.25}
-                strokeOpacity={0.55}
+                strokeOpacity={SOURCE_MARK_OPACITY}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -616,16 +625,12 @@ export default function PlayerRankHistoryChart({
                 </span>
               </span>
             )}
-            {rankGeometry.sourcePaths.map((s) => (
+            {rankGeometry.sourcePaths.map((s, sourceIndex) => (
               <span
                 key={`rank-${s.key}`}
                 className="player-rank-chart-legend-source"
               >
-                <span
-                  className="player-rank-chart-swatch"
-                  style={{ background: s.color, opacity: 0.55 }}
-                  aria-hidden="true"
-                />
+                <SourceSwatch color={s.color} index={sourceIndex} />
                 <span>{s.label}</span>
                 {Number.isFinite(s.first) && Number.isFinite(s.last) && (
                   <span className="player-rank-chart-legend-range">

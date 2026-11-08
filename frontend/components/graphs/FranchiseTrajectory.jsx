@@ -170,7 +170,7 @@ function renderWeekly({ weekly, seasons, tradedSeasons, width, height }) {
                   stroke={CHART_COLORS.warn}
                   strokeDasharray="3 3"
                   strokeWidth={1}
-                  opacity={0.5}
+                  opacity={0.9}
                 >
                   <title>Trade(s) in {s.season}</title>
                 </line>

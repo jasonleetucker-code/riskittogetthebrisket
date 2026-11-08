@@ -21,6 +21,7 @@
 
 import {
   CHART_COLORS,
+  INVERSE_CHART_STYLE,
   chartBox,
   categoricalColor,
   linearScale,
@@ -124,6 +125,7 @@ export default function TradeFlowSankey({
 
   return (
     <svg
+      style={owners.length > 6 ? INVERSE_CHART_STYLE : undefined}
       viewBox={box.viewBox}
       width="100%"
       height={height}
@@ -138,7 +140,7 @@ export default function TradeFlowSankey({
             d={f.d}
             stroke={f.color}
             strokeWidth={f.w}
-            strokeOpacity={0.35}
+            strokeOpacity={0.9}
             fill="none"
           >
             <title>{f.label}</title>

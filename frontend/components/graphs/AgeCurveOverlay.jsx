@@ -22,6 +22,7 @@
 
 import {
   CHART_COLORS,
+  INVERSE_CHART_STYLE,
   chartBox,
   categoricalColor,
   linearScale,
@@ -108,6 +109,7 @@ export default function AgeCurveOverlay({
 
   return (
     <svg
+      style={positions.length > 6 ? INVERSE_CHART_STYLE : undefined}
       viewBox={box.viewBox}
       width="100%"
       height={height}
