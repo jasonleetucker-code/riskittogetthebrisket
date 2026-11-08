@@ -46,3 +46,19 @@ def test_sums_and_tiers_exclude_unknown_without_inventing_zero():
     assert agg["totalValue"] == 4200
     assert sum(agg["tiers"].values()) == 1  # the unknown sits in no tier
     assert agg["byPosition"]["WR"]["count"] == 2  # but still occupies a position
+
+
+def test_pick_inclusive_count_is_measured_not_assumed():
+    """The disclosure must report what came back, including a pick from the pool."""
+    from types import SimpleNamespace as NS
+
+    from src.trade.suggestions import _pick_inclusive_count
+
+    player, pick = NS(universe="offense_vet"), NS(universe="picks")
+    suggestions = [
+        NS(give=[player], receive=[player]),
+        NS(give=[player], receive=[pick]),
+        NS(give=[pick, player], receive=[player]),
+    ]
+    assert _pick_inclusive_count(suggestions) == 2
+    assert _pick_inclusive_count([]) == 0
