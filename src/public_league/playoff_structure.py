@@ -203,6 +203,26 @@ def _int_or_none(value: Any) -> int | None:
         return None
 
 
+def _whole_count_or_none(value: Any) -> int | None:
+    """A count that Sleeper stated exactly, or ``None``.
+
+    Stricter than :func:`_int_or_none`, which truncates: ``int(0.5)`` is 0,
+    so a malformed ``divisions: 0.5`` would read as "no divisions" and the
+    league would be simulated — failing OPEN.  Here only an int, a string of
+    digits, or a float with no fractional part is a count; anything else is
+    unrecognised and the caller fails closed.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else None
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value.strip())
+    return None
+
+
 def resolve_playoff_structure(season: Any) -> PlayoffStructure:
     """Read this season's bracket off its own Sleeper league settings.
 
@@ -234,10 +254,15 @@ def resolve_playoff_structure(season: Any) -> PlayoffStructure:
         code = _int_or_none(raw_seed_type)
         seed_type = _SEED_TYPES.get(code) if code is not None else None
         seed_reason = "" if seed_type is not None else REASON_UNKNOWN_SEED_TYPE
+    # A MISSING key is "no divisions" (dynasty_new and the pre-draft league
+    # omit it; the 2025 dynasty_main stored an explicit 0 once divisions were
+    # off).  A key that is PRESENT but null, fractional or unparseable is not
+    # a statement of zero — it is unrecognised, and the engine refuses.
+    divisions_present = isinstance(settings, dict) and "divisions" in settings
     raw_divisions = settings.get("divisions")
-    divisions = _int_or_none(raw_divisions)
+    divisions = _whole_count_or_none(raw_divisions)
     divisions_reason = ""
-    if raw_divisions is not None and (divisions is None or divisions < 0):
+    if divisions_present and (divisions is None or divisions < 0):
         divisions, divisions_reason = None, REASON_UNKNOWN_DIVISIONS
     return PlayoffStructure(
         teams,

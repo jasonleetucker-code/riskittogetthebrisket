@@ -115,6 +115,14 @@ def _simulate(snapshot, record=_RECORD, schedule=_SCHEDULE):
         ("three", None, True, "divisions_setting_not_recognised"),
         (-1, None, True, "divisions_setting_not_recognised"),
         (True, None, True, "divisions_setting_not_recognised"),
+        # Review of #2134: a fractional value used to truncate (0.5 -> 0, so
+        # the league was simulated — failing open; 2.5 -> "2 divisions").
+        (2.0, 2, True, ""),
+        (0.5, None, True, "divisions_setting_not_recognised"),
+        (2.5, None, True, "divisions_setting_not_recognised"),
+        ("2.5", None, True, "divisions_setting_not_recognised"),
+        # A key that is PRESENT but null is not a statement of zero.
+        (None, None, True, "divisions_setting_not_recognised"),
     ],
 )
 def test_the_structure_reads_the_divisions_setting(raw, divisions, in_play, reason):
