@@ -15,6 +15,7 @@
     "from something that looks mergeable into something that cannot be merged.",
     "",
     "`Validate PR` is the JOB name in pr-validation.yml, not the workflow name.",
+    "`Receipt check` is the JOB name in pr-verification-receipt.yml.",
     "GitHub matches job names. The audit originally named `E2E Safety Net` and",
     "`Deploy Production` here — both workflow names, neither of which would",
     "ever match a check run.",
@@ -106,6 +107,10 @@
         "required_status_checks": [
           {
             "context": "Validate PR",
+            "integration_id": 15368
+          },
+          {
+            "context": "Receipt check",
             "integration_id": 15368
           }
         ],

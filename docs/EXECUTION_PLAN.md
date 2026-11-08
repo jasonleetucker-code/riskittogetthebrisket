@@ -1,5 +1,18 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Unified engineering, mathematics and forecasting research directive — owner, 2026-11-08 (third of the day)
+
+**AUTHORIZED NOW, inside the same remediation program (no second roadmap).** Record:
+`docs/owner/UNIFIED_ENGINEERING_FORECASTING_DIRECTIVE_2026-11-08.md`; intake MD-116, MD-117; priorities map to MD-59 and
+MD-97 … MD-115.
+
+- **Authorized to implement:** the authorized remainder of the 20 engineering priorities under the same limits as the section below.
+- **Authorized as research only:** the independent football forecasting program (MD-116). Specifications and experiment
+  designs, in `docs/research/forecasting/`. **Not** authorized: training, deploying, wiring in or replacing any projection
+  provider.
+- **Not authorized:** everything the section below reserves, plus any frontend change.
+- At most 4 concurrent editing workers, including the coordinator.
+
 ## Master implementation directive (backend campaign) — owner, 2026-11-08 (second of the day)
 
 **AUTHORIZED NOW, inside the same remediation program (no second roadmap).** Record:
