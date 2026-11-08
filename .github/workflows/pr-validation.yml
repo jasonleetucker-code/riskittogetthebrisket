@@ -586,7 +586,7 @@ jobs:
         # Always: a failed shard's manifest still names what it selected, and
         # a missing manifest is itself a `Validate PR` failure.
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-shard-${{ matrix.shard }}
           path: ${{ runner.temp }}/shard-manifest/shard-${{ matrix.shard }}.json
@@ -666,7 +666,7 @@ jobs:
 
       - name: Download shard manifests
         if: ${{ needs.scope.outputs.python == 'true' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: backend-shard-*
           path: shard-manifests
