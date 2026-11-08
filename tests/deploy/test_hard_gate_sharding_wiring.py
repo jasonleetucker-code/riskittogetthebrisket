@@ -148,13 +148,17 @@ EM = "—"
 
 # Every gate the release candidate ran before the hard gate was sharded, minus
 # the unit-test step (which moved to the `hard-gate` matrix), in order, with a
-# command each must still run.
+# command each must still run.  The candidate BUILD is now the pinned rebuild
+# the shards use (review of #2146), so the gates and the shards share one tree.
 _CANDIDATE_GATES = [
     (f"Checkout (full history {EM} the check diffs base against head)", None),
     ("Set up Python", None),
     ("Install dependencies", "pip install --require-hashes -r requirements-dev.lock.txt"),
     ("Release-candidate freshness (STRICT)", "--strict"),
-    ("Build the exact merge candidate", 'git merge --no-edit "origin/${{ inputs.base_ref }}"'),
+    (
+        "Rebuild the candidate and assert it is the planned tree",
+        'git merge --no-edit "${BASE_SHA}"',
+    ),
     ("Python format + lint gates", "python -m ruff format --check ."),
     ("Governance + planning gates", "python scripts/check_planning_integrity.py"),
     ("API data contract check (structural lane)", "--lane structural"),
@@ -221,26 +225,77 @@ def test_every_rc_job_that_reads_the_candidate_asserts_the_planned_tree():
         "CANDIDATE_TREE": "${{ needs.plan.outputs.candidate_tree }}",
     }
     for job_id, consumer in (
+        # The candidate gates too (review of #2146): pinned to the plan, so an
+        # inert base commit landing mid-run cannot hand them another tree.
+        ("candidate", "python -m ruff format --check ."),
         ("hard-gate", HARD_GATE_COMMAND),
         ("validate", "scripts/ci_test_shards.py verify"),
     ):
         steps = _steps(jobs[job_id])
+        needs = jobs[job_id]["needs"]
+        assert "plan" in ([needs] if isinstance(needs, str) else needs)
         checkout = steps[0]
         assert "actions/checkout" in checkout["uses"]
         assert checkout["with"]["ref"] == "${{ needs.plan.outputs.head_sha }}"
         assert checkout["with"]["fetch-depth"] == 0
         rebuild = _step(jobs[job_id], REBUILD_STEP)
         assert rebuild["env"] == planned
+        assert rebuild.get("id") == "rebuild"
         assert "continue-on-error" not in rebuild
         consumer_at = next(i for i, s in enumerate(steps) if consumer in (s.get("run") or ""))
         assert steps.index(rebuild) < consumer_at, f"{job_id} reads the tree before asserting it"
     shard_run = _step(jobs["hard-gate"], REBUILD_STEP)["run"]
     assert shard_run == _step(jobs["validate"], REBUILD_STEP)["run"]
+    assert shard_run == _step(jobs["candidate"], REBUILD_STEP)["run"]
     # Merged by the PINNED base SHA, never the moving branch.
     assert 'git merge --no-edit "${BASE_SHA}"' in shard_run
     assert "inputs.base_ref" not in shard_run and "origin/" not in shard_run
     assert "HEAD^{tree}" in shard_run
-    assert '[[ "${tree}" == "${CANDIDATE_TREE}" ]] ||' in shard_run
+    check = '[[ "${tree}" == "${CANDIDATE_TREE}" ]] ||'
+    publish = 'echo "candidate_tree=${tree}" >> "$GITHUB_OUTPUT"'
+    # Published only once asserted.
+    assert check in shard_run and shard_run.index(check) < shard_run.index(publish)
+    # Nothing builds the candidate from the moving branch any more.
+    assert 'git merge --no-edit "origin/' not in _runs(jobs["candidate"])
+
+
+def test_no_workflow_input_is_interpolated_into_shell():
+    """``${{ inputs.* }}`` inside ``run:`` is spliced into the script text
+    before bash parses it; inputs reach shell only through ``env:``."""
+    doc = _load(RC)
+    for job_id, job in doc["jobs"].items():
+        for step in _steps(job):
+            assert "${{ inputs." not in (step.get("run") or ""), (job_id, step.get("name"))
+    for job_id in ("plan", "candidate"):
+        strict = _step(doc["jobs"][job_id], "Release-candidate freshness (STRICT)")
+        assert strict["env"] == {"BASE_REF": "${{ inputs.base_ref }}"}
+        assert '--base "origin/${BASE_REF}"' in strict["run"]
+
+
+def test_a_partial_rerun_cannot_reuse_an_earlier_attempts_plan():
+    """ "Re-run failed jobs" keeps ``plan``'s outputs from the earlier attempt,
+    so the STRICT freshness check would not run again.  The plan publishes its
+    attempt and the verdict refuses a plan from any other attempt."""
+    doc = _load(RC)
+    assert doc["jobs"]["plan"]["outputs"]["attempt"] == "${{ github.run_attempt }}"
+    verdict = _step(doc["jobs"]["validate"], VERDICT_STEP)
+    assert verdict["env"]["PLAN_ATTEMPT"] == "${{ needs.plan.outputs.attempt }}"
+    assert verdict["env"]["RUN_ATTEMPT"] == "${{ github.run_attempt }}"
+    assert '[[ "${PLAN_ATTEMPT}" != "${RUN_ATTEMPT}" ]]' in verdict["run"]
+
+
+def test_shard_manifests_are_named_for_the_plans_attempt_and_tree():
+    jobs = _load(RC)["jobs"]
+    upload = next(s for s in _steps(jobs["hard-gate"]) if "upload-artifact" in str(s.get("uses")))
+    download = _step(jobs["validate"], "Download shard manifests")
+    name = upload["with"]["name"]
+    assert name.endswith("-shard-${{ matrix.shard }}")
+    prefix = name[: -len("${{ matrix.shard }}")]
+    assert "${{ needs.plan.outputs.candidate_tree }}" in prefix
+    assert "${{ needs.plan.outputs.attempt }}" in prefix
+    # The verdict downloads exactly this plan's shards, never another attempt's
+    # or another candidate's.
+    assert download["with"]["pattern"] == prefix + "*"
 
 
 def test_the_plan_records_the_candidate_identity_after_the_strict_check():
@@ -253,6 +308,7 @@ def test_the_plan_records_the_candidate_identity_after_the_strict_check():
         "shards",
         "shard_count",
         "mode",
+        "attempt",
     }
     steps = _steps(plan)
     strict = _step(plan, "Release-candidate freshness (STRICT)")
@@ -309,12 +365,10 @@ def test_no_other_release_candidate_gate_was_removed():
         else:
             # Unconditional and blocking, as before.
             assert "if" not in step and "continue-on-error" not in step, name
-    assert "needs" not in candidate and "if" not in candidate
+    assert candidate["needs"] == "plan" and "if" not in candidate
     assert HARD_GATE_COMMAND not in _runs(candidate)
-    # It publishes the tree it validated, for the aggregator's identity check.
-    assert candidate["outputs"]["candidate_tree"] == "${{ steps.build.outputs.candidate_tree }}"
-    build = next(s for s in steps if s.get("id") == "build")
-    assert "candidate_tree=$(git rev-parse --verify 'HEAD^{tree}')" in build["run"]
+    # It publishes the tree it asserted, for the aggregator's identity check.
+    assert candidate["outputs"]["candidate_tree"] == "${{ steps.rebuild.outputs.candidate_tree }}"
 
 
 def test_one_release_candidate_at_a_time_on_manual_dispatch_only():
@@ -353,6 +407,8 @@ _ALL_GREEN = {
     "MODE": "sharded",
     "PLANNED_TREE": _TREE,
     "GATES_TREE": _TREE,
+    "PLAN_ATTEMPT": "1",
+    "RUN_ATTEMPT": "1",
 }
 
 
@@ -361,6 +417,11 @@ _ALL_GREEN = {
     [
         ({}, True),
         ({"MODE": "serial"}, True),
+        # "Re-run all jobs": the plan ran again in this attempt.
+        ({"PLAN_ATTEMPT": "3", "RUN_ATTEMPT": "3"}, True),
+        # "Re-run failed jobs": the plan (and its STRICT check) is attempt 1's.
+        ({"PLAN_ATTEMPT": "1", "RUN_ATTEMPT": "2"}, False),
+        ({"PLAN_ATTEMPT": ""}, False),
         ({"PLAN_RESULT": "failure"}, False),
         ({"CANDIDATE_RESULT": "cancelled"}, False),
         ({"GATE_RESULT": "failure"}, False),
@@ -377,6 +438,17 @@ def test_the_verdict_passes_only_when_everything_succeeded_on_one_tree(tmp_path,
     env = {**_clean_env(tmp_path), **_ALL_GREEN, **override}
     result = _run_step(script, tmp_path, env)
     assert (result.returncode == 0) is passes, result.stdout + result.stderr
+
+
+def test_a_partial_rerun_fails_with_the_instruction_to_rerun_everything(tmp_path):
+    script = _step(_load(RC)["jobs"]["validate"], VERDICT_STEP)["run"]
+    env = {**_clean_env(tmp_path), **_ALL_GREEN, "PLAN_ATTEMPT": "1", "RUN_ATTEMPT": "2"}
+    result = _run_step(script, tmp_path, env)
+    assert result.returncode != 0
+    assert (
+        "partial re-run detected: re-run ALL jobs so the strict freshness check and "
+        "candidate build run again"
+    ) in result.stdout
 
 
 def _git(cwd: Path, env: dict[str, str], *args: str) -> str:
@@ -422,16 +494,34 @@ def candidate_repo(tmp_path):
         _git(work, env, "checkout", "-q", "--detach", head)
         return work
 
-    return {"env": env, "head": head, "base": base, "tree": tree, "checkout": checkout}
+    def land_inert_commit_on_base() -> str:
+        """An automated commit lands on the base AFTER the plan ran."""
+        (origin / "NOTES.md").write_text("inert prose\n", encoding="utf-8")
+        _git(origin, env, "add", "-A")
+        _git(origin, env, "commit", "-q", "-m", "inert docs commit")
+        return _git(origin, env, "rev-parse", "main")
+
+    return {
+        "env": env,
+        "head": head,
+        "base": base,
+        "tree": tree,
+        "checkout": checkout,
+        "land_inert_commit_on_base": land_inert_commit_on_base,
+        "tmp": tmp_path,
+    }
 
 
-def _rebuild(repo: dict, work: Path, **identity: str) -> subprocess.CompletedProcess:
-    script = _step(_load(RC)["jobs"]["hard-gate"], REBUILD_STEP)["run"]
+def _rebuild(
+    repo: dict, work: Path, job: str = "hard-gate", **identity: str
+) -> subprocess.CompletedProcess:
+    script = _step(_load(RC)["jobs"][job], REBUILD_STEP)["run"]
     env = {
         **repo["env"],
         "HEAD_SHA": repo["head"],
         "BASE_SHA": repo["base"],
         "CANDIDATE_TREE": repo["tree"],
+        "GITHUB_OUTPUT": str(work.parent / f"{work.name}.github_output"),
         **identity,
     }
     return _run_step(script, work, env)
@@ -440,6 +530,35 @@ def _rebuild(repo: dict, work: Path, **identity: str) -> subprocess.CompletedPro
 def test_the_rebuild_reproduces_the_planned_tree(candidate_repo):
     work = candidate_repo["checkout"]("shard")
     result = _rebuild(candidate_repo, work)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _git(work, candidate_repo["env"], "rev-parse", "HEAD^{tree}") == candidate_repo["tree"]
+
+
+def test_the_rebuild_publishes_the_tree_it_asserted(candidate_repo):
+    work = candidate_repo["checkout"]("gates")
+    result = _rebuild(candidate_repo, work, job="candidate")
+    assert result.returncode == 0, result.stdout + result.stderr
+    published = (work.parent / "gates.github_output").read_text(encoding="utf-8")
+    assert published.splitlines() == [f"candidate_tree={candidate_repo['tree']}"]
+
+
+def test_an_inert_base_commit_after_the_plan_cannot_fail_the_candidate_gates(candidate_repo):
+    """The candidate job used to merge the MOVING ``origin/<base_ref>`` on its
+    own schedule, so a docs commit landing between plan and candidate gave it a
+    different tree: a false red.  It now merges the plan's pinned base."""
+    moved = candidate_repo["land_inert_commit_on_base"]()
+    work = candidate_repo["checkout"]("gates")
+    assert (
+        _git(work, candidate_repo["env"], "rev-parse", "origin/main")
+        == moved
+        != (candidate_repo["base"])
+    )
+    # What the old step did: merge the moving branch.  A different tree.
+    moving = candidate_repo["checkout"]("moving")
+    _git(moving, candidate_repo["env"], "merge", "--no-edit", "-q", "origin/main")
+    assert _git(moving, candidate_repo["env"], "rev-parse", "HEAD^{tree}") != candidate_repo["tree"]
+    # What the candidate job does now: the planned tree, and it passes.
+    result = _rebuild(candidate_repo, work, job="candidate")
     assert result.returncode == 0, result.stdout + result.stderr
     assert _git(work, candidate_repo["env"], "rev-parse", "HEAD^{tree}") == candidate_repo["tree"]
 

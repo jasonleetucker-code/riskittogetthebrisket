@@ -854,9 +854,6 @@
     "release-candidate.yml::candidate::API data contract check (structural lane)": {
       "category": "blocking"
     },
-    "release-candidate.yml::candidate::Build the exact merge candidate": {
-      "category": "blocking"
-    },
     "release-candidate.yml::candidate::Checkout (full history \u2014 the check diffs base against head)": {
       "category": "blocking"
     },
@@ -888,6 +885,9 @@
       "category": "blocking"
     },
     "release-candidate.yml::candidate::Python syntax gate": {
+      "category": "blocking"
+    },
+    "release-candidate.yml::candidate::Rebuild the candidate and assert it is the planned tree": {
       "category": "blocking"
     },
     "release-candidate.yml::candidate::Release-candidate freshness (STRICT)": {
