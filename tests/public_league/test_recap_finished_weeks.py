@@ -112,7 +112,7 @@ class NarrationTests(unittest.TestCase):
         section = weekly_recap.build_section(self.snapshot)
         self.assertEqual(sorted(r["week"] for r in section["weeks"]), [1, 2])
         self.assertEqual(section["latest"]["week"], 2)
-        self.assertNotIn("2026:3", section["byKey"])
+        self.assertNotIn(3, [r["week"] for r in section["weeks"]])
 
     def test_weekly_results_declare_no_winner_for_a_live_week(self):
         section = weekly.build_section(self.snapshot)
