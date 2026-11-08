@@ -1,0 +1,19 @@
+{
+  "_comment": "Playoff qualification / seeding / division rules per league (leagueKey). One owner: src/public_league/playoff_structure.py::league_playoff_rules. The bracket SIZE, byes and re-seeding are read from the league's own Sleeper settings; this record states what Sleeper's settings cannot: whether divisions affect qualification or seeding, which tiebreakers apply, and how a division champion is decided. A league absent here keeps the host default and fails closed where that default is unverified: when its divisions are ON, qualifying, seeding and title odds are not published, and division odds are not published either (no recorded champion rule). Never assume one league's rules for another.",
+  "rules": {
+    "dynasty_main": {
+      "qualification": "overall_record",
+      "seeding": "overall_record",
+      "standingsTiebreakers": ["points_for"],
+      "divisionCount": 3,
+      "divisionPlayoffEffect": "none",
+      "divisionPurposes": ["schedule", "champion_payout"],
+      "divisionChampion": "best_overall_record_in_division",
+      "divisionChampionTiebreakers": ["points_for"],
+      "approvedBy": "owner",
+      "approvedAt": "2026-11-08",
+      "description": "12 teams, 3 divisions, regular season weeks 1-14, 7 playoff teams. The seven best OVERALL records qualify and are seeded 1-7 by overall record; standings ties (any number of teams) are broken by most points scored. Divisions decide the schedule and a separate division-champion payout only: no automatic berth, no seeding advantage, no bye. Division champion = best overall record within the division, ties broken by the league's standings tiebreaker (most points scored).",
+      "evidence": "Owner directive 2026-11-08 (league rules table). Host brackets agree: 2025 winners_bracket seeded a four-way 15-11 tie strictly by points for (rosters 8, 2, 5, 3 at 5567 / 5561 / 5549 / 5381 -> seeds 2-5; round one 5 v 3, round two 8 v 2), and the 2024 bracket is top-5 by record. Live Sleeper settings on 2026-11-08: divisions 0, playoff_teams 7, playoff_seed_type 1, rosters carry division 1-3 with metadata names."
+    }
+  }
+}

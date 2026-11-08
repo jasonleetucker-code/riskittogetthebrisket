@@ -62,24 +62,44 @@ reproduced, so title odds fail closed (``seed_type is None`` with
 ``seed_type_reason``) while qualifying — which seeding does not affect —
 still resolves.
 
-Divisions are READ, not ignored (CW-49, 2026-11-07)
-─────────────────────────────────────────────────
-Sleeper's ``settings.divisions`` splits a league into divisions, and the host
-qualifies every division winner for the playoffs ("If there are divisions,
-then each division winner will qualify for the playoffs",
-https://sleeper.com/blog/how-do-fantasy-playoffs-work), whatever its overall
-record.  The canonical simulator seeds on overall record only, and the host's
-rules for seeding division winners against wild cards and for breaking a
-division tie are not verified, so a league whose divisions are ON is not a
-format the simulator can play: :attr:`PlayoffStructure.divisions_in_play`
-says so and the simulator refuses with a named reason.  Measured: the live
-``dynasty_main`` stated ``divisions: 3`` on 2026-10-26
+Divisions: the LEAGUE'S recorded rule decides (owner, 2026-11-08)
+───────────────────────────────────────────────────────────────
+Sleeper's ``settings.divisions`` splits a league into divisions.  Sleeper's
+default qualifies every division winner ("If there are divisions, then each
+division winner will qualify for the playoffs",
+https://sleeper.com/blog/how-do-fantasy-playoffs-work), but leagues do not all
+play that way, and the host settings cannot say which way a league plays.
+CW-49 (2026-11-07) therefore refused EVERY league with divisions ON; the owner
+corrected that on 2026-11-08: in ``dynasty_main`` divisions decide the
+schedule and a separate division-champion payout ONLY — the seven best overall
+records qualify, seeded by overall record, standings ties broken by most
+points scored, no automatic berth, no seeding advantage, no bye.
+
+So whether divisions touch qualifying is a per-league FACT recorded in
+``config/leagues/playoff_rules.json`` (:func:`league_playoff_rules`), never a
+universal assumption in either direction:
+
+* a league whose record says ``divisionPlayoffEffect: "none"`` is simulated on
+  overall record whatever the host setting says
+  (:attr:`PlayoffStructure.division_rule` ``"recorded_no_playoff_effect"``);
+* a league with divisions ON and no record keeps the host default, which this
+  engine does not model (the seeding of division winners against wild cards is
+  unverified): :attr:`PlayoffStructure.division_qualification_unknown` is True
+  and qualifying, seeding and title odds are refused with a named reason —
+  draft-slot odds, which follow the regular-season record only, are not.
+
+Measured: the live ``dynasty_main`` stated ``divisions: 3`` on 2026-10-26
 (``docs/audits/evidence/league_rules_dynasty_main_2026-10-26.json``) and
-``divisions: 0`` on 2026-11-07, so its odds were computed without the
-division-winner rule while divisions were on.  ``0`` is off.  An ABSENT
-setting is read as no divisions: the host states a count only for a league
-that configured divisions (``dynasty_new`` omits the key); a present value
-that is not a non-negative integer is unknown and refused too.
+``divisions: 0`` on 2026-11-08 while its rosters still carry division 1-3.
+``0`` is off.  An ABSENT setting is read as no divisions: the host states a
+count only for a league that configured divisions (``dynasty_new`` omits the
+key); a present value that is not a non-negative integer is unrecognised.
+
+Division CHAMPIONS are a separate question from qualifying
+(:func:`resolve_division_assignments`): they need each team's division (the
+roster's ``settings.division``) and the league's recorded champion rule.  A
+division champion can miss the playoffs and a non-champion can qualify; the
+two probabilities are never merged.
 
 Missing is never six
 ────────────────────
@@ -94,16 +114,124 @@ and report unavailable — both simulators already have that shape.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+import json
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Mapping
 
 __all__ = [
+    "DIVISION_RULE_NONE",
+    "DIVISION_RULE_RECORDED",
+    "DIVISION_RULE_UNRECORDED",
     "SEED_TYPE_FIXED",
     "SEED_TYPE_RESEED",
+    "DivisionAssignments",
+    "LeaguePlayoffRules",
     "PlayoffStructure",
     "byes_for_teams",
+    "league_playoff_rules",
+    "resolve_division_assignments",
     "resolve_playoff_structure",
 ]
+
+_RULES_PATH = Path(__file__).resolve().parents[2] / "config" / "leagues" / "playoff_rules.json"
+
+#: :attr:`PlayoffStructure.division_rule` values.
+#: the host plays no divisions (setting absent or 0), whatever the record says
+DIVISION_RULE_NONE = "no_divisions"
+#: the league's record says divisions do not touch qualifying or seeding
+DIVISION_RULE_RECORDED = "recorded_no_playoff_effect"
+#: divisions are ON (or unreadable) and the league has no record — host default
+DIVISION_RULE_UNRECORDED = "unrecorded"
+
+#: The only rule values this engine can play.  Anything else in the record is
+#: a rule it does not model, and the league is treated as having no record.
+_QUALIFICATION_RULES = {"overall_record"}
+_SEEDING_RULES = {"overall_record"}
+_TIEBREAKERS = ("points_for",)
+_CHAMPION_RULES = {"best_overall_record_in_division"}
+
+
+@dataclass(frozen=True)
+class LeaguePlayoffRules:
+    """One league's recorded qualification / seeding / division rules."""
+
+    league_key: str
+    qualification: str
+    seeding: str
+    standings_tiebreakers: tuple[str, ...]
+    division_count: int | None
+    #: ``"none"``: divisions never affect qualifying or seeding.
+    division_playoff_effect: str
+    division_champion: str | None
+    division_champion_tiebreakers: tuple[str, ...]
+    approved_at: str
+
+    @property
+    def divisions_affect_playoffs(self) -> bool:
+        return self.division_playoff_effect != "none"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "qualification": self.qualification,
+            "seeding": self.seeding,
+            "standingsTiebreakers": list(self.standings_tiebreakers),
+            "divisionCount": self.division_count,
+            "divisionPlayoffEffect": self.division_playoff_effect,
+            "divisionChampion": self.division_champion,
+            "divisionChampionTiebreakers": list(self.division_champion_tiebreakers),
+            "source": "config/leagues/playoff_rules.json",
+            "approvedAt": self.approved_at,
+        }
+
+
+def league_playoff_rules(
+    league_key: str | None, *, path: Path | None = None
+) -> LeaguePlayoffRules | None:
+    """The league's recorded playoff rules, or ``None`` when it has none.
+
+    A record this engine cannot play (an unknown qualification rule, a
+    tiebreaker other than Points For, an unrecognised division effect) is
+    treated as NO record — the league then fails closed exactly as an
+    unrecorded league does, rather than being simulated under a rule nobody
+    stated.  An unreadable file is no record too.
+    """
+    if not league_key:
+        return None
+    try:
+        data = json.loads((path or _RULES_PATH).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    entry = (data.get("rules") or {}).get(str(league_key)) if isinstance(data, Mapping) else None
+    if not isinstance(entry, Mapping):
+        return None
+    tiebreakers = tuple(entry.get("standingsTiebreakers") or ())
+    champ_tiebreakers = tuple(entry.get("divisionChampionTiebreakers") or ())
+    effect = entry.get("divisionPlayoffEffect")
+    champion = entry.get("divisionChampion")
+    count = _whole_count_or_none(entry.get("divisionCount"))
+    if (
+        entry.get("qualification") not in _QUALIFICATION_RULES
+        or entry.get("seeding") not in _SEEDING_RULES
+        or tiebreakers != _TIEBREAKERS
+        or effect != "none"
+        or (champion is not None and champion not in _CHAMPION_RULES)
+        or (champion is not None and champ_tiebreakers != _TIEBREAKERS)
+        or (count is not None and count < 1)
+    ):
+        return None
+    return LeaguePlayoffRules(
+        league_key=str(league_key),
+        qualification=str(entry["qualification"]),
+        seeding=str(entry["seeding"]),
+        standings_tiebreakers=tiebreakers,
+        division_count=count,
+        division_playoff_effect=str(effect),
+        division_champion=str(champion) if champion is not None else None,
+        division_champion_tiebreakers=champ_tiebreakers if champion is not None else (),
+        approved_at=str(entry.get("approvedAt") or ""),
+    )
+
 
 #: Reason codes, so an unavailable bracket says WHICH way it failed.
 REASON_NO_SEASON = "no_current_season"
@@ -157,12 +285,28 @@ class PlayoffStructure:
     #: structure configured) or unreadable (``divisions_reason`` names it).
     divisions: int | None = None
     divisions_reason: str = ""
+    #: How divisions bear on qualifying and seeding: ``DIVISION_RULE_NONE``
+    #: (the host plays none), ``DIVISION_RULE_RECORDED`` (the league's record
+    #: says they bear on nothing) or ``DIVISION_RULE_UNRECORDED`` (they are ON,
+    #: or unreadable, and no record says how the league plays them).
+    division_rule: str = DIVISION_RULE_NONE
+    #: The league's recorded rules (``config/leagues/playoff_rules.json``), or
+    #: ``None`` when it has no record.
+    rules: LeaguePlayoffRules | None = None
 
     @property
     def divisions_in_play(self) -> bool:
-        """True when qualifying may depend on a division rule the simulator
-        does not model: divisions are ON, or the setting is unreadable."""
+        """True when the HOST plays with divisions: the setting is ON, or it
+        is unreadable.  Says nothing about whether they affect qualifying --
+        that is :attr:`division_qualification_unknown`."""
         return bool(self.divisions_reason) or (self.divisions is not None and self.divisions > 0)
+
+    @property
+    def division_qualification_unknown(self) -> bool:
+        """True when qualifying may depend on a division rule the simulator
+        does not model: divisions are ON (or unreadable) and the league has no
+        record saying they leave qualifying and seeding alone."""
+        return self.division_rule == DIVISION_RULE_UNRECORDED
 
     @property
     def known(self) -> bool:
@@ -191,6 +335,8 @@ class PlayoffStructure:
             "seedTypeReason": self.seed_type_reason,
             "divisions": self.divisions,
             "divisionsReason": self.divisions_reason,
+            "divisionRule": self.division_rule,
+            "leagueRules": self.rules.to_dict() if self.rules is not None else None,
         }
 
 
@@ -223,12 +369,16 @@ def _whole_count_or_none(value: Any) -> int | None:
     return None
 
 
-def resolve_playoff_structure(season: Any) -> PlayoffStructure:
+def resolve_playoff_structure(season: Any, league_key: str | None = None) -> PlayoffStructure:
     """Read this season's bracket off its own Sleeper league settings.
 
     ``season`` is a ``SeasonSnapshot`` (or anything exposing ``.league``);
     ``None`` is accepted and answers unknown, because "there is no current
     season" is a real state the public builders already handle.
+
+    ``league_key`` selects the league's recorded rules
+    (:func:`league_playoff_rules`) -- whether divisions bear on qualifying.
+    Without it a league with divisions ON is ``DIVISION_RULE_UNRECORDED``.
     """
     if season is None:
         return PlayoffStructure(None, None, None, "unavailable", REASON_NO_SEASON)
@@ -264,6 +414,14 @@ def resolve_playoff_structure(season: Any) -> PlayoffStructure:
     divisions_reason = ""
     if divisions_present and (divisions is None or divisions < 0):
         divisions, divisions_reason = None, REASON_UNKNOWN_DIVISIONS
+    rules = league_playoff_rules(league_key)
+    host_divisions_on = bool(divisions_reason) or (divisions is not None and divisions > 0)
+    if rules is not None:
+        division_rule = DIVISION_RULE_RECORDED
+    elif host_divisions_on:
+        division_rule = DIVISION_RULE_UNRECORDED
+    else:
+        division_rule = DIVISION_RULE_NONE
     return PlayoffStructure(
         teams,
         byes_for_teams(teams),
@@ -273,4 +431,111 @@ def resolve_playoff_structure(season: Any) -> PlayoffStructure:
         seed_type_reason=seed_reason,
         divisions=divisions,
         divisions_reason=divisions_reason,
+        division_rule=division_rule,
+        rules=rules,
+    )
+
+
+#: Why division-champion odds are not published.
+REASON_NO_DIVISIONS = "no_divisions"
+REASON_DIVISION_RULE_UNRECORDED = "division_champion_rule_unrecorded"
+REASON_DIVISION_COUNT_CONFLICT = "division_count_conflicts_with_host_setting"
+REASON_ROSTER_DIVISION_MISSING = "roster_division_missing_or_out_of_range"
+REASON_DIVISION_EMPTY = "division_has_no_teams"
+REASON_DIVISION_OWNER_UNRESOLVED = "roster_owner_unresolved"
+
+
+@dataclass(frozen=True)
+class DivisionAssignments:
+    """Which division each team plays in -- or why that is not established.
+
+    ``state`` is ``"available"`` (every team has exactly one division and the
+    league records how a champion is decided), ``"unavailable"`` (divisions
+    exist but something needed is missing -- ``reason`` names it) or
+    ``"not_applicable"`` (the league plays no divisions).
+    """
+
+    state: str
+    reason: str = ""
+    count: int | None = None
+    by_owner: Mapping[str, int] = field(default_factory=dict)
+    names: Mapping[int, str] = field(default_factory=dict)
+    rules: LeaguePlayoffRules | None = None
+
+    @property
+    def available(self) -> bool:
+        return self.state == "available"
+
+    def members(self) -> dict[int, list[str]]:
+        out: dict[int, list[str]] = {}
+        for owner, div in sorted(self.by_owner.items()):
+            out.setdefault(div, []).append(owner)
+        return dict(sorted(out.items()))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "state": self.state,
+            "reason": self.reason,
+            "count": self.count,
+            "names": {str(k): v for k, v in sorted(self.names.items())},
+            "championRule": (
+                {
+                    "rule": self.rules.division_champion,
+                    "tiebreakers": list(self.rules.division_champion_tiebreakers),
+                    "affectsPlayoffs": self.rules.divisions_affect_playoffs,
+                }
+                if self.rules is not None and self.rules.division_champion
+                else None
+            ),
+        }
+
+
+def resolve_division_assignments(
+    season: Any,
+    structure: PlayoffStructure,
+    owner_of: Any,
+) -> DivisionAssignments:
+    """Each team's division for ``season``, or why it is not established.
+
+    ``owner_of(roster_id)`` maps a roster to the owner id the simulator keys
+    teams by (the roster's CURRENT owner).  Divisions come from each roster's
+    ``settings.division`` (Sleeper numbers them 1..n); names from the league's
+    ``metadata["division_<n>"]`` when it sets them.
+
+    Fails closed, with a named reason, when the league records no champion
+    rule, when a roster's division is missing or outside 1..n, when a
+    division has no team, or when the host setting states a different count
+    than the record.  A league that plays no divisions is ``not_applicable``.
+    """
+    rules = getattr(structure, "rules", None)
+    if rules is None or rules.division_count is None or rules.division_champion is None:
+        if getattr(structure, "divisions_in_play", False):
+            return DivisionAssignments("unavailable", REASON_DIVISION_RULE_UNRECORDED)
+        return DivisionAssignments("not_applicable", REASON_NO_DIVISIONS)
+    count = rules.division_count
+    host = getattr(structure, "divisions", None)
+    if host is not None and host > 0 and host != count:
+        return DivisionAssignments("unavailable", REASON_DIVISION_COUNT_CONFLICT, count=count)
+    league = getattr(season, "league", None) or {}
+    metadata = league.get("metadata") if isinstance(league, dict) else None
+    names: dict[int, str] = {}
+    if isinstance(metadata, dict):
+        for n in range(1, count + 1):
+            name = metadata.get(f"division_{n}")
+            if isinstance(name, str) and name.strip():
+                names[n] = name.strip()
+    by_owner: dict[str, int] = {}
+    for roster in getattr(season, "rosters", None) or []:
+        settings = roster.get("settings") if isinstance(roster, dict) else None
+        div = _whole_count_or_none((settings or {}).get("division"))
+        if div is None or not (1 <= div <= count):
+            return DivisionAssignments("unavailable", REASON_ROSTER_DIVISION_MISSING, count=count)
+        owner = owner_of(roster.get("roster_id")) if isinstance(roster, dict) else ""
+        if not owner or owner in by_owner:
+            return DivisionAssignments("unavailable", REASON_DIVISION_OWNER_UNRESOLVED, count=count)
+        by_owner[owner] = div
+    if set(by_owner.values()) != set(range(1, count + 1)):
+        return DivisionAssignments("unavailable", REASON_DIVISION_EMPTY, count=count)
+    return DivisionAssignments(
+        "available", count=count, by_owner=by_owner, names=names, rules=rules
     )
