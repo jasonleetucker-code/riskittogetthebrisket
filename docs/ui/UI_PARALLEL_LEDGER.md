@@ -29,6 +29,16 @@ not a passing populated-state scan for each listed route. Historical proof stays
 
 ## Active program / dispatch
 
+**Current Sports Network owner continuation (2026-11-07; implementation continuing November 8):**
+The owner approved the three reference experiences and instructed “continue until its fully implemented.”
+The existing Lane 6 now implements that direction across the active frontend, under
+`docs/EXECUTION_PLAN.md`. Canonical contract, code-path mapping, review and exact validation evidence:
+[`SPORTS_NETWORK_MIGRATION_2026-11-07.md`](SPORTS_NETWORK_MIGRATION_2026-11-07.md).
+Prototype review remains PR #2132; open #2112 is historical owner-charter research, with its prototype-only
+boundary superseded by this explicit continuation. D14 category identity and existing data/auth/activation
+contracts remain intact. Local UI validation is not deployment proof.
+
+
 **Current (2026-10-18):** Owner Decision 14 closes the #1428 palette question. The approved light-surface `--chart-1..6` steps are in `frontend/app/tokens.css` (`.psi-editorial` + light scaffold; dark slots unchanged); the /design chart gate is retired on `claude/chart-palette-d14` (stacked on #1809), with contrast + CVD proof in `chart-palette-contrast.test.js` and evidence in `docs/ui/evidence/D14_CHART_PALETTE_2026-10-18/`. Merge, deploy and production proof stay open.
 **Named follow-up — >6-category chart fold design (OWNER/DESIGN DECISION):** D14 approved six slots
 only, so every chart with more than six categories keeps its previous colours unchanged: the

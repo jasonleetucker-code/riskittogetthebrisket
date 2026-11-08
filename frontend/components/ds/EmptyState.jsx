@@ -18,7 +18,7 @@ export function EmptyState({ title, description, action, icon, className = "" })
   return (
     <div className={`ds-empty ${className}`.trim()}>
       {icon}
-      <h3 className="ds-empty__title">{title}</h3>
+      <h2 className="ds-empty__title">{title}</h2>
       {description ? (
         <p className="ds-empty__description">{description}</p>
       ) : null}

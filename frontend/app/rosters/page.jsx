@@ -23,18 +23,9 @@ import {
   describePickOwnershipReason,
 } from "@/lib/pick-ownership";
 
-// The surface these labels sit on.  `--card` / `--bg-soft` (#131519),
-// NOT the page `--bg` (#0b0d10): the labels live inside panels, and
-// panels are one step LIGHTER, so computing against the page would
-// clear the floor on paper and miss it on screen — which is exactly
-// what the first pass did, leaving LB at 4.36:1.  Passed explicitly
-// rather than sniffed from the DOM so the value is identical on the
-// server render and in the test that asserts it.
-const PAGE_SURFACE = "#131519";
-// Mark colours are chosen to be legible as SWATCHES (>=3:1).  Reused
-// as words they fell short — DL at 3.91:1, LB at 3.11:1 — so the
-// text variant is derived once here.  Six of the eight are returned
-// unchanged; this is a floor, not a restyle.
+// Derive text shades against the darkest canonical cream surface. This
+// changes copy only; position swatches and chart category hues stay intact.
+const PAGE_SURFACE = "#e4e3d6";
 const POS_TEXT_COLORS = Object.fromEntries(
   Object.entries(POS_GROUP_COLORS).map(([g, c]) => [g, textSafe(c, PAGE_SURFACE)]),
 );
@@ -326,7 +317,7 @@ export default function RostersPage() {
                   // or white the colour actually supports — which also
                   // means a future palette change cannot silently
                   // reintroduce this. See lib/contrast.js.
-                  color: active ? readableTextOn(color) : color,
+                  color: active ? readableTextOn(color) : POS_TEXT_COLORS[g],
                   background: active ? color : "transparent",
                   borderColor: color,
                 }}
@@ -359,7 +350,7 @@ export default function RostersPage() {
             hundred pixels apart.  The order here is a sort of the
             column the user chose; the rank is the canonical one, in the
             Team Strength card above. */}
-        <h3 className="team-strength-subtitle">Roster value portfolio</h3>
+        <h2 className="team-strength-subtitle">Roster value portfolio</h2>
         <p className="roster-portfolio-note">
           Every asset the filters below admit, at full market value. Ordered by
           that total &mdash; a sort, not a rank. Team Strength is a different

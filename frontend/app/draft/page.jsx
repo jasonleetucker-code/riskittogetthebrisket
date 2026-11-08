@@ -348,7 +348,7 @@ function TeamPanel({
           }}
         >
           <div>
-            <h3 style={{ margin: "0 0 4px" }}>Teams & budgets</h3>
+            <h2 style={{ margin: "0 0 4px" }}>Teams & budgets</h2>
             <div className="muted" style={{ fontSize: "0.72rem" }}>
               Budgets pre-fill from the live Draft Capital feed. Edit any row to
               match your carry-over balances; click{" "}
@@ -1430,7 +1430,7 @@ export function RookieBoard({
               {th("Max Bid", "myMaxBid", 80)}
               {th("Final", "final", 100)}
               <th style={{ width: 180 }}>Drafted to</th>
-              <th style={{ width: 110 }}></th>
+              <th style={{ width: 110 }}><span className="ds-visually-hidden">Draft actions</span></th>
             </tr>
           </thead>
           <tbody>
