@@ -38,7 +38,7 @@ Silence is not a decision. Every item keeps its current behavior until you answe
 
 ## 3. Division title payout tiebreaker
 
-- **Current rule:** unconfirmed, so ties are reported rather than resolved (#2158). Live example: Brent 64% outright, 36% tied.
+- **Current rule:** unconfirmed, so ties are reported rather than resolved (#2158). Live example at the 14:16Z production check: Brent 64% outright, 36% tied with Jason (`docs/agent-operating-system/SESSION_HANDOFF.md`).
 - **Evidence:** your playoff rules state divisions decide schedule and a separate payout. No record says what breaks a tie for that payout.
 - **Alternatives:** points for; head-to-head; split the payout. **Recommendation:** none. This is a league fact only you know.
 - **Authorization needed:** state the rule. **Can proceed:** everything else; ties stay labelled.
@@ -93,7 +93,7 @@ Silence is not a decision. Every item keeps its current behavior until you answe
 ## 9. Source voting restoration
 
 - **Current rule:** `dlfIdp`, `dlfRookieIdp`, DLF Values offense and the Signals IDP families are held. Holds are enforced at deploy by `scripts/verify_owner_held_flags.py`.
-- **Evidence:** `docs/sources/REHABILITATION_REVIEW_2026-11-06.md`. Outlier Integrity V2 (#1884, 1,093 commits behind) was the stated precondition and has not passed.
+- **Evidence:** `docs/sources/REHABILITATION_REVIEW_2026-11-06.md`. Outlier Integrity V2 (#1884, about 1,100 commits behind `main` as of 2026-11-08, `git rev-list --count`) was the stated precondition and has not passed.
 - **Alternatives:** (a) keep holds and extract #1884's identity pieces in small PRs; (b) lift individual holds on separate evidence.
 - **Recommendation: (a).** The Hampel filter can drop legitimate votes when the voting population changes, which is why the holds exist.
 - **Authorization needed:** any lift. **Can proceed:** read-only four-arm comparison and extraction.
@@ -116,8 +116,8 @@ Silence is not a decision. Every item keeps its current behavior until you answe
 
 ## 12. Required GitHub checks and review rules
 
-- **Current rule:** live ruleset `main-protection` has only `deletion` and `non_fast_forward`. Write and admin roles and deploy keys bypass it with `always`. `Validate PR` and `Receipt check` are advisory.
-- **Evidence:** a red check cannot stop a merge today. 12 of the last 12 merged PRs were authored and merged by the same account, and GitHub does not allow an author to approve their own PR.
+- **Current rule:** live ruleset `main-protection` has only `deletion` and `non_fast_forward`. Write and admin roles and deploy keys bypass it with `always` (read live with `gh api repos/jasonleetucker-code/riskittogetthebrisket/rulesets/19976839`, 2026-11-08: `RepositoryRole` 4 and 5, `DeployKey`). `Validate PR` and `Receipt check` are advisory.
+- **Evidence:** a red check cannot stop a merge today. The last 12 merged PRs were all authored and merged by the same account (`gh pr list --state merged --limit 12`, 2026-11-08), and GitHub does not allow an author to approve their own PR.
 - **Prepared:** `deploy/github/main-protection-ruleset.json` now requires both checks, with the GitHub Actions app and deploy keys as bypass actors so scheduled refreshes keep landing, and admin bypass reduced to `pull_request`. Dependabot and Actions authors are already exempt in the receipt script. Pinned by `tests/deploy/test_main_protection_ruleset.py`.
 - **Alternatives:** (a) apply as prepared, 0 required approvals; (b) also require 1 approval, which needs a second GitHub identity or review app; (c) keep it advisory.
 - **Recommendation: (a) now.** Consider (b) later if you want review recorded as a GitHub event rather than a PR field.
@@ -143,6 +143,6 @@ Silence is not a decision. Every item keeps its current behavior until you answe
 
 ## 15. Protected feature activations
 
-- **Held:** `source_freshness_schedule_v2`, `playoff_ros_counted_once`, `trade_multi_team_analysis`, the public Trade Advisor, `dlf_values_rank_hill_vote`, and the Signals IDP vote flags. Some are default-off flags; the vote holds are also enforced at deploy by `scripts/verify_owner_held_flags.py`.
+- **Held:** `source_freshness_schedule_v2`, `playoff_ros_counted_once`, `trade_multi_team_analysis`, the public Trade Advisor, `dlf_values_rank_hill_vote`, and the Signals IDP vote flags. Each is held at its required state; the vote holds are also enforced at deploy by `scripts/verify_owner_held_flags.py`.
 - **Recommendation:** leave all held. Each has its own evidence gate, and none is met today.
 - **Authorization needed:** each is separate. Approval of one does not extend to another.
