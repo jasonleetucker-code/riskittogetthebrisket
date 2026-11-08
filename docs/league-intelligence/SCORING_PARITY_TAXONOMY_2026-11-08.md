@@ -122,7 +122,8 @@ player in 2026 wk 1-6.
   (schema bump + artifact rebuild).
 * **F2** `test_a_row_with_no_position_does_not_silently_score_defensive_stats_as_zero`: a row with no
   position scores every `def_*` stat 0 with nothing in `unscored` (missing is never zero). Latent: the 6 of
-  6,488 position-less rows are nameless and skipped upstream. Plain bug outside #1938's scope.
+  6,488 position-less rows are nameless and skipped upstream. Plain bug outside #1938's stated scope, but #1938 un-gates `def_*` for every row and so resolves it
+  incidentally (verified: the test XPASSes on #1938's tree), hence a non-strict xfail so it cannot break that PR's CI.
 
 ## 4. Downstream impact on BDVM in-season values (descriptive)
 

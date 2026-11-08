@@ -306,10 +306,10 @@ def test_special_teams_assists_are_not_paid_as_defensive_assists():
 
 
 @pytest.mark.xfail(
-    strict=True,
+    strict=False,  # PR #1938 un-gates def_* for every row and so XPASSes this by accident
     reason="SCORING-PARITY-TAXONOMY F2: a row with no position silently drops every def_* "
     "stat to 0 with nothing in `unscored` (MISSING IS NEVER ZERO). The 6 position-less rows of "
-    "6,488 (2026 wk1-6) are nameless and skipped upstream, so measured impact is nil: latent.",
+    "6,488 (2026 wk1-6) are nameless and skipped upstream, so measured impact is nil: latent.  Non-strict on purpose: #1938 resolves it incidentally, and a strict marker would break that PR's CI.",
 )
 def test_a_row_with_no_position_does_not_silently_score_defensive_stats_as_zero():
     row = {"season": 2026, "week": 1, "def_tackles_solo": 3, PBP_SUPPLEMENT_ROW_KEY: {}}
