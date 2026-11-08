@@ -13,7 +13,9 @@
   --sn-coral: #fd633f;
   --sn-cream: #f0eddf;
   --sn-gold: #f7c77f;
-  --font-display: var(--font-broadcast, "Barlow Condensed"), Impact, "Arial Narrow", sans-serif;
+  --font-display:
+    var(--font-broadcast, "Barlow Condensed"), Impact, "Arial Narrow",
+    sans-serif;
 
   --neutral-0: #ffffff;
   --neutral-50: #eceef2;
@@ -239,7 +241,6 @@
 }
 
 .psi-editorial {
-
   --surface-0: #f0eddf;
   --surface-1: #f7f5ec;
   --surface-2: #e4e3d6;
@@ -306,7 +307,9 @@
   --shadow-2: 0 4px 12px rgba(11, 33, 48, 0.1);
   --shadow-3: 0 12px 32px rgba(11, 33, 48, 0.18);
 
-  --font-display: var(--font-broadcast, "Barlow Condensed"), Impact, "Arial Narrow", sans-serif;
+  --font-display:
+    var(--font-broadcast, "Barlow Condensed"), Impact, "Arial Narrow",
+    sans-serif;
 
   --bg: var(--surface-0);
   --bg-soft: var(--surface-2);

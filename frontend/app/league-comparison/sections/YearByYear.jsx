@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   CHART_COLORS,
+  INVERSE_CHART_STYLE,
   categoricalColor,
   chartBox,
   formatNumber,
@@ -134,7 +135,7 @@ function ShareTrendChart({ bySeason }) {
       <div className="muted text-xs" style={{ textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>
         Share difference (my − baseline) by season — improved method
       </div>
-      <div style={{ background: "rgba(0,0,0,0.15)", borderRadius: 6, padding: 8 }}>
+      <div style={{ ...(series.length > 6 ? INVERSE_CHART_STYLE : { background: "var(--surface-2)" }), borderRadius: 0, padding: 8 }}>
         <svg
           viewBox={viewBox}
           role="img"
@@ -259,14 +260,14 @@ function SeasonTables({ block }) {
 }
 
 function SeasonSide({ title, data, accent }) {
-  const color = accent === "gold" ? "var(--gold, #4f9bec)" : "var(--cyan)";
+  const color = accent === "gold" ? "var(--accent)" : "var(--cyan)";
   const positions = data.positions || {};
   const flex = data.flex || {};
   const top = (data.topPlayers || []).slice(0, 8);
   return (
     <div>
       <div style={{ fontWeight: 700, color, marginBottom: 6 }}>{title}</div>
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0} role="region" aria-label="Year by year comparison; scroll to view all columns">
         <table>
           <thead>
             <tr>

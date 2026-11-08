@@ -13,8 +13,8 @@ below.** A document that appears nowhere is drift, and `scripts/check_planning_i
 ## 1. ACTIVE CANONICAL RECORDS
 
 | Document | Authority |
-| `docs/ui/SPORTS_NETWORK_MIGRATION_2026-11-07.md` | Current owner-approved Sports Network frontend migration acceptance/route evidence under existing Lane 6; implementation authorization remains EXECUTION_PLAN.md. |
 |---|---|
+| `docs/ui/SPORTS_NETWORK_MIGRATION_2026-11-07.md` | Current owner-approved Sports Network frontend migration acceptance/route evidence under existing Lane 6; implementation authorization remains EXECUTION_PLAN.md. |
 | `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` | Binding implementation of locked PSI; existing Lane 6 parallel rule, not independent scope or authorization |
 | `docs/ui/UI_PARALLEL_LEDGER.md` | Operational UI migration/claim/evidence dimension; no competing product denominator |
 | `docs/ui/UI_AUDIT_2026-09-24.md` | Dated source and work-overlap audit; not current production proof |

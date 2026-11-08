@@ -11,7 +11,10 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { useDynastyData } from "@/components/useDynastyData";
-import { boardFirstActivePickYear, isRetiredPickClassRow } from "@/lib/pick-class-lifecycle";
+import {
+  boardFirstActivePickYear,
+  isRetiredPickClassRow,
+} from "@/lib/pick-class-lifecycle";
 import {
   resolvedRank,
   RANKING_SOURCES,
@@ -78,6 +81,7 @@ import {
   Movement,
   PageHeader,
   Panel,
+  CollapsiblePanel,
   Select,
   SkeletonTable,
   StatTile,
@@ -95,7 +99,11 @@ import {
   confidenceDisplay,
   formatAgo,
 } from "@/lib/value-explainers";
-import { BoardClocks, ExplainTip, ValueExplainHelp } from "@/components/ValueExplain";
+import {
+  BoardClocks,
+  ExplainTip,
+  ValueExplainHelp,
+} from "@/components/ValueExplain";
 import {
   MethodologySection,
   TopMoversRail,
@@ -289,7 +297,8 @@ function CustomMixBadge({ rankingsOverride }) {
 // ── Main component ───────────────────────────────────────────────────
 
 export default function RankingsPage() {
-  const { loading, error, failure, overrideFailure, rows, rawData, retry } = useDynastyData();
+  const { loading, error, failure, overrideFailure, rows, rawData, retry } =
+    useDynastyData();
   const {
     settings,
     update: updateSetting,
@@ -384,9 +393,15 @@ export default function RankingsPage() {
   // endpoint answers ok (bdvm_engine on + a projection snapshot exists)
   // and vanishes silently on any 503/failure. League-config-scoped data
   // joined onto rows at render time — never stamped into the contract.
-  const { data: bdvmData, failure: bdvmFailure } = useBdvmEndpoint("/api/bdvm/values", { params: { view: "board" } });
+  const { data: bdvmData, failure: bdvmFailure } = useBdvmEndpoint(
+    "/api/bdvm/values",
+    { params: { view: "board" } },
+  );
   const bdvmIndex = useMemo(
-    () => (!bdvmFailure && bdvmData?.status === "ok" ? buildBdvmIndex(bdvmData) : null),
+    () =>
+      !bdvmFailure && bdvmData?.status === "ok"
+        ? buildBdvmIndex(bdvmData)
+        : null,
     [bdvmData, bdvmFailure],
   );
   const newsPlayerMeta = useMemo(() => buildPlayerMetaIndex(rows), [rows]);
@@ -396,6 +411,7 @@ export default function RankingsPage() {
   const [activeLens, setActiveLens] = useState("consensus");
   const [showTiers, setShowTiers] = useState(true);
   const [showEdgeRail, setShowEdgeRail] = useState(true);
+  const [toolsExpanded, setToolsExpanded] = useState(false);
   const [rowLimit, setRowLimit] = useState(DEFAULT_ROW_LIMIT);
   // Growing the board is a NON-URGENT update.  "Show all" takes the
   // rendered rows from 200 to ~1,095 (36 DOM nodes each), and committing
@@ -696,7 +712,8 @@ export default function RankingsPage() {
           // bottom regardless of direction, then keep rank order.
           const ga = bdvmEntryForRow(bdvmIndex, a)?.gap;
           const gb = bdvmEntryForRow(bdvmIndex, b)?.gap;
-          if (ga == null && gb == null) return resolvedRank(a) - resolvedRank(b);
+          if (ga == null && gb == null)
+            return resolvedRank(a) - resolvedRank(b);
           if (ga == null) return 1;
           if (gb == null) return -1;
           return (ga - gb) * dir;
@@ -848,7 +865,11 @@ export default function RankingsPage() {
     for (const row of sorted) {
       // Unpriced rows (no backend rank and no value) get no positional
       // rank -- there is no board position to be Nth at (W07-F004).
-      if (row?.rank == null && !Number.isFinite(Number(row?.rankDerivedValue ?? NaN))) continue;
+      if (
+        row?.rank == null &&
+        !Number.isFinite(Number(row?.rankDerivedValue ?? NaN))
+      )
+        continue;
       const pos = String(row?.pos || "").toUpperCase();
       if (!pos || !row?.name) continue;
       const next = (counts.get(pos) || 0) + 1;
@@ -1437,8 +1458,22 @@ export default function RankingsPage() {
         title="Rankings"
         description="Know the field. Dynasty values, market movement and player research — offense and IDP on one board."
         actions={
-          <>
-            {/*
+          <div className={styles.toolsArea}>
+            <Button
+              className={styles.toolsToggle}
+              variant="secondary"
+              size="sm"
+              aria-expanded={toolsExpanded}
+              aria-controls="rankings-board-tools"
+              onClick={() => setToolsExpanded(!toolsExpanded)}
+            >
+              Board tools {toolsExpanded ? "−" : "+"}
+            </Button>
+            <div
+              id="rankings-board-tools"
+              className={`${styles.toolsBody} ${toolsExpanded ? styles.toolsExpanded : ""}`}
+            >
+              {/*
               The "Value basis" Market / My league control was REMOVED on
               2026-08-14. There is one canonical methodology, so there is
               nothing to choose between, and a control that selects a
@@ -1453,192 +1488,188 @@ export default function RankingsPage() {
               the choice still exists. See
               docs/valuation/LEAGUE_AWARE_METHODOLOGY_REJECTION.md.
             */}
-            <CustomMixBadge rankingsOverride={rawData?.rankingsOverride} />
-            {copyStatus && (
-              <span className={styles.resultCount}>{copyStatus}</span>
-            )}
-            <Button
-              size="sm"
-              variant={showEdgeRail ? "secondary" : "ghost"}
-              aria-pressed={showEdgeRail}
-              onClick={() => setShowEdgeRail((v) => !v)}
-            >
-              {showEdgeRail ? "Hide edge" : "Show edge"}
-            </Button>
-            {/* The nine-step prose lives in a modal now; this toggle
+              <CustomMixBadge rankingsOverride={rawData?.rankingsOverride} />
+              {copyStatus && (
+                <span className={styles.resultCount}>{copyStatus}</span>
+              )}
+
+              {/* The nine-step prose lives in a modal now; this toggle
                 owns only the two charts, which are genuinely
                 page-sized and worth a deliberate reveal. */}
-            {/* One explanation owner (lib/value-explainers.js) for what
+              {/* One explanation owner (lib/value-explainers.js) for what
                 a value, rank, confidence and freshness MEAN — shared with
                 the Player File — followed by the pipeline steps, whose
                 formula, rank limit and confidence checks come from the
                 contract rather than a duplicated constant. */}
-            <ValueExplainHelp
-              title="How rankings work"
-              label="How rankings work"
-              methodology={rawData?.methodology}
-            >
-              <h3>Pipeline steps</h3>
-              <MethodologySection
+              <ValueExplainHelp
+                title="How rankings work"
+                label="How rankings work"
                 methodology={rawData?.methodology}
-                sourceWeighting={rawData?.sourceWeighting}
-              />
-            </ValueExplainHelp>
-            <Button
-              size="sm"
-              variant={showMethodology ? "secondary" : "ghost"}
-              aria-pressed={showMethodology}
-              onClick={() => setShowMethodology((v) => !v)}
-            >
-              {showMethodology ? "Hide charts" : "Methodology charts"}
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={copyValues}
-              title="Copy the current rows as TSV for pasting into a spreadsheet"
-            >
-              Copy
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={exportCsv}
-              title="Download the current rows as a CSV file"
-            >
-              Export CSV
-            </Button>
-            {/* Sources popover — blend membership (math). Distinct from
+              >
+                <h3>Pipeline steps</h3>
+                <MethodologySection
+                  methodology={rawData?.methodology}
+                  sourceWeighting={rawData?.sourceWeighting}
+                />
+              </ValueExplainHelp>
+              <Button
+                size="sm"
+                variant={showMethodology ? "secondary" : "ghost"}
+                aria-pressed={showMethodology}
+                onClick={() => setShowMethodology((v) => !v)}
+              >
+                {showMethodology ? "Hide charts" : "Methodology charts"}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={copyValues}
+                title="Copy the current rows as TSV for pasting into a spreadsheet"
+              >
+                Copy
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={exportCsv}
+                title="Download the current rows as a CSV file"
+              >
+                Export CSV
+              </Button>
+              {/* Sources popover — blend membership (math). Distinct from
                 Columns, which only controls column VISIBILITY. */}
-            <span className={styles.popoverWrap}>
-              <Button
-                size="sm"
-                variant="secondary"
-                aria-expanded={sourcesMenuOpen}
-                onClick={() => setSourcesMenuOpen((v) => !v)}
-                title="Choose which sources are factored into the blended rankings"
-              >
-                Sources
-                {excludedSourceCount > 0 ? ` (${excludedSourceCount} off)` : ""}
-              </Button>
-              {sourcesMenuOpen && (
-                <div className={styles.popover}>
-                  <div className={styles.popoverHeader}>
-                    <span>Sources in blend</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={resetSiteWeights}
-                      title="Re-include every source and clear custom weights"
-                      disabled={!hasSourceOverrides}
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                  <p className={styles.popoverHint}>
-                    Unchecking a source removes it from the blended average.
-                  </p>
-                  {RANKING_SOURCES.map((src) => {
-                    const included = siteWeights[src.key]?.include !== false;
-                    // Never let the user disable the last source — the
-                    // blend needs at least one.
-                    const isLastIncluded =
-                      included && includedSourceKeys.length === 1;
-                    return (
-                      <label
-                        key={src.key}
-                        className={`${styles.popoverRow}${isLastIncluded ? ` ${styles.popoverRowDisabled}` : ""}`}
-                        title={
-                          isLastIncluded
-                            ? "At least one source must stay in the blend"
-                            : undefined
-                        }
-                      >
-                        <input
-                          type="checkbox"
-                          checked={included}
-                          disabled={isLastIncluded}
-                          onChange={(e) =>
-                            toggleSourceIncluded(src.key, e.target.checked)
-                          }
-                        />
-                        <span>{src.columnLabel}</span>
-                        <span className={styles.popoverRowMeta}>
-                          {src.displayName}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </span>
-            {/* Columns popover — per-source column visibility. */}
-            <span className={styles.popoverWrap}>
-              <Button
-                size="sm"
-                variant="secondary"
-                aria-expanded={colsMenuOpen}
-                onClick={() => setColsMenuOpen((v) => !v)}
-                title="Show/hide per-source columns"
-              >
-                Columns
-                {!settings.showSiteCols
-                  ? " (off)"
-                  : hiddenCount > 0
-                    ? ` (${hiddenCount} hidden)`
+              <span className={styles.popoverWrap}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  aria-expanded={sourcesMenuOpen}
+                  onClick={() => setSourcesMenuOpen((v) => !v)}
+                  title="Choose which sources are factored into the blended rankings"
+                >
+                  Sources
+                  {excludedSourceCount > 0
+                    ? ` (${excludedSourceCount} off)`
                     : ""}
-              </Button>
-              {colsMenuOpen && (
-                <div className={styles.popover}>
-                  <div className={styles.popoverHeader}>
-                    <span>Source columns</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={showAllSiteCols}
-                      title="Restore all source columns"
-                      disabled={!settings.showSiteCols}
-                    >
-                      Show all
-                    </Button>
-                  </div>
-                  <label
-                    className={`${styles.popoverRow} ${styles.popoverRowMaster}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(settings.showSiteCols)}
-                      onChange={(e) =>
-                        updateSetting("showSiteCols", e.target.checked)
-                      }
-                    />
-                    <span>Show source columns</span>
-                  </label>
-                  {RANKING_SOURCES.map((src) => {
-                    const hidden = Boolean(hiddenSiteCols[src.key]);
-                    const rowDisabled = !settings.showSiteCols;
-                    return (
-                      <label
-                        key={src.key}
-                        className={`${styles.popoverRow}${rowDisabled ? ` ${styles.popoverRowDisabled}` : ""}`}
+                </Button>
+                {sourcesMenuOpen && (
+                  <div className={styles.popover}>
+                    <div className={styles.popoverHeader}>
+                      <span>Sources in blend</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={resetSiteWeights}
+                        title="Re-include every source and clear custom weights"
+                        disabled={!hasSourceOverrides}
                       >
-                        <input
-                          type="checkbox"
-                          checked={!hidden}
-                          onChange={() => toggleSiteCol(src.key)}
-                          disabled={rowDisabled}
-                        />
-                        <span>{src.columnLabel}</span>
-                        <span className={styles.popoverRowMeta}>
-                          {src.displayName}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </span>
-          </>
+                        Reset
+                      </Button>
+                    </div>
+                    <p className={styles.popoverHint}>
+                      Unchecking a source removes it from the blended average.
+                    </p>
+                    {RANKING_SOURCES.map((src) => {
+                      const included = siteWeights[src.key]?.include !== false;
+                      // Never let the user disable the last source — the
+                      // blend needs at least one.
+                      const isLastIncluded =
+                        included && includedSourceKeys.length === 1;
+                      return (
+                        <label
+                          key={src.key}
+                          className={`${styles.popoverRow}${isLastIncluded ? ` ${styles.popoverRowDisabled}` : ""}`}
+                          title={
+                            isLastIncluded
+                              ? "At least one source must stay in the blend"
+                              : undefined
+                          }
+                        >
+                          <input
+                            type="checkbox"
+                            checked={included}
+                            disabled={isLastIncluded}
+                            onChange={(e) =>
+                              toggleSourceIncluded(src.key, e.target.checked)
+                            }
+                          />
+                          <span>{src.columnLabel}</span>
+                          <span className={styles.popoverRowMeta}>
+                            {src.displayName}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </span>
+              {/* Columns popover — per-source column visibility. */}
+              <span className={styles.popoverWrap}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  aria-expanded={colsMenuOpen}
+                  onClick={() => setColsMenuOpen((v) => !v)}
+                  title="Show/hide per-source columns"
+                >
+                  Columns
+                  {!settings.showSiteCols
+                    ? " (off)"
+                    : hiddenCount > 0
+                      ? ` (${hiddenCount} hidden)`
+                      : ""}
+                </Button>
+                {colsMenuOpen && (
+                  <div className={styles.popover}>
+                    <div className={styles.popoverHeader}>
+                      <span>Source columns</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={showAllSiteCols}
+                        title="Restore all source columns"
+                        disabled={!settings.showSiteCols}
+                      >
+                        Show all
+                      </Button>
+                    </div>
+                    <label
+                      className={`${styles.popoverRow} ${styles.popoverRowMaster}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={Boolean(settings.showSiteCols)}
+                        onChange={(e) =>
+                          updateSetting("showSiteCols", e.target.checked)
+                        }
+                      />
+                      <span>Show source columns</span>
+                    </label>
+                    {RANKING_SOURCES.map((src) => {
+                      const hidden = Boolean(hiddenSiteCols[src.key]);
+                      const rowDisabled = !settings.showSiteCols;
+                      return (
+                        <label
+                          key={src.key}
+                          className={`${styles.popoverRow}${rowDisabled ? ` ${styles.popoverRowDisabled}` : ""}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={!hidden}
+                            onChange={() => toggleSiteCol(src.key)}
+                            disabled={rowDisabled}
+                          />
+                          <span>{src.columnLabel}</span>
+                          <span className={styles.popoverRowMeta}>
+                            {src.displayName}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </span>
+            </div>
+          </div>
         }
       />
 
@@ -1665,7 +1696,11 @@ export default function RankingsPage() {
           <StatTile
             label="Low"
             value={trustStats.low.toLocaleString()}
-            meta={trustStats.none > 0 ? `+${trustStats.none.toLocaleString()} ungraded` : undefined}
+            meta={
+              trustStats.none > 0
+                ? `+${trustStats.none.toLocaleString()} ungraded`
+                : undefined
+            }
           />
           <StatTile
             label="Multi-source"
@@ -1739,16 +1774,32 @@ export default function RankingsPage() {
         </>
       )}
 
-      {/* ── Signal rails ── */}
+      {/* Secondary research is available without displacing the working board. */}
       {!loading && !error && rows.length > 0 && (
-        <TopMoversRail
-          risers={movers.risers}
-          fallers={movers.fallers}
-          onPlayerClick={openPlayerPopup}
-        />
-      )}
-      {!loading && !error && showEdgeRail && rows.length > 0 && (
-        <EdgeRail summary={edgeSummary} onPlayerClick={openPlayerPopup} />
+        <CollapsiblePanel
+          dense
+          defaultCollapsed
+          mountCollapsedChildren={false}
+          title="Market research"
+          subtitle="Movers, source agreement and caution flags"
+        >
+          <Button
+            size="sm"
+            variant={showEdgeRail ? "secondary" : "ghost"}
+            aria-pressed={showEdgeRail}
+            onClick={() => setShowEdgeRail((v) => !v)}
+          >
+            {showEdgeRail ? "Hide edge" : "Show edge"}
+          </Button>
+          <TopMoversRail
+            risers={movers.risers}
+            fallers={movers.fallers}
+            onPlayerClick={openPlayerPopup}
+          />
+          {showEdgeRail && (
+            <EdgeRail summary={edgeSummary} onPlayerClick={openPlayerPopup} />
+          )}
+        </CollapsiblePanel>
       )}
 
       {/* ── Loading / error / empty states ── */}
@@ -1772,7 +1823,8 @@ export default function RankingsPage() {
         <FailureState
           failure={{
             ...overrideFailure,
-            message: `Your custom source mix could not be applied, so this is the default board. ${overrideFailure.message || ""}`.trim(),
+            message:
+              `Your custom source mix could not be applied, so this is the default board. ${overrideFailure.message || ""}`.trim(),
           }}
           onRetry={retry}
           context="custom source mix"
@@ -1799,7 +1851,10 @@ export default function RankingsPage() {
                 label="Board lenses"
                 active={isScreen(activeLens) ? null : activeLens}
                 onChange={handleLensChange}
-                tabs={LENSES.map((lens) => ({ id: lens.key, label: lens.label }))}
+                tabs={LENSES.map((lens) => ({
+                  id: lens.key,
+                  label: lens.label,
+                }))}
               />
               {/* Screens — the five saved questions that used to be the
                   /finder page.  A dropdown rather than five more tabs:
@@ -2158,31 +2213,31 @@ export default function RankingsPage() {
                 rowsPending ? (
                   <SkeletonTable rows={12} columns={7} />
                 ) : (
-                <EmptyState
-                  title="No players match these filters"
-                  description={
-                    advActiveCount > 0 || query
-                      ? "Clear the search, NFL team or advanced filters to widen the board."
-                      : "Try a different lens, position, or confidence filter."
-                  }
-                  action={
-                    hasActiveFilter ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setQuery("");
-                          setPosFilter("all");
-                          setConfFilter("all");
-                          clearAdv();
-                          handleLensChange("consensus");
-                        }}
-                      >
-                        Reset filters
-                      </Button>
-                    ) : undefined
-                  }
-                />
+                  <EmptyState
+                    title="No players match these filters"
+                    description={
+                      advActiveCount > 0 || query
+                        ? "Clear the search, NFL team or advanced filters to widen the board."
+                        : "Try a different lens, position, or confidence filter."
+                    }
+                    action={
+                      hasActiveFilter ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setQuery("");
+                            setPosFilter("all");
+                            setConfFilter("all");
+                            clearAdv();
+                            handleLensChange("consensus");
+                          }}
+                        >
+                          Reset filters
+                        </Button>
+                      ) : undefined
+                    }
+                  />
                 )
               }
               sort={tableSort}
@@ -2229,7 +2284,9 @@ export default function RankingsPage() {
                       <td colSpan={totalCols}>
                         <MobileSourceStrip
                           row={row}
-                          formatSourceCell={(r, s) => formatSourceCell(r, s, rawData)}
+                          formatSourceCell={(r, s) =>
+                            formatSourceCell(r, s, rawData)
+                          }
                         />
                       </td>
                     </tr>

@@ -33,7 +33,7 @@ export default function PositionalTable({ data, method, setMethod }) {
         />
       </div>
 
-      <div className="table-wrap" style={{ marginTop: "var(--space-sm)" }}>
+      <div className="table-wrap" tabIndex={0} role="region" aria-label="Positional comparison; scroll to view all columns" style={{ marginTop: "var(--space-sm)" }}>
         <table>
           <thead>
             <tr>

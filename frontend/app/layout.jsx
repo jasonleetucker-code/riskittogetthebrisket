@@ -30,7 +30,8 @@ export const metadata = {
   // name nothing else in the product uses — so every browser tab and
   // bookmark disagreed with the site itself.
   title: "Chase Upside",
-  description: "Dynasty fantasy football rankings, trade analysis and league history",
+  description:
+    "Dynasty fantasy football rankings, trade analysis and league history",
   manifest: "/manifest.webmanifest",
   // Tell Safari + Chrome this is an installable "app".  The
   // display / theme color come from the PWA manifest for the

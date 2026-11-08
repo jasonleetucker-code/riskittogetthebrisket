@@ -10,7 +10,11 @@
  */
 
 export const REQUIRED_TOKENS = [
-  "--sn-navy", "--sn-coral", "--sn-cream", "--sn-gold", "--font-display",
+  "--sn-navy",
+  "--sn-coral",
+  "--sn-cream",
+  "--sn-gold",
+  "--font-display",
   // Neutral ramp (primitives)
   "--neutral-0",
   "--neutral-50",

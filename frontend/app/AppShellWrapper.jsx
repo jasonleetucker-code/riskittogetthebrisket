@@ -62,13 +62,13 @@ export function useAuthContext() {
  */
 function RouteFocusManager({ mainRef }) {
   const pathname = usePathname();
-  const firstRender = useRef(true);
+  const previousPathname = useRef(pathname);
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    mainRef.current?.focus({ preventScroll: false });
+    if (previousPathname.current === pathname) return;
+    previousPathname.current = pathname;
+    // Let Next own route scroll/restoration; focusing must not scroll content
+    // underneath the sticky masthead or override browser Back position.
+    mainRef.current?.focus({ preventScroll: true });
   }, [pathname, mainRef]);
   return null;
 }

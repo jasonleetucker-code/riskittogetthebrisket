@@ -357,8 +357,7 @@ export default function NewsPage() {
           </div>
           <div>
             <dt>On your roster</dt>
-            <dd>{news.loading ? "—" : coverage.rosterHits}</dd>
-            <span>{rosterLabel}</span>
+            <dd>{news.loading ? "—" : coverage.rosterHits}<span>{rosterLabel}</span></dd>
           </div>
           <div>
             <dt>Sources represented</dt>
