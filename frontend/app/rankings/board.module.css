@@ -65,8 +65,10 @@
    rest of the board without inventing a ninth size. */
 .hero :global(.ds-page-header__title) {
   font-family: var(--font-display);
-  font-size: var(--font-size-3xl);
-  font-style: italic;
+  font-size: clamp(3rem, 5.5vw, 5rem);
+  font-style: normal;
+  text-transform: uppercase;
+  line-height: 0.95;
 }
 .hero :global(.ds-page-header__eyebrow) {
   font-family: var(--font-data);
@@ -719,7 +721,7 @@
 .auditMissing {
   margin: 0;
   color: var(--text-tertiary);
-  font-style: italic;
+  font-style: normal;
 }
 .auditSummary {
   display: flex;
@@ -786,4 +788,25 @@
 .lensRow > :first-child {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Sports Network board: compact evidence tape, then the working table. */
+.hero { border-bottom: 2px solid var(--sn-navy); padding-bottom: var(--space-5); }
+.hero :global(.ds-page-header__eyebrow) { font-family: var(--font-ui); letter-spacing: 0.12em; }
+.trustStrip { gap: 0; border-bottom: 1px solid var(--border-default); padding-bottom: var(--space-3); }
+.trustStrip :global(.ds-stat) { padding: var(--space-2) var(--space-3); border-top: 0; border-right: 0; border-bottom: 0; background: transparent; }
+.trustStrip :global(.ds-stat__label) { font-size: var(--font-size-2xs); }
+.trustStrip :global(.ds-stat__value) { font-family: var(--font-display); font-size: 1.75rem; }
+.page :global(.ds-table__head) { background: var(--surface-2); }
+.page :global(.ds-table__cell--num) { font-variant-numeric: tabular-nums; }
+@media (max-width: 768px) {
+  .hero :global(.ds-page-header__title) { font-size: 3.5rem; }
+  .trustStrip { grid-template-columns: repeat(3, minmax(0,1fr)); row-gap: var(--space-2); }
+  .trustFootnote { text-align: left; padding-top: var(--space-2); }
+}
+@media (max-width: 480px) {
+  .hero { gap: var(--space-3); }
+  .hero :global(.ds-page-header__title) { font-size: 3rem; }
+  .hero :global(.ds-page-header__description) { font-size: var(--font-size-xs); }
+  .trustStrip :global(.ds-stat) { padding: var(--space-2); }
 }

@@ -1435,7 +1435,7 @@ export default function RankingsPage() {
             : "Chase Upside Consensus"
         }
         title="Rankings"
-        description="The Dynasty Board — unified dynasty rankings, offense + IDP blended by consensus rank."
+        description="Know the field. Dynasty values, market movement and player research — offense and IDP on one board."
         actions={
           <>
             {/*

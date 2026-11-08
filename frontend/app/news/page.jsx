@@ -233,7 +233,7 @@ export default function NewsPage() {
       digests: (news.digests || []).length,
       alerts,
       rosterHits,
-      sources: (news.providersUsed || []).length || sourceOptions.length,
+      sources: sourceOptions.length,
     };
   }, [news.items, news.digests, news.providersUsed, rosterKeys, sourceOptions]);
 

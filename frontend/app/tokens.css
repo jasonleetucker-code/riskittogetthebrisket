@@ -1,78 +1,20 @@
-/* ══════════════════════════════════════════════════════════════════════════
-   TOKENS.CSS — Design-token foundation
-   PREMIUM SPORTS INTELLIGENCE (owner direction, 2026-08-12; token
-   direction resolved 2026-08-18 — see OD-05 below).
-
-   Near-black cool neutrals, ONE franchise accent, restrained semantic
-   colours, a disciplined 8-step type scale, near-zero radii.
-
-   ── OD-05: what changed, and what deliberately did not ──────────────
-   `docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md` supersedes the
-   earlier "war-room terminal" direction "where they conflict", and
-   `docs/C_SERIES_SCOPE_MANIFEST.md` recorded the live tokens as being in
-   CONFLICT with it. Audited, the conflict turned out to be NARROW.
-
-   Already aligned, and untouched: near-zero radii (2/2/3px), thin rules,
-   shadows only for true overlays, elevation by surface lightness rather
-   than shadow, tabular numerals on every comparable number, the
-   disciplined type scale, the CVD-validated chart order, and every
-   measured contrast ratio in this file. The north star asks for exactly
-   these, so re-deriving them would have been churn dressed as migration.
-
-   The real conflict was the ACCENT. The terminal pass deleted the
-   franchise colours outright and installed a structural signal-blue,
-   on the reasoning that "the accent is now structural, not a franchise
-   colour". Premium Sports Intelligence asks for the opposite: a
-   "premium professional sports identity" with "front-office
-   credibility" and franchise DNA present rather than removed. So the
-   franchise gold is back as the one accent.
-
-   Note this also ENDS a doc/code split rather than creating one:
-   `docs/DESIGN-SYSTEM.md` never stopped documenting gold as the accent
-   ("ONE accent: the franchise gold"), while the code shipped blue. The
-   light theme had already kept a gold focus ring (#7d6200) beside a
-   blue accent, which is the same drift showing through.
-
-   Gold survives its own discipline unchanged: it is reserved for the
-   primary action, active/selected state, the page eyebrow and active
-   sort, and is NEVER a background wash for content. That role
-   separation is what keeps it distinct from `--warning` amber, which is
-   a state colour and never an interactive one — the two are separated
-   by ROLE, not by hue, and always were.
-
-   RULES
-   ─────
-
-   RULES
-   ─────
-   1. Components consume the SEMANTIC aliases (--surface-*, --text-*,
-      --accent*, --positive…), never the primitive ramp directly.
-   2. This layer is ADDITIVE. It defines only NEW custom-property names —
-      it never redefines the legacy tokens in globals.css (--bg, --card,
-      --cyan, --space-md, --radius-sm …). R1+ migrates pages off those.
-   3. Dark is the default theme. [data-theme="light"] re-maps the semantic
-      aliases only; primitives are theme-invariant. New code must therefore
-      never hardcode a hex — theme support is free if you stay semantic.
-   4. Every color here was checked: text tokens ≥ 4.5:1 on every surface
-      they may sit on; semantic/chart marks ≥ 3:1 on panel surfaces; the
-      categorical chart ordering passed the CVD validator (see
-      docs/DESIGN-SYSTEM.md → Color).
-
-   Full reference + rationale: docs/DESIGN-SYSTEM.md
-   Machine-readable contract:  frontend/components/ds/token-contract.js
-   ══════════════════════════════════════════════════════════════════════════ */
+/* CURRENT OWNER DIRECTION — Sports Network, 2026-11-07.
+   One canonical cream research canvas, navy ink, coral broadcast emphasis,
+   Barlow display + Plex UI/data/prose. Historical PSI scope selectors remain
+   compatible consumers of the same approved foundation, not alternate themes.
+   Existing categorical order/CVD semantics and numerical units are preserved.
+   docs/ui/SPORTS_NETWORK_MIGRATION_2026-11-07.md records acceptance and authority.
+*/
 
 :root {
-  /* ── PRIMITIVES · neutral ramp (cool near-neutral, hue ≈ 215) ────────────
-     0 = lightest, 1000 = darkest. Theme-invariant raw material.
+  /* Sports Network brand primitives; semantic --accent is the AA text step,
+     while --sn-coral is the vivid control/editorial plane with navy text. */
+  --sn-navy: #0b2130;
+  --sn-coral: #fd633f;
+  --sn-cream: #f0eddf;
+  --sn-gold: #f7c77f;
+  --font-display: var(--font-broadcast, "Barlow Condensed"), Impact, "Arial Narrow", sans-serif;
 
-     TERMINAL: the violet undertone (hue 265) is gone. A trading-desk
-     surface wants to read as unlit glass, not as a tinted brand colour —
-     any warmth or purple in the base reads as decoration once the only
-     other colour on screen is data. Steps 300/400 are tuned so
-     --text-secondary / --text-tertiary clear AA on surface-3, the worst
-     case, with margin: 12px body has less optical mass than 14px, so
-     borderline contrast that was survivable before is not. */
   --neutral-0: #ffffff;
   --neutral-50: #eceef2;
   --neutral-100: #d7dae1;
@@ -89,244 +31,144 @@
   --neutral-950: #0b0d10;
   --neutral-1000: #06080a;
 
-  /* ── PRIMITIVES · brand ──────────────────────────────────────────────────
-     REMOVED (Terminal). `--brand-gold` (#ffc704) and `--brand-purple`
-     (#4f2185) are deleted rather than re-pointed at new values, so nothing
-     keeps the old names alive by accident and a stray reference fails loudly
-     at build time instead of silently rendering the wrong hue.
-     The accent is now structural, not a franchise colour — see below. */
+  --surface-0: #f0eddf;
+  --surface-1: #f7f5ec;
+  --surface-2: #e4e3d6;
+  --surface-3: #ffffff;
+  --surface-hover: rgba(11, 33, 48, 0.04);
+  --surface-active: rgba(11, 33, 48, 0.08);
+  --surface-inverse: #0b2130;
+  --backdrop: rgba(11, 33, 48, 0.55);
 
-  /* ═══ SEMANTIC ALIASES — what components actually use ═══════════════════ */
+  --surface-veil: rgba(240, 237, 223, 0.96);
+  --surface-veil-raised: rgba(247, 245, 236, 0.98);
 
-  /* ── Surfaces (elevation by lightness, not shadow) ── */
-  --surface-0: var(--neutral-950); /* page background            */
-  --surface-1: var(--neutral-900); /* panel / card               */
-  --surface-2: var(--neutral-850); /* nested/raised: rows, inputs */
-  --surface-3: var(--neutral-800); /* overlay: popover, menu     */
-  --surface-hover: rgba(242, 239, 247, 0.05); /* wash over any surface */
-  --surface-active: rgba(242, 239, 247, 0.08);
-  --surface-inverse: var(--neutral-50);
-  --backdrop: rgba(8, 6, 16, 0.72); /* modal / drawer scrim       */
-  /* Translucent chrome surfaces (sticky bars over blur) — the rgba of
-     surface-0 / surface-1; kept as tokens because color-mix() is not
-     minifier-safe in the build chain. */
-  --surface-veil: rgba(13, 11, 18, 0.88);
-  --surface-veil-raised: rgba(20, 17, 28, 0.94);
+  --text-primary: #0b2130;
+  --text-secondary: #3f5360;
+  --text-tertiary: #52636c;
+  --text-disabled: #89958f;
+  --text-inverse: #f0eddf;
 
-  /* ── Text ── */
-  --text-primary: var(--neutral-50);
-  --text-secondary: var(--neutral-300);
-  --text-tertiary: var(--neutral-400); /* still AA on every surface */
-  --text-disabled: var(--neutral-600); /* decorative only — sub-AA  */
-  --text-inverse: var(--neutral-950);
+  --border-subtle: rgba(11, 33, 48, 0.09);
+  --border-default: #c3c8bf;
+  --border-strong: #0b2130;
 
-  /* ── Borders ── */
-  --border-subtle: rgba(242, 239, 247, 0.07); /* hairlines inside panels  */
-  --border-default: var(--neutral-750); /* panel outlines            */
-  --border-strong: var(--neutral-700); /* interactive rest borders  */
+  --accent: #a3341c;
+  --accent-hover: #8c2c17;
+  --accent-pressed: #752312;
+  --accent-muted: rgba(163, 52, 28, 0.08);
+  --accent-border: rgba(163, 52, 28, 0.35);
+  --text-on-accent: #fff7ef;
 
-  /* ── Accent (ONE accent: the franchise gold) ──
-     Interactive and identity, not data: primary action, active/selected
-     state, page eyebrow, active sort. NEVER a background wash for
-     content — that rule is what keeps it distinct from `--warning`
-     amber, which is a state colour and never an interactive one.
+  --positive: #157f4c;
+  --positive-text: #10683e;
+  --positive-muted: rgba(21, 127, 76, 0.08);
+  --negative: #c33d47;
+  --negative-text: #a82e38;
+  --negative-muted: rgba(195, 61, 71, 0.07);
+  --warning: #99621d;
+  --warning-text: #7d4f16;
+  --warning-muted: rgba(153, 98, 29, 0.09);
+  --info: #2a63ad;
+  --info-text: #1f528f;
+  --info-muted: rgba(42, 99, 173, 0.08);
+  --neutral-signal: #52636c;
+  --neutral-signal-muted: rgba(82, 99, 108, 0.08);
 
-     Re-measured 2026-08-18 on surfaces 0/1/2/3:
-       --accent          12.44 / 11.68 / 10.92 / 10.06
-       --accent-hover    13.76 / 12.92 / 12.08 / 11.13
-       --accent-pressed   9.47 /  8.90 /  8.32 /  7.66
-     All far clear of the 3:1 UI floor, and clear of 4.5:1 as text too,
-     which the signal-blue it replaces also managed but with much less
-     headroom (5.42 worst case). */
-  --accent: #ffc704;
-  --accent-hover: #ffd542;
-  --accent-pressed: #e0ae00;
-  --accent-muted: rgba(255, 199, 4, 0.13); /* selected wash / chip bg   */
-  --accent-border: rgba(255, 199, 4, 0.35);
-  --text-on-accent: #06080a; /* 12.82:1 on --accent */
+  --data-up: #1f5fa8;
+  --data-up-text: #1f5fa8;
+  --data-up-muted: rgba(31, 95, 168, 0.09);
+  --data-down: #a8431a;
+  --data-down-text: #a8431a;
+  --data-down-muted: rgba(168, 67, 26, 0.09);
 
-  /* ── Semantic: market direction & system state ──
-     Restrained terminal palette — desaturated green/coral, never neon.
-     Base = marks/icons (≥3:1); *-text = copy (≥4.5:1); *-muted = washes. */
-  --positive: #4cc38a;
-  --positive-text: #5fcf9b; /* 8.16:1 worst surface */
-  --positive-muted: rgba(76, 195, 138, 0.12);
-  --negative: #e5646e;
-  --negative-text: #f2848d; /* 6.34:1 */
-  --negative-muted: rgba(229, 100, 110, 0.12);
-  --warning: #e09f3e;
-  --warning-text: #e8b25e; /* 8.22:1 */
-  --warning-muted: rgba(224, 159, 62, 0.12);
-  --info: #6ca5e8;
-  --info-text: #8fbcf0; /* 7.96:1 */
-  --info-muted: rgba(108, 165, 232, 0.12);
-  --neutral-signal: var(--neutral-400); /* "hold" / no movement      */
-  --neutral-signal-muted: rgba(139, 147, 165, 0.12);
+  --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px #1f5fa8;
+  --focus-ring-color: #1f5fa8;
 
-  /* ── Semantic: MARKET DIRECTION (distinct from good/bad) ──
-     Terminal separates two things the old palette conflated: whether a
-     number went up, and whether something is in a good state. A value
-     falling is not an error, and green/red is the worst possible pair for
-     the ~8% of men with red-green CVD.
+  --chart-1: #986400;
+  --chart-2: #2264af;
+  --chart-3: #ac386a;
+  --chart-4: #6752b6;
+  --chart-5: #087650;
+  --chart-6: #aa3c17;
+  --chart-grid: rgba(11, 33, 48, 0.1);
+  --chart-axis: #52636c;
 
-     This is the blue/orange pair validated for this codebase with
-     scripts/validate_palette.js: ΔE 26.8 protan / 32.4 tritan on
-     --surface-0, versus a ~2-4 ΔE collapse for green/red. Direction is
-     still never colour-alone — Movement pairs it with an arrow glyph. */
-  --data-up: #3987e5; /* mark / glyph  ≥3:1 on all surfaces */
-  --data-up-text: #6bb0f0; /* copy      ≥4.5:1               */
-  --data-up-muted: rgba(57, 135, 229, 0.13);
-  --data-down: #d95926;
-  --data-down-text: #f08a5c;
-  --data-down-muted: rgba(217, 89, 38, 0.13);
+  --font-ui: var(--font-sans, "IBM Plex Sans"), Arial, sans-serif;
+  --font-data: var(--font-sans, "IBM Plex Sans"), Arial, sans-serif;
 
-  /* ── Focus ── */
-  --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--accent);
-  --focus-ring-color: var(--accent);
-
-  /* ── Charts (validated categorical order — see DESIGN-SYSTEM.md) ──
-     Assign in fixed slot order, never cycle. >6 series → fold to "Other".
-
-     DELIBERATELY UNCHANGED by Terminal. Re-ordering these to lead with the
-     new blue accent was tried and FAILS the validator's normal-vision floor
-     (magenta ↔ orange become adjacent at ΔE 11.6, below the 15 minimum), and
-     magenta ↔ aqua collapse to ΔE 1.6 for deuteranopes if they ever touch.
-     The shipped order already avoids both, and re-checking it against the
-     new darker surface passes all six checks — so it stays. Slot 1 is just a
-     hue now, not "the brand". */
-  --chart-1: #c98500; /* amber                        */
-  --chart-2: #3987e5; /* blue                         */
-  --chart-3: #d55181; /* magenta                      */
-  --chart-4: #9085e9; /* violet                       */
-  --chart-5: #199e70; /* aqua                         */
-  --chart-6: #d95926; /* orange                       */
-  --chart-grid: rgba(242, 239, 247, 0.06);
-  --chart-axis: var(--neutral-700);
-
-  /* ── Typography ──
-     Families resolve to next/font variables set on <html> (layout.jsx);
-     the raw names are fallbacks for non-Next contexts. */
-  /* TERMINAL: the UI face is the MONO face. Chrome, tables, controls and
-     figures all set in JetBrains Mono (already vendored — no new bytes).
-     --font-prose is the documented exception; see the block below it. */
-  --font-ui: var(--font-mono, "JetBrains Mono"), "JetBrains Mono", "SF Mono",
-    ui-monospace, monospace;
-  --font-data: var(--font-mono, "JetBrains Mono"), "JetBrains Mono", "SF Mono",
-    ui-monospace, monospace;
-
-  /* ── THE PROSE EXCEPTION ──────────────────────────────────────────────
-     Mono at 12px is excellent for figures and measurably worse for running
-     text: uniform advance widths destroy word-shape, which is what fluent
-     reading depends on. Rather than let each long-form page improvise its
-     own escape, the exception is a token set with an explicit boundary.
-
-     A route is PROSE if its primary job is reading sentences:
-       /news              — headlines, digests, story bodies
-       /league/articles/* — generated recaps and previews
-       /league/weekly/*   — matchup write-ups
-       any Banner/EmptyState body copy, anywhere
-     A route is TERMINAL if its primary job is comparing numbers — every
-     board, table, calculator and dashboard. When a page does both, the
-     prose scope wraps only the sentences, never the surrounding chrome.
-
-     Applied via the `.ds-prose` scope in ds.css. Do not set these
-     families ad hoc: the boundary is a decision, and it lives here. */
-  --font-prose: var(--font-sans, "Inter"), "Inter", "Segoe UI", -apple-system,
-    BlinkMacSystemFont, sans-serif;
-  --font-size-prose: 0.875rem; /*    14px  running text            */
-  --font-size-prose-lead: 1rem; /*   16px  standfirst / lede        */
+  --font-prose: var(--font-sans, "IBM Plex Sans"), Arial, sans-serif;
+  --font-size-prose: 0.875rem;
+  --font-size-prose-lead: 1rem;
   --line-height-prose: 1.65;
-  --measure-prose: 68ch; /* max line length for running text       */
+  --measure-prose: 68ch;
 
-  /* Type scale — EIGHT sizes, period. (was: 47 distinct sizes)
-     2xs is the floor: 11px. Nothing renders smaller than this.
-
-     TERMINAL retunes the values, not the names, so no consumer changes.
-     Body moves 14px → 12px and the top of the scale compresses; the 11px
-     floor holds, because it is an accessibility limit rather than a style
-     choice. Headline sizes shrink hardest — a terminal earns hierarchy from
-     weight, tracking and rules, not from 32px type. */
-  --font-size-2xs: 0.6875rem; /* 11px  micro labels, column heads  */
-  --font-size-xs: 0.75rem; /*   12px  BODY — the terminal default */
-  --font-size-sm: 0.8125rem; /* 13px  emphasized row, secondary   */
-  --font-size-md: 0.875rem; /*  14px  prose body, comfortable read */
-  --font-size-lg: 1rem; /*       16px  tile value, lede           */
-  --font-size-xl: 1.125rem; /*   18px  section / panel headline    */
-  --font-size-2xl: 1.375rem; /*  22px  page title                  */
-  --font-size-3xl: 1.75rem; /*   28px  hero stat                   */
+  --font-size-2xs: 0.6875rem;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-md: 0.875rem;
+  --font-size-lg: 1rem;
+  --font-size-xl: 1.125rem;
+  --font-size-2xl: 1.375rem;
+  --font-size-3xl: 1.75rem;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  --line-height-tight: 1.15; /* headings, tiles     */
-  --line-height-snug: 1.3; /*  dense table rows     */
-  --line-height-normal: 1.45; /* body copy           */
+  --line-height-tight: 1.15;
+  --line-height-snug: 1.3;
+  --line-height-normal: 1.45;
 
-  --tracking-wide: 0.1em; /* uppercase eyebrows / column headers  */
-  --tracking-tight: -0.01em; /* large figures                     */
+  --tracking-wide: 0.1em;
+  --tracking-tight: -0.01em;
 
-  /* Row rhythm — the terminal's defining measurement. A 28px row against
-     the old ~40px is what puts ~2.3x the board on one screen. */
-  --row-h: 28px;
-  --row-h-comfortable: 34px; /* prose lists, settings rows */
+  --row-h: 36px;
+  --row-h-comfortable: 44px;
 
-  /* ── Spacing (4px base grid) ── */
   --space-0: 0;
-  --space-1: 0.25rem; /*  4px */
-  --space-2: 0.5rem; /*   8px */
-  --space-3: 0.75rem; /* 12px */
-  --space-4: 1rem; /*    16px */
-  --space-5: 1.25rem; /* 20px */
-  --space-6: 1.5rem; /*  24px */
-  --space-7: 2rem; /*    32px */
-  --space-8: 2.5rem; /*  40px */
-  --space-9: 3rem; /*    48px */
-  --space-10: 4rem; /*   64px */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 2.5rem;
+  --space-9: 3rem;
+  --space-10: 4rem;
 
-  /* ── Radii — FOUR values (was: 24) ──
-     TERMINAL: near-square. Rounded corners read as consumer-app softness;
-     an instrument panel is machined, not moulded. --radius-full survives
-     only for status dots, which must read as dots. */
-  --radius-1: 2px; /* inputs, badges, cells      */
-  --radius-2: 2px; /* buttons, tiles, popovers   */
-  --radius-3: 3px; /* panels, modals             */
-  --radius-full: 999px; /* status dots only       */
+  --radius-1: 0px;
+  --radius-2: 0px;
+  --radius-3: 0px;
+  --radius-full: 999px;
 
-  /* ── Shadows — THREE elevations (was: 14). Dark UI leans on surface
-     lightness + borders; shadows only reinforce true overlays. ── */
-  --shadow-1: 0 1px 2px rgba(8, 6, 16, 0.4);
-  --shadow-2: 0 4px 12px rgba(8, 6, 16, 0.45);
-  --shadow-3: 0 12px 32px rgba(8, 6, 16, 0.6);
+  --shadow-1: 0 1px 2px rgba(11, 33, 48, 0.05);
+  --shadow-2: 0 4px 12px rgba(11, 33, 48, 0.1);
+  --shadow-3: 0 12px 32px rgba(11, 33, 48, 0.18);
 
-  /* ── Z-index scale (was: 14+ ad-hoc values; legacy peaks at 2000) ── */
   --z-raised: 1;
-  --z-sticky: 10; /* sticky table headers        */
-  --z-header: 100; /* app top bar                 */
-  --z-dropdown: 2100; /* menus, popovers, tooltips…  */
-  --z-overlay: 2200; /* modal/drawer scrim          */
+  --z-sticky: 10;
+  --z-header: 100;
+  --z-dropdown: 2100;
+  --z-overlay: 2200;
   --z-modal: 2300;
   --z-toast: 2400;
   --z-tooltip: 2500;
 
-  /* ── Motion ── */
-  --motion-fast: 120ms; /* hover washes, toggles       */
-  --motion-base: 180ms; /* fades, popovers             */
-  --motion-slow: 280ms; /* drawers, modals             */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 280ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* ── Breakpoints — FOUR (was: 14). CSS vars cannot drive @media;
-     these document the canonical values. Media queries must use the
-     literal px values below and no others. ── */
-  --breakpoint-sm: 480px; /* phone                       */
-  --breakpoint-md: 768px; /* tablet / nav collapse       */
-  --breakpoint-lg: 1024px; /* desktop                    */
-  --breakpoint-xl: 1320px; /* max shell width             */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1320px;
 }
 
-/* ── Reduced motion: collapse all token-driven motion ─────────────────── */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-fast: 0ms;
@@ -335,272 +177,137 @@
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   FUTURE LIGHT MODE — structural scaffold.
-   The app is dark-only today; this block exists so the semantic layer is
-   provably theme-invertible. Flipping <html data-theme="light"> re-maps
-   surfaces/text/borders; components that stay semantic need zero changes.
-   (Chart slots carry their own light steps — Owner Decision 14; the
-   accent's light step is in place below.)
-   ══════════════════════════════════════════════════════════════════════════ */
 :root[data-theme="light"] {
-  --surface-0: #f6f4fa;
-  --surface-1: #fdfcfe;
-  --surface-2: #efecf5;
+  --surface-0: #f0eddf;
+  --surface-1: #f7f5ec;
+  --surface-2: #e4e3d6;
   --surface-3: #ffffff;
-  --surface-hover: rgba(13, 11, 18, 0.04);
-  --surface-active: rgba(13, 11, 18, 0.07);
-  --surface-inverse: var(--neutral-900);
-  --backdrop: rgba(13, 11, 18, 0.4);
-  --surface-veil: rgba(246, 244, 250, 0.88);
-  --surface-veil-raised: rgba(253, 252, 254, 0.94);
+  --surface-hover: rgba(11, 33, 48, 0.04);
+  --surface-active: rgba(11, 33, 48, 0.08);
+  --surface-inverse: #0b2130;
+  --backdrop: rgba(11, 33, 48, 0.55);
+  --surface-veil: rgba(240, 237, 223, 0.96);
+  --surface-veil-raised: rgba(247, 245, 236, 0.98);
 
-  --text-primary: #161321;
-  --text-secondary: #4c4562;
-  --text-tertiary: #665e80;
-  --text-disabled: #a9a1bc;
-  --text-inverse: var(--neutral-50);
+  --text-primary: #0b2130;
+  --text-secondary: #3f5360;
+  --text-tertiary: #52636c;
+  --text-disabled: #89958f;
+  --text-inverse: #f0eddf;
 
-  --border-subtle: rgba(13, 11, 18, 0.07);
-  --border-default: #d8d3e4;
-  --border-strong: #b9b1cc;
+  --border-subtle: rgba(11, 33, 48, 0.09);
+  --border-default: #c3c8bf;
+  --border-strong: #0b2130;
 
-  /* The blue accent flips to a text-safe step on light surfaces.
-     The SAME franchise gold, darkened until it is legible on light
-     surfaces — raw #ffc704 manages 1.34:1 there and would be unusable.
-     #7d6200 is not a new colour to this file: the light theme's focus
-     ring was already this value, sitting beside a blue accent, which is
-     the doc/code drift OD-05 resolves showing through.
-
-     Ratios (WCAG, re-measured 2026-08-18), worst surface in each case:
-       --accent  #7d6200  4.97:1   white --text-on-accent on it  5.80:1
-       --accent-hover  #6f5600  5.98:1
-       --accent-pressed #5c4700  7.63:1
-     All ≥ 4.5:1. */
-  --accent: #7d6200;
-  --accent-hover: #6f5600;
-  --accent-pressed: #5c4700;
-  --accent-muted: rgba(125, 98, 0, 0.1);
-  --accent-border: rgba(125, 98, 0, 0.35);
-  --text-on-accent: #ffffff;
-
-  --positive: #157f4c;
-  --positive-text: #10683e;
-  --positive-muted: rgba(21, 127, 76, 0.1);
-  --negative: #c33d47;
-  --negative-text: #a82e38;
-  --negative-muted: rgba(195, 61, 71, 0.1);
-  --warning: #99621d;
-  --warning-text: #7d4f16;
-  --warning-muted: rgba(153, 98, 29, 0.12);
-  --info: #2a63ad;
-  --info-text: #1f528f;
-  --info-muted: rgba(42, 99, 173, 0.1);
-  --neutral-signal: #665e80;
-  --neutral-signal-muted: rgba(102, 94, 128, 0.1);
-
-  --focus-ring: 0 0 0 2px var(--surface-1), 0 0 0 4px #7d6200;
-  --focus-ring-color: #7d6200;
-
-  /* Categorical series — Owner Decision 14 (2026-10-18, closes #1428).
-     The dark slots above fall to 2.6-3.4:1 on these surfaces, so the light
-     scaffold takes the same light-surface steps as .psi-editorial below:
-     same hue order, worst 4.33:1 (slot 1 on surface-2). Validated by
-     __tests__/components/ds/chart-palette-contrast.test.js. */
-  --chart-1: #986400;
-  --chart-2: #2264af;
-  --chart-3: #ac386a;
-  --chart-4: #6752b6;
-  --chart-5: #087650;
-  --chart-6: #aa3c17;
-  --chart-grid: rgba(13, 11, 18, 0.07);
-  --chart-axis: #b9b1cc;
-
-  --shadow-1: 0 1px 2px rgba(22, 19, 33, 0.08);
-  --shadow-2: 0 4px 12px rgba(22, 19, 33, 0.1);
-  --shadow-3: 0 12px 32px rgba(22, 19, 33, 0.16);
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   PREMIUM SPORTS INTELLIGENCE — editorial reference scope (C8-PSI-02).
-
-   docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md's reference
-   direction (warm cream canvas, near-black ink, one burnt-red accent,
-   editorial serif display type) for the Rankings and Player Profile
-   reference-route migration.
-
-   ── Why a class scope, not a third [data-theme] value ──────────────────
-   [data-theme="light"]/dark are WHOLE-APP theme choices a user toggles.
-   This is a MIGRATION scope: only the routes actually migrated wear it,
-   everything else stays on the terminal palette, and a route reverts
-   instantly by removing the class — the north star's own "route-by-route,
-   reversible" method (§8). Apply `.psi-editorial` to a migrated page's
-   root element.
-
-   ── Why this redefines the SAME semantic names ──────────────────────────
-   Every ds/ component (Panel, DataTable, Button, Badge…) already consumes
-   ONLY the semantic aliases (tokens.css rule 1 above) — never the
-   primitive ramp. Redefining those same names under this scope means
-   every existing primitive renders correctly in the editorial palette
-   with ZERO component changes, exactly like [data-theme="light"] does.
-   This is the ONE canonical semantic layer, not a second design system.
-
-   Radii, shadow-as-overlay-only and the type scale are UNCHANGED — the
-   north star asks for exactly what the terminal pass already shipped
-   there (see OD-05 above), so this block only touches what's actually
-   different: surfaces, text, borders, accent, market-direction marks,
-   and one new token (`--font-display`) that has no terminal equivalent.
-
-   Every ratio below is WCAG-computed (relative luminance, not eyeballed),
-   same discipline as the rest of this file: text tokens ≥4.5:1 on every
-   surface they may sit on (except `--text-disabled`, decorative-only by
-   the same convention the dark/light themes already use), semantic/chart
-   marks ≥3:1, `--border-strong` reserved for the screenshot's visible
-   "thin black rule" separators and deliberately near-ink for that reason
-   — internal hairlines stay faint via `--border-subtle`/`--border-default`.
-   ══════════════════════════════════════════════════════════════════════════ */
-.psi-editorial {
-  /* ── Surfaces (elevation by lightness, same convention as dark/light) ── */
-  --surface-0: #f2ebdd; /* page canvas — warm cream        */
-  --surface-1: #faf6ec; /* panel — lighter than the page    */
-  --surface-2: #e9dfca; /* nested/raised: rows, inputs       */
-  --surface-3: #ffffff; /* overlay: popover, menu, modal     */
-  --surface-hover: rgba(28, 23, 18, 0.04);
-  --surface-active: rgba(28, 23, 18, 0.07);
-  --surface-inverse: #1c1712;
-  --backdrop: rgba(28, 23, 18, 0.45);
-  --surface-veil: rgba(242, 235, 221, 0.88);
-  --surface-veil-raised: rgba(250, 246, 236, 0.94);
-
-  /* ── Text ──
-     Ratios (worst surface, surface-2): primary 13.44:1, secondary 7.56:1,
-     tertiary 4.60:1, disabled 2.04:1 (decorative only, matching the
-     existing --text-disabled convention).
-     tertiary was originally #6e6353 (4.44:1) — "still AA at body sizes"
-     was wrong: WCAG AA's 4.5:1 floor for normal-size text has no
-     small-text exception, and a real axe-core scan of the migrated
-     /rankings page (.playerMeta, using this token) caught the 0.06
-     shortfall. Darkened by one step; role/hue unchanged. */
-  --text-primary: #1c1712;
-  --text-secondary: #4a4136;
-  --text-tertiary: #6b6151;
-  --text-disabled: #a89c86;
-  --text-inverse: #f2ebdd;
-
-  /* ── Borders ──
-     --border-strong is deliberately near-ink: the screenshot's defining
-     structural device is a visible thin black rule under the hero, the
-     nav and the toolbar — not a hairline. Internal panel/table hairlines
-     stay faint via the other two, exactly like the dark theme's own
-     --border-subtle treatment. */
-  --border-subtle: rgba(28, 23, 18, 0.08);
-  --border-default: rgba(28, 23, 18, 0.18);
-  --border-strong: #1c1712;
-
-  /* ── Accent (ONE accent: burnt red) ──
-     Same role discipline as the franchise-gold accent: primary action,
-     active/selected state, eyebrow, active sort — never a background
-     wash for content. Ratios (worst surface, surface-2): accent 5.18:1,
-     hover/pressed higher (darker on hover, matching the light-theme
-     convention already in this file); text-on-accent 6.39:1+ on all
-     three accent states. */
   --accent: #a3341c;
   --accent-hover: #8c2c17;
   --accent-pressed: #752312;
-  --accent-muted: rgba(163, 52, 28, 0.1);
+  --accent-muted: rgba(163, 52, 28, 0.08);
   --accent-border: rgba(163, 52, 28, 0.35);
-  --text-on-accent: #fdf6ee;
+  --text-on-accent: #fff7ef;
 
-  /* ── Semantic: system state ──
-     Reuses the existing light-theme mark values verbatim (already
-     validated ≥3:1 as marks / ≥4.5:1 as text against surfaces of similar
-     lightness) rather than deriving a third set. */
   --positive: #157f4c;
   --positive-text: #10683e;
-  --positive-muted: rgba(21, 127, 76, 0.1);
+  --positive-muted: rgba(21, 127, 76, 0.08);
   --negative: #c33d47;
   --negative-text: #a82e38;
-  --negative-muted: rgba(195, 61, 71, 0.1);
+  --negative-muted: rgba(195, 61, 71, 0.07);
   --warning: #99621d;
   --warning-text: #7d4f16;
-  --warning-muted: rgba(153, 98, 29, 0.12);
+  --warning-muted: rgba(153, 98, 29, 0.09);
   --info: #2a63ad;
   --info-text: #1f528f;
-  --info-muted: rgba(42, 99, 173, 0.1);
-  --neutral-signal: #6e6353;
-  --neutral-signal-muted: rgba(110, 99, 83, 0.1);
+  --info-muted: rgba(42, 99, 173, 0.08);
+  --neutral-signal: #52636c;
+  --neutral-signal-muted: rgba(82, 99, 108, 0.08);
 
-  /* ── Semantic: MARKET DIRECTION ──
-     Same CVD-safe blue/orange hue family as the terminal pair, darkened
-     for legibility on a light surface — the terminal values were only
-     ever validated against the dark surfaces and fall to 2.75:1/2.94:1
-     (below the 3:1 mark floor) on this scope's nested surface-2, so they
-     are re-derived here rather than inherited. Worst surface (surface-2):
-     data-up 4.87:1, data-down 4.56:1 — both clear the mark floor with
-     room, and clear the 4.5:1 text floor too, so one value serves both
-     roles here (unlike the terminal pair's separated mark/text steps). */
-  --data-up: #1f5fa8;
-  --data-up-text: #1f5fa8;
-  --data-up-muted: rgba(31, 95, 168, 0.12);
-  --data-down: #a8431a;
-  --data-down-text: #a8431a;
-  --data-down-muted: rgba(168, 67, 26, 0.12);
+  --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px #1f5fa8;
+  --focus-ring-color: #1f5fa8;
 
-  /* ── Focus ── */
-  --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px var(--accent);
-  --focus-ring-color: var(--accent);
-
-  /* ── Charts ──
-     Owner Decision 14 (2026-10-18) closes #1428: the inherited dark slots
-     measured 2.3-3.1:1 on these cream surfaces, below the 3:1 mark floor,
-     so this scope carries its own light-surface steps of the SAME hue
-     family in the SAME order (amber, blue, magenta, violet, aqua, orange).
-     On the nested surface-2 (#e9dfca), the worst case:
-     3.82 / 4.52 / 4.50 / 4.59 / 4.27 / 4.71 :1. Marks only — these never
-     colour text (text wears --text-*). The dark :root slots are unchanged
-     and remain the dark-context variants (they clear >=3.99:1 there;
-     these would fall to 2.5:1). Validated, with CVD simulation, by
-     __tests__/components/ds/chart-palette-contrast.test.js. */
   --chart-1: #986400;
   --chart-2: #2264af;
   --chart-3: #ac386a;
   --chart-4: #6752b6;
   --chart-5: #087650;
   --chart-6: #aa3c17;
-  --chart-grid: rgba(28, 23, 18, 0.08);
-  --chart-axis: #8f8267;
+  --chart-grid: rgba(11, 33, 48, 0.1);
+  --chart-axis: #52636c;
 
-  --shadow-1: 0 1px 2px rgba(28, 23, 18, 0.08);
-  --shadow-2: 0 4px 12px rgba(28, 23, 18, 0.1);
-  --shadow-3: 0 12px 32px rgba(28, 23, 18, 0.16);
+  --shadow-1: 0 1px 2px rgba(11, 33, 48, 0.05);
+  --shadow-2: 0 4px 12px rgba(11, 33, 48, 0.1);
+  --shadow-3: 0 12px 32px rgba(11, 33, 48, 0.18);
+}
 
-  /* ── Display type — the one genuinely NEW token, no terminal equivalent ──
-     "Editorial authority" needs a serif display face for hero numerals
-     and headlines; the terminal scale has no such concept (UI and data
-     are both mono there). This is a SYSTEM serif stack, not a new font
-     asset: the app's only font-loading mechanism is next/font/local with
-     checked-in woff2 files, specifically because the build environment
-     cannot reach fonts.googleapis.com (see layout.jsx) — sourcing and
-     licensing a new display serif is a deliberate follow-up, not done
-     here. Swap this one declaration for a next/font/local family later
-     without touching any consumer, exactly like --font-ui/--font-data. */
-  --font-display: Georgia, Cambria, "Times New Roman", Times, serif;
+.psi-editorial {
 
-  /* ── Legacy token compatibility ──
-     globals.css's original :root palette (--bg, --cyan, --subtext, …)
-     predates this file's semantic layer and is still what ~200 call
-     sites — badges, tier separators, the rankings value column — read
-     directly; globals.css itself is under an active work claim, so
-     those call sites cannot be migrated to the semantic names here.
-     Left unmapped, they would keep resolving the terminal :root's
-     dark-calibrated values (e.g. --cyan's #ffc704 gold, --subtext's
-     #a8b0be) against this scope's cream surfaces — exactly the
-     .badge-cyan / .rankings-tier-badge / .rankings-value color-contrast
-     failures a real axe-core scan found on this page (verified fixed
-     by this block; re-run to confirm before touching it further).
-     Each maps to the semantic token already carrying the equivalent
-     role and contrast ratio above, per OD-05's own rule that --cyan
-     IS the page's accent rather than literally cyan. */
+  --surface-0: #f0eddf;
+  --surface-1: #f7f5ec;
+  --surface-2: #e4e3d6;
+  --surface-3: #ffffff;
+  --surface-hover: rgba(11, 33, 48, 0.04);
+  --surface-active: rgba(11, 33, 48, 0.08);
+  --surface-inverse: #0b2130;
+  --backdrop: rgba(11, 33, 48, 0.55);
+  --surface-veil: rgba(240, 237, 223, 0.96);
+  --surface-veil-raised: rgba(247, 245, 236, 0.98);
+
+  --text-primary: #0b2130;
+  --text-secondary: #3f5360;
+  --text-tertiary: #52636c;
+  --text-disabled: #89958f;
+  --text-inverse: #f0eddf;
+
+  --border-subtle: rgba(11, 33, 48, 0.09);
+  --border-default: #c3c8bf;
+  --border-strong: #0b2130;
+
+  --accent: #a3341c;
+  --accent-hover: #8c2c17;
+  --accent-pressed: #752312;
+  --accent-muted: rgba(163, 52, 28, 0.08);
+  --accent-border: rgba(163, 52, 28, 0.35);
+  --text-on-accent: #fff7ef;
+
+  --positive: #157f4c;
+  --positive-text: #10683e;
+  --positive-muted: rgba(21, 127, 76, 0.08);
+  --negative: #c33d47;
+  --negative-text: #a82e38;
+  --negative-muted: rgba(195, 61, 71, 0.07);
+  --warning: #99621d;
+  --warning-text: #7d4f16;
+  --warning-muted: rgba(153, 98, 29, 0.09);
+  --info: #2a63ad;
+  --info-text: #1f528f;
+  --info-muted: rgba(42, 99, 173, 0.08);
+  --neutral-signal: #52636c;
+  --neutral-signal-muted: rgba(82, 99, 108, 0.08);
+
+  --data-up: #1f5fa8;
+  --data-up-text: #1f5fa8;
+  --data-up-muted: rgba(31, 95, 168, 0.09);
+  --data-down: #a8431a;
+  --data-down-text: #a8431a;
+  --data-down-muted: rgba(168, 67, 26, 0.09);
+
+  --focus-ring: 0 0 0 2px var(--surface-0), 0 0 0 4px #1f5fa8;
+  --focus-ring-color: #1f5fa8;
+
+  --chart-1: #986400;
+  --chart-2: #2264af;
+  --chart-3: #ac386a;
+  --chart-4: #6752b6;
+  --chart-5: #087650;
+  --chart-6: #aa3c17;
+  --chart-grid: rgba(11, 33, 48, 0.1);
+  --chart-axis: #52636c;
+
+  --shadow-1: 0 1px 2px rgba(11, 33, 48, 0.05);
+  --shadow-2: 0 4px 12px rgba(11, 33, 48, 0.1);
+  --shadow-3: 0 12px 32px rgba(11, 33, 48, 0.18);
+
+  --font-display: var(--font-broadcast, "Barlow Condensed"), Impact, "Arial Narrow", sans-serif;
+
   --bg: var(--surface-0);
   --bg-soft: var(--surface-2);
   --card: var(--surface-1);

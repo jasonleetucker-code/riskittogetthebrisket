@@ -127,20 +127,18 @@ describe("chart slots: Owner Decision 14 values and order", () => {
   });
 
   it("reproduces the owner's figures on the nested cream surface #e9dfca", () => {
-    expect(resolve("cream", "--surface-2")).toBe("#e9dfca");
+    // The approved Sports Network canvas supersedes the earlier PSI cream;
+    // retain the historical D14 numerical oracle and separately check new surfaces below.
+    expect(resolve("cream", "--surface-2")).toBe("#e4e3d6");
     expect(D14.map((c) => Number(ratio(c, "#e9dfca").toFixed(2)))).toEqual([3.82, 4.52, 4.5, 4.59, 4.27, 4.71]);
   });
 
-  it("dark keeps its own steps of the SAME hue family, in the same order", () => {
-    const dark = slots("dark");
-    // The light-surface steps fall to 2.5-3.1:1 on the dark surfaces…
-    const worst = Math.min(...surfaces("dark").flatMap((s) => D14.map((c) => ratio(c, s))));
-    expect(worst).toBeLessThan(MARK_MIN);
-    // …so dark uses its validated variants; each within 10° OKLCH hue.
-    dark.forEach((c, i) => {
-      const d = Math.abs(hue(c) - hue(D14[i]));
-      expect(Math.min(d, 360 - d), `slot ${i + 1}`).toBeLessThanOrEqual(10);
-    });
+  it("the default canvas and compatibility scopes use the same approved categorical slots", () => {
+    // `dark` is the legacy test key for :root. The approved app canvas is
+    // now cream; inverse broadcast regions scope their own text, not charts.
+    expect(slots("dark")).toEqual(D14);
+    expect(slots("cream")).toEqual(D14);
+    expect(slots("light")).toEqual(D14);
   });
 
   it("never colours text with a series slot (text wears --text-*)", () => {
@@ -225,6 +223,7 @@ describe.each(["dark", "cream"])("%s scope colour-vision separation", (scope) =>
     }
     // Cream: aqua↔orange for deutans, violet↔aqua for tritans (both 7.8).
     // Dark: none (worst 9.4). Every token-routed chart labels its series.
-    expect(floor).toEqual(scope === "cream" ? ["deutan:5-6", "tritan:4-5"] : []);
+    // Both default and compatibility scopes now use the same light canvas.
+    expect(floor).toEqual(["deutan:5-6", "tritan:4-5"]);
   });
 });

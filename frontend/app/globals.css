@@ -1,3 +1,5 @@
+/* Sports Network production foundation: existing semantic and legacy consumers
+   share one approved brand. No page-local valuation/data behavior changes. */
 /* ══════════════════════════════════════════════════════════════════════════
    GLOBALS.CSS — Unified Design System
    Dynasty Trade Calculator · Next.js Frontend
@@ -69,20 +71,20 @@
      rendered in two accents at once. `--amber` deliberately does NOT
      follow: it is the state/warning flavour, and the gold's discipline
      depends on it staying a separate role. */
-  --bg: #0b0d10;
-  --bg-soft: #131519;
-  --card: #131519;
-  --card-hover: #191c21;
-  --text: #eceef2;
-  --subtext: #a8b0be;
-  --muted: #8b93a5;
-  --cyan: #ffc704; /* legacy name; IS the franchise accent — see OD-05 above */
-  --green: #5fcf9b;
-  --red: #f2848d;
-  --amber: #e8b25e;
-  --border: #2a2e37;
-  --border-bright: #363b45;
-  --blush: #a8b0be;
+  --bg: var(--surface-0);
+  --bg-soft: var(--surface-2);
+  --card: var(--surface-1);
+  --card-hover: var(--surface-2);
+  --text: var(--text-primary);
+  --subtext: var(--text-secondary);
+  --muted: var(--text-tertiary);
+  --cyan: var(--accent); /* legacy name; IS the franchise accent — see OD-05 above */
+  --green: var(--positive-text);
+  --red: var(--negative-text);
+  --amber: var(--warning-text);
+  --border: var(--border-default);
+  --border-bright: var(--border-strong);
+  --blush: var(--text-secondary);
 
   /* Spacing scale */
   --space-xs: 4px;
@@ -92,23 +94,25 @@
   --space-xl: 28px;
 
   /* Radii */
-  --radius-sm: 6px;
-  --radius: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 0px;
+  --radius: 0px;
+  --radius-lg: 0px;
 
   /* Typography */
   /* R0: prepend the next/font-loaded families (set on <html> in layout.jsx).
      Previously "Inter"/"JetBrains Mono" were named but never loaded, so every
      platform fell back to system stacks. Fallback chain unchanged. */
-  --font: var(--font-sans, "Inter"), "Inter", "Segoe UI", -apple-system,
-    BlinkMacSystemFont, sans-serif;
-  --mono: var(--font-mono, "JetBrains Mono"), "JetBrains Mono", "SF Mono",
-    "Fira Code", monospace;
+  --font: var(--font-sans, "IBM Plex Sans"), Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Consolas, monospace;
+  --font-mono: var(--mono);
+  --success: var(--positive-text);
+  --danger: var(--negative-text);
+  --text-muted: var(--text-tertiary);
 
   /* Layout */
   --shell-max: 1320px;
-  --topbar-h: 54px;
-  --mobile-topbar-h: 46px;
+  --topbar-h: 88px;
+  --mobile-topbar-h: 104px;
   --mobile-nav-h: 56px;
 }
 
@@ -168,7 +172,7 @@ a { color: inherit; text-decoration: none; }
   top: 0;
   z-index: 40;
   backdrop-filter: blur(12px);
-  background: rgba(15, 10, 26, 0.88);
+  background: var(--surface-veil);
   border-bottom: 1px solid var(--border);
   height: var(--topbar-h);
 }
@@ -344,7 +348,7 @@ a { color: inherit; text-decoration: none; }
   justify-content: space-between;
   padding-left: var(--space-md);
   padding-right: var(--space-md);
-  background: rgba(15, 10, 26, 0.92);
+  background: var(--surface-veil-raised);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
@@ -416,7 +420,7 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   justify-content: space-around;
-  background: rgba(15, 10, 26, 0.95);
+  background: var(--surface-veil-raised);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -501,6 +505,10 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border-default);
   border-radius: var(--radius-3);
   padding: var(--space-md);
+
+  border-width: 1px 0 0;
+
+  box-shadow: none;
 }
 
 .card + .card {
@@ -537,9 +545,15 @@ a { color: inherit; text-decoration: none; }
 
 .page-title {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: clamp(2.25rem, 4vw, 3.5rem);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1;
+
+  font-family: var(--font-display);
+
+  font-style: normal;
+
+  text-transform: uppercase;
 }
 
 .page-subtitle {
@@ -723,7 +737,7 @@ th, td {
 
 th {
   text-align: left;
-  color: var(--muted);
+  color: var(--text-secondary);
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -731,7 +745,7 @@ th {
   user-select: none;
   position: sticky;
   top: 0;
-  background: rgba(14, 29, 61, 0.98);
+  background: var(--surface-2);
   z-index: 1;
 }
 
@@ -744,18 +758,18 @@ tr:hover td {
   position: sticky;
   left: 0;
   z-index: 2;
-  background: #122547;
+  background: var(--surface-1);
   min-width: 140px;
   box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.4);
 }
 
 thead .sticky-name {
   z-index: 3;
-  background: #0e1d3d;
+  background: var(--surface-2);
 }
 
 tr:hover .sticky-name {
-  background: #3d1e6e;
+  background: var(--surface-2);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -2660,7 +2674,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .rankings-audit-row td {
   padding: 0 !important;
   border-top: none;
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--surface-2);
 }
 
 .source-audit-panel {
@@ -6188,3 +6202,13 @@ body:has(.trade-sticky-tray) .screenshot-fab {
 }
 .source-health-unattributed-row--down { color: var(--red); }
 .source-health-unattributed-row--warn { color: var(--amber, var(--accent)); }
+
+/* Shared broadcast type for legacy route headings. Route-specific layouts
+   retain their own scale and information order; no data/feature is hidden. */
+.main-shell h1 { font-family: var(--font-display); font-style: normal; text-transform: uppercase; }
+.main-shell h2 { font-family: var(--font-display); font-weight: 700; }
+.main-shell { color: var(--text-primary); }
+.badge-cyan { color: var(--accent); background: var(--accent-muted); border-color: var(--accent-border); }
+.badge-green { color: var(--positive-text); background: var(--positive-muted); }
+.badge-red { color: var(--negative-text); background: var(--negative-muted); }
+.badge-amber { color: var(--warning-text); background: var(--warning-muted); }

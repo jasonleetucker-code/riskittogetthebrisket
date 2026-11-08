@@ -36,6 +36,7 @@ import {
   Movement,
   Panel,
   PageHeader,
+  playerProfileHref,
   SkeletonText,
   StatTile,
   Tabs,
@@ -551,7 +552,7 @@ export default function PlayerFilePage() {
                           <div className={styles.peerIdentity}>
                             {peerId ? (
                               <Link
-                                href={`/players/${encodeURIComponent(String(peerId))}`}
+                                href={playerProfileHref(peer)}
                               >
                                 {peer.name}
                               </Link>
