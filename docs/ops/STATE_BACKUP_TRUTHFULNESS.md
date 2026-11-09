@@ -97,7 +97,7 @@ Two additive public fields, both able to say "unknown" and neither able to read 
   retention stores, board history, rank history) the newest generation either holds it, or it is `missing` (the
   source exists on this host and the artifact does not), or the writer recorded it as `failed` /
   `skipped_low_space` / `skipped_space_unmeasurable`. A store whose source does not exist on this host is
-  `absent_by_design` and does not count. The proof's own `skipped_requested` reads `partial`, not `uncovered`.
+  `absent_by_design` and does not count, but only if no retained generation ever held it: a store whose source is gone while an older generation holds it is `lost_after_backup` (loud, uncovered), and if the retained generations cannot be listed it is `unverifiable`. The proof's own `skipped_requested` reads `partial`, not `uncovered`.
   The names stay in the on-box detail (`python -m src.api.backup_health`) and in the operator alert email.
 
 Until the operator makes the root-only state root listable (section above), the app cannot see a generation at all, so

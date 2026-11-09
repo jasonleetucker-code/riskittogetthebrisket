@@ -71,8 +71,11 @@ and file always describe one scan.
   exact list, below), whether the newest generation holds it.  A store whose
   source EXISTS on this host and whose artifact is absent is ``missing``; one
   the writer recorded as failed or shed for space is named as such; a store
-  whose source does not exist on this host is ``absent_by_design`` and does NOT
-  count against the backup.  The public block carries only the aggregate
+  whose source does not exist on this host AND which no retained generation has ever
+  held is ``absent_by_design`` and does NOT count against the backup; one whose
+  source is gone but which an older retained generation holds is
+  ``lost_after_backup`` (loud, uncovered); if the retained generations cannot be
+  listed it is ``unverifiable``, never ``absent_by_design``.  The public block carries only the aggregate
   (coverage + counts); the store names stay in the detail and in the operator
   alert, per the policy above.  Coverage is judged on the newest generation
   only: the post-deploy proof's own generation deliberately skips the two large
@@ -277,8 +280,10 @@ IRREPLACEABLE_STORES: tuple[tuple[str, str, str, str, tuple[str, ...], str], ...
 )
 #: Per-store verdicts that are a LOUD finding: the store exists on this host
 #: and the newest generation does not hold it, or the writer says it shed it.
+#: ``lost_after_backup``: the source is gone from this host and an OLDER retained
+#: generation holds the store -- a deleted irreplaceable ledger.
 LEDGER_LOUD_STATUSES = frozenset(
-    {"missing", "failed", "skipped_low_space", "skipped_space_unmeasurable"}
+    {"missing", "lost_after_backup", "failed", "skipped_low_space", "skipped_space_unmeasurable"}
 )
 _WRITER_RECORDED_STATUSES = frozenset(
     {"failed", "skipped_low_space", "skipped_space_unmeasurable", "skipped_requested"}
@@ -611,15 +616,49 @@ def _probe_exists(path: str, kind: str) -> str:
     return "present" if is_dir == (kind == "dir") else "absent"
 
 
+def _held_in_older_generation(
+    store_artifacts: tuple[str, ...], gen_path: str, daily_dirs: list[str]
+) -> str:
+    """``held`` / ``never`` / ``unknown``: does ANY retained generation other than
+    the newest hold this store?  ``unknown`` when a generation cannot be listed
+    or statted -- the caller must not read that as "never"."""
+    if not daily_dirs:
+        return "unknown"
+    verdict = "never"
+    for daily in daily_dirs:
+        probe = _probe_dir(daily)
+        if probe["state"] != "readable":
+            return "unknown"
+        for entry in probe["entries"]:
+            full = os.path.join(daily, entry)
+            if not _DATED_NAME.match(entry) or os.path.normpath(full) == os.path.normpath(gen_path):
+                continue
+            for artifact in store_artifacts:
+                try:
+                    _stat(os.path.join(full, *artifact.split("/")))
+                except OSError as exc:
+                    if _classify_oserror(exc)[0] != "absent":
+                        verdict = "unknown"
+                    continue
+                return "held"
+    return verdict
+
+
 def _irreplaceable_coverage(
-    gen_path: str, optional_stores: dict[str, Any] | None, data_dir: str
+    gen_path: str,
+    optional_stores: dict[str, Any] | None,
+    data_dir: str,
+    daily_dirs: list[str] | None = None,
 ) -> dict[str, Any]:
     """Which irreplaceable stores the newest generation holds.
 
     Per store: ``covered`` (an artifact is in the generation) · ``archive_only``
     (only the raw-files tarball, no consistent online copy) · ``absent_by_design``
-    (artifact absent AND the source is proven absent on this host -- a stream
-    that has not started is not a failed backup) · ``skipped_requested`` (the
+    (artifact absent, the source is proven absent on this host AND no retained
+    older generation ever held it -- a stream that has not started is not a
+    failed backup) · ``lost_after_backup`` (source gone, but an older retained
+    generation holds it: a deleted irreplaceable ledger, loud) · ``unverifiable``
+    when the retained generations cannot be listed (never ``absent_by_design``) · ``skipped_requested`` (the
     proof's own run leaves the two large ledgers out on purpose) · a LOUD
     status -- ``missing`` (the source exists, the artifact does not, and the
     writer recorded nothing: an older writer that predates the store, or a copy
@@ -655,7 +694,16 @@ def _irreplaceable_coverage(
             status = "unverifiable"
         else:
             src = _probe_exists(os.path.join(data_dir, *source.split("/")), kind)
-            status = {"present": "missing", "absent": "absent_by_design"}.get(src, "unverifiable")
+            if src == "present":
+                status = "missing"
+            elif src == "absent":
+                history = _held_in_older_generation(artifacts, gen_path, daily_dirs or [])
+                status = {
+                    "held": "lost_after_backup",
+                    "never": "absent_by_design",
+                }.get(history, "unverifiable")
+            else:
+                status = "unverifiable"
         stores.append(
             {
                 "name": name,
@@ -804,8 +852,9 @@ def state_backup_health(
         ledgers=chosen["ledgers"],
         offboxMirror=chosen["offboxMirror"],
     )
+    daily_dirs = [os.path.dirname(r["generationPath"]) for r in located if r.get("generationPath")]
     out["irreplaceableLedgers"] = _irreplaceable_coverage(
-        chosen["generationPath"], chosen["optionalStores"], data_dir
+        chosen["generationPath"], chosen["optionalStores"], data_dir, daily_dirs
     )
     return out
 

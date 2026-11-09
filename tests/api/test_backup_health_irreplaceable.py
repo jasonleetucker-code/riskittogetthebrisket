@@ -497,3 +497,75 @@ def test_an_unjudgeable_pass_does_not_recover_a_firing_alert(tmp_path):
         kv_path=kv,
     )
     assert summary["recovered"] == 2 and sent
+
+
+# -- a deleted ledger is not "absent by design" ------------------------------------
+def _two_generations(tmp_path: Path, *, older_has: tuple[str, ...]) -> None:
+    """Newest generation holds game_day only; an older one holds ``older_has``."""
+    root = tmp_path / "state"
+    _make_generation(root, artifacts=("dirs/game_day.tar.gz",), date="2026-11-09")
+    _make_generation(root, artifacts=older_has, date="2026-11-08")
+
+
+def test_a_store_that_never_existed_in_any_retained_generation_is_absent_by_design(tmp_path):
+    data = tmp_path / "data"
+    _make_sources(data, "game_day")
+    _two_generations(tmp_path, older_has=("dirs/game_day.tar.gz",))
+    ledgers = _coverage(tmp_path)
+    assert _status(ledgers)["analyst_ledger"] == "absent_by_design"
+    assert ledgers["coverage"] == "covered" and ledgers["uncoveredCount"] == 0
+
+
+def test_a_store_deleted_after_it_was_backed_up_is_lost_after_backup_and_loud(tmp_path):
+    """Source gone from the host, absent from the newest generation, but an OLDER
+    retained generation holds it: the exact failure this report exists to catch."""
+    data = tmp_path / "data"
+    _make_sources(data, "game_day")
+    _two_generations(
+        tmp_path, older_has=("dirs/game_day.tar.gz", "sqlite/analyst_ledger.sqlite.gz")
+    )
+    ledgers = _coverage(tmp_path)
+    assert _status(ledgers)["analyst_ledger"] == "lost_after_backup"
+    assert ledgers["coverage"] == "uncovered" and ledgers["uncoveredCount"] == 1
+    # ... and it alerts like `missing`, by name, for the operator only.
+    detail = _detail(tmp_path)
+    rows = bh.alert_rows(detail)["rows"]
+    assert [(r["store"], r["status"]) for r in rows] == [("analyst_ledger", "lost_after_backup")]
+    alerts = ops_alerts._check_backup_coverage(bh.alert_rows(detail))
+    assert [a.category for a in alerts] == ["backup_ledger:analyst_ledger"]
+    assert "analyst_ledger" not in json.dumps(
+        bh.build_backup_health(
+            state_root=str(tmp_path / "state"),
+            state_fallback_root=str(tmp_path / "state_fb"),
+            legacy_dirs=(),
+            data_dir=str(data),
+            now_epoch=NOW,
+        )
+    )
+
+
+def test_unlistable_generations_make_an_absent_source_unverifiable_not_absent_by_design(
+    tmp_path, monkeypatch
+):
+    data = tmp_path / "data"
+    _make_sources(data, "game_day")
+    _two_generations(tmp_path, older_has=("dirs/game_day.tar.gz",))
+    daily = os.path.normpath(str(tmp_path / "state" / "daily"))
+    real_listdir = bh._listdir
+    calls = {"n": 0}
+
+    def flaky(path):
+        # The newest-generation probe lists daily/ first; every LATER listing of it
+        # (the retained-generation scan) is refused, as for a closed directory.
+        if os.path.normpath(path) == daily:
+            calls["n"] += 1
+            if calls["n"] > 1:
+                raise PermissionError(13, "Permission denied", path)
+        return real_listdir(path)
+
+    monkeypatch.setattr(bh, "_listdir", flaky)
+    ledgers = _coverage(tmp_path)
+    status = _status(ledgers)
+    assert status["analyst_ledger"] == "unverifiable"
+    assert "absent_by_design" not in status.values()
+    assert ledgers["coverage"] == "unverifiable"
