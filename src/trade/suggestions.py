@@ -555,6 +555,11 @@ def build_asset_pool(
 # ──────────────────────────────────────────────────────────────────────
 
 
+def _pick_inclusive_count(suggestions: list[Any]) -> int:
+    """How many returned suggestions carry a draft pick on either side."""
+    return sum(1 for s in suggestions if any(p.universe == "picks" for p in (*s.give, *s.receive)))
+
+
 def _universe_from_row(row: dict[str, Any]) -> str:
     """Derive the asset's universe label from the live contract row.
 
@@ -2310,6 +2315,16 @@ def generate_suggestions_from_pool(
             "opponentRostersProvided": len(league_rosters) if league_rosters else 0,
             "opponentRostersAnalyzed": len(opponent_analyses),
             "needSource": need_source,
+            # C7-PICKGEN-01 rule 5: the same disclosure key the finder publishes.
+            # Suggestions has no posture-aware pick generator (that is the
+            # finder's).  The balancer never adds a pick, but a pick already in
+            # the value pool can still appear, so the count is measured.
+            # Policy only; generation is unchanged.
+            "pickGeneration": {
+                "applied": False,
+                "reason": "suggestions_have_no_pick_generator",
+                "pickInclusiveReturned": _pick_inclusive_count(all_suggestions),
+            },
             **({"positionalFloor": positional_floor} if positional_floor is not None else {}),
             **({"rosterAnalysisPool": "full_board"} if roster_pool is not None else {}),
             **({"lockedOutgoing": lock.to_dict()} if locked_keys else {}),

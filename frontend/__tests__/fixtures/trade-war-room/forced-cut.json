@@ -53,7 +53,7 @@
    }
   },
   "tiers": {
-   "depth": 4,
+   "depth": 3,
    "elite": 0,
    "high": 1,
    "mid": 3
@@ -1465,7 +1465,7 @@
    }
   },
   "tiers": {
-   "depth": 3,
+   "depth": 2,
    "elite": 0,
    "high": 0,
    "mid": 4

@@ -80,3 +80,11 @@ Rule `intersection_budget_reallocation`: over the rookies BOTH the vendor lists 
 **Suggested acceptance tests:**
 - finished-season tie: both teams show 0% outright and 100% tied;
 - unconfirmed vs confirmed rendering.
+
+## Unpriced on-board player in trade simulate/analyze asset records (MD-105, 2026-11-08)
+
+`POST /api/trade/simulate` and `POST /api/trade/analyze` (`sending[]` / `receiving[]`, and the before/after roster assets the simulator resolves): an on-board player the pipeline did not price now has `value: null`, `tier: null`, and `valueState: "unpriced"` (previously `value: 0`, `tier: "depth"`). A row that states a numeric zero keeps `value: 0` with no `valueState`. Priced assets are byte-identical.
+
+- **Frontend action:** none known required. Read-only audit found no reader of these asset `value`s that breaks on null (`trade-simulation-panel.jsx` already renders null as "unpriced"; `MultiTeamWarRoom.jsx` keys on `valueState`). If any asset list renders `value`, show "unpriced" for `valueState === "unpriced"`, never 0.
+- `POST /api/trade/suggestions` `metadata.pickGeneration` = `{applied: false, reason: "suggestions_have_no_pick_generator", pickInclusiveReturned: <measured count>}`. Disclosure only: no pick generator runs here, so point to the finder for pick trades. A pick already in the value pool can still appear, and is counted; do not state that suggestions never include picks.
+- `POST /api/waiver/streaming` `streamingBoard` no longer lists free agents who can fill none of the league's started slots (e.g. DL/LB/DB in an offense-only league). An empty board in that league is expected: show "no started IDP slot in this league", not an error.

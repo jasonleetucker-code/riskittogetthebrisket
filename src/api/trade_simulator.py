@@ -418,6 +418,17 @@ def _resolve_asset(
     # ``valueState: "unpriced"`` -- the marker the N-team engine and the
     # evidence gates (``trade_decision.asset_is_priced``) already read.  The
     # ``_row_value`` fall-through to 0 is never consulted for it.
+    #
+    # The same holds for an on-board PLAYER the pipeline did not price: no
+    # usable value anywhere on the row is UNKNOWN (``None`` +
+    # ``valueState: "unpriced"``), never ``int(0.0)``.  A row that STATES a
+    # numeric ``rankDerivedValue`` of 0 is a known zero and stays 0 (the
+    # evidence gates still call it unpriced via ``asset_is_priced``).
+    if not unpriced:
+        _v = _row_value(row)
+        _stated = row.get("rankDerivedValue")
+        if _v <= 0 and (not isinstance(_stated, (int, float)) or isinstance(_stated, bool)):
+            unpriced = True
     value = None if unpriced else int(_row_value(row))
     pos = _normalize_pos(row.get("pos") or row.get("position"))
     age = row.get("age")
