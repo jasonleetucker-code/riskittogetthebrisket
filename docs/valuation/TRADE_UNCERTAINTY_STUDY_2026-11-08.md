@@ -5,11 +5,13 @@
 **Evidence:** `docs/valuation/evidence/trade-uncertainty-2026-11-08/results.json` (all numbers below), `replay_panel_2026-04-16_2026-11-08.zip` (the 207 replayed daily boards the analysis runs from).
 **Reproduce:** `python scripts/research/trade_uncertainty_study.py collect --cache-dir <dir> [--shard i/n]` (about 40 min of replay), then `... analyze --cache-dir <dir> --out results.json` (about 2 min), or unzip the evidence archive into `<dir>` and run `analyze` only. Metric functions: `tests/research/test_trade_uncertainty_metrics.py` (18 hand-computed tests).
 
-## Verdict: (b) none credible
+## Verdict: (b) under the preregistered rule, with source dispersion a near miss; the 14-day result rests on exactly 8 blocks; the 28-day horizon has no primary result
+
+**Read this as the outcome of a preregistered rule on a replay, not as a settled statistical finding.** Details that qualify it: source dispersion (M1) missed the 50% coverage bar at 7 days by 0.011 (0.439 against 0.45); in the no-exclusions run M1 moves from failing to passing the coverage criteria at both horizons (section 5); 14 days is decidable only because it has exactly the minimum 8 blocks; 28 days produced no primary result. The product conclusion (uncertainty unavailable for now) can stand, but it is a conservative contract choice, not proof that no calibrated band exists.
 
 **No candidate uncertainty model passed the preregistered rule at either decidable horizon (7 and 14 days), so the correct product state today is an explicit uncertainty-unavailable contract.** The exact additive field is in section 7. Three separate reasons, all measured:
 
-1. **The incumbent flat band is not a p10/p90. It is far wider than anything the replay moved.** Labelled 80% interval, observed coverage **99.2%** at 7 days (95% CI 98.9 to 99.5) and **97.6%** at 14 days (96.2 to 98.5), at a mean 80% width of 30.0% of value. Replayed boards moved by far less (pooled empirical 80% interval about 3 to 4.5% wide at its trained width; section 4). This is the earlier 2026-08-05 finding (3.57% half-width) confirmed on a longer window that includes the season. It is **not** evidence that 15% is "right to shrink": see caveat A.
+1. **The incumbent flat band is not a p10/p90. It is far wider than anything the replay moved.** Labelled 80% interval, the incumbent band covered **at most 99.2%** at 7 days in a self-consistency replay (95% CI 98.9 to 99.5; an upper bound on live coverage because the replay understates real movement) and **at most 97.6%** at 14 days (96.2 to 98.5), at a mean 80% width of 30.0% of value. Replayed boards moved by far less (pooled empirical 80% interval about 3 to 4.5% wide at its trained width; section 4). This is the earlier 2026-08-05 finding (3.57% half-width) confirmed on a longer window that includes the season. It is **not** evidence that 15% is "right to shrink": see caveat A.
 2. **Every empirical alternative under-covers out of sample.** At 7 days the best, source dispersion per row (M1), reaches 80% coverage 0.759 (CI 0.716 to 0.790) and 50% coverage 0.439. The conditional bands (M2) reach 0.689 and the dispersion-plus-horizon model (M3) 0.700. At 14 days: 0.685, 0.602, 0.653. Nothing sits in the preregistered [0.75, 0.85] / [0.45, 0.55] acceptance region on both levels.
 3. **The shortfall is nonstationarity, not noise.** Trained on earlier dates, each model gets too narrow as the season approaches. In-season (origin on or after 2026-09-10) 7-day 80% coverage is M1 0.710, M2 0.608, M3 0.620, pooled M4 0.492, against 0.82, 0.78, 0.79, 0.65 pre-season. The pooled model's own 10th to 90th percentile of 7-day returns, re-estimated every 14 days, widens from [-1.5%, +1.1%] (fit 2026-06-29) to [-2.3%, +2.0%] (fit 2026-11-02). A fixed band fitted on history cannot track that.
 
@@ -27,7 +29,7 @@ A near miss is named, not promoted: **M1 (source dispersion)** passes the covera
 
 * **Truth series: panel replay.** `exports/archive` zips carry the raw scraper payload and CSVs only, with no canonical board. The as-served canonical history (`data/board_history.sqlite`, `rank_history.jsonl`, `temporal_ledger.sqlite`) is box-local and absent from this checkout, so as-served `rankDerivedValue` could not be used. Each date was rebuilt with `panel_day` + `build_api_data_contract(csv_root=...)` at worktree head `cf06d8480`.
 * **Dates used:** every day from **2026-04-16 to 2026-11-08** (207 days, 0 collection failures; 2026-11-09 excluded as partial). 208 are available from `panel.available_dates()`.
-* **Breaks (26 dates excluded under the preregistered input-based rules; pairs touching one, as origin, target or interior day, are dropped):**
+* **Breaks (26 dates excluded under the preregistered rules. Two of the three rules read replayed board OUTPUT, not raw inputs: the priced-row-count rule uses the contract the replay produced, and the source-set rule uses the CSV stems. The effect of the output-based rule is to remove large-move days, which flatters coverage, so the finding against the empirical models is, if anything, conservative; pairs touching one, as origin, target or interior day, are dropped):**
   * source set changed (13 dates): 2026-04-17, 04-19, 04-20, 04-21, 04-27, 04-28, 05-13, 05-15, 07-21, 07-25, 08-20, 09-09, 09-24
   * priced rows moved by more than 10% (15 dates): 2026-04-24, 04-25, 04-27, 06-02, 06-03, 06-04, 06-05, 06-29, 07-01, 07-24, 07-25, 08-18, 08-19, 09-12, 09-13
   * stale payload more than 3 days: none triggered. (04-27 and 07-25 carry two reasons, so 26 distinct dates.)
@@ -118,6 +120,7 @@ For the owner to decide; nothing here is implemented. Proposed additive field on
     "nominalCoverage": 0.8,
     "observedCoverage7d": 0.992,
     "observedCoverage14d": 0.976,
+    "coverageIsUpperBound": true,
     "basis": "board_self_consistency_replay_2026-04-16_to_2026-11-08"
   },
   "evidence": "docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md"
@@ -133,6 +136,7 @@ For the owner to decide; nothing here is implemented. Proposed additive field on
 * **C. Replay differs from live in one stated way:** no `data/scrape_state`, so freshness/health weighting is off (every source at base authority), constantly across dates.
 * **D. Seasonality and regime.** The window spans offseason, preseason and about 8 in-season weeks, and coverage fell in-season for every empirical model. Eight weeks of in-season history is the thinnest part of the evidence.
 * **E. Dispersion models are offense only.** IDP and picks have null `marketDispersionCV`; M2 covers them but under-covers (all-rows M2 80% coverage 0.659 at 7d, 0.591 at 14d).
+* **G. Bootstrap blocks are in series-position, not calendar, units.** A block is h consecutive rows of a date-ordered series that has gaps from break exclusions, so a block can span more than h calendar days. Intervals are therefore approximate.
 * **F. Overlapping horizons and common-mode moves.** Pooled coverage is dominated by date-level shocks; effective sample size is the block count (17 and 8), which is why CIs are wide and 14 days is only just decidable.
 
 ## 9. Deviations from the preregistration
