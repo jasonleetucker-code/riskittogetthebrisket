@@ -647,6 +647,8 @@ jobs:
     # install of the app, no secrets) and reports to the job summary.
     # Run `python -m pip_audit` / `npm audit` locally to reproduce.
     name: Dependency audit (advisory)
+    permissions:
+      contents: read
     needs: scope
     if: ${{ needs.scope.outputs.python == 'true' || needs.scope.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
