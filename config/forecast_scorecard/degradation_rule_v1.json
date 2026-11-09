@@ -6,7 +6,11 @@
   "effect": "REVIEW REQUEST ONLY. A fired rule emits an owner-visible alert. It never promotes, demotes, disables or alters any forecast, value, flag or served response.",
   "statCorrectionWaitHours": 72,
   "statCorrectionWaitNote": "An outcome counts only once the host has had this long since it was last (re)published, so a Sleeper stat correction cannot rewrite a scored outcome.",
-  "bootstrap": {"b": 2000, "seed": 20261108, "level": 0.95},
+  "bootstrap": {
+    "b": 2000,
+    "seed": 20261108,
+    "level": 0.95
+  },
   "consecutiveEvaluations": 3,
   "consecutiveNote": "Consecutive evaluations on DIFFERENT eligible sample sets. Re-running on identical data does not advance the streak.",
   "worseThanBaselineRule": "served_metric - baseline_metric >= margin (lower is better for every metric below). Equality fires; anything smaller does not. Both arms are scored on the identical samples.",
@@ -65,5 +69,12 @@
       "minSeasons": 1,
       "clusterBy": "league_week"
     }
-  }
+  },
+  "revisedAt": "2026-11-09",
+  "revisionNote": "Revised in place on 2026-11-09 after independent review (PR 2178), BEFORE any outcome was scored: adds requireCiExcludesZero and streakRequiresNewCluster, and the honesty notes below. No data had been scored, so the version stays v1.",
+  "requireCiExcludesZero": true,
+  "requireCiNote": "A verdict of served_worse_than_baseline needs BOTH the point delta to reach the margin AND the 95% cluster-bootstrap interval of the delta to lie entirely above zero (worse direction). At roughly 100 Game Day samples Brier noise is 0.01 to 0.02, larger than the 0.005 margin, so the point delta alone would fire on a model no different from its baseline. An interval that cannot be computed (fewer than two clusters) is insufficient_evidence.",
+  "streakRequiresNewCluster": true,
+  "independenceNote": "The consecutive evaluations are NOT independent: each is a look at mostly the same growing sample. They are a persistence filter, not three independent tests, and are not a significance claim. To limit the overlap, each counted evaluation must add at least one cluster (a new league-week or team-season) not present at the previous counted evaluation; an evaluation on the same clusters does not advance the streak.",
+  "baselinesAreFloorsNote": "The baselines (uniform rates, coin flip, trailing team mean) are FLOORS. This rule detects a served model that is worse than a coin flip, a uniform rate or the team's own trailing mean. It will NOT fire for a weak model that is merely better than chance. That is a deliberate choice for v1; a stronger baseline is a later rule version, not an edit to this one."
 }
