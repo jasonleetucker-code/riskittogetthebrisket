@@ -124,6 +124,8 @@ class Rule:
     b: int
     seed: int
     consecutive: int
+    require_ci_excludes_zero: bool
+    streak_requires_new_cluster: bool
     families: Mapping[str, FamilyRule]
 
 
@@ -152,6 +154,8 @@ def parse_rule(config: Mapping[str, Any]) -> Rule:
         b=int(boot["b"]),
         seed=int(boot["seed"]),
         consecutive=int(config["consecutiveEvaluations"]),
+        require_ci_excludes_zero=bool(config["requireCiExcludesZero"]),
+        streak_requires_new_cluster=bool(config["streakRequiresNewCluster"]),
         families=fams,
     )
 
@@ -278,10 +282,19 @@ def evaluate_samples(samples: Sequence[Sample], fam: FamilyRule, rule: Rule) -> 
         shortfalls.append(f"clusters {clusters} < {fam.min_clusters}")
     if seasons < fam.min_seasons:
         shortfalls.append(f"seasons {seasons} < {fam.min_seasons}")
+    ci = None if boot is None else boot["ci95"]
+    ci_ok = ci is not None and ci[0] is not None and ci[0] > 0
+    gate = None
+    if rule.require_ci_excludes_zero and boot is None and not shortfalls:
+        shortfalls.append("interval unavailable (fewer than two clusters)")
     if shortfalls:
         verdict = VERDICT_INSUFFICIENT
     elif delta is not None and delta + _EPS >= fam.margin:
-        verdict = VERDICT_WORSE
+        if rule.require_ci_excludes_zero and not ci_ok:
+            verdict = VERDICT_NOT_WORSE
+            gate = "point_delta_reaches_margin_but_interval_spans_zero"
+        else:
+            verdict = VERDICT_WORSE
     else:
         verdict = VERDICT_NOT_WORSE
     return {
@@ -305,6 +318,8 @@ def evaluate_samples(samples: Sequence[Sample], fam: FamilyRule, rule: Rule) -> 
         "shortfalls": shortfalls,
         "margin": fam.margin,
         "verdict": verdict,
+        "verdictGate": gate,
+        "clusterIds": sorted({s.cluster for s in samples}),
         "sampleDigest": _digest(
             (s.cluster, round(s.served, 9), round(s.base, 9), s.y) for s in samples
         ),
@@ -844,8 +859,10 @@ def apply_trigger(
     """Advance the consecutive-evaluation streaks and return the fired review requests.
 
     Only the SERVED model, on the rule's basis rows, with a ``served_worse_than_baseline``
-    verdict, advances a streak; a different eligible sample set is what makes an
-    evaluation new, so re-running on identical data never advances it.  Any other
+    verdict, advances a streak, and only when the evaluation adds at least one cluster
+    not in the previous COUNTED evaluation (these looks overlap and are not
+    independent), so re-running on identical or merely re-weighted data never
+    advances it.  Any other
     state resets the streak to 0.  Returns ``(reviews, streaks)``; neither changes
     anything outside the scorecard.
     """
@@ -859,12 +876,25 @@ def apply_trigger(
         before = prior_streaks.get(key) or {}
         count = int(before.get("streak") or 0)
         digest = row.get("sampleDigest")
+        clusters = list(row.get("clusterIds") or [])
+        seen = list(before.get("clusters") or [])
         if row.get("verdict") == VERDICT_WORSE:
-            if digest != before.get("digest"):
+            if rule.streak_requires_new_cluster:
+                advances = bool(set(clusters) - set(seen))
+            else:
+                advances = digest != before.get("digest")
+            if advances:
                 count += 1
+            else:
+                clusters = seen  # keep the last COUNTED evaluation's clusters
         else:
             count = 0
-        streaks[key] = {"streak": count, "digest": digest, "verdict": row.get("verdict")}
+        streaks[key] = {
+            "streak": count,
+            "digest": digest,
+            "clusters": clusters,
+            "verdict": row.get("verdict"),
+        }
         row["streak"] = count
         row["streakRequired"] = rule.consecutive
         if count >= rule.consecutive:

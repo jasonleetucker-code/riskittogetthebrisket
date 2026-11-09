@@ -379,19 +379,19 @@ def test_game_day_model_versions_stay_apart() -> None:
 
 def test_points_family_trailing_mean_baseline_on_identical_samples() -> None:
     mus = {"1": 105.0, "2": 90.0, "3": 85.0, "4": 95.0}
-    res = sc.points_family(
-        [_gd_week(1, _scores(1), mus), _gd_week(2, _scores(2), mus)], _rule(), NOW
-    )
-    (row,) = res["rows"]
-    # Week 1 has no earlier week: dropped from BOTH arms. Week 2 baseline = week-1 actual.
+    weeks = [_gd_week(w, _scores(w), mus) for w in (1, 2, 3)]
+    (row,) = sc.points_family(weeks, _rule(), NOW)["rows"]
+    # Week 1 has no earlier week: dropped from BOTH arms.
     assert row["exclusions"]["baseline_unavailable"] == 4
-    assert row["eligibleSamples"] == 4
-    # served |mu - y| over week 2: |105-102|, |90-90|, |85-80|, |95-95| = 3, 0, 5, 0
-    assert row["served"]["mae"] == pytest.approx(2.0)
-    # baseline = week-1 actuals (101, 90, 80, 95): |101-102|, 0, 0, 0
-    assert row["baseline"]["mae"] == pytest.approx(0.25)
+    assert row["eligibleSamples"] == 8 and row["clusters"] == 2
+    # week 2 served |mu - y|: 3, 0, 5, 0 -> 2.0; week 3 (y1 = 103): 2, 0, 5, 0 -> 1.75
+    assert row["served"]["mae"] == pytest.approx((2.0 + 1.75) / 2)
+    # baseline = trailing mean of earlier actuals: week 2 -> (101, 90, 80, 95) gives 0.25;
+    # week 3 -> roster 1 mean(101, 102) = 101.5, so |101.5 - 103| = 1.5 -> 0.375
+    assert row["baseline"]["mae"] == pytest.approx((0.25 + 0.375) / 2)
     assert row["baseline"]["name"] == "trailing_team_mean"
-    assert row["verdict"] == sc.VERDICT_WORSE  # delta 1.75 >= 0.25
+    assert row["delta"] == pytest.approx(1.875 - 0.3125)
+    assert row["verdict"] == sc.VERDICT_WORSE  # delta >= 0.25 and both clusters worse
     assert row["served"]["crps"]["state"] == "unavailable"
 
 
@@ -431,11 +431,18 @@ def test_points_stat_correction_wait_and_no_evidence() -> None:
 
 
 def _samples_with_delta():
-    # served Brier values 0.01 and 0.64 -> mean 0.325; baseline 0.25; delta 0.075
-    return [
-        sc.Sample("c1", "2026", 0.9, 0.5, 1.0),
-        sc.Sample("c2", "2026", 0.8, 0.5, 0.0),
-    ]
+    # served Brier values 0.01 and 0.64 -> mean 0.325; baseline 0.25; delta 0.075.
+    # Ten identical clusters: the bootstrap interval collapses onto 0.075 (above zero).
+    out = []
+    for i in range(10):
+        out.append(sc.Sample(f"c{i}", "2026", 0.9, 0.5, 1.0))
+        out.append(sc.Sample(f"c{i}", "2026", 0.8, 0.5, 0.0))
+    return out
+
+
+def _noisy_samples():
+    # Same pooled delta (0.075) but two clusters of opposite sign: the interval spans zero.
+    return [sc.Sample("c1", "2026", 0.9, 0.5, 1.0), sc.Sample("c2", "2026", 0.8, 0.5, 0.0)]
 
 
 def _fam(margin: float, floors=(1, 1, 1)) -> sc.FamilyRule:
@@ -457,14 +464,32 @@ def test_verdict_fires_exactly_at_the_margin_and_not_below() -> None:
     )
 
 
+def test_point_delta_clearing_the_margin_with_an_interval_spanning_zero_does_not_fire() -> None:
+    res = sc.evaluate_samples(_noisy_samples(), _fam(0.05), _rule())
+    assert res["delta"] == pytest.approx(0.075) and res["delta"] >= 0.05
+    lo, hi = res["deltaCi95"]
+    assert lo < 0 < hi
+    assert res["verdict"] == sc.VERDICT_NOT_WORSE
+    assert res["verdictGate"] == "point_delta_reaches_margin_but_interval_spans_zero"
+    # the interval is what blocks it: with the requirement off the same data fires
+    off = sc.evaluate_samples(_noisy_samples(), _fam(0.05), _rule(requireCiExcludesZero=False))
+    assert off["verdict"] == sc.VERDICT_WORSE
+
+
+def test_single_cluster_cannot_compute_an_interval_and_is_insufficient() -> None:
+    one = [sc.Sample("c1", "2026", 0.9, 0.5, 1.0)]
+    assert sc.evaluate_samples(one, _fam(0.0), _rule())["verdict"] == sc.VERDICT_INSUFFICIENT
+
+
 def test_below_the_sample_floors_the_verdict_is_insufficient_evidence() -> None:
-    res = sc.evaluate_samples(_samples_with_delta(), _fam(0.0, floors=(3, 3, 2)), _rule())
+    res = sc.evaluate_samples(_samples_with_delta(), _fam(0.0, floors=(30, 20, 2)), _rule())
     assert res["verdict"] == sc.VERDICT_INSUFFICIENT
-    assert len(res["shortfalls"]) == 3
+    assert len(res["shortfalls"]) == 3  # eligible, clusters and seasons
 
 
-def _row(verdict, digest, *, served=True, basis=True):
+def _row(verdict, digest, *, served=True, basis=True, clusters=None):
     return {
+        "clusterIds": clusters if clusters is not None else [digest],
         "leagueKey": "lg",
         "family": sc.FAMILY_GD_WIN,
         "target": "winMatchup",
@@ -499,6 +524,28 @@ def test_streak_needs_consecutive_distinct_evaluations_and_resets() -> None:
     r3 = _row(sc.VERDICT_NOT_WORSE, "d3")
     reviews, _ = sc.apply_trigger([r3], rule, streaks2)
     assert reviews == [] and r3["streak"] == 0
+
+
+def test_a_streak_look_must_add_a_new_cluster() -> None:
+    rule = _rule()
+    first = _row(sc.VERDICT_WORSE, "d1", clusters=["w1", "w2"])
+    _, st = sc.apply_trigger([first], rule, None)
+    same = _row(sc.VERDICT_WORSE, "d2", clusters=["w1", "w2"])  # new digest, no new cluster
+    reviews, st2 = sc.apply_trigger([same], rule, st)
+    assert reviews == [] and same["streak"] == 1
+    grown = _row(sc.VERDICT_WORSE, "d3", clusters=["w1", "w2", "w3"])
+    reviews, _ = sc.apply_trigger([grown], rule, st2)
+    assert grown["streak"] == 2 and len(reviews) == 1
+
+
+def test_committed_rule_states_the_honesty_notes() -> None:
+    cfg = json.loads(RULE_PATH.read_text(encoding="utf-8"))
+    assert cfg["requireCiExcludesZero"] is True and cfg["streakRequiresNewCluster"] is True
+    assert "NOT independent" in cfg["independenceNote"]
+    assert (
+        "FLOORS" in cfg["baselinesAreFloorsNote"]
+        and "will NOT fire" in cfg["baselinesAreFloorsNote"]
+    )
 
 
 def test_only_the_served_model_on_the_rule_basis_can_trigger() -> None:

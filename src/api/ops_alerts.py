@@ -575,15 +575,26 @@ FORECAST_DEGRADATION_PREFIX = "forecast_degradation:"
 _FORECAST_REVIEWS_FILE = "forecast_scorecard.json"
 
 
-def forecast_degradation_reviews(path: Any = None) -> list[dict[str, Any]] | None:
+FORECAST_REVIEWS_MAX_AGE_HOURS = 10 * 24.0
+
+
+def forecast_degradation_reviews(
+    path: Any = None,
+    *,
+    now: float | None = None,
+    max_age_hours: float = FORECAST_REVIEWS_MAX_AGE_HOURS,
+) -> list[dict[str, Any]] | None:
     """Pending review requests from the standing scorecard, or ``None`` when unknown.
 
     The scorecard (``scripts/forecast_scorecard.py``) writes its result to the
     private learning store; this only reads its ``degradationReviews``.  No file
     means the scorecard has not fired anything (``[]``); a file that does not
-    parse is UNKNOWN (``None``), never "recovered".
+    parse is UNKNOWN (``None``), never "recovered".  So is a STALE file (its
+    ``evaluatedAt`` missing, unparseable, or older than ``max_age_hours``): a
+    stopped timer must not freeze a review as active, or as healthy, forever.
     """
     import json
+    from datetime import datetime, timezone
     from pathlib import Path
 
     target = (
@@ -601,7 +612,20 @@ def forecast_degradation_reviews(path: Any = None) -> list[dict[str, Any]] | Non
         body = json.loads(target.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    rows = body.get("degradationReviews") if isinstance(body, dict) else None
+    if not isinstance(body, dict):
+        return None
+    stamp = body.get("evaluatedAt")
+    try:
+        evaluated = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+        if evaluated.tzinfo is None:
+            evaluated = evaluated.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    current = time.time() if now is None else now
+    age_hours = (current - evaluated.timestamp()) / 3600.0
+    if age_hours > max_age_hours or age_hours < -1.0:
+        return None
+    rows = body.get("degradationReviews")
     return [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else None
 
 
@@ -621,11 +645,10 @@ def _check_forecast_degradation(rows: list[dict[str, Any]]) -> list[OpsAlert]:
             continue
         metric = row.get("metric")
         ci = row.get("deltaCi95")
-        ci_text = (
-            f", 95% CI {ci[0]:.4f} to {ci[1]:.4f}"
-            if isinstance(ci, list) and len(ci) == 2 and None not in ci
-            else ""
-        )
+        try:
+            ci_text = f", 95% CI {float(ci[0]):.4f} to {float(ci[1]):.4f}"
+        except (TypeError, ValueError, IndexError, KeyError):
+            ci_text = ""
         alerts.append(
             OpsAlert(
                 severity="warning",
@@ -815,7 +838,10 @@ def check_and_alert(
     alerts.extend(_check_draft_valuation(draft_valuation or []))
     alerts.extend(_check_pregame_archive(pregame_archive or []))
     alerts.extend(_check_roster_construction(roster_construction or []))
-    alerts.extend(_check_forecast_degradation(forecast_degradation or []))
+    try:
+        alerts.extend(_check_forecast_degradation(forecast_degradation or []))
+    except Exception as exc:  # noqa: BLE001 -- malformed scorecard content never breaks the sweep
+        _LOGGER.warning("forecast degradation check skipped: %s", exc)
 
     active_categories = {a.category for a in alerts}
     now = time.time()

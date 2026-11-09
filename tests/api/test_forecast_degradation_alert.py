@@ -96,14 +96,58 @@ def test_a_row_without_the_review_prefix_is_ignored() -> None:
     assert ops_alerts._check_forecast_degradation([{"nope": 1}, "x"]) == []
 
 
+def test_malformed_scorecard_content_cannot_break_the_sweep(kv, monkeypatch) -> None:
+    sent: list = []
+    bad = _review(deltaCi95=["a", "b"], delta="oops")
+    out = _sweep(kv, [bad, _review(deltaCi95="not a list")], sent)
+    assert out["fired"] >= 1
+
+    def boom(rows):
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(ops_alerts, "_check_forecast_degradation", boom)
+    result = ops_alerts.check_and_alert(forecast_degradation=[_review()], kv_path=kv)
+    assert result["active"] == 0
+
+
+def _stamped(tmp_path, evaluated_at, name):
+    p = tmp_path / name
+    p.write_text(
+        json.dumps({"evaluatedAt": evaluated_at, "degradationReviews": [_review()]}),
+        encoding="utf-8",
+    )
+    return p
+
+
+def test_reader_stale_is_unknown_and_fresh_is_read(tmp_path) -> None:
+    from datetime import datetime, timezone
+
+    now = datetime(2026, 11, 20, tzinfo=timezone.utc).timestamp()
+    fresh = _stamped(tmp_path, "2026-11-19T00:00:00+00:00", "fresh.json")
+    stale = _stamped(tmp_path, "2026-11-01T00:00:00+00:00", "stale.json")  # 19 days old
+    garbled = _stamped(tmp_path, "not a time", "garbled.json")
+    unstamped = tmp_path / "u.json"
+    unstamped.write_text(json.dumps({"degradationReviews": [_review()]}), encoding="utf-8")
+    assert ops_alerts.forecast_degradation_reviews(fresh, now=now) == [_review()]
+    assert ops_alerts.forecast_degradation_reviews(stale, now=now) is None
+    assert ops_alerts.forecast_degradation_reviews(garbled, now=now) is None
+    assert ops_alerts.forecast_degradation_reviews(unstamped, now=now) is None
+    assert ops_alerts.forecast_degradation_reviews(tmp_path / "absent.json", now=now) == []
+
+
 def test_reader_missing_corrupt_and_valid(tmp_path) -> None:
+    from datetime import datetime, timezone
+
+    stamp = datetime.now(timezone.utc).isoformat()
     assert ops_alerts.forecast_degradation_reviews(tmp_path / "absent.json") == []
     bad = tmp_path / "bad.json"
     bad.write_text("{not json", encoding="utf-8")
     assert ops_alerts.forecast_degradation_reviews(bad) is None
     good = tmp_path / "good.json"
-    good.write_text(json.dumps({"degradationReviews": [_review()]}), encoding="utf-8")
+    good.write_text(
+        json.dumps({"evaluatedAt": stamp, "degradationReviews": [_review()]}), encoding="utf-8"
+    )
     assert ops_alerts.forecast_degradation_reviews(good) == [_review()]
     wrong = tmp_path / "wrong.json"
-    wrong.write_text(json.dumps({"other": 1}), encoding="utf-8")
+    wrong.write_text(json.dumps({"evaluatedAt": stamp, "other": 1}), encoding="utf-8")
     assert ops_alerts.forecast_degradation_reviews(wrong) is None
