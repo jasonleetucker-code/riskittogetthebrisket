@@ -611,6 +611,18 @@
     "idpshow-onbox-verification.yml::verify::Upload report": {
       "category": "blocking"
     },
+    "pr-validation.yml::dependency-audit::Checkout": {
+      "category": "advisory"
+    },
+    "pr-validation.yml::dependency-audit::Set up Python": {
+      "category": "advisory"
+    },
+    "pr-validation.yml::dependency-audit::pip-audit (advisory — non-blocking)": {
+      "category": "advisory"
+    },
+    "pr-validation.yml::dependency-audit::npm audit (advisory — non-blocking)": {
+      "category": "advisory"
+    },
     "pr-validation.yml::scope::Checkout": {
       "category": "blocking"
     },

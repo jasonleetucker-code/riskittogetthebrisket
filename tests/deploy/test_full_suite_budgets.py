@@ -1,7 +1,7 @@
 """No job may run the full unit suite under a budget it cannot finish in.
 
 CLEANUP-3, 2026-10-07.  ``smoke-test.yml``'s "Validate Code Quality" job ran
-``python -m pytest tests/ -x -q --tb=short -m "not livedata"`` inside
+``python -m pytest tests/ --maxfail=10 -q --tb=short -m "not livedata"`` inside
 ``timeout-minutes: 10``.  The suite outgrew that in mid-August: the job's last
 green run was 2026-08-13, and every scheduled run since was CANCELLED at the
 wall (48 of the last 60) — a grey "cancelled" rather than a red "failure", so
@@ -39,7 +39,7 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 # target.
 FULL_SUITE_MIN_BUDGET_MINUTES = 80
 
-HARD_GATE_COMMAND = 'python -m pytest tests/ -x -q --tb=short -m "not livedata"'
+HARD_GATE_COMMAND = 'python -m pytest tests/ --maxfail=10 -q --tb=short -m "not livedata"'
 
 # `pytest tests/` followed by whitespace or end of line: the WHOLE tree, not a
 # subdirectory such as `tests/model_registry/`.

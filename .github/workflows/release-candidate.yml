@@ -24,7 +24,7 @@ name: Release Candidate
 # ── The hard gate, sharded (2026-11-07) ─────────────────────────────────
 # The serial unit-test step was ~90 of this job's ~100 minutes.  It now runs
 # as the same N duration-balanced shards PR Validation and Deploy use (owner:
-# scripts/ci_test_shards.py) — the identical command, markers and -x, every
+# scripts/ci_test_shards.py) — the identical command, markers and bounded --maxfail=10 (was -x; exit status on failure unchanged), every
 # collected test exactly once, proven by the shard manifests.
 #
 # The RC-specific part is TREE IDENTITY.  This workflow validates a merge
@@ -456,9 +456,9 @@ jobs:
           # live-data step at r=0.98 (40-77 min), so the variance is the
           # machine, not the suite.  Record the CPU and the slowest tests so a
           # slow run is diagnosable from its own log.  Output only — the
-          # command, markers and -x are unchanged.
+          # command, markers and the bounded --maxfail=10 are as in PR Validation.
           grep -m1 'model name' /proc/cpuinfo || true
-          python -m pytest tests/ -x -q --tb=short -m "not livedata" --durations=30 --durations-min=5
+          python -m pytest tests/ --maxfail=10 -q --tb=short -m "not livedata" --durations=30 --durations-min=5
 
       - name: Upload shard manifest
         if: ${{ always() && needs.plan.outputs.mode == 'sharded' }}

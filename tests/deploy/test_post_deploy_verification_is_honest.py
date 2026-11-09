@@ -188,4 +188,4 @@ class TestReleaseCandidateReallyMatchesPrValidation:
         )
 
     def test_the_blocking_hard_gate_is_still_there(self, rc: str):
-        assert 'pytest tests/ -x -q --tb=short -m "not livedata"' in rc
+        assert 'pytest tests/ --maxfail=10 -q --tb=short -m "not livedata"' in rc
