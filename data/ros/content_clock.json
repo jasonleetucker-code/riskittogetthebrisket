@@ -2,14 +2,14 @@
  "schema_version": 1,
  "sources": {
   "draftSharksRosIdp": {
-   "content_hash": "c2c1503eb1aed341fc0e08fba42ec0fe1e834bbec109c3c921e70ee2f0f75ef9",
+   "content_hash": "55e6d62bad141af4cd59832821a70b9e480f692aa3d022c3e3071bee577373a7",
    "first_observed_at": "2026-10-27T21:04:59.562675+00:00",
-   "last_content_change": "2026-11-09T10:27:57.476960+00:00"
+   "last_content_change": "2026-11-09T21:11:16.033877+00:00"
   },
   "draftSharksRosSf": {
-   "content_hash": "e342b4130aa5356e26ea5bc3df2b8f7cdfb6dd0a1aa2c16f5f66f76704d1b191",
+   "content_hash": "ad84ab26ab67354694735512e0424917a32cc2d77f902b825e06ae69f95fa6cc",
    "first_observed_at": "2026-10-26T21:17:54.002733+00:00",
-   "last_content_change": "2026-11-09T10:27:57.136180+00:00"
+   "last_content_change": "2026-11-09T21:11:15.840945+00:00"
   },
   "fantasyProsRosIdp": {
    "content_hash": "b4967a83b2cef7d9c237a2f7d78326724f9af2f7a63983cff3fb13bd1620d9da",
@@ -17,9 +17,9 @@
    "last_content_change": null
   },
   "fantasyProsRosOverall": {
-   "content_hash": "30fc257963af628548f87af4fc1d45638c7a32b77590f32245d03735dc7817cb",
+   "content_hash": "c069117e8a8aa457a0760fd51e3258316f4ff5004dc6c5cf14149712f434597c",
    "first_observed_at": "2026-10-26T21:17:54.415564+00:00",
-   "last_content_change": "2026-11-08T00:04:42.885136+00:00"
+   "last_content_change": "2026-11-09T21:11:16.278216+00:00"
   },
   "fantasyProsRosSf": {
    "content_hash": "759bd9e2aae44dd97c233c35bdcae6c0a5d9425a913b521bfc66e7381fd8a8dc",
