@@ -621,7 +621,7 @@ jobs:
           # genuine source degradation.  Runner speed varies ~1.8x between
           # GitHub-hosted runners (CQ-29); record the CPU and slowest tests.
           grep -m1 'model name' /proc/cpuinfo || true
-          python -m pytest tests/ -x -q --tb=short -m "not livedata" --durations=30 --durations-min=5
+          python -m pytest tests/ --maxfail=10 -q --tb=short -m "not livedata" --durations=30 --durations-min=5
 
       - name: Upload shard manifest
         if: ${{ always() && needs.test-plan.outputs.mode == 'sharded' }}
