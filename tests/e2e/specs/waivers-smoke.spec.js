@@ -186,10 +186,16 @@ test.describe("signed-in: /waivers page", () => {
     expect(Array.isArray(body.factors)).toBeTruthy();
     expect(Array.isArray(body.warnings)).toBeTruthy();
     expect(typeof body.explanation).toBe("string");
-    // Bids are non-negative integers.
-    for (const k of ["conservative", "standard", "aggressive", "max"]) {
-      expect(Number.isInteger(body[k])).toBeTruthy();
-      expect(body[k]).toBeGreaterThanOrEqual(0);
+    // Bids are non-negative integers, or all null when this team's balance is
+    // unknown: a withheld bid must never read as a number (missing is never zero).
+    const bidKeys = ["conservative", "standard", "aggressive", "max"];
+    if (body.faabBudget?.bidsWithheld) {
+      for (const k of bidKeys) expect(body[k], `${k} must be withheld`).toBeNull();
+    } else {
+      for (const k of bidKeys) {
+        expect(Number.isInteger(body[k]), `${k} must be an integer`).toBeTruthy();
+        expect(body[k]).toBeGreaterThanOrEqual(0);
+      }
     }
   });
 });
