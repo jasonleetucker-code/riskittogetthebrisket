@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-11-08T15:38:09.414972+00:00",
+ "generatedAt": "2026-11-09T21:08:16.867378+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
@@ -9,8 +9,8 @@
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1984,
- "v2WouldChange": 23,
+ "v2Same": 1985,
+ "v2WouldChange": 22,
  "v2Examples": [
   {
    "name": "Andru Phillips",
@@ -104,14 +104,6 @@
    "name": "Michael Hall",
    "pos": "",
    "served": "11692",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
-  },
-  {
-   "name": "Nathan Carter",
-   "pos": "",
-   "served": "12897",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"

@@ -601,18 +601,7 @@ def test_offense_only_league_is_never_offered_a_defender(env):
     assert stream["lineup"]["slots"] == ["QB", "TE", "FLEX"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "FINDING W-4: in an OFFENSE-ONLY league (starting slots QB/TE/FLEX, no DL/LB/DB "
-        "slot) POST /api/waiver/streaming still lists Free LB and Free DL on streamingBoard "
-        "(soloLineupGainPoints=0.0, excluded=None, a $0 bid). The plan correctly stays "
-        "empty, but the board offers defenders no slot in this league can start, while "
-        "/api/waiver/suggestions, /perfect and /advisor refuse them as "
-        "position_not_started. src/waivers/streaming.py::_streaming_board filters on the "
-        "solver's solo-gain map, not on slot eligibility."
-    ),
-)
+# W-4: was a strict-xfail finding; fixed (streaming board filters on started slots).
 def test_finding_streaming_board_offers_no_defender_in_an_offense_only_league(env):
     env.load(_contract(positions=SLOTS_OFFENSE_ONLY))
     board = env.stream(dynastyBudget=100_000)["streamingBoard"]

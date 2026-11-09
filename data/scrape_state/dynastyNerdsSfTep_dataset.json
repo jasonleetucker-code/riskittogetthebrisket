@@ -184,14 +184,30 @@
      "rowsChanged": 246,
      "rowsRemoved": 1,
      "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-08T20:52:49Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-09T02:04:37Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
     }
    ],
-   "contentSince": "2026-11-07T13:40:15Z",
+   "contentSince": "2026-11-09T02:04:37Z",
    "fingerprint": "2d8ef2538b131cc8fb437113",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-16T14:34:45Z",
-   "lastAnyMeaningfulChangeAt": "2026-11-07T13:40:15Z",
-   "lastBroadDatasetChangeAt": "2026-11-07T13:40:15Z",
+   "lastAnyMeaningfulChangeAt": "2026-11-09T02:04:37Z",
+   "lastBroadDatasetChangeAt": "2026-11-09T02:04:37Z",
    "rowChangedAt": {},
    "rowCount": 285,
    "rowCountHistory": [
@@ -203,6 +219,8 @@
     294,
     294,
     294,
+    285,
+    285,
     285,
     285,
     285,

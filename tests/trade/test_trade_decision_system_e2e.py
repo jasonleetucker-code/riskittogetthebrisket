@@ -775,14 +775,6 @@ def test_a_partly_unpriced_package_is_marked_incomplete(env):
     assert ana["analysis"]["decision"]["headline"] == "NOT_ENOUGH_EVIDENCE"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "FINDING: /api/trade/simulate and /analyze list an on-board but UNPRICED player in "
-        "sending[]/receiving[] with value 0 (tier 'depth') — missing rendered as zero in the "
-        "asset record, even though the market lens separately flags unpricedOut/unpricedIn."
-    ),
-)
 def test_unpriced_asset_record_is_null_valued_not_zero(env):
     sim = env.trade("/api/trade/simulate", playersOut=["Us Ghost"], playersIn=["Them Ghost"])
     assert sim["sending"][0]["value"] is None
@@ -876,16 +868,6 @@ def test_finder_publishes_an_explicit_pick_policy(env):
     assert {"applied", "reason", "pickInclusiveReturned"} <= set(pg)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "FINDING: /api/trade/suggestions has no pick-policy contract key. Owner directive "
-        "2026-11-08 s21: 'Do not silently omit draft picks from decision engines that are intended "
-        "to evaluate total dynasty assets'; CLAUDE.md C7-PICKGEN-01 rule 5: picks enter generated "
-        "trades only through a posture-aware generator. Suggestions never offers or analyses picks "
-        "and metadata carries no `pickGeneration` (the finder's contract key) stating why."
-    ),
-)
 def test_suggestions_metadata_publishes_pick_generation(env):
     roster = [n for _p, n, _pos, _v in ROSTERS[1]]
     out = env.post(

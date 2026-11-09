@@ -919,7 +919,7 @@
       }
      },
      "tiers": {
-      "depth": 4,
+      "depth": 3,
       "elite": 0,
       "high": 0,
       "mid": 3
@@ -962,7 +962,7 @@
       }
      },
      "tiers": {
-      "depth": 3,
+      "depth": 2,
       "elite": 0,
       "high": 0,
       "mid": 4
@@ -1517,8 +1517,8 @@
       "displaced": [],
       "isValueDelta": false,
       "promoted": [],
-      "startersAfter": 5,
-      "startersBefore": 5
+      "startersAfter": 4,
+      "startersBefore": 4
      },
      "posture": null,
      "postureSource": "unavailable",
