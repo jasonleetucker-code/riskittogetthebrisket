@@ -6,6 +6,7 @@ No network, no live data.  Preregistration:
 
 from __future__ import annotations
 
+import json
 import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -393,8 +394,7 @@ def test_git_output_is_decoded_as_utf8(monkeypatch):
 
     def fake_run(cmd, **kwargs):
         seen.update(kwargs)
-        return SimpleNamespace(stdout="abc
-")
+        return SimpleNamespace(stdout=" abc ")
 
     monkeypatch.setattr(study.subprocess, "run", fake_run)
     assert study._git("rev-parse", "HEAD") == "abc"
@@ -451,3 +451,79 @@ def test_appeared_fit_rows_keep_only_appeared_priced_players(monkeypatch):
     rows = study.appeared_fit_rows(inputs, 10, asof)
     assert [(r.ros_value, r.points) for r in rows] == [(80.0, 12.5)]  # p2 unpriced, p3 did not play
     assert "injury_status" not in captured["p1"]
+
+
+# ── the real-run path, payload included, on synthetic weeks ─────────────────────────
+
+
+def _run_full_path(tmp_path, monkeypatch, fingerprint):
+    weeks = _synthetic_weeks()
+    realized = {w.week: w.realized for w in weeks.values()}
+    pairs = {w.week: w.pairs for w in weeks.values()}
+    past = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    directory_url = f"{study.SLEEPER}/players/nfl"
+
+    class _Fetcher:
+        def __init__(self, _cache_dir, offline):
+            assert offline is True  # no network unless asked
+            self.network_calls = 0
+            self.receipts = {
+                directory_url: {"cachedAtUtc": "2019-12-01T00:00:00Z", "sha256": "x", "bytes": 1}
+            }
+
+        def get_csv(self, _url, _path):
+            return []
+
+    inputs = study.Inputs(
+        card={},
+        fingerprint=study.PINNED_SCORING_FINGERPRINT,
+        schedule={},
+        directory={},
+        matchups={},
+        current_rosters=[],
+        stats={},
+        settings={"playoff_week_start": 15, "num_teams": 12},
+        games=[],
+    )
+    built = {
+        "weeks": {},
+        "conversions": {},
+        "fitRowsByWeek": {},
+        "realized": realized,
+        "pairs": pairs,
+    }
+    out_dir = tmp_path / "evidence"
+    monkeypatch.setattr(study, "OUT_DIR_2", out_dir)
+    monkeypatch.setattr(study.v1, "CachedFetcher", _Fetcher)
+    monkeypatch.setattr(study, "schedule_cache_path", lambda *_a, **_k: tmp_path / "games.csv")
+    monkeypatch.setattr(
+        study, "schedule_kickoffs", lambda _g: {w: (past, past) for w in study.HOLDOUT_2}
+    )
+    monkeypatch.setattr(study, "verify_freeze_2", lambda _k: {"freezeCommit": "x"})
+    monkeypatch.setattr(study, "load_inputs", lambda *_a, **_k: inputs)
+    monkeypatch.setattr(study, "assert_bodies_after_settlement", lambda *_a, **_k: None)
+    monkeypatch.setattr(study, "served_equation_fingerprint", lambda: fingerprint)
+    monkeypatch.setattr(study, "load_league_starter_slots", lambda _key: ["QB"])
+    monkeypatch.setattr(study, "build_study2_weeks", lambda *_a, **_k: (weeks, built))
+    assert study.main(["study2", "--cache-dir", str(tmp_path)]) == 0
+    return json.loads((out_dir / "evaluation.json").read_text(encoding="utf-8"))
+
+
+def test_the_full_run_writes_a_non_promoting_payload(tmp_path, monkeypatch, fast):
+    payload = _run_full_path(tmp_path, monkeypatch, study.SERVED_EQUATION_FINGERPRINT)
+    assert payload["promotes"] is False
+    assert payload["label"] == "SCREEN"
+    assert payload["directoryPointInTime"] is True
+    assert payload["holdout"]["decision"] == {"outcome": tp.OUTCOME_PROMOTE, "arm": "AFCO"}
+    assert payload["holdout"]["gateReferences"]["bestBaseline"]["crps"] is not None
+    assert set(payload["holdout"]["summaries"]) == set(study.ARMS_2)
+    assert payload["playoffLevel"]["state"] == "scored"
+    assert study.LEAGUE_ID not in json.dumps(payload)
+
+
+def test_a_served_equation_change_voids_the_full_run(tmp_path, monkeypatch, fast):
+    payload = _run_full_path(tmp_path, monkeypatch, "0" * 64)
+    assert payload["holdout"]["decision"] == {
+        "outcome": tp.OUTCOME_VOID,
+        "reasons": ["served_equation_changed_since_the_freeze"],
+    }
