@@ -80,6 +80,30 @@ Making the nightly measurable from the app needs a production change. Pick one:
 3. **Accept `unverifiable`.** Keep the warning. Verify the backup with the
    commands below after each deploy.
 
+## Restore proof and irreplaceable stores (backup-health.v4, MD-103)
+
+Two additive public fields, both able to say "unknown" and neither able to read as healthy by default.
+
+- `restoreProof` `{result, reason, completedAt, ageHours}`. The post-deploy proof
+  (`deploy/diagnostics/retention_backup_restore_proof.sh`) now leaves `data/diagnostics/backup_restore_proof.json`
+  (enumerated states and integers, no path; written by the same user that owns `data/`, so it needs no new privilege)
+  and the app reads it. `result`: `proven`, `proven_with_warnings`, `failed`, `could_not_run`, `running`,
+  `interrupted` (a `running` marker older than 1 h: the run died), `stale` (a pass older than 168 h, a declared
+  prior), `unverifiable` (a future stamp), `unknown` (never ran, or the file is unreadable). A host where the file
+  cannot be written reads `unknown`.
+- `stateBackup.irreplaceableLedgers` `{coverage, uncoveredCount, unverifiableCount, partialCount}`. Per store in
+  `backup_health.IRREPLACEABLE_STORES` (temporal ledger, analyst ledger, intel ledger, learning receipts, Game Day,
+  forecast archive, pick-forecast snapshots, KTC market-trade archive, injury history, news archive, the three
+  retention stores, board history, rank history) the newest generation either holds it, or it is `missing` (the
+  source exists on this host and the artifact does not), or the writer recorded it as `failed` /
+  `skipped_low_space` / `skipped_space_unmeasurable`. A store whose source does not exist on this host is
+  `absent_by_design` and does not count. The proof's own `skipped_requested` reads `partial`, not `uncovered`.
+  The names stay in the on-box detail (`python -m src.api.backup_health`) and in the operator alert email.
+
+Until the operator makes the root-only state root listable (section above), the app cannot see a generation at all, so
+`irreplaceableLedgers.coverage` reads `unverifiable`: not measured, not covered. The proof result does not depend on
+that and is visible as soon as the next post-deploy proof runs.
+
 ## Production-only actions (owner or operator; agents have no box access)
 
 Read-only confirmation commands. Each one changes nothing:

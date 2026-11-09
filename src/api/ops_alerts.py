@@ -17,6 +17,13 @@ when any of these conditions hold:
     * Roster Construction's CURRENT season withheld because its lineup rules
       are contradicted by the host's own matchups (owner decision D2; one
       alert per league + season)
+    * An irreplaceable store the newest backup generation does not hold while
+      its source exists on this host, or one the writer recorded as failed or
+      shed (one alert per store), and a post-deploy restore proof that failed,
+      could not run or died mid-way (``src/api/backup_health.py``)
+    * A shipped ``dynasty-*`` / ``riskit-*`` systemd service in the ``failed``
+      state -- a timer whose latest run failed (``src/api/systemd_failures.py``;
+      one alert per unit)
 
 Cooldown: each alert class has a 4-hour re-alert cooldown keyed
 on the synthetic user ``_system_ops_alerts`` in user_kv so the
@@ -267,6 +274,79 @@ def _check_roster_construction(rows: list[dict[str, Any]]) -> list[OpsAlert]:
             )
         )
     return alerts
+
+
+def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
+    """Irreplaceable-store coverage and the restore proof, from ``alert_rows``.
+
+    One alert per uncovered store, keyed ``backup_ledger:<store>``, and one for
+    the proof keyed ``backup_restore_proof``.  The email goes to the operator, so
+    it names the store (the public ``/api/health`` block never does).  A store
+    that does not exist on this host never reaches here -- ``absent_by_design``
+    is not a finding.
+    """
+    alerts: list[OpsAlert] = []
+    for row in (block or {}).get("rows") or []:
+        if not isinstance(row, dict):
+            continue
+        if row.get("kind") == "ledger":
+            store, status = row.get("store"), row.get("status")
+            alerts.append(
+                OpsAlert(
+                    severity="critical" if row.get("writerClass") == "core" else "warning",
+                    category=f"backup_ledger:{store}",
+                    title=f"Backup does not hold irreplaceable store {store} ({status})",
+                    detail=(
+                        f"The newest state-backup generation has no copy of {store}, but the "
+                        f"store exists on this host (status: {status}).  It cannot be "
+                        "rebuilt from anything else.  Check the nightly unit "
+                        "(`sudo journalctl -u riskit-state-backup.service`), disk space, "
+                        "and that the root-owned writer copy is current "
+                        "(deploy/apply_hardening.sh refreshes it)."
+                    ),
+                )
+            )
+        elif row.get("kind") == "restore_proof":
+            result = row.get("result")
+            alerts.append(
+                OpsAlert(
+                    severity="critical" if result == "failed" else "warning",
+                    category="backup_restore_proof",
+                    title=f"Backup restore proof did not pass ({result})",
+                    detail=(
+                        f"The post-deploy restore proof reports {result} "
+                        f"(completed {row.get('completedAt') or 'never'}, "
+                        f"{row.get('failures')} failed artifact(s)).  A backup that "
+                        "does not restore is not a backup: read the "
+                        "`Retention backup + restore proof` workflow run."
+                    ),
+                )
+            )
+    return alerts
+
+
+def _check_failed_units(units: list[str] | None) -> list[OpsAlert]:
+    """One alert per shipped systemd service whose latest run failed.
+
+    Keyed ``systemd_unit:<unit>`` so cooldown and recovery are per unit.  A
+    oneshot service stays ``failed`` until its next successful run, so the
+    recovery notice fires when that run succeeds.  ``None`` from the sweep is
+    "not checked" (see ``check_and_alert``), never "no failures".
+    """
+    return [
+        OpsAlert(
+            severity="warning",
+            category=f"systemd_unit:{unit}",
+            title=f"systemd unit {unit} is in the failed state",
+            detail=(
+                f"The latest run of {unit} exited non-zero or timed out, and it has not "
+                f"succeeded since.  Read why with: sudo journalctl -u {unit} -n 80 --no-pager.  "
+                f"Clear it by fixing the cause and letting the timer fire "
+                f"(sudo systemctl start {unit} to run it now)."
+            ),
+        )
+        for unit in (units or [])
+    ]
 
 
 def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
@@ -700,6 +780,8 @@ def check_and_alert(
     draft_valuation: list[dict[str, Any]] | None = None,
     pregame_archive: list[dict[str, Any]] | None = None,
     roster_construction: list[dict[str, Any]] | None = None,
+    backup_coverage: dict[str, Any] | None = None,
+    failed_units: list[str] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     kv_path: Any = None,
@@ -722,6 +804,8 @@ def check_and_alert(
     alerts.extend(_check_draft_valuation(draft_valuation or []))
     alerts.extend(_check_pregame_archive(pregame_archive or []))
     alerts.extend(_check_roster_construction(roster_construction or []))
+    alerts.extend(_check_backup_coverage(backup_coverage))
+    alerts.extend(_check_failed_units(failed_units))
 
     active_categories = {a.category for a in alerts}
     now = time.time()
@@ -736,6 +820,16 @@ def check_and_alert(
     if roster_construction is None:
         # Not checked (flag lookup or snapshot failed) is UNKNOWN, not recovered.
         active_categories |= {c for c in state if str(c).startswith("roster_construction:")}
+
+    if failed_units is None:
+        # systemctl could not be asked: UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c).startswith("systemd_unit:")}
+    # An unjudgeable half (unreadable state root, a proof that has not reported,
+    # or no backup pass at all) is UNKNOWN, not recovered.
+    if not (backup_coverage or {}).get("ledgersChecked"):
+        active_categories |= {c for c in state if str(c).startswith("backup_ledger:")}
+    if not (backup_coverage or {}).get("proofChecked"):
+        active_categories |= {c for c in state if str(c) == "backup_restore_proof"}
 
     # Recovery alerts first — for conditions that were firing but
     # aren't now.
