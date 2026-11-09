@@ -63,6 +63,13 @@ ignore = ["E501"]
 # No overrides — deterministic output is what makes the CI check safe
 # to hard-block once the sweep has landed.
 
+[tool.pytest.ini_options]
+# An xfail that starts passing must fail the run, so a repaired defect cannot
+# hide as a quiet XPASS.  Every xfail in tests/ already carries strict=True
+# (the one that did not was made strict 2026-11-08); this makes that the
+# default for any new one.  Opt out per test with strict=False and a reason.
+xfail_strict = true
+
 [tool.mypy]
 # Scaffold only — no CI step runs mypy until phase A4, which ratchets
 # strictness in per-module via [[tool.mypy.overrides]].
