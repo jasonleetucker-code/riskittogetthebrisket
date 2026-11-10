@@ -1,0 +1,71 @@
+{
+  "source_key": "draftSharksRosSf",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-11-10T04:25:48.883802+00:00",
+  "completed_at": "2026-11-10T04:25:48.884770+00:00",
+  "player_count": 232,
+  "diagnostics": {
+    "sourceMode": "ros",
+    "groupsServedByOtherKey": {
+      "IDP": "draftSharksRosIdp"
+    }
+  },
+  "source_id": "draftSharksRosSf",
+  "source_name": "Draft Sharks ROS Superflex",
+  "source_url": "https://www.draftsharks.com/rankings/rest-of-season",
+  "source_type": "ros",
+  "scoring_format": "ppr",
+  "is_superflex": true,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": true,
+  "is_dynasty": false,
+  "is_projection_source": true,
+  "stale_after_hours": 24,
+  "kept_previous": null,
+  "kept_previous_rows": null,
+  "content_hash": "f9d99f33eb6a5fdafaa6bb9fe782e98571a35b3f9e4f24e2d5ade86489f6182d",
+  "content_state": "changed",
+  "content_first_observed_at": "2026-10-26T21:17:54.002733+00:00",
+  "last_content_change": "2026-11-10T04:25:48.884770+00:00",
+  "rank_basis": {
+    "basisDeclared": true,
+    "bases": [
+      {
+        "basis": "draftsharks:ros-superflex",
+        "rows": 232,
+        "totalRanked": [
+          250
+        ],
+        "groups": {
+          "KICKER": 21,
+          "OFFENSE": 211
+        }
+      }
+    ],
+    "groupCoverage": {
+      "KICKER": 21,
+      "OFFENSE": 211
+    },
+    "groupBases": {
+      "KICKER": [
+        "draftsharks:ros-superflex"
+      ],
+      "OFFENSE": [
+        "draftsharks:ros-superflex"
+      ]
+    },
+    "mixedRankBasis": false,
+    "groupsSplitAcrossBases": [],
+    "issues": [],
+    "transitionIssues": [],
+    "adapterIssues": [],
+    "baseline": false,
+    "groupsServedByOtherKey": {
+      "IDP": "draftSharksRosIdp"
+    }
+  },
+  "source_mode": "ros"
+}
