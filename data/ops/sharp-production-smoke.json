@@ -8,12 +8,12 @@
     "type": "Unauthenticated"
   },
   "lastMeasuredOn": null,
-  "lastObservedAt": "2026-11-09T21:41:22.847159+00:00",
-  "lastObservedOn": "2026-11-09",
+  "lastObservedAt": "2026-11-10T06:27:58.124934+00:00",
+  "lastObservedOn": "2026-11-10",
   "lastRun": {
     "attempts": 1,
     "deployConclusion": "pending",
-    "deployHeadSha": "7017c712687f79fe9007de424a9204c4c9615640",
+    "deployHeadSha": "b5697c6f84a5110f4ffe045d30b867842b9884c8",
     "deployRunId": "",
     "event": "push"
   },
