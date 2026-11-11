@@ -1,10 +1,10 @@
 name,rank,value,position,team
 Josh Allen,1.17,,QB1,BUF
 Jaxon Smith-Njigba,2.67,,WR1,SEA
-Ja'Marr Chase,4.67,,WR2,CIN
+Ja'Marr Chase,4.50,,WR2,CIN
 Jahmyr Gibbs,5.17,,RB1,DET
-Bijan Robinson,6.67,,RB2,ATL
-Puka Nacua,7.33,,WR3,LAR
+Bijan Robinson,6.50,,RB2,ATL
+Puka Nacua,7.67,,WR3,LAR
 Caleb Williams,8.83,,QB2,CHI
 Lamar Jackson,9,,QB3,BAL
 CeeDee Lamb,9,,WR4,DAL
@@ -12,7 +12,7 @@ Amon-Ra St. Brown,9.17,,WR5,DET
 Drake Maye,10.33,,QB4,NE
 Joe Burrow,13.50,,QB5,CIN
 Brock Bowers,13.83,,TE1,LV
-Malik Nabers,14.33,,WR6,NYG
+Malik Nabers,14.50,,WR6,NYG
 Trey McBride,17.17,,TE2,ARI
 Justin Jefferson,18.33,,WR7,MIN
 Drake London,18.50,,WR8,ATL
@@ -20,8 +20,8 @@ Kenneth Walker,18.67,,RB3,KC
 Jayden Daniels,19.17,,QB6,WAS
 Patrick Mahomes,20,,QB7,KC
 Brock Purdy,22.33,,QB8,SF
+Trevor Lawrence,22.67,,QB9,JAC
 Ashton Jeanty,22.67,,RB4,LV
-Trevor Lawrence,22.83,,QB9,JAC
 Zay Flowers,23.17,,WR9,BAL
 Tetairoa McMillan,23.33,,WR10,CAR
 Nico Collins,26.17,,WR11,HOU
