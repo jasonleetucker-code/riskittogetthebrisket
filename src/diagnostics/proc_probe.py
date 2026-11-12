@@ -60,8 +60,13 @@ _BROWSER_BASENAMES = frozenset(
     }
 )
 #: /proc/<pid>/stat ``comm`` is truncated to 15 chars by the kernel.
+# ``comm`` is the kernel's TASK_COMM_LEN name: 15 visible characters, so the
+# headless shell Playwright launches (``chrome-headless-shell``) reads
+# ``chrome-headless``.  The previous 16-character ``chrome-headless-`` could
+# never match, and the count read 0 while Chromium ran (2026-11-12: 76 service
+# pids, ``chromium_processes`` 0).  ``chromium-browse`` is the same truncation.
 _BROWSER_COMMS = frozenset(
-    {"chrome", "chromium", "chromium-browse", "headless_shell", "chrome-headless-"}
+    {"chrome", "chromium", "chromium-browse", "headless_shell", "chrome-headless"}
 )
 
 

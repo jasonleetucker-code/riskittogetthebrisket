@@ -126,6 +126,24 @@ def test_no_high_limit_and_no_events_are_unknown_not_zero(fake):
     assert d["cgroup_memory_file_mib"] is None
 
 
+def test_the_headless_shell_counts_by_its_kernel_name(fake):
+    """Playwright's headless browser is ``chrome-headless-shell``; the kernel
+    keeps 15 characters of a process name, so ``comm`` reads
+    ``chrome-headless`` (measured with the installed Playwright build)."""
+    proc, svc, _ = fake
+    shell = proc / "4400"
+    shell.mkdir()
+    (shell / "stat").write_text(f"4400 (chrome-headless) S {SELF} 0 0\n", encoding="utf-8")
+    (shell / "cmdline").write_bytes(
+        b"/r/ms-playwright/chromium_headless_shell-1/chrome-headless-shell\0--headless"
+    )
+    (shell / "cgroup").write_text("0::/system.slice/dynasty.service\n", encoding="utf-8")
+    (svc / "cgroup.procs").write_text("4000\n4100\n4200\n4300\n4400\n", encoding="utf-8")
+    d = proc_probe.service_diagnostics(SELF, tmp_dir=str(svc), shm_dir=str(svc))
+    assert d["chromium_processes"] == 3  # 4100, the reparented 4200, and 4400
+    assert proc_probe.read_comm(4400) in proc_probe._BROWSER_COMMS
+
+
 def test_diagnostics_never_raise_without_proc(monkeypatch, tmp_path):
     monkeypatch.setattr(proc_probe, "PROC_ROOT", str(tmp_path / "nope"))
     d = proc_probe.service_diagnostics(SELF)
