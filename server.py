@@ -1783,6 +1783,48 @@ def _box_diagnostics(timeout: float | None = None) -> dict:
         return _proc_probe.empty_service_diagnostics()
 
 
+_LIBC_MALLOC_TRIM = None  # resolved lazily; False when unavailable (non-glibc)
+
+
+def _release_freed_heap() -> dict:
+    """Hand freed glibc heap back to the OS (``malloc_trim(0)``).  Never raises.
+
+    Each scrape cycle builds and drops several copies of a ~4 MB contract
+    (views, gzip variants, overlays); glibc keeps the freed pages in its
+    arenas, so RSS ratchets toward the peak and the service cgroup creeps
+    up to ``MemoryHigh``, where the kernel throttles everything in it
+    (website audit WA-05: Chromium could no longer launch).  Measured
+    2026-11-12 over 14 replayed publish cycles: live Python objects constant
+    (330,466 every cycle, no leak); RSS plateau 684 MB without a trim, 498 MB
+    with one after each cycle.  A trim is not a substitute for finding a
+    leak, and none was found; it returns memory the process no longer uses.
+
+    Returns ``{"available", "rssBeforeMib", "rssAfterMib"}``; the RSS fields
+    are ``None`` when unreadable.  Call off the event loop.
+    """
+    global _LIBC_MALLOC_TRIM
+    out: dict = {"available": False, "rssBeforeMib": None, "rssAfterMib": None}
+    try:
+        if _LIBC_MALLOC_TRIM is None:
+            try:
+                import ctypes  # noqa: PLC0415
+
+                _LIBC_MALLOC_TRIM = ctypes.CDLL("libc.so.6").malloc_trim
+            except (OSError, AttributeError):
+                _LIBC_MALLOC_TRIM = False
+        if _LIBC_MALLOC_TRIM is False:
+            return out
+        before = _proc_probe.process_rss_kb(os.getpid())
+        _LIBC_MALLOC_TRIM(0)
+        after = _proc_probe.process_rss_kb(os.getpid())
+        out["available"] = True
+        out["rssBeforeMib"] = None if before is None else int(before) // 1024
+        out["rssAfterMib"] = None if after is None else int(after) // 1024
+    except Exception:  # noqa: BLE001 -- best-effort; never break a scrape
+        pass
+    return out
+
+
 def _box_diagnostics_for_status() -> dict:
     return _box_diagnostics(_BOX_PROBE_STATUS_TIMEOUT_SEC)
 
@@ -3765,6 +3807,13 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     reaped=_pre_reaped,
                     box=_pre_box,
                 )
+            # Headroom below the cgroup's MemoryHigh before Chromium launches.
+            _record_scrape_event(
+                "scrape_prelaunch_heap_release",
+                level="info",
+                message="malloc_trim before launch",
+                **(await run_in_threadpool(_release_freed_heap)),
+            )
             _update_scrape_progress(
                 step="bootstrap",
                 source="import_scraper",
@@ -4167,6 +4216,8 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # hiccup leaves the last observation in place, never blocks.
             await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
+            # The publish is this cycle's allocation peak; return what it freed.
+            await run_in_threadpool(_release_freed_heap)
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 
