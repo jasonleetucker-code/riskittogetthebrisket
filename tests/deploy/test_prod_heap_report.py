@@ -130,6 +130,40 @@ def test_sections_follow_the_highest_rss_process():
     assert "src.x.CLIMBER" in section and "src.y.FRESH" not in section
 
 
+def test_the_census_at_the_peak_is_printed_beside_the_latest():
+    """Production 2026-11-12 21:07: the census at 2,151 MiB held the burst
+    (2.1 M tracked objects); 15 min later the latest held 0.6 M.  Both
+    must be readable, and type growth must run to the peak."""
+    base = json.loads(_real_records().splitlines()[0])
+
+    def rec(ts, rss, count):
+        r = json.loads(json.dumps(base))
+        r.update(pid=7, ts=ts, process_rss_mib=rss, reason="periodic_high_rss")
+        r["types"] = {
+            "tracked_objects": count,
+            "top": [{"type": "dict", "count": count, "mib": 1.0}],
+        }
+        return r
+
+    lines = [
+        rec("2026-11-12T20:52:37+00:00", 535, 100),
+        rec("2026-11-12T21:07:42+00:00", 2151, 9000),
+        rec("2026-11-12T21:22:57+00:00", 1779, 300),
+    ]
+    res = _filter("\n".join(json.dumps(r) for r in lines) + "\n")
+    assert res.returncode == 0, res.stderr
+    out = res.stdout
+    assert (
+        "== type census at peak 2026-11-12T21:07:42 (periodic_high_rss) rss=2151 objects=9000"
+        in out
+    )
+    assert (
+        "== type census latest 2026-11-12T21:22:57 (periodic_high_rss) rss=1779 objects=300" in out
+    )
+    assert "to the peak census" in out
+    assert "d_count=+8900" in out
+
+
 def test_tampered_lines_cannot_carry_text():
     rec = json.loads(_real_records().splitlines()[-1])
     rec["reason"] = f"periodic {SECRET}"  # not an identifier: whole record dropped

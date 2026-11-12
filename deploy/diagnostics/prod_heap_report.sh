@@ -170,9 +170,14 @@ if full and (full[-1]["in_use"] + full[-1]["free"]) > 0:
         lf["ts"], f(lf["pid"]), f(lf["in_use"]), f(lf["free"]), share, f(lf["mmap"]), f(other_anon(lf)), f(lf["arenas"])))
 
 typed = [r for r in records if r["types"] is not None and r["pid"] == focus]
-if typed:
-    t = typed[-1]
-    print("\n== type census %s (%s) objects=%s census_ms=%s ==" % (t["ts"], t["reason"], f(t["tracked"]), f(t["census_ms"])))
+# The census taken at the highest RSS shows what the peak was made of; the
+# latest shows what stayed.  Both are printed when they differ.
+peak_typed = max(typed, key=lambda r: -1 if r["rss"] is None else r["rss"]) if typed else None
+for label, t in (("at peak", peak_typed), ("latest", typed[-1] if typed else None)):
+    if t is None or (label == "latest" and t is peak_typed):
+        continue
+    print("\n== type census %s %s (%s) rss=%s objects=%s census_ms=%s ==" % (
+        label, t["ts"], t["reason"], f(t["rss"]), f(t["tracked"]), f(t["census_ms"])))
     for tname, n_objects, mib in t["types"][:20]:
         print("  %-40s count=%-9d mib=%s" % (tname, n_objects, mib))
 skipped = [r for r in records if r["deep_skipped"] and r["pid"] == focus]
@@ -201,8 +206,11 @@ if walked:
         print("  %-70s %-10s len=%d" % (cname, kind, length))
 
 if len(typed) >= 2:
-    a, b = typed[0], typed[-1]
-    print("\n== growth by type, %s -> %s (pid %s) ==" % (a["ts"], b["ts"], f(b["pid"])))
+    # To the peak census when it is not the first one, else to the latest.
+    a = typed[0]
+    b = peak_typed if peak_typed is not a else typed[-1]
+    print("\n== growth by type, %s -> %s (pid %s, %s) ==" % (
+        a["ts"], b["ts"], f(b["pid"]), "to the peak census" if b is peak_typed else "to the latest census"))
     before = {n: (c, m) for n, c, m in a["types"]}
     rows = []
     for n, c, m in b["types"]:
