@@ -48,6 +48,7 @@ import {
   computeHistorySeries,
   computeRosterBreakdown,
   createDefaultWorkspace,
+  isWorkspaceReady,
   cycleTag,
   draftReviewToCsv,
   hydrateWorkspace,
@@ -3478,6 +3479,12 @@ export default function DraftDashboardPage() {
     idp: new Map(),
   });
   const [hydrated, setHydrated] = useState(false);
+  // WHICH storage key the current `workspace` was hydrated from.  `hydrated`
+  // alone cannot say whether the workspace belongs to the ACTIVE league: it is
+  // already true when the league resolves, and for one render the workspace is
+  // still the previous (placeholder) one.  Consumers that must not act on the
+  // placeholder compare this to `draftStorageKey` — see `workspaceReady`.
+  const [hydratedKey, setHydratedKey] = useState("");
   const [modalPlayer, setModalPlayer] = useState(null);
   const [showDrafted, setShowDrafted] = useState(false);
   const [query, setQuery] = useState("");
@@ -3597,7 +3604,12 @@ export default function DraftDashboardPage() {
       /* ignore */
     }
     setHydrated(true);
+    setHydratedKey(draftStorageKey);
   }, [draftStorageKey]);
+  // The workspace in state is the ACTIVE league's own: its league is resolved
+  // and it was hydrated from that league's storage key.  Before this, the
+  // workspace is `createDefaultWorkspace()` (first team "Russini Panini").
+  const workspaceReady = isWorkspaceReady({ selectedLeagueKey, hydratedKey, draftStorageKey });
 
   // Persist on every change.
   useEffect(() => {
@@ -5028,7 +5040,11 @@ export default function DraftDashboardPage() {
       </div>
 
       <Suspense fallback={null}>
-        <PerfectDraftPanel stats={stats} workspace={workspace} />
+        <PerfectDraftPanel
+          stats={stats}
+          workspace={workspace}
+          workspaceReady={workspaceReady}
+        />
       </Suspense>
 
       <RookieBoard

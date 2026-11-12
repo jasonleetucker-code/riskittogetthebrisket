@@ -741,3 +741,46 @@ describe("expectedPrice — an estimate, never an invented floor", () => {
     expect(expectedPrice({ inflatedFair: -3 })).toBeNull();
   });
 });
+
+describe("roster context is not requested for the placeholder workspace", () => {
+  const placeholder = {
+    settings: { myTeamIdx: 0 },
+    teams: [{ name: "Russini Panini" }, { name: "Beta" }],
+  };
+
+  it("sends no request before the active league's workspace has hydrated, then asks for the real team", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+    const { rerender } = render(
+      <PerfectDraftPanel stats={STATS} workspace={placeholder} workspaceReady={false} />,
+    );
+    // Give any (wrongly) scheduled effect a chance to fire.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(fetch).not.toHaveBeenCalled();
+
+    // League resolves, the real workspace hydrates: one request, real team.
+    rerender(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} workspaceReady />);
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const url = String(fetch.mock.calls[0][0]);
+    expect(url).toContain("teamName=Alpha");
+    expect(url).not.toContain("Russini");
+  });
+
+  it("still refetches when the workspace's team changes after it is ready", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+    const { rerender } = render(
+      <PerfectDraftPanel stats={STATS} workspace={WORKSPACE} workspaceReady />,
+    );
+    await screen.findByRole("table");
+    rerender(
+      <PerfectDraftPanel
+        stats={STATS}
+        workspace={{ settings: { myTeamIdx: 1 }, teams: WORKSPACE.teams }}
+        workspaceReady
+      />,
+    );
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining("teamName=Beta"), expect.anything()),
+    );
+  });
+});

@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  isWorkspaceReady,
   DEFAULT_AGGRESSION,
   DEFAULT_ENFORCE_PCT,
   DEFAULT_TEAMS,
@@ -3021,5 +3022,20 @@ describe("computeRosterBreakdown", () => {
     // QB is met (1/1), RB is short (0/2).
     expect(br.needPositions).toEqual(["RB"]);
     expect(br.counts.TE).toBeUndefined(); // TE not in custom mins
+  });
+});
+
+describe("isWorkspaceReady", () => {
+  const key = "riskit_draft_workspace_v1__dynasty_main";
+  it("is false until a league is resolved", () => {
+    expect(isWorkspaceReady({ selectedLeagueKey: "", hydratedKey: "legacy", draftStorageKey: "legacy" })).toBe(false);
+  });
+  it("is false while the workspace in state was hydrated for a different storage key", () => {
+    // Cold load: hydrated from the legacy key, league just resolved.
+    expect(isWorkspaceReady({ selectedLeagueKey: "dynasty_main", hydratedKey: "legacy", draftStorageKey: key })).toBe(false);
+    expect(isWorkspaceReady({ selectedLeagueKey: "dynasty_main", hydratedKey: "", draftStorageKey: key })).toBe(false);
+  });
+  it("is true once the active league's own workspace has hydrated", () => {
+    expect(isWorkspaceReady({ selectedLeagueKey: "dynasty_main", hydratedKey: key, draftStorageKey: key })).toBe(true);
   });
 });

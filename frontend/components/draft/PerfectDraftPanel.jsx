@@ -93,7 +93,7 @@ export function expectedPrice(p) {
   return null;
 }
 
-export function PerfectDraftPanel({ stats, workspace }) {
+export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
   // `myTeamIdx` lives under `settings` — every other reader in the app uses
   // `workspace.settings.myTeamIdx` (draft-logic.js, page.jsx). Reading it off
   // the root returned undefined, so `myTeamName` was always "", the roster
@@ -127,8 +127,15 @@ export function PerfectDraftPanel({ stats, workspace }) {
   // Live bidding: which rookie is on the block, and where the bidding is now.
   const [bidTarget, setBidTarget] = useState("");
   const [bidAmount, setBidAmount] = useState("");
+  // `workspaceReady` is the draft page's signal that `workspace` is the active
+  // league's own, hydrated one.  Until then its first team is the placeholder
+  // "Russini Panini": the root-cause fix for the `unknown_team` 400 is to send
+  // no request at all in that window (the override/follow logic above then
+  // only has real names to follow).  Defaults true so a caller without the
+  // signal behaves as before.
   const { teams, context, failure, loading, refetch } = useRosterContext({
     teamName,
+    enabled: workspaceReady,
   });
 
   // An explicit pick belongs to the league it was made in. Carrying it across

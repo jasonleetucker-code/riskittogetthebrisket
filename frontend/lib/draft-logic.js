@@ -300,6 +300,21 @@ export function playerSlug(name) {
  * Build a pristine default workspace.  Called on first visit and when
  * the user clicks "Reset".
  */
+/**
+ * Is the workspace in state the ACTIVE league's own, hydrated one?
+ *
+ * Before it is, the workspace is `createDefaultWorkspace()` — a placeholder
+ * whose first team ("Russini Panini") is not in any league — and anything that
+ * sends a team name to the backend would ask for a team that does not exist
+ * (`unknown_team` 400).  Needs BOTH a resolved league (`useLeague()` reports
+ * none until /api/leagues answers) AND that the hydration that ran was for the
+ * current storage key: `hydrated` alone is already true when the league
+ * resolves, while the workspace is still the previous one for a render.
+ */
+export function isWorkspaceReady({ selectedLeagueKey, hydratedKey, draftStorageKey }) {
+  return Boolean(selectedLeagueKey) && Boolean(draftStorageKey) && hydratedKey === draftStorageKey;
+}
+
 export function createDefaultWorkspace() {
   return {
     version: 1,
