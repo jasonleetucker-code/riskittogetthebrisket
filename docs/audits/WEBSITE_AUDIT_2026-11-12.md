@@ -88,3 +88,62 @@ suite's write-guard catching my own mid-run backend restart; all 12 pass re-run 
 branch is good: no crash, no 500, no layout overflow, auth boundaries hold, and the trade package math matches an
 independent oracle. Once this PR merges and deploys and scraping recovers, the verdict would be **READY WITH
 NONCRITICAL ISSUES** (WA-06 … WA-11), subject to production verification of WA-00, WA-01 and WA-05.
+
+## 7. Second pass — owner follow-up, 2026-11-12
+
+The owner authorized finishing every repair, including the four frontend findings (overriding the 2026-11-08 frontend
+exclusion for exactly these items). PR #2188 (WA-00 … WA-04) merged as `1ac74809` after green PR Validation (8 shards),
+E2E Safety Net (Chromium + WebKit), Receipt and L0, and an independent review (approve; its two non-blocking notes are
+WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_content` on the loop, which is fast).
+
+### 7.1 Status of every finding
+
+| ID | Status | Where fixed | Evidence |
+|---|---|---|---|
+| WA-00 | Fixed, merged | #2188 | shard 4/8 green on the PR; production deploy: see §7.4 |
+| WA-01 | Fixed, merged | #2188 | red/green test; production check: see §7.4 |
+| WA-02 | Fixed, merged | #2188 | red/green test |
+| WA-03 | Fixed, merged | #2188 | E2E Safety Net green (Chromium + WebKit) |
+| WA-04 | Fixed, merged | #2188 | 9 fail without the redirect, all pass with it |
+| WA-05 | Root cause found; fixed in follow-up PR; production recovery pending | follow-up | §7.2 |
+| WA-06 | Fixed | follow-up | `tests/api/test_more_handlers_off_event_loop.py`: 2 fail on `main`, 6/6 pass |
+| WA-07 | Fixed | follow-up | same file (custom-alerts sweep incl. SMTP and push in the threadpool) |
+| WA-08 | Fixed | follow-up | 48 per-segment server `layout.js` + `lib/page-metadata.js` (labels from `nav-model.js`); `__tests__/page-titles.test.js` walks every page |
+| WA-09 | Not a defect | — | the crawl's hit is "Import slate" inside a closed `<details>`: `innerText` is empty there, the accessible name is correct; no icon-only unnamed button in `components/dfs` |
+| WA-10 | Fixed | follow-up | `team_required` copy on `/rosters` and the same leak on `/phases` (`TeamPhasePanel`) |
+| WA-11 | Fixed | follow-up | `/draft` requests roster context only once the league's workspace has hydrated (`isWorkspaceReady`) |
+| WA-12 | Fixed (new) | follow-up | monitoring gap: `box_resources` did not show `memory.high`, so throttling was invisible |
+| WA-13 | Fixed (new) | follow-up | stale-data banner promised "should land soon" while refreshes were failing |
+| WA-14 | Fixed (new) | follow-up | WA-00 oracle could flip on an integer-rounding boundary (1 of 1,578 rows inside the margin over 8 archives) |
+
+### 7.2 WA-05 root cause: the scraper hang
+
+- `deploy/systemd/dynasty.service.template` sets `MemoryHigh=2560M`, `MemoryMax=3G`. Production read
+  `cgroup_memory_current_mib` 2571-2607 throughout the failure: above `memory.high`, where the kernel throttles every
+  process in the cgroup (forced reclaim, sleep penalties) instead of killing one. The first launch failure (23:27 UTC)
+  came ~10.5 h after the process started (12:49 UTC).
+- Chromium launch and the Playwright driver start had no Python-side deadline. Playwright's 180 s launch timeout is
+  enforced by its Node driver, so a throttled driver never fires it: each run sat at `browser/launch` until the 2 h
+  run timeout. Reproduced through the real `run()` with a stalled driver: the original code hung until the outer cap;
+  the bounded code raised `TimeoutError` at the configured deadline.
+- **Fixes:** Python-side deadlines on the driver start (120 s) and the launch (240 s, past Playwright's own 180 s;
+  env-tunable), pinned by `tests/api/test_scraper_launch_deadline.py` (fails on the old file, naming both calls);
+  `malloc_trim(0)` before each run and after each publish (§7.3); the new diagnostics fields (WA-12).
+
+### 7.3 Memory investigation
+
+Measured locally by replaying the publish path (`_prime_latest_payload`) with the committed board, each cycle on a
+fresh thread, as production does:
+
+| Experiment | Result |
+|---|---|
+| Re-import the scraper module 6x | one live module object every time; RSS plateau ~236 MB: ruled out |
+| 14 publish cycles, default malloc | live Python objects constant at 330,466 from cycle 2; threads back to 1; RSS 393 -> 684 MB, plateau from cycle 10 |
+| 14 cycles, `malloc_trim(0)` after each | objects constant; RSS plateau 498 MB (-186 MB, -27 %) |
+| 8 cycles, `MALLOC_ARENA_MAX=2` (first harness, serving flag unset: not comparable) | RSS 277-474 MB vs 291-557 MB default in the same harness; not pursued |
+| tracemalloc without the serving flag | `trade-analysis-warm` threads accumulated while waiting on `_SERVING_STARTED`: an artifact of the harness, gone once the flag is set |
+
+Conclusion: no reference leak in the publish path; RSS growth is allocator high-water, which a trim reduces. The
+production split between process RSS, page cache and Chromium is not observable from outside; `process_rss_mib` and
+`cgroup_memory_high_mib` (WA-12) make it observable once deployed. Not done: changing `MemoryHigh` / `MemoryMax` or
+adding scheduled restarts (both would hide, not fix).
