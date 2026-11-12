@@ -132,6 +132,8 @@ Out of scope for E-1, so not measured here. Lane A's local p50 figures are the o
 
 ### F1 — HIGH (launch-relevant; pre-existing, not caused by the multi-team lanes): every 2028/2029 league pick is unevaluable
 
+> **Resolved 2026-11-12** — `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md`. TC-19 / TC-21 already answered the owner question below; Check 5 now judges a derived or tethered pick by its basis.
+
 * **What happens.** Every league pick in a future season resolves, correctly, to the GENERIC board row (`boardRowName: "2028 Round 1"`, slot unknown). On the archived board, all twelve generic rows `2028 Round 1..6` and `2029 Round 1..6` carry `quarantined: true` and `anomalyFlags: ["no_valid_source_values"]`. Their provenance is `derived_uniform_tier_ev`, so they have no `canonicalSiteValues`, and `data_contract` Check 5 flags them.
 * **The market-priced rows are fine.** The tier rows (`2028 Mid 1st` 4,631, `2029 Mid 1st` 4,087; `direct_market_blend`) are not quarantined.
 * **Effect on results.** The decision owner's `quarantined_values` gate fires for any team that sends or receives such a pick. That team is UNABLE and NOT_ENOUGH_EVIDENCE in every surface. By I4 this includes the existing 2-team War Room on main: same code path, byte-equal.
