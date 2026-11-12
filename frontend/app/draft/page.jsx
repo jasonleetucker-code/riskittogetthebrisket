@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
+import { useTeam } from "@/components/useTeam";
 import {
   createDraftCapitalLoader,
   draftContractUrl,
@@ -48,6 +49,7 @@ import {
   computeHistorySeries,
   computeRosterBreakdown,
   createDefaultWorkspace,
+  isWorkspaceReady,
   cycleTag,
   draftReviewToCsv,
   hydrateWorkspace,
@@ -3449,7 +3451,13 @@ export default function DraftDashboardPage() {
   // leagues mid-draft doesn't destroy the prior league's board.
   // Falls back to the legacy unsuffixed key when no league is
   // resolved yet (cold boot) so pre-migration state still hydrates.
-  const { selectedLeagueKey } = useLeague();
+  const { selectedLeagueKey, loading: leagueLoading } = useLeague();
+  // The team picked in the header ("Pick your team"), offered to the
+  // draft-capital merge as the default "my team" on a first visit (a ref so
+  // the load callback always reads the latest without re-creating it).
+  const { selectedName: preferredTeamName, selectedOwnerId: preferredOwnerId } = useTeam();
+  const preferredTeamRef = useRef({ name: preferredTeamName, ownerId: preferredOwnerId });
+  preferredTeamRef.current = { name: preferredTeamName, ownerId: preferredOwnerId };
   // Every /api/draft-capital read goes through ONE league-scoped loader
   // (``lib/draft-feed``): concurrent consumers share a request, and no
   // call site can omit ``leagueKey`` and silently read the default
@@ -3478,6 +3486,12 @@ export default function DraftDashboardPage() {
     idp: new Map(),
   });
   const [hydrated, setHydrated] = useState(false);
+  // WHICH storage key the current `workspace` was hydrated from.  `hydrated`
+  // alone cannot say whether the workspace belongs to the ACTIVE league: it is
+  // already true when the league resolves, and for one render the workspace is
+  // still the previous (placeholder) one.  Consumers that must not act on the
+  // placeholder compare this to `draftStorageKey` — see `workspaceReady`.
+  const [hydratedKey, setHydratedKey] = useState("");
   const [modalPlayer, setModalPlayer] = useState(null);
   const [showDrafted, setShowDrafted] = useState(false);
   const [query, setQuery] = useState("");
@@ -3597,7 +3611,17 @@ export default function DraftDashboardPage() {
       /* ignore */
     }
     setHydrated(true);
+    setHydratedKey(draftStorageKey);
   }, [draftStorageKey]);
+  // The workspace in state is the ACTIVE league's own: its league is resolved
+  // and it was hydrated from that league's storage key.  Before this, the
+  // workspace is `createDefaultWorkspace()` (first team "Russini Panini").
+  const workspaceReady = isWorkspaceReady({
+    selectedLeagueKey,
+    hydratedKey,
+    draftStorageKey,
+    leagueResolved: !leagueLoading,
+  });
 
   // Persist on every change.
   useEffect(() => {
@@ -3932,6 +3956,8 @@ export default function DraftDashboardPage() {
           } = mergeDraftCapitalTeams(ws, teamTotals, {
             picks: picksArray,
             mode: force ? "force" : "sync",
+            preferredTeamName: preferredTeamRef.current.name,
+            preferredOwnerId: preferredTeamRef.current.ownerId,
           });
           if (!quiet) {
             setCapitalStatus((s) => ({
@@ -5028,7 +5054,11 @@ export default function DraftDashboardPage() {
       </div>
 
       <Suspense fallback={null}>
-        <PerfectDraftPanel stats={stats} workspace={workspace} />
+        <PerfectDraftPanel
+          stats={stats}
+          workspace={workspace}
+          workspaceReady={workspaceReady}
+        />
       </Suspense>
 
       <RookieBoard

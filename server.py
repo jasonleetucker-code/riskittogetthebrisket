@@ -1783,6 +1783,48 @@ def _box_diagnostics(timeout: float | None = None) -> dict:
         return _proc_probe.empty_service_diagnostics()
 
 
+_LIBC_MALLOC_TRIM = None  # resolved lazily; False when unavailable (non-glibc)
+
+
+def _release_freed_heap() -> dict:
+    """Hand freed glibc heap back to the OS (``malloc_trim(0)``).  Never raises.
+
+    Each scrape cycle builds and drops several copies of a ~4 MB contract
+    (views, gzip variants, overlays); glibc keeps the freed pages in its
+    arenas, so RSS ratchets toward the peak and the service cgroup creeps
+    up to ``MemoryHigh``, where the kernel throttles everything in it
+    (website audit WA-05: Chromium could no longer launch).  Measured
+    2026-11-12 over 14 replayed publish cycles: live Python objects constant
+    (330,466 every cycle, no leak); RSS plateau 684 MB without a trim, 498 MB
+    with one after each cycle.  A trim is not a substitute for finding a
+    leak, and none was found; it returns memory the process no longer uses.
+
+    Returns ``{"available", "rssBeforeMib", "rssAfterMib"}``; the RSS fields
+    are ``None`` when unreadable.  Call off the event loop.
+    """
+    global _LIBC_MALLOC_TRIM
+    out: dict = {"available": False, "rssBeforeMib": None, "rssAfterMib": None}
+    try:
+        if _LIBC_MALLOC_TRIM is None:
+            try:
+                import ctypes  # noqa: PLC0415
+
+                _LIBC_MALLOC_TRIM = ctypes.CDLL("libc.so.6").malloc_trim
+            except (OSError, AttributeError):
+                _LIBC_MALLOC_TRIM = False
+        if _LIBC_MALLOC_TRIM is False:
+            return out
+        before = _proc_probe.process_rss_kb(os.getpid())
+        _LIBC_MALLOC_TRIM(0)
+        after = _proc_probe.process_rss_kb(os.getpid())
+        out["available"] = True
+        out["rssBeforeMib"] = None if before is None else int(before) // 1024
+        out["rssAfterMib"] = None if after is None else int(after) // 1024
+    except Exception:  # noqa: BLE001 -- best-effort; never break a scrape
+        pass
+    return out
+
+
 def _box_diagnostics_for_status() -> dict:
     return _box_diagnostics(_BOX_PROBE_STATUS_TIMEOUT_SEC)
 
@@ -3765,6 +3807,13 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     reaped=_pre_reaped,
                     box=_pre_box,
                 )
+            # Headroom below the cgroup's MemoryHigh before Chromium launches.
+            _record_scrape_event(
+                "scrape_prelaunch_heap_release",
+                level="info",
+                message="malloc_trim before launch",
+                **(await run_in_threadpool(_release_freed_heap)),
+            )
             _update_scrape_progress(
                 step="bootstrap",
                 source="import_scraper",
@@ -4167,6 +4216,8 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # hiccup leaves the last observation in place, never blocks.
             await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
+            # The publish is this cycle's allocation peak; return what it freed.
+            await run_in_threadpool(_release_freed_heap)
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 
@@ -19140,33 +19191,9 @@ def _apply_custom_alert_sweep(
         ]
 
 
-@app.post("/api/custom-alerts/run")
-async def run_custom_alerts(request: Request):
-    """Cron-driven evaluator.  Walks every user's rules, fires any
-    that hit, delivers via email and/or push, updates cooldown state.
-
-    Same bearer-token auth model as ``/api/signal-alerts/run``.
-    """
-    cron_auth_ok = False
-    if SIGNAL_ALERT_CRON_TOKEN:
-        header = (request.headers.get("authorization") or "").strip()
-        if header.lower().startswith("bearer "):
-            presented = header.split(None, 1)[1].strip()
-            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
-                cron_auth_ok = True
-    if not cron_auth_ok:
-        session = _get_auth_session(request)
-        if not session or session.get("auth_method") != "password":
-            return JSONResponse(
-                status_code=401,
-                content={"error": "admin_auth_required"},
-            )
-
-    if not latest_contract_data:
-        return JSONResponse(status_code=503, content={"error": "no_live_contract"})
-    players_array = (latest_contract_data or {}).get("playersArray") or []
-
-    db = await run_in_threadpool(_user_kv.all_user_states)
+def _custom_alerts_sweep(players_array: list) -> dict[str, dict[str, int]]:
+    """Blocking body of ``run_custom_alerts``: evaluate, deliver, persist state."""
+    db = _user_kv.all_user_states()
     summary: dict[str, dict[str, int]] = {}
 
     for username, state in (db or {}).items():
@@ -19234,8 +19261,7 @@ async def run_custom_alerts(request: Request):
         fired = {k: v for k, v in new_state.items() if cooldown_state.get(k) != v}
         dead = set(endpoints_to_prune)
         if fired or dead:
-            await run_in_threadpool(
-                _user_kv.mutate_user_state,
+            _user_kv.mutate_user_state(
                 username,
                 lambda entry: _apply_custom_alert_sweep(entry, fired=fired, dead_endpoints=dead),
             )
@@ -19245,6 +19271,41 @@ async def run_custom_alerts(request: Request):
             "email": delivered_email,
             "push": delivered_push,
         }
+    return summary
+
+
+@app.post("/api/custom-alerts/run")
+async def run_custom_alerts(request: Request):
+    """Cron-driven evaluator.  Walks every user's rules, fires any
+    that hit, delivers via email and/or push, updates cooldown state.
+
+    Same bearer-token auth model as ``/api/signal-alerts/run``.
+    """
+    cron_auth_ok = False
+    if SIGNAL_ALERT_CRON_TOKEN:
+        header = (request.headers.get("authorization") or "").strip()
+        if header.lower().startswith("bearer "):
+            presented = header.split(None, 1)[1].strip()
+            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
+                cron_auth_ok = True
+    if not cron_auth_ok:
+        session = _get_auth_session(request)
+        if not session or session.get("auth_method") != "password":
+            return JSONResponse(
+                status_code=401,
+                content={"error": "admin_auth_required"},
+            )
+
+    if not latest_contract_data:
+        return JSONResponse(status_code=503, content={"error": "no_live_contract"})
+    players_array = (latest_contract_data or {}).get("playersArray") or []
+
+    # The whole sweep (rule evaluation, SMTP / web-push delivery with their
+    # network timeouts, per-user kv writes) runs in ONE threadpool task, never
+    # on the event loop.  Every kv call opens its own sqlite connection inside
+    # that same worker thread, and mutate_user_state is already serialised by
+    # its own lock, so nothing is shared across threads.
+    summary = await run_in_threadpool(_custom_alerts_sweep, players_array)
 
     return JSONResponse(
         content={"ok": True, "users": summary},
@@ -21078,6 +21139,106 @@ async def post_admin_signal_state_migrate(request: Request):
     return JSONResponse(content=result)
 
 
+def _player_realized_content(sleeper_id: str, league_key: str, scoring_settings: dict) -> dict:
+    """Blocking body of ``get_player_realized`` (nflverse + Sleeper fetches).
+
+    Run via ``run_in_threadpool``; returns the JSON body for every branch."""
+    # Fetch weekly stats via nfl_data_ingest (already flag-gated —
+    # returns [] when nfl_data_ingest is off).  We scope to the
+    # current season for freshness + prior season for comparison.
+    from src.nfl_data import ingest as _ing
+    from src.nfl_data import pbp_weekly as _pbp_weekly
+    from src.nfl_data import realized_points as _rp
+
+    now_year = datetime.now(timezone.utc).year
+    years = [now_year - 1, now_year]
+    weekly = _ing.fetch_weekly_stats(years)
+
+    if not weekly:
+        return {
+            "sleeperId": sleeper_id,
+            "leagueKey": league_key,
+            "reason": "no_stats_available",
+            "weeks": [],
+            "totalPoints": 0.0,
+            "weekCount": 0,
+        }
+
+    # Find this player's GSIS via the unified mapper, then filter.
+    from src.identity import unified_mapper as _um
+
+    # The MASTER Sleeper player directory — ``{player_id: {gsis_id,
+    # full_name, position, ...}}``, which is what ``resolve_player``
+    # indexes.
+    #
+    # This used to read ``sleeper_block["players"]`` / ``["playerDict"]``.
+    # The contract's sleeper block has NEITHER key (it carries
+    # ``idToPlayer`` / ``playerIds`` / ``positions``), so ``players_dir``
+    # was always ``None`` and every request returned
+    # ``reason: "unmapped_player"`` — a well-formed 200 that answered
+    # nothing, for every player, always. ``idToPlayer`` could not have
+    # substituted either: it is ``{id: name}`` and carries no
+    # ``gsis_id``, which is the join key the weekly stat rows use.
+    #
+    # ``fetch_nfl_players`` is the existing process-cached full dump
+    # (~5 MB once per process, ``{}`` on any failure), so this adds no
+    # new download path and no second cache.
+    from src.public_league.sleeper_client import fetch_nfl_players as _fetch_nfl_players
+
+    players_dir = _fetch_nfl_players()
+    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
+    if resolved is None or not resolved.gsis_id:
+        return {
+            "sleeperId": sleeper_id,
+            "leagueKey": league_key,
+            "reason": "unmapped_player",
+            "weeks": [],
+        }
+    # ``player_id``, not ``player_id_gsis``.
+    #
+    # ``player_id_gsis`` is the field name on the WeeklyStatRow
+    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
+    # use ``player_id``. Filtering on the dataclass name matched ZERO
+    # rows for every player, so this endpoint returned a well-formed
+    # 200 with an empty ``weeks`` list — for everyone, always.
+    #
+    # Measured 2026-07-27 on the real 2025 file: the old expression
+    # matched 0 rows for a GSIS id the correct one matched 17.
+    #
+    # It went unnoticed because nothing CALLS this endpoint — the flag
+    # defaults ON, so the route has been live and answering wrongly.
+    # (An earlier version of this comment said the flag was off. It is
+    # not, and believing so made a live defect read as dormant.)
+    #
+    # Both keys are accepted so a caller passing normalized
+    # dataclass-shaped rows still works.
+    target_gsis = str(resolved.gsis_id or "").strip()
+    player_rows = [
+        r
+        for r in weekly
+        if target_gsis
+        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
+    ]
+    # The six reception bands and the player special-teams rules have no
+    # column on the weekly feed; without this the response is a total that
+    # silently omits them.  With it, a season the artifact does not cover
+    # is reported in ``unscored`` rather than scored as zero.
+    _pbp_index = _pbp_weekly.SeasonPbpIndex()
+    cumulative = _rp.compute_cumulative_points(
+        [_pbp_index.attach(r) for r in player_rows],
+        scoring_settings,
+        position=resolved.position,
+    )
+    return {
+        "sleeperId": sleeper_id,
+        "gsisId": resolved.gsis_id,
+        "fullName": resolved.full_name,
+        "position": resolved.position,
+        "leagueKey": league_key,
+        **cumulative,
+    }
+
+
 @app.get("/api/player/{sleeper_id}/realized")
 async def get_player_realized(sleeper_id: str, request: Request):
     """Return realized weekly fantasy points for a player against the
@@ -21147,106 +21308,12 @@ async def get_player_realized(sleeper_id: str, request: Request):
             }
         )
 
-    # Fetch weekly stats via nfl_data_ingest (already flag-gated —
-    # returns [] when nfl_data_ingest is off).  We scope to the
-    # current season for freshness + prior season for comparison.
-    from src.nfl_data import ingest as _ing
-    from src.nfl_data import pbp_weekly as _pbp_weekly
-    from src.nfl_data import realized_points as _rp
-
-    now_year = datetime.now(timezone.utc).year
-    years = [now_year - 1, now_year]
-    weekly = _ing.fetch_weekly_stats(years)
-
-    if not weekly:
-        return JSONResponse(
-            content={
-                "sleeperId": sleeper_id,
-                "leagueKey": league_cfg.key,
-                "reason": "no_stats_available",
-                "weeks": [],
-                "totalPoints": 0.0,
-                "weekCount": 0,
-            }
-        )
-
-    # Find this player's GSIS via the unified mapper, then filter.
-    from src.identity import unified_mapper as _um
-
-    # The MASTER Sleeper player directory — ``{player_id: {gsis_id,
-    # full_name, position, ...}}``, which is what ``resolve_player``
-    # indexes.
-    #
-    # This used to read ``sleeper_block["players"]`` / ``["playerDict"]``.
-    # The contract's sleeper block has NEITHER key (it carries
-    # ``idToPlayer`` / ``playerIds`` / ``positions``), so ``players_dir``
-    # was always ``None`` and every request returned
-    # ``reason: "unmapped_player"`` — a well-formed 200 that answered
-    # nothing, for every player, always. ``idToPlayer`` could not have
-    # substituted either: it is ``{id: name}`` and carries no
-    # ``gsis_id``, which is the join key the weekly stat rows use.
-    #
-    # ``fetch_nfl_players`` is the existing process-cached full dump
-    # (~5 MB once per process, ``{}`` on any failure), so this adds no
-    # new download path and no second cache.
-    from src.public_league.sleeper_client import fetch_nfl_players as _fetch_nfl_players
-
-    players_dir = _fetch_nfl_players()
-    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
-    if resolved is None or not resolved.gsis_id:
-        return JSONResponse(
-            content={
-                "sleeperId": sleeper_id,
-                "leagueKey": league_cfg.key,
-                "reason": "unmapped_player",
-                "weeks": [],
-            }
-        )
-    # ``player_id``, not ``player_id_gsis``.
-    #
-    # ``player_id_gsis`` is the field name on the WeeklyStatRow
-    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
-    # use ``player_id``. Filtering on the dataclass name matched ZERO
-    # rows for every player, so this endpoint returned a well-formed
-    # 200 with an empty ``weeks`` list — for everyone, always.
-    #
-    # Measured 2026-07-27 on the real 2025 file: the old expression
-    # matched 0 rows for a GSIS id the correct one matched 17.
-    #
-    # It went unnoticed because nothing CALLS this endpoint — the flag
-    # defaults ON, so the route has been live and answering wrongly.
-    # (An earlier version of this comment said the flag was off. It is
-    # not, and believing so made a live defect read as dormant.)
-    #
-    # Both keys are accepted so a caller passing normalized
-    # dataclass-shaped rows still works.
-    target_gsis = str(resolved.gsis_id or "").strip()
-    player_rows = [
-        r
-        for r in weekly
-        if target_gsis
-        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
-    ]
-    # The six reception bands and the player special-teams rules have no
-    # column on the weekly feed; without this the response is a total that
-    # silently omits them.  With it, a season the artifact does not cover
-    # is reported in ``unscored`` rather than scored as zero.
-    _pbp_index = _pbp_weekly.SeasonPbpIndex()
-    cumulative = _rp.compute_cumulative_points(
-        [_pbp_index.attach(r) for r in player_rows],
-        scoring_settings,
-        position=resolved.position,
+    # Network fetch (nflverse + Sleeper directory) and scoring run in the
+    # threadpool, never on the event loop (measured 8.5 s cold).
+    content = await run_in_threadpool(
+        _player_realized_content, sleeper_id, league_cfg.key, scoring_settings
     )
-    return JSONResponse(
-        content={
-            "sleeperId": sleeper_id,
-            "gsisId": resolved.gsis_id,
-            "fullName": resolved.full_name,
-            "position": resolved.position,
-            "leagueKey": league_cfg.key,
-            **cumulative,
-        }
-    )
+    return JSONResponse(content=content)
 
 
 @app.post("/api/trade/simulate-mc")

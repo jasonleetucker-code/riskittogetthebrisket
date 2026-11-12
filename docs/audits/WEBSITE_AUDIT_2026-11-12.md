@@ -88,3 +88,137 @@ suite's write-guard catching my own mid-run backend restart; all 12 pass re-run 
 branch is good: no crash, no 500, no layout overflow, auth boundaries hold, and the trade package math matches an
 independent oracle. Once this PR merges and deploys and scraping recovers, the verdict would be **READY WITH
 NONCRITICAL ISSUES** (WA-06 … WA-11), subject to production verification of WA-00, WA-01 and WA-05.
+
+## 7. Second pass — owner follow-up, 2026-11-12
+
+The owner authorized finishing every repair, including the four frontend findings (overriding the 2026-11-08 frontend
+exclusion for exactly these items). PR #2188 (WA-00 … WA-04) merged as `1ac74809` after green PR Validation (8 shards),
+E2E Safety Net (Chromium + WebKit), Receipt and L0, and an independent review (approve; its two non-blocking notes are
+WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_content` on the loop, which is fast).
+
+### 7.1 Status of every finding
+
+| ID | Status | Where fixed | Evidence |
+|---|---|---|---|
+| WA-00 | Fixed, merged | #2188 | shard 4/8 green on the PR; production deploy: see §7.4 |
+| WA-01 | Fixed, merged | #2188 | red/green test; production check: see §7.4 |
+| WA-02 | Fixed, merged | #2188 | red/green test |
+| WA-03 | Fixed, merged | #2188 | E2E Safety Net green (Chromium + WebKit) |
+| WA-04 | Fixed, merged | #2188 | 9 fail without the redirect, all pass with it |
+| WA-05 | Root cause found; fixed in follow-up PR; production recovery pending | follow-up | §7.2 |
+| WA-06 | Fixed | follow-up | `tests/api/test_more_handlers_off_event_loop.py`: 2 fail on `main`, 6/6 pass |
+| WA-07 | Fixed | follow-up | same file (custom-alerts sweep incl. SMTP and push in the threadpool) |
+| WA-08 | Fixed | follow-up | 48 per-segment server `layout.js` + `lib/page-metadata.js` (labels from `nav-model.js`); `__tests__/page-titles.test.js` walks every page |
+| WA-09 | Not a defect | — | the crawl's hit is "Import slate" inside a closed `<details>`: `innerText` is empty there, the accessible name is correct; no icon-only unnamed button in `components/dfs` |
+| WA-10 | Fixed | follow-up | `team_required` copy on `/rosters` and the same leak on `/phases` (`TeamPhasePanel`) |
+| WA-11 | Fixed | follow-up | `/draft` requests roster context only once the league's workspace has hydrated (`isWorkspaceReady`) |
+| WA-12 | Fixed (new) | follow-up | monitoring gap: `box_resources` did not show `memory.high`, so throttling was invisible |
+| WA-13 | Fixed (new) | follow-up | stale-data banner promised "should land soon" while refreshes were failing |
+| WA-14 | Fixed (new) | follow-up | WA-00 oracle could flip on an integer-rounding boundary (1 of 1,578 rows inside the margin over 8 archives) |
+| WA-15 | Fixed (new) | follow-up | `/draft` first visit (no saved workspace) still keyed Perfect Draft on the seed team "Russini Panini" (400), and "my team" fell back to row 0 (another manager); the readiness gate could also wait forever if `/api/leagues` failed (independent review) |
+| WA-16 | Fixed (new, P2) | follow-up | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve; a team name two teams share resolves to neither. Delta review: a real team equal to a seed row ({Ed, $71}) could be overridden as "my team" and was not sent by name; fixed |
+
+### 7.2 WA-05 root cause: the scraper hang
+
+- `deploy/systemd/dynasty.service.template` sets `MemoryHigh=2560M`, `MemoryMax=3G`. Production read
+  `cgroup_memory_current_mib` 2571-2607 throughout the failure: above `memory.high`, where the kernel throttles every
+  process in the cgroup (forced reclaim, sleep penalties) instead of killing one. The first launch failure (23:27 UTC)
+  came ~10.5 h after the process started (12:49 UTC).
+- Chromium launch and the Playwright driver start had no Python-side deadline. Playwright's 180 s launch timeout is
+  enforced by its Node driver, so a throttled driver never fires it: each run sat at `browser/launch` until the 2 h
+  run timeout. Reproduced through the real `run()` with a stalled driver: the original code hung until the outer cap;
+  the bounded code raised `TimeoutError` at the configured deadline.
+- **Fixes:** Python-side deadlines on the driver start (120 s) and the launch (240 s, past Playwright's own 180 s;
+  env-tunable), pinned by `tests/api/test_scraper_launch_deadline.py` (fails on the old file, naming both calls);
+  `malloc_trim(0)` before each run and after each publish (§7.3); the new diagnostics fields (WA-12).
+
+### 7.3 Memory investigation
+
+Measured locally by replaying the publish path (`_prime_latest_payload`) with the committed board, each cycle on a
+fresh thread, as production does:
+
+| Experiment | Result |
+|---|---|
+| Re-import the scraper module 6x | one live module object every time; RSS plateau ~236 MB: ruled out |
+| 14 publish cycles, default malloc | live Python objects constant at 330,466 from cycle 2; threads back to 1; RSS 393 -> 684 MB, plateau from cycle 10 |
+| 14 cycles, `malloc_trim(0)` after each | objects constant; RSS plateau 498 MB (-186 MB, -27 %) |
+| 8 cycles, `MALLOC_ARENA_MAX=2` (first harness, serving flag unset: not comparable) | RSS 277-474 MB vs 291-557 MB default in the same harness; not pursued |
+| tracemalloc without the serving flag | `trade-analysis-warm` threads accumulated while waiting on `_SERVING_STARTED`: an artifact of the harness, gone once the flag is set |
+
+Conclusion: no reference leak in the publish path; RSS growth is allocator high-water, which a trim reduces. The
+production split between process RSS, page cache and Chromium is not observable from outside; `process_rss_mib` and
+`cgroup_memory_high_mib` (WA-12) make it observable once deployed. Not done: changing `MemoryHigh` / `MemoryMax` or
+adding scheduled restarts (both would hide, not fix).
+
+### 7.4 Production verification (2026-11-12, read-only)
+
+| Check | Observation |
+|---|---|
+| Deployed commit | `1ac74809` (#2188), Deploy Production #3844 **success**; process started 12:37:12 UTC; the next automated deploy (#3845) ran normally |
+| `/api/status` latency | 0.65-0.90 s (was 14-18 s) |
+| Event loop | concurrent `/api/leagues` 0.52-0.82 s during a status call (0.58 s alone; was 15.9 s) |
+| Scraper | startup run: browser launched in ~3 s, KTC 27 s, IDPTradeCalc ~2 min; `scrape_succeeded 1091 players, 2/2 sites, 294.8 s` at 12:42:50 UTC; no critical source failures; 0 Chromium processes left |
+| Health | `status: ok` (HTTP 200; was 503 degraded), `data_age_hours` 0.0, `source_health_ok` true, `contract_ok` true |
+| Memory | cgroup 628 MiB at startup, 1,277 MiB right after the scrape (12:42:56), 2,323 MiB at 12:53 with nothing scraping (was 2,571-2,607 above `MemoryHigh` 2,560 before the restart). The state backup runs in its own unit, so its file cache is not charged here. Whether the growth is process heap or reclaimable page cache is unknown until the follow-up adds `cgroup_memory_anon_mib` / `cgroup_memory_file_mib` / `process_rss_mib` |
+| Security (from outside) | unchanged from §3: headers present, private APIs 401, test endpoint 404, no OpenAPI, no permissive CORS |
+
+Not verified in production: signed-in pages (no credentials), WA-06 … WA-16 (follow-up PR not yet deployed), memory over
+days. One `/api/status` read returned all-null `box_resources` (the bounded probe timed out once); earlier reads were
+populated.
+
+### 7.5 Feature verification matrix
+
+Environments: L = local stack on the follow-up branch (committed board, signed in as a real `dynasty_main` manager via
+the test-session endpoint); CI = GitHub Actions on the PR head; P = production, read-only.
+
+| Feature | Test | Env | Result | Limits |
+|---|---|---|---|---|
+| Every page renders | crawler: 62 URLs x anon/signed-in x 1366/390 px (248) | L | 0 page errors, 0 error boundaries, 0 overflow, 0 NaN/undefined | — |
+| Tab titles | crawler + `page-titles.test.js` + SSR read | L | 0 generic; 58 distinct of 62 (rankings positions share "Rankings") | — |
+| Public league pages | 30 visits | P | 0 page errors / overflow | anonymous only |
+| Auth boundary | 231 routes: private GET + all mutating anon -> 401 | L | holds | — |
+| League isolation | `/api/data`, `/api/terminal`, `/api/roster/intelligence` for `dynasty_new` | L | refuse (`data_not_ready`), never the other league's rosters; unknown key `unknown_league` | second league has no contract locally |
+| Rankings | E2E `journey-rankings` (6), `rankings-windowing` | CI | pass | — |
+| Trade calculator math | independent oracle, 5,000 random packages, Python + JS owners | L | 0 beyond ±0.5 | — |
+| Trade analysis (route) | `POST /api/trade/analyze` 1-for-2 vs hand arithmetic from board values | L | exact: raw gap 8301, VA +1962, adjusted 11960 / 18299 | one trade |
+| Trade builder / War Room | E2E `journey-trade`, `trade-war-room`, `trade-multi-team*`, `trade-tce`, `trade-tcd2` | CI | pass | — |
+| Settings persistence | E2E `journey-settings-overrides` (toggle round-trip) | CI + L | pass | — |
+| Draft / Perfect Draft | E2E `journey-perfect-draft`; first-visit probe; 12 team names -> roster context | CI + L | pass; own team loads; 12/12 resolve | live auction not exercised |
+| Waivers / advisor | E2E `waivers-smoke`, `waiver-advisor-streaming` | CI | pass | — |
+| Game Day | E2E `game-day` (7) | CI | pass | live NFL scoring not exercised |
+| DFS | E2E `dfs-workspace` (3) | CI | pass | owner-paused feature |
+| Roster construction | E2E `roster-construction` (4) | CI | pass | flag default OFF |
+| Public league hub | E2E `public-league` (16) | CI | pass | — |
+| Multi-league | E2E `multi-league` (8) | CI | pass | — |
+| Freshness banner | `stale-data-banner-states.test.jsx` (10 states incl. production-shaped payload) | L | pass | — |
+| Scraper | stalled-driver demo; production run | L + P | bounded failure; production success | one production cycle observed |
+
+### 7.6 Test report
+
+| Suite | Env | Result |
+|---|---|---|
+| Frontend vitest | L (follow-up) | 426 files; 5,533 passed, 3 expected-fail, 0 failed (277 in the touched draft files after the last fixes) |
+| Next build + bundle budgets | L (follow-up) | pass, 19/19 pages under budget |
+| Backend hard gate (8 shards) | CI on #2188 | pass (shard 4/8 included the WA-00 test) |
+| E2E Safety Net (Chromium desktop + mobile, WebKit iPhone) | CI on #2188 | pass |
+| E2E full run (desktop + mobile-chromium) | L (before fixes) | 416 passed, 70 skipped, 1 failed (WA-03, fixed) |
+| Targeted backend L1 | L | 3,224 + 395 + 265 + 92 + 52 + 36 + 28 + 9 + 6 + 5 passed |
+| Full backend suite | L | not executed serially (CPU-bound here); CI's sharded gate is the authority |
+| Skipped | — | 70 E2E skips are the suite's declared desktop-only / flag-gated cases; none counted as passed |
+
+### 7.7 Remaining action register
+
+| # | Item | Why open | Next step | Blocks readiness? |
+|---|---|---|---|---|
+| 1 | Merge + deploy the follow-up PR | CI, independent review in progress | merge on green; verify `box_resources` new fields and `scrape_prelaunch_heap_release` events | yes for WA-06 … WA-16 in production |
+| 2 | Memory over days | one restart + one scrape observed; +1 GiB in the 15 min after the scrape, kind unknown | watch `process_rss_mib` / `cgroup_memory_high_events` across cycles after the follow-up deploys | no, monitored |
+| 3 | Signed-in production checks | no production credentials here | owner's authenticated smoke (`tests/e2e/specs/prod-auth`) | no |
+| 4 | Raw ports from the internet | only probed from this egress | box-side `ss -ltnp` / firewall check by the operator | no |
+| 5 | `/api/admin/diagnostics` health half | `_health_content` still on the loop (fast in production) | optional; same pattern if it ever slows | no |
+
+### 7.8 Verdict
+
+**READY WITH MINOR ISSUES** for what is deployed: production is on `1ac74809`, deploys work, data is current (scrape
+succeeded 12:42 UTC), health is `ok`, `/api/status` no longer stalls the site, and every page loads cleanly.
+The follow-up fixes (WA-06 … WA-16) are not yet in production, and long-horizon memory behaviour is not yet
+established; both are tracked in §7.7.

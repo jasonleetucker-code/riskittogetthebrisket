@@ -163,7 +163,7 @@ def pid_alive(pid: int) -> bool:
 
 def process_rss_kb(pid: int) -> int | None:
     """Resident set size in kB from /proc/<pid>/status (already kB)."""
-    text = _read_text(f"/proc/{pid}/status")
+    text = _read_text(f"{PROC_ROOT}/{pid}/status")
     if not text:
         return None
     for line in text.splitlines():
@@ -499,6 +499,20 @@ def empty_service_diagnostics() -> dict[str, int | None]:
         "chromium_reparented": None,
         "cgroup_memory_current_mib": None,
         "cgroup_memory_max_mib": None,
+        # The throttling line: above memory.high the kernel throttles every
+        # process in the cgroup (forced reclaim + sleep) instead of killing
+        # one.  2026-11-12: the service sat at 2.57 GiB against a 2.56 GiB
+        # high, and Chromium could no longer launch (website audit WA-05).
+        "cgroup_memory_high_mib": None,
+        # memory.events "high": how many times the cgroup crossed memory.high.
+        "cgroup_memory_high_events": None,
+        # memory.stat split of the cgroup total.  ``anon`` is process heap the
+        # kernel cannot drop (no swap); ``file`` is page cache it reclaims
+        # under pressure.  The total alone cannot say which one is growing.
+        "cgroup_memory_anon_mib": None,
+        "cgroup_memory_file_mib": None,
+        # This process alone (the cgroup total also carries Chromium + timers).
+        "process_rss_mib": None,
         "cgroup_pids_current": None,
         "cgroup_pids_max": None,
         "shm_free_mib": None,
@@ -526,8 +540,15 @@ def service_diagnostics(
         if cg is not None:
             out["cgroup_memory_current_mib"] = _mib(_int_or_none(_read_text(cg / "memory.current")))
             out["cgroup_memory_max_mib"] = _mib(_int_or_none(_read_text(cg / "memory.max")))
+            out["cgroup_memory_high_mib"] = _mib(_int_or_none(_read_text(cg / "memory.high")))
+            out["cgroup_memory_high_events"] = _parse_keyed_file(cg / "memory.events").get("high")
+            stat = _parse_keyed_file(cg / "memory.stat")
+            out["cgroup_memory_anon_mib"] = _mib(stat.get("anon"))
+            out["cgroup_memory_file_mib"] = _mib(stat.get("file"))
             out["cgroup_pids_current"] = _int_or_none(_read_text(cg / "pids.current"))
             out["cgroup_pids_max"] = _int_or_none(_read_text(cg / "pids.max"))
+        rss_kb = process_rss_kb(root_pid)
+        out["process_rss_mib"] = None if rss_kb is None else int(rss_kb) // 1024
         out["shm_free_mib"] = _free_mib(shm_dir)
         out["tmp_free_mib"] = _free_mib(tmp_dir or tempfile.gettempdir())
     except Exception:  # noqa: BLE001 -- a diagnostic must never break its caller

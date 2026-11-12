@@ -30,6 +30,7 @@ import {
   StatTile,
 } from "@/components/ds";
 import { useRosterContext } from "@/components/useRosterContext";
+import { isDefaultPlaceholderTeam, workspaceIsPristine } from "@/lib/draft-logic";
 import {
   applyDraftProgress,
   contestedPrice,
@@ -93,7 +94,7 @@ export function expectedPrice(p) {
   return null;
 }
 
-export function PerfectDraftPanel({ stats, workspace }) {
+export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
   // `myTeamIdx` lives under `settings` — every other reader in the app uses
   // `workspace.settings.myTeamIdx` (draft-logic.js, page.jsx). Reading it off
   // the root returned undefined, so `myTeamName` was always "", the roster
@@ -102,7 +103,15 @@ export function PerfectDraftPanel({ stats, workspace }) {
   // making the feature unreachable in the browser while every unit test
   // passed, because the test fixture used the flat shape.
   const myTeamIdx = workspace?.settings?.myTeamIdx ?? workspace?.myTeamIdx ?? 0;
-  const myTeamName = workspace?.teams?.[myTeamIdx]?.name || "";
+  // A seed row of createDefaultWorkspace() is not a team the league has: send
+  // no name and let the backend infer the session's own team (website audit
+  // WA-11; a first visit to a league with no saved workspace).
+  const myTeamRow = workspace?.teams?.[myTeamIdx];
+  // A seed row is only a seed while the workspace is still the untouched seed:
+  // after a merge a real team can carry a seed's name and budget ({Ed, $71}).
+  const myTeamIsSeed =
+    Boolean(myTeamRow) && isDefaultPlaceholderTeam(myTeamRow) && workspaceIsPristine(workspace);
+  const myTeamName = myTeamRow && !myTeamIsSeed ? myTeamRow.name || "" : "";
   // FOLLOW the workspace; only an explicit pick overrides it.
   //
   // This used to be `useState(myTeamName)`, which latched the FIRST name it
@@ -127,8 +136,15 @@ export function PerfectDraftPanel({ stats, workspace }) {
   // Live bidding: which rookie is on the block, and where the bidding is now.
   const [bidTarget, setBidTarget] = useState("");
   const [bidAmount, setBidAmount] = useState("");
+  // `workspaceReady` is the draft page's signal that `workspace` is the active
+  // league's own, hydrated one.  Until then its first team is the placeholder
+  // "Russini Panini": the root-cause fix for the `unknown_team` 400 is to send
+  // no request at all in that window (the override/follow logic above then
+  // only has real names to follow).  Defaults true so a caller without the
+  // signal behaves as before.
   const { teams, context, failure, loading, refetch } = useRosterContext({
     teamName,
+    enabled: workspaceReady,
   });
 
   // An explicit pick belongs to the league it was made in. Carrying it across
