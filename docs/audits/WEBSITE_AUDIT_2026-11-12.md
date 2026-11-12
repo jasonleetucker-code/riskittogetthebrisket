@@ -407,5 +407,3 @@ backend with each data-refresh deploy (every 40-60 min), and the plateau sat at 
   the loop returns it with the scrape's own `_release_freed_heap` and logs a light `periodic_trim` record (RSS before
   and after). Expected effect: about 200 MiB less RSS on the plateau. It frees nothing in use. The Python part still
   needs the caches named.
-
-
