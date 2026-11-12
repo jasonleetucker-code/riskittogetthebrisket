@@ -49,10 +49,7 @@ function PhaseFailure({ failure }) {
     return (
       <EmptyState
         title="Choose a team"
-        message={
-          message ||
-          "Pick your team above to see league phases and your natural trade partners."
-        }
+        message="We could not tell which team is yours because your account is not linked to one. Select your team with the “Pick your team” control in the header to see league phases and your natural trade partners."
       />
     );
   }
