@@ -6555,9 +6555,19 @@ async def get_status():
     boundary (``src/api/public_diagnostics.py``): no filesystem path, raw
     Sleeper id, env value or traceback.  The unredacted content is
     ``GET /api/admin/diagnostics`` (admin-gated).
+
+    The probes run in the threadpool, never on the event loop.  Measured on
+    production 2026-11-12: this handler took 14-18 s per call, and while it
+    ran an unrelated ``/api/leagues`` request (0.45 s alone) waited 15.9 s,
+    so every status poll froze the whole site.  ``_scrape_status_payload``
+    stays on the loop: it is in-memory, and it check-then-sets
+    ``scrape_status`` (the once-only stall event), which every other caller
+    also does from the loop.
     """
+    status_payload = _scrape_status_payload()
+    content = await run_in_threadpool(_public_status_body, status_payload)
     return JSONResponse(
-        content=_public_diagnostics.public_status_payload(_status_content(), base_dir=BASE_DIR),
+        content=content,
         # Observability payload — the disk-probe helpers behind it are
         # memoized 30s server-side; let pollers (settings page, tools)
         # reuse it browser-side for the same window.
@@ -6565,10 +6575,21 @@ async def get_status():
     )
 
 
-def _status_content() -> dict:
+def _public_status_body(status_payload: dict) -> dict:
+    """``get_status``'s body: the public projection of ``_status_content``."""
+    return _public_diagnostics.public_status_payload(
+        _status_content(status_payload), base_dir=BASE_DIR
+    )
+
+
+def _status_content(status_payload: dict | None = None) -> dict:
     """The FULL ``/api/status`` content.  PRIVATE: served unredacted only by
-    ``/api/admin/diagnostics``; ``get_status`` serves its public projection."""
-    status_payload = _scrape_status_payload()
+    ``/api/admin/diagnostics``; ``get_status`` serves its public projection.
+
+    ``status_payload`` is ``_scrape_status_payload()`` taken on the event loop
+    by an async caller that runs the rest of this in the threadpool."""
+    if status_payload is None:
+        status_payload = _scrape_status_payload()
     # Prefer full scrape payload for source-health truth (dlfImport/sourceRunSummary).
     # Contract payload is a compatibility fallback when full payload is unavailable.
     # ``served_source_coverage`` is the per-source contribution to the
@@ -6774,7 +6795,14 @@ def _playerctx_history_coverage_safe() -> dict:
 
         coverage = _pcx_store.history_coverage()
         if coverage.get("exists"):
-            coverage.update(_playerctx_pending_push(_pcx_store.HISTORY_DIR))
+            # A ``git`` subprocess with a 10 s timeout: memoized like the
+            # other disk probes, so a poller does not pay it on every call.
+            coverage.update(
+                _disk_probe_memo(
+                    "playerctx_pending_push",
+                    lambda: _playerctx_pending_push(_pcx_store.HISTORY_DIR),
+                )
+            )
         return coverage
     except Exception as exc:  # noqa: BLE001
         log.warning("playerctx history coverage failed: %s", exc)
@@ -15293,7 +15321,11 @@ async def get_sleeper_draft_picks(
         return err.json_response()
 
     try:
-        snapshot = _sleeper_overlay.fetch_live_draft_picks(
+        # Sleeper round-trips: in the threadpool, never on the event loop.
+        # This route is polled every 2-3 s during a live draft, so a blocking
+        # fetch here stalled every other request for each Sleeper call.
+        snapshot = await run_in_threadpool(
+            _sleeper_overlay.fetch_live_draft_picks,
             league_cfg.sleeper_league_id,
             after_pick_no=int(afterPickNo or 0),
         )
@@ -20814,11 +20846,15 @@ async def get_admin_diagnostics(request: Request):
     if isinstance(session_or_err, JSONResponse):
         return session_or_err
     health_code, health = _health_content(send_alerts=False)
+    # Same split as ``get_status``: the state check on the loop, the probes
+    # in the threadpool.
+    status_payload = _scrape_status_payload()
+    status = await run_in_threadpool(_status_content, status_payload)
     return JSONResponse(
         content={
             "schemaVersion": "private-diagnostics.v1",
             "redaction": "none",
-            "status": _status_content(),
+            "status": status,
             "health": {"httpStatus": health_code, **health},
         },
         headers={"Cache-Control": "no-store"},
