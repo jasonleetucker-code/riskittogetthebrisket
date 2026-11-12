@@ -16,6 +16,7 @@ import json
 import subprocess
 import sys
 import textwrap
+import time
 import types
 from pathlib import Path
 
@@ -25,6 +26,14 @@ from src.diagnostics import heap_report
 
 GLIBC = sys.platform.startswith("linux") and heap_report.malloc_summary()["available"]
 needs_glibc = pytest.mark.skipif(not GLIBC, reason="glibc mallinfo2 not available")
+
+
+@pytest.fixture(autouse=True)
+def _bounded_census(monkeypatch):
+    """A small deep-census budget (CI shard processes hold millions of
+    objects) and a fresh box-field cache for every test."""
+    monkeypatch.setattr(heap_report, "DEEP_BUDGET", 200_000)
+    monkeypatch.setattr(heap_report, "_LAST_BOX", heap_report.empty_box_fields())
 
 
 # ── glibc accounting ────────────────────────────────────────────────────
@@ -144,6 +153,45 @@ def test_container_census_names_this_codebase_only(fake_module):
     assert lens == sorted(lens, reverse=True)
 
 
+def test_main_is_not_a_root(monkeypatch):
+    """The server runs once, as ``server``; ``__main__`` holds only the
+    guard's imports and would misattribute them."""
+    fake_main = types.ModuleType("__main__")
+    fake_main.STUFF = list(range(4321))
+    monkeypatch.setitem(sys.modules, "__main__", fake_main)
+    assert not any(r["name"].startswith("__main__.") for r in heap_report.container_census(10_000))
+    deep = heap_report.deep_census(10_000)
+    assert not any(r["name"].startswith("__main__.") for r in deep["top"])
+
+
+def test_deep_census_attributes_payload_bytes_and_class_caches(fake_module):
+    payload = b"x" * (3 * 1024 * 1024)
+    fake_module.PAYLOAD = {"gzip": payload}  # bytes: invisible to the gc census
+
+    class Holder:
+        CACHE = {"k": "y" * (2 * 1024 * 1024)}
+
+    Holder.__module__ = fake_module.__name__
+    fake_module.Holder = Holder
+    deep = heap_report.deep_census(limit=10_000)
+    rows = {r["name"]: r for r in deep["top"]}
+    assert rows["src._heap_report_fixture.PAYLOAD"]["mib"] >= 3.0
+    holder = rows["src._heap_report_fixture.Holder"]
+    assert holder["kind"] == "class" and holder["mib"] >= 2.0
+    # Each object counted once: BIG and ALIAS are the same dict.
+    big = [
+        n for n in rows if n in ("src._heap_report_fixture.BIG", "src._heap_report_fixture.ALIAS")
+    ]
+    assert len(big) == 1
+    assert deep["truncated"] is False
+
+
+def test_deep_census_is_bounded(fake_module):
+    deep = heap_report.deep_census(budget=50)
+    assert deep["truncated"] is True
+    assert deep["walked_objects"] <= 50
+
+
 def test_container_census_limit(fake_module):
     assert len(heap_report.container_census(limit=2)) == 2
     assert heap_report.container_census(limit=0) == []
@@ -204,8 +252,40 @@ def test_snapshot_is_numbers_and_identifiers_only(fake_module):
 
 def test_snapshot_without_types():
     rec = heap_report.snapshot("periodic")
-    assert rec["types"] is None
+    assert rec["types"] is None and rec["deep"] is None and rec["census_ms"] is None
     assert isinstance(rec["containers"], list)
+
+
+def test_deep_census_is_skipped_near_the_throttling_line(monkeypatch):
+    monkeypatch.setattr(heap_report.proc_probe, "memory_headroom_mib", lambda pid: 100)
+    rec = heap_report.snapshot("periodic_high_rss", include_types=True)
+    assert rec["deep"] is None
+    assert rec["deep_skipped"] == "low_headroom"
+    assert rec["headroom_mib"] == 100
+    assert rec["types"] is not None  # the cheap census still runs
+
+    monkeypatch.setattr(
+        heap_report.proc_probe, "memory_headroom_mib", lambda pid: heap_report.DEEP_HEADROOM_MIB
+    )
+    rec = heap_report.snapshot("periodic", include_types=True)
+    assert rec["deep"] is not None and rec["deep_skipped"] is None
+
+    # No cgroup limit (dev, CI): unknown headroom does not block the census.
+    monkeypatch.setattr(heap_report.proc_probe, "memory_headroom_mib", lambda pid: None)
+    assert heap_report.snapshot("periodic", include_types=True)["deep"] is not None
+
+
+def test_box_fields_never_walk_the_heap(monkeypatch):
+    """``/api/status`` reads the last snapshot; the glibc walk holds the
+    arena locks (~120 ms on a 3 GB heap) and must not run per probe."""
+    assert heap_report.box_fields() == heap_report.empty_box_fields()
+    rec = heap_report.snapshot("periodic")
+    calls = []
+    monkeypatch.setattr(heap_report, "malloc_summary", lambda: calls.append(1) or {})
+    box = heap_report.box_fields()
+    assert calls == []
+    assert box["heap_in_use_mib"] == rec["malloc"]["in_use_mib"]
+    assert box["heap_arenas"] == rec["malloc"]["arenas"]
 
 
 def test_append_report_keeps_the_log_bounded(tmp_path, monkeypatch):
@@ -260,7 +340,9 @@ def server_mod():
 def test_box_resources_carry_heap_fields(server_mod):
     box = server_mod._box_diagnostics(timeout=5)
     for key in heap_report.empty_box_fields():
-        assert key in box
+        assert box[key] is None  # no snapshot yet: unknown, not zero
+    server_mod._record_heap_snapshot("periodic")
+    box = server_mod._box_diagnostics(timeout=5)
     if GLIBC:
         assert isinstance(box["heap_in_use_mib"], int)
         assert isinstance(box["heap_arenas"], int) and box["heap_arenas"] >= 1
@@ -268,12 +350,25 @@ def test_box_resources_carry_heap_fields(server_mod):
 
 def test_record_heap_snapshot_stores_the_trim_as_numbers(server_mod):
     summary = server_mod._record_heap_snapshot(
-        "post_publish", False, {"available": True, "rssBeforeMib": 900, "rssAfterMib": 700}
+        "post_trim", False, {"available": True, "rssBeforeMib": 900, "rssAfterMib": 700}
     )
     assert summary["written"] is True
     rec = json.loads(heap_report.REPORT_PATH.read_text(encoding="utf-8").splitlines()[-1])
-    assert rec["reason"] == "post_publish"
+    assert rec["reason"] == "post_trim"
     assert rec["extra"] == {"trimRssBeforeMib": 900, "trimRssAfterMib": 700}
+
+
+@pytest.fixture
+def cheap_census(monkeypatch):
+    """The loop tests pin cadence, not census cost: stub both censuses so a
+    large test process cannot slow a tick, and no census is still running
+    in a worker thread when the test ends."""
+    monkeypatch.setattr(heap_report, "type_census", lambda: {"tracked_objects": 1, "top": []})
+    monkeypatch.setattr(
+        heap_report,
+        "deep_census",
+        lambda: {"walked_objects": 1, "attributed_mib": 0.0, "truncated": False, "top": []},
+    )
 
 
 def _run_loop_for(server_mod, seconds):
@@ -286,12 +381,21 @@ def _run_loop_for(server_mod, seconds):
 
     asyncio.run(run())
     path = heap_report.REPORT_PATH
+    # A tick cancelled mid-write finishes in its worker thread: wait until
+    # the log stops changing before reading it.
+    last = -1
+    for _ in range(100):
+        size = path.stat().st_size if path.exists() else 0
+        if size == last:
+            break
+        last = size
+        time.sleep(0.05)
     if not path.exists():
         return []
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
 
-def test_heap_loop_cadence_and_type_census_schedule(server_mod, monkeypatch):
+def test_heap_loop_cadence_and_type_census_schedule(server_mod, monkeypatch, cheap_census):
     monkeypatch.setattr(server_mod, "HEAP_REPORT_INTERVAL_SEC", 0.02)
     monkeypatch.setattr(server_mod, "HEAP_REPORT_HIGH_RSS_MIB", 10**9)
     records = _run_loop_for(server_mod, 1.5)
@@ -303,7 +407,7 @@ def test_heap_loop_cadence_and_type_census_schedule(server_mod, monkeypatch):
     assert with_types[:2] == [0, server_mod.HEAP_REPORT_TYPES_EVERY]
 
 
-def test_heap_loop_takes_the_census_when_rss_is_high(server_mod, monkeypatch):
+def test_heap_loop_takes_the_census_when_rss_is_high(server_mod, monkeypatch, cheap_census):
     monkeypatch.setattr(server_mod, "HEAP_REPORT_INTERVAL_SEC", 0.02)
     monkeypatch.setattr(server_mod, "HEAP_REPORT_HIGH_RSS_MIB", 0)
     records = _run_loop_for(server_mod, 0.6)

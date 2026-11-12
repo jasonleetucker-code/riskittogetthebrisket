@@ -1796,7 +1796,8 @@ def _box_diagnostics(timeout: float | None = None) -> dict:
         except Exception:  # noqa: BLE001
             pass
         try:
-            # glibc heap accounting (WA-17): in use vs freed-but-retained.
+            # The last heap snapshot's glibc figures (WA-17), cached: walking
+            # the heap here would hold glibc's arena locks on every probe.
             box.update(_heap_report.box_fields())
         except Exception:  # noqa: BLE001
             pass
@@ -4300,10 +4301,12 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # hiccup leaves the last observation in place, never blocks.
             await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
-            # The publish is this cycle's allocation peak; return what it freed,
-            # then record what the heap still holds (WA-17 attribution).
+            # The publish is this cycle's allocation peak: record what the heap
+            # holds (WA-17 attribution; the census's own temporaries go with
+            # the trim), return what it freed, and record the result.
+            await run_in_threadpool(_record_heap_snapshot, "post_publish", True)
             _post_publish_trim = await run_in_threadpool(_release_freed_heap)
-            await run_in_threadpool(_record_heap_snapshot, "post_publish", True, _post_publish_trim)
+            await run_in_threadpool(_record_heap_snapshot, "post_trim", False, _post_publish_trim)
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 

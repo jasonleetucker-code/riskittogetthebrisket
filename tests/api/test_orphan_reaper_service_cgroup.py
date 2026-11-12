@@ -115,6 +115,29 @@ def test_diagnostics_report_the_throttling_line_and_the_process_alone(fake):
     assert all(v is None or isinstance(v, int) for v in d.values())
 
 
+def test_memory_headroom_is_measured_against_the_throttling_line(fake):
+    """The heap report skips its costly census within 512 MiB of the line
+    (WA-17); anonymous memory counts, reclaimable page cache does not."""
+    proc, svc, _ = fake
+    (svc / "memory.high").write_text(str(2560 * 1024 * 1024) + "\n", encoding="utf-8")
+    (svc / "memory.stat").write_text(
+        f"anon {1800 * 1024 * 1024}\nfile {700 * 1024 * 1024}\n", encoding="utf-8"
+    )
+    assert proc_probe.memory_headroom_mib(SELF) == 760
+    # No memory.high: memory.max (3 GiB in the fixture) is the line.
+    (svc / "memory.high").write_text("max\n", encoding="utf-8")
+    assert proc_probe.memory_headroom_mib(SELF) == 3072 - 1800
+
+
+def test_memory_headroom_unknown_is_none(fake, monkeypatch):
+    proc, svc, _ = fake
+    assert proc_probe.memory_headroom_mib(SELF) is None  # no memory.stat
+    (svc / "memory.stat").write_text("anon 1\n", encoding="utf-8")
+    (svc / "memory.max").write_text("max\n", encoding="utf-8")
+    assert proc_probe.memory_headroom_mib(SELF) is None  # no limit at all
+    assert proc_probe.memory_headroom_mib(5000) is None  # not a service cgroup
+
+
 def test_no_high_limit_and_no_events_are_unknown_not_zero(fake):
     proc, svc, _ = fake
     (svc / "memory.high").write_text("max\n", encoding="utf-8")

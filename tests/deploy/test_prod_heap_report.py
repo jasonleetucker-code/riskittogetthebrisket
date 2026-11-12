@@ -10,6 +10,7 @@ read-only, and never holds the deploy concurrency group.
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -40,14 +41,24 @@ def _filter(text: str, *args: str) -> subprocess.CompletedProcess:
     )
 
 
+@functools.lru_cache(maxsize=1)
 def _real_records() -> str:
-    held = [{"k": i} for i in range(5000)]
-    a = heap_report.snapshot("startup", include_types=True)
-    b = heap_report.snapshot("periodic")
-    c = heap_report.snapshot(
-        "post_publish", include_types=True, extra={"trimRssBeforeMib": 900, "trimRssAfterMib": 700}
-    )
-    del held
+    """Three real records, built once per process with a small deep-census
+    budget (CI shard processes hold millions of objects)."""
+    budget = heap_report.DEEP_BUDGET
+    heap_report.DEEP_BUDGET = 200_000
+    try:
+        held = [{"k": i} for i in range(5000)]
+        a = heap_report.snapshot("startup", include_types=True)
+        b = heap_report.snapshot("periodic")
+        c = heap_report.snapshot(
+            "post_publish",
+            include_types=True,
+            extra={"trimRssBeforeMib": 900, "trimRssAfterMib": 700},
+        )
+        del held
+    finally:
+        heap_report.DEEP_BUDGET = budget
     return "\n".join(json.dumps(r) for r in (a, b, c)) + "\n"
 
 
@@ -91,6 +102,36 @@ def test_tampered_lines_cannot_carry_text():
     assert SECRET not in res.stdout + res.stderr
     assert "records=1 dropped=3" in res.stdout
     assert "rm -rf" not in res.stdout
+
+
+def test_malformed_values_drop_the_record_not_the_report():
+    """Non-finite numbers and wrong shapes are dropped; the report still runs."""
+    good = _real_records().splitlines()[-1]
+    nan_count = json.loads(good)
+    nan_count["types"]["top"].append({"type": "dict", "count": float("nan"), "mib": 1.0})
+    shape = json.loads(good)
+    shape["containers"] = 5
+    inf = json.loads(good)
+    inf["malloc"]["in_use_mib"] = float("inf")
+    float_len = json.loads(good)
+    float_len["containers"].append({"name": "src.a.B", "kind": "dict", "len": 1.5})
+    text = "\n".join(json.dumps(r) for r in (nan_count, shape, inf, float_len)) + "\n"
+    res = _filter(text)
+    assert res.returncode == 0, res.stderr
+    assert "Traceback" not in res.stderr
+    assert "records=" in res.stdout
+    assert "nan" not in res.stdout.lower() and "inf " not in res.stdout.lower()
+
+
+def test_skipped_deep_census_is_reported():
+    rec = json.loads(_real_records().splitlines()[-1])
+    rec["deep"] = None
+    rec["deep_skipped"] = "low_headroom"
+    rec["headroom_mib"] = 140
+    res = _filter(json.dumps(rec) + "\n")
+    assert res.returncode == 0, res.stderr
+    assert "deep census skipped 1 time(s) for low headroom" in res.stdout
+    assert "headroom 140 MiB" in res.stdout
 
 
 def test_no_valid_record_fails_closed():

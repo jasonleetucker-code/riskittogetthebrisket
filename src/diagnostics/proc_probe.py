@@ -435,6 +435,28 @@ def service_cgroup_dir(pid: int) -> Path | None:
     return cg
 
 
+def memory_headroom_mib(pid: int) -> int | None:
+    """MiB between this service cgroup's anonymous memory and its throttling
+    line (``memory.high``, else ``memory.max``).  ``None`` when unknown: no
+    dedicated service cgroup, no limit, or an unreadable file.  Anonymous
+    memory, not ``memory.current``: page cache is reclaimed before the kernel
+    throttles.  Never raises.
+    """
+    try:
+        cg = service_cgroup_dir(pid)
+        if cg is None:
+            return None
+        line = _int_or_none(_read_text(cg / "memory.high"))
+        if line is None:
+            line = _int_or_none(_read_text(cg / "memory.max"))
+        anon = _parse_keyed_file(cg / "memory.stat").get("anon")
+        if line is None or anon is None:
+            return None
+        return (line - anon) // (1024 * 1024)
+    except Exception:  # noqa: BLE001 -- a diagnostic must never break its caller
+        return None
+
+
 #: Set to ``1`` by deploy/systemd/dynasty.service.template.  An explicit
 #: opt-in (not ``SYSTEMD_EXEC_PID``, which needs systemd >= 248 and is also
 #: inherited by anything a service spawns) so CI runners, cron, supervisord

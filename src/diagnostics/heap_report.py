@@ -18,10 +18,19 @@ module answers from inside it, cheaply enough to run on the production box:
   cached JSON and gzip views), which the garbage collector does not track
   and the type census therefore cannot see.
 
-Measured on a primed local heap (330,469 objects): the type census takes
-~0.2 s, the container census ~8 ms.  Every figure is a number or an
-identifier from this codebase (module, attribute and type names); no values
-and no user data are read.  Nothing here raises.
+Cost, measured locally: the container census takes ~8 ms; the type and
+deep censuses together take 1.5-2.5 s of a worker thread (pure Python, so
+the GIL is shared), and the deep census's visited-set costs ~100 MiB per
+million objects while it runs.  So the deep census is bounded
+(:data:`DEEP_BUDGET`) and skipped when the service is within
+:data:`DEEP_HEADROOM_MIB` of its throttling line.  The glibc walks hold the
+arena locks for ~120 ms each on a 3 GB heap, so they run only inside a
+snapshot; ``/api/status`` reads the last snapshot's figures
+(:func:`box_fields`) and never walks the heap.
+
+Every figure is a number or an identifier from this codebase (module,
+attribute, class and type names); no values and no user data are read.
+Nothing here raises.
 """
 
 from __future__ import annotations
@@ -157,17 +166,6 @@ def malloc_summary() -> dict[str, Any]:
     return out
 
 
-def box_fields() -> dict[str, int | None]:
-    """The numbers-only slice of :func:`malloc_summary` for ``box_resources``."""
-    m = malloc_summary()
-    return {
-        "heap_arenas": m["arenas"],
-        "heap_in_use_mib": m["in_use_mib"],
-        "heap_free_mib": m["free_mib"],
-        "heap_mmap_mib": m["mmap_mib"],
-    }
-
-
 def empty_box_fields() -> dict[str, None]:
     return {
         "heap_arenas": None,
@@ -175,6 +173,29 @@ def empty_box_fields() -> dict[str, None]:
         "heap_free_mib": None,
         "heap_mmap_mib": None,
     }
+
+
+#: The last snapshot's glibc figures, served by :func:`box_fields`.
+_LAST_BOX: dict[str, int | None] = empty_box_fields()
+
+
+def box_fields() -> dict[str, int | None]:
+    """The last snapshot's glibc figures for ``box_resources`` (numbers only).
+
+    Cached, never measured here: walking the heap holds glibc's arena locks
+    (~120 ms on a 3 GB heap), and ``/api/status`` must not stall on it.
+    All ``None`` until the first snapshot.
+    """
+    return dict(_LAST_BOX)
+
+
+def _remember_box(m: dict[str, Any]) -> None:
+    _LAST_BOX.update(
+        heap_arenas=m.get("arenas"),
+        heap_in_use_mib=m.get("in_use_mib"),
+        heap_free_mib=m.get("free_mib"),
+        heap_mmap_mib=m.get("mmap_mib"),
+    )
 
 
 def _safe(name: str) -> str:
@@ -197,7 +218,7 @@ def container_census(
     limit: int = 20,
     *,
     prefixes: tuple[str, ...] = ("src.",),
-    modules: tuple[str, ...] = ("server", "__main__"),
+    modules: tuple[str, ...] = ("server",),
 ) -> list[dict[str, Any]]:
     """The largest module-level containers and ``lru_cache``s, by length.
 
@@ -278,8 +299,16 @@ _DEEP_SKIP = (
     types.CodeType,
     types.FrameType,
 )
-#: Upper bound on objects one deep census visits (~1 s of pure Python).
-DEEP_BUDGET = 3_000_000
+#: Upper bound on objects one deep census visits.  Its visited-set costs
+#: ~100 MiB per million objects while it runs (independent review, measured:
+#: +292 MiB peak at 3 million), so the census is bounded and reports
+#: ``truncated`` rather than growing with the heap it measures.  A primed
+#: local server walks ~1.2 million.
+DEEP_BUDGET = 1_500_000
+#: The deep census is skipped when the service is closer than this to its
+#: throttling line (``proc_probe.memory_headroom_mib``): a diagnostic must
+#: not push the process into the condition it is diagnosing.
+DEEP_HEADROOM_MIB = 512
 
 
 def deep_census(
@@ -287,14 +316,16 @@ def deep_census(
     *,
     budget: int | None = None,
     prefixes: tuple[str, ...] = ("src.",),
-    modules: tuple[str, ...] = ("server", "__main__"),
+    modules: tuple[str, ...] = ("server",),
 ) -> dict[str, Any]:
     """Bytes reachable from each module-level object in this codebase.
 
-    Roots are module attributes (not modules, classes or functions), walked
-    in module-name order through ``gc.get_referents``; an object reachable
-    from several roots is counted once, under the first.  ``truncated`` says
-    the walk stopped at ``budget`` objects, so the totals are lower bounds.
+    Roots are module attributes, walked in module-name order through
+    ``gc.get_referents``; an object reachable from several roots is counted
+    once, under the first.  Modules, functions and other modules' classes
+    are not roots; a class defined in the module is, through its own
+    attributes (class-level caches).  ``truncated`` says the walk stopped at
+    ``budget`` objects, so the totals are lower bounds.
     """
     cap = DEEP_BUDGET if budget is None else int(budget)
     seen: set[int] = set()
@@ -310,11 +341,19 @@ def deep_census(
             if not isinstance(namespace, dict):
                 continue
             for attr, root in list(namespace.items()):
-                if attr.startswith("__") or isinstance(root, _DEEP_SKIP) or id(root) in seen:
+                if attr.startswith("__") or id(root) in seen:
                     continue
+                if isinstance(root, type):
+                    if getattr(root, "__module__", None) != mname:
+                        continue
+                    stack = [v for k, v in vars(root).items() if not k.startswith("__")]
+                    seen.add(id(root))
+                elif isinstance(root, _DEEP_SKIP):
+                    continue
+                else:
+                    stack = [root]
                 size = 0
                 count = 0
-                stack = [root]
                 while stack:
                     obj = stack.pop()
                     oid = id(obj)
@@ -336,7 +375,9 @@ def deep_census(
                     rows.append(
                         {
                             "name": _safe(f"{mname}.{attr}"),
-                            "kind": _safe(type(root).__name__),
+                            "kind": "class"
+                            if isinstance(root, type)
+                            else _safe(type(root).__name__),
                             "mib": round(size / _MIB, 1),
                             "objects": count,
                         }
@@ -358,34 +399,53 @@ def deep_census(
     }
 
 
+def _deep_allowed() -> tuple[bool, int | None]:
+    headroom = proc_probe.memory_headroom_mib(os.getpid())
+    return (headroom is None or headroom >= DEEP_HEADROOM_MIB), headroom
+
+
 def snapshot(
     reason: str, *, include_types: bool = False, extra: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """One heap record: process RSS, glibc accounting, gc state, containers,
-    and (optionally) the type census.  ``extra`` carries numbers only (e.g.
-    a ``malloc_trim`` result); anything else is dropped."""
-    started = time.perf_counter()
-    census_types = type_census() if include_types else None
-    census_deep = deep_census() if include_types else None
-    census_ms = int((time.perf_counter() - started) * 1000)
+    and (optionally) the type and deep censuses.  ``extra`` carries numbers
+    only (e.g. a ``malloc_trim`` result); anything else is dropped.
+
+    RSS and the glibc figures are read BEFORE the censuses, so the record
+    describes the heap, not the census's own temporary allocations.
+    """
     rss_kb = proc_probe.process_rss_kb(os.getpid())
+    malloc = malloc_summary()
+    _remember_box(malloc)
     record: dict[str, Any] = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "reason": _safe(reason),
         "pid": os.getpid(),
         "process_rss_mib": None if rss_kb is None else int(rss_kb) // 1024,
-        "malloc": malloc_summary(),
+        "malloc": malloc,
         "gc": {
             "counts": list(gc.get_count()),
             "allocated_blocks": sys.getallocatedblocks(),
             "threads": len(sys._current_frames()),  # noqa: SLF001
         },
         "containers": container_census(),
-        "types": census_types,
-        "deep": census_deep,
-        "census_ms": census_ms if include_types else None,
+        "types": None,
+        "deep": None,
+        "deep_skipped": None,
+        "headroom_mib": None,
+        "census_ms": None,
         "extra": _numbers_only(extra),
     }
+    if include_types:
+        started = time.perf_counter()
+        record["types"] = type_census()
+        allowed, headroom = _deep_allowed()
+        record["headroom_mib"] = headroom
+        if allowed:
+            record["deep"] = deep_census()
+        else:
+            record["deep_skipped"] = "low_headroom"
+        record["census_ms"] = int((time.perf_counter() - started) * 1000)
     return record
 
 

@@ -290,15 +290,23 @@ Owner request, 2026-11-12: cap glibc's arenas and attribute the heap on the prod
 |---|---|---|
 | `MALLOC_ARENA_MAX=2` | `deploy/systemd/dynasty.service.template` (the reconciler installs it on deploy, before the restart) | glibc keeps at most 2 arenas instead of 8 per core |
 | Module executed once (WA-20) | `server.py`: a `__main__` guard after the imports runs the module once, as `server`, and serves that | one copy of every module-level load |
-| Heap report | `src/diagnostics/heap_report.py`, `server.py` (`heap_report_loop`, `_record_heap_snapshot`, `box_resources.heap_*`) | box-local log `data/diagnostics/heap_reports.jsonl` (bounded to 2 MB): at start, every 15 min (`HEAP_REPORT_INTERVAL_SEC`), before each scrape and after each publish |
+| Heap report | `src/diagnostics/heap_report.py`, `server.py` (`heap_report_loop`, `_record_heap_snapshot`, `box_resources.heap_*`), `src/diagnostics/proc_probe.py` (`memory_headroom_mib`) | box-local log `data/diagnostics/heap_reports.jsonl` (bounded to 2 MB): at start, every 15 min (`HEAP_REPORT_INTERVAL_SEC`), before each scrape, and after each publish both before and after its heap release |
 | Read-only reader | `deploy/diagnostics/prod_heap_report.sh`, `.github/workflows/prod-heap-report.yml` (dispatch only) | prints the series and the latest census; re-validates every field, so only numbers and code identifiers reach the job log |
 
 Each snapshot records process RSS; glibc's split of the heap into memory in use, memory freed but retained, mmap and
 the arena count (`mallinfo2` / `malloc_info`); the largest module-level containers. Every fourth snapshot, every
 scrape-point snapshot and any snapshot taken at RSS ≥ 1,536 MiB also records a type census (live objects by type)
-and a deep census (bytes reachable from each module-level object, each counted once). Only the deep census sees
-`str` / `bytes` payloads, which the garbage collector does not track. `/api/status` `box_resources` gains
-`heap_arenas`, `heap_in_use_mib`, `heap_free_mib` and `heap_mmap_mib`.
+and a deep census (bytes reachable from each module-level object or class, each counted once). Only the deep census
+sees `str` / `bytes` payloads, which the garbage collector does not track. `/api/status` `box_resources` gains
+`heap_arenas`, `heap_in_use_mib`, `heap_free_mib` and `heap_mmap_mib`. These are the last snapshot's figures:
+walking glibc's heap holds its arena locks (about 120 ms on a 3 GB heap), so it is never done per probe.
+
+The diagnostic must not cause the condition it measures. Its costs, from the independent review:
+- The deep census's visited-set costs about 100 MiB per million objects while it runs, so it is bounded at
+  1.5 million objects and reports `truncated` when it stops early.
+- It is skipped (`deep_skipped: low_headroom`) when the service's anonymous memory is within 512 MiB of
+  `memory.high`.
+- RSS and the glibc figures are read before the censuses, so a record describes the heap, not the census.
 
 **Local measurements** (committed board, cold start, then 42 concurrent requests to the 14 heaviest routes):
 
@@ -313,8 +321,8 @@ in use 30 s later, with 215 MiB freed but retained (56% of the 382 MiB arena hea
 module-level objects. The largest are the public-league cache (44 MiB), the contract (19 MiB), the overlay response
 cache (17 MiB), the served payload bytes (16 + 9 + 7 + 7 + 6 MiB), the player-impact cache (12 MiB) and the draft
 workbook cache (12 MiB). Before the fix, the same census also listed `__main__._public_league_cache` (44 MiB): the
-unused second copy (WA-20). The type census takes 1.7-2.1 s of a worker thread on this heap; it runs in the
-threadpool and releases the GIL as it goes.
+unused second copy (WA-20). The type and deep censuses together take 1.5-2.5 s of a worker thread on this heap.
+They are pure Python in the threadpool, so the GIL is shared with the event loop.
 
 Reading, locally: after a burst, most of the heap growth that stays is freed memory glibc keeps, not live objects.
 Production may differ, since its heap reached 2.8 GB. The report on the box answers that. A heap release after heavy

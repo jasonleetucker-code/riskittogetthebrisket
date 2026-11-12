@@ -48,7 +48,7 @@ command -v python3 >/dev/null 2>&1 || { echo "error: python3 not found" >&2; exi
 
 report() {
   python3 -c '
-import json, re, sys
+import json, math, re, sys
 
 MAX = int(sys.argv[1])
 NAME = re.compile(r"^[A-Za-z0-9_.()<>\[\]-]{1,160}$")
@@ -56,7 +56,12 @@ REASON = re.compile(r"^[A-Za-z0-9_]{1,40}$")
 TS = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
 def num(v):
-    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    return v if math.isfinite(v) else None
+
+def count(v):
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
 
 def name(v):
     return v if isinstance(v, str) and NAME.match(v) else None
@@ -76,20 +81,22 @@ def clean(raw):
         "arenas": num(m.get("arenas")),
         "containers": [], "types": None, "tracked": None, "deep": None,
         "census_ms": num(raw.get("census_ms")),
+        "deep_skipped": raw.get("deep_skipped") if raw.get("deep_skipped") in ("low_headroom",) else None,
+        "headroom": num(raw.get("headroom_mib")),
         "trim_before": None, "trim_after": None,
     }
     extra = raw.get("extra") if isinstance(raw.get("extra"), dict) else {}
     rec["trim_before"] = num(extra.get("trimRssBeforeMib"))
     rec["trim_after"] = num(extra.get("trimRssAfterMib"))
     for c in raw.get("containers") or []:
-        if isinstance(c, dict) and name(c.get("name")) and name(c.get("kind")) and num(c.get("len")) is not None:
+        if isinstance(c, dict) and name(c.get("name")) and name(c.get("kind")) and count(c.get("len")) is not None:
             rec["containers"].append((c["name"], c["kind"], c["len"]))
     t = raw.get("types")
     if isinstance(t, dict):
         rec["tracked"] = num(t.get("tracked_objects"))
         rec["types"] = [
             (r["type"], r["count"], r["mib"]) for r in (t.get("top") or [])
-            if isinstance(r, dict) and name(r.get("type")) and num(r.get("count")) is not None and num(r.get("mib")) is not None
+            if isinstance(r, dict) and name(r.get("type")) and count(r.get("count")) is not None and num(r.get("mib")) is not None
         ]
     d = raw.get("deep")
     if isinstance(d, dict) and isinstance(d.get("truncated"), bool):
@@ -100,7 +107,7 @@ def clean(raw):
             "top": [
                 (r["name"], r["kind"], r["mib"], r["objects"]) for r in (d.get("top") or [])
                 if isinstance(r, dict) and name(r.get("name")) and name(r.get("kind"))
-                and num(r.get("mib")) is not None and num(r.get("objects")) is not None
+                and num(r.get("mib")) is not None and count(r.get("objects")) is not None
             ],
         }
     return rec
@@ -112,7 +119,7 @@ for line in sys.stdin:
         continue
     try:
         rec = clean(json.loads(line))
-    except ValueError:
+    except Exception:  # a malformed line is dropped, never fatal
         rec = None
     if rec is None:
         dropped += 1
@@ -147,6 +154,10 @@ if typed:
     print("\n== type census %s (%s) objects=%s census_ms=%s ==" % (t["ts"], t["reason"], f(t["tracked"]), f(t["census_ms"])))
     for tname, count, mib in t["types"][:20]:
         print("  %-40s count=%-9d mib=%s" % (tname, count, mib))
+skipped = [r for r in records if r["deep_skipped"] and r["pid"] == last["pid"]]
+if skipped:
+    print("\ndeep census skipped %d time(s) for low headroom (latest %s, headroom %s MiB)" % (
+        len(skipped), skipped[-1]["ts"], f(skipped[-1]["headroom"])))
 deep = [r for r in records if r["deep"] is not None and r["pid"] == last["pid"]]
 if deep:
     d = deep[-1]
