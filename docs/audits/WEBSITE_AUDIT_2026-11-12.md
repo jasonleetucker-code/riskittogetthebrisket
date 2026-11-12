@@ -118,7 +118,7 @@ WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_c
 | WA-15 | Fixed, merged, deployed (new) | #2189 | `/draft` first visit (no saved workspace) still keyed Perfect Draft on the seed team "Russini Panini" (400), and "my team" fell back to row 0 (another manager); the readiness gate could also wait forever if `/api/leagues` failed (independent review) |
 | WA-16 | Fixed, merged, deployed (new, P2) | #2189 | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve; a team name two teams share resolves to neither. Delta review: a real team equal to a seed row ({Ed, $71}) could be overridden as "my team" and was not sent by name; fixed |
 
-| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box heap report merged and deployed (#2193: glibc arenas capped at 2, WA-20); production split read (#2194): the post-restart climb is live Python objects (+4.8 M blocks, about 345 MiB) plus about 206 MiB of freed glibc heap; periodic heap release and a census trigger set to run at the observed production plateau in this PR; open until the objects are named and the heap stays below `memory.high` | #2193, #2194, this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11, §7.12 |
+| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box heap report merged and deployed (#2193: glibc arenas capped at 2, WA-20); production split read (#2194): the post-restart climb is live Python objects (+4.8 M blocks, about 345 MiB) plus about 206 MiB of freed glibc heap; periodic heap release and census trigger merged (#2195). At 21:07 UTC a transient burst of about 19 M Python objects took RSS to 2,151 MiB and throttled the service (2,799 `memory.high` events, no restart); after it, Python's allocator kept about 1 GB (§7.12). Open until the burst's producer is named and fixed | #2193, #2194, #2195, this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11, §7.12 |
 | WA-18 | Fixed, merged, deployed, verified (new, monitoring) | #2191 | `box_resources.chromium_processes` read 0 while Chromium ran: the kernel keeps 15 characters of a process name (`chrome-headless`), the list held the 16-character `chrome-headless-` |
 | WA-20 | Fixed, merged, deployed, verified (new, memory) | #2193 | `python server.py` executed server.py's module body twice: once as `__main__`, then again when `uvicorn.run("server:app")` imported it as `server`. The `__main__` copy was never served but kept its own module state, including a second 44 MiB public-league snapshot. Production deep census after deploy: no `__main__` copy. §7.11, §7.12 |
 | WA-19 | Fixed, merged (new, P1 for trades) | #2190 | 35 pick rows priced by approved C1-U6 derivations or the rookie tether were quarantined (`no_valid_source_values`), withholding every trade verdict that touched one (e.g. "2029 Mid 5th (received, quarantined)"). Record: `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` |
@@ -215,7 +215,7 @@ the test-session endpoint); CI = GitHub Actions on the PR head; P = production, 
 
 | # | Item | Why open | Next step | Blocks readiness? |
 |---|---|---|---|---|
-| 1 | Memory across cycles (WA-17) | the heap passed `memory.high` under load twice on 2026-11-12 (§7.9, §7.10). Since #2193 production starts lower (497-567 MiB) and no throttling was recorded through 20:58 UTC. The post-restart climb is about 345 MiB of live Python objects plus about 206 MiB of freed glibc heap (§7.12) | glibc part: periodic release in this PR. Python part: after deploy, `prod-heap-report.yml` names the containers that grew (census at RSS ≥ 1,024 MiB, focus on the process that climbed); then bound those caches | yes, until production shows the heap staying below `memory.high`: about 6-minute API outages, twice on 2026-11-12 |
+| 1 | Memory across cycles (WA-17) | the heap passed `memory.high` under load twice on 2026-11-12 (§7.9, §7.10). Since #2193 production starts lower (497-567 MiB) and no throttling was recorded through 20:58 UTC. The post-restart climb is about 345 MiB of live Python objects plus about 206 MiB of freed glibc heap (§7.12) | read the peak census (this PR prints it) to name what built about 19 M objects at 21:07, then fix that producer (bound or stream it). If the burst cannot be avoided, measure `PYTHONMALLOC=malloc`: freed Python memory would then go to glibc, where the periodic release (#2195) returns it, at some allocation-speed cost | yes, until production shows the heap staying below `memory.high`: about 6-minute API outages, twice on 2026-11-12 |
 | 2 | Signed-in production checks | no production credentials here; the public advisor is disabled | owner signs in and checks `/trade` with 2029 Mid 5th / Mid 6th (no withheld side) once #2190 deploys | no |
 | 3 | Owned future picks: browser Mid row vs engine generic row (TC-22) | up to 2.5% on the preliminary meter only; the deferred frontend label-lookup migration | `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` §Adjacent gap | no |
 | 4 | Raw ports from the internet | only probed from this egress | box-side `ss -ltnp` / firewall check by the operator | no |
@@ -407,3 +407,31 @@ backend with each data-refresh deploy (every 40-60 min), and the plateau sat at 
   the loop returns it with the scrape's own `_release_freed_heap` and logs a light `periodic_trim` record (RSS before
   and after). Expected effect: about 200 MiB less RSS on the plateau. It frees nothing in use. The Python part still
   needs the caches named.
+
+**The peak, read in production** (`prod-heap-report.yml` run 4, process `ab0b5a39`, started 20:51 UTC; the census at
+RSS ≥ 1,536 MiB fired under the old trigger):
+
+| Record (UTC) | RSS | anon | glibc in use / freed | `o_anon` | Python blocks | Tracked objects |
+|---|---|---|---|---|---|---|
+| 20:52 startup | 535 | 507 | 162 / 74 | 241 | 3.47 M | 410 k |
+| 21:07 periodic, high RSS | 2,151 | 2,105 | 242 / 175 | 1,629 | about 22.6 M | 2.12 M |
+| 21:22 periodic, high RSS | 1,779 | 1,734 | 208 / 209 | 1,258 | 4.32 M | 636 k |
+
+- **The peak is a burst of about 19 million Python objects**, 1.7 M of them containers, live at the same moment.
+  It took RSS to 2,151 MiB (anonymous 2,105), within about 400 MiB of `memory.high`. `/api/status` showed 2,799
+  `memory.high` events at 21:27. That counter is cumulative over the service's cgroup, so it shows the service was
+  throttled again, most likely around this peak, but does not time each event. This time it recovered without a
+  restart. The deep census was correctly skipped at 21:07 (headroom 454 MiB < 512).
+- **After the burst, Python's allocator kept about 1 GB.** By 21:22 the block count was back near startup (4.3 M
+  against 3.5 M), but `o_anon` stayed at 1,258 MiB (241 at startup). Python's small-object allocator returns an
+  arena to the kernel only when every block in it is free, so a burst leaves most of its arenas resident. The
+  glibc arena cap and `malloc_trim` cannot reach this memory.
+- The live caches after the burst are small by comparison: the overlay response cache +50 MiB, player impact +12,
+  draft workbook +12, BDVM context and values +20, public contract bytes +7 (deep census at 21:22).
+
+The 21:07 event is consistent with the earlier outages being driven by the same mechanism: a request burst that
+briefly builds millions of extra objects (about 19 M more than at startup; 22.6 M in total). The 13:32 and 15:42
+restarts predate this report, so they are not shown to be bursts. The memory a burst leaves behind in Python's
+allocator stays resident until the next restart, and the next burst starts from that level. This PR makes the
+reader print the census taken at the peak, which lists the types the 19 M objects belong to and so points to the code
+that built them. That producer is the fix; `PYTHONMALLOC=malloc` is the fallback to measure (§7.7 #1).
