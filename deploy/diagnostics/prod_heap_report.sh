@@ -144,7 +144,7 @@ def other_anon(r):
     return r["anon"] - r["arena"] - r["mmap"]
 
 print("== series (MiB) == records=%d dropped=%d" % (len(records), dropped))
-print("columns: anon/file = anonymous / file-backed RSS; other_anon = anon - arena - mmap (mostly the Python small-object allocator); kblocks = Python allocated blocks / 1000")
+print("columns: anon/file = anonymous / file-backed RSS; o_anon = anon - arena - mmap (approximate, mostly the Python small-object allocator; can read low or negative after a trim, since arena counts address space, not resident pages); kblocks = Python allocated blocks / 1000")
 print("%-19s %-17s %7s %6s %6s %6s %6s %6s %6s %6s %6s %6s %7s %9s %s" % (
     "ts_utc", "reason", "pid", "rss", "anon", "file", "arena", "in_use", "free", "mmap", "o_anon", "arenas", "kblocks", "objects", "trim"))
 for r in records:

@@ -351,7 +351,7 @@ scrape's `source_start` (16:07 UTC, 74 service pids) and 0 after it.
 | Heap report | records at start, every 15 min, and light records around each scrape; `box_resources.heap_*` carry the last snapshot's figures and their age |
 | Throttling | `memory.high` events 0 through 19:17 UTC |
 
-| Record (UTC) | Process | RSS | glibc arena (in use / freed) | glibc mmap | Rest of RSS |
+| Record (UTC) | Process | RSS | glibc arena (in use / freed) | glibc mmap | Rest of RSS (RSS - arena - mmap) |
 |---|---|---|---|---|---|
 | 18:11 startup | 1 | 567 | 261 (163 / 98) | 30 | 276 |
 | 18:26, 18:41, 18:56 periodic | 1 | 1,061 (flat) | 376 (209 / 166) | 59 | 626 |
@@ -361,16 +361,20 @@ Process 2 started at 19:02 with the regular data-refresh deploy (`e7493cbe`), be
 
 Reading: a burst of requests right after the restart (18:17, clients reconnecting) took RSS from 509 to 920 MiB, and
 it settled at 1,061 MiB.
-- glibc's heap grew 144 MiB, a third of it memory glibc keeps after it is freed.
-- The rest of RSS grew 350 MiB. That part is outside glibc's accounting: Python's own small-object allocator (which
-  takes memory straight from the kernel and returns an arena only when it is completely empty), thread stacks and
-  mapped code.
+- glibc's arena and mmap together grew 144 MiB (291 → 435). Of that, 68 MiB is memory glibc keeps after it is
+  freed (98 → 166), about half.
+- The rest of RSS grew 350 MiB (276 → 626). That part is outside glibc's accounting: Python's own small-object
+  allocator (which takes memory straight from the kernel and returns an arena only when it is completely empty),
+  thread stacks and mapped code. These records predate the anonymous / file split, so this column still includes
+  file-backed memory; the reader's `o_anon` column (below) excludes it.
 
 So the arena cap and `malloc_trim` act on the smaller part of the climb. At startup, 135-171 MiB is reachable from
 module-level objects. The largest are the contract (25 MiB), the served payload bytes (about 58 MiB), the startup
 data (16 MiB), the public-league cache (8-44 MiB) and Game Day's player cache (9 MiB).
 
-Next (this PR): every snapshot also records anonymous and file-backed RSS, and the reader prints the anonymous memory
-glibc does not account for, plus Python's allocated block count. That separates live Python objects from memory
+Next (this PR): every snapshot also records anonymous and file-backed RSS. The reader prints `o_anon` (anonymous RSS
+minus glibc's arena and mmap) and Python's allocated block count. `o_anon` is an approximation: glibc's arena figure
+is address space it obtained, not only resident pages. After `malloc_trim` returns pages, the arena figure can stay
+the same, so `o_anon` can read low or even negative. That separates live Python objects from memory
 Python's allocator keeps after they are freed, which decides the mitigation (§7.7 #1).
 

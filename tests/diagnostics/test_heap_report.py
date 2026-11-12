@@ -282,7 +282,9 @@ def test_snapshot_splits_anonymous_and_file_backed_rss():
         rec = heap_report.snapshot("periodic", walk_heap=walk)
         assert isinstance(rec["rss_anon_mib"], int)
         assert isinstance(rec["rss_file_mib"], int)
-        assert rec["rss_anon_mib"] + rec["rss_file_mib"] <= rec["process_rss_mib"] + 1
+        # Three separate /proc reads, each floored to MiB: allow a few MiB of
+        # movement between them.
+        assert rec["rss_anon_mib"] + rec["rss_file_mib"] <= rec["process_rss_mib"] + 4
 
 
 def test_deep_census_is_skipped_near_the_throttling_line(monkeypatch):
