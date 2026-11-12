@@ -111,6 +111,25 @@ def test_containers_come_from_the_last_full_snapshot():
     assert "len=" in section
 
 
+def test_sections_follow_the_highest_rss_process():
+    """A restart starts a new, small heap; the census and growth sections
+    must describe the process that climbed, not the newest one."""
+    full = json.loads(_real_records().splitlines()[0])
+    climbed = dict(
+        full, pid=111, process_rss_mib=1200, ts="2026-11-12T20:25:40+00:00", reason="periodic"
+    )
+    climbed["containers"] = [{"name": "src.x.CLIMBER", "kind": "dict", "len": 999}]
+    fresh = dict(
+        full, pid=222, process_rss_mib=500, ts="2026-11-12T20:52:37+00:00", reason="startup"
+    )
+    fresh["containers"] = [{"name": "src.y.FRESH", "kind": "dict", "len": 5}]
+    res = _filter(json.dumps(climbed) + "\n" + json.dumps(fresh) + "\n")
+    assert res.returncode == 0, res.stderr
+    assert "focus: pid 111 (highest RSS in the window: 1200 MiB" in res.stdout
+    section = res.stdout.split("== largest containers", 1)[1]
+    assert "src.x.CLIMBER" in section and "src.y.FRESH" not in section
+
+
 def test_tampered_lines_cannot_carry_text():
     rec = json.loads(_real_records().splitlines()[-1])
     rec["reason"] = f"periodic {SECRET}"  # not an identifier: whole record dropped

@@ -485,6 +485,7 @@ def _run_loop_for(server_mod, seconds):
 
 def test_heap_loop_cadence_and_type_census_schedule(server_mod, monkeypatch, cheap_census):
     monkeypatch.setattr(server_mod, "HEAP_REPORT_INTERVAL_SEC", 0.02)
+    monkeypatch.setattr(server_mod, "HEAP_RELEASE_FREE_MIB", 0)
     monkeypatch.setattr(server_mod, "HEAP_REPORT_HIGH_RSS_MIB", 10**9)
     records = _run_loop_for(server_mod, 1.5)
     assert len(records) >= 5
@@ -497,10 +498,61 @@ def test_heap_loop_cadence_and_type_census_schedule(server_mod, monkeypatch, che
 
 def test_heap_loop_takes_the_census_when_rss_is_high(server_mod, monkeypatch, cheap_census):
     monkeypatch.setattr(server_mod, "HEAP_REPORT_INTERVAL_SEC", 0.02)
+    monkeypatch.setattr(server_mod, "HEAP_RELEASE_FREE_MIB", 0)
     monkeypatch.setattr(server_mod, "HEAP_REPORT_HIGH_RSS_MIB", 0)
     records = _run_loop_for(server_mod, 0.6)
     assert records
     assert all(r["reason"] == "periodic_high_rss" and r["types"] is not None for r in records)
+
+
+def _loop_calls(server_mod, monkeypatch, free_mib, threshold, seconds=0.4):
+    """Run the loop with the snapshot and the release stubbed; return the
+    calls in order: ("snapshot", reason, walk_heap, trim) / ("release",)."""
+    calls = []
+
+    def snapshot(reason, include_types=False, trim=None, walk_heap=True):
+        calls.append(("snapshot", reason, walk_heap, trim))
+        return {"written": True, "heapFreeMib": free_mib}
+
+    def release():
+        calls.append(("release",))
+        return {"available": True, "rssBeforeMib": 900, "rssAfterMib": 700}
+
+    monkeypatch.setattr(server_mod, "_record_heap_snapshot", snapshot)
+    monkeypatch.setattr(server_mod, "_release_freed_heap", release)
+    monkeypatch.setattr(server_mod, "HEAP_REPORT_INTERVAL_SEC", 0.02)
+    monkeypatch.setattr(server_mod, "HEAP_RELEASE_FREE_MIB", threshold)
+
+    async def run():
+        task = asyncio.create_task(server_mod.heap_report_loop())
+        await asyncio.sleep(seconds)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run())
+    return calls
+
+
+def test_heap_loop_releases_retained_heap_above_the_threshold(server_mod, monkeypatch):
+    """Production 2026-11-12: 206-239 MiB freed but retained after a burst
+    (audit §7.12).  The release follows the snapshot, and a light record
+    logs RSS before and after it."""
+    calls = _loop_calls(server_mod, monkeypatch, free_mib=239, threshold=128)
+    assert calls[0][:2] == ("snapshot", "startup")
+    assert calls[1] == ("release",)
+    trim_record = calls[2]
+    assert trim_record[:3] == ("snapshot", "periodic_trim", False)  # light: no heap walk
+    assert trim_record[3] == {"available": True, "rssBeforeMib": 900, "rssAfterMib": 700}
+
+
+@pytest.mark.parametrize("free_mib,threshold", [(127, 128), (500, 0), (None, 128)])
+def test_heap_loop_does_not_release_below_threshold_or_when_disabled(
+    server_mod, monkeypatch, free_mib, threshold
+):
+    calls = _loop_calls(server_mod, monkeypatch, free_mib=free_mib, threshold=threshold)
+    assert calls and all(c[0] == "snapshot" for c in calls)
+    assert not any(c[1] == "periodic_trim" for c in calls)
 
 
 def test_heap_loop_disabled_by_zero(server_mod, monkeypatch):

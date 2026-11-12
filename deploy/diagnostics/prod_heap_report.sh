@@ -156,24 +156,30 @@ for r in records:
         f(r["tracked"]), trim))
 
 last = records[-1]
+# The census, container and growth sections describe ONE process: the one
+# with the highest RSS in the window (the climb worth explaining), not
+# necessarily the newest (a restart starts a new, small heap).
+peak = max(records, key=lambda r: -1 if r["rss"] is None else r["rss"])
+focus = peak["pid"]
+print("focus: pid %s (highest RSS in the window: %s MiB at %s)" % (f(focus), f(peak["rss"]), peak["ts"]))
 full = [r for r in records if r["in_use"] is not None and r["free"] is not None]
 if full and (full[-1]["in_use"] + full[-1]["free"]) > 0:
     lf = full[-1]
     share = 100.0 * lf["free"] / (lf["in_use"] + lf["free"])
-    print("latest full snapshot %s: heap in use %s MiB, freed but retained %s MiB (%.0f%% of the arena heap), mmap %s MiB, other anonymous %s MiB, arenas %s" % (
-        lf["ts"], f(lf["in_use"]), f(lf["free"]), share, f(lf["mmap"]), f(other_anon(lf)), f(lf["arenas"])))
+    print("latest full snapshot %s (pid %s): heap in use %s MiB, freed but retained %s MiB (%.0f%% of the arena heap), mmap %s MiB, other anonymous %s MiB, arenas %s" % (
+        lf["ts"], f(lf["pid"]), f(lf["in_use"]), f(lf["free"]), share, f(lf["mmap"]), f(other_anon(lf)), f(lf["arenas"])))
 
-typed = [r for r in records if r["types"] is not None and r["pid"] == last["pid"]]
+typed = [r for r in records if r["types"] is not None and r["pid"] == focus]
 if typed:
     t = typed[-1]
     print("\n== type census %s (%s) objects=%s census_ms=%s ==" % (t["ts"], t["reason"], f(t["tracked"]), f(t["census_ms"])))
     for tname, n_objects, mib in t["types"][:20]:
         print("  %-40s count=%-9d mib=%s" % (tname, n_objects, mib))
-skipped = [r for r in records if r["deep_skipped"] and r["pid"] == last["pid"]]
+skipped = [r for r in records if r["deep_skipped"] and r["pid"] == focus]
 if skipped:
     print("\ndeep census skipped %d time(s) for low headroom (latest %s, headroom %s MiB)" % (
         len(skipped), skipped[-1]["ts"], f(skipped[-1]["headroom"])))
-deep = [r for r in records if r["deep"] is not None and r["pid"] == last["pid"]]
+deep = [r for r in records if r["deep"] is not None and r["pid"] == focus]
 if deep:
     d = deep[-1]
     print("\n== deep census %s (%s): %s MiB reachable from module-level objects, heap in use %s MiB, walked=%s truncated=%s ==" % (
@@ -187,7 +193,7 @@ if len(deep) >= 2:
     rows = sorted(((m - before.get(n, 0.0), n, m) for n, _k, m, _o in b["deep"]["top"]), reverse=True)[:15]
     for dm, n, m in rows:
         print("  %-70s d_mib=%+.1f mib=%s" % (n, dm, m))
-walked = [r for r in records if r["containers"] and r["pid"] == last["pid"]]
+walked = [r for r in records if r["containers"] and r["pid"] == focus]
 if walked:
     lc = walked[-1]
     print("\n== largest containers %s (%s) ==" % (lc["ts"], lc["reason"]))
