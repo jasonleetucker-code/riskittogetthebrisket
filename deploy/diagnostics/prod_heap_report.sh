@@ -166,8 +166,8 @@ full = [r for r in records if r["in_use"] is not None and r["free"] is not None]
 if full and (full[-1]["in_use"] + full[-1]["free"]) > 0:
     lf = full[-1]
     share = 100.0 * lf["free"] / (lf["in_use"] + lf["free"])
-    print("latest full snapshot %s: heap in use %s MiB, freed but retained %s MiB (%.0f%% of the arena heap), mmap %s MiB, other anonymous %s MiB, arenas %s" % (
-        lf["ts"], f(lf["in_use"]), f(lf["free"]), share, f(lf["mmap"]), f(other_anon(lf)), f(lf["arenas"])))
+    print("latest full snapshot %s (pid %s): heap in use %s MiB, freed but retained %s MiB (%.0f%% of the arena heap), mmap %s MiB, other anonymous %s MiB, arenas %s" % (
+        lf["ts"], f(lf["pid"]), f(lf["in_use"]), f(lf["free"]), share, f(lf["mmap"]), f(other_anon(lf)), f(lf["arenas"])))
 
 typed = [r for r in records if r["types"] is not None and r["pid"] == focus]
 if typed:
