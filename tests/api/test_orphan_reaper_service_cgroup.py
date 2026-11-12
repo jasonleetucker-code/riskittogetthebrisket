@@ -242,7 +242,8 @@ def test_blocked_probe_returns_nulls_within_timeout(monkeypatch):
     t0 = time.monotonic()
     out = server._box_diagnostics(timeout=0.2)
     assert time.monotonic() - t0 < 2
-    assert out == proc_probe.empty_service_diagnostics()
+    assert out == server._empty_box_diagnostics()
+    assert set(proc_probe.empty_service_diagnostics()) <= set(out)
     assert all(v is None for v in out.values())
     gate.set()
 

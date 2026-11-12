@@ -95,6 +95,7 @@ import time
 from pathlib import Path
 from typing import Iterable, Iterator
 
+from src.diagnostics import heap_report
 from src.draft.rookie_auction import published as draft_published
 from src.nfl_data import cache as nfl_cache
 from src.public_league import snapshot_store
@@ -216,6 +217,9 @@ def activate(root: Path) -> None:
     game_day_live.LIVE_ROOT = root / "game_day" / "live"
     draft_published.BOX_STORE = root / "draft_valuation" / "published_allocations"
     draft_published.PROMOTION_ROOT = root / "draft_valuation" / "promotion_root"
+    # Heap snapshots (WA-17): redirected, not watched, like the nflverse
+    # cache, because a running local server appends to the real log.
+    heap_report.REPORT_PATH = root / "diagnostics" / "heap_reports.jsonl"
 
 
 @contextlib.contextmanager

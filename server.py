@@ -108,9 +108,25 @@ from src.valuation_math import package_model as _package_model
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
 from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
+from src.diagnostics import heap_report as _heap_report
 from src.diagnostics import proc_probe as _proc_probe
 from src.diagnostics import scrape_telemetry as _scrape_telemetry
 from src.sources import dlf_session as _dlf_session
+
+if __name__ == "__main__":
+    # ``python server.py`` (the systemd ExecStart) runs this file as
+    # ``__main__``, and ``uvicorn.run("server:app")`` then imports it AGAIN as
+    # ``server``: every module-level load below ran twice, and the first
+    # copy was never served.  Measured locally (WA-17, 2026-11-12): the
+    # unused copy held its own 44 MiB public-league snapshot.  Execute the
+    # module once, as ``server`` (the name every ``import server`` and
+    # ``sys.modules.get("server")`` already resolves), and serve that copy.
+    # The imports above are shared through ``sys.modules`` and cost nothing
+    # twice.  Pinned by tests/api/test_server_runs_once.py.
+    import server as _served
+
+    _served.main()
+    raise SystemExit(0)
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -243,6 +259,14 @@ UPTIME_CHECK_URL = os.getenv(
     "https://chaseupside.com/api/health",
 ).strip()
 UPTIME_CHECK_INTERVAL_SEC = int(os.getenv("UPTIME_CHECK_INTERVAL_SEC", "300"))
+# Heap attribution (WA-17): seconds between box-local heap snapshots
+# (``src/diagnostics/heap_report.py``); 0 turns the periodic loop off.  The
+# scrape-point snapshots are not affected.
+HEAP_REPORT_INTERVAL_SEC = int(os.getenv("HEAP_REPORT_INTERVAL_SEC", "900"))
+# Every Nth periodic snapshot also takes the type census, and so does any
+# snapshot taken while process RSS is at or above HEAP_REPORT_HIGH_RSS_MIB.
+HEAP_REPORT_TYPES_EVERY = 4
+HEAP_REPORT_HIGH_RSS_MIB = int(os.getenv("HEAP_REPORT_HIGH_RSS_MIB", "1536"))
 UPTIME_CHECK_TIMEOUT_SEC = float(os.getenv("UPTIME_CHECK_TIMEOUT_SEC", "5"))
 UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 
@@ -1763,12 +1787,17 @@ def _box_diagnostics(timeout: float | None = None) -> dict:
     instead of blocking the event loop (health/status must never hang on it).
     """
     wait = _BOX_PROBE_TIMEOUT_SEC if timeout is None else timeout
-    box: dict = _proc_probe.empty_service_diagnostics()
+    box: dict = _empty_box_diagnostics()
     done = threading.Event()
 
     def _work() -> None:
         try:
             box.update(_proc_probe.service_diagnostics(os.getpid()))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            # glibc heap accounting (WA-17): in use vs freed-but-retained.
+            box.update(_heap_report.box_fields())
         except Exception:  # noqa: BLE001
             pass
         finally:
@@ -1777,10 +1806,15 @@ def _box_diagnostics(timeout: float | None = None) -> dict:
     try:
         threading.Thread(target=_work, name="box-probe", daemon=True).start()
         if not done.wait(wait):
-            return _proc_probe.empty_service_diagnostics()
+            return _empty_box_diagnostics()
         return dict(box)
     except Exception:  # noqa: BLE001
-        return _proc_probe.empty_service_diagnostics()
+        return _empty_box_diagnostics()
+
+
+def _empty_box_diagnostics() -> dict:
+    """Every ``box_resources`` field, unknown (``None``)."""
+    return {**_proc_probe.empty_service_diagnostics(), **_heap_report.empty_box_fields()}
 
 
 _LIBC_MALLOC_TRIM = None  # resolved lazily; False when unavailable (non-glibc)
@@ -1827,6 +1861,54 @@ def _release_freed_heap() -> dict:
 
 def _box_diagnostics_for_status() -> dict:
     return _box_diagnostics(_BOX_PROBE_STATUS_TIMEOUT_SEC)
+
+
+def _record_heap_snapshot(
+    reason: str, include_types: bool = False, trim: dict | None = None
+) -> dict:
+    """Append one heap snapshot to the box-local log and log its headline
+    (WA-17).  ``trim`` is a ``_release_freed_heap`` result, stored as
+    numbers.  Call off the event loop.  Never raises."""
+    extra = None
+    if isinstance(trim, dict):
+        extra = {
+            "trimRssBeforeMib": trim.get("rssBeforeMib"),
+            "trimRssAfterMib": trim.get("rssAfterMib"),
+        }
+    try:
+        summary = _heap_report.record(reason, include_types=include_types, extra=extra)
+        log.info("heap snapshot %s: %s", reason, summary)
+        return summary
+    except Exception:  # noqa: BLE001 -- diagnostics never break a caller
+        return {"written": False}
+
+
+async def heap_report_loop() -> None:
+    """Periodic heap snapshots (WA-17): what the backend's memory is made of
+    between scrapes, so a climb toward ``MemoryHigh`` can be attributed from
+    the box-local log instead of inferred.  Diagnostics only: it changes no
+    memory and restarts nothing.  ``HEAP_REPORT_INTERVAL_SEC=0`` disables it.
+    """
+    if HEAP_REPORT_INTERVAL_SEC <= 0:
+        log.info("Heap report loop disabled (HEAP_REPORT_INTERVAL_SEC=0)")
+        return
+    tick = 0
+    # A first baseline shortly after start, then the configured cadence.
+    delay = min(60, HEAP_REPORT_INTERVAL_SEC)
+    while True:
+        await asyncio.sleep(delay)
+        delay = HEAP_REPORT_INTERVAL_SEC
+        try:
+            rss_kb = _proc_probe.process_rss_kb(os.getpid())
+            high = rss_kb is not None and int(rss_kb) // 1024 >= HEAP_REPORT_HIGH_RSS_MIB
+            types = tick % HEAP_REPORT_TYPES_EVERY == 0 or high
+            reason = "periodic_high_rss" if high else ("startup" if tick == 0 else "periodic")
+            await run_in_threadpool(_record_heap_snapshot, reason, types)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log.warning("heap report tick failed: %s", exc)
+        tick += 1
 
 
 _scrape_sampler_proc = None
@@ -3807,6 +3889,8 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     reaped=_pre_reaped,
                     box=_pre_box,
                 )
+            # What the heap holds before this cycle (WA-17 attribution).
+            await run_in_threadpool(_record_heap_snapshot, "pre_scrape", True)
             # Headroom below the cgroup's MemoryHigh before Chromium launches.
             _record_scrape_event(
                 "scrape_prelaunch_heap_release",
@@ -4216,8 +4300,10 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # hiccup leaves the last observation in place, never blocks.
             await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
-            # The publish is this cycle's allocation peak; return what it freed.
-            await run_in_threadpool(_release_freed_heap)
+            # The publish is this cycle's allocation peak; return what it freed,
+            # then record what the heap still holds (WA-17 attribution).
+            _post_publish_trim = await run_in_threadpool(_release_freed_heap)
+            await run_in_threadpool(_record_heap_snapshot, "post_publish", True, _post_publish_trim)
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 
@@ -4529,6 +4615,7 @@ async def lifespan(app: FastAPI):
         scrape_task = scheduler_task = None
         log.info("Scrape scheduler disabled (SCRAPE_SCHEDULER_ENABLED=false)")
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    heap_report_task = asyncio.create_task(heap_report_loop())
     # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
     # Correctness never depends on it — every command settles what is due
     # first — and a failure here must never block the site from starting.
@@ -4582,6 +4669,7 @@ async def lifespan(app: FastAPI):
         if task is not None:
             task.cancel()
     uptime_task.cancel()
+    heap_report_task.cancel()
     if auction_task is not None:
         auction_task.cancel()
     log.info("Server shutting down")
@@ -22770,7 +22858,9 @@ async def get_playerctx_player(request: Request):
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
+def main() -> None:
+    """Serve this module's ``app`` (``python server.py`` lands here through
+    the ``__main__`` guard at the top of the file)."""
     import uvicorn
 
     print()

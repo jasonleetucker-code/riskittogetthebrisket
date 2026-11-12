@@ -29,6 +29,17 @@ Environment=PYTHONUNBUFFERED=1
 # Opt in to sweeping THIS service's cgroup for reparented Chromium (see
 # server.py _reap_orphan_browsers).  Never set outside a dedicated unit.
 Environment=SCRAPE_REAP_SERVICE_CGROUP=1
+# Cap glibc malloc at 2 arenas (WA-17, website audit 2026-11-12).  The
+# default is 8 x cores; every thread-pool worker that allocates can get
+# its own arena, and freed memory stays in the arena that owns it.  The
+# backend's heap reached 2.8 GB against MemoryHigh twice on 2026-11-12
+# (throttled, then restarted by the healthcheck watchdog).  Measured
+# locally on the cold-start burst (14 heavy routes x 3, concurrent):
+# RSS 481 -> 889 MiB by default, 472 -> 754 MiB with 2 arenas.  Python
+# objects are allocated under the GIL, so 2 arenas cost no measurable
+# contention.  Rollback: delete this line and redeploy.  Set here, not
+# in .env: glibc reads it once, before the interpreter starts.
+Environment=MALLOC_ARENA_MAX=2
 EnvironmentFile=-__APP_DIR__/.env
 
 # ── Resource sanity ─────────────────────────────────────────────────
