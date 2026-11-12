@@ -311,8 +311,35 @@ export function playerSlug(name) {
  * current storage key: `hydrated` alone is already true when the league
  * resolves, while the workspace is still the previous one for a render.
  */
-export function isWorkspaceReady({ selectedLeagueKey, hydratedKey, draftStorageKey }) {
-  return Boolean(selectedLeagueKey) && Boolean(draftStorageKey) && hydratedKey === draftStorageKey;
+export function isWorkspaceReady({
+  selectedLeagueKey,
+  hydratedKey,
+  draftStorageKey,
+  leagueResolved = false,
+}) {
+  if (!draftStorageKey || hydratedKey !== draftStorageKey) return false;
+  // Normally the league is known.  When league resolution FINISHED without one
+  // (/api/leagues failed or listed none) the page works on its unsuffixed
+  // workspace, exactly as before this gate existed — never wait forever.
+  return Boolean(selectedLeagueKey) || Boolean(leagueResolved);
+}
+
+/**
+ * True when ``team`` is still the ``createDefaultWorkspace()`` seed row: name
+ * AND initial budget match ``DEFAULT_TEAMS`` (the same test the draft-capital
+ * merge uses to drop placeholder rows).  A seed name alone is not enough —
+ * most seed names are real managers.  A request keyed by a seed row asks the
+ * backend for a team it may not have (``unknown_team``); callers should let
+ * the backend infer the session's own team instead.
+ */
+export function isDefaultPlaceholderTeam(team) {
+  if (!team || typeof team !== "object") return false;
+  const name = String(team.name || "").toLowerCase();
+  return DEFAULT_TEAMS.some(
+    (t) =>
+      String(t.name || "").toLowerCase() === name &&
+      Number(t.initialBudget) === Number(team.initialBudget),
+  );
 }
 
 export function createDefaultWorkspace() {
@@ -1500,6 +1527,18 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   let nextMyIdx = merged.findIndex(
     (t) => String(t.name || "").toLowerCase() === myTeamNameBefore.toLowerCase(),
   );
+  // First load over the seed workspace: "my team" is still a
+  // createDefaultWorkspace() row, which this merge drops, so the index would
+  // fall back to row 0 — another manager's team (website audit, 2026-11-12).
+  // Prefer the team the user picked in the header when the feed has it.  A
+  // choice the user made here (a non-seed row) is never overridden.
+  const preferred = String(opts.preferredTeamName || "").toLowerCase();
+  if (preferred && isDefaultPlaceholderTeam(existing[myTeamIdx])) {
+    const preferredIdx = merged.findIndex(
+      (t) => String(t.name || "").toLowerCase() === preferred,
+    );
+    if (preferredIdx >= 0) nextMyIdx = preferredIdx;
+  }
   if (nextMyIdx < 0) nextMyIdx = myTeamIdx >= 0 && myTeamIdx < merged.length ? myTeamIdx : 0;
 
   return {

@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isWorkspaceReady,
+  isDefaultPlaceholderTeam,
   DEFAULT_AGGRESSION,
   DEFAULT_ENFORCE_PCT,
   DEFAULT_TEAMS,
@@ -1295,6 +1296,37 @@ describe("computeDraftStats — top competitor ceiling capping", () => {
     // Budget advantage ≈ 1.0 now, so theoretical max ≈ preDraft ×
     // (1 + 0.09 × 0) = preDraft.  Winning bid doesn't cap below it.
     expect(love.myWinningBid).toBeCloseTo(love.theoreticalMaxBid, 0);
+  });
+});
+
+describe("mergeDraftCapitalTeams — first-visit default team", () => {
+  // A real league feed (no seed names): the seed "my team" row is dropped.
+  const feed = [
+    { team: "schoeppeya", auctionDollars: 120 },
+    { team: "Jason", auctionDollars: 95 },
+    { team: "Brent", auctionDollars: 80 },
+  ];
+
+  it("prefers the header's selected team over row 0 when 'my team' is still a seed row", () => {
+    const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), feed, {
+      preferredTeamName: "jason",
+    });
+    expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Jason");
+  });
+
+  it("never overrides a team the user chose on the draft page", () => {
+    const ws = createDefaultWorkspace();
+    const chosen = mergeDraftCapitalTeams(ws, feed).workspace;
+    chosen.settings.myTeamIdx = chosen.teams.findIndex((t) => t.name === "Brent");
+    const { workspace } = mergeDraftCapitalTeams(chosen, feed, { preferredTeamName: "Jason" });
+    expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Brent");
+  });
+
+  it("keeps today's fallback when the preferred team is not in the feed", () => {
+    const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), feed, {
+      preferredTeamName: "Not In League",
+    });
+    expect(workspace.settings.myTeamIdx).toBe(0);
   });
 });
 
@@ -3037,5 +3069,30 @@ describe("isWorkspaceReady", () => {
   });
   it("is true once the active league's own workspace has hydrated", () => {
     expect(isWorkspaceReady({ selectedLeagueKey: "dynasty_main", hydratedKey: key, draftStorageKey: key })).toBe(true);
+  });
+  it("does not wait forever when league resolution finished without a league", () => {
+    // /api/leagues failed or listed none: the page works on its unsuffixed
+    // workspace, as before this gate existed (independent review of #2189).
+    expect(
+      isWorkspaceReady({ selectedLeagueKey: "", hydratedKey: "legacy", draftStorageKey: "legacy", leagueResolved: true }),
+    ).toBe(true);
+    expect(
+      isWorkspaceReady({ selectedLeagueKey: "", hydratedKey: "", draftStorageKey: "legacy", leagueResolved: true }),
+    ).toBe(false);
+  });
+});
+
+describe("isDefaultPlaceholderTeam", () => {
+  it("recognizes a createDefaultWorkspace() seed row by name AND budget", () => {
+    const seed = createDefaultWorkspace().teams[0];
+    expect(isDefaultPlaceholderTeam(seed)).toBe(true);
+  });
+  it("does not treat a real manager who shares a seed name as a placeholder", () => {
+    expect(isDefaultPlaceholderTeam({ name: "Ed", initialBudget: 133 })).toBe(false);
+    expect(isDefaultPlaceholderTeam({ name: "Russini Panini" })).toBe(false);
+  });
+  it("is false for nothing", () => {
+    expect(isDefaultPlaceholderTeam(null)).toBe(false);
+    expect(isDefaultPlaceholderTeam(undefined)).toBe(false);
   });
 });

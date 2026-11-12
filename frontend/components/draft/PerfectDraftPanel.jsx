@@ -30,6 +30,7 @@ import {
   StatTile,
 } from "@/components/ds";
 import { useRosterContext } from "@/components/useRosterContext";
+import { isDefaultPlaceholderTeam } from "@/lib/draft-logic";
 import {
   applyDraftProgress,
   contestedPrice,
@@ -102,7 +103,11 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
   // making the feature unreachable in the browser while every unit test
   // passed, because the test fixture used the flat shape.
   const myTeamIdx = workspace?.settings?.myTeamIdx ?? workspace?.myTeamIdx ?? 0;
-  const myTeamName = workspace?.teams?.[myTeamIdx]?.name || "";
+  // A seed row of createDefaultWorkspace() is not a team the league has: send
+  // no name and let the backend infer the session's own team (website audit
+  // WA-11; a first visit to a league with no saved workspace).
+  const myTeamRow = workspace?.teams?.[myTeamIdx];
+  const myTeamName = myTeamRow && !isDefaultPlaceholderTeam(myTeamRow) ? myTeamRow.name || "" : "";
   // FOLLOW the workspace; only an explicit pick overrides it.
   //
   // This used to be `useState(myTeamName)`, which latched the FIRST name it

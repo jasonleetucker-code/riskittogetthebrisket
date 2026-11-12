@@ -766,6 +766,19 @@ describe("roster context is not requested for the placeholder workspace", () => 
     expect(url).not.toContain("Russini");
   });
 
+  it("lets the backend infer the team when the workspace is still the seed (first visit to a league)", async () => {
+    // A league with no saved workspace hydrates createDefaultWorkspace(), whose
+    // first row is a seed the league does not have: asking for it by name is a
+    // 400 (unknown_team).  No name -> the backend answers for the session's team.
+    const { createDefaultWorkspace } = await import("../../lib/draft-logic.js");
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+    render(<PerfectDraftPanel stats={STATS} workspace={createDefaultWorkspace()} workspaceReady />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const url = String(fetch.mock.calls[0][0]);
+    expect(url).not.toContain("teamName=");
+    expect(url).not.toContain("Russini");
+  });
+
   it("still refetches when the workspace's team changes after it is ready", async () => {
     fetch.mockResolvedValue(jsonResponse(200, okPayload()));
     const { rerender } = render(
