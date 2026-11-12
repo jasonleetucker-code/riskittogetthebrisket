@@ -115,6 +115,23 @@ def test_diagnostics_report_the_throttling_line_and_the_process_alone(fake):
     assert all(v is None or isinstance(v, int) for v in d.values())
 
 
+def test_rss_split_reads_anonymous_and_file_backed_memory(fake):
+    """The heap report separates heap and stacks (anonymous) from mapped code
+    (file-backed); each unreadable field stays unknown, never zero."""
+    proc, _svc, _ = fake
+    (proc / str(SELF) / "status").write_text(
+        "Name:\tpython\nVmRSS:\t 1048576 kB\nRssAnon:\t  917504 kB\nRssFile:\t  131072 kB\n",
+        encoding="utf-8",
+    )
+    split = proc_probe.process_rss_split_kb(SELF)
+    assert split == {"RssAnon": 917504, "RssFile": 131072, "RssShmem": None}
+    assert proc_probe.process_rss_split_kb(999999) == {
+        "RssAnon": None,
+        "RssFile": None,
+        "RssShmem": None,
+    }
+
+
 def test_memory_headroom_is_measured_against_the_throttling_line(fake):
     """The heap report skips its costly census within 512 MiB of the line
     (WA-17); anonymous memory counts, reclaimable page cache does not."""

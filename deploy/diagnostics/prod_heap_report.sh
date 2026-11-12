@@ -76,6 +76,8 @@ def clean(raw):
     rec = {
         "ts": ts[:19], "reason": reason, "pid": num(raw.get("pid")),
         "rss": num(raw.get("process_rss_mib")),
+        "anon": num(raw.get("rss_anon_mib")), "file": num(raw.get("rss_file_mib")),
+        "blocks": count((raw.get("gc") if isinstance(raw.get("gc"), dict) else {}).get("allocated_blocks")),
         "arena": num(m.get("arena_mib")), "in_use": num(m.get("in_use_mib")),
         "free": num(m.get("free_mib")), "mmap": num(m.get("mmap_mib")),
         "arenas": num(m.get("arenas")),
@@ -133,20 +135,33 @@ if not records:
 def f(v):
     return "-" if v is None else str(v)
 
+def other_anon(r):
+    """Anonymous RSS that glibc does not account for: mostly the Python
+    small-object allocator, plus thread stacks (approximate: the glibc arena
+    figure counts address space it obtained, not only resident pages)."""
+    if None in (r["anon"], r["arena"], r["mmap"]):
+        return None
+    return r["anon"] - r["arena"] - r["mmap"]
+
 print("== series (MiB) == records=%d dropped=%d" % (len(records), dropped))
-print("%-19s %-17s %7s %6s %6s %6s %6s %6s %6s %9s %s" % (
-    "ts_utc", "reason", "pid", "rss", "arena", "in_use", "free", "mmap", "arenas", "objects", "trim"))
+print("columns: anon/file = anonymous / file-backed RSS; o_anon = anon - arena - mmap (approximate, mostly the Python small-object allocator; can read low or negative after a trim, since arena counts address space, not resident pages); kblocks = Python allocated blocks / 1000")
+print("%-19s %-17s %7s %6s %6s %6s %6s %6s %6s %6s %6s %6s %7s %9s %s" % (
+    "ts_utc", "reason", "pid", "rss", "anon", "file", "arena", "in_use", "free", "mmap", "o_anon", "arenas", "kblocks", "objects", "trim"))
 for r in records:
     trim = "" if r["trim_before"] is None else "%s->%s" % (f(r["trim_before"]), f(r["trim_after"]))
-    print("%-19s %-17s %7s %6s %6s %6s %6s %6s %6s %9s %s" % (
-        r["ts"], r["reason"], f(r["pid"]), f(r["rss"]), f(r["arena"]), f(r["in_use"]),
-        f(r["free"]), f(r["mmap"]), f(r["arenas"]), f(r["tracked"]), trim))
+    kb = None if r["blocks"] is None else r["blocks"] // 1000
+    print("%-19s %-17s %7s %6s %6s %6s %6s %6s %6s %6s %6s %6s %7s %9s %s" % (
+        r["ts"], r["reason"], f(r["pid"]), f(r["rss"]), f(r["anon"]), f(r["file"]), f(r["arena"]),
+        f(r["in_use"]), f(r["free"]), f(r["mmap"]), f(other_anon(r)), f(r["arenas"]), f(kb),
+        f(r["tracked"]), trim))
 
 last = records[-1]
-if last["in_use"] is not None and last["free"] is not None and (last["in_use"] + last["free"]) > 0:
-    share = 100.0 * last["free"] / (last["in_use"] + last["free"])
-    print("latest: heap in use %s MiB, freed but retained %s MiB (%.0f%% of the arena heap), mmap %s MiB, arenas %s" % (
-        f(last["in_use"]), f(last["free"]), share, f(last["mmap"]), f(last["arenas"])))
+full = [r for r in records if r["in_use"] is not None and r["free"] is not None]
+if full and (full[-1]["in_use"] + full[-1]["free"]) > 0:
+    lf = full[-1]
+    share = 100.0 * lf["free"] / (lf["in_use"] + lf["free"])
+    print("latest full snapshot %s: heap in use %s MiB, freed but retained %s MiB (%.0f%% of the arena heap), mmap %s MiB, other anonymous %s MiB, arenas %s" % (
+        lf["ts"], f(lf["in_use"]), f(lf["free"]), share, f(lf["mmap"]), f(other_anon(lf)), f(lf["arenas"])))
 
 typed = [r for r in records if r["types"] is not None and r["pid"] == last["pid"]]
 if typed:
@@ -172,9 +187,12 @@ if len(deep) >= 2:
     rows = sorted(((m - before.get(n, 0.0), n, m) for n, _k, m, _o in b["deep"]["top"]), reverse=True)[:15]
     for dm, n, m in rows:
         print("  %-70s d_mib=%+.1f mib=%s" % (n, dm, m))
-print("\n== largest containers %s (%s) ==" % (last["ts"], last["reason"]))
-for cname, kind, length in last["containers"][:20]:
-    print("  %-70s %-10s len=%d" % (cname, kind, length))
+walked = [r for r in records if r["containers"] and r["pid"] == last["pid"]]
+if walked:
+    lc = walked[-1]
+    print("\n== largest containers %s (%s) ==" % (lc["ts"], lc["reason"]))
+    for cname, kind, length in lc["containers"][:20]:
+        print("  %-70s %-10s len=%d" % (cname, kind, length))
 
 if len(typed) >= 2:
     a, b = typed[0], typed[-1]
@@ -186,12 +204,11 @@ if len(typed) >= 2:
         rows.append((m - m0, c - c0, n, m))
     for dm, dc, n, m in sorted(rows, reverse=True)[:15]:
         print("  %-40s d_mib=%+.1f d_count=%+d mib=%s" % (n, dm, dc, m))
-same = [r for r in records if r["pid"] == last["pid"]]
-if len(same) >= 2:
-    a = same[0]
-    print("\n== growth by container, %s -> %s (pid %s) ==" % (a["ts"], last["ts"], f(last["pid"])))
+if len(walked) >= 2:
+    a, lc = walked[0], walked[-1]
+    print("\n== growth by container, %s -> %s (pid %s) ==" % (a["ts"], lc["ts"], f(lc["pid"])))
     before = {n: l for n, _k, l in a["containers"]}
-    rows = sorted(((l - before.get(n, 0), n, l) for n, _k, l in last["containers"]), reverse=True)[:15]
+    rows = sorted(((l - before.get(n, 0), n, l) for n, _k, l in lc["containers"]), reverse=True)[:15]
     for dl, n, l in rows:
         print("  %-70s d_len=%+d len=%d" % (n, dl, l))
 ' "${max_records}"
