@@ -95,3 +95,24 @@ uncertainty reported), and an injected real quarantine still withholds.
 `frontend/__tests__/components/trade-withheld-values.test.jsx` pins that the
 preliminary meter follows the backend stamp: the served rows give A and B a
 reading, the pre-fix rows reproduce the reported text.
+
+## Adjacent gap the quarantine was masking (not changed here)
+
+For an owned future pick with an unknown slot, the browser's preliminary meter
+prices the label it shows ("2029 Mid 5th (own)") at the **Mid tier** row, while
+the engine (`market_resolution` → `unknown_slot`) prices it at the **generic**
+row (`2029 Round 5`). Both rows were quarantined before this fix, so both
+surfaces withheld and the difference never showed. Measured on the
+2026-11-12 board:
+
+| year | R1 | R2 | R3 | R4 | R5 | R6 |
+|---|---|---|---|---|---|---|
+| 2028 Mid vs generic | 4578 / 4693 (−2.5%) | 3022 / 3026 (−0.1%) | 2210 / 2219 (−0.4%) | 1760 / 1726 (+2.0%) | 1635 / 1603 (+2.0%) | 1498 / 1468 (+2.0%) |
+| 2029 Mid vs generic | 4155 / 4131 (+0.6%) | 2746 / 2756 (−0.4%) | 2058 / 2070 (−0.6%) | 1583 / 1591 (−0.5%) | 1471 / 1478 (−0.5%) | 1347 / 1354 (−0.5%) |
+
+The War Room's answer (engine, generic row) is the authoritative one; the
+preliminary meter can differ by up to 2.5% on such picks. Owner of the fix: the
+deferred frontend label-lookup migration onto identity-routed lookup
+(`docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md` §7, the C1-U3 deferral; TC-22).
+Market tier picks added by name ("2029 Mid 5th") are the same row on both
+surfaces and are unaffected.
