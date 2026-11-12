@@ -265,8 +265,18 @@ UPTIME_CHECK_INTERVAL_SEC = int(os.getenv("UPTIME_CHECK_INTERVAL_SEC", "300"))
 HEAP_REPORT_INTERVAL_SEC = int(os.getenv("HEAP_REPORT_INTERVAL_SEC", "900"))
 # Every Nth periodic snapshot also takes the type census, and so does any
 # snapshot taken while process RSS is at or above HEAP_REPORT_HIGH_RSS_MIB.
+# 1024, not 1536: in production the backend is restarted by the data-refresh
+# deploys every 40-60 min, before the hourly tick, and the post-burst plateau
+# sat at 1,060-1,210 MiB (audit §7.12), so neither trigger ever fired there.
 HEAP_REPORT_TYPES_EVERY = 4
-HEAP_REPORT_HIGH_RSS_MIB = int(os.getenv("HEAP_REPORT_HIGH_RSS_MIB", "1536"))
+HEAP_REPORT_HIGH_RSS_MIB = int(os.getenv("HEAP_REPORT_HIGH_RSS_MIB", "1024"))
+# Return glibc's freed-but-retained heap from the periodic loop when a
+# snapshot finds at least this many MiB of it (0 disables).  Measured in
+# production 2026-11-12: 206-239 MiB retained after the post-restart burst,
+# and the same release at each scrape returns 80-140 MiB (audit §7.12).
+# The release walks glibc's arenas (about 0.1 s on a fragmented heap), so it
+# runs at most once per tick and only when there is that much to return.
+HEAP_RELEASE_FREE_MIB = int(os.getenv("HEAP_RELEASE_FREE_MIB", "128"))
 UPTIME_CHECK_TIMEOUT_SEC = float(os.getenv("UPTIME_CHECK_TIMEOUT_SEC", "5"))
 UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 
@@ -1891,8 +1901,14 @@ def _record_heap_snapshot(
 async def heap_report_loop() -> None:
     """Periodic heap snapshots (WA-17): what the backend's memory is made of
     between scrapes, so a climb toward ``MemoryHigh`` can be attributed from
-    the box-local log instead of inferred.  Diagnostics only: it changes no
-    memory and restarts nothing.  ``HEAP_REPORT_INTERVAL_SEC=0`` disables it.
+    the box-local log instead of inferred.  ``HEAP_REPORT_INTERVAL_SEC=0``
+    disables it.
+
+    One action, after the snapshot: when glibc holds at least
+    ``HEAP_RELEASE_FREE_MIB`` of freed heap, it is returned to the kernel
+    (``_release_freed_heap``, the same release the scrape uses) and a light
+    ``periodic_trim`` record logs RSS before and after.  It frees nothing in
+    use and restarts nothing.
     """
     if HEAP_REPORT_INTERVAL_SEC <= 0:
         log.info("Heap report loop disabled (HEAP_REPORT_INTERVAL_SEC=0)")
@@ -1908,7 +1924,15 @@ async def heap_report_loop() -> None:
             high = rss_kb is not None and int(rss_kb) // 1024 >= HEAP_REPORT_HIGH_RSS_MIB
             types = tick % HEAP_REPORT_TYPES_EVERY == 0 or high
             reason = "periodic_high_rss" if high else ("startup" if tick == 0 else "periodic")
-            await run_in_threadpool(_record_heap_snapshot, reason, types)
+            summary = await run_in_threadpool(_record_heap_snapshot, reason, types)
+            free_mib = summary.get("heapFreeMib") if isinstance(summary, dict) else None
+            if (
+                HEAP_RELEASE_FREE_MIB > 0
+                and isinstance(free_mib, int)
+                and free_mib >= HEAP_RELEASE_FREE_MIB
+            ):
+                trim = await run_in_threadpool(_release_freed_heap)
+                await run_in_threadpool(_record_heap_snapshot, "periodic_trim", False, trim, False)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001

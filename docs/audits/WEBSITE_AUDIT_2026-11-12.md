@@ -118,7 +118,7 @@ WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_c
 | WA-15 | Fixed, merged, deployed (new) | #2189 | `/draft` first visit (no saved workspace) still keyed Perfect Draft on the seed team "Russini Panini" (400), and "my team" fell back to row 0 (another manager); the readiness gate could also wait forever if `/api/leagues` failed (independent review) |
 | WA-16 | Fixed, merged, deployed (new, P2) | #2189 | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve; a team name two teams share resolves to neither. Delta review: a real team equal to a seed row ({Ed, $71}) could be overridden as "my team" and was not sent by name; fixed |
 
-| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box heap report merged and deployed (#2193: glibc arenas capped at 2, WA-20); attribution partly read in production, open until the post-restart climb is attributed | #2193, this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11, §7.12 |
+| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box heap report merged and deployed (#2193: glibc arenas capped at 2, WA-20); production split read (#2194): the post-restart climb is live Python objects (+4.8 M blocks, about 345 MiB) plus about 206 MiB of freed glibc heap; periodic heap release and a census trigger that fires in production in this PR; open until the objects are named and the heap stays below `memory.high` | #2193, #2194, this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11, §7.12 |
 | WA-18 | Fixed, merged, deployed, verified (new, monitoring) | #2191 | `box_resources.chromium_processes` read 0 while Chromium ran: the kernel keeps 15 characters of a process name (`chrome-headless`), the list held the 16-character `chrome-headless-` |
 | WA-20 | Fixed, merged, deployed, verified (new, memory) | #2193 | `python server.py` executed server.py's module body twice: once as `__main__`, then again when `uvicorn.run("server:app")` imported it as `server`. The `__main__` copy was never served but kept its own module state, including a second 44 MiB public-league snapshot. Production deep census after deploy: no `__main__` copy. §7.11, §7.12 |
 | WA-19 | Fixed, merged (new, P1 for trades) | #2190 | 35 pick rows priced by approved C1-U6 derivations or the rookie tether were quarantined (`no_valid_source_values`), withholding every trade verdict that touched one (e.g. "2029 Mid 5th (received, quarantined)"). Record: `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` |
@@ -215,7 +215,7 @@ the test-session endpoint); CI = GitHub Actions on the PR head; P = production, 
 
 | # | Item | Why open | Next step | Blocks readiness? |
 |---|---|---|---|---|
-| 1 | Memory across cycles (WA-17) | the heap passed `memory.high` under load twice on 2026-11-12 (§7.9, §7.10). Since #2193 production starts lower (497-567 MiB) and no throttling was recorded through 19:17 UTC, but the post-restart climb is only partly attributed: most of it is outside glibc's accounting (§7.12) | read `prod-heap-report.yml` after an hourly census at high RSS. The anonymous / file split and Python block counts are recorded since this PR. Then decide with that evidence between a heap release after heavy request work (glibc part) and reducing the Python objects a cold burst creates (the larger part, which `malloc_trim` cannot return) | yes, until production shows the heap staying below `memory.high`: about 6-minute API outages, twice on 2026-11-12 |
+| 1 | Memory across cycles (WA-17) | the heap passed `memory.high` under load twice on 2026-11-12 (§7.9, §7.10). Since #2193 production starts lower (497-567 MiB) and no throttling was recorded through 20:58 UTC. The post-restart climb is about 345 MiB of live Python objects plus about 206 MiB of freed glibc heap (§7.12) | glibc part: periodic release in this PR. Python part: after deploy, `prod-heap-report.yml` names the containers that grew (census at RSS ≥ 1,024 MiB, focus on the process that climbed); then bound those caches | yes, until production shows the heap staying below `memory.high`: about 6-minute API outages, twice on 2026-11-12 |
 | 2 | Signed-in production checks | no production credentials here; the public advisor is disabled | owner signs in and checks `/trade` with 2029 Mid 5th / Mid 6th (no withheld side) once #2190 deploys | no |
 | 3 | Owned future picks: browser Mid row vs engine generic row (TC-22) | up to 2.5% on the preliminary meter only; the deferred frontend label-lookup migration | `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` §Adjacent gap | no |
 | 4 | Raw ports from the internet | only probed from this egress | box-side `ss -ltnp` / firewall check by the operator | no |
@@ -372,9 +372,40 @@ So the arena cap and `malloc_trim` act on the smaller part of the climb. At star
 module-level objects. The largest are the contract (25 MiB), the served payload bytes (about 58 MiB), the startup
 data (16 MiB), the public-league cache (8-44 MiB) and Game Day's player cache (9 MiB).
 
-Next (this PR): every snapshot also records anonymous and file-backed RSS. The reader prints `o_anon` (anonymous RSS
-minus glibc's arena and mmap) and Python's allocated block count. `o_anon` is an approximation: glibc's arena figure
-is address space it obtained, not only resident pages. After `malloc_trim` returns pages, the arena figure can stay
-the same, so `o_anon` can read low or even negative. That separates live Python objects from memory
-Python's allocator keeps after they are freed, which decides the mitigation (§7.7 #1).
+#2194 then added anonymous and file-backed RSS to every snapshot. The reader prints `o_anon` (anonymous RSS minus
+glibc's arena and mmap) and Python's allocated block count. `o_anon` is an approximation: glibc's arena figure is
+address space it obtained, not only resident pages. After `malloc_trim` returns pages, the arena figure can stay the
+same, so `o_anon` can read low or even negative.
+
+**The split, read in production** (`prod-heap-report.yml` run 3, process `935ce654`, 20:09-20:51 UTC, restarted by the
+next data-refresh deploy):
+
+| Record (UTC) | RSS | anon | glibc arena (in use / freed) | mmap | `o_anon` | Python blocks |
+|---|---|---|---|---|---|---|
+| 20:10 startup | 558 | 536 | 235 (201 / 33) | 30 | 271 | 4.05 M |
+| 20:14 after scrape and release | 481 | 449 | — | — | — | 2.70 M |
+| 20:25 periodic | 1,190 | 1,145 | 470 (231 / 239) | 59 | 616 | 8.83 M |
+| 20:40 periodic | 1,207 | 1,161 | 470 (232 / 238) | 59 | 632 | 8.85 M |
+
+From startup to the plateau (+632 MiB RSS):
+
+- **Live Python objects, about 345 MiB.** `o_anon` grew by 345 MiB, and Python's allocated block count by 4.8 million
+  (about 72 bytes each, consistent with it). Fifteen minutes later both were unchanged: these objects are still
+  referenced, not freed memory Python keeps. Something holds them, most likely caches filled by the burst.
+- **Freed glibc heap, about 206 MiB** (33 → 239). This is what `malloc_trim` returns; each post-scrape release in
+  production did (580 → 481, 586 → 490, 639 → 502, 569 → 430).
+- glibc in use +30 MiB, glibc mmap +29, file-backed +23.
+
+Why the census did not name the objects: it runs on the hourly tick or at RSS ≥ 1,536 MiB. Production restarts the
+backend with each data-refresh deploy (every 40-60 min), and the plateau sat at 1,060-1,210 MiB, so neither fired.
+
+**This PR:**
+- Census trigger lowered to RSS ≥ 1,024 MiB (`HEAP_REPORT_HIGH_RSS_MIB`).
+- The reader's census, container and growth sections follow the process with the highest RSS in the window, so a
+  restart no longer hides the climb. Its container growth then reads from records already in the log.
+- Periodic heap release: when a snapshot finds ≥ 128 MiB of freed glibc heap (`HEAP_RELEASE_FREE_MIB`, 0 disables),
+  the loop returns it with the scrape's own `_release_freed_heap` and logs a light `periodic_trim` record (RSS before
+  and after). Expected effect: about 200 MiB less RSS on the plateau. It frees nothing in use. The Python part still
+  needs the caches named.
+
 
