@@ -75,6 +75,23 @@ def _voters(row: dict) -> set[str]:
     return set(_voter_meta(row))
 
 
+#: ``valueContribution`` is the pipeline's float vote rounded to an int, so
+#: each vote the oracle sees is off by <= 0.5: the median by <= 0.5, each
+#: deviation and the MAD by <= 1.0, the threshold by <= k x 1.0.  A vote whose
+#: deviation sits within this margin of the threshold cannot be decided from
+#: the stamped values, and asserting equality there would make the hard gate
+#: flip on a rounding boundary (independent review of #2188).
+_ROUNDING_MARGIN = 1.0 + dc._HAMPEL_K * 1.0
+
+
+def _within_rounding_of_the_threshold(votes: list[tuple[str, float]]) -> bool:
+    values = sorted(v for _, v in votes)
+    median = values[1]
+    deviations = sorted(abs(v - median) for v in values)
+    threshold = max(dc._HAMPEL_K * deviations[1], dc._HAMPEL_MIN_THRESHOLD)
+    return any(abs(abs(v - median) - threshold) <= _ROUNDING_MARGIN for v in values)
+
+
 def test_off_is_byte_identical(boards):
     from src.api import value_replay as vr
 
@@ -107,8 +124,9 @@ def test_on_changes_the_drop_decision_only_on_three_voter_idp_rows(boards):
         # unit-tested ``_hampel_filter_per_player`` at n = 3) drops from this
         # row's own three votes — no more, no fewer, on whatever board this is.
         votes = [(k, float(m["valueContribution"])) for k, m in sorted(_voter_meta(row).items())]
-        expected = set(dc._hampel_filter_per_player(votes, min_n=3)[1])
-        assert newly_dropped == expected, (row["displayName"], votes)
+        if not _within_rounding_of_the_threshold(votes):
+            expected = set(dc._hampel_filter_per_player(votes, min_n=3)[1])
+            assert newly_dropped == expected, (row["displayName"], votes)
         if newly_dropped:
             assert len(newly_dropped) == 1 and newly_dropped <= _voters(other)
     triples = [
