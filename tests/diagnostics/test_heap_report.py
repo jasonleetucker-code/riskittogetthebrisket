@@ -174,7 +174,11 @@ def test_deep_census_attributes_payload_bytes_and_class_caches(fake_module):
 
     Holder.__module__ = fake_module.__name__
     fake_module.Holder = Holder
-    deep = heap_report.deep_census(limit=10_000)
+    # Scoped to the fixture module: in a large test process the budget would
+    # be spent on every other ``src.*`` module first.
+    deep = heap_report.deep_census(
+        limit=10_000, budget=10**9, prefixes=(fake_module.__name__,), modules=()
+    )
     rows = {r["name"]: r for r in deep["top"]}
     assert rows["src._heap_report_fixture.PAYLOAD"]["mib"] >= 3.0
     holder = rows["src._heap_report_fixture.Holder"]
