@@ -118,9 +118,9 @@ WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_c
 | WA-15 | Fixed, merged, deployed (new) | #2189 | `/draft` first visit (no saved workspace) still keyed Perfect Draft on the seed team "Russini Panini" (400), and "my team" fell back to row 0 (another manager); the readiness gate could also wait forever if `/api/leagues` failed (independent review) |
 | WA-16 | Fixed, merged, deployed (new, P2) | #2189 | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve; a team name two teams share resolves to neither. Delta review: a real team equal to a seed row ({Ed, $71}) could be overridden as "my team" and was not sent by name; fixed |
 
-| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box attribution in PR (glibc arenas capped at 2, WA-20, heap report); open until the production heap is attributed | this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11 |
+| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box heap report merged and deployed (#2193: glibc arenas capped at 2, WA-20); attribution partly read in production, open until the post-restart climb is attributed | #2193, this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11, §7.12 |
 | WA-18 | Fixed, merged, deployed, verified (new, monitoring) | #2191 | `box_resources.chromium_processes` read 0 while Chromium ran: the kernel keeps 15 characters of a process name (`chrome-headless`), the list held the 16-character `chrome-headless-` |
-| WA-20 | Fixed in PR (new, memory) | this PR | `python server.py` executed server.py's module body twice: once as `__main__`, then again when `uvicorn.run("server:app")` imported it as `server`. The `__main__` copy was never served but kept its own module state, including a second 44 MiB public-league snapshot. §7.11 |
+| WA-20 | Fixed, merged, deployed, verified (new, memory) | #2193 | `python server.py` executed server.py's module body twice: once as `__main__`, then again when `uvicorn.run("server:app")` imported it as `server`. The `__main__` copy was never served but kept its own module state, including a second 44 MiB public-league snapshot. Production deep census after deploy: no `__main__` copy. §7.11, §7.12 |
 | WA-19 | Fixed, merged (new, P1 for trades) | #2190 | 35 pick rows priced by approved C1-U6 derivations or the rookie tether were quarantined (`no_valid_source_values`), withholding every trade verdict that touched one (e.g. "2029 Mid 5th (received, quarantined)"). Record: `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` |
 
 ### 7.2 WA-05 root cause: the scraper hang
@@ -215,7 +215,7 @@ the test-session endpoint); CI = GitHub Actions on the PR head; P = production, 
 
 | # | Item | Why open | Next step | Blocks readiness? |
 |---|---|---|---|---|
-| 1 | Memory across cycles (WA-17) | the heap still passed `memory.high` under load: a second watchdog restart at 15:42 UTC on `4b47329c` (§7.10). The arena cap and WA-20 are in the PR, measured locally only (§7.11) | after deploy, run `prod-heap-report.yml` once a scrape cycle and a few hours of traffic are logged; then decide with that evidence on a heap release after heavy request work (locally 56% of the arena heap is freed but retained after a burst) and on bounded concurrency for the heaviest cold endpoints | yes, until production shows the heap staying below `memory.high`: about 6-minute API outages, twice on 2026-11-12 |
+| 1 | Memory across cycles (WA-17) | the heap passed `memory.high` under load twice on 2026-11-12 (§7.9, §7.10). Since #2193 production starts lower (497-567 MiB) and no throttling was recorded through 19:17 UTC, but the post-restart climb is only partly attributed: most of it is outside glibc's accounting (§7.12) | read `prod-heap-report.yml` after an hourly census at high RSS. The anonymous / file split and Python block counts are recorded since this PR. Then decide with that evidence between a heap release after heavy request work (glibc part) and reducing the Python objects a cold burst creates (the larger part, which `malloc_trim` cannot return) | yes, until production shows the heap staying below `memory.high`: about 6-minute API outages, twice on 2026-11-12 |
 | 2 | Signed-in production checks | no production credentials here; the public advisor is disabled | owner signs in and checks `/trade` with 2029 Mid 5th / Mid 6th (no withheld side) once #2190 deploys | no |
 | 3 | Owned future picks: browser Mid row vs engine generic row (TC-22) | up to 2.5% on the preliminary meter only; the deferred frontend label-lookup migration | `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` §Adjacent gap | no |
 | 4 | Raw ports from the internet | only probed from this egress | box-side `ss -ltnp` / firewall check by the operator | no |
@@ -336,4 +336,41 @@ request work is the evidence-backed next candidate, decided once the production 
 
 **WA-18 verified in production** (#2191, `222379b5`): `box_resources.chromium_processes` read 6 during the startup
 scrape's `source_start` (16:07 UTC, 74 service pids) and 0 after it.
+
+### 7.12 Production after #2193: verification and first attribution (WA-17, WA-20)
+
+#2193 merged as `b687d109`; Deploy Production restarted the backend at 18:10:15 UTC. Read with `prod-heap-report.yml`
+(runs 1 and 2, read-only) and the public `/api/status`:
+
+| Check | Observation |
+|---|---|
+| Arena cap | `heap_arenas` 2 on every snapshot |
+| WA-20 | the production deep census lists no `__main__` copy |
+| Start | RSS 497 MiB at 18:10:50 (earlier processes held 661 and 1,584 MiB about 2 minutes in) |
+| Startup scrape | succeeded at 18:15 (Chromium 6, then 0); the post-publish heap release took RSS from 639 to 502 MiB |
+| Heap report | records at start, every 15 min, and light records around each scrape; `box_resources.heap_*` carry the last snapshot's figures and their age |
+| Throttling | `memory.high` events 0 through 19:17 UTC |
+
+| Record (UTC) | Process | RSS | glibc arena (in use / freed) | glibc mmap | Rest of RSS |
+|---|---|---|---|---|---|
+| 18:11 startup | 1 | 567 | 261 (163 / 98) | 30 | 276 |
+| 18:26, 18:41, 18:56 periodic | 1 | 1,061 (flat) | 376 (209 / 166) | 59 | 626 |
+| 19:03 startup | 2 | 521 | 246 (144 / 102) | 30 | 245 |
+
+Process 2 started at 19:02 with the regular data-refresh deploy (`e7493cbe`), before process 1's first hourly census.
+
+Reading: a burst of requests right after the restart (18:17, clients reconnecting) took RSS from 509 to 920 MiB, and
+it settled at 1,061 MiB.
+- glibc's heap grew 144 MiB, a third of it memory glibc keeps after it is freed.
+- The rest of RSS grew 350 MiB. That part is outside glibc's accounting: Python's own small-object allocator (which
+  takes memory straight from the kernel and returns an arena only when it is completely empty), thread stacks and
+  mapped code.
+
+So the arena cap and `malloc_trim` act on the smaller part of the climb. At startup, 135-171 MiB is reachable from
+module-level objects. The largest are the contract (25 MiB), the served payload bytes (about 58 MiB), the startup
+data (16 MiB), the public-league cache (8-44 MiB) and Game Day's player cache (9 MiB).
+
+Next (this PR): every snapshot also records anonymous and file-backed RSS, and the reader prints the anonymous memory
+glibc does not account for, plus Python's allocated block count. That separates live Python objects from memory
+Python's allocator keeps after they are freed, which decides the mitigation (§7.7 #1).
 

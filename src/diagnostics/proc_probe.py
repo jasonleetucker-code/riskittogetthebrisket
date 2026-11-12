@@ -182,6 +182,29 @@ def process_rss_kb(pid: int) -> int | None:
     return None
 
 
+def process_rss_split_kb(pid: int) -> dict[str, int | None]:
+    """``RssAnon`` / ``RssFile`` / ``RssShmem`` in kB from /proc/<pid>/status.
+
+    Anonymous memory is the heap (glibc's and Python's own allocator) plus
+    thread stacks; file-backed memory is mapped code and data files.  Each
+    unreadable field is ``None``.  Never raises.
+    """
+    out: dict[str, int | None] = {"RssAnon": None, "RssFile": None, "RssShmem": None}
+    text = _read_text(f"{PROC_ROOT}/{pid}/status")
+    if not text:
+        return out
+    for line in text.splitlines():
+        key, _, rest = line.partition(":")
+        if key in out:
+            parts = rest.split()
+            if parts:
+                try:
+                    out[key] = int(parts[0])
+                except ValueError:
+                    pass
+    return out
+
+
 def process_cpu_ticks(pid: int) -> int | None:
     """utime+stime in clock ticks from /proc/<pid>/stat."""
     data = _read_text(f"/proc/{pid}/stat")

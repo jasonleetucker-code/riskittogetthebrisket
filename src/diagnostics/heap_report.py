@@ -99,6 +99,10 @@ def _libc() -> Any:
     return _LIBC or None
 
 
+def _kb_to_mib(kb: int | None) -> int | None:
+    return None if kb is None else int(kb) // 1024
+
+
 def _mib(n: int | None) -> int | None:
     return None if n is None else int(n) // _MIB
 
@@ -448,6 +452,7 @@ def snapshot(
     describes the heap, not the census's own temporary allocations.
     """
     rss_kb = proc_probe.process_rss_kb(os.getpid())
+    split = proc_probe.process_rss_split_kb(os.getpid())
     if walk_heap:
         malloc = malloc_summary()
         _remember_box(malloc)
@@ -458,6 +463,11 @@ def snapshot(
         "reason": _safe(reason),
         "pid": os.getpid(),
         "process_rss_mib": None if rss_kb is None else int(rss_kb) // 1024,
+        # Anonymous (heaps, stacks) vs file-backed (code) resident memory.
+        # Anonymous minus glibc's arena + mmap is mostly Python's own
+        # small-object allocator, which glibc's figures cannot see.
+        "rss_anon_mib": _kb_to_mib(split.get("RssAnon")),
+        "rss_file_mib": _kb_to_mib(split.get("RssFile")),
         "malloc": malloc,
         "gc": {
             "counts": list(gc.get_count()),

@@ -81,6 +81,36 @@ def test_report_on_real_records():
     assert "== growth by container" in out
 
 
+def test_series_separates_python_memory_from_glibc():
+    """other_anon = anonymous RSS - glibc arena - glibc mmap, per record."""
+    rec = json.loads(_real_records().splitlines()[0])
+    rec["rss_anon_mib"], rec["rss_file_mib"] = 900, 120
+    rec["malloc"].update(arena_mib=300, mmap_mib=50)
+    rec["gc"]["allocated_blocks"] = 2_345_678
+    res = _filter(json.dumps(rec) + "\n")
+    assert res.returncode == 0, res.stderr
+    row = next(ln for ln in res.stdout.splitlines() if " startup " in ln).split()
+    header = next(ln for ln in res.stdout.splitlines() if ln.startswith("ts_utc")).split()
+    cols = dict(zip(header, row))
+    assert cols["anon"] == "900" and cols["file"] == "120"
+    assert cols["o_anon"] == "550"  # 900 - 300 - 50
+    assert cols["kblocks"] == "2345"
+    assert "other anonymous 550 MiB" in res.stdout
+
+
+def test_containers_come_from_the_last_full_snapshot():
+    """A light record (scrape path) carries no containers; the section must
+    not go blank when it is the newest line."""
+    full = json.loads(_real_records().splitlines()[0])
+    light = dict(full, reason="post_trim", containers=[], types=None, deep=None)
+    light["malloc"] = {k: None for k in full["malloc"]}
+    res = _filter(json.dumps(full) + "\n" + json.dumps(light) + "\n")
+    assert res.returncode == 0, res.stderr
+    section = res.stdout.split("== largest containers", 1)[1]
+    assert "(startup)" in section.splitlines()[0]
+    assert "len=" in section
+
+
 def test_tampered_lines_cannot_carry_text():
     rec = json.loads(_real_records().splitlines()[-1])
     rec["reason"] = f"periodic {SECRET}"  # not an identifier: whole record dropped
