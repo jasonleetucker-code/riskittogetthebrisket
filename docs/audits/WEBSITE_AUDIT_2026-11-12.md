@@ -294,12 +294,13 @@ Owner request, 2026-11-12: cap glibc's arenas and attribute the heap on the prod
 | Read-only reader | `deploy/diagnostics/prod_heap_report.sh`, `.github/workflows/prod-heap-report.yml` (dispatch only) | prints the series and the latest census; re-validates every field, so only numbers and code identifiers reach the job log |
 
 Each snapshot records process RSS; glibc's split of the heap into memory in use, memory freed but retained, mmap and
-the arena count (`mallinfo2` / `malloc_info`); the largest module-level containers. Every fourth snapshot, every
-scrape-point snapshot and any snapshot taken at RSS ≥ 1,536 MiB also records a type census (live objects by type)
+the arena count (`mallinfo2` / `malloc_info`); the largest module-level containers. Every fourth periodic snapshot
+and any periodic snapshot taken at RSS ≥ 1,536 MiB also records a type census (live objects by type)
 and a deep census (bytes reachable from each module-level object or class, each counted once). Only the deep census
 sees `str` / `bytes` payloads, which the garbage collector does not track. `/api/status` `box_resources` gains
-`heap_arenas`, `heap_in_use_mib`, `heap_free_mib` and `heap_mmap_mib`. These are the last snapshot's figures:
-walking glibc's heap holds its arena locks (about 120 ms on a 3 GB heap), so it is never done per probe.
+`heap_arenas`, `heap_in_use_mib`, `heap_free_mib`, `heap_mmap_mib` and `heap_age_sec`. These are the last
+snapshot's figures, with their age: walking glibc's heap holds its arena locks (about 120 ms on a 3 GB heap), so it
+is never done per probe.
 
 The diagnostic must not cause the condition it measures. Its costs, from the independent review:
 - The deep census's visited-set costs about 100 MiB per million objects while it runs, so it is bounded at
@@ -307,6 +308,9 @@ The diagnostic must not cause the condition it measures. Its costs, from the ind
 - It is skipped (`deep_skipped: low_headroom`) when the service's anonymous memory is within 512 MiB of
   `memory.high`.
 - RSS and the glibc figures are read before the censuses, so a record describes the heap, not the census.
+- No census runs on the scrape path. The scrape-point snapshots record the cheap figures only: the event-loop
+  prober tests (`tests/api/test_run_scraper_*`) measured the census slowing the loop by about 0.2 s in a CI
+  process. The censuses yield the GIL every 10,000 objects.
 
 **Local measurements** (committed board, cold start, then 42 concurrent requests to the 14 heaviest routes):
 

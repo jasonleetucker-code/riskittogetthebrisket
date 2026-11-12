@@ -152,8 +152,8 @@ typed = [r for r in records if r["types"] is not None and r["pid"] == last["pid"
 if typed:
     t = typed[-1]
     print("\n== type census %s (%s) objects=%s census_ms=%s ==" % (t["ts"], t["reason"], f(t["tracked"]), f(t["census_ms"])))
-    for tname, count, mib in t["types"][:20]:
-        print("  %-40s count=%-9d mib=%s" % (tname, count, mib))
+    for tname, n_objects, mib in t["types"][:20]:
+        print("  %-40s count=%-9d mib=%s" % (tname, n_objects, mib))
 skipped = [r for r in records if r["deep_skipped"] and r["pid"] == last["pid"]]
 if skipped:
     print("\ndeep census skipped %d time(s) for low headroom (latest %s, headroom %s MiB)" % (

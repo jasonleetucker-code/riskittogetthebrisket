@@ -3890,8 +3890,11 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     reaped=_pre_reaped,
                     box=_pre_box,
                 )
-            # What the heap holds before this cycle (WA-17 attribution).
-            await run_in_threadpool(_record_heap_snapshot, "pre_scrape", True)
+            # What the heap holds before this cycle (WA-17 attribution).  No
+            # census here: it is seconds of CPU-bound Python, and the scrape
+            # path must not slow the event loop (test_run_scraper_*); the
+            # periodic loop takes the censuses.
+            await run_in_threadpool(_record_heap_snapshot, "pre_scrape", False)
             # Headroom below the cgroup's MemoryHigh before Chromium launches.
             _record_scrape_event(
                 "scrape_prelaunch_heap_release",
@@ -4301,10 +4304,10 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # hiccup leaves the last observation in place, never blocks.
             await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
-            # The publish is this cycle's allocation peak: record what the heap
-            # holds (WA-17 attribution; the census's own temporaries go with
-            # the trim), return what it freed, and record the result.
-            await run_in_threadpool(_record_heap_snapshot, "post_publish", True)
+            # The publish is this cycle's allocation peak: record the heap
+            # split (WA-17 attribution; no census on the scrape path, as
+            # above), return what it freed, and record the result.
+            await run_in_threadpool(_record_heap_snapshot, "post_publish", False)
             _post_publish_trim = await run_in_threadpool(_release_freed_heap)
             await run_in_threadpool(_record_heap_snapshot, "post_trim", False, _post_publish_trim)
 

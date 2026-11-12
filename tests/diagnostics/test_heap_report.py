@@ -34,6 +34,7 @@ def _bounded_census(monkeypatch):
     objects) and a fresh box-field cache for every test."""
     monkeypatch.setattr(heap_report, "DEEP_BUDGET", 200_000)
     monkeypatch.setattr(heap_report, "_LAST_BOX", heap_report.empty_box_fields())
+    monkeypatch.setattr(heap_report, "_LAST_BOX_AT", [])
 
 
 # ── glibc accounting ────────────────────────────────────────────────────
@@ -286,6 +287,17 @@ def test_box_fields_never_walk_the_heap(monkeypatch):
     assert calls == []
     assert box["heap_in_use_mib"] == rec["malloc"]["in_use_mib"]
     assert box["heap_arenas"] == rec["malloc"]["arenas"]
+
+
+def test_box_fields_say_how_old_they_are(monkeypatch):
+    """Cached figures carry their age: stale is not current."""
+    assert heap_report.box_fields()["heap_age_sec"] is None
+    clock = [1000.0]
+    monkeypatch.setattr(heap_report.time, "monotonic", lambda: clock[0])
+    heap_report.snapshot("periodic")
+    assert heap_report.box_fields()["heap_age_sec"] == 0
+    clock[0] += 901.7
+    assert heap_report.box_fields()["heap_age_sec"] == 901
 
 
 def test_append_report_keeps_the_log_bounded(tmp_path, monkeypatch):

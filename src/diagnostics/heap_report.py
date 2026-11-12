@@ -19,9 +19,11 @@ module answers from inside it, cheaply enough to run on the production box:
   and the type census therefore cannot see.
 
 Cost, measured locally: the container census takes ~8 ms; the type and
-deep censuses together take 1.5-2.5 s of a worker thread (pure Python, so
-the GIL is shared), and the deep census's visited-set costs ~100 MiB per
-million objects while it runs.  So the deep census is bounded
+deep censuses together take 1.5-2.5 s of a worker thread and yield the GIL
+every :data:`YIELD_EVERY` objects so the event loop keeps its turn
+(``gc.get_objects`` itself is one uninterruptible call, ~0.1 s per million
+objects); the deep census's visited-set costs ~100 MiB per million objects
+while it runs.  So the deep census is bounded
 (:data:`DEEP_BUDGET`) and skipped when the service is within
 :data:`DEEP_HEADROOM_MIB` of its throttling line.  The glibc walks hold the
 arena locks for ~120 ms each on a 3 GB heap, so they run only inside a
@@ -57,6 +59,8 @@ REPORT_PATH = Path(__file__).resolve().parents[2] / "data" / "diagnostics" / "he
 MAX_REPORT_BYTES = 2 * 1024 * 1024
 
 _MIB = 1024 * 1024
+#: The censuses release the GIL (``time.sleep(0)``) every this many objects.
+YIELD_EVERY = 10_000
 _HEAP_NR = re.compile(rb"<heap nr=")
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9_.()<>\[\]-]")
 
@@ -172,11 +176,14 @@ def empty_box_fields() -> dict[str, None]:
         "heap_in_use_mib": None,
         "heap_free_mib": None,
         "heap_mmap_mib": None,
+        "heap_age_sec": None,
     }
 
 
-#: The last snapshot's glibc figures, served by :func:`box_fields`.
+#: The last snapshot's glibc figures, served by :func:`box_fields`, and the
+#: monotonic time they were read.
 _LAST_BOX: dict[str, int | None] = empty_box_fields()
+_LAST_BOX_AT: list[float] = []
 
 
 def box_fields() -> dict[str, int | None]:
@@ -184,9 +191,12 @@ def box_fields() -> dict[str, int | None]:
 
     Cached, never measured here: walking the heap holds glibc's arena locks
     (~120 ms on a 3 GB heap), and ``/api/status`` must not stall on it.
-    All ``None`` until the first snapshot.
+    ``heap_age_sec`` says how old they are (stale is not current).  All
+    ``None`` until the first snapshot.
     """
-    return dict(_LAST_BOX)
+    out = dict(_LAST_BOX)
+    out["heap_age_sec"] = int(time.monotonic() - _LAST_BOX_AT[-1]) if _LAST_BOX_AT else None
+    return out
 
 
 def _remember_box(m: dict[str, Any]) -> None:
@@ -196,6 +206,7 @@ def _remember_box(m: dict[str, Any]) -> None:
         heap_free_mib=m.get("free_mib"),
         heap_mmap_mib=m.get("mmap_mib"),
     )
+    _LAST_BOX_AT[:] = [time.monotonic()]
 
 
 def _safe(name: str) -> str:
@@ -263,7 +274,9 @@ def type_census(limit: int = 20) -> dict[str, Any]:
     try:
         objects = gc.get_objects()
         total = len(objects)
-        for obj in objects:
+        for i, obj in enumerate(objects):
+            if i % YIELD_EVERY == 0:
+                time.sleep(0)  # let the event loop thread take the GIL
             name = type(obj).__name__
             counts[name] += 1
             try:
@@ -365,6 +378,8 @@ def deep_census(
                     except Exception:  # noqa: BLE001 -- exotic __sizeof__
                         pass
                     count += 1
+                    if count % YIELD_EVERY == 0:
+                        time.sleep(0)  # let the event loop thread take the GIL
                     if walked + count >= cap:
                         truncated = True
                         break
