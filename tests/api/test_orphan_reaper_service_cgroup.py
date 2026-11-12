@@ -129,7 +129,9 @@ def test_no_high_limit_and_no_events_are_unknown_not_zero(fake):
 def test_the_headless_shell_counts_by_its_kernel_name(fake):
     """Playwright's headless browser is ``chrome-headless-shell``; the kernel
     keeps 15 characters of a process name, so ``comm`` reads
-    ``chrome-headless`` (measured with the installed Playwright build)."""
+    ``chrome-headless``.  Measured 2026-11-12: ``chromium.launch()`` with the
+    installed Playwright build left four processes, every one with ``comm``
+    ``chrome-headless``."""
     proc, svc, _ = fake
     shell = proc / "4400"
     shell.mkdir()

@@ -119,7 +119,7 @@ WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_c
 | WA-16 | Fixed, merged, deployed (new, P2) | #2189 | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve; a team name two teams share resolves to neither. Delta review: a real team equal to a seed row ({Ed, $71}) could be overridden as "my team" and was not sent by name; fixed |
 
 | WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); heap lower on #2189 for the one cycle observed; open, monitored | — | Unplanned backend restart 13:32 UTC on the same commit: §7.9 |
-| WA-18 | Fixed (new, monitoring) | this follow-up | `box_resources.chromium_processes` read 0 while Chromium ran: the kernel keeps 15 characters of a process name (`chrome-headless`), the list held the 16-character `chrome-headless-` |
+| WA-18 | Fixed in PR, pending deploy (new, monitoring) | #2191 | `box_resources.chromium_processes` read 0 while Chromium ran: the kernel keeps 15 characters of a process name (`chrome-headless`), the list held the 16-character `chrome-headless-` |
 | WA-19 | Fixed, merged (new, P1 for trades) | #2190 | 35 pick rows priced by approved C1-U6 derivations or the rookie tether were quarantined (`no_valid_source_values`), withholding every trade verdict that touched one (e.g. "2029 Mid 5th (received, quarantined)"). Record: `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` |
 
 ### 7.2 WA-05 root cause: the scraper hang
