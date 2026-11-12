@@ -1865,11 +1865,13 @@ def _box_diagnostics_for_status() -> dict:
 
 
 def _record_heap_snapshot(
-    reason: str, include_types: bool = False, trim: dict | None = None
+    reason: str, include_types: bool = False, trim: dict | None = None, walk_heap: bool = True
 ) -> dict:
     """Append one heap snapshot to the box-local log and log its headline
     (WA-17).  ``trim`` is a ``_release_freed_heap`` result, stored as
-    numbers.  Call off the event loop.  Never raises."""
+    numbers.  ``walk_heap=False`` is the light record (RSS and ``trim``
+    only) for the scrape path: glibc's heap walk stalls the event loop.
+    Call off the event loop.  Never raises."""
     extra = None
     if isinstance(trim, dict):
         extra = {
@@ -1877,7 +1879,9 @@ def _record_heap_snapshot(
             "trimRssAfterMib": trim.get("rssAfterMib"),
         }
     try:
-        summary = _heap_report.record(reason, include_types=include_types, extra=extra)
+        summary = _heap_report.record(
+            reason, include_types=include_types, walk_heap=walk_heap, extra=extra
+        )
         log.info("heap snapshot %s: %s", reason, summary)
         return summary
     except Exception:  # noqa: BLE001 -- diagnostics never break a caller
@@ -3890,11 +3894,10 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     reaped=_pre_reaped,
                     box=_pre_box,
                 )
-            # What the heap holds before this cycle (WA-17 attribution).  No
-            # census here: it is seconds of CPU-bound Python, and the scrape
-            # path must not slow the event loop (test_run_scraper_*); the
-            # periodic loop takes the censuses.
-            await run_in_threadpool(_record_heap_snapshot, "pre_scrape", False)
+            # RSS before this cycle (WA-17).  A light record: the glibc walk
+            # and the censuses stall the event loop, and the scrape path must
+            # not (test_run_scraper_*); the periodic loop takes them.
+            await run_in_threadpool(_record_heap_snapshot, "pre_scrape", False, None, False)
             # Headroom below the cgroup's MemoryHigh before Chromium launches.
             _record_scrape_event(
                 "scrape_prelaunch_heap_release",
@@ -4304,12 +4307,12 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # hiccup leaves the last observation in place, never blocks.
             await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
-            # The publish is this cycle's allocation peak: record the heap
-            # split (WA-17 attribution; no census on the scrape path, as
-            # above), return what it freed, and record the result.
-            await run_in_threadpool(_record_heap_snapshot, "post_publish", False)
+            # The publish is this cycle's allocation peak; return what it freed
+            # and log RSS before / after (WA-17, light record as above).
             _post_publish_trim = await run_in_threadpool(_release_freed_heap)
-            await run_in_threadpool(_record_heap_snapshot, "post_trim", False, _post_publish_trim)
+            await run_in_threadpool(
+                _record_heap_snapshot, "post_trim", False, _post_publish_trim, False
+            )
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 

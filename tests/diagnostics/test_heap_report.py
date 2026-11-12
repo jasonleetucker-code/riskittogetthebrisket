@@ -193,6 +193,21 @@ def test_deep_census_is_bounded(fake_module):
     assert deep["walked_objects"] <= 50
 
 
+def test_container_census_never_triggers_getattr(fake_module):
+    """Only real ``lru_cache`` wrappers are asked for ``cache_info``: an
+    object's ``__getattr__`` (a lazy loader, a proxy) must never run."""
+    touched = []
+
+    class Lazy:
+        def __getattr__(self, name):
+            touched.append(name)
+            raise AttributeError(name)
+
+    fake_module.LAZY = Lazy()
+    heap_report.container_census(limit=10_000)
+    assert touched == []
+
+
 def test_container_census_limit(fake_module):
     assert len(heap_report.container_census(limit=2)) == 2
     assert heap_report.container_census(limit=0) == []
@@ -274,6 +289,52 @@ def test_deep_census_is_skipped_near_the_throttling_line(monkeypatch):
     # No cgroup limit (dev, CI): unknown headroom does not block the census.
     monkeypatch.setattr(heap_report.proc_probe, "memory_headroom_mib", lambda pid: None)
     assert heap_report.snapshot("periodic", include_types=True)["deep"] is not None
+
+
+def test_light_record_never_walks_the_heap(monkeypatch):
+    """The scrape path's record: glibc's walk holds each arena's lock, and a
+    thread that allocates meanwhile (the event loop) blocks with the GIL held
+    (measured 0.10 s per walk on a heap with a million free chunks)."""
+    calls = []
+
+    def walked(*a, **k):
+        calls.append(1)
+        raise AssertionError("walked")
+
+    for name in ("malloc_summary", "container_census", "type_census", "deep_census"):
+        monkeypatch.setattr(heap_report, name, walked)
+    rec = heap_report.snapshot(
+        "post_trim", include_types=True, walk_heap=False, extra={"trimRssAfterMib": 7}
+    )
+    assert calls == []
+    assert rec["malloc"] == heap_report.empty_malloc_summary()
+    assert rec["containers"] == [] and rec["types"] is None and rec["deep"] is None
+    assert rec["extra"] == {"trimRssAfterMib": 7}
+    assert isinstance(rec["process_rss_mib"], int) or rec["process_rss_mib"] is None
+    # A light record does not overwrite the cached heap figures.
+    assert heap_report.box_fields() == heap_report.empty_box_fields()
+
+
+def test_the_scrape_path_takes_only_light_records(server_mod):
+    """Every heap record inside ``run_scraper`` passes ``walk_heap=False``
+    (``_record_heap_snapshot``'s 4th argument)."""
+    import ast  # noqa: PLC0415
+    import inspect  # noqa: PLC0415
+    import textwrap as tw  # noqa: PLC0415
+
+    tree = ast.parse(tw.dedent(inspect.getsource(server_mod.run_scraper)))
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and node.args
+        and isinstance(node.args[0], ast.Name)
+        and node.args[0].id == "_record_heap_snapshot"
+    ]
+    assert len(calls) == 2  # pre_scrape and post_trim
+    for call in calls:
+        walk = call.args[4] if len(call.args) > 4 else None
+        assert isinstance(walk, ast.Constant) and walk.value is False, ast.dump(call)
 
 
 def test_box_fields_never_walk_the_heap(monkeypatch):

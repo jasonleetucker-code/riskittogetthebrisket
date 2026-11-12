@@ -290,7 +290,7 @@ Owner request, 2026-11-12: cap glibc's arenas and attribute the heap on the prod
 |---|---|---|
 | `MALLOC_ARENA_MAX=2` | `deploy/systemd/dynasty.service.template` (the reconciler installs it on deploy, before the restart) | glibc keeps at most 2 arenas instead of 8 per core |
 | Module executed once (WA-20) | `server.py`: a `__main__` guard after the imports runs the module once, as `server`, and serves that | one copy of every module-level load |
-| Heap report | `src/diagnostics/heap_report.py`, `server.py` (`heap_report_loop`, `_record_heap_snapshot`, `box_resources.heap_*`), `src/diagnostics/proc_probe.py` (`memory_headroom_mib`) | box-local log `data/diagnostics/heap_reports.jsonl` (bounded to 2 MB): at start, every 15 min (`HEAP_REPORT_INTERVAL_SEC`), before each scrape, and after each publish both before and after its heap release |
+| Heap report | `src/diagnostics/heap_report.py`, `server.py` (`heap_report_loop`, `_record_heap_snapshot`, `box_resources.heap_*`), `src/diagnostics/proc_probe.py` (`memory_headroom_mib`) | box-local log `data/diagnostics/heap_reports.jsonl` (bounded to 2 MB): at start and every 15 min (`HEAP_REPORT_INTERVAL_SEC`); plus a light record (RSS only) before each scrape and after each publish's heap release |
 | Read-only reader | `deploy/diagnostics/prod_heap_report.sh`, `.github/workflows/prod-heap-report.yml` (dispatch only) | prints the series and the latest census; re-validates every field, so only numbers and code identifiers reach the job log |
 
 Each snapshot records process RSS; glibc's split of the heap into memory in use, memory freed but retained, mmap and
@@ -308,9 +308,11 @@ The diagnostic must not cause the condition it measures. Its costs, from the ind
 - It is skipped (`deep_skipped: low_headroom`) when the service's anonymous memory is within 512 MiB of
   `memory.high`.
 - RSS and the glibc figures are read before the censuses, so a record describes the heap, not the census.
-- No census runs on the scrape path. The scrape-point snapshots record the cheap figures only: the event-loop
-  prober tests (`tests/api/test_run_scraper_*`) measured the census slowing the loop by about 0.2 s in a CI
-  process. The censuses yield the GIL every 10,000 objects.
+- Neither the heap walk nor a census runs on the scrape path: the scrape-point records hold RSS and the heap
+  release result only. The event-loop prober tests (`tests/api/test_run_scraper_*`) failed in CI with the census
+  there (0.4 s against a 0.35 s bound) and still failed with the walk alone (1.1 s). On a fragmented heap
+  (a million free chunks) one walk takes 0.10 s and blocks any thread that allocates meanwhile. The censuses
+  yield the GIL every 10,000 objects.
 
 **Local measurements** (committed board, cold start, then 42 concurrent requests to the 14 heaviest routes):
 

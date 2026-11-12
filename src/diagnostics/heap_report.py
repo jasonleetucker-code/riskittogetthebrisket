@@ -26,9 +26,11 @@ objects); the deep census's visited-set costs ~100 MiB per million objects
 while it runs.  So the deep census is bounded
 (:data:`DEEP_BUDGET`) and skipped when the service is within
 :data:`DEEP_HEADROOM_MIB` of its throttling line.  The glibc walks hold the
-arena locks for ~120 ms each on a 3 GB heap, so they run only inside a
-snapshot; ``/api/status`` reads the last snapshot's figures
-(:func:`box_fields`) and never walks the heap.
+arena locks for ~0.1 s each on a fragmented heap, stalling any thread that
+allocates meanwhile (the event loop included), so they run only in the
+periodic loop's snapshots: the scrape path takes a light record
+(``walk_heap=False``) and ``/api/status`` reads the last snapshot's figures
+(:func:`box_fields`).
 
 Every figure is a number or an identifier from this codebase (module,
 attribute, class and type names); no values and no user data are read.
@@ -39,6 +41,7 @@ from __future__ import annotations
 
 import collections
 import ctypes
+import functools
 import gc
 import json
 import os
@@ -213,14 +216,19 @@ def _safe(name: str) -> str:
     return _SAFE_NAME.sub("_", str(name))[:160]
 
 
+#: ``functools.lru_cache`` wrappers, recognised by TYPE: calling
+#: ``getattr(obj, "cache_info")`` on arbitrary objects would run their
+#: ``__getattr__`` (lazy loaders, proxies), which can do real work.
+_LRU_TYPE = getattr(functools, "_lru_cache_wrapper", None)
+
+
 def _container_len(value: Any) -> tuple[str, int] | None:
     if isinstance(value, (dict, list, set, frozenset, tuple, collections.deque)):
         return type(value).__name__, len(value)
-    info = getattr(value, "cache_info", None)
-    if callable(info):
+    if _LRU_TYPE is not None and isinstance(value, _LRU_TYPE):
         try:
-            return "lru_cache", int(info().currsize)
-        except Exception:  # noqa: BLE001 -- a foreign object's cache_info
+            return "lru_cache", int(value.cache_info().currsize)
+        except Exception:  # noqa: BLE001
             return None
     return None
 
@@ -420,18 +428,31 @@ def _deep_allowed() -> tuple[bool, int | None]:
 
 
 def snapshot(
-    reason: str, *, include_types: bool = False, extra: dict[str, Any] | None = None
+    reason: str,
+    *,
+    include_types: bool = False,
+    walk_heap: bool = True,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """One heap record: process RSS, glibc accounting, gc state, containers,
     and (optionally) the type and deep censuses.  ``extra`` carries numbers
     only (e.g. a ``malloc_trim`` result); anything else is dropped.
 
+    ``walk_heap=False`` records RSS, gc state and ``extra`` only.  The glibc
+    walk holds each arena's lock, and a thread that allocates meanwhile (the
+    event loop) blocks with the GIL held: measured 0.10 s per walk on a heap
+    with a million free chunks.  Callers on a latency-sensitive path (the
+    scrape) take the light record; the periodic loop takes the full one.
+
     RSS and the glibc figures are read BEFORE the censuses, so the record
     describes the heap, not the census's own temporary allocations.
     """
     rss_kb = proc_probe.process_rss_kb(os.getpid())
-    malloc = malloc_summary()
-    _remember_box(malloc)
+    if walk_heap:
+        malloc = malloc_summary()
+        _remember_box(malloc)
+    else:
+        malloc = empty_malloc_summary()
     record: dict[str, Any] = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "reason": _safe(reason),
@@ -443,7 +464,7 @@ def snapshot(
             "allocated_blocks": sys.getallocatedblocks(),
             "threads": len(sys._current_frames()),  # noqa: SLF001
         },
-        "containers": container_census(),
+        "containers": container_census() if walk_heap else [],
         "types": None,
         "deep": None,
         "deep_skipped": None,
@@ -451,7 +472,7 @@ def snapshot(
         "census_ms": None,
         "extra": _numbers_only(extra),
     }
-    if include_types:
+    if include_types and walk_heap:
         started = time.perf_counter()
         record["types"] = type_census()
         allowed, headroom = _deep_allowed()
@@ -485,12 +506,16 @@ def append_report(record: dict[str, Any], path: Path | None = None) -> bool:
 
 
 def record(
-    reason: str, *, include_types: bool = False, extra: dict[str, Any] | None = None
+    reason: str,
+    *,
+    include_types: bool = False,
+    walk_heap: bool = True,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Snapshot, append to the box log, and return the headline numbers
     (for a log line).  Call off the event loop.  Never raises."""
     try:
-        rec = snapshot(reason, include_types=include_types, extra=extra)
+        rec = snapshot(reason, include_types=include_types, walk_heap=walk_heap, extra=extra)
         written = append_report(rec)
         m = rec["malloc"]
         return {
