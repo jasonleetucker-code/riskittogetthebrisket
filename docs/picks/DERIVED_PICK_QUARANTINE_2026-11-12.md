@@ -79,8 +79,13 @@ confidence axis at MEDIUM.
   left are players).
 * `validate_api_data_contract`: ok both ways, 0 errors, same 5 warnings.
 * Consensus Edge: 0 of 1,103 rows differ (picks carry no market price there).
-* BDVM now lists these picks beside their vendor-priced siblings (it skips
-  quarantined rows); it never reads or writes the canonical value.
+* BDVM skips quarantined rows, so these picks now reach it. Its tier parser
+  covered rounds 1-4 only, so the round-5/6 tier rows would have been listed
+  as empty "unparseable" lines; it now maps them to slots exactly as it does
+  rounds 1-4 (it already priced round-5/6 SLOT picks). Generic-grade rows
+  ("2029 Round 5") have no slot and are not BDVM picks: they are left out
+  rather than listed empty. BDVM never reads or writes the canonical value.
+  (Independent review finding.)
 
 ## Tests
 
@@ -92,6 +97,8 @@ board (census, the round-step oracle for 2028/2029, players unchanged); the
 reported three-team shape and a two-team trade on real rosters in all three
 analysis modes (no `quarantined_values`, picks priced once, conservation,
 uncertainty reported), and an injected real quarantine still withholds.
+`tests/bdvm/test_service.py` pins the BDVM side (round-5 tier parses, generic
+row not listed; fails on the previous parser).
 `frontend/__tests__/components/trade-withheld-values.test.jsx` pins that the
 preliminary meter follows the backend stamp: the served rows give A and B a
 reading, the pre-fix rows reproduce the reported text.

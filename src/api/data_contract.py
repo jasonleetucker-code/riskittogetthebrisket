@@ -5086,7 +5086,8 @@ def _rows_without_valid_evidence(players_array: list[dict[str, Any]]) -> set[int
     :data:`_PICK_BASIS_PRICED_CLASSES` is also evidence-backed when EVERY row
     its provenance names as ``basis``:
 
-    * resolves by ``canonicalName`` to exactly ONE row (ambiguous -> no),
+    * resolves by ``canonicalName`` to exactly ONE row (ambiguous -> no) of
+      the right kind (a pick for a derivation, a player for the tether),
     * carries a positive finite value (a valueless basis priced nothing),
     * carries no OTHER quarantine-level flag (a derived number is never more
       trustworthy than what it was computed from), and
@@ -5120,11 +5121,16 @@ def _rows_without_valid_evidence(players_array: list[dict[str, Any]]) -> set[int
             return []
         return list(names)
 
-    def _trusted_basis(name: str) -> bool:
+    def _trusted_basis(name: str, *, want_pick: bool) -> bool:
         hits = by_name.get(name) or []
         if len(hits) != 1:
             return False
         basis_row = players_array[hits[0]]
+        # The right KIND of row: a derivation is computed from pick rows, the
+        # tether from a rookie (player) row.  A same-named row of the other
+        # kind is not the basis that priced this pick.
+        if (basis_row.get("assetClass") == "pick") is not want_pick:
+            return False
         value = basis_row.get("rankDerivedValue")
         if not (
             isinstance(value, (int, float))
@@ -5152,7 +5158,8 @@ def _rows_without_valid_evidence(players_array: list[dict[str, Any]]) -> set[int
         names = _basis(row)
         resolving.add(idx)
         try:
-            ok = bool(names) and all(_trusted_basis(n) for n in names)
+            want_pick = (row.get("pickValueProvenance") or {}).get("class") != "rookie_pool_tether"
+            ok = bool(names) and all(_trusted_basis(n, want_pick=want_pick) for n in names)
         finally:
             resolving.discard(idx)
         memo[idx] = ok

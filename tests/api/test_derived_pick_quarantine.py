@@ -161,7 +161,12 @@ def test_a_tethered_slot_pick_follows_its_rookie():
 
 @pytest.mark.parametrize(
     "basis_flag",
-    ["blend_integrity_violation", "duplicate_canonical_identity", "unsupported_position"],
+    [
+        "blend_integrity_violation",
+        "duplicate_canonical_identity",
+        "unsupported_position",
+        "position_source_contradiction",
+    ],
 )
 def test_a_quarantined_basis_keeps_the_derived_pick_quarantined(basis_flag):
     """A derived number inherits the trust of what it was computed from."""
@@ -175,6 +180,44 @@ def test_a_quarantined_basis_keeps_the_derived_pick_quarantined(basis_flag):
     for name in ("2029 Mid 5th", "2029 Mid 6th"):
         assert out[name]["quarantined"] is True, name
         assert "no_valid_source_values" in out[name]["anomalyFlags"], name
+
+
+def test_a_basis_flagged_by_the_identity_pass_in_the_same_call_keeps_the_quarantine():
+    """Ordering pin: the identity pass flags the basis inside this same
+    validator call, before Check 5 reads it.  An offensive lineman is not a
+    supported board position."""
+    rookie = _player("Line Man", 1780, {"ktc": 1700}, pos="OL")
+    slot = _pick("2027 Pick 6.02", 1780, prov={"class": "rookie_pool_tether", "basis": "Line Man"})
+    rows = [rookie, slot]
+    _validate_and_quarantine_rows(rows)
+    assert "unsupported_position" in rows[0]["anomalyFlags"]
+    assert rows[0]["quarantined"] is True
+    assert rows[1]["quarantined"] is True
+
+
+def test_a_tethered_pick_on_a_rookie_with_no_evidence_stays_quarantined():
+    rookie = _player("Hollow Rookie", 900, {"ktc": None, "dlfRookieSf": 0})
+    slot = _pick(
+        "2027 Pick 6.09", 900, prov={"class": "rookie_pool_tether", "basis": "Hollow Rookie"}
+    )
+    rows = [rookie, slot]
+    _validate_and_quarantine_rows(rows)
+    assert rows[0]["quarantined"] is True
+    assert rows[1]["quarantined"] is True
+
+
+def test_a_basis_of_the_wrong_kind_is_not_the_basis():
+    """A player row that happens to carry a pick's name cannot back a
+    derivation, and a pick row cannot back the rookie tether."""
+    impostor = _player("2029 Mid 4th", 1583, {"ktc": 1500})
+    derived = _round_step("2029 Mid 5th", 1471, "2029 Mid 4th")
+    pick_named_rookie = _market_tier("Marlin Klein", 1780)
+    tethered = _pick(
+        "2027 Pick 6.02", 1780, prov={"class": "rookie_pool_tether", "basis": "Marlin Klein"}
+    )
+    out = _run([impostor, derived, pick_named_rookie, tethered])
+    assert out["2029 Mid 5th"]["quarantined"] is True
+    assert out["2027 Pick 6.02"]["quarantined"] is True
 
 
 def test_a_basis_with_no_evidence_keeps_the_chain_quarantined():
