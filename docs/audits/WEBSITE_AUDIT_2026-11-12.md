@@ -118,7 +118,7 @@ WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_c
 | WA-15 | Fixed, merged, deployed (new) | #2189 | `/draft` first visit (no saved workspace) still keyed Perfect Draft on the seed team "Russini Panini" (400), and "my team" fell back to row 0 (another manager); the readiness gate could also wait forever if `/api/leagues` failed (independent review) |
 | WA-16 | Fixed, merged, deployed (new, P2) | #2189 | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve; a team name two teams share resolves to neither. Delta review: a real team equal to a seed row ({Ed, $71}) could be overridden as "my team" and was not sent by name; fixed |
 
-| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); heap lower on #2189 for the one cycle observed; open, monitored | — | Unplanned backend restart 13:32 UTC on the same commit: §7.9 |
+| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build; allocating work not yet attributed; open | — | Unplanned backend restart 13:32 UTC on the same commit: §7.9 |
 | WA-18 | Fixed in PR, pending deploy (new, monitoring) | #2191 | `box_resources.chromium_processes` read 0 while Chromium ran: the kernel keeps 15 characters of a process name (`chrome-headless`), the list held the 16-character `chrome-headless-` |
 | WA-19 | Fixed, merged (new, P1 for trades) | #2190 | 35 pick rows priced by approved C1-U6 derivations or the rookie tether were quarantined (`no_valid_source_values`), withholding every trade verdict that touched one (e.g. "2029 Mid 5th (received, quarantined)"). Record: `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` |
 
@@ -214,7 +214,7 @@ the test-session endpoint); CI = GitHub Actions on the PR head; P = production, 
 
 | # | Item | Why open | Next step | Blocks readiness? |
 |---|---|---|---|---|
-| 1 | Memory across many cycles (WA-17) | on the #2189 build one cycle is observed: process RSS 661 → 1,337 peak → 1,230-1,294 MiB, no `memory.high` events; before it the heap reached 2.8 GiB and the watchdog restarted the backend | watch `process_rss_mib` / `cgroup_memory_anon_mib` / `cgroup_memory_high_events` over several 2 h cycles; if the heap still climbs, attribute it per post-scrape warm pass (tracemalloc on the box) | no, monitored; a regression shows as `memory.high` events |
+| 1 | Memory across cycles (WA-17) | the heap still passes `memory.high` under load: a second watchdog restart at 15:42 UTC on `4b47329c` (§7.10). Locally, repeated reads do not grow memory, while a concurrent cold-cache burst does and stays; capping glibc arenas cuts that growth by about a third | attribute the remaining heap on the box (a tracemalloc snapshot diff across one cycle, or an equivalent); then decide on mitigations with evidence: `MALLOC_ARENA_MAX=2` / `mallopt(M_ARENA_MAX)`, a heap release after heavy request work, bounded concurrency for the heaviest cold endpoints | yes: about 6-minute API outages, twice on 2026-11-12 |
 | 2 | Signed-in production checks | no production credentials here; the public advisor is disabled | owner signs in and checks `/trade` with 2029 Mid 5th / Mid 6th (no withheld side) once #2190 deploys | no |
 | 3 | Owned future picks: browser Mid row vs engine generic row (TC-22) | up to 2.5% on the preliminary meter only; the deferred frontend label-lookup migration | `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` §Adjacent gap | no |
 | 4 | Raw ports from the internet | only probed from this egress | box-side `ss -ltnp` / firewall check by the operator | no |
@@ -222,11 +222,12 @@ the test-session endpoint); CI = GitHub Actions on the PR head; P = production, 
 
 ### 7.8 Verdict
 
-**READY WITH MINOR ISSUES.** Production runs #2189 (`45c25008`, deployed 14:35 UTC): scrapes succeed, health is
+**READY WITH ISSUES (one reliability defect open).** Production runs #2189 (`45c25008`, deployed 14:35 UTC): scrapes succeed, health is
 `ok`, `/api/status` no longer stalls the site, the new tab titles and diagnostics are live, and every page loads
 cleanly. The trade-calculator quarantine defect (WA-19) is merged (#2190) and verified on the merged code with the
-latest production export; its live check follows its deploy. The open item that matters is WA-17: the heap is
-markedly lower on #2189 but has been watched for one cycle only (§7.7 #1).
+latest production export; its live check needs a signed-in session. The open item that matters is WA-17: the
+backend's heap still passes `memory.high` under load, and the API was unavailable for about 6 minutes twice on
+2026-11-12 (13:27-13:33 and 15:36-15:42 UTC) until the watchdog restarted it (§7.7 #1, §7.10).
 
 ### 7.9 Production after #2189 (2026-11-12, read-only)
 
@@ -252,3 +253,28 @@ outage was throttling at `memory.high`, not a kill.
 **#2190** (WA-19) merged as `4b47329c`. Rebuilding the latest production export (`exports/latest`, scrape 10:22 UTC)
 with the merged code: 0 of 138 pick rows quarantined (was 35), values unchanged, `2029 Mid 5th` 1471 / `Mid 6th` 1347 /
 `Round 5` 1478 / `Round 6` 1354 all `quarantined: false`, confidence `low`.
+
+### 7.10 Second watchdog restart and the memory experiments (WA-17)
+
+**15:42 UTC, from the box journal** (`prod-restart-diagnostics.yml`, read-only, window 15:15-15:45): the same
+signature as 13:32. Five liveness failures, a watchdog restart, a SIGKILL after the SIGTERM timeout, and no OOM. Traffic
+was 40-85 requests a minute until 15:36. The 2-minute public samples on the #2190 build (`4b47329c`, started 15:19:58)
+read: process RSS 1,584 MiB at 15:21 (during the startup scrape) → 1,820 → 2,029 at 15:35; heap 1,983 MiB; `memory.high`
+events 465 (15:31) → 1,678 (15:35); `/api/status` no longer answered from 15:37; the process restarted at 15:42:13.
+
+Cycles differ a lot in how fast they grow: 2 minutes after a restart the process held 661 MiB at 14:35 but 1,584-1,658
+MiB at 13:32 and 15:20 (the latter two came right after an outage or a deploy, when every open client reconnects).
+Today's code changes do not explain it: the 13:32 cycle on the previous build grew the same way.
+
+**Local experiments** (committed board, same code; read-only GETs only):
+
+| Experiment | Result |
+|---|---|
+| 4 rounds of authenticated GETs over all 103 GET routes | 531 → 761 MiB in round 1 (caches), then 761 / 761 / 761: repeated reads do not grow memory |
+| Rankings overrides with distinct inputs | not a factor: custom source weighting is disabled, so every request is served the cached canonical board |
+| Cold start + 42 concurrent requests to the 14 heaviest routes | 481 → 889 MiB, and it stays (892 after 20 s) |
+| Same burst with `MALLOC_ARENA_MAX=2` | 472 → 754 MiB (754 after 20 s): about a third less growth (one run each) |
+
+Reading: concurrent heavy work grows the heap and keeps it; per-thread glibc arenas account for part of that, and
+live memory for the rest. What the production heap holds at 2.8 GB is not attributed yet. Raising the limits or
+scheduling restarts would only hide it, so neither is proposed. The next step is attribution on the box (§7.7 #1).
