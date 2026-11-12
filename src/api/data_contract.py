@@ -5144,7 +5144,9 @@ def _rows_without_valid_evidence(players_array: list[dict[str, Any]]) -> set[int
             return False
         row = players_array[idx]
         sites = row.get("canonicalSiteValues") or {}
-        if any((_to_int_or_none(v) or 0) > 0 for v in sites.values()):
+        # A missing source value is not a 0 and not evidence: only a present,
+        # positive one counts.
+        if any((n := _to_int_or_none(v)) is not None and n > 0 for v in sites.values()):
             memo[idx] = True
             return True
         names = _basis(row)

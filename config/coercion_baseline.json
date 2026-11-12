@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 618,
+ "count": 617,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -231,7 +231,6 @@
   "src/api/data_contract.py::discount = float(row.get(\"pickYearDiscount\") or 1.0)",
   "src/api/data_contract.py::eff_r = int(float(row_csv.get(\"effectiveRank\") or 0))",
   "src/api/data_contract.py::fetched_at = float(_LEAGUE_CONTEXT_CACHE.get(\"fetched_at\") or 0.0)",
-  "src/api/data_contract.py::has_any_source = any((_to_int_or_none(v) or 0) > 0 for v in canonical_sites.values())",
   "src/api/data_contract.py::has_idp_val = any((_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _IDP_SIGNAL_KEYS)",
   "src/api/data_contract.py::if float(py_val or 0) != float(js_val or 0):",
   "src/api/data_contract.py::int(p.get(\"rankDerivedValue\") or 0),",
