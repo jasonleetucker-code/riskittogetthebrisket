@@ -418,8 +418,9 @@ RSS ≥ 1,536 MiB fired under the old trigger):
 | 21:22 periodic, high RSS | 1,779 | 1,734 | 208 / 209 | 1,258 | 4.32 M | 636 k |
 
 - **The peak is a burst of about 19 million Python objects**, 1.7 M of them containers, live at the same moment.
-  It took RSS to 2,151 MiB, within about 400 MiB of `memory.high`. `/api/status` showed 2,799 `memory.high` events
-  for this process at 21:27: the kernel throttled the service again, though this time it recovered without a
+  It took RSS to 2,151 MiB (anonymous 2,105), within about 400 MiB of `memory.high`. `/api/status` showed 2,799
+  `memory.high` events at 21:27. That counter is cumulative over the service's cgroup, so it shows the service was
+  throttled again, most likely around this peak, but does not time each event. This time it recovered without a
   restart. The deep census was correctly skipped at 21:07 (headroom 454 MiB < 512).
 - **After the burst, Python's allocator kept about 1 GB.** By 21:22 the block count was back near startup (4.3 M
   against 3.5 M), but `o_anon` stayed at 1,258 MiB (241 at startup). Python's small-object allocator returns an
@@ -428,7 +429,9 @@ RSS ≥ 1,536 MiB fired under the old trigger):
 - The live caches after the burst are small by comparison: the overlay response cache +50 MiB, player impact +12,
   draft workbook +12, BDVM context and values +20, public contract bytes +7 (deep census at 21:22).
 
-So the outages come from request bursts that briefly build tens of millions of objects. The memory they leave behind
-in Python's allocator stays resident between restarts, and the next burst starts from that level. This PR makes the
+The 21:07 event is consistent with the earlier outages being driven by the same mechanism: a request burst that
+briefly builds millions of extra objects (about 19 M more than at startup; 22.6 M in total). The 13:32 and 15:42
+restarts predate this report, so they are not shown to be bursts. The memory a burst leaves behind in Python's
+allocator stays resident until the next restart, and the next burst starts from that level. This PR makes the
 reader print the census taken at the peak, which lists the types the 19 M objects belong to and so points to the code
 that built them. That producer is the fix; `PYTHONMALLOC=malloc` is the fallback to measure (§7.7 #1).
