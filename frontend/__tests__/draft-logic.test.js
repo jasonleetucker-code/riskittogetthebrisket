@@ -1322,6 +1322,33 @@ describe("mergeDraftCapitalTeams — first-visit default team", () => {
     expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Brent");
   });
 
+  it("never overrides a chosen team that carries a seed's name and budget ({Ed, $71})", () => {
+    // A real feed row can equal a seed row field for field, so "is my team a
+    // seed row?" cannot decide this; only an untouched seed workspace can
+    // (independent review).
+    const seedLike = [
+      { team: "Medical Murrayjuana", ownerId: "4684", auctionDollars: 95 },
+      { team: "Ed", ownerId: "7114", auctionDollars: 71 },
+    ];
+    const first = mergeDraftCapitalTeams(createDefaultWorkspace(), seedLike, {
+      preferredOwnerId: "4684",
+    }).workspace;
+    expect(first.teams[first.settings.myTeamIdx].name).toBe("Medical Murrayjuana");
+    first.settings.myTeamIdx = first.teams.findIndex((t) => t.name === "Ed");
+    const again = mergeDraftCapitalTeams(first, seedLike, {
+      mode: "sync",
+      preferredOwnerId: "4684",
+    }).workspace;
+    expect(again.teams[again.settings.myTeamIdx].name).toBe("Ed");
+  });
+
+  it("does not move a selection the user made on the seed board before the feed arrived", () => {
+    const ws = createDefaultWorkspace();
+    ws.settings.myTeamIdx = ws.teams.findIndex((t) => t.name === "Brent");
+    const { workspace } = mergeDraftCapitalTeams(ws, feed, { preferredTeamName: "Jason" });
+    expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Brent");
+  });
+
   it("matches the header's team by Sleeper owner id when the feed uses team names", () => {
     const named = [
       { team: "schoeppeya", ownerId: "1393", auctionDollars: 120 },

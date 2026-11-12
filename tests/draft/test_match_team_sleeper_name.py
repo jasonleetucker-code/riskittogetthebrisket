@@ -64,3 +64,15 @@ def test_teams_without_a_sleeper_team_name_are_unaffected():
         )
         is None
     )
+
+
+def test_a_sleeper_team_name_two_teams_share_resolves_to_neither():
+    # Sleeper allows duplicate team names: the name then identifies no team,
+    # and the first match must not be handed back as if it did.
+    twins = [
+        {"name": "A", "sleeperTeamName": "Same", "ownerId": "1"},
+        {"name": "B", "sleeperTeamName": "Same", "ownerId": "2"},
+    ]
+    assert match_team(twins, owner_id=None, roster_id=None, team_name="Same") is None
+    # Each team is still reachable by its own display name.
+    assert match_team(twins, owner_id=None, roster_id=None, team_name="B")["ownerId"] == "2"

@@ -779,6 +779,25 @@ describe("roster context is not requested for the placeholder workspace", () => 
     expect(url).not.toContain("Russini");
   });
 
+  it("sends a real team whose name and budget happen to equal a seed's once the workspace has merged", async () => {
+    // {Ed, $71} is also a seed row.  After a draft-capital merge it is a real
+    // team, and asking for no name would answer for the SESSION's team instead
+    // of the one the user chose (independent review).
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+    const merged = {
+      settings: { myTeamIdx: 1 },
+      teams: [
+        { name: "Medical Murrayjuana", initialBudget: 95 },
+        { name: "Ed", initialBudget: 71 },
+      ],
+      players: [],
+      picks: [],
+    };
+    render(<PerfectDraftPanel stats={STATS} workspace={merged} workspaceReady />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(String(fetch.mock.calls[0][0])).toContain("teamName=Ed");
+  });
+
   it("still refetches when the workspace's team changes after it is ready", async () => {
     fetch.mockResolvedValue(jsonResponse(200, okPayload()));
     const { rerender } = render(

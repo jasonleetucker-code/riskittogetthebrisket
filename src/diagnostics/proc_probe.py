@@ -506,6 +506,11 @@ def empty_service_diagnostics() -> dict[str, int | None]:
         "cgroup_memory_high_mib": None,
         # memory.events "high": how many times the cgroup crossed memory.high.
         "cgroup_memory_high_events": None,
+        # memory.stat split of the cgroup total.  ``anon`` is process heap the
+        # kernel cannot drop (no swap); ``file`` is page cache it reclaims
+        # under pressure.  The total alone cannot say which one is growing.
+        "cgroup_memory_anon_mib": None,
+        "cgroup_memory_file_mib": None,
         # This process alone (the cgroup total also carries Chromium + timers).
         "process_rss_mib": None,
         "cgroup_pids_current": None,
@@ -537,6 +542,9 @@ def service_diagnostics(
             out["cgroup_memory_max_mib"] = _mib(_int_or_none(_read_text(cg / "memory.max")))
             out["cgroup_memory_high_mib"] = _mib(_int_or_none(_read_text(cg / "memory.high")))
             out["cgroup_memory_high_events"] = _parse_keyed_file(cg / "memory.events").get("high")
+            stat = _parse_keyed_file(cg / "memory.stat")
+            out["cgroup_memory_anon_mib"] = _mib(stat.get("anon"))
+            out["cgroup_memory_file_mib"] = _mib(stat.get("file"))
             out["cgroup_pids_current"] = _int_or_none(_read_text(cg / "pids.current"))
             out["cgroup_pids_max"] = _int_or_none(_read_text(cg / "pids.max"))
         rss_kb = process_rss_kb(root_pid)

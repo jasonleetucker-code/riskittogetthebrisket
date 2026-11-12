@@ -102,10 +102,16 @@ def test_diagnostics_report_the_throttling_line_and_the_process_alone(fake):
     (proc / str(SELF) / "status").write_text(
         "Name:\tpython\nVmRSS:\t 2150400 kB\n", encoding="utf-8"
     )
+    (svc / "memory.stat").write_text(
+        f"anon {1800 * 1024 * 1024}\nfile {700 * 1024 * 1024}\nshmem 0\n", encoding="utf-8"
+    )
     d = proc_probe.service_diagnostics(SELF, tmp_dir=str(svc), shm_dir=str(svc))
     assert d["cgroup_memory_high_mib"] == 2560
     assert d["cgroup_memory_high_events"] == 4217
     assert d["process_rss_mib"] == 2100
+    # Heap the kernel cannot drop vs page cache it can.
+    assert d["cgroup_memory_anon_mib"] == 1800
+    assert d["cgroup_memory_file_mib"] == 700
     assert all(v is None or isinstance(v, int) for v in d.values())
 
 
@@ -116,6 +122,8 @@ def test_no_high_limit_and_no_events_are_unknown_not_zero(fake):
     assert d["cgroup_memory_high_mib"] is None  # "max" = no throttling line
     assert d["cgroup_memory_high_events"] is None  # no memory.events file
     assert d["process_rss_mib"] is None  # no /proc/<pid>/status
+    assert d["cgroup_memory_anon_mib"] is None  # no memory.stat
+    assert d["cgroup_memory_file_mib"] is None
 
 
 def test_diagnostics_never_raise_without_proc(monkeypatch, tmp_path):

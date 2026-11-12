@@ -30,7 +30,7 @@ import {
   StatTile,
 } from "@/components/ds";
 import { useRosterContext } from "@/components/useRosterContext";
-import { isDefaultPlaceholderTeam } from "@/lib/draft-logic";
+import { isDefaultPlaceholderTeam, workspaceIsPristine } from "@/lib/draft-logic";
 import {
   applyDraftProgress,
   contestedPrice,
@@ -107,7 +107,11 @@ export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
   // no name and let the backend infer the session's own team (website audit
   // WA-11; a first visit to a league with no saved workspace).
   const myTeamRow = workspace?.teams?.[myTeamIdx];
-  const myTeamName = myTeamRow && !isDefaultPlaceholderTeam(myTeamRow) ? myTeamRow.name || "" : "";
+  // A seed row is only a seed while the workspace is still the untouched seed:
+  // after a merge a real team can carry a seed's name and budget ({Ed, $71}).
+  const myTeamIsSeed =
+    Boolean(myTeamRow) && isDefaultPlaceholderTeam(myTeamRow) && workspaceIsPristine(workspace);
+  const myTeamName = myTeamRow && !myTeamIsSeed ? myTeamRow.name || "" : "";
   // FOLLOW the workspace; only an explicit pick overrides it.
   //
   // This used to be `useState(myTeamName)`, which latched the FIRST name it

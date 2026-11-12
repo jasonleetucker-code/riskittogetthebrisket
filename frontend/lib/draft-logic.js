@@ -1530,8 +1530,11 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   // First load over the seed workspace: "my team" is still a
   // createDefaultWorkspace() row, which this merge drops, so the index would
   // fall back to row 0 — another manager's team (website audit, 2026-11-12).
-  // Prefer the team the user picked in the header when the feed has it.  A
-  // choice the user made here (a non-seed row) is never overridden.
+  // Prefer the team the user picked in the header when the feed has it.
+  // ONLY on that first load: the workspace must still be the untouched seed
+  // with the default selection.  A row's name + budget alone cannot say
+  // "seed" — a real feed team can be {Ed, $71} too — so a team the user chose
+  // after any merge is never overridden (independent review).
   // Matched by Sleeper OWNER id first: the feed names teams by their Sleeper
   // team name ("Medical Murrayjuana") while the header knows the manager
   // ("Jason"), so a name alone rarely matches.  Name is the fallback.
@@ -1544,7 +1547,7 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   const preferred = String(
     (ownerRow && String(ownerRow.team || "").trim()) || opts.preferredTeamName || "",
   ).toLowerCase();
-  if (preferred && isDefaultPlaceholderTeam(existing[myTeamIdx])) {
+  if (preferred && myTeamIdx === 0 && workspaceIsPristine(ws)) {
     const preferredIdx = merged.findIndex(
       (t) => String(t.name || "").toLowerCase() === preferred,
     );
