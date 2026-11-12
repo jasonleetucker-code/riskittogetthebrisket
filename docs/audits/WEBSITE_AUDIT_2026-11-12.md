@@ -31,6 +31,7 @@ access); a full serial backend run (CI's sharded L2 covers it).
 
 | ID | Sev | Where | Finding | Status |
 |---|---|---|---|---|
+| WA-00 | **P0** | Deploy Production hard gate | Every Deploy Production run since 2026-11-11 18:09 UTC failed on one test: `test_idp_hampel_n3_challenger.py::test_on_changes_the_drop_decision_only_on_three_voter_idp_rows` (`assert changed > 0`; 1 failed, 6,324 passed in shard 4/8). It asserted that an asymmetric three-voter IDP row exists on the newest archived board, a live-data claim the hard gate may not make (CLAUDE.md "CI has two lanes"). The 2026-11-11 18:06 archive cut IDP triples from 239 to 72 with none asymmetric enough, so no `main` commit could deploy, production stayed on `78acecf0`, and no deploy restarted the hung scraper (WA-05). | **Fixed**: the existence claim is replaced by an exact per-row oracle (ON drops exactly what the unit-tested rule drops from each row's three votes). Verified on the 8 newest archives: 0 mismatches, both where 37 rows change and where none do. Fails, naming the row, when the challenger is made inert. |
 | WA-01 | P1 | `GET /api/status` (+ `/api/admin/diagnostics`) | Async handler ran every probe on the event loop. Production 2026-11-12: 14-18 s per call; a concurrent `/api/leagues` (0.45 s alone) waited 15.9 s. Every status poll (settings, tools pages, monitors) froze the single-worker backend for all users. | **Fixed**: probes run in the threadpool (`_public_status_body`); `_scrape_status_payload` (check-then-set on `scrape_status`) stays on the loop; the `git ls-files` probe (10 s timeout) memoized 30 s via `_disk_probe_memo`. Test `tests/api/test_slow_handlers_off_event_loop.py`. The slow sub-call in production is not identified (no box access): the fix removes the site-wide stall, not the status endpoint's own latency. |
 | WA-02 | P2 | `GET /api/sleeper/draft/picks` | Live-draft poll (every 2-3 s) fetched Sleeper on the event loop: each poll stalled the site for the Sleeper round-trip, or its timeout when Sleeper is slow. | **Fixed**: fetch in the threadpool (the fetcher already locks its cache). Same test file. |
 | WA-03 | P2 | E2E `journey-settings-overrides.spec.js` | "≥ 27 toggles" assertion raced data load. Non-voting private sources deliberately render their vote state instead of a toggle (`settings/page.jsx`, `lib/source-vote-state.js`): 27 toggles at first paint, 20 settled. The assertion passed only if it counted early. | **Fixed** (test): one row per registered source; every row offers the toggle or states why not; scoped to the Ranking Sources panel; deterministic settle. 6/6 over 3 repeats. |
@@ -71,6 +72,8 @@ suite's write-guard catching my own mid-run backend restart; all 12 pass re-run 
 
 ## 5. Blockers and owner / operator actions
 
+0. **WA-00:** merging this PR unblocks Deploy Production. The first green deploy also restarts the backend, which
+   should clear WA-05's hung run; verify with `/api/health` (`scrape_stalled: false`, falling `data_age_hours`).
 1. **WA-05 (box operator):** restart `dynasty.service` to restore scraping now (a deploy also restarts it), then watch
    the next scheduled run reach `chromium_launch_done`. Investigate the service's memory growth (≈1 GiB locally
    after boot vs 2.6 GiB in production after ~21 h and several scrape cycles). Code hardening worth a reviewed
@@ -81,7 +84,7 @@ suite's write-guard catching my own mid-run backend restart; all 12 pass re-run 
 
 ## 6. Readiness verdict
 
-**NOT READY** for an "everything verified" claim while WA-05 holds production data 19.5 h stale. Code health on this
+**NOT READY** today: production cannot deploy (WA-00), and its data is 19.5 h stale (WA-05). Code health on this
 branch is good: no crash, no 500, no layout overflow, auth boundaries hold, and the trade package math matches an
-independent oracle. After WA-05 is cleared and this PR deploys, the verdict would be **READY WITH NONCRITICAL ISSUES**
-(WA-06 … WA-11), subject to production verification of WA-01.
+independent oracle. Once this PR merges and deploys and scraping recovers, the verdict would be **READY WITH
+NONCRITICAL ISSUES** (WA-06 … WA-11), subject to production verification of WA-00, WA-01 and WA-05.
