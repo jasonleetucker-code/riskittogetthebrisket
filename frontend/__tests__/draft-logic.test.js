@@ -1322,6 +1322,18 @@ describe("mergeDraftCapitalTeams — first-visit default team", () => {
     expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Brent");
   });
 
+  it("matches the header's team by Sleeper owner id when the feed uses team names", () => {
+    const named = [
+      { team: "schoeppeya", ownerId: "1393", auctionDollars: 120 },
+      { team: "Medical Murrayjuana", ownerId: "4684", auctionDollars: 95 },
+    ];
+    const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), named, {
+      preferredTeamName: "Jason",
+      preferredOwnerId: "4684",
+    });
+    expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Medical Murrayjuana");
+  });
+
   it("keeps today's fallback when the preferred team is not in the feed", () => {
     const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), feed, {
       preferredTeamName: "Not In League",

@@ -1532,7 +1532,18 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   // fall back to row 0 — another manager's team (website audit, 2026-11-12).
   // Prefer the team the user picked in the header when the feed has it.  A
   // choice the user made here (a non-seed row) is never overridden.
-  const preferred = String(opts.preferredTeamName || "").toLowerCase();
+  // Matched by Sleeper OWNER id first: the feed names teams by their Sleeper
+  // team name ("Medical Murrayjuana") while the header knows the manager
+  // ("Jason"), so a name alone rarely matches.  Name is the fallback.
+  const preferredOwner = String(opts.preferredOwnerId || "");
+  const ownerRow = preferredOwner
+    ? (Array.isArray(teamTotals) ? teamTotals : []).find(
+        (entry) => String(entry?.ownerId || "") === preferredOwner,
+      )
+    : null;
+  const preferred = String(
+    (ownerRow && String(ownerRow.team || "").trim()) || opts.preferredTeamName || "",
+  ).toLowerCase();
   if (preferred && isDefaultPlaceholderTeam(existing[myTeamIdx])) {
     const preferredIdx = merged.findIndex(
       (t) => String(t.name || "").toLowerCase() === preferred,

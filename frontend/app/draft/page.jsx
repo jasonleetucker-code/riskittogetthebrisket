@@ -3455,9 +3455,9 @@ export default function DraftDashboardPage() {
   // The team picked in the header ("Pick your team"), offered to the
   // draft-capital merge as the default "my team" on a first visit (a ref so
   // the load callback always reads the latest without re-creating it).
-  const { selectedName: preferredTeamName } = useTeam();
-  const preferredTeamNameRef = useRef(preferredTeamName);
-  preferredTeamNameRef.current = preferredTeamName;
+  const { selectedName: preferredTeamName, selectedOwnerId: preferredOwnerId } = useTeam();
+  const preferredTeamRef = useRef({ name: preferredTeamName, ownerId: preferredOwnerId });
+  preferredTeamRef.current = { name: preferredTeamName, ownerId: preferredOwnerId };
   // Every /api/draft-capital read goes through ONE league-scoped loader
   // (``lib/draft-feed``): concurrent consumers share a request, and no
   // call site can omit ``leagueKey`` and silently read the default
@@ -3956,7 +3956,8 @@ export default function DraftDashboardPage() {
           } = mergeDraftCapitalTeams(ws, teamTotals, {
             picks: picksArray,
             mode: force ? "force" : "sync",
-            preferredTeamName: preferredTeamNameRef.current,
+            preferredTeamName: preferredTeamRef.current.name,
+            preferredOwnerId: preferredTeamRef.current.ownerId,
           });
           if (!quiet) {
             setCapitalStatus((s) => ({
