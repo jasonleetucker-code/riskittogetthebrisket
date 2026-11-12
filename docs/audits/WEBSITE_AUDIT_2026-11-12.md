@@ -116,7 +116,7 @@ WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_c
 | WA-13 | Fixed (new) | follow-up | stale-data banner promised "should land soon" while refreshes were failing |
 | WA-14 | Fixed (new) | follow-up | WA-00 oracle could flip on an integer-rounding boundary (1 of 1,578 rows inside the margin over 8 archives) |
 | WA-15 | Fixed (new) | follow-up | `/draft` first visit (no saved workspace) still keyed Perfect Draft on the seed team "Russini Panini" (400), and "my team" fell back to row 0 (another manager); the readiness gate could also wait forever if `/api/leagues` failed (independent review) |
-| WA-16 | Fixed (new, P2) | follow-up | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve |
+| WA-16 | Fixed (new, P2) | follow-up | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve; a team name two teams share resolves to neither. Delta review: a real team equal to a seed row ({Ed, $71}) could be overridden as "my team" and was not sent by name; fixed |
 
 ### 7.2 WA-05 root cause: the scraper hang
 
@@ -159,7 +159,7 @@ adding scheduled restarts (both would hide, not fix).
 | Event loop | concurrent `/api/leagues` 0.52-0.82 s during a status call (0.58 s alone; was 15.9 s) |
 | Scraper | startup run: browser launched in ~3 s, KTC 27 s, IDPTradeCalc ~2 min; `scrape_succeeded 1091 players, 2/2 sites, 294.8 s` at 12:42:50 UTC; no critical source failures; 0 Chromium processes left |
 | Health | `status: ok` (HTTP 200; was 503 degraded), `data_age_hours` 0.0, `source_health_ok` true, `contract_ok` true |
-| Memory | cgroup 817 MiB after restart, 1,277 MiB after one full scrape (was 2,571-2,607 above `MemoryHigh` 2,560); process RSS not yet observable (WA-12 ships in the follow-up) |
+| Memory | cgroup 628 MiB at startup, 1,277 MiB right after the scrape (12:42:56), 2,323 MiB at 12:53 with nothing scraping (was 2,571-2,607 above `MemoryHigh` 2,560 before the restart). The state backup runs in its own unit, so its file cache is not charged here. Whether the growth is process heap or reclaimable page cache is unknown until the follow-up adds `cgroup_memory_anon_mib` / `cgroup_memory_file_mib` / `process_rss_mib` |
 | Security (from outside) | unchanged from §3: headers present, private APIs 401, test endpoint 404, no OpenAPI, no permissive CORS |
 
 Not verified in production: signed-in pages (no credentials), WA-06 … WA-16 (follow-up PR not yet deployed), memory over
@@ -211,7 +211,7 @@ the test-session endpoint); CI = GitHub Actions on the PR head; P = production, 
 | # | Item | Why open | Next step | Blocks readiness? |
 |---|---|---|---|---|
 | 1 | Merge + deploy the follow-up PR | CI, independent review in progress | merge on green; verify `box_resources` new fields and `scrape_prelaunch_heap_release` events | yes for WA-06 … WA-16 in production |
-| 2 | Memory over days | one restart + one scrape observed | watch `process_rss_mib` / `cgroup_memory_high_events` across cycles after the follow-up deploys | no, monitored |
+| 2 | Memory over days | one restart + one scrape observed; +1 GiB in the 15 min after the scrape, kind unknown | watch `process_rss_mib` / `cgroup_memory_high_events` across cycles after the follow-up deploys | no, monitored |
 | 3 | Signed-in production checks | no production credentials here | owner's authenticated smoke (`tests/e2e/specs/prod-auth`) | no |
 | 4 | Raw ports from the internet | only probed from this egress | box-side `ss -ltnp` / firewall check by the operator | no |
 | 5 | `/api/admin/diagnostics` health half | `_health_content` still on the loop (fast in production) | optional; same pattern if it ever slows | no |
