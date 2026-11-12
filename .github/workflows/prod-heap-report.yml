@@ -1,0 +1,95 @@
+name: Production Heap Report (read-only)
+
+# What is the production backend's heap made of?  (WA-17, website audit
+# 2026-11-12: the heap reached 2.8 GB against MemoryHigh twice in one day,
+# and the kernel throttled the service until the healthcheck watchdog
+# restarted it.)
+#
+# The backend appends heap snapshots to a box-local log
+# (src/diagnostics/heap_report.py).  This job reads that log over SSH and
+# prints the series (RSS, heap in use vs freed-but-retained, arenas), the
+# latest type / container / deep census, and growth within the current
+# process.
+#
+# READ-ONLY by construction: it runs one script,
+# deploy/diagnostics/prod_heap_report.sh, which reads one file and prints
+# re-validated numbers and code identifiers.  It never restarts, deploys,
+# writes or imports anything.  The script is piped from the runner's
+# checkout, so it runs before it ships.
+#
+# TRIGGER: workflow_dispatch only.
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_records:
+        description: "How many of the newest records to read (1-99999)"
+        required: false
+        default: "400"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Its own group, NOT production-deploy: a read-only query must never
+  # queue a deploy behind it, or cancel a pending one.
+  group: production-diagnostics
+  cancel-in-progress: false
+
+jobs:
+  heap-report:
+    name: Heap report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_PRIVATE_KEY DEPLOY_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error title=Missing production SSH configuration::${name} is empty or unset."
+              exit 1
+            fi
+          done
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Read the heap report
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          MAX_RECORDS: ${{ inputs.max_records || '400' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if ! [[ "$MAX_RECORDS" =~ ^[0-9]{1,5}$ ]]; then
+            echo "::error title=Bad input::max_records must be a positive integer"
+            exit 2
+          fi
+          # The remote script's exit status is this step's status: it exits
+          # 5 when the log is missing or holds no valid record, so "could not
+          # look" never renders green.  No `|| true`, no masking pipe.
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash -s -- $(printf %q "$MAX_RECORDS")" \
+            < deploy/diagnostics/prod_heap_report.sh
