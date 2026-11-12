@@ -387,6 +387,23 @@ _QUARANTINE_FLAGS = {
     "blend_integrity_violation",
 }
 
+# Pick-value provenance classes (``_complete_future_pick_values`` and the
+# rookie tether) whose value is computed from NAMED BASIS ROWS rather than from
+# the row's own per-source values: the C1-U6 §1 approved tether (category A)
+# and the explicitly-PRIOR derivations (category B).  For these,
+# ``no_valid_source_values`` is decided by the basis
+# (``_rows_without_valid_evidence``), not by the row's own empty source map.
+# ``direct_market_blend`` is deliberately absent: a vendor-priced pick with no
+# positive source value IS an anomaly.
+_PICK_BASIS_PRICED_CLASSES = frozenset(
+    {
+        "rookie_pool_tether",
+        "derived_year_step",
+        "derived_round_step",
+        "derived_uniform_tier_ev",
+    }
+)
+
 # CSV export paths for source enrichment (relative to repo root).
 #
 # Each entry is either:
@@ -5059,6 +5076,103 @@ def _identity_position_flags(players_array: list[dict[str, Any]]) -> _IdentityPo
     )
 
 
+def _rows_without_valid_evidence(players_array: list[dict[str, Any]]) -> set[int]:
+    """Indices of the rows Check 5 flags ``no_valid_source_values``: a positive
+    ``rankDerivedValue`` with no valid evidence behind it.
+
+    A row is evidence-backed when ANY of its own ``canonicalSiteValues`` is
+    positive (the original rule, unchanged for every row it already passed).
+    A pick whose ``pickValueProvenance.class`` is in
+    :data:`_PICK_BASIS_PRICED_CLASSES` is also evidence-backed when EVERY row
+    its provenance names as ``basis``:
+
+    * resolves by ``canonicalName`` to exactly ONE row (ambiguous -> no) of
+      the right kind (a pick for a derivation, a player for the tether),
+    * carries a positive finite value (a valueless basis priced nothing),
+    * carries no OTHER quarantine-level flag (a derived number is never more
+      trustworthy than what it was computed from), and
+    * is itself evidence-backed, recursively (``2029 Mid 6th`` <- ``Mid 5th``
+      <- ``Mid 4th``); a basis cycle proves nothing.
+
+    A pick with no basis, and every non-pick row, has only the original rule:
+    players, vendor-priced (``direct_market_blend``) picks and picks with no
+    provenance are judged exactly as before.  Confidence is not touched here:
+    derived rows keep the ``low`` bucket and PRIOR provenance their pricing
+    pass stamped, which is how their uncertainty is reported.
+    """
+    by_name: dict[str, list[int]] = {}
+    for idx, row in enumerate(players_array):
+        name = str(row.get("canonicalName") or "")
+        if name:
+            by_name.setdefault(name, []).append(idx)
+    other_quarantine = _QUARANTINE_FLAGS - {"no_valid_source_values"}
+    memo: dict[int, bool] = {}
+    resolving: set[int] = set()
+
+    def _basis(row: dict[str, Any]) -> list[str]:
+        if row.get("assetClass") != "pick":
+            return []
+        prov = row.get("pickValueProvenance")
+        if not isinstance(prov, Mapping) or prov.get("class") not in _PICK_BASIS_PRICED_CLASSES:
+            return []
+        raw = prov.get("basis")
+        names = raw if isinstance(raw, (list, tuple)) else [raw]
+        if not names or not all(isinstance(n, str) and n for n in names):
+            return []
+        return list(names)
+
+    def _trusted_basis(name: str, *, want_pick: bool) -> bool:
+        hits = by_name.get(name) or []
+        if len(hits) != 1:
+            return False
+        basis_row = players_array[hits[0]]
+        # The right KIND of row: a derivation is computed from pick rows, the
+        # tether from a rookie (player) row.  A same-named row of the other
+        # kind is not the basis that priced this pick.
+        if (basis_row.get("assetClass") == "pick") is not want_pick:
+            return False
+        value = basis_row.get("rankDerivedValue")
+        if not (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(float(value))
+            and value > 0
+        ):
+            return False
+        if set(basis_row.get("anomalyFlags") or ()) & other_quarantine:
+            return False
+        return _backed(hits[0])
+
+    def _backed(idx: int) -> bool:
+        if idx in memo:
+            return memo[idx]
+        if idx in resolving:
+            return False
+        row = players_array[idx]
+        sites = row.get("canonicalSiteValues") or {}
+        # A missing source value is not a 0 and not evidence: only a present,
+        # positive one counts.
+        if any((n := _to_int_or_none(v)) is not None and n > 0 for v in sites.values()):
+            memo[idx] = True
+            return True
+        names = _basis(row)
+        resolving.add(idx)
+        try:
+            want_pick = (row.get("pickValueProvenance") or {}).get("class") != "rookie_pool_tether"
+            ok = bool(names) and all(_trusted_basis(n, want_pick=want_pick) for n in names)
+        finally:
+            resolving.discard(idx)
+        memo[idx] = ok
+        return ok
+
+    out: set[int] = set()
+    for idx, row in enumerate(players_array):
+        rdv = row.get("rankDerivedValue")
+        if rdv is not None and rdv > 0 and not _backed(idx):
+            out.add(idx)
+    return out
+
+
 def _validate_and_quarantine_rows(
     players_array: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -5121,16 +5235,26 @@ def _validate_and_quarantine_rows(
     # caught by the position-aware duplicate-identity check above.
     near_name_pairs: list[dict[str, Any]] = []
 
-    # ── Check 5: No valid source values but has derived value ──
+    # ── Check 5: a positive value with no valid evidence behind it ──
+    #
+    # A row's evidence is normally its own per-source values.  A pick priced
+    # by an approved derivation or by the rookie tether
+    # (``_PICK_BASIS_PRICED_CLASSES``) has none BY CONSTRUCTION -- its number
+    # is computed from named basis rows -- so its evidence is theirs
+    # (``_rows_without_valid_evidence``).  Judged by its own empty source map,
+    # every such pick was quarantined (2026-11-12: 35 of 138 pick rows,
+    # "2029 Mid 5th" / "2029 Mid 6th" among them) and the trade decision
+    # withheld every trade touching one.  This pass OWNS the flag: recomputed
+    # each run, never sticky; a row is rewritten only when its answer changes.
+    no_evidence = _rows_without_valid_evidence(players_array)
     for idx, row in enumerate(players_array):
-        canonical_sites = row.get("canonicalSiteValues") or {}
-        has_any_source = any((_to_int_or_none(v) or 0) > 0 for v in canonical_sites.values())
-        rdv = row.get("rankDerivedValue")
-        if not has_any_source and rdv is not None and rdv > 0:
-            flags = row.get("anomalyFlags") or []
-            if "no_valid_source_values" not in flags:
-                flags.append("no_valid_source_values")
-                row["anomalyFlags"] = flags
+        flags = row.get("anomalyFlags") or []
+        flagged = "no_valid_source_values" in flags
+        if idx in no_evidence and not flagged:
+            flags.append("no_valid_source_values")
+            row["anomalyFlags"] = flags
+        elif idx not in no_evidence and flagged:
+            row["anomalyFlags"] = [f for f in flags if f != "no_valid_source_values"]
 
     # ── Check 6: Identity confidence + quarantine degradation ──
     for idx, row in enumerate(players_array):

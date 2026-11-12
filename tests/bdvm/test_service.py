@@ -131,6 +131,22 @@ def build_contract():
                 "canonicalSiteValues": {"ktcCrowdTradesSfTep": 5200},
             },
             {
+                # A C1-U6 round-step tier row: round 5 parses like rounds 1-4.
+                "canonicalName": "2029 Mid 5th",
+                "displayName": "2029 Mid 5th",
+                "assetClass": "pick",
+                "position": "PICK",
+                "canonicalSiteValues": {"ktc": None, "idpTradeCalc": None},
+            },
+            {
+                # A C1-U6 generic-grade row has no slot: not a BDVM pick.
+                "canonicalName": "2029 Round 5",
+                "displayName": "2029 Round 5",
+                "assetClass": "pick",
+                "position": "PICK",
+                "canonicalSiteValues": {"ktc": None, "idpTradeCalc": None},
+            },
+            {
                 "canonicalName": "mystery pick",
                 "displayName": "Mystery Pick",
                 "assetClass": "pick",
@@ -284,6 +300,14 @@ class TestEndToEnd(unittest.TestCase):
         canonical = picks["2026 Pick 1.04"]
         self.assertEqual(canonical["overallSlot"], 4)
         self.assertIsNotNone(canonical["distribution"])
+        # Round-5 tier rows parse like rounds 1-4 (12 teams: Mid -> slot 6).
+        mid5 = picks["2029 Mid 5th"]
+        self.assertEqual(mid5["overallSlot"], 4 * 12 + 6)
+        self.assertEqual(mid5["pickYear"], 2029)
+        self.assertIsNotNone(mid5["distribution"])
+        # A generic-grade row has no slot and is not listed (never an
+        # empty "unparseable" line).
+        self.assertNotIn("2029 Round 5", picks)
         mystery = picks["Mystery Pick"]
         self.assertIsNone(mystery["distribution"])
         self.assertEqual(mystery["reason"], "unparseable_pick_name")

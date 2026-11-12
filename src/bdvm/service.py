@@ -48,6 +48,7 @@ from src.bdvm.ros import blend_ros_mu, ros_projection_weight, ros_value
 from src.bdvm.scoring import is_idp_position
 from src.bdvm.source_vocabulary import capability_for
 from src.bdvm.survival import RiskProfile
+from src.identity.picks import parse_board_generic_name
 from src.utils.name_clean import normalize_player_name
 
 
@@ -86,11 +87,16 @@ _EVENT_VOL_PRIOR = {
 _PICK_SLOT_RE = re.compile(
     r"(?P<year>20\d{2})\s+(?:pick\s+)?(?P<round>\d)\.(?P<slot>\d{1,2})", re.IGNORECASE
 )
+# Rounds 5-6: the canonical board carries "YYYY Early 5th" .. "Late 6th" tier
+# rows (C1-U6 round-step derivation) and this engine already prices round-5/6
+# SLOT picks, so a tier row maps to a slot the same way rounds 1-4 do.  The
+# board grammar's owner (``src.identity.picks.BOARD_TIER_RE``) spans 1-6.
 _PICK_TIER_RE = re.compile(
-    r"(?P<year>20\d{2})\s+(?P<tier>Early|Mid|Late)\s+(?P<round>1st|2nd|3rd|4th)", re.IGNORECASE
+    r"(?P<year>20\d{2})\s+(?P<tier>Early|Mid|Late)\s+(?P<round>1st|2nd|3rd|4th|5th|6th)",
+    re.IGNORECASE,
 )
 _TIER_FRACTION = {"early": 0.21, "mid": 0.50, "late": 0.83}
-_ROUND_WORD = {"1st": 1, "2nd": 2, "3rd": 3, "4th": 4}
+_ROUND_WORD = {"1st": 1, "2nd": 2, "3rd": 3, "4th": 4, "5th": 5, "6th": 6}
 
 
 def _utc_now_iso() -> str:
@@ -443,6 +449,13 @@ def run_valuation(
             continue
         asset_class = row.get("assetClass")
         if asset_class == "pick":
+            # A generic-grade row ("2029 Round 5", C1-U6) is the board's value
+            # for a league pick whose slot does not exist yet: it has no slot,
+            # and this engine values slots and tiers (it already prices the
+            # three tiers the generic row averages).  Listing it would only add
+            # an empty "unparseable" line.
+            if parse_board_generic_name(str(row.get("canonicalName") or "")) is not None:
+                continue
             pick_rows.append(row)
             continue
         display = row.get("displayName") or row.get("canonicalName") or ""
