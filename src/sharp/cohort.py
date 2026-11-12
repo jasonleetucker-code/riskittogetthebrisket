@@ -386,6 +386,12 @@ _COHORT_CACHE_LOCK = threading.Lock()
 _cohort_cache: dict[
     tuple[str, str, str], tuple[str, tuple[list[CohortMember], dict[str, Any]]]
 ] = {}
+# key -> the lock one computation of that key holds (single-flight, WA-17).
+# Concurrent misses on one key wait for the first computation instead of
+# each building its own copy of the population: a build is the process's
+# largest transient allocation, and N parallel builds multiply it by N.
+# Bounded like the cache, by the small key space.
+_cohort_compute_locks: dict[tuple[str, str, str], threading.Lock] = {}
 
 
 def _resolve_ledger_path(ledger_path: Path | None) -> Path:
@@ -439,6 +445,7 @@ def reset_cohort_cache() -> None:
     """
     with _COHORT_CACHE_LOCK:
         _cohort_cache.clear()
+        _cohort_compute_locks.clear()
 
 
 def cohort_members(
@@ -471,13 +478,23 @@ def cohort_members(
         cached = _cohort_cache.get(key)
         if cached is not None and cached[0] == fingerprint:
             return cached[1]
-    result = _compute_cohort_members(
-        qualification=qualification,
-        ledger_path=ledger_path,
-        ffpc_config=ffpc_config,
-    )
-    with _COHORT_CACHE_LOCK:
-        _cohort_cache[key] = (fingerprint, result)
+        compute_lock = _cohort_compute_locks.setdefault(key, threading.Lock())
+    with compute_lock:
+        # Another caller may have finished this computation while we
+        # waited.  The fingerprint is re-taken here, still BEFORE the
+        # compute, so the freshness rule above holds for the waiter too.
+        fingerprint = _ledger_fingerprint(resolved)
+        with _COHORT_CACHE_LOCK:
+            cached = _cohort_cache.get(key)
+            if cached is not None and cached[0] == fingerprint:
+                return cached[1]
+        result = _compute_cohort_members(
+            qualification=qualification,
+            ledger_path=ledger_path,
+            ffpc_config=ffpc_config,
+        )
+        with _COHORT_CACHE_LOCK:
+            _cohort_cache[key] = (fingerprint, result)
     return result
 
 
