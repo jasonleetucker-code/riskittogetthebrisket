@@ -80,11 +80,14 @@ class _SeasonTotals:
     """Running totals over one manager's eligible season rows.
 
     ``build_manager_records`` folds each eligible row into one of these as
-    the cursor yields it, so memory scales with managers, not rows.
+    the cursor yields it, so no row object is kept.  What remains per row is
+    one pointer to a shared league-key string (distinct leagues are counted
+    once the scan ends) and the finish percentile, which is part of the
+    output anyway.
     """
 
     seasons: int = 0
-    leagues: set[str] = field(default_factory=set)
+    league_keys: list[str] = field(default_factory=list)
     wins: int = 0
     losses: int = 0
     ties: int = 0
@@ -92,9 +95,12 @@ class _SeasonTotals:
     championships: int = 0
     finish_percentiles: list[float] = field(default_factory=list)
 
-    def add(self, row: Any) -> None:
+    def add(self, row: Any, league_pool: dict[str, str]) -> None:
         self.seasons += 1
-        self.leagues.add(str(row["league_key"] or row["league_id"]))
+        league = str(row["league_key"] or row["league_id"])
+        # One string per league, shared by every manager in it (a league
+        # holds about 12), instead of a fresh copy per row.
+        self.league_keys.append(league_pool.setdefault(league, league))
         self.wins += int(row["wins"])
         self.losses += int(row["losses"])
         self.ties += int(row["ties"])
@@ -120,17 +126,26 @@ def build_manager_records(
     converted to zero.
 
     The season rows are STREAMED off the cursor and folded into per-manager
-    totals; none is kept. Production's ``manager_seasons`` holds about 1.14
-    million rows, and the former ``fetchall()`` held every one of them (and
+    totals; no row is kept. The former ``fetchall()`` held every row (and
     every column value) at once: the WA-17 peak census of 2026-11-12 counted
     1,138,004 live ``sqlite3.Row`` objects in a burst of about 19 million
-    Python objects. Output is unchanged: same records in the same order,
-    same evidence (``tests/sharp/test_platform_records_streaming.py``).
+    Python objects. Measured on a production-shaped ledger, the traced peak
+    fell from about 940 to about 100 bytes per row. Records and evidence are
+    unchanged, in the same order (``tests/sharp/test_platform_records_streaming.py``).
+    One difference: with ``min_season_rows > 1`` a non-numeric result value
+    on a manager below the threshold now raises instead of being skipped
+    (every production caller uses the default of 1).
     """
     evidence: dict[str, EvidenceStatus] = {}
     totals_by_manager: dict[str, _SeasonTotals] = {}
+    league_pool: dict[str, str] = {}
     conn = platform_ledger.ensure_platform_schema(ledger_path)
     try:
+        # One read transaction for the three reads: in WAL mode they then see
+        # one snapshot, so a write landing between them cannot pair new
+        # season rows with older activity (or the reverse).
+        if not conn.in_transaction:
+            conn.execute("BEGIN")
         # The two small per-manager aggregates come first: the row loop
         # below needs ``last_seen`` for the FFPC recent-activity rule.
         activity = {
@@ -185,22 +200,23 @@ def build_manager_records(
             totals = totals_by_manager.get(key)
             if totals is None:
                 totals = totals_by_manager[key] = _SeasonTotals()
-            totals.add(row)
+            totals.add(row, league_pool)
     finally:
-        conn.close()
+        conn.close()  # ends the read transaction (nothing was written)
 
     now_ms = int(time.time() * 1000)
     records: list[sharp_score.ManagerRecord] = []
     for manager_key, totals in totals_by_manager.items():
         if totals.seasons < min_season_rows:
             continue
+        leagues = len(set(totals.league_keys))
         last_ts = last_seen.get(manager_key)
         records.append(
             sharp_score.ManagerRecord(
                 user_id=manager_key,
                 completed_seasons=totals.seasons,
-                observed_leagues=len(totals.leagues),
-                dynasty_leagues=len(totals.leagues),
+                observed_leagues=leagues,
+                dynasty_leagues=leagues,
                 completed_games=totals.wins + totals.losses + totals.ties,
                 wins=totals.wins,
                 losses=totals.losses,

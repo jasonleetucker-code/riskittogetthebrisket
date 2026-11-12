@@ -118,7 +118,7 @@ WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_c
 | WA-15 | Fixed, merged, deployed (new) | #2189 | `/draft` first visit (no saved workspace) still keyed Perfect Draft on the seed team "Russini Panini" (400), and "my team" fell back to row 0 (another manager); the readiness gate could also wait forever if `/api/leagues` failed (independent review) |
 | WA-16 | Fixed, merged, deployed (new, P2) | #2189 | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve; a team name two teams share resolves to neither. Delta review: a real team equal to a seed row ({Ed, $71}) could be overridden as "my team" and was not sent by name; fixed |
 
-| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box heap report merged and deployed (#2193: glibc arenas capped at 2, WA-20); production split read (#2194): the post-restart climb is live Python objects (+4.8 M blocks, about 345 MiB) plus about 206 MiB of freed glibc heap; periodic heap release and census trigger merged (#2195). At 21:07 UTC a transient burst of about 19 M Python objects took RSS to 2,151 MiB and throttled the service (2,799 `memory.high` events, no restart); after it, Python's allocator kept about 1 GB (§7.12). The peak census (#2196) names the producer: the Sharp cohort build held all 1,138,004 ledger season rows at once; this PR streams them (§7.13). Open until production shows no burst and no new `memory.high` events | #2193, #2194, #2195, #2196, this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11, §7.12 |
+| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box heap report merged and deployed (#2193: glibc arenas capped at 2, WA-20); production split read (#2194): the post-restart climb is live Python objects (+4.8 M blocks, about 345 MiB) plus about 206 MiB of freed glibc heap; periodic heap release and census trigger merged (#2195). At 21:07 UTC a transient burst of about 19 M Python objects took RSS to 2,151 MiB and throttled the service (2,799 `memory.high` events, no restart); after it, Python's allocator kept about 1 GB (§7.12). The peak census (#2196) names the producer: the Sharp cohort build held 1,138,004 ledger season rows at once; this PR streams them (§7.13). Open until production shows no burst and no new `memory.high` events | #2193, #2194, #2195, #2196, this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11, §7.12 |
 | WA-18 | Fixed, merged, deployed, verified (new, monitoring) | #2191 | `box_resources.chromium_processes` read 0 while Chromium ran: the kernel keeps 15 characters of a process name (`chrome-headless`), the list held the 16-character `chrome-headless-` |
 | WA-20 | Fixed, merged, deployed, verified (new, memory) | #2193 | `python server.py` executed server.py's module body twice: once as `__main__`, then again when `uvicorn.run("server:app")` imported it as `server`. The `__main__` copy was never served but kept its own module state, including a second 44 MiB public-league snapshot. Production deep census after deploy: no `__main__` copy. §7.11, §7.12 |
 | WA-19 | Fixed, merged (new, P1 for trades) | #2190 | 35 pick rows priced by approved C1-U6 derivations or the rookie tether were quarantined (`no_valid_source_values`), withholding every trade verdict that touched one (e.g. "2029 Mid 5th (received, quarantined)"). Record: `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` |
@@ -453,36 +453,49 @@ that built them. That producer is the fix; `PYTHONMALLOC=malloc` is the fallback
 In the server process, `EvidenceStatus` and `ManagerRecord` are built only by
 `src/sharp/platform_records.py::build_manager_records` (the other `ManagerRecord` builder, `src/sharp/records.py`,
 runs in the records-crawl script), and it is the code that holds `sqlite3.Row` objects next to them. It ran one query over `manager_seasons` (joined to `platform_managers`)
-and called `fetchall()`, so every season row in the ledger was alive at once: 1,138,004 rows, each with its own
-tuple and about 15 new column values (strings, floats, large integers). Column values are not tracked by the
+and called `fetchall()`, so every season row in the ledger was alive at once. The 1,138,004 rows are counted from
+the census; the table's size was not read separately. Each row has its own tuple and about 15 new column values
+(strings, floats, large integers). Column values are not tracked by the
 garbage collector, so the census counts 2.1 M objects while Python's block count was about 22.6 M; the rows
 account for the difference (1.14 M x about 18 objects is about 20 M). It then built one `EvidenceStatus` per
 manager (53,124) and one `ManagerRecord` per scoreable manager (38,573).
 
 Every Sharp surface reaches it through `cohort.cohort_members` (memoized on the ledger file's
 `mtime_ns:size`), and `/api/sharp/cohort`, the curated cohort and the coverage helpers call it directly. Each
-restart empties the memo, and every ledger write (the Sharp crawl timers) invalidates it, so the full build runs
-again on the next Sharp request. That fits bursts shortly after a restart, but the request that triggered the
+restart empties the memo, and ledger writes from the Sharp crawl timers invalidate it once they reach the main
+file (a WAL checkpoint), so the full build runs again on the next Sharp request. That fits bursts shortly after a restart, but the request that triggered the
 21:07 build is not recorded.
 
 **This PR:**
 - **Stream and fold.** `build_manager_records` reads the two small per-manager aggregates first, then iterates the
-  cursor and folds each eligible row into per-manager running totals (seasons, leagues, wins / losses / ties,
-  playoffs, titles, finish percentiles). No row is kept, so memory scales with managers (about 53 k), not rows.
+  cursor and folds each eligible row into per-manager running totals (seasons, wins / losses / ties, playoffs,
+  titles). No row object is kept. Per row there remains a pointer to a league-key string shared by every manager
+  in that league (distinct leagues are counted after the scan) and the finish percentile, which is output.
   The query, its row order and the outputs are unchanged.
-- **One build at a time per key.** Concurrent cache misses in `cohort_members` wait for the first computation
-  and take its result, instead of each building its own copy.
+- **One snapshot.** The two aggregates and the row scan run in one read transaction, so in WAL mode they see the
+  same ledger state. Before, a write landing between the reads could pair season rows with activity read at a
+  different moment.
+- **One build per key at a time.** Concurrent cache misses in `cohort_members` with the same key and ledger
+  fingerprint share the first caller's computation: its result, or its exception. Direct callers of the builder
+  (`/api/sharp/cohort`, the curated refresh, the coverage helpers) still build on their own.
 
 Evidence (`tests/sharp/test_platform_records_streaming.py`):
 - Parity: on seeded ledgers that reach every exclusion reason (identity, incomplete, ineligible, missing results,
   stored reasons, FFPC without recent activity, one-team leagues), the streamed builder returns exactly what the
   retired algorithm (kept verbatim in the test as the oracle) returns: same records in the same order, same
   evidence.
-- Memory: on a 15,000-row ledger (100 managers x 150 seasons) the traced peak fell from 12.7 MB to 1.06 MB
-  (11.9x). The retired build held about 850 bytes per row there; at 1.14 M rows that is about 920 MiB, consistent
-  with the burst (`o_anon` +1,388 MiB at the peak, which also includes everything else live at that moment).
-- Single-flight: six concurrent misses run one computation, and a failed computation does not block the next
-  caller. The concurrency test fails without the change.
+- Memory, on a production-shaped ledger (about 21 seasons per manager, a new league id each season, 12 managers
+  per league; 25,200 rows): the traced peak is 944 bytes per row for the retired build and 102 for this one
+  (9.3x). At 1.14 M rows that is about 1.0 GiB against about 110 MiB, most of the latter being the output.
+  The retired figure is consistent with the burst (`o_anon` +1,388 MiB at the peak, which also includes
+  everything else live at that moment). A first draft that kept a fresh league string per row in a per-manager
+  set measured 257 bytes per row; the test's bound rejects it.
+- Single-flight: six concurrent misses run one computation; four waiters behind a failing computation get its
+  error after that one computation; a later caller computes again. Both concurrency tests fail without the
+  change.
+- One accepted difference: with `min_season_rows > 1`, a non-numeric result value on a manager below the
+  threshold now raises instead of being skipped. Every production caller uses the default of 1.
 
-Expected in production: the next high-RSS census shows no `Row` burst, the `memory.high` counter stops rising, and
-Python's allocator no longer keeps about 1 GB after a build. Production verification follows the deploy.
+Expected in production: a Sharp build adds on the order of 100 MiB at its peak instead of about 1 GiB, the next
+high-RSS census (if any) shows no `Row` burst, and the `memory.high` counter stops rising. Production verification
+follows the deploy.

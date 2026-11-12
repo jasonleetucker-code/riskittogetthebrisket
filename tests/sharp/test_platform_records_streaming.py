@@ -11,11 +11,10 @@ Three groups of proofs:
 * parity — on seeded, deliberately messy ledgers the streamed builder returns
   exactly what the retired algorithm returned (kept verbatim below as the
   oracle): the same records in the same order and the same evidence;
-* memory — on a ledger with many rows per manager, the streamed builder's
-  traced peak is a fraction of the retired one's (it scales with managers,
-  not rows);
+* memory — on a production-shaped ledger, the streamed builder's traced
+  peak per row is a fraction of the retired one's;
 * single-flight — concurrent cache misses in ``cohort_members`` share one
-  computation instead of each building its own copy.
+  computation (and its failure) instead of each building its own copy.
 """
 
 from __future__ import annotations
@@ -344,26 +343,54 @@ def test_empty_ledger(tmp_path, frozen_clock):
 
 
 def _traced_peak(fn) -> int:
-    tracemalloc.start()
+    started = not tracemalloc.is_tracing()
+    if started:
+        tracemalloc.start()
     try:
         tracemalloc.reset_peak()
         before = tracemalloc.get_traced_memory()[0]
         fn()
         return tracemalloc.get_traced_memory()[1] - before
     finally:
-        tracemalloc.stop()
+        if started:
+            tracemalloc.stop()
 
 
-def test_peak_scales_with_managers_not_rows(tmp_path, frozen_clock):
+def _build_production_shaped_ledger(path, *, managers: int, seasons: int) -> int:
+    """About production's shape: ~21 seasons per manager, every row eligible,
+    a new league id each season (Sleeper re-keys leagues yearly), and 12
+    managers sharing each league-season."""
+    rng = random.Random(11)
+    rows = []
+    for m in range(managers):
+        user = f"{1_000_000_000_000_000_000 + m}"
+        for r in range(seasons):
+            league = f"{900_000_000_000_000_000 + (m // 12) * seasons + r}"
+            rows.append(
+                (league, str(2005 + r), user, rng.randint(0, 14), rng.randint(0, 14), 0, 1, 0,
+                 rng.randint(1, 12), 12, 1, 1, "sleeper", f"sleeper:{league}",
+                 f"sleeper:{user}", IDENTITY_GLOBAL_VERIFIED, None)
+            )  # fmt: skip
+    conn = platform_ledger.ensure_platform_schema(path)
+    try:
+        conn.executemany(_SEASON_SQL, rows)
+        conn.commit()
+    finally:
+        conn.close()
+    return len(rows)
+
+
+def test_peak_per_row_is_a_fraction_of_the_retired_build(tmp_path, frozen_clock):
     path = tmp_path / "ledger.sqlite3"
-    # 100 managers x 150 eligible seasons: the retired builder retained all
-    # 15,000 rows at once; the streamed one keeps 100 running totals.
-    _build_ledger(path, seed=7, managers=100, rows_per_manager=150, messy=False)
+    n_rows = _build_production_shaped_ledger(path, managers=1200, seasons=21)
 
     legacy = _traced_peak(lambda: _legacy_build_manager_records(ledger_path=path))
     streamed = _traced_peak(lambda: platform_records.build_manager_records(ledger_path=path))
 
-    assert streamed * 4 < legacy, (streamed, legacy)
+    # Measured: about 940 B/row retired, about 100 B/row streamed.  A fresh
+    # league-key string per row kept in a per-manager set (the first draft of
+    # this fix) measured about 260 B/row and fails this bound.
+    assert streamed * 6 < legacy, (streamed / n_rows, legacy / n_rows)
 
 
 # ── single-flight in cohort_members ──────────────────────────────────
@@ -403,6 +430,46 @@ def test_concurrent_misses_share_one_computation(tmp_path, monkeypatch):
     assert calls["n"] == 1
     assert len(outputs) == 6
     assert all(out is result for out in outputs)
+    cohort.reset_cohort_cache()
+
+
+def test_waiters_behind_a_failed_computation_share_its_error(tmp_path, monkeypatch):
+    cohort.reset_cohort_cache()
+    calls = {"n": 0}
+    entered = threading.Event()
+    release = threading.Event()
+
+    def _failing_compute(**kwargs):
+        calls["n"] += 1
+        entered.set()
+        assert release.wait(10)
+        raise RuntimeError("ledger unavailable")
+
+    monkeypatch.setattr(cohort, "_compute_cohort_members", _failing_compute)
+    path = tmp_path / "ledger.sqlite3"
+    errors: list[BaseException] = []
+
+    def _call():
+        try:
+            cohort.cohort_members(qualification="all", ledger_path=path)
+        except RuntimeError as exc:
+            errors.append(exc)
+
+    first = threading.Thread(target=_call)
+    first.start()
+    assert entered.wait(10)
+    others = [threading.Thread(target=_call) for _ in range(4)]
+    for thread in others:
+        thread.start()
+    time.sleep(0.2)
+    release.set()
+    for thread in (first, *others):
+        thread.join(10)
+
+    # One computation failed; its waiters got that failure instead of each
+    # recomputing (and failing) in turn.
+    assert calls["n"] == 1
+    assert len(errors) == 5
     cohort.reset_cohort_cache()
 
 
