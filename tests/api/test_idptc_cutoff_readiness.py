@@ -563,6 +563,7 @@ def test_2c_tethered_picks_on_the_board_are_stamped(sim) -> None:
         assert (row.get("pickEvidence") or {}).get("valueBasis") == "rookie_pool_tether"
 
 
+@pytest.mark.livedata
 def test_seats_never_penalise_a_rejection_the_cutoff_did_not_cause(sim) -> None:
     """A row whose confidence fell must not have fallen for a seated source
     the pre-cutoff board had ALREADY rejected (review of #1697: 15 of 16
@@ -578,7 +579,16 @@ def test_seats_never_penalise_a_rejection_the_cutoff_did_not_cause(sim) -> None:
     Comparing such rows made this hard-gate test flip on one provider's
     staleness with our code byte-identical (measured: Chris Olave, untouched
     by the cutoff, failed it).  On the comparable rows the property is
-    exactly the one #1697 measured."""
+    exactly the one #1697 measured.
+
+    Live-data lane (2026-11-13): whether any comparable seated row exists depends
+    on which providers the latest refresh left stale. On the 2026-11-13 board the
+    cutoff reached only pick rows, which take the pick confidence rule and never
+    carry a seat, so the test skipped and broke the hard gate's skip budget. The
+    deterministic coverage of the same rule is
+    ``tests/api/test_confidence_cured_rejection_guard.py``: a rejection the lost
+    vote caused is seated (``test_b_...``), one it cured is never seated
+    (``test_c_...``), and seats match the prior rule on random panels."""
     before, after = _rows(sim["before"]), _rows(sim["after"])
     compared = 0
     for key, a in after.items():
