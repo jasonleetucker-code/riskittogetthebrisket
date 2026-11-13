@@ -84,8 +84,22 @@ def main(src: Path) -> None:
     rosters = read(f"{sl}/league/{league_id}/rosters")
     members: dict[str, bytes] = {}
 
+    # Raw Sleeper league ids never enter the public fixture.  The live league keeps the
+    # config id only as a URL (its file name is a hash); bodies and the prior-league chain
+    # use pseudonyms, and the prior leagues' files are named by the pseudonymous URL, which
+    # is exactly what the loader requests after reading ``previous_league_id``.
+    pseudo: dict[str, str] = {str(league_id): "league_a"}
+    walk = league.get("previous_league_id")
+    for tag in ("league_b", "league_c"):
+        if walk and str(walk) != "0":
+            pseudo[str(walk)] = tag
+            walk = read(f"{sl}/league/{walk}").get("previous_league_id")
+
     def put_league(lg: dict) -> dict:
         out = _pick(lg, LEAGUE_KEEP)
+        for k in ("league_id", "previous_league_id"):
+            if k in out:
+                out[k] = pseudo.get(str(out[k]), "0" if str(out[k]) == "0" else "league_x")
         out["settings"] = _pick(lg.get("settings") or {}, SETTINGS_KEEP)
         return out
 
@@ -98,7 +112,7 @@ def main(src: Path) -> None:
         if not prev or str(prev) == "0":
             break
         pl = read(f"{sl}/league/{prev}")
-        members[_name(f"{sl}/league/{prev}")] = _dump(put_league(pl))
+        members[_name(f"{sl}/league/{pseudo[str(prev)]}")] = _dump(put_league(pl))
         prev = pl.get("previous_league_id")
 
     keep_ids = {
