@@ -617,3 +617,9 @@ owned by its author; this campaign changes neither and performs no operations wo
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 # **Chase Upside private ChatGPT MCP plugin (owner directive 2026-10-25).** Scoped read-only owner-only ChatGPT Sites MCP tools for rankings, canonical player identity, league context, Sleeper rosters and trade analysis; reuse API/analytics owners; include IDs, freshness, confidence, provenance and explicit missing states. No public access, writes, merge or deploy. Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c` (`codex/chase-upside-private-mcp`)
     shared files: `.env.example`, `server.py`, `src/api/chase_upside_mcp.py`, `sites/chase-upside-mcp/**`, `tests/api/test_chase_upside_mcp.py`, `docs/ops/CHATGPT_MCP_SETUP.md`, `docs/EXECUTION_PLAN.md`, `docs/OWNER_REQUESTED_TODO.md`, `docs/WORK_CLAIMS.md`
+
+## Sports Network reference experiences — 2026-11-07
+
+| Work | Files | Contract | Branch | Status |
+|---|---|---|---|---|
+| Codex isolated Rankings, Player File and News Desk prototypes; synthetic fixtures only. Owner-approved plan in chat; #2112 remains open. No production imports, tokens, APIs or deploy. Agent-OS-Receipt: 741230def70b1c94b9924192ee784bb7241b91a6 | `prototypes/sports-network/**`; append-only review pointers in owner intake and UI ledger after overlap review | Existing Lane 6 / owner Sports Network directive | `codex/sports-network-prototypes` | done — LOCAL PROTOTYPE VERIFIED; 11 unit / 16 browser tests; owner design approval pending; no merge/deploy |

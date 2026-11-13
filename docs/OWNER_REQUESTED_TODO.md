@@ -15,6 +15,12 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## Added 2026-11-07 — Sports Network prototype execution and owner review
+
+**Owner review feedback, 2026-11-07:** After receiving the three-screen review package, the owner said **"I like it"** while the Player File (`/players/demo-01`) was visible. Record positive feedback on the Sports Network direction and the viewed reference experience. This does not establish individual acceptance of every screen/state or authorize production token replacement, route migration, merge or deployment. Carry this direction into the bounded migration proposal; retain the separate production execution gate.
+
+Owner approved the Sports Network reference-experience plan and requested implementation: three isolated, functional Rankings / Player File / NFL News Desk screens; realistic synthetic fixtures, 1440/768/390 evidence, critique and refinement, functional/accessibility/correctness tests. Primary Sports Network, subordinate Sunday Paper; no Personnel Exchange revival. Review package: `prototypes/sports-network/README.md` and `REVIEW.md` on `codex/sports-network-prototypes`. Existing owner charter is in **open, unmerged PR #2112**; this compact intake pointer preserves the new implementation instruction without importing that branch or creating another roadmap. Owner visual approval and separate production execution authority remain required before any live redesign, token replacement, migration, or deployment. Status: **LOCAL PROTOTYPE; OWNER REVIEW PENDING**. Existing Lane 6, no new completion denominator.
+
 ## Added 2026-11-06 — Sitewide audit remediation, implementation and delivery directive
 
 Owner directive 2026-11-06 (chat, "MASTER SITEWIDE AUDIT REMEDIATION, IMPLEMENTATION & DELIVERY DIRECTIVE"). Structured

@@ -1,0 +1,294 @@
+{
+  "vitals": {
+    "lcpMs": 200,
+    "cls": 0.003987008544921875,
+    "shifts": [
+      {
+        "value": 0.003691455078125,
+        "time": 268,
+        "sources": [
+          {
+            "previous": {
+              "x": 22,
+              "y": 319.359375,
+              "width": 391,
+              "height": 89,
+              "top": 319.359375,
+              "right": 413,
+              "bottom": 408.359375,
+              "left": 22
+            },
+            "current": {
+              "x": 24,
+              "y": 320.359375,
+              "width": 374,
+              "height": 89,
+              "top": 320.359375,
+              "right": 398,
+              "bottom": 409.359375,
+              "left": 24
+            }
+          },
+          {
+            "node": "NAV",
+            "className": "",
+            "previous": {
+              "x": 200.578125,
+              "y": 73,
+              "width": 213.234375,
+              "height": 64,
+              "top": 73,
+              "right": 413.8125,
+              "bottom": 137,
+              "left": 200.578125
+            },
+            "current": {
+              "x": 189.28125,
+              "y": 73,
+              "width": 213.234375,
+              "height": 64,
+              "top": 73,
+              "right": 402.515625,
+              "bottom": 137,
+              "left": 189.28125
+            }
+          },
+          {
+            "node": "DIV",
+            "className": "",
+            "previous": {
+              "x": 561.78125,
+              "y": 942.453125,
+              "width": 163.21875,
+              "height": 57.546875,
+              "top": 942.453125,
+              "right": 725,
+              "bottom": 1000,
+              "left": 561.78125
+            },
+            "current": {
+              "x": 557.90625,
+              "y": 942.453125,
+              "width": 167.09375,
+              "height": 57.546875,
+              "top": 942.453125,
+              "right": 725,
+              "bottom": 1000,
+              "left": 557.90625
+            }
+          },
+          {
+            "node": "SPAN",
+            "className": "",
+            "previous": {
+              "x": 89.203125,
+              "y": 79.84375,
+              "width": 78.34375,
+              "height": 49.15625,
+              "top": 79.84375,
+              "right": 167.546875,
+              "bottom": 129,
+              "left": 89.203125
+            },
+            "current": {
+              "x": 85.171875,
+              "y": 79.84375,
+              "width": 70.109375,
+              "height": 49.15625,
+              "top": 79.84375,
+              "right": 155.28125,
+              "bottom": 129,
+              "left": 85.171875
+            }
+          },
+          {
+            "node": "A",
+            "className": "",
+            "previous": {
+              "x": 352.46875,
+              "y": 96,
+              "width": 63,
+              "height": 18,
+              "top": 96,
+              "right": 415.46875,
+              "bottom": 114,
+              "left": 352.46875
+            },
+            "current": {
+              "x": 341.171875,
+              "y": 96,
+              "width": 63,
+              "height": 18,
+              "top": 96,
+              "right": 404.171875,
+              "bottom": 114,
+              "left": 341.171875
+            }
+          }
+        ]
+      },
+      {
+        "value": 0.000295553466796875,
+        "time": 319.5999999977648,
+        "sources": [
+          {
+            "node": "P",
+            "className": "",
+            "previous": {
+              "x": 577.625,
+              "y": 273.109375,
+              "width": 166.375,
+              "height": 90,
+              "top": 273.109375,
+              "right": 744,
+              "bottom": 363.109375,
+              "left": 577.625
+            },
+            "current": {
+              "x": 574.515625,
+              "y": 273.109375,
+              "width": 169.484375,
+              "height": 90,
+              "top": 273.109375,
+              "right": 744,
+              "bottom": 363.109375,
+              "left": 574.515625
+            }
+          },
+          {
+            "node": "SPAN",
+            "className": "",
+            "previous": {
+              "x": 558.328125,
+              "y": 640.21875,
+              "width": 187.265625,
+              "height": 38,
+              "top": 640.21875,
+              "right": 745.59375,
+              "bottom": 678.21875,
+              "left": 558.328125
+            },
+            "current": {
+              "x": 568.890625,
+              "y": 640.21875,
+              "width": 176.796875,
+              "height": 38,
+              "top": 640.21875,
+              "right": 745.6875,
+              "bottom": 678.21875,
+              "left": 568.890625
+            }
+          },
+          {
+            "node": "A",
+            "className": "",
+            "previous": {
+              "x": 341.171875,
+              "y": 96,
+              "width": 63,
+              "height": 18,
+              "top": 96,
+              "right": 404.171875,
+              "bottom": 114,
+              "left": 341.171875
+            },
+            "current": {
+              "x": 344.875,
+              "y": 96,
+              "width": 62,
+              "height": 18,
+              "top": 96,
+              "right": 406.875,
+              "bottom": 114,
+              "left": 344.875
+            }
+          },
+          {
+            "node": "::after",
+            "className": "",
+            "previous": {
+              "x": 341.171875,
+              "y": 129,
+              "width": 61.34375,
+              "height": 3,
+              "top": 129,
+              "right": 402.515625,
+              "bottom": 132,
+              "left": 341.171875
+            },
+            "current": {
+              "x": 344.875,
+              "y": 129,
+              "width": 61.21875,
+              "height": 3,
+              "top": 129,
+              "right": 406.09375,
+              "bottom": 132,
+              "left": 344.875
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "measurementWindowMs": 587.5,
+  "navigation": [
+    {
+      "domContentLoaded": 38.79999999701977,
+      "duration": 269.79999999701977,
+      "transferSize": 5368
+    }
+  ],
+  "resources": [
+    {
+      "name": "/media/football-editorial.webp",
+      "transferSize": 96702,
+      "duration": 17
+    },
+    {
+      "name": "/_next/static/css/e95293d9fb747c58.css",
+      "transferSize": 9416,
+      "duration": 24
+    },
+    {
+      "name": "/_next/static/chunks/webpack-c508801ccc3ce4e1.js",
+      "transferSize": 2013,
+      "duration": 22.099999997764826
+    },
+    {
+      "name": "/_next/static/chunks/4bd1b696-c7408084347438ae.js",
+      "transferSize": 64357,
+      "duration": 30.799999997019768
+    },
+    {
+      "name": "/_next/static/chunks/main-app-c23e33b9057c9abe.js",
+      "transferSize": 813,
+      "duration": 21.600000001490116
+    },
+    {
+      "name": "/_next/static/chunks/794-216401842b802bd7.js",
+      "transferSize": 67715,
+      "duration": 32.69999999925494
+    },
+    {
+      "name": "/_next/static/chunks/280-9c1a6fc96e2d0628.js",
+      "transferSize": 26350,
+      "duration": 28
+    },
+    {
+      "name": "/_next/static/chunks/app/news/page-2175e6cc26c12a4e.js",
+      "transferSize": 424,
+      "duration": 25.200000002980232
+    },
+    {
+      "name": "/_next/static/media/37fbca445022d0d0-s.p.woff2",
+      "transferSize": 84416,
+      "duration": 121.80000000074506
+    },
+    {
+      "name": "/_next/static/media/491c517072ffa9f4.p.woff2",
+      "transferSize": 27780,
+      "duration": 111.39999999850988
+    }
+  ]
+}

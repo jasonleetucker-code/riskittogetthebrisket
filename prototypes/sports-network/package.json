@@ -1,0 +1,25 @@
+{
+  "name": "chase-upside-sports-network-prototype",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "dev": "next dev --webpack -H 127.0.0.1 -p 3100",
+    "build": "next build --webpack",
+    "start": "next start -H 127.0.0.1 -p 3100",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@axe-core/playwright": "4.13.0",
+    "vitest": "4.1.12"
+  }
+}
