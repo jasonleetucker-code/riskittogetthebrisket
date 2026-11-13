@@ -191,6 +191,8 @@ def test_evaluate_end_to_end_on_synthetic_trades():
     assert ev["diffM078minusMFIT"]["ci95"][0] > 0
     assert out["rules"]["R1_078_vs_fitted"] == "favours_alternative"
     assert out["rules"]["D1_momentQ_vs_078"] == "interval_below"
+    assert isinstance(out["rules"]["D1_R2_levelEffectExplainsLowQ_moment"], bool)
+    assert out["qFit"]["qLevelDiagnosticMoment_c2000"] in pmv.Q_GRID
     assert set(out["outOfSample"]["J"]) == {"M078", "MFIT", "M100", "MMOM"}
     # 600 trades in 40 leagues cannot meet R0.
     assert out["sufficiency"]["decisive"] is False

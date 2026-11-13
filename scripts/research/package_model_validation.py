@@ -606,12 +606,18 @@ def evaluate(
             "qMomentAtGridBoundary": fit_index(res, full_u, moment=True) in (0, len(Q_GRID) - 1),
             "qAllMultiPiece": Q_GRID[fit_index(res, multi)] if multi.any() else None,
             "qLevelDiagnostic_c2000": Q_GRID[fit_index(res_lvl, full_u)],
+            "qLevelDiagnosticMoment_c2000": Q_GRID[fit_index(res_lvl, full_u, moment=True)],
         })  # fmt: skip
         r2 = (
             qfit["qHat"] < R2_SHAPE_ONLY_BELOW
             and R2_LEVEL_RANGE[0] <= qfit["qLevelDiagnostic_c2000"] <= R2_LEVEL_RANGE[1]
         )
         qfit["R2_levelEffectExplainsLowQ"] = bool(r2)
+        # Deviation D1: the same reading on the moment fits.
+        qfit["D1_R2_levelEffectExplainsLowQ_moment"] = bool(
+            qfit["qMoment"] < R2_SHAPE_ONLY_BELOW
+            and R2_LEVEL_RANGE[0] <= qfit["qLevelDiagnosticMoment_c2000"] <= R2_LEVEL_RANGE[1]
+        )
     out["qFit"] = qfit
 
     # R1 reading (only meaningful when R0 passes).
@@ -635,6 +641,7 @@ def evaluate(
         "D1_R1_validity": "prediction_loss_only_not_a_test_of_q",
         "D1_momentQ_vs_078": _side_of(qfit.get("qMomentCi95"), Q_INCUMBENT),
         "D1_J_oos": head["J"],
+        "D1_R2_levelEffectExplainsLowQ_moment": qfit.get("D1_R2_levelEffectExplainsLowQ_moment"),
     }
 
     # Format-comparability sensitivity (D-BOX only, when the ledger carries it).
