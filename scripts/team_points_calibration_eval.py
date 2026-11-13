@@ -19,6 +19,8 @@ and the gitignored cache ``data/team_points_calibration/cache/``.  Every output 
     python scripts/team_points_calibration_eval.py evaluate     # gates (preregistration §5)
     python scripts/team_points_calibration_eval.py diagnose     # contributor decomposition (§6)
     python scripts/team_points_calibration_eval.py evaluate --offline   # cache only
+    python scripts/team_points_calibration_eval.py study2               # second study, cache only
+    python scripts/team_points_calibration_eval.py study2 --network     # second study, fetch once
 
 Exit codes: 0 when a run completed (whatever the verdict), 2 when it refused (fingerprint
 mismatch, a week not final, missing input, a forbidden output path).
@@ -33,8 +35,8 @@ import random
 import statistics
 import subprocess
 import sys
-from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -45,6 +47,7 @@ if str(REPO) not in sys.path:
 from scripts import sim_calibration_study as v1  # noqa: E402
 from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: E402
 from src.league_intel.sim_calibration import PointsModel, load_points_model  # noqa: E402
+from src.ros import availability as av  # noqa: E402
 from src.ros import playoff_sim  # noqa: E402
 from src.ros.game_day_sim import median_threshold  # noqa: E402
 from src.ros.lineup import (  # noqa: E402
@@ -98,20 +101,20 @@ class Refusal(v1.StudyRefusal):
     """The run refuses rather than score incomplete or unpinned inputs."""
 
 
-def assert_safe_output(path: Path) -> Path:
+def assert_safe_output(path: Path, allowed_dir: Path = OUT_DIR) -> Path:
     p = Path(path).resolve()
     for bad in FORBIDDEN_DIRS:
         b = bad.resolve()
         if p == b or b in p.parents:
             raise Refusal(f"refusing to write inside {b}: {p}")
-    allowed = OUT_DIR.resolve()
+    allowed = allowed_dir.resolve()
     if allowed not in p.parents:
         raise Refusal(f"refusing to write outside {allowed}: {p}")
     return p
 
 
-def write_json(path: Path, payload: Any) -> Path:
-    p = assert_safe_output(path)
+def write_json(path: Path, payload: Any, allowed_dir: Path = OUT_DIR) -> Path:
+    p = assert_safe_output(path, allowed_dir)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     return p
@@ -132,7 +135,13 @@ def redacted_receipts(receipts: Mapping[str, Any]) -> dict[str, Any]:
 def _git(*args: str) -> str | None:
     try:
         out = subprocess.run(
-            ["git", *args], cwd=REPO, capture_output=True, text=True, timeout=30, check=True
+            ["git", *args],
+            cwd=REPO,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=True,
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -192,9 +201,18 @@ class Inputs:
     matchups: dict[int, list[dict[str, Any]]]
     current_rosters: list[dict[str, Any]]
     stats: dict[int, dict[str, Any]]
+    settings: dict[str, Any] = field(default_factory=dict)
+    games: list[dict[str, str]] = field(default_factory=list)
 
 
-def load_inputs(fetcher: v1.CachedFetcher, *, need_stats: bool) -> Inputs:
+def load_inputs(
+    fetcher: v1.CachedFetcher,
+    *,
+    need_stats: bool,
+    final_weeks: Sequence[int] = FINAL_WEEKS,
+    live_week: int | None = LIVE_WEEK,
+    games_cache: Path = GAMES_CACHE,
+) -> Inputs:
     league = fetcher.get_json(f"{SLEEPER}/league/{LEAGUE_ID}")
     card = dict(league.get("scoring_settings") or {})
     fp = scoring_fingerprint(card)
@@ -205,10 +223,10 @@ def load_inputs(fetcher: v1.CachedFetcher, *, need_stats: bool) -> Inputs:
         raise Refusal("league is not best ball")
     if int(settings.get("league_average_match") or 0) != 1:
         raise Refusal("preregistration assumes the weekly median game is ON")
-    games = fetcher.get_csv(v1.NFLVERSE_GAMES, GAMES_CACHE)
+    games = fetcher.get_csv(v1.NFLVERSE_GAMES, games_cache)
     schedule = v1.schedule_by_week(games, SEASON)
     matchups: dict[int, list[dict[str, Any]]] = {}
-    for w in FINAL_WEEKS:
+    for w in final_weeks:
         sw = schedule.get(w)
         if sw is None or not sw.is_final:
             raise Refusal(f"week {w} is not final in the schedule")
@@ -221,7 +239,7 @@ def load_inputs(fetcher: v1.CachedFetcher, *, need_stats: bool) -> Inputs:
         if all(float(r["points"]) == 0.0 for r in rows):
             raise Refusal(f"week {w} has no scored points")
         matchups[w] = rows
-    if LIVE_WEEK not in schedule:
+    if live_week is not None and live_week not in schedule:
         raise Refusal("live week missing from schedule")
     current = fetcher.get_json(f"{SLEEPER}/league/{LEAGUE_ID}/rosters") or []
     directory = fetcher.get_json(f"{SLEEPER}/players/nfl") or {}
@@ -229,9 +247,11 @@ def load_inputs(fetcher: v1.CachedFetcher, *, need_stats: bool) -> Inputs:
         raise Refusal("player directory unusable")
     stats: dict[int, dict[str, Any]] = {}
     if need_stats:
-        for w in FINAL_WEEKS:
+        for w in final_weeks:
             stats[w] = fetcher.get_json(f"{SLEEPER}/stats/nfl/regular/{SEASON}/{w}") or {}
-    return Inputs(card, fp, schedule, directory, matchups, current, stats)
+    return Inputs(
+        card, fp, schedule, directory, matchups, current, stats, dict(settings), list(games)
+    )
 
 
 def realized_scores(inputs: Inputs) -> dict[int, dict[str, float]]:
@@ -317,11 +337,12 @@ def team_strength_rows(
     return compute_team_strength(teams, aggregated_players=snapshot_players, starter_slots=slots)
 
 
-def as_of(inputs: Inputs, week: int, slots: list[str]) -> AsOf:
+def as_of(inputs: Inputs, week: int, slots: list[str], *, with_today_injury: bool = True) -> AsOf:
     """Week ``week``'s pre-kickoff snapshot + that week's roster, through the production join.
 
     ``rows`` use the point-in-time directory (no injury flags); ``rows_today_injury``
     reproduce the first run's join with today's flags, for the reported-only arm.
+    Study two passes ``with_today_injury=False``, so today's flags are never read.
     """
     kickoff = inputs.schedule[week].first_kickoff_utc
     snap = v1.snapshot_before(kickoff)
@@ -335,6 +356,8 @@ def as_of(inputs: Inputs, week: int, slots: list[str]) -> AsOf:
     else:
         raise Refusal(f"no roster source for week {week}")
     rows = team_strength_rows(src, point_in_time_directory(inputs.directory), players, slots)
+    if not with_today_injury:
+        return AsOf(week, snap, v1.sha256_file(snap), players, rows, source, None)
     rows_today = team_strength_rows(src, inputs.directory, players, slots)
     return AsOf(week, snap, v1.sha256_file(snap), players, rows, source, rows_today)
 
@@ -934,6 +957,660 @@ def diagnose(args: argparse.Namespace) -> int:
     return 0
 
 
+# ── study two (preregistration 2026-11-09) ──────────────────────────────────────────
+#
+# ``docs/league-intelligence/TEAM_POINTS_STUDY2_PREREGISTRATION_2026-11-09.md`` was committed
+# alone (``FREEZE_COMMIT_2``) before anything below existed.  The completed study above is
+# untouched.  Network is OFF by default, every realized holdout week is refused until it has
+# settled, and today's injury flags are never read.
+
+PREREGISTRATION_2 = "docs/league-intelligence/TEAM_POINTS_STUDY2_PREREGISTRATION_2026-11-09.md"
+FREEZE_COMMIT_2 = "fb911fba3ab67853f699104e2719201ae60cdf0c"
+FREEZE_LINE_2 = "*Freeze line."
+
+HOLDOUT_2 = (10, 11, 12, 13, 14)
+FIT_ONLY_2 = tuple(range(1, 10))
+ALL_WEEKS_2 = FIT_ONLY_2 + HOLDOUT_2
+LAST_REGULAR_WEEK_2 = 14
+PLAYOFF_TEAMS_2 = 7
+PLAYOFF_WEEK_START_2 = 15
+SETTLE_DAYS_2 = 7
+SEED_2 = 20261109
+PLAYOFF_DRAWS_2 = 20_000
+#: A dry run may read study-one weeks only, so it can never become an early look.
+DRY_RUN_MAX_WEEK = 8
+
+CACHE_DIR_2 = REPO / "data" / "team_points_calibration" / "cache_study2"
+OUT_DIR_2 = REPO / "docs" / "league-intelligence" / "evidence" / "team_points_study2"
+
+ARMS_2 = ("I", "CO", "AF", "AFCO", "B1", "B2", "B0", "A", "S", "I_noCal")
+
+#: Behaviour fingerprint of the served equation and presim at the harness freeze (§12 item 6).
+SERVED_EQUATION_FINGERPRINT = "f42fa80b0beaa3497f50b74ebdd22313e907be95b5447f142f592d2fd4e83fe0"
+
+
+def _above_freeze_line(text: str) -> str:
+    normalized = text.replace("\r\n", "\n")
+    head, sep, _ = normalized.partition(FREEZE_LINE_2)
+    if not sep:
+        raise Refusal("preregistration has no freeze line")
+    return head
+
+
+def verify_freeze_2(
+    first_holdout_kickoff: datetime, *, git: Any = None, current_text: str | None = None
+) -> dict[str, Any]:
+    """Refuse unless the preregistration was frozen as §2 and §12 items 1-2 require."""
+    run = git or _git
+    added = run("log", "--diff-filter=A", "--format=%H", "-n", "1", "--", PREREGISTRATION_2)
+    if added != FREEZE_COMMIT_2:
+        raise Refusal(f"preregistration was added by {added}, not {FREEZE_COMMIT_2}")
+    touched = (run("show", "--name-only", "--format=", FREEZE_COMMIT_2) or "").splitlines()
+    if touched != [PREREGISTRATION_2]:
+        raise Refusal(f"the freeze commit touched more than the preregistration: {touched}")
+    if run("merge-base", "--is-ancestor", FREEZE_COMMIT_2, "HEAD") is None:
+        raise Refusal("the freeze commit is not an ancestor of the evaluated code")
+    committed = run("show", "-s", "--format=%cI", FREEZE_COMMIT_2)
+    if not committed:
+        raise Refusal("the freeze commit has no readable timestamp")
+    when = datetime.fromisoformat(committed)
+    if when >= first_holdout_kickoff:
+        raise Refusal(f"frozen at {committed}, not before {first_holdout_kickoff.isoformat()}")
+    frozen = run("show", f"{FREEZE_COMMIT_2}:{PREREGISTRATION_2}")
+    if frozen is None:
+        raise Refusal("the frozen preregistration cannot be read")
+    text = (
+        current_text
+        if current_text is not None
+        else (REPO / PREREGISTRATION_2).read_text(encoding="utf-8")
+    )
+    if _above_freeze_line(frozen) != _above_freeze_line(text):
+        raise Refusal("the preregistration above the freeze line differs from the freeze commit")
+    return {
+        "preregistration": PREREGISTRATION_2,
+        "freezeCommit": FREEZE_COMMIT_2,
+        "committedAt": committed,
+        "firstHoldoutKickoff": first_holdout_kickoff.isoformat(),
+    }
+
+
+def schedule_kickoffs(
+    games: Sequence[Mapping[str, str]], season: int = SEASON
+) -> dict[int, tuple[datetime, datetime]]:
+    """``{week: (first kickoff, last kickoff)}`` in UTC, from the nflverse schedule."""
+    by_week: dict[int, list[datetime]] = {}
+    for g in games:
+        if str(g.get("season")) == str(season) and g.get("game_type") == "REG":
+            kick = (
+                datetime.strptime(f"{g['gameday']} {g['gametime']}", "%Y-%m-%d %H:%M")
+                .replace(tzinfo=v1.ET)
+                .astimezone(timezone.utc)
+            )
+            by_week.setdefault(int(g["week"]), []).append(kick)
+    return {w: (min(k), max(k)) for w, k in by_week.items()}
+
+
+def settled_at(last_kickoff: datetime) -> datetime:
+    return last_kickoff + timedelta(days=SETTLE_DAYS_2)
+
+
+def assert_holdout_settled(
+    kickoffs: Mapping[int, tuple[datetime, datetime]], holdout: Sequence[int], now: datetime
+) -> None:
+    """Refuse before any Sleeper body for a holdout week is fetched (§2)."""
+    for w in holdout:
+        if w not in kickoffs:
+            raise Refusal(f"week {w} is not on the schedule")
+        at = settled_at(kickoffs[w][1])
+        if now < at:
+            raise Refusal(f"week {w} is not settled until {at.isoformat()}")
+
+
+def assert_bodies_after_settlement(
+    receipts: Mapping[str, Mapping[str, Any]],
+    holdout: Sequence[int],
+    kickoffs: Mapping[int, tuple[datetime, datetime]],
+) -> None:
+    """Refuse a holdout body cached before that week settled: it may predate stat corrections."""
+    for w in holdout:
+        at = settled_at(kickoffs[w][1])
+        for url in (
+            f"{SLEEPER}/league/{LEAGUE_ID}/matchups/{w}",
+            f"{SLEEPER}/stats/nfl/regular/{SEASON}/{w}",
+        ):
+            receipt = receipts.get(url)
+            if receipt is None:
+                raise Refusal(f"week {w} has no cache receipt for a required Sleeper body")
+            cached = datetime.strptime(receipt["cachedAtUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
+            if cached < at:
+                raise Refusal(f"week {w}'s body was cached {cached}, before it settled at {at}")
+
+
+def schedule_cache_path(cache_dir: Path, *, network: bool, now: datetime) -> Path:
+    """A dated schedule body per fetch day (the fetcher is write-once and finality moves)."""
+    if network:
+        return cache_dir / f"nflverse_games_{now.strftime('%Y%m%d')}.csv"
+    found = sorted(cache_dir.glob("nflverse_games_*.csv"))
+    if not found:
+        raise Refusal(f"no cached schedule in {cache_dir}; run once with --network")
+    return found[-1]
+
+
+def bye_calendar(
+    inputs: Inputs, week: int, rosters: Mapping[str, Mapping[str, Any]]
+) -> tuple[list[int], set[tuple[str, int]]]:
+    """The served presim calendar for origin ``week``, byes only (§3).
+
+    Through the availability owner with no return evidence, no overrides and
+    health-stripped metadata, so the only rule that can fire is the bye.
+    """
+    ctx = av.build_context(
+        season=SEASON,
+        league_settings={**inputs.settings, "leg": week},
+        # The nflverse file spans every season; the owner expects one season's rows, and a
+        # past season's game would otherwise erase this season's bye.
+        schedule_rows=[g for g in inputs.games if str(g.get("season")) == str(SEASON)],
+        evidence_payload=None,
+        overrides=(),
+    )
+    if not ctx.weeks or ctx.basis.get("schedule") != "available":
+        raise Refusal(f"no bye calendar for week {week}")
+    meta = point_in_time_directory(inputs.directory)
+    ids = sorted(
+        {
+            str(p["playerId"])
+            for blob in rosters.values()
+            for p in (blob.get("starters") or []) + (blob.get("bench") or [])
+            if p.get("playerId")
+        }
+    )
+    unavailable: set[tuple[str, int]] = set()
+    for pid in ids:
+        for wk, state in av.player_week_states(pid, meta.get(pid), ctx).items():
+            if state.state == av.UNAVAILABLE and state.reason == "bye":
+                unavailable.add((pid, wk))
+    return list(ctx.weeks), unavailable
+
+
+def presim_with_calendar(
+    asof_k: AsOf,
+    slots: list[str],
+    model: Any,
+    weeks: list[int],
+    unavailable: set[tuple[str, int]],
+) -> dict[str, Any]:
+    """Production presim under the served calendar form, production seed."""
+    return playoff_sim._bestball_presim(
+        playoff_sim._rosters_from_rows(asof_k.rows),
+        slots,
+        random.Random(PRESIM_SEED),
+        model,
+        weeks=weeks,
+        unavailable=unavailable,
+    )
+
+
+def appeared_fit_rows(inputs: Inputs, week: int, asof_w: AsOf) -> list[cv.FitRow]:
+    """Appeared, positively priced player-weeks of one week, as-of that week's snapshot (§5)."""
+    priced = {
+        p["playerId"]: float(p["rosValue"]) for r in asof_w.rows for p in r.get("fullRoster") or []
+    }
+    ladders = cv.family_ladders(asof_w.snapshot_players)
+    meta = point_in_time_directory(inputs.directory)
+    rows: list[cv.FitRow] = []
+    for m in inputs.matchups[week]:
+        for pid in (str(p) for p in (m.get("players") or [])):
+            pw = v1.classify_player_week(
+                pid, inputs.stats[week].get(pid), meta.get(pid), inputs.card, SEASON, week
+            )
+            if pw.status != v1.APPEARED:
+                continue
+            value = priced.get(pid, 0.0)
+            if value > 0:
+                rows.append(
+                    cv.FitRow(
+                        pw.family, value, cv.rank_in_family(ladders, pw.family, value), pw.points
+                    )
+                )
+    return rows
+
+
+def served_equation_fingerprint() -> str:
+    """Hash of the served equation's and presim's BEHAVIOUR on fixed synthetic inputs (§12 item 6)."""
+    equation = [
+        [
+            basis,
+            once,
+            z,
+            depth,
+            *playoff_sim._compose_team_distribution(
+                basis=basis,
+                basis_mean=300.0,
+                basis_sd=40.0,
+                pool_sd=55.0,
+                ros_z=z,
+                depth_ratio=depth,
+                best_ball=True,
+                ros_counted_once=once,
+            ),
+        ]
+        for basis in ("presim", "empirical", "pool")
+        for once in (False, True)
+        for z in (-1.5, 0.0, 0.8)
+        for depth in (0.0, 0.4)
+    ]
+    roster = [
+        {
+            "playerId": f"p{i}",
+            "canonicalName": f"p{i}",
+            "position": pos,
+            "rosValue": value,
+            "fantasyPositions": [pos],
+        }
+        for i, (pos, value) in enumerate(
+            [("QB", 60.0), ("RB", 40.0), ("RB", 35.0), ("WR", 44.0), ("WR", 30.0), ("WR", 20.0)]
+        )
+    ]
+    presim_out = playoff_sim._bestball_presim(
+        {"T01": {"starters": roster, "bench": []}},
+        ["QB", "RB", "WR"],
+        random.Random(PRESIM_SEED),
+        PointsModel(),
+        weeks=[10, 11],
+        unavailable={("p1", 10)},
+    )
+    blob = json.dumps(
+        {
+            "equation": equation,
+            "presim": {t: [round(m, 6), round(s, 6)] for t, (m, s) in presim_out.items()},
+        },
+        sort_keys=True,
+    )
+    return v1.sha256_bytes(blob.encode("utf-8"))
+
+
+def assemble_forecasts_2(
+    k: int,
+    realized: Mapping[int, Mapping[str, float]],
+    teams: Sequence[str],
+    raw: Mapping[str, Mapping[int, Mapping[str, tuple[float, float]]]],
+    presim_means: Mapping[int, Mapping[str, float]],
+) -> tuple[dict[str, dict[str, tuple[float, float] | None]], dict[str, Any]]:
+    """Every arm's week-``k`` forecast, from point-in-time views only (§4, §5).
+
+    ``raw`` is walk-forward: ``raw[arm][j]`` was built for week ``j`` from weeks ``< j``.
+    Only ``j < k`` feeds a dispersion scale and only ``j <= k`` a presim regressor.
+    """
+    view = tp.RealizedView(realized, k)
+    arms: dict[str, dict[str, tuple[float, float] | None]] = {
+        arm: dict(raw[arm][k]) for arm in ("I", "CO", "I_noCal")
+    }
+    scales: dict[str, float | None] = {}
+    for arm in ("AF", "AFCO"):
+        scales[arm] = tp.dispersion_scale({j: v for j, v in raw[arm].items() if j < k}, view)
+        arms[arm] = tp.apply_dispersion(raw[arm][k], scales[arm])
+    candidates, fits = tp.candidate_forecasts(
+        realized, {j: m for j, m in presim_means.items() if j <= k}, teams, k
+    )
+    arms.update(candidates)
+    return arms, {
+        "dispersionScale": {a: _r(v, 6) for a, v in scales.items()},
+        "fits": {name: _fit_dict(f) for name, f in fits.items()},
+    }
+
+
+def score_and_decide_2(
+    weeks: Mapping[int, tp.WeekInputs], *, void_reasons: Sequence[str] = ()
+) -> dict[str, Any]:
+    """§6-§9 over scored weeks: metrics, the primary test in sequence, the gates, the outcome."""
+    holdout = sorted(weeks)
+    recs_by_week: dict[int, list[tp.Record]] = {}
+    median_p: dict[int, Any] = {}
+    for k in holdout:
+        recs_by_week[k], median_p[k] = tp.score_week(
+            weeks[k], ARMS_2, median_threshold, draws=MEDIAN_DRAWS, seed=SEED_2 + k
+        )
+    all_recs = [r for k in holdout for r in recs_by_week[k]]
+    summaries = {a: tp.summarize_arm(all_recs, [weeks[k] for k in holdout], a) for a in ARMS_2}
+    team_weeks = {k: [r for r in recs_by_week[k] if r.kind == "team_week"] for k in holdout}
+    binary = {k: [r for r in recs_by_week[k] if r.kind in ("h2h", "median")] for k in holdout}
+    tw_flat = [r for k in holdout for r in team_weeks[k]]
+
+    inference: dict[str, dict[str, Any]] = {}
+    for x in tp.STUDY2_CHALLENGERS:
+        diffs = tp.weekly_mean_diffs(team_weeks, "I", x, "crps")
+        inference[x] = {
+            "weeklyCrpsDiff": {str(k): _r(v, 5) for k, v in diffs.items()},
+            "signFlipP": tp.exact_sign_flip_p(list(diffs.values())),
+            "weeklyT": _r(tp.weekly_t_statistic(list(diffs.values())), 4),
+            "twoWayCrps": tp.two_way_bootstrap(
+                team_weeks, "I", x, "crps", reps=BOOTSTRAP_B, seed=SEED_2
+            ),
+            "twoWayMae": tp.two_way_bootstrap(
+                team_weeks, "I", x, "abs", reps=BOOTSTRAP_B, seed=SEED_2
+            ),
+            "twoWayLogLoss": tp.two_way_bootstrap(
+                binary, "I", x, "ll", reps=BOOTSTRAP_B, seed=SEED_2
+            ),
+            "teamClusterCrps": tp.paired_cluster_bootstrap(
+                tw_flat, "I", x, "crps", reps=BOOTSTRAP_B, seed=SEED_2
+            ),
+        }
+    sequence = tp.primary_sequence({a: inference[a]["signFlipP"] for a in tp.STUDY2_ELIGIBLE})
+    verdicts = {
+        x: tp.evaluate_study2_gates(summaries, inference, sequence, x)
+        for x in tp.STUDY2_CHALLENGERS
+    }
+    decision = tp.decide_study2(verdicts, weeks_scored=len(holdout), void_reasons=void_reasons)
+    return {
+        "summaries": summaries,
+        "inference": inference,
+        "sequence": sequence,
+        "gates": verdicts,
+        "gateReferences": {
+            "bestBaseline": {
+                m: _r(tp.best_baseline(summaries, m)) for m in ("crps", "logLossBinary", "mae")
+            },
+            "incumbent": {m: _r(summaries["I"][m]) for m in ("crps", "logLossBinary", "mae")},
+        },
+        "decision": decision,
+        "medianProbabilities": median_p,
+        "perWeek": {
+            str(k): {
+                a: {
+                    m: _r(v)
+                    for m, v in tp.summarize_arm(recs_by_week[k], [weeks[k]], a).items()
+                    if m in ("bias", "mae", "crps", "logLossBinary", "brierBinary", "concordance")
+                }
+                for a in ARMS_2
+            }
+            for k in holdout
+        },
+    }
+
+
+def playoff_level_2(
+    weeks: Mapping[int, tp.WeekInputs],
+    realized: Mapping[int, Mapping[str, float]],
+    pairs: Mapping[int, Sequence[tuple[str, str]]],
+    *,
+    last_week: int,
+) -> dict[str, Any]:
+    """The binary playoff level (§6): descriptive, twelve outcomes, never gated."""
+    played = [w for w in sorted(realized) if w <= last_week]
+    wins, pf = tp.standings_through(realized, pairs, median_threshold, played)
+    made = tp.qualifiers(wins, pf, PLAYOFF_TEAMS_2)
+    if made is None:
+        return {"state": "undefined_exact_tie_at_the_cut"}
+    per_origin: dict[str, Any] = {}
+    for k in sorted(weeks):
+        wins_k, pf_k = tp.standings_through(
+            realized, pairs, median_threshold, [w for w in played if w < k]
+        )
+        schedule = {w: pairs[w] for w in played if w >= k}
+        per_origin[str(k)] = {
+            arm: tp.playoff_scores(
+                tp.qualification_probabilities(
+                    weeks[k].forecasts[arm],
+                    wins_k,
+                    pf_k,
+                    schedule,
+                    median_threshold,
+                    playoff_teams=PLAYOFF_TEAMS_2,
+                    draws=PLAYOFF_DRAWS_2,
+                    seed=SEED_2 + k,
+                ),
+                made,
+            )
+            for arm in ARMS_2
+        }
+    return {
+        "state": "scored",
+        "note": "twelve outcomes from one standings table; descriptive only",
+        "byOrigin": per_origin,
+        "titleOdds": "INSUFFICIENT_BY_CONSTRUCTION",
+    }
+
+
+def build_study2_weeks(
+    inputs: Inputs, holdout: Sequence[int], all_weeks: Sequence[int], slots: list[str]
+) -> tuple[dict[int, tp.WeekInputs], dict[str, Any]]:
+    """Every arm's forecast for every target week, walk-forward (§3-§5)."""
+    model = PointsModel()  # the served model at the freeze (fallback-constants)
+    realized = realized_scores(inputs)
+    pairs = pairs_by_week(inputs)
+    asofs = {w: as_of(inputs, w, slots, with_today_injury=False) for w in all_weeks}
+    fit_rows = {w: appeared_fit_rows(inputs, w, asofs[w]) for w in all_weeks}
+    raw: dict[str, dict[int, dict[str, tuple[float, float]]]] = {
+        a: {} for a in ("I", "CO", "AF", "AFCO", "I_noCal")
+    }
+    presim_means: dict[int, dict[str, float]] = {}
+    conversions: dict[str, Any] = {}
+    calendars: dict[str, Any] = {}
+    for w in all_weeks:
+        rosters = playoff_sim._rosters_from_rows(asofs[w].rows)
+        cal_weeks, unavailable = bye_calendar(inputs, w, rosters)
+        calendars[str(w)] = {"weeks": cal_weeks, "unavailablePlayerWeeks": len(unavailable)}
+        view = tp.RealizedView(realized, w)
+        p_f = presim_with_calendar(asofs[w], slots, model, cal_weeks, unavailable)
+        if set(p_f) != set(realized[w]):
+            raise Refusal(f"presim week {w} does not cover every team")
+        presim_means[w] = {t: m for t, (m, _s) in p_f.items()}
+        raw["I"][w] = production_distributions(asofs[w], p_f, view, ros_counted_once=False)
+        raw["CO"][w] = production_distributions(asofs[w], p_f, view, ros_counted_once=True)
+        raw["I_noCal"][w] = production_distributions(
+            asofs[w], presim(asofs[w], slots, model), view, ros_counted_once=False
+        )
+        if w >= tp.DISPERSION_FIRST_WEEK:
+            conversion = cv.fit_model("C0", [r for j in all_weeks if j < w for r in fit_rows[j]])
+            if not conversion.fits:
+                raise Refusal(f"no C0 fit for week {w}")
+            conversions[str(w)] = conversion.to_dict()
+            ladders = cv.family_ladders(asofs[w].snapshot_players)
+            p_c = presim_with_calendar(
+                asofs[w], slots, _ConversionModel(conversion, ladders), cal_weeks, unavailable
+            )
+            raw["AF"][w] = production_distributions(asofs[w], p_c, view, ros_counted_once=False)
+            raw["AFCO"][w] = production_distributions(asofs[w], p_c, view, ros_counted_once=True)
+    weeks: dict[int, tp.WeekInputs] = {}
+    details: dict[str, Any] = {}
+    teams = sorted(realized[holdout[0]])
+    for k in holdout:
+        forecasts, meta = assemble_forecasts_2(k, realized, teams, raw, presim_means)
+        complete = {a: {t: d for t, d in forecasts[a].items() if d is not None} for a in ARMS_2}
+        week = tp.WeekInputs(week=k, realized=realized[k], pairs=pairs[k], forecasts=complete)
+        tp.require_complete(week, ARMS_2)
+        weeks[k] = week
+        details[str(k)] = {
+            **meta,
+            "snapshot": asofs[k].snapshot.name,
+            "snapshotSha256": asofs[k].snapshot_sha256,
+            "rosterSource": asofs[k].roster_source,
+            "calendar": calendars[str(k)],
+            "teams": {
+                t: {
+                    "realized": realized[k][t],
+                    **{a: [_r(complete[a][t][0], 2), _r(complete[a][t][1], 2)] for a in ARMS_2},
+                }
+                for t in sorted(realized[k])
+            },
+        }
+    return weeks, {
+        "weeks": details,
+        "conversions": conversions,
+        "fitRowsByWeek": {str(w): len(v) for w, v in fit_rows.items()},
+        "realized": realized,
+        "pairs": pairs,
+    }
+
+
+def code_identity_2() -> dict[str, Any]:
+    lib = REPO / "src" / "ros_calibration" / "team_points.py"
+    dirty = _git(
+        "status",
+        "--porcelain",
+        "--",
+        "scripts/team_points_calibration_eval.py",
+        "src/ros_calibration",
+        "src/ros",
+        "src/league_intel",
+    )
+    return {
+        "codeSha": _git("rev-parse", "HEAD") or "UNKNOWN",
+        "codeDirty": None if dirty is None else bool(dirty),
+        "scriptSha256": v1.sha256_file(Path(__file__)),
+        "librarySha256": v1.sha256_file(lib),
+    }
+
+
+def study2(args: argparse.Namespace) -> int:
+    now = datetime.now(timezone.utc)
+    cache_dir = Path(args.cache_dir) if args.cache_dir else CACHE_DIR_2
+    dry_run = args.dry_run_holdout is not None
+    if dry_run:
+        holdout = tuple(int(w) for w in str(args.dry_run_holdout).split(","))
+        if not holdout or max(holdout) > DRY_RUN_MAX_WEEK:
+            raise Refusal(f"a dry run may only read weeks up to {DRY_RUN_MAX_WEEK}")
+        all_weeks = tuple(range(1, max(holdout) + 1))
+        last_week = max(holdout)
+    else:
+        holdout, all_weeks, last_week = HOLDOUT_2, ALL_WEEKS_2, LAST_REGULAR_WEEK_2
+
+    fetcher = v1.CachedFetcher(cache_dir, offline=not args.network)
+    games_cache = schedule_cache_path(cache_dir, network=args.network, now=now)
+    kickoffs = schedule_kickoffs(fetcher.get_csv(v1.NFLVERSE_GAMES, games_cache))
+    freeze: dict[str, Any] = {"state": "dry_run_not_checked"}
+    if not dry_run:
+        # Both BEFORE any Sleeper body for a holdout week can be fetched.
+        assert_holdout_settled(kickoffs, holdout, now)
+        freeze = verify_freeze_2(kickoffs[holdout[0]][0])
+
+    inputs = load_inputs(
+        fetcher, need_stats=True, final_weeks=all_weeks, live_week=None, games_cache=games_cache
+    )
+    if int(inputs.settings.get("playoff_week_start") or 0) != PLAYOFF_WEEK_START_2:
+        raise Refusal("playoff_week_start changed from the preregistered value")
+    if int(inputs.settings.get("num_teams") or 0) != TEAMS_EXPECTED:
+        raise Refusal("team count changed from the preregistered value")
+    directory_url = f"{SLEEPER}/players/nfl"
+    directory_at = datetime.strptime(
+        fetcher.receipts[directory_url]["cachedAtUtc"], "%Y-%m-%dT%H:%M:%SZ"
+    ).replace(tzinfo=timezone.utc)
+    directory_point_in_time = directory_at < kickoffs[holdout[0]][0]
+    void_reasons: list[str] = []
+    fingerprint = served_equation_fingerprint()
+    if not dry_run:
+        assert_bodies_after_settlement(fetcher.receipts, holdout, kickoffs)
+        if fingerprint != SERVED_EQUATION_FINGERPRINT:
+            void_reasons.append("served_equation_changed_since_the_freeze")
+
+    slots = load_league_starter_slots(LEAGUE_KEY)
+    if not slots:
+        raise Refusal("no starter slots for the league")
+    weeks, built = build_study2_weeks(inputs, holdout, all_weeks, slots)
+    result = score_and_decide_2(weeks, void_reasons=void_reasons)
+    playoffs = playoff_level_2(weeks, built["realized"], built["pairs"], last_week=last_week)
+    horizon = {
+        a: tp.horizon_errors(
+            {k: weeks[k].forecasts[a] for k in holdout},
+            {k: result["medianProbabilities"][k][a] for k in holdout},
+            built["realized"],
+            built["pairs"],
+            median_threshold,
+            last_week=last_week,
+        )
+        for a in ARMS_2
+    }
+    if dry_run:
+        # Not evidence: exercises the pipeline on study-one weeks, and writes nothing.
+        print(
+            json.dumps(
+                {
+                    "dryRun": True,
+                    "notEvidence": True,
+                    "holdout": list(holdout),
+                    "summaries": {
+                        a: {m: _r(s.get(m)) for m in ("crps", "mae", "bias", "zRms", "coverage80")}
+                        for a, s in result["summaries"].items()
+                    },
+                    "signFlipP": {
+                        x: result["inference"][x]["signFlipP"] for x in result["inference"]
+                    },
+                    "dispersionScale": {k: v["dispersionScale"] for k, v in built["weeks"].items()},
+                    "playoffLevelState": playoffs["state"],
+                    "horizonArms": sorted(horizon),
+                },
+                indent=1,
+            )
+        )
+        print("served fingerprint:", fingerprint)
+        return 0
+    payload = {
+        "promotes": False,
+        "status": "RESEARCH_EVIDENCE_NOT_FOR_PROMOTION",
+        "label": "SCREEN",
+        "generatedAt": now.isoformat(timespec="seconds"),
+        "code": code_identity_2(),
+        "freeze": freeze,
+        "servedEquationFingerprint": fingerprint,
+        "league": {
+            "key": LEAGUE_KEY,
+            "scoringFingerprint": inputs.fingerprint,
+            "slots": slots,
+            "medianGame": True,
+        },
+        "split": {"holdout": list(holdout), "fitOnly": list(FIT_ONLY_2)},
+        "seeds": {
+            "presim": PRESIM_SEED,
+            "medianBase": SEED_2,
+            "medianDraws": MEDIAN_DRAWS,
+            "bootstrap": SEED_2,
+            "bootstrapReps": BOOTSTRAP_B,
+            "playoffBase": SEED_2,
+            "playoffDraws": PLAYOFF_DRAWS_2,
+        },
+        "directoryPointInTime": directory_point_in_time,
+        "receipts": {
+            "cache": redacted_receipts(fetcher.receipts),
+            "networkCalls": fetcher.network_calls,
+        },
+        "holdout": {
+            "summaries": {
+                a: {k: _r(v) for k, v in s.items()} for a, s in result["summaries"].items()
+            },
+            "inference": result["inference"],
+            "sequence": result["sequence"],
+            "gates": result["gates"],
+            "gateReferences": result["gateReferences"],
+            "decision": result["decision"],
+            "perWeek": result["perWeek"],
+            "horizon": {a: {k: _r(v) for k, v in h.items()} for a, h in horizon.items()},
+        },
+        "playoffLevel": playoffs,
+        "weeks": built["weeks"],
+        "conversions": built["conversions"],
+        "fitRowsByWeek": built["fitRowsByWeek"],
+    }
+    out = write_json(
+        Path(args.out) if args.out else OUT_DIR_2 / "evaluation.json", payload, OUT_DIR_2
+    )
+    print(json.dumps(result["decision"], indent=1))
+    print("wrote", out)
+    return 0
+
+
+def study2_capture(args: argparse.Namespace) -> int:
+    """Cache one player directory now, so the run can label it point-in-time (§3).  No results."""
+    if not args.network:
+        raise Refusal("the capture needs --network")
+    fetcher = v1.CachedFetcher(CACHE_DIR_2, offline=False)
+    fetcher.get_json(f"{SLEEPER}/players/nfl")
+    print(json.dumps(redacted_receipts(fetcher.receipts), indent=1))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -941,9 +1618,26 @@ def main(argv: list[str] | None = None) -> int:
         p = sub.add_parser(name)
         p.add_argument("--offline", action="store_true", help="cache only, never the network")
         p.add_argument("--out", default=None, help="output path (must be under the evidence dir)")
+    second = sub.add_parser("study2")
+    second.add_argument("--network", action="store_true", help="allow public GETs (off by default)")
+    second.add_argument("--cache-dir", default=None, help="override the study-two cache directory")
+    second.add_argument(
+        "--dry-run-holdout",
+        default=None,
+        help=f"comma-separated weeks <= {DRY_RUN_MAX_WEEK}; exercises the pipeline, writes nothing",
+    )
+    second.add_argument("--out", default=None, help="output path (must be under the evidence dir)")
+    capture = sub.add_parser("study2-capture")
+    capture.add_argument("--network", action="store_true")
     args = parser.parse_args(argv)
+    commands = {
+        "evaluate": evaluate,
+        "diagnose": diagnose,
+        "study2": study2,
+        "study2-capture": study2_capture,
+    }
     try:
-        return evaluate(args) if args.cmd == "evaluate" else diagnose(args)
+        return commands[args.cmd](args)
     except (v1.StudyRefusal, tp.InsufficientEvidence) as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 2
