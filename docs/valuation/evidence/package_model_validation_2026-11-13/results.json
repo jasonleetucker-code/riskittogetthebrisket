@@ -1,0 +1,4214 @@
+{
+ "generatedAt": "2026-11-13T16:25:20+00:00",
+ "purpose": "RESEARCH ONLY (Priority 16). geom_q078_v1 and fairness_bands_v2 unchanged.",
+ "preregistration": "docs/valuation/evidence/package_model_validation_2026-11-13/PREREGISTRATION.md",
+ "data": "D-OWN (tracked dynasty_main snapshot; one league; not decisive)",
+ "packageModel": {
+  "id": "geom_q078_v1",
+  "family": "geom",
+  "version": "1",
+  "label": "Geometric Value Adjustment (q = 0.78)",
+  "classification": "ACTIVE"
+ },
+ "audit": {
+  "trades": 96,
+  "excludedBeforePricing": {
+   "not_two_team": 3,
+   "other_season_league_format_not_the_snapshots": 13
+  },
+  "tierLabelsPricedGeneric": 77,
+  "format": {
+   "dynasty": true,
+   "superflex": true
+  },
+  "groups": 80,
+  "excluded": {
+   "topology:two_team_one_sided": 2,
+   "includes_unresolved": 6,
+   "no_board_strictly_before_within_lag": 36,
+   "asset_unpriced_on_point_in_time_board": 8
+  },
+  "topology": {
+   "two_team_multi_asset": 45,
+   "two_team_one_sided": 2,
+   "two_team_1_for_1": 14,
+   "two_team_2_for_1": 14,
+   "two_team_n_for_1": 5
+  },
+  "dedupeState": {
+   "CONFIRMED_UNIQUE": 80
+  },
+  "graded": 28,
+  "boardsUsed": 21
+ },
+ "evaluation": {
+  "n": 28,
+  "parity": {
+   "rows": 28,
+   "maxUtilityDiff": 3.637978807091713e-12,
+   "maxAdjustedGapDiff": 0.5,
+   "ok": true
+  },
+  "population": {
+   "trades": 28,
+   "unequal": 15,
+   "distinctLeagues": 1,
+   "rowsWithoutLeague": 0,
+   "distinctDates": 19,
+   "dateRange": [
+    "2026-08-11",
+    "2026-11-12"
+   ],
+   "byShape": {
+    "2v2": 4,
+    "3+": 12,
+    "1v1": 6,
+    "1v2": 3,
+    "2v1": 3
+   },
+   "byAssetClass": {
+    "offense_players_only": 11,
+    "includes_idp": 9,
+    "includes_picks_no_idp": 8
+   },
+   "byTier": {
+    "6000-7999": 4,
+    "2000-3999": 10,
+    "4000-5999": 11,
+    "<2000": 2,
+    "8000+": 1
+   },
+   "bySource": {
+    "own_league_snapshot": 28
+   }
+  },
+  "folds": [
+   {
+    "fold": 2,
+    "trainDates": [
+     "2026-08-11",
+     "2026-08-14"
+    ],
+    "testDates": [
+     "2026-08-24",
+     "2026-09-08"
+    ],
+    "trainUnequal": 1,
+    "testRows": 5,
+    "testUnequal": 3,
+    "qFit": 1.0,
+    "qMoment": 1.0,
+    "qLevelDiagnostic": 1.0,
+    "scored": true,
+    "mse": {
+     "M078": 0.1125,
+     "MFIT": 0.1778,
+     "M100": 0.1778
+    }
+   },
+   {
+    "fold": 3,
+    "trainDates": [
+     "2026-08-11",
+     "2026-09-08"
+    ],
+    "testDates": [
+     "2026-09-14",
+     "2026-09-28"
+    ],
+    "trainUnequal": 4,
+    "testRows": 6,
+    "testUnequal": 5,
+    "qFit": 0.3,
+    "qMoment": 0.3,
+    "qLevelDiagnostic": 0.79,
+    "scored": true,
+    "mse": {
+     "M078": 0.1157,
+     "MFIT": 0.0275,
+     "M100": 0.231
+    }
+   },
+   {
+    "fold": 4,
+    "trainDates": [
+     "2026-08-11",
+     "2026-09-28"
+    ],
+    "testDates": [
+     "2026-09-30",
+     "2026-10-15"
+    ],
+    "trainUnequal": 9,
+    "testRows": 5,
+    "testUnequal": 2,
+    "qFit": 0.3,
+    "qMoment": 0.3,
+    "qLevelDiagnostic": 0.87,
+    "scored": true,
+    "mse": {
+     "M078": 0.1828,
+     "MFIT": 0.0403,
+     "M100": 0.3202
+    }
+   },
+   {
+    "fold": 5,
+    "trainDates": [
+     "2026-08-11",
+     "2026-10-15"
+    ],
+    "testDates": [
+     "2026-10-16",
+     "2026-11-12"
+    ],
+    "trainUnequal": 11,
+    "testRows": 6,
+    "testUnequal": 4,
+    "qFit": 0.3,
+    "qMoment": 0.3,
+    "qLevelDiagnostic": 0.85,
+    "scored": true,
+    "mse": {
+     "M078": 0.0199,
+     "MFIT": 0.0011,
+     "M100": 0.1217
+    }
+   }
+  ],
+  "sufficiency": {
+   "decisive": false,
+   "reasons": [
+    "unequal_trades_below_2000",
+    "distinct_leagues_below_200",
+    "a_test_fold_below_200_unequal"
+   ],
+   "rule": "R0"
+  },
+  "bootstrap": {
+   "method": "two-way pigeonhole (league x date)",
+   "reps": 1000,
+   "seed": 20261113,
+   "leagueClusters": 1,
+   "dateClusters": 19
+  },
+  "outOfSample": {
+   "testUnequal": 14,
+   "mseM078": {
+    "value": 0.0972,
+    "ci95": [
+     0.0331,
+     0.1756
+    ]
+   },
+   "mseMFIT": {
+    "value": 0.054,
+    "ci95": [
+     0.0163,
+     0.1224
+    ]
+   },
+   "mseM100": {
+    "value": 0.2011,
+    "ci95": [
+     0.1013,
+     0.3178
+    ]
+   },
+   "diffM078minusMFIT": {
+    "value": 0.0432,
+    "ci95": [
+     -0.015,
+     0.1042
+    ],
+    "ci95LeagueOnly": [
+     0.0432,
+     0.0432
+    ]
+   },
+   "diffM078minusM100": {
+    "value": -0.1039,
+    "ci95": [
+     -0.1515,
+     -0.0535
+    ],
+    "ci95LeagueOnly": [
+     -0.1039,
+     -0.1039
+    ]
+   },
+   "leagueDisjointTestUnequal": 0,
+   "J": {
+    "M078": 0.3851,
+    "MFIT": 0.2144,
+    "MMOM": 0.2144,
+    "M100": 0.5291
+   }
+  },
+  "residualTables": {
+   "all": {
+    "all": {
+     "M078": {
+      "meanSigned": {
+       "n": 14,
+       "value": -0.2149,
+       "ci95": [
+        -0.3441,
+        -0.1091
+       ]
+      },
+      "meanAbs": {
+       "n": 22,
+       "value": 0.1758,
+       "ci95": [
+        0.1037,
+        0.2714
+       ]
+      },
+      "mse": {
+       "n": 14,
+       "value": 0.0972,
+       "ci95": [
+        0.0331,
+        0.1756
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 14,
+       "value": -0.1011,
+       "ci95": [
+        -0.2415,
+        -0.0034
+       ]
+      },
+      "meanAbs": {
+       "n": 22,
+       "value": 0.1479,
+       "ci95": [
+        0.0884,
+        0.2123
+       ]
+      },
+      "mse": {
+       "n": 14,
+       "value": 0.054,
+       "ci95": [
+        0.0163,
+        0.1224
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 14,
+       "value": -0.1011,
+       "ci95": [
+        -0.2415,
+        -0.0034
+       ]
+      },
+      "meanAbs": {
+       "n": 22,
+       "value": 0.1479,
+       "ci95": [
+        0.0884,
+        0.2123
+       ]
+      },
+      "mse": {
+       "n": 14,
+       "value": 0.054,
+       "ci95": [
+        0.0163,
+        0.1224
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 14,
+       "value": -0.3812,
+       "ci95": [
+        -0.5061,
+        -0.2657
+       ]
+      },
+      "meanAbs": {
+       "n": 22,
+       "value": 0.2763,
+       "ci95": [
+        0.168,
+        0.3947
+       ]
+      },
+      "mse": {
+       "n": 14,
+       "value": 0.2011,
+       "ci95": [
+        0.1013,
+        0.3178
+       ]
+      }
+     }
+    }
+   },
+   "shape": {
+    "1v1": {
+     "M078": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 4,
+       "value": 0.0419,
+       "ci95": [
+        0.0137,
+        0.1068
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 4,
+       "value": 0.0419,
+       "ci95": [
+        0.0137,
+        0.1068
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 4,
+       "value": 0.0419,
+       "ci95": [
+        0.0137,
+        0.1068
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 4,
+       "value": 0.0419,
+       "ci95": [
+        0.0137,
+        0.1068
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     }
+    },
+    "1v2": {
+     "M078": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.2541,
+       "ci95": [
+        -0.3641,
+        -0.161
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.2541,
+       "ci95": [
+        0.161,
+        0.3641
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0716,
+       "ci95": [
+        0.0259,
+        0.1326
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.1504,
+       "ci95": [
+        -0.2722,
+        -0.0657
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.1504,
+       "ci95": [
+        0.0657,
+        0.2722
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0304,
+       "ci95": [
+        0.0043,
+        0.0741
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.1504,
+       "ci95": [
+        -0.2722,
+        -0.0657
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.1504,
+       "ci95": [
+        0.0657,
+        0.2722
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0304,
+       "ci95": [
+        0.0043,
+        0.0741
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.366,
+       "ci95": [
+        -0.5001,
+        -0.2722
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.366,
+       "ci95": [
+        0.2722,
+        0.5001
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.1434,
+       "ci95": [
+        0.0741,
+        0.2501
+       ]
+      }
+     }
+    },
+    "2v1": {
+     "M078": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.583,
+       "ci95": [
+        -0.6046,
+        -0.5493
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.583,
+       "ci95": [
+        0.5493,
+        0.6046
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.3404,
+       "ci95": [
+        0.3017,
+        0.3655
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.3837,
+       "ci95": [
+        -0.6228,
+        -0.2587
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.3837,
+       "ci95": [
+        0.2587,
+        0.6228
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.1758,
+       "ci95": [
+        0.0669,
+        0.3879
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.3837,
+       "ci95": [
+        -0.6228,
+        -0.2587
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.3837,
+       "ci95": [
+        0.2587,
+        0.6228
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.1758,
+       "ci95": [
+        0.0669,
+        0.3879
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.7338,
+       "ci95": [
+        -0.7936,
+        -0.6228
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.7338,
+       "ci95": [
+        0.6228,
+        0.7936
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.5447,
+       "ci95": [
+        0.3879,
+        0.6298
+       ]
+      }
+     }
+    },
+    "2v2": {
+     "M078": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 2,
+       "value": 0.0503,
+       "ci95": [
+        0.036,
+        0.0646
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 2,
+       "value": 0.1002,
+       "ci95": [
+        0.0975,
+        0.103
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 2,
+       "value": 0.1002,
+       "ci95": [
+        0.0975,
+        0.103
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 2,
+       "value": 0.0265,
+       "ci95": [
+        0.0065,
+        0.0464
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     }
+    },
+    "3+": {
+     "M078": {
+      "meanSigned": {
+       "n": 8,
+       "value": -0.0621,
+       "ci95": [
+        -0.1076,
+        -0.0085
+       ]
+      },
+      "meanAbs": {
+       "n": 10,
+       "value": 0.1088,
+       "ci95": [
+        0.0551,
+        0.148
+       ]
+      },
+      "mse": {
+       "n": 8,
+       "value": 0.0157,
+       "ci95": [
+        0.002,
+        0.0278
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 8,
+       "value": 0.0234,
+       "ci95": [
+        -0.0808,
+        0.1203
+       ]
+      },
+      "meanAbs": {
+       "n": 10,
+       "value": 0.1283,
+       "ci95": [
+        0.0518,
+        0.2128
+       ]
+      },
+      "mse": {
+       "n": 8,
+       "value": 0.0172,
+       "ci95": [
+        0.0027,
+        0.0404
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 8,
+       "value": 0.0234,
+       "ci95": [
+        -0.0808,
+        0.1203
+       ]
+      },
+      "meanAbs": {
+       "n": 10,
+       "value": 0.1283,
+       "ci95": [
+        0.0518,
+        0.2128
+       ]
+      },
+      "mse": {
+       "n": 8,
+       "value": 0.0172,
+       "ci95": [
+        0.0027,
+        0.0404
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 8,
+       "value": -0.2546,
+       "ci95": [
+        -0.3441,
+        -0.132
+       ]
+      },
+      "meanAbs": {
+       "n": 10,
+       "value": 0.256,
+       "ci95": [
+        0.1551,
+        0.3317
+       ]
+      },
+      "mse": {
+       "n": 8,
+       "value": 0.0939,
+       "ci95": [
+        0.0258,
+        0.1535
+       ]
+      }
+     }
+    }
+   },
+   "p3bin": {
+    "1vN_small": {
+     "M078": {
+      "meanSigned": {
+       "n": 7,
+       "value": -0.3851,
+       "ci95": [
+        -0.524,
+        -0.2626
+       ]
+      },
+      "meanAbs": {
+       "n": 7,
+       "value": 0.3851,
+       "ci95": [
+        0.2626,
+        0.524
+       ]
+      },
+      "mse": {
+       "n": 7,
+       "value": 0.1815,
+       "ci95": [
+        0.0817,
+        0.2893
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 7,
+       "value": -0.2144,
+       "ci95": [
+        -0.4307,
+        -0.0899
+       ]
+      },
+      "meanAbs": {
+       "n": 7,
+       "value": 0.2434,
+       "ci95": [
+        0.1285,
+        0.4413
+       ]
+      },
+      "mse": {
+       "n": 7,
+       "value": 0.0899,
+       "ci95": [
+        0.0215,
+        0.2305
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 7,
+       "value": -0.2144,
+       "ci95": [
+        -0.4307,
+        -0.0899
+       ]
+      },
+      "meanAbs": {
+       "n": 7,
+       "value": 0.2434,
+       "ci95": [
+        0.1285,
+        0.4413
+       ]
+      },
+      "mse": {
+       "n": 7,
+       "value": 0.0899,
+       "ci95": [
+        0.0215,
+        0.2305
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 7,
+       "value": -0.5291,
+       "ci95": [
+        -0.673,
+        -0.3739
+       ]
+      },
+      "meanAbs": {
+       "n": 7,
+       "value": 0.5291,
+       "ci95": [
+        0.3739,
+        0.673
+       ]
+      },
+      "mse": {
+       "n": 7,
+       "value": 0.3183,
+       "ci95": [
+        0.154,
+        0.4709
+       ]
+      }
+     }
+    },
+    "ordinary": {
+     "M078": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.0243,
+       "ci95": [
+        -0.0989,
+        0.0388
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.0501,
+       "ci95": [
+        0.0128,
+        0.0989
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0038,
+       "ci95": [
+        0.0002,
+        0.0098
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 3,
+       "value": 0.0099,
+       "ci95": [
+        -0.2674,
+        0.208
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.1882,
+       "ci95": [
+        0.0891,
+        0.2674
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0409,
+       "ci95": [
+        0.0079,
+        0.0715
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 3,
+       "value": 0.0099,
+       "ci95": [
+        -0.2674,
+        0.208
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.1882,
+       "ci95": [
+        0.0891,
+        0.2674
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0409,
+       "ci95": [
+        0.0079,
+        0.0715
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.1691,
+       "ci95": [
+        -0.2674,
+        -0.1027
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.1691,
+       "ci95": [
+        0.1027,
+        0.2674
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0336,
+       "ci95": [
+        0.0105,
+        0.0715
+       ]
+      }
+     }
+    },
+    "deep": {
+     "M078": {
+      "meanSigned": {
+       "n": 4,
+       "value": -0.0598,
+       "ci95": [
+        -0.0822,
+        0.0009
+       ]
+      },
+      "meanAbs": {
+       "n": 4,
+       "value": 0.106,
+       "ci95": [
+        0.0009,
+        0.1738
+       ]
+      },
+      "mse": {
+       "n": 4,
+       "value": 0.0199,
+       "ci95": [
+        0.0,
+        0.037
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 4,
+       "value": 0.014,
+       "ci95": [
+        -0.0017,
+        0.022
+       ]
+      },
+      "meanAbs": {
+       "n": 4,
+       "value": 0.0237,
+       "ci95": [
+        0.0017,
+        0.0398
+       ]
+      },
+      "mse": {
+       "n": 4,
+       "value": 0.0011,
+       "ci95": [
+        0.0,
+        0.0021
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 4,
+       "value": 0.014,
+       "ci95": [
+        -0.0017,
+        0.022
+       ]
+      },
+      "meanAbs": {
+       "n": 4,
+       "value": 0.0237,
+       "ci95": [
+        0.0017,
+        0.0398
+       ]
+      },
+      "mse": {
+       "n": 4,
+       "value": 0.0011,
+       "ci95": [
+        0.0,
+        0.0021
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 4,
+       "value": -0.2813,
+       "ci95": [
+        -0.4022,
+        -0.0506
+       ]
+      },
+      "meanAbs": {
+       "n": 4,
+       "value": 0.2813,
+       "ci95": [
+        0.0506,
+        0.4022
+       ]
+      },
+      "mse": {
+       "n": 4,
+       "value": 0.1217,
+       "ci95": [
+        0.0026,
+        0.2057
+       ]
+      }
+     }
+    },
+    "equal": {
+     "M078": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.0747,
+       "ci95": [
+        0.0339,
+        0.1198
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.1113,
+       "ci95": [
+        0.0509,
+        0.1819
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.1113,
+       "ci95": [
+        0.0509,
+        0.1819
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.0929,
+       "ci95": [
+        0.0253,
+        0.1694
+       ]
+      },
+      "mse": {
+       "n": 0,
+       "value": null,
+       "ci95": null
+      }
+     }
+    }
+   },
+   "assetClass": {
+    "offense_players_only": {
+     "M078": {
+      "meanSigned": {
+       "n": 2,
+       "value": -0.1884,
+       "ci95": [
+        -0.3641,
+        -0.0128
+       ]
+      },
+      "meanAbs": {
+       "n": 6,
+       "value": 0.0908,
+       "ci95": [
+        0.0171,
+        0.2429
+       ]
+      },
+      "mse": {
+       "n": 2,
+       "value": 0.0664,
+       "ci95": [
+        0.0002,
+        0.1326
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 2,
+       "value": -0.0121,
+       "ci95": [
+        -0.1133,
+        0.0891
+       ]
+      },
+      "meanAbs": {
+       "n": 6,
+       "value": 0.0617,
+       "ci95": [
+        0.0171,
+        0.0982
+       ]
+      },
+      "mse": {
+       "n": 2,
+       "value": 0.0104,
+       "ci95": [
+        0.0079,
+        0.0128
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 2,
+       "value": -0.0121,
+       "ci95": [
+        -0.1133,
+        0.0891
+       ]
+      },
+      "meanAbs": {
+       "n": 6,
+       "value": 0.0617,
+       "ci95": [
+        0.0171,
+        0.0982
+       ]
+      },
+      "mse": {
+       "n": 2,
+       "value": 0.0104,
+       "ci95": [
+        0.0079,
+        0.0128
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 2,
+       "value": -0.3014,
+       "ci95": [
+        -0.5001,
+        -0.1027
+       ]
+      },
+      "meanAbs": {
+       "n": 6,
+       "value": 0.1284,
+       "ci95": [
+        0.0171,
+        0.3368
+       ]
+      },
+      "mse": {
+       "n": 2,
+       "value": 0.1303,
+       "ci95": [
+        0.0105,
+        0.2501
+       ]
+      }
+     }
+    },
+    "includes_idp": {
+     "M078": {
+      "meanSigned": {
+       "n": 6,
+       "value": -0.08,
+       "ci95": [
+        -0.1744,
+        0.0147
+       ]
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.1243,
+       "ci95": [
+        0.0618,
+        0.1704
+       ]
+      },
+      "mse": {
+       "n": 6,
+       "value": 0.0177,
+       "ci95": [
+        0.0042,
+        0.036
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 6,
+       "value": -0.0886,
+       "ci95": [
+        -0.2163,
+        0.0135
+       ]
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.1506,
+       "ci95": [
+        0.0269,
+        0.2399
+       ]
+      },
+      "mse": {
+       "n": 6,
+       "value": 0.0257,
+       "ci95": [
+        0.0014,
+        0.0583
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 6,
+       "value": -0.0886,
+       "ci95": [
+        -0.2163,
+        0.0135
+       ]
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.1506,
+       "ci95": [
+        0.0269,
+        0.2399
+       ]
+      },
+      "mse": {
+       "n": 6,
+       "value": 0.0257,
+       "ci95": [
+        0.0014,
+        0.0583
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 6,
+       "value": -0.2298,
+       "ci95": [
+        -0.2932,
+        -0.1443
+       ]
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.2377,
+       "ci95": [
+        0.1604,
+        0.2857
+       ]
+      },
+      "mse": {
+       "n": 6,
+       "value": 0.0607,
+       "ci95": [
+        0.0305,
+        0.0867
+       ]
+      }
+     }
+    },
+    "includes_picks_no_idp": {
+     "M078": {
+      "meanSigned": {
+       "n": 6,
+       "value": -0.3585,
+       "ci95": [
+        -0.5631,
+        -0.1086
+       ]
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.2911,
+       "ci95": [
+        0.1103,
+        0.4431
+       ]
+      },
+      "mse": {
+       "n": 6,
+       "value": 0.1871,
+       "ci95": [
+        0.0335,
+        0.3177
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 6,
+       "value": -0.1432,
+       "ci95": [
+        -0.4214,
+        0.0951
+       ]
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.2099,
+       "ci95": [
+        0.1027,
+        0.3611
+       ]
+      },
+      "mse": {
+       "n": 6,
+       "value": 0.0969,
+       "ci95": [
+        0.0218,
+        0.2482
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 6,
+       "value": -0.1432,
+       "ci95": [
+        -0.4214,
+        0.0951
+       ]
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.2099,
+       "ci95": [
+        0.1027,
+        0.3611
+       ]
+      },
+      "mse": {
+       "n": 6,
+       "value": 0.0969,
+       "ci95": [
+        0.0218,
+        0.2482
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 6,
+       "value": -0.5591,
+       "ci95": [
+        -0.7109,
+        -0.299
+       ]
+      },
+      "meanAbs": {
+       "n": 8,
+       "value": 0.426,
+       "ci95": [
+        0.1898,
+        0.6278
+       ]
+      },
+      "mse": {
+       "n": 6,
+       "value": 0.3651,
+       "ci95": [
+        0.1418,
+        0.5248
+       ]
+      }
+     }
+    }
+   },
+   "tier": {
+    "<2000": {
+     "M078": {
+      "meanSigned": {
+       "n": 2,
+       "value": -0.5998,
+       "ci95": [
+        -0.6046,
+        -0.595
+       ]
+      },
+      "meanAbs": {
+       "n": 2,
+       "value": 0.5998,
+       "ci95": [
+        0.595,
+        0.6046
+       ]
+      },
+      "mse": {
+       "n": 2,
+       "value": 0.3598,
+       "ci95": [
+        0.354,
+        0.3655
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 2,
+       "value": -0.2641,
+       "ci95": [
+        -0.2695,
+        -0.2587
+       ]
+      },
+      "meanAbs": {
+       "n": 2,
+       "value": 0.2641,
+       "ci95": [
+        0.2587,
+        0.2695
+       ]
+      },
+      "mse": {
+       "n": 2,
+       "value": 0.0698,
+       "ci95": [
+        0.0669,
+        0.0727
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 2,
+       "value": -0.2641,
+       "ci95": [
+        -0.2695,
+        -0.2587
+       ]
+      },
+      "meanAbs": {
+       "n": 2,
+       "value": 0.2641,
+       "ci95": [
+        0.2587,
+        0.2695
+       ]
+      },
+      "mse": {
+       "n": 2,
+       "value": 0.0698,
+       "ci95": [
+        0.0669,
+        0.0727
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 2,
+       "value": -0.7893,
+       "ci95": [
+        -0.7936,
+        -0.7851
+       ]
+      },
+      "meanAbs": {
+       "n": 2,
+       "value": 0.7893,
+       "ci95": [
+        0.7851,
+        0.7936
+       ]
+      },
+      "mse": {
+       "n": 2,
+       "value": 0.6231,
+       "ci95": [
+        0.6163,
+        0.6298
+       ]
+      }
+     }
+    },
+    "2000-3999": {
+     "M078": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.137,
+       "ci95": [
+        -0.2372,
+        -0.0128
+       ]
+      },
+      "meanAbs": {
+       "n": 7,
+       "value": 0.0803,
+       "ci95": [
+        0.0259,
+        0.1473
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0274,
+       "ci95": [
+        0.0002,
+        0.0562
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.0829,
+       "ci95": [
+        -0.2722,
+        0.0891
+       ]
+      },
+      "meanAbs": {
+       "n": 7,
+       "value": 0.0969,
+       "ci95": [
+        0.0466,
+        0.1617
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0288,
+       "ci95": [
+        0.0043,
+        0.0741
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.0829,
+       "ci95": [
+        -0.2722,
+        0.0891
+       ]
+      },
+      "meanAbs": {
+       "n": 7,
+       "value": 0.0969,
+       "ci95": [
+        0.0466,
+        0.1617
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0288,
+       "ci95": [
+        0.0043,
+        0.0741
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.2335,
+       "ci95": [
+        -0.3256,
+        -0.1027
+       ]
+      },
+      "meanAbs": {
+       "n": 7,
+       "value": 0.1149,
+       "ci95": [
+        0.0267,
+        0.2142
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0635,
+       "ci95": [
+        0.0105,
+        0.106
+       ]
+      }
+     }
+    },
+    "4000-5999": {
+     "M078": {
+      "meanSigned": {
+       "n": 5,
+       "value": -0.2688,
+       "ci95": [
+        -0.4567,
+        -0.0984
+       ]
+      },
+      "meanAbs": {
+       "n": 9,
+       "value": 0.1989,
+       "ci95": [
+        0.0994,
+        0.3276
+       ]
+      },
+      "mse": {
+       "n": 5,
+       "value": 0.1031,
+       "ci95": [
+        0.0097,
+        0.223
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 5,
+       "value": -0.2016,
+       "ci95": [
+        -0.4541,
+        -0.0074
+       ]
+      },
+      "meanAbs": {
+       "n": 9,
+       "value": 0.186,
+       "ci95": [
+        0.0536,
+        0.3253
+       ]
+      },
+      "mse": {
+       "n": 5,
+       "value": 0.0945,
+       "ci95": [
+        0.0003,
+        0.2648
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 5,
+       "value": -0.2016,
+       "ci95": [
+        -0.4541,
+        -0.0074
+       ]
+      },
+      "meanAbs": {
+       "n": 9,
+       "value": 0.186,
+       "ci95": [
+        0.0536,
+        0.3253
+       ]
+      },
+      "mse": {
+       "n": 5,
+       "value": 0.0945,
+       "ci95": [
+        0.0003,
+        0.2648
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 5,
+       "value": -0.4545,
+       "ci95": [
+        -0.6173,
+        -0.2704
+       ]
+      },
+      "meanAbs": {
+       "n": 9,
+       "value": 0.3235,
+       "ci95": [
+        0.1872,
+        0.4735
+       ]
+      },
+      "mse": {
+       "n": 5,
+       "value": 0.2313,
+       "ci95": [
+        0.0731,
+        0.381
+       ]
+      }
+     }
+    },
+    "6000-7999": {
+     "M078": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.0181,
+       "ci95": [
+        -0.1848,
+        0.0917
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.1051,
+       "ci95": [
+        0.0388,
+        0.1848
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0147,
+       "ci95": [
+        0.0015,
+        0.0342
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 3,
+       "value": 0.1238,
+       "ci95": [
+        0.0619,
+        0.208
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.1238,
+       "ci95": [
+        0.0619,
+        0.208
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0191,
+       "ci95": [
+        0.0038,
+        0.0433
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 3,
+       "value": 0.1238,
+       "ci95": [
+        0.0619,
+        0.208
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.1238,
+       "ci95": [
+        0.0619,
+        0.208
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0191,
+       "ci95": [
+        0.0038,
+        0.0433
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 3,
+       "value": -0.2448,
+       "ci95": [
+        -0.4045,
+        -0.1371
+       ]
+      },
+      "meanAbs": {
+       "n": 3,
+       "value": 0.2448,
+       "ci95": [
+        0.1371,
+        0.4045
+       ]
+      },
+      "mse": {
+       "n": 3,
+       "value": 0.0732,
+       "ci95": [
+        0.0188,
+        0.1637
+       ]
+      }
+     }
+    },
+    "8000+": {
+     "M078": {
+      "meanSigned": {
+       "n": 1,
+       "value": 0.0009,
+       "ci95": [
+        0.0009,
+        0.0009
+       ]
+      },
+      "meanAbs": {
+       "n": 1,
+       "value": 0.0009,
+       "ci95": [
+        0.0009,
+        0.0009
+       ]
+      },
+      "mse": {
+       "n": 1,
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ]
+      }
+     },
+     "MFIT": {
+      "meanSigned": {
+       "n": 1,
+       "value": -0.0017,
+       "ci95": [
+        -0.0017,
+        -0.0017
+       ]
+      },
+      "meanAbs": {
+       "n": 1,
+       "value": 0.0017,
+       "ci95": [
+        0.0017,
+        0.0017
+       ]
+      },
+      "mse": {
+       "n": 1,
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ]
+      }
+     },
+     "MMOM": {
+      "meanSigned": {
+       "n": 1,
+       "value": -0.0017,
+       "ci95": [
+        -0.0017,
+        -0.0017
+       ]
+      },
+      "meanAbs": {
+       "n": 1,
+       "value": 0.0017,
+       "ci95": [
+        0.0017,
+        0.0017
+       ]
+      },
+      "mse": {
+       "n": 1,
+       "value": 0.0,
+       "ci95": [
+        0.0,
+        0.0
+       ]
+      }
+     },
+     "M100": {
+      "meanSigned": {
+       "n": 1,
+       "value": -0.0506,
+       "ci95": [
+        -0.0506,
+        -0.0506
+       ]
+      },
+      "meanAbs": {
+       "n": 1,
+       "value": 0.0506,
+       "ci95": [
+        0.0506,
+        0.0506
+       ]
+      },
+      "mse": {
+       "n": 1,
+       "value": 0.0026,
+       "ci95": [
+        0.0026,
+        0.0026
+       ]
+      }
+     }
+    }
+   }
+  },
+  "qFit": {
+   "grid": [
+    0.3,
+    1.0,
+    0.01
+   ],
+   "target": "mean r^2 over unequal-count trades",
+   "qHat": 0.3,
+   "atGridBoundary": true,
+   "ci95": [
+    0.3,
+    0.3
+   ],
+   "bootReps": 300,
+   "lossAt": {
+    "0.78": 0.0914,
+    "qHat": 0.028,
+    "1.00": 0.1877
+   },
+   "lossCurve": {
+    "0.30": 0.028,
+    "0.35": 0.0309,
+    "0.40": 0.0344,
+    "0.45": 0.0386,
+    "0.50": 0.0434,
+    "0.55": 0.0492,
+    "0.60": 0.0559,
+    "0.65": 0.0637,
+    "0.70": 0.073,
+    "0.75": 0.0839,
+    "0.80": 0.0969,
+    "0.85": 0.1124,
+    "0.90": 0.1315,
+    "0.95": 0.1554,
+    "1.00": 0.1877
+   },
+   "qMoment": 0.3,
+   "qMomentCi95": [
+    0.3,
+    0.54
+   ],
+   "qMomentAtGridBoundary": true,
+   "qAllMultiPiece": 0.3,
+   "qLevelDiagnostic_c2000": 0.66,
+   "qLevelDiagnosticMoment_c2000": 1.0,
+   "R2_levelEffectExplainsLowQ": false,
+   "D1_R2_levelEffectExplainsLowQ_moment": false
+  },
+  "rules": {
+   "R0_decisive": false,
+   "R1_078_vs_fitted": "no_difference_detected",
+   "R1_078_vs_q1": "favours_0.78",
+   "R2_levelEffectExplainsLowQ": false,
+   "D1_R1_validity": "prediction_loss_only_not_a_test_of_q",
+   "D1_momentQ_vs_078": "interval_below",
+   "D1_J_oos": {
+    "M078": 0.3851,
+    "MFIT": 0.2144,
+    "MMOM": 0.2144,
+    "M100": 0.5291
+   },
+   "D1_R2_levelEffectExplainsLowQ_moment": false
+  },
+  "targetAuthoritySensitivity": {
+   "reported": false,
+   "unequalWithAuthority1": 15,
+   "minimum": 500
+  },
+  "bands": {
+   "bands": {
+    "version": "fairness_bands_v2",
+    "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+    "basis": "larger_package_utility",
+    "absoluteMinimum": 250.0,
+    "slightPct": 3.5,
+    "unfairPct": 9.0,
+    "lopsidedPct": 18.0,
+    "fairTradeLevels": [
+     "fair"
+    ],
+    "postLaunchValidation": "OD-F4"
+   },
+   "assumption": "A1: an accepted trade is, on average, a fair exchange at canonical value (PREREGISTRATION.md 7.1)",
+   "byQ": {
+    "0.78": {
+     "q": 0.78,
+     "table": {
+      "all": {
+       "all": {
+        "n": 28,
+        "notFairShare": {
+         "value": 0.7857,
+         "ci95": [
+          0.6154,
+          0.9286
+         ]
+        },
+        "levels": {
+         "slight": 3,
+         "lopsided": 12,
+         "unfair": 7,
+         "fair": 6
+        },
+        "againstConsolidatorShareOfNotFair": 0.7692,
+        "lopsidedShare": {
+         "value": 0.4286,
+         "ci95": [
+          0.24,
+          0.6131
+         ]
+        }
+       }
+      },
+      "shape": {
+       "1v1": {
+        "n": 6,
+        "notFairShare": {
+         "value": 0.5,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 1,
+         "unfair": 2,
+         "fair": 3
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.1667,
+         "ci95": [
+          0.0,
+          0.5
+         ]
+        }
+       },
+       "1v2": {
+        "n": 3,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "unfair": 1,
+         "lopsided": 2
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.6667,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "2v1": {
+        "n": 3,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 3
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        }
+       },
+       "2v2": {
+        "n": 4,
+        "notFairShare": {
+         "value": 0.75,
+         "ci95": [
+          0.2,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 2,
+         "lopsided": 1,
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.25,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "3+": {
+        "n": 12,
+        "notFairShare": {
+         "value": 0.8333,
+         "ci95": [
+          0.5556,
+          1.0
+         ]
+        },
+        "levels": {
+         "unfair": 4,
+         "lopsided": 5,
+         "slight": 1,
+         "fair": 2
+        },
+        "againstConsolidatorShareOfNotFair": 0.5714,
+        "lopsidedShare": {
+         "value": 0.4167,
+         "ci95": [
+          0.1111,
+          0.7059
+         ]
+        }
+       }
+      },
+      "p3bin": {
+       "1vN_small": {
+        "n": 7,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "unfair": 1,
+         "lopsided": 6
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.8571,
+         "ci95": [
+          0.5,
+          1.0
+         ]
+        }
+       },
+       "ordinary": {
+        "n": 4,
+        "notFairShare": {
+         "value": 0.75,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "unfair": 2,
+         "slight": 1,
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": 0.3333,
+        "lopsidedShare": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ]
+        }
+       },
+       "deep": {
+        "n": 4,
+        "notFairShare": {
+         "value": 0.75,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "unfair": 1,
+         "lopsided": 2,
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": 0.6667,
+        "lopsidedShare": {
+         "value": 0.5,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "equal": {
+        "n": 13,
+        "notFairShare": {
+         "value": 0.6923,
+         "ci95": [
+          0.4,
+          0.9231
+         ]
+        },
+        "levels": {
+         "slight": 2,
+         "lopsided": 4,
+         "unfair": 3,
+         "fair": 4
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.3077,
+         "ci95": [
+          0.0833,
+          0.5386
+         ]
+        }
+       }
+      },
+      "assetClass": {
+       "offense_players_only": {
+        "n": 11,
+        "notFairShare": {
+         "value": 0.6364,
+         "ci95": [
+          0.3333,
+          0.9
+         ]
+        },
+        "levels": {
+         "slight": 1,
+         "lopsided": 4,
+         "unfair": 2,
+         "fair": 4
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.3636,
+         "ci95": [
+          0.1111,
+          0.6667
+         ]
+        }
+       },
+       "includes_idp": {
+        "n": 9,
+        "notFairShare": {
+         "value": 0.8889,
+         "ci95": [
+          0.6,
+          1.0
+         ]
+        },
+        "levels": {
+         "unfair": 5,
+         "lopsided": 3,
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": 0.6667,
+        "lopsidedShare": {
+         "value": 0.3333,
+         "ci95": [
+          0.0,
+          0.6667
+         ]
+        }
+       },
+       "includes_picks_no_idp": {
+        "n": 8,
+        "notFairShare": {
+         "value": 0.875,
+         "ci95": [
+          0.5714,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 5,
+         "slight": 2,
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": 0.8333,
+        "lopsidedShare": {
+         "value": 0.625,
+         "ci95": [
+          0.2,
+          1.0
+         ]
+        }
+       }
+      },
+      "tier": {
+       "<2000": {
+        "n": 2,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 2
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        }
+       },
+       "2000-3999": {
+        "n": 10,
+        "notFairShare": {
+         "value": 0.6,
+         "ci95": [
+          0.2857,
+          0.8889
+         ]
+        },
+        "levels": {
+         "lopsided": 3,
+         "unfair": 2,
+         "fair": 4,
+         "slight": 1
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.3,
+         "ci95": [
+          0.0,
+          0.6
+         ]
+        }
+       },
+       "4000-5999": {
+        "n": 11,
+        "notFairShare": {
+         "value": 0.9091,
+         "ci95": [
+          0.6917,
+          1.0
+         ]
+        },
+        "levels": {
+         "unfair": 5,
+         "lopsided": 5,
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": 0.8333,
+        "lopsidedShare": {
+         "value": 0.4545,
+         "ci95": [
+          0.1818,
+          0.75
+         ]
+        }
+       },
+       "6000-7999": {
+        "n": 4,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 2,
+         "lopsided": 2
+        },
+        "againstConsolidatorShareOfNotFair": 0.3333,
+        "lopsidedShare": {
+         "value": 0.5,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "8000+": {
+        "n": 1,
+        "notFairShare": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ]
+        },
+        "levels": {
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ]
+        }
+       }
+      }
+     },
+     "excessOver1v1": {
+      "1v2": {
+       "notFairShare": {
+        "pp": 50.0,
+        "ci95pp": [
+         0.0,
+         100.0
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 50.0,
+        "ci95pp": [
+         -25.0,
+         100.0
+        ]
+       }
+      },
+      "2v1": {
+       "notFairShare": {
+        "pp": 50.0,
+        "ci95pp": [
+         0.0,
+         100.0
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 83.33,
+        "ci95pp": [
+         50.0,
+         100.0
+        ]
+       }
+      },
+      "2v2": {
+       "notFairShare": {
+        "pp": 25.0,
+        "ci95pp": [
+         -43.33,
+         85.71
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 8.33,
+        "ci95pp": [
+         -50.0,
+         83.33
+        ]
+       }
+      },
+      "3+": {
+       "notFairShare": {
+        "pp": 33.33,
+        "ci95pp": [
+         -17.65,
+         85.76
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 25.0,
+        "ci95pp": [
+         -30.36,
+         66.67
+        ]
+       }
+      }
+     },
+     "R3_shapeBiased": []
+    },
+    "qHat": {
+     "q": 0.3,
+     "table": {
+      "all": {
+       "all": {
+        "n": 28,
+        "notFairShare": {
+         "value": 0.75,
+         "ci95": [
+          0.5769,
+          0.8966
+         ]
+        },
+        "levels": {
+         "slight": 3,
+         "lopsided": 9,
+         "unfair": 9,
+         "fair": 7
+        },
+        "againstConsolidatorShareOfNotFair": 0.4167,
+        "lopsidedShare": {
+         "value": 0.3214,
+         "ci95": [
+          0.1538,
+          0.4828
+         ]
+        }
+       }
+      },
+      "shape": {
+       "1v1": {
+        "n": 6,
+        "notFairShare": {
+         "value": 0.5,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 1,
+         "unfair": 2,
+         "fair": 3
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.1667,
+         "ci95": [
+          0.0,
+          0.5
+         ]
+        }
+       },
+       "1v2": {
+        "n": 3,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 2,
+         "unfair": 1
+        },
+        "againstConsolidatorShareOfNotFair": 0.6667,
+        "lopsidedShare": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ]
+        }
+       },
+       "2v1": {
+        "n": 3,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 3
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        }
+       },
+       "2v2": {
+        "n": 4,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 1,
+         "lopsided": 1,
+         "unfair": 2
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.25,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "3+": {
+        "n": 12,
+        "notFairShare": {
+         "value": 0.6667,
+         "ci95": [
+          0.3565,
+          0.9
+         ]
+        },
+        "levels": {
+         "lopsided": 4,
+         "unfair": 4,
+         "fair": 4
+        },
+        "againstConsolidatorShareOfNotFair": 0.0,
+        "lopsidedShare": {
+         "value": 0.3333,
+         "ci95": [
+          0.0909,
+          0.625
+         ]
+        }
+       }
+      },
+      "p3bin": {
+       "1vN_small": {
+        "n": 7,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 2,
+         "lopsided": 3,
+         "unfair": 2
+        },
+        "againstConsolidatorShareOfNotFair": 0.7143,
+        "lopsidedShare": {
+         "value": 0.4286,
+         "ci95": [
+          0.0,
+          0.8
+         ]
+        }
+       },
+       "ordinary": {
+        "n": 4,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 2,
+         "unfair": 2
+        },
+        "againstConsolidatorShareOfNotFair": 0.0,
+        "lopsidedShare": {
+         "value": 0.5,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "deep": {
+        "n": 4,
+        "notFairShare": {
+         "value": 0.25,
+         "ci95": [
+          0.0,
+          0.5
+         ]
+        },
+        "levels": {
+         "fair": 3,
+         "lopsided": 1
+        },
+        "againstConsolidatorShareOfNotFair": 0.0,
+        "lopsidedShare": {
+         "value": 0.25,
+         "ci95": [
+          0.0,
+          0.5
+         ]
+        }
+       },
+       "equal": {
+        "n": 13,
+        "notFairShare": {
+         "value": 0.6923,
+         "ci95": [
+          0.4,
+          0.9231
+         ]
+        },
+        "levels": {
+         "slight": 1,
+         "lopsided": 3,
+         "unfair": 5,
+         "fair": 4
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.2308,
+         "ci95": [
+          0.0,
+          0.4444
+         ]
+        }
+       }
+      },
+      "assetClass": {
+       "offense_players_only": {
+        "n": 11,
+        "notFairShare": {
+         "value": 0.7273,
+         "ci95": [
+          0.3747,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 1,
+         "lopsided": 3,
+         "unfair": 4,
+         "fair": 3
+        },
+        "againstConsolidatorShareOfNotFair": 0.5,
+        "lopsidedShare": {
+         "value": 0.2727,
+         "ci95": [
+          0.0,
+          0.5556
+         ]
+        }
+       },
+       "includes_idp": {
+        "n": 9,
+        "notFairShare": {
+         "value": 0.6667,
+         "ci95": [
+          0.3333,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 2,
+         "unfair": 2,
+         "slight": 2,
+         "fair": 3
+        },
+        "againstConsolidatorShareOfNotFair": 0.2,
+        "lopsidedShare": {
+         "value": 0.2222,
+         "ci95": [
+          0.0,
+          0.6
+         ]
+        }
+       },
+       "includes_picks_no_idp": {
+        "n": 8,
+        "notFairShare": {
+         "value": 0.875,
+         "ci95": [
+          0.5993,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 4,
+         "unfair": 3,
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": 0.6,
+        "lopsidedShare": {
+         "value": 0.5,
+         "ci95": [
+          0.2,
+          0.8333
+         ]
+        }
+       }
+      },
+      "tier": {
+       "<2000": {
+        "n": 2,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 2
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        }
+       },
+       "2000-3999": {
+        "n": 10,
+        "notFairShare": {
+         "value": 0.8,
+         "ci95": [
+          0.5,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 2,
+         "unfair": 4,
+         "slight": 2,
+         "fair": 2
+        },
+        "againstConsolidatorShareOfNotFair": 0.3333,
+        "lopsidedShare": {
+         "value": 0.2,
+         "ci95": [
+          0.0,
+          0.4545
+         ]
+        }
+       },
+       "4000-5999": {
+        "n": 11,
+        "notFairShare": {
+         "value": 0.6364,
+         "ci95": [
+          0.3075,
+          0.9091
+         ]
+        },
+        "levels": {
+         "lopsided": 3,
+         "unfair": 4,
+         "fair": 4
+        },
+        "againstConsolidatorShareOfNotFair": 0.5,
+        "lopsidedShare": {
+         "value": 0.2727,
+         "ci95": [
+          0.0,
+          0.6
+         ]
+        }
+       },
+       "6000-7999": {
+        "n": 4,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 1,
+         "unfair": 1,
+         "lopsided": 2
+        },
+        "againstConsolidatorShareOfNotFair": 0.0,
+        "lopsidedShare": {
+         "value": 0.5,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "8000+": {
+        "n": 1,
+        "notFairShare": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ]
+        },
+        "levels": {
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ]
+        }
+       }
+      }
+     },
+     "excessOver1v1": {
+      "1v2": {
+       "notFairShare": {
+        "pp": 50.0,
+        "ci95pp": [
+         0.0,
+         100.0
+        ]
+       },
+       "lopsidedShare": {
+        "pp": -16.67,
+        "ci95pp": [
+         -51.43,
+         0.0
+        ]
+       }
+      },
+      "2v1": {
+       "notFairShare": {
+        "pp": 50.0,
+        "ci95pp": [
+         0.0,
+         100.0
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 83.33,
+        "ci95pp": [
+         50.0,
+         100.0
+        ]
+       }
+      },
+      "2v2": {
+       "notFairShare": {
+        "pp": 50.0,
+        "ci95pp": [
+         0.0,
+         100.0
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 8.33,
+        "ci95pp": [
+         -50.0,
+         83.33
+        ]
+       }
+      },
+      "3+": {
+       "notFairShare": {
+        "pp": 16.67,
+        "ci95pp": [
+         -33.33,
+         61.55
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 16.66,
+        "ci95pp": [
+         -17.21,
+         50.0
+        ]
+       }
+      }
+     },
+     "R3_shapeBiased": null
+    },
+    "1.00": {
+     "q": 1.0,
+     "table": {
+      "all": {
+       "all": {
+        "n": 28,
+        "notFairShare": {
+         "value": 0.8214,
+         "ci95": [
+          0.6667,
+          0.9375
+         ]
+        },
+        "levels": {
+         "slight": 3,
+         "lopsided": 15,
+         "fair": 5,
+         "unfair": 5
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.5357,
+         "ci95": [
+          0.3478,
+          0.7085
+         ]
+        }
+       }
+      },
+      "shape": {
+       "1v1": {
+        "n": 6,
+        "notFairShare": {
+         "value": 0.5,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 1,
+         "unfair": 2,
+         "fair": 3
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.1667,
+         "ci95": [
+          0.0,
+          0.5
+         ]
+        }
+       },
+       "1v2": {
+        "n": 3,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 3
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        }
+       },
+       "2v1": {
+        "n": 3,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 3
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        }
+       },
+       "2v2": {
+        "n": 4,
+        "notFairShare": {
+         "value": 0.75,
+         "ci95": [
+          0.2,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 2,
+         "lopsided": 1,
+         "fair": 1
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.25,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "3+": {
+        "n": 12,
+        "notFairShare": {
+         "value": 0.9167,
+         "ci95": [
+          0.7143,
+          1.0
+         ]
+        },
+        "levels": {
+         "fair": 1,
+         "lopsided": 7,
+         "unfair": 3,
+         "slight": 1
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.5833,
+         "ci95": [
+          0.2996,
+          0.8571
+         ]
+        }
+       }
+      },
+      "p3bin": {
+       "1vN_small": {
+        "n": 7,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 7
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        }
+       },
+       "ordinary": {
+        "n": 4,
+        "notFairShare": {
+         "value": 0.75,
+         "ci95": [
+          0.0833,
+          1.0
+         ]
+        },
+        "levels": {
+         "fair": 1,
+         "lopsided": 1,
+         "unfair": 2
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.25,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "deep": {
+        "n": 4,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 2,
+         "unfair": 1,
+         "slight": 1
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.5,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "equal": {
+        "n": 13,
+        "notFairShare": {
+         "value": 0.6923,
+         "ci95": [
+          0.4,
+          0.9231
+         ]
+        },
+        "levels": {
+         "slight": 2,
+         "lopsided": 5,
+         "unfair": 2,
+         "fair": 4
+        },
+        "againstConsolidatorShareOfNotFair": null,
+        "lopsidedShare": {
+         "value": 0.3846,
+         "ci95": [
+          0.1429,
+          0.6154
+         ]
+        }
+       }
+      },
+      "assetClass": {
+       "offense_players_only": {
+        "n": 11,
+        "notFairShare": {
+         "value": 0.7273,
+         "ci95": [
+          0.3747,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 1,
+         "lopsided": 4,
+         "unfair": 3,
+         "fair": 3
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.3636,
+         "ci95": [
+          0.1111,
+          0.6667
+         ]
+        }
+       },
+       "includes_idp": {
+        "n": 9,
+        "notFairShare": {
+         "value": 0.8889,
+         "ci95": [
+          0.6244,
+          1.0
+         ]
+        },
+        "levels": {
+         "fair": 1,
+         "lopsided": 6,
+         "unfair": 1,
+         "slight": 1
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.6667,
+         "ci95": [
+          0.2217,
+          1.0
+         ]
+        }
+       },
+       "includes_picks_no_idp": {
+        "n": 8,
+        "notFairShare": {
+         "value": 0.875,
+         "ci95": [
+          0.5714,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 5,
+         "unfair": 1,
+         "fair": 1,
+         "slight": 1
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.625,
+         "ci95": [
+          0.2,
+          1.0
+         ]
+        }
+       }
+      },
+      "tier": {
+       "<2000": {
+        "n": 2,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 2
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        }
+       },
+       "2000-3999": {
+        "n": 10,
+        "notFairShare": {
+         "value": 0.7,
+         "ci95": [
+          0.4,
+          1.0
+         ]
+        },
+        "levels": {
+         "lopsided": 4,
+         "unfair": 2,
+         "fair": 3,
+         "slight": 1
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.4,
+         "ci95": [
+          0.1,
+          0.7143
+         ]
+        }
+       },
+       "4000-5999": {
+        "n": 11,
+        "notFairShare": {
+         "value": 0.8182,
+         "ci95": [
+          0.5556,
+          1.0
+         ]
+        },
+        "levels": {
+         "fair": 2,
+         "lopsided": 8,
+         "unfair": 1
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.7273,
+         "ci95": [
+          0.4167,
+          1.0
+         ]
+        }
+       },
+       "6000-7999": {
+        "n": 4,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 1,
+         "lopsided": 1,
+         "unfair": 2
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.25,
+         "ci95": [
+          0.0,
+          1.0
+         ]
+        }
+       },
+       "8000+": {
+        "n": 1,
+        "notFairShare": {
+         "value": 1.0,
+         "ci95": [
+          1.0,
+          1.0
+         ]
+        },
+        "levels": {
+         "slight": 1
+        },
+        "againstConsolidatorShareOfNotFair": 1.0,
+        "lopsidedShare": {
+         "value": 0.0,
+         "ci95": [
+          0.0,
+          0.0
+         ]
+        }
+       }
+      }
+     },
+     "excessOver1v1": {
+      "1v2": {
+       "notFairShare": {
+        "pp": 50.0,
+        "ci95pp": [
+         0.0,
+         100.0
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 83.33,
+        "ci95pp": [
+         48.57,
+         100.0
+        ]
+       }
+      },
+      "2v1": {
+       "notFairShare": {
+        "pp": 50.0,
+        "ci95pp": [
+         0.0,
+         100.0
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 83.33,
+        "ci95pp": [
+         50.0,
+         100.0
+        ]
+       }
+      },
+      "2v2": {
+       "notFairShare": {
+        "pp": 25.0,
+        "ci95pp": [
+         -43.33,
+         85.71
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 8.33,
+        "ci95pp": [
+         -50.0,
+         83.33
+        ]
+       }
+      },
+      "3+": {
+       "notFairShare": {
+        "pp": 41.67,
+        "ci95pp": [
+         -10.03,
+         100.0
+        ]
+       },
+       "lopsidedShare": {
+        "pp": 41.66,
+        "ci95pp": [
+         -13.35,
+         84.62
+        ]
+       }
+      }
+     },
+     "R3_shapeBiased": null
+    }
+   },
+   "stabilityVs078": {
+    "qHat": {
+     "1v1": 0.0,
+     "1v2": 1.0,
+     "2v1": 0.0,
+     "2v2": 0.5,
+     "3+": 0.6667,
+     "all": 0.4643
+    },
+    "1.00": {
+     "1v1": 0.0,
+     "1v2": 0.3333,
+     "2v1": 0.0,
+     "2v2": 0.0,
+     "3+": 0.6667,
+     "all": 0.3214
+    }
+   }
+  }
+ },
+ "powerAnalysis": {
+  "label": "SYNTHETIC: estimator check and power only, never market evidence",
+  "sigma": 0.25,
+  "sigmaBasis": "Phase 3 production 1-for-1 mean |r| 0.1998 ~ 0.8 sigma",
+  "bootstrapReps": 200,
+  "cells": [
+   {
+    "noise": "symmetric",
+    "trueQ": 0.7,
+    "trades": 250,
+    "unequal": 152,
+    "mse": {
+     "qHat": 0.55,
+     "ci95": [
+      0.47,
+      0.63
+     ],
+     "ciWidth": 0.16,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.71,
+     "ci95": [
+      0.62,
+      0.81
+     ],
+     "ciWidth": 0.19,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "symmetric",
+    "trueQ": 0.7,
+    "trades": 1000,
+    "unequal": 626,
+    "mse": {
+     "qHat": 0.51,
+     "ci95": [
+      0.46,
+      0.55
+     ],
+     "ciWidth": 0.09,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.67,
+     "ci95": [
+      0.62,
+      0.71
+     ],
+     "ciWidth": 0.09,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "symmetric",
+    "trueQ": 0.7,
+    "trades": 5000,
+    "unequal": 2966,
+    "mse": {
+     "qHat": 0.56,
+     "ci95": [
+      0.54,
+      0.58
+     ],
+     "ciWidth": 0.04,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.7,
+     "ci95": [
+      0.68,
+      0.72
+     ],
+     "ciWidth": 0.04,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "symmetric",
+    "trueQ": 0.78,
+    "trades": 250,
+    "unequal": 153,
+    "mse": {
+     "qHat": 0.63,
+     "ci95": [
+      0.53,
+      0.74
+     ],
+     "ciWidth": 0.21,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.8,
+     "ci95": [
+      0.7,
+      0.9
+     ],
+     "ciWidth": 0.2,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "symmetric",
+    "trueQ": 0.78,
+    "trades": 1000,
+    "unequal": 609,
+    "mse": {
+     "qHat": 0.63,
+     "ci95": [
+      0.58,
+      0.67
+     ],
+     "ciWidth": 0.09,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.79,
+     "ci95": [
+      0.75,
+      0.85
+     ],
+     "ciWidth": 0.1,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "symmetric",
+    "trueQ": 0.78,
+    "trades": 5000,
+    "unequal": 3004,
+    "mse": {
+     "qHat": 0.64,
+     "ci95": [
+      0.61,
+      0.65
+     ],
+     "ciWidth": 0.04,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.79,
+     "ci95": [
+      0.77,
+      0.81
+     ],
+     "ciWidth": 0.04,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "symmetric",
+    "trueQ": 0.85,
+    "trades": 250,
+    "unequal": 154,
+    "mse": {
+     "qHat": 0.65,
+     "ci95": [
+      0.57,
+      0.74
+     ],
+     "ciWidth": 0.17,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.79,
+     "ci95": [
+      0.71,
+      0.88
+     ],
+     "ciWidth": 0.17,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "symmetric",
+    "trueQ": 0.85,
+    "trades": 1000,
+    "unequal": 627,
+    "mse": {
+     "qHat": 0.67,
+     "ci95": [
+      0.63,
+      0.72
+     ],
+     "ciWidth": 0.09,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.85,
+     "ci95": [
+      0.8,
+      0.89
+     ],
+     "ciWidth": 0.09,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "symmetric",
+    "trueQ": 0.85,
+    "trades": 5000,
+    "unequal": 2988,
+    "mse": {
+     "qHat": 0.7,
+     "ci95": [
+      0.68,
+      0.72
+     ],
+     "ciWidth": 0.04,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.86,
+     "ci95": [
+      0.83,
+      0.88
+     ],
+     "ciWidth": 0.05,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "b_side",
+    "trueQ": 0.7,
+    "trades": 250,
+    "unequal": 153,
+    "mse": {
+     "qHat": 0.66,
+     "ci95": [
+      0.59,
+      0.74
+     ],
+     "ciWidth": 0.15,
+     "coversTrueQ": true
+    },
+    "moment": {
+     "qHat": 0.8,
+     "ci95": [
+      0.72,
+      0.89
+     ],
+     "ciWidth": 0.17,
+     "coversTrueQ": false
+    }
+   },
+   {
+    "noise": "b_side",
+    "trueQ": 0.7,
+    "trades": 1000,
+    "unequal": 587,
+    "mse": {
+     "qHat": 0.58,
+     "ci95": [
+      0.54,
+      0.62
+     ],
+     "ciWidth": 0.08,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.71,
+     "ci95": [
+      0.67,
+      0.77
+     ],
+     "ciWidth": 0.1,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "b_side",
+    "trueQ": 0.7,
+    "trades": 5000,
+    "unequal": 2963,
+    "mse": {
+     "qHat": 0.57,
+     "ci95": [
+      0.55,
+      0.6
+     ],
+     "ciWidth": 0.05,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.72,
+     "ci95": [
+      0.7,
+      0.74
+     ],
+     "ciWidth": 0.04,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "b_side",
+    "trueQ": 0.78,
+    "trades": 250,
+    "unequal": 146,
+    "mse": {
+     "qHat": 0.72,
+     "ci95": [
+      0.64,
+      0.8
+     ],
+     "ciWidth": 0.16,
+     "coversTrueQ": true
+    },
+    "moment": {
+     "qHat": 0.85,
+     "ci95": [
+      0.75,
+      0.93
+     ],
+     "ciWidth": 0.18,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "b_side",
+    "trueQ": 0.78,
+    "trades": 1000,
+    "unequal": 610,
+    "mse": {
+     "qHat": 0.63,
+     "ci95": [
+      0.59,
+      0.67
+     ],
+     "ciWidth": 0.08,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.76,
+     "ci95": [
+      0.71,
+      0.8
+     ],
+     "ciWidth": 0.09,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "b_side",
+    "trueQ": 0.78,
+    "trades": 5000,
+    "unequal": 3000,
+    "mse": {
+     "qHat": 0.64,
+     "ci95": [
+      0.62,
+      0.66
+     ],
+     "ciWidth": 0.04,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.78,
+     "ci95": [
+      0.76,
+      0.81
+     ],
+     "ciWidth": 0.05,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "b_side",
+    "trueQ": 0.85,
+    "trades": 250,
+    "unequal": 149,
+    "mse": {
+     "qHat": 0.73,
+     "ci95": [
+      0.65,
+      0.82
+     ],
+     "ciWidth": 0.17,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.91,
+     "ci95": [
+      0.82,
+      1.0
+     ],
+     "ciWidth": 0.18,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "b_side",
+    "trueQ": 0.85,
+    "trades": 1000,
+    "unequal": 602,
+    "mse": {
+     "qHat": 0.71,
+     "ci95": [
+      0.67,
+      0.75
+     ],
+     "ciWidth": 0.08,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.84,
+     "ci95": [
+      0.79,
+      0.88
+     ],
+     "ciWidth": 0.09,
+     "coversTrueQ": true
+    }
+   },
+   {
+    "noise": "b_side",
+    "trueQ": 0.85,
+    "trades": 5000,
+    "unequal": 3006,
+    "mse": {
+     "qHat": 0.69,
+     "ci95": [
+      0.67,
+      0.71
+     ],
+     "ciWidth": 0.04,
+     "coversTrueQ": false
+    },
+    "moment": {
+     "qHat": 0.85,
+     "ci95": [
+      0.83,
+      0.87
+     ],
+     "ciWidth": 0.04,
+     "coversTrueQ": true
+    }
+   }
+  ]
+ },
+ "r1FalsePositiveCheck": {
+  "label": "SYNTHETIC: true q = 0.78; tests the decision rule, not the market",
+  "trades": 5000,
+  "sigma": 0.25,
+  "byNoise": {
+   "symmetric": {
+    "qHatMse": 0.64,
+    "qHatMseCi95": [
+     0.61,
+     0.67
+    ],
+    "qHatMoment": 0.8,
+    "qHatMomentCi95": [
+     0.76,
+     0.83
+    ],
+    "D1_momentQ_vs_078": "interval_covers",
+    "foldQFit": [
+     0.68,
+     0.65,
+     0.65,
+     0.64
+    ],
+    "foldQMoment": [
+     0.82,
+     0.8,
+     0.79,
+     0.8
+    ],
+    "diffM078minusMFIT": {
+     "value": 0.0033,
+     "ci95": [
+      0.0019,
+      0.0045
+     ],
+     "ci95LeagueOnly": [
+      0.0024,
+      0.0041
+     ]
+    },
+    "R1_078_vs_fitted": "favours_alternative",
+    "R1_078_vs_q1": "favours_0.78",
+    "J": {
+     "M078": 0.0092,
+     "MFIT": 0.0544,
+     "MMOM": 0.0075,
+     "M100": 0.1027
+    }
+   },
+   "b_side": {
+    "qHatMse": 0.63,
+    "qHatMseCi95": [
+     0.6,
+     0.65
+    ],
+    "qHatMoment": 0.79,
+    "qHatMomentCi95": [
+     0.75,
+     0.82
+    ],
+    "D1_momentQ_vs_078": "interval_covers",
+    "foldQFit": [
+     0.62,
+     0.63,
+     0.63,
+     0.63
+    ],
+    "foldQMoment": [
+     0.79,
+     0.79,
+     0.79,
+     0.79
+    ],
+    "diffM078minusMFIT": {
+     "value": 0.0035,
+     "ci95": [
+      0.002,
+      0.0053
+     ],
+     "ci95LeagueOnly": [
+      0.0026,
+      0.0046
+     ]
+    },
+    "R1_078_vs_fitted": "favours_alternative",
+    "R1_078_vs_q1": "favours_0.78",
+    "J": {
+     "M078": 0.0079,
+     "MFIT": 0.0628,
+     "MMOM": 0.0052,
+     "M100": 0.1023
+    }
+   }
+  }
+ },
+ "codeSha": "67c9794c16425237598c1bf763ef761142cb9641"
+}
