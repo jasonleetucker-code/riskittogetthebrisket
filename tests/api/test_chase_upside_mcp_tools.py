@@ -178,9 +178,22 @@ def test_rankings_refuse_unproven_scoring_and_unknown_leagues(monkeypatch):
 # ── rosters ────────────────────────────────────────────────────────────────
 
 
+def _team(contract, *, holds_picks: bool):
+    """A team that does or does not hold picks on this board.
+
+    Picks are traded, so which team holds none depends on the latest refresh.
+    Choosing ``teams[0]`` froze deploys on 2026-11-13, when that team had traded
+    every pick away.
+    """
+    for team in contract["sleeper"]["teams"]:
+        if bool(team.get("pickDetails")) == holds_picks:
+            return team
+    pytest.skip(f"no team with holds_picks={holds_picks} on this board")
+
+
 def test_roster_carries_canonical_ids_values_picks_and_freshness(monkeypatch):
     contract = _fresh_board()
-    team = contract["sleeper"]["teams"][0]
+    team = _team(contract, holds_picks=True)
     out = _call(
         monkeypatch,
         _stub_server(contract),
@@ -202,6 +215,23 @@ def test_roster_carries_canonical_ids_values_picks_and_freshness(monkeypatch):
     assert all(str(p["assetId"]).startswith("pick:dynasty_main:") for p in out["picks"])
     assert any(p["valueState"] == "priced" for p in out["picks"])
     _assert_no_source_values(out)
+
+
+def test_roster_with_no_picks_is_an_observed_empty_inventory(monkeypatch):
+    """Owning no picks is an observed fact: an empty list, never missing data."""
+    contract = _fresh_board()
+    team = copy.deepcopy(_team(contract, holds_picks=True))
+    team["picks"], team["pickDetails"] = [], []
+    team["pickOwnershipState"] = "observed"
+    contract["sleeper"]["teams"] = [
+        team if t["roster_id"] == team["roster_id"] else t for t in contract["sleeper"]["teams"]
+    ]
+    out = _call(
+        monkeypatch, _stub_server(contract), "get_team_roster", {"rosterId": team["roster_id"]}
+    )
+    assert out["pickOwnership"]["state"] == "observed"
+    assert out["picks"] == []
+    assert not any(m.get("field") == "picks" for m in out.get("missingData") or [])
 
 
 def test_roster_never_serves_the_loaded_leagues_teams_for_another_league(monkeypatch):
