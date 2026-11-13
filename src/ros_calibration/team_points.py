@@ -14,6 +14,10 @@ and challengers:
   median-game probability, concordance, projected-PF and expected-wins errors;
 * the team-cluster bootstrap and the gates TG1-TG5 (§4, §5).
 
+A second study, preregistered 2026-11-09, adds its own gates, decision rule, exact
+week-level test, two-way bootstrap and descriptive playoff-level scoring below; the
+first study's rules are left as they were.
+
 Nothing here does I/O, imports a production owner, or touches a served value.
 The incumbent's numbers come from the production simulator, called by the study
 script (``scripts/team_points_calibration_eval.py``); this module only scores
@@ -763,22 +767,420 @@ def recommend(
     return min(near, key=lambda c: (PARAMETER_COUNT[c], summaries[c]["crps"]))
 
 
+# ── study two: preregistered 2026-11-09 ──────────────────────────────────────────────
+#
+# Preregistration: ``docs/league-intelligence/TEAM_POINTS_STUDY2_PREREGISTRATION_2026-11-09.md``.
+# Everything below is separate from study one: ``evaluate_gates`` and ``recommend`` above
+# keep the completed study's rules, including its disclosed flaw.
+
+#: The fixed test sequence (§7).  Order is the preregistration's and is part of the error control.
+STUDY2_ELIGIBLE: tuple[str, ...] = ("AFCO", "CO")
+#: The factorial arm.  Gates are computed and published; it can never earn a recommendation.
+STUDY2_FACTORIAL: tuple[str, ...] = ("AF",)
+STUDY2_CHALLENGERS: tuple[str, ...] = STUDY2_ELIGIBLE + STUDY2_FACTORIAL
+#: References only (§8): best of these, per metric.  Never candidates, so never compared to themselves.
+STUDY2_BASELINES: tuple[str, ...] = ("B1", "B2")
+STUDY2_REQUIRED_WEEKS = 5
+
+STUDY2_ALPHA = 0.05
+NONINFERIORITY_MARGIN = 0.05
+MIN_CRPS_IMPROVEMENT = 0.10
+SLOPE_BAND = (0.70, 1.40)
+DISPERSION_FIRST_WEEK = 3
+DISPERSION_MIN_ROWS = 48
+EXTREME_PROBABILITY = 0.01
+
+OUTCOME_PROMOTE = "PROMOTE_RECOMMENDATION"
+OUTCOME_RETAIN = "RETAIN"
+OUTCOME_INCONCLUSIVE = "INCONCLUSIVE"
+OUTCOME_VOID = "VOID"
+
+REJECTED = "REJECTED"
+NOT_REJECTED = "NOT_REJECTED"
+NOT_TESTED = "NOT_TESTED"
+
+
+def dispersion_scale(
+    raw_by_week: Mapping[int, Mapping[str, Dist]],
+    view: RealizedView,
+    *,
+    first_week: int = DISPERSION_FIRST_WEEK,
+    min_rows: int = DISPERSION_MIN_ROWS,
+) -> float | None:
+    """``d_k = √(mean z²)`` over walk-forward forecasts of weeks ``[first_week, k−1]`` (§4).
+
+    ``raw_by_week`` holds each week's own walk-forward ``(mu, raw sd)``, and every score is
+    read through ``view``, so a week at or after the target raises ``LeakageError``.
+    ``None`` below ``min_rows``: too little evidence, never a default of 1.
+    """
+    total = 0.0
+    rows = 0
+    for j in sorted(raw_by_week):
+        if j < first_week:
+            continue
+        for team, (mu, sd) in sorted(raw_by_week[j].items()):
+            y = view.score(j, team)
+            if y is None:
+                continue
+            z = (y - mu) / sd
+            total += z * z
+            rows += 1
+    if rows < min_rows or total <= 0:
+        return None
+    return math.sqrt(total / rows)
+
+
+def apply_dispersion(raw: Mapping[str, Dist], scale: float | None) -> dict[str, Dist | None]:
+    """Scale every sd by ``scale``; a missing scale leaves the arm with no forecast."""
+    if scale is None:
+        return {team: None for team in raw}
+    return {team: (mu, sd * scale) for team, (mu, sd) in raw.items()}
+
+
+def weekly_mean_diffs(
+    recs_by_week: Mapping[int, Sequence[Record]], arm_a: str, arm_b: str, metric: str
+) -> dict[int, float]:
+    """Per week, mean(metric | arm_a) − mean(metric | arm_b) over the given records."""
+    out: dict[int, float] = {}
+    for week, recs in sorted(recs_by_week.items()):
+        if not recs:
+            raise InsufficientEvidence(f"week {week} has no records")
+        out[week] = statistics.fmean(
+            r.values[arm_a][metric] - r.values[arm_b][metric] for r in recs
+        )
+    return out
+
+
+def exact_sign_flip_p(diffs: Sequence[float]) -> float:
+    """One-sided exact sign-flip p: ``#{s : Σ s·D ≥ Σ D} / 2^W`` (§7).
+
+    Float slack only (1e-9), so a tie on the sum counts as a tie.  With five weeks the
+    smallest possible value is 1/32.
+    """
+    values = [float(x) for x in diffs]
+    weeks = len(values)
+    if weeks == 0:
+        raise InsufficientEvidence("no weeks for a sign-flip test")
+    if weeks > 20:
+        raise ValueError("exact enumeration is limited to 20 weeks")
+    observed = sum(values)
+    hits = 0
+    for mask in range(1 << weeks):
+        flipped = sum(v if (mask >> i) & 1 else -v for i, v in enumerate(values))
+        if flipped >= observed - 1e-9:
+            hits += 1
+    return hits / (1 << weeks)
+
+
+def weekly_t_statistic(diffs: Sequence[float]) -> float | None:
+    """Mean / (sd/√W) of the weekly differences.  Reported only (§7)."""
+    values = [float(x) for x in diffs]
+    if len(values) < 2:
+        return None
+    sd = statistics.stdev(values)
+    if not sd > 0:
+        return None
+    return statistics.fmean(values) / (sd / math.sqrt(len(values)))
+
+
+def two_way_bootstrap(
+    recs_by_week: Mapping[int, Sequence[Record]],
+    arm_a: str,
+    arm_b: str,
+    metric: str,
+    *,
+    reps: int,
+    seed: int,
+) -> dict[str, float]:
+    """Pigeonhole bootstrap over teams and weeks (§7): both resampled, statistic on the product cells.
+
+    A record's weight on team ``t`` is the same ``(t, w)`` as the team-cluster bootstrap,
+    so the full-sample weighted mean equals the plain mean.
+    """
+    weeks = sorted(recs_by_week)
+    teams = sorted({t for recs in recs_by_week.values() for r in recs for t, _ in r.clusters})
+    if not weeks or not teams:
+        raise InsufficientEvidence("no records to bootstrap")
+    index = {t: i for i, t in enumerate(teams)}
+    sums = np.zeros((len(weeks), len(teams)))
+    weights = np.zeros((len(weeks), len(teams)))
+    for i, week in enumerate(weeks):
+        for r in recs_by_week[week]:
+            d = r.values[arm_a][metric] - r.values[arm_b][metric]
+            for team, w in r.clusters:
+                sums[i, index[team]] += w * d
+                weights[i, index[team]] += w
+    if (weights <= 0).any():
+        raise InsufficientEvidence("two-way grid has an empty team-week cell")
+    point = float(sums.sum() / weights.sum())
+    rng = random.Random(seed)
+    stats_ = []
+    for _ in range(reps):
+        week_counts = np.zeros(len(weeks))
+        for _ in weeks:
+            week_counts[rng.randrange(len(weeks))] += 1
+        team_counts = np.zeros(len(teams))
+        for _ in teams:
+            team_counts[rng.randrange(len(teams))] += 1
+        stats_.append(
+            float(week_counts @ sums @ team_counts / (week_counts @ weights @ team_counts))
+        )
+    lo, hi = symmetric_interval(stats_)
+    return {
+        "delta": point,
+        "lo95": lo,
+        "hi95": hi,
+        "reps": reps,
+        "weeks": len(weeks),
+        "teams": len(teams),
+    }
+
+
+def primary_sequence(p_values: Mapping[str, float]) -> dict[str, str]:
+    """Fixed-sequence gatekeeping over the eligible arms (§7).
+
+    The second arm is tested only if the first rejects; otherwise it is ``NOT_TESTED``.
+    """
+    status: dict[str, str] = {}
+    open_gate = True
+    for arm in STUDY2_ELIGIBLE:
+        if not open_gate:
+            status[arm] = NOT_TESTED
+            continue
+        if p_values[arm] <= STUDY2_ALPHA:
+            status[arm] = REJECTED
+        else:
+            status[arm] = NOT_REJECTED
+            open_gate = False
+    return status
+
+
+def best_baseline(summaries: Mapping[str, Mapping[str, Any]], metric: str) -> float:
+    """The best simple baseline on one metric (§8).  Identical baselines cannot block anyone."""
+    return min(float(summaries[b][metric]) for b in STUDY2_BASELINES)
+
+
+def evaluate_study2_gates(
+    summaries: Mapping[str, Mapping[str, Any]],
+    inference: Mapping[str, Mapping[str, Any]],
+    sequence: Mapping[str, str],
+    challenger: str,
+) -> dict[str, Any]:
+    """SG1-SG6 for one challenger (§8), on unrounded values.
+
+    ``inference[arm]`` carries ``signFlipP`` and ``twoWayCrps`` (the bootstrap of
+    incumbent − challenger).  An eligible arm's SG1(a) follows the sequence; the factorial
+    arm is outside the family and reads its own p, as information only.
+    """
+    if challenger in STUDY2_BASELINES or challenger == INCUMBENT:
+        raise ValueError(f"{challenger} is a reference in study two, never a candidate")
+    s = summaries[challenger]
+    inc = summaries[INCUMBENT]
+    inf = inference[challenger]
+    margin = 1.0 + NONINFERIORITY_MARGIN
+
+    if challenger in STUDY2_ELIGIBLE:
+        sg1a = sequence.get(challenger) == REJECTED
+    else:
+        sg1a = inf["signFlipP"] <= STUDY2_ALPHA
+    delta = inc["crps"] - s["crps"]
+    sg1 = sg1a and inf["twoWayCrps"]["lo95"] > 0 and delta >= MIN_CRPS_IMPROVEMENT * inc["crps"]
+    sg2 = (
+        s["logLossBinary"] < inc["logLossBinary"]
+        and s["brierBinary"] <= inc["brierBinary"]
+        and s["logLossBinary"] <= margin * best_baseline(summaries, "logLossBinary")
+    )
+    sg3 = (
+        abs(s["bias"]) <= MAX_ABS_BIAS
+        and s["mae"] < inc["mae"]
+        and s["mae"] <= margin * best_baseline(summaries, "mae")
+    )
+    slope = s["calibrationSlope"]
+    sg4 = (
+        ZRMS_BAND[0] <= s["zRms"] <= ZRMS_BAND[1]
+        and COVERAGE80_BAND[0] <= s["coverage80"] <= COVERAGE80_BAND[1]
+        and slope is not None
+        and SLOPE_BAND[0] <= slope <= SLOPE_BAND[1]
+    )
+    sg5 = s["concordance"] >= inc["concordance"] - CONCORDANCE_SLACK
+    sg6 = s["crps"] <= margin * best_baseline(summaries, "crps")
+    gates = {"SG1": sg1, "SG2": sg2, "SG3": sg3, "SG4": sg4, "SG5": sg5, "SG6": sg6}
+    failed = [g for g, ok in gates.items() if not ok]
+    return {
+        "eligible": challenger in STUDY2_ELIGIBLE,
+        "primary": sequence.get(challenger),
+        "gates": {g: ("PASS" if ok else "FAIL") for g, ok in gates.items()},
+        "failed": failed,
+        "verdict": "PASSES_ALL_GATES" if not failed else "DOES_NOT_PASS",
+    }
+
+
+def decide_study2(
+    verdicts: Mapping[str, Mapping[str, Any]],
+    *,
+    weeks_scored: int,
+    void_reasons: Sequence[str] = (),
+) -> dict[str, Any]:
+    """The preregistered decision rule (§9), applied in table order."""
+    if void_reasons:
+        return {"outcome": OUTCOME_VOID, "reasons": list(void_reasons)}
+    if weeks_scored < STUDY2_REQUIRED_WEEKS:
+        return {
+            "outcome": OUTCOME_INCONCLUSIVE,
+            "reason": "insufficient_weeks",
+            "weeksScored": weeks_scored,
+        }
+    for arm in STUDY2_ELIGIBLE:
+        if verdicts[arm]["verdict"] == "PASSES_ALL_GATES":
+            return {"outcome": OUTCOME_PROMOTE, "arm": arm}
+    if any(verdicts[arm]["gates"]["SG1"] == "PASS" for arm in STUDY2_ELIGIBLE):
+        return {
+            "outcome": OUTCOME_INCONCLUSIVE,
+            "reason": "beats_incumbent_fails_gate",
+            "failed": {arm: list(verdicts[arm]["failed"]) for arm in STUDY2_ELIGIBLE},
+        }
+    return {
+        "outcome": OUTCOME_RETAIN,
+        "reason": "no_eligible_arm_demonstrated_superiority",
+        "failed": {arm: list(verdicts[arm]["failed"]) for arm in STUDY2_ELIGIBLE},
+    }
+
+
+# ── binary playoff level (descriptive, §6) ───────────────────────────────────────────
+
+
+def standings_through(
+    realized: Mapping[int, Mapping[str, float]],
+    pairs_by_week: Mapping[int, Sequence[tuple[str, str]]],
+    threshold: Callable[[Sequence[float]], float],
+    weeks: Iterable[int],
+) -> tuple[dict[str, float], dict[str, float]]:
+    """``(wins, points for)`` over realized ``weeks``: head-to-head plus median game, ties ½."""
+    weeks = sorted(weeks)
+    wins: dict[str, float] = {}
+    pf: dict[str, float] = {}
+    for w in weeks:
+        for team in realized[w]:
+            wins.setdefault(team, 0.0)
+            pf.setdefault(team, 0.0)
+        thr = threshold([realized[w][t] for t in sorted(realized[w])])
+        for team, score in realized[w].items():
+            wins[team] += outcome(score, thr)
+            pf[team] += score
+        for a, b in pairs_by_week[w]:
+            result = outcome(realized[w][a], realized[w][b])
+            wins[a] += result
+            wins[b] += 1.0 - result
+    return wins, pf
+
+
+def qualifiers(
+    wins: Mapping[str, float], pf: Mapping[str, float], playoff_teams: int
+) -> list[str] | None:
+    """The top ``playoff_teams`` by (wins, points for).  ``None`` if the cut is an exact tie."""
+    ranked = sorted(wins, key=lambda t: (-wins[t], -pf[t], t))
+    if len(ranked) > playoff_teams:
+        last_in, first_out = ranked[playoff_teams - 1], ranked[playoff_teams]
+        if wins[last_in] == wins[first_out] and pf[last_in] == pf[first_out]:
+            return None
+    return ranked[:playoff_teams]
+
+
+def qualification_probabilities(
+    dists: Mapping[str, Dist],
+    wins_to_date: Mapping[str, float],
+    pf_to_date: Mapping[str, float],
+    schedule: Mapping[int, Sequence[tuple[str, str]]],
+    threshold: Callable[[Sequence[float]], float],
+    *,
+    playoff_teams: int,
+    draws: int,
+    seed: int,
+) -> dict[str, float]:
+    """P(qualify) from a record to date, each ``(mu, sd)`` held constant over ``schedule`` (§6).
+
+    Scores are drawn ``max(0, Normal)``, as the simulator draws them.  An exact tie on wins
+    and points for at the cut is broken by a seeded coin.
+    """
+    teams = sorted(dists)
+    index = {t: i for i, t in enumerate(teams)}
+    rng = np.random.default_rng(seed)
+    mus = np.array([dists[t][0] for t in teams])
+    sds = np.array([dists[t][1] for t in teams])
+    wins = np.tile(np.array([float(wins_to_date.get(t, 0.0)) for t in teams]), (draws, 1))
+    pf = np.tile(np.array([float(pf_to_date.get(t, 0.0)) for t in teams]), (draws, 1))
+    for week in sorted(schedule):
+        scores = np.maximum(0.0, rng.normal(mus, sds, size=(draws, len(teams))))
+        thresholds = np.array([threshold(list(row)) for row in scores])
+        wins += np.where(
+            scores > thresholds[:, None], 1.0, np.where(scores == thresholds[:, None], 0.5, 0.0)
+        )
+        for a, b in schedule[week]:
+            ia, ib = index[a], index[b]
+            win_a = np.where(
+                scores[:, ia] > scores[:, ib],
+                1.0,
+                np.where(scores[:, ia] == scores[:, ib], 0.5, 0.0),
+            )
+            wins[:, ia] += win_a
+            wins[:, ib] += 1.0 - win_a
+        pf += scores
+    order = np.lexsort((rng.random(size=wins.shape), pf, wins), axis=1)
+    counts = np.zeros(len(teams))
+    for row in order[:, -playoff_teams:]:
+        counts[row] += 1
+    return {t: float(counts[index[t]] / draws) for t in teams}
+
+
+def playoff_scores(
+    probabilities: Mapping[str, float], qualified: Iterable[str]
+) -> dict[str, float | int]:
+    """Brier and log loss of P(qualify), and how many probabilities sit at or beyond 1% / 99%."""
+    made = set(qualified)
+    brier, ll, extreme = [], [], 0
+    for team, p in sorted(probabilities.items()):
+        y = 1.0 if team in made else 0.0
+        brier.append((p - y) ** 2)
+        ll.append(log_loss(p, y))
+        extreme += int(p <= EXTREME_PROBABILITY or p >= 1.0 - EXTREME_PROBABILITY)
+    return {
+        "teams": len(brier),
+        "brier": statistics.fmean(brier),
+        "logLoss": statistics.fmean(ll),
+        "extremeProbabilities": extreme,
+    }
+
+
 __all__ = [
     "BASELINES",
     "CHALLENGERS",
     "INCUMBENT",
     "InsufficientEvidence",
     "LeakageError",
+    "OUTCOME_INCONCLUSIVE",
+    "OUTCOME_PROMOTE",
+    "OUTCOME_RETAIN",
+    "OUTCOME_VOID",
     "OlsFit",
     "PresimView",
     "RealizedView",
     "Record",
+    "STUDY2_BASELINES",
+    "STUDY2_CHALLENGERS",
+    "STUDY2_ELIGIBLE",
+    "STUDY2_FACTORIAL",
     "WeekInputs",
+    "apply_dispersion",
+    "best_baseline",
     "calibration_slope",
     "candidate_forecasts",
     "concordance",
     "crps_normal",
+    "decide_study2",
+    "dispersion_scale",
     "evaluate_gates",
+    "evaluate_study2_gates",
+    "exact_sign_flip_p",
     "forecast_affine",
     "forecast_b0",
     "forecast_b1",
@@ -790,12 +1192,20 @@ __all__ = [
     "ols",
     "outcome",
     "paired_cluster_bootstrap",
+    "playoff_scores",
     "pooled_within_sd",
+    "primary_sequence",
+    "qualification_probabilities",
+    "qualifiers",
     "rank_contributors",
     "recommend",
     "require_complete",
     "score_week",
+    "standings_through",
     "summarize_arm",
     "symmetric_interval",
+    "two_way_bootstrap",
+    "weekly_mean_diffs",
+    "weekly_t_statistic",
     "win_probability",
 ]
