@@ -50,7 +50,7 @@ jobs:
           set -Eeuo pipefail
           sha256sum -c calculator-backend-wheels.tar.sha256
       - name: Upload measured backend artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: calculator-backend-wheels-${{ github.event.pull_request.head.sha }}
           path: |
@@ -79,7 +79,7 @@ jobs:
             requirements.lock.txt backend-wheelhouse.tar
           sha256sum -c backend-wheelhouse.tar.sha256
       - name: Upload production runtime wheel proof
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: calculator-runtime-wheels-${{ github.event.pull_request.head.sha }}
           path: |
