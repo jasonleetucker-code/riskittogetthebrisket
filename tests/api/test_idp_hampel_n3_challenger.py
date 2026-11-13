@@ -66,9 +66,30 @@ def boards():
     return payload, off, on
 
 
-def _voters(row: dict) -> set[str]:
+def _voter_meta(row: dict) -> dict[str, dict]:
     meta = row.get("sourceRankMeta") or {}
-    return {k for k, m in meta.items() if isinstance(m, dict) and not m.get("excludedReason")}
+    return {k: m for k, m in meta.items() if isinstance(m, dict) and not m.get("excludedReason")}
+
+
+def _voters(row: dict) -> set[str]:
+    return set(_voter_meta(row))
+
+
+#: ``valueContribution`` is the pipeline's float vote rounded to an int, so
+#: each vote the oracle sees is off by <= 0.5: the median by <= 0.5, each
+#: deviation and the MAD by <= 1.0, the threshold by <= k x 1.0.  A vote whose
+#: deviation sits within this margin of the threshold cannot be decided from
+#: the stamped values, and asserting equality there would make the hard gate
+#: flip on a rounding boundary (independent review of #2188).
+_ROUNDING_MARGIN = 1.0 + dc._HAMPEL_K * 1.0
+
+
+def _within_rounding_of_the_threshold(votes: list[tuple[str, float]]) -> bool:
+    values = sorted(v for _, v in votes)
+    median = values[1]
+    deviations = sorted(abs(v - median) for v in values)
+    threshold = max(dc._HAMPEL_K * deviations[1], dc._HAMPEL_MIN_THRESHOLD)
+    return any(abs(abs(v - median) - threshold) <= _ROUNDING_MARGIN for v in values)
 
 
 def test_off_is_byte_identical(boards):
@@ -85,7 +106,6 @@ def test_off_is_byte_identical(boards):
 def test_on_changes_the_drop_decision_only_on_three_voter_idp_rows(boards):
     _payload, off, on = boards
     on_rows = {r["displayName"]: r for r in on["playersArray"]}
-    changed = 0
     for row in off["playersArray"]:
         other = on_rows[row["displayName"]]
         a, b = row.get("sourceRankMeta") or {}, other.get("sourceRankMeta") or {}
@@ -97,18 +117,31 @@ def test_on_changes_the_drop_decision_only_on_three_voter_idp_rows(boards):
         if not target:
             assert row.get("droppedSources") == other.get("droppedSources"), row["displayName"]
             continue
-        if row.get("droppedSources") != other.get("droppedSources"):
-            changed += 1
-            dropped = set(other.get("droppedSources") or [])
-            assert len(dropped) == 1 and dropped <= _voters(other)
+        newly_dropped = set(other.get("droppedSources") or []) - set(
+            row.get("droppedSources") or []
+        )
+        # Exact oracle: ON drops precisely what the preregistered rule (the
+        # unit-tested ``_hampel_filter_per_player`` at n = 3) drops from this
+        # row's own three votes — no more, no fewer, on whatever board this is.
+        votes = [(k, float(m["valueContribution"])) for k, m in sorted(_voter_meta(row).items())]
+        if not _within_rounding_of_the_threshold(votes):
+            expected = set(dc._hampel_filter_per_player(votes, min_n=3)[1])
+            assert newly_dropped == expected, (row["displayName"], votes)
+        if newly_dropped:
+            assert len(newly_dropped) == 1 and newly_dropped <= _voters(other)
     triples = [
         r for r in off["playersArray"] if r.get("assetClass") == "idp" and len(_voters(r)) == 3
     ]
     if not triples:
         pytest.skip("no three-voter IDP row on this archive")
-    # Asymmetric IDP triples above the floor exist on every complete board
-    # since 2026-10-12, when IDP rows fell to at most three voters.
-    assert changed > 0
+    # No ``changed > 0`` here: whether an asymmetric triple exists is a fact
+    # about whichever board refreshed last, not about the code (the hard gate
+    # may not assert a count over the live board — CLAUDE.md "CI has two
+    # lanes").  That claim held from 2026-10-12 and stopped holding with the
+    # 2026-11-11 18:06 UTC archive (IDP triples 239 -> 72, none asymmetric
+    # enough), which failed every production deploy from 18:09.  The exact
+    # per-row oracle above covers both cases; the drop itself is proven
+    # deterministically by test_n3_drops_only_a_strongly_asymmetric_triple_above_the_floor.
 
 
 def test_on_stays_on_scale_and_never_leaves_fewer_than_two_votes(boards):

@@ -124,24 +124,49 @@ test.describe("signed-in: /waivers page", () => {
       ? contract.playersArray
       : [];
     expect(players.length).toBeGreaterThan(0);
-    // Pick the highest-value non-pick — guaranteed to be a real
-    // player the recommender can resolve.
-    const target = players.find(
-      (p) =>
-        p?.assetClass !== "pick" &&
-        Number.isFinite(Number(p?.rankDerivedValue)) &&
-        Number(p?.rankDerivedValue) > 0,
-    );
-    expect(target?.displayName).toBeTruthy();
+    // A waiver claim needs a FREE AGENT.  Since CW-50 (#2136) the endpoint
+    // answers 409 ``add_player_not_available`` for anyone already on a roster
+    // in the league (server.py::post_waiver_faab_recommend), and the highest
+    // valued players on the board are all rostered.  So walk the board in value
+    // order until one is claimable.  A 409 of that exact kind is the intended
+    // contract for a rostered player and is skipped; any other non-2xx is a
+    // real failure and fails the test immediately.
+    const candidates = players
+      .filter(
+        (p) =>
+          p?.assetClass !== "pick" &&
+          p?.displayName &&
+          Number.isFinite(Number(p?.rankDerivedValue)) &&
+          Number(p?.rankDerivedValue) > 0,
+      )
+      .sort((a, b) => Number(b.rankDerivedValue) - Number(a.rankDerivedValue))
+      .slice(0, 400);
+    expect(candidates.length).toBeGreaterThan(0);
 
-    const res = await authedPage.request.post(
-      "/api/waiver/faab-recommend",
-      {
-        data: {
-          addPlayerName: target.displayName,
-        },
-      },
-    );
+    let res = null;
+    let rostered = 0;
+    for (const target of candidates) {
+      const attempt = await authedPage.request.post(
+        "/api/waiver/faab-recommend",
+        { data: { addPlayerName: target.displayName } },
+      );
+      if (attempt.status() === 409) {
+        const err = await attempt.json().catch(() => ({}));
+        expect(
+          err?.error,
+          `409 from faab-recommend for ${target.displayName} must be add_player_not_available`,
+        ).toBe("add_player_not_available");
+        rostered += 1;
+        continue;
+      }
+      res = attempt;
+      break;
+    }
+    expect(
+      res,
+      `no claimable free agent among the top ${candidates.length} board players ` +
+        `(${rostered} were on a roster)`,
+    ).not.toBeNull();
     expect(res.ok(), `POST /api/waiver/faab-recommend should be 2xx, got ${res.status()}`).toBeTruthy();
     const body = await res.json();
     // Documented shape (see src/trade/faab_recommender.py).
@@ -161,10 +186,16 @@ test.describe("signed-in: /waivers page", () => {
     expect(Array.isArray(body.factors)).toBeTruthy();
     expect(Array.isArray(body.warnings)).toBeTruthy();
     expect(typeof body.explanation).toBe("string");
-    // Bids are non-negative integers.
-    for (const k of ["conservative", "standard", "aggressive", "max"]) {
-      expect(Number.isInteger(body[k])).toBeTruthy();
-      expect(body[k]).toBeGreaterThanOrEqual(0);
+    // Bids are non-negative integers, or all null when this team's balance is
+    // unknown: a withheld bid must never read as a number (missing is never zero).
+    const bidKeys = ["conservative", "standard", "aggressive", "max"];
+    if (body.faabBudget?.bidsWithheld) {
+      for (const k of bidKeys) expect(body[k], `${k} must be withheld`).toBeNull();
+    } else {
+      for (const k of bidKeys) {
+        expect(Number.isInteger(body[k]), `${k} must be an integer`).toBeTruthy();
+        expect(body[k]).toBeGreaterThanOrEqual(0);
+      }
     }
   });
 });

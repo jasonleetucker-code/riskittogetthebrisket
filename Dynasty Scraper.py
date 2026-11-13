@@ -33,6 +33,7 @@
 # """
 
 import asyncio
+import contextlib
 import functools
 import inspect
 import re
@@ -3694,7 +3695,21 @@ async def run(progress_callback=None):
     if browser_needed:
         await _phase("browser", "launch", message="Launching browser context")
         print("Launching browser...")
-        async with async_playwright() as pw:
+        # Python-side deadlines on the driver start and the Chromium launch.
+        # Playwright's own 180 s launch timeout is enforced by its Node driver,
+        # so a driver that is itself stalled never fires it: on 2026-11-12
+        # production (service cgroup above MemoryHigh) every run sat at this
+        # step with no heartbeat until the 2 h run timeout.  The launch
+        # deadline sits past Playwright's own so its error, when it can raise
+        # one, still wins.  Same ``asyncio.wait_for`` pattern as the per-site
+        # scrapes below.
+        playwright_start_deadline = _env_int("SCRAPER_PLAYWRIGHT_START_DEADLINE", 120)
+        browser_launch_deadline = _env_int("SCRAPER_BROWSER_LAUNCH_DEADLINE", 240)
+        async with contextlib.AsyncExitStack() as _playwright_stack:
+            pw = await asyncio.wait_for(
+                _playwright_stack.enter_async_context(async_playwright()),
+                timeout=playwright_start_deadline,
+            )
             # ── Browser sites ──
             active_browser = [(s, fn) for s, fn in browser_order if SITES.get(s)]
             if active_browser:
@@ -3706,10 +3721,13 @@ async def run(progress_callback=None):
                 # server, not just the browser. No GPU exists on the VPS.
                 _telemetry.record("chromium_launch_start", sites=[s for s, _ in active_browser])
                 _browser_launch_t0 = time.time()
-                browser = await pw.chromium.launch(
-                    headless=True,
-                    proxy=_PLAYWRIGHT_PROXY,
-                    args=["--disable-dev-shm-usage", "--disable-gpu"],
+                browser = await asyncio.wait_for(
+                    pw.chromium.launch(
+                        headless=True,
+                        proxy=_PLAYWRIGHT_PROXY,
+                        args=["--disable-dev-shm-usage", "--disable-gpu"],
+                    ),
+                    timeout=browser_launch_deadline,
                 )
                 _telemetry.record(
                     "chromium_launch_done",

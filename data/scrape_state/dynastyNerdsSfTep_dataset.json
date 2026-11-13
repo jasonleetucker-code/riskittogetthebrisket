@@ -200,14 +200,62 @@
      "rowsChanged": 246,
      "rowsRemoved": 1,
      "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-10T21:06:17Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-11T02:21:52Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-11T09:57:28Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-12T10:25:53Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-13T00:00:07Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
+    },
+    {
+     "at": "2026-11-13T07:25:16Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 246,
+     "rowsRemoved": 1,
+     "rowsTotal": 285
     }
    ],
-   "contentSince": "2026-11-09T02:04:37Z",
+   "contentSince": "2026-11-13T07:25:16Z",
    "fingerprint": "2d8ef2538b131cc8fb437113",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-16T14:34:45Z",
-   "lastAnyMeaningfulChangeAt": "2026-11-09T02:04:37Z",
-   "lastBroadDatasetChangeAt": "2026-11-09T02:04:37Z",
+   "lastAnyMeaningfulChangeAt": "2026-11-13T07:25:16Z",
+   "lastBroadDatasetChangeAt": "2026-11-13T07:25:16Z",
    "rowChangedAt": {},
    "rowCount": 285,
    "rowCountHistory": [
@@ -219,6 +267,12 @@
     294,
     294,
     294,
+    285,
+    285,
+    285,
+    285,
+    285,
+    285,
     285,
     285,
     285,

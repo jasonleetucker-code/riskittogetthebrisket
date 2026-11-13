@@ -1,10 +1,11 @@
 import { Suspense } from "react";
+import { pageMetadata } from "@/lib/page-metadata";
 // Direct import, NOT the ds barrel, from a server component (same reason as /game-day).
 import { PageHeader } from "@/components/ds/PageHeader";
 import DfsWorkspace from "@/components/dfs/DfsWorkspace";
 import styles from "./dfs-page.module.css";
 
-export const metadata = { title: "DFS Workspace" };
+export const metadata = pageMetadata("/dfs");
 
 /**
  * /dfs — Daily Fantasy Sports workspace (owner directive 2026-09-30,

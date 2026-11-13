@@ -37,6 +37,16 @@ describe("classifyRosterIntelligenceFailure", () => {
     expect(classifyRosterIntelligenceFailure(200, fixture)).toBeNull();
   });
 
+  it("drops the backend's developer message for team_required", () => {
+    const f = classifyRosterIntelligenceFailure(400, {
+      error: "team_required",
+      message: "Pass ?team=<ownerId>. It could not be inferred: this session carries no Sleeper user id.",
+    });
+    expect(f).toEqual({ kind: "team_required", message: "" });
+    // Other codes still carry their message.
+    expect(classifyRosterIntelligenceFailure(404, { error: "team_not_found", message: "nope" }).message).toBe("nope");
+  });
+
   it("tells the user-fixable refusals apart from a broken engine", () => {
     // These four are all HTTP 400/404/503 and would be one indistinct
     // "error" under a status-only classifier. Two of them the user can

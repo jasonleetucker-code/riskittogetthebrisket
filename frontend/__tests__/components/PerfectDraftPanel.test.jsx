@@ -741,3 +741,78 @@ describe("expectedPrice — an estimate, never an invented floor", () => {
     expect(expectedPrice({ inflatedFair: -3 })).toBeNull();
   });
 });
+
+describe("roster context is not requested for the placeholder workspace", () => {
+  const placeholder = {
+    settings: { myTeamIdx: 0 },
+    teams: [{ name: "Russini Panini" }, { name: "Beta" }],
+  };
+
+  it("sends no request before the active league's workspace has hydrated, then asks for the real team", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+    const { rerender } = render(
+      <PerfectDraftPanel stats={STATS} workspace={placeholder} workspaceReady={false} />,
+    );
+    // Give any (wrongly) scheduled effect a chance to fire.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(fetch).not.toHaveBeenCalled();
+
+    // League resolves, the real workspace hydrates: one request, real team.
+    rerender(<PerfectDraftPanel stats={STATS} workspace={WORKSPACE} workspaceReady />);
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const url = String(fetch.mock.calls[0][0]);
+    expect(url).toContain("teamName=Alpha");
+    expect(url).not.toContain("Russini");
+  });
+
+  it("lets the backend infer the team when the workspace is still the seed (first visit to a league)", async () => {
+    // A league with no saved workspace hydrates createDefaultWorkspace(), whose
+    // first row is a seed the league does not have: asking for it by name is a
+    // 400 (unknown_team).  No name -> the backend answers for the session's team.
+    const { createDefaultWorkspace } = await import("../../lib/draft-logic.js");
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+    render(<PerfectDraftPanel stats={STATS} workspace={createDefaultWorkspace()} workspaceReady />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    const url = String(fetch.mock.calls[0][0]);
+    expect(url).not.toContain("teamName=");
+    expect(url).not.toContain("Russini");
+  });
+
+  it("sends a real team whose name and budget happen to equal a seed's once the workspace has merged", async () => {
+    // {Ed, $71} is also a seed row.  After a draft-capital merge it is a real
+    // team, and asking for no name would answer for the SESSION's team instead
+    // of the one the user chose (independent review).
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+    const merged = {
+      settings: { myTeamIdx: 1 },
+      teams: [
+        { name: "Medical Murrayjuana", initialBudget: 95 },
+        { name: "Ed", initialBudget: 71 },
+      ],
+      players: [],
+      picks: [],
+    };
+    render(<PerfectDraftPanel stats={STATS} workspace={merged} workspaceReady />);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(String(fetch.mock.calls[0][0])).toContain("teamName=Ed");
+  });
+
+  it("still refetches when the workspace's team changes after it is ready", async () => {
+    fetch.mockResolvedValue(jsonResponse(200, okPayload()));
+    const { rerender } = render(
+      <PerfectDraftPanel stats={STATS} workspace={WORKSPACE} workspaceReady />,
+    );
+    await screen.findByRole("table");
+    rerender(
+      <PerfectDraftPanel
+        stats={STATS}
+        workspace={{ settings: { myTeamIdx: 1 }, teams: WORKSPACE.teams }}
+        workspaceReady
+      />,
+    );
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining("teamName=Beta"), expect.anything()),
+    );
+  });
+});

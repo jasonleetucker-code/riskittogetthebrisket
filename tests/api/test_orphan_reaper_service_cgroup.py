@@ -92,6 +92,100 @@ def test_diagnostics_are_numbers_only(fake):
     assert all(v is None or isinstance(v, int) for v in d.values())
 
 
+def test_diagnostics_report_the_throttling_line_and_the_process_alone(fake):
+    """memory.high is where the kernel starts throttling the whole cgroup
+    (website audit WA-05: 2.57 GiB against a 2.56 GiB high, Chromium could no
+    longer launch); the cgroup total alone could not show it."""
+    proc, svc, _ = fake
+    (svc / "memory.high").write_text(str(2560 * 1024 * 1024) + "\n", encoding="utf-8")
+    (svc / "memory.events").write_text("low 0\nhigh 4217\nmax 0\noom 0\n", encoding="utf-8")
+    (proc / str(SELF) / "status").write_text(
+        "Name:\tpython\nVmRSS:\t 2150400 kB\n", encoding="utf-8"
+    )
+    (svc / "memory.stat").write_text(
+        f"anon {1800 * 1024 * 1024}\nfile {700 * 1024 * 1024}\nshmem 0\n", encoding="utf-8"
+    )
+    d = proc_probe.service_diagnostics(SELF, tmp_dir=str(svc), shm_dir=str(svc))
+    assert d["cgroup_memory_high_mib"] == 2560
+    assert d["cgroup_memory_high_events"] == 4217
+    assert d["process_rss_mib"] == 2100
+    # Heap the kernel cannot drop vs page cache it can.
+    assert d["cgroup_memory_anon_mib"] == 1800
+    assert d["cgroup_memory_file_mib"] == 700
+    assert all(v is None or isinstance(v, int) for v in d.values())
+
+
+def test_rss_split_reads_anonymous_and_file_backed_memory(fake):
+    """The heap report separates heap and stacks (anonymous) from mapped code
+    (file-backed); each unreadable field stays unknown, never zero."""
+    proc, _svc, _ = fake
+    (proc / str(SELF) / "status").write_text(
+        "Name:\tpython\nVmRSS:\t 1048576 kB\nRssAnon:\t  917504 kB\nRssFile:\t  131072 kB\n",
+        encoding="utf-8",
+    )
+    split = proc_probe.process_rss_split_kb(SELF)
+    assert split == {"RssAnon": 917504, "RssFile": 131072, "RssShmem": None}
+    assert proc_probe.process_rss_split_kb(999999) == {
+        "RssAnon": None,
+        "RssFile": None,
+        "RssShmem": None,
+    }
+
+
+def test_memory_headroom_is_measured_against_the_throttling_line(fake):
+    """The heap report skips its costly census within 512 MiB of the line
+    (WA-17); anonymous memory counts, reclaimable page cache does not."""
+    proc, svc, _ = fake
+    (svc / "memory.high").write_text(str(2560 * 1024 * 1024) + "\n", encoding="utf-8")
+    (svc / "memory.stat").write_text(
+        f"anon {1800 * 1024 * 1024}\nfile {700 * 1024 * 1024}\n", encoding="utf-8"
+    )
+    assert proc_probe.memory_headroom_mib(SELF) == 760
+    # No memory.high: memory.max (3 GiB in the fixture) is the line.
+    (svc / "memory.high").write_text("max\n", encoding="utf-8")
+    assert proc_probe.memory_headroom_mib(SELF) == 3072 - 1800
+
+
+def test_memory_headroom_unknown_is_none(fake, monkeypatch):
+    proc, svc, _ = fake
+    assert proc_probe.memory_headroom_mib(SELF) is None  # no memory.stat
+    (svc / "memory.stat").write_text("anon 1\n", encoding="utf-8")
+    (svc / "memory.max").write_text("max\n", encoding="utf-8")
+    assert proc_probe.memory_headroom_mib(SELF) is None  # no limit at all
+    assert proc_probe.memory_headroom_mib(5000) is None  # not a service cgroup
+
+
+def test_no_high_limit_and_no_events_are_unknown_not_zero(fake):
+    proc, svc, _ = fake
+    (svc / "memory.high").write_text("max\n", encoding="utf-8")
+    d = proc_probe.service_diagnostics(SELF, tmp_dir=str(svc), shm_dir=str(svc))
+    assert d["cgroup_memory_high_mib"] is None  # "max" = no throttling line
+    assert d["cgroup_memory_high_events"] is None  # no memory.events file
+    assert d["process_rss_mib"] is None  # no /proc/<pid>/status
+    assert d["cgroup_memory_anon_mib"] is None  # no memory.stat
+    assert d["cgroup_memory_file_mib"] is None
+
+
+def test_the_headless_shell_counts_by_its_kernel_name(fake):
+    """Playwright's headless browser is ``chrome-headless-shell``; the kernel
+    keeps 15 characters of a process name, so ``comm`` reads
+    ``chrome-headless``.  Measured 2026-11-12: ``chromium.launch()`` with the
+    installed Playwright build left four processes, every one with ``comm``
+    ``chrome-headless``."""
+    proc, svc, _ = fake
+    shell = proc / "4400"
+    shell.mkdir()
+    (shell / "stat").write_text(f"4400 (chrome-headless) S {SELF} 0 0\n", encoding="utf-8")
+    (shell / "cmdline").write_bytes(
+        b"/r/ms-playwright/chromium_headless_shell-1/chrome-headless-shell\0--headless"
+    )
+    (shell / "cgroup").write_text("0::/system.slice/dynasty.service\n", encoding="utf-8")
+    (svc / "cgroup.procs").write_text("4000\n4100\n4200\n4300\n4400\n", encoding="utf-8")
+    d = proc_probe.service_diagnostics(SELF, tmp_dir=str(svc), shm_dir=str(svc))
+    assert d["chromium_processes"] == 3  # 4100, the reparented 4200, and 4400
+    assert proc_probe.read_comm(4400) in proc_probe._BROWSER_COMMS
+
+
 def test_diagnostics_never_raise_without_proc(monkeypatch, tmp_path):
     monkeypatch.setattr(proc_probe, "PROC_ROOT", str(tmp_path / "nope"))
     d = proc_probe.service_diagnostics(SELF)
@@ -188,7 +282,8 @@ def test_blocked_probe_returns_nulls_within_timeout(monkeypatch):
     t0 = time.monotonic()
     out = server._box_diagnostics(timeout=0.2)
     assert time.monotonic() - t0 < 2
-    assert out == proc_probe.empty_service_diagnostics()
+    assert out == server._empty_box_diagnostics()
+    assert set(proc_probe.empty_service_diagnostics()) <= set(out)
     assert all(v is None for v in out.values())
     gate.set()
 

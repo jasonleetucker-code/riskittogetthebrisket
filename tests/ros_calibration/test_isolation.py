@@ -21,15 +21,22 @@ ALLOWED_IMPORTERS = {
     # Research-only team-level points calibration (F2, 2026-11-08).  Nothing live
     # imports it: pinned by test_no_live_module_imports_the_confirmation_runner below.
     "scripts/team_points_calibration_eval.py",
+    # Standing prediction scorecard (MD-104).  Evaluation only; the live alert path
+    # reads its JSON output through src/api/ops_alerts.py, never this package.
+    "scripts/forecast_scorecard.py",
 }
 RESEARCH_SCRIPTS = (
     "ros_scale_calibration_study",
     "ros_scale_week8_confirmation",
     "team_points_calibration_eval",
+    "forecast_scorecard",
 )
 ALLOWED_SRC_IMPORTS = {
     "src.ros.lineup": {"lineup_position"},
     "src.league_intel.replacement": {"compute_replacement_levels", "normalize_base_position"},
+    # MD-104 scorecard: read-only owners of the archived forecasts and Game Day scoring.
+    "src.ros": {"forecast_archive"},
+    "src.model_registry": {"game_day_calibration"},
     "src.ros_calibration": None,
 }
 

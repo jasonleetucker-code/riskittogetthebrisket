@@ -8,9 +8,10 @@ Two kinds of test live here:
 * consistency guards for statements the sweep found contradicted by live
   code.  Guards for files owned by another active lane
   (``src/api/data_contract.py`` — Batch 3 Unit E; ``scripts/source_inventory.py``
-  — the DLF / source-membership claim) are NON-strict xfails naming the
-  owning lane: they fail today, and the owner's patch flips them to XPASS
-  without breaking that lane's CI (remove the marker in the same patch).
+  — the DLF / source-membership claim) are strict xfails naming the
+  owning lane: they fail today, and the owner's patch must remove the marker
+  in the same change (strict, since 2026-11-08, so a repaired claim cannot
+  hide as a quiet XPASS).
   Patch descriptions are in ``docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md`` §7.
 """
 
@@ -699,12 +700,12 @@ def test_idpshow_fetcher_no_longer_says_the_voting_board_votes_nothing():
 
 
 @pytest.mark.xfail(
-    strict=False,
+    strict=True,
     raises=AssertionError,
     reason=(
         "owned by the DLF / source-membership lane (scripts/source_inventory.py); "
-        "non-strict so that lane's patch (INTEGRITY_SWEEP_2026-10-01.md §7 P3) "
-        "does not break its CI"
+        "strict: the patch (INTEGRITY_SWEEP_2026-10-01.md §7 P3) must delete this "
+        "marker in the same change, so a repaired claim cannot stay hidden"
     ),
 )
 def test_source_inventory_does_not_call_idpshow_a_cut_of_the_combined_board():

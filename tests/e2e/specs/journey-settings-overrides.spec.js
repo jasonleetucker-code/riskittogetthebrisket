@@ -43,10 +43,41 @@ test.describe("journey: settings source toggles", () => {
     await page.goto(pageUrl("/settings"), { waitUntil: "domcontentloaded" });
     await expect(page.locator("body")).toContainText(/Ranking Sources/i, { timeout: 30_000 });
 
-    // One include-in-blend toggle per registered dynasty source.
-    const toggles = page.locator('input.settings-src-toggle[aria-label^="Include "]');
-    await expect(toggles.first()).toBeVisible({ timeout: 30_000 });
-    expect(await toggles.count()).toBeGreaterThanOrEqual(registeredCount);
+    // Scoped to the Ranking Sources panel (the one its section button
+    // controls): the collapsed Rest-of-Season section keeps its own source
+    // table, with the same classes, in the DOM.
+    const sectionButton = page.getByRole("button", { name: /^Ranking Sources/ });
+    const panelId = await sectionButton.getAttribute("aria-controls");
+    expect(panelId, "the Ranking Sources section names the panel it controls").toBeTruthy();
+    const section = page.locator(`[id="${panelId}"]`);
+    // One row per registered dynasty source.
+    const rows = section.locator(".settings-sources-table tbody > tr");
+    await expect(rows).toHaveCount(registeredCount, { timeout: 30_000 });
+
+    // Every row offers the include-in-blend toggle, OR states why it cannot:
+    // a private source that does not vote on this host (Signals / DLF private
+    // boards when not provisioned) shows its vote state instead of a control,
+    // because a control would imply it moves the blend (settings/page.jsx,
+    // lib/source-vote-state.js).  The old ">= registered toggles" check passed
+    // only when it counted before the board loaded and hid those controls;
+    // measured 2026-11-12 offline: 27 toggles at first paint, 20 once settled.
+    // Settled state: a row reports "Live" only once the board's per-source
+    // coverage has loaded, which is also when non-voting rows swap their
+    // control for a vote state.  (The page polls, so it never goes idle.)
+    await expect(section).toContainText("Live", { timeout: 30_000 });
+    const nonVotingLabel =
+      /Shadow — not voting|Collected — not voting|Rolled back — not voting|Unavailable/;
+    // One DOM snapshot, so a re-render cannot land between two counts.
+    const snapshot = await rows.evaluateAll((trs) =>
+      trs.map((tr) => ({
+        toggles: tr.querySelectorAll('input.settings-src-toggle[aria-label^="Include "]').length,
+        text: tr.innerText.replace(/\s+/g, " ").trim(),
+      })),
+    );
+    expect(snapshot).toHaveLength(registeredCount);
+    const unexplained = snapshot.filter((r) => r.toggles !== 1 && !nonVotingLabel.test(r.text));
+    expect(unexplained, "source rows with neither a toggle nor a vote state").toEqual([]);
+    expect(snapshot.filter((r) => r.toggles === 1).length).toBeGreaterThan(3);
   });
 
   test("toggling a source round-trips, and the withdrawn custom mix is ignored rather than applied", async ({ authedPage: page }) => {

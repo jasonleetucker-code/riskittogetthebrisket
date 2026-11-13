@@ -49,10 +49,9 @@ function StrengthFailure({ failure }) {
     return (
       <EmptyState
         title="Choose a team"
-        message={
-          message ||
-          "Team Strength is measured for one team against the rest of the league. Pick a team above."
-        }
+        // Fixed copy, never the backend's developer message (it names an
+        // owner id and a ?team= parameter).  See classifyRosterIntelligenceFailure.
+        message="Team Strength is measured for one team against the rest of the league, and we could not tell which team is yours because your account is not linked to one. Select your team with the “My team…” selector on this page, or the “Pick your team” control in the header."
       />
     );
   }

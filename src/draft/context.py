@@ -288,6 +288,18 @@ def match_team(
         for t in teams:
             if _norm(t.get("name")) == _norm(team_name):
                 return t
+        # The /draft workspace's teams come from /api/draft-capital, which names
+        # them by their Sleeper TEAM name ("Medical Murrayjuana"), not the
+        # manager's display name ("Jason"): the same team in a second name
+        # space.  Display name keeps precedence.  Measured 2026-11-12 (website
+        # audit): 11 of 12 dynasty_main draft-capital names were unknown_team,
+        # so Perfect Draft vanished for every team but the one whose two names
+        # coincide.
+        # Sleeper allows two teams the same team name: then the name decides
+        # nothing, and the caller is told so rather than handed the first.
+        by_team_name = [t for t in teams if _norm(t.get("sleeperTeamName")) == _norm(team_name)]
+        if len(by_team_name) == 1:
+            return by_team_name[0]
     return None
 
 

@@ -108,9 +108,25 @@ from src.valuation_math import package_model as _package_model
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
 from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
+from src.diagnostics import heap_report as _heap_report
 from src.diagnostics import proc_probe as _proc_probe
 from src.diagnostics import scrape_telemetry as _scrape_telemetry
 from src.sources import dlf_session as _dlf_session
+
+if __name__ == "__main__":
+    # ``python server.py`` (the systemd ExecStart) runs this file as
+    # ``__main__``, and ``uvicorn.run("server:app")`` then imports it AGAIN as
+    # ``server``: every module-level load below ran twice, and the first
+    # copy was never served.  Measured locally (WA-17, 2026-11-12): the
+    # unused copy held its own 44 MiB public-league snapshot.  Execute the
+    # module once, as ``server`` (the name every ``import server`` and
+    # ``sys.modules.get("server")`` already resolves), and serve that copy.
+    # The imports above are shared through ``sys.modules`` and cost nothing
+    # twice.  Pinned by tests/api/test_server_runs_once.py.
+    import server as _served
+
+    _served.main()
+    raise SystemExit(0)
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -243,6 +259,24 @@ UPTIME_CHECK_URL = os.getenv(
     "https://chaseupside.com/api/health",
 ).strip()
 UPTIME_CHECK_INTERVAL_SEC = int(os.getenv("UPTIME_CHECK_INTERVAL_SEC", "300"))
+# Heap attribution (WA-17): seconds between box-local heap snapshots
+# (``src/diagnostics/heap_report.py``); 0 turns the periodic loop off.  The
+# scrape-point snapshots are not affected.
+HEAP_REPORT_INTERVAL_SEC = int(os.getenv("HEAP_REPORT_INTERVAL_SEC", "900"))
+# Every Nth periodic snapshot also takes the type census, and so does any
+# snapshot taken while process RSS is at or above HEAP_REPORT_HIGH_RSS_MIB.
+# 1024, not 1536: in production the backend is restarted by the data-refresh
+# deploys every 40-60 min, before the hourly tick, and the post-burst plateau
+# sat at 1,060-1,210 MiB (audit §7.12), so neither trigger ever fired there.
+HEAP_REPORT_TYPES_EVERY = 4
+HEAP_REPORT_HIGH_RSS_MIB = int(os.getenv("HEAP_REPORT_HIGH_RSS_MIB", "1024"))
+# Return glibc's freed-but-retained heap from the periodic loop when a
+# snapshot finds at least this many MiB of it (0 disables).  Measured in
+# production 2026-11-12: 206-239 MiB retained after the post-restart burst,
+# and the same release at each scrape returns 80-140 MiB (audit §7.12).
+# The release walks glibc's arenas (about 0.1 s on a fragmented heap), so it
+# runs at most once per tick and only when there is that much to return.
+HEAP_RELEASE_FREE_MIB = int(os.getenv("HEAP_RELEASE_FREE_MIB", "128"))
 UPTIME_CHECK_TIMEOUT_SEC = float(os.getenv("UPTIME_CHECK_TIMEOUT_SEC", "5"))
 UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 
@@ -1763,12 +1797,18 @@ def _box_diagnostics(timeout: float | None = None) -> dict:
     instead of blocking the event loop (health/status must never hang on it).
     """
     wait = _BOX_PROBE_TIMEOUT_SEC if timeout is None else timeout
-    box: dict = _proc_probe.empty_service_diagnostics()
+    box: dict = _empty_box_diagnostics()
     done = threading.Event()
 
     def _work() -> None:
         try:
             box.update(_proc_probe.service_diagnostics(os.getpid()))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            # The last heap snapshot's glibc figures (WA-17), cached: walking
+            # the heap here would hold glibc's arena locks on every probe.
+            box.update(_heap_report.box_fields())
         except Exception:  # noqa: BLE001
             pass
         finally:
@@ -1777,14 +1817,127 @@ def _box_diagnostics(timeout: float | None = None) -> dict:
     try:
         threading.Thread(target=_work, name="box-probe", daemon=True).start()
         if not done.wait(wait):
-            return _proc_probe.empty_service_diagnostics()
+            return _empty_box_diagnostics()
         return dict(box)
     except Exception:  # noqa: BLE001
-        return _proc_probe.empty_service_diagnostics()
+        return _empty_box_diagnostics()
+
+
+def _empty_box_diagnostics() -> dict:
+    """Every ``box_resources`` field, unknown (``None``)."""
+    return {**_proc_probe.empty_service_diagnostics(), **_heap_report.empty_box_fields()}
+
+
+_LIBC_MALLOC_TRIM = None  # resolved lazily; False when unavailable (non-glibc)
+
+
+def _release_freed_heap() -> dict:
+    """Hand freed glibc heap back to the OS (``malloc_trim(0)``).  Never raises.
+
+    Each scrape cycle builds and drops several copies of a ~4 MB contract
+    (views, gzip variants, overlays); glibc keeps the freed pages in its
+    arenas, so RSS ratchets toward the peak and the service cgroup creeps
+    up to ``MemoryHigh``, where the kernel throttles everything in it
+    (website audit WA-05: Chromium could no longer launch).  Measured
+    2026-11-12 over 14 replayed publish cycles: live Python objects constant
+    (330,466 every cycle, no leak); RSS plateau 684 MB without a trim, 498 MB
+    with one after each cycle.  A trim is not a substitute for finding a
+    leak, and none was found; it returns memory the process no longer uses.
+
+    Returns ``{"available", "rssBeforeMib", "rssAfterMib"}``; the RSS fields
+    are ``None`` when unreadable.  Call off the event loop.
+    """
+    global _LIBC_MALLOC_TRIM
+    out: dict = {"available": False, "rssBeforeMib": None, "rssAfterMib": None}
+    try:
+        if _LIBC_MALLOC_TRIM is None:
+            try:
+                import ctypes  # noqa: PLC0415
+
+                _LIBC_MALLOC_TRIM = ctypes.CDLL("libc.so.6").malloc_trim
+            except (OSError, AttributeError):
+                _LIBC_MALLOC_TRIM = False
+        if _LIBC_MALLOC_TRIM is False:
+            return out
+        before = _proc_probe.process_rss_kb(os.getpid())
+        _LIBC_MALLOC_TRIM(0)
+        after = _proc_probe.process_rss_kb(os.getpid())
+        out["available"] = True
+        out["rssBeforeMib"] = None if before is None else int(before) // 1024
+        out["rssAfterMib"] = None if after is None else int(after) // 1024
+    except Exception:  # noqa: BLE001 -- best-effort; never break a scrape
+        pass
+    return out
 
 
 def _box_diagnostics_for_status() -> dict:
     return _box_diagnostics(_BOX_PROBE_STATUS_TIMEOUT_SEC)
+
+
+def _record_heap_snapshot(
+    reason: str, include_types: bool = False, trim: dict | None = None, walk_heap: bool = True
+) -> dict:
+    """Append one heap snapshot to the box-local log and log its headline
+    (WA-17).  ``trim`` is a ``_release_freed_heap`` result, stored as
+    numbers.  ``walk_heap=False`` is the light record (RSS and ``trim``
+    only) for the scrape path: glibc's heap walk stalls the event loop.
+    Call off the event loop.  Never raises."""
+    extra = None
+    if isinstance(trim, dict):
+        extra = {
+            "trimRssBeforeMib": trim.get("rssBeforeMib"),
+            "trimRssAfterMib": trim.get("rssAfterMib"),
+        }
+    try:
+        summary = _heap_report.record(
+            reason, include_types=include_types, walk_heap=walk_heap, extra=extra
+        )
+        log.info("heap snapshot %s: %s", reason, summary)
+        return summary
+    except Exception:  # noqa: BLE001 -- diagnostics never break a caller
+        return {"written": False}
+
+
+async def heap_report_loop() -> None:
+    """Periodic heap snapshots (WA-17): what the backend's memory is made of
+    between scrapes, so a climb toward ``MemoryHigh`` can be attributed from
+    the box-local log instead of inferred.  ``HEAP_REPORT_INTERVAL_SEC=0``
+    disables it.
+
+    One action, after the snapshot: when glibc holds at least
+    ``HEAP_RELEASE_FREE_MIB`` of freed heap, it is returned to the kernel
+    (``_release_freed_heap``, the same release the scrape uses) and a light
+    ``periodic_trim`` record logs RSS before and after.  It frees nothing in
+    use and restarts nothing.
+    """
+    if HEAP_REPORT_INTERVAL_SEC <= 0:
+        log.info("Heap report loop disabled (HEAP_REPORT_INTERVAL_SEC=0)")
+        return
+    tick = 0
+    # A first baseline shortly after start, then the configured cadence.
+    delay = min(60, HEAP_REPORT_INTERVAL_SEC)
+    while True:
+        await asyncio.sleep(delay)
+        delay = HEAP_REPORT_INTERVAL_SEC
+        try:
+            rss_kb = _proc_probe.process_rss_kb(os.getpid())
+            high = rss_kb is not None and int(rss_kb) // 1024 >= HEAP_REPORT_HIGH_RSS_MIB
+            types = tick % HEAP_REPORT_TYPES_EVERY == 0 or high
+            reason = "periodic_high_rss" if high else ("startup" if tick == 0 else "periodic")
+            summary = await run_in_threadpool(_record_heap_snapshot, reason, types)
+            free_mib = summary.get("heapFreeMib") if isinstance(summary, dict) else None
+            if (
+                HEAP_RELEASE_FREE_MIB > 0
+                and isinstance(free_mib, int)
+                and free_mib >= HEAP_RELEASE_FREE_MIB
+            ):
+                trim = await run_in_threadpool(_release_freed_heap)
+                await run_in_threadpool(_record_heap_snapshot, "periodic_trim", False, trim, False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log.warning("heap report tick failed: %s", exc)
+        tick += 1
 
 
 _scrape_sampler_proc = None
@@ -3797,6 +3950,17 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     reaped=_pre_reaped,
                     box=_pre_box,
                 )
+            # RSS before this cycle (WA-17).  A light record: the glibc walk
+            # and the censuses stall the event loop, and the scrape path must
+            # not (test_run_scraper_*); the periodic loop takes them.
+            await run_in_threadpool(_record_heap_snapshot, "pre_scrape", False, None, False)
+            # Headroom below the cgroup's MemoryHigh before Chromium launches.
+            _record_scrape_event(
+                "scrape_prelaunch_heap_release",
+                level="info",
+                message="malloc_trim before launch",
+                **(await run_in_threadpool(_release_freed_heap)),
+            )
             _update_scrape_progress(
                 step="bootstrap",
                 source="import_scraper",
@@ -4199,6 +4363,12 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # hiccup leaves the last observation in place, never blocks.
             await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
+            # The publish is this cycle's allocation peak; return what it freed
+            # and log RSS before / after (WA-17, light record as above).
+            _post_publish_trim = await run_in_threadpool(_release_freed_heap)
+            await run_in_threadpool(
+                _record_heap_snapshot, "post_trim", False, _post_publish_trim, False
+            )
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 
@@ -4510,6 +4680,7 @@ async def lifespan(app: FastAPI):
         scrape_task = scheduler_task = None
         log.info("Scrape scheduler disabled (SCRAPE_SCHEDULER_ENABLED=false)")
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    heap_report_task = asyncio.create_task(heap_report_loop())
     # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
     # Correctness never depends on it — every command settles what is due
     # first — and a failure here must never block the site from starting.
@@ -4563,6 +4734,7 @@ async def lifespan(app: FastAPI):
         if task is not None:
             task.cancel()
     uptime_task.cancel()
+    heap_report_task.cancel()
     if auction_task is not None:
         auction_task.cancel()
     log.info("Server shutting down")
@@ -6587,9 +6759,19 @@ async def get_status():
     boundary (``src/api/public_diagnostics.py``): no filesystem path, raw
     Sleeper id, env value or traceback.  The unredacted content is
     ``GET /api/admin/diagnostics`` (admin-gated).
+
+    The probes run in the threadpool, never on the event loop.  Measured on
+    production 2026-11-12: this handler took 14-18 s per call, and while it
+    ran an unrelated ``/api/leagues`` request (0.45 s alone) waited 15.9 s,
+    so every status poll froze the whole site.  ``_scrape_status_payload``
+    stays on the loop: it is in-memory, and it check-then-sets
+    ``scrape_status`` (the once-only stall event), which every other caller
+    also does from the loop.
     """
+    status_payload = _scrape_status_payload()
+    content = await run_in_threadpool(_public_status_body, status_payload)
     return JSONResponse(
-        content=_public_diagnostics.public_status_payload(_status_content(), base_dir=BASE_DIR),
+        content=content,
         # Observability payload — the disk-probe helpers behind it are
         # memoized 30s server-side; let pollers (settings page, tools)
         # reuse it browser-side for the same window.
@@ -6597,10 +6779,21 @@ async def get_status():
     )
 
 
-def _status_content() -> dict:
+def _public_status_body(status_payload: dict) -> dict:
+    """``get_status``'s body: the public projection of ``_status_content``."""
+    return _public_diagnostics.public_status_payload(
+        _status_content(status_payload), base_dir=BASE_DIR
+    )
+
+
+def _status_content(status_payload: dict | None = None) -> dict:
     """The FULL ``/api/status`` content.  PRIVATE: served unredacted only by
-    ``/api/admin/diagnostics``; ``get_status`` serves its public projection."""
-    status_payload = _scrape_status_payload()
+    ``/api/admin/diagnostics``; ``get_status`` serves its public projection.
+
+    ``status_payload`` is ``_scrape_status_payload()`` taken on the event loop
+    by an async caller that runs the rest of this in the threadpool."""
+    if status_payload is None:
+        status_payload = _scrape_status_payload()
     # Prefer full scrape payload for source-health truth (dlfImport/sourceRunSummary).
     # Contract payload is a compatibility fallback when full payload is unavailable.
     # ``served_source_coverage`` is the per-source contribution to the
@@ -6806,7 +6999,14 @@ def _playerctx_history_coverage_safe() -> dict:
 
         coverage = _pcx_store.history_coverage()
         if coverage.get("exists"):
-            coverage.update(_playerctx_pending_push(_pcx_store.HISTORY_DIR))
+            # A ``git`` subprocess with a 10 s timeout: memoized like the
+            # other disk probes, so a poller does not pay it on every call.
+            coverage.update(
+                _disk_probe_memo(
+                    "playerctx_pending_push",
+                    lambda: _playerctx_pending_push(_pcx_store.HISTORY_DIR),
+                )
+            )
         return coverage
     except Exception as exc:  # noqa: BLE001
         log.warning("playerctx history coverage failed: %s", exc)
@@ -14880,6 +15080,21 @@ def _pregame_archive_health() -> list[dict] | None:
         return None
 
 
+def _forecast_degradation_health() -> list[dict] | None:
+    """Review requests fired by the standing forecast scorecard (ops alerts, MD-104).
+
+    Read from the private scorecard output (``ops_alerts.forecast_degradation_reviews``).
+    ``None`` -- "not checked", never "healthy" -- when that file does not parse.
+    """
+    try:
+        from src.api import ops_alerts  # noqa: PLC0415
+
+        return ops_alerts.forecast_degradation_reviews()
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("forecast degradation check failed: %s", exc)
+        return None
+
+
 @app.get("/api/draft-capital")
 async def get_draft_capital(request: Request, refresh: str = ""):
     """Return draft capital breakdown per team using Sleeper pick ownership
@@ -15310,7 +15525,11 @@ async def get_sleeper_draft_picks(
         return err.json_response()
 
     try:
-        snapshot = _sleeper_overlay.fetch_live_draft_picks(
+        # Sleeper round-trips: in the threadpool, never on the event loop.
+        # This route is polled every 2-3 s during a live draft, so a blocking
+        # fetch here stalled every other request for each Sleeper call.
+        snapshot = await run_in_threadpool(
+            _sleeper_overlay.fetch_live_draft_picks,
             league_cfg.sleeper_league_id,
             after_pick_no=int(afterPickNo or 0),
         )
@@ -19125,33 +19344,9 @@ def _apply_custom_alert_sweep(
         ]
 
 
-@app.post("/api/custom-alerts/run")
-async def run_custom_alerts(request: Request):
-    """Cron-driven evaluator.  Walks every user's rules, fires any
-    that hit, delivers via email and/or push, updates cooldown state.
-
-    Same bearer-token auth model as ``/api/signal-alerts/run``.
-    """
-    cron_auth_ok = False
-    if SIGNAL_ALERT_CRON_TOKEN:
-        header = (request.headers.get("authorization") or "").strip()
-        if header.lower().startswith("bearer "):
-            presented = header.split(None, 1)[1].strip()
-            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
-                cron_auth_ok = True
-    if not cron_auth_ok:
-        session = _get_auth_session(request)
-        if not session or session.get("auth_method") != "password":
-            return JSONResponse(
-                status_code=401,
-                content={"error": "admin_auth_required"},
-            )
-
-    if not latest_contract_data:
-        return JSONResponse(status_code=503, content={"error": "no_live_contract"})
-    players_array = (latest_contract_data or {}).get("playersArray") or []
-
-    db = await run_in_threadpool(_user_kv.all_user_states)
+def _custom_alerts_sweep(players_array: list) -> dict[str, dict[str, int]]:
+    """Blocking body of ``run_custom_alerts``: evaluate, deliver, persist state."""
+    db = _user_kv.all_user_states()
     summary: dict[str, dict[str, int]] = {}
 
     for username, state in (db or {}).items():
@@ -19219,8 +19414,7 @@ async def run_custom_alerts(request: Request):
         fired = {k: v for k, v in new_state.items() if cooldown_state.get(k) != v}
         dead = set(endpoints_to_prune)
         if fired or dead:
-            await run_in_threadpool(
-                _user_kv.mutate_user_state,
+            _user_kv.mutate_user_state(
                 username,
                 lambda entry: _apply_custom_alert_sweep(entry, fired=fired, dead_endpoints=dead),
             )
@@ -19230,6 +19424,41 @@ async def run_custom_alerts(request: Request):
             "email": delivered_email,
             "push": delivered_push,
         }
+    return summary
+
+
+@app.post("/api/custom-alerts/run")
+async def run_custom_alerts(request: Request):
+    """Cron-driven evaluator.  Walks every user's rules, fires any
+    that hit, delivers via email and/or push, updates cooldown state.
+
+    Same bearer-token auth model as ``/api/signal-alerts/run``.
+    """
+    cron_auth_ok = False
+    if SIGNAL_ALERT_CRON_TOKEN:
+        header = (request.headers.get("authorization") or "").strip()
+        if header.lower().startswith("bearer "):
+            presented = header.split(None, 1)[1].strip()
+            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
+                cron_auth_ok = True
+    if not cron_auth_ok:
+        session = _get_auth_session(request)
+        if not session or session.get("auth_method") != "password":
+            return JSONResponse(
+                status_code=401,
+                content={"error": "admin_auth_required"},
+            )
+
+    if not latest_contract_data:
+        return JSONResponse(status_code=503, content={"error": "no_live_contract"})
+    players_array = (latest_contract_data or {}).get("playersArray") or []
+
+    # The whole sweep (rule evaluation, SMTP / web-push delivery with their
+    # network timeouts, per-user kv writes) runs in ONE threadpool task, never
+    # on the event loop.  Every kv call opens its own sqlite connection inside
+    # that same worker thread, and mutate_user_state is already serialised by
+    # its own lock, so nothing is shared across threads.
+    summary = await run_in_threadpool(_custom_alerts_sweep, players_array)
 
     return JSONResponse(
         content={"ok": True, "users": summary},
@@ -20831,11 +21060,15 @@ async def get_admin_diagnostics(request: Request):
     if isinstance(session_or_err, JSONResponse):
         return session_or_err
     health_code, health = _health_content(send_alerts=False)
+    # Same split as ``get_status``: the state check on the loop, the probes
+    # in the threadpool.
+    status_payload = _scrape_status_payload()
+    status = await run_in_threadpool(_status_content, status_payload)
     return JSONResponse(
         content={
             "schemaVersion": "private-diagnostics.v1",
             "redaction": "none",
-            "status": _status_content(),
+            "status": status,
             "health": {"httpStatus": health_code, **health},
         },
         headers={"Cache-Control": "no-store"},
@@ -21059,6 +21292,106 @@ async def post_admin_signal_state_migrate(request: Request):
     return JSONResponse(content=result)
 
 
+def _player_realized_content(sleeper_id: str, league_key: str, scoring_settings: dict) -> dict:
+    """Blocking body of ``get_player_realized`` (nflverse + Sleeper fetches).
+
+    Run via ``run_in_threadpool``; returns the JSON body for every branch."""
+    # Fetch weekly stats via nfl_data_ingest (already flag-gated —
+    # returns [] when nfl_data_ingest is off).  We scope to the
+    # current season for freshness + prior season for comparison.
+    from src.nfl_data import ingest as _ing
+    from src.nfl_data import pbp_weekly as _pbp_weekly
+    from src.nfl_data import realized_points as _rp
+
+    now_year = datetime.now(timezone.utc).year
+    years = [now_year - 1, now_year]
+    weekly = _ing.fetch_weekly_stats(years)
+
+    if not weekly:
+        return {
+            "sleeperId": sleeper_id,
+            "leagueKey": league_key,
+            "reason": "no_stats_available",
+            "weeks": [],
+            "totalPoints": 0.0,
+            "weekCount": 0,
+        }
+
+    # Find this player's GSIS via the unified mapper, then filter.
+    from src.identity import unified_mapper as _um
+
+    # The MASTER Sleeper player directory — ``{player_id: {gsis_id,
+    # full_name, position, ...}}``, which is what ``resolve_player``
+    # indexes.
+    #
+    # This used to read ``sleeper_block["players"]`` / ``["playerDict"]``.
+    # The contract's sleeper block has NEITHER key (it carries
+    # ``idToPlayer`` / ``playerIds`` / ``positions``), so ``players_dir``
+    # was always ``None`` and every request returned
+    # ``reason: "unmapped_player"`` — a well-formed 200 that answered
+    # nothing, for every player, always. ``idToPlayer`` could not have
+    # substituted either: it is ``{id: name}`` and carries no
+    # ``gsis_id``, which is the join key the weekly stat rows use.
+    #
+    # ``fetch_nfl_players`` is the existing process-cached full dump
+    # (~5 MB once per process, ``{}`` on any failure), so this adds no
+    # new download path and no second cache.
+    from src.public_league.sleeper_client import fetch_nfl_players as _fetch_nfl_players
+
+    players_dir = _fetch_nfl_players()
+    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
+    if resolved is None or not resolved.gsis_id:
+        return {
+            "sleeperId": sleeper_id,
+            "leagueKey": league_key,
+            "reason": "unmapped_player",
+            "weeks": [],
+        }
+    # ``player_id``, not ``player_id_gsis``.
+    #
+    # ``player_id_gsis`` is the field name on the WeeklyStatRow
+    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
+    # use ``player_id``. Filtering on the dataclass name matched ZERO
+    # rows for every player, so this endpoint returned a well-formed
+    # 200 with an empty ``weeks`` list — for everyone, always.
+    #
+    # Measured 2026-07-27 on the real 2025 file: the old expression
+    # matched 0 rows for a GSIS id the correct one matched 17.
+    #
+    # It went unnoticed because nothing CALLS this endpoint — the flag
+    # defaults ON, so the route has been live and answering wrongly.
+    # (An earlier version of this comment said the flag was off. It is
+    # not, and believing so made a live defect read as dormant.)
+    #
+    # Both keys are accepted so a caller passing normalized
+    # dataclass-shaped rows still works.
+    target_gsis = str(resolved.gsis_id or "").strip()
+    player_rows = [
+        r
+        for r in weekly
+        if target_gsis
+        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
+    ]
+    # The six reception bands and the player special-teams rules have no
+    # column on the weekly feed; without this the response is a total that
+    # silently omits them.  With it, a season the artifact does not cover
+    # is reported in ``unscored`` rather than scored as zero.
+    _pbp_index = _pbp_weekly.SeasonPbpIndex()
+    cumulative = _rp.compute_cumulative_points(
+        [_pbp_index.attach(r) for r in player_rows],
+        scoring_settings,
+        position=resolved.position,
+    )
+    return {
+        "sleeperId": sleeper_id,
+        "gsisId": resolved.gsis_id,
+        "fullName": resolved.full_name,
+        "position": resolved.position,
+        "leagueKey": league_key,
+        **cumulative,
+    }
+
+
 @app.get("/api/player/{sleeper_id}/realized")
 async def get_player_realized(sleeper_id: str, request: Request):
     """Return realized weekly fantasy points for a player against the
@@ -21128,106 +21461,12 @@ async def get_player_realized(sleeper_id: str, request: Request):
             }
         )
 
-    # Fetch weekly stats via nfl_data_ingest (already flag-gated —
-    # returns [] when nfl_data_ingest is off).  We scope to the
-    # current season for freshness + prior season for comparison.
-    from src.nfl_data import ingest as _ing
-    from src.nfl_data import pbp_weekly as _pbp_weekly
-    from src.nfl_data import realized_points as _rp
-
-    now_year = datetime.now(timezone.utc).year
-    years = [now_year - 1, now_year]
-    weekly = _ing.fetch_weekly_stats(years)
-
-    if not weekly:
-        return JSONResponse(
-            content={
-                "sleeperId": sleeper_id,
-                "leagueKey": league_cfg.key,
-                "reason": "no_stats_available",
-                "weeks": [],
-                "totalPoints": 0.0,
-                "weekCount": 0,
-            }
-        )
-
-    # Find this player's GSIS via the unified mapper, then filter.
-    from src.identity import unified_mapper as _um
-
-    # The MASTER Sleeper player directory — ``{player_id: {gsis_id,
-    # full_name, position, ...}}``, which is what ``resolve_player``
-    # indexes.
-    #
-    # This used to read ``sleeper_block["players"]`` / ``["playerDict"]``.
-    # The contract's sleeper block has NEITHER key (it carries
-    # ``idToPlayer`` / ``playerIds`` / ``positions``), so ``players_dir``
-    # was always ``None`` and every request returned
-    # ``reason: "unmapped_player"`` — a well-formed 200 that answered
-    # nothing, for every player, always. ``idToPlayer`` could not have
-    # substituted either: it is ``{id: name}`` and carries no
-    # ``gsis_id``, which is the join key the weekly stat rows use.
-    #
-    # ``fetch_nfl_players`` is the existing process-cached full dump
-    # (~5 MB once per process, ``{}`` on any failure), so this adds no
-    # new download path and no second cache.
-    from src.public_league.sleeper_client import fetch_nfl_players as _fetch_nfl_players
-
-    players_dir = _fetch_nfl_players()
-    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
-    if resolved is None or not resolved.gsis_id:
-        return JSONResponse(
-            content={
-                "sleeperId": sleeper_id,
-                "leagueKey": league_cfg.key,
-                "reason": "unmapped_player",
-                "weeks": [],
-            }
-        )
-    # ``player_id``, not ``player_id_gsis``.
-    #
-    # ``player_id_gsis`` is the field name on the WeeklyStatRow
-    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
-    # use ``player_id``. Filtering on the dataclass name matched ZERO
-    # rows for every player, so this endpoint returned a well-formed
-    # 200 with an empty ``weeks`` list — for everyone, always.
-    #
-    # Measured 2026-07-27 on the real 2025 file: the old expression
-    # matched 0 rows for a GSIS id the correct one matched 17.
-    #
-    # It went unnoticed because nothing CALLS this endpoint — the flag
-    # defaults ON, so the route has been live and answering wrongly.
-    # (An earlier version of this comment said the flag was off. It is
-    # not, and believing so made a live defect read as dormant.)
-    #
-    # Both keys are accepted so a caller passing normalized
-    # dataclass-shaped rows still works.
-    target_gsis = str(resolved.gsis_id or "").strip()
-    player_rows = [
-        r
-        for r in weekly
-        if target_gsis
-        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
-    ]
-    # The six reception bands and the player special-teams rules have no
-    # column on the weekly feed; without this the response is a total that
-    # silently omits them.  With it, a season the artifact does not cover
-    # is reported in ``unscored`` rather than scored as zero.
-    _pbp_index = _pbp_weekly.SeasonPbpIndex()
-    cumulative = _rp.compute_cumulative_points(
-        [_pbp_index.attach(r) for r in player_rows],
-        scoring_settings,
-        position=resolved.position,
+    # Network fetch (nflverse + Sleeper directory) and scoring run in the
+    # threadpool, never on the event loop (measured 8.5 s cold).
+    content = await run_in_threadpool(
+        _player_realized_content, sleeper_id, league_cfg.key, scoring_settings
     )
-    return JSONResponse(
-        content={
-            "sleeperId": sleeper_id,
-            "gsisId": resolved.gsis_id,
-            "fullName": resolved.full_name,
-            "position": resolved.position,
-            "leagueKey": league_cfg.key,
-            **cumulative,
-        }
-    )
+    return JSONResponse(content=content)
 
 
 @app.post("/api/trade/simulate-mc")
@@ -21697,6 +21936,7 @@ async def run_signal_alerts(request: Request):
             roster_construction=await run_in_threadpool(_roster_construction_health),
             backup_coverage=await run_in_threadpool(_backup_coverage_alert_rows),
             failed_units=await run_in_threadpool(_failed_systemd_units),
+            forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )
@@ -22685,7 +22925,9 @@ async def get_playerctx_player(request: Request):
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
+def main() -> None:
+    """Serve this module's ``app`` (``python server.py`` lands here through
+    the ``__main__`` guard at the top of the file)."""
     import uvicorn
 
     print()

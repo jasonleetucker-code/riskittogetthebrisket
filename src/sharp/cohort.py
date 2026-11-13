@@ -388,6 +388,28 @@ _cohort_cache: dict[
 ] = {}
 
 
+class _Flight:
+    """One in-progress computation that concurrent callers share (WA-17).
+
+    Concurrent misses on one key, with the same ledger fingerprint, wait for
+    the first caller's computation instead of each building its own copy of
+    the population: the build is the process's largest transient allocation,
+    and N parallel builds multiply it by N.  Waiters get its result, or its
+    exception, so a failure does not make them recompute one after another.
+    """
+
+    __slots__ = ("done", "result", "error")
+
+    def __init__(self) -> None:
+        self.done = threading.Event()
+        self.result: tuple[list[CohortMember], dict[str, Any]] | None = None
+        self.error: BaseException | None = None
+
+
+# key -> (ledger_fingerprint, flight) while a computation is running.
+_cohort_flights: dict[tuple[str, str, str], tuple[str, _Flight]] = {}
+
+
 def _resolve_ledger_path(ledger_path: Path | None) -> Path:
     """The concrete ledger file a call reads, resolved the same way the
     computation resolves it (``ledger.default_path()`` at call time when
@@ -439,6 +461,7 @@ def reset_cohort_cache() -> None:
     """
     with _COHORT_CACHE_LOCK:
         _cohort_cache.clear()
+        _cohort_flights.clear()
 
 
 def cohort_members(
@@ -471,14 +494,41 @@ def cohort_members(
         cached = _cohort_cache.get(key)
         if cached is not None and cached[0] == fingerprint:
             return cached[1]
-    result = _compute_cohort_members(
-        qualification=qualification,
-        ledger_path=ledger_path,
-        ffpc_config=ffpc_config,
-    )
-    with _COHORT_CACHE_LOCK:
-        _cohort_cache[key] = (fingerprint, result)
-    return result
+        running = _cohort_flights.get(key)
+        if running is not None and running[0] == fingerprint:
+            # Same inputs already being computed: share that result.  Its
+            # fingerprint, like ours, was taken before its compute started,
+            # so the freshness rule above holds for the waiter too.  (A
+            # same-key call from inside ``_compute_cohort_members`` would wait
+            # on itself; nothing there calls back into this function.)
+            flight, owner = running[1], False
+        else:
+            flight, owner = _Flight(), True
+            _cohort_flights[key] = (fingerprint, flight)
+    if not owner:
+        flight.done.wait()
+        if flight.error is not None:
+            raise flight.error
+        return flight.result  # type: ignore[return-value]  # set before ``done``
+    try:
+        result = _compute_cohort_members(
+            qualification=qualification,
+            ledger_path=ledger_path,
+            ffpc_config=ffpc_config,
+        )
+    except BaseException as exc:
+        flight.error = exc
+        raise
+    else:
+        flight.result = result
+        with _COHORT_CACHE_LOCK:
+            _cohort_cache[key] = (fingerprint, result)
+        return result
+    finally:
+        with _COHORT_CACHE_LOCK:
+            if _cohort_flights.get(key, (None, None))[1] is flight:
+                del _cohort_flights[key]
+        flight.done.set()
 
 
 # ── person-level identity ────────────────────────────────────────────
