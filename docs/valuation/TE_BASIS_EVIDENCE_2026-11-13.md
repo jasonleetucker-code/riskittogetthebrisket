@@ -71,7 +71,7 @@ The effect is confined to TEs and the current-year slot picks that tether to roo
 | no non-TEP lift | 23 | 0 | 1 |
 | no lift, any source | 23 | 0 | 0 |
 
-The skew toward SELL is **not** produced by the conversion; the conversion reduces it (23 to 18). The reference is KTC Market
+The skew toward SELL is **not** produced by the conversion; the conversion reduces it (23 to 18), as measured. The explanation that follows is an inference consistent with that result, not a separately tested cause. The reference is KTC Market
 (`ktcCrowdTradesSfTep`), which is itself a TE++ board. Removing lift lowers our TE values against a market that still carries the premium, so the
 gap widens. The edge signal compares a basis-aligned board to a TE++ benchmark; making the signal league-honest is a benchmark-basis question,
 and removing the conversion would worsen the apparent SELL skew, not cure it. The earlier audit's 22 SELL to 1 BUY was on another board
@@ -135,5 +135,5 @@ while `dynasty_main` starts two TEs and `dynasty_new` one. So the shared basis c
 - **(c) Change the shared basis.** Reprices every TE on every surface (median -12% to -23% for TEs here, rank displacement median 56 to 121) and 46 to 64 slot picks via the tether.
 - **Recommendation: (a) now, with (b) as the follow-up design.** This evidence does not support (c), and the demand comparison does not show an overpriced TE for the
   two-TE league. If the owner wants the mismatch addressed, authorize (b) in two named parts: a scoring-premium axis (inert today) and a starter-scarcity axis from
-  measured demand, each with a registered outcome target. Separately consider basis-matching the TE edge benchmark, since that signal's SELL skew comes from a TE++ market, not
+  measured demand, each with a registered outcome target. Separately consider basis-matching the TE edge benchmark, since that signal's SELL skew is consistent with (inferred, not tested) a TE++ benchmark, not
   from our conversion. Methodology authorization is the owner's; this document authorizes nothing.
