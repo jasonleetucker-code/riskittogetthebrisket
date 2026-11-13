@@ -11,8 +11,8 @@
     "e2e:report": "playwright show-report tests/e2e/playwright-report"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.13.0",
-    "@playwright/test": "^1.63.0",
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
     "axe-core": "^4.13.0"
   }
 }
