@@ -118,7 +118,7 @@ WA-14 below and a remark that `/api/admin/diagnostics` still computes `_health_c
 | WA-15 | Fixed, merged, deployed (new) | #2189 | `/draft` first visit (no saved workspace) still keyed Perfect Draft on the seed team "Russini Panini" (400), and "my team" fell back to row 0 (another manager); the readiness gate could also wait forever if `/api/leagues` failed (independent review) |
 | WA-16 | Fixed, merged, deployed (new, P2) | #2189 | Perfect Draft vanished for 11 of 12 `dynasty_main` teams: draft-capital names teams by Sleeper team name, `match_team` knew only display names (`unknown_team`); now 12 of 12 resolve; a team name two teams share resolves to neither. Delta review: a real team equal to a seed row ({Ed, $71}) could be overridden as "my team" and was not sent by name; fixed |
 
-| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box heap report merged and deployed (#2193: glibc arenas capped at 2, WA-20); production split read (#2194): the post-restart climb is live Python objects (+4.8 M blocks, about 345 MiB) plus about 206 MiB of freed glibc heap; periodic heap release and census trigger merged (#2195). At 21:07 UTC a transient burst of about 19 M Python objects took RSS to 2,151 MiB and throttled the service (2,799 `memory.high` events, no restart); after it, Python's allocator kept about 1 GB (§7.12). The peak census (#2196) names the producer: the Sharp cohort build held 1,138,004 ledger season rows at once; this PR streams them (§7.13). Open until production shows no burst and no new `memory.high` events | #2193, #2194, #2195, #2196, this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11, §7.12 |
+| WA-17 | Mechanism established (process heap past `memory.high` → throttling → watchdog restart); recurred at 15:42 UTC on the #2190 build. Mitigations and on-box heap report merged and deployed (#2193: glibc arenas capped at 2, WA-20); production split read (#2194): the post-restart climb is live Python objects (+4.8 M blocks, about 345 MiB) plus about 206 MiB of freed glibc heap; periodic heap release and census trigger merged (#2195). At 21:07 UTC a transient burst of about 19 M Python objects took RSS to 2,151 MiB and throttled the service (2,799 `memory.high` events, no restart); after it, Python's allocator kept about 1 GB (§7.12). The peak census (#2196) names the producer: the Sharp cohort build held 1,138,004 ledger season rows at once; #2197 streams them (§7.13). Deployed 23:37 UTC: peak 1,191 MiB, no `Row` growth, 0 `memory.high` events in the first window (§7.13); open until a Sharp page is opened on the fixed build and the report shows no burst | #2193, #2194, #2195, #2196, #2197, this PR | Unplanned backend restart 13:32 UTC on the same commit: §7.9, §7.11, §7.12 |
 | WA-18 | Fixed, merged, deployed, verified (new, monitoring) | #2191 | `box_resources.chromium_processes` read 0 while Chromium ran: the kernel keeps 15 characters of a process name (`chrome-headless`), the list held the 16-character `chrome-headless-` |
 | WA-20 | Fixed, merged, deployed, verified (new, memory) | #2193 | `python server.py` executed server.py's module body twice: once as `__main__`, then again when `uvicorn.run("server:app")` imported it as `server`. The `__main__` copy was never served but kept its own module state, including a second 44 MiB public-league snapshot. Production deep census after deploy: no `__main__` copy. §7.11, §7.12 |
 | WA-19 | Fixed, merged (new, P1 for trades) | #2190 | 35 pick rows priced by approved C1-U6 derivations or the rookie tether were quarantined (`no_valid_source_values`), withholding every trade verdict that touched one (e.g. "2029 Mid 5th (received, quarantined)"). Record: `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` |
@@ -215,7 +215,7 @@ the test-session endpoint); CI = GitHub Actions on the PR head; P = production, 
 
 | # | Item | Why open | Next step | Blocks readiness? |
 |---|---|---|---|---|
-| 1 | Memory across cycles (WA-17) | the heap passed `memory.high` under load twice on 2026-11-12 (§7.9, §7.10), and a 21:07 burst throttled it again without a restart (§7.12). The peak census names the burst: the Sharp cohort build held every `manager_seasons` row at once (§7.13) | after this PR deploys, read `prod-heap-report.yml`: no `Row` burst at high RSS, and the `memory.high` counter flat. If a burst remains, read its census and fix that producer; measure `PYTHONMALLOC=malloc` only as a fallback | yes, until production shows the heap staying below `memory.high`: about 6-minute API outages, twice on 2026-11-12 |
+| 1 | Memory across cycles (WA-17) | the heap passed `memory.high` under load twice on 2026-11-12 (§7.9, §7.10), and a 21:07 burst throttled it again without a restart (§7.12). The peak census names the burst: the Sharp cohort build held every `manager_seasons` row at once (§7.13) | open a Sharp page signed in (for example the Buy/Sell Tracker), then run `prod-heap-report.yml`: expect no `Row` growth and RSS far below 2,151 MiB (§7.13). If a burst remains, read its census and fix that producer | yes, until production shows the heap staying below `memory.high`: about 6-minute API outages, twice on 2026-11-12 |
 | 2 | Signed-in production checks | no production credentials here; the public advisor is disabled | owner signs in and checks `/trade` with 2029 Mid 5th / Mid 6th (no withheld side) once #2190 deploys | no |
 | 3 | Owned future picks: browser Mid row vs engine generic row (TC-22) | up to 2.5% on the preliminary meter only; the deferred frontend label-lookup migration | `docs/picks/DERIVED_PICK_QUARANTINE_2026-11-12.md` §Adjacent gap | no |
 | 4 | Raw ports from the internet | only probed from this egress | box-side `ss -ltnp` / firewall check by the operator | no |
@@ -466,7 +466,7 @@ restart empties the memo, and ledger writes from the Sharp crawl timers invalida
 file (a WAL checkpoint), so the full build runs again on the next Sharp request. That fits bursts shortly after a restart, but the request that triggered the
 21:07 build is not recorded.
 
-**This PR:**
+**#2197:**
 - **Stream and fold.** `build_manager_records` reads the two small per-manager aggregates first, then iterates the
   cursor and folds each eligible row into per-manager running totals (seasons, wins / losses / ties, playoffs,
   titles). No row object is kept. Per row there remains a pointer to a league-key string shared by every manager
@@ -499,3 +499,28 @@ Evidence (`tests/sharp/test_platform_records_streaming.py`):
 Expected in production: a Sharp build adds on the order of 100 MiB at its peak instead of about 1 GiB, the next
 high-RSS census (if any) shows no `Row` burst, and the `memory.high` counter stops rising. Production verification
 follows the deploy.
+
+**Production after #2197** (merged `e63d6629`; Deploy Production restarted the backend at 23:37:53 UTC; read with
+`/api/status` and `prod-heap-report.yml` runs 6 and 7 at 00:13 UTC, read-only):
+
+| Record (UTC) | RSS | anon | glibc in use / freed | `o_anon` | Python blocks | Tracked objects |
+|---|---|---|---|---|---|---|
+| 23:39 startup | 560 | 532 | 163 / 99 | 240 | 3.46 M | 408 k |
+| 23:42 after scrape and release | 500 | 469 | — | — | 2.69 M | — |
+| 23:54 periodic, RSS ≥ 1,024 (then trim 1,125 → 1,006) | 1,119 | 1,073 | 232 / 162 | 619 | 9.09 M | 949 k |
+| 00:09 periodic, RSS ≥ 1,024 (then trim 1,191 → 1,050) | 1,191 | 1,145 | 232 / 170 | 684 | 9.02 M | 927 k |
+
+- Build `e63d6629` is serving; glibc arenas 2; `memory.high` events 0 (the counter restarts with the service).
+- Highest RSS 1,191 MiB, against 2,151 MiB at the 21:07 burst. The periodic release returned 119 and 141 MiB.
+- The census at 00:09 shows no `sqlite3.Row`, `EvidenceStatus` or `ManagerRecord` growth since startup (sets +117).
+  The growth is dicts and lists (+207 k / +168 k), and the reachable caches account for about 110 MiB of it:
+  overlay responses +50, BDVM values and context +22, player impact +12, draft workbook +11.5, public contract
+  bytes +7.
+- **Not yet proven:** the read-only tools print no requests, so whether a Sharp page was opened in this window is
+  not known, and an absent burst is not by itself evidence of the fix. Before the fix, one of the seven processes
+  recorded from 18:10 to 23:37 UTC showed the burst. The direct check: open a Sharp page signed in (for example the Buy/Sell
+  Tracker), then run `prod-heap-report.yml`. Expect no `Row` growth and RSS far below 2,151 MiB.
+- The steady plateau (about 9 M Python blocks and 1.0-1.2 GiB RSS a few minutes after start, the same as the
+  process at 20:25 before the fix) remains and is separate from the burst. It sits about 1.4 GiB below
+  `memory.high` on its own. The cgroup also counts page cache (2,072 MiB total at 00:12 with 1,005 anonymous), so
+  file reads can still approach `memory.high`. That reclaim is cheap but counted.
