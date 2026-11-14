@@ -39,9 +39,6 @@ REPO = Path(__file__).resolve().parents[2]
 CFG = S.load_config()
 EVIDENCE_PATH = S.EVIDENCE_PATH
 DOC_PATH = S.DOC_PATH
-CACHE_OK = (S.CACHE_DIR / "nflverse" / "schedules__games.csv").exists() and any(
-    S.CACHE_DIR.glob("*.json")
-)
 
 SLOTS = [
     "QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX", "FLEX", "SUPER_FLEX", "K",
@@ -745,8 +742,14 @@ def test_archetype_rule_uses_provenance_only():
 # ── 6. real data (skipped without the cached Sleeper bodies) ────────────────────
 
 
-@pytest.mark.skipif(not CACHE_OK, reason="cached Sleeper bodies absent (data/idp_accuracy/cache)")
-def test_real_data_parity_and_pool_sizes_match_the_evidence():
+def test_real_data_parity_and_pool_sizes_match_the_evidence(monkeypatch):
+    # The gitignored ~33 MB research cache is replaced by the committed, trimmed
+    # public-data fixture (tests/fixtures/idp_accuracy/build_pinned_cache.py).
+    from tests.idp_accuracy.pinned_cache import pinned_cache_dir
+
+    root = pinned_cache_dir()
+    monkeypatch.setattr(S, "CACHE_DIR", root)
+    monkeypatch.setattr(S, "NFLVERSE_DIR", root / "nflverse")
     inp = S.load_inputs(offline=True)
     assert inp.fingerprint == CFG["league"]["pinnedScoringFingerprint"]
     study = S.Study(inp, CFG)
