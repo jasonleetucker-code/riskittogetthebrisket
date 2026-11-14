@@ -1,0 +1,92 @@
+{
+ "what": "box-mode smoke test of scripts/idp_accuracy/pr1938_bdvm_value_impact.py, 2026-11-07, run locally (NOT on the box)",
+ "setup": {
+  "appDir": "a detached worktree of origin/main (d7db52a43b) standing in for the deployed app; its data/nfl_data (pbp artifacts) and data/nfl_data_cache (weekly feed) copied from the dev worktree",
+  "correctedScorerFile": "src/nfl_data/realized_points.py from the PR branch, copied outside the app dir",
+  "snapshot": "a scratch snapshot file holding the 3,012-record reconstructed baseline (scored with origin/main's scorer); not a production snapshot",
+  "boxCommand": "python pr1938_bdvm_value_impact.py --app-dir <app> --corrected-scorer-file <pr file> --snapshot <scratch snapshot> --cache-only --out box_smoke.json",
+  "devCommand": "python scripts/idp_accuracy/pr1938_bdvm_value_impact.py --snapshot <same scratch snapshot> --cache-only --out dev_snapshot.json (in the PR worktree)"
+ },
+ "boxModeReceipts": {
+  "baseRef": null,
+  "currentScorerSha256": "ad506643cbd13a35d9f77b0caa6748da68e1603336ff82e0d06029863b8cc23b",
+  "correctedScorerSha256": "24bad46c7a63213ff23f06385c07242148892a2b725d011085ae8abbc9f8e43f",
+  "mode": "box",
+  "contract": {
+   "path": "dynasty_data_2026-11-07.json",
+   "sha256": "7d35c88dafe5fa2232d9f253b4ca5066b14b08e5cd04edbba3e42cdedaa4eade",
+   "generatedAt": "2026-11-07T11:02:11.892845+00:00"
+  },
+  "snapshot": {
+   "mode": "production_snapshot_read_only",
+   "path": "projections_2026-11-07_smoke.json",
+   "sha256": "455450c585df8a1cd770cacb5b6e4ee9b6f0d2caf40ea6a9c06d4598065e8b84",
+   "asOf": "2026-11-07",
+   "records": 3012,
+   "proxyRecords": 3012
+  },
+  "season": 2026,
+  "actualsSeason": 2026,
+  "weeklyRows": 8500,
+  "weeklyRowsCanonicalSha256": "32f09a4a9733bd2b4b00f5836cd703917ca12dd4ba4971005c44254cab552693",
+  "maxWeekObserved": 9,
+  "pbpArtifactSha256": "f49c077893769c5f9cbdbbf251087437fa50ffecd8232ce5842408be12bf89b5",
+  "scoringCardEntries": 148,
+  "paramSetId": "params_v1:01af672b2aff",
+  "contextPlayers": 0,
+  "scheduleAvailable": false,
+  "cacheOnly": true
+ },
+ "devModeReceipts": {
+  "baseRef": "origin/main",
+  "currentScorerSha256": "ad506643cbd13a35d9f77b0caa6748da68e1603336ff82e0d06029863b8cc23b",
+  "correctedScorerSha256": "24bad46c7a63213ff23f06385c07242148892a2b725d011085ae8abbc9f8e43f",
+  "mode": "dev",
+  "contract": {
+   "path": "dynasty_data_2026-11-07.json",
+   "sha256": "7d35c88dafe5fa2232d9f253b4ca5066b14b08e5cd04edbba3e42cdedaa4eade",
+   "generatedAt": "2026-11-07T11:02:17.866513+00:00"
+  },
+  "snapshot": {
+   "mode": "production_snapshot_read_only",
+   "path": "projections_2026-11-07_smoke.json",
+   "sha256": "455450c585df8a1cd770cacb5b6e4ee9b6f0d2caf40ea6a9c06d4598065e8b84",
+   "asOf": "2026-11-07",
+   "records": 3012,
+   "proxyRecords": 3012
+  },
+  "season": 2026,
+  "actualsSeason": 2026,
+  "weeklyRows": 8500,
+  "weeklyRowsCanonicalSha256": "32f09a4a9733bd2b4b00f5836cd703917ca12dd4ba4971005c44254cab552693",
+  "maxWeekObserved": 9,
+  "pbpArtifactSha256": "f49c077893769c5f9cbdbbf251087437fa50ffecd8232ce5842408be12bf89b5",
+  "scoringCardEntries": 148,
+  "paramSetId": "params_v1:01af672b2aff",
+  "contextPlayers": 0,
+  "scheduleAvailable": false,
+  "cacheOnly": true
+ },
+ "currentVsCorrectedSha256": {
+  "box": "cab61c0b6b790c6ae2b5c2ff331caab81004eea89bbb76ac7acd554f27548a9e",
+  "dev": "cab61c0b6b790c6ae2b5c2ff331caab81004eea89bbb76ac7acd554f27548a9e"
+ },
+ "currentVsCorrectedEqual": true,
+ "headline": {
+  "pricedCurrent": 861,
+  "pricedCorrected": 861,
+  "valueChanged": 325,
+  "rankChanged": 679,
+  "replacementChanged": true,
+  "alertTransitions": 2,
+  "tradeScan": {
+   "tradesCurrent": 40,
+   "tradesCorrected": 40,
+   "unchanged": 35,
+   "onlyCurrent": 5,
+   "onlyCorrected": 5
+  }
+ },
+ "appDirWrites": "after the run, git status --ignored in the app dir showed only the copied data/ inputs and src/**/__pycache__ (bytecode; suppressed on the box by PYTHONDONTWRITEBYTECODE=1); find data -newer <corrected scorer copy> listed no files",
+ "scriptVersionNote": "run with the script as of 11:02 UTC, before two output-neutral edits (the empty-weekly-feed BLOCKED guard and the PYTHONDONTWRITEBYTECODE usage line); the arms, diff and receipts code are unchanged since"
+}
