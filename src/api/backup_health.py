@@ -58,6 +58,29 @@ The stale-backup alert e-mail, which goes to the operator, still names the file:
 sidecar, taken from the SAME detail pass, so the e-mail's age, directory, count
 and file always describe one scan.
 
+**Two more answers (v4, additive).**
+
+* ``restoreProof`` -- the last result of the post-deploy restore proof
+  (``deploy/diagnostics/retention_backup_restore_proof.sh``).  The state-backup
+  root is closed to this process, so the proof leaves a small result file in
+  the untracked ``data/diagnostics/`` tree, which this process can read with no
+  new privilege.  A proof that never ran, or whose result cannot be read, is
+  ``unknown`` -- never healthy; an old result is ``stale``; a run that was
+  started and never finished is ``interrupted``.
+* ``irreplaceableLedgers`` -- for each store in ``IRREPLACEABLE_STORES`` (the
+  exact list, below), whether the newest generation holds it.  A store whose
+  source EXISTS on this host and whose artifact is absent is ``missing``; one
+  the writer recorded as failed or shed for space is named as such; a store
+  whose source does not exist on this host AND which no retained generation has ever
+  held is ``absent_by_design`` and does NOT count against the backup; one whose
+  source is gone but which an older retained generation holds is
+  ``lost_after_backup`` (loud, uncovered); if the retained generations cannot be
+  listed it is ``unverifiable``, never ``absent_by_design``.  The public block carries only the aggregate
+  (coverage + counts); the store names stay in the detail and in the operator
+  alert, per the policy above.  Coverage is judged on the newest generation
+  only: the post-deploy proof's own generation deliberately skips the two large
+  ledgers (``skipped_requested``), which reads ``partial``, not ``uncovered``.
+
 Reporting only.  Nothing here changes ``/api/health``'s status code, ``is_ok``
 or the alert the endpoint sends.
 
@@ -79,7 +102,9 @@ from typing import Any, Callable
 
 #: v3: filesystem paths left the public block (``newestBackupPath`` and every
 #: ``directoryInspected``); ``directoryRole`` and ``filesystemPaths`` joined it.
-SCHEMA_VERSION = "backup-health.v3"
+#: v4 (additive): ``restoreProof`` and ``irreplaceableLedgers`` joined the
+#: public block; every v3 key is unchanged.
+SCHEMA_VERSION = "backup-health.v4"
 
 #: Newest backup older than this is ``stale``.  Same figure the alert in
 #: ``server.get_health`` uses ("anything older than 36h"): a nightly job that
@@ -104,6 +129,166 @@ OPTIONAL_MANIFEST_NAME = "optional_stores.tsv"
 #: Present in a generation as ``sqlite/<name>.gz``.
 LEDGER_ARTIFACTS = ("temporal_ledger.sqlite", "intel_ledger.sqlite3")
 
+# -- the app's own data directory (where the restore proof leaves its result) --
+#: ``<app dir>/data`` -- the same place ``server.DATA_DIR`` names.  This module
+#: lives at ``<app dir>/src/api`` on the box and in the repo alike.
+DEFAULT_DATA_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data"
+)
+#: Written by ``retention_backup_restore_proof.sh`` (``PROOF_RESULT_FILE``).
+#: ``diagnostics/`` is untracked and not touched by a deploy's ``git reset --hard``.
+RESTORE_PROOF_RELATIVE = os.path.join("diagnostics", "backup_restore_proof.json")
+#: The proof runs after every production deploy (``retention-backup-proof.yml``)
+#: and deploys land most days.  A result older than a week means the proof has
+#: stopped running, not that nothing changed.  A declared PRIOR (no measured
+#: deploy-gap distribution backs it), chosen to tolerate a quiet week.
+RESTORE_PROOF_STALE_AFTER_HOURS = 168.0
+#: The proof job's own budget is 20 minutes; a ``running`` marker older than
+#: this belongs to a run that died without recording its verdict.
+RESTORE_PROOF_RUNNING_MAX_HOURS = 1.0
+_PROOF_RECORDED_STATES = frozenset(
+    {"running", "proven", "proven_with_warnings", "failed", "could_not_run"}
+)
+_ISO_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+#: THE irreplaceable stores: history that nothing else can re-derive.  Each row
+#: is ``(name, kind, source under data/, writer class, artifacts, manifest name)``
+#: lifted from ``deploy/backup/riskit-state-backup.sh`` (kept in lockstep by
+#: ``tests/api/test_backup_health_irreplaceable.py``).  ``artifacts`` are paths
+#: inside a generation; ANY one present means the store is in it (the intel
+#: ledger's raw files ride in ``intel.tar.gz`` when its online copy is not in
+#: the generation).  ``manifest name`` is the name the writer records in
+#: ``optional_stores.tsv`` when an OPTIONAL store is left out.
+IRREPLACEABLE_STORES: tuple[tuple[str, str, str, str, tuple[str, ...], str], ...] = (
+    # OPTIONAL in the writer: large, and shed first on a full disk.
+    (
+        "temporal_ledger",
+        "file",
+        "temporal_ledger.sqlite",
+        "optional",
+        ("sqlite/temporal_ledger.sqlite.gz",),
+        "temporal_ledger.sqlite",
+    ),
+    (
+        "analyst_ledger",
+        "file",
+        "analyst_ledger.sqlite",
+        "optional",
+        ("sqlite/analyst_ledger.sqlite.gz",),
+        "analyst_ledger.sqlite",
+    ),
+    (
+        "intel_ledger",
+        "file",
+        "intel/ledger.sqlite3",
+        "optional",
+        ("sqlite/intel_ledger.sqlite3.gz", "dirs/intel.tar.gz"),
+        "intel_ledger.sqlite3",
+    ),
+    (
+        "forecast_archive",
+        "dir",
+        "forecast_archive",
+        "optional",
+        ("dirs/forecast_archive.tar.gz",),
+        "forecast_archive",
+    ),
+    (
+        "pick_forecast_snapshots",
+        "dir",
+        "pick_forecast_snapshots",
+        "optional",
+        ("dirs/pick_forecast_snapshots.tar.gz",),
+        "pick_forecast_snapshots",
+    ),
+    (
+        "market_trades_archive",
+        "file",
+        "market_trades/archive.sqlite",
+        "optional",
+        ("sqlite/market_trades_archive.sqlite.gz",),
+        "market_trades_archive.sqlite",
+    ),
+    (
+        "injury_history",
+        "dir",
+        "nfl_data/injury_history",
+        "optional",
+        ("dirs/injury_history.tar.gz",),
+        "injury_history",
+    ),
+    (
+        "news_archive",
+        "dir",
+        "news_archive",
+        "optional",
+        ("dirs/news_archive.tar.gz",),
+        "news_archive",
+    ),
+    # CORE in the writer: a failed copy discards the generation, but an
+    # artifact absent without a trace (an older root-owned writer copy that
+    # predates the store) is still possible, so these are judged the same way.
+    (
+        "learning_receipts",
+        "file",
+        "learning/receipts.sqlite",
+        "core",
+        ("sqlite/receipts.sqlite.gz",),
+        "receipts.sqlite",
+    ),
+    ("game_day", "dir", "game_day", "core", ("dirs/game_day.tar.gz",), "game_day"),
+    (
+        "retention_evidence",
+        "file",
+        "retention/evidence.sqlite",
+        "core",
+        ("sqlite/evidence.sqlite.gz",),
+        "evidence.sqlite",
+    ),
+    (
+        "retention_league_events",
+        "file",
+        "retention/league_events.sqlite",
+        "core",
+        ("sqlite/league_events.sqlite.gz",),
+        "league_events.sqlite",
+    ),
+    (
+        "retention_acquisition",
+        "file",
+        "retention/acquisition.sqlite",
+        "core",
+        ("sqlite/acquisition.sqlite.gz",),
+        "acquisition.sqlite",
+    ),
+    (
+        "board_history",
+        "file",
+        "board_history.sqlite",
+        "core",
+        ("sqlite/board_history.sqlite.gz",),
+        "board_history.sqlite",
+    ),
+    (
+        "rank_history",
+        "file",
+        "rank_history.jsonl",
+        "core",
+        ("files/rank_history.jsonl.gz",),
+        "rank_history.jsonl",
+    ),
+)
+#: Per-store verdicts that are a LOUD finding: the store exists on this host
+#: and the newest generation does not hold it, or the writer says it shed it.
+#: ``lost_after_backup``: the source is gone from this host and an OLDER retained
+#: generation holds the store -- a deleted irreplaceable ledger.
+LEDGER_LOUD_STATUSES = frozenset(
+    {"missing", "lost_after_backup", "failed", "skipped_low_space", "skipped_space_unmeasurable"}
+)
+_WRITER_RECORDED_STATUSES = frozenset(
+    {"failed", "skipped_low_space", "skipped_space_unmeasurable", "skipped_requested"}
+)
+
 # -- legacy SQLite backup (mirrors deploy/backup_user_kv.sh) -----------------
 LEGACY_PRIMARY_DIR = "/var/backups/riskit/daily"
 LEGACY_FALLBACK_DIR = "/home/dynasty/backups/riskit/daily"
@@ -118,6 +303,9 @@ _DATED_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 STATE_BACKUP_DESCRIBES = (
     "riskit-state-backup.service nightly generation (deploy/backup/riskit-state-backup.sh)"
+)
+RESTORE_PROOF_DESCRIBES = (
+    "post-deploy backup + restore proof (deploy/diagnostics/retention_backup_restore_proof.sh)"
 )
 LEGACY_DESCRIBES = (
     "riskit-backup.timer nightly SQLite backup of user_kv, session_store, "
@@ -323,6 +511,7 @@ def _inspect_state_root(path: str, role: str, now_epoch: float) -> dict[str, Any
         "optionalStores": None,
         "ledgers": None,
         "offboxMirror": None,
+        "generationPath": None,
     }
     root = _probe_dir(path)
     rep["state"], rep["reason"] = root["state"], root["reason"]
@@ -391,15 +580,170 @@ def _inspect_state_root(path: str, role: str, now_epoch: float) -> dict[str, Any
     rep["newestGenerationAgeHours"] = age
 
     rep["verdict"] = "generation"
+    rep["generationPath"] = gen_path
     rep.update(_coverage(gen_path, pointer_matches, pointer))
     rep["offboxMirror"] = _offbox_mirror(path, now_epoch)
     return rep
+
+
+# -- irreplaceable stores -------------------------------------------------------
+def _unobserved_ledgers() -> dict[str, Any]:
+    """No generation was observed, so nothing can be said about any store."""
+    return {
+        "coverage": "unverifiable",
+        "reason": "no_generation_observed",
+        "storeCount": len(IRREPLACEABLE_STORES),
+        "uncoveredCount": None,
+        "unverifiableCount": None,
+        "partialCount": None,
+        "stores": None,
+    }
+
+
+def _probe_exists(path: str, kind: str) -> str:
+    """``present`` / ``absent`` / ``unknown`` for a store's SOURCE on this host.
+
+    ``absent`` is PROVEN absence (ENOENT / ENOTDIR).  A source behind a
+    permission this process lacks is ``unknown`` -- it may exist, so it can
+    never be filed under "legitimately not here".
+    """
+    try:
+        st = _stat(path)
+    except OSError as exc:
+        verdict, _ = _classify_oserror(exc)
+        return "absent" if verdict == "absent" else "unknown"
+    is_dir = stat_mod.S_ISDIR(st.st_mode)
+    return "present" if is_dir == (kind == "dir") else "absent"
+
+
+def _held_in_older_generation(
+    store_artifacts: tuple[str, ...], gen_path: str, daily_dirs: list[str]
+) -> str:
+    """``held`` / ``never`` / ``unknown``: does ANY retained generation other than
+    the newest hold this store?  ``unknown`` when a generation cannot be listed
+    or statted -- the caller must not read that as "never"."""
+    if not daily_dirs:
+        return "unknown"
+    verdict = "never"
+    for daily in daily_dirs:
+        probe = _probe_dir(daily)
+        if probe["state"] != "readable":
+            return "unknown"
+        for entry in probe["entries"]:
+            full = os.path.join(daily, entry)
+            if not _DATED_NAME.match(entry) or os.path.normpath(full) == os.path.normpath(gen_path):
+                continue
+            for artifact in store_artifacts:
+                try:
+                    _stat(os.path.join(full, *artifact.split("/")))
+                except OSError as exc:
+                    if _classify_oserror(exc)[0] != "absent":
+                        verdict = "unknown"
+                    continue
+                return "held"
+    return verdict
+
+
+def _irreplaceable_coverage(
+    gen_path: str,
+    optional_stores: dict[str, Any] | None,
+    data_dir: str,
+    daily_dirs: list[str] | None = None,
+) -> dict[str, Any]:
+    """Which irreplaceable stores the newest generation holds.
+
+    Per store: ``covered`` (an artifact is in the generation) · ``archive_only``
+    (only the raw-files tarball, no consistent online copy) · ``absent_by_design``
+    (artifact absent, the source is proven absent on this host AND no retained
+    older generation ever held it -- a stream that has not started is not a
+    failed backup) · ``lost_after_backup`` (source gone, but an older retained
+    generation holds it: a deleted irreplaceable ledger, loud) · ``unverifiable``
+    when the retained generations cannot be listed (never ``absent_by_design``) · ``skipped_requested`` (the
+    proof's own run leaves the two large ledgers out on purpose) · a LOUD
+    status -- ``missing`` (the source exists, the artifact does not, and the
+    writer recorded nothing: an older writer that predates the store, or a copy
+    that vanished) or the writer's own ``failed`` / ``skipped_low_space`` /
+    ``skipped_space_unmeasurable`` · ``unverifiable`` (a stat this process may
+    not make).  Missing is never zero and unknown is never fine.
+    """
+    recorded: dict[str, str] = {}
+    if isinstance(optional_stores, dict) and optional_stores.get("manifest") == "present":
+        for row in optional_stores.get("notInGeneration") or []:
+            recorded[row["name"]] = row["status"]
+
+    stores: list[dict[str, Any]] = []
+    for name, kind, source, writer, artifacts, manifest_name in IRREPLACEABLE_STORES:
+        found: str | None = None
+        unknown = False
+        for artifact in artifacts:
+            try:
+                _stat(os.path.join(gen_path, *artifact.split("/")))
+            except OSError as exc:
+                verdict, _ = _classify_oserror(exc)
+                unknown = unknown or verdict != "absent"
+                continue
+            found = artifact
+            break
+        writer_recorded = recorded.get(manifest_name)
+        if found is not None:
+            archive_only = kind == "file" and found.startswith("dirs/")
+            status = "archive_only" if archive_only else "covered"
+        elif writer_recorded in _WRITER_RECORDED_STATUSES:
+            status = writer_recorded
+        elif unknown:
+            status = "unverifiable"
+        else:
+            src = _probe_exists(os.path.join(data_dir, *source.split("/")), kind)
+            if src == "present":
+                status = "missing"
+            elif src == "absent":
+                history = _held_in_older_generation(artifacts, gen_path, daily_dirs or [])
+                status = {
+                    "held": "lost_after_backup",
+                    "never": "absent_by_design",
+                }.get(history, "unverifiable")
+            else:
+                status = "unverifiable"
+        stores.append(
+            {
+                "name": name,
+                "kind": kind,
+                "writerClass": writer,
+                "status": status,
+                "writerRecorded": writer_recorded,
+            }
+        )
+
+    def count(pred) -> int:
+        return sum(1 for r in stores if pred(r["status"]))
+
+    uncovered = count(lambda s_: s_ in LEDGER_LOUD_STATUSES)
+    unverifiable = count(lambda s_: s_ == "unverifiable")
+    partial = count(lambda s_: s_ in ("skipped_requested", "archive_only"))
+    if uncovered:
+        coverage = "uncovered"
+    elif unverifiable:
+        coverage = "unverifiable"
+    elif partial:
+        coverage = "partial"
+    else:
+        coverage = "covered"
+    return {
+        "coverage": coverage,
+        "reason": None,
+        "storeCount": len(stores),
+        "uncoveredCount": uncovered,
+        "unverifiableCount": unverifiable,
+        "partialCount": partial,
+        "stores": stores,
+    }
 
 
 def state_backup_health(
     *,
     root: str = STATE_BACKUP_ROOT,
     fallback_root: str = STATE_BACKUP_FALLBACK_ROOT,
+    data_dir: str = DEFAULT_DATA_DIR,
     now_epoch: float | None = None,
 ) -> dict[str, Any]:
     """Health of the nightly state backup, from what this process can read.
@@ -437,6 +781,7 @@ def state_backup_health(
         "optionalStores": None,
         "ledgers": None,
         "offboxMirror": None,
+        "irreplaceableLedgers": _unobserved_ledgers(),
         "roots": reports,
     }
 
@@ -507,6 +852,103 @@ def state_backup_health(
         ledgers=chosen["ledgers"],
         offboxMirror=chosen["offboxMirror"],
     )
+    daily_dirs = [os.path.dirname(r["generationPath"]) for r in located if r.get("generationPath")]
+    out["irreplaceableLedgers"] = _irreplaceable_coverage(
+        chosen["generationPath"], chosen["optionalStores"], data_dir, daily_dirs
+    )
+    return out
+
+
+# -- restore proof --------------------------------------------------------------
+def _proof_unknown(reason: str) -> dict[str, Any]:
+    return {
+        "name": "restore_proof",
+        "result": "unknown",
+        "reason": reason,
+        "completedAt": None,
+        "startedAt": None,
+        "ageHours": None,
+        "exitCode": None,
+        "provenArtifacts": None,
+        "failures": None,
+        "optionalWarnings": None,
+        "runBackup": None,
+        "generationDate": None,
+        "staleAfterHours": RESTORE_PROOF_STALE_AFTER_HOURS,
+    }
+
+
+def restore_proof_health(
+    *, data_dir: str = DEFAULT_DATA_DIR, now_epoch: float | None = None
+) -> dict[str, Any]:
+    """The last result of the post-deploy restore proof, from its result file.
+
+    ``unknown`` -- never ``proven`` -- when no result exists, or the file cannot
+    be read or does not parse: a proof nobody has seen run is not a proof.
+    """
+    import json
+
+    now = time.time() if now_epoch is None else now_epoch
+    path = os.path.join(data_dir, RESTORE_PROOF_RELATIVE)
+    try:
+        text = _read_text(path)
+    except FileNotFoundError:
+        return _proof_unknown("no_result_recorded")
+    except OSError:
+        return _proof_unknown("result_unreadable")
+    try:
+        doc = json.loads(text)
+    except ValueError:
+        return _proof_unknown("result_unreadable")
+    recorded = doc.get("state") if isinstance(doc, dict) else None
+    if recorded not in _PROOF_RECORDED_STATES or doc.get("schema") != 1:
+        return _proof_unknown("result_unreadable")
+
+    def _stamp(key: str) -> str | None:
+        value = doc.get(key)
+        return value if isinstance(value, str) and _ISO_UTC.match(value) else None
+
+    def _count(key: str) -> int | None:
+        value = doc.get(key)
+        return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+    started, completed = _stamp("startedAt"), _stamp("completedAt")
+    gen = doc.get("generationDate")
+    out = _proof_unknown("result_unreadable")
+    out.update(
+        completedAt=completed,
+        startedAt=started,
+        exitCode=_count("exitCode"),
+        provenArtifacts=_count("provenArtifacts"),
+        failures=_count("failures"),
+        optionalWarnings=_count("optionalWarnings"),
+        runBackup=doc.get("runBackup") if isinstance(doc.get("runBackup"), bool) else None,
+        generationDate=gen if isinstance(gen, str) and _DATED_NAME.match(gen) else None,
+    )
+    basis = started if recorded == "running" else completed
+    epoch = _parse_utc(basis) if basis else None
+    if epoch is None:
+        return out  # a result with no usable timestamp is not a result
+    age = _observed_age_hours(epoch, now)
+    if age is None:
+        out.update(result="unverifiable", reason="result_clock_skew")
+        return out
+    out["ageHours"] = age
+    if recorded == "running":
+        if age <= RESTORE_PROOF_RUNNING_MAX_HOURS:
+            out.update(result="running", reason="run_in_progress")
+        else:
+            out.update(result="interrupted", reason="run_never_finished")
+    elif recorded == "failed":
+        out.update(result="failed", reason="artifact_failed")
+    elif recorded == "could_not_run":
+        out.update(result="could_not_run", reason="proof_could_not_run")
+    elif age > RESTORE_PROOF_STALE_AFTER_HOURS:
+        out.update(result="stale", reason="older_than_threshold")
+    elif recorded == "proven_with_warnings":
+        out.update(result="proven_with_warnings", reason="optional_store_warnings")
+    else:
+        out.update(result="proven", reason="all_artifacts_verified")
     return out
 
 
@@ -609,6 +1051,11 @@ PUBLIC_STATE_KEYS = (
     "inspectionReason",
     "evidenceSource",
 )
+#: The aggregate irreplaceable-store coverage the public block may carry.  The
+#: store NAMES are private (they say where the data is not protected).
+PUBLIC_LEDGER_KEYS = ("coverage", "uncoveredCount", "unverifiableCount", "partialCount")
+#: The restore proof's: a verdict, a UTC timestamp and an age.
+PUBLIC_PROOF_KEYS = ("result", "reason", "completedAt", "ageHours")
 #: ... and the legacy block's (its detail -- per-directory states and file
 #: counts -- stays private too).
 PUBLIC_LEGACY_KEYS = ("state", "reason", "ageHours")
@@ -647,6 +1094,16 @@ PUBLIC_REASONS = frozenset(
         "newest_backup_clock_skew",
         # the probe itself failed (``_probe_failed``)
         "probe_error",
+        # the restore proof's result (``restore_proof_health``)
+        "no_result_recorded",
+        "result_unreadable",
+        "result_clock_skew",
+        "run_in_progress",
+        "run_never_finished",
+        "artifact_failed",
+        "proof_could_not_run",
+        "optional_store_warnings",
+        "all_artifacts_verified",
     }
 )
 PUBLIC_INSPECTION_REASONS = frozenset(
@@ -662,6 +1119,20 @@ PUBLIC_INSPECTION_REASONS = frozenset(
     }
 )
 PUBLIC_EVIDENCE_SOURCES = frozenset({"directory_listing"})
+PUBLIC_LEDGER_COVERAGE = frozenset({"covered", "partial", "uncovered", "unverifiable"})
+PUBLIC_PROOF_RESULTS = frozenset(
+    {
+        "proven",
+        "proven_with_warnings",
+        "failed",
+        "could_not_run",
+        "running",
+        "interrupted",
+        "stale",
+        "unverifiable",
+        "unknown",
+    }
+)
 PUBLIC_DIRECTORY_ROLES = frozenset(_ROLE_INSPECTION_REASON)
 PUBLIC_LEGACY_DIR_LABELS = frozenset({label for label, _ in LEGACY_DIRS} | {"none"})
 PUBLIC_VALUE_VOCABULARY: dict[str, frozenset[str]] = {
@@ -670,6 +1141,8 @@ PUBLIC_VALUE_VOCABULARY: dict[str, frozenset[str]] = {
     "reason": PUBLIC_REASONS,
     "inspectionReason": PUBLIC_INSPECTION_REASONS,
     "evidenceSource": PUBLIC_EVIDENCE_SOURCES,
+    "coverage": PUBLIC_LEDGER_COVERAGE,
+    "result": PUBLIC_PROOF_RESULTS,
     "directoryRole": PUBLIC_DIRECTORY_ROLES,
     "backupDirUsed": PUBLIC_LEGACY_DIR_LABELS,
     "legacyKeysDescribe": frozenset({"legacySqliteBackup"}),
@@ -725,6 +1198,20 @@ def public_state_backup(detail: dict[str, Any]) -> dict[str, Any]:
     roots = detail.get("roots")
     if isinstance(roots, list):
         out["roots"] = [_public_root(r) for r in roots if isinstance(r, dict)]
+    ledgers = detail.get("irreplaceableLedgers")
+    ledger_block = {key: (ledgers or {}).get(key) for key in PUBLIC_LEDGER_KEYS}
+    if ledger_block["coverage"] is None:
+        # A probe that failed carries no coverage block: unknown, not covered.
+        ledger_block["coverage"] = "unverifiable"
+    out["irreplaceableLedgers"] = ledger_block
+    return out
+
+
+def public_restore_proof(detail: dict[str, Any]) -> dict[str, Any]:
+    """The anonymous-safe projection of ``restore_proof_health``."""
+    out = {key: detail.get(key) for key in PUBLIC_PROOF_KEYS}
+    if out["result"] is None:
+        out["result"], out["reason"] = "unknown", "probe_error"
     return out
 
 
@@ -750,6 +1237,7 @@ def build_backup_health_detail(
     state_root: str = STATE_BACKUP_ROOT,
     state_fallback_root: str = STATE_BACKUP_FALLBACK_ROOT,
     legacy_dirs: tuple[tuple[str, str], ...] | None = None,
+    data_dir: str = DEFAULT_DATA_DIR,
     now_epoch: float | None = None,
 ) -> dict[str, Any]:
     """The FULL backup-health report, coverage detail included.
@@ -768,10 +1256,15 @@ def build_backup_health_detail(
     )
     state = _guarded(
         lambda: state_backup_health(
-            root=state_root, fallback_root=state_fallback_root, now_epoch=now
+            root=state_root, fallback_root=state_fallback_root, data_dir=data_dir, now_epoch=now
         ),
         "state_backup",
         STATE_BACKUP_DESCRIBES,
+    )
+    proof = _guarded(
+        lambda: restore_proof_health(data_dir=data_dir, now_epoch=now),
+        "restore_proof",
+        RESTORE_PROOF_DESCRIBES,
     )
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -785,6 +1278,7 @@ def build_backup_health_detail(
         "legacyKeysDescribe": "legacySqliteBackup",
         "legacySqliteBackup": legacy,
         "stateBackup": state,
+        "restoreProof": proof,
     }
 
 
@@ -804,6 +1298,7 @@ def _public_block(detail: dict[str, Any]) -> dict[str, Any]:
         "filesystemPaths": FILESYSTEM_PATHS_WITHHELD,
         "legacySqliteBackup": public_legacy_backup(detail["legacySqliteBackup"]),
         "stateBackup": public_state_backup(detail["stateBackup"]),
+        "restoreProof": public_restore_proof(detail["restoreProof"]),
     }
 
 
@@ -812,6 +1307,7 @@ def build_backup_health_snapshot(
     state_root: str = STATE_BACKUP_ROOT,
     state_fallback_root: str = STATE_BACKUP_FALLBACK_ROOT,
     legacy_dirs: tuple[tuple[str, str], ...] | None = None,
+    data_dir: str = DEFAULT_DATA_DIR,
     now_epoch: float | None = None,
 ) -> tuple[dict[str, Any], str | None]:
     """``(public block, alert path)`` from ONE detail pass.
@@ -830,6 +1326,7 @@ def build_backup_health_snapshot(
         state_root=state_root,
         state_fallback_root=state_fallback_root,
         legacy_dirs=legacy_dirs,
+        data_dir=data_dir,
         now_epoch=now_epoch,
     )
     return _public_block(detail), detail.get("newestBackupPath")
@@ -840,6 +1337,7 @@ def build_backup_health(
     state_root: str = STATE_BACKUP_ROOT,
     state_fallback_root: str = STATE_BACKUP_FALLBACK_ROOT,
     legacy_dirs: tuple[tuple[str, str], ...] | None = None,
+    data_dir: str = DEFAULT_DATA_DIR,
     now_epoch: float | None = None,
 ) -> dict[str, Any]:
     """The ``backup_health`` block served by ``/api/health`` and ``/api/status``.
@@ -852,9 +1350,68 @@ def build_backup_health(
             state_root=state_root,
             state_fallback_root=state_fallback_root,
             legacy_dirs=legacy_dirs,
+            data_dir=data_dir,
             now_epoch=now_epoch,
         )
     )
+
+
+#: Restore-proof results that mean "the proof ran and the backup did NOT
+#: restore" (or the run died).  ``stale`` / ``unknown`` are reported in the
+#: block but are not an alert: a quiet week or a never-run proof is not a
+#: restore failure.
+PROOF_ALERT_RESULTS = frozenset({"failed", "could_not_run", "interrupted"})
+#: Results that say nothing about the LAST proof yet (no result, a bad file, a
+#: wrong clock, or a run still in flight): not checked, never "recovered".
+PROOF_UNCHECKED_RESULTS = frozenset({"unknown", "unverifiable", "running"})
+
+
+def alert_rows(detail: dict[str, Any]) -> dict[str, Any]:
+    """What the operator alert needs, from ONE ``build_backup_health_detail``.
+
+    PRIVATE: it names the uncovered stores, which the public block never does.
+    ``ledgersChecked`` / ``proofChecked`` say whether this pass could judge each
+    half at all -- an unreadable state root or a proof that has not reported is
+    UNKNOWN, and ``ops_alerts`` must not read unknown as "recovered".
+    """
+    state = detail.get("stateBackup") if isinstance(detail, dict) else None
+    ledgers = (state or {}).get("irreplaceableLedgers") or {}
+    stores = ledgers.get("stores")
+    proof = detail.get("restoreProof") if isinstance(detail, dict) else None
+    result = (proof or {}).get("result")
+    rows: list[dict[str, Any]] = []
+    if isinstance(stores, list):
+        for row in stores:
+            if row.get("status") in LEDGER_LOUD_STATUSES:
+                rows.append(
+                    {
+                        "kind": "ledger",
+                        "store": row.get("name"),
+                        "status": row.get("status"),
+                        "writerClass": row.get("writerClass"),
+                    }
+                )
+    proof_checked = result is not None and result not in PROOF_UNCHECKED_RESULTS
+    if result in PROOF_ALERT_RESULTS:
+        rows.append(
+            {
+                "kind": "restore_proof",
+                "result": result,
+                "completedAt": (proof or {}).get("completedAt"),
+                "failures": (proof or {}).get("failures"),
+            }
+        )
+    return {
+        "rows": rows,
+        "ledgersChecked": isinstance(stores, list),
+        "proofChecked": proof_checked,
+    }
+
+
+def alert_rows_now() -> dict[str, Any]:
+    """``alert_rows`` over one fresh detail pass (the operator's ops-alert sweep;
+    never memoized, never served)."""
+    return alert_rows(build_backup_health_detail())
 
 
 def main() -> int:

@@ -2792,10 +2792,42 @@ def _backup_snapshot_uncached() -> tuple[dict, str | None]:
                 "legacyKeysDescribe": "legacySqliteBackup",
                 "filesystemPaths": "withheld",
                 "legacySqliteBackup": {"state": "unverifiable", "reason": "probe_error"},
-                "stateBackup": {"state": "unverifiable", "reason": "probe_error"},
+                "stateBackup": {
+                    "state": "unverifiable",
+                    "reason": "probe_error",
+                    "irreplaceableLedgers": {"coverage": "unverifiable"},
+                },
+                "restoreProof": {"result": "unknown", "reason": "probe_error"},
             },
             None,
         )
+
+
+def _backup_coverage_alert_rows() -> dict | None:
+    """Irreplaceable-store coverage + restore-proof findings for the operator's
+    ops-alert sweep.  PRIVATE (it names the stores): one fresh detail pass, never
+    memoized and never served.  ``None`` -- "not checked", never "healthy" --
+    when the pass itself fails.  Owner: ``src/api/backup_health.py``.
+    """
+    try:
+        from src.api import backup_health as _bh
+
+        return _bh.alert_rows_now()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
+
+
+def _failed_systemd_units() -> list[str] | None:
+    """Shipped systemd services currently ``failed`` (``None`` = not checked).
+
+    Owner: ``src/api/systemd_failures.py``.  Never raises.
+    """
+    try:
+        from src.api import systemd_failures as _sf
+
+        return _sf.failed_units()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
 
 
 def _backup_alert_path(block: dict) -> str | None:
@@ -21902,6 +21934,8 @@ async def run_signal_alerts(request: Request):
             draft_valuation=await run_in_threadpool(_draft_valuation_health),
             pregame_archive=await run_in_threadpool(_pregame_archive_health),
             roster_construction=await run_in_threadpool(_roster_construction_health),
+            backup_coverage=await run_in_threadpool(_backup_coverage_alert_rows),
+            failed_units=await run_in_threadpool(_failed_systemd_units),
             forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,

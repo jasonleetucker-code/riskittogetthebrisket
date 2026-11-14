@@ -211,7 +211,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 │                              #   Not legacy despite its age: server.py
 │                              #   imports it via importlib for /api/scrape,
 │                              #   the scheduled loop and startup, and
-│                              #   scheduled-refresh.yml runs it every 2h.
+│                              #   scheduled-refresh.yml runs it (cron declared every 2h; measured ~3.6 runs/day, docs/ops/SCRAPE_CADENCE_MEASUREMENT_2026-11-09.md).
 ├── .github/workflows/         # GitHub Actions CI/CD pipelines
 │
 ├── frontend/                  # Next.js app (App Router) — 38 pages
@@ -252,7 +252,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 │                              #   .gitignore, and refresh workflows `git add -f`).
 │                              #   The tracking is DELIBERATE, not an accident:
 │                              #   scheduled-refresh.yml force-adds
-│                              #   data/scrape_state/ every 2h even when the
+│                              #   data/scrape_state/ on every run (declared 2h) even when the
 │                              #   scrape fails, and deploy dispatch keys on
 │                              #   those commit subjects — so `git rm --cached`
 │                              #   freezes prod's source_health. See W31-F001 in
