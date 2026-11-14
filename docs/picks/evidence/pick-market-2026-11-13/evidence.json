@@ -1,0 +1,842 @@
+{
+  "inputs": {
+    "boardDate": "2026-11-13",
+    "rawPayload": "exports/latest/dynasty_data_2026-11-13.json",
+    "rawPayloadSha256": "57c2d2d424950bcbea4363d9bfc06976b2489e79efea44e37fb03bec17b177a3",
+    "scrapeTimestamp": "2026-11-13T07:22:01.833061+00:00"
+  },
+  "result": {
+    "boardDate": "2026-11-13",
+    "budgetDays": 14,
+    "classTable": {
+      "cells": {
+        "2027:slot": {
+          "confidence": {
+            "low": 72
+          },
+          "evidenceState": {
+            "no_provider": 24,
+            "single_provider": 48
+          },
+          "provenance": {
+            "rookie_pool_tether": 72
+          },
+          "rows": {
+            "n": 72
+          },
+          "votingProviderCount": {
+            "0": 24,
+            "1": 48
+          }
+        },
+        "2027:tier": {
+          "confidence": {
+            "none": 18
+          },
+          "evidenceState": {
+            "None": 6,
+            "multi_provider": 12
+          },
+          "provenance": {
+            "alias_suppressed": 18
+          },
+          "rows": {
+            "n": 18
+          },
+          "votingProviderCount": {
+            "0": 6,
+            "2": 12
+          }
+        },
+        "2028:generic": {
+          "confidence": {
+            "low": 6
+          },
+          "evidenceState": {
+            "multi_provider": 6
+          },
+          "provenance": {
+            "derived_uniform_tier_ev": 6
+          },
+          "rows": {
+            "n": 6
+          },
+          "votingProviderCount": {
+            "2": 6
+          }
+        },
+        "2028:tier": {
+          "confidence": {
+            "high": 12,
+            "low": 6
+          },
+          "evidenceState": {
+            "multi_provider": 18
+          },
+          "provenance": {
+            "derived_round_step": 6,
+            "direct_market_blend": 12
+          },
+          "rows": {
+            "n": 18
+          },
+          "votingProviderCount": {
+            "2": 18
+          }
+        },
+        "2029:generic": {
+          "confidence": {
+            "low": 6
+          },
+          "evidenceState": {
+            "multi_provider": 6
+          },
+          "provenance": {
+            "derived_uniform_tier_ev": 6
+          },
+          "rows": {
+            "n": 6
+          },
+          "votingProviderCount": {
+            "2": 6
+          }
+        },
+        "2029:tier": {
+          "confidence": {
+            "high": 12,
+            "low": 6
+          },
+          "evidenceState": {
+            "multi_provider": 18
+          },
+          "provenance": {
+            "derived_round_step": 6,
+            "direct_market_blend": 12
+          },
+          "rows": {
+            "n": 18
+          },
+          "votingProviderCount": {
+            "2": 18
+          }
+        }
+      },
+      "unparsed": 0
+    },
+    "confidenceCounts": {
+      "high": 24,
+      "low": 96,
+      "none": 18
+    },
+    "contractGeneratedAt": "2026-11-13T16:07:57.461449+00:00",
+    "evidenceStateCounts": {
+      "None": 6,
+      "multi_provider": 60,
+      "no_provider": 24,
+      "single_provider": 48
+    },
+    "frozenProviders": {
+      "idpTradeCalc": {
+        "ageDays": 33.82,
+        "state": "frozen"
+      },
+      "ktcCrowdSfTep": {
+        "ageDays": 0.67,
+        "state": "current"
+      },
+      "ktcTradesSfTep": {
+        "ageDays": 0.67,
+        "state": "current"
+      }
+    },
+    "networkAttemptsRefused": 0,
+    "pickChangeCounts": {
+      "idpTradeCalc": 5,
+      "ktcCrowdSfTep": 240,
+      "ktcTradesSfTep": 240
+    },
+    "pickChangeGapsDays": {
+      "idpTradeCalc": [
+        41.85,
+        29.54,
+        52.84,
+        43.8
+      ],
+      "ktcCrowdSfTep": [
+        0.33,
+        0.26,
+        0.16,
+        0.25,
+        0.28,
+        0.21,
+        0.19,
+        0.13,
+        0.3,
+        0.24,
+        0.2,
+        0.14,
+        0.13,
+        0.3,
+        0.24,
+        0.2,
+        0.13,
+        0.13,
+        0.28,
+        0.23,
+        0.2,
+        0.14,
+        0.14,
+        0.19,
+        0.27,
+        0.19,
+        0.12,
+        0.15,
+        0.08,
+        0.21,
+        0.27,
+        0.19,
+        0.11,
+        0.15,
+        0.08,
+        0.21,
+        0.33,
+        0.27,
+        0.16,
+        0.24,
+        0.28,
+        0.22,
+        0.18,
+        0.14,
+        0.29,
+        0.25,
+        0.2,
+        0.13,
+        0.67,
+        0.2,
+        0.13,
+        0.06,
+        0.06,
+        0.31,
+        0.25,
+        0.2,
+        0.19,
+        0.25,
+        0.26,
+        0.21,
+        0.34,
+        0.32,
+        0.24,
+        0.18,
+        0.12,
+        0.15,
+        0.32,
+        0.39,
+        0.22,
+        0.28,
+        0.3,
+        0.26,
+        0.18,
+        0.25,
+        0.29,
+        2.01,
+        0.26,
+        0.19,
+        0.24,
+        0.26,
+        0.19,
+        0.21,
+        0.18,
+        0.28,
+        0.28,
+        0.18,
+        0.16,
+        0.28,
+        0.38,
+        0.32,
+        0.33,
+        0.36,
+        0.24,
+        0.19,
+        0.31,
+        0.34,
+        0.24,
+        0.31,
+        0.31,
+        0.25,
+        0.19,
+        0.25,
+        0.37,
+        0.24,
+        0.19,
+        0.3,
+        0.29,
+        0.18,
+        0.15,
+        0.28,
+        0.29,
+        0.24,
+        0.2,
+        0.27,
+        0.4,
+        0.3,
+        0.33,
+        0.39,
+        0.21,
+        0.16,
+        0.28,
+        0.25,
+        0.2,
+        0.19,
+        0.24,
+        0.29,
+        0.22,
+        0.18,
+        0.12,
+        0.28,
+        0.26,
+        0.2,
+        0.14,
+        0.13,
+        0.27,
+        0.22,
+        0.15,
+        0.12,
+        0.16,
+        0.07,
+        0.2,
+        0.27,
+        0.18,
+        0.12,
+        0.15,
+        0.08,
+        0.2,
+        0.36,
+        0.26,
+        0.15,
+        0.23,
+        0.29,
+        0.22,
+        0.18,
+        0.13,
+        0.29,
+        0.26,
+        0.2,
+        0.2,
+        0.24,
+        0.3,
+        0.22,
+        0.18,
+        0.13,
+        0.29,
+        0.25,
+        0.2,
+        0.2,
+        0.23,
+        0.27,
+        0.19,
+        0.12,
+        0.15,
+        0.27,
+        0.28,
+        1.03,
+        0.11,
+        0.24,
+        0.18,
+        0.28,
+        0.27,
+        0.25,
+        0.2,
+        0.3,
+        0.33,
+        0.25,
+        0.32,
+        0.3,
+        0.26,
+        0.19,
+        0.25,
+        0.3,
+        0.25,
+        0.18,
+        0.26,
+        0.28,
+        0.24,
+        0.21,
+        0.3,
+        0.36,
+        0.22,
+        0.21,
+        0.34,
+        0.44,
+        0.26,
+        0.31,
+        0.33,
+        0.24,
+        0.3,
+        0.4,
+        0.23,
+        0.19,
+        0.42,
+        0.35,
+        0.23,
+        0.4,
+        0.3,
+        0.19,
+        0.26,
+        0.29,
+        0.23,
+        0.21,
+        0.28,
+        0.37,
+        0.22,
+        0.22,
+        0.35,
+        0.45,
+        0.3,
+        0.36,
+        0.33,
+        0.22,
+        0.32,
+        0.34,
+        0.29,
+        0.39,
+        0.34,
+        0.22,
+        0.31
+      ],
+      "ktcTradesSfTep": [
+        0.33,
+        0.26,
+        0.16,
+        0.25,
+        0.28,
+        0.21,
+        0.19,
+        0.13,
+        0.3,
+        0.24,
+        0.2,
+        0.14,
+        0.13,
+        0.3,
+        0.24,
+        0.2,
+        0.13,
+        0.13,
+        0.28,
+        0.23,
+        0.2,
+        0.14,
+        0.14,
+        0.19,
+        0.27,
+        0.19,
+        0.12,
+        0.15,
+        0.08,
+        0.21,
+        0.27,
+        0.19,
+        0.11,
+        0.15,
+        0.08,
+        0.21,
+        0.33,
+        0.27,
+        0.16,
+        0.24,
+        0.28,
+        0.22,
+        0.18,
+        0.14,
+        0.29,
+        0.25,
+        0.2,
+        0.13,
+        0.67,
+        0.2,
+        0.13,
+        0.06,
+        0.06,
+        0.31,
+        0.25,
+        0.2,
+        0.19,
+        0.25,
+        0.26,
+        0.21,
+        0.34,
+        0.32,
+        0.24,
+        0.18,
+        0.12,
+        0.15,
+        0.32,
+        0.39,
+        0.22,
+        0.28,
+        0.3,
+        0.26,
+        0.18,
+        0.25,
+        0.29,
+        2.01,
+        0.26,
+        0.19,
+        0.24,
+        0.26,
+        0.19,
+        0.21,
+        0.18,
+        0.28,
+        0.28,
+        0.18,
+        0.16,
+        0.28,
+        0.38,
+        0.32,
+        0.33,
+        0.36,
+        0.24,
+        0.19,
+        0.31,
+        0.34,
+        0.24,
+        0.31,
+        0.31,
+        0.25,
+        0.19,
+        0.25,
+        0.37,
+        0.24,
+        0.19,
+        0.3,
+        0.29,
+        0.18,
+        0.15,
+        0.28,
+        0.29,
+        0.24,
+        0.2,
+        0.27,
+        0.4,
+        0.3,
+        0.33,
+        0.39,
+        0.21,
+        0.16,
+        0.28,
+        0.25,
+        0.2,
+        0.19,
+        0.24,
+        0.29,
+        0.22,
+        0.18,
+        0.12,
+        0.28,
+        0.26,
+        0.2,
+        0.14,
+        0.13,
+        0.27,
+        0.22,
+        0.15,
+        0.12,
+        0.16,
+        0.07,
+        0.2,
+        0.27,
+        0.18,
+        0.12,
+        0.15,
+        0.08,
+        0.2,
+        0.36,
+        0.26,
+        0.15,
+        0.23,
+        0.29,
+        0.22,
+        0.18,
+        0.13,
+        0.29,
+        0.26,
+        0.2,
+        0.2,
+        0.24,
+        0.3,
+        0.22,
+        0.18,
+        0.13,
+        0.29,
+        0.25,
+        0.2,
+        0.2,
+        0.23,
+        0.27,
+        0.19,
+        0.12,
+        0.15,
+        0.27,
+        0.28,
+        1.03,
+        0.11,
+        0.24,
+        0.18,
+        0.28,
+        0.27,
+        0.25,
+        0.2,
+        0.3,
+        0.33,
+        0.25,
+        0.32,
+        0.3,
+        0.26,
+        0.19,
+        0.25,
+        0.3,
+        0.25,
+        0.18,
+        0.26,
+        0.28,
+        0.24,
+        0.21,
+        0.3,
+        0.36,
+        0.22,
+        0.21,
+        0.34,
+        0.44,
+        0.26,
+        0.31,
+        0.33,
+        0.24,
+        0.3,
+        0.4,
+        0.23,
+        0.19,
+        0.42,
+        0.35,
+        0.23,
+        0.4,
+        0.3,
+        0.19,
+        0.26,
+        0.29,
+        0.23,
+        0.21,
+        0.28,
+        0.37,
+        0.22,
+        0.22,
+        0.35,
+        0.45,
+        0.3,
+        0.36,
+        0.33,
+        0.22,
+        0.32,
+        0.34,
+        0.29,
+        0.39,
+        0.34,
+        0.22,
+        0.31
+      ]
+    },
+    "pickRows": 138,
+    "provenanceByConfidence": {
+      "alias_suppressed": {
+        "none": 18
+      },
+      "derived_round_step": {
+        "low": 12
+      },
+      "derived_uniform_tier_ev": {
+        "low": 12
+      },
+      "direct_market_blend": {
+        "high": 24
+      },
+      "rookie_pool_tether": {
+        "low": 72
+      }
+    },
+    "provenanceCounts": {
+      "alias_suppressed": 18,
+      "derived_round_step": 12,
+      "derived_uniform_tier_ev": 12,
+      "direct_market_blend": 24,
+      "rookie_pool_tether": 72
+    },
+    "providerCoverage": {
+      "pricedRowsByProviderAndClass": {
+        "idpTradeCalculator": {
+          "2027:r1": 15,
+          "2027:r2": 15,
+          "2027:r3": 15,
+          "2027:r4": 15,
+          "2028:r1": 4,
+          "2028:r2": 4,
+          "2028:r3": 4,
+          "2028:r4": 4,
+          "2028:r5": 4,
+          "2028:r6": 4,
+          "2029:r1": 4,
+          "2029:r2": 4,
+          "2029:r3": 4,
+          "2029:r4": 4,
+          "2029:r5": 4,
+          "2029:r6": 4
+        },
+        "keepTradeCut": {
+          "2027:r1": 3,
+          "2027:r2": 3,
+          "2027:r3": 3,
+          "2027:r4": 3,
+          "2028:r1": 4,
+          "2028:r2": 4,
+          "2028:r3": 4,
+          "2028:r4": 4,
+          "2028:r5": 4,
+          "2028:r6": 4,
+          "2029:r1": 4,
+          "2029:r2": 4,
+          "2029:r3": 4,
+          "2029:r4": 4,
+          "2029:r5": 4,
+          "2029:r6": 4
+        }
+      },
+      "soleProviderRowsByClass": {
+        "idpTradeCalculator": {
+          "2027:r1": 12,
+          "2027:r2": 12,
+          "2027:r3": 12,
+          "2027:r4": 12
+        }
+      }
+    },
+    "providerPickClocks": {
+      "idpTradeCalc": {
+        "ageHours": 802.9,
+        "expectedCadenceHours": 135.8,
+        "freshness": 0.0591,
+        "publicationStyle": "SNAPSHOT",
+        "sourceDataAsOf": "2026-10-10T20:25:35Z",
+        "state": "SEVERELY_STALE"
+      },
+      "ktcCrowdSfTep": {
+        "ageHours": 7.4,
+        "expectedCadenceHours": 12.0,
+        "freshness": 1.0,
+        "publicationStyle": "SNAPSHOT",
+        "sourceDataAsOf": "2026-11-13T00:00:07Z",
+        "state": "ON_SCHEDULE"
+      },
+      "ktcCrowdTradesSfTep": {
+        "ageHours": 7.4,
+        "expectedCadenceHours": 12.0,
+        "freshness": 1.0,
+        "publicationStyle": "SNAPSHOT",
+        "sourceDataAsOf": "2026-11-13T00:00:07Z",
+        "state": "ON_SCHEDULE"
+      },
+      "ktcTradesSfTep": {
+        "ageHours": 7.4,
+        "expectedCadenceHours": 12.0,
+        "freshness": 1.0,
+        "publicationStyle": "SNAPSHOT",
+        "sourceDataAsOf": "2026-11-13T00:00:07Z",
+        "state": "ON_SCHEDULE"
+      }
+    },
+    "valueBasisCounts": {
+      "None": 6,
+      "derived": 24,
+      "market_blend": 36,
+      "rookie_pool_tether": 72
+    },
+    "withholdCounterfactual": {
+      "collateralOnNonPickRows": {
+        "maxAbsPct": null,
+        "nonPickRowsCompared": 893,
+        "nonPickRowsValueChanged": 0
+      },
+      "pickEffect": {
+        "confidenceMoves": {
+          "high->low": 24
+        },
+        "evidenceStateMoves": {
+          "multi_provider->single_provider": 60,
+          "single_provider->no_provider": 48
+        },
+        "largestMoves": [
+          {
+            "after": 1441,
+            "before": 1434,
+            "name": "2029 Mid 5th",
+            "pct": 0.0049
+          },
+          {
+            "after": 1284,
+            "before": 1278,
+            "name": "2029 Late 5th",
+            "pct": 0.0047
+          },
+          {
+            "after": 1520,
+            "before": 1513,
+            "name": "2029 Early 6th",
+            "pct": 0.0046
+          },
+          {
+            "after": 1320,
+            "before": 1314,
+            "name": "2029 Mid 6th",
+            "pct": 0.0046
+          },
+          {
+            "after": 1786,
+            "before": 1778,
+            "name": "2029 Early 4th",
+            "pct": 0.0045
+          },
+          {
+            "after": 1551,
+            "before": 1544,
+            "name": "2029 Mid 4th",
+            "pct": 0.0045
+          },
+          {
+            "after": 1573,
+            "before": 1566,
+            "name": "2029 Round 4",
+            "pct": 0.0045
+          },
+          {
+            "after": 1339,
+            "before": 1333,
+            "name": "2029 Round 6",
+            "pct": 0.0045
+          }
+        ],
+        "pctChange": {
+          "max": 0.0049,
+          "median": 0.0,
+          "min": -0.0038,
+          "n": 120,
+          "p10": 0.0,
+          "p90": 0.0025
+        },
+        "pickRowsCompared": 120,
+        "pickRowsValueChanged": 46
+      },
+      "pickRowsWithAWithheldVote": 84,
+      "withheldProviders": [
+        "idpTradeCalc"
+      ]
+    }
+  }
+}
