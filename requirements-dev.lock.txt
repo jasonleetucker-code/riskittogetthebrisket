@@ -269,6 +269,8 @@ attrs==26.1.0 \
     # via
     #   -c requirements.lock.txt
     #   aiohttp
+    #   jsonschema
+    #   referencing
 beautifulsoup4==4.15.0 \
     --hash=sha256:288e3ca7d54b06f2ac191970bc275c1939cb46d450b255bf6718b04aa37ab4f7 \
     --hash=sha256:d6f88de62e1d4e38ecb1077eb9724cd0eff29d2a08ca16a401e9b9e93f117cf9
@@ -1080,7 +1082,7 @@ jiter==0.17.0 \
 jsonschema==4.26.0 \
     --hash=sha256:0c26707e2efad8aa1bfc5b7ce170f3fccc2e4918ff85989ba9ffa9facb2be326 \
     --hash=sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
-    # via -r requirements.in
+    # via -r requirements-dev.txt
 jsonschema-specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe \
     --hash=sha256:b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d
@@ -2306,6 +2308,7 @@ typing-extensions==4.16.0 \
     #   pydantic
     #   pydantic-core
     #   pyee
+    #   referencing
     #   starlette
     #   typing-inspection
 typing-inspection==0.4.4 \
