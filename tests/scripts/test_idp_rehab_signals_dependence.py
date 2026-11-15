@@ -48,9 +48,11 @@ def test_not_provisioned_computes_nothing(mod, tmp_path, monkeypatch):
 
 
 def test_provisioned_is_aggregate_only(mod, tmp_path, monkeypatch):
-    capture = REPO / "CSVs" / "site_raw" / "fantasyProsIdp.csv"
-    if not capture.is_file():
-        pytest.skip("no committed IDP capture")
+    from tests.archive_fixtures import pinned_board_root
+
+    # The PINNED board's IDP capture, never today's refresh.
+    capture = pinned_board_root() / "CSVs" / "site_raw" / "fantasyProsIdp.csv"
+    assert capture.is_file(), "the pinned board carries fantasyProsIdp.csv"
     base, rows = _base_from_capture(capture)
     board_dir = tmp_path / "board"
     board_dir.mkdir()

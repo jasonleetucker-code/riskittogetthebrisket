@@ -38,7 +38,8 @@ def built(tmp_path_factory):
     path = tmp_path_factory.mktemp("census") / f"{Path(str(name)).stem}.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
     args = argparse.Namespace(
-        state_dir=REPO / "data" / "scrape_state",
+        # the scrape state the pinned build reads (module is pinned), not today's
+        state_dir=dc._default_input_root() / "data" / "scrape_state",
         ledger=tmp_path_factory.mktemp("noledger") / "absent.sqlite",
         no_git=True,
         label="TEST",
