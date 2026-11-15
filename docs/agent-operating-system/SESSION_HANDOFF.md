@@ -3,63 +3,46 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-11-08 ~14:20Z.** Agent-OS-Receipt `741230de`.
+**As of 2026-11-15 ~14:00Z.** Agent-OS-Receipt `aa55ed12`.
 
 ## Mode
-- **Owner master implementation directive 2026-11-08 (backend campaign):** `docs/owner/BACKEND_MASTER_IMPLEMENTATION_DIRECTIVE_2026-11-08.md`, intake MD-97 … MD-115.
-  - Acceptance matrix, current per priority: `docs/audits/remediation_2026-11-06/BACKEND_CAMPAIGN_LEDGER_2026-11-08.md`.
-  - **ABSOLUTE FRONTEND EXCLUSION:** frontend needs go to `docs/ui/BACKEND_API_HANDOFF.md`.
-  - At most 4 editing workers, including the coordinator.
-- Earlier 2026-11-08 directive (league rules, MD-86 … MD-96) and the 2026-11-07 directives remain in force. Authorization: `docs/EXECUTION_PLAN.md`.
-- Standing permission to merge anything ready (green CI and independent review); owner gates stay binding.
+- **Owner unified directive 2026-11-08 (third of the day):** `docs/owner/UNIFIED_ENGINEERING_FORECASTING_DIRECTIVE_2026-11-08.md`,
+  intake MD-116, MD-117; priorities map onto MD-59 and MD-97 … MD-115. Forecasting is research only.
+- Acceptance matrix and this checkpoint: `docs/audits/remediation_2026-11-06/BACKEND_CAMPAIGN_LEDGER_2026-11-08.md`.
+- **Frontend excluded.** Frontend needs go to `docs/ui/BACKEND_API_HANDOFF.md`.
+- At most 4 editing workers, including the coordinator. Standing permission to merge reviewed, exact-head-green PRs.
+- Another session (`claude/website-audit-readiness-*`, memory and diagnostics work, #2188–#2198) also merges to `main`.
 
 ## Production
-- Production `73320356e`, verified at 14:16Z: division-tie fields live (`tiebreakerStatus: unconfirmed`; Brent 64% outright / 36% tied with Jason).
-- In-flight deploys:
-  - `b48ebe598`: #2159, #2160, #2161, #2163, #2164, #2167.
-  - `54adf51bd`: #2165, #2166.
-- Production verification of those two deploys is the next unit.
+- Serving `e63d66298` (process started 2026-11-14 05:09Z); health ok, data about 1 h old.
+- Deploys failed 2026-11-13 → 15 on three board- or runner-dependent tests. All three are fixed by #2199 (`91d0578f8`).
+  **Next unit:** confirm the next Deploy Production run passes and production moves past `e63d66298`.
 
-## Campaign PRs: all merged 2026-11-08 (independently reviewed; exact-tree CI green; skip budget 10 held)
-| PR | SHA | What |
-|---|---|---|
-| #2155 | `3602f31f6` | campaign records |
-| #2156 | `658ca7d17` | forced-drop sweeps at full applicable targets |
-| #2157 | `e239245c0` | receipt check flags protected methodology files |
-| #2158 | `b6878891e` | division-title tiebreaker withheld; draft basis provisional |
-| #2159 | `4d3614901` | ingestion contracts, W05-F003 / F004 |
-| #2160 | `683bcf8f0` | injury attribution W21-F001 + FAAB unknown balance + publish-layer nulling |
-| #2161 | `367ce5da3` | team-points calibration evaluation (no challenger passes) |
-| #2162 | `73320356e` | scoring-parity taxonomy + #1938 brief |
-| #2163 | `bad5d61fd` | BDVM signal diagnosis (no skill; scale mismatch) |
-| #2164 | `b48ebe598` | vendor normalization W10-F004 |
-| #2165 | `06d535b81` | waiver end-to-end tests (W-1 … W-3 fixed; W-4 open) |
-| #2166 | `54adf51bd` | team-semantics census + equity owner |
-| #2167 | `5c4b12c20` | trade end-to-end tests (2 strict-xfail findings) |
-| #2168 | `c022e58fa` | checkpoint records |
+## Open campaign PRs (all independently approved; updated from main 2026-11-15)
+| PR | What |
+|---|---|
+| #2183 | restore proof + irreplaceable ledgers in backup health (v4); systemd failure detection in the sweep |
+| #2200 | TE basis and pick market evidence (research) |
+| #2201 | property tests, pseudonymized real-roster fixture, skip budget 10 → 7 (merge after main is at 10 skips) |
+| #2202 | package-model validation (insufficient data locally; box run proposed) |
+Merge each once its exact head is green.
 
-Per-priority state: `docs/audits/remediation_2026-11-06/BACKEND_CAMPAIGN_LEDGER_2026-11-08.md`. #2159, #2160, #2161, #2163, #2164 and #2166 are now MERGED.
+## Owner decisions (briefs in `docs/owner/DECISION_BRIEFS_2026-11-08.md`)
+- Apply the required-check ruleset (brief 12); approve running study two (brief 1); #1938; division payout
+  tiebreaker; median games in draft order; Hill validation target; TE basis; BDVM signal policy; source-vote holds;
+  package model; public ids; credential rotation; off-box backup; one read-only box run for #2202.
+- **Data licensing (from #2174):** several live inputs may conflict with published terms (Pro Football Reference via
+  nflverse snap counts, Disney terms for ESPN feeds and the Clay PDF, Sleeper commercial use). Needs an owner or
+  counsel decision.
 
-## Owner decisions (cannot be resolved under delegated authority)
-- **Best-ball playoff odds:** activate `playoff_ros_counted_once`, or approve a new pre-registered study; the incumbent is overconfident (#2161).
-- **#1938:** merge decision; brief in `docs/league-intelligence/SCORING_PARITY_TAXONOMY_2026-11-08.md`.
-- **Division payout tiebreaker:** what breaks a division-title tie? Until stated, ties are reported.
-- **Draft order:** do median-game wins count (#1712)?
-- **BDVM:** anchor and γ choice; real projection sources before any signal change (#2163).
-- **Required checks:** make `Validate PR` + `Receipt check` required on `main-protection`, with bypass for github-actions[bot] and the box deploy keys ("DLF Fetch (prod)", "IDP Show Fetch (prod)"). Then confirm the next scheduled refresh still lands.
-- **Team-direction vocabulary:** public naming before consolidation (#2166).
-- **Local machine:** review 21 dirty and about 26 local-commit worktrees. Bundles and preserved files are in `C:\Dev\worktree-preservation-2026-11-08\`.
-
-## Next dependency-ready units (ranked)
-1. Verify production after deploys `b48ebe598` / `54adf51bd` land (Terminal equity block, injury discounts, vendor comparable fields, ingest health).
-2. Fix PR for the #2167 findings: unpriced player `value: 0` in simulate / analyze asset records → null; suggestions publishes `metadata.pickGeneration`. Flip its xfails.
-3. Fix W-4: streaming lists IDP in offense-only leagues.
-4. MD-104 forecast scorecards; MD-106 outlier / voting comparisons (#1884 read-only); MD-107 trade uncertainty; MD-113 IDP / TE; MD-114 payload section contracts.
-5. Trimmed real-roster fixture for the 3 remaining cache skips; surface the restore-proof result in `backup_health`.
+## Next dependency-ready units
+1. Verify the deploy after #2199 and production behaviour.
+2. Merge #2183, #2200, #2201, #2202 when green; then verify `backup_health` v4 in production.
+3. Remaining directive items: backend payload section contracts (MD-114), public-id consumer census (brief 11),
+   documentation convergence (Priority 19), old PR disposition (Priority 20).
 
 ## Hazards
-- Strict xfails in tests-only PRs flip when the matching fix lands: merge the fix first, then flip the markers on the test PR.
-- `config/weights/`, `src/api/data_contract.py`, `config/sources/` and others are protected. A receipt touching them needs a `Methodology authorization:` line.
-- A worker's shell heredoc can turn `"\n"` into a line break (seen on #2159); check that changed files parse.
-- A `game-day-capture.yml` dry run shares the `production-deploy` group.
-- Never `git stash`; never `git commit -a`; Ruff only via `bash scripts/format_python_changes.sh`; never `--write-baseline` on the coercion gate.
+- Board-dependent tests in the hard gate keep recurring; pin inputs or use the `livedata` lane with a named
+  deterministic replacement. `tests/archive_fixtures.newest_complete_contract` still builds with `csv_root=None`.
+- Never `git stash`; never `git commit -a`; Ruff only via `bash scripts/format_python_changes.sh`.
+- Long silent commands stalled several background agents; keep worker commands short or backgrounded.
