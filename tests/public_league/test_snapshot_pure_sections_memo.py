@@ -57,7 +57,12 @@ class SnapshotPureSectionsMemoTests(unittest.TestCase):
 
     def setUp(self) -> None:
         import server
+        from src.api import rate_limit
 
+        # Public routes share a per-client budget (60/min) across the whole
+        # test process; neither inherit nor leak it.
+        rate_limit.reset_for_tests()
+        self.addCleanup(rate_limit.reset_for_tests)
         wait_for_public_memo_refreshes(server)
         self.client.get("/api/public/league/history")  # warm the snapshot
         server._heavy_section_cache.clear()

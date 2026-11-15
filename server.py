@@ -16490,9 +16490,12 @@ class PublicSnapshotUnavailable(RuntimeError):
 # snapshot locally); the spikes come from running it while the background
 # snapshot rebuild and the post-publish warm hold the GIL.  Each reads the
 # snapshot plus the same week-finality rule ``awards`` reads
-# (``metrics.final_weeks`` over the cache-only nflverse schedule), so the
-# snapshot key bounds their freshness exactly as it bounds ``awards``.  None
-# reads ``activity_valuation``.  ``franchise`` is built by
+# (``metrics.final_weeks`` over the cache-only nflverse schedule and the
+# clock); ``franchise`` also reads the league registry and, through
+# ``draft.pick_inventory`` -> ``league_draft_years_for``, the calendar year as a
+# floor.  The snapshot key bounds their freshness exactly as it bounds
+# ``awards`` (around New Year a draft-year change waits for the next snapshot,
+# at most two snapshot windows).  None reads ``activity_valuation``.  ``franchise`` is built by
 # ``_build_heavy_section``, which reuses the exact-key ``awards`` body as the
 # route always did; its ``?owner=`` detail is attached to a copy of the
 # memoized payload, never to the cached instance.
