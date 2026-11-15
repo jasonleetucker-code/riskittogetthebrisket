@@ -27,18 +27,24 @@ from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
 def _side_entry(
-    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, entry: dict[str, Any]
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    entry: dict[str, Any],
+    week: int | None = None,
 ) -> dict[str, Any] | None:
+    """One side of a ``week`` matchup, attributed to the manager who held the
+    roster THAT week (``metrics.resolve_owner`` with the week) — a week before
+    a mid-season hand-off belongs to the outgoing manager, not the successor."""
     rid = metrics.roster_id_of(entry)
     if rid is None:
         return None
-    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
     if not owner_id:
         return None
     return {
         "rosterId": rid,
         "ownerId": owner_id,
-        "teamName": metrics.team_name(snapshot, season.league_id, rid),
+        "teamName": metrics.team_name(snapshot, season.league_id, rid, week),
         "displayName": metrics.display_name_for(snapshot, owner_id),
         "points": round(metrics.matchup_points(entry), 2),
     }
@@ -174,8 +180,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             closest: dict[str, Any] | None = None
 
             for a, b in pairs:
-                left = _side_entry(snapshot, season, a)
-                right = _side_entry(snapshot, season, b)
+                left = _side_entry(snapshot, season, a, wk)
+                right = _side_entry(snapshot, season, b, wk)
                 if not left or not right:
                     continue
                 if left["points"] == 0 and right["points"] == 0:
@@ -223,8 +229,19 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             if is_playoff:
                 post_standings = pre_standings  # playoffs don't move
                 # regular-season standings.
+            elif wk in standings_at:
+                # Games through wk, credited to THIS week's owners.
+                # ``standings_at[wk]`` credits each roster to its owner
+                # entering wk + 1, which is a different manager when a
+                # mid-season hand-off takes effect at wk + 1 — the mover
+                # lookup (pre vs post by owner id) would then miss the roster.
+                # Identical to ``standings_at[wk]`` when no hand-off is
+                # recorded.
+                post_standings = metrics.pre_week_standings(
+                    season, snapshot.managers, wk + 1, owner_week=wk
+                )
             else:
-                post_standings = standings_at.get(wk, pre_standings)
+                post_standings = pre_standings
             post_ranks = _standing_lookup(post_standings)
 
             weeks_out.append(

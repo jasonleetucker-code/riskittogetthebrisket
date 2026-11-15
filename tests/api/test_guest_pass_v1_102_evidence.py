@@ -326,6 +326,15 @@ def test_no_second_temp_password_owner_exists():
         rel = path.relative_to(REPO_ROOT).as_posix()
         if rel == "src/api/guest_passes.py":
             continue  # the canonical owner
+        if rel.startswith("src/auction/"):
+            # The rookie auction room's scoped identity layer
+            # (docs/auction/ROOKIE_AUCTION_ROOM.md §3): its random tokens are
+            # SESSION, INVITE, RESET-LINK and EMAIL-VERIFICATION tokens, and its
+            # passwords are chosen by the person, never generated.  It issues
+            # no temporary password and no guest pass — pinned by
+            # test_auction_identity_never_generates_a_password below, so this
+            # exemption cannot hide a second temporary-password owner.
+            continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if not token_gen.search(text):
             continue
@@ -338,6 +347,21 @@ def test_no_second_temp_password_owner_exists():
         + ", ".join(offenders)
         + " — V1-102 requires ONE owner (src/api/guest_passes.py)"
     )
+
+
+def test_auction_identity_never_generates_a_password():
+    """The src/auction exemption above holds only while the auction never
+    mints a password or a guest pass of its own."""
+    offenders: list[str] = []
+    forbidden = re.compile(
+        r"guest_pass|temp(orary)?_?pass|(new|generated|random)_password\s*=|password\s*=\s*secrets\.",
+        re.IGNORECASE,
+    )
+    for path in (REPO_ROOT / "src" / "auction").rglob("*.py"):
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if forbidden.search(text):
+            offenders.append(path.relative_to(REPO_ROOT).as_posix())
+    assert offenders == [], f"auction code appears to generate a password / guest pass: {offenders}"
 
 
 def test_the_admin_panel_is_wired_to_these_endpoints():

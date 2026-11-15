@@ -11,6 +11,10 @@ so that (a) genuinely new high-value mechanisms get built once, in their correct
 canonical location, and (b) future agents do not repeatedly "discover" the same
 Twitter advice and propose duplicate architecture.
 
+**Extended 2026-09-30 — see Part H.** Parts A–G record the 2026-09-12 pass; their
+retrieval outcomes and open-PR states (e.g. #1344, since closed unmerged) are
+historical, not current.
+
 This is a consolidation pass. It is explicitly not authorization for a second Agent
 OS, a second memory system, a new agent-personality roster, or any product/methodology
 change. See `docs/AGENT_OPERATING_SYSTEM.md` §1 for the authority boundary this
@@ -266,7 +270,7 @@ contracts, not a new one.
 
 | Item | Canonical owner | Why deferred | Dependency / authority | Smallest next action |
 |---|---|---|---|---|
-| Structured session/model/provider attribution on `src/steward/store.py` raw evidence records (D7's one real gap) | `src/steward/` (Steward store schema) | Small in isolation, but touches a just-merged (2026-09-10) transactional schema with its own compare-and-swap revision tests; bundling it into an unrelated external-guidance reconciliation raises regression risk for no urgent benefit | None blocking — genuinely dependency-ready | Add an optional structured `producer: {session_id, model, provider}` object to the evidence payload schema in a follow-up bounded PR, with a migration note for existing free-text `source` values; extend `tests/steward/test_store.py` accordingly |
+| **CLOSED 2026-09-30 (Part H.3).** Structured session/model/provider attribution on `src/steward/store.py` raw evidence records (D7's one real gap) | `src/steward/` (Steward store schema) | Small in isolation, but touches a just-merged (2026-09-10) transactional schema with its own compare-and-swap revision tests; bundling it into an unrelated external-guidance reconciliation raises regression risk for no urgent benefit | None blocking — genuinely dependency-ready | Add an optional structured `producer: {session_id, model, provider}` object to the evidence payload schema in a follow-up bounded PR, with a migration note for existing free-text `source` values; extend `tests/steward/test_store.py` accordingly |
 | Reduced prescriptive scaffolding / loosened low-risk permission gates for GPT-6 Astra specifically (A.1 mechanism 3/5) | `.agents/skills/*/SKILL.md`, provider adapters | `repo-harness-auditor`'s existing "Model-migration hygiene" section already owns this exact audit, and PR #1344 is mid-flight on the same files | PR #1344 merging first | Re-run the model-migration hygiene checklist after #1344 merges, scoped to Astra-specific over-constraining language, if any remains |
 | Wiring a real interactive/paid-model execution layer into `agent-evals/` (capturing live Claude/Codex runs against cases automatically) | `agent-evals/` | The directive explicitly forbids "automatic paid inference" and "unattended execution"; this pass only builds the deterministic-grading half | Owner authorization for any recurring paid-inference budget | When/if authorized, add an explicit, budgeted, manually-triggered capture script under `agent-evals/` that never runs from ordinary CI |
 | Growing the `agent-evals/` corpus beyond its initial set | `agent-evals/` | Bounded-foundation sizing for this pass; a large corpus is better built incrementally against real incidents as they occur | None blocking | Add a case each time a genuinely novel harness-behavior failure is diagnosed and fixed (mirrors `docs/AGENT_OPERATING_SYSTEM.md` §7's learning-edge rule) |
@@ -289,6 +293,222 @@ specifics found in the source batch:
 | An unattended, self-modifying harness that promotes its own changes | akshay_pachaar's "self-repairing harness" thesis (Part B row 8) taken to its logical extreme | `docs/AGENT_OPERATING_SYSTEM.md` §6's Activation Gate and §14's flywheel both require eval-gated, human/integration-approved promotion; "evaluation is not activation" is stated explicitly and is not relaxed here |
 | Automatic paid inference in CI for `agent-evals/` | Priority 8 / this reconciliation's own D3 build | Explicitly forbidden by the directive and by `docs/AGENT_OPERATING_SYSTEM.md` §6 ("Do not fabricate live paid-model execution in CI"); the grader is deterministic-only |
 | A whole-repo rewrite of `CLAUDE.md` for stylistic cleanliness | directive's own "must not implement" #20, and a real temptation given the file's size (145 KB / 2,485 lines) | `CLAUDE.md`'s own pruning constraint (its "CLAUDE.md pruning constraint" section) and `docs/AGENT_OPERATING_SYSTEM.md` §12 both require reference-aware, evidence-based pruning by `repo-harness-auditor` — which is exactly what PR #1344 is doing; a second, uncoordinated rewrite here would collide with it |
+
+---
+
+## Part H — 2026-09-30 extension: 25-link batch, architecture map, confirmed gaps
+
+**Trigger:** owner-supplied external architecture review (2026-09-30, a file outside the
+repository, inspection baseline `560ebd8faa48b0811784c2f3a25492b7a96c4d8c`) plus 25 X
+links, the first 15 of which Part B already covers. Current `main` equalled that baseline
+when this pass began, then advanced to `0d6f68767` (#1521 merged, frontend + claims —
+no overlap with this work). Authority: the 2026-09-10 bounded Agent OS / Steward directive
+(`docs/EXECUTION_PLAN.md`) plus the owner's 2026-09-30 instruction authorizing bounded
+inspection, confirmed-gap fixes and reviewable PRs. No deployment, paid inference,
+unattended operation or methodology approval.
+
+### H.1 Source access and adoption — two separate axes
+
+Access: `FULL_TEXT` (read in this session), `INDEXED_EXCERPT_ONLY` (a search-index title or
+summary, not the post), `UNVERIFIED` (nothing recovered). Adoption: `ALREADY_COVERED`,
+`PARTIAL`, `IMPLEMENT_NOW`, `DEFERRED`, `NOT_APPLICABLE`. No adoption below rests on
+content that was not seen. The OpenAI article, its X repost (#6) and the pvncher article
+(#12) are one source family, not three corroborations.
+
+**Official references** (all `FULL_TEXT` this session via WebFetch, whose output is a
+model summary — paraphrase, not verbatim):
+
+| Reference | Mechanism actually stated | Adoption | Owner / evidence |
+|---|---|---|---|
+| OpenAI, *Rethinking skills and prompts for GPT-6 Astra* | narrow triggers; progressive-disclosure routers; point to docs only when relevant; define done up front; retire restrictions written for weaker models | `ALREADY_COVERED` (triggers, disclosure, done) / `DEFERRED` (restriction pruning) | Agent OS §3 completion contract, §8 progressive skill disclosure; pruning stays with `repo-harness-auditor` — PR #1344 closed unmerged, so that audit is still open |
+| Anthropic, *Building effective agents* (2024-12-19) | chaining with programmatic checkpoints; routing; parallelization; workflows before agents; tool-interface (ACI) care | `ALREADY_COVERED` | Agent OS §5 graph/loop, fake-edge test, verifier independence; `config/steward/routing.json` |
+| Claude Code docs, memory | CLAUDE.md is context, not enforcement — must-happen rules belong in hooks/permissions; path-scoped `.claude/rules`; ~200-line guidance | `ALREADY_COVERED` (enforcement → hooks/tests, Agent OS §7) / `DEFERRED` (size, path-scoped rules) | Path-scoped rules are a provider mechanic: adopting them may not create Claude-only semantics (Agent OS cross-model parity rule); CLAUDE.md size stays under its own pruning constraint |
+| Claude Code docs, sub-agents | fresh context per subagent (no parent history); tool/permission scoping; worktree isolation | `ALREADY_COVERED` | Agent OS §4 independent reviewer, §5 hidden edges; this pass used fresh-context reviewers and a separate worktree per PR |
+| FastAPI, response model | output validated and filtered to declared fields; OpenAPI schema for client generation. The page does not itself say filtering is not authorization | `PARTIAL` → `DEFERRED` | Engineering-reliability Priority 2. `server.py` declares zero `response_model`s. A schema filters output shape; it never replaces `_private_api_gate` or the semantic public/private boundary |
+
+**Links 1–15:** Part B is the record. The 2026-09-30 external review reported indexed
+excerpts for several links Part B found blocked (#2, #4, #7, #9, #10, #11, #13, #15); this
+session did not re-attempt them. Those reported topics (UGC prompting, a skill pack, a
+site tutorial, long-horizon agents, an agent back office, a model guide, a prompt
+collection, graph/loop engineering) name no mechanism beyond what Parts A–D already
+cover, so no Part B disposition changes. #1's reported topic, a cross-agent memory stack,
+maps to the one open item Part F already named: structured attribution (H.3).
+
+**Links 16–25** (this session: WebFetch → HTTP 402 on every link, then one exact-ID
+WebSearch each):
+
+| # | Link | Access (this session) | External review reported | Adoption |
+|---|---|---|---|---|
+| 16 | bober_smart/2078784709253841039 | `UNVERIFIED` | excerpt: second brain / folder workflow | `ALREADY_COVERED` in principle (git-backed decisions, Steward continuity); nothing adopted from the post |
+| 17 | beamnxw/2098087790663672123 | `UNVERIFIED` | excerpt: model use-case catalog | `NOT_APPLICABLE` |
+| 18 | chddaniel/2105003444067328214 | `UNVERIFIED` | excerpt: Dots guide | `NOT_APPLICABLE` |
+| 19 | 0xcodila/2105037810591772840 | `UNVERIFIED` | not recovered | no decision — content unseen; not conflated with #20 |
+| 20 | 0xcodila/2105087209342685352 | `UNVERIFIED` | excerpt: always-on "chief of staff" | `NOT_APPLICABLE` — rejected (H.6) |
+| 21 | higgsfield/2104989726604484946 | `INDEXED_EXCERPT_ONLY` (result title only) | excerpt: always-on creative agents | `NOT_APPLICABLE` |
+| 22 | teamily_ai/2105025063762489426 | `UNVERIFIED` | excerpt: human-agent business OS | `NOT_APPLICABLE` — rejected (H.6) |
+| 23 | charliejhills/2104204601553777129 | `UNVERIFIED` | excerpt: AI motion design | `NOT_APPLICABLE` — Direction A is locked |
+| 24 | minchoi/2101873007673086304 | `UNVERIFIED` | excerpt: different models for different jobs | `ALREADY_COVERED` as capability/risk/cost routing; named roster rejected (Part C, H.6) |
+| 25 | slash1sol/2104975408319926389 | `UNVERIFIED` | excerpt: engineering-terms teaser | `NOT_APPLICABLE` |
+
+Adoption statistics, run lengths, profitability and "always-on" claims from any preview
+were not verified and are not repository facts (Agent OS §14).
+
+### H.2 Code-backed architecture map (code at `560ebd8fa`)
+
+A point-in-time evidence map, not an owner record. Line numbers drift; the symbols are the
+anchor. `docs/ARCHITECTURE_HANDOFF.md`'s historical phase status and duplicate-owner counts
+are not restated.
+
+**1. Value path.**
+- Capture: `server.py::run_scraper` → `_run_scraper_off_loop` → `_import_scraper_module`
+  (`Dynasty Scraper.py`, via importlib; scheduled, startup and manual triggers) plus four
+  inline `scripts.fetch_*` modules. The remaining `scripts/fetch_*.py` run from
+  `.github/workflows/scheduled-refresh.yml` and box timers.
+- Identity: `src/identity/resolution.py` (`resolve_scraper_attach_v1` from the scraper;
+  `match_row_to_source_entry` from `data_contract._enrich_from_source_csvs`);
+  picks through `src/identity/picks.py::parse_pick_label`.
+- Freshness: `server.py::_record_source_dataset_state` → `src/sources/dataset_state.py::record_source_file`;
+  `data_contract._load_source_weighting` → `src/sources/freshness.py::load_source_weightings`.
+- Valuation: `data_contract.build_api_data_contract` → `_compute_unified_rankings` → Hill via
+  `_curve_for_rank` + `src/canonical/player_valuation.py::percentile_to_value`;
+  `validate_api_data_contract` stamps health.
+- Serving: `server.py::_prime_latest_payload` builds and validates; `get_data` (`/api/data`)
+  gates on `_resolve_league_for_request` then `_scoring_identity_error` (fails closed on an
+  unproven fingerprint); `/api/dynasty-data` aliases it.
+- Consumers: `frontend/app/api/dynasty-data/route.js` (dev/E2E bridge; nginx sends `/api/*`
+  to the backend in production) → `frontend/lib/dynasty-data.js::fetchDynastyData` →
+  `buildRows` (materializer) ← `frontend/components/useDynastyData.js`.
+
+**2. Private decision intelligence vs public retrospective content.**
+- API gate: `server.py::_private_api_gate` returns 401 for any `/api/*` path not in
+  `_PUBLIC_API_EXACT` / `_SELF_AUTHED_API_EXACT` / `_PUBLIC_API_PREFIXES`
+  (`/api/public/league`, `/api/league/articles`, `/api/auction`). Pinned by `tests/api/test_private_auth.py`.
+- Public league: semantic section gate `PRIVATE_INTELLIGENCE_SECTIONS` (4 sections) via
+  `server.py::_public_section_access_error`; `build_public_contract` iterates only
+  `_SECTION_BUILDERS`; plus a recursive field denylist, `assert_public_payload_safe` /
+  `_PRIVATE_FIELD_BLOCKLIST`, on the JSON and CSV paths. `/api/draft-capital` strips
+  `rookieBoardValue` et al. for anonymous callers (`_redact_draft_capital_for_public`, copy,
+  not cache mutation). Pinned by `test_public_league_privacy_boundary.py`,
+  `tests/public_league/test_public_contract.py`, `test_draft_capital_public_redaction.py`,
+  `test_public_power_leaks_no_private_quantity.py` and frontend route-gate tests.
+- Page gate: `frontend/middleware.js` + `frontend/lib/public-routes.js` check that the
+  session cookie is present; data stays behind the backend gate.
+- Dynasty lane: `data_contract._validate_source_game_types_invariant` runs at import and
+  refuses any `_RANKING_SOURCES` entry that is not `DYNASTY` with evidence (UNKNOWN fails
+  closed; `tests/sources/test_game_type_gate_red.py`); `src/source_archive/store.py::archive_board`
+  applies the same rule. ROS writes to canonical fields are refused
+  (`tests/api/test_canonical_ownership_protections.py`, `tests/ros/test_isolation.py`).
+- DFS: **no DFS code on `main`.** `src/dfs/` exists only on the unmerged #1534/#1535 branches;
+  `DFS` is not in `GAME_TYPES`, so today only the generic DYNASTY-only gate would exclude it.
+- Enforced only in documentation (named here, not fixed): outside the four sections, the
+  public boundary is a field-name denylist, so a private quantity under a new, unlisted key
+  would pass; Consensus Edge, Hill refit and calibration have no game-type gate of their own
+  (they read sources only through `_RANKING_SOURCES`); no fail-closed check that a
+  seasonal-lane input is verified redraft/ROS rather than `UNKNOWN`; nothing enforces
+  "components separately named before synthesis".
+
+**3. Harness: Agent OS → Steward continuity → agent-evals → review/release.**
+- Startup: `AI_INSTRUCTIONS.md` → `scripts/agent_session_start.sh` →
+  `scripts/agent_os_receipt.py` (`.agent-runtime/session-receipts/latest.env`).
+- Steward (`src/steward/__main__.py::main`): `brief` → `build_brief` (`repository.inventory`
+  / `phase_tasks` / `reconcile` / `work_units`, `planner.plan`, `routing.recommend`);
+  `--save` → `receipts.run_receipt` → `store.save_report` (evidence + campaign CAS +
+  knowledge `_remember` CAS, one transaction). `remember` → `append_evidence` then `remember`;
+  `checkpoint` → `planner.satisfy` proof guard; `check-integration` → `sync.observe` /
+  `classify_movement` / `evidence_reuse`. `controller.py::Phase1Controller` is the report-only runner.
+- Evals: `agent-evals/run_eval.py` → `graders/deterministic.py::grade_file` → `grade`
+  (+ `graders/diff_evidence.py` after H.4). Pinned by `tests/agent_evals/`.
+- Review/release: `pr-validation.yml` (L2, path-aware via `scripts/ci_change_scope.py`),
+  `release-candidate.yml` + `scripts/check_release_candidate.py` and `deploy.yml` (L3).
+- Seams: nothing feeds Steward receipts into agent-evals (the artifact reuses the receipt
+  vocabulary, but there is no pipeline); CLI `remember` writes evidence and knowledge in two
+  transactions, so a refused knowledge record leaves valid but orphaned raw evidence — safe
+  under append-only, noted rather than changed.
+
+### H.3 First confirmed gap — Steward raw-evidence validation (branch `claude/steward-evidence-validation`)
+
+Confirmed on `main`: `append_evidence` validated `{source, at, repo_head, content, complete}`,
+while `save_report` inserted `raw` directly. The only production caller of `save_report`
+(`brief --save`) builds a valid payload, so no corruption is claimed; the defect was that
+the store boundary did not hold the invariant. Regressions failed on the parent (19 failures,
+reproduced by the independent reviewer in a parent worktree).
+
+Fix: one validator, `store.validate_raw_evidence`, called from `_insert_evidence` on both
+paths; `save_report` keeps one transaction and both CAS checks. **Part F's deferred D7 item
+is closed**: an optional `producer` object (`session_id` / `provider` / `model`, any
+non-empty subset, unpadded printable strings ≤ 200 characters) inside the existing JSON
+envelope — no SQL migration, no schema version change. `store.producer_attribution` reads
+records without it, and every historical row, as `unattributed`; a stored producer that
+fails the contract reads as `unattributed` / `malformed_producer`; free-text `source` is
+never parsed. `brief --save` gains `--producer-session-id`, `--producer-provider` and
+`--producer-model`, and nothing is populated unless supplied. Independent review: APPROVE;
+its three low-severity notes were applied.
+
+### H.4 Second confirmed gap — evidence-backed grading (branch `claude/agent-evals-diff-evidence`)
+
+The grader's own docstring said it graded declared state only. Extended in place, with no
+new evaluator and no inference: every check is labelled `DECLARED`,
+`VERIFIED_AGAINST_ARTIFACT` or `NOT_CHECKED`. With `--repo`, the changed-file claim and path
+scope are checked against the actual `git diff --name-only --no-renames` between the
+artifact's pinned revisions. Independent review first returned REQUEST_CHANGES — an
+oversized pinned diff fell back to the self-report; lazy fetch in a partial clone — both
+fixed and re-verified: APPROVE. Test evidence tied to the exact revision is still
+`DECLARED` — the next unit (H.7).
+
+### H.5 Application architecture queue — mapped, not implemented
+
+None of these has implementation authority: `docs/EXECUTION_PLAN.md` authorizes no
+reliability workstream, and the priorities doc is a backlog. Each needs an owner-authorized
+slice. Ordered by user-flow value per unit of risk:
+
+| Order | Candidate | Priority | Owner / existing | Actual gap | Acceptance for a first thin slice |
+|---|---|---|---|---|---|
+| 1 | Served build identity | P3 (+P6) | `deploy.yml`, `deploy/deploy.sh` (host keeps last-deployed SHA); `/api/status` serves contract version only | no git SHA or build fingerprint is served, so "deployed ≠ verified" cannot be checked from the surface | `/api/status` stamps the deployed commit; a deploy smoke step asserts it equals `TARGET_SHA` |
+| 2 | Typed contract, one endpoint | P2 | `server.py` (0 `response_model`), `scripts/validate_api_contract.py`, static `docs/master-site-audit/evidence/openapi.json` | no typed response or generated TS types anywhere | `GET /api/leagues` gets a `response_model` whose schema structurally excludes Sleeper IDs, plus a generated type consumed by its one frontend caller; the auth gate unchanged |
+| 3 | Provenance-preserving views | P2/P6 | `/api/data` views (startup/runtime/array/compact), `build_rankings_delta_payload`; `test_compact_view_consumer_parity.py` etc. | parity tests pin consumer fields, not that provenance/as-of fields survive every view | one test: `generatedAt`, source attribution and freshness stamps survive every view |
+| 4 | Source/parser replay | P1 | Game Day replay fixtures only; scattered HTML captures | no shared sanitized capture format; most fetchers have no replay | start with the KTC parser, coordinated with #1519 G3 (TEP/SF variants discarded at parse) |
+| 5 | Declarative boundaries | P10 | bespoke single-owner AST tests; no import-contract config | rules are per-package tests | one declarative import contract (e.g. `src/ros` may not import canonical writers) replacing no existing test |
+| 6 | Privacy-safe request/snapshot identity | P6 | `X-Request-Id` minted/echoed; per-view ETags; `scoringFingerprint` | no snapshot/generation id in responses or logs; echoed request ids validated for length only | after 1: a contract-generation id in `/api/status` and logs; request-id charset validation test |
+
+Time-sensitive evidence keeps its existing priority: #1519 G1 (Game Day raw-log prune; week-1
+logs are deleted around 2026-10-13) already holds its own authorized claim. Nothing here
+changes retention or scheduling.
+
+### H.6 Rejected (new in this batch)
+
+An always-on "chief of staff" or business operating system (#20, #22); always-on creative
+agents or motion design as application architecture (#21, #23); installing a prompt or
+skill pack (#4, #13); a hardcoded named-model roster (#24, and Part C); a second memory
+database (#1, #16 — Steward is the one store); an unattended self-promoting harness (#8, as
+in Part G).
+
+### H.7 Next dependency-ready units — outcome (closed out 2026-09-30)
+
+1. **Test evidence bound to the revision** — DONE, #1542 merged (`49c65941a`). Implemented
+   through independently retrieved GitHub Actions records, not a local re-execution of
+   agent-authored code. A green run counts only when three things are proven: its
+   provenance; for a PR run, its base (own repository, head-matched, never retargeted, PR
+   still open); and gate identity versus trusted history as it stood before the revision
+   arrived. Four independent review rounds, final APPROVE. Verified live before #1536
+   merged: grading #1536's open-PR head in strict mode reported both
+   `changed_files_claim` and `ci_workflow:.github/workflows/pr-validation.yml` as
+   `VERIFIED_AGAINST_ARTIFACT`. Flags remain `DECLARED` by design.
+2. **Steward → eval bridge** — WITHDRAWN on inspection. Steward receipts record
+   report-only brief runs (`repo_head_start == repo_head_end`), not agent work. And
+   auto-filling `changed_files` from the diff would make the diff check tautological. The
+   grader already derives the actual diff itself; the only honest input is the pinned
+   revisions, which a run must state.
+3. **Served build identity** — DONE and **production-verified**. #1543 merged
+   (`67f300cdb`) under the owner's 2026-09-30 authorization (`docs/EXECUTION_PLAN.md`).
+   The first deploy containing it, run 36744356641 at `850a83a67`, printed
+   `PASS build.commit == 850a83a67…`, and live `/api/status` reports
+   `build.commit = 850a83a67…` (`detached_head`). Unauthorized follow-up recorded in
+   `docs/OWNER_REQUESTED_TODO.md`: pin the box to the guarded SHA on manual
+   branch-name deploys.
+
+Also merged: #1536 (`0ee4f0200`, H.3 plus this record) and #1537 (`6e9f4110b`, H.4). The
+#1344 disclosure-audit re-run is DEFERRED (owner accepted the recommendation). The
+remaining H.5 queue stays unauthorized.
 
 ---
 

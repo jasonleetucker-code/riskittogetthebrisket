@@ -285,7 +285,10 @@ duplicated.
 Implemented; **awaiting data**. Equal base weights (no honest accuracy history
 exists — §4.1), weighted trimmed mean at ≥5 sources, 35% single-source cap
 (skipped when mathematically infeasible at n<3 — documented judgment call),
-staleness downweight (>21 days → ×0.5) with per-source flags, σ_source stored
+staleness downweight (>21 days → ×0.5) with per-source flags and reasons — an
+unmeasurable age (unparseable/absent record timestamp, unparseable snapshot
+asOf, or a record dated >1 day after the snapshot asOf) is UNKNOWN and takes the
+same ×0.5, never full weight (`projection.staleReasons`), σ_source stored
 as disagreement. Raw stat lines preferred (nflverse column vocabulary, scored
 under exact league rules); direct fpts accepted and flagged
 `scoring_native=false`. Reconstructed-baseline proxy per §8.3 implemented as a

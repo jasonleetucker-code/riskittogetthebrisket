@@ -9,9 +9,11 @@ import {
   parsePickToken,
   getPlayerEdge,
   resolvePickRow,
-  ktcAdjustPackage,
+  packageAdjustPair,
 } from "@/lib/trade-logic";
 import { fillLineup, lineupPosition } from "@/lib/starter-slots";
+import { pickOwnershipUnavailableReason } from "@/lib/pick-ownership";
+import { HISTORY_EVEN_LABEL, HISTORY_EVEN_PCT } from "@/lib/trade-history-grade-policy";
 
 // ── Position Group Helpers ──────────────────────────────────────────────
 export const POS_GROUPS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICKS"];
@@ -83,12 +85,20 @@ export function filterTradesToRollingWindow(trades, windowDays = 365) {
 }
 
 // ── Trade Grading ───────────────────────────────────────────────────────
+// Letters are MONOTONE in the margin (TC-A, 2026-10-17): a bigger win never
+// earns a lower letter, a bigger overpay never a higher one.  The winner
+// letters used to run A, A, A-, B+, A+ -- a Clear win graded below a Slight
+// win, and B+ meant both "Clear win" and "Slight overpay".  Cut points are
+// unchanged (PRIOR, owner recalibration pending).  Twin:
+// src/public_league/trade_grading.py::grade_from_pct.  The tier-0 cut and word
+// come from lib/trade-history-grade-policy.js (OD-F6 option A, 2026-10-21:
+// "Evenly valued", formerly "Fair trade" -- relabelled, never re-graded).
 export function gradeTradeHistorySide(pct, isWinner) {
-  if (pct < 3) return { grade: "A", color: "var(--green)", label: "Fair trade" };
+  if (pct < HISTORY_EVEN_PCT) return { grade: "A", color: "var(--green)", label: HISTORY_EVEN_LABEL };
   if (isWinner) {
     if (pct < 8) return { grade: "A", color: "var(--green)", label: "Slight win" };
-    if (pct < 15) return { grade: "A-", color: "var(--green)", label: "Good win" };
-    if (pct < 25) return { grade: "B+", color: "#2ecc71", label: "Clear win" };
+    if (pct < 15) return { grade: "A", color: "var(--green)", label: "Good win" };
+    if (pct < 25) return { grade: "A+", color: "#00ff88", label: "Clear win" };
     return { grade: "A+", color: "#00ff88", label: "Big win" };
   }
   if (pct < 8) return { grade: "B+", color: "#2ecc71", label: "Slight overpay" };
@@ -387,17 +397,22 @@ function resolveTradeSideList(rawList, ctx) {
   return { items, linear, weighted, values, unresolvedCount };
 }
 
-// KTC value adjustment for one team's "got vs gave" comparison —
-// routes through ``ktcAdjustPackage``, the verbatim port of KTC's
-// site.min.js algorithm (PR #335).  Treat got/gave as a 2-side trade:
-// positive ``vaNet`` means this team RECEIVED the stud premium (got
-// side wins on KTC's intensity-adjusted raw_adj); negative means they
-// GAVE the studs away.  Pure: value arrays only, no React/row refs.
-export function computeTradeVANet(gotValues, gaveValues) {
+// Package value adjustment for one team's "got vs gave" comparison —
+// routes through ``packageAdjustPair``, the sitewide package-model
+// dispatch (ACTIVE model: the owner-approved geometric Value Adjustment,
+// geom_q078_v1, since 2026-10-17; KTC's adjustPackage port is the
+// rollback model).  Treat got/gave as a 2-side trade: positive ``vaNet``
+// means this team RECEIVED the stud premium; negative means they GAVE the
+// studs away.  ``opts.modelId`` selects a model explicitly (twin of the
+// Python ``trade_va_net(model_id=...)``); omitted = the ACTIVE model.
+// Pure: value arrays only, no React/row refs.
+export function computeTradeVANet(gotValues, gaveValues, opts = {}) {
   if (!gotValues.length || !gaveValues.length) return 0;
-  const result = ktcAdjustPackage(gotValues, gaveValues);
+  const result = packageAdjustPair(gotValues, gaveValues, {
+    modelId: opts.modelId,
+  });
   if (!result.displayed || result.value <= 0) return 0;
-  // ktcAdjustPackage's `side` follows KTC's team1/team2 convention.
+  // packageAdjustPair's `side` follows the team1/team2 convention.
   // We pass got=team1, gave=team2.  side=1 means got receives the VA
   // (positive); side=2 means gave receives it (penalty for got).
   return result.side === 1 ? result.value : -result.value;
@@ -607,9 +622,10 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
   for (const trade of filtered) {
     const entry = analyzeRawTrade(trade, ctx);
 
-    // Per-side W/L for team scores.  3% is the fairness threshold —
-    // any trade where every team's net rounds below 3% shouldn't
-    // count as a win or loss for anyone.
+    // Per-side W/L for team scores.  HISTORY_EVEN_PCT (3%) is the
+    // evenly-valued cut: a side under it is neither a win nor a loss.
+    // ``totalGain`` (alpha-weighted, won/lost trades only) survives solely as the opt-in "legacy
+    // concentration index" — a different metric, never the default.
     for (const s of entry.sides) {
       const key = sideAggregationKey(s);
       if (!teamScores[key]) {
@@ -620,14 +636,25 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
           won: 0,
           lost: 0,
           totalGain: 0,
+          // Σ of every trade side's adjusted net (raw + package adjustment,
+          // active model) — the default Winners & Losers "Net value" (owner
+          // package 2026-10-17).  Summed over EVERY trade, fair ones
+          // included, so it is exactly the sum of the nets the cards show.
+          netAdjustedTotal: 0,
+          // Sides whose today's total excludes an asset the board cannot
+          // price — the sum is over incomplete packages and says so.
+          incompleteTrades: 0,
           trades: 0,
         };
       }
       teamScores[key].trades++;
-      if (s.pctGap >= 3) {
+      const netAdj = Number(s.netAdjusted);
+      if (Number.isFinite(netAdj)) teamScores[key].netAdjustedTotal += netAdj;
+      if (Number(s.unresolvedAssets) > 0) teamScores[key].incompleteTrades++;
+      if (s.pctGap >= HISTORY_EVEN_PCT) {
         teamScores[key].won++;
         teamScores[key].totalGain += s.netWeighted;
-      } else if (s.pctGap <= -3) {
+      } else if (s.pctGap <= -HISTORY_EVEN_PCT) {
         teamScores[key].lost++;
         teamScores[key].totalGain += s.netWeighted;
       }
@@ -766,7 +793,12 @@ export function buildPlayerMetaMap(rows) {
  *   stamped none, rather than guessing a lineup here.  Kept in the
  *   signature so existing callers keep working.
  * @returns {{ total, byGroup, playerDetails, pickDetails,
- *   starterSlotsUnavailable }}
+ *   starterSlotsUnavailable, pickOwnershipUnavailable, totalIsPartial }}
+ *
+ * Pick ownership UNKNOWN (``team.pickOwnershipState === "unavailable"``,
+ * see ``lib/pick-ownership.js``): ``byGroup.PICKS`` is ``null`` rather than
+ * 0, ``pickOwnershipUnavailable`` carries the reason, and under the "full"
+ * scope ``totalIsPartial`` says the total excludes this team's picks.
  */
 export function buildTeamValueBreakdown(
   team,
@@ -785,6 +817,7 @@ export function buildTeamValueBreakdown(
 
   const teamPlayers = Array.isArray(team.players) ? team.players : [];
   const teamPicks = Array.isArray(team.picks) ? team.picks : [];
+  const pickOwnershipUnavailable = pickOwnershipUnavailableReason(team);
 
   // Build row lookup for pick resolution
   const rowLookup = buildRowLookup(rows);
@@ -806,7 +839,7 @@ export function buildTeamValueBreakdown(
   // Resolve pick values using multi-candidate lookup so Sleeper labels
   // like "2026 1.04 (from Team X)" resolve against rankings rows stored
   // as "2026 Pick 1.04".
-  if (assetScope === "full") {
+  if (assetScope === "full" && !pickOwnershipUnavailable) {
     const pickSources = teamPicks.length > 0 ? teamPicks : teamPlayers.filter((p) => parsePickToken(p));
     for (const pickName of pickSources) {
       if (!parsePickToken(pickName)) continue;
@@ -838,10 +871,21 @@ export function buildTeamValueBreakdown(
     }
   }
 
-  byGroup.PICKS = assetScope === "full" ? pickValue : 0;
+  // Unknown ownership is not 0 picks: PICKS stays null and the total says it
+  // is partial, rather than quietly reading as a team with no draft capital.
+  const totalIsPartial = assetScope === "full" && !!pickOwnershipUnavailable;
+  byGroup.PICKS = assetScope === "full" ? (pickOwnershipUnavailable ? null : pickValue) : 0;
   const total = POS_GROUPS.reduce((s, g) => s + (byGroup[g] || 0), 0);
 
-  return { total, byGroup, playerDetails, pickDetails, starterSlotsUnavailable };
+  return {
+    total,
+    byGroup,
+    playerDetails,
+    pickDetails,
+    starterSlotsUnavailable,
+    pickOwnershipUnavailable,
+    totalIsPartial,
+  };
 }
 
 // ── Build All Team Summaries ────────────────────────────────────────────
@@ -872,10 +916,17 @@ export function buildAllTeamSummaries(
       total: breakdown.total,
       byGroup: breakdown.byGroup,
       playerCount: (team.players || []).length,
-      pickCount: Array.isArray(team.picks) ? team.picks.length : 0,
+      // null = ownership unknown, never 0 picks.
+      pickCount: breakdown.pickOwnershipUnavailable
+        ? null
+        : Array.isArray(team.picks)
+          ? team.picks.length
+          : 0,
       players: breakdown.playerDetails,
       pickDetails: breakdown.pickDetails,
       starterSlotsUnavailable: breakdown.starterSlotsUnavailable,
+      pickOwnershipUnavailable: breakdown.pickOwnershipUnavailable,
+      totalIsPartial: breakdown.totalIsPartial,
     };
   });
 
@@ -887,7 +938,9 @@ export function buildAllTeamSummaries(
 export function computeGroupAverages(teams) {
   const avg = {};
   POS_GROUPS.forEach((g) => {
-    const vals = teams.map((t) => t.byGroup[g] || 0);
+    // A group a team cannot measure (``null`` — e.g. PICKS with ownership
+    // unknown) is left out of the league average rather than averaged in as 0.
+    const vals = teams.map((t) => t.byGroup[g]).filter((v) => typeof v === "number");
     avg[g] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   });
   return avg;
@@ -1025,124 +1078,18 @@ export function buildLeagueEdgeMap(rows, sleeperTeams, myTeamName = "") {
   return teamEdges;
 }
 
-// ── Trade Tendencies ────────────────────────────────────────────────────
-/**
- * Analyze per-manager trading patterns: avg given/got, net, position bias.
- * @param {object} rawData - the rawData from useDynastyData
- * @param {object[]} rows - all player rows
- * @returns {object[]} Sorted array of { manager, trades, avgGiven, avgGot, net, tendency }
- */
-export function analyzeTradeTendencies(rawData, rows) {
-  const trades = rawData?.sleeper?.trades;
-  if (!Array.isArray(trades) || !trades.length) return [];
-
-  const rowLookup = buildRowLookup(rows);
-  const posMap = rawData?.sleeper?.positions || {};
-  const pickAliases = rawData?.pickAliases || null;
-  const identityMaps = buildSleeperIdentityMaps(rawData?.sleeper?.teams);
-  const managerStats = {};
-
-  // Shared resolver that handles both players and pick labels, so trade
-  // tendency totals include pick value rather than silently dropping
-  // picks that fail a direct rowLookup hit.
-  // Returns null for an asset the board declines to price — NOT 0
-  // (audit 2026-08-17).  This was `row.values?.full || 0` on both
-  // branches, which is the exact coercion `boardValueOrNull` was written
-  // for 900 lines above, comment and all: "`x || 0` turned every one of
-  // those into a measured zero".  This function simply never adopted it.
-  //
-  // It matters most for PICKS: every 2027/2028 5th and 6th is unpriced,
-  // so a manager who trades late picks had them counted as worth exactly
-  // nothing in `totalGot` / `totalGiven` — the trade-tendency numbers on
-  // the league page.  "We cannot price this" was published as "this is
-  // worth zero".
-  const resolveAssetValue = (name) => {
-    if (!name) return null;
-    if (parsePickToken(name)) {
-      const row = resolvePickRow(name, rowLookup, pickAliases);
-      return row ? boardValueOrNull(row) : null;
-    }
-    const row = rowLookup.get(String(name).toLowerCase());
-    return row ? boardValueOrNull(row) : null;
-  };
-
-  for (const trade of trades) {
-    if (!trade.sides || trade.sides.length < 2) continue;
-    for (const side of trade.sides) {
-      // Key by ownerId (falls back to rosterId / team name) so
-      // renamed teams roll up into a single row per human while
-      // orphan takeovers stay split across owners.
-      const key = sideAggregationKey(side);
-      const displayName = sideDisplayName(side, identityMaps) || "Unknown";
-      if (!managerStats[key]) {
-        managerStats[key] = {
-          manager: displayName,
-          trades: 0,
-          totalGiven: 0,
-          totalGot: 0,
-          // How many assets on each side the board could not price.
-          // Without this the totals look complete while silently
-          // omitting assets — which is the same lie as counting them
-          // as zero, just harder to see.
-          unpricedGot: 0,
-          unpricedGave: 0,
-          posBias: {},
-        };
-      }
-      const stats = managerStats[key];
-      stats.trades++;
-
-      let gotTotal = 0;
-      let gaveTotal = 0;
-      for (const name of side.got || []) {
-        const v = resolveAssetValue(name);
-        if (v === null) stats.unpricedGot++;
-        else gotTotal += v;
-      }
-      for (const name of side.gave || []) {
-        const v = resolveAssetValue(name);
-        if (v === null) stats.unpricedGave++;
-        else gaveTotal += v;
-      }
-      stats.totalGot += gotTotal;
-      stats.totalGiven += gaveTotal;
-
-      // Track position bias in acquisitions
-      for (const name of side.got || []) {
-        let pos = (posMap[name] || "").toUpperCase();
-        if (!pos) continue;
-        if (["LB", "DL", "DE", "DT", "CB", "S", "DB", "EDGE"].includes(pos)) pos = "IDP";
-        stats.posBias[pos] = (stats.posBias[pos] || 0) + 1;
-      }
-    }
-  }
-
-  return Object.entries(managerStats)
-    .map(([key, s]) => {
-      const avgGiven = Math.round(s.totalGiven / Math.max(s.trades, 1));
-      const avgGot = Math.round(s.totalGot / Math.max(s.trades, 1));
-      const net = avgGot - avgGiven;
-      const topPos = Object.entries(s.posBias).sort((a, b) => b[1] - a[1])[0];
-      const tendency = topPos ? `Targets ${topPos[0]}s` : "\u2014";
-      // `id` is the ownerId-first aggregation key so the React table
-      // can key rows uniquely even when two managers happen to share
-      // a display name.
-      return {
-        id: key,
-        manager: s.manager,
-        trades: s.trades,
-        avgGiven,
-        avgGot,
-        net,
-        tendency,
-        // Published so a consumer can say "based on N of M assets"
-        // rather than presenting a partial total as a complete one.
-        // Additive; existing readers are unaffected.
-        unpricedAssets: s.unpricedGot + s.unpricedGave,
-      };
-    })
-    .sort((a, b) => b.trades - a.trades);
-}
+// ── RETIRED: analyzeTradeTendencies ─────────────────────────
+//
+// This file used to export `analyzeTradeTendencies`, which derived
+// per-manager trade tendencies (trade count, avg given/got on today's
+// board, "Targets WRs") in the browser from `sleeper.trades`.  Manager
+// tendencies are PRIVATE decision intelligence with one canonical owner
+// now — `src/intel/manager_scout.py` (C6-MGR-01), served by
+// `GET /api/manager-scout` and formatted by `lib/manager-scout.js`.
+//
+// Deleted rather than deprecated, for the same reason as the Team
+// Strength scorer below: an unused export is a working second engine one
+// import away.  Guarded by `__tests__/manager-scout.test.js`.
 
 // ── RETIRED: scoreTeamTiers ─────────────────────────────────
 //

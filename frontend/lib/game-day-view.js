@@ -458,9 +458,12 @@ export function whatMattersNow(payload) {
       title: label,
       status: row.game ? gameStatusText(row.game) : null,
       detail:
-        `Win chance ${formatPct(row.winPctWhenGameFavorsTeam) ?? "—"} if this game goes your way, ` +
-        `${formatPct(row.winPctWhenGameFavorsOpponent) ?? "—"} if it goes theirs`,
-      meta: `${mine} of yours · ${theirs} of theirs`,
+        // LEVERAGE_DEFINITION: the draws split at this game's MEDIAN net
+        // outcome for the selected team — not "goes your way" (the page can
+        // view any team, and the split is not at zero).
+        `Win chance ${formatPct(row.winPctWhenGameFavorsTeam) ?? "—"} when this game beats its typical outcome, ` +
+        `${formatPct(row.winPctWhenGameFavorsOpponent) ?? "—"} when it falls short`,
+      meta: `${mine} selected · ${theirs} opponent`,
     });
   }
   for (const p of couldEnterPlayers(team, payload.mode).slice(0, 2)) {

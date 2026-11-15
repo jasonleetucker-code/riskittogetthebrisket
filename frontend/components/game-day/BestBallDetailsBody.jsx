@@ -105,7 +105,7 @@ function CurrentLineup({ side, mode }) {
       key: "stay",
       header: "Stays in",
       numeric: true,
-      headerInfo: "Chance this player is still in the final best-ball lineup once every game ends.",
+      headerInfo: "Chance this player is still in the final counting lineup once every game ends.",
       headerInfoLabel: "Stays in final lineup",
       render: (s) => formatLineupPct(pct.get(s.playerId)) ?? "—",
     });
@@ -135,14 +135,18 @@ function CurrentLineup({ side, mode }) {
   );
 }
 
-function ProjectedLineup({ side }) {
+function ProjectedLineup({ side, bestBall, pending }) {
   const lineup = side?.expectedLineup;
   if (!lineup?.slots?.length) {
     return (
       <div>
         <h4 className={styles.subTitle}>Projected lineup</h4>
         <p className={styles.note}>
-          No projection covered enough of this roster to fill the starting slots.
+          {/* PENDING withholds expectedLineup (matchup_intel) — that is
+              "not computed yet", not "no projection". */}
+          {pending
+            ? "Appears once the forecast finishes computing."
+            : "No projection covered enough of this roster to fill the starting slots."}
         </p>
       </div>
     );
@@ -169,8 +173,12 @@ function ProjectedLineup({ side }) {
         density="compact"
       />
       <p className={styles.note}>
-        The best lineup from each player&apos;s average projection. Projected finish averages the
-        best lineup across every simulated week, so the two totals differ.
+        {/* _expected_lineup always solves the optimal lineup; the simulation
+            re-solves it per draw in best ball but sums SUBMITTED starters in
+            a managed league (game_day_sim). */}
+        {bestBall === false
+          ? "The best possible lineup from each player's average projection — not necessarily the starters submitted on Sleeper, which are what Projected finish counts in this league."
+          : "The best lineup from each player's average projection. Projected finish averages the best lineup across every simulated week, so the two totals differ."}
         {unpriced.length
           ? ` ${unpriced.length} player${unpriced.length === 1 ? " has" : "s have"} no projection and ${unpriced.length === 1 ? "is" : "are"} left out rather than counted as zero.`
           : ""}
@@ -214,7 +222,7 @@ function CouldEnter({ side, mode }) {
   );
 }
 
-function GameFinished({ side, mode }) {
+function GameFinished({ side, mode, bestBall }) {
   if (mode !== "live") return null;
   const rows = finishedPlayers(side);
   if (!rows.length) return null;
@@ -242,10 +250,12 @@ function GameFinished({ side, mode }) {
         rowKey="playerId"
         density="compact"
       />
-      <p className={styles.note}>
-        A finished player&apos;s points are locked; his place in the lineup is not — a teammate still
-        to play can displace him.
-      </p>
+      {bestBall === false ? null : (
+        <p className={styles.note}>
+          A finished player&apos;s points are locked; his place in the lineup is not — a teammate
+          still to play can displace him.
+        </p>
+      )}
     </div>
   );
 }
@@ -261,16 +271,20 @@ function Unpriced({ side }) {
   );
 }
 
-function SideDetail({ side, mode, role }) {
+function SideDetail({ side, mode, role, bestBall, pending }) {
   if (!side) return null;
   return (
     <div className={styles.sideBlock}>
       <h3 className={styles.sideBlockTitle}>
         {side.displayName} <span className={styles.muted}>· {role}</span>
       </h3>
-      {mode === "pregame" ? <ProjectedLineup side={side} /> : <CurrentLineup side={side} mode={mode} />}
+      {mode === "pregame" ? (
+        <ProjectedLineup side={side} bestBall={bestBall} pending={pending} />
+      ) : (
+        <CurrentLineup side={side} mode={mode} />
+      )}
       {mode !== "final" ? <CouldEnter side={side} mode={mode} /> : null}
-      <GameFinished side={side} mode={mode} />
+      <GameFinished side={side} mode={mode} bestBall={bestBall} />
       <Unpriced side={side} />
     </div>
   );
@@ -278,10 +292,12 @@ function SideDetail({ side, mode, role }) {
 
 export default function BestBallDetailsBody({ payload }) {
   const mode = payload?.mode;
+  const bestBall = payload?.lineage?.bestBall;
+  const pending = payload?.probabilityState === "PENDING";
   return (
     <div className={styles.sides}>
-      <SideDetail side={payload?.team} mode={mode} role="Selected team" />
-      <SideDetail side={payload?.opponent} mode={mode} role="Opponent" />
+      <SideDetail side={payload?.team} mode={mode} role="Selected team" bestBall={bestBall} pending={pending} />
+      <SideDetail side={payload?.opponent} mode={mode} role="Opponent" bestBall={bestBall} pending={pending} />
     </div>
   );
 }

@@ -340,8 +340,8 @@
    The app is dark-only today; this block exists so the semantic layer is
    provably theme-invertible. Flipping <html data-theme="light"> re-maps
    surfaces/text/borders; components that stay semantic need zero changes.
-   (Chart slots + accent get their own light steps at enablement time —
-   see DESIGN-SYSTEM.md → Theming.)
+   (Chart slots carry their own light steps — Owner Decision 14; the
+   accent's light step is in place below.)
    ══════════════════════════════════════════════════════════════════════════ */
 :root[data-theme="light"] {
   --surface-0: #f6f4fa;
@@ -402,6 +402,17 @@
   --focus-ring: 0 0 0 2px var(--surface-1), 0 0 0 4px #7d6200;
   --focus-ring-color: #7d6200;
 
+  /* Categorical series — Owner Decision 14 (2026-10-18, closes #1428).
+     The dark slots above fall to 2.6-3.4:1 on these surfaces, so the light
+     scaffold takes the same light-surface steps as .psi-editorial below:
+     same hue order, worst 4.33:1 (slot 1 on surface-2). Validated by
+     __tests__/components/ds/chart-palette-contrast.test.js. */
+  --chart-1: #986400;
+  --chart-2: #2264af;
+  --chart-3: #ac386a;
+  --chart-4: #6752b6;
+  --chart-5: #087650;
+  --chart-6: #aa3c17;
   --chart-grid: rgba(13, 11, 18, 0.07);
   --chart-axis: #b9b1cc;
 
@@ -540,10 +551,22 @@
   --focus-ring-color: var(--accent);
 
   /* ── Charts ──
-     Reuses the validated categorical order verbatim (chart marks are
-     evaluated against a chart's own plot surface, not page prose
-     contrast, and re-deriving a fifth ordering here would be exactly the
-     "churn dressed as migration" OD-05 already rejected once). */
+     Owner Decision 14 (2026-10-18) closes #1428: the inherited dark slots
+     measured 2.3-3.1:1 on these cream surfaces, below the 3:1 mark floor,
+     so this scope carries its own light-surface steps of the SAME hue
+     family in the SAME order (amber, blue, magenta, violet, aqua, orange).
+     On the nested surface-2 (#e9dfca), the worst case:
+     3.82 / 4.52 / 4.50 / 4.59 / 4.27 / 4.71 :1. Marks only — these never
+     colour text (text wears --text-*). The dark :root slots are unchanged
+     and remain the dark-context variants (they clear >=3.99:1 there;
+     these would fall to 2.5:1). Validated, with CVD simulation, by
+     __tests__/components/ds/chart-palette-contrast.test.js. */
+  --chart-1: #986400;
+  --chart-2: #2264af;
+  --chart-3: #ac386a;
+  --chart-4: #6752b6;
+  --chart-5: #087650;
+  --chart-6: #aa3c17;
   --chart-grid: rgba(28, 23, 18, 0.08);
   --chart-axis: #8f8267;
 

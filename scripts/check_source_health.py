@@ -55,6 +55,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import os
 import re
@@ -70,6 +71,7 @@ if str(_REPO_ROOT) not in sys.path:
 from scripts.watchdog_freshness import (  # noqa: E402
     _read_freshness,
     classify_freshness,
+    split_seasonally_inactive,
     unmeasurable_sources,
 )
 from src.api.source_health_alerts import (  # noqa: E402
@@ -126,6 +128,48 @@ def _archive_stamp_to_dt(name: str) -> datetime | None:
         return None
 
 
+def _content_bytes(raw: bytes, src_key: str | None = None) -> bytes:
+    """``raw`` minus the identity columns U3 added to ``src_key``'s board.
+
+    Content staleness asks when a vendor last published new VALUES.  The U3
+    identity columns (``capture_evidence.U3_ADDED_COLUMNS``) say who a row is,
+    not what it is worth: hashing them made the U3 cutover, and every later team
+    change, read as a fresh publication - and made frozen pick rows look moved.
+
+    Only the columns U3 added to THIS board are removed, and the result is
+    re-serialized with the file's own line terminator and the same minimal
+    quoting the writers use, so a post-U3 file hashes exactly like the pre-U3
+    file with the same values.  A board U3 did not touch, or a file without
+    those columns, is returned byte-for-byte (its history hashes as before);
+    anything unparseable is returned as-is, never silently dropped.
+    """
+    from src.identity.capture_evidence import u3_added_columns  # noqa: PLC0415
+
+    drop = u3_added_columns(src_key)
+    if not drop:
+        return raw
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw
+    first = text.split("\n", 1)[0].lstrip("﻿").strip().lower()
+    if not any(c.strip() in drop for c in first.split(",")):
+        return raw
+    try:
+        rows = list(csv.reader(io.StringIO(text, newline="")))
+    except csv.Error:
+        return raw
+    if not rows:
+        return raw
+    keep = [i for i, c in enumerate(rows[0]) if c.lstrip("﻿").strip().lower() not in drop]
+    terminator = "\r\n" if "\r\n" in text else "\n"
+    out = io.StringIO(newline="")
+    writer = csv.writer(out, lineterminator=terminator)
+    for row in rows:
+        writer.writerow([row[i] for i in keep if i < len(row)])
+    return out.getvalue().encode("utf-8")
+
+
 def measure_content_staleness(repo_root: Path | None = None) -> dict[str, dict]:
     """Days since each source's raw CSV content last changed.
 
@@ -159,7 +203,7 @@ def measure_content_staleness(repo_root: Path | None = None) -> dict[str, dict]:
                     if not member.endswith(".csv") or "site_raw/" not in member:
                         continue
                     src_key = member.rsplit("/", 1)[-1][: -len(".csv")]
-                    raw = zf.read(member)
+                    raw = _content_bytes(zf.read(member), src_key)
                     digest = hashlib.sha256(raw).hexdigest()
                     seen_count[src_key] = seen_count.get(src_key, 0) + 1
                     if last_hash.get(src_key) != digest:
@@ -247,22 +291,52 @@ def measure_registered_source_integrity(
     def _token(text: object) -> str:
         return str(text or "").strip().lower()
 
+    # A private, box-local source (Signals, owner addendum 2026-10-03) whose
+    # collector never ran on this host is absent by design: reported as such,
+    # not as a degraded board.  One owner decides
+    # (``data_contract.private_source_availability``).
+    from src.api.data_contract import (  # noqa: PLC0415
+        PRIVATE_SOURCE_NOT_PROVISIONED,
+        private_source_availability,
+    )
+
+    unprovisioned = {
+        k
+        for k, v in private_source_availability(repo_root).items()
+        if v["state"] == PRIVATE_SOURCE_NOT_PROVISIONED
+    }
     out: dict[str, dict[str, object]] = {}
     for source in sources:
         key = str(source.get("key") or "")
         if not key:
             continue
+        if key in unprovisioned:
+            out[key] = {
+                "state": PRIVATE_SOURCE_NOT_PROVISIONED,
+                "path": None,
+                "errors": [],
+                "warnings": ["private box-local source; not provisioned on this host"],
+            }
+            continue
         cfg = source_paths.get(key)
+        rank_from = ""
         if isinstance(cfg, str):
             rel_path = cfg
             signal = "value"
         elif isinstance(cfg, dict):
             rel_path = str(cfg.get("path") or "")
             signal = str(cfg.get("signal") or "value").lower()
+            rank_from = str(cfg.get("rank_from") or "").lower()
         else:
             rel_path = ""
             signal = "unknown"
 
+        # ``rank_from: value_order`` (DLF Values, owner decision D4): the
+        # source votes as RANK, but its ranks are derived from the published
+        # value order, so the CSV carries a value column and no rank column.
+        # Its integrity is the value column's.
+        derived_rank = signal == "rank" and rank_from == "value_order"
+        basis = "value" if derived_rank else signal
         path = repo_root / rel_path if rel_path else None
         errors: list[str] = []
         warnings: list[str] = []
@@ -297,10 +371,11 @@ def measure_registered_source_integrity(
             value_columns = [name for name in header if _token(name) in value_aliases]
             if not name_columns:
                 errors.append(f"no recognized player/name column in header {header!r}")
-            if signal == "rank" and not rank_columns:
+            if basis == "rank" and not rank_columns:
                 errors.append(f"rank source has no recognized rank column in header {header!r}")
-            if signal == "value" and not value_columns:
-                errors.append(f"value source has no recognized value column in header {header!r}")
+            if basis == "value" and not value_columns:
+                label = "value-order rank source" if derived_rank else "value source"
+                errors.append(f"{label} has no recognized value column in header {header!r}")
 
             seen_names: set[str] = set()
             duplicate_set: set[str] = set()
@@ -318,7 +393,7 @@ def measure_registered_source_integrity(
                         duplicate_set.add(name)
                     seen_names.add(name_key)
 
-                columns = rank_columns if signal == "rank" else value_columns
+                columns = rank_columns if basis == "rank" else value_columns
                 numeric: float | None = None
                 for column in columns:
                     raw_value = str(row.get(column) or "").strip().replace(",", "")
@@ -333,7 +408,7 @@ def measure_registered_source_integrity(
                     signal_rows += 1
                     if numeric == 0:
                         zero_signal_rows += 1
-                    if signal == "rank" and numeric <= 0:
+                    if basis == "rank" and numeric <= 0:
                         errors.append(f"non-positive rank observed: {numeric}")
                         break
                     if (
@@ -351,7 +426,7 @@ def measure_registered_source_integrity(
             if row_count and named_rows < max(1, int(row_count * 0.95)):
                 errors.append(f"name coverage degraded: {named_rows}/{row_count}")
             if row_count and signal_rows < max(1, int(row_count * 0.80)):
-                errors.append(f"numeric {signal} coverage degraded: {signal_rows}/{row_count}")
+                errors.append(f"numeric {basis} coverage degraded: {signal_rows}/{row_count}")
 
             floor = floors.get(key)
             if floor is not None and row_count < int(floor):
@@ -552,6 +627,56 @@ def _load_contract_source_health(repo_root: Path) -> tuple[list[str], list[str],
     )
 
 
+def severe_content_freshness(
+    content_freshness: list[dict], seasonal_inactive: dict | set | list
+) -> list[dict]:
+    """Severely stale / quarantined content rows, EXCLUDING verified
+    seasonally inactive sources.
+
+    SEASONALLY INACTIVE != BROKEN.  A source in a declared, re-verified
+    seasonal window casts no vote, so its dataset age is expected and the
+    "blend weight is reduced accordingly" warning would be false for it.
+    Such rows are tagged ``seasonallyInactive`` (kept in the report, never
+    dropped) and left out of the warning list.
+    """
+    inactive = set(seasonal_inactive or ())
+    severe: list[dict] = []
+    for row in content_freshness:
+        if row.get("source") in inactive:
+            row["seasonallyInactive"] = True
+            continue
+        if row.get("state") in ("SEVERELY_STALE", "QUARANTINED"):
+            severe.append(row)
+    return severe
+
+
+def _rehabilitation_report(content_freshness: list[dict]) -> dict[str, object]:
+    """Workstream J (owner master package 2026-10-17): every non-voting or
+    degraded source has a plan, and a plan past its review date is said out
+    loud.  Advisory — it never changes a vote or this script's exit code."""
+    from src.sources import rehabilitation as rehab  # noqa: PLC0415
+
+    try:
+        registry = rehab.load_registry()
+    except (OSError, ValueError) as exc:
+        return {"error": f"{type(exc).__name__}: {exc}"}
+    planned = set(registry.get("entries") or {})
+    degraded = sorted(
+        {
+            str(row.get("source"))
+            for row in content_freshness
+            if isinstance(row, dict)
+            and str(row.get("state") or "") in ("QUARANTINED", "SEVERELY_STALE")
+        }
+        - planned
+    )
+    return {
+        "problems": rehab.validate(registry),
+        "overdue": rehab.overdue(registry, datetime.now(timezone.utc).date()),
+        "degradedWithoutPlan": degraded,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", default=".", help="Repository root (default: current directory)")
@@ -571,8 +696,14 @@ def main() -> int:
         return 2
 
     thresholds = load_thresholds()
+    # Declared seasonal windows (owner decision 2026-10-03) are applied with
+    # the watchdog's own helper, so this advisory report and the blocking
+    # watchdog cannot disagree about a seasonally inactive source.
+    freshness_now, seasonal_inactive, seasonal_lapsed = split_seasonally_inactive(
+        _read_freshness(), thresholds
+    )
     hard_stale, soft_stale, fresh = classify_freshness(
-        _read_freshness(), thresholds, load_soft_sources(), load_soft_escalation_hours()
+        freshness_now, thresholds, load_soft_sources(), load_soft_escalation_hours()
     )
     # Audit F-11.  This script reuses the watchdog's freshness rule verbatim
     # ("no second freshness rule"), so it inherited the watchdog's hole: a
@@ -636,12 +767,16 @@ def main() -> int:
         from datetime import datetime as _dt, timezone as _tz  # noqa: PLC0415
 
         from scripts.record_source_datasets import recorded_sources  # noqa: PLC0415
-        from src.sources.freshness import load_source_weightings  # noqa: PLC0415
+        from src.sources.freshness import (  # noqa: PLC0415
+            active_schedule,
+            load_source_weightings,
+        )
 
         weightings = load_source_weightings(
             [k for k, _p, _s in recorded_sources(repo_root)],
             state_dir=repo_root / "data" / "scrape_state",
             as_of=_dt.now(_tz.utc),
+            schedule=active_schedule(),
         )
         for key, sw in weightings.items():
             for subset, sub in sw.subsets.items():
@@ -649,12 +784,16 @@ def main() -> int:
                 content_freshness.append({"source": key, **d, "health": sw.health_state})
     except Exception as exc:  # noqa: BLE001 — advisory section
         content_freshness = [{"error": str(exc)}]
-    severe_content = [
-        c for c in content_freshness if c.get("state") in ("SEVERELY_STALE", "QUARANTINED")
+    severe_content = severe_content_freshness(content_freshness, seasonal_inactive)
+    content_stale = [
+        row for row in content_stale if row[0].split(" ", 1)[0] not in seasonal_inactive
     ]
+
+    rehabilitation = _rehabilitation_report(content_freshness)
 
     report = {
         "payload": payload_path,
+        "rehabilitation": rehabilitation,
         "contentFreshness": content_freshness,
         "contractSourceHealthErrors": contract_errors,
         "hardStale": [
@@ -664,6 +803,8 @@ def main() -> int:
             {"source": s, "ageHours": a, "thresholdHours": t} for s, a, t, _ in soft_stale
         ],
         "freshCount": len(fresh),
+        "seasonallyInactive": seasonal_inactive,
+        "seasonalInactivityLapsed": seasonal_lapsed,
         "unmeasurable": unmeasurable,
         "registeredSourceIntegrity": registered_integrity,
         "semanticIntegrity": {"ktc": ktc_semantic},
@@ -702,6 +843,17 @@ def main() -> int:
             print(f"::error title=KTC parser drift::{msg}")
         for msg in contract_errors:
             print(f"::error title=Source health (contract)::{msg}")
+        for row in rehabilitation.get("overdue") or []:
+            print(
+                f"::warning title=Source rehabilitation overdue {row['sourceKey']}::"
+                f"{row['state']} plan was due for review on {row['reviewBy']} "
+                "(config/sources/rehabilitation.json)"
+            )
+        for key in rehabilitation.get("degradedWithoutPlan") or []:
+            print(
+                f"::warning title=Degraded source without a plan {key}::"
+                "add a config/sources/rehabilitation.json entry (blocker, recovery action, gate)"
+            )
         for src_key in unmeasurable:
             print(
                 f"::warning title=Unmeasurable source::{src_key} has neither a "

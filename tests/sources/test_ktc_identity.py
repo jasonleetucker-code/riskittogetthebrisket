@@ -593,3 +593,63 @@ class TestFormatFilteringCannotYieldAHealthyZero(unittest.TestCase):
         self.assertTrue(mismatch.excluded)
         self.assertIn("tep_mismatch", mismatch.reasons)
         self.assertNotIn("tep_unknown", mismatch.reasons)
+
+
+# ── Both KTC embed forms (2026-10-13) ────────────────────────────────
+
+
+class TestEmbeddedArrayForms(unittest.TestCase):
+    """KTC moved the trade calculator's player map from an inline
+    ``var playersArray = [...]`` into a JSON ``<script>`` element bound by
+    ``JSON.parse(document.getElementById(...).textContent)``.  Every
+    plain-HTTP reader that only knew the inline form went blind — the
+    trade-URL import failed for every URL.  Fixtures are trimmed captures
+    of the real pages that day."""
+
+    KTC_FIXTURES = REPO / "tests" / "fixtures" / "ktc"
+
+    def _ktc(self, name: str) -> str:
+        return (self.KTC_FIXTURES / name).read_text(encoding="utf-8")
+
+    def test_the_json_script_element_form_is_read(self):
+        from src.sources.ktc_identity import extract_embedded_array
+
+        rows = extract_embedded_array(
+            self._ktc("trade_calculator_2026-10-13.html"), VALUE_BOARD_VAR
+        )
+        self.assertIsNotNone(rows)
+        self.assertIn(1712, {r["playerID"] for r in rows})
+
+    def test_the_old_inline_regex_cannot_see_that_form(self):
+        """Pins WHY the reader needed a second form, so a later 'simplify'
+        back to one regex fails here first."""
+        html = self._ktc("trade_calculator_2026-10-13.html")
+        self.assertIsNone(re.search(r"var\s+playersArray\s*=\s*(\[.*?\]);", html, re.DOTALL))
+
+    def test_the_inline_form_still_reads(self):
+        from src.sources.ktc_identity import extract_embedded_array
+
+        html = self._ktc("trade_database_2026-10-13.html")
+        self.assertTrue(extract_embedded_array(html, SEARCH_INDEX_VAR))
+        self.assertTrue(extract_embedded_array(html, VALUE_BOARD_VAR))
+
+    def test_the_element_id_comes_from_the_page_binding(self):
+        from src.sources.ktc_identity import extract_embedded_array
+
+        html = self._ktc("trade_calculator_2026-10-13.html").replace("ktc-players", "ktc-board-v2")
+        self.assertTrue(extract_embedded_array(html, VALUE_BOARD_VAR))
+
+    def test_an_unparseable_element_is_unobserved_not_empty(self):
+        from src.sources.ktc_identity import extract_embedded_array
+
+        html = (
+            '<script type="application/json" id="ktc-players">[{"broken"</script>'
+            "<script>var playersArray = JSON.parse(document.getElementById('ktc-players').textContent);</script>"
+        )
+        self.assertIsNone(extract_embedded_array(html, VALUE_BOARD_VAR))
+
+    def test_identity_parses_the_calculator_page(self):
+        m = parse_ktc_identity(self._ktc("trade_calculator_2026-10-13.html"))
+        self.assertEqual(m.source, VALUE_BOARD_VAR)
+        self.assertEqual(m.picks.get(1712), "2027 Mid 4th")
+        self.assertEqual(m.name_for(1274), "Wan'Dale Robinson")

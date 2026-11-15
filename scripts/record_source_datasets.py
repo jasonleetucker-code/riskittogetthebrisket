@@ -46,19 +46,34 @@ DEFAULT_STATE_DIR = REPO_ROOT / "data" / "scrape_state"
 # Boards fetched by their own production timers (deploy/dlf_fetch_and_push.sh,
 # deploy/idpshow_fetch_and_push.sh), which record their own state.  Every
 # other writer skips them: one writer per state file.
+#
+# The Signals keys are PRIVATE as well as prod-owned (owner addendum
+# 2026-10-03): their CSV exists only in the box's gitignored store, so the
+# GitHub refresh must never write their state — a CI-written FAILED state
+# file would be force-added, committed, and then overwrite the box's own.
 PROD_TIMER_OWNED_KEYS: frozenset[str] = frozenset(
-    {"dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp", "dlfValuesSfTep", "idpShowCombined"}
+    {
+        "dlfSf",
+        "dlfIdp",
+        "dlfRookieSf",
+        "dlfRookieIdp",
+        "dlfValuesSfTep",
+        "idpShowCombined",
+        "signalsSf",
+        "signalsIdpDl",
+        "signalsIdpLb",
+        "signalsIdpDb",
+    }
 )
 
 #: Sources whose dataset state is recorded BEFORE they are loaded or vote,
 #: because the measurement gate that decides whether they may vote needs their
-#: change history: DLF Trade Analyzer Values (owner directive 2026-09-24).
-#: ``{key: (csv_path, signal)}`` — stated here because such a source is not yet
-#: in ``_SOURCE_CSV_PATHS``.  Recording state never makes a source vote; only
-#: ``_RANKING_SOURCES`` does.
-TRACKED_NON_VOTING_KEYS: dict[str, tuple[str, str]] = {
-    "dlfValuesSfTep": ("CSVs/site_raw/dlfValuesSfTep.csv", "value"),
-}
+#: change history.  ``{key: (csv_path, signal)}`` — stated here only while such
+#: a source is not yet in ``_SOURCE_CSV_PATHS``.  Recording state never makes a
+#: source vote; only ``_RANKING_SOURCES`` does.  Empty since DLF Trade Analyzer
+#: Values was registered (owner closeout 2026-10-18 Decision 4); its state
+#: history continues unchanged under the registered entry.
+TRACKED_NON_VOTING_KEYS: dict[str, tuple[str, str]] = {}
 
 
 def recorded_sources(repo_root: Path = REPO_ROOT) -> list[tuple[str, Path, str]]:
@@ -80,6 +95,13 @@ def recorded_sources(repo_root: Path = REPO_ROOT) -> list[tuple[str, Path, str]]
             rel, signal = cfg, "value"
         elif isinstance(cfg, dict):
             rel, signal = str(cfg.get("path") or ""), str(cfg.get("signal") or "value")
+            if cfg.get("rank_from") == "value_order":
+                # The vote is the VALUE ORDER, so the column the vendor
+                # actually publishes — and the one whose change is a new
+                # publication — is the value column (DLF Trade Analyzer
+                # Values carries no rank column).  Recording it as a rank
+                # board would read FAILED on every fetch.
+                signal = "value"
         else:
             continue
         if rel:
@@ -121,6 +143,33 @@ def _track_rows(prior: dict | None) -> bool:
     return style != STYLE_SNAPSHOT
 
 
+def _private_markers() -> dict[str, str]:
+    """``{source_key: private_marker}`` for every PRIVATE box-local source."""
+    from src.api.data_contract import _SOURCE_CSV_PATHS  # noqa: PLC0415
+
+    return {
+        str(key): str(cfg["private_marker"])
+        for key, cfg in _SOURCE_CSV_PATHS.items()
+        if isinstance(cfg, dict) and cfg.get("private_marker")
+    }
+
+
+def _private_provisioned(
+    key: str, marker: str, csv_path: Path, state_dir: Path, repo_root: Path
+) -> bool:
+    """The same provisioning evidence ``private_source_availability`` reads:
+    the board CSV, the collector's marker, or a freshness trace it left.
+    A provisioned host that lost its CSV still records (a real FAILED
+    observation, reported as ``missing``)."""
+    state_dir = Path(state_dir)
+    return (
+        Path(csv_path).is_file()
+        or (Path(repo_root) / marker).is_file()
+        or (state_dir / f"{key}_last_success").is_file()
+        or state_path(state_dir, key).is_file()
+    )
+
+
 def record_all(
     *,
     state_dir: Path,
@@ -128,14 +177,29 @@ def record_all(
     only: set[str] | None = None,
     skip: set[str] | None = None,
     upstream: dict[str, tuple[str | None, str | None]] | None = None,
+    repo_root: Path = REPO_ROOT,
 ) -> tuple[list[str], list[str]]:
     written: list[str] = []
     failed: list[str] = []
     policy = broad_policy()
-    for key, csv_path, signal in recorded_sources():
+    private_markers = _private_markers()
+    for key, csv_path, signal in recorded_sources(repo_root):
         if only and key not in only:
             continue
         if skip and key in skip:
+            continue
+        if key in private_markers and not _private_provisioned(
+            key, private_markers[key], csv_path, state_dir, repo_root
+        ):
+            # PRIVATE SOURCE NOT PRESENT != FAILED.  A FAILED observation
+            # here would write ``<key>_dataset.json``, which
+            # ``private_source_availability`` reads as proof the host IS
+            # provisioned — flipping ``not_provisioned`` to ``missing`` and
+            # manufacturing a ``source_missing`` error on a host that was
+            # never meant to carry the source.  Absent by design records
+            # nothing; the hand-kept ``--skip`` list is no longer the only
+            # guard.
+            print(f"  {key}: private source not provisioned on this host — not recorded")
             continue
         prior = load_state(state_path(state_dir, key))
         published, version = (upstream or {}).get(key, (None, None)) or (None, None)

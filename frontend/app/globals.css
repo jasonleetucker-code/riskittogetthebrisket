@@ -1389,8 +1389,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 /* ══════════════════════════════════════════════════════════════════════════
    TRADE-SIDE INLINE SEARCH
    Replaces the old + Add → modal-overlay flow with a KTC-style
-   always-visible search input on each side.  The dropdown of up to 5
-   matches renders inline below the input (not absolute) so it pushes
+   always-visible search input on each side.  The dropdown of matches
+   (market group, then owned picks) renders inline below the input (not absolute) so it pushes
    the asset list down without overflowing the side card.
    ══════════════════════════════════════════════════════════════════════════ */
 .trade-side-search {
@@ -1400,6 +1400,10 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .trade-side-search-input {
   width: 100%;
 }
+/* TC-E: the side search shows the shared focus ring, not only a border tint. */
+.trade-side-search-input:focus-visible {
+  box-shadow: var(--focus-ring);
+}
 
 .trade-side-search-results {
   margin-top: 6px;
@@ -1408,7 +1412,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: var(--surface-2);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* Bounded + scrollable so the first group (market references) stays
+     visible above an open phone keyboard.  Same bound as the mobile
+     quick-add list (.mobile-quick-add-results). */
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .trade-side-search-result {
@@ -1429,6 +1438,14 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .trade-side-search-result:hover,
 .trade-side-search-result:active {
   background: rgba(79, 155, 236, 0.08);
+}
+/* TC-E: the keyboard-active option (aria-activedescendant) and a Tab-focused
+   sheet row carry the shared focus ring -- the ring only, no tint: the hover
+   tint drops the muted meta text below 4.5:1 (axe, measured). */
+.trade-side-search-result[data-active="true"],
+.trade-side-search-result:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
 }
 
 .trade-side-search-result-body {
@@ -1470,11 +1487,11 @@ input[type="range"]:focus-visible::-moz-range-thumb {
    MOBILE QUICK ADD (sticky one-tap player search at the top of /trade)
    ══════════════════════════════════════════════════════════════════════════ */
 .mobile-quick-add {
-  position: sticky;
-  /* The mobile topbar is ~44px tall; offset so the quick-add lands
-     just below it without overlapping. */
-  top: 44px;
-  z-index: 9;
+  /* In flow since TC-D (was sticky at top: 44px): the 62px pinned bar
+     overlapped scrolled content and was a quarter of /trade's fixed
+     chrome (UX audit P2-4, §7.3).  The verdict bar is the persistent
+     strip; the section nav returns to the builder. */
+  position: relative;
   margin-bottom: 10px;
   padding: 8px 10px;
   border: 1px solid var(--border);
@@ -1986,12 +2003,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   .picker-row td { padding: 10px 8px; }
 
   /* Trade card buttons: prevent truncation */
-  .trade-remove-btn {
-    white-space: nowrap;
-    flex-shrink: 0;
-    font-size: 0.72rem;
-    padding: 6px 8px;
-  }
   .trade-add-btn {
     white-space: nowrap;
     flex-shrink: 0;
@@ -2249,13 +2260,6 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   .picker-header h3 { font-size: 0.92rem; }
   .picker-search-row { gap: 6px; }
   .picker-recent { max-height: 120px; }
-
-  /* Trade cards: compact side header */
-  .trade-remove-btn {
-    font-size: 0.66rem;
-    padding: 4px 6px;
-    min-height: unset;
-  }
 
   /* Tighten the mobile source strip so chips fit on 320w viewports
      (iPhone SE / older devices).  Narrower strip + smaller chip
@@ -2630,6 +2634,15 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--red);
   background: rgba(248, 113, 113, 0.06);
   border: 1px solid rgba(248, 113, 113, 0.18);
+}
+
+/* Under the editorial scope --muted is --text-tertiary (#6b6151): 4.60:1 on
+   --surface-2, and the badge's own blue tint takes it to 4.46:1 — under
+   WCAG AA's 4.5:1 (axe, /rankings + /finder, 2026-10-13, once a top-board
+   row was single-source).  --text-secondary is 7.33:1 on the same tint. */
+.psi-editorial .caution-single,
+.psi-editorial .caution-disagree {
+  color: var(--text-secondary);
 }
 
 /* ── Source audit panel (expandable row) ─────────────────────────── */
@@ -3123,7 +3136,11 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 .trade-meter-verdict-unfair {
-  color: #fb923c;
+  /* The validated orange TEXT token, so the pill follows the scope it sits
+     in like its three siblings: the literal #fb923c it replaced read 1.9:1
+     on /trade's cream surface (axe color-contrast, #1918).  Pinned by
+     __tests__/trade-meter-verdict-contrast.test.js. */
+  color: var(--data-down-text);
   background: rgba(251, 146, 60, 0.12);
   border: 1px solid rgba(251, 146, 60, 0.35);
 }
@@ -3450,6 +3467,43 @@ body:has(.trade-sticky-tray) .screenshot-fab {
 }
 .source-breakdown-table tbody tr:hover {
   background: rgba(79, 155, 236, 0.04);
+}
+.source-breakdown-expand {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--subtext);
+  width: 1.3rem;
+  height: 1.3rem;
+  padding: 0;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.source-breakdown-expand:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
+}
+.source-breakdown-detail > td {
+  white-space: normal;
+  background: rgba(79, 155, 236, 0.03);
+}
+/* The drilldown scrolls inside the visible width on a phone instead of
+   making the reader pan the whole Second Opinions table to reach it. */
+.source-breakdown-assets-wrap {
+  overflow-x: auto;
+  max-width: min(100%, calc(100vw - 4rem));
+  position: sticky;
+  left: 0;
+}
+.source-breakdown-assets {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+.source-breakdown-assets th,
+.source-breakdown-assets td {
+  padding: 3px 6px;
+  border-bottom: 1px solid rgba(38, 58, 105, 0.3);
 }
 @keyframes draftAlertSlide {
   from { opacity: 0; transform: translateY(-4px); }

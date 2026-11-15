@@ -211,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
 
     out = args.out or (OUT_DIR / f"consensus-edge-panel-{date.today().isoformat()}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, indent=2) + "\n")
+    out.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     log(f"wrote {out.relative_to(REPO)}")
     return 0
 

@@ -41,6 +41,11 @@
  *   bodyId     string — id for the body region, needed for the
  *              disclosure's aria-controls.  CollapsiblePanel supplies
  *              one via useId.
+ *   disclosurePending boolean — the disclosure cannot act yet (its
+ *              handler is not attached: the page is still hydrating).
+ *              Renders it `disabled` + `aria-busy="true"`.  A prop, not
+ *              a hook, because this file must stay hook-free (below);
+ *              CollapsiblePanel computes it with useHydrated.
  *
  * A11y: the toggle is a real <button> wrapping the heading text, with
  * aria-expanded + aria-controls pointing at the body region, so screen
@@ -76,6 +81,7 @@ export function Panel({
   collapsed = false,
   onToggleCollapsed,
   bodyId,
+  disclosurePending = false,
   children,
   ...rest
 }) {
@@ -101,6 +107,8 @@ export function Panel({
           className="ds-panel__disclosure"
           aria-expanded={!isCollapsed}
           aria-controls={bodyId}
+          disabled={disclosurePending || undefined}
+          aria-busy={disclosurePending || undefined}
           onClick={onToggleCollapsed}
         >
           <ChevronDown size={10} className="ds-panel__disclosure-glyph" />

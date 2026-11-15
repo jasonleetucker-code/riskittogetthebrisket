@@ -1,0 +1,50 @@
+{
+  "status": "success",
+  "leagueKey": "main",
+  "generation": "925cb8176237c9eb",
+  "fairnessVersion": "fairness_bands_v2",
+  "snapshotChanged": null,
+  "rosters": {
+    "state": "current",
+    "asOf": "2026-10-20"
+  },
+  "teamCount": 2,
+  "perspectiveRosterId": 1,
+  "overall": {
+    "result": "NOT_FAIR",
+    "label": "NOT FAIR",
+    "reasonCode": "not_all_teams_fair",
+    "reasonText": "The trade falls outside our fairness threshold for at least one team.",
+    "note": null
+  },
+  "teams": [
+    {
+      "rosterId": 1,
+      "result": "NOT_FAIR",
+      "label": "NOT FAIR FOR THIS TEAM",
+      "reasonCode": "outside_fairness_threshold",
+      "reasonText": "This trade falls outside our fairness threshold for this team.",
+      "unavailableAssetIds": []
+    },
+    {
+      "rosterId": 2,
+      "result": "NOT_FAIR",
+      "label": "NOT FAIR FOR THIS TEAM",
+      "reasonCode": "outside_fairness_threshold",
+      "reasonText": "This trade falls outside our fairness threshold for this team.",
+      "unavailableAssetIds": []
+    }
+  ],
+  "trade": [
+    {
+      "id": "p:101",
+      "from": 1,
+      "to": 2
+    },
+    {
+      "id": "p:201",
+      "from": 2,
+      "to": 1
+    }
+  ]
+}

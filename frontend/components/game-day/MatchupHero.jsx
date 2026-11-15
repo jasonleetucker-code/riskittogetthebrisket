@@ -43,11 +43,18 @@ import {
   pendingForecast,
   withheldProbabilityReasons,
 } from "@/lib/game-day-view";
+import {
+  BeatMedianTip,
+  GameDayHowItWorks,
+  ProjectedFinishTip,
+  ScoreNowTip,
+  WinChanceTip,
+} from "@/components/help/GameDayHelp";
 import styles from "./game-day.module.css";
 
 const STATE_TONE = { live: "info", final: "neutral", pregame: "neutral" };
 
-function ScoreCell({ side, mode }) {
+function ScoreCell({ side, mode, managed = false }) {
   if (mode === "pregame") return null;
   const lineup = side?.actualLineup;
   const sn = side?.scoreNow;
@@ -76,7 +83,10 @@ function ScoreCell({ side, mode }) {
   if (differs) {
     const other = formatPoints(mode === "final" ? ours : host);
     if (other !== null) {
-      notes.push(mode === "final" ? `Best-ball lineup ${other}` : `Sleeper shows ${other}`);
+      // A managed league's lineup is the submitted one, not a best-ball
+      // re-pick (game_day_week.actual_lineup's managed branch).
+      const ours = managed ? "Our lineup total" : "Best-ball lineup";
+      notes.push(mode === "final" ? `${ours} ${other}` : `Sleeper shows ${other}`);
     }
   }
   return (
@@ -156,7 +166,7 @@ function OutcomeCells({ side, mode, medianShown, pending }) {
   );
 }
 
-function SideRow({ side, role, mode, medianShown, selected, pending }) {
+function SideRow({ side, role, mode, medianShown, selected, pending, managed }) {
   return (
     <tr className={selected ? styles.selectedRow : undefined}>
       <th scope="row" className={styles.sideCell}>
@@ -170,7 +180,7 @@ function SideRow({ side, role, mode, medianShown, selected, pending }) {
           </span>
         ) : null}
       </th>
-      <ScoreCell side={side} mode={mode} />
+      <ScoreCell side={side} mode={mode} managed={managed} />
       <OutcomeCells side={side} mode={mode} medianShown={medianShown} pending={pending} />
     </tr>
   );
@@ -209,6 +219,7 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
           {fresh.text}
         </span>
         <span className={styles.heroStatusSpacer} />
+        <GameDayHowItWorks />
         {onRefresh ? (
           // Not `loading`: that disables the button, and disabling a focused
           // control drops keyboard focus mid-refresh.
@@ -226,14 +237,31 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
         <thead>
           <tr>
             <th scope="col">Team</th>
-            {mode !== "pregame" ? <th scope="col">{mode === "final" ? "Final score" : "Score now"}</th> : null}
+            {mode === "final" ? <th scope="col">Final score</th> : null}
+            {mode !== "pregame" && mode !== "final" ? (
+              <th scope="col">
+                Score now
+                <ScoreNowTip bestBall={p.lineage?.bestBall} />
+              </th>
+            ) : null}
             {mode === "final" ? (
               <th scope="col">Result</th>
             ) : (
               <>
-                <th scope="col">Projected finish</th>
-                <th scope="col">Win chance</th>
-                {medianShown ? <th scope="col">Beat median</th> : null}
+                <th scope="col">
+                  Projected finish
+                  <ProjectedFinishTip bestBall={p.lineage?.bestBall} />
+                </th>
+                <th scope="col">
+                  Win chance
+                  <WinChanceTip className="ds-infotip--end" />
+                </th>
+                {medianShown ? (
+                  <th scope="col">
+                    Beat median
+                    <BeatMedianTip className="ds-infotip--end" />
+                  </th>
+                ) : null}
               </>
             )}
           </tr>
@@ -245,6 +273,7 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
             mode={mode}
             medianShown={medianShown}
             pending={pending !== null}
+            managed={p.lineage?.bestBall === false}
             selected
           />
           {opponent ? (
@@ -254,6 +283,7 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
               mode={mode}
               medianShown={medianShown}
               pending={pending !== null}
+              managed={p.lineage?.bestBall === false}
             />
           ) : null}
         </tbody>
@@ -285,7 +315,16 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
             <p key={line}>{line}</p>
           ))}
           {mode === "live" ? (
-            <p>Points already scored are shown; nothing is estimated for football we cannot see.</p>
+            <>
+              <p>Points already scored are shown; nothing is estimated for football we cannot see.</p>
+              {/* matchup_intel.can_simulate reads EVERY roster in the league,
+                  so the reason above can name a game neither team here
+                  plays in. */}
+              <p>
+                The forecast pauses for the whole league, not just this matchup: every
+                team&apos;s score feeds the same simulation.
+              </p>
+            </>
           ) : null}
         </Banner>
       ) : null}

@@ -1,0 +1,52 @@
+{
+  "anchorSlots": [
+    0,
+    1
+  ],
+  "forbiddenWarnings": [
+    "missing_side",
+    "trade_region_not_detected",
+    "low_layout_confidence"
+  ],
+  "layoutKind": "stacked",
+  "mustBeIgnored": [
+    "Bryce Young",
+    "Omarion Hampton"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Jaxson Dart",
+          "text": "Jaxson Dart"
+        },
+        {
+          "boardName": "Quay Walker",
+          "text": "Quay Walker"
+        },
+        {
+          "boardName": "2027 Early 1st",
+          "text": "2027 Early 1st"
+        }
+      ],
+      "label": "Team 1 gets"
+    },
+    {
+      "assets": [
+        {
+          "boardName": "De'Von Achane",
+          "text": "De'Von Achane"
+        },
+        {
+          "boardName": "Josh Hines-Allen",
+          "text": "Josh Hines-Allen"
+        },
+        {
+          "boardName": "2028 Round 2",
+          "text": "2028 2nd"
+        }
+      ],
+      "label": "Team 2 gets"
+    }
+  ]
+}

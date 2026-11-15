@@ -2,9 +2,22 @@
 
 import { useMemo } from "react";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
-import { percentageGap } from "@/lib/trade-logic";
+import { meterVerdict, sideTotalsFairnessBase } from "@/lib/trade-logic";
+import { FairnessInputError } from "@/lib/fairness-bands";
 
 /**
+ * WHAT THE NUMBERS ARE (corrected 2026-09-29).  The headline percentage is
+ * the adjusted gap (raw + VA) between the two PACKAGES (each side lists what it
+ * sends, so the bigger package is the side giving up more).  The per-source
+ * figures are RAW sums of `sourceRankMeta[key].valueContribution` — no
+ * Value Adjustment — over sources that priced EVERY piece (partial sources
+ * are counted, never cited; 2026-10-17), and each source key is cited on its own
+ * (correlated sources are not collapsed into one family here).  The copy
+ * says both things instead of implying the per-source numbers are the
+ * verdict's own basis.  The previous docstring claimed this read "the same
+ * field TradeSourceBreakdown uses"; the breakdown prefers native KTC/DLF
+ * values, so the two can differ.
+ *
  * TradeFairnessExplanation — 1-2 sentence prose summary that lives
  * between the TradeMeter (verdict bar) and the TradeSourceBreakdown
  * (per-vendor table).  Operationalises the source-disagreement
@@ -12,23 +25,15 @@ import { percentageGap } from "@/lib/trade-logic";
  * 12-row vendor table to figure out *why* the trade is fair (or
  * unfair), this card states it directly.
  *
- * Behaviour
- * ─────────
- * Even trades (gap < 3%):
- *   "Sources broadly agree this trade is fair.  Biggest single
- *    disagreement: KTC has Side A up by 800."
+ * Behaviour (inside the fair band of lib/fairness-bands.js = "even"; otherwise a lean):
+ *   even  — "The packages are inside the fair band after adjustments. Biggest
+ *            single-source difference (raw, …): KTC values Side A's
+ *            package 800 higher."
+ *   lean  — "Side A's package is worth 8% more after adjustments. KTC is
+ *            the biggest driver — it values Side A's package 1,400 higher
+ *            (raw)." plus, when one exists, the strongest dissenter.
  *
- * Lean trades (gap ≥ 3%) with one big driver and no real dissent:
- *   "Side A leans by 8%.  KTC is the biggest driver — they have
- *    Side A up by 1,400."
- *
- * Lean trades with a notable dissenter:
- *   "Side A leans by 8%.  KTC is the biggest driver (Side A +1,400);
- *    DLF disagrees and has Side B winning by 600."
- *
- * The math reads ``sourceRankMeta[key].valueContribution`` from the
- * backend stamps — same field ``TradeSourceBreakdown`` uses, so the
- * narrative can never disagree with the table below.
+ * Reads ``sourceRankMeta[key].valueContribution`` (raw, per source key).
  *
  * Render conditions
  * ─────────────────
@@ -56,12 +61,19 @@ function sourceLabel(key) {
   return def?.columnLabel || def?.displayName || key;
 }
 
+// A source's raw package sum, or null unless it priced EVERY piece with an
+// eligible observation (one that contributed to our blend).  A partial sum
+// is not a smaller package, so a source that covers only part of the trade
+// is never narrated as a driver or a dissenter (owner package 2026-10-17:
+// the explanation must use actual full-coverage facts).
 function sumSideContribution(assets, key) {
   let total = 0;
   for (const a of assets || []) {
-    const meta = a?.sourceRankMeta || {};
-    const v = Number(meta[key]?.valueContribution);
-    if (Number.isFinite(v) && v > 0) total += v;
+    const meta = a?.sourceRankMeta?.[key];
+    const v = Number(meta?.valueContribution);
+    const eligible = meta && meta.contributedToBlend !== false && meta.appliedWeight !== 0;
+    if (!(Number.isFinite(v) && v > 0) || !eligible) return null;
+    total += v;
   }
   return total;
 }
@@ -75,14 +87,16 @@ function buildPerSourceGaps(sideA, sideB) {
     }
   }
   const out = [];
+  let partial = 0;
   for (const key of sourceSet) {
     const a = sumSideContribution(sideA?.assets, key);
     const b = sumSideContribution(sideB?.assets, key);
-    // Require both sides to have at least one contribution from this
-    // source before we'd cite it.  A source that ranks only one side's
-    // pieces (e.g. KTC has Side A's player but not Side B's) is a
-    // coverage gap, not a disagreement worth narrating.
-    if (a <= 0 || b <= 0) continue;
+    // Only a source that priced every piece on both sides is cited; the
+    // rest are counted and named as partial coverage, never narrated.
+    if (a == null || b == null || a <= 0 || b <= 0) {
+      partial += 1;
+      continue;
+    }
     out.push({
       key,
       label: sourceLabel(key),
@@ -91,7 +105,7 @@ function buildPerSourceGaps(sideA, sideB) {
       sideBSum: b,
     });
   }
-  return out;
+  return { gaps: out, partial };
 }
 
 export default function TradeFairnessExplanation({ sides, sideTotals }) {
@@ -107,27 +121,49 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
     const labelB = sideB?.label ? `Side ${sideB.label}` : "Side B";
 
     const overallGap = totalA - totalB;
-    const pctGap = percentageGap(totalA, totalB);
+    // ONE band reading, the meter badge's own (fairness_bands_v2, relative to
+    // the larger package utility): its level decides "even" and its
+    // `percentText` is the percentage quoted below, so the sentence and the
+    // badge can never disagree.  A refused input gets no sentence.
+    let band;
+    try {
+      band = meterVerdict(overallGap, sideTotalsFairnessBase(sideTotals.slice(0, 2)));
+    } catch (err) {
+      if (err instanceof FairnessInputError) return null;
+      throw err;
+    }
+    const pctGap = band.percentText;
     const overallSign = overallGap === 0 ? 0 : overallGap > 0 ? 1 : -1;
 
-    const perSource = buildPerSourceGaps(sideA, sideB);
-    if (perSource.length === 0) return null;
+    const { gaps: perSource, partial } = buildPerSourceGaps(sideA, sideB);
+    const partialNote =
+      partial > 0
+        ? ` ${partial} source${partial === 1 ? "" : "s"} price${partial === 1 ? "s" : ""} only part of this trade and ${partial === 1 ? "is" : "are"} not cited.`
+        : "";
+    if (perSource.length === 0) {
+      return partial > 0
+        ? `No source prices every piece of this trade, so none is cited as a driver.${partialNote}`
+        : null;
+    }
 
     // Sort by absolute gap descending for "biggest disagreement"
     const byMagnitude = [...perSource].sort(
       (a, b) => Math.abs(b.gap) - Math.abs(a.gap),
     );
 
-    if (pctGap < 3) {
+    // "Even" is the ONE fairness-band owner's fair band (fairness_bands_v2,
+    // relative to the larger package utility), the same band the meter badge
+    // shows -- not a private 3%.
+    if (band.level === "fair") {
       // Even — call out the biggest single source-level disagreement
       // so the user knows *which* board would tip it if they trusted
       // a single source over the blend.
       const biggest = byMagnitude[0];
       if (!biggest || Math.abs(biggest.gap) < MIN_NOTABLE_GAP) {
-        return "Sources broadly agree — every covered board has this trade close to even.";
+        return `The packages are inside the fair band after adjustments, and every fully covering source has them close to even.${partialNote}`;
       }
       const winnerLabel = biggest.gap > 0 ? labelA : labelB;
-      return `Sources broadly agree this trade is fair. Biggest single disagreement: ${biggest.label} has ${winnerLabel} up by ${Math.round(Math.abs(biggest.gap)).toLocaleString()}.`;
+      return `The packages are inside the fair band after adjustments. Biggest single-source difference (raw, before Value Adjustment): ${biggest.label} values ${winnerLabel}'s package ${Math.round(Math.abs(biggest.gap)).toLocaleString()} higher.${partialNote}`;
     }
 
     // Lean trade — driver = source most aligned with the overall
@@ -145,23 +181,23 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
     if (aligned.length === 0) {
       // Edge case: overall gap exists but no individual source has a
       // gap aligned with it (could happen with weights / VA effects).
-      return `${winnerLabel} leans by ${pctGap}%. The advantage comes from cumulative differences across sources rather than one big driver.`;
+      return `${winnerLabel}'s package is worth ${pctGap}% more after adjustments. No single source drives it; the difference comes from Value Adjustment or small differences across sources.${partialNote}`;
     }
 
     const driver = aligned[0];
     let parts = [
-      `${winnerLabel} leans by ${pctGap}%.`,
-      `${driver.label} is the biggest driver — they have ${winnerLabel} up by ${Math.round(Math.abs(driver.gap)).toLocaleString()}.`,
+      `${winnerLabel}'s package is worth ${pctGap}% more after adjustments.`,
+      `${driver.label} is the biggest driver — it values ${winnerLabel}'s package ${Math.round(Math.abs(driver.gap)).toLocaleString()} higher (raw).`,
     ];
 
     if (dissenting.length > 0) {
       const dissenter = dissenting[0];
       parts.push(
-        `${dissenter.label} disagrees and has ${otherLabel} winning by ${Math.round(Math.abs(dissenter.gap)).toLocaleString()}.`,
+        `${dissenter.label} disagrees and values ${otherLabel}'s package ${Math.round(Math.abs(dissenter.gap)).toLocaleString()} higher.`,
       );
     }
 
-    return parts.join(" ");
+    return parts.join(" ") + partialNote;
   }, [sides, sideTotals]);
 
   if (!sentence) return null;

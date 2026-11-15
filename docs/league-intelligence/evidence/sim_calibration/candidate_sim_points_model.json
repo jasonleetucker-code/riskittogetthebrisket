@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-26T14:40:08.041139+00:00",
+  "configVersion": null,
+  "season": "2025+2026",
+  "weeks": [
+    202501,
+    202502,
+    202503,
+    202504,
+    202505,
+    202506,
+    202507,
+    202508,
+    202509,
+    202510,
+    202511,
+    202512,
+    202513,
+    202514,
+    202515,
+    202516,
+    202517,
+    202601,
+    202602,
+    202603,
+    202604
+  ],
+  "sampleSize": 9708,
+  "scale": {
+    "rosValuePerPoint": 1.4764,
+    "r2": 0.3266,
+    "n": 615
+  },
+  "byPosition": {
+    "CB": {
+      "cv": 0.669,
+      "meanPoints": 10.175,
+      "n": 266,
+      "measured": true
+    },
+    "DB": {
+      "cv": 0.7076,
+      "meanPoints": 10.557,
+      "n": 1238,
+      "measured": true
+    },
+    "DE": {
+      "cv": 0.9237,
+      "meanPoints": 11.82,
+      "n": 402,
+      "measured": true
+    },
+    "DL": {
+      "cv": 0.9638,
+      "meanPoints": 9.176,
+      "n": 505,
+      "measured": true
+    },
+    "DT": {
+      "cv": 0.8187,
+      "meanPoints": 9.73,
+      "n": 216,
+      "measured": true
+    },
+    "FB": {
+      "cv": 0.55,
+      "meanPoints": 0.343,
+      "n": 4,
+      "measured": false
+    },
+    "K": {
+      "cv": 0.5023,
+      "meanPoints": 9.679,
+      "n": 329,
+      "measured": true
+    },
+    "LB": {
+      "cv": 0.6857,
+      "meanPoints": 12.171,
+      "n": 1479,
+      "measured": true
+    },
+    "QB": {
+      "cv": 0.752,
+      "meanPoints": 18.158,
+      "n": 683,
+      "measured": true
+    },
+    "RB": {
+      "cv": 0.8749,
+      "meanPoints": 11.13,
+      "n": 1461,
+      "measured": true
+    },
+    "SS": {
+      "cv": 0.55,
+      "meanPoints": 6.712,
+      "n": 9,
+      "measured": false
+    },
+    "TE": {
+      "cv": 0.9246,
+      "meanPoints": 8.021,
+      "n": 945,
+      "measured": true
+    },
+    "WR": {
+      "cv": 0.8902,
+      "meanPoints": 9.844,
+      "n": 2171,
+      "measured": true
+    }
+  },
+  "provenance": {
+    "scorer": "src.league_intel.scorer.score_stat_line",
+    "statSource": "GET /v1/stats/nfl/regular/2025+2026/{week}",
+    "minSamplesPerPosition": 30,
+    "cvClamp": [
+      0.15,
+      1.2
+    ],
+    "note": "Scale is a through-origin least-squares fit of rosValue on mean weekly points. Positions with measured=false kept the documented fallback CV because their sample was below the floor."
+  },
+  "study": {
+    "promotes": false,
+    "status": "RESEARCH_CANDIDATE_NOT_SERVED",
+    "preregistration": "docs/league-intelligence/SIM_CALIBRATION_PREREGISTRATION_2026-10-26.md",
+    "preregistrationCommit": "d86f30238e0a63ebb48e24f5b92a1e8610b7b376",
+    "cardFingerprint": "sf1:9e51824690d091f9",
+    "scorer": "compute_weekly_points(source='sleeper'); the total enters build_calibration as the one-key line {'hostNativePoints': P} with a unit rate, so score_stat_line returns P",
+    "fitWeeks": [
+      "2025-w01",
+      "2025-w02",
+      "2025-w03",
+      "2025-w04",
+      "2025-w05",
+      "2025-w06",
+      "2025-w07",
+      "2025-w08",
+      "2025-w09",
+      "2025-w10",
+      "2025-w11",
+      "2025-w12",
+      "2025-w13",
+      "2025-w14",
+      "2025-w15",
+      "2025-w16",
+      "2025-w17",
+      "2026-w01",
+      "2026-w02",
+      "2026-w03",
+      "2026-w04"
+    ],
+    "composition": "byPosition from the variance call; scale from the scale call",
+    "calls": {
+      "varianceCall": {
+        "weeks": [
+          202501,
+          202502,
+          202503,
+          202504,
+          202505,
+          202506,
+          202507,
+          202508,
+          202509,
+          202510,
+          202511,
+          202512,
+          202513,
+          202514,
+          202515,
+          202516,
+          202517,
+          202601,
+          202602,
+          202603,
+          202604
+        ],
+        "sampleSize": 9708,
+        "scaleDiscarded": {
+          "rosValuePerPoint": 2.7,
+          "r2": 0.0,
+          "n": 0
+        }
+      },
+      "scaleCall": {
+        "weeks": [
+          202601,
+          202602,
+          202603,
+          202604
+        ],
+        "sampleSize": 2161,
+        "scale": {
+          "rosValuePerPoint": 1.4764,
+          "r2": 0.3266,
+          "n": 615
+        },
+        "pricedPlayers": 638,
+        "unpricedPlayerWeeksExcluded": 126
+      }
+    },
+    "rosSnapshot": {
+      "file": "data/ros/aggregate/history/2026-09-09T21-17-37.092580+00-00.json",
+      "sha256": "6585f7dcec86286db16055c85e30a2e2a2097c2200838c0ea2173c0278ad8cae",
+      "cutoffUtc": "2026-09-10T00:20:00+00:00"
+    },
+    "codeSha": "e6d2eb4a4e897b5fa146dc7b7419a33e39e06b74",
+    "studyCodeDirty": false,
+    "scriptSha256": "ed1651db90fc663de6be61cfe8fb03506139011dca6e68dfd146a1a8479f35dc"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "promotes": false,
+  "reps": 20000,
+  "seed": 20261026,
+  "familyN": {
+    "QB": 64,
+    "RB": 122,
+    "WR": 181,
+    "TE": 90,
+    "DL": 133,
+    "LB": 161,
+    "DB": 170
+  },
+  "SC-G1": {
+    "everyGatedFamily": 0.27285,
+    "byFamily": {
+      "QB": 0.7014,
+      "RB": 0.8236,
+      "WR": 0.905,
+      "TE": 0.7621,
+      "DL": 0.8693,
+      "LB": 0.8819,
+      "DB": 0.8999
+    }
+  },
+  "SC-G4": {
+    "everyGatedFamily": 0.0175,
+    "byFamily": {
+      "QB": 0.222,
+      "RB": 0.6079,
+      "WR": 0.8129,
+      "TE": 0.4173,
+      "DL": 0.6576,
+      "LB": 0.7534,
+      "DB": 0.787
+    }
+  },
+  "SC-G1_and_SC-G4": 0.00665,
+  "SC-G5_coverageHalves": 0.90185
+}

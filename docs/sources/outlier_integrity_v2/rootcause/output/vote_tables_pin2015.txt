@@ -1,0 +1,126 @@
+# DISCOVER-1 vote tables -- pin2015
+payload sha256 3ef54acda8c1062f96d02692fc22ea8ebc7e8f9bc38168359efac60675119199  scrape 2026-10-19T20:15:45.979848+00:00
+A env [] holds ['dlfIdp', 'dlfRookieIdp']
+B env ['RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0'] holds []
+filter constants {'K': 2.75, 'MIN_N': 4, 'MIN_THRESHOLD': 1000.0}
+
+IDP rows reaching the filter: A 0  B 158
+IDP voters per row (non-withheld): A {'0': 31, '1': 73, '2': 99, '3': 225}
+                                   B {'0': 31, '1': 71, '2': 71, '3': 97, '4': 148, '5': 10}
+IDP drops: A 0  B 32;  offense drops A 99  B 99 (offense drop set unchanged: True)
+newly dropped IDP votes: 32 = 31 other-source on 30 rows + DLF's own [{'row': 'Jared Verse', 'source': 'dlfIdp'}]
+  by source {'draftSharksIdp': 18, 'fantasyProsIdp': 10, 'idpTradeCalc': 3}  by position {'DL': 9, 'LB': 20, 'DB': 2}  rows with two drops ['Josiah Trotter']
+
+## The 31 other-source votes the incumbent drops in B (and never in A)
+row | n | votes (source value @effRank) | median | MAD | 2.75*MAD | threshold | floor? | dropped (deviation)
+Aidan Hutchinson | 4 | IDPTC 6444@29, DLF 6227@29, FP 6227@29, DS 3200@159 | 6227.0 | 108.5 | 298.4 | 1000.0 | Y | DS (3027)
+Alex Singleton | 4 | FP 3283@151, DLF 1964@391, IDPTC 1923@444, DS 1708@495 | 1943.5 | 128.0 | 352.0 | 1000.0 | Y | FP (1340)
+Anthony Hill | 5 | IDPTC 3367@175, DLF 3050@175, DLFr 3050@175, DS 2265@305, FP 1794@456 | 3050.0 | 317.0 | 871.8 | 1000.0 | Y | FP (1256)
+Barrett Carter | 4 | DS 3721@116, IDPTC 2056@376, DLF 1982@385, FP 1876@423 | 2019.0 | 90.0 | 247.5 | 1000.0 | Y | DS (1702)
+CJ Allen | 5 | DS 5790@37, DLF 2645@230, DLFr 2568@243, IDPTC 2129@356, FP 2095@350 | 2568.0 | 439.0 | 1207.2 | 1207.2 | n | DS (3222)
+Carson Schwesinger | 4 | DS 6945@19, IDPTC 5637@54, DLF 5165@52, FP 4811@63 | 5401.0 | 413.0 | 1135.8 | 1135.8 | n | DS (1544)
+Chase Young | 4 | IDPTC 3200@200, DS 2141@337, FP 1933@402, DLF 1916@408 | 2037.0 | 112.5 | 309.4 | 1000.0 | Y | IDPTC (1163)
+Danielle Hunter | 4 | IDPTC 3068@221, FP 2982@183, DLF 2702@221, DS 1641@529 | 2842.0 | 183.0 | 503.2 | 1000.0 | Y | DS (1201)
+David Bailey | 5 | DLFr 3721@116, DS 3677@119, IDPTC 3595@150, DLF 3360@144, FP 2051@363 | 3595.0 | 126.0 | 346.5 | 1000.0 | Y | FP (1544)
+DeMarvion Overshown | 4 | DS 3383@142, FP 2529@250, IDPTC 2048@377, DLF 1884@420 | 2288.5 | 322.5 | 886.9 | 1000.0 | Y | DS (1094)
+Dillon Thieneman | 5 | DS 4353@81, IDPTC 3264@183, DLFr 2982@183, DLF 2574@242, FP 1991@382 | 2982.0 | 408.0 | 1122.0 | 1122.0 | n | DS (1371)
+Edgerrin Cooper | 4 | DS 4645@69, FP 3383@142, DLF 3337@146, IDPTC 3288@180 | 3360.0 | 47.5 | 130.6 | 1000.0 | Y | DS (1285)
+Jacob Rodriguez | 5 | IDPTC 5667@52, DLFr 5165@52, DLF 4726@66, DS 4421@78, FP 1578@564 | 4726.0 | 439.0 | 1207.2 | 1207.2 | n | FP (3148)
+Jihaad Campbell | 4 | DS 4996@57, IDPTC 3605@143, DLF 3095@170, FP 2657@228 | 3350.0 | 474.0 | 1303.5 | 1303.5 | n | DS (1646)
+Jordyn Brooks | 4 | FP 5096@54, DS 3909@104, IDPTC 3598@148, DLF 3304@149 | 3753.5 | 302.5 | 831.9 | 1000.0 | Y | FP (1342)
+Josiah Trotter | 5 | IDPTC 3396@174, DLFr 3283@151, DLF 3171@162, FP 1868@426, DS 1675@511 | 3171.0 | 225.0 | 618.8 | 1000.0 | Y | FP (1303), DS (1496)
+Myles Garrett | 4 | IDPTC 5399@68, FP 4726@66, DLF 3721@116, DS 1905@412 | 4223.5 | 839.0 | 2307.2 | 2307.2 | n | DS (2318)
+Nick Bolton | 4 | DS 4698@67, IDPTC 3611@139, DLF 3394@141, FP 3360@144 | 3502.5 | 125.5 | 345.1 | 1000.0 | Y | DS (1196)
+Nick Emmanwori | 4 | DS 4517@74, IDPTC 3602@145, FP 3132@166, DLF 3007@180 | 3367.0 | 297.5 | 818.1 | 1000.0 | Y | DS (1150)
+Nick Herbig | 4 | IDPTC 2999@233, DLF 2007@377, FP 1780@462, DS 1507@608 | 1893.5 | 250.0 | 687.5 | 1000.0 | Y | IDPTC (1106)
+Patrick Queen | 4 | DS 3262@153, DLF 2010@376, IDPTC 1973@405, FP 1922@406 | 1991.5 | 44.0 | 121.0 | 1000.0 | Y | DS (1270)
+Quay Walker | 4 | DS 4618@70, FP 3394@141, IDPTC 3111@214, DLF 2933@189 | 3252.5 | 230.5 | 633.9 | 1000.0 | Y | DS (1366)
+Quincy Williams | 4 | FP 3171@162, DS 2189@324, DLF 1982@385, IDPTC 1927@439 | 2085.5 | 131.0 | 360.2 | 1000.0 | Y | FP (1086)
+Robert Spillane | 4 | FP 3294@150, DS 2178@327, DLF 1962@392, IDPTC 1917@453 | 2070.0 | 130.5 | 358.9 | 1000.0 | Y | FP (1224)
+Roquan Smith | 4 | FP 5165@52, IDPTC 3608@141, DLF 3371@143, DS 2742@215 | 3489.5 | 433.0 | 1190.8 | 1190.8 | n | FP (1676)
+Sonny Styles | 5 | DS 6108@31, DLFr 5130@53, DLF 4811@63, IDPTC 4173@116, FP 2901@193 | 4811.0 | 638.0 | 1754.5 | 1754.5 | n | FP (1910)
+T.J. Watt | 4 | IDPTC 3458@166, DLF 3283@151, FP 3033@177, DS 1450@647 | 3158.0 | 212.5 | 584.4 | 1000.0 | Y | DS (1708)
+Trevin Wallace | 4 | DS 2878@196, FP 1558@576, DLF 1517@601, IDPTC 814@809 | 1537.5 | 372.0 | 1023.0 | 1023.0 | n | DS (1340)
+Trey Hendrickson | 4 | IDPTC 2927@250, FP 1916@408, DLF 1878@422, DS 1472@631 | 1897.0 | 222.0 | 610.5 | 1000.0 | Y | IDPTC (1030)
+Will Anderson | 4 | DLF 6227@29, IDPTC 5963@41, FP 5603@41, DS 2870@197 | 5783.0 | 312.0 | 858.0 | 1000.0 | Y | DS (2913)
+
+## Mechanism counterfactuals (exact re-implementation; diagnostics, not proposals)
+{
+ "rowsWithAnyDrop": 31,
+ "filterRunsWithoutDlf": 0,
+ "dropsSurviveWithoutDlf": 0,
+ "n4Rows": 24,
+ "rowsWithTwoDlfVotes": 7,
+ "dropsSurviveDlfAsOneObservation": 27,
+ "dropsSurviveIdenticalValuesOnce": 29,
+ "floorBound": 22,
+ "closedFormMatchesAllN4": true,
+ "droppedVoteRelDistance_median": 0.4885
+}
+reimplementation mismatches on B: 0
+
+## Every IDP move >= 30%: decomposition A -> B(no IDP filter) -> B
+row | A | B no-filter | B | total | DLF own vote | filter reaction | dropped in B
+Trevin Wallace | 1937 | 1935 | 885 | -54.3% | -0.1% | -54.3% | draftSharksIdp
+Myles Garrett | 3555 | 3490 | 5266 | +48.1% | -1.8% | +50.9% | draftSharksIdp
+CJ Allen | 3987 | 4025 | 2164 | -45.7% | +0.9% | -46.2% | draftSharksIdp
+T.J. Watt | 2394 | 2410 | 3431 | +43.3% | +0.7% | +42.4% | draftSharksIdp
+Josiah Trotter | 2368 | 2473 | 3379 | +42.7% | +4.4% | +36.6% | fantasyProsIdp, draftSharksIdp
+Will Anderson | 4354 | 4394 | 5967 | +37.0% | +0.9% | +35.8% | draftSharksIdp
+Aidan Hutchinson | 4772 | 4772 | 6422 | +34.6% | +0.0% | +34.6% | draftSharksIdp
+Danielle Hunter | 2333 | 2315 | 3041 | +30.3% | -0.8% | +31.4% | draftSharksIdp
+DLF's own vote across all 179 moved IDP rows: {'max': 0.0554, 'p90': 0.031, 'median': 0.0097}
+every IDP move >= 10% carries a filter drop: True (21 rows)
+
+## Focus rows: full vote tables
+### Trevin Wallace  (A -> B -54.3%)
+A: value 1937 rank 342 conf low filterRan False n 3 freshnessExcluded ['idpShowCombined']
+   source | value | deviation | dropped | path | method | rawRank | effRank | anchor | weight
+   draftSharksIdp | 2878 | None | None | rank_hill | None | 33 | 196 | None | None
+   idpShowCombined | 1842 | None | None | rank_hill | None | 435 | 436 | None | None  [freshness-withheld, not a vote]
+   fantasyProsIdp | 1558 | None | None | rank_hill | None | 153 | 576 | None | None
+   idpTradeCalc | 814 | None | None | value_direct | None | 809 | 809 | None | None
+B: value 885 rank None conf low filterRan True n 4 median 1537.5 MAD 372.00 2.75*MAD 1023.0 threshold 1023.0 floorBound False dropped ['draftSharksIdp']
+   source | value | deviation | dropped | path | method | rawRank | effRank | anchor | weight
+   draftSharksIdp | 2878.0 | 1340.5 | True | rank_hill | ds_combined_cross_market | 33 | 196 | True | 1.0
+   fantasyProsIdp | 1558.0 | 20.5 | False | rank_hill | exact | 153 | 576 | False | 0.549
+   dlfIdp | 1517.0 | 20.5 | False | rank_hill | exact | 164 | 601 | False | 1.0
+   idpTradeCalc | 814.0 | 723.5 | False | value_direct | direct | 809 | 809 | True | 0.77
+### Myles Garrett  (A -> B +48.1%)
+A: value 3555 rank 133 conf low filterRan False n 3 freshnessExcluded ['idpShowCombined']
+   source | value | deviation | dropped | path | method | rawRank | effRank | anchor | weight
+   idpTradeCalc | 5399 | None | None | value_direct | None | 68 | 68 | None | None
+   fantasyProsIdp | 4726 | None | None | rank_hill | None | 8 | 66 | None | None
+   idpShowCombined | 4184 | None | None | rank_hill | None | 89 | 89 | None | None  [freshness-withheld, not a vote]
+   draftSharksIdp | 1905 | None | None | rank_hill | None | 92 | 412 | None | None
+B: value 5266 rank 61 conf medium filterRan True n 4 median 4223.5 MAD 839.00 2.75*MAD 2307.25 threshold 2307.25 floorBound False dropped ['draftSharksIdp']
+   source | value | deviation | dropped | path | method | rawRank | effRank | anchor | weight
+   idpTradeCalc | 5399.0 | 1175.5 | False | value_direct | direct | 68 | 68 | True | 0.77
+   fantasyProsIdp | 4726.0 | 502.5 | False | rank_hill | exact | 8 | 66 | False | 0.549
+   dlfIdp | 3721.0 | 502.5 | False | rank_hill | exact | 11 | 116 | False | 1.0
+   draftSharksIdp | 1905.0 | 2318.5 | True | rank_hill | ds_combined_cross_market | 92 | 412 | True | 1.0
+### Aidan Hutchinson  (A -> B +34.6%)
+A: value 4772 rank 72 conf low filterRan False n 3 freshnessExcluded ['idpShowCombined']
+   source | value | deviation | dropped | path | method | rawRank | effRank | anchor | weight
+   idpTradeCalc | 6444 | None | None | value_direct | None | 29 | 29 | None | None
+   fantasyProsIdp | 6227 | None | None | rank_hill | None | 1 | 29 | None | None
+   idpShowCombined | 4592 | None | None | rank_hill | None | 71 | 71 | None | None  [freshness-withheld, not a vote]
+   draftSharksIdp | 3200 | None | None | rank_hill | None | 31 | 159 | None | None
+B: value 6422 rank 34 conf medium filterRan True n 4 median 6227.0 MAD 108.50 2.75*MAD 298.38 threshold 1000.0 floorBound True dropped ['draftSharksIdp']
+   source | value | deviation | dropped | path | method | rawRank | effRank | anchor | weight
+   idpTradeCalc | 6444.0 | 217.0 | False | value_direct | direct | 29 | 29 | True | 0.77
+   dlfIdp | 6227.0 | 0.0 | False | rank_hill | exact | 1 | 29 | False | 1.0
+   fantasyProsIdp | 6227.0 | 0.0 | False | rank_hill | exact | 1 | 29 | False | 0.549
+   draftSharksIdp | 3200.0 | 3027.0 | True | rank_hill | ds_combined_cross_market | 31 | 159 | True | 1.0
+
+## Production today: the same statistic inside the B11 lost-evidence replay (A)
+{
+ "rowsWhereReplayRejectsAVote": 28,
+ "replayRejectionsBySource": {
+  "idpShowCombined": 1,
+  "draftSharksIdp": 18,
+  "idpTradeCalc": 1,
+  "fantasyProsIdp": 8
+ },
+ "note": "decides only B11 lost-evidence seats (confidence); no vote is removed"
+}

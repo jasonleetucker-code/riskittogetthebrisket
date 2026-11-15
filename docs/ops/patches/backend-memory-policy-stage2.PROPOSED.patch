@@ -1,0 +1,59 @@
+diff --git a/deploy/systemd/dynasty-frontend.service.template b/deploy/systemd/dynasty-frontend.service.template
+index d380e8972..d22ea8182 100644
+--- a/deploy/systemd/dynasty-frontend.service.template
++++ b/deploy/systemd/dynasty-frontend.service.template
+@@ -29,9 +29,13 @@ EnvironmentFile=-__APP_DIR__/.env
+ 
+ # ── Resource sanity ─────────────────────────────────────────────────
+ # `next start` serving a pre-built app is far lighter than the Python
+-# backend; 2 GB hard cap assumes a >=4 GB box (docs/PROD-HARDENING.md).
+-MemoryHigh=1536M
+-MemoryMax=2G
++# backend.  MEASURED peaks: 93.9-137.3 MiB (journal 2026-10-19 / 2026-10-21,
++# inventory 2026-09-26), so 768M/1G is 5.6x / 7.5x the highest while no
++# longer adding 2 GiB to the sum of declared ceilings on a 7.9 GiB host.
++# MemoryHigh throttles (it does not warn); at ~100 MiB of use it is
++# never reached.
++MemoryHigh=768M
++MemoryMax=1G
+ 
+ PrivateTmp=true
+ 
+diff --git a/deploy/systemd/dynasty.service.template b/deploy/systemd/dynasty.service.template
+index 1633670e5..38e82aa01 100644
+--- a/deploy/systemd/dynasty.service.template
++++ b/deploy/systemd/dynasty.service.template
+@@ -29,14 +29,25 @@ Environment=PYTHONUNBUFFERED=1
+ EnvironmentFile=-__APP_DIR__/.env
+ 
+ # ── Resource sanity ─────────────────────────────────────────────────
+-# Assumes a >=4 GB production VPS (see docs/PROD-HARDENING.md; verify
+-# with `free -m` before applying).  Steady-state RSS is dominated by
+-# the in-memory contract + payload views; Playwright scrape cycles
+-# spike it.  MemoryHigh throttles/reclaims first; MemoryMax is the
+-# hard OOM line, after which Restart=always brings the service back.
+-# Comment both out on a smaller box rather than guessing lower.
+-MemoryHigh=2560M
+-MemoryMax=3G
++# Host (MEASURED, restart diagnostics 2026-10-19 / 2026-10-21): 7941 MiB
++# RAM, 4 vCPU, NO swap.  Steady-state RSS is dominated by the in-memory
++# contract + payload views; Playwright scrape cycles add ~720 MiB of
++# Chromium (6 processes) INSIDE this cgroup.
++#
++# MemoryHigh is deliberately NOT set.  memory.high is a THROTTLE, not a
++# warning level, and on a swapless host this cgroup's memory is ~99.6%
++# anonymous, which cannot be reclaimed -- so at the line the kernel
++# evicts every file page (the interpreter's own) and sleeps the
++# allocating threads instead of freeing anything.  2026-10-21 07:50Z:
++# memory.events high rose 63,734 -> 127,174 in two minutes while
++# max=0 and oom_kill=0; the service answered nothing for ~3 minutes until
++# the watchdog restarted it, ~4.5 minutes until it served again.  A
++# replacement process then regrew to 2.34 GiB within ~30 minutes, so
++# 3584M is a canary value, not a proven fit.  MemoryMax is a hard line: past it the
++# kernel kills the process in seconds and Restart=always brings it back
++# (a ~30 s outage instead of a multi-minute stall).
++# Full record and rollback: docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md.
++MemoryMax=3584M
+ 
+ # ── File descriptors ────────────────────────────────────────────────
+ # This unit set no LimitNOFILE, so the process inherited the distro's

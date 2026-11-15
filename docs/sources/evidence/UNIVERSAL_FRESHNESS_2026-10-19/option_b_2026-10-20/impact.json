@@ -1,0 +1,1296 @@
+{
+ "comparison": {
+  "byPosition": {
+   "DB": {
+    "maxPct": 8.8,
+    "medianPct": 0.77,
+    "n": 108,
+    "p90Pct": 3.54,
+    "p99Pct": 5.82
+   },
+   "DL": {
+    "maxPct": 10.55,
+    "medianPct": 1.03,
+    "n": 128,
+    "p90Pct": 3.21,
+    "p99Pct": 6.55
+   },
+   "LB": {
+    "maxPct": 11.95,
+    "medianPct": 1.79,
+    "n": 85,
+    "p90Pct": 5.66,
+    "p99Pct": 11.47
+   },
+   "PICK": {
+    "maxPct": 5.21,
+    "medianPct": 0.22,
+    "n": 113,
+    "p90Pct": 1.7,
+    "p99Pct": 4.83
+   },
+   "QB": {
+    "maxPct": 15.07,
+    "medianPct": 0.8,
+    "n": 70,
+    "p90Pct": 2.59,
+    "p99Pct": 5.67
+   },
+   "RB": {
+    "maxPct": 21.7,
+    "medianPct": 0.78,
+    "n": 124,
+    "p90Pct": 3.33,
+    "p99Pct": 15.65
+   },
+   "TE": {
+    "maxPct": 11.26,
+    "medianPct": 0.66,
+    "n": 77,
+    "p90Pct": 2.72,
+    "p99Pct": 5.84
+   },
+   "WR": {
+    "maxPct": 40.43,
+    "medianPct": 0.62,
+    "n": 185,
+    "p90Pct": 3.57,
+    "p99Pct": 16.31
+   }
+  },
+  "changedAll": {
+   "maxPct": 40.43,
+   "medianPct": 0.71,
+   "n": 890,
+   "p90Pct": 3.45,
+   "p99Pct": 11.26
+  },
+  "changedByClass": {
+   "idp": {
+    "maxPct": 11.95,
+    "medianPct": 1.07,
+    "n": 321,
+    "p90Pct": 4.04,
+    "p99Pct": 9.0
+   },
+   "offense": {
+    "maxPct": 40.43,
+    "medianPct": 0.69,
+    "n": 388,
+    "p90Pct": 3.19,
+    "p99Pct": 15.96
+   },
+   "pick": {
+    "maxPct": 5.21,
+    "medianPct": 0.22,
+    "n": 113,
+    "p90Pct": 1.7,
+    "p99Pct": 4.83
+   },
+   "rookie": {
+    "maxPct": 10.23,
+    "medianPct": 0.76,
+    "n": 68,
+    "p90Pct": 2.52,
+    "p99Pct": 5.93
+   }
+  },
+  "confidenceBucketTransitions": {
+   "high->medium": 8,
+   "low->medium": 10,
+   "low->none": 3,
+   "medium->high": 7,
+   "medium->low": 122,
+   "none->low": 2
+  },
+  "familyAppliedWeightTotals": {
+   "after": {
+    "dlf": 298.0,
+    "draftSharks": 637.0,
+    "dynastyDaddySf": 382.0,
+    "dynastyNerdsSfTep": 280.0,
+    "fantasyCalc": 388.0,
+    "fantasyPros": 406.5,
+    "flockFantasy": 399.0,
+    "idpTradeCalc": 668.25,
+    "ktcCrowd": 500.75,
+    "ktcTrades": 497.0,
+    "otcffbSf": 457.0,
+    "pfkDynasty": 448.0,
+    "yahooBoone": 345.0
+   },
+   "before": {
+    "dlf": 297.0,
+    "draftSharks": 632.0,
+    "dynastyDaddySf": 382.0,
+    "dynastyNerdsSfTep": 279.0,
+    "fantasyCalc": 388.0,
+    "fantasyPros": 448.26,
+    "flockFantasy": 398.0,
+    "idpTradeCalc": 673.71,
+    "ktcCrowd": 493.0,
+    "ktcTrades": 497.0,
+    "otcffbSf": 455.0,
+    "pfkDynasty": 447.0,
+    "yahooBoone": 345.0
+   }
+  },
+  "newlyPriced": [
+   "Chris Moore",
+   "Jawhar Jordan"
+  ],
+  "newlyUnpriced": [
+   "Dee Alford",
+   "James Pierre",
+   "Kyle Dugger"
+  ],
+  "perSource": {
+   "after": {
+    "dlfIdp": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "testing"
+    },
+    "dlfRookieIdp": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "testing"
+    },
+    "dlfRookieSf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 0.6638,
+     "outlierDropped": 0,
+     "rows": 58,
+     "status": "active_100"
+    },
+    "dlfSf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 0.9301,
+     "outlierDropped": 6,
+     "rows": 279,
+     "status": "active_100"
+    },
+    "dlfValuesSfTep": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "testing"
+    },
+    "draftSharks": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 51,
+     "rows": 317,
+     "status": "active_100"
+    },
+    "draftSharksIdp": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 0,
+     "rows": 320,
+     "status": "active_100"
+    },
+    "dynastyDaddySf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 0,
+     "rows": 382,
+     "status": "active_100"
+    },
+    "dynastyNerdsSfTep": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 4,
+     "rows": 280,
+     "status": "active_100"
+    },
+    "fantasyCalc": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 1,
+     "rows": 388,
+     "status": "active_100"
+    },
+    "fantasyNavigatorSf": {
+     "effectiveWeight": 0.75,
+     "meanAppliedWeight": 0.438,
+     "outlierDropped": 3,
+     "rows": 444,
+     "status": "active_75"
+    },
+    "fantasyProsFitzmaurice": {
+     "effectiveWeight": 0.5,
+     "meanAppliedWeight": 0.335,
+     "outlierDropped": 6,
+     "rows": 293,
+     "status": "active_50"
+    },
+    "fantasyProsIdp": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "stale"
+    },
+    "fantasyProsSf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 0.7613,
+     "outlierDropped": 2,
+     "rows": 405,
+     "status": "active_100"
+    },
+    "flockFantasySf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 4,
+     "rows": 399,
+     "status": "active_100"
+    },
+    "flockFantasySfRookies": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "seasonal"
+    },
+    "idpShowCombined": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "stale"
+    },
+    "idpTradeCalc": {
+     "effectiveWeight": 0.75,
+     "meanAppliedWeight": 0.75,
+     "outlierDropped": 3,
+     "rows": 891,
+     "status": "active_75"
+    },
+    "ktcCrowdSfTep": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 0.6238,
+     "outlierDropped": 7,
+     "rows": 491,
+     "status": "active_100"
+    },
+    "ktcTradesSfTep": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 1,
+     "rows": 497,
+     "status": "active_100"
+    },
+    "otcffbSf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 1,
+     "rows": 457,
+     "status": "active_100"
+    },
+    "pfkDynasty": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 1,
+     "rows": 448,
+     "status": "active_100"
+    },
+    "signalsIdpDb": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "data_issue"
+    },
+    "signalsIdpDl": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "data_issue"
+    },
+    "signalsIdpLb": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "data_issue"
+    },
+    "signalsSf": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "data_issue"
+    },
+    "yahooBoone": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 5,
+     "rows": 345,
+     "status": "active_100"
+    }
+   },
+   "before": {
+    "dlfIdp": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "testing"
+    },
+    "dlfRookieIdp": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "testing"
+    },
+    "dlfRookieSf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 0.6638,
+     "outlierDropped": 0,
+     "rows": 58,
+     "status": "active_100"
+    },
+    "dlfSf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 0.9299,
+     "outlierDropped": 7,
+     "rows": 278,
+     "status": "active_100"
+    },
+    "dlfValuesSfTep": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "testing"
+    },
+    "draftSharks": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 56,
+     "rows": 312,
+     "status": "active_100"
+    },
+    "draftSharksIdp": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 0,
+     "rows": 320,
+     "status": "active_100"
+    },
+    "dynastyDaddySf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 0,
+     "rows": 382,
+     "status": "active_100"
+    },
+    "dynastyNerdsSfTep": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 5,
+     "rows": 279,
+     "status": "active_100"
+    },
+    "fantasyCalc": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 1,
+     "rows": 388,
+     "status": "active_100"
+    },
+    "fantasyNavigatorSf": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "stale"
+    },
+    "fantasyProsFitzmaurice": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 0.5051,
+     "outlierDropped": 6,
+     "rows": 293,
+     "status": "active_100"
+    },
+    "fantasyProsIdp": {
+     "effectiveWeight": 0.1617,
+     "meanAppliedWeight": 0.1617,
+     "outlierDropped": 0,
+     "rows": 249,
+     "status": "active_25"
+    },
+    "fantasyProsSf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 0.642,
+     "outlierDropped": 2,
+     "rows": 405,
+     "status": "active_100"
+    },
+    "flockFantasySf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 5,
+     "rows": 398,
+     "status": "active_100"
+    },
+    "flockFantasySfRookies": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "seasonal"
+    },
+    "idpShowCombined": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "stale"
+    },
+    "idpTradeCalc": {
+     "effectiveWeight": 0.7771,
+     "meanAppliedWeight": 0.7544,
+     "outlierDropped": 1,
+     "rows": 893,
+     "status": "active_75"
+    },
+    "ktcCrowdSfTep": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 5,
+     "rows": 493,
+     "status": "active_100"
+    },
+    "ktcTradesSfTep": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 1,
+     "rows": 497,
+     "status": "active_100"
+    },
+    "otcffbSf": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 3,
+     "rows": 455,
+     "status": "active_100"
+    },
+    "pfkDynasty": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 2,
+     "rows": 447,
+     "status": "active_100"
+    },
+    "signalsIdpDb": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "data_issue"
+    },
+    "signalsIdpDl": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "data_issue"
+    },
+    "signalsIdpLb": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "data_issue"
+    },
+    "signalsSf": {
+     "effectiveWeight": 0.0,
+     "meanAppliedWeight": null,
+     "outlierDropped": 0,
+     "rows": 0,
+     "status": "data_issue"
+    },
+    "yahooBoone": {
+     "effectiveWeight": 1.0,
+     "meanAppliedWeight": 1.0,
+     "outlierDropped": 5,
+     "rows": 345,
+     "status": "active_100"
+    }
+   }
+  },
+  "pricedBefore": {
+   "idp": 397,
+   "offense": 400,
+   "pick": 120,
+   "rookie": 86
+  },
+  "rowsCompared": 1107,
+  "singleSourceRows": {
+   "after": 58,
+   "before": 58
+  },
+  "top200": {
+   "entered": [
+    "Dalton Schultz",
+    "Josh Hines-Allen",
+    "Laiatu Latu"
+   ],
+   "left": [
+    "Braelon Allen",
+    "Emmett Johnson",
+    "Woody Marks"
+   ],
+   "maxRankMove": 16,
+   "maxValueChangePct": 7.55,
+   "medianValueChangePct": 0.52,
+   "rankMoved": 146
+  },
+  "top50": {
+   "entered": [
+    "Bo Nix",
+    "Jack Campbell"
+   ],
+   "left": [
+    "Bryce Young",
+    "Tucker Kraft"
+   ],
+   "maxRankMove": 5,
+   "maxValueChangePct": 3.72,
+   "medianValueChangePct": 0.45,
+   "rankMoved": 21
+  },
+  "topMovers": [
+   {
+    "added": [
+     "fantasyNavigatorSf",
+     "flockFantasySf"
+    ],
+    "after": 910,
+    "before": 648,
+    "changePct": 40.43,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [
+     "flockFantasySf"
+    ],
+    "player": "LaJohntay Wester",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 1088
+     },
+     "flockFantasySf": {
+      "after": 1.0,
+      "before": 0.0,
+      "value": 1889
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 579
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 673,
+    "before": 553,
+    "changePct": 21.7,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Sincere McCormick",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 950
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 481
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 743,
+    "before": 625,
+    "changePct": 18.88,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Josh Reynolds",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 979
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 456
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 920,
+    "before": 791,
+    "changePct": 16.31,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Curtis Samuel",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 1088
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 450
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 843,
+    "before": 727,
+    "changePct": 15.96,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Johnny Wilson",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 950
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 491
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 850,
+    "before": 735,
+    "changePct": 15.65,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Zamir White",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 979
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 494
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 962,
+    "before": 836,
+    "changePct": 15.07,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Jarrett Stidham",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 898
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 453
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 766,
+    "before": 870,
+    "changePct": -11.95,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Christian Harris",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 1813
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 766
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 764,
+    "before": 863,
+    "changePct": -11.47,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Devin White",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 1760
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 764
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 1344,
+    "before": 1208,
+    "changePct": 11.26,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Adam Trautman",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 1525
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7771,
+      "value": 928
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 982
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 1221,
+    "before": 1365,
+    "changePct": -10.55,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "DeMarcus Lawrence",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 2621
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 923
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 1466,
+    "before": 1633,
+    "changePct": -10.23,
+    "outlierDroppedAfter": [
+     "draftSharks"
+    ],
+    "outlierDroppedBefore": [],
+    "player": "Josh Cameron",
+    "removed": [
+     "draftSharks"
+    ],
+    "weightChanges": {
+     "draftSharks": {
+      "after": 0.0,
+      "before": 1.0,
+      "value": 2645
+     },
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 1219
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7771,
+      "value": 1226
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 1969
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 985,
+    "before": 898,
+    "changePct": 9.69,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Isaiah Hodgins",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 1088
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 497
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 1031,
+    "before": 944,
+    "changePct": 9.22,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Jake Bobo",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 1088
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 484
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 950,
+    "before": 870,
+    "changePct": 9.2,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Tyrell Shavers",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 1088
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 524
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 1410,
+    "before": 1550,
+    "changePct": -9.03,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Nick Chubb",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.75,
+      "before": 0.0,
+      "value": 1293
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 1345,
+    "before": 1478,
+    "changePct": -9.0,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Tyrel Dodson",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 2609
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 854
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 757,
+    "before": 830,
+    "changePct": -8.8,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Jason Pinnock",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 1493
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 757
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 872,
+    "before": 804,
+    "changePct": 8.46,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Derius Davis",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 950
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 511
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 4929,
+    "before": 4583,
+    "changePct": 7.55,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Jacob Rodriguez",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 1578
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 5667
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 1800,
+    "before": 1946,
+    "changePct": -7.5,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Alex Singleton",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 3283
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 1923
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 795,
+    "before": 855,
+    "changePct": -7.02,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Tyree Wilson",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 1395
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 795
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 1570,
+    "before": 1680,
+    "changePct": -6.55,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Josh Sweat",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 2633
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 1263
+     }
+    }
+   },
+   {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 1478,
+    "before": 1581,
+    "changePct": -6.51,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Jaylin Lane",
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 1432
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7771,
+      "value": 1973
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 1953
+     }
+    }
+   },
+   {
+    "added": [],
+    "after": 3949,
+    "before": 3726,
+    "changePct": 5.98,
+    "outlierDroppedAfter": [],
+    "outlierDroppedBefore": [],
+    "player": "Dallas Turner",
+    "removed": [
+     "fantasyProsIdp"
+    ],
+    "weightChanges": {
+     "fantasyProsIdp": {
+      "after": 0.0,
+      "before": 0.1617,
+      "value": 1916
+     },
+     "idpTradeCalc": {
+      "after": 0.75,
+      "before": 0.7234,
+      "value": 5419
+     }
+    }
+   }
+  ],
+  "twoWayPlayers": {
+   "Travis Hunter": {
+    "added": [
+     "fantasyNavigatorSf"
+    ],
+    "after": 3599,
+    "before": 3599,
+    "outlierDroppedAfter": [
+     "idpTradeCalc"
+    ],
+    "outlierDroppedBefore": [
+     "idpTradeCalc"
+    ],
+    "removed": [],
+    "weightChanges": {
+     "fantasyNavigatorSf": {
+      "after": 0.4286,
+      "before": 0.0,
+      "value": 2337
+     },
+     "fantasyProsFitzmaurice": {
+      "after": 0.3333,
+      "before": 0.5,
+      "value": 1735
+     },
+     "fantasyProsSf": {
+      "after": 0.6667,
+      "before": 0.5,
+      "value": 2121
+     },
+     "ktcCrowdSfTep": {
+      "after": 0.5714,
+      "before": 1.0,
+      "value": 2388
+     }
+    }
+   }
+  },
+  "votersPerPlayer": {
+   "after": {
+    "histogram": {
+     "0": 48,
+     "1": 145,
+     "2": 308,
+     "3": 32,
+     "4": 7,
+     "5": 23,
+     "6": 13,
+     "7": 17,
+     "8": 17,
+     "9": 20,
+     "10": 24,
+     "11": 33,
+     "12": 27,
+     "13": 36,
+     "14": 58,
+     "15": 166,
+     "16": 28
+    },
+    "mean": 6.645
+   },
+   "before": {
+    "histogram": {
+     "0": 48,
+     "1": 126,
+     "2": 104,
+     "3": 261,
+     "4": 23,
+     "5": 13,
+     "6": 18,
+     "7": 16,
+     "8": 22,
+     "9": 24,
+     "10": 30,
+     "11": 29,
+     "12": 33,
+     "13": 60,
+     "14": 165,
+     "15": 31
+    },
+    "mean": 6.437
+   }
+  }
+ },
+ "input": "exports/latest/dynasty_data_2026-10-20.json",
+ "inputSha256": "67f6d56ee023a9b065686f44ea9834c451f645bb44b92c7ad07e47fbec1d31ce",
+ "scrapeTimestamp": "2026-10-20T12:16:19.868171+00:00",
+ "verification": {
+  "freshVotesBelowBaseTimesFamily": [],
+  "ok": true,
+  "votesChecked": 6694,
+  "votesOffSchedule": [],
+  "votesOlderThan30Days": [],
+  "votingSourcesOlderThan30Days": []
+ }
+}

@@ -23,7 +23,7 @@
 const fs = require("fs");
 const path = require("path");
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled, isNavigationAbortedFetch } = require("../helpers/journey");
 const AxeBuilder = require("@axe-core/playwright").default;
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -166,7 +166,9 @@ for (const state of STATES) {
     authedPage: page,
   }, testInfo) => {
     const errors = [];
-    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("pageerror", (error) => {
+      if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+    });
     const payload = load(state.name);
     await serveReplay(page, () => payload);
     await open(page, payload);
@@ -304,7 +306,9 @@ test("game-day: switch team A -> B -> C in the selected league; stale answers ne
   authedPage: page,
 }, testInfo) => {
   const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+  });
   const payloads = byTeam();
   const seen = await serveByTeam(page, payloads, "owner-10");
   await open(page, payloads["owner-8"]);
@@ -422,7 +426,9 @@ test("game-day median race: the whole league, a row switches the team, no sidewa
   authedPage: page,
 }, testInfo) => {
   const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+  });
   const payloads = byTeam();
   // LABELLED SYNTHETIC: long real-shaped team names on the board.
   for (const p of Object.values(payloads)) {
@@ -471,5 +477,75 @@ test("game-day median race: the whole league, a row switches the team, no sidewa
   await expect(page.getByRole("combobox", { name: "Viewing team" })).toHaveValue("owner-10");
   await expect(race.locator('li[data-roster-id="10"] [aria-current="true"]')).toHaveCount(1);
   await noPageOverflow(page);
+  expect(errors).toEqual([]);
+});
+
+/**
+ * The median race's "On the bubble" line with a long one-word team name
+ * (production, 2026-10-20: V1 verification run 39352593915, every Game Day
+ * spec red on prod-mobile only).  dynasty_main has a real Sleeper team name
+ * that is ONE 24-character word ("JasonTuckerSheepFollower").  The bubble is
+ * league-wide and moves with live scoring, so whenever that roster is one of
+ * the three teams closest to 50% EVERY team's /game-day carries the word in a
+ * half-width cell.  Reproduced locally on the production build: the phone
+ * page scrolls sideways (395 px on a 390 px viewport), Chrome's mobile layout
+ * viewport widens to the content, and clicks on the collapsed sections stop
+ * landing on their buttons ("ds-panel__header intercepts pointer events") —
+ * the same five failures, including the 180 s timeouts.
+ * The board rows already carried long names (the test above); the bubble
+ * line, half a phone wide, did not.
+ *
+ * LABELLED SYNTHETIC: the real halftime payload with roster 2 renamed to the
+ * production team name and placed on the bubble.  Asserts the page does not
+ * scroll sideways, no bubble word is split across lines, the full name stays
+ * readable (title + text), and both collapsed sections open by a real click.
+ */
+test("game-day median race: a long one-word team name on the bubble never pushes the page sideways", async ({
+  authedPage: page,
+}, testInfo) => {
+  const errors = [];
+  page.on("pageerror", (error) => {
+    if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+  });
+  const longName = "JasonTuckerSheepFollower";
+  const payload = load("halftime");
+  for (const t of [...payload.leagueTeams, ...payload.medianRace.teams]) {
+    if (t.rosterId === "2") t.teamName = longName;
+  }
+  payload.medianRace.bubble = ["10", "2", "6"];
+  await serveReplay(page, () => payload);
+  await open(page, payload);
+  const race = page.locator('section[aria-labelledby="median-race-title"]');
+  const bubble = race.locator("dt", { hasText: "On the bubble" }).locator("xpath=following-sibling::dd[1]");
+  await expect(bubble).toContainText(longName);
+  await noPageOverflow(page);
+  await expect(race.getByTitle(new RegExp(longName))).toHaveCount(1);
+  const splits = await bubble.evaluate((dd) => {
+    const out = [];
+    const walker = document.createTreeWalker(dd, NodeFilter.SHOW_TEXT);
+    for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+      let i = 0;
+      for (const word of text.textContent.split(" ")) {
+        if (word) {
+          const r = document.createRange();
+          r.setStart(text, i);
+          r.setEnd(text, i + word.length);
+          if (new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size > 1) out.push(word);
+        }
+        i += word.length + 1;
+      }
+    }
+    return out;
+  });
+  expect(splits, "no word of a bubble team name may be split across lines").toEqual([]);
+  // The production symptom: a real tap must reach each collapsed section.
+  for (const name of ["Best-ball details", "Data info"]) {
+    const button = page.getByRole("button", { name });
+    await button.click({ timeout: 10_000 });
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+  }
+  await noPageOverflow(page);
+  await scan(page, testInfo, "median-race-bubble-long-name");
+  await image(page, testInfo, "median-race-bubble-long-name");
   expect(errors).toEqual([]);
 });

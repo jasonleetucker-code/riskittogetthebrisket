@@ -138,14 +138,18 @@ export function buildWaiverBidIndex(payload) {
     else if (seen.position !== entry.position) ambiguous.add(name);
   }
 
-  if (byName.size === 0) return null;
+  // The backend states an UNKNOWN team balance explicitly
+  // (``faabBudget.state``) and withholds every balance-capped bid.  That
+  // must read as "balance unknown", not as the no-index "No bids" state.
+  const budgetUnknown = payload?.faabBudget?.state === "unknown";
+  if (byName.size === 0 && !budgetUnknown) return null;
   // Global to the whole response, per src/trade/waiver.py::find_waiver_targets
   // — "market_aware" (real rival contention, this team's roster) or
   // "ceiling_only_estimate" (no resolvable team context — a fixed
   // fraction of the objective ceiling, never a recommendation).
   const methodology =
     typeof payload?.bidMethodology === "string" ? payload.bidMethodology : null;
-  return { byName, byNamePos, ambiguous, methodology };
+  return { byName, byNamePos, ambiguous, methodology, budgetUnknown };
 }
 
 /**
@@ -213,6 +217,12 @@ const BID_STATE_COPY = {
       "would otherwise show here is only a fixed fraction of the player's objective " +
       "ceiling with no rival model — not a recommendation — so it is withheld.",
   },
+  balance_unknown: {
+    label: "Bid unavailable: FAAB balance unknown",
+    reason:
+      "This team's FAAB balance is not known, so a balance-capped bid cannot be " +
+      "stated. It is withheld rather than shown against an assumed full budget.",
+  },
   unpriced: {
     label: "Not priced",
     reason:
@@ -241,10 +251,14 @@ export function waiverBidStateForRow(index, row) {
   // then), but the backend fell back to the ceiling-only estimate — no
   // rival model ran, so nothing here is a recommendation. This check
   // comes before any name lookup because it applies to EVERY row in
-  // the payload, not to whether this particular player has a bid.
+  // the payload, not to whether this particular player has a bid.  It
+  // also comes before the balance check: without a resolved team the
+  // balance is unknown as a CONSEQUENCE, and naming it would hide the
+  // cause.
   if (index.methodology && index.methodology !== "market_aware") {
     return withCopy("team_context_missing");
   }
+  if (index.budgetUnknown) return withCopy("balance_unknown");
   if (!row) return withCopy("unpriced");
   const name = normalizeName(row?.name || row?.displayName);
   if (!name) return withCopy("unpriced");

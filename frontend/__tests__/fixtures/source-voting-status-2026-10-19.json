@@ -1,0 +1,1047 @@
+{
+  "_comment": "Captured from PR #1831 evidence docs/sources/evidence/UNIVERSAL_FRESHNESS_2026-10-19/source_voting_status.json (board 2026-10-19, schema source-voting-status/v1). Source metadata, dates, factors and row counts only; no player values.",
+  "asOf": "2026-10-19T05:23:48Z",
+  "freshnessApplied": true,
+  "freshnessSchedule": "v2_step_schedule",
+  "registeredCount": 26,
+  "sources": [
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 455,
+        "pick": 48
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 0,
+      "displayName": "KeepTradeCut Crowd SF-TE++",
+      "effectiveWeight": 1.0,
+      "family": "ktcCrowd",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "ktcCrowdSfTep",
+      "lastGenuineUpdate": "2026-10-19T00:36:23Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 0.6319,
+      "notVotingRows": {
+        "outlier_filter": 7
+      },
+      "picks": {
+        "daysSinceUpdate": 0,
+        "effectiveWeight": 1.0,
+        "freshnessPct": 100.0,
+        "lastGenuineUpdate": "2026-10-19T00:36:23Z",
+        "lastGenuineUpdateBasis": "content_change_observed"
+      },
+      "picksContributing": 48,
+      "playersContributing": 455,
+      "provider": "KeepTradeCut",
+      "providerId": "keepTradeCut",
+      "reason": "Last genuine update Oct 19, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 461,
+        "pick": 48
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 0,
+      "displayName": "KeepTradeCut Trades SF-TE++",
+      "effectiveWeight": 1.0,
+      "family": "ktcTrades",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "ktcTradesSfTep",
+      "lastGenuineUpdate": "2026-10-19T00:36:23Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {
+        "outlier_filter": 1
+      },
+      "picks": {
+        "daysSinceUpdate": 0,
+        "effectiveWeight": 1.0,
+        "freshnessPct": 100.0,
+        "lastGenuineUpdate": "2026-10-19T00:36:23Z",
+        "lastGenuineUpdateBasis": "content_change_observed"
+      },
+      "picksContributing": 48,
+      "playersContributing": 461,
+      "provider": "KeepTradeCut",
+      "providerId": "keepTradeCut",
+      "reason": "Last genuine update Oct 19, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 377,
+        "offense": 429,
+        "pick": 96
+      },
+      "coverage": "combined",
+      "daysSinceUpdate": 8,
+      "displayName": "IDP Trade Calculator",
+      "effectiveWeight": 0.75,
+      "family": "idpTradeCalc",
+      "freshnessPct": 75.0,
+      "health": "HEALTHY",
+      "key": "idpTradeCalc",
+      "lastGenuineUpdate": "2026-10-10T20:25:35Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 0.75,
+      "notVotingRows": {
+        "outlier_filter": 5
+      },
+      "picks": {
+        "daysSinceUpdate": 8,
+        "effectiveWeight": 0.75,
+        "freshnessPct": 75.0,
+        "lastGenuineUpdate": "2026-10-10T20:25:35Z",
+        "lastGenuineUpdateBasis": "content_change_observed"
+      },
+      "picksContributing": 96,
+      "playersContributing": 806,
+      "provider": "IDP Trade Calculator",
+      "providerId": "idpTradeCalculator",
+      "reason": "Last genuine update Oct 10, 2026 (8 days ago), based on the last time we saw its rankings actually change: votes at 75% of its base weight.",
+      "restoreRequirement": "Returns to 100% of its base weight as soon as the publisher posts new rankings.",
+      "rowLevelClock": true,
+      "status": "active_75",
+      "statusLabel": "Active — 75%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 0.75,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 278,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 1,
+      "displayName": "Dynasty League Football Superflex",
+      "effectiveWeight": 1.0,
+      "family": "dlf",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "dlfSf",
+      "lastGenuineUpdate": "2026-10-18T00:27:39Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 0.9299,
+      "notVotingRows": {
+        "outlier_filter": 9
+      },
+      "picksContributing": 0,
+      "playersContributing": 278,
+      "provider": "Dynasty League Football",
+      "providerId": "dynastyLeagueFootball",
+      "reason": "Last genuine update Oct 18, 2026 (1 day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 57,
+        "pick": 0
+      },
+      "coverage": "rookie",
+      "daysSinceUpdate": 3,
+      "displayName": "Dynasty League Football Rookie SF",
+      "effectiveWeight": 1.0,
+      "family": "dlf",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "dlfRookieSf",
+      "lastGenuineUpdate": "2026-10-15T18:27:42Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 0.6579,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 57,
+      "provider": "Dynasty League Football",
+      "providerId": "dynastyLeagueFootball",
+      "reason": "Last genuine update Oct 15, 2026 (3 days ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "idp",
+      "daysSinceUpdate": 0,
+      "displayName": "Dynasty League Football IDP",
+      "effectiveWeight": 0.0,
+      "family": "dlf",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "dlfIdp",
+      "lastGenuineUpdate": "2026-10-18T12:27:39Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": null,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 0,
+      "provider": "Dynasty League Football",
+      "providerId": "dynastyLeagueFootball",
+      "reason": "Collected and shown, but held from voting by an owner decision (owner directive 2026-10-16: DLF vote is offense-only).",
+      "restoreRequirement": "The owner policy hold is lifted (switch: dlf_offense_only_vote).",
+      "rowLevelClock": false,
+      "status": "testing",
+      "statusLabel": "Testing — Not Voting",
+      "voteHold": {
+        "decision": "owner directive 2026-10-16: DLF vote is offense-only",
+        "kind": "owner_policy",
+        "reason": "owner_policy_dlf_vote_offense_only",
+        "rollbackFlag": "dlf_offense_only_vote"
+      },
+      "voting": false,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "rookie",
+      "daysSinceUpdate": 0,
+      "displayName": "Dynasty League Football Rookie IDP",
+      "effectiveWeight": 0.0,
+      "family": "dlf",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "dlfRookieIdp",
+      "lastGenuineUpdate": "2026-10-18T12:27:39Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": null,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 0,
+      "provider": "Dynasty League Football",
+      "providerId": "dynastyLeagueFootball",
+      "reason": "Collected and shown, but held from voting by an owner decision (owner directive 2026-10-16: DLF vote is offense-only).",
+      "restoreRequirement": "The owner policy hold is lifted (switch: dlf_offense_only_vote).",
+      "rowLevelClock": true,
+      "status": "testing",
+      "statusLabel": "Testing — Not Voting",
+      "voteHold": {
+        "decision": "owner directive 2026-10-16: DLF vote is offense-only",
+        "kind": "owner_policy",
+        "reason": "owner_policy_dlf_vote_offense_only",
+        "rollbackFlag": "dlf_offense_only_vote"
+      },
+      "voting": false,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "combined",
+      "daysSinceUpdate": 60,
+      "displayName": "The IDP Show — Combined (Adamidp)",
+      "effectiveWeight": 0.0,
+      "family": "idpShow",
+      "freshnessPct": 0.0,
+      "health": "HEALTHY",
+      "key": "idpShowCombined",
+      "lastGenuineUpdate": "2026-08-19T17:50:16Z",
+      "lastGenuineUpdateBasis": "publisher_timestamp",
+      "meanAppliedWeight": null,
+      "notVotingRows": {
+        "freshness_or_health_zero_weight": 656
+      },
+      "picksContributing": 0,
+      "playersContributing": 0,
+      "provider": "The IDP Show",
+      "providerId": "theIdpShow",
+      "reason": "Its rankings were last genuinely updated on Aug 19, 2026 (60 days ago), based on the date the publisher says it last updated — older than 30 days. We may still download it successfully; unchanged rankings do not count as an update.",
+      "restoreRequirement": "Votes again (at 100%) as soon as the publisher posts new rankings.",
+      "rowLevelClock": false,
+      "status": "stale",
+      "statusLabel": "Stale — Not Voting",
+      "voting": false,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 0.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 282,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 1,
+      "displayName": "Dynasty Nerds SF-TEP",
+      "effectiveWeight": 1.0,
+      "family": "dynastyNerdsSfTep",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "dynastyNerdsSfTep",
+      "lastGenuineUpdate": "2026-10-17T07:18:28Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {
+        "outlier_filter": 2
+      },
+      "picksContributing": 0,
+      "playersContributing": 282,
+      "provider": "Dynasty Nerds",
+      "providerId": "dynastyNerds",
+      "reason": "Last genuine update Oct 17, 2026 (1 day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 389,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 0,
+      "displayName": "FantasyCalc Dynasty SF",
+      "effectiveWeight": 1.0,
+      "family": "fantasyCalc",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "fantasyCalc",
+      "lastGenuineUpdate": "2026-10-18T22:42:41Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {
+        "outlier_filter": 1
+      },
+      "picksContributing": 0,
+      "playersContributing": 389,
+      "provider": "FantasyCalc",
+      "providerId": "fantasyCalc",
+      "reason": "Last genuine update Oct 18, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": null,
+      "displayName": "Signals Fantasy Dynasty SF",
+      "effectiveWeight": 0.0,
+      "family": "fantasyCalc",
+      "freshnessPct": null,
+      "health": null,
+      "key": "signalsSf",
+      "lastGenuineUpdate": null,
+      "lastGenuineUpdateBasis": "not_tracked_at_board_time",
+      "meanAppliedWeight": null,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 0,
+      "provider": "Signals Fantasy",
+      "providerId": "signalsFantasy",
+      "reason": "Private source that is collected only on the production server; it is not available where this board was built.",
+      "restoreRequirement": "Votes wherever its private collector runs (production).",
+      "rowLevelClock": false,
+      "status": "data_issue",
+      "statusLabel": "Data Issue — Not Voting",
+      "voting": false,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "idp",
+      "daysSinceUpdate": null,
+      "displayName": "Signals Fantasy Dynasty IDP — DL",
+      "effectiveWeight": 0.0,
+      "family": "fantasyCalc",
+      "freshnessPct": null,
+      "health": null,
+      "key": "signalsIdpDl",
+      "lastGenuineUpdate": null,
+      "lastGenuineUpdateBasis": "not_tracked_at_board_time",
+      "meanAppliedWeight": null,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 0,
+      "provider": "Signals Fantasy",
+      "providerId": "signalsFantasy",
+      "reason": "Private source that is collected only on the production server; it is not available where this board was built.",
+      "restoreRequirement": "Votes wherever its private collector runs (production).",
+      "rowLevelClock": false,
+      "status": "data_issue",
+      "statusLabel": "Data Issue — Not Voting",
+      "voteHold": {
+        "decision": null,
+        "kind": "private",
+        "reason": "shared_market_crosswalk_in_shadow_pending_promotion",
+        "rollbackFlag": null
+      },
+      "voting": false,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "idp",
+      "daysSinceUpdate": null,
+      "displayName": "Signals Fantasy Dynasty IDP — LB",
+      "effectiveWeight": 0.0,
+      "family": "fantasyCalc",
+      "freshnessPct": null,
+      "health": null,
+      "key": "signalsIdpLb",
+      "lastGenuineUpdate": null,
+      "lastGenuineUpdateBasis": "not_tracked_at_board_time",
+      "meanAppliedWeight": null,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 0,
+      "provider": "Signals Fantasy",
+      "providerId": "signalsFantasy",
+      "reason": "Private source that is collected only on the production server; it is not available where this board was built.",
+      "restoreRequirement": "Votes wherever its private collector runs (production).",
+      "rowLevelClock": false,
+      "status": "data_issue",
+      "statusLabel": "Data Issue — Not Voting",
+      "voteHold": {
+        "decision": null,
+        "kind": "private",
+        "reason": "shared_market_crosswalk_in_shadow_pending_promotion",
+        "rollbackFlag": null
+      },
+      "voting": false,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "idp",
+      "daysSinceUpdate": null,
+      "displayName": "Signals Fantasy Dynasty IDP — DB",
+      "effectiveWeight": 0.0,
+      "family": "fantasyCalc",
+      "freshnessPct": null,
+      "health": null,
+      "key": "signalsIdpDb",
+      "lastGenuineUpdate": null,
+      "lastGenuineUpdateBasis": "not_tracked_at_board_time",
+      "meanAppliedWeight": null,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 0,
+      "provider": "Signals Fantasy",
+      "providerId": "signalsFantasy",
+      "reason": "Private source that is collected only on the production server; it is not available where this board was built.",
+      "restoreRequirement": "Votes wherever its private collector runs (production).",
+      "rowLevelClock": false,
+      "status": "data_issue",
+      "statusLabel": "Data Issue — Not Voting",
+      "voteHold": {
+        "decision": null,
+        "kind": "private",
+        "reason": "shared_market_crosswalk_in_shadow_pending_promotion",
+        "rollbackFlag": null
+      },
+      "voting": false,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 444,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 0,
+      "displayName": "OTC Fantasy Football SF",
+      "effectiveWeight": 1.0,
+      "family": "otcffbSf",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "otcffbSf",
+      "lastGenuineUpdate": "2026-10-18T16:14:50Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 444,
+      "provider": "OTC Fantasy Football",
+      "providerId": "otcFantasyFootball",
+      "reason": "Last genuine update Oct 18, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 445,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 8,
+      "displayName": "Fantasy Navigator SF",
+      "effectiveWeight": 0.75,
+      "family": "ktcCrowd",
+      "freshnessPct": 75.0,
+      "health": "HEALTHY",
+      "key": "fantasyNavigatorSf",
+      "lastGenuineUpdate": "2026-10-10T16:03:59Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 0.438,
+      "notVotingRows": {
+        "outlier_filter": 2
+      },
+      "picksContributing": 0,
+      "playersContributing": 445,
+      "provider": "Fantasy Navigator",
+      "providerId": "fantasyNavigator",
+      "reason": "Last genuine update Oct 10, 2026 (8 days ago), based on the last time we saw its rankings actually change: votes at 75% of its base weight.",
+      "restoreRequirement": "Returns to 100% of its base weight as soon as the publisher posts new rankings.",
+      "rowLevelClock": false,
+      "status": "active_75",
+      "statusLabel": "Active — 75%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 0.75,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 449,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 0,
+      "displayName": "Play for Keeps Dynasty",
+      "effectiveWeight": 1.0,
+      "family": "pfkDynasty",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "pfkDynasty",
+      "lastGenuineUpdate": "2026-10-18T19:03:00Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {
+        "outlier_filter": 1
+      },
+      "picksContributing": 0,
+      "playersContributing": 449,
+      "provider": "Play for Keeps",
+      "providerId": "playForKeeps",
+      "reason": "Last genuine update Oct 18, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 388,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 0,
+      "displayName": "Dynasty Daddy Superflex",
+      "effectiveWeight": 1.0,
+      "family": "dynastyDaddySf",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "dynastyDaddySf",
+      "lastGenuineUpdate": "2026-10-18T22:42:41Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 388,
+      "provider": "Dynasty Daddy",
+      "providerId": "dynastyDaddy",
+      "reason": "Last genuine update Oct 18, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 406,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 0,
+      "displayName": "FantasyPros Dynasty Superflex",
+      "effectiveWeight": 1.0,
+      "family": "fantasyPros",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "fantasyProsSf",
+      "lastGenuineUpdate": "2026-10-18T19:03:00Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 0.7636,
+      "notVotingRows": {
+        "outlier_filter": 2
+      },
+      "picksContributing": 0,
+      "playersContributing": 406,
+      "provider": "FantasyPros",
+      "providerId": "fantasyPros",
+      "reason": "Last genuine update Oct 18, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "idp",
+      "daysSinceUpdate": 45,
+      "displayName": "FantasyPros Dynasty IDP",
+      "effectiveWeight": 0.0,
+      "family": "fantasyPros",
+      "freshnessPct": 0.0,
+      "health": "HEALTHY",
+      "key": "fantasyProsIdp",
+      "lastGenuineUpdate": "2026-09-04T02:34:24Z",
+      "lastGenuineUpdateBasis": "publisher_timestamp",
+      "meanAppliedWeight": null,
+      "notVotingRows": {
+        "freshness_or_health_zero_weight": 249
+      },
+      "picksContributing": 0,
+      "playersContributing": 0,
+      "provider": "FantasyPros",
+      "providerId": "fantasyPros",
+      "reason": "Its rankings were last genuinely updated on Sep 04, 2026 (45 days ago), based on the date the publisher says it last updated — older than 30 days. We may still download it successfully; unchanged rankings do not count as an update.",
+      "restoreRequirement": "Votes again (at 100%) as soon as the publisher posts new rankings.",
+      "rowLevelClock": false,
+      "status": "stale",
+      "statusLabel": "Stale — Not Voting",
+      "voting": false,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 0.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 291,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 16,
+      "displayName": "FantasyPros / Pat Fitzmaurice SF-TEP",
+      "effectiveWeight": 0.5,
+      "family": "fantasyPros",
+      "freshnessPct": 50.0,
+      "health": "HEALTHY",
+      "key": "fantasyProsFitzmaurice",
+      "lastGenuineUpdate": "2026-10-02T13:18:58Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 0.335,
+      "notVotingRows": {
+        "outlier_filter": 8
+      },
+      "picksContributing": 0,
+      "playersContributing": 291,
+      "provider": "FantasyPros",
+      "providerId": "fantasyPros",
+      "reason": "Last genuine update Oct 02, 2026 (16 days ago), based on the last time we saw its rankings actually change: votes at 50% of its base weight.",
+      "restoreRequirement": "Returns to 100% of its base weight as soon as the publisher posts new rankings.",
+      "rowLevelClock": false,
+      "status": "active_50",
+      "statusLabel": "Active — 50%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 0.5,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 402,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 1,
+      "displayName": "Flock Fantasy Superflex",
+      "effectiveWeight": 1.0,
+      "family": "flockFantasy",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "flockFantasySf",
+      "lastGenuineUpdate": "2026-10-18T05:15:37Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {
+        "outlier_filter": 2
+      },
+      "picksContributing": 0,
+      "playersContributing": 402,
+      "provider": "Flock Fantasy",
+      "providerId": "flockFantasy",
+      "reason": "Last genuine update Oct 18, 2026 (1 day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "rookie",
+      "daysSinceUpdate": 43,
+      "displayName": "Flock Fantasy Rookie SF",
+      "effectiveWeight": 0.0,
+      "family": "flockFantasy",
+      "freshnessPct": 0.0,
+      "health": "HEALTHY",
+      "key": "flockFantasySfRookies",
+      "lastGenuineUpdate": "2026-09-05T13:23:25Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": null,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 0,
+      "provider": "Flock Fantasy",
+      "providerId": "flockFantasy",
+      "reason": "Rookie board between draft classes: the 2026 rookie class has graduated and the publisher has not posted the next class yet. This is a normal seasonal pause, not stale data.",
+      "restoreRequirement": "Votes again automatically when the publisher posts the next rookie class.",
+      "rowLevelClock": false,
+      "status": "seasonal",
+      "statusLabel": "Seasonal — Not Voting",
+      "voting": false,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 0.6897,
+        "freshness": 0.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 342,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 4,
+      "displayName": "Yahoo / Justin Boone SF-TEP",
+      "effectiveWeight": 1.0,
+      "family": "yahooBoone",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "yahooBoone",
+      "lastGenuineUpdate": "2026-10-14T19:01:02Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {
+        "outlier_filter": 9
+      },
+      "picksContributing": 0,
+      "playersContributing": 342,
+      "provider": "Yahoo Sports (Justin Boone)",
+      "providerId": "yahoo",
+      "reason": "Last genuine update Oct 14, 2026 (4 days ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 0,
+        "offense": 316,
+        "pick": 0
+      },
+      "coverage": "offense",
+      "daysSinceUpdate": 0,
+      "displayName": "Draft Sharks Dynasty",
+      "effectiveWeight": 1.0,
+      "family": "draftSharks",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "draftSharks",
+      "lastGenuineUpdate": "2026-10-18T22:42:41Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {
+        "outlier_filter": 52
+      },
+      "picksContributing": 0,
+      "playersContributing": 316,
+      "provider": "Draft Sharks",
+      "providerId": "draftSharks",
+      "reason": "Last genuine update Oct 18, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    },
+    {
+      "baseWeight": 1.0,
+      "contributingByUniverse": {
+        "idp": 320,
+        "offense": 0,
+        "pick": 0
+      },
+      "coverage": "idp",
+      "daysSinceUpdate": 0,
+      "displayName": "Draft Sharks IDP Dynasty",
+      "effectiveWeight": 1.0,
+      "family": "draftSharks",
+      "freshnessPct": 100.0,
+      "health": "HEALTHY",
+      "key": "draftSharksIdp",
+      "lastGenuineUpdate": "2026-10-18T19:03:00Z",
+      "lastGenuineUpdateBasis": "content_change_observed",
+      "meanAppliedWeight": 1.0,
+      "notVotingRows": {},
+      "picksContributing": 0,
+      "playersContributing": 320,
+      "provider": "Draft Sharks",
+      "providerId": "draftSharks",
+      "reason": "Last genuine update Oct 18, 2026 (less than a day ago), based on the last time we saw its rankings actually change: votes at 100% of its base weight.",
+      "restoreRequirement": null,
+      "rowLevelClock": false,
+      "status": "active_100",
+      "statusLabel": "Active — 100%",
+      "voting": true,
+      "weightFactors": {
+        "applied": true,
+        "coverage": 1.0,
+        "freshness": 1.0,
+        "health": 1.0
+      }
+    }
+  ],
+  "statusCounts": {
+    "active_100": 14,
+    "active_50": 1,
+    "active_75": 2,
+    "data_issue": 4,
+    "seasonal": 1,
+    "stale": 2,
+    "testing": 2
+  },
+  "statusLabels": {
+    "active_100": "Active — 100%",
+    "active_25": "Active — 25%",
+    "active_50": "Active — 50%",
+    "active_75": "Active — 75%",
+    "data_issue": "Data Issue — Not Voting",
+    "seasonal": "Seasonal — Not Voting",
+    "stale": "Stale — Not Voting",
+    "testing": "Testing — Not Voting"
+  },
+  "version": "source-voting-status/v1",
+  "votingCount": 17
+}

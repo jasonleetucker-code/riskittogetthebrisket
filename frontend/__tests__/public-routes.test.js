@@ -55,6 +55,7 @@ describe("private pages", () => {
       "/rosters",
       "/edge",
       "/bdvm",
+      "/dfs",
       "/intel",
       "/idptc-rookies",
       "/players/compare",
@@ -62,9 +63,20 @@ describe("private pages", () => {
       "/settings",
       "/more",
       "/admin",
+      "/admin/model-lab",
       "/tools/source-health",
       "/tools/ros-data-health",
       "/tools/trade-coverage",
+      // Manager Intelligence and its league scouting view (Batch C) are
+      // private decision intelligence.
+      "/managers",
+      "/managers/league/1312006700437352448",
+      // Batch E's comparison view is private too.
+      "/managers/compare",
+      "/managers/compare?a=x&b=y",
+      // Batch F's leaderboards rank the user's saved managers: private.
+      "/managers/leaderboards",
+      "/managers/leaderboards?population=league&league=1",
     ]) {
       expect(isPublicPath(path), path).toBe(false);
     }

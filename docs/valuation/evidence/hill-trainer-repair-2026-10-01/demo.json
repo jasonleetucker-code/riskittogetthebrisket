@@ -1,0 +1,340 @@
+{
+  "1_twoReplaysOfOnePinSet": {
+    "a": {
+      "challengerHash": "58eccbffd384b5bc6d17b0f11dcc9744551348bcb7a6d079ebcf2694e7be9e3d",
+      "codeHash": "51c06caa4581849dc25139242cb6b9b7ee8ca72ab97971cab0bdcf1682fb4813",
+      "inputsOrigin": "git:1f7b24d7d902f70eb8440e848fc2ad811a95620c",
+      "manifestHash": "1f31e6724c2b5a70ac073b44ccdc21ceef4433110beef434abb0053e66229b67",
+      "modelHash": "e83fcfe3b707ed9bb1e40888edcdac91f7d572fbfe5761d0ae690d0256b69b3c",
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.061,
+        "HILL_GLOBAL_PERCENTILE_S": 0.725,
+        "HILL_PERCENTILE_C": 0.067,
+        "HILL_PERCENTILE_S": 1.11,
+        "HILL_ROOKIE_PERCENTILE_C": 0.025,
+        "HILL_ROOKIE_PERCENTILE_S": 0.83,
+        "IDP_HILL_PERCENTILE_C": 0.036,
+        "IDP_HILL_PERCENTILE_S": 0.805
+      },
+      "pinsHash": "a1aafaf020f2ecbe42781adc097f5c25d335fb07321ccac33b9254b517f33a14",
+      "reproducible": true,
+      "snapshot": {
+        "bytes": 944130,
+        "path": "exports/latest/dynasty_data_2026-09-30.json",
+        "resolved": true,
+        "scrapeTimestamp": "2026-09-30T13:04:04.598312+00:00",
+        "sha256": "8e5c0f2491bc5fdd5f74943ac483994345aa8a07e71f3253a4f286fb9553000f"
+      },
+      "trainingCutoff": "2026-10-01T13:38:34+00:00"
+    },
+    "b": {
+      "challengerHash": "58eccbffd384b5bc6d17b0f11dcc9744551348bcb7a6d079ebcf2694e7be9e3d",
+      "codeHash": "51c06caa4581849dc25139242cb6b9b7ee8ca72ab97971cab0bdcf1682fb4813",
+      "inputsOrigin": "git:1f7b24d7d902f70eb8440e848fc2ad811a95620c",
+      "manifestHash": "1f31e6724c2b5a70ac073b44ccdc21ceef4433110beef434abb0053e66229b67",
+      "modelHash": "e83fcfe3b707ed9bb1e40888edcdac91f7d572fbfe5761d0ae690d0256b69b3c",
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.061,
+        "HILL_GLOBAL_PERCENTILE_S": 0.725,
+        "HILL_PERCENTILE_C": 0.067,
+        "HILL_PERCENTILE_S": 1.11,
+        "HILL_ROOKIE_PERCENTILE_C": 0.025,
+        "HILL_ROOKIE_PERCENTILE_S": 0.83,
+        "IDP_HILL_PERCENTILE_C": 0.036,
+        "IDP_HILL_PERCENTILE_S": 0.805
+      },
+      "pinsHash": "a1aafaf020f2ecbe42781adc097f5c25d335fb07321ccac33b9254b517f33a14",
+      "reproducible": true,
+      "snapshot": {
+        "bytes": 944130,
+        "path": "exports/latest/dynasty_data_2026-09-30.json",
+        "resolved": true,
+        "scrapeTimestamp": "2026-09-30T13:04:04.598312+00:00",
+        "sha256": "8e5c0f2491bc5fdd5f74943ac483994345aa8a07e71f3253a4f286fb9553000f"
+      },
+      "trainingCutoff": "2026-10-01T13:38:34+00:00"
+    },
+    "identical": true
+  },
+  "2_ciPathEqualsReplayOfItsOwnPins": {
+    "identical": true,
+    "replay": {
+      "challengerHash": "58eccbffd384b5bc6d17b0f11dcc9744551348bcb7a6d079ebcf2694e7be9e3d",
+      "codeHash": "51c06caa4581849dc25139242cb6b9b7ee8ca72ab97971cab0bdcf1682fb4813",
+      "inputsOrigin": "git:1f7b24d7d902f70eb8440e848fc2ad811a95620c",
+      "manifestHash": "1f31e6724c2b5a70ac073b44ccdc21ceef4433110beef434abb0053e66229b67",
+      "modelHash": "e83fcfe3b707ed9bb1e40888edcdac91f7d572fbfe5761d0ae690d0256b69b3c",
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.061,
+        "HILL_GLOBAL_PERCENTILE_S": 0.725,
+        "HILL_PERCENTILE_C": 0.067,
+        "HILL_PERCENTILE_S": 1.11,
+        "HILL_ROOKIE_PERCENTILE_C": 0.025,
+        "HILL_ROOKIE_PERCENTILE_S": 0.83,
+        "IDP_HILL_PERCENTILE_C": 0.036,
+        "IDP_HILL_PERCENTILE_S": 0.805
+      },
+      "pinsHash": "a1aafaf020f2ecbe42781adc097f5c25d335fb07321ccac33b9254b517f33a14",
+      "reproducible": true,
+      "snapshot": {
+        "bytes": 944130,
+        "path": "exports/latest/dynasty_data_2026-09-30.json",
+        "resolved": true,
+        "scrapeTimestamp": "2026-09-30T13:04:04.598312+00:00",
+        "sha256": "8e5c0f2491bc5fdd5f74943ac483994345aa8a07e71f3253a4f286fb9553000f"
+      },
+      "trainingCutoff": "2026-10-01T13:38:34+00:00"
+    },
+    "worktree": {
+      "challengerHash": "58eccbffd384b5bc6d17b0f11dcc9744551348bcb7a6d079ebcf2694e7be9e3d",
+      "codeHash": "51c06caa4581849dc25139242cb6b9b7ee8ca72ab97971cab0bdcf1682fb4813",
+      "inputsOrigin": "worktree@1f7b24d7d902f70eb8440e848fc2ad811a95620c",
+      "manifestHash": "1f31e6724c2b5a70ac073b44ccdc21ceef4433110beef434abb0053e66229b67",
+      "modelHash": "e83fcfe3b707ed9bb1e40888edcdac91f7d572fbfe5761d0ae690d0256b69b3c",
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.061,
+        "HILL_GLOBAL_PERCENTILE_S": 0.725,
+        "HILL_PERCENTILE_C": 0.067,
+        "HILL_PERCENTILE_S": 1.11,
+        "HILL_ROOKIE_PERCENTILE_C": 0.025,
+        "HILL_ROOKIE_PERCENTILE_S": 0.83,
+        "IDP_HILL_PERCENTILE_C": 0.036,
+        "IDP_HILL_PERCENTILE_S": 0.805
+      },
+      "pinsHash": "a1aafaf020f2ecbe42781adc097f5c25d335fb07321ccac33b9254b517f33a14",
+      "reproducible": true,
+      "snapshot": {
+        "bytes": 944130,
+        "path": "exports/latest/dynasty_data_2026-09-30.json",
+        "resolved": true,
+        "scrapeTimestamp": "2026-09-30T13:04:04.598312+00:00",
+        "sha256": "8e5c0f2491bc5fdd5f74943ac483994345aa8a07e71f3253a4f286fb9553000f"
+      },
+      "trainingCutoff": "2026-10-01T13:38:34+00:00"
+    }
+  },
+  "3_pointInTime": {
+    "a": {
+      "challengerHash": "131ae3c1f9bc25c1dd623d443b6854ce226b54b7f81c8034b2e9d9a00f03bd72",
+      "codeHash": "51c06caa4581849dc25139242cb6b9b7ee8ca72ab97971cab0bdcf1682fb4813",
+      "inputsOrigin": "git:8c73fcf5f0940c33356b412d9100ed4135e2343b",
+      "manifestHash": "1f31e6724c2b5a70ac073b44ccdc21ceef4433110beef434abb0053e66229b67",
+      "modelHash": "698b5ff4f9161cdeab43aa793ab38bf2b43a29722e4b6b07e4c63b858cd8e1ee",
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.061,
+        "HILL_GLOBAL_PERCENTILE_S": 0.73,
+        "HILL_PERCENTILE_C": 0.067,
+        "HILL_PERCENTILE_S": 1.11,
+        "HILL_ROOKIE_PERCENTILE_C": 0.025,
+        "HILL_ROOKIE_PERCENTILE_S": 0.825,
+        "IDP_HILL_PERCENTILE_C": 0.036,
+        "IDP_HILL_PERCENTILE_S": 0.805
+      },
+      "pinsHash": "a6861b5d2e4e6033f3232bc7dd27baa91a188b3dcde72d6f668f02ab31b36e51",
+      "reproducible": true,
+      "snapshot": {
+        "bytes": 945793,
+        "path": "exports/latest/dynasty_data_2026-09-28.json",
+        "resolved": true,
+        "scrapeTimestamp": "2026-09-28T23:33:22.404434+00:00",
+        "sha256": "989c8ebfa0a46e2b9746a78b211b7220cb0ee04378f52b8b4e928d54202a477e"
+      },
+      "trainingCutoff": "2026-09-29T00:00:00+00:00"
+    },
+    "b": {
+      "challengerHash": "131ae3c1f9bc25c1dd623d443b6854ce226b54b7f81c8034b2e9d9a00f03bd72",
+      "codeHash": "51c06caa4581849dc25139242cb6b9b7ee8ca72ab97971cab0bdcf1682fb4813",
+      "inputsOrigin": "git:8c73fcf5f0940c33356b412d9100ed4135e2343b",
+      "manifestHash": "1f31e6724c2b5a70ac073b44ccdc21ceef4433110beef434abb0053e66229b67",
+      "modelHash": "698b5ff4f9161cdeab43aa793ab38bf2b43a29722e4b6b07e4c63b858cd8e1ee",
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.061,
+        "HILL_GLOBAL_PERCENTILE_S": 0.73,
+        "HILL_PERCENTILE_C": 0.067,
+        "HILL_PERCENTILE_S": 1.11,
+        "HILL_ROOKIE_PERCENTILE_C": 0.025,
+        "HILL_ROOKIE_PERCENTILE_S": 0.825,
+        "IDP_HILL_PERCENTILE_C": 0.036,
+        "IDP_HILL_PERCENTILE_S": 0.805
+      },
+      "pinsHash": "a6861b5d2e4e6033f3232bc7dd27baa91a188b3dcde72d6f668f02ab31b36e51",
+      "reproducible": true,
+      "snapshot": {
+        "bytes": 945793,
+        "path": "exports/latest/dynasty_data_2026-09-28.json",
+        "resolved": true,
+        "scrapeTimestamp": "2026-09-28T23:33:22.404434+00:00",
+        "sha256": "989c8ebfa0a46e2b9746a78b211b7220cb0ee04378f52b8b4e928d54202a477e"
+      },
+      "trainingCutoff": "2026-09-29T00:00:00+00:00"
+    },
+    "cutoff": "2026-09-29T00:00:00+00:00",
+    "datasetClocksAtOrBeforeCutoff": true,
+    "identical": true,
+    "latestDatasetClock": "2026-09-28T23:36:35+00:00",
+    "resolvedCommit": "8c73fcf5f0940c33356b412d9100ed4135e2343b",
+    "snapshotScrapedAtOrBeforeCutoff": true
+  },
+  "headCommit": "1f7b24d7d902f70eb8440e848fc2ad811a95620c",
+  "label": "LOCAL",
+  "offenseKtcInputAtHead": {
+    "bytes": 9329,
+    "csvSignal": "value",
+    "datasetState": {
+      "measured": false,
+      "reason": "no dataset state file"
+    },
+    "family": "ktcCrowd",
+    "gameType": "DYNASTY",
+    "liveRole": "non_voting_calibration",
+    "nonPositiveDropped": 0,
+    "picksDropped": 36,
+    "playerRows": 464,
+    "population": "players_only",
+    "rowsRead": 500,
+    "sha256": "fcbf844c6e7aa4895d925152ceea618ef83193ae386d19f4c1a1b7311a984634",
+    "sourceKey": "ktc",
+    "spacingEvidence": "native_value",
+    "universe": "offense",
+    "unparsable": 0,
+    "usedBy": [
+      "OFFENSE:KTC:train"
+    ],
+    "valueColumn": "value",
+    "windowRows": 400
+  },
+  "offenseScopeAtHead": {
+    "excluded": {
+      "FantasyNavigator": "confirmed_common_ancestry:ktcCrowd (trains via KTC)"
+    },
+    "fitSkipped": {},
+    "holdoutFamilies": [
+      "fantasyCalc",
+      "otcffbSf",
+      "pfkDynasty"
+    ],
+    "holdouts": [
+      "FantasyCalc",
+      "OTCFFB",
+      "PFKDynasty"
+    ],
+    "measuredDependence": {
+      "FantasyCalc": [
+        "dynastyDaddySf"
+      ],
+      "PFKDynasty": [
+        "ktcCrowd"
+      ]
+    },
+    "trainers": [
+      "KTC",
+      "DynastyDaddy",
+      "DynastyNerds",
+      "YahooBoone",
+      "Fitzmaurice",
+      "DraftSharks"
+    ],
+    "trainingFamilies": [
+      "draftSharks",
+      "dynastyDaddySf",
+      "dynastyNerdsSfTep",
+      "fantasyPros",
+      "ktcCrowd",
+      "yahooBoone"
+    ]
+  },
+  "perSourceFitsAtHead": {
+    "GLOBAL": [
+      {
+        "c": 0.126,
+        "label": "IDPTradeCalc",
+        "n": 400,
+        "rmse": 136.134,
+        "s": 0.79
+      },
+      {
+        "c": 0.029,
+        "label": "DraftSharks-Combined",
+        "n": 400,
+        "rmse": 108.314,
+        "s": 0.75
+      }
+    ],
+    "IDP": [
+      {
+        "c": 0.065,
+        "label": "IDPTradeCalc-IDP",
+        "n": 376,
+        "rmse": 289.265,
+        "s": 0.79
+      },
+      {
+        "c": 0.021,
+        "label": "DraftSharks-IDP",
+        "n": 181,
+        "rmse": 299.102,
+        "s": 0.93
+      }
+    ],
+    "OFFENSE": [
+      {
+        "c": 0.105,
+        "label": "KTC",
+        "n": 400,
+        "rmse": 209.043,
+        "s": 0.925
+      },
+      {
+        "c": 0.056,
+        "label": "DynastyDaddy",
+        "n": 381,
+        "rmse": 304.235,
+        "s": 1.21
+      },
+      {
+        "c": 0.056,
+        "label": "DynastyNerds",
+        "n": 294,
+        "rmse": 253.816,
+        "s": 1.73
+      },
+      {
+        "c": 0.076,
+        "label": "YahooBoone",
+        "n": 400,
+        "rmse": 363.914,
+        "s": 1.26
+      },
+      {
+        "c": 0.122,
+        "label": "Fitzmaurice",
+        "n": 297,
+        "rmse": 489.044,
+        "s": 1.31
+      },
+      {
+        "c": 0.028,
+        "label": "DraftSharks",
+        "n": 360,
+        "rmse": 185.969,
+        "s": 0.83
+      }
+    ],
+    "ROOKIE": [
+      {
+        "c": 0.02,
+        "label": "KTC-Rookie",
+        "n": 69,
+        "rmse": 410.419,
+        "s": 0.805
+      },
+      {
+        "c": 0.03,
+        "label": "IDPTC-Rookie",
+        "n": 121,
+        "rmse": 338.337,
+        "s": 0.855
+      }
+    ]
+  }
+}

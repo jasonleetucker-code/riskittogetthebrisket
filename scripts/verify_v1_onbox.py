@@ -103,7 +103,7 @@ def _stamp_age_hours(key: str) -> float | None:
     if not p.exists():
         return None
     try:
-        return (time.time() - float(p.read_text().strip())) / 3600.0
+        return (time.time() - float(p.read_text(encoding="utf-8").strip())) / 3600.0
     except ValueError:
         return None
 
@@ -716,7 +716,7 @@ def check_v11() -> None:
     state_file = Path("/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit")
     rc, head, _ = _run(["git", "rev-parse", "HEAD"], timeout=30)
     head = head.strip()
-    recorded = state_file.read_text().strip() if state_file.exists() else None
+    recorded = state_file.read_text(encoding="utf-8").strip() if state_file.exists() else None
     try:
         sys.path.insert(0, str(REPO_ROOT))
         from src.api import confidence  # noqa: F401 — the unit under test

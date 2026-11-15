@@ -8,10 +8,12 @@
  * ladder); this file formats and arranges, it does not compute.
  *
  * Failure posture: this is an add-on surface bolted onto someone else's page,
- * so it VANISHES on any non-ok response rather than rendering an error —
- * matching `BdvmTradePanel`.  The flag being off, the roster snapshot being
- * absent, or the user viewing a league whose rosters are not loaded are all
- * configuration states, not failures worth shouting about mid-draft.
+ * so it VANISHES on a non-ok response rather than rendering an error —
+ * matching `BdvmTradePanel`.  The roster snapshot being absent, or the user
+ * viewing a league whose rosters are not loaded, are configuration states, not
+ * failures worth shouting about mid-draft.  The one exception is the flag
+ * being off: this is the only recommender on /draft, so it shows a short
+ * muted notice instead of silence (W10-F003).
  */
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
@@ -28,6 +30,7 @@ import {
   StatTile,
 } from "@/components/ds";
 import { useRosterContext } from "@/components/useRosterContext";
+import { isDefaultPlaceholderTeam, workspaceIsPristine } from "@/lib/draft-logic";
 import {
   applyDraftProgress,
   contestedPrice,
@@ -77,7 +80,21 @@ export function planShape(plan) {
   return "balanced value";
 }
 
-export function PerfectDraftPanel({ stats, workspace }) {
+/**
+ * Expected winning price for the optimizer — an ESTIMATE, not a legal minimum.
+ * A real $0 estimate stays $0 (no invented $1 floor); a player with no finite
+ * estimate at all is UNPRICED and left out, never priced at $0 or $1.
+ */
+export function expectedPrice(p) {
+  for (const v of [p?.inflatedFair, p?.preDraft]) {
+    if (v === null || v === undefined || v === "") continue;
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) return Math.round(n);
+  }
+  return null;
+}
+
+export function PerfectDraftPanel({ stats, workspace, workspaceReady = true }) {
   // `myTeamIdx` lives under `settings` — every other reader in the app uses
   // `workspace.settings.myTeamIdx` (draft-logic.js, page.jsx). Reading it off
   // the root returned undefined, so `myTeamName` was always "", the roster
@@ -86,7 +103,15 @@ export function PerfectDraftPanel({ stats, workspace }) {
   // making the feature unreachable in the browser while every unit test
   // passed, because the test fixture used the flat shape.
   const myTeamIdx = workspace?.settings?.myTeamIdx ?? workspace?.myTeamIdx ?? 0;
-  const myTeamName = workspace?.teams?.[myTeamIdx]?.name || "";
+  // A seed row of createDefaultWorkspace() is not a team the league has: send
+  // no name and let the backend infer the session's own team (website audit
+  // WA-11; a first visit to a league with no saved workspace).
+  const myTeamRow = workspace?.teams?.[myTeamIdx];
+  // A seed row is only a seed while the workspace is still the untouched seed:
+  // after a merge a real team can carry a seed's name and budget ({Ed, $71}).
+  const myTeamIsSeed =
+    Boolean(myTeamRow) && isDefaultPlaceholderTeam(myTeamRow) && workspaceIsPristine(workspace);
+  const myTeamName = myTeamRow && !myTeamIsSeed ? myTeamRow.name || "" : "";
   // FOLLOW the workspace; only an explicit pick overrides it.
   //
   // This used to be `useState(myTeamName)`, which latched the FIRST name it
@@ -111,8 +136,15 @@ export function PerfectDraftPanel({ stats, workspace }) {
   // Live bidding: which rookie is on the block, and where the bidding is now.
   const [bidTarget, setBidTarget] = useState("");
   const [bidAmount, setBidAmount] = useState("");
+  // `workspaceReady` is the draft page's signal that `workspace` is the active
+  // league's own, hydrated one.  Until then its first team is the placeholder
+  // "Russini Panini": the root-cause fix for the `unknown_team` 400 is to send
+  // no request at all in that window (the override/follow logic above then
+  // only has real names to follow).  Defaults true so a caller without the
+  // signal behaves as before.
   const { teams, context, failure, loading, refetch } = useRosterContext({
     teamName,
+    enabled: workspaceReady,
   });
 
   // An explicit pick belongs to the league it was made in. Carrying it across
@@ -131,13 +163,13 @@ export function PerfectDraftPanel({ stats, workspace }) {
   const rookies = useMemo(() => {
     const rows = stats?.enrichedPlayers || [];
     return rows
-      .filter((p) => !p.drafted)
+      .filter((p) => !p.drafted && expectedPrice(p) !== null)
       .map((p) => ({
         id: p.id,
         name: p.name,
         pos: p.pos || "",
         boardValue: Number(p.boardValue) || null,
-        price: Math.max(1, Number(p.inflatedFair) || Number(p.preDraft) || 0),
+        price: expectedPrice(p),
         marketDispersionCV: p.marketDispersionCV,
         singleSource: p.singleSource,
         // Computed on every board render since it was written and, until now,
@@ -261,7 +293,23 @@ export function PerfectDraftPanel({ stats, workspace }) {
     [context, stats, strategy],
   );
 
-  // Silent vanish — never a generic error on an add-on panel.
+  // Flag off: say so. /draft has no other recommender (the legacy per-player
+  // list was retired, W10-F003), so a silent vanish would read as "nothing to
+  // recommend". Every other non-ok state still vanishes — never a generic error
+  // on an add-on panel. The env-var name is deliberately not shown.
+  if (failure?.kind === "disabled") {
+    return (
+      <p
+        className="muted"
+        data-testid="perfect-draft-disabled"
+        style={{ margin: "var(--space-2) 0", fontSize: "var(--font-size-2xs)" }}
+      >
+        Draft recommendations are switched off for this site, so no rookie
+        recommendations are shown. The rookie board, bid ceilings and
+        nomination lists still work.
+      </p>
+    );
+  }
   if (failure || (!loading && !context)) return null;
   if (!result) return null;
 
@@ -475,10 +523,19 @@ export function PerfectDraftPanel({ stats, workspace }) {
           totals.spend > 0 ? Math.round(plan.netValue / totals.spend) : "—"
         }
       />
+      {/* Part 5 (owner directive 2026-11-07): this is the bootstrap share of
+          simulated scenarios in which the plan beats the other leading
+          candidate plans, under source disagreement and an assumed / sampled
+          price range.  It is a sensitivity check, not a calibrated
+          probability, so it is never labelled "Confidence". */}
       <StatTile
-        label="Confidence"
+        label="Stays best in"
         value={confidencePct == null ? "—" : `${confidencePct}%`}
-        meta={planShape(plan)}
+        meta={
+          confidencePct == null
+            ? planShape(plan)
+            : `of simulated scenarios — sensitivity, not a calibrated probability · ${planShape(plan)}`
+        }
       />
     </div>
   );
@@ -775,10 +832,11 @@ export function PerfectDraftPanel({ stats, workspace }) {
           </p>
           <p>
             Prices are the board&apos;s live inflation-adjusted values and are
-            uncertain — confidence is the share of simulated scenarios in which
-            this plan still comes out best, counting both how much sources
-            disagree about each rookie and the chance that bidding pushes the
-            plan past your budget.
+            uncertain — &ldquo;stays best in&rdquo; is the share of simulated
+            scenarios in which this plan still beats the other leading
+            candidate plans, varying each rookie by how much sources disagree
+            about him and each price by the range below. It is a sensitivity
+            check, not a calibrated probability that the plan is right.
           </p>
           <p>
             {priceSigmas.measured

@@ -14,11 +14,19 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
 import pytest
 
 from scripts import scrape_resource_sampler as sampler
 from src.diagnostics import scrape_telemetry as telemetry
+
+# These sample a LIVE process through ``/proc`` (Linux-only by design: the
+# box is Linux and there is deliberately no psutil).  Windows has no
+# ``/proc``, so they can only fail there.  Never skipped on Linux/CI.
+_LIVE_PROC = pytest.mark.skipif(
+    sys.platform == "win32", reason="reads a live process via /proc (Linux-only)"
+)
 
 
 @pytest.fixture
@@ -32,9 +40,12 @@ def temp_telemetry(tmp_path, monkeypatch):
 
 
 def _samples(path):
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    return [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
 
 
+@_LIVE_PROC
 def test_sample_carries_every_requested_dimension(temp_telemetry):
     telemetry.set_phase("source_start", source="KTC")
     sample = sampler.build_sample(
@@ -61,6 +72,7 @@ def test_sample_carries_every_requested_dimension(temp_telemetry):
     assert "cpu_total_ticks" in sample
 
 
+@_LIVE_PROC
 def test_cpu_utilization_needs_two_readings(temp_telemetry):
     """A single /proc/stat reading is cumulative; a rate needs a delta."""
     first = sampler.build_sample(os.getpid(), "r", prev_cpu=None, prev_tree=None, elapsed=0.0)
@@ -89,7 +101,9 @@ def test_run_exits_and_marks_the_moment_the_target_vanished(temp_telemetry):
     )
     assert rc == 0
 
-    events = [json.loads(line) for line in telemetry.EVENTS_PATH.read_text().splitlines()]
+    events = [
+        json.loads(line) for line in telemetry.EVENTS_PATH.read_text(encoding="utf-8").splitlines()
+    ]
     names = [e["event"] for e in events]
     assert "sampler_started" in names
     assert "target_pid_vanished" in names, "must flag the exact sample where the target died"
@@ -112,7 +126,9 @@ def test_run_is_bounded_by_max_duration(temp_telemetry):
         gone_samples_before_exit=1000,
     )
     assert rc == 0
-    events = [json.loads(line) for line in telemetry.EVENTS_PATH.read_text().splitlines()]
+    events = [
+        json.loads(line) for line in telemetry.EVENTS_PATH.read_text(encoding="utf-8").splitlines()
+    ]
     stop = [e for e in events if e["event"] == "sampler_stopped"]
     assert stop and stop[-1]["reason"] == "max_duration"
 

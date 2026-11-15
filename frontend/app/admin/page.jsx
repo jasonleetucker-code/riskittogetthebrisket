@@ -111,7 +111,7 @@ export default function AdminPage() {
     // `FailureState` says only what the status supports, and only offers
     // a retry where retrying could help — a 403 gets none.
     return (
-      <main style={{ padding: "var(--space-lg)" }}>
+      <div style={{ padding: "var(--space-lg)" }}>
         <h1>Admin</h1>
         <FailureState
           failure={failure}
@@ -125,12 +125,12 @@ export default function AdminPage() {
             allowlist.
           </p>
         ) : null}
-      </main>
+      </div>
     );
   }
 
   return (
-    <main
+    <div
       style={{ padding: "var(--space-lg)", maxWidth: 1100, margin: "0 auto" }}
     >
       <h1 style={{ marginBottom: "var(--space-md)" }}>Admin</h1>
@@ -353,6 +353,6 @@ export default function AdminPage() {
         </p>
         <GuestPassPanel />
       </section>
-    </main>
+    </div>
   );
 }

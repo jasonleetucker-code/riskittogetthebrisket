@@ -37,6 +37,10 @@
 // returns an empty rows array) rather than silently re-computing.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// The active-league key and the early head-script request share one owner.
+import { LEAGUE_LOCAL_KEY, takeEarlyContract } from "./early-contract.js";
+import { classifyContractFailure } from "./contract-failure.js";
+
 const OFFENSE = new Set(["QB", "RB", "WR", "TE"]);
 const IDP = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
 // Positions that may never enter the ranked board or user-facing surfaces.
@@ -326,6 +330,29 @@ export const RANKING_SOURCES = [
     excludesRookies: false,
   },
   {
+    // DLF Trade Analyzer Values (owner closeout 2026-10-18 Decision 4).
+    // Mirrors the backend entry: an offense-only member of the "dlf"
+    // family that votes its VALUE ORDER through rank -> Hill (never the
+    // raw value), sharing DLF's one provider cap with DLF Rank.  Held from
+    // the vote unless the backend flag dlf_values_rank_hill_vote is on —
+    // the contract's vote-state stamp says which.
+    key: "dlfValuesSfTep",
+    correlationGroup: "dlf",
+    displayName: "Dynasty League Football Trade Values SF-TEP",
+    columnLabel: "DLF Val",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 320,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: true,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
     // DLF (Dynasty League Football) full-board IDP rankings.  Mirrors
     // the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
     // 185-player expert consensus; overall_idp scope; not a backbone.
@@ -351,7 +378,11 @@ export const RANKING_SOURCES = [
     isRetail: false,
     isTepPremium: false,
     needsSharedMarketTranslation: true,
-    excludesRookies: true,
+    excludesRookies: false,
+    // Deep-tail rookie VOTE rule (#134) — separate from the factual
+    // excludesRookies coverage claim.  Mirrors the backend registry;
+    // informational (no frontend code reads it).
+    dropsDeepTailRookies: true,
     isRankSignal: true,
   },
   {
@@ -466,6 +497,110 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
+    // Head of the `fantasyCalc` B10 family since 2026-10-03: the two
+    // Signals entries below vote inside it (no independence bonus).
+    correlationGroup: "fantasyCalc",
+  },
+  {
+    // Signals Fantasy AUTHENTICATED native dynasty values, OFFENSE — an
+    // ACTIVE source since the owner addendum of 2026-10-03.  Mirrors the
+    // backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
+    // Collected privately on the production box (never committed); absent,
+    // never zero, wherever that collector has not run.
+    // Votes like FantasyCalc: Signals' own cross-position VALUE ordering is
+    // the rank (DERIVED — Signals published the value, not the rank), so
+    // the cell's original rank is labelled "value-ordered rank (derived)"
+    // and the native value is shown beside it.  Superflex, NOT TE-premium
+    // (TE rows get the board's base -> TE++ conversion once).
+    key: "signalsSf",
+    displayName: "Signals Fantasy Dynasty SF",
+    columnLabel: "Signals",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 500,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    // Display-only provenance for the Rankings source column (not parity-
+    // checked; never used for ranking).
+    privateSource: true,
+    observationDataset: "Offense",
+    observationFormat: "Dynasty · Superflex · non-TEP (TE++ converted)",
+  },
+  {
+    // Signals Fantasy AUTHENTICATED native dynasty values, IDP — one board
+    // PER FAMILY (DL / LB / DB).  Mirrors the backend entries.  Signals'
+    // IDP value is normalised within each family, so it is ranked within
+    // the family only and votes through the positional IDP path
+    // (scope position_idp + the backbone's family ladder).  No
+    // cross-family order is ever derived.
+    key: "signalsIdpDl",
+    displayName: "Signals Fantasy Dynasty IDP — DL",
+    columnLabel: "Signals DL",
+    scope: "position_idp",
+    extraScopes: [],
+    positionGroup: "DL",
+    depth: 165,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    privateSource: true,
+    observationDataset: "IDP — DL",
+    observationFormat: "Dynasty · IDP · ranked within DL only (DT/DE); no cross-family order",
+    observationRankLabel: "value-ordered DL rank (derived)",
+  },
+  {
+    key: "signalsIdpLb",
+    displayName: "Signals Fantasy Dynasty IDP — LB",
+    columnLabel: "Signals LB",
+    scope: "position_idp",
+    extraScopes: [],
+    positionGroup: "LB",
+    depth: 105,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    privateSource: true,
+    observationDataset: "IDP — LB",
+    observationFormat: "Dynasty · IDP · ranked within LB only (LB); no cross-family order",
+    observationRankLabel: "value-ordered LB rank (derived)",
+  },
+  {
+    key: "signalsIdpDb",
+    displayName: "Signals Fantasy Dynasty IDP — DB",
+    columnLabel: "Signals DB",
+    scope: "position_idp",
+    extraScopes: [],
+    positionGroup: "DB",
+    depth: 150,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+    correlationGroup: "fantasyCalc",
+    privateSource: true,
+    observationDataset: "IDP — DB",
+    observationFormat: "Dynasty · IDP · ranked within DB only (CB/S); no cross-family order",
+    observationRankLabel: "value-ordered DB rank (derived)",
   },
   {
     // OTC Fantasy Football Superflex trade-derived values — fetched
@@ -624,7 +759,9 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
     isRankSignal: true,
     needsSharedMarketTranslation: true,
-    excludesRookies: true,
+    excludesRookies: false,
+    // Deep-tail rookie VOTE rule (#134) — see dlfIdp above.
+    dropsDeepTailRookies: true,
   },
   {
     // FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart —
@@ -1454,13 +1591,19 @@ export function buildRows(data) {
     return ra - rb;
   });
   rows.forEach((r, i) => {
-    r.computedConsensusRank = i + 1;
+    // A row the backend could not price (no rankDerivedValue) has no
+    // board position at all: its sort slot is an artifact of sinking to
+    // the end, not evidence.  Missing is never a number (W25-F003 /
+    // W07-F003), so no ordinal is minted -- `resolvedRank` then reads it
+    // as unranked (Infinity) and `tierLabel` as "Unranked" (W07-F004).
+    const unpriced = !Number.isFinite(Number(r.rankDerivedValue ?? NaN));
+    r.computedConsensusRank = unpriced && r.canonicalConsensusRank == null ? null : i + 1;
     // Preserve null rank on rows the backend explicitly un-ranked
     // (anchor-year slot picks). Players still fall back to the
     // local computed ordinal as before; picks show no rank number.
     if (r.canonicalConsensusRank != null) {
       r.rank = r.canonicalConsensusRank;
-    } else if (r.assetClass === "pick" || overlayActive) {
+    } else if (r.assetClass === "pick" || overlayActive || unpriced) {
       // With an overlay active the local ordinal would be derived from
       // ADJUSTED values — a client-computed rank in the `#` column,
       // which is the one thing `buildRows` must never produce.
@@ -1519,7 +1662,6 @@ let _inflightOverrideResult = null; // { key, base, promise }
 // ``useLeague`` here because this module is imported by
 // ``useLeague`` itself (via ``_resetBaseContractCache``); localStorage
 // is the cycle-safe way to share the value.
-const LEAGUE_LOCAL_KEY = "next_active_league_v1";
 
 function _readActiveLeagueKey() {
   if (typeof window === "undefined") return "";
@@ -1540,6 +1682,9 @@ export function _resetBaseContractCache() {
   _inflightBaseContract = null;
   _cachedOverrideResult = null;
   _inflightOverrideResult = null;
+  // An early request issued under the previous league/session is spent, not
+  // adopted later.
+  takeEarlyContract("");
 }
 
 // Login/logout must drop cached private payloads immediately — the
@@ -1579,7 +1724,10 @@ async function _fetchBaseContract() {
   if (_inflightBaseContract && _inflightBaseContract.key === cacheKey) {
     return _inflightBaseContract.promise;
   }
-  const promise = _fetchBaseContractNetwork(leagueKey, view, cacheKey);
+  // The document head may already have this exact request in flight
+  // (lib/early-contract.js); adopt it instead of issuing a second one.
+  const early = takeEarlyContract(cacheKey);
+  const promise = _fetchBaseContractNetwork(leagueKey, view, cacheKey, early);
   _inflightBaseContract = { key: cacheKey, promise };
   try {
     return await promise;
@@ -1590,7 +1738,7 @@ async function _fetchBaseContract() {
   }
 }
 
-async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
+async function _fetchBaseContractNetwork(leagueKey, view, cacheKey, early = null) {
   // Append leagueKey so the server can stamp ``meta.leagueKey`` and
   // ``meta.sleeperDataReady`` correctly on the response.  When the
   // active league shares the scoring profile with the loaded
@@ -1614,7 +1762,7 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   // navigation past the in-memory TTL.
   let res;
   try {
-    res = await fetch(url, { cache: "no-cache" });
+    res = await (early ? early.promise : fetch(url, { cache: "no-cache" }));
   } catch (netErr) {
     // No status at all: the request never reached a server. That is a
     // DIFFERENT state from every HTTP failure below and used to be
@@ -1669,7 +1817,9 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   if (wrapped && wrapped.data) {
     _cachedBaseContract = wrapped;
     _cachedBaseContractKey = cacheKey;
-    _cachedBaseContractAt = Date.now();
+    // An adopted early response is as old as its arrival, not its adoption.
+    const arrived = early ? early.arrivedAt() : undefined;
+    _cachedBaseContractAt = arrived !== undefined ? Math.min(Date.now(), arrived) : Date.now();
   }
   return wrapped;
 }
@@ -2242,7 +2392,8 @@ export async function fetchDynastyData(opts = {}) {
   // generation or league switch yields a different reference) and the
   // shared 30s TTL.  Only successful merges are cached — a
   // fallback-to-base result must stay retryable.
-  const overrideKey = `${JSON.stringify(body)}|${_readActiveLeagueKey()}`;
+  const overrideLeagueKey = _readActiveLeagueKey();
+  const overrideKey = `${JSON.stringify(body)}|${overrideLeagueKey}`;
   if (
     _cachedOverrideResult &&
     _cachedOverrideResult.key === overrideKey &&
@@ -2264,6 +2415,7 @@ export async function fetchDynastyData(opts = {}) {
     _fetchBaseContract(),
     body,
     overrideKey,
+    overrideLeagueKey,
   );
   _inflightOverrideResult = { key: overrideKey, promise };
   try {
@@ -2278,14 +2430,33 @@ export async function fetchDynastyData(opts = {}) {
   }
 }
 
-async function _postOverridesAndMerge(basePromise, body, overrideKey) {
+// The override URL carries the page's ``leagueKey`` in the QUERY STRING,
+// exactly as ``_fetchBaseContractNetwork`` does for the base contract
+// (LI1842-DEFECT-08).  Without it the server resolved the league from the
+// user's SAVED state, so a page whose localStorage league differed from the
+// saved one got a false 503 or the other league's TE context.  Query, not
+// body: the backend resolver reads the query first, and a body key would be
+// one more top-level field for the source-override parser to classify.
+export function rankingsOverridesUrl(leagueKey) {
+  const params = new URLSearchParams();
+  params.set("view", "delta");
+  if (leagueKey) params.set("leagueKey", leagueKey);
+  return `${RANKINGS_OVERRIDES_URL}?${params.toString()}`;
+}
+
+async function _postOverridesAndMerge(
+  basePromise,
+  body,
+  overrideKey,
+  leagueKey = _readActiveLeagueKey(),
+) {
   // Kick the POST off immediately (it never needed the base payload)
   // and hold its failure in-band so the two error semantics stay
   // exactly what they were on the serial path:
   //   * base fetch failure → THROWS out of fetchDynastyData (the page
   //     shows its error state);
   //   * overrides POST failure → falls back to the base contract.
-  const postPromise = fetch(`${RANKINGS_OVERRIDES_URL}?view=delta`, {
+  const postPromise = fetch(rankingsOverridesUrl(leagueKey), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -2300,6 +2471,11 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
     return null;
   });
   const base = await basePromise;
+  // Why the requested mix could not be applied, classified with the same
+  // owner as every other contract failure.  Returned ON the fallback so the
+  // page can say "showing the default board" instead of passing the default
+  // board off as the custom mix the user asked for.
+  let overrideFailure = classifyContractFailure(null, null);
   try {
     const overrideRes = await postPromise;
     if (overrideRes && overrideRes.ok) {
@@ -2334,11 +2510,26 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
         };
         return passthrough;
       }
-    } else if (overrideRes && typeof console !== "undefined" && console.warn) {
-      console.warn(
-        `[dynasty-data] /api/rankings/overrides returned ${overrideRes.status}; ` +
-          "falling through to base contract.",
-      );
+      overrideFailure = classifyContractFailure(500, { error: "unrecognised_override_response" });
+    } else if (overrideRes) {
+      let failBody = null;
+      try {
+        const txt = await overrideRes.text();
+        try {
+          failBody = JSON.parse(txt);
+        } catch {
+          failBody = txt || null;
+        }
+      } catch {
+        failBody = null;
+      }
+      overrideFailure = classifyContractFailure(overrideRes.status, failBody);
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn(
+          `[dynasty-data] /api/rankings/overrides returned ${overrideRes.status}; ` +
+            "falling through to base contract.",
+        );
+      }
     }
   } catch (err) {
     if (typeof console !== "undefined" && console.warn) {
@@ -2349,8 +2540,9 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
     }
   }
 
-  // Override endpoint failed — return the base contract unchanged.
-  return base;
+  // Override endpoint failed — the base contract, LABELLED as such.  Never
+  // cached (only successful merges are), so the next load retries the mix.
+  return base && typeof base === "object" ? { ...base, overrideFailure } : base;
 }
 
 /**

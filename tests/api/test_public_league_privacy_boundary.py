@@ -35,6 +35,7 @@ is why it is closed now rather than when the data arrives.
 from __future__ import annotations
 
 import json
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -61,21 +62,105 @@ PRIVATE_MARKERS = (
 )
 
 
+def public_contract_module():
+    from src.public_league import public_contract
+
+    return public_contract
+
+
 @pytest.fixture
-def anon_client(monkeypatch):
+def controlled_snapshot(monkeypatch, tmp_path):
+    """The REAL public routes over a snapshot this test controls.
+
+    Everything process-global is patched through ``monkeypatch`` so it is
+    undone at teardown: the Sleeper client stubs, the registry (a fixture
+    file naming the snapshot's league under a key that is NOT its Sleeper
+    id), the public snapshot cache and the per-generation response memos.
+    No network, no lifespan, no dependence on what ran before.
+    """
+    from src.public_league import build_public_snapshot, sleeper_client
+    from tests.public_league.fixtures import NFL_PLAYERS_STUB, build_stub_client
+
+    for name, fn in build_stub_client().items():
+        monkeypatch.setattr(sleeper_client, name, fn)
+    monkeypatch.setattr(sleeper_client, "_nfl_players_cache", None)
+
+    league_key, sleeper_id = "fixture_public_league", "L2025"
+    registry = tmp_path / "registry.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "defaultLeagueKey": league_key,
+                "leagues": [
+                    {
+                        "key": league_key,
+                        "displayName": "Fixture",
+                        "sleeperLeagueId": sleeper_id,
+                        "active": True,
+                        "rosterSettings": {},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(registry))
+    monkeypatch.delenv("SLEEPER_LEAGUE_ID", raising=False)
+    league_registry.reload_registry()
+
+    snapshot = build_public_snapshot(sleeper_id, max_seasons=2, include_nfl_players=True)
+    snapshot.nfl_players = NFL_PLAYERS_STUB
+    for key, value in {
+        "snapshot": snapshot,
+        "snapshot_league_id": sleeper_id,
+        "fetched_at": time.time(),
+        "last_failure_at": 0.0,
+        "last_failure_error": None,
+    }.items():
+        monkeypatch.setitem(server._public_league_cache, key, value)
+    for memo in (
+        "_PUBLIC_CONTRACT_BYTES_CACHE",
+        "_PUBLIC_OVERVIEW_CACHE",
+        "_PUBLIC_ACTIVITY_CACHE",
+        "_heavy_section_cache",
+    ):
+        monkeypatch.setattr(server, memo, {})
+    monkeypatch.setattr(server, "_build_public_activity_valuation", lambda: None)
+    try:
+        yield league_key, sleeper_id
+    finally:
+        # monkeypatch restores LEAGUE_REGISTRY_PATH after this; drop the
+        # file-backed cache so the next reader re-resolves from it.
+        league_registry.reload_registry()
+
+
+# Every client below serves from ``controlled_snapshot``.  These fixtures
+# used to enter a bare ``TestClient`` over whatever league the process
+# happened to hold: under pytest that is none, so every "is this section
+# public / private" assertion SKIPPED on a 503 in isolation and only ran
+# when an earlier module had leaked the stub league.  A boundary test that
+# decides nothing on its own is not a boundary test.
+
+
+@pytest.fixture
+def anon_client(monkeypatch, controlled_snapshot):
     """A client with no session — the anonymous public caller."""
     monkeypatch.setattr(server, "_is_authenticated", lambda request: False)
     monkeypatch.setattr(server, "_get_auth_session", lambda request: None)
-    with TestClient(server.app, raise_server_exceptions=False) as c:
-        yield c
+    return TestClient(server.app, raise_server_exceptions=False)
 
 
 @pytest.fixture
-def authed_client(monkeypatch):
+def authed_client(monkeypatch, controlled_snapshot):
     monkeypatch.setattr(server, "_is_authenticated", lambda request: True)
     monkeypatch.setattr(server, "_get_auth_session", lambda request: {"username": "t"})
-    with TestClient(server.app, raise_server_exceptions=False) as c:
-        yield c
+    return TestClient(server.app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def controlled_public_league(authed_client, controlled_snapshot):
+    league_key, sleeper_id = controlled_snapshot
+    return authed_client, league_key, sleeper_id
 
 
 class TestPrivateSectionsAreClosedToAnonymousCallers:
@@ -167,15 +252,68 @@ class TestSectionsAreScopedToTheRequestedLeague:
             f"league's payload (status {res.status_code})"
         )
 
-    def test_the_response_names_the_league_it_answered_for(self, authed_client):
-        res = authed_client.get("/api/public/league/overview")
-        if res.status_code != 200:
-            pytest.skip("overview unavailable in this environment")
+    # The previous version of this test asked the LIVE route and skipped on
+    # anything but 200.  Under pytest no league is configured, so in
+    # isolation it always skipped; it only ever ran when an earlier module
+    # had leaked Sleeper stubs and ``SLEEPER_LEAGUE_ID`` into the process
+    # (``tests/public_league/test_server_routes.py``), and then it FAILED —
+    # an order-dependent result about a real defect.  It now builds its own
+    # league, registry and snapshot, so it runs (and decides) in any order.
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/public/league",
+            "/api/public/league/overview",
+            "/api/public/league/history",
+            "/api/public/league/activity",
+            "/api/public/league/playoffOdds",
+            "/api/public/league/matchups",
+        ],
+    )
+    def test_the_response_names_the_league_it_answered_for(self, controlled_public_league, path):
+        client, league_key, sleeper_id = controlled_public_league
+        res = client.get(path)
+        assert res.status_code == 200, f"{path}: {res.status_code} {res.text[:300]}"
         body = res.json()
-        assert body.get("leagueKey"), (
-            "the response does not say which league it is for, so a caller "
-            "cannot detect being served another league's data"
+        assert body.get("leagueKey") == league_key, (
+            f"{path} does not say which league it is for (leagueKey="
+            f"{body.get('leagueKey')!r}), so a caller cannot detect being served "
+            "another league's data"
         )
+        # The stable registry key, never the raw Sleeper id it resolves to.
+        assert body["leagueKey"] != sleeper_id
+
+    def test_an_unregistered_snapshot_is_not_given_a_guessed_key(
+        self, controlled_public_league, monkeypatch, tmp_path
+    ):
+        """A snapshot the registry cannot name says so (``null``) rather than
+        borrowing the default league's key or echoing the Sleeper id."""
+        client, _key, _sid = controlled_public_league
+        other = tmp_path / "other_registry.json"
+        other.write_text(
+            json.dumps(
+                {
+                    "defaultLeagueKey": "elsewhere",
+                    "leagues": [
+                        {
+                            "key": "elsewhere",
+                            "displayName": "Elsewhere",
+                            "sleeperLeagueId": "L-ELSEWHERE",
+                            "active": True,
+                            "rosterSettings": {},
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(other))
+        league_registry.reload_registry()
+        payload = public_contract_module().build_section_payload(
+            server._public_league_cache["snapshot"], "history"
+        )
+        assert "leagueKey" in payload and payload["leagueKey"] is None
 
     def test_each_configured_league_resolves_to_its_own_id(self, tmp_path, monkeypatch):
         """The resolver, not the payload — so scoping is provable even

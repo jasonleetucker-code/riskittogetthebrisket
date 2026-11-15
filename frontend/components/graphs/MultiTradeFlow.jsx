@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { effectiveValue } from "@/lib/trade-logic";
+import { categoricalColor } from "@/lib/chart-primitives";
 
 // Multi-team trade flow visualisation.
 //
@@ -24,17 +25,13 @@ const NODE_WIDTH = 120;
 const SIDE_PADDING = 24;
 const VIEWBOX_HEIGHT_PER_SIDE = NODE_HEIGHT + NODE_GAP;
 
-const SIDE_COLOR = [
-  "rgba(79, 155, 236, 0.85)", // gold
-  "rgba(96, 165, 250, 0.85)", // blue
-  "rgba(74, 222, 128, 0.85)", // green
-  "rgba(248, 113, 113, 0.85)", // red
-  "rgba(168, 162, 158, 0.85)", // stone
-  "rgba(192, 132, 252, 0.85)", // purple
-];
-
-function colourFor(idx) {
-  return SIDE_COLOR[idx % SIDE_COLOR.length];
+// Side colours come from the design system's --chart-* slots in fixed
+// order (Owner Decision 14 / #1428) — never a local palette, never cycled.
+// MAX_SIDES is 5, so sides never fold; every node is labelled. Node text
+// sits on a light wash in --text ink, and link labels carry a surface halo,
+// so no text is ever drawn directly on a series colour.
+function colourFor(idx, count) {
+  return categoricalColor(idx, { count });
 }
 
 export default function MultiTradeFlow({ sides, sideFlowAssets, valueMode, settings }) {
@@ -129,9 +126,9 @@ export default function MultiTradeFlow({ sides, sideFlowAssets, valueMode, setti
               <g key={`flow-${srcIdx}-${dstIdx}`}>
                 <path
                   d={linkPath(srcIdx, dstIdx)}
-                  stroke={colourFor(srcIdx)}
+                  stroke={colourFor(srcIdx, sides.length)}
                   strokeWidth={stroke}
-                  strokeOpacity={0.55}
+                  strokeOpacity={0.9}
                   fill="none"
                 />
                 {/* Label the stronger flows so the user can read off
@@ -142,6 +139,9 @@ export default function MultiTradeFlow({ sides, sideFlowAssets, valueMode, setti
                     x={(leftX + NODE_WIDTH + rightX) / 2}
                     y={(nodeY(srcIdx) + nodeY(dstIdx) + NODE_HEIGHT) / 2}
                     fill="var(--text)"
+                    stroke="var(--surface-1)"
+                    strokeWidth={3}
+                    paintOrder="stroke"
                     fontSize="10"
                     fontFamily="var(--mono)"
                     textAnchor="middle"
@@ -167,13 +167,15 @@ export default function MultiTradeFlow({ sides, sideFlowAssets, valueMode, setti
               width={NODE_WIDTH}
               height={NODE_HEIGHT}
               rx={6}
-              fill={colourFor(i)}
-              fillOpacity={0.85}
+              fill={colourFor(i, sides.length)}
+              fillOpacity={0.14}
+              stroke={colourFor(i, sides.length)}
+              strokeWidth={2}
             />
             <text
               x={leftX + 8}
               y={nodeY(i) + NODE_HEIGHT / 2 + 4}
-              fill="#0c1a36"
+              fill="var(--text)"
               fontSize="12"
               fontWeight="700"
             >
@@ -189,13 +191,15 @@ export default function MultiTradeFlow({ sides, sideFlowAssets, valueMode, setti
               width={NODE_WIDTH}
               height={NODE_HEIGHT}
               rx={6}
-              fill={colourFor(i)}
-              fillOpacity={0.55}
+              fill={colourFor(i, sides.length)}
+              fillOpacity={0.14}
+              stroke={colourFor(i, sides.length)}
+              strokeWidth={2}
             />
             <text
               x={rightX + NODE_WIDTH - 8}
               y={nodeY(i) + NODE_HEIGHT / 2 + 4}
-              fill="#0c1a36"
+              fill="var(--text)"
               fontSize="12"
               fontWeight="700"
               textAnchor="end"

@@ -8,7 +8,11 @@
       "leagueId": "1312006700437352448",
       "award": "waiver_king",
       "type": "owner_season_eligibility_override",
-      "ineligibleOwnerIds": ["712035316776669184", "1303549304882892800"],
+      "ineligibleOwnerIds": [
+        "712035316776669184",
+        "1303549304882892800",
+        "735693375101108224"
+      ],
       "owners": [
         {
           "ownerId": "712035316776669184",
@@ -19,12 +23,17 @@
           "ownerId": "1303549304882892800",
           "person": "Blaine",
           "resolvedFrom": "Sleeper username ughb; 2026 roster 12; team shown as 'Ugh BUGHB' at the time of the ruling"
+        },
+        {
+          "ownerId": "735693375101108224",
+          "person": "John",
+          "resolvedFrom": "Sleeper username jnesselhauf; took over 2026 roster 11 from Joel (jstuedle) effective week 6 (config/leagues/roster_ownership_changes.json); added by owner decision 2026-10-17"
         }
       ],
       "publicLabel": "Ineligible for 2026 award",
       "decidedBy": "league owner",
       "decidedAt": "2026-09-26",
-      "reason": "Owner competition rule for the 2026 season: these two managers may not win Waiver King. Their waiver transactions and production are real league history and remain measured and visible."
+      "reason": "Owner competition rule for the 2026 season: these managers may not win Waiver King. Their waiver transactions and production are real league history and remain measured and visible. John (jnesselhauf), who took over Joel's roster 11 from week 6, is also ineligible for 2026 (owner decision 2026-10-17)."
     }
   ]
 }

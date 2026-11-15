@@ -571,8 +571,15 @@ def fetch_schedules(
     _provider: Callable[[list[int]], Any] | None = None,
     cache_dir=None,
     cache_only: bool = False,
+    max_age_seconds: float | None = None,
 ) -> list[dict[str, Any]]:
     """Schedule rows for the given seasons, cached like every other feed.
+
+    ``max_age_seconds`` lets a BACKGROUND refresh owner ask for a copy
+    fresher than the default 24 h TTL — the Game Day collector does, while a
+    finished game's result is still missing — through the same cache and
+    single-flight.  It can only shorten the TTL, never extend it, and has no
+    effect with ``cache_only`` (the request path never fetches).
 
     ``src/bdvm/schedule.py`` used to fetch this itself with raw
     ``urllib.request.urlopen`` — a second nflverse downloader with no
@@ -590,9 +597,12 @@ def fetch_schedules(
     if not _gated():
         return []
     key = cache_key("schedules", years)
+    ttl = _SCHEDULES_TTL
+    if max_age_seconds is not None and max_age_seconds > 0:
+        ttl = min(ttl, float(max_age_seconds))
     return _cached_or_fetch(
         key,
-        ttl_seconds=_SCHEDULES_TTL,
+        ttl_seconds=ttl,
         cache_dir=cache_dir,
         cache_only=cache_only,
         fetch=lambda: _try_fetch_with_fallback(
@@ -648,16 +658,5 @@ def provider_status() -> dict[str, Any]:
         ),
         "nfl_data_py_installed": installed,
         "nflverse_direct_available": direct_available,
-        "cache_dir_exists": (_cache._default_cache_dir()).exists(),  # noqa: SLF001
-    }
-
-
-def _provider_status_orig() -> dict[str, Any]:
-    """[deprecated] Old shape kept for backward compat in case
-    /api/status consumers expect it.  No callers today."""
-    installed = _nfl_data_py_or_none() is not None
-    return {
-        "feature_flag": feature_flags.is_enabled("nfl_data_ingest"),
-        "nfl_data_py_installed": installed,
         "cache_dir_exists": (_cache._default_cache_dir()).exists(),  # noqa: SLF001
     }

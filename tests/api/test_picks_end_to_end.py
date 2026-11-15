@@ -24,6 +24,13 @@ regress:
    between drafts, the current class's tiers)
    are present with positive values
 
+Two tiers, decided per class (CLAUDE.md "CI has two lanes"): the structural
+invariants build from ``tests.archive_fixtures.pinned_board_contract`` (one
+complete archived scrape with its own CSVs and scrape state, frozen in a
+committed fixture) and run in the hard gate; the checks that compare against today's
+``CSVs/site_raw`` snapshot or an allowlist keyed to today's board keep reading
+``exports/latest`` and carry ``@pytest.mark.livedata``.
+
 Run with:  python3 -m pytest tests/api/test_picks_end_to_end.py -v
 """
 
@@ -36,12 +43,15 @@ import unittest
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from src.api.data_contract import (
     _is_pick_name,
     assert_no_unexplained_single_source,
     assert_ranking_coherence,
     build_api_data_contract,
 )
+from tests.archive_fixtures import pinned_board_contract
 
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -56,6 +66,12 @@ def _load_contract() -> dict[str, Any] | None:
     with json_files[0].open() as f:
         raw = json.load(f)
     return build_api_data_contract(raw)
+
+
+def _load_pinned_contract() -> dict[str, Any] | None:
+    """The PINNED complete archived board, built through the contract."""
+    contract, _name = pinned_board_contract()
+    return contract
 
 
 _DEEP_TIER_GENERIC_RE = re.compile(r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I)
@@ -143,9 +159,9 @@ class TestPicksPresentInContract(unittest.TestCase):
     """Picks must survive the full contract build."""
 
     def setUp(self) -> None:
-        self.contract = _load_contract()
+        self.contract = _load_pinned_contract()
         if self.contract is None:
-            self.skipTest("No live scraper export available")
+            self.skipTest("No complete archived board")
 
     def test_picks_present_in_players_array(self) -> None:
         picks = _pick_rows(self.contract)
@@ -250,9 +266,9 @@ class TestPickCanonicalIdentity(unittest.TestCase):
     """Pick canonical ids must not collide with player names."""
 
     def setUp(self) -> None:
-        self.contract = _load_contract()
+        self.contract = _load_pinned_contract()
         if self.contract is None:
-            self.skipTest("No live scraper export available")
+            self.skipTest("No complete archived board")
 
     def test_pick_names_match_pick_detector(self) -> None:
         picks = _pick_rows(self.contract)
@@ -291,9 +307,9 @@ class TestPicksDoNotBreakSafetyRails(unittest.TestCase):
     """Picks must coexist with the board-level assertions."""
 
     def setUp(self) -> None:
-        self.contract = _load_contract()
+        self.contract = _load_pinned_contract()
         if self.contract is None:
-            self.skipTest("No live scraper export available")
+            self.skipTest("No complete archived board")
 
     def test_ranking_coherence_with_picks(self) -> None:
         # ``assert_ranking_coherence`` walks rows in the order supplied
@@ -307,13 +323,16 @@ class TestPicksDoNotBreakSafetyRails(unittest.TestCase):
         errors = assert_ranking_coherence(ranked)
         self.assertEqual(errors, [], "\n".join(errors[:5]))
 
+    # Allowlist keyed to TODAY'S board (SINGLE_SOURCE_ALLOWLIST): advisory tier.
+    @pytest.mark.livedata
     def test_no_unexplained_single_source_with_picks(self) -> None:
         # All 1-src picks in the top 400 must either be explicitly
         # allowlisted or structurally single-source (expected ==
         # matched).  The assertion function already handles both cases.
-        unexplained = assert_no_unexplained_single_source(
-            self.contract["playersArray"], rank_limit=400
-        )
+        live = _load_contract()
+        if live is None:
+            self.skipTest("No live scraper export available")
+        unexplained = assert_no_unexplained_single_source(live["playersArray"], rank_limit=400)
         self.assertEqual(
             unexplained,
             [],
@@ -322,6 +341,8 @@ class TestPicksDoNotBreakSafetyRails(unittest.TestCase):
         )
 
 
+# Compares against today's CSVs/site_raw/idpTradeCalc.csv snapshot: advisory tier.
+@pytest.mark.livedata
 class TestIdpTradeCalcPicksSurviveEnrichment(unittest.TestCase):
     """Every pick in the IDPTC CSV must end up in the final contract."""
 
@@ -366,12 +387,18 @@ class TestRepresentativePicks(unittest.TestCase):
     """Specific picks from the 7-point verification list must be findable."""
 
     def setUp(self) -> None:
-        self.contract = _load_contract()
+        self.contract = _load_pinned_contract()
         if self.contract is None:
-            self.skipTest("No live scraper export available")
+            self.skipTest("No complete archived board")
         self.by_name = {p["canonicalName"]: p for p in _pick_rows(self.contract)}
         self.slotted = _slotted_year(self.by_name)
-        current = int(self.contract.get("currentDraftYear") or 0)
+        # The first class still ON the board: ``currentDraftYear`` can name a
+        # class the lifecycle owner has already retired (draft complete and
+        # rookies rostered, #1414/#1442), whose tier rows have left the board.
+        lifecycle = self.contract.get("pickClassLifecycle") or {}
+        current = int(
+            lifecycle.get("firstActiveClass") or self.contract.get("currentDraftYear") or 0
+        )
         if self.slotted is not None:
             # Slot-specific picks of the class being drafted + a future tier.
             y = self.slotted
@@ -487,9 +514,9 @@ class TestPickValueProjections(unittest.TestCase):
     """
 
     def setUp(self) -> None:
-        self.contract = _load_contract()
+        self.contract = _load_pinned_contract()
         if self.contract is None:
-            self.skipTest("No live scraper export available")
+            self.skipTest("No complete archived board")
         self.picks = _pick_rows(self.contract)
         if not self.picks:
             self.skipTest("No pick rows in the contract")
@@ -521,62 +548,86 @@ class TestPickValueProjections(unittest.TestCase):
         )
 
     def test_baseline_year_picks_project_to_current_value(self) -> None:
-        """Baseline-year picks (2026, the current draft) have
-        ``pickYearDiscount == 1.0`` (or unstamped, equivalent), so the
-        projection equals today's value with zero gain."""
+        """Picks with NO ``pickYearDiscount`` stamp -- every vendor-priced
+        year, and the current class -- have an effective discount of 1.0,
+        so the projection equals today's value with zero gain.
+
+        Selected by the stamp's absence, not by a literal year: the previous
+        form hard-coded 2026, which stopped existing on the board once that
+        class was drafted, so it skipped forever without checking anything.
+        """
         baseline_picks = [
             r
             for r in self.picks
-            if int(r.get("pickProjectedDraftYear") or 0) == 2026
+            if r.get("pickYearDiscount") is None
+            and r.get("pickProjectedDraftYear") is not None
             and (r.get("rankDerivedValue") or 0) > 0
         ]
         if not baseline_picks:
-            self.skipTest("No 2026 picks with positive value in contract")
+            self.skipTest("No undiscounted valued picks in contract")
         for row in baseline_picks:
             with self.subTest(pick=row.get("canonicalName")):
                 rdv = int(row["rankDerivedValue"])
                 self.assertEqual(
                     int(row["pickProjectedDraftValue"]),
                     rdv,
-                    "2026 pick projection must equal today's value (no discount to invert)",
+                    "an undiscounted pick's projection must equal today's value "
+                    "(no discount to invert)",
                 )
                 self.assertEqual(int(row["pickProjectedDraftValueGain"]), 0)
                 self.assertEqual(int(row["pickProjectedDraftValueGainPct"]), 0)
 
     def test_future_year_picks_project_above_today(self) -> None:
-        """Future-year picks (2027+) have ``pickYearDiscount < 1.0``
-        applied, so the projection inverts to a value strictly above
-        today's.  Pin the math: projected = round(rdv / discount)."""
-        future_picks = [
-            r
-            for r in self.picks
-            if int(r.get("pickProjectedDraftYear") or 0) >= 2027
-            and (r.get("rankDerivedValue") or 0) > 0
-            and r.get("pickYearDiscount") is not None
+        """A pick that DOES carry ``pickYearDiscount < 1.0`` projects above
+        today's value: projected = round(rdv / discount), gain >= 0.
+
+        Deterministic on synthetic rows.  The previous form filtered the
+        archived live board for such picks and skipped when there were none --
+        and there are none: since the derived year-step model (Phase 3a is
+        stamp-only) every vendor-priced and derived pick stamps no discount, so
+        the test never ran its body.  The inversion math lives in
+        ``_stamp_pick_value_projections`` and does not depend on the board.
+        """
+        from src.api.data_contract import _stamp_pick_value_projections
+
+        rows = [
+            {
+                "assetClass": "pick",
+                "canonicalName": "2028 Early 1st",
+                "rankDerivedValue": 5000,
+                "pickYearDiscount": 0.8,
+            },
+            {
+                "assetClass": "pick",
+                "canonicalName": "2029 Late 3rd",
+                "rankDerivedValue": 1000,
+                "pickYearDiscount": 0.53,
+            },
+            {"assetClass": "pick", "canonicalName": "2027 Mid 2nd", "rankDerivedValue": 3000},
         ]
-        if not future_picks:
-            self.skipTest("No future-year picks with discount in contract")
-        for row in future_picks:
-            with self.subTest(pick=row.get("canonicalName")):
+        _stamp_pick_value_projections(rows)
+        for row, discount in zip(rows[:2], (0.8, 0.53)):
+            with self.subTest(pick=row["canonicalName"]):
                 rdv = float(row["rankDerivedValue"])
-                discount = float(row["pickYearDiscount"])
                 expected = int(round(rdv / discount))
-                actual = int(row["pickProjectedDraftValue"])
-                # Allow ±1 for rounding noise around the int boundary.
-                self.assertLessEqual(
-                    abs(actual - expected),
-                    1,
-                    f"projection math drifted: rdv={rdv}, discount={discount}, "
-                    f"expected≈{expected}, got {actual}",
-                )
-                self.assertGreater(
-                    actual,
-                    int(rdv),
-                    f"future-year pick must project ABOVE today's value: "
-                    f"rdv={rdv}, projected={actual}",
-                )
-                self.assertGreater(int(row["pickProjectedDraftValueGain"]), 0)
-                self.assertGreater(int(row["pickProjectedDraftValueGainPct"]), 0)
+                self.assertLessEqual(abs(row["pickProjectedDraftValue"] - expected), 1)
+                self.assertGreater(row["pickProjectedDraftValue"], int(rdv))
+                self.assertGreater(row["pickProjectedDraftValueGain"], 0)
+                self.assertGreater(row["pickProjectedDraftValueGainPct"], 0)
+        # No stamp -> effective discount 1.0 -> zero gain.
+        self.assertEqual(rows[2]["pickProjectedDraftValue"], 3000)
+        self.assertEqual(rows[2]["pickProjectedDraftValueGain"], 0)
+        # An out-of-range discount is ignored, never inverted into a loss/gain.
+        bad = [
+            {
+                "assetClass": "pick",
+                "canonicalName": "2028 Early 1st",
+                "rankDerivedValue": 5000,
+                "pickYearDiscount": 1.7,
+            }
+        ]
+        _stamp_pick_value_projections(bad)
+        self.assertEqual(bad[0]["pickProjectedDraftValue"], 5000)
 
     def test_projection_year_matches_canonical_name(self) -> None:
         """``pickProjectedDraftYear`` extracts the year from the

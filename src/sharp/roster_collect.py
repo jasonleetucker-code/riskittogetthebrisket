@@ -43,7 +43,7 @@ from typing import Any, Callable, Sequence
 
 from src.intel import league_filter, platform_ledger
 from src.sharp import cohort as sharp_cohort
-from src.sharp import roster_store
+from src.sharp import pass_coverage, roster_store
 
 log = logging.getLogger(__name__)
 
@@ -136,11 +136,47 @@ class CollectResult:
     # one cannot be distinguished from success by any consumer.
     status: str = STATUS_OK
     unavailable_reason: str = ""
+    # ── per-run COVERAGE (reporting only; see ``src/sharp/pass_coverage.py``) ──
+    # ``leagues_examined`` above counts leagues whose ``/league`` fetch SUCCEEDED,
+    # and ``leagues_remaining`` is "queued minus examined", so a league that
+    # failed to fetch is reported there as not yet reached.  These count what the
+    # run actually did instead.
+    leagues_queued: int | None = None
+    leagues_attempted: int = 0
+    leagues_failed: int = 0
+    # Leagues fetched in full that yielded no cohort roster, so they leave no
+    # observation behind and stay "never collected" in the next run's queue.
+    leagues_without_cohort_roster: int = 0
+    # FFPC lane: memberships of cohort managers, and those whose page carried no
+    # roster table (nothing this pass can lift into the store).
+    memberships_seen: int | None = None
+    memberships_without_roster_table: int = 0
+    stopped_reason: str = ""
+    pass_coverage: dict[str, Any] | None = None
 
     @classmethod
-    def unavailable(cls, reason: str) -> "CollectResult":
+    def unavailable(cls, reason: str, *, lane: str = "sleeper") -> "CollectResult":
         """A lane that did not run.  Never an empty success."""
-        return cls(status=STATUS_UNAVAILABLE, unavailable_reason=str(reason))
+        result = cls(
+            status=STATUS_UNAVAILABLE,
+            unavailable_reason=str(reason),
+            stopped_reason=str(reason),
+        )
+        # Nothing was attempted -- that is measured, not missing.  How much WAS
+        # eligible is not known, because the lane never looked.
+        result.pass_coverage = pass_coverage.build_pass_coverage(
+            pass_name=pass_coverage.PASS_ROSTERS,
+            unit="memberships" if lane == "ffpc" else "leagues",
+            attempted=0,
+            succeeded=0,
+            failed=0,
+            eligible_total=None,
+            remaining_unvisited=None,
+            stopped_reason=str(reason),
+            calls_used=0,
+            extra={"lane": lane},
+        )
+        return result
 
     def note_exclusions(self, reasons: Sequence[str]) -> None:
         for reason in reasons:
@@ -161,6 +197,8 @@ class CollectResult:
             "errors": self.errors[:20],
             "status": self.status,
             "unavailableReason": self.unavailable_reason,
+            "stoppedReason": self.stopped_reason or None,
+            "passCoverage": self.pass_coverage,
         }
 
 
@@ -231,6 +269,56 @@ def league_format(league: dict[str, Any] | None) -> dict[str, Any]:
         "taxiSlots": settings.get("taxi_slots"),
         "bestBall": bool(settings.get("best_ball")),
     }
+
+
+def _ensure_format_capture_schema(conn, result) -> bool:
+    """Create the league-format capture tables ONCE per run, before the league
+    loop.  ``ensure_schema`` is an ``executescript`` (which commits) plus a
+    one-shot migration, so it must never run per league.  ``False`` (captures
+    skipped for this run, recorded as an error) when it fails."""
+    try:
+        from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+        lfc.ensure_schema(conn)
+        conn.commit()
+        return True
+    except Exception:  # noqa: BLE001 — format evidence is additive here
+        log.warning("sharp.roster_collect: league format capture schema failed", exc_info=True)
+        result.errors.append("format_capture_schema_failed")
+        return False
+
+
+def _record_format_capture(conn, league: dict[str, Any], league_id: str, result) -> None:
+    """Append the dated league-format capture the trade ledger reads
+    (``src/sharp/league_format_capture.py``) from the ``/league/{id}`` payload
+    this pass ALREADY fetched — no extra request.  Best-effort by construction:
+    a capture problem is recorded as an error and never costs a roster
+    observation.
+
+    COMMITS (or rolls back) before returning: the capture write must not leave
+    a transaction open across the ``/rosters`` fetch, the pacing sleep and the
+    next league's fetch — on the shared WAL ledger that would hold the SQLite
+    writer lock across network I/O and block every other writer.  Nothing else
+    in this loop writes before the end-of-run ``record_rosters``, so this
+    commit carries only the capture."""
+    try:
+        from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+        lfc.record_capture(
+            conn,
+            league,
+            captured_ms=int(time.time() * 1000),
+            source=lfc.SOURCE_ROSTER_CRAWL,
+            league_id=str(league_id),
+        )
+        conn.commit()
+    except Exception:  # noqa: BLE001 — format evidence is additive here
+        log.warning("sharp.roster_collect: league format capture failed", exc_info=True)
+        result.errors.append(f"format_capture_failed:{league_id}")
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def _contention(roster: dict[str, Any]) -> str:
@@ -478,34 +566,52 @@ def collect_sleeper_rosters(
     """Fetch and store the cohort's Sleeper rosters."""
     result = CollectResult()
     if not manager_keys:
+        result.leagues_queued = 0
+        _attach_sleeper_coverage_safely(
+            result, call_budget=budget, budget_break=False, oldest_ms=None, never_visited=None
+        )
         return result
     b = _Budget(budget, sleep_s, http_get or _default_http_get, sleep_fn=sleep_fn)
     now = int(now_ms if now_ms is not None else time.time() * 1000)
+    # Reporting only: the loop left because the per-league budget check failed,
+    # as opposed to the budget merely being spent once the queue was drained.
+    budget_break = False
+    oldest_ms: int | None = None
+    never_visited: int | None = None
 
     conn = roster_store.ensure_roster_schema(ledger_path)
     try:
         by_league = _cohort_sleeper_leagues(manager_keys, conn=conn)
+        result.leagues_queued = len(by_league)
         pool = set(manager_keys)
         observations: list[roster_store.RosterObservation] = []
         fetched: dict[str, dict[str, Any]] = {}
+        capture_formats = _ensure_format_capture_schema(conn, result)
 
         for league_id in _collection_order(list(by_league), conn=conn):
             member_keys = by_league[league_id]
             if not b.can_call(CALLS_PER_LEAGUE):
                 result.budget_exhausted = True
+                budget_break = True
                 result.leagues_remaining = len(by_league) - result.leagues_examined
                 break
             league = b.get(f"{SLEEPER_BASE}/league/{league_id}")
+            result.leagues_attempted += 1
             if not isinstance(league, dict):
                 result.errors.append(f"league_fetch_failed:{league_id}")
+                result.leagues_failed += 1
                 continue
             result.leagues_examined += 1
+            if capture_formats:
+                _record_format_capture(conn, league, league_id, result)
 
             rosters = b.get(f"{SLEEPER_BASE}/league/{league_id}/rosters")
             if not isinstance(rosters, list):
                 result.errors.append(f"rosters_fetch_failed:{league_id}")
+                result.leagues_failed += 1
                 continue
             fetched[str(league_id)] = league
+            observations_before_league = len(observations)
 
             league_key = f"sleeper:{league_id}"
             fmt = league_format(league)
@@ -571,6 +677,9 @@ def collect_sleeper_rosters(
                 )
                 result.note_exclusions(reasons)
 
+            if len(observations) == observations_before_league:
+                result.leagues_without_cohort_roster += 1
+
             # ``member_keys`` is unused beyond league selection, but is
             # kept in the map so a future per-member gate has it.
             del member_keys
@@ -582,14 +691,100 @@ def collect_sleeper_rosters(
         result.eligible_rosters = totals["eligibleRosters"]
         result.excluded_rosters = totals["rosters"] - totals["eligibleRosters"]
         result.assets_recorded = totals["assetsRecorded"]
+        oldest_ms, never_visited = _cohort_visit_age(by_league, conn=conn)
     finally:
         conn.close()
 
     result.calls_used = b.used
     if not b.can_call(CALLS_PER_LEAGUE):
         result.budget_exhausted = True
+    _attach_sleeper_coverage_safely(
+        result,
+        call_budget=budget,
+        budget_break=budget_break,
+        oldest_ms=oldest_ms,
+        never_visited=never_visited,
+    )
     log.info("sharp.roster_collect.sleeper: %s", result.to_dict())
+    if result.pass_coverage is not None:
+        pass_coverage.log_pass_summary(log, result.pass_coverage)
     return result
+
+
+def _cohort_visit_age(by_league: dict[str, set[str]], *, conn) -> tuple[int | None, int | None]:
+    """``(oldest, never)`` for the cohort's Sleeper leagues, AFTER this run's writes.
+
+    ``oldest`` is the stalest last observation among cohort leagues that have
+    one; ``never`` counts cohort leagues with no observation at all, which are
+    staler than any of them.  The same ``_last_observed_by_league`` map the
+    queue ordering reads, so what is reported is what the queue sees.
+    ``(None, None)`` if the store cannot be read.
+    """
+    try:
+        last = _last_observed_by_league(conn)
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        log.warning("sharp.roster_collect: could not read visit ages", exc_info=True)
+        return None, None
+    seen = [last[league_id] for league_id in by_league if league_id in last]
+    never = len(by_league) - len(seen)
+    return (min(seen) if seen else None), never
+
+
+def _attach_sleeper_coverage_safely(result: CollectResult, **kwargs: Any) -> None:
+    """``_attach_sleeper_coverage`` that can never fail the pass.
+
+    The rosters are already stored when this runs; a coverage fault leaves the
+    coverage fields ``None`` and says so, rather than failing the run.
+    """
+    try:
+        _attach_sleeper_coverage(result, **kwargs)
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        log.warning("sharp.roster_collect.sleeper: could not build pass coverage", exc_info=True)
+        result.stopped_reason = ""
+        result.pass_coverage = None
+
+
+def _attach_sleeper_coverage(
+    result: CollectResult,
+    *,
+    call_budget: int,
+    budget_break: bool,
+    oldest_ms: int | None,
+    never_visited: int | None,
+) -> None:
+    """Fill ``result.stopped_reason`` / ``result.pass_coverage`` (reporting only).
+
+    ``completed`` is decided from the queue, not from ``budget_exhausted``: that
+    flag is also set when the budget merely happens to be spent after the last
+    league was collected.
+    """
+    queued = result.leagues_queued
+    unreached = None if queued is None else queued - result.leagues_attempted
+    if queued == 0:
+        result.stopped_reason = pass_coverage.STOPPED_NO_WORK
+    else:
+        result.stopped_reason = pass_coverage.classify_stop(
+            budget_stopped=budget_break, work_remains=unreached is not None and unreached > 0
+        )
+    result.pass_coverage = pass_coverage.build_pass_coverage(
+        pass_name=pass_coverage.PASS_ROSTERS,
+        unit="leagues",
+        attempted=result.leagues_attempted,
+        succeeded=result.leagues_attempted - result.leagues_failed,
+        failed=result.leagues_failed,
+        eligible_total=queued,
+        remaining_unvisited=unreached,
+        stopped_reason=result.stopped_reason,
+        calls_used=result.calls_used,
+        call_budget=call_budget,
+        oldest_crawl_ms=oldest_ms,
+        never_visited=never_visited,
+        oldest_basis="latest sharp_rosters.observed_ms per cohort Sleeper league",
+        extra={
+            "lane": "sleeper",
+            "succeededWithoutCohortRoster": result.leagues_without_cohort_roster,
+        },
+    )
 
 
 # ── FFPC ─────────────────────────────────────────────────────────────
@@ -625,7 +820,9 @@ def collect_ffpc_rosters(
         # cannot contribute — which is a different statement from "FFPC
         # rosters were collected and there were none", and the roster
         # percentage denominator depends on knowing which.
-        return CollectResult.unavailable(UNAVAILABLE_NO_MANAGERS)
+        unavailable = CollectResult.unavailable(UNAVAILABLE_NO_MANAGERS, lane="ffpc")
+        pass_coverage.log_pass_summary(log, unavailable.pass_coverage or {})
+        return unavailable
     now = int(now_ms if now_ms is not None else time.time() * 1000)
 
     conn = roster_store.ensure_roster_schema(ledger_path)
@@ -660,7 +857,11 @@ def collect_ffpc_rosters(
                 metadata = {}
             roster_assets = metadata.get("rosterAssets")
             if not isinstance(roster_assets, list):
-                continue  # this membership came from a page with no roster table
+                # This membership came from a page with no roster table.  It is
+                # still COUNTED, so "FFPC contributed 0 rosters" can be told
+                # apart from "no FFPC manager is in the cohort".
+                result.memberships_without_roster_table += 1
+                continue
             leagues_seen.add(str(row["league_key"]))
 
             assets = []
@@ -741,11 +942,62 @@ def collect_ffpc_rosters(
         result.eligible_rosters = totals["eligibleRosters"]
         result.excluded_rosters += totals["rosters"] - totals["eligibleRosters"]
         result.assets_recorded = totals["assetsRecorded"]
+        result.memberships_seen = len(rows)
+        recorded_rosters = len(observations)
     finally:
         conn.close()
 
+    try:
+        _attach_ffpc_coverage(
+            result,
+            cohort_managers=len(ffpc_keys),
+            memberships_seen=len(rows),
+            rosters_lifted=recorded_rosters,
+        )
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        log.warning("sharp.roster_collect.ffpc: could not build pass coverage", exc_info=True)
+        result.stopped_reason = ""
+        result.pass_coverage = None
     log.info("sharp.roster_collect.ffpc: %s", result.to_dict())
+    if result.pass_coverage is not None:
+        pass_coverage.log_pass_summary(log, result.pass_coverage)
     return result
+
+
+def _attach_ffpc_coverage(
+    result: CollectResult, *, cohort_managers: int, memberships_seen: int, rosters_lifted: int
+) -> None:
+    """Fill the FFPC lane's coverage (reporting only).
+
+    The lane makes no Sleeper call and has no budget, so its only ways to end
+    short are upstream ones: cohort managers with no membership row at all, or
+    memberships whose page carried no roster table.  Either way the lane
+    reports ``ok`` with zero rosters, which is how "FFPC contributes 0" went
+    unexplained -- ``stoppedReason`` now says which.
+    """
+    seen = memberships_seen
+    without_table = result.memberships_without_roster_table
+    reachable = seen - without_table
+    if seen == 0 or without_table > 0:
+        result.stopped_reason = pass_coverage.STOPPED_UPSTREAM_MISSING
+    else:
+        result.stopped_reason = pass_coverage.STOPPED_COMPLETED
+    result.pass_coverage = pass_coverage.build_pass_coverage(
+        pass_name=pass_coverage.PASS_ROSTERS,
+        unit="memberships",
+        attempted=reachable,
+        succeeded=rosters_lifted,
+        failed=reachable - rosters_lifted,
+        eligible_total=seen,
+        remaining_unvisited=without_table,
+        stopped_reason=result.stopped_reason,
+        calls_used=0,
+        extra={
+            "lane": "ffpc",
+            "cohortManagers": cohort_managers,
+            "membershipsWithoutRosterTable": without_table,
+        },
+    )
 
 
 def collect_all(
@@ -782,7 +1034,7 @@ def collect_all(
         )
     )
     ffpc = (
-        CollectResult.unavailable(UNAVAILABLE_SKIPPED)
+        CollectResult.unavailable(UNAVAILABLE_SKIPPED, lane="ffpc")
         if skip_ffpc
         else collect_ffpc_rosters(
             manager_keys=manager_keys,

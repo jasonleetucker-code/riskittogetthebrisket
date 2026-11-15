@@ -1,0 +1,7 @@
+Whole-contract comparison: origin/main b08f7230d1 vs this branch with RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2=0,
+same input (exports/latest/dynasty_data_2026-10-19.json), same CSVs/site_raw and data/scrape_state.
+top-level keys added on the branch: ['sourceVotingStatus']
+top-level keys removed: []
+top-level keys whose content differs: ['dataFreshness', 'generatedAt']
+  dataFreshness: differing sub-keys ['generatedAt']
+playersArray rows differing: 0 of 1130

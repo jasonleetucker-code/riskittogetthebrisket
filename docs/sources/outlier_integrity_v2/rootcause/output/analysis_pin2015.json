@@ -1,0 +1,5380 @@
+{
+ "inputs": {
+  "A": {
+   "env": [],
+   "payloadSha256": "3ef54acda8c1062f96d02692fc22ea8ebc7e8f9bc38168359efac60675119199",
+   "scrapeTimestamp": "2026-10-19T20:15:45.979848+00:00",
+   "policyHoldsInForce": [
+    "dlfIdp",
+    "dlfRookieIdp"
+   ],
+   "constants": {
+    "K": 2.75,
+    "MIN_N": 4,
+    "MIN_THRESHOLD": 1000.0
+   }
+  },
+  "B": {
+   "env": [
+    "RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE=0"
+   ],
+   "payloadSha256": "3ef54acda8c1062f96d02692fc22ea8ebc7e8f9bc38168359efac60675119199",
+   "scrapeTimestamp": "2026-10-19T20:15:45.979848+00:00",
+   "policyHoldsInForce": [],
+   "constants": {
+    "K": 2.75,
+    "MIN_N": 4,
+    "MIN_THRESHOLD": 1000.0
+   }
+  }
+ },
+ "idpRowsReachingFilter_A": 0,
+ "offenseRowsReachingFilter_A": 462,
+ "idpDrops_A": 0,
+ "offenseDrops_A": 99,
+ "idpRowsReachingFilter_B": 158,
+ "offenseRowsReachingFilter_B": 462,
+ "idpDrops_B": 32,
+ "offenseDrops_B": 99,
+ "idpVotersPerRow_A": {
+  "0": 31,
+  "1": 73,
+  "2": 99,
+  "3": 225
+ },
+ "idpVotersPerRow_B": {
+  "0": 31,
+  "1": 71,
+  "2": 71,
+  "3": 97,
+  "4": 148,
+  "5": 10
+ },
+ "newlyDroppedIdp": {
+  "allNewDrops": 32,
+  "dlfOwnVotesDropped": [
+   {
+    "row": "Jared Verse",
+    "source": "dlfIdp"
+   }
+  ],
+  "otherSourceVotesDropped": 31,
+  "rows": 30,
+  "bySource": {
+   "draftSharksIdp": 18,
+   "fantasyProsIdp": 10,
+   "idpTradeCalc": 3
+  },
+  "byPosition": {
+   "DL": 9,
+   "LB": 20,
+   "DB": 2
+  },
+  "rowsWithTwoDrops": [
+   "Josiah Trotter"
+  ]
+ },
+ "offenseDropSetChanged": [],
+ "newlyDroppedDetail": [
+  {
+   "row": "Aidan Hutchinson",
+   "A": {
+    "value": 4772,
+    "rank": 72,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 6444,
+      "path": "value_direct",
+      "rawRank": 29,
+      "effectiveRank": 29,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 6227,
+      "path": "rank_hill",
+      "rawRank": 1,
+      "effectiveRank": 29,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 4592,
+      "path": "rank_hill",
+      "rawRank": 71,
+      "effectiveRank": 71,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 3200,
+      "path": "rank_hill",
+      "rawRank": 31,
+      "effectiveRank": 159,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 6422,
+    "rank": 34,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 6227.0,
+    "mad": 108.50000000000045,
+    "kMad": 298.38,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 6444.0,
+      "deviation": 217.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 29,
+      "effectiveRank": 29,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 6227.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 1,
+      "effectiveRank": 29,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 6227.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 1,
+      "effectiveRank": 29,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 3200.0,
+      "deviation": 3027.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 31,
+      "effectiveRank": 159,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": 0.3458
+  },
+  {
+   "row": "Alex Singleton",
+   "A": {
+    "value": 1949,
+    "rank": 337,
+    "confidence": "medium",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 3283,
+      "path": "rank_hill",
+      "rawRank": 25,
+      "effectiveRank": 151,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2152,
+      "path": "rank_hill",
+      "rawRank": 333,
+      "effectiveRank": 334,
+      "contributedToBlend": false
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 1923,
+      "path": "value_direct",
+      "rawRank": 444,
+      "effectiveRank": 444,
+      "contributedToBlend": null
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1708,
+      "path": "rank_hill",
+      "rawRank": 156,
+      "effectiveRank": 495,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 1817,
+    "rank": 386,
+    "confidence": "medium",
+    "droppedSources": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 1943.5,
+    "mad": 128.0000000000001,
+    "kMad": 352.0,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "fantasyProsIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 3283.0,
+      "deviation": 1339.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 25,
+      "effectiveRank": 151,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 1964.0,
+      "deviation": 20.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 81,
+      "effectiveRank": 391,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 1923.0,
+      "deviation": 20.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 444,
+      "effectiveRank": 444,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1708.0,
+      "deviation": 235.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 156,
+      "effectiveRank": 495,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": -0.0677
+  },
+  {
+   "row": "Anthony Hill",
+   "A": {
+    "value": 2649,
+    "rank": 213,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3367,
+      "path": "value_direct",
+      "rawRank": 175,
+      "effectiveRank": 175,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2776,
+      "path": "rank_hill",
+      "rawRank": 210,
+      "effectiveRank": 210,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2265,
+      "path": "rank_hill",
+      "rawRank": 61,
+      "effectiveRank": 305,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1794,
+      "path": "rank_hill",
+      "rawRank": 126,
+      "effectiveRank": 456,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 2774,
+    "rank": 197,
+    "confidence": "low",
+    "droppedSources": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 5,
+    "median": 3050.0,
+    "mad": 317.0,
+    "kMad": 871.75,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "fantasyProsIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3367.0,
+      "deviation": 317.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 175,
+      "effectiveRank": 175,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3050.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 31,
+      "effectiveRank": 175,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfRookieIdp",
+      "value": 3050.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "rookie_ladder_translation_via_idpTradeCalc",
+      "rawRank": 7,
+      "effectiveRank": 175,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2265.0,
+      "deviation": 785.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 61,
+      "effectiveRank": 305,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1794.0,
+      "deviation": 1256.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 126,
+      "effectiveRank": 456,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": 0.0472
+  },
+  {
+   "row": "Barrett Carter",
+   "A": {
+    "value": 2884,
+    "rank": 183,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 3721,
+      "path": "rank_hill",
+      "rawRank": 24,
+      "effectiveRank": 116,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2419,
+      "path": "rank_hill",
+      "rawRank": 270,
+      "effectiveRank": 271,
+      "contributedToBlend": false
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 2056,
+      "path": "value_direct",
+      "rawRank": 376,
+      "effectiveRank": 376,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1876,
+      "path": "rank_hill",
+      "rawRank": 101,
+      "effectiveRank": 423,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 2044,
+    "rank": 317,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 2019.0,
+    "mad": 90.0,
+    "kMad": 247.5,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 3721.0,
+      "deviation": 1702.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 24,
+      "effectiveRank": 116,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 2056.0,
+      "deviation": 37.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 376,
+      "effectiveRank": 376,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 1982.0,
+      "deviation": 37.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 77,
+      "effectiveRank": 385,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1876.0,
+      "deviation": 143.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 101,
+      "effectiveRank": 423,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": -0.2913
+  },
+  {
+   "row": "CJ Allen",
+   "A": {
+    "value": 3987,
+    "rank": 106,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 5790,
+      "path": "rank_hill",
+      "rawRank": 4,
+      "effectiveRank": 37,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3383,
+      "path": "rank_hill",
+      "rawRank": 142,
+      "effectiveRank": 142,
+      "contributedToBlend": false
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 2129,
+      "path": "value_direct",
+      "rawRank": 356,
+      "effectiveRank": 356,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2095,
+      "path": "rank_hill",
+      "rawRank": 62,
+      "effectiveRank": 350,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 2164,
+    "rank": 289,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 5,
+    "median": 2568.0,
+    "mad": 439.0,
+    "kMad": 1207.25,
+    "threshold": 1207.25,
+    "floorBound": false,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 5790.0,
+      "deviation": 3222.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 4,
+      "effectiveRank": 37,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfIdp",
+      "value": 2645.0,
+      "deviation": 77.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 50,
+      "effectiveRank": 230,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfRookieIdp",
+      "value": 2568.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "rookie_ladder_translation_via_idpTradeCalc",
+      "rawRank": 9,
+      "effectiveRank": 243,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 2129.0,
+      "deviation": 439.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 356,
+      "effectiveRank": 356,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2095.0,
+      "deviation": 473.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 62,
+      "effectiveRank": 350,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": -0.4572
+  },
+  {
+   "row": "Carson Schwesinger",
+   "A": {
+    "value": 6219,
+    "rank": 34,
+    "confidence": "medium",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 6945,
+      "path": "rank_hill",
+      "rawRank": 1,
+      "effectiveRank": 19,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 5637,
+      "path": "value_direct",
+      "rawRank": 54,
+      "effectiveRank": 54,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 4811,
+      "path": "rank_hill",
+      "rawRank": 6,
+      "effectiveRank": 63,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 4164,
+      "path": "rank_hill",
+      "rawRank": 90,
+      "effectiveRank": 90,
+      "contributedToBlend": false
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 5577,
+    "rank": 47,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 5401.0,
+    "mad": 413.0,
+    "kMad": 1135.75,
+    "threshold": 1135.75,
+    "floorBound": false,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 6945.0,
+      "deviation": 1544.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 1,
+      "effectiveRank": 19,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 5637.0,
+      "deviation": 236.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 54,
+      "effectiveRank": 54,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 5165.0,
+      "deviation": 236.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 3,
+      "effectiveRank": 52,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 4811.0,
+      "deviation": 590.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 6,
+      "effectiveRank": 63,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": -0.1032
+  },
+  {
+   "row": "Chase Young",
+   "A": {
+    "value": 2534,
+    "rank": 229,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3200,
+      "path": "value_direct",
+      "rawRank": 200,
+      "effectiveRank": 200,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2591,
+      "path": "rank_hill",
+      "rawRank": 238,
+      "effectiveRank": 239,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2141,
+      "path": "rank_hill",
+      "rawRank": 73,
+      "effectiveRank": 337,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1933,
+      "path": "rank_hill",
+      "rawRank": 86,
+      "effectiveRank": 402,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 2119,
+    "rank": 297,
+    "confidence": "medium",
+    "droppedSources": [
+     "idpTradeCalc"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 2037.0,
+    "mad": 112.5,
+    "kMad": 309.38,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "idpTradeCalc"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3200.0,
+      "deviation": 1163.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 200,
+      "effectiveRank": 200,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2141.0,
+      "deviation": 104.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 73,
+      "effectiveRank": 337,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1933.0,
+      "deviation": 104.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 86,
+      "effectiveRank": 402,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 1916.0,
+      "deviation": 121.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 89,
+      "effectiveRank": 408,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": -0.1638
+  },
+  {
+   "row": "Danielle Hunter",
+   "A": {
+    "value": 2333,
+    "rank": 264,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3068,
+      "path": "value_direct",
+      "rawRank": 221,
+      "effectiveRank": 221,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2982,
+      "path": "rank_hill",
+      "rawRank": 35,
+      "effectiveRank": 183,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2755,
+      "path": "rank_hill",
+      "rawRank": 213,
+      "effectiveRank": 213,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1641,
+      "path": "rank_hill",
+      "rawRank": 178,
+      "effectiveRank": 529,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3041,
+    "rank": 173,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 2842.0,
+    "mad": 183.0,
+    "kMad": 503.25,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3068.0,
+      "deviation": 226.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 221,
+      "effectiveRank": 221,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2982.0,
+      "deviation": 140.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 35,
+      "effectiveRank": 183,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 2702.0,
+      "deviation": 140.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 46,
+      "effectiveRank": 221,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1641.0,
+      "deviation": 1201.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 178,
+      "effectiveRank": 529,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": 0.3035
+  },
+  {
+   "row": "David Bailey",
+   "A": {
+    "value": 3482,
+    "rank": 136,
+    "confidence": "medium",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 3677,
+      "path": "rank_hill",
+      "rawRank": 24,
+      "effectiveRank": 119,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3595,
+      "path": "value_direct",
+      "rawRank": 150,
+      "effectiveRank": 150,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3360,
+      "path": "rank_hill",
+      "rawRank": 144,
+      "effectiveRank": 144,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2051,
+      "path": "rank_hill",
+      "rawRank": 66,
+      "effectiveRank": 363,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3631,
+    "rank": 124,
+    "confidence": "medium",
+    "droppedSources": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 5,
+    "median": 3595.0,
+    "mad": 126.0,
+    "kMad": 346.5,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "fantasyProsIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "dlfRookieIdp",
+      "value": 3721.0,
+      "deviation": 126.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "rookie_ladder_translation_via_idpTradeCalc",
+      "rawRank": 3,
+      "effectiveRank": 116,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 3677.0,
+      "deviation": 82.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 24,
+      "effectiveRank": 119,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3595.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 150,
+      "effectiveRank": 150,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3360.0,
+      "deviation": 235.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 19,
+      "effectiveRank": 144,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2051.0,
+      "deviation": 1544.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 66,
+      "effectiveRank": 363,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": 0.0428
+  },
+  {
+   "row": "DeMarvion Overshown",
+   "A": {
+    "value": 2774,
+    "rank": 195,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 3383,
+      "path": "rank_hill",
+      "rawRank": 27,
+      "effectiveRank": 142,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2709,
+      "path": "rank_hill",
+      "rawRank": 219,
+      "effectiveRank": 220,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2529,
+      "path": "rank_hill",
+      "rawRank": 61,
+      "effectiveRank": 250,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 2048,
+      "path": "value_direct",
+      "rawRank": 377,
+      "effectiveRank": 377,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 2054,
+    "rank": 312,
+    "confidence": "low",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 2288.5,
+    "mad": 322.5,
+    "kMad": 886.88,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 3383.0,
+      "deviation": 1094.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 27,
+      "effectiveRank": 142,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2529.0,
+      "deviation": 240.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 61,
+      "effectiveRank": 250,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 2048.0,
+      "deviation": 240.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 377,
+      "effectiveRank": 377,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 1884.0,
+      "deviation": 404.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 98,
+      "effectiveRank": 420,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": -0.2596
+  },
+  {
+   "row": "Dillon Thieneman",
+   "A": {
+    "value": 3690,
+    "rank": 121,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4353,
+      "path": "rank_hill",
+      "rawRank": 15,
+      "effectiveRank": 81,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3326,
+      "path": "rank_hill",
+      "rawRank": 147,
+      "effectiveRank": 147,
+      "contributedToBlend": false
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3264,
+      "path": "value_direct",
+      "rawRank": 183,
+      "effectiveRank": 183,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1991,
+      "path": "rank_hill",
+      "rawRank": 75,
+      "effectiveRank": 382,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3189,
+    "rank": 159,
+    "confidence": "low",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 5,
+    "median": 2982.0,
+    "mad": 408.0,
+    "kMad": 1122.0,
+    "threshold": 1122.0,
+    "floorBound": false,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4353.0,
+      "deviation": 1371.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 15,
+      "effectiveRank": 81,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3264.0,
+      "deviation": 282.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 183,
+      "effectiveRank": 183,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfRookieIdp",
+      "value": 2982.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "rookie_ladder_translation_via_idpTradeCalc",
+      "rawRank": 8,
+      "effectiveRank": 183,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfIdp",
+      "value": 2574.0,
+      "deviation": 408.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 56,
+      "effectiveRank": 242,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1991.0,
+      "deviation": 991.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 75,
+      "effectiveRank": 382,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": -0.1358
+  },
+  {
+   "row": "Edgerrin Cooper",
+   "A": {
+    "value": 3987,
+    "rank": 105,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4645,
+      "path": "rank_hill",
+      "rawRank": 10,
+      "effectiveRank": 69,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3541,
+      "path": "rank_hill",
+      "rawRank": 129,
+      "effectiveRank": 129,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3383,
+      "path": "rank_hill",
+      "rawRank": 17,
+      "effectiveRank": 142,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3288,
+      "path": "value_direct",
+      "rawRank": 180,
+      "effectiveRank": 180,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3294,
+    "rank": 150,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 3360.0,
+    "mad": 47.5,
+    "kMad": 130.62,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4645.0,
+      "deviation": 1285.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 10,
+      "effectiveRank": 69,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3383.0,
+      "deviation": 23.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 17,
+      "effectiveRank": 142,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3337.0,
+      "deviation": 23.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 21,
+      "effectiveRank": 146,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3288.0,
+      "deviation": 72.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 180,
+      "effectiveRank": 180,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     }
+    ]
+   },
+   "relChange": -0.1738
+  },
+  {
+   "row": "Jacob Rodriguez",
+   "A": {
+    "value": 4624,
+    "rank": 77,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 5667,
+      "path": "value_direct",
+      "rawRank": 52,
+      "effectiveRank": 52,
+      "contributedToBlend": null
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 4421,
+      "path": "rank_hill",
+      "rawRank": 13,
+      "effectiveRank": 78,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3796,
+      "path": "rank_hill",
+      "rawRank": 111,
+      "effectiveRank": 111,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1578,
+      "path": "rank_hill",
+      "rawRank": 149,
+      "effectiveRank": 564,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 4961,
+    "rank": 70,
+    "confidence": "medium",
+    "droppedSources": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 5,
+    "median": 4726.0,
+    "mad": 439.0,
+    "kMad": 1207.25,
+    "threshold": 1207.25,
+    "floorBound": false,
+    "dropped": [
+     "fantasyProsIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 5667.0,
+      "deviation": 941.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 52,
+      "effectiveRank": 52,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfRookieIdp",
+      "value": 5165.0,
+      "deviation": 439.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "rookie_ladder_translation_via_idpTradeCalc",
+      "rawRank": 1,
+      "effectiveRank": 52,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfIdp",
+      "value": 4726.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 8,
+      "effectiveRank": 66,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 4421.0,
+      "deviation": 305.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 13,
+      "effectiveRank": 78,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1578.0,
+      "deviation": 3148.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 149,
+      "effectiveRank": 564,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": 0.0729
+  },
+  {
+   "row": "Jihaad Campbell",
+   "A": {
+    "value": 4217,
+    "rank": 91,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4996,
+      "path": "rank_hill",
+      "rawRank": 6,
+      "effectiveRank": 57,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3605,
+      "path": "value_direct",
+      "rawRank": 143,
+      "effectiveRank": 143,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3406,
+      "path": "rank_hill",
+      "rawRank": 140,
+      "effectiveRank": 140,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2657,
+      "path": "rank_hill",
+      "rawRank": 49,
+      "effectiveRank": 228,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3538,
+    "rank": 129,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 3350.0,
+    "mad": 474.0000000000002,
+    "kMad": 1303.5,
+    "threshold": 1303.5000000000007,
+    "floorBound": false,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4996.0,
+      "deviation": 1646.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 6,
+      "effectiveRank": 57,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3605.0,
+      "deviation": 255.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 143,
+      "effectiveRank": 143,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3095.0,
+      "deviation": 255.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 29,
+      "effectiveRank": 170,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2657.0,
+      "deviation": 693.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 49,
+      "effectiveRank": 228,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": -0.161
+  },
+  {
+   "row": "Jordyn Brooks",
+   "A": {
+    "value": 3905,
+    "rank": 110,
+    "confidence": "medium",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 5096,
+      "path": "rank_hill",
+      "rawRank": 5,
+      "effectiveRank": 54,
+      "contributedToBlend": null
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 3909,
+      "path": "rank_hill",
+      "rawRank": 18,
+      "effectiveRank": 104,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3598,
+      "path": "value_direct",
+      "rawRank": 148,
+      "effectiveRank": 148,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3528,
+      "path": "rank_hill",
+      "rawRank": 130,
+      "effectiveRank": 130,
+      "contributedToBlend": false
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3726,
+    "rank": 112,
+    "confidence": "medium",
+    "droppedSources": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 3753.5,
+    "mad": 302.5,
+    "kMad": 831.88,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "fantasyProsIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 5096.0,
+      "deviation": 1342.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 5,
+      "effectiveRank": 54,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 3909.0,
+      "deviation": 155.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 18,
+      "effectiveRank": 104,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3598.0,
+      "deviation": 155.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 148,
+      "effectiveRank": 148,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3304.0,
+      "deviation": 449.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 23,
+      "effectiveRank": 149,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": -0.0458
+  },
+  {
+   "row": "Josiah Trotter",
+   "A": {
+    "value": 2368,
+    "rank": 257,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3396,
+      "path": "value_direct",
+      "rawRank": 174,
+      "effectiveRank": 174,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2840,
+      "path": "rank_hill",
+      "rawRank": 201,
+      "effectiveRank": 201,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1868,
+      "path": "rank_hill",
+      "rawRank": 102,
+      "effectiveRank": 426,
+      "contributedToBlend": null
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1675,
+      "path": "rank_hill",
+      "rawRank": 156,
+      "effectiveRank": 511,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3379,
+    "rank": 144,
+    "confidence": "low",
+    "droppedSources": [
+     "fantasyProsIdp",
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 5,
+    "median": 3171.0,
+    "mad": 224.99999999999955,
+    "kMad": 618.75,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "fantasyProsIdp",
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3396.0,
+      "deviation": 225.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 174,
+      "effectiveRank": 174,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfRookieIdp",
+      "value": 3283.0,
+      "deviation": 112.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "rookie_ladder_translation_via_idpTradeCalc",
+      "rawRank": 5,
+      "effectiveRank": 151,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3171.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 27,
+      "effectiveRank": 162,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1868.0,
+      "deviation": 1303.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 102,
+      "effectiveRank": 426,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1675.0,
+      "deviation": 1496.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 156,
+      "effectiveRank": 511,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": 0.4269
+  },
+  {
+   "row": "Myles Garrett",
+   "A": {
+    "value": 3555,
+    "rank": 133,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 5399,
+      "path": "value_direct",
+      "rawRank": 68,
+      "effectiveRank": 68,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 4726,
+      "path": "rank_hill",
+      "rawRank": 8,
+      "effectiveRank": 66,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 4184,
+      "path": "rank_hill",
+      "rawRank": 89,
+      "effectiveRank": 89,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1905,
+      "path": "rank_hill",
+      "rawRank": 92,
+      "effectiveRank": 412,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 5266,
+    "rank": 61,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 4223.5,
+    "mad": 839.0,
+    "kMad": 2307.25,
+    "threshold": 2307.25,
+    "floorBound": false,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 5399.0,
+      "deviation": 1175.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 68,
+      "effectiveRank": 68,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 4726.0,
+      "deviation": 502.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 8,
+      "effectiveRank": 66,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3721.0,
+      "deviation": 502.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 11,
+      "effectiveRank": 116,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1905.0,
+      "deviation": 2318.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 92,
+      "effectiveRank": 412,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": 0.4813
+  },
+  {
+   "row": "Nick Bolton",
+   "A": {
+    "value": 4138,
+    "rank": 98,
+    "confidence": "medium",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4698,
+      "path": "rank_hill",
+      "rawRank": 9,
+      "effectiveRank": 67,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3611,
+      "path": "value_direct",
+      "rawRank": 139,
+      "effectiveRank": 139,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3503,
+      "path": "rank_hill",
+      "rawRank": 132,
+      "effectiveRank": 132,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3360,
+      "path": "rank_hill",
+      "rawRank": 19,
+      "effectiveRank": 144,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3588,
+    "rank": 126,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 3502.5,
+    "mad": 125.5,
+    "kMad": 345.12,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4698.0,
+      "deviation": 1195.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 9,
+      "effectiveRank": 67,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3611.0,
+      "deviation": 108.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 139,
+      "effectiveRank": 139,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3394.0,
+      "deviation": 108.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 16,
+      "effectiveRank": 141,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3360.0,
+      "deviation": 142.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 19,
+      "effectiveRank": 144,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": -0.1329
+  },
+  {
+   "row": "Nick Emmanwori",
+   "A": {
+    "value": 4020,
+    "rank": 104,
+    "confidence": "medium",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4517,
+      "path": "rank_hill",
+      "rawRank": 12,
+      "effectiveRank": 74,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3602,
+      "path": "value_direct",
+      "rawRank": 145,
+      "effectiveRank": 145,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3567,
+      "path": "rank_hill",
+      "rawRank": 127,
+      "effectiveRank": 127,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3132,
+      "path": "rank_hill",
+      "rawRank": 28,
+      "effectiveRank": 166,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3546,
+    "rank": 128,
+    "confidence": "low",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 3367.0,
+    "mad": 297.5,
+    "kMad": 818.12,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4517.0,
+      "deviation": 1150.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 12,
+      "effectiveRank": 74,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3602.0,
+      "deviation": 235.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 145,
+      "effectiveRank": 145,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3132.0,
+      "deviation": 235.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 28,
+      "effectiveRank": 166,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3007.0,
+      "deviation": 360.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 34,
+      "effectiveRank": 180,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": -0.1179
+  },
+  {
+   "row": "Nick Herbig",
+   "A": {
+    "value": 2118,
+    "rank": 308,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 2999,
+      "path": "value_direct",
+      "rawRank": 233,
+      "effectiveRank": 233,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2615,
+      "path": "rank_hill",
+      "rawRank": 234,
+      "effectiveRank": 235,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1780,
+      "path": "rank_hill",
+      "rawRank": 132,
+      "effectiveRank": 462,
+      "contributedToBlend": null
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1507,
+      "path": "rank_hill",
+      "rawRank": 235,
+      "effectiveRank": 608,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 1548,
+    "rank": 508,
+    "confidence": "low",
+    "droppedSources": [
+     "idpTradeCalc"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 1893.5,
+    "mad": 250.0,
+    "kMad": 687.5,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "idpTradeCalc"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 2999.0,
+      "deviation": 1105.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 233,
+      "effectiveRank": 233,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 2007.0,
+      "deviation": 113.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 73,
+      "effectiveRank": 377,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1780.0,
+      "deviation": 113.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 132,
+      "effectiveRank": 462,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1507.0,
+      "deviation": 386.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 235,
+      "effectiveRank": 608,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": -0.2691
+  },
+  {
+   "row": "Patrick Queen",
+   "A": {
+    "value": 2623,
+    "rank": 218,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 3262,
+      "path": "rank_hill",
+      "rawRank": 27,
+      "effectiveRank": 153,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2529,
+      "path": "rank_hill",
+      "rawRank": 249,
+      "effectiveRank": 250,
+      "contributedToBlend": false
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 1973,
+      "path": "value_direct",
+      "rawRank": 405,
+      "effectiveRank": 405,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1922,
+      "path": "rank_hill",
+      "rawRank": 88,
+      "effectiveRank": 406,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 1973,
+    "rank": 329,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 1991.5,
+    "mad": 44.0,
+    "kMad": 121.0,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 3262.0,
+      "deviation": 1270.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 27,
+      "effectiveRank": 153,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfIdp",
+      "value": 2010.0,
+      "deviation": 18.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 72,
+      "effectiveRank": 376,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 1973.0,
+      "deviation": 18.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 405,
+      "effectiveRank": 405,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1922.0,
+      "deviation": 69.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 88,
+      "effectiveRank": 406,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": -0.2478
+  },
+  {
+   "row": "Quay Walker",
+   "A": {
+    "value": 3905,
+    "rank": 111,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4618,
+      "path": "rank_hill",
+      "rawRank": 10,
+      "effectiveRank": 70,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3394,
+      "path": "rank_hill",
+      "rawRank": 16,
+      "effectiveRank": 141,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3272,
+      "path": "rank_hill",
+      "rawRank": 152,
+      "effectiveRank": 152,
+      "contributedToBlend": false
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3111,
+      "path": "value_direct",
+      "rawRank": 214,
+      "effectiveRank": 214,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3109,
+    "rank": 170,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 3252.5,
+    "mad": 230.5,
+    "kMad": 633.88,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 4618.0,
+      "deviation": 1365.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 10,
+      "effectiveRank": 70,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3394.0,
+      "deviation": 141.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 16,
+      "effectiveRank": 141,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3111.0,
+      "deviation": 141.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 214,
+      "effectiveRank": 214,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 2933.0,
+      "deviation": 319.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 36,
+      "effectiveRank": 189,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": -0.2038
+  },
+  {
+   "row": "Quincy Williams",
+   "A": {
+    "value": 2184,
+    "rank": 290,
+    "confidence": "medium",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 3171,
+      "path": "rank_hill",
+      "rawRank": 27,
+      "effectiveRank": 162,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2274,
+      "path": "rank_hill",
+      "rawRank": 302,
+      "effectiveRank": 303,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2189,
+      "path": "rank_hill",
+      "rawRank": 61,
+      "effectiveRank": 324,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 1927,
+      "path": "value_direct",
+      "rawRank": 439,
+      "effectiveRank": 439,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 2065,
+    "rank": 308,
+    "confidence": "medium",
+    "droppedSources": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 2085.5,
+    "mad": 131.0,
+    "kMad": 360.25,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "fantasyProsIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 3171.0,
+      "deviation": 1085.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 27,
+      "effectiveRank": 162,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2189.0,
+      "deviation": 103.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 61,
+      "effectiveRank": 324,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfIdp",
+      "value": 1982.0,
+      "deviation": 103.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 77,
+      "effectiveRank": 385,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 1927.0,
+      "deviation": 158.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 439,
+      "effectiveRank": 439,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     }
+    ]
+   },
+   "relChange": -0.0545
+  },
+  {
+   "row": "Robert Spillane",
+   "A": {
+    "value": 2187,
+    "rank": 288,
+    "confidence": "medium",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 3294,
+      "path": "rank_hill",
+      "rawRank": 24,
+      "effectiveRank": 150,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2249,
+      "path": "rank_hill",
+      "rawRank": 308,
+      "effectiveRank": 309,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2178,
+      "path": "rank_hill",
+      "rawRank": 61,
+      "effectiveRank": 327,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 1917,
+      "path": "value_direct",
+      "rawRank": 453,
+      "effectiveRank": 453,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 2054,
+    "rank": 313,
+    "confidence": "medium",
+    "droppedSources": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 2070.0,
+    "mad": 130.4999999999999,
+    "kMad": 358.87,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "fantasyProsIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 3294.0,
+      "deviation": 1224.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 24,
+      "effectiveRank": 150,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2178.0,
+      "deviation": 108.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 61,
+      "effectiveRank": 327,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfIdp",
+      "value": 1962.0,
+      "deviation": 108.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 82,
+      "effectiveRank": 392,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 1917.0,
+      "deviation": 153.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 453,
+      "effectiveRank": 453,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     }
+    ]
+   },
+   "relChange": -0.0608
+  },
+  {
+   "row": "Roquan Smith",
+   "A": {
+    "value": 3323,
+    "rank": 151,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 5165,
+      "path": "rank_hill",
+      "rawRank": 3,
+      "effectiveRank": 52,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3649,
+      "path": "rank_hill",
+      "rawRank": 121,
+      "effectiveRank": 121,
+      "contributedToBlend": false
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3608,
+      "path": "value_direct",
+      "rawRank": 141,
+      "effectiveRank": 141,
+      "contributedToBlend": null
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2742,
+      "path": "rank_hill",
+      "rawRank": 36,
+      "effectiveRank": 215,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3143,
+    "rank": 165,
+    "confidence": "medium",
+    "droppedSources": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 3489.5,
+    "mad": 433.0,
+    "kMad": 1190.75,
+    "threshold": 1190.75,
+    "floorBound": false,
+    "dropped": [
+     "fantasyProsIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "fantasyProsIdp",
+      "value": 5165.0,
+      "deviation": 1675.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 3,
+      "effectiveRank": 52,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 3608.0,
+      "deviation": 118.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 141,
+      "effectiveRank": 141,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3371.0,
+      "deviation": 118.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 18,
+      "effectiveRank": 143,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2742.0,
+      "deviation": 747.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 36,
+      "effectiveRank": 215,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": -0.0542
+  },
+  {
+   "row": "Sonny Styles",
+   "A": {
+    "value": 5029,
+    "rank": 63,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 6108,
+      "path": "rank_hill",
+      "rawRank": 3,
+      "effectiveRank": 31,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 4173,
+      "path": "value_direct",
+      "rawRank": 116,
+      "effectiveRank": 116,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 3860,
+      "path": "rank_hill",
+      "rawRank": 107,
+      "effectiveRank": 107,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2901,
+      "path": "rank_hill",
+      "rawRank": 37,
+      "effectiveRank": 193,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 5236,
+    "rank": 62,
+    "confidence": "low",
+    "droppedSources": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 5,
+    "median": 4811.0,
+    "mad": 638.0,
+    "kMad": 1754.5,
+    "threshold": 1754.5,
+    "floorBound": false,
+    "dropped": [
+     "fantasyProsIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 6108.0,
+      "deviation": 1297.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 3,
+      "effectiveRank": 31,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfRookieIdp",
+      "value": 5130.0,
+      "deviation": 319.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "rookie_ladder_translation_via_idpTradeCalc",
+      "rawRank": 2,
+      "effectiveRank": 53,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "dlfIdp",
+      "value": 4811.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 6,
+      "effectiveRank": 63,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 4173.0,
+      "deviation": 638.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 116,
+      "effectiveRank": 116,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 2901.0,
+      "deviation": 1910.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 37,
+      "effectiveRank": 193,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     }
+    ]
+   },
+   "relChange": 0.0412
+  },
+  {
+   "row": "T.J. Watt",
+   "A": {
+    "value": 2394,
+    "rank": 250,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3458,
+      "path": "value_direct",
+      "rawRank": 166,
+      "effectiveRank": 166,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3033,
+      "path": "rank_hill",
+      "rawRank": 33,
+      "effectiveRank": 177,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2982,
+      "path": "rank_hill",
+      "rawRank": 183,
+      "effectiveRank": 183,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1450,
+      "path": "rank_hill",
+      "rawRank": 278,
+      "effectiveRank": 647,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 3431,
+    "rank": 138,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 3158.0,
+    "mad": 212.5,
+    "kMad": 584.38,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 3458.0,
+      "deviation": 300.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 166,
+      "effectiveRank": 166,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3283.0,
+      "deviation": 125.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 25,
+      "effectiveRank": 151,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 3033.0,
+      "deviation": 125.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 33,
+      "effectiveRank": 177,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1450.0,
+      "deviation": 1708.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 278,
+      "effectiveRank": 647,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": 0.4332
+  },
+  {
+   "row": "Trevin Wallace",
+   "A": {
+    "value": 1937,
+    "rank": 342,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 2878,
+      "path": "rank_hill",
+      "rawRank": 33,
+      "effectiveRank": 196,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 1842,
+      "path": "rank_hill",
+      "rawRank": 435,
+      "effectiveRank": 436,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1558,
+      "path": "rank_hill",
+      "rawRank": 153,
+      "effectiveRank": 576,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 814,
+      "path": "value_direct",
+      "rawRank": 809,
+      "effectiveRank": 809,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 885,
+    "rank": null,
+    "confidence": "low",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 1537.5,
+    "mad": 372.0,
+    "kMad": 1023.0,
+    "threshold": 1023.0,
+    "floorBound": false,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 2878.0,
+      "deviation": 1340.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 33,
+      "effectiveRank": 196,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1558.0,
+      "deviation": 20.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 153,
+      "effectiveRank": 576,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 1517.0,
+      "deviation": 20.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 164,
+      "effectiveRank": 601,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 814.0,
+      "deviation": 723.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 809,
+      "effectiveRank": 809,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     }
+    ]
+   },
+   "relChange": -0.5431
+  },
+  {
+   "row": "Trey Hendrickson",
+   "A": {
+    "value": 2086,
+    "rank": 312,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 2927,
+      "path": "value_direct",
+      "rawRank": 250,
+      "effectiveRank": 250,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 2496,
+      "path": "rank_hill",
+      "rawRank": 255,
+      "effectiveRank": 256,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1916,
+      "path": "rank_hill",
+      "rawRank": 89,
+      "effectiveRank": 408,
+      "contributedToBlend": null
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1472,
+      "path": "rank_hill",
+      "rawRank": 254,
+      "effectiveRank": 631,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 1513,
+    "rank": 524,
+    "confidence": "low",
+    "droppedSources": [
+     "idpTradeCalc"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 1897.0,
+    "mad": 222.0,
+    "kMad": 610.5,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "idpTradeCalc"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 2927.0,
+      "deviation": 1030.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 250,
+      "effectiveRank": 250,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1916.0,
+      "deviation": 19.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 89,
+      "effectiveRank": 408,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 1878.0,
+      "deviation": 19.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 100,
+      "effectiveRank": 422,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1472.0,
+      "deviation": 425.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 254,
+      "effectiveRank": 631,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": -0.2747
+  },
+  {
+   "row": "Will Anderson",
+   "A": {
+    "value": 4354,
+    "rank": 87,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 5963,
+      "path": "value_direct",
+      "rawRank": 41,
+      "effectiveRank": 41,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 5603,
+      "path": "rank_hill",
+      "rawRank": 2,
+      "effectiveRank": 41,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 4225,
+      "path": "rank_hill",
+      "rawRank": 87,
+      "effectiveRank": 87,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2870,
+      "path": "rank_hill",
+      "rawRank": 33,
+      "effectiveRank": 197,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 5967,
+    "rank": 36,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 5783.0,
+    "mad": 312.0,
+    "kMad": 858.0,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "dlfIdp",
+      "value": 6227.0,
+      "deviation": 444.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 1,
+      "effectiveRank": 29,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 5963.0,
+      "deviation": 180.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 41,
+      "effectiveRank": 41,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 5603.0,
+      "deviation": 180.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 2,
+      "effectiveRank": 41,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 2870.0,
+      "deviation": 2913.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 33,
+      "effectiveRank": 197,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": 0.3705
+  }
+ ],
+ "focus": [
+  {
+   "row": "Trevin Wallace",
+   "A": {
+    "value": 1937,
+    "rank": 342,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 2878,
+      "path": "rank_hill",
+      "rawRank": 33,
+      "effectiveRank": 196,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 1842,
+      "path": "rank_hill",
+      "rawRank": 435,
+      "effectiveRank": 436,
+      "contributedToBlend": false
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1558,
+      "path": "rank_hill",
+      "rawRank": 153,
+      "effectiveRank": 576,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 814,
+      "path": "value_direct",
+      "rawRank": 809,
+      "effectiveRank": 809,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 885,
+    "rank": null,
+    "confidence": "low",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 1537.5,
+    "mad": 372.0,
+    "kMad": 1023.0,
+    "threshold": 1023.0,
+    "floorBound": false,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "draftSharksIdp",
+      "value": 2878.0,
+      "deviation": 1340.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 33,
+      "effectiveRank": 196,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 1558.0,
+      "deviation": 20.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 153,
+      "effectiveRank": 576,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 1517.0,
+      "deviation": 20.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 164,
+      "effectiveRank": 601,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "idpTradeCalc",
+      "value": 814.0,
+      "deviation": 723.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 809,
+      "effectiveRank": 809,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     }
+    ]
+   },
+   "relChange": -0.5431
+  },
+  {
+   "row": "Myles Garrett",
+   "A": {
+    "value": 3555,
+    "rank": 133,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 5399,
+      "path": "value_direct",
+      "rawRank": 68,
+      "effectiveRank": 68,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 4726,
+      "path": "rank_hill",
+      "rawRank": 8,
+      "effectiveRank": 66,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 4184,
+      "path": "rank_hill",
+      "rawRank": 89,
+      "effectiveRank": 89,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1905,
+      "path": "rank_hill",
+      "rawRank": 92,
+      "effectiveRank": 412,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 5266,
+    "rank": 61,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 4223.5,
+    "mad": 839.0,
+    "kMad": 2307.25,
+    "threshold": 2307.25,
+    "floorBound": false,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 5399.0,
+      "deviation": 1175.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 68,
+      "effectiveRank": 68,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 4726.0,
+      "deviation": 502.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 8,
+      "effectiveRank": 66,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "dlfIdp",
+      "value": 3721.0,
+      "deviation": 502.5,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 11,
+      "effectiveRank": 116,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 1905.0,
+      "deviation": 2318.5,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 92,
+      "effectiveRank": 412,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": 0.4813
+  },
+  {
+   "row": "Aidan Hutchinson",
+   "A": {
+    "value": 4772,
+    "rank": 72,
+    "confidence": "low",
+    "droppedSources": [],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 6444,
+      "path": "value_direct",
+      "rawRank": 29,
+      "effectiveRank": 29,
+      "contributedToBlend": null
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 6227,
+      "path": "rank_hill",
+      "rawRank": 1,
+      "effectiveRank": 29,
+      "contributedToBlend": null
+     },
+     {
+      "source": "idpShowCombined",
+      "value": 4592,
+      "path": "rank_hill",
+      "rawRank": 71,
+      "effectiveRank": 71,
+      "contributedToBlend": false
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 3200,
+      "path": "rank_hill",
+      "rawRank": 31,
+      "effectiveRank": 159,
+      "contributedToBlend": null
+     }
+    ],
+    "n": 3
+   },
+   "B": {
+    "value": 6422,
+    "rank": 34,
+    "confidence": "medium",
+    "droppedSources": [
+     "draftSharksIdp"
+    ],
+    "freshnessExcluded": [
+     "idpShowCombined"
+    ],
+    "filterRan": true,
+    "n": 4,
+    "median": 6227.0,
+    "mad": 108.50000000000045,
+    "kMad": 298.38,
+    "threshold": 1000.0,
+    "floorBound": true,
+    "dropped": [
+     "draftSharksIdp"
+    ],
+    "guardStoodDown": false,
+    "votes": [
+     {
+      "source": "idpTradeCalc",
+      "value": 6444.0,
+      "deviation": 217.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "value_direct",
+      "method": "direct",
+      "rawRank": 29,
+      "effectiveRank": 29,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 0.7700752676501835
+     },
+     {
+      "source": "dlfIdp",
+      "value": 6227.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 1,
+      "effectiveRank": 29,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 1.0
+     },
+     {
+      "source": "fantasyProsIdp",
+      "value": 6227.0,
+      "deviation": 0.0,
+      "outsideThreshold": false,
+      "dropped": false,
+      "path": "rank_hill",
+      "method": "exact",
+      "rawRank": 1,
+      "effectiveRank": 29,
+      "pool": "shared_market",
+      "anchor": false,
+      "weight": 0.5486182959530154
+     },
+     {
+      "source": "draftSharksIdp",
+      "value": 3200.0,
+      "deviation": 3027.0,
+      "outsideThreshold": true,
+      "dropped": true,
+      "path": "rank_hill",
+      "method": "ds_combined_cross_market",
+      "rawRank": 31,
+      "effectiveRank": 159,
+      "pool": "shared_market",
+      "anchor": true,
+      "weight": 1.0
+     }
+    ]
+   },
+   "relChange": 0.3458
+  }
+ ],
+ "idpMoversGe30pct": [
+  {
+   "row": "Trevin Wallace",
+   "pos": "LB",
+   "A": 1937,
+   "B": 885,
+   "rel": -0.5431,
+   "droppedInB": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "row": "Myles Garrett",
+   "pos": "DL",
+   "A": 3555,
+   "B": 5266,
+   "rel": 0.4813,
+   "droppedInB": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "row": "CJ Allen",
+   "pos": "LB",
+   "A": 3987,
+   "B": 2164,
+   "rel": -0.4572,
+   "droppedInB": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "row": "T.J. Watt",
+   "pos": "DL",
+   "A": 2394,
+   "B": 3431,
+   "rel": 0.4332,
+   "droppedInB": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "row": "Josiah Trotter",
+   "pos": "LB",
+   "A": 2368,
+   "B": 3379,
+   "rel": 0.4269,
+   "droppedInB": [
+    "fantasyProsIdp",
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "row": "Will Anderson",
+   "pos": "DL",
+   "A": 4354,
+   "B": 5967,
+   "rel": 0.3705,
+   "droppedInB": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "row": "Aidan Hutchinson",
+   "pos": "DL",
+   "A": 4772,
+   "B": 6422,
+   "rel": 0.3458,
+   "droppedInB": [
+    "draftSharksIdp"
+   ]
+  },
+  {
+   "row": "Danielle Hunter",
+   "pos": "DL",
+   "A": 2333,
+   "B": 3041,
+   "rel": 0.3035,
+   "droppedInB": [
+    "draftSharksIdp"
+   ]
+  }
+ ],
+ "mechanismPerRow": [
+  {
+   "row": "Aidan Hutchinson",
+   "n": 4,
+   "median": 6227.0,
+   "mad": 108.50000000000045,
+   "kMad": 298.4,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [
+    [
+     "dlfIdp",
+     "fantasyProsIdp",
+     6227.0,
+     6227.0
+    ]
+   ],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    3200,
+    6227,
+    6227,
+    6444
+   ]
+  },
+  {
+   "row": "Alex Singleton",
+   "n": 4,
+   "median": 1943.5,
+   "mad": 128.0000000000001,
+   "kMad": 352.0,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "fantasyProsIdp"
+   ],
+   "valuesSorted": [
+    1708,
+    1923,
+    1964,
+    3283
+   ]
+  },
+  {
+   "row": "Anthony Hill",
+   "n": 5,
+   "median": 3050.0,
+   "mad": 317.0,
+   "kMad": 871.8,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp",
+    "dlfRookieIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [
+    [
+     "dlfIdp",
+     "dlfRookieIdp",
+     3050.0,
+     3050.0
+    ]
+   ],
+   "dropped": [
+    "fantasyProsIdp"
+   ],
+   "valuesSorted": [
+    1794,
+    2265,
+    3050,
+    3050,
+    3367
+   ]
+  },
+  {
+   "row": "Barrett Carter",
+   "n": 4,
+   "median": 2019.0,
+   "mad": 90.0,
+   "kMad": 247.5,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    1876,
+    1982,
+    2056,
+    3721
+   ]
+  },
+  {
+   "row": "CJ Allen",
+   "n": 5,
+   "median": 2568.0,
+   "mad": 439.0,
+   "kMad": 1207.2,
+   "threshold": 1207.25,
+   "floorBound": false,
+   "dlfVotes": [
+    "dlfIdp",
+    "dlfRookieIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    2095,
+    2129,
+    2568,
+    2645,
+    5790
+   ]
+  },
+  {
+   "row": "Carson Schwesinger",
+   "n": 4,
+   "median": 5401.0,
+   "mad": 413.0,
+   "kMad": 1135.8,
+   "threshold": 1135.75,
+   "floorBound": false,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    4811,
+    5165,
+    5637,
+    6945
+   ]
+  },
+  {
+   "row": "Chase Young",
+   "n": 4,
+   "median": 2037.0,
+   "mad": 112.5,
+   "kMad": 309.4,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [
+    [
+     "dlfIdp",
+     "fantasyProsIdp",
+     1916.0,
+     1933.0
+    ]
+   ],
+   "dropped": [
+    "idpTradeCalc"
+   ],
+   "valuesSorted": [
+    1916,
+    1933,
+    2141,
+    3200
+   ]
+  },
+  {
+   "row": "Danielle Hunter",
+   "n": 4,
+   "median": 2842.0,
+   "mad": 183.0,
+   "kMad": 503.2,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    1641,
+    2702,
+    2982,
+    3068
+   ]
+  },
+  {
+   "row": "David Bailey",
+   "n": 5,
+   "median": 3595.0,
+   "mad": 126.0,
+   "kMad": 346.5,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp",
+    "dlfRookieIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "fantasyProsIdp"
+   ],
+   "valuesSorted": [
+    2051,
+    3360,
+    3595,
+    3677,
+    3721
+   ]
+  },
+  {
+   "row": "DeMarvion Overshown",
+   "n": 4,
+   "median": 2288.5,
+   "mad": 322.5,
+   "kMad": 886.9,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    1884,
+    2048,
+    2529,
+    3383
+   ]
+  },
+  {
+   "row": "Dillon Thieneman",
+   "n": 5,
+   "median": 2982.0,
+   "mad": 408.0,
+   "kMad": 1122.0,
+   "threshold": 1122.0,
+   "floorBound": false,
+   "dlfVotes": [
+    "dlfIdp",
+    "dlfRookieIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    1991,
+    2574,
+    2982,
+    3264,
+    4353
+   ]
+  },
+  {
+   "row": "Edgerrin Cooper",
+   "n": 4,
+   "median": 3360.0,
+   "mad": 47.5,
+   "kMad": 130.6,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    3288,
+    3337,
+    3383,
+    4645
+   ]
+  },
+  {
+   "row": "Jacob Rodriguez",
+   "n": 5,
+   "median": 4726.0,
+   "mad": 439.0,
+   "kMad": 1207.2,
+   "threshold": 1207.25,
+   "floorBound": false,
+   "dlfVotes": [
+    "dlfIdp",
+    "dlfRookieIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "fantasyProsIdp"
+   ],
+   "valuesSorted": [
+    1578,
+    4421,
+    4726,
+    5165,
+    5667
+   ]
+  },
+  {
+   "row": "Jihaad Campbell",
+   "n": 4,
+   "median": 3350.0,
+   "mad": 474.0000000000002,
+   "kMad": 1303.5,
+   "threshold": 1303.5000000000007,
+   "floorBound": false,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    2657,
+    3095,
+    3605,
+    4996
+   ]
+  },
+  {
+   "row": "Jordyn Brooks",
+   "n": 4,
+   "median": 3753.5,
+   "mad": 302.5,
+   "kMad": 831.9,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "fantasyProsIdp"
+   ],
+   "valuesSorted": [
+    3304,
+    3598,
+    3909,
+    5096
+   ]
+  },
+  {
+   "row": "Josiah Trotter",
+   "n": 5,
+   "median": 3171.0,
+   "mad": 224.99999999999955,
+   "kMad": 618.7,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp",
+    "dlfRookieIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "fantasyProsIdp",
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    1675,
+    1868,
+    3171,
+    3283,
+    3396
+   ]
+  },
+  {
+   "row": "Myles Garrett",
+   "n": 4,
+   "median": 4223.5,
+   "mad": 839.0,
+   "kMad": 2307.2,
+   "threshold": 2307.25,
+   "floorBound": false,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    1905,
+    3721,
+    4726,
+    5399
+   ]
+  },
+  {
+   "row": "Nick Bolton",
+   "n": 4,
+   "median": 3502.5,
+   "mad": 125.5,
+   "kMad": 345.1,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    3360,
+    3394,
+    3611,
+    4698
+   ]
+  },
+  {
+   "row": "Nick Emmanwori",
+   "n": 4,
+   "median": 3367.0,
+   "mad": 297.5,
+   "kMad": 818.1,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    3007,
+    3132,
+    3602,
+    4517
+   ]
+  },
+  {
+   "row": "Nick Herbig",
+   "n": 4,
+   "median": 1893.5,
+   "mad": 250.0,
+   "kMad": 687.5,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "idpTradeCalc"
+   ],
+   "valuesSorted": [
+    1507,
+    1780,
+    2007,
+    2999
+   ]
+  },
+  {
+   "row": "Patrick Queen",
+   "n": 4,
+   "median": 1991.5,
+   "mad": 44.0,
+   "kMad": 121.0,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    1922,
+    1973,
+    2010,
+    3262
+   ]
+  },
+  {
+   "row": "Quay Walker",
+   "n": 4,
+   "median": 3252.5,
+   "mad": 230.5,
+   "kMad": 633.9,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    2933,
+    3111,
+    3394,
+    4618
+   ]
+  },
+  {
+   "row": "Quincy Williams",
+   "n": 4,
+   "median": 2085.5,
+   "mad": 131.0,
+   "kMad": 360.2,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "fantasyProsIdp"
+   ],
+   "valuesSorted": [
+    1927,
+    1982,
+    2189,
+    3171
+   ]
+  },
+  {
+   "row": "Robert Spillane",
+   "n": 4,
+   "median": 2070.0,
+   "mad": 130.4999999999999,
+   "kMad": 358.9,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "fantasyProsIdp"
+   ],
+   "valuesSorted": [
+    1917,
+    1962,
+    2178,
+    3294
+   ]
+  },
+  {
+   "row": "Roquan Smith",
+   "n": 4,
+   "median": 3489.5,
+   "mad": 433.0,
+   "kMad": 1190.8,
+   "threshold": 1190.75,
+   "floorBound": false,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "fantasyProsIdp"
+   ],
+   "valuesSorted": [
+    2742,
+    3371,
+    3608,
+    5165
+   ]
+  },
+  {
+   "row": "Sonny Styles",
+   "n": 5,
+   "median": 4811.0,
+   "mad": 638.0,
+   "kMad": 1754.5,
+   "threshold": 1754.5,
+   "floorBound": false,
+   "dlfVotes": [
+    "dlfIdp",
+    "dlfRookieIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "fantasyProsIdp"
+   ],
+   "valuesSorted": [
+    2901,
+    4173,
+    4811,
+    5130,
+    6108
+   ]
+  },
+  {
+   "row": "T.J. Watt",
+   "n": 4,
+   "median": 3158.0,
+   "mad": 212.5,
+   "kMad": 584.4,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    1450,
+    3033,
+    3283,
+    3458
+   ]
+  },
+  {
+   "row": "Trevin Wallace",
+   "n": 4,
+   "median": 1537.5,
+   "mad": 372.0,
+   "kMad": 1023.0,
+   "threshold": 1023.0,
+   "floorBound": false,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    814,
+    1517,
+    1558,
+    2878
+   ]
+  },
+  {
+   "row": "Trey Hendrickson",
+   "n": 4,
+   "median": 1897.0,
+   "mad": 222.0,
+   "kMad": 610.5,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "idpTradeCalc"
+   ],
+   "valuesSorted": [
+    1472,
+    1878,
+    1916,
+    2927
+   ]
+  },
+  {
+   "row": "Will Anderson",
+   "n": 4,
+   "median": 5783.0,
+   "mad": 312.0,
+   "kMad": 858.0,
+   "threshold": 1000.0,
+   "floorBound": true,
+   "dlfVotes": [
+    "dlfIdp"
+   ],
+   "nearIdenticalRankDerivedPairs": [],
+   "dropped": [
+    "draftSharksIdp"
+   ],
+   "valuesSorted": [
+    2870,
+    5603,
+    5963,
+    6227
+   ]
+  }
+ ],
+ "mechanismSummary": {
+  "rows": 30,
+  "floorBound": 21,
+  "n4": 23,
+  "n5plus": 7,
+  "rowsWithNearIdenticalRankDerivedPair": 3,
+  "rowsWithDlfInNearIdenticalPair": 3
+ },
+ "counterfactualWithoutDlf": [
+  {
+   "row": "Aidan Hutchinson",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Alex Singleton",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Anthony Hill",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Barrett Carter",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "CJ Allen",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Carson Schwesinger",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Chase Young",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Danielle Hunter",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "David Bailey",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "DeMarvion Overshown",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Dillon Thieneman",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Edgerrin Cooper",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Jacob Rodriguez",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Jihaad Campbell",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Jordyn Brooks",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Josiah Trotter",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Myles Garrett",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Nick Bolton",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Nick Emmanwori",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Nick Herbig",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Patrick Queen",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Quay Walker",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Quincy Williams",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Robert Spillane",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Roquan Smith",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Sonny Styles",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "T.J. Watt",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Trevin Wallace",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Trey Hendrickson",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  },
+  {
+   "row": "Will Anderson",
+   "nWithoutDlf": 3,
+   "filterWouldRunWithoutDlf": false
+  }
+ ]
+}

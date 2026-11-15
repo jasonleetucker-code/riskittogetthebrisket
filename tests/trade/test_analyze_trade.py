@@ -29,7 +29,7 @@ from src.trade.analyze_trade import (
     _market_lens,
     analyze_trade,
 )
-from src.trade.ktc_va import adjusted_pair_totals
+from src.valuation_math.package_model import adjusted_pair_totals
 
 
 def _utility(ppg, *, se=0.3, coverage="full", players=None, depth=None, cleanup=None, pre=None):
@@ -103,7 +103,9 @@ def _sim(recv, send, *, utility=None, capacity=None, strength=None, context=None
 
 
 class TestMarketLensUsesTheCanonicalOwner:
-    def test_gap_matches_ktc_va_directly(self):
+    def test_gap_matches_the_canonical_package_owner(self):
+        # The lens must read the ACTIVE package model through the canonical
+        # dispatch (geom_q078_v1 since 2026-10-17), not KTC's port directly.
         sending, receiving = [3000.0, 500.0], [5000.0]
         send_adj, recv_adj, _, _ = adjusted_pair_totals(sending, receiving)
         lens = _market_lens(_sim(receiving, sending))
@@ -327,19 +329,118 @@ class TestMissingIsNamed:
         assert a["lenses"]["roster"]["unavailableReason"] == "season_unresolved"
         assert a["confidence"] != "HIGH"
 
-    def test_posture_and_current_season_equity_are_named_absent(self):
+    def test_current_season_equity_is_named_absent(self):
         a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0)))
         names = {d["dimension"] for d in a["unavailableDimensions"]}
-        assert {
-            "marketCorroboration",
-            "valueUncertainty",
-            "strategicPosture",
-            "currentSeasonEquity",
-        } <= names
+        assert {"valueUncertainty", "currentSeasonEquity"} <= names
+        # Comparable real trades exist now (TC-09); they are a lens, not an
+        # "absent" dimension.
+        assert "marketCorroboration" not in names
         for d in a["unavailableDimensions"]:
             assert d["reason"] and d["notes"]
-        # Never smuggled in as a neutral lens.
-        assert "strategicPosture" not in a["lenses"]
+
+    def test_comparables_not_computed_is_named_unavailable_and_never_votes(self):
+        a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0)))
+        lens = a["lenses"]["comparables"]
+        assert lens["available"] is False and lens["votes"] is False
+        assert lens["unavailableReason"] == "not_computed"
+
+    @pytest.mark.parametrize(
+        "payload,reason",
+        [
+            (
+                {"state": "unavailable", "reason": "trade_ledger_not_built"},
+                "trade_ledger_not_built",
+            ),
+            ({"state": "no_assets"}, "no_identifiable_assets"),
+            ({"state": "weird"}, "comparables_error"),
+        ],
+    )
+    def test_comparables_unavailable_states_are_named(self, payload, reason):
+        a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0)), comparables=payload)
+        lens = a["lenses"]["comparables"]
+        assert lens["available"] is False and lens["unavailableReason"] == reason
+
+    def test_comparables_are_context_and_cannot_move_anything(self):
+        comps = {
+            "state": "ok",
+            "since": "2025-10-08",
+            "candidates": 5,
+            "belowMinScore": 1,
+            "scanCapped": False,
+            "methodology": {"status": "PRIOR_UNVALIDATED"},
+            "trades": [
+                {
+                    "occurredDate": f"2026-10-0{i}",
+                    "sourceFamilies": ["ktc_trade_database"],
+                    "sides": [[], []],
+                    "formatMatch": {
+                        "appliesToThisLeague": True,
+                        "disposition": "NATIVE_COMPARABLE",
+                    },
+                    "comparability": {
+                        "score": 0.9 - i / 10,
+                        "reasons": [{"key": "sharedExact", "text": "Same asset: X"}],
+                    },
+                }
+                for i in range(1, 6)
+            ],
+        }
+        for recv, send in (([5000], [3000]), ([3000], [5000]), ([4000], [4000])):
+            sim = _sim(recv, send, utility=_utility(2.0))
+            without = analyze_trade(sim)
+            with_comps = analyze_trade(sim, comparables=comps)
+            for key in (
+                "recommendation",
+                "confidence",
+                "basis",
+                "reasonsFor",
+                "reasonsAgainst",
+                "uncertainty",
+            ):
+                assert with_comps[key] == without[key], key
+        lens = with_comps["lenses"]["comparables"]
+        assert lens["available"] is True and lens["votes"] is False
+        assert lens["direction"] == "context"
+        assert len(lens["detail"]["comparableTrades"]) == 3
+        assert lens["detail"]["comparableTrades"][0]["formatDisposition"] == "NATIVE_COMPARABLE"
+        assert lens["detail"]["candidates"] == 5
+
+    def test_comparables_survive_asset_only_mode(self):
+        sim = _sim([5000], [3000], context={"applied": False, "mode": "asset_only"})
+        a = analyze_trade(sim, comparables={"state": "ok", "trades": []})
+        lens = a["lenses"]["comparables"]
+        assert lens["available"] is True and lens["detail"]["comparableTrades"] == []
+
+    def test_posture_without_its_owner_answer_is_named_unavailable_and_never_votes(self):
+        # Wave B: posture has a canonical owner now (#840 / C7-POST-01).  A
+        # simulation that did not carry its answer reports it UNAVAILABLE —
+        # never smuggled in as a neutral lens, and never a vote.
+        a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0)))
+        lens = a["lenses"]["posture"]
+        assert lens["available"] is False and lens["votes"] is False
+        assert lens["unavailableReason"] == "not_computed"
+
+    def test_posture_is_context_and_cannot_move_the_recommendation(self):
+        base = _sim([5000], [3000], utility=_utility(2.0))
+        plain = analyze_trade(base)
+        for label in ("PUSH", "HOLD", "RETOOL", "REBUILD"):
+            with_posture = analyze_trade(
+                {
+                    **base,
+                    "competitivePosture": {
+                        "available": True,
+                        "label": label,
+                        "probabilities": {label: 1.0},
+                        "confidence": 1.0,
+                    },
+                }
+            )
+            lens = with_posture["lenses"]["posture"]
+            assert lens["available"] is True and lens["votes"] is False
+            assert lens["detail"]["label"] == label
+            assert with_posture["recommendation"] == plain["recommendation"]
+            assert with_posture["confidence"] == plain["confidence"]
 
     def test_no_priced_assets_is_too_close_low_confidence(self):
         a = analyze_trade(_sim([], []))

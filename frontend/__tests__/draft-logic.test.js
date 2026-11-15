@@ -6,6 +6,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  isWorkspaceReady,
+  isDefaultPlaceholderTeam,
   DEFAULT_AGGRESSION,
   DEFAULT_ENFORCE_PCT,
   DEFAULT_TEAMS,
@@ -1053,6 +1055,22 @@ describe("the rookie draft has no per-team slot limit", () => {
     }
   });
 
+  it("a 31-pick team is not clamped to six slots by the capital merge (audit W10-F002)", () => {
+    const feed = [
+      { team: "Heavy", auctionDollars: 685 },
+      { team: "Light", auctionDollars: 100 },
+    ];
+    const picks = Array.from({ length: 31 }, () => ({ currentOwner: "Heavy" }));
+    const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), feed, { picks });
+    const heavy = workspace.teams.find((t) => t.name === "Heavy");
+    expect(heavy.initialBudget).toBe(685);
+    expect(heavy.initialSlots).toBeUndefined();
+    const stats = computeDraftStats(workspace);
+    const row = stats.teamStats.find((t) => t.name === "Heavy");
+    expect(row.initialSlots).toBeUndefined();
+    expect(row.mdv).toBeUndefined();
+  });
+
   it("stamps no slot fields on stats or teams", () => {
     const stats = computeDraftStats(createDefaultWorkspace());
     for (const gone of [
@@ -1281,6 +1299,99 @@ describe("computeDraftStats — top competitor ceiling capping", () => {
   });
 });
 
+describe("mergeDraftCapitalTeams — first-visit default team", () => {
+  // A real league feed (no seed names): the seed "my team" row is dropped.
+  const feed = [
+    { team: "schoeppeya", auctionDollars: 120 },
+    { team: "Jason", auctionDollars: 95 },
+    { team: "Brent", auctionDollars: 80 },
+  ];
+
+  it("prefers the header's selected team over row 0 when 'my team' is still a seed row", () => {
+    const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), feed, {
+      preferredTeamName: "jason",
+    });
+    expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Jason");
+  });
+
+  it("never overrides a team the user chose on the draft page", () => {
+    const ws = createDefaultWorkspace();
+    const chosen = mergeDraftCapitalTeams(ws, feed).workspace;
+    chosen.settings.myTeamIdx = chosen.teams.findIndex((t) => t.name === "Brent");
+    const { workspace } = mergeDraftCapitalTeams(chosen, feed, { preferredTeamName: "Jason" });
+    expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Brent");
+  });
+
+  it("never overrides a chosen team that carries a seed's name and budget ({Ed, $71})", () => {
+    // A real feed row can equal a seed row field for field, so "is my team a
+    // seed row?" cannot decide this; only an untouched seed workspace can
+    // (independent review).
+    const seedLike = [
+      { team: "Medical Murrayjuana", ownerId: "4684", auctionDollars: 95 },
+      { team: "Ed", ownerId: "7114", auctionDollars: 71 },
+    ];
+    const first = mergeDraftCapitalTeams(createDefaultWorkspace(), seedLike, {
+      preferredOwnerId: "4684",
+    }).workspace;
+    expect(first.teams[first.settings.myTeamIdx].name).toBe("Medical Murrayjuana");
+    first.settings.myTeamIdx = first.teams.findIndex((t) => t.name === "Ed");
+    const again = mergeDraftCapitalTeams(first, seedLike, {
+      mode: "sync",
+      preferredOwnerId: "4684",
+    }).workspace;
+    expect(again.teams[again.settings.myTeamIdx].name).toBe("Ed");
+  });
+
+  it("does not move a selection the user made on the seed board before the feed arrived", () => {
+    const ws = createDefaultWorkspace();
+    ws.settings.myTeamIdx = ws.teams.findIndex((t) => t.name === "Brent");
+    const { workspace } = mergeDraftCapitalTeams(ws, feed, { preferredTeamName: "Jason" });
+    expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Brent");
+  });
+
+  it("matches the header's team by Sleeper owner id when the feed uses team names", () => {
+    const named = [
+      { team: "schoeppeya", ownerId: "1393", auctionDollars: 120 },
+      { team: "Medical Murrayjuana", ownerId: "4684", auctionDollars: 95 },
+    ];
+    const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), named, {
+      preferredTeamName: "Jason",
+      preferredOwnerId: "4684",
+    });
+    expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe("Medical Murrayjuana");
+  });
+
+  it("keeps today's fallback when the preferred team is not in the feed", () => {
+    const { workspace } = mergeDraftCapitalTeams(createDefaultWorkspace(), feed, {
+      preferredTeamName: "Not In League",
+    });
+    expect(workspace.settings.myTeamIdx).toBe(0);
+  });
+});
+
+describe("mergeDraftCapitalTeams — missing budget is unavailable, never $0", () => {
+  it("one null team among numeric teams: that team is unavailable, others unchanged", () => {
+    const ws = createDefaultWorkspace();
+    const feed = [
+      { team: "Ed", auctionDollars: 100 },
+      { team: "Brent", auctionDollars: null },
+      { team: "Newbie", auctionDollars: undefined },
+    ];
+    const before = ws.teams.find((t) => t.name === "Brent");
+    const { workspace, unavailable } = mergeDraftCapitalTeams(ws, feed);
+    expect(unavailable).toEqual(["Brent", "Newbie"]);
+    expect(workspace.teams.find((t) => t.name === "Ed").initialBudget).toBe(100);
+    expect(workspace.teams.find((t) => t.name === "Brent")).toEqual(before);
+    expect(workspace.teams.find((t) => t.name === "Newbie")).toBeUndefined();
+  });
+  it("all-missing feed leaves the workspace untouched", () => {
+    const ws = createDefaultWorkspace();
+    const r = mergeDraftCapitalTeams(ws, [{ team: "Ed", auctionDollars: null }]);
+    expect(r.workspace).toBe(ws);
+    expect(r.unavailable).toEqual(["Ed"]);
+  });
+});
+
 describe("mergeDraftCapitalTeams — with picks array", () => {
   const teamTotals = [
     { team: "Russini Panini", auctionDollars: 418 },
@@ -1397,7 +1508,6 @@ import {
   TAG_AVOID,
   TIER_SCARCITY_URGENT,
   cycleTag,
-  nextBestTargets,
   playerRecommendation,
   setPlayerTag,
 } from "@/lib/draft-logic";
@@ -1669,63 +1779,6 @@ describe("playerRecommendation", () => {
     // No tier scarcity on S at opening.  Slot pressure 0 so no
     // spend-up.  → "buy".
     expect(rec.level).toBe("buy");
-  });
-});
-
-// ── nextBestTargets ─────────────────────────────────────────────────────
-
-describe("nextBestTargets", () => {
-  it("returns an array capped at the limit", () => {
-    const stats = computeDraftStats(createDefaultWorkspace());
-    const top = nextBestTargets(stats, { limit: 5 });
-    expect(top.length).toBeLessThanOrEqual(5);
-    for (const entry of top) {
-      expect(entry.player).toBeTruthy();
-      expect(entry.rec).toBeTruthy();
-      expect(entry.ev).toBeGreaterThanOrEqual(0);
-    }
-  });
-
-  it("excludes drafted players", () => {
-    const ws = createDefaultWorkspace();
-    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
-    const withPick = recordPick(ws, {
-      playerId: love.id,
-      teamIdx: 0,
-      amount: 120,
-    });
-    const stats = computeDraftStats(withPick);
-    const top = nextBestTargets(stats, { limit: 10 });
-    expect(top.find((e) => e.player.name === "Jeremiyah Love")).toBeUndefined();
-  });
-
-  it("excludes AVOID-tagged players entirely", () => {
-    let ws = createDefaultWorkspace();
-    ws = setPlayerTag(ws, "jeremiyah-love", TAG_AVOID);
-    const stats = computeDraftStats(ws);
-    const top = nextBestTargets(stats, { limit: 72 });
-    expect(top.find((e) => e.player.name === "Jeremiyah Love")).toBeUndefined();
-  });
-
-  it("ranks TARGET-tagged players above untagged at similar value", () => {
-    let ws = createDefaultWorkspace();
-    // Tag Tate (PreDraft 83) as a target; Tyson (73) stays neutral.
-    ws = setPlayerTag(ws, "carnell-tate", TAG_TARGET);
-    const stats = computeDraftStats(ws);
-    const top = nextBestTargets(stats, { limit: 5 });
-    const tateIdx = top.findIndex((e) => e.player.name === "Carnell Tate");
-    const tysonIdx = top.findIndex(
-      (e) => e.player.name === "Jordyn Tyson",
-    );
-    // Tate should be at or above Tyson after the tag boost.
-    expect(tateIdx).toBeGreaterThanOrEqual(0);
-    if (tysonIdx >= 0) {
-      expect(tateIdx).toBeLessThan(tysonIdx);
-    }
-  });
-
-  it("falls back gracefully when stats is null", () => {
-    expect(nextBestTargets(null)).toEqual([]);
   });
 });
 
@@ -3040,5 +3093,45 @@ describe("computeRosterBreakdown", () => {
     // QB is met (1/1), RB is short (0/2).
     expect(br.needPositions).toEqual(["RB"]);
     expect(br.counts.TE).toBeUndefined(); // TE not in custom mins
+  });
+});
+
+describe("isWorkspaceReady", () => {
+  const key = "riskit_draft_workspace_v1__dynasty_main";
+  it("is false until a league is resolved", () => {
+    expect(isWorkspaceReady({ selectedLeagueKey: "", hydratedKey: "legacy", draftStorageKey: "legacy" })).toBe(false);
+  });
+  it("is false while the workspace in state was hydrated for a different storage key", () => {
+    // Cold load: hydrated from the legacy key, league just resolved.
+    expect(isWorkspaceReady({ selectedLeagueKey: "dynasty_main", hydratedKey: "legacy", draftStorageKey: key })).toBe(false);
+    expect(isWorkspaceReady({ selectedLeagueKey: "dynasty_main", hydratedKey: "", draftStorageKey: key })).toBe(false);
+  });
+  it("is true once the active league's own workspace has hydrated", () => {
+    expect(isWorkspaceReady({ selectedLeagueKey: "dynasty_main", hydratedKey: key, draftStorageKey: key })).toBe(true);
+  });
+  it("does not wait forever when league resolution finished without a league", () => {
+    // /api/leagues failed or listed none: the page works on its unsuffixed
+    // workspace, as before this gate existed (independent review of #2189).
+    expect(
+      isWorkspaceReady({ selectedLeagueKey: "", hydratedKey: "legacy", draftStorageKey: "legacy", leagueResolved: true }),
+    ).toBe(true);
+    expect(
+      isWorkspaceReady({ selectedLeagueKey: "", hydratedKey: "", draftStorageKey: "legacy", leagueResolved: true }),
+    ).toBe(false);
+  });
+});
+
+describe("isDefaultPlaceholderTeam", () => {
+  it("recognizes a createDefaultWorkspace() seed row by name AND budget", () => {
+    const seed = createDefaultWorkspace().teams[0];
+    expect(isDefaultPlaceholderTeam(seed)).toBe(true);
+  });
+  it("does not treat a real manager who shares a seed name as a placeholder", () => {
+    expect(isDefaultPlaceholderTeam({ name: "Ed", initialBudget: 133 })).toBe(false);
+    expect(isDefaultPlaceholderTeam({ name: "Russini Panini" })).toBe(false);
+  });
+  it("is false for nothing", () => {
+    expect(isDefaultPlaceholderTeam(null)).toBe(false);
+    expect(isDefaultPlaceholderTeam(undefined)).toBe(false);
   });
 });

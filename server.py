@@ -14,7 +14,11 @@ Requirements:
 """
 
 import asyncio
+import base64
+import binascii
+import copy
 import json
+import re
 import math
 import os
 import sys
@@ -38,7 +42,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from fastapi import FastAPI, BackgroundTasks, Request
@@ -73,11 +77,15 @@ from src.api.data_contract import (
     normalize_source_overrides,
     normalize_tep_multiplier,
     normalize_tep_native_multiplier,
+    withdrawn_tep_override_note,
     stamp_optimal_lineups as _stamp_optimal_lineups_owner,
     capture_contract_roster_settings,
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
+from src.api import chase_upside_mcp as _chase_upside_mcp
+from src.api.build_identity import PROCESS_BUILD, PROCESS_RELEASE
+from src.api import public_diagnostics as _public_diagnostics
 from src.api import matchup_intel as _matchup_intel
 from src.api import roster_intelligence as _roster_intelligence
 from src.api import guest_passes as _guest_passes
@@ -87,20 +95,66 @@ from src.history import record as _history_record
 from src.api import push_delivery as _push_delivery
 from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
-from src.api import trade_simulator as _trade_simulator
+from src.api import trade_analyze_runtime as _trade_analyze_runtime
 from src.api import user_kv as _user_kv
 from src.api import league_registry as _league_registry
+from src.api.schemas.leagues import (
+    AuthenticatedLeaguesResponse,
+    LeaguesResponse,
+    PublicLeaguesResponse,
+)
 from src.api import sleeper_overlay as _sleeper_overlay
+from src.valuation_math import package_model as _package_model
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
 from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
+from src.diagnostics import heap_report as _heap_report
 from src.diagnostics import proc_probe as _proc_probe
 from src.diagnostics import scrape_telemetry as _scrape_telemetry
+from src.sources import dlf_session as _dlf_session
+
+if __name__ == "__main__":
+    # ``python server.py`` (the systemd ExecStart) runs this file as
+    # ``__main__``, and ``uvicorn.run("server:app")`` then imports it AGAIN as
+    # ``server``: every module-level load below ran twice, and the first
+    # copy was never served.  Measured locally (WA-17, 2026-11-12): the
+    # unused copy held its own 44 MiB public-league snapshot.  Execute the
+    # module once, as ``server`` (the name every ``import server`` and
+    # ``sys.modules.get("server")`` already resolves), and serve that copy.
+    # The imports above are shared through ``sys.modules`` and cost nothing
+    # twice.  Pinned by tests/api/test_server_runs_once.py.
+    import server as _served
+
+    _served.main()
+    raise SystemExit(0)
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
 PORT = 8000
-HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
+# Bind address.  LOOPBACK BY DEFAULT (owner directive 2026-11-01, P0): in
+# production nginx is the only legitimate client and it proxies to
+# ``127.0.0.1:8000`` (deploy/nginx/*.conf ``upstream dynasty_backend``), so a
+# wildcard bind only exposed the raw app port to the internet, bypassing the
+# proxy's TLS, headers and path blocks.  LAN / phone testing in dev opts in
+# explicitly with ``RISKIT_BIND_HOST=0.0.0.0`` (see .env.example).  Pinned by
+# tests/deploy/test_loopback_bind.py.
+DEFAULT_BIND_HOST = "127.0.0.1"
+BIND_HOST_ENV = "RISKIT_BIND_HOST"
+
+
+def _resolve_bind_host(environ: Mapping[str, str] | None = None) -> str:
+    """The address uvicorn binds: ``RISKIT_BIND_HOST`` if set, else loopback.
+
+    A blank or whitespace-only value is treated as unset — an empty
+    ``RISKIT_BIND_HOST=`` line in .env must not become uvicorn's
+    "all interfaces" default by accident.
+    """
+    env = os.environ if environ is None else environ
+    value = (env.get(BIND_HOST_ENV) or "").strip()
+    return value or DEFAULT_BIND_HOST
+
+
+HOST = _resolve_bind_host()
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
 # A single market/source outage must not halve the player universe and become
@@ -117,6 +171,9 @@ SCRAPE_PLAYER_RETENTION_FLOOR = 0.75
 # (Dynasty Scraper.py, pw.chromium.launch) carries --disable-dev-shm-usage
 # / --disable-gpu to reduce the odds of the mid-scrape RSS spike that
 # crosses the systemd MemoryMax cgroup and OOM-kills this whole process.
+# It now ALSO runs before each launch and, besides descendants, sweeps
+# Chromium reparented out of this process but still in the service's own
+# cgroup (see ``_reap_orphan_browsers``).  Same switch.
 SCRAPE_REAP_ORPHAN_BROWSERS = os.getenv("SCRAPE_REAP_ORPHAN_BROWSERS", "1") != "0"
 # /api/trade/simulate-mc is a pure-Python Monte Carlo (no numpy) run
 # twice for A→B/B→A symmetrization.  On this box: 50k≈0.9s, 200k≈3.9s.
@@ -170,6 +227,31 @@ ALERT_PASSWORD = os.getenv("ALERT_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD", 
 # force a full alert send.
 SIGNAL_ALERT_CRON_TOKEN = os.getenv("SIGNAL_ALERT_CRON_TOKEN", "").strip()
 
+# ── SCRAPE SCHEDULER ───────────────────────────────────────────────────
+# The lifespan starts a scrape 3 s after boot and then every
+# SCRAPE_INTERVAL_HOURS.  Production default True.  A scrape executes
+# ``Dynasty Scraper.py``'s module top level, which fetches the live Sleeper
+# league and rewrites the TRACKED ``data/sleeper_last_good.json`` and
+# ``data/scrape_state/sleeper_last_success`` — and it runs on a worker
+# thread that the lifespan's cancel cannot stop.  So any ``TestClient``
+# held open past 3 s (routine under parallel load) used to scrape for real
+# and dirty the checkout.  The unit suite turns it off explicitly in
+# ``tests/conftest.py`` — the same environment boundary as
+# UPTIME_CHECK_ENABLED, not a pytest sniff.
+SCRAPE_SCHEDULER_ENABLED = _env_bool("SCRAPE_SCHEDULER_ENABLED", True)
+
+# ── SLEEPER OVERLAY WARM ───────────────────────────────────────────────
+# ``_prime_latest_payload`` hands every primed contract (the lifespan's
+# startup prime included) to ``_warm_overlays_in_background``, whose
+# ``sleeper-overlay-warm`` daemon thread refreshes each active league's
+# scoring / draft-class snapshots and Sleeper overlay and then warms the
+# global trending-adds feed.  Production default True.  The unit suite
+# turns it off explicitly in ``tests/conftest.py``: measured 2026-10-18,
+# every ``TestClient`` lifespan otherwise requested
+# ``api.sleeper.app/v1/players/nfl/trending/add`` on a thread the lifespan
+# never joins.  Same environment boundary as SCRAPE_SCHEDULER_ENABLED.
+SLEEPER_OVERLAY_WARM_ENABLED = _env_bool("SLEEPER_OVERLAY_WARM_ENABLED", True)
+
 # ── UPTIME WATCHDOG ────────────────────────────────────────────────────
 UPTIME_CHECK_ENABLED = _env_bool("UPTIME_CHECK_ENABLED", True)
 UPTIME_CHECK_URL = os.getenv(
@@ -177,6 +259,24 @@ UPTIME_CHECK_URL = os.getenv(
     "https://chaseupside.com/api/health",
 ).strip()
 UPTIME_CHECK_INTERVAL_SEC = int(os.getenv("UPTIME_CHECK_INTERVAL_SEC", "300"))
+# Heap attribution (WA-17): seconds between box-local heap snapshots
+# (``src/diagnostics/heap_report.py``); 0 turns the periodic loop off.  The
+# scrape-point snapshots are not affected.
+HEAP_REPORT_INTERVAL_SEC = int(os.getenv("HEAP_REPORT_INTERVAL_SEC", "900"))
+# Every Nth periodic snapshot also takes the type census, and so does any
+# snapshot taken while process RSS is at or above HEAP_REPORT_HIGH_RSS_MIB.
+# 1024, not 1536: in production the backend is restarted by the data-refresh
+# deploys every 40-60 min, before the hourly tick, and the post-burst plateau
+# sat at 1,060-1,210 MiB (audit §7.12), so neither trigger ever fired there.
+HEAP_REPORT_TYPES_EVERY = 4
+HEAP_REPORT_HIGH_RSS_MIB = int(os.getenv("HEAP_REPORT_HIGH_RSS_MIB", "1024"))
+# Return glibc's freed-but-retained heap from the periodic loop when a
+# snapshot finds at least this many MiB of it (0 disables).  Measured in
+# production 2026-11-12: 206-239 MiB retained after the post-restart burst,
+# and the same release at each scrape returns 80-140 MiB (audit §7.12).
+# The release walks glibc's arenas (about 0.1 s on a fragmented heap), so it
+# runs at most once per tick and only when there is that much to return.
+HEAP_RELEASE_FREE_MIB = int(os.getenv("HEAP_RELEASE_FREE_MIB", "128"))
 UPTIME_CHECK_TIMEOUT_SEC = float(os.getenv("UPTIME_CHECK_TIMEOUT_SEC", "5"))
 UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 
@@ -251,19 +351,64 @@ PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
 ALERT_COOLDOWN_SEC = 3600
+# Every SMTP socket operation is bounded.  The same 15 s ``_deliver_email_smtp``
+# already uses; ``smtplib``'s default is NO timeout.
+ALERT_SMTP_TIMEOUT_SEC = 15
+# At most one alert delivery in flight.  Also guards ``_last_alert_time``,
+# which the delivery thread writes.
+_alert_lock = threading.Lock()
+_alert_in_flight = False
 
 
 def send_alert(subject: str, body: str):
-    """Send an email alert. Fails silently if not configured."""
-    global _last_alert_time
+    """Send an email alert in the background. Fails silently if not configured.
+
+    Never blocks the caller on the network.  Two callers run ON the event
+    loop — ``get_health`` (stale backups) and ``uptime_watchdog_loop``
+    (consecutive uptime failures) — and this used to connect to
+    ``smtp.gmail.com:465`` synchronously with no timeout, a port the
+    production VPS firewalls (commit 54af3811cc).  A connect to a dropped
+    port waits out the kernel's SYN retries (~127 s per resolved address),
+    and for that span the process answers nothing, ``/api/health``
+    included, which is what the liveness watchdog restarts on.  A failed
+    send never set the cooldown, so every trigger tried again.  Pinned by
+    ``tests/api/test_send_alert_off_loop.py``.
+
+    Delivery runs on a daemon thread with a bounded timeout.  While one is
+    in flight a second alert is dropped (logged), not queued: the first
+    either succeeds, after which the cooldown would suppress the second
+    anyway, or fails against the same unreachable server.
+    """
+    global _alert_in_flight
 
     if not ALERT_ENABLED or not ALERT_FROM or not ALERT_PASSWORD:
         return
 
     now = time.time()
-    if now - _last_alert_time < ALERT_COOLDOWN_SEC:
-        log.info(f"Alert suppressed (cooldown): {subject}")
-        return
+    with _alert_lock:
+        if now - _last_alert_time < ALERT_COOLDOWN_SEC:
+            log.info(f"Alert suppressed (cooldown): {subject}")
+            return
+        if _alert_in_flight:
+            log.info(f"Alert suppressed (another alert is being sent): {subject}")
+            return
+        _alert_in_flight = True
+    try:
+        threading.Thread(
+            target=_deliver_alert,
+            args=(subject, body, now),
+            name="alert-smtp",
+            daemon=True,
+        ).start()
+    except Exception as e:  # noqa: BLE001 — alerting never raises into its caller
+        with _alert_lock:
+            _alert_in_flight = False
+        log.error(f"Failed to start alert delivery: {e}")
+
+
+def _deliver_alert(subject: str, body: str, attempted_at: float) -> None:
+    """The SMTP half of :func:`send_alert`.  Runs on the ``alert-smtp`` thread."""
+    global _last_alert_time, _alert_in_flight
 
     try:
         msg = MIMEMultipart()
@@ -283,14 +428,18 @@ def send_alert(subject: str, body: str):
         """
         msg.attach(MIMEText(html, "html"))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=ALERT_SMTP_TIMEOUT_SEC) as server:
             server.login(ALERT_FROM, ALERT_PASSWORD)
             server.send_message(msg)
 
-        _last_alert_time = now
+        with _alert_lock:
+            _last_alert_time = attempted_at
         log.info(f"Alert sent: {subject}")
     except Exception as e:
         log.error(f"Failed to send alert email: {e}")
+    finally:
+        with _alert_lock:
+            _alert_in_flight = False
 
 
 # ── PATHS ───────────────────────────────────────────────────────────────
@@ -338,6 +487,11 @@ log = logging.getLogger("dynasty-server")
 # In-memory cache of latest scrape data
 latest_data: dict | None = None
 latest_contract_data: dict | None = None
+#: Set by the lifespan once startup work is done and the app is about to
+#: serve.  CPU-heavy background warm-ups started during the boot prime wait
+#: for it so they do not compete with the prime for the GIL (measured: the
+#: Analyze Trade warm racing the prime added ~5 s to boot-to-ready).
+_SERVING_STARTED = threading.Event()
 latest_data_bytes: bytes | None = None
 latest_data_gzip_bytes: bytes | None = None
 latest_data_etag: str | None = None
@@ -388,6 +542,22 @@ _OVERLAY_RESPONSE_CACHE: dict = {}
 # dict needs no extra synchronization.
 _OVERLAY_ENCODE_LOCKS: dict = {}
 _OVERLAY_RESPONSE_CACHE_MAX = 32
+# Background re-encodes started by the stale-while-revalidate branch of
+# ``_serialize_overlaid_response``: slot keys with one in flight, and strong
+# references to the tasks (the event loop only holds weak ones).
+_OVERLAY_REFRESHING: set = set()
+_OVERLAY_REFRESH_TASKS: set = set()
+# Overlay CONTENT identity (see ``_overlay_content_identity``):
+# (sleeperLeagueId, overlayFetchedAt) -> content fingerprint, and
+# fingerprint -> the latest ``overlayFetchedAt`` that observed it.
+_OVERLAY_CONTENT_FP: dict = {}
+_OVERLAY_FP_LAST_SEEN: dict = {}
+_OVERLAY_CONTENT_MEMO_MAX = 64
+# Stamped fresh on EVERY overlay fetch whether or not anything changed:
+# the fetch time, and the trade window's "now minus N days" edge.  (A trade
+# ageing out of the window changes ``trades`` itself, so the content
+# identity still moves when the window matters.)
+_OVERLAY_PER_FETCH_KEYS = frozenset({"overlayFetchedAt", "tradeWindowStart", "tradeWindowCutoffMs"})
 # ``POST /api/rankings/overrides`` response memo.  Nearly every client
 # posts the identical stock body ({"tep_multiplier": 1.15} — the
 # /settings default), so one cached entry serves the whole user base
@@ -409,6 +579,18 @@ _OVERLAY_RESPONSE_CACHE_MAX = 32
 _OVERRIDES_RESPONSE_CACHE: dict = {}
 _OVERRIDES_ENCODE_LOCKS: dict = {}
 _OVERRIDES_RESPONSE_CACHE_MAX = 16
+# Byte bound (prod memory-pressure follow-up, 2026-10-20).  The count cap
+# alone allowed 16 entries of raw+gzip bytes: measured 6.26-6.5 MiB per delta
+# entry and 16.6-17.3 MiB per ``view=full`` entry, so ~105 / ~280 MB worst
+# case for a client posting distinct ``tep_multiplier`` values.  The budget is
+# sized so that 15 resident delta entries of up to ~8.5 MiB stay under it:
+# for delta bodies (the frontend default) the 16-entry COUNT cap still binds
+# first, so a cycle of distinct delta bodies thrashes at exactly the same
+# point it did before (16), and the byte budget only bites on full-view
+# bodies (~7 resident, worst case ~145 MiB instead of ~280 MB).  Eviction is
+# rebuild-on-next-request (0.9-1.3 s CPU per body measured), never a wrong
+# answer.
+_OVERRIDES_RESPONSE_CACHE_MAX_BYTES = 128 * 1024 * 1024
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -445,6 +627,48 @@ contract_health: dict = {
 # check assert on this so a non-re-primed/degraded board fails
 # loudly instead of silently serving wrong values.
 served_source_coverage: dict = {}
+
+# Sources the SERVED board recorded as seasonally inactive (its own
+# ``sourceSeasonalState`` stamp — the state at that board's scrape time;
+# owner decision 2026-10-03, ``src/sources/seasonal_policy.py``).  Published
+# on ``/api/status`` beside ``served_source_coverage`` and swapped with it, so
+# the deploy gate excuses a source's absence only when the board it is
+# checking legitimately carries no vote from it — never because the
+# checkout's CURRENT state says so (the two differ on every reactivation and
+# inactivation run).
+served_seasonal_inactive: list[str] = []
+
+# Private sources the SERVED board declares it carries no vote from by design
+# (``data_contract.private_sources_absent_by_design`` over that board's own
+# ``privateSourceAvailability``: not provisioned, rolled back, or held — e.g.
+# Signals IDP in shadow).  Published beside ``served_seasonal_inactive`` and
+# swapped with it, so the deploy coverage gate excuses exactly what the board
+# it is judging declared — never what the checkout currently says.
+served_private_absent_by_design: list[str] = []
+
+
+def _compute_served_private_absent_by_design(contract: dict | None) -> list[str]:
+    """Sorted keys the served contract declares absent by design.
+    Defensive: any shape surprise yields ``[]`` (nothing excused)."""
+    try:
+        from src.api.data_contract import private_sources_absent_by_design
+
+        return sorted(
+            private_sources_absent_by_design((contract or {}).get("privateSourceAvailability"))
+        )
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _compute_served_seasonal_inactive(contract: dict | None) -> list[str]:
+    """Sorted keys of the served contract's seasonal-inactive stamp.
+    Defensive: any shape surprise yields ``[]`` (nothing excused)."""
+    try:
+        from src.sources.seasonal_policy import contract_inactive_sources
+
+        return sorted(contract_inactive_sources(contract))
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _compute_served_source_coverage(contract: dict | None) -> dict:
@@ -639,6 +863,28 @@ def _live_player_meta() -> dict[str, dict[str, str | None]]:
         contract = latest_contract_data or {}
         rows = contract.get("playersArray") or []
         meta: dict[str, dict[str, str | None]] = {}
+        # ``playerId`` rides alongside for the as-known news archive
+        # (``src/news/archive.py``) only — enrichment reads position/team
+        # and nothing else, so the served mentions are unchanged.  A display
+        # name two rows with different ids share keeps NO id (never a guess).
+        ids: dict[str, str | None] = {}
+        id_conflicts: set[str] = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            name = ""
+            for key in ("displayName", "name", "canonicalName", "fullName"):
+                v = row.get(key)
+                if isinstance(v, str) and v.strip():
+                    name = v.strip()
+                    break
+            if not name:
+                continue
+            pid = str(row.get("playerId") or "").strip() or None
+            if name not in ids:
+                ids[name] = pid
+            elif ids[name] != pid:
+                id_conflicts.add(name)
         for row in rows:
             if not isinstance(row, dict):
                 continue
@@ -667,6 +913,14 @@ def _live_player_meta() -> dict[str, dict[str, str | None]]:
                 # attribute a mention safely, so stamp nothing rather
                 # than the wrong player's identity.
                 meta[name] = {"position": None, "team": None}
+        for name, entry in meta.items():
+            if name in id_conflicts:
+                entry["playerId"] = None
+                entry["playerIdNullReason"] = "display_name_shared_by_multiple_player_ids"
+            else:
+                entry["playerId"] = ids.get(name)
+                if entry["playerId"] is None:
+                    entry["playerIdNullReason"] = "board_row_has_no_player_id"
         return meta
 
     return _live_contract_scan("player_meta", _build)
@@ -850,16 +1104,36 @@ def _get_auth_session(request: Request) -> dict | None:
     expires_at = session.get("expires_at_epoch")
     if isinstance(expires_at, (int, float)) and expires_at > 0:
         if time.time() >= float(expires_at):
-            auth_sessions.pop(session_id, None)
-            try:
-                from src.api import session_store as _ss
-
-                _ss.evict(session_id)
-            except Exception as exc:  # noqa: BLE001
-                log.warning(
-                    "session_store evict on expiry failed: %s",
-                    exc,
-                )
+            _drop_auth_session(session_id, "expiry", session=session)
+            return None
+    # A guest-pass session is only as good as the pass that minted it.
+    # Revocation used to only stop NEW logins, so a leaked guest cookie
+    # stayed valid until the pass's own expiry.  The pass row is asked on
+    # every guest request — a revoke made by ANOTHER process (the
+    # verification workflow revokes over SSH, never through this server)
+    # takes effect on the very next request, whatever this cache holds.
+    # Fails closed, in two strengths:
+    #   * no expiry, no pass id, or a pass that is revoked / expired /
+    #     unknown / purged ENDS the session (evicted from memory and disk);
+    #   * an UNREADABLE pass store refuses THIS request but keeps the
+    #     session.  "Could not read the authority" is not "the authority
+    #     said no": ending the session there turned one transient sqlite
+    #     error into a permanent logout.  Nothing is granted — the next
+    #     request asks again and is refused again until the store answers.
+    if str(session.get("auth_method") or "") == "guest_pass":
+        bounded = isinstance(expires_at, (int, float)) and expires_at > 0
+        if not bounded:
+            _drop_auth_session(session_id, "guest_session_unbounded", session=session)
+            return None
+        authority = _guest_passes.session_authority_state(session.get("guest_pass_id"))
+        if authority == _guest_passes.AUTHORITY_UNKNOWN:
+            log.warning(
+                "auth session refused, kept: reason=guest_pass_store_unreadable guest_pass_id=%s",
+                session.get("guest_pass_id"),
+            )
+            return None
+        if authority != _guest_passes.AUTHORITY_ACTIVE:
+            _drop_auth_session(session_id, "guest_pass_not_authoritative", session=session)
             return None
     # Sliding TTL heartbeat.  Bump ``last_seen_at`` at most once per
     # SESSION_TOUCH_INTERVAL_SECONDS so an actively-used session never
@@ -884,6 +1158,46 @@ def _get_auth_session(request: Request) -> dict | None:
         except Exception as exc:  # noqa: BLE001
             log.warning("session_store touch failed: %s", exc)
     return session
+
+
+def _drop_auth_session(session_id: str, reason: str, *, session: dict | None = None) -> None:
+    """Evict one session from the in-memory cache AND the persistent store.
+
+    Logs one line naming WHY the session ended, its auth method and — for a
+    guest session — the pass that minted it, so a verification run that loses
+    its session can be read from the journal.  Never the session id or the
+    cookie: the id IS the bearer credential.
+    """
+    info = session if isinstance(session, dict) else {}
+    log.info(
+        "auth session ended: reason=%s auth_method=%s guest_pass_id=%s",
+        reason,
+        str(info.get("auth_method") or "unknown"),
+        info.get("guest_pass_id"),
+    )
+    auth_sessions.pop(session_id, None)
+    try:
+        from src.api import session_store as _ss
+
+        _ss.evict(session_id)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("session_store evict (%s) failed: %s", reason, exc)
+
+
+def _drop_guest_pass_sessions(pass_id: int) -> int:
+    """Evict every in-memory session minted from guest pass ``pass_id``.
+
+    ``guest_passes.revoke`` already deletes the persisted rows; this
+    clears this process's cache so a revoked session is gone rather than
+    merely refused on its next request."""
+    doomed = [
+        sid
+        for sid, sess in list(auth_sessions.items())
+        if isinstance(sess, dict) and sess.get("guest_pass_id") == pass_id
+    ]
+    for sid in doomed:
+        auth_sessions.pop(sid, None)
+    return len(doomed)
 
 
 def _is_authenticated(request: Request) -> bool:
@@ -911,9 +1225,10 @@ def _create_auth_session(
     ``expires_at_epoch`` (optional) bounds the session's authority.
     Guest-pass logins set this to the pass's expiry so the session
     silently dies when the pass does — see ``_get_auth_session``.
-    ``guest_pass_id`` records which pass minted the session, so a
-    revoked pass can be cross-referenced if needed (audit + future
-    bulk-revoke-on-pass-revoke if we want it).
+    ``guest_pass_id`` records which pass minted the session (persisted
+    with it).  Revoking the pass ends every session it minted:
+    ``_get_auth_session`` re-checks the pass on each guest request and
+    ``guest_passes.revoke`` deletes the persisted rows.
     """
     session_id = uuid.uuid4().hex
     payload: dict[str, Any] = {
@@ -1348,6 +1663,9 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
     error_text = f"{type(exc).__name__}: {str(exc)[:400]}"
     failed_step = scrape_status.get("current_step")
     failed_source = scrape_status.get("current_source")
+    box = _box_diagnostics()
+    # Own timestamp so a snapshot left behind by a later success is identifiable.
+    box_at_failure = {**box, "capturedAt": _utc_now_iso()}
     scrape_status.update(
         {
             "running": False,
@@ -1358,6 +1676,7 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
             "last_duration_sec": round(elapsed, 1),
             "error": error_text,
             "current_step": "failed",
+            "box_at_failure": box_at_failure,
         }
     )
     _touch_scrape_heartbeat()
@@ -1369,9 +1688,10 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
         failed_step=failed_step,
         failed_source=failed_source,
         duration_sec=round(elapsed, 1),
+        box=box,
     )
     # R-4: Record to rolling history
-    _record_scrape_history("failure", elapsed, error=error_text)
+    _record_scrape_history("failure", elapsed, error=error_text, box=box)
     # R-9: Update metrics counters
     _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
     _metrics["scrape_failures"] = _metrics.get("scrape_failures", 0) + 1
@@ -1425,25 +1745,34 @@ _looks_like_playwright_chromium = _proc_probe.looks_like_playwright_chromium
 _collect_descendant_pids = _proc_probe.collect_descendant_pids
 
 
-def _reap_orphan_browsers(root_pid: int | None = None, match=None) -> int:
-    """SIGKILL orphaned Playwright Chromium descendants of this process.
+def _reap_orphan_browsers(
+    root_pid: int | None = None, match=None, include_service_cgroup: bool = False
+) -> int:
+    """SIGKILL orphaned Playwright Chromium belonging to this service.
 
-    Best-effort; never raises.  Scoped to descendants of ``root_pid``
-    (our own PID) so it can never touch unrelated system processes.
-    The scrape that spawned them already exited (single scrape_run_lock),
-    so a graceful shutdown buys nothing — SIGKILL directly, with no
-    sleep, so this stays safe to call from the async finally path.
+    Best-effort; never raises.  Scope is (a) descendants of ``root_pid`` (our
+    own PID), and -- only when ``include_service_cgroup`` -- (b) members of
+    this process's own dedicated ``*.service`` cgroup that are NOT descendants
+    (Chromium reparented to init after its Playwright driver died, which the
+    descendant walk cannot see).  ``proc_probe.service_cgroup_dir`` returns
+    nothing for non-service cgroups, so a dev shell's scope is never swept.
+    The root pid and this process are never killed, and every candidate must
+    still satisfy the Playwright-Chromium cmdline predicate.  Callers hold
+    ``scrape_run_lock``, so no live scrape of ours owns a browser; SIGKILL
+    directly, no sleep, so this stays safe on the async finally path.
     """
     try:
         root = os.getpid() if root_pid is None else root_pid
         predicate = _looks_like_playwright_chromium if match is None else match
+        if include_service_cgroup:
+            descendants, cgroup_only = _proc_probe.collect_service_pids(root)
+            candidates = descendants | cgroup_only
+        else:
+            candidates = _collect_descendant_pids(root)
+        candidates = candidates - {root, os.getpid(), 0, 1}
         killed = 0
-        for pid in _collect_descendant_pids(root):
-            try:
-                with open(f"/proc/{pid}/cmdline", "rb") as fh:
-                    cmd = fh.read().replace(b"\x00", b" ").decode("utf-8", "replace").strip()
-            except OSError:
-                continue
+        for pid in candidates:
+            cmd = _proc_probe.read_cmdline(pid)
             if not cmd or not predicate(cmd):
                 continue
             try:
@@ -1454,6 +1783,161 @@ def _reap_orphan_browsers(root_pid: int | None = None, match=None) -> int:
         return killed
     except Exception:  # noqa: BLE001 — finalize must never raise
         return 0
+
+
+_BOX_PROBE_TIMEOUT_SEC = 2.0
+_BOX_PROBE_STATUS_TIMEOUT_SEC = 0.5
+
+
+def _box_diagnostics(timeout: float | None = None) -> dict:
+    """Numbers-only service-resource snapshot (public-safe).  Never raises.
+
+    The /proc walk runs in a daemon worker thread and is abandoned after
+    ``timeout`` seconds: a probe that does not answer yields all-null fields
+    instead of blocking the event loop (health/status must never hang on it).
+    """
+    wait = _BOX_PROBE_TIMEOUT_SEC if timeout is None else timeout
+    box: dict = _empty_box_diagnostics()
+    done = threading.Event()
+
+    def _work() -> None:
+        try:
+            box.update(_proc_probe.service_diagnostics(os.getpid()))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            # The last heap snapshot's glibc figures (WA-17), cached: walking
+            # the heap here would hold glibc's arena locks on every probe.
+            box.update(_heap_report.box_fields())
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            done.set()
+
+    try:
+        threading.Thread(target=_work, name="box-probe", daemon=True).start()
+        if not done.wait(wait):
+            return _empty_box_diagnostics()
+        return dict(box)
+    except Exception:  # noqa: BLE001
+        return _empty_box_diagnostics()
+
+
+def _empty_box_diagnostics() -> dict:
+    """Every ``box_resources`` field, unknown (``None``)."""
+    return {**_proc_probe.empty_service_diagnostics(), **_heap_report.empty_box_fields()}
+
+
+_LIBC_MALLOC_TRIM = None  # resolved lazily; False when unavailable (non-glibc)
+
+
+def _release_freed_heap() -> dict:
+    """Hand freed glibc heap back to the OS (``malloc_trim(0)``).  Never raises.
+
+    Each scrape cycle builds and drops several copies of a ~4 MB contract
+    (views, gzip variants, overlays); glibc keeps the freed pages in its
+    arenas, so RSS ratchets toward the peak and the service cgroup creeps
+    up to ``MemoryHigh``, where the kernel throttles everything in it
+    (website audit WA-05: Chromium could no longer launch).  Measured
+    2026-11-12 over 14 replayed publish cycles: live Python objects constant
+    (330,466 every cycle, no leak); RSS plateau 684 MB without a trim, 498 MB
+    with one after each cycle.  A trim is not a substitute for finding a
+    leak, and none was found; it returns memory the process no longer uses.
+
+    Returns ``{"available", "rssBeforeMib", "rssAfterMib"}``; the RSS fields
+    are ``None`` when unreadable.  Call off the event loop.
+    """
+    global _LIBC_MALLOC_TRIM
+    out: dict = {"available": False, "rssBeforeMib": None, "rssAfterMib": None}
+    try:
+        if _LIBC_MALLOC_TRIM is None:
+            try:
+                import ctypes  # noqa: PLC0415
+
+                _LIBC_MALLOC_TRIM = ctypes.CDLL("libc.so.6").malloc_trim
+            except (OSError, AttributeError):
+                _LIBC_MALLOC_TRIM = False
+        if _LIBC_MALLOC_TRIM is False:
+            return out
+        before = _proc_probe.process_rss_kb(os.getpid())
+        _LIBC_MALLOC_TRIM(0)
+        after = _proc_probe.process_rss_kb(os.getpid())
+        out["available"] = True
+        out["rssBeforeMib"] = None if before is None else int(before) // 1024
+        out["rssAfterMib"] = None if after is None else int(after) // 1024
+    except Exception:  # noqa: BLE001 -- best-effort; never break a scrape
+        pass
+    return out
+
+
+def _box_diagnostics_for_status() -> dict:
+    return _box_diagnostics(_BOX_PROBE_STATUS_TIMEOUT_SEC)
+
+
+def _record_heap_snapshot(
+    reason: str, include_types: bool = False, trim: dict | None = None, walk_heap: bool = True
+) -> dict:
+    """Append one heap snapshot to the box-local log and log its headline
+    (WA-17).  ``trim`` is a ``_release_freed_heap`` result, stored as
+    numbers.  ``walk_heap=False`` is the light record (RSS and ``trim``
+    only) for the scrape path: glibc's heap walk stalls the event loop.
+    Call off the event loop.  Never raises."""
+    extra = None
+    if isinstance(trim, dict):
+        extra = {
+            "trimRssBeforeMib": trim.get("rssBeforeMib"),
+            "trimRssAfterMib": trim.get("rssAfterMib"),
+        }
+    try:
+        summary = _heap_report.record(
+            reason, include_types=include_types, walk_heap=walk_heap, extra=extra
+        )
+        log.info("heap snapshot %s: %s", reason, summary)
+        return summary
+    except Exception:  # noqa: BLE001 -- diagnostics never break a caller
+        return {"written": False}
+
+
+async def heap_report_loop() -> None:
+    """Periodic heap snapshots (WA-17): what the backend's memory is made of
+    between scrapes, so a climb toward ``MemoryHigh`` can be attributed from
+    the box-local log instead of inferred.  ``HEAP_REPORT_INTERVAL_SEC=0``
+    disables it.
+
+    One action, after the snapshot: when glibc holds at least
+    ``HEAP_RELEASE_FREE_MIB`` of freed heap, it is returned to the kernel
+    (``_release_freed_heap``, the same release the scrape uses) and a light
+    ``periodic_trim`` record logs RSS before and after.  It frees nothing in
+    use and restarts nothing.
+    """
+    if HEAP_REPORT_INTERVAL_SEC <= 0:
+        log.info("Heap report loop disabled (HEAP_REPORT_INTERVAL_SEC=0)")
+        return
+    tick = 0
+    # A first baseline shortly after start, then the configured cadence.
+    delay = min(60, HEAP_REPORT_INTERVAL_SEC)
+    while True:
+        await asyncio.sleep(delay)
+        delay = HEAP_REPORT_INTERVAL_SEC
+        try:
+            rss_kb = _proc_probe.process_rss_kb(os.getpid())
+            high = rss_kb is not None and int(rss_kb) // 1024 >= HEAP_REPORT_HIGH_RSS_MIB
+            types = tick % HEAP_REPORT_TYPES_EVERY == 0 or high
+            reason = "periodic_high_rss" if high else ("startup" if tick == 0 else "periodic")
+            summary = await run_in_threadpool(_record_heap_snapshot, reason, types)
+            free_mib = summary.get("heapFreeMib") if isinstance(summary, dict) else None
+            if (
+                HEAP_RELEASE_FREE_MIB > 0
+                and isinstance(free_mib, int)
+                and free_mib >= HEAP_RELEASE_FREE_MIB
+            ):
+                trim = await run_in_threadpool(_release_freed_heap)
+                await run_in_threadpool(_record_heap_snapshot, "periodic_trim", False, trim, False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log.warning("heap report tick failed: %s", exc)
+        tick += 1
 
 
 _scrape_sampler_proc = None
@@ -1519,7 +2003,7 @@ def _finalize_scrape_run(worker_id: str) -> None:
         return
     _stop_resource_sampler()
     if SCRAPE_REAP_ORPHAN_BROWSERS:
-        reaped = _reap_orphan_browsers()
+        reaped = _reap_orphan_browsers(include_service_cgroup=True)
         if reaped:
             log.warning(
                 "reaped %d orphaned Chromium process(es) after scrape "
@@ -1544,24 +2028,126 @@ def _finalize_scrape_run(worker_id: str) -> None:
     _sync_scrape_alias_fields()
 
 
-def _build_scrape_progress_callback(worker_id: str):
-    async def _on_progress(payload: dict):
-        if scrape_status.get("worker_id") != worker_id:
-            return
-        if not isinstance(payload, dict):
-            return
-        _update_scrape_progress(
-            step=payload.get("step"),
-            source=payload.get("source"),
-            step_index=payload.get("step_index"),
-            step_total=payload.get("step_total"),
-            event=payload.get("event"),
-            message=payload.get("message"),
-            level=payload.get("level", "info"),
-            meta=payload.get("meta"),
-        )
+def _apply_scrape_progress(worker_id: str, payload) -> None:
+    """Apply one scraper progress payload to ``scrape_status``.
 
-    return _on_progress
+    Runs on the server's event-loop thread only: ``scrape_status`` is read
+    by request handlers there, so it is never mutated from a worker thread.
+    """
+    if scrape_status.get("worker_id") != worker_id:
+        return
+    if not isinstance(payload, dict):
+        return
+    _update_scrape_progress(
+        step=payload.get("step"),
+        source=payload.get("source"),
+        step_index=payload.get("step_index"),
+        step_total=payload.get("step_total"),
+        event=payload.get("event"),
+        message=payload.get("message"),
+        level=payload.get("level", "info"),
+        meta=payload.get("meta"),
+    )
+
+
+async def _run_scraper_off_loop(scraper, worker_id: str, timeout: float):
+    """Run ``scraper.run()`` on its OWN event loop in a worker thread.
+
+    ``Dynasty Scraper.py::run`` is ``async def`` but, after the browser
+    phase, runs ~3,000 lines of synchronous merge/normalization with no
+    ``await`` (``health_report`` -> ``build_payload``: ~68 s measured in
+    production telemetry, 2026-09-24).  Awaited directly, that whole span
+    ran on this server's single event-loop thread, so every request --
+    ``/api/health`` included -- went unanswered for it: production probes
+    timed out at 20 s and 40 s during scheduled and startup scrapes.  Same
+    defect class as ``_import_scraper_module`` (2026-09-16), one phase later.
+
+    In a worker thread the synchronous span competes for the GIL (the
+    interpreter switches threads every few ms) instead of owning the loop.
+
+    Progress payloads are marshalled back with ``call_soon_threadsafe``:
+    FIFO on this loop, applied before the worker's completion is delivered,
+    so ``scrape_status`` stays single-threaded and in order.  The timeout
+    is applied inside the worker loop, exactly as before.  Cancelling this
+    coroutine -- any number of times -- cancels the scraper task in its loop
+    (so Playwright closes its browser at its next ``await``) and does not
+    return until the worker has unwound.
+    """
+    main_loop = asyncio.get_running_loop()
+    handle: dict = {}
+    ready = threading.Event()
+
+    def _progress(payload):
+        main_loop.call_soon_threadsafe(_apply_scrape_progress, worker_id, payload)
+
+    async def _inner():
+        handle["loop"] = asyncio.get_running_loop()
+        handle["task"] = asyncio.current_task()
+        ready.set()
+        if handle.get("cancelled"):
+            raise asyncio.CancelledError
+        return await asyncio.wait_for(scraper.run(progress_callback=_progress), timeout=timeout)
+
+    future = main_loop.create_future()
+
+    def _settle(result, exc):
+        if future.done():
+            return
+        if isinstance(exc, asyncio.CancelledError):
+            future.cancel()
+        elif exc is not None:
+            future.set_exception(exc)
+        else:
+            future.set_result(result)
+
+    def _worker():
+        try:
+            outcome = (asyncio.run(_inner()), None)
+        except BaseException as exc:  # noqa: BLE001 -- delivered to the awaiting coroutine
+            outcome = (None, exc)
+        finally:
+            ready.set()
+        try:
+            main_loop.call_soon_threadsafe(_settle, *outcome)
+        except RuntimeError:
+            pass  # the server loop is already closed (process exit)
+
+    def _cancel_worker():
+        # Race-free without waiting: the worker publishes its loop/task and
+        # sets ``ready`` BEFORE it reads ``cancelled``, and we set
+        # ``cancelled`` before reading ``ready`` -- so either the worker
+        # sees the flag, or its task gets cancelled here (or both).
+        handle["cancelled"] = True
+        if not ready.is_set():
+            return
+        loop, task = handle.get("loop"), handle.get("task")
+        if loop is None or task is None:
+            return
+        try:
+            loop.call_soon_threadsafe(task.cancel)
+        except RuntimeError:
+            pass  # the worker loop already finished
+
+    # A dedicated thread, not the shared default executor: the run holds it
+    # for minutes (up to the timeout), and every ``asyncio.to_thread`` in the
+    # server shares that pool.
+    threading.Thread(target=_worker, name="scraper-run", daemon=False).start()
+    try:
+        return await asyncio.shield(future)
+    except asyncio.CancelledError:
+        # Shutdown cancels more than once (lifespan, then the server runner).
+        # Re-deliver on every cancel and do not return until the worker has
+        # unwound: returning early would release ``scrape_run_lock`` and let
+        # ``_finalize_scrape_run`` reap Chromium under a live scrape.
+        _cancel_worker()
+        while not future.done():
+            try:
+                await asyncio.shield(future)
+            except asyncio.CancelledError:
+                _cancel_worker()
+            except BaseException:  # noqa: BLE001 -- unwinding; the cancel is re-raised
+                break
+        raise
 
 
 def _scrape_status_payload() -> dict:
@@ -1738,7 +2324,11 @@ def _live_by_name_from_contract(contract: dict | None) -> dict[str, int]:
 
 
 def _build_source_health_snapshot(
-    data: dict | None, coverage: dict[str, int] | None = None
+    data: dict | None,
+    coverage: dict[str, int] | None = None,
+    *,
+    seasonal_inactive: list[str] | None = None,
+    private_absent_by_design: list[str] | None = None,
 ) -> dict:
     """Source health over the population we are ENTITLED TO EXPECT.
 
@@ -1774,6 +2364,16 @@ def _build_source_health_snapshot(
     NOT ``coverageAudit.expectedSites``: that block is an anchor-loss
     detector and 2 is correct for it.  Different question, different
     owner.
+
+    ``seasonal_inactive`` / ``private_absent_by_design`` are the SERVED
+    board's own declarations (``served_seasonal_inactive`` /
+    ``served_private_absent_by_design``) — the same two lists the
+    coverage gate already excuses.  A declared source that voted on zero
+    rows is absent BY DESIGN, not missing: SEASONALLY INACTIVE != BROKEN
+    and PRIVATE SOURCE NOT PRESENT != FAILED PUBLIC SOURCE.  It is named
+    in its own list so the absence stays legible, never dropped.  A
+    declared source that DID vote counts normally; an undeclared source
+    on zero rows stays ``missing``.
     """
     payload = data or {}
     sites = payload.get("sites")
@@ -1814,8 +2414,13 @@ def _build_source_health_snapshot(
     # is built FROM the sources.
     measured = bool(coverage)
 
+    declared_seasonal = {str(k) for k in (seasonal_inactive or []) if k}
+    declared_private = {str(k) for k in (private_absent_by_design or []) if k}
+
     source_counts: dict[str, int | None] = {}
     missing: list[str] = []
+    seasonal_absent: list[str] = []
+    private_absent: list[str] = []
     unmeasured: list[str] = []
     available = 0
     for key in registered:
@@ -1834,6 +2439,10 @@ def _build_source_health_snapshot(
         source_counts[key] = count
         if count > 0:
             available += 1
+        elif key in declared_private:
+            private_absent.append(key)
+        elif key in declared_seasonal:
+            seasonal_absent.append(key)
         else:
             missing.append(key)
 
@@ -2019,6 +2628,12 @@ def _build_source_health_snapshot(
         # ``unmeasured_sources``, which is "we were not given the
         # served board and therefore cannot say".
         "missing_sources": sorted(missing),
+        # Zero rows on the served board, but the board DECLARES the
+        # absence: a seasonally inactive source, or a private source this
+        # host does not carry a vote from.  Absent by design — reported,
+        # never folded into ``missing_sources``.
+        "seasonally_inactive_sources": sorted(seasonal_absent),
+        "absent_by_design_sources": sorted(private_absent),
         "unmeasured_sources": sorted(unmeasured),
         # The scraper's own anchor row counts, kept under a name that
         # says what they are.  A different quantity from board
@@ -2103,7 +2718,7 @@ def _per_source_freshness() -> dict[str, dict]:
             stamp_path = state_dir / f"{src_key}_last_success"
             last_epoch: float | None = None
             try:
-                stamp_text = stamp_path.read_text().strip()
+                stamp_text = stamp_path.read_text(encoding="utf-8").strip()
             except OSError:
                 stamp_text = ""
             if stamp_text:
@@ -2130,66 +2745,255 @@ def _per_source_freshness() -> dict[str, dict]:
 
 
 def _backup_freshness() -> dict:
-    """Age + location of the newest SQLite backup.
+    """Backup health, with the two backups kept apart and named.
 
-    Mirrors deploy/backup_user_kv.sh: the primary dir ``/var/backups/
-    riskit`` needs root; the self-healing script falls back to
-    ``/home/dynasty/backups/riskit`` (owned by the service user).  This
-    surfaces ``newestBackupAgeHours`` so monitoring trips an alert
-    within a day of a silent backup failure — the exact gap that let
-    backups die unnoticed for ~2 weeks before the P0 fix.  Never raises;
-    returns null age when no backup is found.
+    ``stateBackup`` is the nightly state backup (``riskit-state-backup``,
+    written under the root-only ``/var/backups/riskit-state``): a root this
+    process cannot list is reported ``unverifiable`` / ``permission_denied``,
+    never healthy and never missing.  ``legacySqliteBackup`` is the older
+    ``backup_user_kv.sh`` job (``/var/backups/riskit`` or the dynasty-owned
+    ``/home/dynasty/backups/riskit``) under its own name.  The original
+    top-level keys (``newestBackupAgeHours`` / ``backupDirUsed`` /
+    ``dbCount``) still describe the LEGACY backup only — ``health-check.yml``
+    and the stale-backup alert in ``get_health`` read them — and the payload
+    says so (``legacyKeysDescribe``).  Unknown ages and counts are ``None``.
+    The block is served anonymously, so it carries no filesystem path
+    (``filesystemPaths: "withheld"``); the alert e-mail reads the newest file
+    from the private sidecar memoized with it (``_backup_alert_path``).
+    Owner: ``src/api/backup_health.py``.  Never raises.
 
     Memoized 30s (see ``_DISK_PROBE_MEMO``) — treat as read-only.
     """
-    return _disk_probe_memo("backup_freshness", _backup_freshness_uncached)
+    return _backup_snapshot()[0]
 
 
-def _backup_freshness_uncached() -> dict:
-    result = {
-        "newestBackupAgeHours": None,
-        "newestBackupPath": None,
-        "backupDirUsed": "none",
-        "dbCount": 0,
-    }
+def _backup_snapshot() -> tuple[dict, str | None]:
+    """``(public block, private alert path)``: ONE memo entry, ONE timestamp.
+
+    Both halves come from the same uncached pass, so the stale-backup e-mail
+    can never pair one scan's age, directory and count with another scan's
+    file.  Only the block reaches a payload (``_backup_freshness``); the path
+    is read by ``_backup_alert_path`` alone and is never serialized.
+    """
+    return _disk_probe_memo("backup_freshness", _backup_snapshot_uncached)
+
+
+def _backup_snapshot_uncached() -> tuple[dict, str | None]:
     try:
-        now_epoch = time.time()
-        newest_epoch: float | None = None
-        for label, d in (
-            ("primary", Path("/var/backups/riskit/daily")),
-            ("fallback", Path("/home/dynasty/backups/riskit/daily")),
-        ):
-            try:
-                files = list(d.glob("*.sqlite.gz"))
-            except OSError:
-                continue
-            for f in files:
-                try:
-                    mt = f.stat().st_mtime
-                except OSError:
-                    continue
-                if newest_epoch is None or mt > newest_epoch:
-                    newest_epoch = mt
-                    result["newestBackupPath"] = str(f)
-                    result["backupDirUsed"] = label
-        if newest_epoch is not None:
-            result["newestBackupAgeHours"] = round(max(0.0, (now_epoch - newest_epoch) / 3600.0), 2)
-            try:
-                newest = Path(result["newestBackupPath"])
-                parts = newest.name.split(".")
-                stamp = parts[1] if len(parts) >= 3 else ""
-                if stamp:
-                    result["dbCount"] = len(
-                        {f.name.split(".")[0] for f in newest.parent.glob(f"*.{stamp}.sqlite.gz")}
-                    )
-            except OSError:
-                pass
+        from src.api.backup_health import build_backup_health_snapshot
+
+        return build_backup_health_snapshot()
+    except Exception:  # noqa: BLE001 — monitoring helper must never raise
+        return (
+            {
+                "newestBackupAgeHours": None,
+                "backupDirUsed": "none",
+                "dbCount": None,
+                "legacyKeysDescribe": "legacySqliteBackup",
+                "filesystemPaths": "withheld",
+                "legacySqliteBackup": {"state": "unverifiable", "reason": "probe_error"},
+                "stateBackup": {
+                    "state": "unverifiable",
+                    "reason": "probe_error",
+                    "irreplaceableLedgers": {"coverage": "unverifiable"},
+                },
+                "restoreProof": {"result": "unknown", "reason": "probe_error"},
+            },
+            None,
+        )
+
+
+def _backup_coverage_alert_rows() -> dict | None:
+    """Irreplaceable-store coverage + restore-proof findings for the operator's
+    ops-alert sweep.  PRIVATE (it names the stores): one fresh detail pass, never
+    memoized and never served.  ``None`` -- "not checked", never "healthy" --
+    when the pass itself fails.  Owner: ``src/api/backup_health.py``.
+    """
+    try:
+        from src.api import backup_health as _bh
+
+        return _bh.alert_rows_now()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
+
+
+def _failed_systemd_units() -> list[str] | None:
+    """Shipped systemd services currently ``failed`` (``None`` = not checked).
+
+    Owner: ``src/api/systemd_failures.py``.  Never raises.
+    """
+    try:
+        from src.api import systemd_failures as _sf
+
+        return _sf.failed_units()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
+
+
+def _backup_alert_path(block: dict) -> str | None:
+    """The newest legacy backup FILE behind ``block``, for the operator's
+    stale-backup e-mail.
+
+    PRIVATE: never served.  It is the sidecar memoized WITH ``block`` (same
+    pass, same timestamp), so the e-mail's age, dir, dbCount and path describe
+    one scan.  It reads the memo only and makes no lookup of its own: when
+    ``block`` is not the memoized block (the memo was rebuilt since, or the
+    block came from elsewhere) the answer is ``None`` — unknown, never another
+    scan's file.  Never raises.
+    """
+    try:
+        hit = _DISK_PROBE_MEMO.get("backup_freshness")
+        if hit is not None and hit[1][0] is block:
+            return hit[1][1]
     except Exception:  # noqa: BLE001 — monitoring helper must never raise
         pass
-    return result
+    return None
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
+#: Upper bound on how long the warm thread waits for the app to start serving
+#: (the deploy budget for a cold start is ~90 s; past this it warms anyway).
+_ANALYSIS_WARM_BOOT_WAIT_SECONDS = 180.0
+#: How long a warm waits for the prime that started it to publish its board.
+_ANALYSIS_WARM_PUBLISH_WAIT_SECONDS = 120.0
+#: One analysis warm runs at a time, and only the newest one: every prime
+#: bumps the generation, and a warm whose generation is no longer current —
+#: or whose board is not the one being served — exits without warming.
+#: (Startup recovery can prime more than once; a superseded board's warm
+#: must not populate caches ahead of the served one.)
+_ANALYSIS_WARM_LOCK = threading.Lock()
+_ANALYSIS_WARM_GEN_LOCK = threading.Lock()
+_analysis_warm_generation = 0
+
+
+def _next_analysis_warm_generation() -> int:
+    global _analysis_warm_generation
+    with _ANALYSIS_WARM_GEN_LOCK:
+        _analysis_warm_generation += 1
+        return _analysis_warm_generation
+
+
+def _analysis_warm_is_current(contract_payload: dict, generation: int | None) -> bool:
+    """Whether a warm for ``contract_payload`` may still write: it is the newest
+    warm AND its board is the one being served.  ``generation=None`` (a direct
+    call) checks only the board."""
+    if generation is not None and generation != _analysis_warm_generation:
+        return False
+    return latest_contract_data is contract_payload
+
+
+def _warm_trade_analysis_prerequisites(
+    contract_payload: dict, *, generation: int | None = None
+) -> None:
+    """Build what Analyze Trade needs ahead of the first request (sync; runs
+    on the ``trade-analysis-warm`` daemon thread ``_warm_overlays_in_background``
+    starts beside the overlay warm, under the same flag).
+
+    Measured on a production-shaped run: a process-cold ``/api/trade/analyze``
+    spent ~1.6 s building the league's competitive-posture bundle and ~1.2 s
+    loading the projection ensemble and the Sleeper players DB before it
+    simulated anything — on the user's request, after every deploy restart and
+    every new board.  Each step below calls the SAME cached owner the request
+    path calls, with the same inputs, so the request then finds it warm:
+
+    * ``gameplan.get_league_bundle`` for every active league the loaded board
+      may serve (its own league, or one whose scoring is proven identical) —
+      the bundle the posture read builds (it also brings the league's
+      team-strength snapshot current);
+    * ``best_ball_utility._ensemble_index`` for the board's scoring card (a
+      servable league has the same card by definition);
+    * the players DB for every rostered player.
+
+    Warming changes no answer: a cache keyed by its inputs returns what the
+    request would have computed.  Every step degrades silently to "the request
+    builds it itself", which is what happened before this existed.
+
+    Supersession: the prime starts this before it publishes the board, so it
+    first waits (bounded) for ``latest_contract_data`` to BE this board, and
+    re-checks before every step (:func:`_analysis_warm_is_current`).  A warm
+    that is no longer the newest, or whose board is no longer served, stops
+    without starting another step.  A bundle build already under way when a
+    newer board lands is stored under ITS OWN input stamp.  Analyze Trade with
+    Team Context (``build_if_missing=True``) re-checks the stamp and rebuilds,
+    so it is never served there for the newer board; the warm-only readers
+    (Asset-Only analyze, ``/api/trade/simulate``) read that entry unchecked,
+    labelled ``bundleFreshness: last_computed``, until the newer warm —
+    serialized behind this one — builds and replaces it.  In the rare case a
+    late older build lands after the newer one, the next Team Context request
+    pays one rebuild.
+    """
+    started = time.perf_counter()
+    warmed: list[str] = []
+    if generation is not None:
+        deadline = time.monotonic() + _ANALYSIS_WARM_PUBLISH_WAIT_SECONDS
+        while latest_contract_data is not contract_payload:
+            if generation != _analysis_warm_generation or time.monotonic() > deadline:
+                log.info("trade-analysis warm: superseded before its board was served; skipped")
+                return
+            time.sleep(0.25)
+
+    def _current() -> bool:
+        if _analysis_warm_is_current(contract_payload, generation):
+            return True
+        log.info("trade-analysis warm: board superseded; stopping (%s)", ",".join(warmed))
+        return False
+
+    try:
+        meta = contract_payload.get("meta") or {}
+        loaded_league = meta.get("leagueKey")
+        from src.api import gameplan as _gp  # noqa: PLC0415
+
+        for cfg in _league_registry.active_leagues():
+            if not _current():
+                return
+            if (
+                cfg.key != loaded_league
+                and _scoring_identity_error(contract_payload, cfg) is not None
+            ):
+                continue
+            try:
+                _gp.get_league_bundle(
+                    cfg.key, _league_registry.get_scoring_profile(cfg.key), contract_payload
+                )
+                warmed.append(f"bundle:{cfg.key}")
+            except Exception as exc:  # noqa: BLE001 — the request path builds it
+                log.info("trade-analysis warm: bundle %s skipped (%s)", cfg.key, exc)
+        if not _current():
+            return
+        sleeper = contract_payload.get("sleeper") or {}
+        scoring = sleeper.get("scoringSettings") if isinstance(sleeper, dict) else None
+        if isinstance(scoring, dict) and scoring:
+            from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
+            from src.roster_intel import best_ball_utility as _bbu  # noqa: PLC0415
+
+            season = current_nfl_season()
+            if season is not None:
+                _bbu._ensemble_index(int(season), scoring)  # noqa: SLF001
+                warmed.append("projectionEnsemble")
+        teams = sleeper.get("teams") if isinstance(sleeper, dict) else None
+        rostered = sorted(
+            {
+                str(pid)
+                for t in (teams if isinstance(teams, list) else [])
+                if isinstance(t, dict)
+                for pid in (t.get("playerIds") or [])
+                if pid
+            }
+        )
+        if rostered and _current():
+            from src.api.matchup_intel import players_meta_for_rosters  # noqa: PLC0415
+
+            players_meta_for_rosters([{"players": rostered}])
+            warmed.append("playersDb")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("trade-analysis warm pass failed: %s", exc)
+    log.info(
+        "trade-analysis warm: %s in %.1fs",
+        ",".join(warmed) or "nothing",
+        time.perf_counter() - started,
+    )
+
+
 def _warm_overlays_in_background(contract_payload: dict) -> None:
     """Force-refresh the Sleeper overlay cache for every active league
     on a daemon thread.
@@ -2199,7 +3003,35 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
     deploy-failure history.  Thread-safe: ``fetch_sleeper_overlay`` is
     the same sync callable the request path already invokes via
     ``run_in_threadpool``, and it guards its own per-league cache.
+
+    Skipped entirely (no thread) when ``SLEEPER_OVERLAY_WARM_ENABLED`` is
+    false; requests then fetch the overlay themselves, as they already do
+    when they land before the warm finishes.
+
+    Also starts the ``trade-analysis-warm`` thread
+    (:func:`_warm_trade_analysis_prerequisites`) under the same flag — it can
+    reach Sleeper too (a stale team-strength snapshot, the players DB), so it
+    sits behind the same network boundary.
     """
+    if not SLEEPER_OVERLAY_WARM_ENABLED:
+        log.info("Sleeper overlay warm disabled (SLEEPER_OVERLAY_WARM_ENABLED=false)")
+        return
+
+    analysis_generation = _next_analysis_warm_generation()
+
+    def _analysis_worker() -> None:
+        # Analyze Trade's league bundle / projections / players DB, on its
+        # own thread: the loaded league's bundle needs no overlay (the
+        # request path reads the board's own ``sleeper`` block), and the
+        # overlay pass below is ~10 s of Sleeper round-trips a request
+        # arriving right after a restart should not wait behind.  At boot it
+        # starts once the app is serving (never racing the prime); after a
+        # scrape the flag is already set.  One at a time, newest only.
+        _SERVING_STARTED.wait(timeout=_ANALYSIS_WARM_BOOT_WAIT_SECONDS)
+        if analysis_generation != _analysis_warm_generation:
+            return
+        with _ANALYSIS_WARM_LOCK:
+            _warm_trade_analysis_prerequisites(contract_payload, generation=analysis_generation)
 
     def _worker() -> None:
         try:
@@ -2296,6 +3128,14 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
         ).start()
     except Exception as exc:  # noqa: BLE001
         log.warning("post-scrape overlay warm thread failed to start: %s", exc)
+    try:
+        threading.Thread(
+            target=_analysis_worker,
+            name="trade-analysis-warm",
+            daemon=True,
+        ).start()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("trade-analysis warm thread failed to start: %s", exc)
 
 
 # ── Scoring-identity gate (W18-F001) ─────────────────────────────────
@@ -2469,6 +3309,8 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_compact_data_etag
     global contract_health
     global served_source_coverage
+    global served_seasonal_inactive
+    global served_private_absent_by_design
 
     def _swap_to_empty() -> None:
         """Publish the 'no payload' generation (falsy data / failed
@@ -2494,8 +3336,10 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             latest_compact_data_bytes, \
             latest_compact_data_gzip_bytes, \
             latest_compact_data_etag
-        global served_source_coverage
+        global served_source_coverage, served_seasonal_inactive, served_private_absent_by_design
         served_source_coverage = {}
+        served_seasonal_inactive = []
+        served_private_absent_by_design = []
         latest_data_bytes = None
         latest_data_gzip_bytes = None
         latest_data_etag = None
@@ -2604,6 +3448,21 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             # contract response.  The glyph degrades gracefully when
             # rankHistory is absent.
             log.warning("rank_history: append/stamp failed: %s", exc)
+        # Team labels follow permanent Sleeper user ids
+        # (``owner_names.json`` ``_byUserId``).  An export scraped before a
+        # name was configured still carries the old label; relabel the baked
+        # block so server-side engines name each roster the way the live
+        # overlay on /api/data does.  Display only — ids are untouched.
+        try:
+            _renamed = _sleeper_overlay.relabel_sleeper_block(
+                (contract_payload or {}).get("sleeper")
+                if isinstance(contract_payload, dict)
+                else None
+            )
+            if _renamed:
+                log.info("owner_names: relabelled baked sleeper teams %s", _renamed)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("owner_names: relabel failed: %s", exc)
         # Tag the contract with the league + scoring profile it was
         # built for.  Two different roles:
         #
@@ -2633,6 +3492,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
                 meta_block = contract_payload.setdefault("meta", {})
                 meta_block["leagueKey"] = _default_cfg.key
                 meta_block["scoringProfile"] = _default_cfg.scoring_profile
+                meta_block["packageModel"] = _package_model.receipt()
                 _fp = _contract_scoring_fingerprint(contract_payload)
                 if _fp:
                     meta_block["scoringFingerprint"] = _fp
@@ -2641,6 +3501,8 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         except Exception:  # noqa: BLE001
             pass
         new_coverage = _compute_served_source_coverage(contract_payload)
+        new_seasonal_inactive = _compute_served_seasonal_inactive(contract_payload)
+        new_private_absent_by_design = _compute_served_private_absent_by_design(contract_payload)
 
         # Post-scrape overlay warm — for every ACTIVE league
         # (including the default league the scraper just built for),
@@ -2768,6 +3630,8 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     latest_contract_data = contract_payload
     contract_health = contract_report
     served_source_coverage = new_coverage
+    served_seasonal_inactive = new_seasonal_inactive
+    served_private_absent_by_design = new_private_absent_by_design
     latest_data_bytes = raw
     latest_data_gzip_bytes = full_gzip
     latest_data_etag = full_etag
@@ -2790,6 +3654,9 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     # Old-generation memoized responses go with the old etag.
     _OVERRIDES_RESPONSE_CACHE.clear()
     _DRAFT_CAPITAL_CACHE.clear()
+    # A new board generation moves the heavy-section key (``latest_data_etag``);
+    # rebuild those entries off the request path.  Never blocks, never raises.
+    _schedule_public_sections_warm("publish", wait_for_serving=True)
 
 
 def _load_cached_payload(path: Path | None) -> dict | None:
@@ -3039,7 +3906,9 @@ def _record_source_dataset_state() -> None:
 async def run_scraper(trigger: str = "manual") -> dict | None:
     """
     Import and run the scraper, returning the dashboard JSON dict.
-    Runs in the same event loop as the server.
+    ``scraper.run()`` itself executes on its own loop in a worker thread
+    (``_run_scraper_off_loop``); the rest of this coroutine runs on the
+    server loop.
     """
     global latest_data
     _reconcile_orphaned_running_state()
@@ -3066,6 +3935,35 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
         _start_resource_sampler(worker_id)
 
         try:
+            if SCRAPE_REAP_ORPHAN_BROWSERS:
+                # Before launch, not just after: Chromium leaked by an earlier
+                # run (reparented away from this process, or left by a launch
+                # that timed out) still counts against the service cgroup's
+                # MemoryMax/TasksMax and starves this run's launch.
+                _pre_box = await run_in_threadpool(_box_diagnostics)
+                _pre_reaped = await run_in_threadpool(
+                    lambda: _reap_orphan_browsers(include_service_cgroup=True)
+                )
+                if _pre_reaped:
+                    log.warning("reaped %d leaked Chromium process(es) before launch", _pre_reaped)
+                _record_scrape_event(
+                    "scrape_prelaunch_box_check",
+                    level="warning" if _pre_reaped else "info",
+                    message=f"reaped={_pre_reaped}",
+                    reaped=_pre_reaped,
+                    box=_pre_box,
+                )
+            # RSS before this cycle (WA-17).  A light record: the glibc walk
+            # and the censuses stall the event loop, and the scrape path must
+            # not (test_run_scraper_*); the periodic loop takes them.
+            await run_in_threadpool(_record_heap_snapshot, "pre_scrape", False, None, False)
+            # Headroom below the cgroup's MemoryHigh before Chromium launches.
+            _record_scrape_event(
+                "scrape_prelaunch_heap_release",
+                level="info",
+                message="malloc_trim before launch",
+                **(await run_in_threadpool(_release_freed_heap)),
+            )
             _update_scrape_progress(
                 step="bootstrap",
                 source="import_scraper",
@@ -3094,13 +3992,10 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 message="Executing scraper.run()",
             )
 
-            progress_callback = _build_scrape_progress_callback(worker_id)
-
-            # Top-level run timeout guard so a wedged scraper cannot hold running=True forever.
-            result = await asyncio.wait_for(
-                scraper.run(progress_callback=progress_callback),
-                timeout=SCRAPE_RUN_TIMEOUT_SECONDS,
-            )
+            # Off the event loop -- see _run_scraper_off_loop.  The top-level
+            # run timeout still bounds a wedged scraper so it cannot hold
+            # running=True forever.
+            result = await _run_scraper_off_loop(scraper, worker_id, SCRAPE_RUN_TIMEOUT_SECONDS)
 
             _update_scrape_progress(
                 step="validate",
@@ -3471,6 +4366,12 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # hiccup leaves the last observation in place, never blocks.
             await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
+            # The publish is this cycle's allocation peak; return what it freed
+            # and log RSS before / after (WA-17, light record as above).
+            _post_publish_trim = await run_in_threadpool(_release_freed_heap)
+            await run_in_threadpool(
+                _record_heap_snapshot, "post_trim", False, _post_publish_trim, False
+            )
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 
@@ -3490,6 +4391,14 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     log.info("retention: %s", _ret.summary())
             except Exception as _ret_exc:  # noqa: BLE001
                 log.warning("retention prune skipped: %s", _ret_exc)
+            # Depth-note shadow counters (LVA-P4): expired days go whatever the
+            # flag says, so retention never depends on the counters running.
+            try:
+                from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+                _depth_shadow.prune_expired()
+            except Exception as _lvd_exc:  # noqa: BLE001
+                log.warning("depth-disclosure shadow retention skipped: %s", _lvd_exc)
 
             return result
         except Exception as e:
@@ -3596,16 +4505,77 @@ async def scheduled_scrape():
     ).isoformat()
 
 
-async def schedule_loop():
-    """Simple async loop that runs the scraper on an interval."""
+async def schedule_loop(first_delay_seconds: float | None = None):
+    """Simple async loop that runs the scraper on an interval.
+
+    ``first_delay_seconds`` shortens (never lengthens) the FIRST wait, so a boot
+    that skipped its startup scrape (``_startup_scrape_plan``) scrapes when the
+    loaded board turns one interval old instead of one interval after boot.
+    """
     from datetime import timedelta
 
+    interval_s = SCRAPE_INTERVAL_HOURS * 3600
+    delay_s = interval_s
+    if first_delay_seconds is not None:
+        delay_s = min(interval_s, max(0.0, float(first_delay_seconds)))
     while True:
         scrape_status["next_scrape"] = (
-            datetime.now(timezone.utc) + timedelta(hours=SCRAPE_INTERVAL_HOURS)
+            datetime.now(timezone.utc) + timedelta(seconds=delay_s)
         ).isoformat()
-        await asyncio.sleep(SCRAPE_INTERVAL_HOURS * 3600)
+        await asyncio.sleep(delay_s)
         await scheduled_scrape()
+        delay_s = interval_s
+
+
+def _startup_scrape_plan(
+    board_age_hours: float | None,
+    *,
+    has_contract: bool,
+    contract_ok: bool,
+    enabled: bool,
+    interval_hours: float = SCRAPE_INTERVAL_HOURS,
+) -> dict:
+    """Should this boot scrape now, and when is the first scheduled scrape?
+
+    Every restart used to scrape 3 s after boot (Chromium included) whatever
+    the age of the board it had just loaded, and reset the scheduled loop to
+    ``boot + interval`` (docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md §6.1,
+    D-2).  A boot may now SKIP that scrape only when the board it serves was
+    produced less than ONE scrape interval ago -- a third of the
+    ``data_stale`` line (``3 x interval``, ``/api/health``) -- and then scrapes
+    at ``produced + interval``, exactly when an uninterrupted process would
+    have.  The age is ``_board_age_hours`` (the one owner, F-19): unknown, a
+    future stamp, no primed contract, a primed contract whose
+    ``contractHealth`` is not ok (a scrape is the recovery attempt), or the
+    flag off (``conditional_startup_scrape``, default OFF) all scrape at boot
+    as before.  So the maximum age of the served board is unchanged; what goes
+    is the redundant scrape of a board that is still within its interval.
+
+    Returns ``{"run_now", "first_delay_seconds", "reason", "board_age_hours"}``.
+    """
+    interval_s = float(interval_hours) * 3600.0
+    plan = {
+        "run_now": True,
+        "first_delay_seconds": interval_s,
+        "board_age_hours": board_age_hours,
+    }
+    if not enabled:
+        return {**plan, "reason": "flag_off"}
+    if not has_contract:
+        return {**plan, "reason": "no_primed_contract"}
+    if not contract_ok:
+        return {**plan, "reason": "contract_unhealthy"}
+    if board_age_hours is None:
+        return {**plan, "reason": "board_age_unknown"}
+    if board_age_hours < 0 or board_age_hours >= float(interval_hours):
+        return {**plan, "reason": "board_due"}
+    remaining = interval_s - board_age_hours * 3600.0
+    return {
+        **plan,
+        "run_now": False,
+        "first_delay_seconds": max(0.0, remaining),
+        "reason": "board_within_interval",
+    }
 
 
 # ── APP LIFECYCLE ───────────────────────────────────────────────────────
@@ -3634,6 +4604,13 @@ async def lifespan(app: FastAPI):
             "fatal": 0,
         }
 
+    # 0b. Screenshot import: one warning if the OCR binary is missing.  The
+    # route itself answers 503 ocr_unavailable, so this is observability only.
+    try:
+        _screenshot_import_startup_check()
+    except Exception as exc:  # noqa: BLE001 — never block startup on an optional feature
+        log.warning("screenshot import availability check failed: %s", type(exc).__name__)
+
     # 1. Load cached data immediately so the dashboard is usable right away
     latest_data = load_from_disk()
     _seed_ingestion_verdict_from_startup_payload(latest_data)
@@ -3657,16 +4634,66 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         log.warning("session_store hydrate on startup failed: %s", exc)
 
-    # 2. Start first scrape in background (don't block startup)
+    # 2. Start first scrape in background (don't block startup) -- unless the
+    # board just loaded is still within its scrape interval (D-2,
+    # ``_startup_scrape_plan``); then the schedule scrapes when it comes due.
     async def initial_scrape():
         await asyncio.sleep(3)  # small delay to let server finish booting
         await run_scraper(trigger="startup")
 
-    scrape_task = asyncio.create_task(initial_scrape())
-
     # 3. Start the recurring schedule
-    scheduler_task = asyncio.create_task(schedule_loop())
+    if SCRAPE_SCHEDULER_ENABLED:
+        try:
+            from src.api import feature_flags as _ff  # noqa: PLC0415
+
+            _conditional = _ff.is_enabled("conditional_startup_scrape")
+        except Exception:  # noqa: BLE001 — an unreadable flag keeps the old behaviour
+            _conditional = False
+        plan = _startup_scrape_plan(
+            _board_age_hours(),
+            has_contract=latest_contract_data is not None,
+            contract_ok=bool((contract_health or {}).get("ok")),
+            enabled=_conditional,
+        )
+        if plan["run_now"]:
+            scrape_task = asyncio.create_task(initial_scrape())
+        else:
+            scrape_task = None
+            log.info(
+                "Startup scrape skipped: board is %.2fh old (< %sh interval); "
+                "first scheduled scrape in %.0fs",
+                plan["board_age_hours"],
+                SCRAPE_INTERVAL_HOURS,
+                plan["first_delay_seconds"],
+            )
+        if _conditional:
+            # Flag OFF records nothing new: the default boot is today's boot.
+            _record_scrape_event(
+                "startup_scrape_plan",
+                message="startup scrape " + ("started" if plan["run_now"] else "skipped"),
+                run_now=plan["run_now"],
+                reason=plan["reason"],
+                board_age_hours=plan["board_age_hours"],
+                first_delay_seconds=plan["first_delay_seconds"],
+            )
+        scheduler_task = asyncio.create_task(
+            schedule_loop(plan["first_delay_seconds"] if _conditional else None)
+        )
+    else:
+        scrape_task = scheduler_task = None
+        log.info("Scrape scheduler disabled (SCRAPE_SCHEDULER_ENABLED=false)")
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    heap_report_task = asyncio.create_task(heap_report_loop())
+    # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
+    # Correctness never depends on it — every command settles what is due
+    # first — and a failure here must never block the site from starting.
+    try:
+        from src.auction import runtime as _auction_runtime
+
+        auction_task = _auction_runtime.start()
+    except Exception as exc:  # noqa: BLE001
+        log.error("auction runtime failed to start: %s", exc)
+        auction_task = None
     # Public league snapshot warmup — kicks a background rebuild if
     # no persisted snapshot was loaded at boot.  Name is resolved at
     # call time (Python late-binding), so the fact that the function
@@ -3699,12 +4726,20 @@ async def lifespan(app: FastAPI):
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
     log.info(f"Dashboard: http://localhost:{PORT}")
 
+    # Background warm-ups that would only slow the boot they race (the
+    # Analyze Trade prerequisites) wait for this.
+    _SERVING_STARTED.set()
+
     yield  # app is running
 
     # Cleanup
-    scrape_task.cancel()
-    scheduler_task.cancel()
+    for task in (scrape_task, scheduler_task):
+        if task is not None:
+            task.cancel()
     uptime_task.cancel()
+    heap_report_task.cancel()
+    if auction_task is not None:
+        auction_task.cancel()
     log.info("Server shutting down")
 
 
@@ -3713,6 +4748,7 @@ app = FastAPI(
     title="Dynasty Trade Calculator",
     lifespan=lifespan,
 )
+app.include_router(_chase_upside_mcp.router)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Global exception handler — catches ANY unhandled exception from
@@ -3740,6 +4776,66 @@ app.include_router(_ros_router)
 from src.consensus_edge.api import router as _consensus_edge_router  # noqa: E402
 
 app.include_router(_consensus_edge_router)
+
+# Rookie auction room (owner directive 2026-09-29).  Self-contained router
+# with its OWN identity layer and store (``src/auction/``); it authenticates
+# every request itself, so its prefix is exempt from ``_private_api_gate``
+# below.  Mock rooms only until the owner separately approves an official
+# launch.  Rollback: RISKIT_FEATURE_ROOKIE_AUCTION=0 + restart.
+from src.auction.api import router as _auction_router  # noqa: E402
+
+app.include_router(_auction_router)
+
+# DFS workspace (owner directive 2026-09-30, docs/dfs/README.md).  Private:
+# /api/dfs/* stays behind ``_private_api_gate`` and every handler also
+# resolves its owner from this process's session store, scoping every
+# record by owner.  Isolated from dynasty valuation — reads/writes only
+# ``data/dfs/``.  Rollback: RISKIT_FEATURE_DFS_WORKSPACE=0 + restart.
+from src.dfs import api as _dfs_api  # noqa: E402
+
+_dfs_api.configure_session_resolver(lambda request: _get_auth_session(request))
+app.include_router(_dfs_api.router)
+
+# Model Lab (AL-0b / IC-5): a read-only, PRIVATE, admin-only view over the
+# existing model owners (Hill registry + Autopilot, AL-0 receipts, shadow
+# ledgers, evaluator outputs).  /api/model-lab stays behind
+# ``_private_api_gate`` AND every handler calls ``_require_admin_session``
+# (late-bound: it is defined further down this module).  GET only; writes
+# nothing.  Plan: docs/research/ADAPTIVE_LEARNING_2026-09-26.md section 33.
+from src.model_registry import model_lab_api as _model_lab_api  # noqa: E402
+
+_model_lab_api.configure_authorizer(lambda request: _require_admin_session(request))
+app.include_router(_model_lab_api.router)
+
+# Manager Scout (C6-MGR-01 / CE-03): PRIVATE per-manager tendency profiles over
+# the canonical trade, waiver and FAAB owners.  /api/manager-scout stays behind
+# ``_private_api_gate``; league-scoped, 503 on a loaded-contract league
+# mismatch.  Read-only.  Both callables are late-bound (defined further down).
+from src.intel import manager_scout_api as _manager_scout_api  # noqa: E402
+
+_manager_scout_api.configure(
+    league_resolver=lambda request: _resolve_league_for_request(
+        request, require_loaded_contract=True
+    ),
+    contract_provider=lambda: latest_contract_data,
+)
+app.include_router(_manager_scout_api.router)
+
+# Manager Intelligence (owner directive 2026-10-16): PRIVATE lookup of any
+# Sleeper username -> leagues + aggregated player portfolio, priced by the
+# canonical board.  /api/manager-intel stays behind ``_private_api_gate``;
+# guest passes refused; rate-limited per user.  Read-only.
+from src.intel import manager_intel_api as _manager_intel_api  # noqa: E402
+
+_manager_intel_api.configure(
+    session_provider=lambda request: _get_auth_session(request),
+    contract_provider=lambda: latest_contract_data,
+    # The at-the-time resolver factory POST /api/trades/asof-grades uses
+    # (``None`` when the temporal ledger does not exist); defined further
+    # down, so resolved lazily per request.
+    asof_resolver_provider=lambda: _build_public_activity_valuation(),
+)
+app.include_router(_manager_intel_api.router)
 
 
 @app.middleware("http")
@@ -3827,6 +4923,12 @@ _PUBLIC_API_EXACT = frozenset(
         # news" card from this endpoint, so it must be reachable
         # without a session.
         "/api/news",
+        # Unlisted Waiver Wire Comparison page (owner request 2026-10-21).
+        # Read-only: league team names + Sleeper rosters (public on Sleeper)
+        # and two PUBLISHED third-party values (KTC Crowd+Trades, IDPTC)
+        # averaged 50/50.  No canonical/proprietary value is in the payload
+        # (pinned by tests/waiver_compare/test_endpoint.py).
+        "/api/public/waiver-compare",
     }
 )
 # Endpoints that handle their own auth (bearer token, etc.) — the
@@ -3834,6 +4936,7 @@ _PUBLIC_API_EXACT = frozenset(
 # check runs.
 _SELF_AUTHED_API_EXACT = frozenset(
     {
+        "/api/chase-upside/mcp",
         "/api/signal-alerts/run",
         # Same bearer-auth pattern as signal-alerts.  Bypass session
         # cookie gate so the systemd timer's curl call hits the
@@ -3865,6 +4968,11 @@ _PUBLIC_API_PREFIXES = (
     # /api/public/league.  Generation remains admin-only via the POST
     # endpoint's own _require_admin_session check.
     "/api/league/articles",
+    # Rookie auction room: league-mates and invited mock participants hold
+    # an AUCTION session, not a site session.  Every handler under this
+    # prefix authenticates and authorises itself, deny-by-default
+    # (``src/auction/api.py``).
+    "/api/auction",
 )
 
 
@@ -3950,48 +5058,103 @@ async def _request_context_middleware(request: Request, call_next):
     from src.utils import request_context as _rc
 
     incoming = str(request.headers.get("x-request-id") or "").strip()
-    rid = incoming if (1 <= len(incoming) <= 64) else _rc.new_request_id()
+    rid = incoming if _rc.valid_request_id(incoming) else _rc.new_request_id()
+    incoming_trace = _rc.parse_traceparent(request.headers.get("traceparent"))
+    trace_id, parent_span_id, flags = incoming_trace or (_rc.new_trace_id(), None, "01")
     token = _rc.set_request_id(rid)
+    trace_tokens = _rc.set_trace_context(trace_id, _rc.new_span_id(), parent_span_id, flags)
+    start_ns = time.perf_counter_ns()
+    status_code = 500
+    failure_class = "exception"
     try:
         response = await call_next(request)
+        status_code = response.status_code
+        failure_class = (
+            "http_5xx" if status_code >= 500 else "http_4xx" if status_code >= 400 else None
+        )
+        try:
+            response.headers["X-Request-Id"] = rid
+            response.headers["X-Trace-Id"] = trace_id
+            response.headers["traceparent"] = _rc.current_traceparent()
+        except Exception:  # noqa: BLE001 — some response types reject mutations
+            pass
+        return response
     finally:
+        if request.url.path == "/api/leagues":
+            try:
+                _rc.emit_http_span(
+                    method=request.method,
+                    route="/api/leagues",
+                    status_code=status_code,
+                    duration_ms=(time.perf_counter_ns() - start_ns) / 1_000_000,
+                    failure_class=failure_class,
+                )
+            except Exception:  # noqa: BLE001 — telemetry is fail-open
+                pass
+        _rc.reset_trace_context(trace_tokens)
         _rc.reset_request_id(token)
-    try:
-        response.headers["X-Request-Id"] = rid
-    except Exception:  # noqa: BLE001 — some response types reject mutations
-        pass
-    return response
 
 
 def _client_ip_from_request(request: Request) -> str:
     """The client identity the RATE LIMITER keys on — attacker-fixed, not
-    attacker-chosen (W22-F002 / V1-103).
+    attacker-chosen (W22-F002 / V1-103; B0-h 2026-10-19).
 
-    ``X-Real-IP`` first: nginx sets it with ``proxy_set_header X-Real-IP
-    $remote_addr`` (deploy/nginx/chaseupside-proxy.conf), which REPLACES
-    anything the client sent — through the proxy it is always the TCP
-    peer nginx actually saw.
-
-    ``X-Forwarded-For`` is different: nginx uses
-    ``$proxy_add_x_forwarded_for``, which APPENDS the real address to
-    whatever the client supplied.  Taking the FIRST entry — what this
-    function did until 2026-08-25 — therefore keyed the limiter on an
-    attacker-chosen string: rotate one header value per request and every
-    public endpoint's limit dissolves.  The one entry our own trusted
-    proxy wrote is the LAST, so the fallback takes that.
-
-    Bare ``request.client.host`` remains for direct (dev/E2E) access.
+    Delegates to the one owner, ``src/api/client_ip.py``: proxy headers
+    (``X-Real-IP``, then the LAST ``X-Forwarded-For`` entry) are honoured only
+    from a trusted peer (loopback nginx or ``RATE_LIMIT_TRUSTED_PROXIES``) and
+    only when they parse as an address; otherwise the TCP peer.
     """
-    real_ip = request.headers.get("x-real-ip", "").strip()
-    if real_ip:
-        return real_ip
-    xff = request.headers.get("x-forwarded-for", "")
-    if xff:
-        last = xff.split(",")[-1].strip()
-        if last:
-            return last
-    client = request.client
-    return client.host if client else ""
+    from src.api.client_ip import client_ip_from_request
+
+    return client_ip_from_request(request)
+
+
+def _overlay_content_identity(overlay: dict) -> str | None:
+    """Fingerprint of everything an overlay observation contributes to the
+    ``/api/data`` response EXCEPT the per-fetch stamps.
+
+    Every 15-min overlay refresh restamps ``overlayFetchedAt`` (and the trade
+    window edge) even when no roster, trade or setting changed.  Versioning
+    the encoded response by fetch time therefore minted new bytes and a new
+    ETag each refresh, so every client re-downloaded the whole multi-MB board
+    (a warm Rankings/Trade load paying a full body transfer instead of a 304)
+    to learn nothing.  Versioned by content, an unchanged overlay keeps its
+    encoded generation: the served ``overlayFetchedAt`` is then the
+    observation at the slot's last encode (re-encoded on a board publish,
+    a roster-rule change, eviction or restart) -- older than its latest
+    confirmation, which understates freshness and never overstates it.
+
+    Memoized per (league, observation), so the hash runs once per refresh,
+    not per request.  Also records, per fingerprint, the latest observation
+    that confirmed it (``_OVERLAY_FP_LAST_SEEN``), which is what a
+    stale-while-revalidate bound must measure from.  ``None`` (uncacheable)
+    when the observation carries no fetch stamp.
+    """
+    fetched_at = overlay.get("overlayFetchedAt")
+    if not fetched_at:
+        return None
+    memo_key = (overlay.get("leagueId"), fetched_at)
+    fp = _OVERLAY_CONTENT_FP.get(memo_key)
+    if fp is None:
+        body = {k: v for k, v in overlay.items() if k not in _OVERLAY_PER_FETCH_KEYS}
+        try:
+            fp = hashlib.sha256(
+                json.dumps(
+                    body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str
+                ).encode("utf-8")
+            ).hexdigest()
+        except Exception as exc:  # noqa: BLE001 -- unhashable shape: uncacheable, fail closed
+            log.warning("overlay content identity unavailable: %s", exc)
+            return None
+        if len(_OVERLAY_CONTENT_FP) >= _OVERLAY_CONTENT_MEMO_MAX:
+            _OVERLAY_CONTENT_FP.clear()
+        _OVERLAY_CONTENT_FP[memo_key] = fp
+    seen = _OVERLAY_FP_LAST_SEEN.get(fp)
+    if seen is None or str(fetched_at) > str(seen):
+        if seen is None and len(_OVERLAY_FP_LAST_SEEN) >= _OVERLAY_CONTENT_MEMO_MAX:
+            _OVERLAY_FP_LAST_SEEN.clear()
+        _OVERLAY_FP_LAST_SEEN[fp] = fetched_at
+    return fp
 
 
 def _overlay_encode_lock(cache_key) -> asyncio.Lock:
@@ -4024,8 +5187,55 @@ def _evict_overlay_cache_if_oversized(keep_key) -> None:
         del _OVERLAY_ENCODE_LOCKS[k]
 
 
+def _kick_overlay_reencode(cache_key, stale_entry, overlay_version, encode) -> None:
+    """Start at most one background re-encode of ``cache_key`` at
+    ``overlay_version`` (stale-while-revalidate for the overlay memo).
+
+    Takes the same per-key lock as a request-path miss, so it can never
+    run beside another encode of the slot, and re-checks the slot under
+    it: the result is stored only while the slot still holds
+    ``stale_entry``, the generation this task was started to replace, so
+    it can never overwrite a newer generation a request-path miss stored
+    first (e.g. after a board publish).  A failure is logged and leaves
+    the previous generation in place; the next request retries (or, once
+    the caller's bound expires, encodes on the request path as before).
+    """
+    if cache_key in _OVERLAY_REFRESHING:
+        return
+    _OVERLAY_REFRESHING.add(cache_key)
+
+    async def _reencode():
+        try:
+            async with _overlay_encode_lock(cache_key):
+                if _OVERLAY_RESPONSE_CACHE.get(cache_key) is not stale_entry:
+                    return
+                entry = await run_in_threadpool(encode)
+                if _OVERLAY_RESPONSE_CACHE.get(cache_key) is stale_entry:
+                    _OVERLAY_RESPONSE_CACHE[cache_key] = entry
+        except Exception as exc:  # noqa: BLE001
+            log.warning("overlay background re-encode failed for %s: %s", cache_key, exc)
+
+    def _done(task):
+        # In the done-callback, not a ``finally``: a task cancelled before
+        # its first step never runs its body, and a stuck key would pin
+        # the slot to its stale generation for the rest of the window.
+        _OVERLAY_REFRESH_TASKS.discard(task)
+        _OVERLAY_REFRESHING.discard(cache_key)
+
+    task = asyncio.get_running_loop().create_task(_reencode())
+    _OVERLAY_REFRESH_TASKS.add(task)
+    task.add_done_callback(_done)
+
+
 async def _serialize_overlaid_response(
-    request, scrubbed, headers, cache_key, overlay_version=None, *, prepare=None
+    request,
+    scrubbed,
+    headers,
+    cache_key,
+    overlay_version=None,
+    *,
+    prepare=None,
+    stale_servable=None,
 ):
     """Serialize a live-overlay / cross-league ``/api/data`` response
     without blocking the event loop.
@@ -4047,6 +5257,17 @@ async def _serialize_overlaid_response(
     Version info (overlay_version tuple) is stored inside the cache entry.
     On cache hit, stale versions are re-encoded and replace the prior
     generation in the same slot, bounding memory to at most one per slot.
+
+    ``stale_servable(cached_version)`` opts a caller into
+    stale-while-revalidate: when the slot holds a DIFFERENT version for
+    which it returns true, that previous generation is served as-is and
+    ONE background task re-encodes the current version into the slot.
+    The caller owns the bound (the overlay path allows it only when the
+    board, canonical rows and roster rules are unchanged and the old
+    observation is inside the overlay owner's own stale-serve window), so
+    this never serves anything the overlay owner itself would not.
+    Without it, or when it returns false, a version mismatch encodes on
+    the request exactly as before.
     """
 
     def _encode():
@@ -4064,7 +5285,13 @@ async def _serialize_overlaid_response(
         entry = _OVERLAY_RESPONSE_CACHE.get(cache_key)
         # Check freshness: if cached version doesn't match current, treat as miss
         if entry is not None and entry[3] != overlay_version:
-            entry = None
+            if stale_servable is not None and stale_servable(entry[3]):
+                _kick_overlay_reencode(cache_key, entry, overlay_version, _encode)
+                headers["X-Overlay-Encode"] = "stale-while-revalidate"
+                # Already superseded: never let the browser reuse it.
+                headers["Cache-Control"] = "private, no-cache"
+            else:
+                entry = None
         if entry is None:
             async with _overlay_encode_lock(cache_key):
                 # Re-check: another coroutine may have encoded this key
@@ -4099,15 +5326,27 @@ def _overrides_encode_lock(cache_key) -> asyncio.Lock:
     return lock
 
 
+def _overrides_cache_bytes() -> int:
+    """Raw + gzip bytes held by the overrides memo."""
+    return sum(
+        len(e[0] or b"") + len(e[1] or b"") for e in list(_OVERRIDES_RESPONSE_CACHE.values())
+    )
+
+
 def _evict_overrides_cache_if_oversized(keep_key) -> None:
-    """Bound the overrides memo.  Key space is normally tiny (one stock
-    body × active leagues); the cap only guards against a client
-    spraying distinct bodies.  Held locks are preserved for the same
-    reason as ``_evict_overlay_cache_if_oversized``."""
-    if len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX:
+    """Bound the overrides memo by entry count AND bytes.  Key space is
+    normally tiny (one stock body × active leagues); the caps only guard
+    against a client spraying distinct bodies.  Eviction is the same
+    clear-all-but-``keep_key`` it always was; an evicted body is rebuilt
+    byte-identically on its next request.  Held locks are preserved for
+    the same reason as ``_evict_overlay_cache_if_oversized``."""
+    if (
+        len(_OVERRIDES_RESPONSE_CACHE) < _OVERRIDES_RESPONSE_CACHE_MAX
+        and _overrides_cache_bytes() < _OVERRIDES_RESPONSE_CACHE_MAX_BYTES
+    ):
         return
-    for k in [k for k in _OVERRIDES_RESPONSE_CACHE if k != keep_key]:
-        del _OVERRIDES_RESPONSE_CACHE[k]
+    for k in [k for k in list(_OVERRIDES_RESPONSE_CACHE) if k != keep_key]:
+        _OVERRIDES_RESPONSE_CACHE.pop(k, None)
     for k in [k for k, lk in _OVERRIDES_ENCODE_LOCKS.items() if not lk.locked()]:
         del _OVERRIDES_ENCODE_LOCKS[k]
 
@@ -4326,6 +5565,13 @@ async def get_data(request: Request):
                         requested_league_config=overlay.get("leagueConfig"),
                     )
                 )
+            # B0-g: the overlay's owned picks carry the same canonical
+            # ``boardRowName`` the baked block does (a copy — the overlay's
+            # teams are a shared in-process cache).
+            overlay_full = {
+                **overlay_full,
+                "teams": _overlay_pick_board_rows(overlay_full.get("teams"), canonical),
+            }
             scrubbed["sleeper"] = overlay_full
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
@@ -4338,11 +5584,12 @@ async def get_data(request: Request):
             suffix = "overlay" if sleeper_matches else "cross-league-overlay"
             headers["X-Payload-View"] = f"{payload_view_name}-{suffix}"
             # Cache-key is stable across overlay refreshes: only the base
-            # league/view context determines the key. Version info
-            # (overlayFetchedAt + payloadETag) is stored inside the cache
-            # entry and checked on hit; stale versions are re-encoded in
-            # place, bounding memory to one generation per slot.
+            # league/view context determines the key. Version info (overlay
+            # CONTENT identity + payloadETag + ...) is stored inside the
+            # cache entry and checked on hit; stale versions are re-encoded
+            # in place, bounding memory to one generation per slot.
             overlay_fetched_at = overlay.get("overlayFetchedAt")
+            overlay_content = _overlay_content_identity(overlay)
             overlay_cache_key = (
                 (
                     "overlay",
@@ -4351,19 +5598,31 @@ async def get_data(request: Request):
                     payload_view_name,
                     bool(sleeper_matches),
                 )
-                if (overlay_fetched_at and payload_etag and canonical_etag)
+                if (overlay_fetched_at and overlay_content and payload_etag and canonical_etag)
                 else None
             )
             # Registry context can change without an overlay observation or
             # board publication. Capture it once for both identity and solve;
             # meta already belongs to the requested league, including fallback.
             roster_settings = capture_contract_roster_settings(scrubbed)
+            # The scoring-profile LABEL is stamped into ``meta`` per request,
+            # so it belongs to the version too: the overlay's fetch time used
+            # to refresh it implicitly every ~15 min, and the content
+            # identity no longer does.
             context_digest = hashlib.sha256(
-                json.dumps(roster_settings, sort_keys=True, separators=(",", ":")).encode("utf-8")
+                json.dumps(
+                    {
+                        "rosterSettings": roster_settings,
+                        "scoringProfile": league_cfg.scoring_profile,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ).encode("utf-8")
             ).hexdigest()
             overlay_version = (
-                (overlay_fetched_at, payload_etag, canonical_etag, context_digest)
-                if overlay_cache_key
+                (overlay_content, payload_etag, canonical_etag, context_digest)
+                if (overlay_cache_key and overlay_content)
                 else None
             )
             canonical_rows = canonical.get("playersArray") if isinstance(canonical, dict) else None
@@ -4379,6 +5638,22 @@ async def get_data(request: Request):
                 except Exception as exc:  # noqa: BLE001
                     log.warning("optimalLineup re-stamp failed for %s: %s", league_cfg.key, exc)
 
+            def stale_servable(cached_version):
+                # Only the overlay OBSERVATION may lag: same board, same
+                # canonical rows, same roster rules, and the cached content
+                # last CONFIRMED by an observation still inside the overlay
+                # owner's own stale-serve window.  Anything else encodes on
+                # request.
+                return (
+                    isinstance(cached_version, tuple)
+                    and overlay_version is not None
+                    and len(cached_version) == len(overlay_version)
+                    and cached_version[1:] == overlay_version[1:]
+                    and _sleeper_overlay.overlay_observation_servable(
+                        _OVERLAY_FP_LAST_SEEN.get(cached_version[0])
+                    )
+                )
+
             return await _serialize_overlaid_response(
                 request,
                 scrubbed,
@@ -4386,6 +5661,7 @@ async def get_data(request: Request):
                 overlay_cache_key,
                 overlay_version,
                 prepare=prepare_lineups,
+                stale_servable=stale_servable,
             )
 
         if not sleeper_matches:
@@ -4442,10 +5718,26 @@ async def get_data(request: Request):
         if payload_bytes:
             return Response(content=payload_bytes, media_type="application/json", headers=headers)
         return JSONResponse(content=payload_obj, headers=headers)
-    return JSONResponse(
-        status_code=503,
-        content={"error": "No data available yet. First scrape may still be running."},
+    # No board loaded.  Say WHICH no-board state this is, with a machine code
+    # the client can map, instead of a sentence in ``error``: a failed build
+    # (``contract_health`` says so) is not "the first scrape may still be
+    # running", and the Rankings banner rendered the old shape as "declining
+    # for the reason above" with no reason (2026-10-05).
+    build_failed = (contract_health or {}).get("status") == "invalid" and any(
+        str(e).startswith("contract build failed")
+        for e in (contract_health or {}).get("errors") or []
     )
+    if build_failed:
+        content = {
+            "error": "contract_build_failed",
+            "message": "The latest rankings build failed, so no board is loaded right now.",
+        }
+    else:
+        content = {
+            "error": "data_not_ready",
+            "message": "No rankings board is loaded yet. The first scrape may still be running.",
+        }
+    return JSONResponse(status_code=503, content=content)
 
 
 @app.get("/api/dynasty-data")
@@ -4500,7 +5792,24 @@ async def get_movers(request: Request):
     ``perSourceDelta`` for exactly this reason; this docstring lagged
     the rename and promised a breakdown of "which sources drove the
     move" that was never computed.
+
+    **League scoping (LI1842-DEFECT-03).**  The movers are the LOADED
+    board's rank movement (names, current values, source ranks), so they
+    follow the board's scoring rule exactly: a league whose scoring is not
+    proven identical to the loaded board's gets the same 503
+    ``data_not_ready`` ``/api/data`` returns
+    (``_scoring_identity_error``), not the board's movers under its name.
+    An unknown / inactive ``leagueKey`` is the usual 400.
     """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if latest_contract_data:
+        _scoring_err = _scoring_identity_error(latest_contract_data, league_cfg)
+        if _scoring_err is not None:
+            return _scoring_err
+
     try:
         window = int(request.query_params.get("window", 14))
     except (TypeError, ValueError):
@@ -4865,6 +6174,28 @@ async def get_rankings_sources():
     )
 
 
+@app.get("/api/second-opinion/signals")
+async def get_signals_second_opinion():
+    """Signals Fantasy as a NON-VOTING, rank-only second opinion (#1555).
+
+    Authenticated by the private ``/api/*`` gate (this path is in no public
+    allowlist).  Reads the box-local private store written by
+    ``scripts/fetch_signals.py``; a missing store answers
+    ``status: "not_collected"``, never an empty-but-ok board.  Positional
+    ranks only — no value, no cross-position rank, nothing canonical.
+    Owner: ``src/sources/signals.py``.
+    """
+    from src.sources import signals as _signals  # noqa: PLC0415
+
+    contract = latest_contract_data or {}
+    payload = await run_in_threadpool(
+        _signals.build_second_opinion_payload,
+        DATA_DIR / "sources" / "signals",
+        contract.get("playersArray") or [],
+    )
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
 @app.post("/api/rankings/overrides")
 async def post_rankings_overrides(request: Request):
     """Rebuild the canonical rankings with user-supplied source overrides.
@@ -4923,6 +6254,21 @@ async def post_rankings_overrides(request: Request):
     overrides, warnings = normalize_source_overrides(body)
     tep_multiplier = normalize_tep_multiplier(body)
     tep_native_multiplier = normalize_tep_native_multiplier(body)
+    # The MANUAL TE-premium override is withdrawn (DEFECT-02; gate
+    # ``data_contract._TEP_OVERRIDES_DISABLED``): both normalizers answer
+    # ``None`` -- the canonical ADR-015 path -- and a body that still posts
+    # one is answered, never refused, with the reason in ``warnings`` and
+    # ``meta.tepMultiplierNote``.  Joining ``warnings`` also puts the note
+    # in the response-memo key below, so a body with and without the key
+    # cannot share a cached response that says the wrong thing.
+    tep_note = withdrawn_tep_override_note(body)
+    if tep_note:
+        warnings = [*warnings, tep_note]
+    tep_source = (
+        "override"
+        if tep_multiplier is not None or tep_native_multiplier is not None
+        else "canonical"
+    )
 
     view = (request.query_params.get("view") or "").strip().lower()
     delta_view = view in {"delta", "compact", "slim"}
@@ -5037,6 +6383,13 @@ async def post_rankings_overrides(request: Request):
             # Only one board is canonical now, so this is unconditional
             # rather than derived from whether factors were applied.
             meta["valuationMode"] = "market"
+            # Which TE premium produced this board: ``canonical`` (the
+            # league-derived / ADR-015 TE-basis path GET /api/data serves)
+            # unless the withdrawal gate is rolled back and a manual value
+            # was honoured.
+            meta["tepMultiplierSource"] = tep_source
+            if tep_note:
+                meta["tepMultiplierNote"] = tep_note
             if valuation_note:
                 meta["valuationNote"] = valuation_note
                 contract_payload.setdefault("warnings", []).append(valuation_note)
@@ -5239,8 +6592,8 @@ def _fetch_sleeper_user_team(
     return value
 
 
-@app.get("/api/leagues")
-async def get_leagues(request: Request):
+@app.get("/api/leagues", response_model=LeaguesResponse, response_model_exclude_unset=True)
+async def get_leagues(request: Request, response: Response):
     """List every configured league.
 
     Public endpoint — the response contains no secrets (no Sleeper
@@ -5323,7 +6676,10 @@ async def get_leagues(request: Request):
     if session:
         user_default = _league_registry.get_user_default_league(session.get("username") or "")
         body["userDefaultKey"] = user_default.key if user_default else None
-    return JSONResponse(content=body, headers={"Cache-Control": "no-store"})
+    response.headers["Cache-Control"] = "no-store"
+    if session:
+        return AuthenticatedLeaguesResponse.model_validate(body)
+    return PublicLeaguesResponse.model_validate(body)
 
 
 # ── League Comparison ─────────────────────────────────────────────────
@@ -5399,8 +6755,48 @@ async def get_league_comparison(request: Request):
 
 @app.get("/api/status")
 async def get_status():
-    """Return scraper status info."""
+    """Return scraper status info -- the PUBLIC projection.
+
+    Anonymous (``_PUBLIC_API_EXACT``), so the content built by
+    ``_status_content`` is served through the one public-diagnostics
+    boundary (``src/api/public_diagnostics.py``): no filesystem path, raw
+    Sleeper id, env value or traceback.  The unredacted content is
+    ``GET /api/admin/diagnostics`` (admin-gated).
+
+    The probes run in the threadpool, never on the event loop.  Measured on
+    production 2026-11-12: this handler took 14-18 s per call, and while it
+    ran an unrelated ``/api/leagues`` request (0.45 s alone) waited 15.9 s,
+    so every status poll froze the whole site.  ``_scrape_status_payload``
+    stays on the loop: it is in-memory, and it check-then-sets
+    ``scrape_status`` (the once-only stall event), which every other caller
+    also does from the loop.
+    """
     status_payload = _scrape_status_payload()
+    content = await run_in_threadpool(_public_status_body, status_payload)
+    return JSONResponse(
+        content=content,
+        # Observability payload — the disk-probe helpers behind it are
+        # memoized 30s server-side; let pollers (settings page, tools)
+        # reuse it browser-side for the same window.
+        headers={"Cache-Control": "private, max-age=15, stale-while-revalidate=30"},
+    )
+
+
+def _public_status_body(status_payload: dict) -> dict:
+    """``get_status``'s body: the public projection of ``_status_content``."""
+    return _public_diagnostics.public_status_payload(
+        _status_content(status_payload), base_dir=BASE_DIR
+    )
+
+
+def _status_content(status_payload: dict | None = None) -> dict:
+    """The FULL ``/api/status`` content.  PRIVATE: served unredacted only by
+    ``/api/admin/diagnostics``; ``get_status`` serves its public projection.
+
+    ``status_payload`` is ``_scrape_status_payload()`` taken on the event loop
+    by an async caller that runs the rest of this in the threadpool."""
+    if status_payload is None:
+        status_payload = _scrape_status_payload()
     # Prefer full scrape payload for source-health truth (dlfImport/sourceRunSummary).
     # Contract payload is a compatibility fallback when full payload is unavailable.
     # ``served_source_coverage`` is the per-source contribution to the
@@ -5408,7 +6804,10 @@ async def get_status():
     # from it plus the registry population (F-7).  Owner and input, not
     # two competing surfaces.
     source_health = _build_source_health_snapshot(
-        latest_data or latest_contract_data, coverage=served_source_coverage
+        latest_data or latest_contract_data,
+        coverage=served_source_coverage,
+        seasonal_inactive=served_seasonal_inactive,
+        private_absent_by_design=served_private_absent_by_design,
     )
     full_bytes = len(latest_data_bytes) if latest_data_bytes else 0
     runtime_bytes = len(latest_runtime_data_bytes) if latest_runtime_data_bytes else 0
@@ -5420,82 +6819,89 @@ async def get_status():
     startup_gzip_bytes = (
         len(latest_startup_data_gzip_bytes) if latest_startup_data_gzip_bytes else 0
     )
-    return JSONResponse(
-        content={
-            **status_payload,
-            "contract": {
-                "version": API_DATA_CONTRACT_VERSION,
-                "health": contract_health,
-                "value_authority": (latest_contract_data or {}).get("valueAuthority"),
-            },
-            "data_runtime": {
-                # The name claims a REFRESH time, so it carries one: when
-                # the board was produced.  It used to carry ``loadedAt`` —
-                # when this process started holding it — which is a different
-                # fact and is published beside it under its own name
-                # (audit F-19).
-                "last_data_refresh_at": latest_data_source.get("producedAt") or None,
-                "last_payload_loaded_at": latest_data_source.get("loadedAt") or None,
-                "active_data_source": latest_data_source,
-                "payload_bytes_full": full_bytes,
-                "payload_bytes_runtime": runtime_bytes,
-                "payload_bytes_startup": startup_bytes,
-                "payload_gzip_bytes_full": full_gzip_bytes,
-                "payload_gzip_bytes_runtime": runtime_gzip_bytes,
-                "payload_gzip_bytes_startup": startup_gzip_bytes,
-                "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
-                "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
-                "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
-                "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
-            },
-            "source_health": source_health,
-            "backup_health": _backup_freshness(),
-            "uptime": uptime_status,
-            "has_data": latest_contract_data is not None,
-            "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
-            "data_date": (latest_contract_data or {}).get("date"),
-            # Real per-source coverage of the served board (see the
-            # ``served_source_coverage`` global).  Monitoring asserts on
-            # this, and it is now also the INPUT ``source_health`` above
-            # counts from — so the two agree by construction rather than
-            # being two answers to one question.  Until 2026-08-18
-            # ``source_health`` took its population from the legacy
-            # ``sites`` list (2 anchor rows, not the 3 this comment
-            # claimed) and so could not detect a degraded board; F-7.
-            "served_source_coverage": served_source_coverage,
-            # R-4: Scrape success rate tracking
-            "scrape_success_rate_24h": _scrape_success_rate_24h(),
-            "last_n_scrapes": scrape_history[-20:],
-            "leagues": _league_status_snapshot(),
-            # 2026-04 upgrade observability — feature-flag state +
-            # unified-mapper coverage.  All flags default off so this
-            # is additive/informational; enabling a flag at runtime is
-            # the operator's decision.
-            "featureFlags": _feature_flag_snapshot_safe(),
-            # The rank-history log is the only record of what the board
-            # said on a past date, and its append is best-effort inside
-            # a try at the contract-rebuild site.  A stall is therefore
-            # silent; surfacing coverage here is what makes it visible
-            # before a study needs the history and finds it absent.
-            "rankHistoryCoverage": _rank_history_coverage_safe(),
-            # The same argument one directory over, and the same defect
-            # the line above exists to prevent.  `store.history_coverage`
-            # was written so a halted retention timer is "visible before
-            # a study needs the data rather than after it produces a
-            # wrong answer" — and was then wired to nothing.  That is
-            # what let the 2026-08-05 deploy install the producer, skip
-            # the pusher, and leave the only symptom in a deploy log
-            # nobody re-reads.
-            "playerctxHistoryCoverage": _playerctx_history_coverage_safe(),
-            "idMappingCoverage": _id_mapping_coverage_safe(),
-            "nflDataProvider": _nfl_data_provider_status_safe(),
-            "normalizationHealth": _normalization_health_safe(),
+    return {
+        **status_payload,
+        # Which commit this process is running, read once at import. Deploy
+        # verification compares it with the commit the workflow shipped.
+        "build": {**PROCESS_BUILD, "release": dict(PROCESS_RELEASE)},
+        # Numbers-only service-resource snapshot (Chromium count, cgroup
+        # memory/pids vs limits, free /dev/shm + temp bytes); memoized 30s.
+        "box_resources": _disk_probe_memo("box_resources", _box_diagnostics_for_status),
+        "contract": {
+            "version": API_DATA_CONTRACT_VERSION,
+            "health": contract_health,
+            "value_authority": (latest_contract_data or {}).get("valueAuthority"),
         },
-        # Observability payload — the disk-probe helpers behind it are
-        # memoized 30s server-side; let pollers (settings page, tools)
-        # reuse it browser-side for the same window.
-        headers={"Cache-Control": "private, max-age=15, stale-while-revalidate=30"},
-    )
+        "data_runtime": {
+            # The name claims a REFRESH time, so it carries one: when
+            # the board was produced.  It used to carry ``loadedAt`` —
+            # when this process started holding it — which is a different
+            # fact and is published beside it under its own name
+            # (audit F-19).
+            "last_data_refresh_at": latest_data_source.get("producedAt") or None,
+            "last_payload_loaded_at": latest_data_source.get("loadedAt") or None,
+            "active_data_source": latest_data_source,
+            "payload_bytes_full": full_bytes,
+            "payload_bytes_runtime": runtime_bytes,
+            "payload_bytes_startup": startup_bytes,
+            "payload_gzip_bytes_full": full_gzip_bytes,
+            "payload_gzip_bytes_runtime": runtime_gzip_bytes,
+            "payload_gzip_bytes_startup": startup_gzip_bytes,
+            "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
+            "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
+            "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
+            "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
+        },
+        "source_health": source_health,
+        "backup_health": _backup_freshness(),
+        "uptime": uptime_status,
+        "has_data": latest_contract_data is not None,
+        "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
+        "data_date": (latest_contract_data or {}).get("date"),
+        # Real per-source coverage of the served board (see the
+        # ``served_source_coverage`` global).  Monitoring asserts on
+        # this, and it is now also the INPUT ``source_health`` above
+        # counts from — so the two agree by construction rather than
+        # being two answers to one question.  Until 2026-08-18
+        # ``source_health`` took its population from the legacy
+        # ``sites`` list (2 anchor rows, not the 3 this comment
+        # claimed) and so could not detect a degraded board; F-7.
+        "served_source_coverage": served_source_coverage,
+        # The served board's own seasonal-inactive set (see the
+        # ``served_seasonal_inactive`` global): the coverage gate
+        # excuses exactly these, read from the board it is judging.
+        "served_seasonal_inactive": served_seasonal_inactive,
+        # Private sources the served board declares it carries no vote
+        # from by design (see ``served_private_absent_by_design``).
+        "served_private_absent_by_design": served_private_absent_by_design,
+        # R-4: Scrape success rate tracking
+        "scrape_success_rate_24h": _scrape_success_rate_24h(),
+        "last_n_scrapes": scrape_history[-20:],
+        "leagues": _league_status_snapshot(),
+        # 2026-04 upgrade observability — feature-flag state +
+        # unified-mapper coverage.  All flags default off so this
+        # is additive/informational; enabling a flag at runtime is
+        # the operator's decision.
+        "featureFlags": _feature_flag_snapshot_safe(),
+        # The rank-history log is the only record of what the board
+        # said on a past date, and its append is best-effort inside
+        # a try at the contract-rebuild site.  A stall is therefore
+        # silent; surfacing coverage here is what makes it visible
+        # before a study needs the history and finds it absent.
+        "rankHistoryCoverage": _rank_history_coverage_safe(),
+        # The same argument one directory over, and the same defect
+        # the line above exists to prevent.  `store.history_coverage`
+        # was written so a halted retention timer is "visible before
+        # a study needs the data rather than after it produces a
+        # wrong answer" — and was then wired to nothing.  That is
+        # what let the 2026-08-05 deploy install the producer, skip
+        # the pusher, and leave the only symptom in a deploy log
+        # nobody re-reads.
+        "playerctxHistoryCoverage": _playerctx_history_coverage_safe(),
+        "idMappingCoverage": _id_mapping_coverage_safe(),
+        "nflDataProvider": _nfl_data_provider_status_safe(),
+        "normalizationHealth": _normalization_health_safe(),
+    }
 
 
 def _feature_flag_snapshot_safe() -> dict:
@@ -5596,7 +7002,14 @@ def _playerctx_history_coverage_safe() -> dict:
 
         coverage = _pcx_store.history_coverage()
         if coverage.get("exists"):
-            coverage.update(_playerctx_pending_push(_pcx_store.HISTORY_DIR))
+            # A ``git`` subprocess with a 10 s timeout: memoized like the
+            # other disk probes, so a poller does not pay it on every call.
+            coverage.update(
+                _disk_probe_memo(
+                    "playerctx_pending_push",
+                    lambda: _playerctx_pending_push(_pcx_store.HISTORY_DIR),
+                )
+            )
         return coverage
     except Exception as exc:  # noqa: BLE001
         log.warning("playerctx history coverage failed: %s", exc)
@@ -5694,9 +7107,36 @@ def _league_status_snapshot() -> list[dict]:
     return snapshot
 
 
-@app.api_route("/api/health", methods=["GET", "HEAD"])
+# GET and HEAD are registered as two single-method routes on one handler
+# (the HEAD registration follows the function).  A single
+# ``api_route(methods=["GET", "HEAD"])`` made FastAPI derive ONE
+# operationId from ``list(route.methods)[0]`` — the first element of a SET
+# of strings, whose order follows PYTHONHASHSEED — so the published id
+# flipped between ``…_get`` and ``…_head`` across processes, and both
+# operations carried the same id (audit W00-F005, "Duplicate Operation
+# ID" warning).  Same handler, same responses; deterministic, unique ids.
+@app.get("/api/health")
 async def get_health():
-    """Basic health endpoint for reverse proxy / uptime probes."""
+    """Basic health endpoint for reverse proxy / uptime probes.
+
+    Anonymous, so the content is served through the public-diagnostics
+    boundary (``src/api/public_diagnostics.py``); the status code and every
+    verdict are computed BEFORE projection and are unchanged by it.  The
+    unredacted content is ``GET /api/admin/diagnostics`` (admin-gated).
+    """
+    status_code, content = _health_content(send_alerts=True)
+    return JSONResponse(
+        status_code=status_code,
+        content=_public_diagnostics.public_health_payload(content, base_dir=BASE_DIR),
+    )
+
+
+def _health_content(*, send_alerts: bool) -> tuple[int, dict]:
+    """``(status code, FULL /api/health content)``.  PRIVATE: see ``get_health``.
+
+    ``send_alerts`` is False for the admin read so looking at the diagnostics
+    never sends the stale-backup e-mail.
+    """
     status_payload = _scrape_status_payload()
 
     # R-1: Data freshness check — flag stale if the BOARD is older than
@@ -5722,6 +7162,8 @@ async def get_health():
     _session_configs = {
         # Scraper POSTs DLF_USERNAME/PASSWORD to wp-login on failure,
         # so this file auto-refreshes.  Tracked for visibility only.
+        # Read from the fetch timer's work dir via ``_dlf_session`` (below),
+        # NOT from BASE_DIR: that copy is a bootstrap seed nothing refreshes.
         "dlf_session.json": {"lifetimeDays": 14, "autoRefresh": True},
         # Scraper POSTs DRAFTSHARKS_EMAIL/PASSWORD on failure.
         "draftsharks_session.json": {"lifetimeDays": 30, "autoRefresh": True},
@@ -5733,9 +7175,12 @@ async def get_health():
     for fname, cfg in _session_configs.items():
         lifetime_days = cfg["lifetimeDays"]
         auto_refresh = cfg["autoRefresh"]
-        fpath = BASE_DIR / fname
+        # One resolver for "where is this session file": DLF resolves the way
+        # the fetch timer's script does; the others stay under BASE_DIR.
+        fpath = _dlf_session.health_session_path(fname, BASE_DIR)
         try:
             if not fpath.exists():
+                # Missing is reported as missing -- never as a zero-day-old file.
                 _session_ages[fname] = {"present": False, "autoRefresh": auto_refresh}
                 continue
             mtime_ts = fpath.stat().st_mtime
@@ -5816,19 +7261,23 @@ async def get_health():
     # does NOT flip the uptime status (the site is still serving).
     backup_health = _backup_freshness()
     _bage = backup_health.get("newestBackupAgeHours")
-    if _bage is None or _bage > 36:
+    if send_alerts and (_bage is None or _bage > 36):
+        # The public block carries no path.  The file is the private sidecar
+        # memoized with THIS block, so age, dir, path and dbCount below all
+        # describe one scan (no backup observed: the sidecar is None).
+        _bpath = _backup_alert_path(backup_health)
         send_alert(
             "Risk It: SQLite backups stale",
             f"Newest backup age: {_bage}h (dir={backup_health.get('backupDirUsed')}, "
-            f"path={backup_health.get('newestBackupPath')}, dbCount="
+            f"path={_bpath}, dbCount="
             f"{backup_health.get('dbCount')}). Expected a fresh backup within 24h "
             f"from riskit-backup.timer (02:00 UTC). Check "
             f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",
         )
 
-    return JSONResponse(
-        status_code=200 if is_ok else 503,
-        content={
+    return (
+        200 if is_ok else 503,
+        {
             "status": status,
             "service": "dynasty-server",
             "time_utc": datetime.now(timezone.utc).isoformat(),
@@ -5868,10 +7317,18 @@ async def get_health():
     )
 
 
+app.add_api_route("/api/health", get_health, methods=["HEAD"], name="head_health")
+
+
 @app.get("/api/uptime")
 async def get_uptime_status():
-    """Detailed uptime watchdog state."""
-    return JSONResponse(content=uptime_status)
+    """Detailed uptime watchdog state -- the PUBLIC projection.
+
+    Anonymous (``_PUBLIC_API_EXACT``): the env-derived ``target_url`` becomes
+    ``targetKind`` and ``last_error`` passes the public-diagnostics backstop.
+    The raw global is in ``/api/admin/diagnostics`` (``status.uptime``).
+    """
+    return JSONResponse(content=_public_diagnostics.public_uptime_payload(uptime_status))
 
 
 @app.get("/api/metrics")
@@ -5909,6 +7366,8 @@ async def get_metrics():
             "disk_free_mb": free_mb,
             "disk_ok": disk_ok,
             "scrape_running": scrape_status.get("running", False),
+            # Screenshot trade import: outcome COUNTS only (never text).
+            "screenshot_import": screenshot_import_metrics(),
         }
     )
 
@@ -5920,6 +7379,48 @@ async def get_metrics():
 # a thin adapter: parse query args, delegate, and surface per-provider
 # diagnostics so the frontend can distinguish "empty feed" from "all
 # providers degraded".
+_waiver_compare_service = None
+
+
+@app.get("/api/public/waiver-compare")
+async def get_public_waiver_compare():
+    """Unlisted Waiver Wire Comparison — rosters vs available players, valued.
+
+    Public by owner request; NOT linked anywhere and noindexed.  Values are
+    the plain 50/50 KTC Crowd+Trades / IDPTC average owned by
+    ``src/waiver_compare`` — never ``rankDerivedValue``.
+    """
+    global _waiver_compare_service
+    from src.api import league_registry as _lr  # noqa: PLC0415
+    from src.waiver_compare.service import LEAGUE_KEY, WaiverCompareService  # noqa: PLC0415
+
+    if _waiver_compare_service is None:
+        _waiver_compare_service = WaiverCompareService()
+    cfg = _lr.get_league_by_key(LEAGUE_KEY)
+    league = (
+        {"key": cfg.key, "name": cfg.display_name, "sleeperLeagueId": cfg.sleeper_league_id}
+        if cfg is not None and cfg.active
+        else None
+    )
+    status, body = await run_in_threadpool(
+        _waiver_compare_service.payload, latest_contract_data, league
+    )
+    # The body is UTF-8 (``Dynasty · Crowd+Trades`` goes out as C2 B7).  A bare
+    # ``application/json`` names no charset, and a client that defaults to
+    # ISO-8859-1 when none is declared (Windows PowerShell 5.1's
+    # Invoke-RestMethod / Invoke-WebRequest) renders those two bytes as
+    # ``Â·``.  Say what the body is.
+    return JSONResponse(
+        status_code=status,
+        content=body,
+        media_type="application/json; charset=utf-8",
+        headers={
+            "Cache-Control": "public, max-age=30" if status == 200 else "no-store",
+            "X-Robots-Tag": "noindex, nofollow",
+        },
+    )
+
+
 @app.get("/api/news")
 async def get_news(request: Request):
     limit_raw = request.query_params.get("limit")
@@ -6044,7 +7545,40 @@ async def get_player_value_explain(player: str):
             status_code=404,
             content={"error": "player_not_found", "player": player},
         )
-    return JSONResponse(content=player_explain(contract, row))
+    try:
+        stamps = _per_source_freshness()
+    except Exception:  # noqa: BLE001 — fetch stamps are informative only
+        stamps = {}
+    return JSONResponse(content=player_explain(contract, row, stamps))
+
+
+@app.get("/api/players/{player}/value-movement")
+async def get_player_value_movement(player: str):
+    """Why did this value move: the contributing evidence between the
+    current board generation and the previous one, read from the temporal
+    ledger (``src/history``) — canonical value/rank at both ends, per-source
+    vendor-value deltas, sources that appeared or disappeared, the pipeline
+    version at both ends, and every quantity the ledger does NOT store named
+    as unobserved.  Explicitly non-additive.  Sibling of ``value-explain``
+    (which explains the CURRENT value); same session gate.  ``player`` is a
+    playerId or exact display name."""
+    from src.api.source_weighting_explain import find_row  # noqa: PLC0415
+    from src.api.value_movement import player_value_movement  # noqa: PLC0415
+
+    contract = latest_contract_data or {}
+    if not contract.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "No board loaded yet."},
+        )
+    row = find_row(contract, player)
+    if row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "player_not_found", "player": player},
+        )
+    payload = await run_in_threadpool(player_value_movement, contract, row)
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store, private"})
 
 
 @app.get("/api/scaffold/status")
@@ -6251,8 +7785,6 @@ async def post_waiver_suggestions(request: Request):
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
     )
-    sleeper = (latest_contract_data or {}).get("sleeper") or {}
-    sleeper_teams = sleeper.get("teams") or []
     # Import the constant rather than re-typing its value: this endpoint
     # hardcoded 500 twice, so changing MIN_WAIVER_VALUE would have moved
     # the engine default while leaving the API's default behind it.
@@ -6273,6 +7805,75 @@ async def post_waiver_suggestions(request: Request):
     team_owner_id = str(body.get("teamOwnerId") or "").strip() or None
 
     from src.trade import waiver as _waiver  # noqa: PLC0415
+
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+
+    inputs = await _waiver_engine_inputs(league_cfg, team_owner_id)
+    if inputs["input_error"] is not None:
+        log.error(f"Waiver suggestions failed: {inputs['input_error']}")
+        return JSONResponse(status_code=500, content={"error": f"failed: {inputs['input_error']}"})
+
+    try:
+        result = await run_in_threadpool(
+            _waiver.find_waiver_targets,
+            contract,
+            inputs["teams"],
+            min_value=min_value,
+            include_kicker_def=include_kicker,
+            user_faab_remaining=faab_remaining,
+            league_budget=inputs["league_budget"],
+            team_count=inputs["team_count"],
+            starters_per_team=inputs["starters_per_team"],
+            team_owner_id=team_owner_id,
+            starters=inputs["starters"],
+            roster_size=inputs["roster_size"],
+            market_priors=inputs["market_priors"],
+            withhold_bids_when_balance_unknown=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error(f"Waiver suggestions failed: {exc}")
+        return JSONResponse(status_code=500, content={"error": f"failed: {exc}"})
+
+    if isinstance(result, dict):
+        result["leagueKey"] = league_cfg.key
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    return JSONResponse(content=result)
+
+
+def _faab_config_refusal() -> JSONResponse | None:
+    """503 when ``config/trade/faab.json`` is missing or invalid (AMATH-S27).
+
+    Every FAAB-priced route asks this first, so a broken config yields a
+    named refusal instead of a bid computed from silently substituted
+    defaults.  The loader caches a valid config, so this is a dict lookup
+    on the happy path.
+    """
+    from src.trade import faab_engine as _engine  # noqa: PLC0415
+
+    try:
+        _engine.load_faab_config()
+    except _engine.FaabConfigError as exc:
+        log.error(f"FAAB config refused: {exc}")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "faab_config_invalid", "message": str(exc)},
+        )
+    return None
+
+
+async def _waiver_engine_inputs(league_cfg: Any, team_owner_id: str | None) -> dict[str, Any]:
+    """Everything ``waiver.find_waiver_targets`` needs besides the contract.
+
+    ONE place, shared by ``/api/waiver/suggestions`` and
+    ``/api/waiver/perfect`` so the two cannot price the same free agent
+    against different budgets, rosters or bid histories.  Extracted verbatim
+    from the suggestions handler; the teams overlay is fetched only when a
+    requesting team is named, exactly as before.
+    """
+    sleeper = (latest_contract_data or {}).get("sleeper") or {}
+    sleeper_teams = sleeper.get("teams") or []
 
     # The league's ORIGINAL budget sets the bid scale; the requesting
     # team's remaining balance is only a cap.  Passing the balance as
@@ -6301,6 +7902,7 @@ async def post_waiver_suggestions(request: Request):
     # ``/api/waiver/faab-recommend`` uses.  Fall back to the baked block
     # (ceiling-only mode, since it lacks balances) if the overlay fails.
     _suggestions_teams = sleeper_teams
+    _rosters_as_of = None
     if team_owner_id:
         try:
             _overlay_id_map = sleeper.get("idToPlayer") if isinstance(sleeper, dict) else {}
@@ -6312,6 +7914,7 @@ async def post_waiver_suggestions(request: Request):
             )
             if isinstance(_overlay, dict) and _overlay.get("teams"):
                 _suggestions_teams = _overlay["teams"]
+                _rosters_as_of = _overlay.get("overlayFetchedAt")
         except Exception as exc:  # noqa: BLE001 — degrade to ceiling-only, never 500
             log.warning("waiver suggestions overlay fetch failed for %s: %s", league_cfg.key, exc)
 
@@ -6325,33 +7928,505 @@ async def post_waiver_suggestions(request: Request):
     except Exception as exc:  # noqa: BLE001 — aggression just falls back to neutral
         log.warning("waiver suggestions bid history load failed for %s: %s", league_cfg.key, exc)
 
+    # The two integer conversions used to run inside the suggestions
+    # handler's try, so a malformed registry value answered with that
+    # handler's JSON error.  They still do: a failure is RETURNED, and each
+    # route answers it in its own error shape rather than raising here.
+    _team_count = _starters_per_team = None
+    _input_error: Exception | None = None
     try:
-        result = await run_in_threadpool(
-            _waiver.find_waiver_targets,
-            contract,
-            _suggestions_teams,
-            min_value=min_value,
-            include_kicker_def=include_kicker,
-            user_faab_remaining=faab_remaining,
-            league_budget=_league_budget,
-            team_count=int(_roster_settings.get("teamCount") or len(sleeper_teams) or 12),
-            starters_per_team=sum(
-                int(v or 0) for k, v in _starters.items() if str(k).upper() != "K"
-            )
-            or 20,
-            team_owner_id=team_owner_id,
-            starters=_starters,
-            roster_size=_roster_size,
-            market_priors=_market_priors,
-        )
-    except Exception as exc:  # noqa: BLE001
-        log.error(f"Waiver suggestions failed: {exc}")
-        return JSONResponse(status_code=500, content={"error": f"failed: {exc}"})
+        _team_count = int(_roster_settings.get("teamCount") or len(sleeper_teams) or 12)
+        # An absent slot count contributes nothing; it is skipped, not
+        # coerced (the result is identical — 0 added either way).
+        _starter_counts = [
+            int(v) for k, v in _starters.items() if str(k).upper() != "K" and v is not None
+        ]
+        _starters_per_team = sum(_starter_counts) or 20
+    except (TypeError, ValueError) as exc:
+        _input_error = exc
 
-    if isinstance(result, dict):
-        result["leagueKey"] = league_cfg.key
-    _stamp_valuation_mode(result, valuation_mode, valuation_note)
-    return JSONResponse(content=result)
+    return {
+        "teams": _suggestions_teams,
+        "rosters_from_overlay": _suggestions_teams is not sleeper_teams,
+        "rosters_as_of": _rosters_as_of,
+        "roster_settings": _roster_settings,
+        "league_budget": _league_budget,
+        "team_count": _team_count,
+        "starters_per_team": _starters_per_team,
+        "starters": _starters,
+        "roster_size": _roster_size,
+        "market_priors": _market_priors,
+        "input_error": _input_error,
+    }
+
+
+@app.post("/api/waiver/perfect")
+async def post_waiver_perfect(request: Request):
+    """Perfect Waivers — the jointly optimal add/drop combination (C7-WAIV-01).
+
+    Private and league-scoped.  Advice only: nothing here submits a claim.
+    The optimizer is ``src/trade/perfect_waivers.py``; it consumes the
+    canonical board, the lineup solver, droppability, roster capacity, the
+    FAAB engine (through the same ``find_waiver_targets`` path
+    ``/api/waiver/suggestions`` runs, fed by the same
+    ``_waiver_engine_inputs``) and the user's trade protections.
+
+    Request body (JSON):
+      ``leagueKey``     optional — pin to a specific league
+      ``teamOwnerId``   required — the Sleeper owner id of the team to plan
+                        for.  Never guessed: every number is roster-specific.
+
+    Responses::
+
+        200  the plan (see ``build_perfect_waivers``)
+        400  team_required / unknown_team / unknown_league / inactive_league
+        503  data_not_ready — no contract, or none for the requested league
+        503  perfect_waivers_unavailable — the build raised
+    """
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    try:
+        league_cfg = _resolve_league_for_request(
+            request,
+            body=body,
+            require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    team_owner_id = str(body.get("teamOwnerId") or "").strip()
+    if not team_owner_id:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "team_required", "leagueKey": league_cfg.key},
+        )
+
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    inputs = await _waiver_engine_inputs(league_cfg, team_owner_id)
+    if inputs["input_error"] is not None:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "perfect_waivers_unavailable",
+                "message": f"league settings unreadable: {inputs['input_error']}",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    base = contract if isinstance(contract, dict) else {}
+    sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
+    # One roster snapshot for every question the plan asks: the live teams
+    # overlay when it answered (it carries the FAAB balances), else the
+    # contract's own block — never a mix of the two.
+    plan_contract = {**base, "sleeper": {**sleeper_block, "teams": inputs["teams"]}}
+    constraints = _constraints_for_request(
+        request, plan_contract, league_cfg, surface="perfect_waivers"
+    )
+
+    from src.trade import perfect_waivers as _perfect  # noqa: PLC0415
+    from src.trade import waiver as _waiver  # noqa: PLC0415
+
+    cache_key = _perfect_waivers_cache_key(
+        league_cfg.key, team_owner_id, base, inputs["teams"], constraints
+    )
+    cached = _perfect_waivers_cache_get(cache_key)
+    if cached is not None:
+        return JSONResponse(content=cached)
+
+    def _compute() -> dict[str, Any]:
+        targets = _waiver.find_waiver_targets(
+            plan_contract,
+            inputs["teams"],
+            per_position_limit=1_000_000,
+            league_budget=inputs["league_budget"],
+            team_count=inputs["team_count"],
+            starters_per_team=inputs["starters_per_team"],
+            team_owner_id=team_owner_id,
+            starters=inputs["starters"],
+            roster_size=inputs["roster_size"],
+            market_priors=inputs["market_priors"],
+        )
+        return _perfect.build_perfect_waivers(
+            plan_contract,
+            league_key=league_cfg.key,
+            owner_id=team_owner_id,
+            waiver_targets=targets,
+            constraints=constraints,
+            roster_settings=inputs["roster_settings"],
+        )
+
+    try:
+        payload = await run_in_threadpool(_compute)
+    except ValueError as exc:
+        # ``unknown_team`` / ``no_rosters_loaded`` — never another team's plan.
+        code = str(exc) or "bad_request"
+        return JSONResponse(
+            status_code=503 if code == "no_rosters_loaded" else 400,
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception as exc:  # noqa: BLE001 — surface, never 500-crash the page
+        logging.exception("Perfect Waivers failed")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "perfect_waivers_unavailable",
+                "message": str(exc),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    payload["leagueKey"] = league_cfg.key
+    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
+    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    _perfect_waivers_cache_put(cache_key, payload)
+    return JSONResponse(content=payload)
+
+
+# Perfect Waivers result cache.  Every input the plan reads is in the key —
+# league, team, the board generation, the exact roster snapshot (players and
+# FAAB balances for every team, since rivals price the bids) and the user's
+# resolved protections — so a hit can only ever be the same answer.  The TTL
+# bounds how long a bid-history refresh (the one input outside the key) can
+# lag.
+# A plain dict is insertion-ordered; re-inserting on a hit keeps it LRU.
+_PERFECT_WAIVERS_CACHE: dict[str, tuple[float, dict]] = {}
+_PERFECT_WAIVERS_CACHE_TTL_SEC = 120.0
+_PERFECT_WAIVERS_CACHE_MAX = 32
+_PERFECT_WAIVERS_CACHE_LOCK = threading.Lock()
+
+
+@app.post("/api/waiver/advisor")
+async def post_waiver_advisor(request: Request):
+    """Waiver Advisor (Workstream E) — default-OFF composer over existing owners.
+
+    Private and league-scoped, advice only.  The flag check runs FIRST: the
+    page's first request carries no team and is its gate probe.  Everything
+    else mirrors :func:`post_waiver_perfect`; ``src/waivers/advisor.py``
+    computes no value, bid, lineup or legality of its own.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.waivers import advisor as _advisor  # noqa: PLC0415
+
+    if not is_enabled("waiver_advisor"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": _advisor.FLAG}
+        )
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    req = _advisor.parse_advisor_request(body)
+    if not req["teamOwnerId"]:
+        return JSONResponse(
+            status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
+        )
+    # List bids come from the FAAB engine: a broken config is a named refusal,
+    # never a bid from substituted defaults (CW-10 / AMATH-S27).
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    inputs = await _waiver_engine_inputs(league_cfg, req["teamOwnerId"])
+    if inputs["input_error"] is not None:
+        # The exception text stays in the server log; the response carries a
+        # stable code only.
+        logging.error(
+            "Waiver Advisor: league settings unreadable for %s: %r",
+            league_cfg.key,
+            inputs["input_error"],
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "waiver_advisor_unavailable",
+                "reason": "league_settings_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    base = contract if isinstance(contract, dict) else {}
+    sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
+    plan_contract = {**base, "sleeper": {**sleeper_block, "teams": inputs["teams"]}}
+    constraints = _constraints_for_request(
+        request, plan_contract, league_cfg, surface="perfect_waivers"
+    )
+    try:
+        payload = await run_in_threadpool(
+            lambda: _advisor.compute_waiver_advisor(
+                plan_contract,
+                league_key=league_cfg.key,
+                owner_id=req["teamOwnerId"],
+                inputs=inputs,
+                constraints=constraints,
+                position=req["position"],
+                limit=req["limit"],
+            )
+        )
+    except ValueError as exc:
+        code = str(exc) or "bad_request"
+        return JSONResponse(
+            status_code=503 if code == "no_rosters_loaded" else 400,
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception:  # noqa: BLE001
+        logging.exception("Waiver Advisor failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "waiver_advisor_unavailable", "leagueKey": league_cfg.key},
+        )
+    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
+    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    return JSONResponse(content=payload)
+
+
+# Stable error codes the streaming composer raises, and the status each maps
+# to.  Anything else is ``idp_streaming_unavailable`` — never exception text.
+_STREAMING_ERROR_STATUS = {
+    "no_rosters_loaded": 503,
+    "unknown_team": 400,
+    "starter_slots_unknown": 503,
+    "not_in_season": 400,
+    "projections_refused": 503,
+    "drop_policy_unreadable": 503,
+    "league_mismatch": 503,
+}
+
+
+@app.post("/api/waiver/streaming")
+async def post_waiver_streaming(request: Request):
+    """Weekly IDP Streaming (owner directive 2026-10-29) — default-OFF composer.
+
+    Private (the default-deny API auth gate) and league-scoped, advice only:
+    nothing here submits, schedules or drafts a waiver claim.  BOTH flags
+    are checked FIRST — ``waiver_advisor`` (the page this mode lives in) and
+    ``idp_streaming`` — because the page's first request is its gate probe.
+    Everything else mirrors :func:`post_waiver_advisor`;
+    ``src/waivers/streaming.py`` composes the existing owners and this
+    handler only resolves inputs and maps its stable error codes.
+
+    Responses::
+
+        200  the streaming payload (``compute_streaming``)
+        400  team_required / unknown_team / not_in_season / bad_<field>
+             / unknown_league / inactive_league
+        503  feature_disabled (``flag`` names the switch that is off)
+        503  data_not_ready / no_rosters_loaded / starter_slots_unknown
+             / projections_refused / drop_policy_unreadable / league_mismatch
+        503  idp_streaming_unavailable (``reason`` config_unreadable /
+             league_settings_unreadable, or none when the build raised)
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.waivers import streaming as _streaming  # noqa: PLC0415
+
+    # Literal flag names: the reachability guard reads gates by their literal.
+    if not is_enabled("waiver_advisor"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": "waiver_advisor"}
+        )
+    if not is_enabled("idp_streaming"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": _streaming.FLAG}
+        )
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    try:
+        cfg = _streaming.load_streaming_config()
+    except _streaming.StreamingConfigError:
+        logging.exception("IDP Streaming: config unreadable")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "config_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    try:
+        req = _streaming.parse_streaming_request(body, cfg)
+    except ValueError as exc:
+        code = str(exc)
+        if not code.startswith("bad_"):
+            code = "bad_request"
+        return JSONResponse(status_code=400, content={"error": code, "leagueKey": league_cfg.key})
+    if not req["teamOwnerId"]:
+        return JSONResponse(
+            status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
+        )
+    # List bids come from the FAAB engine: a broken config is a named refusal,
+    # never a bid from substituted defaults (CW-10 / AMATH-S27).
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    inputs = await _waiver_engine_inputs(league_cfg, req["teamOwnerId"])
+    if inputs["input_error"] is not None:
+        logging.error(
+            "IDP Streaming: league settings unreadable for %s: %r",
+            league_cfg.key,
+            inputs["input_error"],
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "league_settings_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    base = contract if isinstance(contract, dict) else {}
+    sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
+    plan_contract = {**base, "sleeper": {**sleeper_block, "teams": inputs["teams"]}}
+    constraints = _constraints_for_request(
+        request, plan_contract, league_cfg, surface="perfect_waivers"
+    )
+    try:
+        payload = await run_in_threadpool(
+            lambda: _streaming.compute_streaming(
+                plan_contract,
+                league_key=league_cfg.key,
+                owner_id=req["teamOwnerId"],
+                inputs=inputs,
+                constraints=constraints,
+                request=req,
+                cfg=cfg,
+            )
+        )
+    except _streaming.StreamingConfigError:
+        logging.exception("IDP Streaming: config unreadable")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "config_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    except ValueError as exc:
+        code = str(exc)
+        if code not in _STREAMING_ERROR_STATUS:
+            logging.exception("IDP Streaming failed")
+            return JSONResponse(
+                status_code=503,
+                content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
+            )
+        return JSONResponse(
+            status_code=_STREAMING_ERROR_STATUS[code],
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception:  # noqa: BLE001 — surface, never 500-crash the page
+        logging.exception("IDP Streaming failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
+        )
+    payload["advisoryOnly"] = True
+    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
+    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    return JSONResponse(content=payload)
+
+
+def _perfect_waivers_cache_key(
+    league_key: str, owner_id: str, contract: dict, teams: list, constraints: Any
+) -> str:
+    roster_snapshot = [
+        (
+            str(t.get("ownerId") or ""),
+            sorted(str(n) for n in (t.get("players") or [])),
+            sorted(str(i) for i in (t.get("playerIds") or [])),
+            t.get("faabRemaining"),
+            t.get("faabBudget"),
+        )
+        for t in (teams or [])
+        if isinstance(t, dict)
+    ]
+    try:
+        protections = constraints.to_dict() if constraints is not None else None
+    except Exception:  # noqa: BLE001 — an unhashable rule is simply never cached
+        return ""
+    blob = json.dumps(
+        {
+            "league": league_key,
+            "team": owner_id,
+            "board": [
+                id(latest_contract_data),
+                (contract or {}).get("generatedAt"),
+                (contract or {}).get("scrapeTimestamp"),
+            ],
+            "rosters": sorted(roster_snapshot),
+            "protections": protections,
+        },
+        sort_keys=True,
+        default=str,
+    )
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _perfect_waivers_cache_get(key: str) -> dict | None:
+    if not key:
+        return None
+    with _PERFECT_WAIVERS_CACHE_LOCK:
+        hit = _PERFECT_WAIVERS_CACHE.get(key)
+        if hit is None:
+            return None
+        stored_at, payload = hit
+        if time.time() - stored_at > _PERFECT_WAIVERS_CACHE_TTL_SEC:
+            _PERFECT_WAIVERS_CACHE.pop(key, None)
+            return None
+        _PERFECT_WAIVERS_CACHE[key] = _PERFECT_WAIVERS_CACHE.pop(key)
+        return payload
+
+
+def _perfect_waivers_cache_put(key: str, payload: dict) -> None:
+    if not key:
+        return
+    with _PERFECT_WAIVERS_CACHE_LOCK:
+        _PERFECT_WAIVERS_CACHE.pop(key, None)
+        _PERFECT_WAIVERS_CACHE[key] = (time.time(), payload)
+        while len(_PERFECT_WAIVERS_CACHE) > _PERFECT_WAIVERS_CACHE_MAX:
+            _PERFECT_WAIVERS_CACHE.pop(next(iter(_PERFECT_WAIVERS_CACHE)))
 
 
 @app.post("/api/waiver/best-available-idp")
@@ -6479,6 +8554,10 @@ async def post_waiver_faab_recommend(request: Request):
             content={"error": "addPlayerName is required."},
         )
 
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+
     # Resolve player rows + values from the live contract.
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
@@ -6514,8 +8593,44 @@ async def post_waiver_faab_recommend(request: Request):
             content={"error": f"Player not found: {add_name!r}"},
         )
 
-    add_value = float(add_row.get("rankDerivedValue") or 0)
-    drop_value = float(drop_row.get("rankDerivedValue") or 0) if drop_row else 0.0
+    # MISSING IS NEVER ZERO (CW-50, 2026-11-07).  Both sides used to read
+    # ``rankDerivedValue or 0``: an add the board does not price was quoted a
+    # real-looking $0 ("worth nothing"), and a named drop that was unpriced —
+    # or not on the board at all — was charged nothing and described as
+    # "replacement level — free", which ODR-SR-UNPRICED forbids ("unpriced
+    # assets in drop logic: never a free drop").  Neither gets a figure now.
+    def _board_value(row: dict | None) -> float | None:
+        v = (row or {}).get("rankDerivedValue")
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+            return None
+        return float(v)
+
+    priced_add_value = _board_value(add_row)
+    # The add's missing price is refused AFTER availability is established
+    # (below): a player already on a roster is a 409 whether or not the board
+    # prices him.
+    add_value = priced_add_value
+    drop_value: float | None = None
+    if not drop_target:
+        drop_value_state = "none"
+    else:
+        drop_value = _board_value(drop_row)
+        drop_value_state = "priced" if drop_value is not None else "unpriced"
+        if drop_value is None:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": "drop_player_unpriced",
+                    "message": (
+                        f"{drop_name} is "
+                        + ("not on the board" if drop_row is None else "not priced by the board")
+                        + " — what dropping him costs is unknown, and an unpriced drop is "
+                        "never treated as free."
+                    ),
+                    "dropValueState": "not_on_board" if drop_row is None else "unpriced",
+                    "leagueKey": league_cfg.key,
+                },
+            )
     add_position = add_row.get("position") or add_row.get("pos") or None
 
     # Live Waiver Opportunity — SHADOW ONLY (docs/faab-live-opportunity-
@@ -6525,7 +8640,7 @@ async def post_waiver_faab_recommend(request: Request):
     # live bid is a separate, later, human-reviewed step.
     from src.api import feature_flags as _ff  # noqa: PLC0415
 
-    if _ff.is_enabled("waiver_live_opportunity"):
+    if priced_add_value is not None and _ff.is_enabled("waiver_live_opportunity"):
         try:
             from src.trade import faab_opportunity as _opportunity  # noqa: PLC0415
             from src.trade import faab_shadow as _faab_shadow  # noqa: PLC0415
@@ -6594,6 +8709,50 @@ async def post_waiver_faab_recommend(request: Request):
         for n in t.get("players") or []:
             rostered_norms.add(_norm(n))
 
+    # Only a FREE AGENT is a claim (CW-50).  A player already on a roster in
+    # this league — another team's or the requester's own — cannot be bid on,
+    # so no figure is quoted.  Matched by Sleeper id where the roster carries
+    # ids (two distinct players can share a display name); by name only for a
+    # roster that carries none.
+    from src.draft.context import league_holder_index as _league_holder_index  # noqa: PLC0415
+
+    _holder, _matched_by = _league_holder_index({"sleeper": {"teams": sleeper_teams}}).holder(
+        add_row.get("playerId"), add_name
+    )
+    if _holder is not None:
+        _requester = body.get("teamOwnerId") or body.get("ownerId")
+        _own = bool(_requester) and str(_holder.get("ownerId") or "") == str(_requester)
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "add_player_not_available",
+                "message": (
+                    f"{add_name} is already on "
+                    + ("your roster" if _own else f"{_holder.get('name') or 'a roster'}")
+                    + " in this league — not a waiver claim."
+                ),
+                "rosteredBy": _holder.get("name"),
+                "onYourRoster": _own,
+                "matchedBy": _matched_by,
+                "rostersAsOf": rosters_as_of,
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    if priced_add_value is None:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "add_player_unpriced",
+                "message": (
+                    f"{add_name} is on the board but not priced — no FAAB figure is quoted "
+                    "for a player whose value is unknown."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+    add_value = priced_add_value
+
     # League FAAB analytics — reuse the cached public-snapshot
     # path so this endpoint doesn't pay the multi-season fetch cost
     # on every recommend request.  When the snapshot isn't loaded
@@ -6642,6 +8801,12 @@ async def post_waiver_faab_recommend(request: Request):
     # specific team, we use that team's remaining; otherwise the
     # endpoint cannot tell which team is asking and falls back to
     # the league budget as a soft cap.
+    from src.trade.waiver import (  # noqa: PLC0415
+        faab_budget_block as _faab_budget_block,
+        observed_faab_balance as _observed_faab_balance,
+        resolve_faab_balance as _resolve_faab_balance,
+    )
+
     team_faab_remaining: int | None = None
     requested_team = body.get("teamOwnerId") or body.get("ownerId")
     requested_team_matched = False
@@ -6649,9 +8814,7 @@ async def post_waiver_faab_recommend(request: Request):
         for t in sleeper_teams:
             if str(t.get("ownerId") or "") == str(requested_team):
                 requested_team_matched = True
-                rem = t.get("faabRemaining")
-                if isinstance(rem, int):
-                    team_faab_remaining = rem
+                team_faab_remaining = _observed_faab_balance(t.get("faabRemaining"))
                 break
 
     # League budget resolution: analytics summary first, then the
@@ -6793,11 +8956,14 @@ async def post_waiver_faab_recommend(request: Request):
             available_values.append(float(value))
 
     current_week, in_season = _faab_engine.current_nfl_week()
-    playoff_week_start = 15
-    for team_row in sleeper_teams:
-        if isinstance(team_row, dict) and isinstance(team_row.get("playoffWeekStart"), int):
-            playoff_week_start = team_row["playoffWeekStart"]
-            break
+    # The loaded contract's league settings are this league's only when the
+    # contract was built for it; otherwise the engine default applies.
+    _desk_contract = (
+        latest_contract_data
+        if (latest_contract_data.get("meta") or {}).get("leagueKey") == league_cfg.key
+        else None
+    )
+    playoff_week_start, _playoff_source = _faab_engine.league_playoff_week_start(_desk_contract)
 
     # Market priors fitted from THIS league's real bid history, when a
     # snapshot exists (scripts/fetch_faab_history.py writes it).
@@ -6898,7 +9064,9 @@ async def post_waiver_faab_recommend(request: Request):
 
     base_kwargs = dict(
         add_player_value=add_value,
-        drop_player_value=drop_value,
+        # ``None`` only when no drop is named (an unknown drop was refused
+        # above); the engine reads an absent drop by its missing NAME.
+        drop_player_value=drop_value if drop_value is not None else 0.0,
         add_player_position=add_position,
         add_player_name=add_name,
         drop_player_name=drop_name or None,
@@ -7129,9 +9297,123 @@ async def post_waiver_faab_recommend(request: Request):
     # answer is that nothing was usable.
     if crowd_market_block is not None:
         rec["crowdMarket"] = crowd_market_block
+    # Roster capacity, from its ONE owner (``src/trade/roster_capacity.py``).
+    # REPORTED, never applied: forced-drop selection is owner-held OFF
+    # (``forced_drop_cheapest_legal``, 2026-10-21), so no figure above moves —
+    # but a claim on a full roster now names the release it forces, with its
+    # value, instead of reading as a free add (CW-50).
+    if selected_team_row is not None:
+        try:
+            from src.trade.roster_capacity import (  # noqa: PLC0415
+                assess_roster_capacity,
+                build_capacity_context,
+            )
+
+            from src.api.gameplan import last_built_league_bundle  # noqa: PLC0415
+
+            _cap_contract = {
+                **(contract or {}),
+                "sleeper": {**((contract or {}).get("sleeper") or {}), "teams": sleeper_teams},
+            }
+            # Warm-only scarcity, the /trade simulate posture: a bid desk must
+            # never pay the league-bundle solve (measured 4-6 s cold on the
+            # 2026-11-07 board) for a REPORT.  Not warm -> scarcity inert, and
+            # the capacity block's notes say so.
+            _bundle = last_built_league_bundle(league_cfg.key)
+            _scarcity = (
+                (_bundle.scarcity, None)
+                if _bundle is not None
+                else (
+                    None,
+                    "league roster-intelligence bundle not built yet — positional "
+                    "scarcity inert for this report",
+                )
+            )
+            _cap = assess_roster_capacity(
+                build_capacity_context(
+                    _cap_contract,
+                    league_cfg.key,
+                    selected_team_row,
+                    roster_settings=roster_settings or None,
+                    scarcity_reading=_scarcity,
+                ),
+                incoming_players=[str(add_row.get("displayName") or add_name)],
+                outgoing_players=(
+                    [str(drop_row.get("displayName") or drop_name)] if drop_row is not None else []
+                ),
+            )
+            rec["rosterCapacity"] = {**_cap.to_dict(), "application": "reported_not_applied"}
+            if _cap.requires_drops is None:
+                rec["warnings"].append(
+                    "Roster capacity is unknown for this team — whether this claim forces "
+                    "a release could not be determined."
+                )
+            elif _cap.requires_drops and not drop_name:
+                _forced = (
+                    ", ".join(
+                        f"{d.name} ({'value unknown' if d.value is None else round(d.value)})"
+                        for d in _cap.forced_drops
+                    )
+                    or "a release the cut ladder could not name"
+                )
+                rec["warnings"].append(
+                    "Your roster is full — this claim forces a release you have not chosen: "
+                    f"{_forced}.  The figures above assume no drop."
+                )
+        except Exception as exc:  # noqa: BLE001 — a report must never break the bid
+            log.warning("faab-recommend roster capacity failed for %s: %s", league_cfg.key, exc)
+            rec["rosterCapacity"] = {
+                "state": "unavailable",
+                "reason": "roster_capacity_failed",
+                "application": "reported_not_applied",
+            }
+    else:
+        rec["rosterCapacity"] = {
+            "state": "unavailable",
+            "reason": "team_not_identified",
+            "application": "reported_not_applied",
+        }
+
+    # MISSING IS NEVER ZERO: the engine caps a bid at the league budget when
+    # the team's balance is unknown, which would publish a "$N bid" as if the
+    # team could spend that.  The SAME ``faabBudget`` block
+    # ``/api/waiver/suggestions`` publishes states the balance, and with it
+    # unknown every balance-capped figure is withheld (``null``).  What the
+    # player is worth (``objective``) and what he will cost (the clearing band)
+    # do not depend on our balance and stay.
+    _balance, _balance_source = _resolve_faab_balance(None, team_faab_remaining)
+    _withhold = _balance is None
+    rec["faabBudget"] = _faab_budget_block(
+        known_balance=_balance,
+        original_budget=int(league_budget),
+        withheld=_withhold,
+        source=_balance_source,
+        requested_balance=None,
+        observed_balance=team_faab_remaining,
+    )
+    if _withhold:
+        for _k in ("recommended", "conservative", "aggressive", "maxRational"):
+            rec["bids"][_k] = None
+        for _k in ("standard", "conservative", "aggressive", "max"):
+            rec[_k] = None
+        for _k in ("pctOfOriginalBudget", "pctOfRemaining", "winProbability", "teamCeilingDollars"):
+            rec[_k] = None
+        rec["warnings"] = [
+            w for w in rec.get("warnings") or [] if "FAAB left" not in w and "has left" not in w
+        ]
+        rec["warnings"].append(
+            "This team's FAAB balance is unknown — no bid is quoted.  What the player is "
+            "worth and what he is likely to cost are shown; a bid needs a known balance."
+        )
+        rec["explanation"] = (
+            "No bid quoted: this team's FAAB balance is unknown.  The objective worth and "
+            "the expected clearing band are still shown."
+        )
+
     rec["leagueKey"] = league_cfg.key
     rec["resolvedAddValue"] = add_value
     rec["resolvedDropValue"] = drop_value
+    rec["dropValueState"] = drop_value_state
     rec["resolvedAddPosition"] = add_position
     # ``resolvedAddValue`` is only interpretable against a named board —
     # the same player is worth a different number under each lens, and a
@@ -7219,6 +9501,254 @@ async def get_market_trades(request: Request):
             "recentTradesTruncated": len(trades) > len(recent),
         }
     )
+
+
+def _csv_query_values(request: Request, name: str) -> list[str]:
+    """Comma-separated query values (the Next bridge forwards one value per
+    key, so repeated params would collapse)."""
+    raw = request.query_params.get(name) or ""
+    return [v.strip() for v in raw.split(",") if v.strip()]
+
+
+def _board_names_by_player_id() -> dict[str, dict[str, Any]]:
+    """Sleeper player id -> board display name / position, for labelling
+    ledger assets.  Labels only: matching is by canonical id, never name."""
+    names: dict[str, dict[str, Any]] = {}
+    for row in (latest_contract_data or {}).get("playersArray") or []:
+        sid = str(row.get("playerId") or "").strip()
+        if sid and sid not in names:
+            names[sid] = {
+                "name": row.get("canonicalName") or row.get("displayName"),
+                "position": row.get("position"),
+            }
+    return names
+
+
+@app.get("/api/market/trades/reference")
+async def get_market_trade_reference(request: Request):
+    """C3-CALC-01 / TC-07 + TC-10 — recent real trades touching the
+    calculator's assets, with their league-format tags.
+
+    Read-only display projection of the canonical underlying-trade ledger
+    (``src.trade.market_trade_reference``).  Facts only — no grade, no market
+    price, no canonical value is read or computed.  Private (the global API
+    gate) and league-scoped: only verified-dynasty trades; this league's own
+    trades are shown, other registry leagues' trades are withheld however
+    they reached the ledger; Sharp-lane trades only with a cohort manager on
+    them.  Withheld rows are counted by reason, never listed.
+
+    Query parameters::
+
+        leagueKey      optional — standard resolver
+        players        comma-separated Sleeper player ids
+        picks          comma-separated board pick-row names ("2027 Early 1st")
+        pickAssetIds   comma-separated owned league-pick ids
+        limit          optional, default 20, max 50
+
+    Responses::
+
+        200  {state: ok | no_assets, trades, ledger, query, withheld, ...}
+        400  unknown_league / inactive_league
+        503  trade_ledger_unavailable — no ledger built on this host
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import market_trade_reference as _reference  # noqa: PLC0415
+
+    try:
+        limit = int(request.query_params.get("limit") or _reference.DEFAULT_LIMIT)
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "limit must be an integer"},
+        )
+    names = _board_names_by_player_id()
+    body = await run_in_threadpool(
+        _reference.reference_trades,
+        league_cfg.key,
+        player_ids=_csv_query_values(request, "players"),
+        pick_names=_csv_query_values(request, "picks"),
+        pick_asset_ids=_csv_query_values(request, "pickAssetIds"),
+        limit=limit,
+        names=names,
+    )
+    if body["state"] == "unavailable":
+        return JSONResponse(
+            status_code=503,
+            content={**body, "error": "trade_ledger_unavailable"},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=body, headers={"Cache-Control": "private, max-age=60"})
+
+
+def _query_int(request: Request, name: str, default: int | None) -> int | None:
+    raw = (request.query_params.get(name) or "").strip()
+    if not raw:
+        return default
+    return int(raw)  # ValueError -> the caller's 400
+
+
+def _query_bool(request: Request, name: str) -> bool | None:
+    raw = (request.query_params.get(name) or "").strip().lower()
+    if not raw:
+        return None
+    if raw in ("true", "1", "yes"):
+        return True
+    if raw in ("false", "0", "no"):
+        return False
+    raise ValueError(f"{name} must be true or false")
+
+
+@app.get("/api/market/trades/comparable")
+async def get_market_trade_comparable(request: Request):
+    """C3-CALC-01 / TC-09 (C4-MTL-03) — recorded real trades most like the
+    package on the calculator, each with the reasons it matched.
+
+    Relevance ORDERING over the canonical underlying-trade ledger
+    (``src.trade.comparable_trades``): never a price or a value, and it feeds
+    no verdict.  A trade must share an asset with the package to be a
+    candidate.  Same privacy rules and projection as
+    ``/api/market/trades/reference``.
+
+    Query parameters (comma-separated, per package side)::
+
+        leagueKey                      optional — standard resolver
+        aPlayers / aPicks / aPickAssetIds   side A
+        bPlayers / bPicks / bPickAssetIds   side B
+        limit                          optional, default 10, max 25
+
+    Responses::
+
+        200  {state: ok | no_assets, trades[].comparability, methodology, ...}
+        400  unknown_league / inactive_league / bad_request
+        503  trade_ledger_unavailable — no ledger built on this host
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import comparable_trades as _comparable  # noqa: PLC0415
+
+    try:
+        limit = _query_int(request, "limit", _comparable.DEFAULT_LIMIT)
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "limit must be an integer"},
+        )
+
+    def side(prefix: str) -> Any:
+        return _comparable.SideRefs(
+            player_ids=_csv_query_values(request, f"{prefix}Players"),
+            pick_names=_csv_query_values(request, f"{prefix}Picks"),
+            pick_asset_ids=_csv_query_values(request, f"{prefix}PickAssetIds"),
+        )
+
+    body = await run_in_threadpool(
+        _comparable.comparable_trades,
+        league_cfg.key,
+        side_a=side("a"),
+        side_b=side("b"),
+        limit=limit,
+        names=_board_names_by_player_id(),
+    )
+    if body["state"] == "unavailable":
+        return JSONResponse(
+            status_code=503,
+            content={**body, "error": "trade_ledger_unavailable"},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=body, headers={"Cache-Control": "private, max-age=60"})
+
+
+@app.get("/api/market/trades/database")
+async def get_market_trade_database(request: Request):
+    """C3-CALC-01 / TC-08 — browse and filter the recorded real dynasty trades.
+
+    Same visibility rules and projection as ``/api/market/trades/reference``
+    (``src.trade.market_trade_database``).  Facts only — nothing is valued or
+    graded.  A format filter EXCLUDES rows whose value is unknown and counts
+    them (``excludedUnknown``); unknown is never a match.
+
+    Query parameters::
+
+        leagueKey                          optional — standard resolver
+        players / picks / pickAssetIds     optional asset filter (comma-separated)
+        since / until                      ISO dates (default: the last 365 days)
+        superflex / idp / teScoringEdge    true | false
+        teams / starters / ktcTepLevel     integers
+        source                             ktc_trade_database | sleeper_sharp_discovery
+                                           | own_league_sleeper
+        shape                              e.g. 2x1
+        assetMix                           players | picks | mixed
+        limit                              page size (max 50)
+        beforeDate / skip                  paging cursor — echo ``nextCursor``
+
+    Responses::
+
+        200  {state: ok | no_assets, trades, hasMore, nextCursor,
+              excludedUnknown, excludedNotApplicable, ...}
+        400  unknown_league / inactive_league / bad_request
+        503  trade_ledger_unavailable — no ledger built on this host
+    """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import market_trade_database as _database  # noqa: PLC0415
+
+    def bad(message: str) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"error": "bad_request", "message": message})
+
+    qp = request.query_params
+    try:
+        filters = _database.TradeFilters(
+            player_ids=_csv_query_values(request, "players"),
+            pick_names=_csv_query_values(request, "picks"),
+            pick_asset_ids=_csv_query_values(request, "pickAssetIds"),
+            since=qp.get("since"),
+            until=qp.get("until"),
+            superflex=_query_bool(request, "superflex"),
+            teams=_query_int(request, "teams", None),
+            starters=_query_int(request, "starters", None),
+            idp=_query_bool(request, "idp"),
+            te_scoring_edge=_query_bool(request, "teScoringEdge"),
+            ktc_tep_level=_query_int(request, "ktcTepLevel", None),
+            source=(qp.get("source") or "").strip() or None,
+            shape=_database.parse_shape(qp.get("shape")),
+            asset_mix=(qp.get("assetMix") or "").strip() or None,
+        )
+        limit = _query_int(request, "limit", _database.DEFAULT_LIMIT)
+        skip = _query_int(request, "skip", 0)
+    except _database.FilterError as err:
+        return bad(str(err))
+    except ValueError as err:
+        return bad(str(err) if "must be" in str(err) else "integer filters must be integers")
+
+    try:
+        body = await run_in_threadpool(
+            _database.browse_trades,
+            league_cfg.key,
+            filters,
+            limit=limit,
+            before_date=qp.get("beforeDate"),
+            skip=skip,
+            names=_board_names_by_player_id(),
+        )
+    except _database.FilterError as err:
+        return bad(str(err))
+    if body["state"] == "unavailable":
+        return JSONResponse(
+            status_code=503,
+            content={**body, "error": "trade_ledger_unavailable"},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=body, headers={"Cache-Control": "private, max-age=60"})
 
 
 @app.get("/api/valuation/league-adjusted")
@@ -7527,9 +10057,24 @@ async def get_bdvm_trades(request: Request):
     team = (request.query_params.get("team") or "").strip() or None
     from src.api import bdvm_api as _bdvm_api  # noqa: PLC0415
 
+    # C3-CON-01 — persistent protections constrain the requester's OWN giving
+    # side.  With ``team`` that is side A; on a league-wide scan it is the
+    # session's own roster (resolved like /api/gameplan does), and the scan
+    # fails closed when protections exist but no roster can be matched.
+    bdvm_constraints = _constraints_for_request(
+        request, contract, league_cfg, surface="/api/bdvm/trades"
+    )
+    # Always the REQUESTER's roster, whichever side of a scanned pair it is on.
+    bdvm_owner_id = _requester_owner_id(request, league_cfg)
+
     try:
         payload = await run_in_threadpool(
-            _bdvm_api.get_bdvm_trades, contract, league_cfg.key, team=team
+            _bdvm_api.get_bdvm_trades,
+            contract,
+            league_cfg.key,
+            team=team,
+            constraints=bdvm_constraints,
+            constrained_owner_id=bdvm_owner_id,
         )
     except Exception as exc:  # noqa: BLE001
         return JSONResponse(
@@ -7690,6 +10235,24 @@ async def get_gameplan(request: Request):
         )
 
     partner_owner_id = (params.get("partner") or "").strip() or None
+    # C3-CON-01 — the package generator proposes what THIS team sends, so the
+    # requester's persistent protections apply (the one shared resolver; there
+    # is no refinement UI on this surface).  Only resolved when packages are
+    # actually generated.
+    # The requester's protections bind the requester's OUTGOING side: our
+    # assets when they view their own team, the partner's assets when they are
+    # the partner, and nothing when they are neither side.
+    gameplan_constraints = partner_side_constraints = None
+    if partner_owner_id:
+        requester = _requester_owner_id(request, league_cfg)
+        if requester and requester in (owner_id, partner_owner_id):
+            resolved = _constraints_for_request(
+                request, contract, league_cfg, surface="/api/gameplan"
+            )
+            if requester == owner_id:
+                gameplan_constraints = resolved
+            else:
+                partner_side_constraints = resolved
 
     try:
         payload = await run_in_threadpool(
@@ -7699,6 +10262,8 @@ async def get_gameplan(request: Request):
             contract,
             owner_id,
             partner_owner_id=partner_owner_id,
+            constraints=gameplan_constraints,
+            partner_constraints=partner_side_constraints,
         )
     except _gameplan.GameplanUnavailable as exc:
         return JSONResponse(
@@ -7818,16 +10383,19 @@ async def get_roster_intelligence(request: Request):
             },
         )
 
+    # Measure the rosters the site SERVES.  ``/api/data`` — where every
+    # page, including /rosters' own team picker and portfolio, gets its
+    # team list — splices the live Sleeper teams overlay over the baked
+    # block.  Reading only the baked block made the Team Strength ladder
+    # lag every membership change by up to one scrape interval, and
+    # indefinitely when a scrape failed: on 2026-10-20 dynasty_main
+    # roster 12 lost its owner, /api/data listed "Team 12", and the
+    # ladder still ranked the departed manager (E2E run 39348160535).
+    contract, roster_membership = await _contract_with_live_rosters(contract, league_cfg)
+
     # The league's DECLARED size, not the roster count: a snapshot
     # missing one roster must not shrink every weakness threshold.
-    declared_teams = None
-    try:
-        settings = _league_registry.get_league_roster_settings(league_cfg.key) or {}
-        raw = settings.get("teamCount")
-        if isinstance(raw, int) and raw > 0:
-            declared_teams = raw
-    except Exception:  # noqa: BLE001 — the registry is optional here
-        declared_teams = None
+    declared_teams = _roster_intelligence.declared_team_count(league_cfg.key)
 
     want_drops = (request.query_params.get("droppability") or "").strip().lower() in {
         "1",
@@ -7853,8 +10421,48 @@ async def get_roster_intelligence(request: Request):
             },
         )
 
+    payload["rosterMembership"] = roster_membership
     # Private roster intelligence — never cached by a shared proxy.
     return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+async def _contract_with_live_rosters(
+    contract: dict[str, Any], league_cfg: Any
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """``contract`` with its ``sleeper.teams`` replaced by the live teams
+    overlay — the same membership ``/api/data`` serves for the loaded
+    league — plus a ``{source, asOf}`` stamp naming which one was used.
+
+    Only ``teams`` is replaced; every NFL-wide map and league-config field
+    stays the baked block's, exactly as ``/api/data``'s ``live-merge``
+    path does.  A shallow copy: ``latest_contract_data`` is a shared
+    global and must never be mutated.  Any overlay failure degrades to the
+    baked teams with ``source: "contract"`` — the ladder is still correct
+    for the moment that block describes, and the stamp says which moment.
+    Callers must already have proven the contract is for ``league_cfg``.
+    """
+    baked = {"source": "contract", "asOf": None}
+    sleeper = contract.get("sleeper") if isinstance(contract, dict) else None
+    if not isinstance(sleeper, dict):
+        return contract, baked
+    id_map = sleeper.get("idToPlayer")
+    try:
+        overlay = await run_in_threadpool(
+            lambda: _sleeper_overlay.fetch_sleeper_teams_overlay(
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=id_map if isinstance(id_map, dict) else {},
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 — degrade to the baked rosters, never 500
+        log.warning("live rosters overlay failed for %s: %s", league_cfg.key, exc)
+        return contract, baked
+    teams = overlay.get("teams") if isinstance(overlay, dict) else None
+    if not isinstance(teams, list) or not teams:
+        return contract, baked
+    return (
+        {**contract, "sleeper": {**sleeper, "teams": teams}},
+        {"source": "live_overlay", "asOf": overlay.get("overlayFetchedAt")},
+    )
 
 
 @app.get("/api/matchup/intel")
@@ -8182,8 +10790,15 @@ async def post_trade_suggestions(request: Request):
     # C3-CON-01 — resolved on the request thread (it reads the session and the
     # user store) and handed to the generator, which applies it during
     # enumeration.
+    suggestion_refinement, refinement_error = _refinement_from_body(body)
+    if refinement_error is not None:
+        return refinement_error
     constraints = _constraints_for_request(
-        request, contract, league_cfg, surface="/api/trade/suggestions"
+        request,
+        contract,
+        league_cfg,
+        surface="/api/trade/suggestions",
+        refinement=suggestion_refinement,
     )
 
     # Pool build + suggestion generation are heavy CPU passes over the
@@ -8191,9 +10806,20 @@ async def post_trade_suggestions(request: Request):
     # exactly like /api/trade/finder already does, instead of stalling
     # the event loop for every concurrent request.
     def _generate():
-        pool = build_asset_pool_from_contract(
-            contract,
-            ktc_top_n=ktc_top_n,
+        from src.trade.suggestions import _apply_board_top_n_filter
+
+        # The FULL board (every row ranked, nothing cut) feeds roster analysis
+        # and the positional floor; the top-N cut of it is the quality pool
+        # proposals are drawn from.  One build, two views — the cut is the
+        # same ``_apply_board_top_n_filter`` the builder would have applied.
+        full_pool = build_asset_pool_from_contract(contract, ktc_top_n=0)
+        pool = _apply_board_top_n_filter(list(full_pool), ktc_top_n)
+        sleeper_block = contract.get("sleeper") if isinstance(contract, dict) else None
+        league_team_count = len((sleeper_block or {}).get("teams") or []) or (
+            len(league_rosters) + 1 if league_rosters else None
+        )
+        weakness_needs, weakness_reason = _suggestion_weakness_needs(
+            contract, league_cfg, roster, league_team_count
         )
         # Roster capacity for the requesting team, built ONCE and reused
         # across every proposal — the expensive part (joining the roster to
@@ -8218,6 +10844,10 @@ async def post_trade_suggestions(request: Request):
             ktc_top_n=ktc_top_n,
             capacity_context=capacity_context,
             constraints=constraints,
+            roster_pool=full_pool,
+            team_count=league_team_count,
+            weakness_needs=weakness_needs,
+            weakness_unavailable_reason=weakness_reason,
         )
 
     try:
@@ -8234,6 +10864,103 @@ async def post_trade_suggestions(request: Request):
     return JSONResponse(content=result)
 
 
+def _suggestion_weakness_needs(
+    contract: Any, league_cfg: Any, roster: list, team_count: int | None
+) -> tuple[list[str] | None, str | None]:
+    """The canonical Team Weakness answer for the roster being analysed.
+
+    ``(positions rated critical/high, None)``, or ``(None, reason)``.  The
+    request carries a roster LIST, not a team, so the team is identified by
+    roster overlap: the one ``sleeper.teams`` entry holding at least 80% of the
+    submitted names, and strictly more than any other.  Anything weaker — a
+    hand-typed what-if roster, two near-identical teams — is unresolved and the
+    engine keeps its count-based need, stamped with the reason.  Guessing a
+    team would publish another manager's needs as this roster's.
+    """
+    teams = ((contract or {}).get("sleeper") or {}).get("teams") or []
+    wanted = {str(n).strip().lower() for n in roster if str(n).strip()}
+    if not teams or not wanted:
+        return None, "no_league_rosters"
+    scored = sorted(
+        (
+            (len(wanted & {str(p).strip().lower() for p in (t.get("players") or [])}), t)
+            for t in teams
+            if isinstance(t, dict)
+        ),
+        key=lambda pair: -pair[0],
+    )
+    best, team = scored[0]
+    team_players = {str(p).strip().lower() for p in (team.get("players") or [])}
+    if best == 0 or team_players != wanted:
+        # Only the team's ACTUAL roster carries its weakness answer.  A what-if
+        # roster (the real team minus two QBs, say) would otherwise inherit the
+        # stored team's needs — QB "not a need" while the submitted roster has
+        # no QB.  Anything but an exact match keeps the count-based need.
+        return None, "roster_differs_from_league_team"
+    owner_id = str(team.get("ownerId") or "")
+    if not owner_id:
+        return None, "owner_id_unresolved"
+    try:
+        from src.api.roster_intelligence import team_weakness_for
+
+        weakness = team_weakness_for(contract, owner_id, team_count=team_count)
+    except Exception as exc:  # noqa: BLE001 — context never fails suggestions
+        log.info("suggestion weakness unavailable: %s", exc)
+        return None, "weakness_owner_failed"
+    if not weakness.get("available"):
+        return None, str(weakness.get("unavailableReason") or "weakness_unavailable")
+    return [
+        str(n["position"])
+        for n in weakness.get("needs") or []
+        if n.get("position") and n.get("level") in ("critical", "high")
+    ], None
+
+
+def _finder_postures(contract: Any, league_cfg: Any, sleeper_teams: Any) -> dict[str, str] | None:
+    """``{team name: posture label}`` from the canonical owner, or ``None``.
+
+    Measured labels only: a no-evidence HOLD carries no direction, so it is
+    left out rather than treated as a posture.
+    """
+    try:
+        from src.api.gameplan import league_competitive_postures
+        from src.api.league_registry import get_scoring_profile
+
+        postures, _meta = league_competitive_postures(
+            league_cfg.key, get_scoring_profile(league_cfg.key), contract
+        )
+    except Exception as exc:  # noqa: BLE001 — context never fails the finder
+        log.info("finder postures unavailable: %s", exc)
+        return None
+    names = {
+        str(t.get("ownerId") or ""): str(t.get("name") or "")
+        for t in (sleeper_teams or [])
+        if isinstance(t, dict)
+    }
+    return {
+        names[oid]: p.label
+        for oid, p in postures.items()
+        if names.get(oid) and p.evidence == "measured"
+    }
+
+
+def _finder_pick_forecasts(contract: Any, league_cfg: Any) -> dict | None:
+    """Owned-pick slot forecasts from the league's cached season simulation.
+
+    Reads the persisted sim only (never re-runs it on this request); a stale
+    or absent cache, or a league without a recorded draft-order rule, yields
+    none and every unknown-slot pick stays at the plain KTC tier average.
+    """
+    try:
+        from src.ros.playoff_sim import _load_cached_payload
+        from src.trade.pick_market import owned_pick_forecasts
+
+        return owned_pick_forecasts(_load_cached_payload(league_cfg.key), contract)
+    except Exception as exc:  # noqa: BLE001 — a forecast never fails the finder
+        log.info("finder pick forecasts unavailable: %s", exc)
+        return None
+
+
 @app.post("/api/trade/finder")
 async def post_trade_finder(request: Request):
     """Find board-arbitrage trades: good for me on our model, plausible for them on KTC.
@@ -8241,7 +10968,9 @@ async def post_trade_finder(request: Request):
     Accepts JSON body:
         {
           "myTeam": "Team Name",
-          "opponentTeams": ["Opponent 1", "Opponent 2"]   // or ["all"] for all teams
+          "opponentTeams": ["Opponent 1", "Opponent 2"],  // or ["all"] for all teams
+          "discovery": {"targetQuality": "top250", "playersToTarget": "both",
+                        "sort": "most_impactful"}   // optional (src/trade/discovery)
         }
 
     Requires live data to be loaded. Works against the production data payload
@@ -8329,16 +11058,48 @@ async def post_trade_finder(request: Request):
     # C3-CON-01 — the finder was the only engine that already accepted
     # `constraints`, and this route never passed any, so it ran unconstrained in
     # production while the parameter looked wired.
+    finder_refinement, refinement_error = _refinement_from_body(body)
+    if refinement_error is not None:
+        return refinement_error
     finder_constraints = _constraints_for_request(
-        request, contract, league_cfg, surface="/api/trade/finder"
+        request,
+        contract,
+        league_cfg,
+        surface="/api/trade/finder",
+        refinement=finder_refinement,
     )
 
     # V1-41 / C3-CTX-01 — "Use Team Context", ON by default.  Wire name
     # ``useTeamContext``; missing/non-bool falls back to the canonical
     # default (True) rather than silently disabling the signal.
-    raw_use_team_context = body.get("useTeamContext")
-    use_team_context = (
-        bool(raw_use_team_context) if isinstance(raw_use_team_context, bool) else True
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
+    # C7-PICKGEN-01: the canonical Competitive Posture per team (by name), so
+    # the finder can consider posture-aware picks.  Context only; absent on
+    # any failure, which keeps generation player-only.
+    finder_postures = (
+        await run_in_threadpool(_finder_postures, contract, league_cfg, sleeper_teams)
+        if use_team_context
+        else None
+    )
+    finder_pick_forecasts = (
+        await run_in_threadpool(_finder_pick_forecasts, contract, league_cfg)
+        if use_team_context
+        else None
+    )
+    # Owner directive 2026-10-18 — Target Quality / Players to target / sort
+    # (``src/trade/discovery``).  Absent = legacy behaviour for every other
+    # caller of this route.
+    from src.trade.discovery import parse_discovery_filters
+
+    finder_discovery, discovery_error = parse_discovery_filters(body)
+    if discovery_error is not None:
+        return JSONResponse(status_code=400, content=discovery_error)
+    finder_lineup_delta = (
+        await run_in_threadpool(_discovery_lineup_delta, contract, league_cfg, "/api/trade/finder")
+        if finder_discovery is not None and use_team_context
+        else None
     )
 
     try:
@@ -8357,6 +11118,10 @@ async def post_trade_finder(request: Request):
             # composite, which no other engine and no UI surface reads.
             contract=contract,
             use_team_context=use_team_context,
+            postures=finder_postures,
+            pick_forecasts=finder_pick_forecasts,
+            discovery=finder_discovery,
+            lineup_delta=finder_lineup_delta,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")
@@ -8368,6 +11133,636 @@ async def post_trade_finder(request: Request):
     return JSONResponse(content=result)
 
 
+def _discovery_lineup_delta(contract: dict, league_cfg: Any, surface: str) -> Any:
+    """The canonical lineup solver seam for a discovery ordering, or ``None``.
+
+    The same league bundle Best Offers and Golden Upgrades read
+    (``gameplan.get_league_bundle``, cached per league); a failure is an
+    unavailable lineup factor, never a failed route.
+    """
+    try:
+        from src.api import gameplan as _gp
+        from src.api.league_registry import get_scoring_profile
+        from src.trade import best_offers as _best_offers
+
+        bundle, _hit = _gp.get_league_bundle(
+            league_cfg.key, get_scoring_profile(league_cfg.key), contract
+        )
+        return _best_offers.lineup_delta_from_bundle(bundle)
+    except Exception as exc:  # noqa: BLE001 — context never fails the route
+        log.info("%s: lineup solver unavailable: %s", surface, exc)
+        return None
+
+
+def _generated_trade_team_context(
+    contract: dict,
+    league_cfg: Any,
+    sleeper_teams: list,
+    *,
+    use_team_context: bool,
+    capacity_context: Any,
+    surface: str,
+) -> tuple[Any, Any, Any]:
+    """``(needs_by_owner, lineup_delta, capacity_for)`` for a ranked trade surface.
+
+    One read of Team Context shared by Best Offers and Package Builder: rated
+    needs from the Team Weakness owner, lineup impact from the canonical lineup
+    solver over the league bundle, and roster capacity / forced-release cost
+    from ``roster_capacity``.  Each piece degrades to ``None`` (unknown, never
+    zero) when it cannot be read; asset-only mode reads none of them.
+    """
+    if not use_team_context:
+        return None, None, None
+    from src.trade import best_offers as _best_offers
+
+    needs_by_owner = None
+    lineup_delta = None
+    try:
+        from src.api.roster_intelligence import build_league_roster_intelligence
+
+        intel = build_league_roster_intelligence(contract, team_count=len(sleeper_teams) or None)
+        needs_by_owner = {}
+        for owner, team in (intel.get("teams") or {}).items():
+            weakness = (team or {}).get("weakness") or {}
+            if weakness.get("available"):
+                needs_by_owner[str(owner)] = {
+                    str(n["position"])
+                    for n in weakness.get("needs") or []
+                    if n.get("position") and n.get("level") in ("critical", "high")
+                }
+    except Exception as exc:  # noqa: BLE001 — context never fails the route
+        log.info("%s: team weakness unavailable: %s", surface, exc)
+    try:
+        from src.api import gameplan as _gp
+        from src.api.league_registry import get_scoring_profile
+
+        bundle, _hit = _gp.get_league_bundle(
+            league_cfg.key, get_scoring_profile(league_cfg.key), contract
+        )
+        lineup_delta = _best_offers.lineup_delta_from_bundle(bundle)
+    except Exception as exc:  # noqa: BLE001
+        log.info("%s: lineup solver unavailable: %s", surface, exc)
+
+    def capacity_for(opp, give, receive):
+        if capacity_context is None:
+            return None, None
+        from src.trade.forced_drop_selection import board_package
+        from src.trade.roster_capacity import (
+            assess_roster_capacity,
+            forced_drop_cost,
+            player_names_only,
+        )
+
+        try:
+            cap = assess_roster_capacity(
+                capacity_context,
+                incoming_players=player_names_only(receive),
+                outgoing_players=player_names_only(give),
+                # Flag forced_drop_cheapest_legal only (None when OFF).
+                package=board_package(give, receive),
+            )
+        except Exception:  # noqa: BLE001 — an annotation never drops an offer
+            return None, None
+        cost, _basis = forced_drop_cost(cap)
+        return cap, cost
+
+    return needs_by_owner, lineup_delta, capacity_for
+
+
+def _attach_manager_evidence(
+    offers: list[tuple[str, dict[str, Any]]],
+    *,
+    contract: Any,
+    league_cfg: Any,
+    sleeper_teams: list[dict[str, Any]],
+    my_team: str,
+) -> None:
+    """Stamp ``managerEvidence`` on each ``(opponent team, offer)`` pair.
+
+    Descriptive counts from the opponent's own completed trades, read from
+    the ONE Manager Scout owner (``manager_scout.offer_evidence`` over the
+    memoised profile) — never a probability.  Fails soft: any fault leaves an
+    explicit ``unavailable`` block rather than taking down the generator.
+    Only from a board whose teams belong to this league (the same gate
+    ``/api/manager-scout`` applies).
+    """
+    if not offers:
+        return
+    from src.intel import manager_scout as _scout
+
+    owner_of = {str(t.get("name") or ""): str(t.get("ownerId") or "") for t in sleeper_teams}
+    try:
+        teams = _manager_scout_api._current_teams(contract, league_cfg.key)
+        scout = (
+            _scout.cached_manager_scout(
+                league_cfg.key, league_cfg=league_cfg, current_teams=teams, contract=contract
+            )
+            if teams
+            else None
+        )
+    except Exception:  # noqa: BLE001 — a store fault is an unavailable state
+        log.exception("manager evidence: scout build failed for %s", league_cfg.key)
+        scout = None
+    for team, offer in offers:
+        try:
+            offer["managerEvidence"] = _scout.offer_evidence(
+                scout,
+                opponent_owner_id=owner_of.get(team),
+                requester_owner_id=owner_of.get(my_team),
+                they_receive=offer.get("send") or [],
+                they_send=offer.get("receive") or [],
+            )
+        except Exception:  # noqa: BLE001 — one card's evidence never fails the run
+            log.exception("manager evidence: offer_evidence failed for %s", team)
+            offer["managerEvidence"] = {
+                "methodVersion": _scout.METHOD_VERSION,
+                "basis": _scout.OFFER_EVIDENCE_BASIS,
+                "state": "unavailable",
+                "reason": "offer_evidence_failed",
+            }
+
+
+@app.post("/api/trade/best-offers")
+async def post_trade_best_offers(request: Request):
+    """Best Trade to Send Each Team (C7-BEST-TRADE) — one offer per opponent.
+
+    Body::
+
+        {
+          "myTeam": "Team Name",
+          "leagueKey": "...",                         // optional, standard resolver
+          "useTeamContext": true,                      // C3-CTX-01, default ON
+          "opponents": ["Team A"],                     // optional: regenerate cards
+          "refinementByOpponent": {"Team A": {"lock": [...], "exclude": [...]}},
+          "discovery": {"targetQuality": "top250", "playersToTarget": "both",
+                        "sort": "most_impactful", "minIncomingValue": null}  // optional
+        }
+
+    Hard rules (``src/trade/best_offers``): a canonical WIN for us; the
+    opponent even or better on KTC Market or IDP Trade Calculator with
+    whole-package native coverage; player counts within one (picks not
+    counted); picks only via the posture-aware path; saved protections and the
+    card's LOCK / EXCLUDE respected.  Ranking among qualifying offers is a
+    declared PRIOR.  Recommendation only — nothing is sent.
+    """
+    if latest_contract_data is None:
+        return JSONResponse(status_code=503, content={"error": "No data loaded."})
+    players = latest_contract_data.get("players")
+    sleeper_teams = (latest_contract_data.get("sleeper") or {}).get("teams") or []
+    if not players or not sleeper_teams:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Player data or Sleeper rosters not available."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "Body must be a JSON object."})
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    my_team = body.get("myTeam")
+    if not my_team or not isinstance(my_team, str):
+        return JSONResponse(
+            status_code=400, content={"error": "Request body must include 'myTeam'."}
+        )
+    if not any(t.get("name") == my_team for t in sleeper_teams):
+        return JSONResponse(status_code=400, content={"error": "unknown_team", "myTeam": my_team})
+    opponents = body.get("opponents")
+    if opponents is not None and (
+        not isinstance(opponents, list) or not all(isinstance(o, str) for o in opponents)
+    ):
+        return JSONResponse(status_code=400, content={"error": "'opponents' must be a list."})
+
+    raw_by_opp = body.get("refinementByOpponent") or {}
+    if not isinstance(raw_by_opp, dict):
+        return JSONResponse(
+            status_code=400, content={"error": "'refinementByOpponent' must be an object."}
+        )
+    # Bounded to real opponents: each key costs a constraint-store read, and a
+    # refinement for a team that is not in this league has no card to apply to.
+    team_names = {str(t.get("name")) for t in sleeper_teams if t.get("name")}
+    unknown_opps = sorted(str(o) for o in raw_by_opp if str(o) not in team_names)
+    if unknown_opps or my_team in raw_by_opp:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "invalid_refinement",
+                "message": "'refinementByOpponent' keys must be other teams in this league.",
+                "unknownTeams": unknown_opps[:10],
+            },
+        )
+    refinement_by_opp: dict[str, dict] = {}
+    for opp, raw in raw_by_opp.items():
+        clean, error = _refinement_from_body({"refinement": raw})
+        if error is not None:
+            return error
+        refinement_by_opp[str(opp)] = clean
+    from src.trade.discovery import parse_discovery_filters
+
+    best_discovery, discovery_error = parse_discovery_filters(body)
+    if discovery_error is not None:
+        return JSONResponse(status_code=400, content=discovery_error)
+
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+
+    # Constraints resolve per card: saved protections + that card's refinement.
+    # Resolved here, on the request thread (it reads the session and user store).
+    base_constraints = _constraints_for_request(
+        request, contract, league_cfg, surface="/api/trade/best-offers"
+    )
+    constraints_by_opp = {
+        opp: _constraints_for_request(
+            request,
+            contract,
+            league_cfg,
+            surface="/api/trade/best-offers",
+            refinement=ref,
+        )
+        for opp, ref in refinement_by_opp.items()
+    }
+
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
+    postures = pick_forecasts = None
+    if use_team_context:
+        postures = await run_in_threadpool(_finder_postures, contract, league_cfg, sleeper_teams)
+        pick_forecasts = await run_in_threadpool(_finder_pick_forecasts, contract, league_cfg)
+
+    my_block = next((t for t in sleeper_teams if t.get("name") == my_team), None)
+    capacity_context = (
+        _capacity_context_for(contract, league_cfg, my_block, surface="/api/trade/best-offers")
+        if use_team_context
+        else None
+    )
+
+    def _generate():
+        from src.trade import best_offers as _best_offers
+
+        needs_by_owner, lineup_delta, capacity_for = _generated_trade_team_context(
+            contract,
+            league_cfg,
+            sleeper_teams,
+            use_team_context=use_team_context,
+            capacity_context=capacity_context,
+            surface="best offers",
+        )
+
+        result = _best_offers.build_best_offers(
+            players,
+            my_team,
+            sleeper_teams,
+            contract=contract,
+            constraints_for=lambda opp: constraints_by_opp.get(opp, base_constraints),
+            use_team_context=use_team_context,
+            postures=postures,
+            pick_forecasts=pick_forecasts,
+            needs_by_owner=needs_by_owner,
+            lineup_delta=lineup_delta,
+            capacity_for=capacity_for,
+            opponents=opponents,
+            discovery=best_discovery,
+        )
+        meta = contract.get("meta") if isinstance(contract, dict) else None
+        stamp = (meta or {}).get("generatedAt") if isinstance(meta, dict) else None
+        result["runId"] = _best_offers.record_run(
+            result, league_key=league_cfg.key, board_stamp=stamp
+        )
+        _attach_manager_evidence(
+            [
+                (str(card.get("team") or ""), card["offer"])
+                for card in result.get("opponents") or []
+                if isinstance(card.get("offer"), dict)
+            ],
+            contract=contract,
+            league_cfg=league_cfg,
+            sleeper_teams=sleeper_teams,
+            my_team=my_team,
+        )
+        return result
+
+    try:
+        result = await run_in_threadpool(_generate)
+    except Exception as e:
+        log.error(f"Best offers failed: {e}")
+        return JSONResponse(status_code=500, content={"error": "best_offers_failed"})
+
+    result["leagueKey"] = league_cfg.key
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    # Private decision intelligence — never cached by a shared proxy.
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
+@app.post("/api/trade/golden-upgrades")
+async def post_trade_golden_upgrades(request: Request):
+    """Golden Upgrades (C7-GOLD-01) — same-position 1-for-1 inversions.
+
+    Body::
+
+        {
+          "myTeam": "Team Name",
+          "leagueKey": "...",                 // optional, standard resolver
+          "useTeamContext": true,             // lineup impact via the canonical solver
+          "refinement": {"lock": [], "exclude": []},
+          "discovery": {"targetQuality": "top250", "playersToTarget": "both",
+                        "sort": "most_impactful"}   // optional (src/trade/discovery)
+        }
+
+    Owned player → opponent's target where our canonical board prefers the
+    target and the position's own market (native KTC Market / IDP Trade
+    Calculator) prefers the owned player, both by at least the declared
+    minimums.  Saved protections and LOCK / EXCLUDE apply.  Recommendation
+    only — nothing is sent.
+    """
+    if latest_contract_data is None:
+        return JSONResponse(status_code=503, content={"error": "No data loaded."})
+    players = latest_contract_data.get("players")
+    sleeper_teams = (latest_contract_data.get("sleeper") or {}).get("teams") or []
+    if not players or not sleeper_teams:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Player data or Sleeper rosters not available."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "Body must be a JSON object."})
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    my_team = body.get("myTeam")
+    if not my_team or not isinstance(my_team, str):
+        return JSONResponse(
+            status_code=400, content={"error": "Request body must include 'myTeam'."}
+        )
+    if not any(t.get("name") == my_team for t in sleeper_teams):
+        return JSONResponse(status_code=400, content={"error": "unknown_team", "myTeam": my_team})
+    refinement, error = _refinement_from_body(body)
+    if error is not None:
+        return error
+    from src.trade.discovery import parse_discovery_filters
+
+    golden_discovery, discovery_error = parse_discovery_filters(body)
+    if discovery_error is not None:
+        return JSONResponse(status_code=400, content=discovery_error)
+
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    constraints = _constraints_for_request(
+        request,
+        contract,
+        league_cfg,
+        surface="/api/trade/golden-upgrades",
+        refinement=refinement,
+    )
+
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
+
+    def _generate():
+        from src.trade import best_offers as _best_offers
+        from src.trade.golden_upgrades import find_golden_upgrades
+
+        lineup_delta = None
+        if use_team_context:
+            try:
+                from src.api import gameplan as _gp
+                from src.api.league_registry import get_scoring_profile
+
+                bundle, _hit = _gp.get_league_bundle(
+                    league_cfg.key, get_scoring_profile(league_cfg.key), contract
+                )
+                lineup_delta = _best_offers.lineup_delta_from_bundle(bundle)
+            except Exception as exc:  # noqa: BLE001 — context never fails the route
+                log.info("golden upgrades: lineup solver unavailable: %s", exc)
+        return find_golden_upgrades(
+            players,
+            my_team,
+            sleeper_teams,
+            contract=contract,
+            constraints=constraints,
+            lineup_delta=lineup_delta,
+            discovery=golden_discovery,
+        )
+
+    try:
+        result = await run_in_threadpool(_generate)
+    except Exception as e:
+        log.error(f"Golden upgrades failed: {e}")
+        return JSONResponse(status_code=500, content={"error": "golden_upgrades_failed"})
+
+    result["leagueKey"] = league_cfg.key
+    result["useTeamContext"] = use_team_context
+    if constraints is not None:
+        result["constraints"] = constraints.to_dict()
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
+_PACKAGE_BUILDER_MAX_OUTGOING = 60
+
+
+@app.post("/api/trade/package-builder")
+async def post_trade_package_builder(request: Request):
+    """Package Builder (C7-PKGB-01) — packages built to the user's request.
+
+    Body::
+
+        {
+          "myTeam": "Team Name",
+          "leagueKey": "...",                    // optional, standard resolver
+          "target": "Player or pick name",       // optional desired incoming asset
+          "opponent": "Team B",                  // optional (implied by target)
+          "outgoing": ["..."],                   // optional: assets you'll offer
+          "returnPositions": ["WR", "PICKS"],    // optional; QB RB WR TE DL LB DB PICKS
+          "maxAssetsPerSide": 2,                 // 1-3, players and picks
+          "allowPicks": false,
+          "evidence": "any" | "external",
+          "useTeamContext": true,
+          "refinement": {"lock": [], "exclude": []},
+          "limit": 10,                           // 1-25
+          "perOpponent": false,                  // best package per opponent only
+          "sending": "both",                     // offense | defense | both (2026-10-18)
+          "receiving": "both",                   // offense | defense | both
+          "discovery": {"targetQuality": "top250", "sort": "most_impactful"}  // optional
+        }
+
+    Every constraint is applied during generation (``src/trade/package_builder``).
+    Recommendation only — nothing is sent.
+    """
+    if latest_contract_data is None:
+        return JSONResponse(status_code=503, content={"error": "No data loaded."})
+    players = latest_contract_data.get("players")
+    sleeper_teams = (latest_contract_data.get("sleeper") or {}).get("teams") or []
+    if not players or not sleeper_teams:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Player data or Sleeper rosters not available."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "Body must be a JSON object."})
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    from src.trade import package_builder as _pb
+
+    def _bad(error: str, **extra: Any) -> JSONResponse:
+        return JSONResponse(status_code=400, content={"error": error, **extra})
+
+    my_team = body.get("myTeam")
+    if not my_team or not isinstance(my_team, str):
+        return _bad("Request body must include 'myTeam'.")
+    team_names = {str(t.get("name")) for t in sleeper_teams if t.get("name")}
+    if my_team not in team_names:
+        return _bad("unknown_team", myTeam=my_team)
+    target = body.get("target")
+    if target is not None and (not isinstance(target, str) or len(target) > 120):
+        return _bad("invalid_target")
+    opponent = body.get("opponent")
+    if opponent is not None and (
+        not isinstance(opponent, str) or opponent not in team_names or opponent == my_team
+    ):
+        return _bad("unknown_opponent")
+    outgoing = body.get("outgoing")
+    if outgoing is not None and (
+        not isinstance(outgoing, list)
+        or len(outgoing) > _PACKAGE_BUILDER_MAX_OUTGOING
+        or not all(isinstance(n, str) and n.strip() for n in outgoing)
+    ):
+        return _bad("invalid_outgoing", max=_PACKAGE_BUILDER_MAX_OUTGOING)
+    raw_positions = body.get("returnPositions")
+    if isinstance(raw_positions, list) and len(raw_positions) > 16:
+        return _bad("invalid_return_positions", unknown=["<too many>"])
+    return_positions, unknown = _pb.normalize_return_positions(raw_positions)
+    if unknown:
+        return _bad("invalid_return_positions", unknown=unknown[:10])
+    try:
+        max_side = int(body.get("maxAssetsPerSide", _pb.MAX_PACKAGE_ASSETS))
+        limit = int(body.get("limit", 10))
+    except (TypeError, ValueError):
+        return _bad("invalid_numbers")
+    if not 1 <= max_side <= _pb.MAX_PACKAGE_ASSETS or not 1 <= limit <= 25:
+        return _bad("invalid_numbers")
+    evidence = body.get("evidence", "any")
+    if evidence not in _pb.EVIDENCE_LEVELS:
+        return _bad("invalid_evidence", allowed=list(_pb.EVIDENCE_LEVELS))
+    allow_picks = body.get("allowPicks", False) is True
+    per_opponent = body.get("perOpponent", False) is True
+    # Owner directive 2026-10-18 — independent Sending / Receiving sides and
+    # the shared discovery filters (``src/trade/discovery``).
+    from src.trade.discovery import SCOPES as _SCOPES, parse_discovery_filters
+
+    send_scope = body.get("sending", "both")
+    receive_scope = body.get("receiving", "both")
+    if send_scope not in _SCOPES or receive_scope not in _SCOPES:
+        return _bad("invalid_sides", allowed=list(_SCOPES))
+    builder_discovery, discovery_error = parse_discovery_filters(body)
+    if discovery_error is not None:
+        return JSONResponse(status_code=400, content=discovery_error)
+    refinement, error = _refinement_from_body(body)
+    if error is not None:
+        return error
+
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    constraints = _constraints_for_request(
+        request,
+        contract,
+        league_cfg,
+        surface="/api/trade/package-builder",
+        refinement=refinement,
+    )
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
+    pick_forecasts = None
+    if use_team_context and allow_picks:
+        pick_forecasts = await run_in_threadpool(_finder_pick_forecasts, contract, league_cfg)
+    my_block = next((t for t in sleeper_teams if t.get("name") == my_team), None)
+    capacity_context = (
+        _capacity_context_for(contract, league_cfg, my_block, surface="/api/trade/package-builder")
+        if use_team_context
+        else None
+    )
+
+    def _generate():
+        needs_by_owner, lineup_delta, capacity_for = _generated_trade_team_context(
+            contract,
+            league_cfg,
+            sleeper_teams,
+            use_team_context=use_team_context,
+            capacity_context=capacity_context,
+            surface="package builder",
+        )
+        built = _pb.build_packages(
+            players,
+            my_team,
+            sleeper_teams,
+            contract=contract,
+            target=target or None,
+            opponent=opponent or None,
+            outgoing=outgoing,
+            per_opponent=per_opponent,
+            return_positions=return_positions,
+            max_assets_per_side=max_side,
+            allow_picks=allow_picks,
+            evidence=evidence,
+            constraints=constraints,
+            use_team_context=use_team_context,
+            needs_by_owner=needs_by_owner,
+            lineup_delta=lineup_delta,
+            capacity_for=capacity_for,
+            pick_forecasts=pick_forecasts,
+            limit=limit,
+            send_scope=send_scope,
+            receive_scope=receive_scope,
+            discovery=builder_discovery,
+        )
+        _attach_manager_evidence(
+            [
+                (str(p.get("opponent") or ""), p)
+                for p in built.get("packages") or []
+                if isinstance(p, dict)
+            ],
+            contract=contract,
+            league_cfg=league_cfg,
+            sleeper_teams=sleeper_teams,
+            my_team=my_team,
+        )
+        return built
+
+    try:
+        result = await run_in_threadpool(_generate)
+    except Exception as e:
+        log.error(f"Package builder failed: {e}")
+        return JSONResponse(status_code=500, content={"error": "package_builder_failed"})
+
+    result["leagueKey"] = league_cfg.key
+    if constraints is not None:
+        result["constraints"] = constraints.to_dict()
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
 @app.post("/api/trade/import-ktc")
 async def post_trade_import_ktc(request: Request):
     """Resolve a KeepTradeCut trade-calculator URL into ordered
@@ -8375,12 +11770,13 @@ async def post_trade_import_ktc(request: Request):
 
     Body: ``{"url": "https://keeptradecut.com/trade-calculator?...&teamOne=1274&teamTwo=1555..."}``.
 
-    Returns ``{sideOne, sideTwo, unresolved, sourceUrl}`` — see
+    Returns ``{sideOne, sideTwo, unresolved, sourceUrl, playerMap}`` — see
     ``src/trade/ktc_import.py::resolve_trade_url`` for the shape.
-    Public endpoint (same as the other /api/trade/* endpoints) so
-    the drawer-less trade page works without re-authing.
+    Requires a session like the other /api/trade/* endpoints (it is not in
+    ``_PUBLIC_API_EXACT``).  Never fetches the supplied URL — only its query
+    string is read; the KTC pages fetched are fixed in ``ktc_import``.
     """
-    from src.trade.ktc_import import resolve_trade_url  # noqa: PLC0415 — lazy import
+    from src.trade.ktc_import import KtcPlayerMapError, resolve_trade_url  # noqa: PLC0415
 
     try:
         body = await request.json()
@@ -8415,16 +11811,321 @@ async def post_trade_import_ktc(request: Request):
             status_code=400,
             content={"ok": False, "error": str(exc)},
         )
-    except Exception as exc:  # noqa: BLE001 — surface upstream failures
+    except KtcPlayerMapError as exc:
+        # Each failure class carries its own user-facing reason.  One generic
+        # message for all of them is how a KTC layout change hid behind
+        # "Failed to fetch KTC player map." for every import.
         return JSONResponse(
-            status_code=502,
+            status_code=exc.status_code,
             content={
                 "ok": False,
-                "error": "Failed to fetch KTC player map.",
+                "error": exc.user_message,
+                "reason": type(exc).__name__,
+                "detail": str(exc),
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 — an unexpected defect, not an upstream state
+        log.error(f"KTC import failed unexpectedly: {type(exc).__name__}: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": "KTC import failed unexpectedly.",
+                "reason": "internal_error",
                 "detail": f"{type(exc).__name__}: {exc}",
             },
         )
     return JSONResponse(content={"ok": True, **result})
+
+
+# ── Import Trade from Screenshot (C3-IMPORT-IMAGE) ───────────────────────
+#
+# Reads an uploaded screenshot with the LOCAL tesseract binary and returns
+# asset IDENTITIES + SIDES only — never values; the calculator prices every
+# asset from the canonical board.  Pipeline owner: src/trade/screenshot_import.
+# Nothing here retains the image or logs the text read from it — counts only.
+# Runbook: docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md.
+# The global body cap (``_MAX_REQUEST_BYTES``, 2 MB) applies unchanged: the
+# client downscales every screenshot to <= 1.3 MB before upload (~1.73 MB as
+# base64 in JSON).  The handler re-checks the real body length against it.
+_SCREENSHOT_MAX_BODY_BYTES = _MAX_REQUEST_BYTES
+# Decoded-image ceiling for this route: what fits inside that body as base64.
+_SCREENSHOT_MAX_IMAGE_BYTES = 1_500_000
+_SCREENSHOT_RATE_CAPACITY = 20  # images ...
+_SCREENSHOT_RATE_WINDOW_S = 600.0  # ... per 10 minutes, per signed-in user
+_SCREENSHOT_MAX_INDEX = 3
+_SCREENSHOT_BUSY_RETRY_S = 5
+_SCREENSHOT_UNAVAILABLE_MESSAGE = (
+    "Screenshot reading is not set up on this server yet (install the tesseract-ocr package)."
+)
+_SCREENSHOT_IMAGE_ERRORS = {
+    # ImageRejected.code -> (HTTP status, error code, message)
+    "too_large": (413, "image_too_large", "That image is too large (3 MB maximum)."),
+    "bomb": (413, "image_too_large", "That image has too many pixels to read safely."),
+    "unsupported_type": (
+        415,
+        "unsupported_image_type",
+        "Only PNG, JPEG or WEBP screenshots can be read.",
+    ),
+    "malformed": (400, "malformed_image", "That file could not be read as an image."),
+    "empty": (400, "empty_image", "The image was empty."),
+}
+_screenshot_import_counts: dict[str, int] = {
+    "requests": 0,
+    "ok": 0,
+    "rejected_image": 0,
+    "rate_limited": 0,
+    "unavailable": 0,
+}
+_screenshot_counts_lock = threading.Lock()
+
+
+def _screenshot_count(key: str) -> None:
+    with _screenshot_counts_lock:
+        _screenshot_import_counts[key] = _screenshot_import_counts[key] + 1
+
+
+def _screenshot_ocr_engine_factory():
+    """Test seam: the OCR engine the routes use."""
+    from src.trade.screenshot_import.service import default_engine  # noqa: PLC0415
+
+    return default_engine()
+
+
+def _screenshot_identity_context():
+    """Test seam: the identity context (process-wide cached directory index)."""
+    from src.trade.screenshot_import.service import default_identity_context  # noqa: PLC0415
+
+    return default_identity_context()
+
+
+def _screenshot_availability(engine) -> dict:
+    from src.trade.screenshot_import.image_input import pillow_available  # noqa: PLC0415
+
+    avail = engine.availability().to_dict()
+    if avail["available"] and not pillow_available():
+        avail = {**avail, "available": False, "reason": "pillow_not_installed"}
+    return avail
+
+
+def _screenshot_import_startup_check() -> None:
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    if not is_enabled("trade_screenshot_import"):
+        return
+    avail = _screenshot_availability(_screenshot_ocr_engine_factory())
+    if not avail["available"]:
+        log.warning(
+            "Screenshot trade import is unavailable (%s); "
+            "install the tesseract-ocr package to enable it.",
+            avail["reason"],
+        )
+
+
+def screenshot_import_metrics() -> dict:
+    from src.trade.screenshot_import.ocr import ocr_counters  # noqa: PLC0415
+
+    with _screenshot_counts_lock:
+        route = dict(_screenshot_import_counts)
+    return {"route": route, "ocr": ocr_counters()}
+
+
+_DATA_URL_PREFIX_RE = re.compile(r"^\s*data:[^,]{0,100};base64,", re.IGNORECASE)
+
+
+def _decode_screenshot_base64(value: str) -> bytes | None:
+    text = _DATA_URL_PREFIX_RE.sub("", value)
+    text = "".join(text.split())
+    if not text:
+        return None
+    try:
+        return base64.b64decode(text, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+
+
+def _screenshot_error(code, message, status, *, headers=None, context=None):
+    from src.api.error_responses import error_payload  # noqa: PLC0415
+
+    st, body = error_payload(code, message=message, context=context, status_code=status)
+    hdrs = {"Cache-Control": "no-store"}
+    hdrs.update(headers or {})
+    return JSONResponse(status_code=st, content=body, headers=hdrs)
+
+
+@app.get("/api/trade/import-screenshot/status")
+async def get_trade_import_screenshot_status():
+    """Is screenshot reading available on this server, and is it enabled?
+
+    ``{"available", "reason", "engine": "tesseract", "version", "enabled"}``.
+    ``available: false`` with ``reason: "tesseract_not_installed"`` is the
+    expected state on a box without the ``tesseract-ocr`` package.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    avail = await run_in_threadpool(_screenshot_availability, _screenshot_ocr_engine_factory())
+    return JSONResponse(
+        content={
+            "available": bool(avail["available"]),
+            "reason": avail["reason"],
+            "engine": "tesseract",
+            "version": avail["version"],
+            "enabled": is_enabled("trade_screenshot_import"),
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/trade/import-screenshot")
+async def post_trade_import_screenshot(request: Request):
+    """Read ONE trade screenshot into candidate assets per side.
+
+    Body: ``{"image": "<base64, optional data: URL prefix>", "index": 0..3}``
+    (``index`` is the client's position for this image in a multi-image
+    import, echoed back as ``imageIndex``).
+
+    200 → the extraction payload (``src/trade/screenshot_import/service.py``
+    documents and validates the exact shape).  Errors: 404
+    ``feature_disabled``; 403 ``guest_read_only``; 429 ``rate_limited`` (+
+    ``Retry-After``); 400 ``invalid_json`` / ``missing_image`` /
+    ``invalid_index`` / ``invalid_image_encoding`` / ``malformed_image`` /
+    ``empty_image``; 413 ``image_too_large``; 415 ``unsupported_image_type``;
+    503 ``ocr_unavailable`` / ``ocr_busy`` (+ ``Retry-After``); 504
+    ``ocr_timeout``.  The image and the text read from it are never logged
+    or stored.
+    """
+    from src.api import rate_limit as _rl  # noqa: PLC0415
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.trade.screenshot_import import image_input as _img  # noqa: PLC0415
+    from src.trade.screenshot_import import ocr as _ocr  # noqa: PLC0415
+    from src.trade.screenshot_import import service as _svc  # noqa: PLC0415
+
+    if not is_enabled("trade_screenshot_import"):
+        return _screenshot_error(
+            "feature_disabled", "Screenshot import is switched off on this server.", 404
+        )
+    session = _get_auth_session(request)
+    if not session:
+        return _screenshot_error("auth_required", "Sign-in required.", 401)
+    if session.get("auth_method") == "guest_pass":
+        return _screenshot_error("guest_read_only", "Guest passes cannot import screenshots.", 403)
+    _screenshot_count("requests")
+
+    engine = _screenshot_ocr_engine_factory()
+    avail = await run_in_threadpool(_screenshot_availability, engine)
+    if not avail["available"]:
+        _screenshot_count("unavailable")
+        return _screenshot_error(
+            "ocr_unavailable",
+            _SCREENSHOT_UNAVAILABLE_MESSAGE,
+            503,
+            context={"reason": avail["reason"]},
+        )
+
+    username = str(session.get("username") or "").strip().lower()
+    limited, retry_after = _rl.should_rate_limit_key(
+        f"screenshot:{username}",
+        capacity=_SCREENSHOT_RATE_CAPACITY,
+        window_seconds=_SCREENSHOT_RATE_WINDOW_S,
+    )
+    if limited:
+        _screenshot_count("rate_limited")
+        return _screenshot_error(
+            "rate_limited",
+            "Too many screenshots — wait a moment and try again.",
+            429,
+            headers={"Retry-After": str(retry_after)},
+            context={"retryAfterSeconds": retry_after},
+        )
+
+    raw = await request.body()
+    if len(raw) > _SCREENSHOT_MAX_BODY_BYTES:
+        _screenshot_count("rejected_image")
+        return _screenshot_error("image_too_large", "That image is too large (3 MB maximum).", 413)
+    try:
+        body = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        body = None
+    if not isinstance(body, dict):
+        return _screenshot_error("invalid_json", "JSON body required.", 400)
+    image_field = body.get("image")
+    if not isinstance(image_field, str) or not image_field.strip():
+        return _screenshot_error("missing_image", "Missing 'image' (base64).", 400)
+    index = body.get("index", 0)
+    if (
+        isinstance(index, bool)
+        or not isinstance(index, int)
+        or not (0 <= index <= _SCREENSHOT_MAX_INDEX)
+    ):
+        return _screenshot_error(
+            "invalid_index", f"'index' must be an integer 0-{_SCREENSHOT_MAX_INDEX}.", 400
+        )
+    data = _decode_screenshot_base64(image_field)
+    if data is None:
+        _screenshot_count("rejected_image")
+        return _screenshot_error(
+            "invalid_image_encoding", "'image' is not valid base64 image data.", 400
+        )
+
+    try:
+        prepared = await run_in_threadpool(
+            _img.decode_image, data, max_bytes=_SCREENSHOT_MAX_IMAGE_BYTES
+        )
+    except _img.ImageRejected as exc:
+        _screenshot_count("rejected_image")
+        status, code, message = _SCREENSHOT_IMAGE_ERRORS[exc.code]
+        return _screenshot_error(code, message, status)
+    except _img.ImagingUnavailable:
+        _screenshot_count("unavailable")
+        return _screenshot_error(
+            "ocr_unavailable",
+            _SCREENSHOT_UNAVAILABLE_MESSAGE,
+            503,
+            context={"reason": "pillow_not_installed"},
+        )
+    finally:
+        del data
+
+    identity_ctx = await run_in_threadpool(_screenshot_identity_context)
+    contract = latest_contract_data
+    try:
+        payload = await run_in_threadpool(
+            lambda: _svc.extract_trade(
+                prepared.png,
+                engine=engine,
+                identity_ctx=identity_ctx,
+                contract=contract,
+                image_index=index,
+            )
+        )
+    except _ocr.OcrUnavailable as exc:
+        _screenshot_count("unavailable")
+        return _screenshot_error(
+            "ocr_unavailable", _SCREENSHOT_UNAVAILABLE_MESSAGE, 503, context={"reason": exc.reason}
+        )
+    except _ocr.OcrBusy:
+        return _screenshot_error(
+            "ocr_busy",
+            "The screenshot reader is busy — try again in a few seconds.",
+            503,
+            headers={"Retry-After": str(_SCREENSHOT_BUSY_RETRY_S)},
+            context={"retryAfterSeconds": _SCREENSHOT_BUSY_RETRY_S},
+        )
+    except _ocr.OcrTimeout:
+        return _screenshot_error(
+            "ocr_timeout", "Reading that screenshot took too long — try a smaller crop.", 504
+        )
+    except _ocr.OcrError as exc:
+        log.warning("screenshot import: OCR failed (%s)", type(exc).__name__)
+        return _screenshot_error("ocr_failed", "The screenshot could not be read.", 502)
+    except _svc.ExtractionSchemaError as exc:
+        # A server defect: the payload drifted from its published contract.
+        log.error("screenshot import: extraction contract violation: %s", exc)
+        return _screenshot_error(
+            "extraction_contract_violation", "Screenshot import failed unexpectedly.", 500
+        )
+    _screenshot_count("ok")
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
 
 
 @app.post("/api/trade/export-ktc")
@@ -8433,9 +12134,9 @@ async def post_trade_export_ktc(request: Request):
 
     Body ``{"sideOne": ["Josh Allen", ...], "sideTwo": ["2026 Mid 1st", ...]}``.
     Returns ``{ok, url, unresolved:{sideOne,sideTwo}, resolvedCount}``.
-    Reuses the cached KTC player map.  Public, like other /api/trade/*.
+    Reuses the cached KTC player map.  Session-gated like other /api/trade/*.
     """
-    from src.trade.ktc_import import build_ktc_url  # noqa: PLC0415
+    from src.trade.ktc_import import KtcPlayerMapError, build_ktc_url  # noqa: PLC0415
 
     try:
         body = await request.json()
@@ -8456,12 +12157,24 @@ async def post_trade_export_ktc(request: Request):
 
     try:
         result = await run_in_threadpool(build_ktc_url, side_one, side_two)
-    except Exception as exc:  # noqa: BLE001
+    except KtcPlayerMapError as exc:
         return JSONResponse(
-            status_code=502,
+            status_code=exc.status_code,
             content={
                 "ok": False,
-                "error": "Failed to fetch KTC player map.",
+                "error": exc.user_message,
+                "reason": type(exc).__name__,
+                "detail": str(exc),
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error(f"KTC export failed unexpectedly: {type(exc).__name__}: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": "KTC export failed unexpectedly.",
+                "reason": "internal_error",
                 "detail": f"{type(exc).__name__}: {exc}",
             },
         )
@@ -8731,6 +12444,12 @@ async def post_angle_packages(request: Request):
         _team_block_by_owner_id(sleeper_teams, owner_id),
         surface="/api/angle/packages",
     )
+    # Wave B (C3-CAP-01): the counterparty's roster consequence, same owner.
+    from src.trade.roster_capacity import counterparty_context_resolver
+
+    angle_counterparty_context = counterparty_context_resolver(
+        angle_capacity_context, contract, sleeper_teams
+    )
 
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
@@ -8738,8 +12457,15 @@ async def post_angle_packages(request: Request):
         # C3-CON-01.  Acquire mode is the one Angle mode that CHOOSES outgoing
         # assets — the other two enumerate what we would receive against a send
         # side the user typed — so it is the one that carries constraints.
+        angle_refinement, refinement_error = _refinement_from_body(body)
+        if refinement_error is not None:
+            return refinement_error
         angle_constraints = _constraints_for_request(
-            request, contract, league_cfg, surface="/api/angle/packages"
+            request,
+            contract,
+            league_cfg,
+            surface="/api/angle/packages",
+            refinement=angle_refinement,
         )
 
         try:
@@ -8757,6 +12483,7 @@ async def post_angle_packages(request: Request):
                 min_player_my_value=min_player,
                 include_idp=include_idp,
                 capacity_context=angle_capacity_context,
+                counterparty_context=angle_counterparty_context,
                 constraints=angle_constraints,
             )
         except Exception as exc:  # noqa: BLE001
@@ -8799,6 +12526,7 @@ async def post_angle_packages(request: Request):
             seed_player_names=seeds_req or None,
             include_idp=include_idp,
             capacity_context=angle_capacity_context,
+            counterparty_context=angle_counterparty_context,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")
@@ -8970,6 +12698,36 @@ def _resolve_league_for_request(
     return cfg
 
 
+_OVERLAY_PICK_ROWS_MEMO: dict[str, Any] = {"key": None, "rows": None}
+
+
+def _overlay_pick_board_rows(teams: Any, canonical: Any) -> Any:
+    """Stamp ``boardRowName`` onto overlay ``pickDetails`` (B0-g).
+
+    Same owner as the baked stamp (``pick_value_resolution.
+    stamp_owned_pick_rows``) over the loaded contract's pick rows, indexed
+    once per loaded contract object.
+    """
+    from src.api.data_contract import current_rookie_draft_year
+    from src.api.pick_value_resolution import pick_rows_by_name, stamp_owned_pick_rows
+
+    if not isinstance(canonical, dict) or not isinstance(teams, list):
+        return teams
+    try:
+        # The memo holds the row LIST itself, so identity cannot be reused by
+        # a later contract after this one is garbage-collected.
+        key = canonical.get("playersArray")
+        if _OVERLAY_PICK_ROWS_MEMO["key"] is not key:
+            _OVERLAY_PICK_ROWS_MEMO["rows"] = pick_rows_by_name(canonical)
+            _OVERLAY_PICK_ROWS_MEMO["key"] = key
+        return stamp_owned_pick_rows(
+            teams, _OVERLAY_PICK_ROWS_MEMO["rows"], current_rookie_draft_year()
+        )
+    except Exception:  # noqa: BLE001 — an additive stamp never fails the payload
+        log.warning("overlay boardRowName stamp failed", exc_info=True)
+        return teams
+
+
 def _requested_valuation_mode(request: "Request", body: dict | None = None) -> str:
     """Which board this request is asking for: ``market`` or
     ``leagueAdjusted``.
@@ -9052,10 +12810,9 @@ async def _valuation_scoped_contract(
     # on someone's phone must converge to the canonical answer silently —
     # refusing would turn an obsolete localStorage value into a broken
     # page for a user who never chose anything.
-    requested = _requested_valuation_mode(request, body)
-    if requested == "leagueAdjusted":
-        return source, "market", "league_adjusted_withdrawn: not_canonical"
-    return source, "market", None
+    from src.trade.valuation_scope import scoped_contract  # noqa: PLC0415
+
+    return scoped_contract(source, _requested_valuation_mode(request, body))
 
 
 def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
@@ -9068,6 +12825,11 @@ def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
     if not isinstance(result, dict):
         return
     result["valuationMode"] = mode
+    # Which package Value Adjustment model produced any package-equity number
+    # in this response (owner package 2026-10-17): every engine reaches the
+    # model through src/valuation_math/package_model.py, so the stamp is the
+    # same everywhere the valuation mode is.
+    result["packageModel"] = _package_model.receipt()
     if note:
         result["valuationNote"] = note
         warnings = result.get("warnings")
@@ -9077,12 +12839,51 @@ def _stamp_valuation_mode(result: Any, mode: str, note: str | None) -> None:
             result["warnings"] = [note]
 
 
+def _requester_owner_id(request: "Request", league_cfg: Any) -> str | None:
+    """The requesting user's own Sleeper owner id in this league, or ``None``.
+
+    Recommendation constraints are the requester's, so they bind the
+    requester's roster — never the subject team of a request that happens to
+    name someone else.  Resolved the same way ``/api/gameplan`` infers its
+    default team: the session's Sleeper id, else the league's default team map.
+    """
+    session = _get_auth_session(request) or {}
+    owner = str(session.get("sleeper_user_id") or "").strip()
+    if owner:
+        return owner
+    username = str(session.get("username") or "").strip().lower()
+    mapped = (getattr(league_cfg, "default_team_map", None) or {}).get(username) or {}
+    return str(mapped.get("ownerId") or "").strip() or None
+
+
+def _refinement_from_body(body: Any) -> tuple[dict | None, JSONResponse | None]:
+    """Validated temporary LOCK/EXCLUDE (C3-CON-03) from a request body.
+
+    ``(refinement, error_response)``.  The wire field is ``refinement:
+    {lock: [...], exclude: [...]}``; absent means none.  Validation is the
+    constraint owner's (``validate_refinement``), so every generated-trade
+    route refuses the same malformed or contradictory request with the same
+    400 rather than each one guessing.
+    """
+    from src.trade.constraints import validate_refinement
+
+    raw = body.get("refinement") if isinstance(body, dict) else None
+    clean, errors = validate_refinement(raw)
+    if errors:
+        return None, JSONResponse(
+            status_code=400,
+            content={"error": "invalid_refinement", "errors": errors},
+        )
+    return clean, None
+
+
 def _constraints_for_request(
     request: "Request",
     contract: dict | None,
     league_cfg: Any,
     *,
     surface: str,
+    refinement: dict | None = None,
 ) -> Any:
     """Recommendation constraints for one (user, league), or the fail-closed set.
 
@@ -9091,12 +12892,15 @@ def _constraints_for_request(
     ``src/trade/constraints``; this only resolves its inputs.
 
     **Read-only plumbing.**  It reads a stored per-(user, league) protection
-    block if one exists and never writes one — the storage service and the UI
-    that would populate it are ``C3-CON-02`` / ``C3-CON-03``, separate rows.
-    Until those land this resolves to "nothing configured" for every user, which
-    is a legitimate answer and NOT a failure: §7 acceptance 12 and the owner's
-    own ``test_no_configured_preference_is_not_a_failure`` both turn on that
-    distinction.
+    block if one exists and never writes one.  The writer is
+    ``PUT /api/user/trade-protections`` (C3-CON-02), which stores only what
+    ``constraints.validate_persistent_protection`` accepts.  A user who never
+    saved anything resolves to "nothing configured", which is a legitimate
+    answer and NOT a failure: §7 acceptance 12 and the owner's own
+    ``test_no_configured_preference_is_not_a_failure`` both turn on that
+    distinction.  Temporary LOCK/EXCLUDE refinement (``C3-CON-03``) arrives
+    already validated through ``refinement`` and is resolved by the same owner;
+    it is never stored, so a temporary EXCLUDE cannot become permanent.
 
     Fail-closed is reserved for genuinely not knowing.  An anonymous request has
     no protections, which is knowable; a store that RAISES is not, and returns
@@ -9113,12 +12917,12 @@ def _constraints_for_request(
             username = str(session.get("username") or "").strip()
             if username:
                 state = _user_kv.get_user_state(username) or {}
-                by_league = state.get("tradeConstraintsByLeague") or {}
+                by_league = state.get(_TRADE_PROTECTIONS_FIELD) or {}
                 if isinstance(by_league, dict) and league_key:
                     block = by_league.get(league_key)
                     if isinstance(block, dict):
                         persistent = block
-        return resolve_constraints(contract=contract, persistent=persistent)
+        return resolve_constraints(contract=contract, persistent=persistent, refinement=refinement)
     except Exception as exc:  # noqa: BLE001 — unknown must not become unconstrained
         log.warning("recommendation constraints unresolved for %s: %s", surface, exc)
         return UNRESOLVED
@@ -9182,6 +12986,51 @@ _DRAFT_CAPITAL_CACHE: dict[str, tuple[float, dict]] = {}
 _DRAFT_CAPITAL_TTL_SEC = 300.0
 _DRAFT_CAPITAL_LOCKS: dict[str, asyncio.Lock] = {}
 
+# Stale-while-revalidate for the dollars generation (Batch F).  The last VALID
+# board per league (never an error payload) is kept here, untouched by the
+# scrape-promotion cache clear, so a request whose draft-dollar generation
+# fails is answered with that board — labelled ``staleWhileRevalidate`` —
+# instead of an error, and the failure is retried after
+# ``_DRAFT_CAPITAL_STALE_RETRY_SEC``.  Guards: same league; the SAME draft
+# year as the failed generation (never another year's curve); no older than
+# the repo's staleness budget (3 x the scrape interval).  Only the dollars
+# generation's own failures qualify: ownership / Sleeper refusals
+# (``pick_ownership_unavailable``, ``sleeper_unreachable``) keep refusing,
+# because those boards were deliberately made all-or-nothing.
+_DRAFT_CAPITAL_LAST_VALID: dict[str, tuple[float, dict]] = {}
+_DRAFT_CAPITAL_STALE_RETRY_SEC = 60.0
+_DRAFT_CAPITAL_GENERATION_ERRORS = frozenset({"draft_dollars_unavailable", "draft_dollars_refused"})
+
+
+def _draft_capital_stale_fallback(league_key: str, failed: Any, now: float) -> dict | None:
+    """The last valid board to serve in place of a failed dollars generation, or ``None``."""
+    if not isinstance(failed, dict) or failed.get("error") not in _DRAFT_CAPITAL_GENERATION_ERRORS:
+        return None
+    year = failed.get("draftYear")
+    if isinstance(year, bool) or not isinstance(year, int):
+        return None
+    slot = _DRAFT_CAPITAL_LAST_VALID.get(league_key)
+    if not slot:
+        return None
+    served_at, good = slot
+    max_age = float(SCRAPE_INTERVAL_HOURS) * 3 * 3600.0
+    if now - served_at > max_age or good.get("season") != year:
+        return None
+    out = dict(good)
+    out["staleWhileRevalidate"] = {
+        "state": "serving_last_valid_board",
+        "servedFromAt": datetime.fromtimestamp(served_at, timezone.utc).isoformat(),
+        "ageSeconds": int(now - served_at),
+        "failedAt": datetime.fromtimestamp(now, timezone.utc).isoformat(),
+        "failedError": failed.get("error"),
+        "failedReason": failed.get("unavailableReason") or failed.get("message"),
+        "failedGeneration": failed.get("draftValuationGeneration"),
+        "draftYear": year,
+        "revalidateAfterSec": _DRAFT_CAPITAL_STALE_RETRY_SEC,
+    }
+    return out
+
+
 # Per-pick fields that carry OUR board, not public Sleeper data.  They
 # are filled from ``_our_rookie_pool()``, which reads
 # ``latest_contract_data['playersArray']`` ordered by
@@ -9195,6 +13044,8 @@ _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
     "rookieKtcValue",
     "rookieKtcDollar",
     "rookieIdpDollar",
+    "rookieKtcComparableDollar",
+    "rookieIdpComparableDollar",
     # The raw board value the dollar ladder is derived from — the single
     # most proprietary number on the payload, and blocklisted outright by
     # the public-league guard.  Added with the field itself, not after.
@@ -9482,6 +13333,15 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
 
         ktc_raw = _ktc_market_raw(csv)
         idp_raw = csv.get("idpTradeCalc")
+        # Vendors whose observation on THIS row is past its freshness budget
+        # (``freshnessExcludedSources`` holds voting keys; KTC is stale only when
+        # both of its voting boards are).  Read by the vendor comparison layer.
+        _excl = set(p.get("freshnessExcludedSources") or [])
+        _stale_vendors = []
+        if {"ktcCrowdSfTep", "ktcTradesSfTep"} <= _excl:
+            _stale_vendors.append("ktc")
+        if "idpTradeCalc" in _excl:
+            _stale_vendors.append("idpTradeCalc")
         cv = p.get("marketDispersionCV")
         out.append(
             {
@@ -9495,6 +13355,7 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
                 if isinstance(idp_raw, (int, float)) and idp_raw > 0
                 else None,
                 "assetClass": p.get("assetClass"),
+                "staleVendors": _stale_vendors,
                 "dispersionCV": float(cv) if isinstance(cv, (int, float)) and cv > 0 else None,
                 "singleSource": bool(p.get("isSingleSource")),
             }
@@ -9577,23 +13438,29 @@ def _read_sheet_spine_and_floor(n: int = 72) -> tuple[list[float], int]:
     """Return (spine[E2:E_n+1], r5_bonus_total) from the workbook so
     ``_rookie_dollars_from_values`` faithfully matches the sheet's
     formula.  Spine is the per-pick historical anchor (median + mean
-    of 2023–2025 L values divided by 2).  R5-bonus total is the $12
-    floor injection for picks 5.01–5.12 (== 12 in a 12-team league).
+    of the three completed classes' L values divided by 2).  R5-bonus
+    total is the $12 floor injection for picks 5.01–5.12 (== 12 in a
+    12-team league).
 
-    Falls back to a flat spine and zero R5 bonus if the workbook is
-    unreadable so callers don't blow up.
+    Returns ``([], 0)`` when the workbook or any spine cell is unreadable
+    (Batch F).  It used to return a FLAT ``[1.0] * n`` spine, which makes the
+    40% spine term vanish and produces a plausible-looking wrong curve
+    (map §6, scenario D: 44 of 72 picks wrong, up to $22.50) — missing is
+    never a made-up spine.
     """
     try:
         wb = _load_draft_workbook()
         if wb is None:
-            return [1.0] * n, 0
+            return [], 0
         ws = wb["Draft Data"]
         spine: list[float] = []
         for r in range(2, 2 + n):
             v = ws.cell(r, 5).value  # E = column 5
-            spine.append(float(v) if v is not None else 1.0)
+            if v is None:
+                return [], 0
+            spine.append(float(v))
     except Exception:
-        return [1.0] * n, 0
+        return [], 0
     return spine, n  # R5 bonus = +$1 × 12 picks = $12 total floor add
 
 
@@ -9603,6 +13470,17 @@ def _rookie_dollars_from_values(
     """Convert raw rookie values to dollar amounts using the sheet's
     Hill-curve formula (column C → I → J → K → D in Draft Data.xlsx),
     summing to ``total``.
+
+    REMAINING ROLE (Batch F consumer census).  The auction's own 72-rookie
+    pre-draft ladder no longer comes from here: it is
+    ``src/draft/rookie_auction/generation.rookie_ladder`` (the canonical
+    curve, exact arithmetic, canonical spine, refuses anything but 72
+    rookies).  This float copy survives only for quantities the canonical
+    formula does not define — a vendor's PARTIAL rookie list
+    (``_vendor_dollars_for_rookies``: KTC / IDPTradeCalc rank fewer than 72
+    rookies, and this stretches the curve over however many there are) and
+    the out-of-scope non-default-league fallback (owner scope correction
+    2026-10-18: ``dynasty_main`` only).  Do not add a consumer.
 
     Faithful reproduction of the Google Sheet formula:
 
@@ -9635,7 +13513,8 @@ def _rookie_dollars_from_values(
 
     spine, r5_bonus_count = _read_sheet_spine_and_floor(n)
     if len(spine) < n:
-        spine = list(spine) + [1.0] * (n - len(spine))
+        # No spine, no curve (Batch F) — never a flat [1.0] stand-in.
+        return []
 
     head = values[: min(6, n)]
     head_mean = sum(head) / len(head) if head else 0.0
@@ -9703,8 +13582,53 @@ def _rookie_dollars_from_values(
     return dollars
 
 
+def _csv_number(text: Any) -> float | None:
+    """A finite number from one workbook-export CSV cell, or ``None``.
+
+    The scheduled export writes every number as a float (``"1.0"``,
+    ``"5103.0"``), so ``int(text)`` raised on all of them.  Empty, text,
+    NaN and infinity are ``None`` — never 0.
+    """
+    raw = str(text or "").strip().replace(",", "")
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) else None
+
+
+def _csv_column_block(rows: list[list[str]], header_idx: int, col: int) -> list[str]:
+    """The contiguous non-empty cells of ``col`` directly below its header row."""
+    out: list[str] = []
+    for row in rows[header_idx + 1 :]:
+        cell = row[col].strip() if len(row) > col and row[col] else ""
+        if not cell:
+            break
+        out.append(cell)
+    return out
+
+
 def _parse_csv_rookies():
-    """Parse rookie rankings from the draft data CSV (cols 22-25)."""
+    """Parse the KTC rookie list from the draft data CSV (sheet ``W137:Z217``,
+    CSV columns 22-25: Rank / Player / Pos and a ``Composite`` value).
+
+    Two defects fixed (Batch F; ``docs/draft/DRAFT_DATA_WORKBOOK_MAP.md`` §3):
+
+    * the export writes numbers as ``"1.0"`` / ``"5103.0"`` and this called
+      ``int()`` on them, so EVERY row was skipped and the CSV fallback of
+      ``_get_ktc_rookies`` returned nothing;
+    * the ``Composite`` column is two rows out of step with the names: its
+      header sits at ``Z137`` while ``Rank`` / ``Player`` / ``Pos`` sit at
+      ``W139:Y139``, so reading the value on a name's own row gave rank 1
+      (Jeremiyah Love) the THIRD value (5103) and left the first two (6817,
+      5203 — on the blank row and the header row) on no player.  Each block is now read below ITS OWN header and the two are
+      paired by position.  The pairing is refused (``[]``) unless both blocks
+      have the same length and the values never rise — a mismatched count
+      means a row was added or removed on one side only, and guessing which
+      would attach a value to the wrong rookie.
+    """
     import csv
 
     if not DRAFT_DATA_CSV.exists():
@@ -9715,30 +13639,57 @@ def _parse_csv_rookies():
     except Exception:
         return []
 
-    rookies = []
     rank_header_idx = None
     for i, row in enumerate(rows):
         if len(row) > 22 and row[22].strip() == "Rank":
             rank_header_idx = i
             break
-    if rank_header_idx is not None:
-        for row in rows[rank_header_idx + 1 :]:
-            if len(row) < 26:
-                continue
-            rank_str = row[22].strip() if row[22] else ""
-            player = row[23].strip() if row[23] else ""
-            pos = row[24].strip() if row[24] else ""
-            value_str = row[25].strip() if row[25] else ""
-            if not rank_str or not player:
-                continue
-            try:
-                int(rank_str)
-                value = int(value_str)
-            except (ValueError, TypeError):
-                continue
-            if value > 0:
-                rookies.append({"name": player, "pos": pos, "value": value})
-    return rookies
+    if rank_header_idx is None:
+        return []
+    # The value column's own header: the nearest non-numeric label in column
+    # 25 at or above the names' header row.
+    value_header_idx = None
+    for i in range(rank_header_idx, -1, -1):
+        row = rows[i]
+        cell = row[25].strip() if len(row) > 25 and row[25] else ""
+        if cell and _csv_number(cell) is None:
+            value_header_idx = i
+            break
+    if value_header_idx is None:
+        return []
+
+    names: list[tuple[str, str]] = []
+    for row in rows[rank_header_idx + 1 :]:
+        rank_str = row[22].strip() if len(row) > 22 and row[22] else ""
+        player = row[23].strip() if len(row) > 23 and row[23] else ""
+        if not rank_str and not player:
+            break
+        rank = _csv_number(rank_str)
+        if rank is None or rank <= 0 or rank != int(rank) or not player:
+            logging.warning("draft CSV rookie list: unreadable row %r — list refused", row[22:26])
+            return []
+        pos = row[24].strip() if len(row) > 24 and row[24] else ""
+        names.append((player, pos))
+
+    values: list[float] = []
+    for cell in _csv_column_block(rows, value_header_idx, 25):
+        v = _csv_number(cell)
+        if v is None or v <= 0:
+            logging.warning("draft CSV rookie list: non-positive value %r — list refused", cell)
+            return []
+        values.append(v)
+
+    if len(names) != len(values) or any(values[i] > values[i - 1] for i in range(1, len(values))):
+        logging.warning(
+            "draft CSV rookie list: %d names vs %d values (or values rise) — list refused",
+            len(names),
+            len(values),
+        )
+        return []
+    return [
+        {"name": player, "pos": pos, "value": int(v) if v == int(v) else v}
+        for (player, pos), v in zip(names, values)
+    ]
 
 
 def _parse_draft_xlsx():
@@ -9920,24 +13871,6 @@ def _parse_draft_data():
     return pick_dollars, workbook_picks, slot_to_original, wb_totals, rookies, pick_values_l
 
 
-def _round_to_budget(values: list[float], budget: int = 1200) -> list[int]:
-    """Round a list of floats to integers that sum to exactly *budget*.
-
-    Uses largest-remainder rounding: floor each value, then distribute
-    the deficit to the values with the largest fractional parts.
-    """
-    import math
-
-    floors = [math.floor(v) for v in values]
-    remainders = [(v - math.floor(v), i) for i, v in enumerate(values)]
-    deficit = budget - sum(floors)
-    # Sort by fractional part descending; break ties by index
-    remainders.sort(key=lambda x: (-x[0], x[1]))
-    for k in range(int(deficit)):
-        floors[remainders[k][1]] += 1
-    return floors
-
-
 def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades: bool = True):
     """Compute draft capital per team.
 
@@ -9948,8 +13881,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     (default), so trades made on Sleeper between scheduled
     refreshes are reflected immediately in per-team dollar totals.
 
-    If the Sleeper join fails or no trades are reported, the
-    workbook's R45:R116 ownership column is used verbatim.
+    Pick ownership is OBSERVED or the board is refused.  The
+    ``/traded_picks`` body is read through
+    ``picks.traded_picks_observation``: a list (even an empty one —
+    "no trades reported", in which case the workbook's R45:R116
+    ownership column stands) is applied.  A failed or non-list fetch,
+    or Sleeper failing before it can be read, refuses the whole board
+    with ``pick_ownership_unavailable`` — the same ``{error, message}``
+    + ``pickOwnershipState`` / ``pickOwnershipReason`` shape as the
+    Sleeper-derived fallback — instead of serving the workbook's
+    hand-entered ownership as current.  With no Sleeper league
+    configured there is nothing to observe and the workbook stands.
 
     ``league_key`` selects which league's Sleeper IDs to use for the
     team-name join.  None resolves to the registry default.
@@ -9981,6 +13923,40 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         if pick_values_l and len(pick_values_l) >= len(workbook_picks)
         else [wp["value"] for wp in workbook_picks]
     )
+    # Owner decision 2026-10-18 — WHOLE DOLLARS ONLY.  The sheet's half-dollar
+    # column stays as mathematical REFERENCE data; every operational pick
+    # dollar is the canonical rookie-auction calculation's final whole-dollar
+    # step (floor, then the integer residual by largest fractional remainder,
+    # earlier pick first; floors / caps / order verified), and every team
+    # budget below is the exact integer sum of the picks that team owns.  A
+    # violated constraint refuses the board — the $1,200 is never changed.
+    #
+    # The formula's own 72-pick class goes through the canonical published-
+    # allocation resolver below (constraint-aware whole dollars + last-known-
+    # good, ``src/draft/rookie_auction/published.py``) once the draft season
+    # is known.  Any other workbook size has no stored formula allocation, so
+    # it takes the whole-dollar step directly here.
+    from src.api import draft_capital_classes as _dcc_wd  # noqa: PLC0415
+    from src.draft.rookie_auction.apportion import ApportionmentRefused  # noqa: PLC0415
+
+    _formula_pick_count = _dcc_wd.formula_pick_count()
+    whole_dollars_per_slot: list[int] | None = None
+    whole_dollar_receipt: dict | None = None
+    draft_valuation_state: dict | None = None
+    if len(workbook_picks) != _formula_pick_count:
+        try:
+            whole_dollars_per_slot, whole_dollar_receipt = _dcc_wd.workbook_class_whole_dollars(
+                pick_values_per_slot[: len(workbook_picks)], DRAFT_TOTAL_BUDGET
+            )
+        except ApportionmentRefused as exc:
+            return {
+                "error": _dcc_wd.WHOLE_DOLLAR_REFUSED_ERROR,
+                "message": (
+                    "The workbook's pick dollars cannot be published as whole dollars "
+                    f"totalling ${DRAFT_TOTAL_BUDGET}: {exc}"
+                ),
+                "conflict": exc.conflict,
+            }
 
     # ── First-name → Sleeper team-name mapping ──
     # Built by joining sheet standings (slot → first name) with
@@ -9988,7 +13964,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     first_name_to_team: dict[str, str] = {}
     all_team_names: list[str] = []
     # (round, slot) → new-owner first name from Sleeper traded_picks.
-    # Empty when Sleeper is unreachable or apply_sleeper_trades=False.
+    # Empty when no trades are reported or apply_sleeper_trades=False
+    # (an unreachable Sleeper refuses the board below instead).
     sleeper_trade_overrides: dict[tuple[int, int], str] = {}
     # Parallel to ``sleeper_trade_overrides`` but carrying the stable
     # roster_id of the pick's new owner.  ``isTraded`` keys off this
@@ -10011,7 +13988,22 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # the Sleeper fetch raises early.
     effective_slot_to_rid: dict[int, int] = {}
     live_standings_active: bool = False
+    # The draft-order answer behind ``effective_slot_to_rid`` (Batch E), or
+    # ``None`` when the workbook / last draft's order stands.
+    standings_order = None
     first_name_to_rid: dict[str, int] = {}
+    # Wave A: the league-scoped draft years (set inside the try once the
+    # league is known) and the stable roster/owner keys for teamTotals.
+    league_draft_years = None
+    _league_id_for_draft = None
+    roster_name_by_id: dict[int, str] = {}
+    owner_id_by_rid: dict[int, str] = {}
+    # The /traded_picks diff this request OBSERVED (a list, possibly empty),
+    # or ``None`` — a failed fetch is never "no trades" (picks.
+    # traded_picks_observation).  Also feeds the later classes below.
+    traded_observed: list | None = None
+    league_meta: Any = None
+    all_drafts: list = []
     try:
         _league_id_for_draft = _sleeper_league_id_for_draft(league_key)
         if not _league_id_for_draft:
@@ -10064,6 +14056,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             oid = r.get("owner_id", "")
             if oid:
                 owner_to_roster_id[str(oid)] = rid
+                owner_id_by_rid[rid] = str(oid)
             roster_name_by_id[rid] = user_map.get(oid, f"Team {rid}")
         all_team_names = list(roster_name_by_id.values())
 
@@ -10108,15 +14101,50 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # most-recent COMPLETE draft (slot order from the prior year's
         # final standings) because the workbook's standings carry the
         # same placeholder ordering until the new NFL season finishes.
-        current_draft_complete = any(
-            isinstance(d, dict)
-            and str(d.get("status", "")).lower() == "complete"
-            and (str(d.get("season", "")) == str(league_season))
-            for d in all_drafts
-        )
+        #
+        # Wave A (owner directive 2026-10-03): WHICH year is "upcoming" is
+        # the league-scoped canonical answer
+        # (``pick_lifecycle.league_draft_years`` — completion AND roster
+        # consumption, the same rule every other league-scoped surface
+        # reads), not a local "any complete draft → +1".  Evidence is the
+        # league's persisted snapshot; when there is none yet, it is
+        # assembled from this request's own Sleeper reads rather than
+        # treated as "nothing retired".
         slot_lookup_season = league_season
-        if current_draft_complete:
-            league_season = league_season + 1
+        _dc_evidence = None
+        try:
+            from src.api.draft_class_evidence import (  # noqa: PLC0415
+                collect_league_draft_evidence,
+                read_snapshot,
+            )
+
+            _dc_evidence = read_snapshot(_league_id_for_draft)
+            if _dc_evidence is None:
+
+                def _dc_get(url: str):
+                    try:
+                        return json.loads(urllib.request.urlopen(url, timeout=15).read())
+                    except Exception:  # noqa: BLE001 — unobserved, never zero
+                        return None
+
+                _dc_evidence = collect_league_draft_evidence(
+                    _league_id_for_draft,
+                    league_key=league_key,
+                    fetch=_dc_get,
+                    rosters=rosters if isinstance(rosters, list) else None,
+                    league_info=league_meta if isinstance(league_meta, dict) else None,
+                )
+        except Exception as exc:  # noqa: BLE001 — unknown never retires
+            logging.warning(f"draft-capital: draft-class evidence unavailable: {exc}")
+            _dc_evidence = None
+        from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
+
+        league_draft_years = league_draft_years_for(
+            _league_id_for_draft,
+            league_season=league_meta_season or league_season,
+            evidence=_dc_evidence,
+        )
+        league_season = league_draft_years.upcoming_draft_year
         # The slot-to-roster map MUST come from a real draft.  Use the
         # most-recent-completed draft (``slot_lookup_season``) so the
         # first_name → roster_id bridge keeps working into the
@@ -10170,9 +14198,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # ── Effective slot → roster_id mapping ──────────────────────
         # Pre-season we trust the most-recent completed draft's
         # slot→roster_id map (also the workbook's slot ordering).
-        # Once any team has non-zero points (= the season has
-        # started), we reorder so the team with the fewest points
-        # occupies slot 1, second-fewest slot 2, etc.
+        # Once the season has started, we reorder by the league's
+        # draft-order rule (worst record first, ties on record by LOWER
+        # Points For — ``draft_capital_order.class_slot_order``).
         #
         # This single mapping is the source of truth for EVERY
         # slot-keyed downstream view:
@@ -10204,7 +14232,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # invariant that an untraded pick has originalOwner ==
         # currentOwner.
         #
-        # Additionally, restrict the live-fpts reshuffle to the
+        # Additionally, restrict the live-standings reshuffle to the
         # roster IDs that are actually in ``slot_to_roster`` —
         # Sleeper sometimes exposes more rosters than the workbook
         # tracks (expansion/inactive rosters), and pulling one of
@@ -10234,15 +14262,41 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # bridge is complete for every roster the reshuffle can place.
         _workbook_slots: set[int] = {int(s) for s in slot_to_original}
         _bridged_slot_keys: set[int] = {int(s) for s in slot_to_roster}
-        live_standings_active = (
-            any(v > 0 for v in _bridged_fppts.values())
-            and bool(slot_to_original)
+        _bridge_complete = (
+            bool(slot_to_original)
             and _workbook_slots.issubset(_bridged_slot_keys)
             and len(_bridged_fppts) >= len(slot_to_original)
         )
+        # Batch E (owner 2026-10-18): the reshuffle follows THE draft-order
+        # owner (``src/public_league/draft_order.py``, ``reverse_record_lower_pf``
+        # — worst record first, ties on record by LOWER Points For) through
+        # ``draft_capital_order.class_slot_order``.  VERIFIED final standings
+        # give ``final_standings`` slots; standings to date are a labelled
+        # forecast (``projected``).  It used to sort on Points For alone, which
+        # is not the league's rule.  No standings (no rule, no game played, a
+        # roster without a record) → the existing order, still ``projected``.
+        standings_order = None
+        if _bridge_complete:
+            from src.api.draft_capital_order import class_slot_order  # noqa: PLC0415
+
+            try:
+                _order_key = _league_registry.league_key_for_sleeper_id(_league_id_for_draft)
+            except Exception:  # noqa: BLE001 — unregistered league: no recorded rule
+                _order_key = None
+            standings_order = class_slot_order(
+                league_key=_order_key,
+                league_meta=league_meta if isinstance(league_meta, dict) else None,
+                rosters=rosters if isinstance(rosters, list) else None,
+                class_year=int(league_season),
+                roster_ids=_bridged_rids,
+            )
+        # ``unavailable`` (reason named in ``draftOrder``) keeps the existing
+        # projected order — an unverifiable standings row is never read as 0.
+        live_standings_active = standings_order is not None and standings_order.ordered
         effective_slot_to_rid: dict[int, int] = dict(slot_to_roster)
         if live_standings_active:
-            _sorted_rids = sorted(_bridged_fppts, key=lambda r: _bridged_fppts[r])
+            _slots = standings_order.slot_by_roster
+            _sorted_rids = sorted(_slots, key=lambda r: _slots[r])
             effective_slot_to_rid = {
                 int(i): int(rid)
                 for i, rid in enumerate(_sorted_rids[: len(slot_to_original)], start=1)
@@ -10310,15 +14364,22 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 first_name_to_rid.setdefault(fn, rid)
 
         if apply_sleeper_trades:
+            from src.identity.picks import traded_picks_observation  # noqa: PLC0415
+
             try:
                 traded_resp = urllib.request.urlopen(
                     f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/traded_picks",
                     timeout=15,
                 )
-                traded = json.loads(traded_resp.read())
+                traded = traded_picks_observation(json.loads(traded_resp.read()))
             except Exception as exc:  # noqa: BLE001
                 logging.warning(f"Sleeper traded_picks fetch failed: {exc}")
-                traded = []
+                # Fail closed (named follow-up, CLAUDE.md "League pick
+                # OWNERSHIP is observed or unknown"): this used to become
+                # ``[]`` and the workbook's hand-entered ownership was served
+                # silently as if no pick had been traded.
+                traded = None
+            traded_observed = traded
             if isinstance(traded, list):
                 for t in traded:
                     if not isinstance(t, dict):
@@ -10344,13 +14405,117 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     except Exception as e:
         logging.warning(f"Sleeper API failed for draft capital team-name mapping: {e}")
 
+    if apply_sleeper_trades and _league_id_for_draft and traded_observed is None:
+        # Pick ownership was not observed — /traded_picks failed, or Sleeper
+        # failed before it could be read.  Every dollar on this board is a
+        # function of who owns which pick, so refuse it with the same shape
+        # the Sleeper-derived fallback uses (both consumers already render
+        # ``{error, message}``), rather than serving the workbook's lagging
+        # hand-entered ownership as current.
+        from src.identity import picks as _pick_identity  # noqa: PLC0415
+
+        return {
+            "error": _pick_identity.PICK_OWNERSHIP_UNAVAILABLE_ERROR,
+            "message": "Could not fetch traded picks from Sleeper; pick ownership is unknown.",
+            _pick_identity.PICK_OWNERSHIP_STATE_FIELD: _pick_identity.PICK_OWNERSHIP_UNAVAILABLE,
+            _pick_identity.PICK_OWNERSHIP_REASON_FIELD: (
+                _pick_identity.PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED
+            ),
+        }
+
+    if league_draft_years is None:
+        # Sleeper unreachable before the season was resolved: the persisted
+        # snapshot still answers the league-scoped question (the workbook is
+        # maintained for the league's UPCOMING draft), never the bare clock.
+        try:
+            from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
+
+            league_draft_years = league_draft_years_for(_league_id_for_draft)
+            league_season = league_draft_years.upcoming_draft_year
+        except Exception as exc:  # noqa: BLE001 — degrade to the calendar year
+            logging.warning(f"draft-capital: league draft years unavailable: {exc}")
+
     def display(first_name) -> str:
         fn = str(first_name).strip() if first_name else ""
         return first_name_to_team.get(fn, fn) if fn else "Unknown"
 
+    # Canonical owned-pick identity for each workbook row (C1-ID-02): a row
+    # IS ``pick:<leagueKey>:<season>:r<round>:o<origin roster>`` once its
+    # slot's origin roster is known.  Minted only under a REGISTRY key (fail
+    # closed), so consumers can count each real pick exactly once (Wave A).
+    _pick_league_key = None
+    try:
+        _pick_league_key = (
+            _league_registry.league_key_for_sleeper_id(_league_id_for_draft)
+            if _league_id_for_draft
+            else None
+        )
+    except Exception:  # noqa: BLE001
+        _pick_league_key = None
+
+    def _workbook_asset_id(rnd: int, origin_rid: int | None) -> str | None:
+        if _pick_league_key is None or origin_rid is None:
+            return None
+        from src.identity.picks import LeaguePickIdentity  # noqa: PLC0415
+
+        return LeaguePickIdentity(
+            league_key=_pick_league_key,
+            season=int(league_season),
+            round_num=int(rnd),
+            origin_roster_id=int(origin_rid),
+        ).canonical_id
+
+    draft_valuation_generation: dict | None = None
+    workbook_parity: dict | None = None
+    if whole_dollars_per_slot is None:
+        # The formula's 72-pick class, through THE generation reader (Batch F,
+        # ``src/draft/rookie_auction/generation.py``) — the same reader every
+        # later class uses: the canonical curve for THIS league's draft year
+        # (frozen 2026 provisional inputs + that class's spine until Batch D
+        # promotes its own inputs), verified and stored create-only, else the
+        # same year's last verified allocation (labelled), else refuse.  The
+        # workbook's L2:L73 is the SAME quantity for the class it was built
+        # for, so it is no longer read as dollars — only compared below
+        # (``workbookParity``).  The resolver stores dollar curves only;
+        # ownership always comes from the live Sleeper fold below.
+        from src.draft.rookie_auction.generation import (  # noqa: PLC0415
+            DraftCapitalGeneration as _DCGen,
+        )
+
+        _dv_league_key = _pick_league_key or league_key or _league_registry.default_league_key()
+        published = _dcc_wd.resolve_class_curve_allocation(_dv_league_key, int(league_season))
+        _generation = _DCGen(str(_dv_league_key or ""), int(league_season), published)
+        if published.final_whole_dollars is None:
+            return {
+                "error": _dcc_wd.DRAFT_DOLLARS_UNAVAILABLE_ERROR,
+                "message": (
+                    "No verified whole-dollar allocation is available for the "
+                    f"{int(league_season)} draft class: {published.unavailable_reason}"
+                ),
+                "unavailableReason": published.unavailable_reason,
+                "failedRefresh": (
+                    dict(published.failed_refresh) if published.failed_refresh else None
+                ),
+                # Which class was refused, so a cache can never answer it with
+                # another year's board (stale-while-revalidate, Batch F).
+                "draftYear": int(league_season),
+                "draftValuationGeneration": _generation.receipt(),
+            }
+        whole_dollars_per_slot = list(published.final_whole_dollars)
+        whole_dollar_receipt = dict(published.receipt or {})
+        draft_valuation_state = _dcc_wd.draft_valuation_state_block(published)
+        draft_valuation_generation = _generation.receipt()
+        workbook_parity = _dcc_wd.workbook_parity_block(
+            pick_values_l if pick_values_l and len(pick_values_l) >= len(workbook_picks) else None,
+            published.reference_dollars,
+        )
+        # The half-dollar reference the rows carry beside the whole dollars
+        # is the SERVED record's (it is what the published integers round).
+        pick_values_per_slot = [float(v) for v in published.reference_dollars]
+
     # ── Build pick list + team totals from sheet ownership ──
     all_picks: list[dict] = []
-    team_totals_decimal: dict[str, float] = {}
+    team_totals_decimal: dict[str, int] = {}
 
     # Seed every known team at $0 so teams that own no picks still
     # show up in the output (the /draft dashboard relies on this to
@@ -10364,10 +14529,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     # the seeded keys match the picks-loop keys.
     if all_team_names and first_name_to_team:
         for t in all_team_names:
-            team_totals_decimal.setdefault(t, 0.0)
+            team_totals_decimal.setdefault(t, 0)
     else:
         for first_name in slot_to_original.values():
-            team_totals_decimal.setdefault(display(first_name), 0.0)
+            team_totals_decimal.setdefault(display(first_name), 0)
 
     for overall_idx, wp in enumerate(workbook_picks):
         rnd = wp["round"]
@@ -10435,9 +14600,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         else:
             is_traded = origin_team != owner_team
 
-        # L2:L73 ("Final Dollar Per Pick") is the authoritative per-pick
-        # dollar from the sheet — half-dollar precision preserved.
-        dollar = (
+        # The final whole-dollar value (above); L2:L73's half-dollar figure
+        # travels beside it as reference data only.
+        dollar = whole_dollars_per_slot[overall_idx]
+        reference_dollar = (
             float(pick_values_per_slot[overall_idx])
             if overall_idx < len(pick_values_per_slot)
             else float(val)
@@ -10446,6 +14612,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         all_picks.append(
             {
                 "pick": f"{rnd}.{str(slot).zfill(2)}",
+                # The workbook is ONE draft (72 rows = 12 slots x 6 rounds)
+                # for ``league_season``; stamping it per row lets the
+                # season-scoped views read every board the same way.
+                "season": league_season,
                 "round": rnd,
                 "pickInRound": slot,
                 "overallPick": overall_idx + 1,
@@ -10455,54 +14625,112 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 # between expansion-averaged Q and unaveraged grid no
                 # longer applies — L is unaveraged by construction.
                 "originalDollarValue": dollar,
+                # The served record's half-dollar reference curve — identical
+                # to the sheet's "Final Dollar Per Pick" (L2:L73) for the class
+                # it was built for (``workbookParity``); name kept for
+                # existing readers.  Mathematical reference, never spendable.
+                "workbookReferenceDollarValue": reference_dollar,
                 "originalOwner": origin_team,
                 "currentOwner": owner_team,
+                # Stable ids beside the display names (Wave A).  ``None`` when
+                # the Sleeper bridge could not prove the roster.
+                "originRosterId": origin_rid,
+                "currentOwnerRosterId": owner_rid,
+                "assetId": _workbook_asset_id(rnd, origin_rid),
                 "isTraded": is_traded,
                 "isExpansion": slot <= 2,
+                # The workbook's slot order is an ESTIMATE until the league's
+                # regular season is final: last draft's order pre-season, the
+                # draft-order rule over standings to date in-season.  Only
+                # VERIFIED final standings make it the rule's real order.
+                "slotStatus": (
+                    "final_standings"
+                    if live_standings_active and standings_order.final
+                    else "projected"
+                ),
+                "valueBasis": "workbook",
+                "dollarValueEstimated": False,
+                # The sheet's own rookie-auction curve (owner addendum
+                # 2026-10-18) — a different value domain from the later
+                # classes' interim generic market values.
+                "curveMethod": "workbook_rookie_auction",
                 "rookieName": None,
                 "rookiePos": None,
                 "rookieKtcValue": None,
             }
         )
-        team_totals_decimal.setdefault(owner_team, 0.0)
-        team_totals_decimal[owner_team] += float(val)
+        team_totals_decimal.setdefault(owner_team, 0)
+        team_totals_decimal[owner_team] += dollar
 
-    # Round team totals to integers summing to exactly 1200, matching the
-    # workbook's SUMIF-over-decimals approach.
+    # Each team's budget is the EXACT integer sum of the whole-dollar picks it
+    # owns (owner decision 2026-10-18) — never rounded on its own, so picks,
+    # budgets and every view reconcile, and the 12 budgets total $1,200
+    # because the 72 picks do.  (This used to sum the sheet's Q column and
+    # round the team totals independently of their picks.)
     team_names = sorted(team_totals_decimal, key=lambda t: -team_totals_decimal[t])
-    team_decimal_list = [team_totals_decimal[t] for t in team_names]
-    team_int_list = _round_to_budget(team_decimal_list, DRAFT_TOTAL_BUDGET)
-    team_totals = {t: v for t, v in zip(team_names, team_int_list)}
-    total_budget = sum(team_int_list)
+    team_totals = {t: int(team_totals_decimal[t]) for t in team_names}
+    total_budget = sum(team_totals.values())
 
     # Rookie pool — prefer our top-72 from the live contract (filtered
     # to rostered rookies via Sleeper ID), fall back to KTC if the
-    # contract isn't loaded yet.  Each rookie's dollar value comes from
-    # the sheet's Hill-curve formula applied to OUR values, so the pool
-    # totals to $1200 and tail rookies bottom out at $1.
+    # contract isn't loaded yet.  Each rookie's pre-draft dollars come from
+    # THE canonical rookie-auction curve (Batch F,
+    # ``generation.rookie_ladder``): the class formula evaluated over the
+    # ranked rookie values with the canonical spine of THIS class — the same
+    # quantity ``_rookie_dollars_from_values`` used to compute in floats off
+    # the workbook's cached spine.  A list that is not the formula's 72 picks
+    # (or any refused input) leaves the dollars MISSING, never a flat-spine
+    # or stretched curve and never $0.
+    from src.draft.rookie_auction.generation import rookie_ladder as _rookie_ladder  # noqa: PLC0415
+
+    _ladder_league_key = _pick_league_key or league_key or _league_registry.default_league_key()
     our_rookies = _our_rookie_pool(_KTC_TOTAL_PICKS)
     rookie_source = "ours_filtered"
-    rookie_dollar_overrides: list[float] = []
+    rookie_dollar_overrides: list[float | None] = []
     ktc_by_name: dict[str, float] = {}
     idp_by_name: dict[str, float] = {}
+    rookie_ladder_receipt: dict | None = None
+    vendor_comparison: dict | None = None
     if our_rookies:
         raw_values = [r["value"] for r in our_rookies]
-        rookie_dollar_overrides = _rookie_dollars_from_values(
+        _ladder = _rookie_ladder(
             raw_values,
-            DRAFT_TOTAL_BUDGET,
+            league_key=str(_ladder_league_key or ""),
+            draft_year=int(league_season),
+            input_source="canonical_board_rank_derived_value",
+        )
+        rookie_ladder_receipt = dict(_ladder.receipt)
+        rookie_dollar_overrides = (
+            list(_ladder.dollars) if _ladder.dollars is not None else [None] * len(our_rookies)
         )
         # Vendor $ on the same $1200 scale (KTC sorted by KTC raw,
         # IDPTC sorted by IDPTC raw) so the frontend's gap math is
         # honest dollar-vs-dollar instead of dollar-vs-raw-thousand.
+        # A DIFFERENT quantity from the auction ladder (a vendor's partial
+        # list, usually fewer than 72 rookies), so it stays on the legacy
+        # partial-list ladder — see the Batch F consumer census.
         ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(
             our_rookies,
             DRAFT_TOTAL_BUDGET,
         )
+        # Population-safe comparison (MD-108 / W10-F004): ``ktcDollar`` below is
+        # stretched over each vendor's own list and stays for back-compat; these
+        # are the additive, versioned replacements (src/draft/vendor_comparison).
+        from src.draft.vendor_comparison import (  # noqa: PLC0415
+            compare_all_vendors,
+            name_key as _vc_key,
+        )
+
+        _vc_by_vendor, vendor_comparison = compare_all_vendors(our_rookies, rookie_dollar_overrides)
         rookies = [
             {
                 "name": r["name"],
                 "pos": r["pos"],
                 "value": d,
+                "ktcComparableDollar": _vc_by_vendor["ktc"].get(_vc_key(r["name"])),
+                "idpTradeCalcComparableDollar": _vc_by_vendor["idpTradeCalc"].get(
+                    _vc_key(r["name"])
+                ),
                 "ktcDollar": ktc_by_name.get(r["name"].lower()),
                 "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
                 # The board value the dollar ladder was derived FROM.
@@ -10521,6 +14749,29 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         ]
     else:
         rookie_source = "ktc_fallback"
+        # KTC's rookie VALUES (live, else the workbook CSV) are not dollars.
+        # They used to be published under ``rookieKtcValue`` — the dollar
+        # field /draft reads as each rookie's pre-draft price — and padded to
+        # 72 with synthetic "Rookie #N" rows extrapolated by
+        # ``_ktc_decay_curve``.  Now: only real KTC rookies, converted by the
+        # same canonical ladder; fewer than 72 real rookies → dollars missing.
+        _real = [r for r in (rookies or []) if not str(r.get("name") or "").startswith("Rookie #")]
+        _real = _real[:_KTC_TOTAL_PICKS]
+        if _real:
+            _ladder = _rookie_ladder(
+                [r["value"] for r in _real],
+                league_key=str(_ladder_league_key or ""),
+                draft_year=int(league_season),
+                input_source="ktc_rookie_values",
+            )
+            rookie_ladder_receipt = dict(_ladder.receipt)
+            _dollars = list(_ladder.dollars) if _ladder.dollars is not None else [None] * len(_real)
+            rookies = [
+                {"name": r["name"], "pos": r.get("pos"), "value": d}
+                for r, d in zip(_real, _dollars)
+            ]
+        else:
+            rookies = []
 
     # Fill rookie rankings into picks (rookie i → pick i; pick i is the
     # i-th overall slot in draft order).  ``rookieKtcValue`` retains its
@@ -10537,6 +14788,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             if "ktcDollar" in rookies[i]:
                 pick["rookieKtcDollar"] = rookies[i]["ktcDollar"]
                 pick["rookieIdpDollar"] = rookies[i]["idpTradeCalcDollar"]
+            if "ktcComparableDollar" in rookies[i]:
+                pick["rookieKtcComparableDollar"] = rookies[i]["ktcComparableDollar"]
+                pick["rookieIdpComparableDollar"] = rookies[i]["idpTradeCalcComparableDollar"]
             if "boardValue" in rookies[i]:
                 pick["rookieBoardValue"] = rookies[i]["boardValue"]
             if "dispersionCV" in rookies[i]:
@@ -10556,18 +14810,292 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     )
     ktc_count = len([r for r in rookies if not r["name"].startswith("Rookie #")]) if rookies else 0
 
-    return {
+    # Stable team keys (Wave A): ``team`` is a display name, and /trade's
+    # Sleeper teams are named differently (owner first name vs Sleeper team
+    # name), so consumers join on ``rosterId`` / ``ownerId``.  Stamped only
+    # when the display name belongs to exactly one roster — an ambiguous
+    # name gets ``None``, never a guessed roster.
+    _rids_by_name: dict[str, list[int]] = {}
+    for _rid, _nm in roster_name_by_id.items():
+        _rids_by_name.setdefault(_nm, []).append(int(_rid))
+
+    def _team_row(t: str, v: int) -> dict:
+        rids = _rids_by_name.get(t) or []
+        rid = rids[0] if len(rids) == 1 else None
+        return {
+            "team": t,
+            "auctionDollars": v,
+            "rosterId": rid,
+            "ownerId": owner_id_by_rid.get(rid) if rid is not None else None,
+        }
+
+    result = {
         "picks": all_picks,
-        "teamTotals": [{"team": t, "auctionDollars": v} for t, v in sorted_teams],
+        "teamTotals": [_team_row(t, v) for t, v in sorted_teams],
+        # The workbook's own budgets (one vocabulary with the fallback, which
+        # can publish them as unavailable — never as $0).
+        "teamTotalsState": "available",
+        "teamTotalsReason": None,
         "totalBudget": total_budget,
         "numTeams": num_teams,
         "draftRounds": draft_rounds,
         "season": league_season,
+        # The workbook is ONE draft: ``teamTotals`` are exactly that season's
+        # sheet dollars.  Stated, so no consumer re-adds that season's picks
+        # from roster ownership (the 2027 double count, Wave A).
+        "coveredPickYears": [league_season],
+        # League-scoped draft years (``pick_lifecycle.league_draft_years``) —
+        # the field the /trade stack anchors on, never the board's year.
+        "upcomingDraftYear": league_season,
+        "leagueDraftYears": league_draft_years.to_dict() if league_draft_years else None,
         "ktcSource": ktc_source,
         "ktcRookieCount": ktc_count,
         "ktcTotalFilled": len(rookies),
         "rookieSource": rookie_source,
+        # How ``rookieKtcValue`` was produced (Batch F): the canonical ladder's
+        # receipt — curve version, target class, spine years, or the refusal.
+        "rookieDollarLadder": rookie_ladder_receipt,
+        # Per-vendor population / state receipt for ``rookie*ComparableDollar``.
+        "vendorComparison": vendor_comparison,
     }
+    # ── Every other class this league owns picks in (owner directive
+    # 2026-10-17) ──────────────────────────────────────────────────────
+    # The workbook is ONE draft.  The league's other owned-pick classes
+    # (``league_draft_years.owned_pick_seasons`` — 2028 and 2029 beside the
+    # workbook's 2027 for dynasty_main) come from Sleeper ownership through
+    # the canonical fold, in ``additionalClassPicks``, priced on the canonical
+    # rookie-auction curve (Batch E): each class its own 72-pick whole-dollar
+    # allocation resolved under its OWN year (``published`` last-known-good),
+    # frozen 2026 provisional inputs + that class's spine until Batch D
+    # promotes its real inputs.  ``picks`` / ``teamTotals`` /
+    # ``coveredPickYears`` are untouched: they stay the workbook class, which
+    # is what /draft, the auction room and the /trade stack read as the
+    # upcoming auction's budgets.
+    from src.api import draft_capital_classes as _dcc  # noqa: PLC0415
+
+    additional_picks: list[dict] = []
+    additional_state = _dcc.ADDITIONAL_CLASSES_NOT_REQUESTED
+    additional_reason = None
+    additional_seasons: list[int] = []
+    class_allocations: dict[int, Any] = {}
+    if apply_sleeper_trades:
+        additional_seasons = [
+            int(y)
+            for y in (league_draft_years.owned_pick_seasons if league_draft_years else ())
+            if int(y) != int(league_season)
+        ]
+        if not additional_seasons:
+            additional_state = _dcc.ADDITIONAL_CLASSES_OBSERVED
+        elif _pick_league_key is None:
+            additional_state = _dcc.ADDITIONAL_CLASSES_UNAVAILABLE
+            additional_reason = "league_not_in_registry"
+        elif not (all_team_names and first_name_to_team):
+            # The workbook rows are keyed by workbook first names when the
+            # first-name → Sleeper-team bridge is empty; Sleeper-folded rows
+            # would land under different names and split one team in two.
+            additional_state = _dcc.ADDITIONAL_CLASSES_UNAVAILABLE
+            additional_reason = "team_name_bridge_incomplete"
+        else:
+            from src.identity.pick_lifecycle import league_draft_rounds  # noqa: PLC0415
+
+            rounds_for_classes = (
+                league_draft_rounds(league_meta.get("settings"))
+                if isinstance(league_meta, dict) and isinstance(league_meta.get("settings"), dict)
+                else draft_rounds
+            )
+            # A class whose Sleeper draft object already carries its order has
+            # KNOWN slots; anything else is round-level (a later class's
+            # standings are unplayed, so no slot is forecast or invented).
+            slot_by_origin: dict[tuple[int, int], int] = {}
+            for _d in all_drafts:
+                try:
+                    _season = int(_d.get("season"))
+                except (TypeError, ValueError):
+                    continue
+                if _season not in additional_seasons:
+                    continue
+                for _slot, _rid in (_d.get("slot_to_roster_id") or {}).items():
+                    try:
+                        slot_by_origin[(_season, int(_rid))] = int(_slot)
+                    except (TypeError, ValueError):
+                        continue
+            class_allocations = {
+                y: _dcc.resolve_class_curve_allocation(_pick_league_key, y)
+                for y in additional_seasons
+            }
+            additional_picks = _dcc.price_classes_on_curve(
+                _dcc.build_class_picks(
+                    league_key=_pick_league_key,
+                    roster_name_by_id=roster_name_by_id,
+                    traded_picks=traded_observed,
+                    seasons=additional_seasons,
+                    rounds=rounds_for_classes,
+                    slot_by_origin=slot_by_origin or None,
+                ),
+                class_allocations,
+                team_count=num_teams,
+                rounds=draft_rounds,
+            )
+            additional_state = _dcc.ADDITIONAL_CLASSES_OBSERVED
+    result["additionalClassPicks"] = additional_picks
+    result["additionalClassesState"] = additional_state
+    result["additionalClassesReason"] = additional_reason
+    # Owner decision 2026-10-18 ("$1,200 per draft class"): the workbook
+    # class is its own $1,200 (the sheet's dollars, unchanged) and each later
+    # class its own $1,200 pool.  Per year (Batch E): ``budgetBasis``,
+    # ``curveId``, ``spineYears``, ``inputMode`` and the served allocation.
+    _priced_extra = sorted(
+        {int(p["season"]) for p in additional_picks if p.get("isUnpriced") is False}
+    )
+    _class_blocks: dict[int, dict] = {}
+    if draft_valuation_state is not None:
+        _class_blocks[int(league_season)] = _dcc.class_valuation_block(
+            published, draft_year=int(league_season), budget=DRAFT_TOTAL_BUDGET, priced=True
+        )
+    for _y in sorted({int(p["season"]) for p in additional_picks}):
+        _class_blocks[_y] = _dcc.class_valuation_block(
+            class_allocations.get(_y),
+            draft_year=_y,
+            budget=DRAFT_TOTAL_BUDGET,
+            priced=_y in _priced_extra,
+        )
+    result["budgetPolicy"] = _dcc.budget_policy_block(
+        DRAFT_TOTAL_BUDGET,
+        [league_season] + sorted({int(p["season"]) for p in additional_picks}),
+        workbook_season=int(league_season),
+        priced_seasons=[league_season] + _priced_extra,
+        classes=_class_blocks,
+    )
+    # How this board's slots were ordered (Batch E): the draft-order rule over
+    # verified final standings, the rule over standings to date (forecast), or
+    # ``unavailable`` with the reason (the workbook / last draft's order stands,
+    # also a forecast); ``None`` only when the Sleeper bridge was incomplete.
+    result["draftOrder"] = standings_order.to_dict() if standings_order is not None else None
+    # The workbook class's final whole-dollar step (owner decision 2026-10-18):
+    # how the half-dollar reference became the published integers.
+    result["wholeDollarAllocation"] = whole_dollar_receipt
+    # Which allocation the 72-pick class published (owner addendum
+    # 2026-10-18): ``current`` or ``last_known_good`` with the failed refresh
+    # and the last valid timestamp named.  ``None`` for a non-formula workbook.
+    result["draftValuation"] = draft_valuation_state
+    # The Batch F receipt of the upcoming class's served generation
+    # (``generationHash``, ``curveVersion``, ``targetDraftYear``,
+    # ``actualInputClassYear``, ``spineYears``, ``inputMode``,
+    # ``allocationState``) — read from the served record.  Every later class
+    # carries the same fields in ``budgetPolicy.classes[year]``.
+    result["draftValuationGeneration"] = draft_valuation_generation
+    # The workbook's L2:L73 against the served curve (diagnostic only).
+    result["workbookParity"] = workbook_parity
+
+    # Per-season views for the /league year selector.  The workbook carries
+    # ONE season, and its team totals are the sheet's Q-column decimals
+    # rounded to the budget (not a sum of the L-column per-pick dollars the
+    # rows display), so that season's capital IS each team's existing total —
+    # handed over explicitly rather than re-summed into a different number.
+    # The additional classes are summed from their own per-pick dollars.
+    from src.api.draft_capital_years import attach_year_views  # noqa: PLC0415
+
+    return attach_year_views(
+        result,
+        capital_by_team_year={t: {league_season: v} for t, v in team_totals.items()},
+    )
+
+
+def _draft_valuation_health() -> list[dict] | None:
+    """Per-class health of the draft-capital dollars generations (Batch F alerts).
+
+    Every configured league (``league_scope`` — ``dynasty_main`` only) is read
+    for each class it owns picks in (``league_draft_years_for``, the same
+    league-scoped answer the route uses) through THE generation reader.
+    ``None`` — "not checked", never "healthy" — when nothing could be read.
+    """
+    try:
+        from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
+        from src.draft.rookie_auction.generation import generation_health  # noqa: PLC0415
+        from src.draft.rookie_auction.league_scope import SCOPED_LEAGUES  # noqa: PLC0415
+
+        rows: list[dict] = []
+        for key in SCOPED_LEAGUES:
+            cfg = _league_registry.get_league_by_key(key)
+            if cfg is None or not getattr(cfg, "sleeper_league_id", None):
+                continue
+            years = league_draft_years_for(cfg.sleeper_league_id)
+            if years is not None and years.owned_pick_seasons:
+                rows.extend(generation_health(key, list(years.owned_pick_seasons)))
+        return rows or None
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("draft valuation health check failed: %s", exc)
+        return None
+
+
+def _roster_construction_health() -> list[dict] | None:
+    """The current season of the default league when Roster Construction
+    withholds it as lineup-rules-unverified (ops alerts).
+
+    ``[]`` = checked and fine, or the feature is off (nothing is served, so
+    nothing is withheld); ``None`` = could not be checked (unknown, never
+    "recovered").  Reads the same memoized statuses the route serves.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    try:
+        if not is_enabled("roster_construction"):
+            return []
+        cfg = _league_registry.get_default_league()
+        snapshot = _get_public_snapshot()
+        if cfg is None or snapshot is None or not snapshot.seasons:
+            return None
+        if str(cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return None
+        target = snapshot.current_season
+        status = _roster_construction_season_statuses(snapshot, False).get(str(target.season))
+        if status is None:
+            return None
+        if status.get("available"):
+            return []
+        return [
+            {
+                "leagueKey": cfg.key,
+                "season": str(target.season),
+                "reason": status.get("reason"),
+                "contradictions": list(status.get("contradictions") or []),
+                "contradictedWeeks": list(status.get("contradictedWeeks") or []),
+            }
+        ]
+    except Exception as exc:  # noqa: BLE001 — unknown, never a crash of the sweep
+        log.warning("roster construction health check failed: %s", exc)
+        return None
+
+
+def _pregame_archive_health() -> list[dict] | None:
+    """Game Day weeks whose pregame-projections archive build failed (ops alerts).
+
+    Read from the failure markers the collector's prune leaves beside a week
+    whose raw log it is keeping (``game_day_live.pregame_archive_health``).
+    ``None`` -- "not checked", never "healthy" -- when the store is unreadable.
+    """
+    try:
+        from src.ros import game_day_live  # noqa: PLC0415
+
+        return game_day_live.pregame_archive_health()
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("pregame archive health check failed: %s", exc)
+        return None
+
+
+def _forecast_degradation_health() -> list[dict] | None:
+    """Review requests fired by the standing forecast scorecard (ops alerts, MD-104).
+
+    Read from the private scorecard output (``ops_alerts.forecast_degradation_reviews``).
+    ``None`` -- "not checked", never "healthy" -- when that file does not parse.
+    """
+    try:
+        from src.api import ops_alerts  # noqa: PLC0415
+
+        return ops_alerts.forecast_degradation_reviews()
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("forecast degradation check failed: %s", exc)
+        return None
 
 
 @app.get("/api/draft-capital")
@@ -10663,6 +15191,13 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     # anonymous request can never strip the fields from the cached object
     # that the authenticated /draft page reads next.
     viewer_is_authed = _is_authenticated(request)
+    if refresh and not viewer_is_authed:
+        # An anonymous ``?refresh=<anything>`` used to skip the cache and run
+        # a full ~3-4 s build (Sleeper round-trips, dollar generation) per
+        # request, so any caller could keep the worker busy.  Same posture as
+        # ``_authorized_force_refresh`` on the public-league routes: IGNORED,
+        # not refused -- the public tab keeps working and reads the cache.
+        refresh = ""
     cache_slot = _DRAFT_CAPITAL_CACHE.get(league_cfg.key)
     if not refresh and cache_slot and (now - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC:
         cached = cache_slot[1]
@@ -10749,29 +15284,25 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             logging.warning("draft-capital fallback: rookie board unavailable", exc_info=True)
             rookie_rows = None
 
-        # #1414: the board starts at this league's first NON-retired class.
-        # A class the league has drafted and rostered is no longer draft
-        # capital, and the rookie pool (``years_exp == 0``) IS that class —
-        # stapling it onto the next class's slots would price last draft's
-        # rookies as next draft's picks, so it is withheld when a class was
-        # skipped.  League-scoped verdict from the persisted snapshot; no
-        # snapshot → nothing retired → the calendar year, as before.
-        _dc_calendar_season = datetime.now(timezone.utc).year
-        _dc_season = _dc_calendar_season
+        # #1414 + Wave A: the board starts at this league's UPCOMING draft —
+        # the league-scoped canonical answer
+        # (``pick_lifecycle.league_draft_years``), the same one the workbook
+        # path, the Sleeper overlay and the scraper read.  A class the league
+        # has drafted and rostered is no longer draft capital, and the rookie
+        # pool (``years_exp == 0``) IS that class — stapling it onto the next
+        # class's slots would price last draft's rookies as next draft's
+        # picks, so it is withheld when a class was skipped.  No snapshot →
+        # nothing retired → the anchor year.
+        _dc_years = None
         try:
-            from src.api.draft_class_evidence import (  # noqa: PLC0415
-                active_seasons_for_league,
-            )
+            from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
 
-            _dc_active = active_seasons_for_league(
-                league_cfg.sleeper_league_id,
-                range(_dc_calendar_season, _dc_calendar_season + 4),
-            )
-            if _dc_active:
-                _dc_season = _dc_active[0]
+            _dc_years = league_draft_years_for(league_cfg.sleeper_league_id)
         except Exception:  # noqa: BLE001 — unknown never retires
             logging.warning("draft-capital fallback: lifecycle unavailable", exc_info=True)
-        if _dc_season != _dc_calendar_season:
+        _dc_calendar_season = datetime.now(timezone.utc).year
+        _dc_season = _dc_years.upcoming_draft_year if _dc_years else _dc_calendar_season
+        if _dc_season != (_dc_years.anchor_year if _dc_years else _dc_calendar_season):
             rookie_rows = None
 
         return build_sleeper_derived(
@@ -10780,6 +15311,7 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             current_season=_dc_season,
             declared_draft_rounds=(league_cfg.roster_settings or {}).get("draftRounds"),
             rookies=rookie_rows,
+            league_draft_years=_dc_years,
         )
 
     lock = _DRAFT_CAPITAL_LOCKS.get(league_cfg.key)
@@ -10801,7 +15333,22 @@ async def get_draft_capital(request: Request, refresh: str = ""):
                 result = await run_in_threadpool(_compute)
                 if isinstance(result, dict):
                     result["leagueKey"] = league_cfg.key
-                    _DRAFT_CAPITAL_CACHE[league_cfg.key] = (time.time(), result)
+                    stamp = time.time()
+                    if "error" not in result:
+                        _DRAFT_CAPITAL_LAST_VALID[league_cfg.key] = (stamp, result)
+                        _DRAFT_CAPITAL_CACHE[league_cfg.key] = (stamp, result)
+                    else:
+                        stale = _draft_capital_stale_fallback(league_cfg.key, result, stamp)
+                        if stale is not None:
+                            # Served now; the failure is retried once the short
+                            # revalidation window lapses (not the full TTL).
+                            result = stale
+                            _DRAFT_CAPITAL_CACHE[league_cfg.key] = (
+                                stamp - _DRAFT_CAPITAL_TTL_SEC + _DRAFT_CAPITAL_STALE_RETRY_SEC,
+                                result,
+                            )
+                        else:
+                            _DRAFT_CAPITAL_CACHE[league_cfg.key] = (stamp, result)
         return JSONResponse(
             content=result if viewer_is_authed else _redact_draft_capital_for_public(result),
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
@@ -10988,7 +15535,11 @@ async def get_sleeper_draft_picks(
         return err.json_response()
 
     try:
-        snapshot = _sleeper_overlay.fetch_live_draft_picks(
+        # Sleeper round-trips: in the threadpool, never on the event loop.
+        # This route is polled every 2-3 s during a live draft, so a blocking
+        # fetch here stalled every other request for each Sleeper call.
+        snapshot = await run_in_threadpool(
+            _sleeper_overlay.fetch_live_draft_picks,
             league_cfg.sleeper_league_id,
             after_pick_no=int(afterPickNo or 0),
         )
@@ -11065,8 +15616,13 @@ from src.public_league import (  # noqa: E402 — grouped after route block abov
     build_section_payload,
 )
 from src.public_league.public_contract import (  # noqa: E402 — grouped with public-league block
+    activity_serving_payload,
     assert_public_payload_safe,
+    build_activity_serving_payload,
     is_private_intelligence_section,
+    public_envelope,
+    public_league_key,
+    public_payload,
 )
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402 — grouped with public-league block
 from src.public_league.snapshot import (  # noqa: E402 — grouped with public-league block
@@ -11111,7 +15667,81 @@ def _build_public_activity_valuation():
     """
     if not _history_store.DB_PATH.exists():
         return None
-    return _build_asof_valuation
+    return _PublicActivityValuation(_current_board_valuation())
+
+
+class _PublicActivityValuation:
+    """The activity resolver factory plus today's-board resolver.
+
+    Calling it is exactly ``build_asof_valuation`` (the at-the-time grade).
+    ``current_valuation`` is the same trade's assets on TODAY's canonical
+    board, for the public current-grade band (owner decision 2026-10-17);
+    ``activity.build_section`` reads it off the factory so no caller signature
+    changes.  ``None`` when no contract is loaded — the band is then omitted,
+    never guessed.
+    """
+
+    def __init__(self, current_valuation):
+        self.current_valuation = current_valuation
+
+    def __call__(self, requests):
+        return _build_asof_valuation(requests)
+
+
+_CURRENT_BOARD_VALUATION_MEMO: dict = {}
+
+
+def _current_board_valuation():
+    """``asset -> value | None`` over the loaded contract, memoised per
+    contract generation (``latest_data_etag``).  A miss is ``None``, never 0."""
+    from src.api.public_activity_valuation import build_valuation_from_contract  # noqa: PLC0415
+
+    etag = latest_data_etag
+    hit = _CURRENT_BOARD_VALUATION_MEMO.get("entry")
+    if hit is not None and hit[0] == etag:
+        return hit[1]
+    base = build_valuation_from_contract(latest_contract_data)
+    resolver = None
+    if base is not None:
+
+        def resolver(asset):
+            value = base(asset)
+            return value if value and value > 0 else None
+
+    _CURRENT_BOARD_VALUATION_MEMO["entry"] = (etag, resolver)
+    return resolver
+
+
+@app.post("/api/trades/asof-grades")
+async def post_trades_asof_grades(request: Request):
+    """At-the-Time grades for the private /trades page (owner package 2026-10-17).
+
+    PRIVATE (``_private_api_gate``: not on any public allowlist).  Body
+    ``{trades: [{id, createdAt, sides: [{receivedAssets, sentAssets}]}]}`` in
+    the public-activity asset shape.  Each side is graded against the
+    canonical temporal ledger strictly before the trade's own instant, through
+    the same resolver and grade math as the public ``/league`` activity grade,
+    under the active package model — so private and public at-the-time grades
+    agree by construction.  Missing evidence is ``available: false`` with the
+    assets named; never a partial total, today's value or zero.
+    """
+    from src.api import trade_history_asof as _asof  # noqa: PLC0415
+
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 — malformed JSON is a client error
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    trades = body.get("trades") if isinstance(body, dict) else None
+    if not isinstance(trades, list) or len(trades) > _asof.MAX_TRADES:
+        return JSONResponse(status_code=400, content={"error": "invalid_trades"})
+    trades = [t for t in trades if isinstance(t, dict)]
+    factory = _build_public_activity_valuation()
+    resolve = None
+    if factory is not None:
+        resolve = await run_in_threadpool(factory, _asof.asof_requests(trades))
+    return JSONResponse(
+        content=_asof.response(trades, resolve), headers={"Cache-Control": "no-store"}
+    )
 
 
 # ── Public contract response memo ────────────────────────────────────
@@ -11124,15 +15754,32 @@ def _build_public_activity_valuation():
 #
 # Cache contract:
 #   key:  (snapshot.root_league_id, snapshot.generated_at,
-#          latest_data_etag) — ``generated_at`` is re-stamped on every
-#          snapshot rebuild (natural invalidation), and the private
-#          contract etag is in the key because the activity-feed trade
-#          grades derive from the private board's generation.
-#   value: the encoded response bytes (byte-compatible with
-#          ``JSONResponse.render``).
-#   TTL:  none (generation-keyed); bound 4 entries.
-#   staleness: none beyond the existing 300s snapshot SWR window —
-#          identical payload freshness to the uncached path.
+#          latest_data_etag, VORP calc version) — ``generated_at`` is
+#          re-stamped on every snapshot rebuild (natural invalidation),
+#          and the private contract etag is in the key because the
+#          activity-feed trade grades derive from the private board's
+#          generation.
+#   value: (encoded response bytes — byte-compatible with
+#          ``JSONResponse.render`` — , build start on the monotonic clock).
+#   age:  an entry also expires ``2 * _PUBLIC_LEAGUE_CACHE_TTL_SECONDS`` after
+#          its build started — twice the snapshot window, so the entry
+#          outlives its snapshot's staleness long enough for the background
+#          rebuild to seed the next generation (a one-window bound expired
+#          exactly as the snapshot went stale and put the full build back on
+#          the request path once per cycle).  The key does NOT cover every input: the
+#          overview's power leader (``power_v2.build_section``) reads the
+#          file-backed ROS team-strength artifact and weekly power
+#          publications, behind a wall-clock freshness gate.  While
+#          snapshot rebuilds succeed the snapshot TTL already bounds that;
+#          while they FAIL, ``generated_at`` never moves, so without the
+#          age bound those inputs would freeze.  The age bound keeps them
+#          within two snapshot refresh windows.  A key or age miss is not
+#          a request-path build: the entry is served stale while ONE
+#          background job rebuilds it (stale-while-revalidate, see
+#          ``_kick_public_memo_refresh``).
+#   order: a store never replaces an entry whose build started later;
+#          eviction drops the oldest builds first.
+#   bound: 4 entries.
 _PUBLIC_CONTRACT_BYTES_CACHE: dict = {}
 _PUBLIC_CONTRACT_BYTES_LOCK = threading.Lock()
 _PUBLIC_CONTRACT_BYTES_MAX = 4
@@ -11154,24 +15801,559 @@ def _public_contract_cache_key(snapshot):
     )
 
 
+def _public_memo_entry_fresh(started_at: float) -> bool:
+    return (time.monotonic() - started_at) < 2 * _PUBLIC_LEAGUE_CACHE_TTL_SECONDS
+
+
 def _cached_public_contract_bytes(snapshot):
     with _PUBLIC_CONTRACT_BYTES_LOCK:
-        return _PUBLIC_CONTRACT_BYTES_CACHE.get(_public_contract_cache_key(snapshot))
+        entry = _PUBLIC_CONTRACT_BYTES_CACHE.get(_public_contract_cache_key(snapshot))
+    if entry is None or not _public_memo_entry_fresh(entry[1]):
+        return None
+    return entry[0]
 
 
-def _store_public_contract_bytes(snapshot, contract) -> bytes:
+def _store_public_contract_bytes(snapshot, contract, key=None, started_at=None) -> bytes:
     """Encode ``contract`` exactly like ``JSONResponse.render`` and
-    memoize the bytes under the snapshot's generation key."""
+    memoize the bytes under the snapshot's generation key.
+
+    Callers that build pass the ``key`` and ``started_at`` they captured
+    BEFORE building, so a private-board publish mid-build cannot file the
+    result under the newer generation, and an older build finishing last
+    cannot replace a newer one."""
     raw = json.dumps(contract, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
         "utf-8"
     )
+    if key is None:
+        key = _public_contract_cache_key(snapshot)
+    if started_at is None:
+        started_at = time.monotonic()
+    with _PUBLIC_CONTRACT_BYTES_LOCK:
+        current = _PUBLIC_CONTRACT_BYTES_CACHE.get(key)
+        if current is not None and current[1] > started_at:
+            return raw
+        while (
+            key not in _PUBLIC_CONTRACT_BYTES_CACHE
+            and len(_PUBLIC_CONTRACT_BYTES_CACHE) >= _PUBLIC_CONTRACT_BYTES_MAX
+        ):
+            oldest = min(
+                _PUBLIC_CONTRACT_BYTES_CACHE, key=lambda k: _PUBLIC_CONTRACT_BYTES_CACHE[k][1]
+            )
+            del _PUBLIC_CONTRACT_BYTES_CACHE[oldest]
+        _PUBLIC_CONTRACT_BYTES_CACHE[key] = (raw, started_at)
+    return raw
+
+
+def _stale_public_contract_bytes(snapshot) -> bytes | None:
+    """The newest memoized contract bytes of the snapshot's lineage, whatever
+    their generation, while inside the staleness bound (stale-while-
+    revalidate, below), or ``None``."""
     key = _public_contract_cache_key(snapshot)
     with _PUBLIC_CONTRACT_BYTES_LOCK:
-        if len(_PUBLIC_CONTRACT_BYTES_CACHE) >= _PUBLIC_CONTRACT_BYTES_MAX:
-            for k in [k for k in _PUBLIC_CONTRACT_BYTES_CACHE if k != key]:
-                del _PUBLIC_CONTRACT_BYTES_CACHE[k]
-        _PUBLIC_CONTRACT_BYTES_CACHE[key] = raw
+        candidates = [
+            (entry[1], entry_key, entry[0])
+            for entry_key, entry in _PUBLIC_CONTRACT_BYTES_CACHE.items()
+            if _public_memo_same_lineage(entry_key, key)
+        ]
+    if not candidates:
+        return None
+    started_at, entry_key, raw = max(candidates, key=lambda c: c[0])
+    return raw if _public_memo_stale_servable(entry_key, key, started_at) else None
+
+
+# ── Stale-while-revalidate for the per-generation response memos ─────
+# The snapshot cache (``_get_public_snapshot``) has served stale-while-
+# revalidate since it was written: an expired snapshot is returned at once
+# and rebuilt on a daemon thread.  The response memos built FROM it did not.
+# A memo entry stops answering when its generation key moves -- every
+# private-board publish moves ``latest_data_etag`` -- or when it ages past
+# two snapshot windows (the bound that keeps the file-backed overview inputs
+# from freezing while snapshot rebuilds fail), and the next request then
+# built the whole public contract INLINE with every concurrent caller queued
+# behind it.  Measured on production 2026-11-06 (public curl, n=5): /overview
+# p50 0.45 s with one sample at 89.8 s and an earlier probe timing out at
+# 60 s, on a degraded box (stale snapshot, failing scraper) where the age
+# bound fired every ten minutes and every inline build fought for the GIL.
+#
+# Now an entry of the SAME lineage -- same ``root_league_id`` (never another
+# league's payload) and, for the contract-keyed memos, the same VORP calc
+# version -- that no longer matches the requested generation is served as
+# it is, and at most ONE background job per memo rebuilds it:
+#   * ``generation``      -- the full contract, seeding the overview,
+#                            activity and full-contract bytes memos at once
+#                            (the overview / full-contract miss path);
+#   * ``activity``        -- the activity section only (its documented miss
+#                            path), skipped while ``generation`` is in
+#                            flight because that build seeds it too;
+#   * ``heavy:<section>`` -- one heavy section (archives / awards).
+# Jobs run on daemon threads -- off the event loop AND off the AnyIO worker
+# pool -- capture their generation key and start time when they begin, and
+# file results under each memo's existing newer-build-wins rule.  A job in
+# flight longer than ``_PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS`` stops
+# suppressing a replacement (a thread cannot be killed; its late result
+# still cannot displace a newer build) -- but at most ONE such abandoned
+# (timed-out, still alive) job per memo: while it lives, a second timeout
+# starts nothing and the last good entry keeps serving
+# (``memo_refresh_skipped_abandoned``), so a hung build path cannot pile up
+# threads that each hold a whole snapshot.  A failed job keeps the last good
+# entry, logs ``memo_refresh_failed`` and holds retries off for the
+# snapshot's failure cooldown; an error is never filed as data, and a
+# superseded (abandoned) job's late outcome neither sets nor clears that
+# cooldown -- it belongs to the job that replaced it.
+#
+# Staleness is bounded (stale != current): an entry whose build started more
+# than ``_PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS`` ago is never served stale.
+# If every refresh keeps failing, the request falls through to the cold path
+# below and answers exactly as with no entry at all -- a 503 when that build
+# fails too -- instead of serving one old build forever.
+#
+# Only a TRUE cold start -- no servable entry of this lineage -- builds on the
+# request path, single-flighted so concurrent callers wait on one build.  A
+# new VORP calc version is a cold start on purpose: that key part exists so
+# a pre-fix payload is never served after the formula changes.  An
+# authorized ``?refresh`` (B8) still bypasses the stale serve and builds
+# inline.  No staleness marker is added to any response: public payloads are
+# allowlisted, pre-encoded shapes and the snapshot layer's SWR has never
+# marked them either; the ``memo_*`` counters report it instead.
+#
+# Known race, pre-existing and NOT fixed here: newer-build-wins orders builds
+# by START time, not by snapshot generation.  A request handed the previous
+# snapshot (snapshot SWR) can kick a job that starts after the next snapshot's
+# rebuild seeded the memos; that job then files the older generation over the
+# newer one (on main the inline miss build did the same).  It self-heals --
+# the next request's key no longer matches, so it is served stale and
+# revalidated once more -- at the cost of one extra build.
+
+#: How long one background memo job may run before it no longer blocks a
+#: replacement.  Generous: a full contract build is seconds when healthy.
+_PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS: float = float(
+    os.getenv("PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS", "120")
+)
+#: The oldest memo entry (by build start) that may still be served stale.
+#: Reuses the repo's scrape-cadence staleness rule, ``SCRAPE_INTERVAL_HOURS *
+#: 3`` (6 h) -- the same budget as ``/api/status``'s ``data_stale`` and the
+#: draft-capital last-valid-board fallback -- rather than a new number.
+_PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS: float = float(
+    os.getenv("PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS", str(float(SCRAPE_INTERVAL_HOURS) * 3 * 3600))
+)
+# job -> (claim token, monotonic start, worker thread)
+_public_memo_refresh_inflight: dict = {}
+# job -> the worker thread of the ONE timed-out job allowed to still be alive
+_public_memo_refresh_abandoned: dict = {}
+_public_memo_refresh_failed_at: dict = {}  # job -> monotonic time of the last failure
+# Guards the three dicts above AND the ``memo_*`` metric counters.  Never
+# held while calling ``_bump_public_metric`` (it takes the lock itself).
+_public_memo_refresh_lock = threading.Lock()
+
+
+def _public_memo_same_lineage(entry_key, key) -> bool:
+    """May a memo entry filed under ``entry_key`` answer, stale, for ``key``?
+
+    Same league -- ``root_league_id``, element 0 of every memo key, and never
+    empty -- and, for the 4-part contract keys, the same VORP calc version
+    (element 3).  Only the generation (``generated_at`` /
+    ``latest_data_etag``) may differ.  Age is the caller's second test
+    (``_public_memo_stale_servable``).
+    """
+    if not isinstance(entry_key, tuple) or not isinstance(key, tuple):
+        return False
+    if not key or len(entry_key) != len(key) or not key[0] or entry_key[0] != key[0]:
+        return False
+    return len(key) < 4 or entry_key[3] == key[3]
+
+
+def _public_memo_stale_servable(entry_key, key, started_at: float) -> bool:
+    """Same lineage AND built inside the staleness bound: may be served stale."""
+    return (
+        _public_memo_same_lineage(entry_key, key)
+        and (time.monotonic() - started_at) < _PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS
+    )
+
+
+def _bump_public_metric(name: str) -> None:
+    with _public_memo_refresh_lock:
+        _public_league_metrics[name] = _public_league_metrics.get(name, 0) + 1
+
+
+def _public_memo_job_running(job: str, now: float) -> bool:
+    """Caller holds ``_public_memo_refresh_lock``."""
+    claim = _public_memo_refresh_inflight.get(job)
+    return claim is not None and (now - claim[1]) < _PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS
+
+
+def _kick_public_memo_refresh(job: str, build, *, covered_by: tuple[str, ...] = ()) -> bool:
+    """Start ``build`` on a daemon thread unless ``job`` (or a job in
+    ``covered_by``, whose build refreshes this memo too) is already running,
+    ``job`` failed inside the failure cooldown, or ``job``'s claim timed out
+    while an earlier abandoned ``job`` is still alive.  Never blocks and
+    never raises; returns whether a job started."""
+    token = object()
+
+    def _worker():
+        def _owns_claim() -> bool:
+            # Caller holds the lock.  False once a replacement took over.
+            claim = _public_memo_refresh_inflight.get(job)
+            return claim is not None and claim[0] is token
+
+        started = time.monotonic()
+        try:
+            build()
+        except Exception as exc:  # noqa: BLE001 — the last good entry keeps serving
+            with _public_memo_refresh_lock:
+                if _owns_claim():
+                    _public_memo_refresh_failed_at[job] = time.monotonic()
+            _bump_public_metric("memo_refresh_failures")
+            _log_public_league_event("memo_refresh_failed", job=job, error=str(exc))
+            logging.warning("Background public_league memo refresh %s failed: %s", job, exc)
+        else:
+            with _public_memo_refresh_lock:
+                if _owns_claim():
+                    _public_memo_refresh_failed_at.pop(job, None)
+            _log_public_league_event(
+                "memo_refresh_complete",
+                job=job,
+                elapsed_seconds=round(time.monotonic() - started, 4),
+            )
+        finally:
+            with _public_memo_refresh_lock:
+                if _owns_claim():
+                    del _public_memo_refresh_inflight[job]
+
+    thread = threading.Thread(target=_worker, name=f"public-league-memo-{job}", daemon=True)
+    now = time.monotonic()
+    refused = None
+    with _public_memo_refresh_lock:
+        if any(_public_memo_job_running(name, now) for name in (job, *covered_by)):
+            refused = "memo_refresh_suppressed"
+        else:
+            failed_at = _public_memo_refresh_failed_at.get(job)
+            if (
+                failed_at is not None
+                and (now - failed_at) < _PUBLIC_LEAGUE_FAILURE_COOLDOWN_SECONDS
+            ):
+                refused = "memo_refresh_suppressed"
+        timed_out = None if refused else _public_memo_refresh_inflight.get(job)
+        if timed_out is not None:
+            previous = _public_memo_refresh_abandoned.get(job)
+            if previous is not None and previous.is_alive():
+                refused = "memo_refresh_skipped_abandoned"
+            else:
+                _public_memo_refresh_abandoned[job] = timed_out[2]
+        if refused is None:
+            _public_memo_refresh_inflight[job] = (token, now, thread)
+    if refused is not None:
+        _bump_public_metric(refused)
+        return False
+    if timed_out is not None:
+        _bump_public_metric("memo_refresh_timed_out")
+        _log_public_league_event(
+            "memo_refresh_timed_out", job=job, running_seconds=round(now - timed_out[1], 1)
+        )
+
+    try:
+        thread.start()
+    except Exception as exc:  # noqa: BLE001 — e.g. no thread can be started; stale still serves
+        with _public_memo_refresh_lock:
+            claim = _public_memo_refresh_inflight.get(job)
+            if claim is not None and claim[0] is token:
+                del _public_memo_refresh_inflight[job]
+        logging.warning("Could not start public_league memo refresh %s: %s", job, exc)
+        return False
+    _bump_public_metric("memo_refresh_started")
+    _log_public_league_event("memo_refresh_started", job=job)
+    return True
+
+
+def _kick_public_generation_refresh(snapshot) -> bool:
+    """Background job ``generation``: one full contract for ``snapshot``,
+    filed under every generation memo.  A contract the bytes memo could not
+    take (an unencodable value) counts as a failure, so the cooldown -- not
+    every stale request -- paces the retries."""
+
+    def _build():
+        key = _public_contract_cache_key(snapshot)
+        started_at = time.monotonic()
+        contract = build_public_contract(
+            snapshot, activity_valuation=_build_public_activity_valuation()
+        )
+        _, raw = _seed_public_generation(snapshot, contract, key, started_at)
+        if raw is None:
+            raise RuntimeError("public contract bytes were not memoized")
+
+    return _kick_public_memo_refresh("generation", _build)
+
+
+# ``GET /api/public/league/overview`` — the public /league page's first
+# request — built EVERY public section (awards included, which the heavy
+# cache memoizes everywhere else) and kept only the overview: the full
+# contract's work on every request, 2-8 s TTFB in production on 2026-09-28.
+# The overview is the same object the full contract carries in
+# ``sections["overview"]`` (same builders, same order), so one build per
+# generation now serves both: it fills this memo AND the contract bytes
+# memo above, under the same generation key and age bound, single-flighted.
+# Value: (key, payload, build start on the monotonic clock).
+_PUBLIC_OVERVIEW_CACHE: dict = {}
+_PUBLIC_OVERVIEW_LOCK = threading.Lock()  # stores come from pool + rebuild threads
+_public_overview_async_lock: asyncio.Lock | None = None
+
+
+def _overview_payload_from_contract(contract: dict) -> dict:
+    """The ``build_section_payload(snapshot, "overview")`` shape, taken
+    from an already-built full contract."""
+    payload = {
+        **public_envelope(
+            contract["contractVersion"], contract["league"], contract.get("leagueKey")
+        ),
+        "section": "overview",
+        "data": contract["sections"]["overview"],
+    }
+    assert_public_payload_safe(payload)
+    return payload
+
+
+def _remember_overview(key, payload, started_at: float) -> None:
+    with _PUBLIC_OVERVIEW_LOCK:
+        current = _PUBLIC_OVERVIEW_CACHE.get("overview")
+        if current is not None and current[2] > started_at:
+            return  # a newer build already landed; never replace it with an older one
+        _PUBLIC_OVERVIEW_CACHE["overview"] = (key, payload, started_at)
+
+
+def _memoized_overview(key):
+    hit = _PUBLIC_OVERVIEW_CACHE.get("overview")
+    if hit is not None and hit[0] == key and _public_memo_entry_fresh(hit[2]):
+        return hit[1]
+    return None
+
+
+def _stale_overview(key):
+    """The memoized overview of ``key``'s lineage, whatever its generation,
+    while inside the staleness bound (stale-while-revalidate), or ``None``."""
+    hit = _PUBLIC_OVERVIEW_CACHE.get("overview")
+    if hit is not None and _public_memo_stale_servable(hit[0], key, hit[2]):
+        return hit[1]
+    return None
+
+
+def _seed_public_generation(snapshot, contract, key, started_at: float):
+    """File one built contract under every generation memo; returns
+    ``(overview_payload, encoded_bytes_or_None)``.  The overview comes
+    first and does not depend on the full-contract encode: a value in some
+    OTHER section that cannot be encoded fails only the full contract.
+    The activity memo is seeded independently for the same reason."""
+    overview = _overview_payload_from_contract(contract)
+    _remember_overview(key, overview, started_at)
+    _seed_public_activity(contract, key, started_at)
+    try:
+        raw = _store_public_contract_bytes(snapshot, contract, key=key, started_at=started_at)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("public contract bytes not memoized: %s", exc)
+        raw = None
+    return overview, raw
+
+
+def _public_generation_async_lock() -> asyncio.Lock:
+    """The ONE request-path single-flight for full-contract builds: the
+    overview and the full-contract routes both wait on it, so concurrent
+    cold misses on either build once.  Only touched from the event loop."""
+    global _public_overview_async_lock
+    if _public_overview_async_lock is None:
+        _public_overview_async_lock = asyncio.Lock()
+    return _public_overview_async_lock
+
+
+async def _build_public_generation_inline(snapshot, key):
+    """Request-path build (cold start or authorized refresh): one full
+    contract filed under every generation memo; returns
+    ``(overview_payload, encoded_bytes_or_None)``.  Callers hold
+    ``_public_generation_async_lock()``.  No ``assert_public_payload_safe``
+    here: ``build_public_contract`` runs the full recursive walk internally,
+    and a second walk over the multi-MB tree is pure duplicate cost."""
+    started_at = time.monotonic()
+
+    def _build():
+        contract = build_public_contract(
+            snapshot, activity_valuation=_build_public_activity_valuation()
+        )
+        return _seed_public_generation(snapshot, contract, key, started_at)
+
+    return await run_in_threadpool(_build)
+
+
+async def _get_public_overview_payload(snapshot, *, bypass_cache: bool = False):
+    """Per-generation memo for the overview section (see above), served
+    stale-while-revalidate (see ``_kick_public_memo_refresh``).
+
+    ``bypass_cache`` must come from ``_authorized_force_refresh``: an
+    anonymous ``?refresh`` never bypasses, or any caller could queue full
+    builds behind this lock."""
+    key = _public_contract_cache_key(snapshot)
+    if not bypass_cache:
+        hit = _memoized_overview(key)
+        if hit is not None:
+            return hit
+        stale = _stale_overview(key)
+        if stale is not None:
+            _bump_public_metric("memo_stale_served")
+            _kick_public_generation_refresh(snapshot)
+            return stale
+    async with _public_generation_async_lock():
+        if not bypass_cache:
+            hit = _memoized_overview(key)
+            if hit is not None:
+                return hit
+        overview, _ = await _build_public_generation_inline(snapshot, key)
+        return overview
+
+
+async def _get_public_contract_bytes(snapshot, *, bypass_cache: bool = False) -> bytes:
+    """Encoded ``GET /api/public/league`` body for ``snapshot``: the memo
+    (``_PUBLIC_CONTRACT_BYTES_CACHE``), served stale-while-revalidate, and
+    on a true cold start the shared single-flighted generation build.
+    ``bypass_cache`` must come from ``_authorized_force_refresh`` (B8)."""
+    if not bypass_cache:
+        hit = _cached_public_contract_bytes(snapshot)
+        if hit is not None:
+            return hit
+        stale = _stale_public_contract_bytes(snapshot)
+        if stale is not None:
+            _bump_public_metric("memo_stale_served")
+            _kick_public_generation_refresh(snapshot)
+            return stale
+    key = _public_contract_cache_key(snapshot)
+    async with _public_generation_async_lock():
+        if not bypass_cache:
+            hit = _cached_public_contract_bytes(snapshot)
+            if hit is not None:
+                return hit
+        _, raw = await _build_public_generation_inline(snapshot, key)
+    if raw is None:
+        # ``_seed_public_generation`` logged why (an unencodable value);
+        # the route answers 503 exactly as when the encode raised inline.
+        raise RuntimeError("public league contract could not be encoded")
     return raw
+
+
+# ``GET /api/public/league/activity`` rebuilt the section on EVERY request:
+# the as-of trade grading (one ledger fetch per traded asset), two private-
+# field safety walks and a fresh ~421 KB encode.  Measured 2026-10-03:
+# p50 1.95 s / p95 3.60 s / max 5.79 s -- the only desktop V1 failure in
+# that run -- while every snapshot rebuild already built the identical
+# section into the full contract and threw it away.
+#
+# It now serves PREPARED bytes: seeded from that contract by
+# ``_seed_public_generation`` (rebuild thread, before publish), keyed by the
+# full contract's generation key -- which carries ``latest_data_etag``
+# because the grades derive from the private board's generation -- with the
+# overview memo's age bound and newer-build-wins rule.  A miss (e.g. a
+# private-board publish between snapshot rebuilds) builds ONLY the activity
+# section, once, single-flighted on the event loop.  The body is the HTTP
+# serving view (``activity.serving_view``): only the fields its two page
+# readers use, safety-walked once over exactly what is served, encoded and
+# gzipped once.  It is NOT in ``_HEAVY_SECTION_KEYS``: that cache is keyed
+# by snapshot identity alone, which is incomplete for a section graded off
+# the private board.
+# Value: (key, raw bytes, gzip bytes, build start on the monotonic clock).
+_PUBLIC_ACTIVITY_CACHE: dict = {}
+_PUBLIC_ACTIVITY_LOCK = threading.Lock()  # stores come from pool + rebuild threads
+_public_activity_async_lock: asyncio.Lock | None = None
+
+
+def _remember_activity(key, payload, started_at: float) -> tuple[bytes, bytes]:
+    """Encode ``payload`` (``JSONResponse.render``-compatible) and gzip it
+    once; memoize unless a newer build already landed.  Returns the
+    encoded pair either way, so the caller that built it can serve it."""
+    raw = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    gz = gzip.compress(raw, compresslevel=5)
+    with _PUBLIC_ACTIVITY_LOCK:
+        current = _PUBLIC_ACTIVITY_CACHE.get("activity")
+        if current is None or current[3] <= started_at:
+            _PUBLIC_ACTIVITY_CACHE["activity"] = (key, raw, gz, started_at)
+    return raw, gz
+
+
+def _memoized_activity(key) -> tuple[bytes, bytes] | None:
+    hit = _PUBLIC_ACTIVITY_CACHE.get("activity")
+    if hit is not None and hit[0] == key and _public_memo_entry_fresh(hit[3]):
+        return hit[1], hit[2]
+    return None
+
+
+def _stale_activity(key) -> tuple[bytes, bytes] | None:
+    """The prepared activity bytes of ``key``'s lineage, whatever their
+    generation, while inside the staleness bound (stale-while-revalidate),
+    or ``None``."""
+    hit = _PUBLIC_ACTIVITY_CACHE.get("activity")
+    if hit is not None and _public_memo_stale_servable(hit[0], key, hit[3]):
+        return hit[1], hit[2]
+    return None
+
+
+def _kick_public_activity_refresh(snapshot) -> bool:
+    """Background job ``activity``: the activity section ONLY (its miss
+    path), skipped while a ``generation`` job -- which seeds it too -- runs."""
+
+    def _build():
+        key = _public_contract_cache_key(snapshot)
+        started_at = time.monotonic()
+        payload = build_activity_serving_payload(
+            snapshot, activity_valuation=_build_public_activity_valuation()
+        )
+        _remember_activity(key, payload, started_at)
+
+    return _kick_public_memo_refresh("activity", _build, covered_by=("generation",))
+
+
+def _seed_public_activity(contract, key, started_at: float) -> None:
+    """Seed the activity memo from an already-built full contract.  Never
+    raises: a failure here leaves the memo to its miss path and must not
+    cost the overview or the full contract their seeds."""
+    try:
+        payload = activity_serving_payload(
+            contract["contractVersion"],
+            contract["league"],
+            contract.get("leagueKey"),
+            contract["sections"]["activity"],
+        )
+        _remember_activity(key, payload, started_at)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("public activity payload not memoized: %s", exc)
+
+
+async def _get_public_activity_bytes(snapshot, *, bypass_cache: bool = False):
+    """Per-generation prepared activity response (see above); returns
+    ``(raw, gzip)``.  ``bypass_cache`` must come from
+    ``_authorized_force_refresh`` (B8), exactly as for the overview.  Served
+    stale-while-revalidate like the overview."""
+    global _public_activity_async_lock
+    key = _public_contract_cache_key(snapshot)
+    if not bypass_cache:
+        hit = _memoized_activity(key)
+        if hit is not None:
+            return hit
+        stale = _stale_activity(key)
+        if stale is not None:
+            _bump_public_metric("memo_stale_served")
+            _kick_public_activity_refresh(snapshot)
+            return stale
+    if _public_activity_async_lock is None:
+        _public_activity_async_lock = asyncio.Lock()
+    async with _public_activity_async_lock:
+        if not bypass_cache:
+            hit = _memoized_activity(key)
+            if hit is not None:
+                return hit
+        started_at = time.monotonic()
+
+        def _build():
+            payload = build_activity_serving_payload(
+                snapshot, activity_valuation=_build_public_activity_valuation()
+            )
+            return _remember_activity(key, payload, started_at)
+
+        return await run_in_threadpool(_build)
 
 
 _public_league_cache: dict = {
@@ -11238,14 +16420,18 @@ class PublicSnapshotUnavailable(RuntimeError):
 
 
 # ── Heavy-section single-flight cache ────────────────────────────────
-# ``playoffOdds`` ALWAYS runs a 10,000-run, pure-Python (GIL-bound)
-# Monte Carlo — it has no precomputed artifact to fall back on (unlike
-# ``rosPlayoffOdds`` / ``rosChampionship``, which prefer a file written
-# by the scheduled ROS job and only simulate on a cache miss).  Offloaded
-# naively, a burst of concurrent ``playoffOdds`` requests would each
-# launch an independent simulation and saturate the shared threadpool.
+# ``playoffOdds`` WAS the original member: it ran its own 10,000-run,
+# pure-Python Monte Carlo on every request.  Since C5-PLAY-01 it has no
+# simulator of its own — it is the ONE canonical forecast
+# (``src.ros.playoff_sim.canonical_forecast``) in the public section's
+# shape, file-backed exactly like ``rosPlayoffOdds`` / ``rosChampionship``,
+# with the live-run fallback single-flighted and memoized per snapshot
+# inside that accessor.  So it left this set: memoizing it here by
+# snapshot identity would freeze it on an older forecast while
+# ``rosPlayoffOdds`` read the newer file — two numbers for one league and
+# week, which is the defect the consolidation removed.
 #
-# ``archives`` has the same SHAPE for a different reason (added
+# ``archives`` has the shape this cache exists for (added
 # 2026-07-30).  It is the single most expensive builder in the contract:
 # ``src/public_league/archives.py`` rebuilds four other sections
 # (history, activity, draft, awards) before its own five walks, and
@@ -11283,11 +16469,11 @@ class PublicSnapshotUnavailable(RuntimeError):
 #     Freshness is therefore unchanged by memoizing: the 300s SWR window
 #     on the snapshot still governs how old the data can be.
 #
-# One asymmetry worth knowing before adding a third key: the JSON route
+# One asymmetry worth knowing before adding another key: the JSON route
 # passes ``activity_valuation`` and the CSV route does not, while the
-# cache key includes neither.  That is safe for both current members —
-# ``playoffOdds`` resolves through ``_LAZY_SECTION_BUILDERS`` and
-# ``archives`` through ``_SECTION_BUILDERS``, and neither branch of
+# cache key includes neither.  That is safe for every current member —
+# ``archives`` and ``awards`` resolve through ``_SECTION_BUILDERS``, and
+# neither branch of
 # ``build_section_payload`` forwards the kwarg (only ``activity`` and
 # the aggregate walk do).  A section that DOES consume it must not be
 # added here without putting it in the cache key.
@@ -11296,8 +16482,12 @@ class PublicSnapshotUnavailable(RuntimeError):
 # cheap file reads in the common case, and caching them by snapshot
 # identity would hide fresh results the ROS publisher writes between
 # snapshot refreshes.  They read their artifact fresh on every request.
-_HEAVY_SECTION_KEYS = frozenset({"playoffOdds", "archives", "awards"})
+_HEAVY_SECTION_KEYS = frozenset({"archives", "awards"})
+# section -> (cache key, payload, build start on the monotonic clock).  Stores
+# come from the event loop AND background refresh threads, so they go
+# through ``_remember_heavy_section`` (newer build wins) under this lock.
 _heavy_section_cache: dict = {}
+_heavy_section_lock = threading.Lock()
 _heavy_section_async_locks: dict = {}
 
 
@@ -11314,7 +16504,57 @@ def _heavy_section_async_lock(section: str) -> asyncio.Lock:
     return lock
 
 
-async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=None):
+def _heavy_section_cache_key(snapshot):
+    return (
+        getattr(snapshot, "root_league_id", ""),
+        getattr(snapshot, "generated_at", ""),
+        # The activity section's current-grade band reads today's board, so
+        # a new contract generation must invalidate it (owner 2026-10-17).
+        latest_data_etag,
+    )
+
+
+def _exact_memoized_awards_body(snapshot):
+    """The memoized ``awards`` section BODY for exactly this snapshot and
+    board generation, else ``None``.
+
+    ``franchise`` lists each manager's awards and used to recompute the whole
+    awards section on every request (the full-contract path already passes
+    the one it built).  Only an EXACT-key hit qualifies -- never a stale-
+    while-revalidate entry -- so the franchise bytes are those a fresh build
+    would produce; any miss falls back to the standalone build."""
+    cached = _heavy_section_cache.get("awards")
+    if cached is None or cached[0] != _heavy_section_cache_key(snapshot):
+        return None
+    payload = cached[1]
+    body = payload.get("data") if isinstance(payload, dict) else None
+    return body if isinstance(body, dict) else None
+
+
+def _remember_heavy_section(section: str, cache_key, payload, started_at: float) -> None:
+    with _heavy_section_lock:
+        current = _heavy_section_cache.get(section)
+        if current is not None and len(current) > 2 and current[2] > started_at:
+            return  # a newer build already landed; never replace it with an older one
+        _heavy_section_cache[section] = (cache_key, payload, started_at)
+
+
+def _kick_heavy_section_refresh(snapshot, section, activity_valuation) -> bool:
+    """Background job ``heavy:<section>`` (stale-while-revalidate, see
+    ``_kick_public_memo_refresh``)."""
+
+    def _build():
+        cache_key = _heavy_section_cache_key(snapshot)
+        started_at = time.monotonic()
+        payload = build_section_payload(snapshot, section, activity_valuation=activity_valuation)
+        _remember_heavy_section(section, cache_key, payload, started_at)
+
+    return _kick_public_memo_refresh(f"heavy:{section}", _build)
+
+
+async def _get_heavy_section_payload(
+    snapshot, section, *, activity_valuation=None, bypass_cache: bool = False
+):
     """Single-flight + per-snapshot memoization for a heavy section,
     coordinated on the event loop.
 
@@ -11325,27 +16565,50 @@ async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=No
     The cached payload is already safety-checked inside
     ``build_section_payload`` and is only ever read by callers, so sharing
     one instance across concurrent requests is safe.
+
+    Stale-while-revalidate: an entry of the same league from an older
+    snapshot / board generation, built inside the staleness bound, is served
+    at once while ONE background job rebuilds it; only a section with no
+    such entry for this league builds here.
+
+    ``bypass_cache`` must come from ``_authorized_force_refresh`` (B8).  It
+    disables the STALE serve only: an authorized ``?refresh`` has just forced
+    a snapshot rebuild, which always moves ``generated_at``, so the entry it
+    would find is the pre-refresh generation.  An exact-key hit is still
+    served -- it IS the requested generation (this section's payload is a
+    pure function of the key's inputs), e.g. another refresher's build.
     """
-    cache_key = (
-        getattr(snapshot, "root_league_id", ""),
-        getattr(snapshot, "generated_at", ""),
-    )
-    cached = _heavy_section_cache.get(section)
-    if cached is not None and cached[0] == cache_key:
-        return cached[1]
+    cache_key = _heavy_section_cache_key(snapshot)
+
+    def _serve_cached():
+        cached = _heavy_section_cache.get(section)
+        if cached is None:
+            return None
+        if cached[0] == cache_key:
+            return cached[1]
+        if not bypass_cache and _public_memo_stale_servable(cached[0], cache_key, cached[2]):
+            _bump_public_metric("memo_stale_served")
+            _kick_heavy_section_refresh(snapshot, section, activity_valuation)
+            return cached[1]
+        return None
+
+    hit = _serve_cached()
+    if hit is not None:
+        return hit
     async with _heavy_section_async_lock(section):
         # Re-check: another coroutine may have computed this section for
         # the same snapshot while we were waiting on the lock.
-        cached = _heavy_section_cache.get(section)
-        if cached is not None and cached[0] == cache_key:
-            return cached[1]
+        hit = _serve_cached()
+        if hit is not None:
+            return hit
+        started_at = time.monotonic()
         payload = await run_in_threadpool(
             build_section_payload,
             snapshot,
             section,
             activity_valuation=activity_valuation,
         )
-        _heavy_section_cache[section] = (cache_key, payload)
+        _remember_heavy_section(section, cache_key, payload, started_at)
         return payload
 
 
@@ -11371,6 +16634,18 @@ _public_league_metrics: dict = {
     "rebuild_cooldown_refused": 0,
     "refresh_wait_timeout_served_stale": 0,
     "refresh_wait_timeout_refused": 0,
+    # Response-memo stale-while-revalidate (``_kick_public_memo_refresh``):
+    # a memo entry served past its generation / age while ONE background
+    # job rebuilds it.  ``memo_refresh_failures`` rising means rebuilds fail
+    # and the last good entry is what visitors see.
+    "memo_stale_served": 0,
+    "memo_refresh_started": 0,
+    "memo_refresh_suppressed": 0,
+    "memo_refresh_failures": 0,
+    "memo_refresh_timed_out": 0,
+    # A timed-out job's claim was NOT replaced because the one abandoned
+    # job this memo may have is still alive (a hung build path).
+    "memo_refresh_skipped_abandoned": 0,
     "total_rebuild_seconds": 0.0,
     "last_rebuild_seconds": None,
     "last_rebuild_iso": None,
@@ -11415,27 +16690,39 @@ def _public_league_metrics_snapshot() -> dict:
 # Best-effort: load the most recent persisted snapshot at process
 # start so a cold-started server can still serve the public /league
 # page while the first Sleeper rebuild is running in the background.
-try:
-    _persisted = public_snapshot_store.load_snapshot()
-    _persisted_error = (
-        _public_snapshot_integrity_error(_persisted) if _persisted is not None else None
-    )
-    if _persisted_error is not None:
-        # A partial snapshot persisted by an older build must not be served
-        # at cold start; the first request rebuilds from Sleeper instead.
-        logging.warning("Ignoring persisted public_league snapshot: %s", _persisted_error)
-        _persisted = None
-    if _persisted is not None and _persisted.seasons:
-        _public_league_cache["snapshot"] = _persisted
-        _public_league_cache["snapshot_league_id"] = _persisted.root_league_id
-        _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
-        logging.info(
-            "Loaded persisted public_league snapshot for league %s (%d seasons)",
-            _persisted.root_league_id,
-            len(_persisted.seasons),
+#
+# A FUNCTION, not module-level statements: the snapshot used to be bound
+# to a module global (``_persisted``) that nothing read after boot, so the
+# boot generation stayed reachable for the life of the process after the
+# first rebuild replaced ``_public_league_cache["snapshot"]`` — a second
+# resident copy of the whole multi-season snapshot (measured 46.9 MB on
+# one league; prod memory-pressure incident 2026-10-19).  The cache entry
+# is now the snapshot's only owner.
+def _load_persisted_public_snapshot_at_boot() -> None:
+    try:
+        persisted = public_snapshot_store.load_snapshot()
+        persisted_error = (
+            _public_snapshot_integrity_error(persisted) if persisted is not None else None
         )
-except Exception as _exc:  # noqa: BLE001
-    logging.warning("Public league snapshot load at startup failed: %s", _exc)
+        if persisted_error is not None:
+            # A partial snapshot persisted by an older build must not be served
+            # at cold start; the first request rebuilds from Sleeper instead.
+            logging.warning("Ignoring persisted public_league snapshot: %s", persisted_error)
+            persisted = None
+        if persisted is not None and persisted.seasons:
+            _public_league_cache["snapshot"] = persisted
+            _public_league_cache["snapshot_league_id"] = persisted.root_league_id
+            _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
+            logging.info(
+                "Loaded persisted public_league snapshot for league %s (%d seasons)",
+                persisted.root_league_id,
+                len(persisted.seasons),
+            )
+    except Exception as _exc:  # noqa: BLE001
+        logging.warning("Public league snapshot load at startup failed: %s", _exc)
+
+
+_load_persisted_public_snapshot_at_boot()
 
 
 def _is_truthy_flag(value: Any) -> bool:
@@ -11503,11 +16790,13 @@ def _public_section_access_error(section: str, request: Request) -> JSONResponse
     )
 
 
-def _public_section_league_error(section: str, league_key: str) -> JSONResponse | None:
+def _public_league_key_error(league_key: str) -> JSONResponse | None:
     """``None`` when a ``leagueKey`` may be honoured for this request.
 
-    The section routes accepted no ``leagueKey`` at all and always
-    resolved the registry default, so a caller asking for a second
+    Every ``/api/public/league*`` route (the full contract, each section,
+    its ``.csv`` variant, the matchup / player routes and their indexes)
+    calls this one predicate.  They accepted no ``leagueKey`` at all and
+    always resolved the registry default, so a caller asking for a second
     league got the FIRST league's payload, byte for byte, with nothing
     on the response saying so — measured on production for
     ``faabAnalytics``, which ``ManualAddDrop.jsx`` requests with an
@@ -11515,8 +16804,11 @@ def _public_section_league_error(section: str, league_key: str) -> JSONResponse 
 
     The public-league product is single-league today, so the honest
     answer to "give me the other league" is a refusal, not a silent
-    substitution.  Unknown keys 400 like every other league-aware route;
-    a known-but-not-public league is told so explicitly.
+    substitution.  Same table as every league-aware route (CLAUDE.md
+    "League-aware routing"): unknown → 400 ``unknown_league``, inactive →
+    400 ``inactive_league``; a known, active league that is not the public
+    one → 404 ``league_not_public``.  An empty key means "the public
+    league" and is the only way to get the default.
     """
     requested = str(league_key or "").strip()
     if not requested:
@@ -11530,6 +16822,15 @@ def _public_section_league_error(section: str, league_key: str) -> JSONResponse 
             content={
                 "error": "unknown_league",
                 "message": f"Unknown leagueKey: {requested!r}.",
+            },
+        )
+    if not cfg.active:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "inactive_league",
+                "message": f"League {cfg.key!r} is not active.",
+                "leagueKey": cfg.key,
             },
         )
     public_id = str(_league_registry.get_sleeper_league_id() or "").strip()
@@ -11680,7 +16981,15 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         started = time.time()
         snapshot = None
         try:
-            snapshot = build_public_snapshot(league_id, max_seasons=PUBLIC_MAX_SEASONS)
+            # The last snapshot served for THIS league: if a predecessor
+            # league's fetch fails mid-chain, its finished seasons are reused
+            # from here (and stamped ``historyCoverage.recovered``) instead of
+            # a transient Sleeper miss shrinking "all-time" history.
+            snapshot = build_public_snapshot(
+                league_id,
+                max_seasons=PUBLIC_MAX_SEASONS,
+                previous=cached if cached is not None and cached_id == league_id else None,
+            )
         except Exception as exc:  # noqa: BLE001
             _public_league_metrics["rebuild_failures"] += 1
             _public_league_cache["last_failure_at"] = time.time()
@@ -11692,8 +17001,6 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
                 error=str(exc),
             )
             raise
-        finally:
-            _public_league_cache["refreshing"] = False
 
         # A zero-season snapshot is a FAILURE, not a result.
         #
@@ -11779,6 +17086,36 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         _public_league_cache["last_failure_error"] = None
 
         elapsed = round(time.time() - started, 4)
+
+        # Seed both response memos BEFORE the new snapshot is published.
+        # Published first, every request in the ~10-20 s this build takes
+        # saw the NEW generation key with nothing memoized under it and
+        # built the whole contract inline — racing this very build for the
+        # GIL.  That was the overview's p95 (11.9 s, max 23 s, measured
+        # 2026-09-29 after #1515): one miss per snapshot cycle.  Until the
+        # swap below, requests keep serving the previous generation, which
+        # is still memoized (entries live two snapshot windows).
+        contract_bytes = None
+        if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
+            try:
+                generation_key = _public_contract_cache_key(snapshot)
+                generation_started = time.monotonic()
+                contract = build_public_contract(
+                    snapshot,
+                    activity_valuation=_build_public_activity_valuation(),
+                )
+                public_snapshot_store.persist_snapshot(snapshot, contract=contract)
+                # Seed both response memos with this build — the contract
+                # used to be assembled here and then THROWN AWAY while every
+                # request rebuilt it from scratch.
+                _, seeded = _seed_public_generation(
+                    snapshot, contract, generation_key, generation_started
+                )
+                contract_bytes = len(seeded) if seeded is not None else None
+                _public_league_metrics["last_contract_bytes"] = contract_bytes
+            except Exception as exc:  # noqa: BLE001
+                logging.warning("Failed to persist public_league snapshot: %s", exc)
+
         _public_league_cache["snapshot"] = snapshot
         _public_league_cache["snapshot_league_id"] = league_id
         _public_league_cache["fetched_at"] = time.time()
@@ -11788,22 +17125,6 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         _public_league_metrics["last_rebuild_iso"] = _utc_now_iso()
         _public_league_metrics["last_season_count"] = len(snapshot.seasons)
         _public_league_metrics["last_manager_count"] = len(snapshot.managers.by_owner_id)
-
-        contract_bytes = None
-        if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
-            try:
-                contract = build_public_contract(
-                    snapshot,
-                    activity_valuation=_build_public_activity_valuation(),
-                )
-                public_snapshot_store.persist_snapshot(snapshot, contract=contract)
-                # Seed the response-bytes memo with this build — the
-                # contract used to be assembled here and then THROWN
-                # AWAY while every request rebuilt it from scratch.
-                contract_bytes = len(_store_public_contract_bytes(snapshot, contract))
-                _public_league_metrics["last_contract_bytes"] = contract_bytes
-            except Exception as exc:  # noqa: BLE001
-                logging.warning("Failed to persist public_league snapshot: %s", exc)
 
         _log_public_league_event(
             "rebuild_complete",
@@ -11816,6 +17137,11 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         )
         return snapshot
     finally:
+        # Cleared only once the rebuild is over -- INCLUDING the contract
+        # build and the publish above.  Cleared right after the upstream
+        # fetch (as it was), it announced "done" while this thread was still
+        # building, so a second refresh could be scheduled mid-build.
+        _public_league_cache["refreshing"] = False
         _public_league_refresh_lock.release()
 
 
@@ -11838,6 +17164,9 @@ def _kick_background_refresh(league_id: str, *, trigger: str = "stale-while-reva
             _rebuild_public_snapshot(league_id, trigger=trigger)
         except Exception as exc:  # noqa: BLE001
             logging.warning("Background public_league refresh failed: %s", exc)
+        else:
+            _warm_roster_construction_after_refresh()
+            _schedule_public_sections_warm("snapshot-refresh")
         finally:
             _public_league_cache["refreshing"] = False
 
@@ -11918,9 +17247,29 @@ _PUBLIC_LEAGUE_CACHE_CONTROL = (
 )
 
 
+def _public_unavailable_body(what: str) -> dict[str, str]:
+    """The body of every public-league 503: a fixed message, never the
+    exception text.
+
+    The routes used to answer ``{"error": f"... unavailable: {exc}"}``, and
+    the exceptions that reach them are not public-safe: the snapshot
+    integrity refusal names the current season's raw Sleeper league id
+    (``snapshot.current_season_membership_error`` labels it
+    ``"<season> (<league id>)"``) and the owner ids that failed to resolve,
+    and any other exception can carry paths or internals.  The detail is
+    already logged by each handler; the public caller learns only that the
+    data is unavailable.
+    """
+    return {"error": f"{what} unavailable.", "reason": "upstream_unavailable"}
+
+
 @app.get("/api/public/league/metrics")
-async def get_public_league_metrics():
+async def get_public_league_metrics(leagueKey: str = ""):
     """Small, public-safe observability endpoint for the snapshot cache.
+
+    ``leagueKey`` is validated like every other public route
+    (``_public_league_key_error``) even though the counters are global:
+    a named league is honoured or refused, never silently answered.
 
     Exposes the counters that ``_log_public_league_event`` has been
     emitting: cache hit ratio, rebuild wall-clock, contract byte-size,
@@ -11929,6 +17278,9 @@ async def get_public_league_metrics():
 
     NOTE: no private data — just aggregated counters for the cache.
     """
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
     snap = _public_league_metrics_snapshot()
     # Diagnostic: is the valuation pipeline wired up right now?  This
     # only surfaces the boolean — never any private values — and lets
@@ -11940,7 +17292,9 @@ async def get_public_league_metrics():
     valuation_ready = _build_public_activity_valuation() is not None
     return JSONResponse(
         content={
-            "leagueId": _public_league_id(),
+            # The stable registry key, never the raw Sleeper id
+            # (``public_contract.RAW_SLEEPER_ID_FIELDS``).
+            "leagueKey": public_league_key(_public_league_id()),
             "cacheTtlSeconds": _PUBLIC_LEAGUE_CACHE_TTL_SECONDS,
             "warmupEnabled": _PUBLIC_LEAGUE_WARMUP,
             "persistEnabled": _PUBLIC_LEAGUE_PERSIST,
@@ -11958,39 +17312,32 @@ async def get_public_league_metrics():
 
 
 @app.get("/api/public/league")
-async def get_public_league(request: Request, refresh: str = ""):
+async def get_public_league(request: Request, refresh: str = "", leagueKey: str = ""):
     """Full public league contract — every section + league header.
 
     This endpoint is intentionally separate from /api/data.  It never
     reads the private canonical pipeline, never exposes private
     rankings / edge signals, and runs through an allowlist guard
     before serialization.
+
+    ``leagueKey`` is validated exactly as on the section routes
+    (``_public_league_key_error``): a named league is honoured or
+    refused, never silently answered with the default league.
     """
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
-    def _build():
-        # Snapshot fetch (blocking network I/O) AND contract assembly
-        # (potentially heavy per-section CPU) both run in the worker so
-        # the event loop is never starved — see the ``run_in_threadpool``
-        # note on the section endpoint below.
-        snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
-        # Serve pre-encoded bytes for the current (snapshot, private
-        # contract) generation — see _PUBLIC_CONTRACT_BYTES_CACHE.
-        # ``?refresh=1`` bypasses the read (still repopulates).
-        cached = None if refresh else _cached_public_contract_bytes(snapshot)
-        if cached is not None:
-            return cached
-        payload = build_public_contract(
-            snapshot,
-            activity_valuation=_build_public_activity_valuation(),
-        )
-        # NOTE: no assert_public_payload_safe here — build_public_contract
-        # runs the full recursive walk internally before returning
-        # (public_contract.py); the second walk was pure duplicate cost
-        # over a multi-MB tree.
-        return _store_public_contract_bytes(snapshot, payload)
-
+    force = _authorized_force_refresh(request, refresh)
     try:
-        raw = await run_in_threadpool(_build)
+        # Snapshot fetch (blocking network I/O on a cold start or an
+        # authorized refresh) runs in the worker; contract assembly, when it
+        # is needed at all, runs there too inside ``_get_public_contract_bytes``
+        # (memo -> stale-while-revalidate -> single-flighted cold build), so
+        # the event loop is never starved.  An authorized ``?refresh=1``
+        # bypasses the memo read (still repopulates).
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=force)
+        raw = await _get_public_contract_bytes(snapshot, bypass_cache=force)
         return Response(
             content=raw,
             media_type="application/json",
@@ -12006,7 +17353,7 @@ async def get_public_league(request: Request, refresh: str = ""):
         logging.error("Public league contract build failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Public league data unavailable: {exc}"},
+            content=_public_unavailable_body("Public league data"),
         )
 
 
@@ -12017,12 +17364,17 @@ async def get_public_league_matchup(
     matchup_id: int,
     request: Request,
     refresh: str = "",
+    leagueKey: str = "",
 ):
     """Per-matchup public recap — full lineups, scoring, pre-week standings.
 
     ``season`` is the season year string (e.g. ``"2025"``).
-    Runs through the same safety allowlist as the rest of the contract.
+    Runs through the same serving projection as the rest of the contract
+    (``public_payload``) and validates ``leagueKey`` like every public route.
     """
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
     def _build():
         snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
@@ -12036,11 +17388,11 @@ async def get_public_league_matchup(
             return None
         payload = {
             "contractVersion": "public-league-matchup/2026-04-17.v1",
+            "leagueKey": public_league_key(snapshot.root_league_id),
             "league": {
-                "rootLeagueId": snapshot.root_league_id,
-                "currentLeagueId": snapshot.current_season.league_id
+                "currentSeason": snapshot.current_season.season
                 if snapshot.current_season
-                else "",
+                else None,
                 "leagueName": str((snapshot.current_season.league or {}).get("name") or "")
                 if snapshot.current_season
                 else "",
@@ -12050,8 +17402,7 @@ async def get_public_league_matchup(
             },
             "matchup": recap,
         }
-        assert_public_payload_safe(payload)
-        return payload
+        return public_payload(payload)
 
     try:
         payload = await run_in_threadpool(_build)
@@ -12076,24 +17427,27 @@ async def get_public_league_matchup(
         logging.error("Matchup recap build failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Matchup recap unavailable: {exc}"},
+            content=_public_unavailable_body("Matchup recap"),
         )
 
 
 @app.get("/api/public/league/matchups")
-async def list_public_league_matchups(request: Request, refresh: str = ""):
+async def list_public_league_matchups(request: Request, refresh: str = "", leagueKey: str = ""):
     """Index endpoint — every (season, week, matchup_id) that has a
     scored pair.  Useful for sitemap generation + the index landing."""
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
     def _build():
         snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
         payload = {
+            "leagueKey": public_league_key(snapshot.root_league_id),
             "seasonsCovered": snapshot.season_ids,
             "matchups": public_matchup_recap.list_matchups(snapshot),
             "generatedAt": snapshot.generated_at,
         }
-        assert_public_payload_safe(payload)
-        return payload
+        return public_payload(payload)
 
     try:
         payload = await run_in_threadpool(_build)
@@ -12105,14 +17459,19 @@ async def list_public_league_matchups(request: Request, refresh: str = ""):
         logging.error("Matchup index failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Matchup index unavailable: {exc}"},
+            content=_public_unavailable_body("Matchup index"),
         )
 
 
 @app.get("/api/public/league/player/{player_id}")
-async def get_public_league_player(player_id: str, request: Request, refresh: str = ""):
+async def get_public_league_player(
+    player_id: str, request: Request, refresh: str = "", leagueKey: str = ""
+):
     """Public player-journey view: every trade, waiver, weekly starter
     slot, per-manager scoring summary for a given Sleeper player_id."""
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
     def _build():
         snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
@@ -12121,8 +17480,8 @@ async def get_public_league_player(player_id: str, request: Request, refresh: st
             return None
         payload = {
             "contractVersion": "public-league-player/2026-04-17.v1",
+            "leagueKey": public_league_key(snapshot.root_league_id),
             "league": {
-                "rootLeagueId": snapshot.root_league_id,
                 "leagueName": str((snapshot.current_season.league or {}).get("name") or "")
                 if snapshot.current_season
                 else "",
@@ -12132,8 +17491,7 @@ async def get_public_league_player(player_id: str, request: Request, refresh: st
             },
             "player": journey,
         }
-        assert_public_payload_safe(payload)
-        return payload
+        return public_payload(payload)
 
     try:
         payload = await run_in_threadpool(_build)
@@ -12156,25 +17514,28 @@ async def get_public_league_player(player_id: str, request: Request, refresh: st
         logging.error("Player journey build failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Player journey unavailable: {exc}"},
+            content=_public_unavailable_body("Player journey"),
         )
 
 
 @app.get("/api/public/league/players")
-async def list_public_league_players(request: Request, refresh: str = ""):
+async def list_public_league_players(request: Request, refresh: str = "", leagueKey: str = ""):
     """Index endpoint — every player who appears on a roster or in a
     transaction in the 2-season window.  Lightweight so the frontend
     can build a player-autocomplete."""
+    _league_err = _public_league_key_error(leagueKey)
+    if _league_err is not None:
+        return _league_err
 
     def _build():
         snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
         payload = {
+            "leagueKey": public_league_key(snapshot.root_league_id),
             "seasonsCovered": snapshot.season_ids,
             "players": public_player_journey.list_players_with_activity(snapshot),
             "generatedAt": snapshot.generated_at,
         }
-        assert_public_payload_safe(payload)
-        return payload
+        return public_payload(payload)
 
     try:
         payload = await run_in_threadpool(_build)
@@ -12186,8 +17547,576 @@ async def list_public_league_players(request: Request, refresh: str = ""):
         logging.error("Players index failed: %s", exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Players index unavailable: {exc}"},
+            content=_public_unavailable_body("Players index"),
         )
+
+
+# ── Player Impact (C5-WAR-01) — PRIVATE, read-only ─────────────────────
+# Realized Lineup VORP / Actual WAR / Wins Above Bench / Game Changer per
+# (player, franchise, week), owned by ``src/public_league/player_impact.py``.
+# Private by default: no product record classifies these modelled
+# (replacement-relative) quantities as public, so the path is outside the
+# public allowlist and the handler re-checks the session.  It changes no
+# award, MVP formula or published value — nothing consumes it yet.
+# Keyed by the snapshot's generation, so a refresh recomputes.
+_player_impact_cache: dict[tuple[str, str, str], dict] = {}
+_PLAYER_IMPACT_CACHE_MAX = 4
+
+
+def _player_impact_computed(snapshot, target) -> dict:
+    """``player_impact.compute_season`` for one snapshot season, memoized.
+
+    Shared by ``/api/league/player-impact`` and ``/api/roster-construction``
+    (which consumes its ``gameChangerPoints`` as marginal contribution), so the
+    two never compute the same season twice.
+    """
+    from src.public_league import player_impact as _player_impact  # noqa: PLC0415
+
+    key = (snapshot.root_league_id, str(snapshot.generated_at), target.league_id)
+    computed = _player_impact_cache.get(key)
+    if computed is None:
+        computed = _player_impact.compute_season(snapshot, target)
+        # A snapshot refresh moves ``generated_at``, so this league's
+        # entries from an older generation can never be looked up again;
+        # drop them instead of letting them occupy the cap (~8.7 MB each,
+        # memory follow-up 2026-10-20).  Other leagues' entries stay.
+        for stale in [k for k in list(_player_impact_cache) if k[0] == key[0] and k[1] != key[1]]:
+            _player_impact_cache.pop(stale, None)
+        while len(_player_impact_cache) >= _PLAYER_IMPACT_CACHE_MAX:
+            _player_impact_cache.pop(next(iter(_player_impact_cache)))
+        _player_impact_cache[key] = computed
+    return computed
+
+
+@app.get("/api/league/player-impact")
+async def get_league_player_impact(request: Request, season: str = "", playerId: str = ""):
+    """Deterministic player-impact contract for one finished-weeks season."""
+    from src.public_league import player_impact as _player_impact  # noqa: PLC0415
+
+    if not _get_auth_session(request):
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    def _build() -> tuple[int, dict]:
+        snapshot = _get_public_snapshot()
+        # The league snapshot is ONE league's; another league's rosters must
+        # never answer for this one (same guard as faab-recommend).
+        if str(league_cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return 503, {
+                "error": "data_not_ready",
+                "reason": "league_snapshot_mismatch",
+                "leagueKey": league_cfg.key,
+            }
+        target = snapshot.season_by_year(season) if season else snapshot.current_season
+        if target is None:
+            return 404, {"error": "unknown_season", "season": season}
+        computed = _player_impact_computed(snapshot, target)
+        payload = _player_impact.build_payload(
+            snapshot, target, player_id=playerId or None, computed=computed
+        )
+        payload["leagueKey"] = league_cfg.key
+        payload["generatedAt"] = snapshot.generated_at
+        return 200, payload
+
+    try:
+        status, content = await run_in_threadpool(_build)
+    except Exception as exc:  # noqa: BLE001
+        # Logged, never echoed: raw exception text can carry paths/internals.
+        logging.error("Player impact build failed: %s", exc)
+        return JSONResponse(status_code=503, content={"error": "player_impact_unavailable"})
+    return JSONResponse(
+        status_code=status,
+        content=content,
+        headers={"Cache-Control": "private, no-store"},
+    )
+
+
+# ── Roster Construction V1 (owner directive 2026-10-30) — PRIVATE ──────────
+# Positional optimal-lineup production vs positional dynasty value, per-player
+# starts while owned / counterfactual / league startability, depth, and
+# evidence-backed diagnoses.  Calculation: ``src/roster_intel/construction.py``;
+# assembly: ``src/api/roster_construction_api.py``.  Reads the league snapshot,
+# the player-impact season (marginal contribution) and the live contract
+# (``rankDerivedValue``, read only).  Changes nothing it reads.
+_roster_construction_cache: dict[tuple, dict] = {}
+_ROSTER_CONSTRUCTION_CACHE_MAX = 6
+_rc_league_cache: dict[tuple, object] = {}
+_RC_LEAGUE_CACHE_MAX = 4
+_rc_snapshot_cache: dict[str, tuple[float, object]] = {}
+_RC_SNAPSHOT_TTL_SECONDS = 1800.0
+_rc_snapshot_lock = threading.Lock()
+
+
+def _roster_construction_snapshot(league_cfg):
+    """The league's snapshot: the public one when it is this league, else a
+    private in-memory build of this league's chain (never persisted, never
+    served publicly)."""
+    league_id = str(league_cfg.sleeper_league_id or "")
+    if league_id and league_id == str(_public_league_id() or ""):
+        return _get_public_snapshot()
+    with _rc_snapshot_lock:
+        hit = _rc_snapshot_cache.get(league_id)
+        if hit is not None and (time.time() - hit[0]) < _RC_SNAPSHOT_TTL_SECONDS:
+            return hit[1]
+        snapshot = build_public_snapshot(league_id)
+        _rc_snapshot_cache[league_id] = (time.time(), snapshot)
+        return snapshot
+
+
+_rc_season_status_cache: dict[tuple, dict] = {}
+_RC_SEASON_STATUS_CACHE_MAX = 8
+
+
+_rc_nfl_state_cache: dict[str, tuple[float, object]] = {}
+_RC_NFL_STATE_TTL_SECONDS = 300.0
+_RC_NFL_STATE_FAILURE_TTL_SECONDS = 60.0
+_rc_nfl_state_lock = threading.Lock()
+
+
+def _rc_nfl_state():
+    """Sleeper ``/state/nfl`` for Roster Construction's week-finality rule,
+    cached (300 s; a failure is retried after 60 s).  ``None`` = unreadable,
+    which the finality rule treats as UNKNOWN (newest week withheld)."""
+    from src.public_league.sleeper_client import fetch_nfl_state  # noqa: PLC0415
+
+    def _fresh():
+        hit = _rc_nfl_state_cache.get("state")
+        if hit is None:
+            return False, None
+        ttl = _RC_NFL_STATE_TTL_SECONDS if hit[1] is not None else _RC_NFL_STATE_FAILURE_TTL_SECONDS
+        return (time.time() - hit[0] < ttl), hit[1]
+
+    ok, state = _fresh()
+    if ok:
+        return state
+    # One fetch per expiry: concurrent requests wait for it instead of each
+    # calling Sleeper (no stampede when the cache expires).
+    with _rc_nfl_state_lock:
+        ok, state = _fresh()
+        if ok:
+            return state
+        try:
+            state = fetch_nfl_state()
+        except Exception as exc:  # noqa: BLE001 — unknown, never a crash
+            logging.warning("Roster construction: /state/nfl unavailable: %s", exc)
+            state = None
+        _rc_nfl_state_cache["state"] = (time.time(), state if isinstance(state, dict) else None)
+        return _rc_nfl_state_cache["state"][1]
+
+
+def _roster_construction_host_finality(snapshot) -> dict:
+    """``{season: (first host-unfinalized week, reason)}`` (production defect
+    2026-11-03: an unfinalized best-ball week is not a rules contradiction)."""
+    from src.public_league import metrics as _metrics  # noqa: PLC0415
+
+    state = None
+    out = {}
+    for s in snapshot.seasons:
+        if str(s.league.get("status") or "").lower() == "complete":
+            out[str(s.season)] = (None, None)
+            continue
+        if state is None:
+            state = _rc_nfl_state() or {}
+        out[str(s.season)] = _metrics.host_lineups_open_from_week(s, state or None)
+    return out
+
+
+def _roster_construction_season_statuses(snapshot, include_playoffs: bool) -> dict:
+    """``{season: lineup_config_status}`` for every season in the snapshot,
+    memoized per snapshot generation and host week-finality (each check solves
+    the season's weeks)."""
+    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+
+    finality = _roster_construction_host_finality(snapshot)
+    key = (
+        snapshot.root_league_id,
+        str(snapshot.generated_at),
+        bool(include_playoffs),
+        tuple(sorted(finality.items())),
+    )
+    hit = _rc_season_status_cache.get(key)
+    if hit is not None:
+        return hit
+    out = {}
+    for s in snapshot.seasons:
+        si = _rc_api.season_input_from_snapshot(
+            snapshot,
+            s,
+            include_playoffs=include_playoffs,
+            host_finality=finality.get(str(s.season)),
+        )
+        out[str(s.season)] = _rc_api.lineup_config_status(
+            si, is_current=s is snapshot.current_season
+        )
+    for stale in [k for k in list(_rc_season_status_cache) if k[0] == key[0] and k[1] != key[1]]:
+        _rc_season_status_cache.pop(stale, None)
+    while len(_rc_season_status_cache) >= _RC_SEASON_STATUS_CACHE_MAX:
+        _rc_season_status_cache.pop(next(iter(_rc_season_status_cache)))
+    _rc_season_status_cache[key] = out
+    return out
+
+
+def _roster_construction_league_season(league_cfg, snapshot, target, include_playoffs: bool):
+    """The solved league-season (every team-week), memoized per snapshot
+    generation.  Shared by the route and the post-refresh warm."""
+    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+    from src.roster_intel import construction as _rc  # noqa: PLC0415
+    from src.trade.roster_capacity import league_roster_limit  # noqa: PLC0415
+
+    finality = _roster_construction_host_finality(snapshot).get(str(target.season))
+    key = (
+        snapshot.root_league_id,
+        str(snapshot.generated_at),
+        target.league_id,
+        include_playoffs,
+        finality,
+    )
+    ls = _rc_league_cache.get(key)
+    if ls is not None:
+        return ls
+    try:
+        impact = _player_impact_computed(snapshot, target)
+    except Exception as exc:  # noqa: BLE001 — marginal degrades, never the page
+        logging.error("Roster construction: player impact unavailable: %s", exc)
+        impact = None
+    limit = league_roster_limit(league_cfg.key) if target is snapshot.current_season else None
+    si_ = _rc_api.season_input_from_snapshot(
+        snapshot,
+        target,
+        include_playoffs=include_playoffs,
+        impact=impact,
+        roster_limit=limit,
+        host_finality=finality,
+    )
+    ls = _rc.compute_league_season(si_, _rc_api.load_priors())
+    for stale in [k for k in list(_rc_league_cache) if k[0] == key[0] and k[1] != key[1]]:
+        _rc_league_cache.pop(stale, None)
+    while len(_rc_league_cache) >= _RC_LEAGUE_CACHE_MAX:
+        _rc_league_cache.pop(next(iter(_rc_league_cache)))
+    _rc_league_cache[key] = ls
+    return ls
+
+
+def _warm_roster_construction_after_refresh() -> None:
+    """Precompute the default Roster Construction view for a fresh snapshot.
+
+    The route's caches are keyed by the snapshot generation, which moves on
+    every public-snapshot refresh (``PUBLIC_LEAGUE_CACHE_TTL``, 300 s), so
+    without this the first signed-in request after each refresh paid the
+    whole cold build (~3-4 s measured on dynasty_main 2026: player impact,
+    every team-week solve, the per-season lineup-rule checks).  Runs on the
+    refresh thread, only while the flag is on; any failure is logged and
+    leaves the route to build on demand exactly as before.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    if not is_enabled("roster_construction"):
+        return
+    try:
+        cfg = _league_registry.get_default_league()
+        snapshot = _get_public_snapshot()
+        if cfg is None or snapshot is None or not snapshot.seasons:
+            return
+        if str(cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return
+        statuses = _roster_construction_season_statuses(snapshot, False)
+        target = snapshot.current_season
+        if (statuses.get(str(target.season)) or {}).get("available"):
+            _roster_construction_league_season(cfg, snapshot, target, False)
+    except Exception as exc:  # noqa: BLE001 — a warm never breaks the refresh
+        logging.warning("Roster construction warm failed: %s", exc)
+
+
+# ── Public sections: warm after a publish / snapshot refresh ─────────
+# The first visitor after a publish used to pay for work no cache held:
+#   * ``awards`` / ``archives`` -- memoized in ``_heavy_section_cache`` under
+#     (root league, snapshot ``generated_at``, board ``latest_data_etag``); a
+#     new publish or snapshot refresh moves the key, so the next request built
+#     it inline.
+#   * ``playoffOdds`` / ``rosPlayoffOdds`` -- ``playoff_sim.canonical_forecast``
+#     serves the scheduled file only while it matches the snapshot and is under
+#     its 6 h mtime TTL; otherwise it runs the live Monte Carlo (5-18 s) memoized
+#     in ``_LIVE_MEMO`` under (root league, ``generated_at``) -- which moves with
+#     every public-snapshot refresh (``PUBLIC_LEAGUE_CACHE_TTL``, 300 s).
+# This pass calls the SAME accessors the routes call, with the same inputs, on a
+# daemon thread, so the entries exist before the visitor.  It adds no cache and
+# no key: a request still computes (or waits on the per-league live lock, or the
+# SWR job) exactly as before, so a result is never one a request would not have
+# produced for its own snapshot.  ``PUBLIC_SECTIONS_WARM_ENABLED=0`` + restart
+# disables it.
+_PUBLIC_SECTIONS_WARM_ENABLED = _env_bool("PUBLIC_SECTIONS_WARM_ENABLED", True)
+_public_sections_warm_guard = threading.Lock()
+_public_sections_warm_state = {"running": False, "pending": False, "wait": False}
+
+
+def _warm_public_sections_once() -> list[str]:
+    """Warm awards, archives and the canonical forecast for the CURRENT snapshot.
+
+    Returns the names warmed.  Each step is isolated, so one failure never
+    skips the next; the caller swallows anything that escapes."""
+    snapshot = _get_public_snapshot()
+    if snapshot is None or not getattr(snapshot, "seasons", None):
+        return []
+    fetched_at = float(_public_league_cache.get("fetched_at") or 0.0)
+    if (time.time() - fetched_at) >= _PUBLIC_LEAGUE_CACHE_TTL_SECONDS:
+        # Stale snapshot: ``_get_public_snapshot`` kicked a refresh whose own
+        # completion re-runs this pass on the fresh generation.  Warming the
+        # old one would only be thrown away.
+        return []
+    warmed: list[str] = []
+    for section in sorted(_HEAVY_SECTION_KEYS):
+        try:
+            cache_key = _heavy_section_cache_key(snapshot)
+            cached = _heavy_section_cache.get(section)
+            if cached is not None and cached[0] == cache_key:
+                continue
+            started_at = time.monotonic()
+            # ``awards`` / ``archives`` never read ``activity_valuation`` (see
+            # the heavy-section notes), so None is the route's own build.
+            payload = build_section_payload(snapshot, section)
+            _remember_heavy_section(section, cache_key, payload, started_at)
+            warmed.append(section)
+        except Exception as exc:  # noqa: BLE001 -- the request path builds on demand
+            logging.warning("Public section warm failed for %s: %s", section, exc)
+    try:
+        from src.ros import playoff_sim as _playoff_sim  # noqa: PLC0415
+
+        _playoff_sim.canonical_forecast(snapshot)
+        warmed.append("canonicalForecast")
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Public canonical forecast warm failed: %s", exc)
+    return warmed
+
+
+def _public_sections_warm_worker() -> None:
+    clean_exit = False
+    try:
+        while True:
+            with _public_sections_warm_guard:
+                if not _public_sections_warm_state["pending"]:
+                    _public_sections_warm_state["running"] = False
+                    clean_exit = True
+                    return
+                _public_sections_warm_state["pending"] = False
+                wait = _public_sections_warm_state["wait"]
+                _public_sections_warm_state["wait"] = False
+            if wait:
+                _SERVING_STARTED.wait(timeout=_ANALYSIS_WARM_BOOT_WAIT_SECONDS)
+            started = time.perf_counter()
+            try:
+                warmed = _warm_public_sections_once()
+                logging.info(
+                    "public sections warm: %s in %.1fs",
+                    ",".join(warmed) or "nothing",
+                    time.perf_counter() - started,
+                )
+            except Exception as exc:  # noqa: BLE001 -- a warm never breaks a refresh
+                logging.warning("Public sections warm failed: %s", exc)
+    finally:
+        if not clean_exit:
+            with _public_sections_warm_guard:
+                _public_sections_warm_state["running"] = False
+
+
+def _schedule_public_sections_warm(reason: str, *, wait_for_serving: bool = False) -> None:
+    """Request a warm pass.  One worker at a time; a request that arrives while
+    one runs sets ``pending`` and is served by one more pass (newest wins).
+    Never blocks, never raises into the scrape / refresh that called it."""
+    if not _PUBLIC_SECTIONS_WARM_ENABLED:
+        return
+    try:
+        with _public_sections_warm_guard:
+            _public_sections_warm_state["pending"] = True
+            if wait_for_serving:
+                _public_sections_warm_state["wait"] = True
+            if _public_sections_warm_state["running"]:
+                return
+            _public_sections_warm_state["running"] = True
+        threading.Thread(
+            target=_public_sections_warm_worker, name="public-sections-warm", daemon=True
+        ).start()
+    except Exception as exc:  # noqa: BLE001
+        with _public_sections_warm_guard:
+            _public_sections_warm_state["running"] = False
+        logging.warning("Public sections warm (%s) not started: %s", reason, exc)
+
+
+def _roster_construction_posture(league_cfg, snapshot, target, owner_by_roster):
+    """Current competitive posture per roster, warm-only; ``{}`` when unavailable."""
+    if target is not snapshot.current_season:
+        return {}, "posture_is_current_season_only"
+    contract = latest_contract_data
+    if not contract or str((contract.get("meta") or {}).get("leagueKey") or "") != league_cfg.key:
+        return {}, "contract_league_mismatch"
+    try:
+        from src.api import gameplan as _gameplan  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001 — an import failure degrades, never 503s
+        logging.warning("Roster construction: posture owner unavailable: %s", exc)
+        return {}, "posture_lookup_failed"
+    try:
+        postures, _meta = _gameplan.league_competitive_postures(
+            league_cfg.key, league_cfg.scoring_profile, contract, build_if_missing=False
+        )
+    except Exception as exc:  # noqa: BLE001 — degrade to a named unavailable
+        # A stable code; the exception detail goes to the log, never the payload.
+        logging.warning("Roster construction: posture lookup failed: %s", exc)
+        if isinstance(exc, _gameplan.GameplanUnavailable) and str(exc.reason).isidentifier():
+            return {}, f"posture_unavailable:{exc.reason}"  # the owner's own stable code
+        return {}, "posture_lookup_failed"
+    out = {}
+    for rid, oid in owner_by_roster.items():
+        p = postures.get(oid)
+        if p is not None:
+            out[rid] = {"label": p.label, "source": "competitive_posture", "asOf": "current"}
+    return out, None
+
+
+#: Every answer of the private route, error or not, is per-user and uncacheable.
+_RC_NO_STORE = {"Cache-Control": "private, no-store"}
+
+
+@app.get("/api/roster-construction")
+async def get_roster_construction(
+    request: Request, season: str = "", rosterId: str = "", includePlayoffs: str = ""
+):
+    """Roster Construction V1 for one league-season (and, with ``rosterId``,
+    one team).  Private, read-only, default-OFF behind ``roster_construction``."""
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+    from src.roster_intel import construction as _rc  # noqa: PLC0415
+
+    if not is_enabled("roster_construction"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "feature_disabled", "flag": _rc.FLAG},
+            headers=_RC_NO_STORE,
+        )
+    if not _get_auth_session(request):
+        return JSONResponse(
+            status_code=401, content={"error": "auth_required"}, headers=_RC_NO_STORE
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        resp = err.json_response()
+        resp.headers.update(_RC_NO_STORE)
+        return resp
+    include_playoffs = str(includePlayoffs).strip().lower() in {"1", "true", "yes"}
+    roster_id: int | None = None
+    if str(rosterId).strip():
+        try:
+            roster_id = int(str(rosterId).strip())
+        except ValueError:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_roster_id", "rosterId": rosterId},
+                headers=_RC_NO_STORE,
+            )
+
+    def _build() -> tuple[int, dict]:
+        snapshot = _roster_construction_snapshot(league_cfg)
+        if snapshot is None or not snapshot.seasons:
+            return 503, {"error": "data_not_ready", "reason": "league_snapshot_unavailable"}
+        if str(league_cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return 503, {
+                "error": "data_not_ready",
+                "reason": "league_snapshot_mismatch",
+                "leagueKey": league_cfg.key,
+            }
+        target = snapshot.season_by_year(season) if season else snapshot.current_season
+        if target is None:
+            return 404, {"error": "unknown_season", "season": season}
+        # Owner decision D2 (2026-11-01): a season whose recorded lineup rules
+        # the host's own matchups contradict is served as an explicit
+        # unavailable state — never computed under an inferred configuration.
+        statuses = _roster_construction_season_statuses(snapshot, include_playoffs)
+        status = statuses.get(str(target.season)) or {"available": False}
+        if not status.get("available"):
+            payload = _rc_api.unavailable_payload(
+                league_key=league_cfg.key,
+                season=str(target.season),
+                status=status,
+                statuses=statuses,
+            )
+            payload["generatedAt"] = snapshot.generated_at
+            return 200, payload
+        contract = latest_contract_data
+        contract_gen = str((contract or {}).get("generatedAt") or "")
+        key = (
+            snapshot.root_league_id,
+            str(snapshot.generated_at),
+            target.league_id,
+            include_playoffs,
+            contract_gen,
+            roster_id,
+            _roster_construction_host_finality(snapshot).get(str(target.season)),
+        )
+        cached = _roster_construction_cache.get(key)
+        if cached is not None:
+            return 200, cached
+        ls = _roster_construction_league_season(league_cfg, snapshot, target, include_playoffs)
+        si = ls.si
+        if roster_id is not None and roster_id not in ls.team_ids:
+            return 404, {"error": "unknown_team", "rosterId": roster_id, "season": target.season}
+        owners = {
+            t.roster_id: t.owner_id for wk in sorted(si.weeks) for t in si.weeks[wk] if t.owner_id
+        }
+        postures, posture_reason = _roster_construction_posture(
+            league_cfg, snapshot, target, owners
+        )
+        posture = None
+        if roster_id is not None:
+            posture = postures.get(roster_id) or {
+                "label": None,
+                "reason": posture_reason or "posture_not_found_for_roster",
+            }
+        value = _rc_api.value_input_from_contract(contract, league_cfg.key, snapshot)
+        payload = _rc_api.build_payload(
+            ls, league_key=league_cfg.key, roster_id=roster_id, value=value, posture=posture
+        )
+        payload["generatedAt"] = snapshot.generated_at
+        payload["available"] = True
+        payload.update(_rc_api.season_availability(statuses))
+        for stale in [
+            k
+            for k in list(_roster_construction_cache)
+            if k[0] == key[0] and (k[1] != key[1] or k[4] != key[4])
+        ]:
+            _roster_construction_cache.pop(stale, None)
+        while len(_roster_construction_cache) >= _ROSTER_CONSTRUCTION_CACHE_MAX:
+            _roster_construction_cache.pop(next(iter(_roster_construction_cache)))
+        _roster_construction_cache[key] = payload
+        return 200, payload
+
+    try:
+        status, content = await run_in_threadpool(_build)
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Roster construction build failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": "roster_construction_unavailable"},
+            headers=_RC_NO_STORE,
+        )
+    return JSONResponse(status_code=status, content=content, headers=_RC_NO_STORE)
+
+
+def _public_csv_headers(filename: str, league_key: str | None) -> dict[str, str]:
+    """Response headers for a public-league CSV download.
+
+    ``X-League-Key`` is the CSV's stand-in for the JSON envelope's
+    ``leagueKey`` — the stable registry key, never a Sleeper id — and is
+    omitted rather than guessed when the registry cannot name the league.
+    """
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL,
+    }
+    if league_key:
+        headers["X-League-Key"] = league_key
+    return headers
 
 
 @app.get("/api/public/league/{section}.csv")
@@ -12212,8 +18141,18 @@ async def get_public_league_section_csv(
 
     Registered BEFORE the generic /{section} handler so FastAPI's path
     matching resolves the ``.csv`` suffix first.
+
+    A CSV has no JSON envelope to carry ``leagueKey``, so the league it
+    describes is named by the ``X-League-Key`` response header (absent
+    when the registry cannot name the snapshot's league — unknown is not
+    published as a guess).  ``leagueKey`` is validated on every variant,
+    ``hall_of_fame`` included.
     """
     if section == "hall_of_fame":
+        _league_err = _public_league_key_error(leagueKey)
+        if _league_err is not None:
+            return _league_err
+
         # Hall of Fame is a derived projection of the history section.
         def _build_hof():
             snapshot = _get_public_snapshot(
@@ -12221,23 +18160,23 @@ async def get_public_league_section_csv(
             )
             history_payload = build_section_payload(snapshot, "history")
             assert_public_payload_safe(history_payload)
-            return public_csv_export.export_hall_of_fame(history_payload["data"])
+            return (
+                *public_csv_export.export_hall_of_fame(history_payload["data"]),
+                history_payload.get("leagueKey"),
+            )
 
         try:
-            filename, text = await run_in_threadpool(_build_hof)
+            filename, text, csv_league_key = await run_in_threadpool(_build_hof)
             return Response(
                 content=text,
                 media_type="text/csv; charset=utf-8",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{filename}"',
-                    "Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL,
-                },
+                headers=_public_csv_headers(filename, csv_league_key),
             )
         except Exception as exc:  # noqa: BLE001
             logging.error("CSV export hall_of_fame failed: %s", exc)
             return JSONResponse(
                 status_code=503,
-                content={"error": f"CSV export unavailable: {exc}"},
+                content=_public_unavailable_body("CSV export"),
             )
 
     if section not in PUBLIC_SECTION_KEYS:
@@ -12248,7 +18187,7 @@ async def get_public_league_section_csv(
                 "availableSections": list(PUBLIC_SECTION_KEYS) + ["hall_of_fame"],
             },
         )
-    _league_err = _public_section_league_error(section, leagueKey)
+    _league_err = _public_league_key_error(leagueKey)
     if _league_err is not None:
         return _league_err
     _access_err = _public_section_access_error(section, request)
@@ -12277,7 +18216,9 @@ async def get_public_league_section_csv(
             # though no heavy section reads it today — the predicate should
             # match the stated rule, or the next section added here
             # reintroduces the bug.
-            payload = await _get_heavy_section_payload(snapshot, section)
+            payload = await _get_heavy_section_payload(
+                snapshot, section, bypass_cache=_authorized_force_refresh(request, refresh)
+            )
 
             def _export():
                 assert_public_payload_safe(payload)
@@ -12302,10 +18243,7 @@ async def get_public_league_section_csv(
         return Response(
             content=text,
             media_type="text/csv; charset=utf-8",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-                "Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL,
-            },
+            headers=_public_csv_headers(filename, public_league_key(snapshot.root_league_id)),
         )
     except AssertionError as exc:
         logging.error("CSV export safety violation in section %s: %s", section, exc)
@@ -12317,7 +18255,7 @@ async def get_public_league_section_csv(
         logging.error("CSV export for section %s failed: %s", section, exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"CSV export unavailable: {exc}"},
+            content=_public_unavailable_body("CSV export"),
         )
 
 
@@ -12374,7 +18312,7 @@ async def get_public_league_section(
                     "availableLenses": list(_valid_lenses),
                 },
             )
-    _league_err = _public_section_league_error(section, leagueKey)
+    _league_err = _public_league_key_error(leagueKey)
     if _league_err is not None:
         return _league_err
     _access_err = _public_section_access_error(section, request)
@@ -12388,14 +18326,30 @@ async def get_public_league_section(
             _get_public_snapshot, force_refresh=_authorized_force_refresh(request, refresh)
         )
         if section in _HEAVY_SECTION_KEYS:
-            # playoffOdds: single-flight + memoize, coordinated on the loop
+            # archives / awards: single-flight + memoize, coordinated on the loop
             # so concurrent waiters don't occupy threadpool workers.  Heavy
             # sections are never ``franchise``, so no owner-detail step.
             payload = await _get_heavy_section_payload(
                 snapshot,
                 section,
                 activity_valuation=_build_public_activity_valuation(),
+                bypass_cache=_authorized_force_refresh(request, refresh),
             )
+        elif section == "overview":
+            payload = await _get_public_overview_payload(
+                snapshot, bypass_cache=_authorized_force_refresh(request, refresh)
+            )
+        elif section == "activity":
+            # Prepared, pre-encoded bytes (see ``_get_public_activity_bytes``),
+            # gzip negotiated here so GZipMiddleware never re-compresses.
+            raw, gz = await _get_public_activity_bytes(
+                snapshot, bypass_cache=_authorized_force_refresh(request, refresh)
+            )
+            headers = {"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL, "Vary": "Accept-Encoding"}
+            if "gzip" in (request.headers.get("accept-encoding") or "").lower():
+                headers["Content-Encoding"] = "gzip"
+                return Response(content=gz, media_type="application/json", headers=headers)
+            return Response(content=raw, media_type="application/json", headers=headers)
         else:
             # Every other section still runs its build in the worker so a
             # heavier-than-expected builder can't block the event loop.
@@ -12405,6 +18359,9 @@ async def get_public_league_section(
                     section,
                     activity_valuation=_build_public_activity_valuation(),
                     team_assignment_contract=latest_contract_data,
+                    awards_section=(
+                        _exact_memoized_awards_body(snapshot) if section == "franchise" else None
+                    ),
                 )
                 if section == "franchise" and owner:
                     detail_map = payload.get("data", {}).get("detail") or {}
@@ -12418,8 +18375,10 @@ async def get_public_league_section(
 
                     if lens != power_v2.LENS_CANONICAL:
                         payload["data"] = power_v2.build_section(snapshot, lens=lens)
-                assert_public_payload_safe(payload)
-                return payload
+                # ``franchiseDetail`` / the lens recompute were attached AFTER
+                # ``build_section_payload`` projected the payload, so the
+                # whole response goes through the serving projection again.
+                return public_payload(payload)
 
             payload = await run_in_threadpool(_build)
         return JSONResponse(
@@ -12436,7 +18395,7 @@ async def get_public_league_section(
         logging.error("Public league section %s failed: %s", section, exc)
         return JSONResponse(
             status_code=503,
-            content={"error": f"Public league section unavailable: {exc}"},
+            content=_public_unavailable_body("Public league section"),
         )
 
 
@@ -12591,11 +18550,60 @@ def _consensus_edge_available() -> bool:
     return is_available()
 
 
+def _manager_intelligence_available() -> bool:
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("manager_intelligence")
+
+
+def _waiver_advisor_available() -> bool:
+    """Offer the private advisor only when its flag and live board are ready.
+
+    The advisor POST refuses feature_disabled first and data_not_ready second.
+    Keep this nav capability aligned with those gates; the IDP mode's own
+    idp_streaming flag remains checked by its dedicated page probe.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("waiver_advisor") and bool(
+        latest_contract_data and latest_contract_data.get("playersArray")
+    )
+
+
+def _idp_streaming_available() -> bool:
+    """Offer the advisor's Weekly IDP Streaming mode only when it can answer.
+
+    ``POST /api/waiver/streaming`` refuses ``feature_disabled`` unless BOTH
+    ``waiver_advisor`` and ``idp_streaming`` are on, and the mode needs the
+    same live board the advisor does.  Fails closed through
+    ``_nav_gated_features`` like every other capability.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return _waiver_advisor_available() and is_enabled("idp_streaming")
+
+
+def _roster_construction_available() -> bool:
+    """Offer Roster Construction only while its route answers.
+
+    ``GET /api/roster-construction`` refuses ``feature_disabled`` first, so
+    the nav entry follows the same flag; the page itself is private
+    (``frontend/middleware.js``) and the route re-checks the session.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("roster_construction")
+
+
 _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
     # nav entry to a page whose every board endpoint refuses — the same
     # thing the adminOnly Ops filter exists to prevent.
     "consensusEdge": _consensus_edge_available,
+    "managerIntelligence": _manager_intelligence_available,
+    "waiverAdvisor": _waiver_advisor_available,
+    "idpStreaming": _idp_streaming_available,
+    "rosterConstruction": _roster_construction_available,
 }
 
 
@@ -12957,6 +18965,355 @@ async def put_user_state_api(request: Request):
     )
 
 
+# ── Persistent trade protections (C3-CON-02) ──────────────────────
+# The WRITER for ``user_kv.tradeConstraintsByLeague[leagueKey]``, which
+# ``_constraints_for_request`` reads for every generated-trade surface.
+# Shape, vocabulary and canonicalisation are decided by the constraint owner
+# (``src/trade/constraints.validate_persistent_protection``); this only
+# authenticates, resolves the league and stores.
+#
+# Scope is (user, leagueKey) — never scoringProfile, never a Sleeper id.  The
+# league must be NAMED: a write that silently landed on the user's active or
+# the registry's default league would protect players in a league the user did
+# not mean, and a read the same way would show them the wrong league's rules.
+
+#
+# Validation runs against the LOADED board (``latest_contract_data``) even when
+# the request names a different league than the one whose contract is loaded.
+# That is deliberate, not a leak: the two things validated — player identity
+# and NFL-team codes — are NFL-wide, not league- or scoring-scoped, so every
+# league's board carries the same players and teams.  Only the STORAGE key is
+# league-scoped.
+
+_TRADE_PROTECTIONS_FIELD = "tradeConstraintsByLeague"
+_TRADE_PROTECTIONS_BODY_KEYS = frozenset({"leagueKey", "untouchables", "nflTeams"})
+#: A rejected request echoes at most this many per-item errors (the rest are
+#: counted in ``errorsTruncated``), so a hostile body cannot amplify a reply.
+_TRADE_PROTECTIONS_MAX_ECHOED_ERRORS = 20
+
+
+def _trade_protections_payload(league_key: str, block: Any) -> dict:
+    from src.trade.constraints import protectable_nfl_teams, unresolved_protected_players
+
+    stored = block if isinstance(block, dict) else None
+    contract = latest_contract_data if isinstance(latest_contract_data, dict) else None
+    team_options = sorted(protectable_nfl_teams(contract))
+    return {
+        "leagueKey": league_key,
+        "configured": stored is not None,
+        "untouchables": list((stored or {}).get("untouchables") or []),
+        "nflTeams": list((stored or {}).get("nflTeams") or []),
+        # The vocabulary a write is validated against; ``None`` means no board
+        # is loaded, so a write naming anything will be refused (503).
+        "nflTeamOptions": team_options or None,
+        "unresolvedUntouchables": unresolved_protected_players(stored, contract),
+    }
+
+
+def _trade_protections_league(request: Request, body: dict | None = None):
+    """``(league_cfg, None)`` or ``(None, error JSONResponse)``."""
+    explicit = (request.query_params.get("leagueKey") or "").strip()
+    if not explicit and isinstance(body, dict):
+        explicit = str(body.get("leagueKey") or "").strip()
+    if not explicit:
+        return None, JSONResponse(
+            status_code=400,
+            content={
+                "error": "league_key_required",
+                "message": "Trade protections are per league; name the leagueKey.",
+            },
+        )
+    try:
+        return _resolve_league_for_request(request, body=body), None
+    except LeagueResolutionError as err:
+        return None, err.json_response()
+
+
+@app.get("/api/user/trade-protections")
+async def get_trade_protections(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    league_cfg, err = _trade_protections_league(request)
+    if err is not None:
+        return err
+    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
+    by_league = state.get(_TRADE_PROTECTIONS_FIELD)
+    block = by_league.get(league_cfg.key) if isinstance(by_league, dict) else None
+    return JSONResponse(
+        content=_trade_protections_payload(league_cfg.key, block),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.put("/api/user/trade-protections")
+async def put_trade_protections(request: Request):
+    """Replace this user's protections for ONE league (idempotent).
+
+    Body: ``{"leagueKey", "untouchables": [player name], "nflTeams": [code]}``.
+    Both lists are required; two empty lists clear the league's entry.  Other
+    leagues' entries are never touched.
+    """
+    from src.trade.constraints import validate_persistent_protection
+
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    if session.get("auth_method") == "guest_pass":
+        # Every guest-pass session shares the literal username "guest", so a
+        # guest's protections would silently become every other guest's.
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "guest_read_only",
+                "message": "Guest passes cannot save personal trade protections.",
+            },
+        )
+    username = str(session.get("username") or "").strip()
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    unknown = sorted(str(k) for k in body if k not in _TRADE_PROTECTIONS_BODY_KEYS)
+    if unknown:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "invalid_body", "unknownFields": unknown},
+        )
+    league_cfg, err = _trade_protections_league(request, body)
+    if err is not None:
+        return err
+
+    contract = latest_contract_data if isinstance(latest_contract_data, dict) else None
+    clean, errors = validate_persistent_protection(body, contract=contract)
+    if errors:
+        if any(e.get("reason") == "board_unavailable" for e in errors):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": "No board is loaded to validate protections against.",
+                },
+            )
+        shown = errors[:_TRADE_PROTECTIONS_MAX_ECHOED_ERRORS]
+        content: dict = {"error": "invalid_protection", "errors": shown}
+        if len(errors) > len(shown):
+            content["errorsTruncated"] = len(errors) - len(shown)
+        return JSONResponse(status_code=400, content=content)
+
+    stored = clean if (clean["untouchables"] or clean["nflTeams"]) else None
+    await run_in_threadpool(
+        _user_kv.set_league_scoped_entry,
+        username,
+        _TRADE_PROTECTIONS_FIELD,
+        league_cfg.key,
+        stored,
+    )
+    return JSONResponse(
+        content=_trade_protections_payload(league_cfg.key, stored),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+# ── Trade Desk (Part 12) ──────────────────────────────────────────
+# The writer for ``user_kv.tradeDeskByLeague[leagueKey]``.  Shape, statuses and
+# transitions are owned by ``src/trade/trade_desk.py``; this authenticates,
+# resolves the NAMED league (same rule as trade protections) and stores through
+# one atomic read-modify-write.  Recommendation only: nothing here sends,
+# proposes or executes a trade, and every status is user-entered.
+
+
+def _trade_desk_teams(league_key: str) -> dict[str, dict]:
+    """This league's teams from the loaded contract, or ``{}`` when the loaded
+    contract belongs to another league (rosters are never borrowed)."""
+    from src.intel.manager_scout_api import _current_teams
+
+    contract = latest_contract_data if isinstance(latest_contract_data, dict) else None
+    return {
+        str(t.get("name") or ""): t
+        for t in _current_teams(contract, league_key)
+        if str(t.get("name") or "")
+    }
+
+
+def _trade_desk_session(request: Request, *, write: bool):
+    """``(username, None)`` or ``(None, error JSONResponse)``."""
+    session = _get_auth_session(request)
+    username = str((session or {}).get("username") or "").strip()
+    if not session or not username:
+        return None, JSONResponse(status_code=401, content={"error": "auth_required"})
+    if write and session.get("auth_method") == "guest_pass":
+        # Every guest-pass session shares the username "guest".
+        return None, JSONResponse(
+            status_code=403,
+            content={
+                "error": "guest_read_only",
+                "message": "Guest passes cannot save a Trade Desk.",
+            },
+        )
+    return username, None
+
+
+def _trade_desk_error(err) -> JSONResponse:
+    status = {
+        "not_found": 404,
+        "duplicate": 409,
+        "desk_full": 409,
+    }.get(err.code, 400)
+    content: dict = {"error": err.code}
+    if err.detail is not None:
+        content["detail"] = err.detail
+    return JSONResponse(status_code=status, content=content)
+
+
+def _trade_desk_response(league_key: str, entry: Any) -> JSONResponse:
+    from src.trade import trade_desk as _desk
+
+    return JSONResponse(
+        content=_desk.payload(league_key, entry, teams_by_name=_trade_desk_teams(league_key)),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def _trade_desk_body(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    return body if isinstance(body, dict) else None
+
+
+@app.get("/api/user/trade-desk")
+async def get_trade_desk(request: Request):
+    from src.trade import trade_desk as _desk
+
+    username, err = _trade_desk_session(request, write=False)
+    if err is not None:
+        return err
+    league_cfg, err = _trade_protections_league(request)
+    if err is not None:
+        return err
+    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
+    by_league = state.get(_desk.TRADE_DESK_FIELD)
+    entry = by_league.get(league_cfg.key) if isinstance(by_league, dict) else None
+    return _trade_desk_response(league_cfg.key, entry)
+
+
+@app.post("/api/user/trade-desk")
+async def post_trade_desk(request: Request):
+    """Save one package to the desk.  Body: ``{leagueKey, myTeam, opponent,
+    send: [asset], receive: [asset], source?, sourceRunId?, status?, note?,
+    decisionRunId?}``."""
+    from src.trade import trade_desk as _desk
+
+    username, err = _trade_desk_session(request, write=True)
+    if err is not None:
+        return err
+    body = await _trade_desk_body(request)
+    if body is None:
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    unknown = _desk.unknown_keys(body, create=True)
+    if unknown:
+        return JSONResponse(
+            status_code=400, content={"error": "invalid_body", "unknownFields": unknown}
+        )
+    league_cfg, err = _trade_protections_league(request, body)
+    if err is not None:
+        return err
+    teams = _trade_desk_teams(league_cfg.key)
+    if not teams:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "This league's teams are not loaded; nothing was saved.",
+            },
+        )
+    try:
+        from src.trade import trade_decision_log as _decision_log  # noqa: PLC0415
+
+        item = _desk.new_item(
+            body,
+            team_names=teams,
+            owner_ids={n: str(t.get("ownerId") or "") for n, t in teams.items()},
+            league_key=league_cfg.key,
+            # TC-B2 / TCM-G18: a calculator save may name the War Room decision
+            # it was made beside; it is read from the server's own log.
+            decision_lookup=_decision_log.find_decision_run,
+        )
+        entry = await run_in_threadpool(
+            _user_kv.mutate_league_scoped_entry,
+            username,
+            _desk.TRADE_DESK_FIELD,
+            league_cfg.key,
+            lambda current: _desk.add_item(current, item),
+        )
+    except _desk.DeskError as e:
+        return _trade_desk_error(e)
+    resp = _trade_desk_response(league_cfg.key, entry)
+    resp.status_code = 201
+    return resp
+
+
+@app.patch("/api/user/trade-desk/{item_id}")
+async def patch_trade_desk(item_id: str, request: Request):
+    """Change one item's user-entered status and/or note.
+    Body: ``{leagueKey, status?, note?}``."""
+    from src.trade import trade_desk as _desk
+
+    username, err = _trade_desk_session(request, write=True)
+    if err is not None:
+        return err
+    body = await _trade_desk_body(request)
+    if body is None:
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    unknown = _desk.unknown_keys(body, create=False)
+    if unknown:
+        return JSONResponse(
+            status_code=400, content={"error": "invalid_body", "unknownFields": unknown}
+        )
+    league_cfg, err = _trade_protections_league(request, body)
+    if err is not None:
+        return err
+    try:
+        entry = await run_in_threadpool(
+            _user_kv.mutate_league_scoped_entry,
+            username,
+            _desk.TRADE_DESK_FIELD,
+            league_cfg.key,
+            lambda current: _desk.update_item(current, item_id, body),
+        )
+    except _desk.DeskError as e:
+        return _trade_desk_error(e)
+    return _trade_desk_response(league_cfg.key, entry)
+
+
+@app.delete("/api/user/trade-desk/{item_id}")
+async def delete_trade_desk(item_id: str, request: Request):
+    from src.trade import trade_desk as _desk
+
+    username, err = _trade_desk_session(request, write=True)
+    if err is not None:
+        return err
+    league_cfg, err = _trade_protections_league(request)
+    if err is not None:
+        return err
+    try:
+        entry = await run_in_threadpool(
+            _user_kv.mutate_league_scoped_entry,
+            username,
+            _desk.TRADE_DESK_FIELD,
+            league_cfg.key,
+            lambda current: _desk.remove_item(current, item_id),
+        )
+    except _desk.DeskError as e:
+        return _trade_desk_error(e)
+    return _trade_desk_response(league_cfg.key, entry)
+
+
 # ── Web Push subscriptions ────────────────────────────────────────
 @app.get("/api/push/public-key")
 async def get_push_public_key():
@@ -12987,17 +19344,17 @@ async def post_push_subscribe(request: Request):
         body = None
     if not isinstance(body, dict):
         return JSONResponse(status_code=400, content={"error": "invalid_body"})
+
+    # Read-modify-write under ONE lock: reading with get_user_state and then
+    # rewriting the whole list discarded a concurrently added device.
+    def _upsert(entry: dict) -> None:
+        entry["pushSubscriptions"] = _push_delivery.upsert_subscription(entry, body)
+
     try:
-        state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
-        new_subs = _push_delivery.upsert_subscription(state, body)
-    except ValueError as exc:
+        state = await run_in_threadpool(_user_kv.mutate_user_state, username, _upsert)
+    except ValueError as exc:  # invalid subscription: the mutation rolled back
         return JSONResponse(status_code=400, content={"error": str(exc)})
-    await run_in_threadpool(
-        _user_kv.set_user_field,
-        username,
-        "pushSubscriptions",
-        new_subs,
-    )
+    new_subs = _push_delivery.list_subscriptions(state)
     return JSONResponse(
         content={"ok": True, "count": len(new_subs)},
         headers={"Cache-Control": "no-store"},
@@ -13019,14 +19376,12 @@ async def post_push_unsubscribe(request: Request):
         endpoint = str(body.get("endpoint") or "").strip()
     if not endpoint:
         return JSONResponse(status_code=400, content={"error": "endpoint_required"})
-    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
-    new_subs = _push_delivery.remove_subscription(state, endpoint)
-    await run_in_threadpool(
-        _user_kv.set_user_field,
-        username,
-        "pushSubscriptions",
-        new_subs,
-    )
+
+    def _remove(entry: dict) -> None:
+        entry["pushSubscriptions"] = _push_delivery.remove_subscription(entry, endpoint)
+
+    state = await run_in_threadpool(_user_kv.mutate_user_state, username, _remove)
+    new_subs = _push_delivery.list_subscriptions(state)
     return JSONResponse(
         content={"ok": True, "count": len(new_subs)},
         headers={"Cache-Control": "no-store"},
@@ -13078,55 +19433,65 @@ async def put_custom_alerts(request: Request):
                 content={"error": "invalid_rule", "detail": str(exc)},
             )
 
-    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
-    prior_state = state.get("customAlertsState") or {}
-    if not isinstance(prior_state, dict):
-        prior_state = {}
     new_ids = {r["id"] for r in cleaned}
-    pruned_state = {
-        k: v
-        for k, v in prior_state.items()
-        if isinstance(k, str) and k.split("::", 1)[0] in new_ids
-    }
 
-    await run_in_threadpool(
-        _user_kv.merge_user_state,
-        username,
-        {"customAlerts": cleaned, "customAlertsState": pruned_state},
-    )
+    # Prune the cooldowns of removed rules from the CURRENT state, under the
+    # lock: pruning a copy read earlier dropped a cooldown the sweep recorded
+    # in between, and the alert fired again.
+    def _replace_rules(entry: dict) -> None:
+        prior_state = entry.get("customAlertsState") or {}
+        if not isinstance(prior_state, dict):
+            prior_state = {}
+        entry["customAlerts"] = cleaned
+        entry["customAlertsState"] = {
+            k: v
+            for k, v in prior_state.items()
+            if isinstance(k, str) and k.split("::", 1)[0] in new_ids
+        }
+
+    await run_in_threadpool(_user_kv.mutate_user_state, username, _replace_rules)
     return JSONResponse(
         content={"rules": cleaned, "count": len(cleaned)},
         headers={"Cache-Control": "no-store"},
     )
 
 
-@app.post("/api/custom-alerts/run")
-async def run_custom_alerts(request: Request):
-    """Cron-driven evaluator.  Walks every user's rules, fires any
-    that hit, delivers via email and/or push, updates cooldown state.
+def _apply_custom_alert_sweep(
+    entry: dict, *, fired: dict[str, object], dead_endpoints: set[str]
+) -> None:
+    """Apply one user's custom-alert sweep to the CURRENT state (under the lock).
 
-    Same bearer-token auth model as ``/api/signal-alerts/run``.
+    The sweep evaluates and delivers from a snapshot taken before delivery,
+    which can take seconds.  Writing that snapshot's fields back whole would
+    discard anything written meanwhile -- a device subscribed mid-sweep, or a
+    rule (and its cooldowns) the user deleted mid-sweep.  So only this sweep's
+    own changes are applied: the cooldowns it fired, for rules that still
+    exist, and the removal of the endpoints the push service reported dead.
     """
-    cron_auth_ok = False
-    if SIGNAL_ALERT_CRON_TOKEN:
-        header = (request.headers.get("authorization") or "").strip()
-        if header.lower().startswith("bearer "):
-            presented = header.split(None, 1)[1].strip()
-            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
-                cron_auth_ok = True
-    if not cron_auth_ok:
-        session = _get_auth_session(request)
-        if not session or session.get("auth_method") != "password":
-            return JSONResponse(
-                status_code=401,
-                content={"error": "admin_auth_required"},
-            )
+    if fired:
+        rules = entry.get("customAlerts")
+        live_ids = {
+            str(r.get("id"))
+            for r in (rules if isinstance(rules, list) else [])
+            if isinstance(r, dict)
+        }
+        current = entry.get("customAlertsState")
+        current = dict(current) if isinstance(current, dict) else {}
+        for key, value in fired.items():
+            if isinstance(key, str) and key.split("::", 1)[0] in live_ids:
+                current[key] = value
+        entry["customAlertsState"] = current
+    if dead_endpoints:
+        entry["pushSubscriptions"] = [
+            s
+            for s in _push_delivery.list_subscriptions(entry)
+            if s.get("endpoint") not in dead_endpoints
+        ]
 
-    if not latest_contract_data:
-        return JSONResponse(status_code=503, content={"error": "no_live_contract"})
-    players_array = (latest_contract_data or {}).get("playersArray") or []
 
-    db = await run_in_threadpool(_user_kv.all_user_states)
+def _custom_alerts_sweep(players_array: list) -> dict[str, dict[str, int]]:
+    """Blocking body of ``run_custom_alerts``: evaluate, deliver, persist state."""
+    db = _user_kv.all_user_states()
     summary: dict[str, dict[str, int]] = {}
 
     for username, state in (db or {}).items():
@@ -13191,24 +19556,54 @@ async def run_custom_alerts(request: Request):
             if email_ok or push_ok:
                 new_state = _custom_alerts.mark_fired(new_state, hit)
 
-        patch: dict[str, object] = {}
-        if new_state != cooldown_state:
-            patch["customAlertsState"] = new_state
-        if endpoints_to_prune:
-            kept = [
-                s
-                for s in _push_delivery.list_subscriptions(state)
-                if s.get("endpoint") not in set(endpoints_to_prune)
-            ]
-            patch["pushSubscriptions"] = kept
-        if patch:
-            await run_in_threadpool(_user_kv.merge_user_state, username, patch)
+        fired = {k: v for k, v in new_state.items() if cooldown_state.get(k) != v}
+        dead = set(endpoints_to_prune)
+        if fired or dead:
+            _user_kv.mutate_user_state(
+                username,
+                lambda entry: _apply_custom_alert_sweep(entry, fired=fired, dead_endpoints=dead),
+            )
 
         summary[username] = {
             "hits": len(hits),
             "email": delivered_email,
             "push": delivered_push,
         }
+    return summary
+
+
+@app.post("/api/custom-alerts/run")
+async def run_custom_alerts(request: Request):
+    """Cron-driven evaluator.  Walks every user's rules, fires any
+    that hit, delivers via email and/or push, updates cooldown state.
+
+    Same bearer-token auth model as ``/api/signal-alerts/run``.
+    """
+    cron_auth_ok = False
+    if SIGNAL_ALERT_CRON_TOKEN:
+        header = (request.headers.get("authorization") or "").strip()
+        if header.lower().startswith("bearer "):
+            presented = header.split(None, 1)[1].strip()
+            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
+                cron_auth_ok = True
+    if not cron_auth_ok:
+        session = _get_auth_session(request)
+        if not session or session.get("auth_method") != "password":
+            return JSONResponse(
+                status_code=401,
+                content={"error": "admin_auth_required"},
+            )
+
+    if not latest_contract_data:
+        return JSONResponse(status_code=503, content={"error": "no_live_contract"})
+    players_array = (latest_contract_data or {}).get("playersArray") or []
+
+    # The whole sweep (rule evaluation, SMTP / web-push delivery with their
+    # network timeouts, per-user kv writes) runs in ONE threadpool task, never
+    # on the event loop.  Every kv call opens its own sqlite connection inside
+    # that same worker thread, and mutate_user_state is already serialised by
+    # its own lock, so nothing is shared across threads.
+    summary = await run_in_threadpool(_custom_alerts_sweep, players_array)
 
     return JSONResponse(
         content={"ok": True, "users": summary},
@@ -13515,6 +19910,7 @@ async def get_terminal(request: Request):
                 _live_player_names(),
                 (resolved_team or {}).get("name") if resolved_team else None,
                 player_meta=_live_player_meta(),
+                roster_player_names=_terminal.roster_player_names(resolved_team),
             )
             return _terminal.build_terminal_payload(
                 contract,
@@ -13556,10 +19952,137 @@ async def get_terminal(request: Request):
     )
 
 
+# ── CENTRAL BUY/SELL RECONCILER (C6-SIG-01) ─────────────────────────────
+#
+# One private read of every live Buy/Sell emitter, side by side, deduped by
+# lineage.  The synthesis owner is ``src/signals/reconciler.py`` (no numeric
+# blend, no cross-emitter weight); ``src/signals/collect.py`` reads each
+# emitter through its own owner.  Private by default via
+# ``_private_api_gate`` — no public allowlist entry.
+
+
+@app.get("/api/signals/reconciled")
+async def get_reconciled_signals(request: Request):
+    """Every emitter's labelled verdict per player, one body of evidence once.
+
+    Query parameters::
+
+        leagueKey   optional — standard resolver
+        team / ownerId / teamName
+                    optional — selects the roster (else the signed-in
+                    user's Sleeper team, as ``/api/terminal`` does)
+        scope       ``auto`` (default) | ``roster`` | ``league``
+        player      optional — one player (Sleeper id or display name)
+
+    Responses::
+
+        200  reconciled payload (``players``, ``emitters``, ``unresolved``)
+        400  unknown/inactive league, or bad ``scope``
+        503  data_not_ready — no contract, or the loaded contract is for a
+             different league (the roster-scoped emitters need its rosters)
+    """
+    from src.signals.collect import build_reconciled_signals  # noqa: PLC0415
+
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    params = request.query_params
+    scope = (params.get("scope") or "auto").strip().lower()
+    if scope not in ("auto", "roster", "league"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "scope must be auto|roster|league"},
+        )
+
+    contract = latest_contract_data
+    if not contract:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": "No data available yet. First scrape may still be running.",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    loaded_league = ((contract.get("meta") or {}) if isinstance(contract, dict) else {}).get(
+        "leagueKey"
+    )
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"No data loaded for league {league_cfg.key!r} yet "
+                    f"(server holds {loaded_league!r})."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    team_owner_id = (params.get("team") or params.get("ownerId") or "").strip()
+    team_name = (params.get("teamName") or "").strip()
+    team_request = (
+        {"ownerId": team_owner_id or None, "teamName": team_name or None}
+        if team_owner_id or team_name
+        else None
+    )
+    resolved_team = _terminal.resolve_team(contract, owner_id=team_owner_id, name=team_name)
+    team_source = "explicit" if resolved_team is not None else None
+    if resolved_team is None and team_request is None:
+        session_sleeper_id = str(session.get("sleeper_user_id") or "").strip()
+        if session_sleeper_id:
+            resolved_team = _terminal.resolve_team(contract, owner_id=session_sleeper_id, name=None)
+            team_source = "session" if resolved_team is not None else None
+    player = (params.get("player") or "").strip() or None
+
+    def _build():
+        news_items = None
+        if resolved_team is not None:
+            try:
+                news_items = _terminal.gather_news_items(
+                    lambda: _get_news_service(),
+                    _live_player_names(),
+                    resolved_team.get("name"),
+                    player_meta=_live_player_meta(),
+                    roster_player_names=_terminal.roster_player_names(resolved_team),
+                )
+            except Exception as exc:  # noqa: BLE001 — reported as unavailable news
+                log.warning("/api/signals/reconciled news gather failed: %s", exc)
+        return build_reconciled_signals(
+            contract,
+            league_key=league_cfg.key,
+            resolved_team=resolved_team,
+            news_items=news_items,
+            scope=scope,
+            player=player,
+            team_request=team_request,
+            team_source=team_source,
+        )
+
+    try:
+        payload = await run_in_threadpool(_build)
+    except Exception as exc:  # noqa: BLE001
+        log.exception("/api/signals/reconciled build failed: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"reconcile_failed: {type(exc).__name__}"},
+        )
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
 async def _build_trade_simulation(
     request: Request,
     *,
     for_analysis: bool = False,
+    capture: dict[str, Any] | None = None,
+    clock: "_trade_analyze_runtime.StageClock | None" = None,
+    league_cfg: "_league_registry.LeagueConfig | None" = None,
 ) -> tuple[dict[str, Any] | None, str | None, JSONResponse | None]:
     """Shared body: resolve league/team, run ``trade_simulator.simulate_trade``.
 
@@ -13568,35 +20091,184 @@ async def _build_trade_simulation(
     ``/api/trade/analyze`` (V1-43 / C7-DESK-01) can compose Analyze Trade on
     top of the identical simulation ``/api/trade/simulate`` already returns,
     rather than re-deriving league/team/overlay resolution a second time.
+
+    The simulation itself is ``src.trade.analyze_service.simulate_for_team``
+    (B0-c: the one owner of the 2-team analysis path).  ``capture``, when
+    given, receives the exact ``contract`` the simulation ran against so the
+    analyze path reads provenance from it instead of the global.
+
+    ``clock`` (Analyze Trade only) times each stage of this request; it
+    observes the work and changes none of it.  ``league_cfg``, when given, is
+    the league the caller already resolved for this request (Analyze Trade
+    keys in-flight sharing on it); it is used as-is.
     """
+    clock = clock or _trade_analyze_runtime.StageClock()
+    with clock.stage("resolve"):
+        prepared = await _prepare_trade_simulation(request, league_cfg=league_cfg)
+        if isinstance(prepared, JSONResponse):
+            return None, None, prepared
+        contract, league_cfg, body, session = prepared
+
+        # Lens on top of whatever contract the routing above settled on,
+        # keeping any spliced cross-league ``sleeper`` block.
+        contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+            request, body, league_cfg, base=contract
+        )
+
+        team_owner_id = str(body.get("team") or "").strip()
+        team_name = str(body.get("teamName") or "").strip()
+
+        # Session auto-resolve: if the user didn't pass a team, use
+        # the Sleeper user_id attached to their session.
+        if not team_owner_id and not team_name:
+            team_owner_id = str(session.get("sleeper_user_id") or "").strip()
+
+        resolved_team = _terminal.resolve_team(
+            contract,
+            owner_id=team_owner_id,
+            name=team_name,
+        )
+        if resolved_team is None:
+            return (
+                None,
+                None,
+                JSONResponse(
+                    status_code=404,
+                    content={"error": "team_not_found", "leagueKey": league_cfg.key},
+                ),
+            )
+
+    # Use Team Context (#842): default ON, and only an explicit boolean
+    # ``false`` turns it off — the same rule ``/api/trade/finder`` applies.
+    # It changes which LENSES Analyze Trade may count, never an asset value.
+    from src.trade.team_context import team_context_requested
+
+    use_team_context = team_context_requested(body)
+
+    def _str_list(key):
+        vs = body.get(key) or []
+        if not isinstance(vs, list):
+            return []
+        return [str(x) for x in vs if isinstance(x, (str, int)) and str(x).strip()]
+
+    def _picks_with_ids(key: str, ids_key: str) -> tuple[list[str], list[str | None]]:
+        # Wave A: ``pickAssetIdsIn`` / ``pickAssetIdsOut`` run PARALLEL to the
+        # pick lists (``null`` for a pick without an owned id), so they are
+        # aligned before any entry is filtered out.
+        labels = body.get(key) or []
+        ids = body.get(ids_key) or []
+        if not isinstance(labels, list):
+            return [], []
+        if not isinstance(ids, list):
+            ids = []
+        out_l: list[str] = []
+        out_i: list[str | None] = []
+        for i, x in enumerate(labels):
+            if not isinstance(x, (str, int)) or not str(x).strip():
+                continue
+            aid = ids[i] if i < len(ids) else None
+            out_l.append(str(x))
+            out_i.append(str(aid).strip() if isinstance(aid, str) and aid.strip() else None)
+        return out_l, out_i
+
+    picks_in, pick_ids_in = _picks_with_ids("picksIn", "pickAssetIdsIn")
+    picks_out, pick_ids_out = _picks_with_ids("picksOut", "pickAssetIdsOut")
+    # B0-b: ``playerIdsIn`` / ``playerIdsOut`` run PARALLEL to the player
+    # lists (``null`` for a name without an id).  An entry with an id resolves
+    # by Sleeper id only — two players sharing a name cannot price as each
+    # other.  Same alignment rule as the pick ids above.
+    players_in, player_ids_in = _picks_with_ids("playersIn", "playerIdsIn")
+    players_out, player_ids_out = _picks_with_ids("playersOut", "playerIdsOut")
+
+    from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+
+    # B0-c: posture (Wave B, C7-POST-01 — Analyze Trade may build the league
+    # bundle; a plain simulate reads a warm one only), the simulation and the
+    # ``teamContext`` stamp all come from the ONE 2-team analysis owner.  The
+    # request clock observes its ``posture`` / ``simulation`` stages.
+    result = await run_in_threadpool(
+        _analyze_service.simulate_for_team,
+        contract,
+        league_key=league_cfg.key,
+        roster_settings=dict(league_cfg.roster_settings or {}),
+        resolved_team=resolved_team,
+        players_in=players_in,
+        players_out=players_out,
+        player_ids_in=player_ids_in,
+        player_ids_out=player_ids_out,
+        picks_in=picks_in,
+        picks_out=picks_out,
+        pick_ids_in=pick_ids_in,
+        pick_ids_out=pick_ids_out,
+        team_context=use_team_context,
+        for_analysis=for_analysis,
+        stage=clock.stage,
+    )
+    if capture is not None:
+        capture["contract"] = contract
+    # Attached AFTER the simulation, never inside it: ``trade_simulator`` does
+    # not import exposure, so there is no edge along which it could reach
+    # equity, team impact or Analyze Trade (C2-EXP-01 non-influence).
+    with clock.stage("exposure"):
+        result["nflExposure"] = _trade_nfl_exposure_block(
+            contract,
+            resolved_team,
+            players_in=_str_list("playersIn"),
+            players_out=_str_list("playersOut"),
+        )
+    result["leagueKey"] = league_cfg.key
+    _stamp_valuation_mode(result, valuation_mode, valuation_note)
+    # LVA Package 4 (owner decision 2026-10-21): hidden depth-note SHADOW
+    # counters, default OFF.  Snapshots what it reads and counts on a
+    # background worker: the request never waits, and the payload is
+    # byte-identical either way (tests/trade/test_depth_disclosure_shadow.py).
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    if _ff.is_enabled("low_value_depth_disclosure_shadow"):
+        from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+        _depth_shadow.submit_evaluation(
+            result,
+            contract=contract,
+            league_key=league_cfg.key,
+            roster_settings=dict(league_cfg.roster_settings or {}),
+            surface="war_room" if for_analysis else "calculator",
+        )
+    return result, league_cfg.key, None
+
+
+async def _prepare_trade_simulation(
+    request: Request, *, league_cfg: "_league_registry.LeagueConfig | None" = None
+):
+    """Auth, body, league and cross-league overlay splice for one trade
+    request.  Returns a :class:`JSONResponse` on any refusal, else
+    ``(contract, league_cfg, body, session)``.  A ``league_cfg`` the caller
+    already resolved for this request is used instead of resolving again."""
     session = _get_auth_session(request)
     if not session:
-        return None, None, JSONResponse(status_code=401, content={"error": "auth_required"})
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
     if not latest_contract_data:
-        return (
-            None,
-            None,
-            JSONResponse(
-                status_code=503,
-                content={"error": "No data available yet."},
-            ),
+        return JSONResponse(
+            status_code=503,
+            content={"error": "No data available yet."},
         )
     try:
         body = await request.json()
     except Exception:
         body = None
     if not isinstance(body, dict):
-        return None, None, JSONResponse(status_code=400, content={"error": "invalid_body"})
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
 
     # Validate leagueKey but don't require the loaded contract's
     # leagueKey to match — when the user is on a non-default league
     # we can splice in a live Sleeper overlay (same trick the
     # /api/terminal endpoint uses).  Without this, every trade
     # simulation on League B returns data_not_ready.
-    try:
-        league_cfg = _resolve_league_for_request(request, body=body)
-    except LeagueResolutionError as err:
-        return None, None, err.json_response()
+    if league_cfg is None:
+        try:
+            league_cfg = _resolve_league_for_request(request, body=body)
+        except LeagueResolutionError as err:
+            return err.json_response()
 
     # Build the contract this trade sim runs against.  When the
     # request league matches the loaded contract, just use it.
@@ -13610,7 +20282,7 @@ async def _build_trade_simulation(
         # Trade simulation needs matching rankings.
         _scoring_err = _scoring_identity_error(contract, league_cfg)
         if _scoring_err is not None:
-            return None, None, _scoring_err
+            return _scoring_err
         # Splice in a live overlay for the requested league.
         loaded_sleeper = contract.get("sleeper") or {}
         id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else None
@@ -13628,17 +20300,13 @@ async def _build_trade_simulation(
             )
             overlay = None
         if not overlay or not overlay.get("teams"):
-            return (
-                None,
-                None,
-                JSONResponse(
-                    status_code=503,
-                    content={
-                        "error": "data_not_ready",
-                        "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
-                        "leagueKey": league_cfg.key,
-                    },
-                ),
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
+                    "leagueKey": league_cfg.key,
+                },
             )
         hybrid_sleeper, _ = _sleeper_overlay.merge_cross_league_sleeper_block(
             loaded_sleeper=loaded_sleeper if isinstance(loaded_sleeper, dict) else {},
@@ -13647,76 +20315,7 @@ async def _build_trade_simulation(
         )
         contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
 
-    # Lens on top of whatever contract the routing above settled on,
-    # keeping any spliced cross-league ``sleeper`` block.
-    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
-        request, body, league_cfg, base=contract
-    )
-
-    team_owner_id = str(body.get("team") or "").strip()
-    team_name = str(body.get("teamName") or "").strip()
-
-    # Session auto-resolve: if the user didn't pass a team, use
-    # the Sleeper user_id attached to their session.
-    if not team_owner_id and not team_name:
-        team_owner_id = str(session.get("sleeper_user_id") or "").strip()
-
-    resolved_team = _terminal.resolve_team(
-        contract,
-        owner_id=team_owner_id,
-        name=team_name,
-    )
-    if resolved_team is None:
-        return (
-            None,
-            None,
-            JSONResponse(
-                status_code=404,
-                content={"error": "team_not_found", "leagueKey": league_cfg.key},
-            ),
-        )
-
-    def _str_list(key):
-        vs = body.get(key) or []
-        if not isinstance(vs, list):
-            return []
-        return [str(x) for x in vs if isinstance(x, (str, int)) and str(x).strip()]
-
-    # Use Team Context (#842): default ON, and only an explicit boolean
-    # ``false`` turns it off — the same rule ``/api/trade/finder`` applies.
-    # It changes which LENSES Analyze Trade may count, never an asset value.
-    raw_context = body.get("useTeamContext")
-    use_team_context = raw_context if isinstance(raw_context, bool) else True
-
-    result = await run_in_threadpool(
-        _trade_simulator.simulate_trade,
-        contract,
-        resolved_team=resolved_team,
-        players_in=_str_list("playersIn"),
-        players_out=_str_list("playersOut"),
-        picks_in=_str_list("picksIn"),
-        picks_out=_str_list("picksOut"),
-        roster_settings=dict(league_cfg.roster_settings or {}),
-        league_key=league_cfg.key,
-        include_roster_utility=for_analysis and use_team_context,
-    )
-    if for_analysis:
-        result["teamContext"] = {
-            "applied": use_team_context,
-            "mode": "team" if use_team_context else "asset_only",
-        }
-    # Attached AFTER the simulation, never inside it: ``trade_simulator`` does
-    # not import exposure, so there is no edge along which it could reach
-    # equity, team impact or Analyze Trade (C2-EXP-01 non-influence).
-    result["nflExposure"] = _trade_nfl_exposure_block(
-        contract,
-        resolved_team,
-        players_in=_str_list("playersIn"),
-        players_out=_str_list("playersOut"),
-    )
-    result["leagueKey"] = league_cfg.key
-    _stamp_valuation_mode(result, valuation_mode, valuation_note)
-    return result, league_cfg.key, None
+    return contract, league_cfg, body, session
 
 
 def _trade_nfl_exposure_block(
@@ -13792,20 +20391,629 @@ async def post_trade_analyze(request: Request):
     not accept or need a separately-specified trade.
 
     Response: the ``/api/trade/simulate`` payload's fields, plus
-    ``analysis`` — ``src.trade.analyze_trade.analyze_trade()``'s output
-    (recommendation / confidence / reasonsFor / reasonsAgainst / dimensions /
-    unavailableDimensions).
-    """
-    result, _league_key, error = await _build_trade_simulation(request, for_analysis=True)
-    if error is not None:
-        return error
-    from src.trade.analyze_trade import analyze_trade
+    ``analysis`` — ``src.trade.analyze_trade.analyze_trade()``'s output: the
+    ONE top-line ``decision`` (``src.trade.trade_decision``: YES / NO /
+    NO_TOO_CLOSE / NOT_ENOUGH_EVIDENCE with reasons, strategy, posture, bands
+    and a confidence statement), the graded leaning (``recommendation``),
+    reasonsFor / reasonsAgainst / dimensions / unavailableDimensions, with
+    comparable real trades for the package as the non-voting
+    ``marketCorroboration`` lens (TC-09).  Optional body field ``teamGoal``
+    overrides the posture-inferred strategy and is echoed back.
 
-    result["analysis"] = analyze_trade(result)
+    Request runtime (``src.api.trade_analyze_runtime``; additive, every
+    existing field unchanged):
+
+    * ``analysisTiming`` — measured server wall time per stage of THIS request
+      (``resolve`` / ``posture`` / ``simulation`` / ``exposure`` /
+      ``comparables`` / ``decision`` / ``receipt``), also sent as a standard
+      ``Server-Timing`` header.  Diagnostics only; nothing reads it to decide.
+    * ``X-Analysis-Request-Id`` request header (8-64 of ``[A-Za-z0-9_-]``) —
+      the server records which stage this request is executing, readable by
+      the same signed-in user at ``GET /api/trade/analyze/status``.
+    * An identical request from the same user, against the same loaded board,
+      that arrives while the first is still running shares that computation
+      (``analysisTiming.sharedComputation``) when it succeeds or is refused for
+      a request-scoped reason (400 / 404).  If it fails (an exception, a 5xx,
+      a 401), the joiners make one shared retry instead.  Each request still
+      gets its own decision receipt.  Nothing is retained once it finishes.
+      Guest-pass sessions get the total time only, and their status reads
+      give the state and current phase only.
+    """
+    # The clock starts first, so ``resolve`` covers the body parse and the
+    # league resolution below as well as the simulation's own resolve step.
+    clock = _trade_analyze_runtime.StageClock()
+    session = _get_auth_session(request)
+    owner = _trade_analyze_runtime.session_owner(
+        session, request.cookies.get(JASON_AUTH_COOKIE_NAME)
+    )
+    # Guests get the total time only: per-stage times can reveal whether the
+    # shared before-roster cache was warm (someone recently simulated a team).
+    detail = not _trade_analyze_runtime.is_guest(session)
+    request_id = _trade_analyze_runtime.request_id_from(
+        request.headers.get("x-analysis-request-id")
+    )
+    with clock.stage("resolve"):
+        try:
+            _body = await request.json()
+        except Exception:  # noqa: BLE001 -- the simulation reports the bad body
+            _body = None
+        # The league is resolved ONCE, here, and handed to the computation: it
+        # can come from the query string, the body or the user's saved active
+        # league, so it must be part of the sharing key, and the computation
+        # must answer for exactly the league in its key.  An unresolvable
+        # request takes the normal path and gets its normal refusal.
+        league_cfg = None
+        if session and isinstance(_body, dict) and latest_contract_data:
+            try:
+                league_cfg = _resolve_league_for_request(request, body=_body)
+            except LeagueResolutionError:
+                league_cfg = None
+    # Progress is recorded only for a request that passed validation (signed
+    # in, a JSON object body, a board loaded, a league resolved).
+    progress = (
+        _trade_analyze_runtime.PROGRESS.begin(owner, request_id, detail=detail)
+        if owner and request_id and league_cfg is not None
+        else None
+    )
+    clock.progress = progress
+    if progress is not None:
+        progress.stage_done("resolve", round(dict(clock.stages()).get("resolve", 0.0), 1))
+    key = _trade_analyze_runtime.dedup_key(
+        owner,
+        session,
+        _body,
+        latest_contract_data,
+        league_key=league_cfg.key if league_cfg is not None else None,
+        query_items=request.query_params.multi_items(),
+    )
+    try:
+        if key is None:
+            outcome = await _compute_trade_analysis(request, _body, clock, league_cfg)
+            shared = False
+        else:
+            outcome, shared = await _TRADE_ANALYZE_FLIGHTS.run(
+                key,
+                lambda: _compute_trade_analysis(request, _body, clock, league_cfg),
+                on_join=(
+                    (lambda: progress.phase(_trade_analyze_runtime.JOINED))
+                    if progress is not None
+                    else None
+                ),
+                share_if=_analysis_outcome_shareable,
+                personal_if=_analysis_outcome_personal,
+                label=request_id,
+            )
+    except BaseException as exc:  # CancelledError too: the client went away
+        if progress is not None:
+            progress.finish(
+                _trade_analyze_runtime.CANCELLED
+                if isinstance(exc, asyncio.CancelledError)
+                else _trade_analyze_runtime.FAILED
+            )
+        raise
+    result, league_key, error, shared_stages = outcome
+    if error is not None:
+        if progress is not None:
+            progress.finish(_trade_analyze_runtime.FAILED)
+        if not shared:
+            return error
+        # A request that shared the computation gets its own response object
+        # (same status and body), never one object sent twice.
+        return JSONResponse(
+            status_code=error.status_code,
+            content=json.loads(bytes(error.body).decode("utf-8")),
+        )
+    # A request that shared another's computation gets its own copy: the
+    # receipt below is per request and must not land in the other's payload.
+    if shared:
+        result = copy.deepcopy(result)
+    # Decision receipt (TC-C): one line in the decision's own run log, the
+    # AL-P5 arrangement Best Offers uses.  Best effort; never changes the
+    # response beyond naming the run.
+    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+
+    with clock.stage("receipt"):
+        result["analysis"]["decisionRunId"] = record_decision(
+            result["analysis"],
+            league_key=league_key,
+            team=(result.get("team") or {}).get("name")
+            if isinstance(result.get("team"), dict)
+            else None,
+        )
+    result["analysisTiming"] = clock.to_dict(
+        shared_stages=shared_stages if shared else None, detail=detail
+    )
+    if progress is not None:
+        progress.finish("complete")
     return JSONResponse(
         content=result,
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            "Server-Timing": clock.server_timing(detail=detail),
+        },
     )
+
+
+_TRADE_ANALYZE_FLIGHTS = _trade_analyze_runtime.AsyncSingleFlight()
+
+#: Refusals that are a fact about the REQUEST (its body, its league, its
+#: team), so an identical request gets the same one.  Anything else — a 5xx
+#: (possibly transient), a 401/403 (about the leader's session, not the key) —
+#: is never handed to a joiner; the joiners make one shared retry instead.
+_SHAREABLE_REFUSAL_STATUSES = frozenset({400, 404})
+
+
+def _analysis_outcome_shareable(outcome) -> bool:
+    error = outcome[2]
+    return error is None or error.status_code in _SHAREABLE_REFUSAL_STATUSES
+
+
+#: Refusals about the CALLER's own session.  Never handed to another request
+#: at any stage, including from the shared retry after a failed computation.
+_PERSONAL_REFUSAL_STATUSES = frozenset({401, 403})
+
+
+def _analysis_outcome_personal(outcome) -> bool:
+    error = outcome[2]
+    return error is not None and error.status_code in _PERSONAL_REFUSAL_STATUSES
+
+
+async def _compute_trade_analysis(request: Request, body: Any, clock, league_cfg=None):
+    """Simulation + comparables + decision for one analyze request.
+
+    Returns ``(result, league_key, error_response, stages)`` — ``stages`` a
+    snapshot of this computation's stage times, frozen when it ends, so a
+    request that shared it never sees the creator's later (per-request)
+    stages.  Everything an identical in-flight request may share; the
+    per-request decision receipt is added by the route.  ``league_cfg`` is the
+    league the route resolved (and keyed the sharing on); ``None`` resolves it
+    here.
+    """
+    _captured: dict[str, Any] = {}
+    result, league_key, error = await _build_trade_simulation(
+        request, for_analysis=True, clock=clock, league_cfg=league_cfg, capture=_captured
+    )
+    if error is not None:
+        return None, None, error, clock.stages()
+    from src.trade import comparable_trades as _comparable  # noqa: PLC0415
+
+    # Comparable real trades for this exact package — context for the
+    # packet's ``marketCorroboration`` lens, which never votes.  Any failure
+    # is reported as that lens being unavailable, never as a broken analysis.
+    with clock.stage("comparables"):
+        try:
+            if not league_key:
+                raise LookupError("league not resolved")
+            comparables = await run_in_threadpool(
+                _comparable.comparable_trades,
+                league_key,
+                side_a=_comparable.side_refs_from_assets(result.get("receiving") or []),
+                side_b=_comparable.side_refs_from_assets(result.get("sending") or []),
+                names=_board_names_by_player_id(),
+            )
+        except Exception:  # noqa: BLE001 — evidence-only; the verdict never depends on it
+            log.warning("analyze: comparable trades unavailable", exc_info=True)
+            comparables = {"state": "unavailable", "reason": "comparables_error"}
+    # Owner decision 2 (TC-C): an explicit strategy override travels in the
+    # body as ``teamGoal`` (WIN_NOW / BALANCED / LONG_TERM); the decision
+    # echoes it back.  Absent -> inferred from competitive posture.
+    _team_goal = body.get("teamGoal") if isinstance(body, dict) else None
+    from src.trade import analyze_service as _analyze_service  # noqa: PLC0415
+
+    # Provenance comes from the contract the simulation ran against (B0-c),
+    # not a second read of the global, which a publish could have swapped.
+    with clock.stage("decision"):
+        result["analysis"] = _analyze_service.analyze_for_team(
+            result,
+            contract=_captured.get("contract"),
+            comparables=comparables,
+            team_goal=_team_goal,
+        )
+    return result, league_key, None, clock.stages()
+
+
+# ── N-team trade analysis (private; spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §3) ──
+
+_TRADE_ANALYZE_MULTI_FLIGHTS = _trade_analyze_runtime.AsyncSingleFlight()
+
+
+def _multi_error(status: int, error: str, message: str, **extra: Any) -> JSONResponse:
+    """The private N-team error shape: ``{error, message, reason?, assetIds?,
+    rosterIds?}``, never cached."""
+    content: dict[str, Any] = {"error": error, "message": message}
+    content.update({k: v for k, v in extra.items() if v not in (None, [], ())})
+    return JSONResponse(status_code=status, content=content, headers={"Cache-Control": "no-store"})
+
+
+_MULTI_REASON_TEXT = {
+    "too_few_teams": "A trade needs at least two teams.",
+    "duplicate_team": "Each team can be listed only once.",
+    "too_many_teams": "This trade has more teams than are supported.",
+    "team_not_in_league": "Every team must belong to this league.",
+    "empty_trade": "Add at least one asset to the trade.",
+    "too_many_assets": "This trade has more assets than are supported.",
+    "unknown_asset": "One or more assets do not exist in this league.",
+    "duplicate_asset": "An asset can move only once in a trade.",
+    "invalid_origin": "Every asset must be sent by a team in the trade.",
+    "invalid_destination": "Every asset must go to a team in the trade.",
+    "destination_is_origin": "An asset cannot be sent to the team that already holds it.",
+    "idle_team": "Every listed team must send or receive at least one asset.",
+    "one_sided_trade": "Every team in the trade must both send and receive at least one asset.",
+    "asset_not_owned": "One or more assets are not held by the team sending them.",
+    "perspective_not_in_trade": "The selected team must be part of the trade.",
+}
+
+
+def _parse_multi_body(body: Any) -> tuple[dict[str, Any] | None, str | None]:
+    """Type-check the ``/api/trade/analyze-multi`` body.  ``(parsed, None)`` or
+    ``(None, field)`` naming the first malformed field.  Use Team Context is
+    read through its one owner (``src.trade.team_context``)."""
+    from src.trade.team_context import team_context_requested  # noqa: PLC0415
+
+    def _int(v: Any) -> bool:
+        return isinstance(v, int) and not isinstance(v, bool)
+
+    if not isinstance(body, dict):
+        return None, "body"
+    teams = body.get("teams")
+    if not isinstance(teams, list) or not all(_int(t) for t in teams):
+        return None, "teams"
+    assets = body.get("assets")
+    if not isinstance(assets, list):
+        return None, "assets"
+    legs = []
+    for a in assets:
+        if not (
+            isinstance(a, dict)
+            and isinstance(a.get("id"), str)
+            and _int(a.get("from"))
+            and _int(a.get("to"))
+        ):
+            return None, "assets"
+        legs.append({"id": a["id"], "from": a["from"], "to": a["to"]})
+    for key in ("useTeamContext", "counterfactuals"):
+        if key in body and not isinstance(body[key], bool):
+            return None, key
+    perspective = body.get("perspectiveRosterId")
+    if perspective is not None and not _int(perspective):
+        return None, "perspectiveRosterId"
+    expected = body.get("expectedGeneration")
+    if expected is not None and not isinstance(expected, str):
+        return None, "expectedGeneration"
+    goals_raw = body.get("teamGoals") or {}
+    if not isinstance(goals_raw, dict):
+        return None, "teamGoals"
+    goals: dict[int, Any] = {}
+    for k, v in goals_raw.items():
+        try:
+            rid = int(k)
+        except (TypeError, ValueError):
+            return None, "teamGoals"
+        if v is not None and not isinstance(v, str):
+            return None, "teamGoals"
+        goals[rid] = v
+    return {
+        "teams": list(teams),
+        "legs": legs,
+        "useTeamContext": team_context_requested(body),
+        "counterfactuals": body.get("counterfactuals", True) is not False,
+        "perspective": perspective,
+        "expectedGeneration": expected,
+        "teamGoals": goals,
+    }, None
+
+
+@app.post("/api/trade/analyze-multi")
+async def post_trade_analyze_multi(request: Request):
+    """N-team Analyze Trade — every participating team's own analysis.
+
+    Gated by ``trade_multi_team_analysis`` (default OFF; 503
+    ``multi_team_analysis_disabled``).  ``/api/trade/analyze`` is unchanged.
+
+    Body::
+
+        {"leagueKey": "...",                 # optional; the normal resolver
+         "teams": [3, 7, 11],                # rosterIds, 2..maxTeams
+         "assets": [{"id": "p:4046", "from": 3, "to": 7}, ...],
+         "useTeamContext": true,             # false -> asset-only
+         "teamGoals": {"3": "WIN_NOW"},      # optional per-team override
+         "counterfactuals": true,
+         "perspectiveRosterId": 3,           # optional; echoed only
+         "expectedGeneration": "..."}        # optional; drives snapshotChanged
+
+    Assets are ``p:<sleeperId>`` or canonical league pick ids; labels never
+    identify an asset.  The ledger is validated against ONE snapshot
+    (``src/trade/trade_ledger.py``), every team is analysed by the shared
+    owner (``analyze_service.analyze_trade_n``: one YES / NO / NO_TOO_CLOSE /
+    NOT_ENOUGH_EVIDENCE decision per team, its category and its market
+    fairness), and the all-team summary is a projection of those — there is
+    no trade-level recommendation.  Recommendation only: nothing executes.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    if not is_enabled("trade_multi_team_analysis"):
+        return _multi_error(
+            503,
+            "multi_team_analysis_disabled",
+            "Multi-team trade analysis is not enabled.",
+        )
+    clock = _trade_analyze_runtime.StageClock()
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    detail = not _trade_analyze_runtime.is_guest(session)
+    owner = _trade_analyze_runtime.session_owner(
+        session, request.cookies.get(JASON_AUTH_COOKIE_NAME)
+    )
+    with clock.stage("resolve"):
+        try:
+            raw_body = await request.json()
+        except Exception:  # noqa: BLE001
+            raw_body = None
+        parsed, bad_field = _parse_multi_body(raw_body)
+        if parsed is None:
+            return _multi_error(
+                400,
+                "invalid_request",
+                "The request body is malformed.",
+                field=bad_field,
+            )
+        prepared = await _prepare_trade_simulation(request)
+        if isinstance(prepared, JSONResponse):
+            return prepared
+        contract, league_cfg, body, session = prepared
+        contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+            request, body, league_cfg, base=contract
+        )
+        meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+        if (
+            meta.get("leagueKey") in (None, league_cfg.key)
+            and meta.get("sleeperDataReady") is False
+        ):
+            return _multi_error(
+                503, "data_not_ready", "League rosters are not ready.", leagueKey=league_cfg.key
+            )
+        from src.trade import analyze_service as _svc  # noqa: PLC0415
+        from src.trade import trade_ledger as _ledger  # noqa: PLC0415
+
+        if not _svc.package_model_ready():
+            return _multi_error(
+                503,
+                "package_model_unavailable",
+                "Multi-team analysis needs the active package model.",
+            )
+        try:
+            snap = _ledger.snapshot_for(
+                contract,
+                league_key=league_cfg.key,
+                roster_settings=dict(league_cfg.roster_settings or {}),
+            )
+        except LookupError:
+            return _multi_error(
+                503, "data_not_ready", "League rosters are not ready.", leagueKey=league_cfg.key
+            )
+        policy = _ledger.private_policy()
+        try:
+            ledger = _ledger.validate_ledger(
+                snap, teams=parsed["teams"], legs=parsed["legs"], policy=policy
+            )
+        except _ledger.LedgerError as err:
+            return _multi_error(
+                err.status,
+                err.error,
+                _MULTI_REASON_TEXT.get(err.reason, "This trade is not valid."),
+                reason=err.reason,
+                assetIds=list(err.asset_ids),
+                rosterIds=list(err.roster_ids),
+            )
+        perspective = parsed["perspective"]
+        if perspective is not None and perspective not in ledger.teams:
+            return _multi_error(
+                400,
+                "invalid_trade",
+                _MULTI_REASON_TEXT["perspective_not_in_trade"],
+                reason="perspective_not_in_trade",
+                rosterIds=[perspective],
+            )
+    mode = "team_context" if parsed["useTeamContext"] else "asset_only"
+    goals = {rid: g for rid, g in parsed["teamGoals"].items() if rid in ledger.teams}
+    league_key = league_cfg.key
+
+    def _comparables(flows, simulation):
+        from src.trade import comparable_trades as _comparable  # noqa: PLC0415
+
+        return _comparable.comparable_trades(
+            league_key,
+            side_a=_comparable.side_refs_from_assets(simulation.get("receiving") or []),
+            side_b=_comparable.side_refs_from_assets(simulation.get("sending") or []),
+            names=_board_names_by_player_id(),
+        )
+
+    def _compute():
+        return _svc.analyze_trade_n(
+            snap,
+            ledger,
+            mode=mode,
+            counterfactuals=parsed["counterfactuals"],
+            team_goals=goals,
+            comparables_provider=_comparables,
+            stage=clock.stage,
+        )
+
+    from src.api import compute_admission as _admission_mod  # noqa: PLC0415
+
+    admission = _admission_mod.admission_for(_admission_mod.ROUTE_ANALYZE_MULTI)
+
+    async def _run():
+        # R2-5: each COMPUTATION takes an admission slot (joined waiters do
+        # not); a full route refuses at once instead of queueing on the GIL.
+        try:
+            return await admission.admit(lambda: run_in_threadpool(_compute)), None
+        except _admission_mod.AdmissionRejected as exc:
+            return None, f"admission_{exc.reason}"
+        except _svc.PackageModelUnavailable:
+            return None, "package_model_unavailable"
+        except _svc.ConservationViolation as exc:
+            log.error("analyze-multi: invariant violation, refusing: %s", exc)
+            return None, "internal_error"
+
+    key = (
+        "analyze-multi",
+        owner,
+        league_key,
+        snap.generation,
+        hashlib.sha256(ledger.canonical_key().encode("utf-8")).hexdigest(),
+        mode,
+        json.dumps({str(k): v for k, v in goals.items()}, sort_keys=True),
+        parsed["counterfactuals"],
+    )
+
+    async def _await_result():
+        if owner:
+            return await _TRADE_ANALYZE_MULTI_FLIGHTS.run(
+                key,
+                _run,
+                # A refusal is about load at that instant, never a result
+                # another caller should inherit: a joiner retries once.
+                share_if=lambda out: not str(out[1] or "").startswith("admission_"),
+            )
+        return await _run(), False
+
+    try:
+        # R2-5: the caller waits at most the route's admission deadline; the
+        # computation itself keeps running (and keeps its slot) until done, so
+        # an identical retry joins it instead of starting another.
+        (result, failure), shared = await admission.within_deadline(_await_result)
+    except _admission_mod.AdmissionRejected as exc:
+        failure, result, shared = f"admission_{exc.reason}", None, False
+    if failure in ("admission_busy", "admission_timeout"):
+        retry = str(_admission_mod.RETRY_AFTER_SECONDS)
+        busy = failure == "admission_busy"
+        resp = _multi_error(
+            503,
+            "analysis_busy" if busy else "analysis_timeout",
+            (
+                "Multi-team analysis is busy right now. Try again in a moment."
+                if busy
+                else "Multi-team analysis took too long to answer. Try again."
+            ),
+            retryable=True,
+            retryAfterSeconds=_admission_mod.RETRY_AFTER_SECONDS,
+        )
+        resp.headers["Retry-After"] = retry
+        return resp
+    if failure == "package_model_unavailable":
+        return _multi_error(
+            503, "package_model_unavailable", "Multi-team analysis needs the active package model."
+        )
+    if failure is not None or result is None:
+        return _multi_error(500, "internal_error", "The trade could not be analysed.")
+    if shared:
+        result = copy.deepcopy(result)
+
+    from src.trade.trade_decision_log import record_decision  # noqa: PLC0415
+
+    response = _svc.multi_team_payload(
+        result,
+        snap=snap,
+        ledger=ledger,
+        league_key=league_key,
+        perspective=perspective,
+        expected_generation=parsed["expectedGeneration"],
+    )
+    decision_run_ids: dict[str, Any] = {}
+    with clock.stage("receipt"):
+        for t in response["teams"]:
+            run_id = record_decision(
+                t["analysis"], league_key=league_key, team=(t.get("team") or {}).get("name")
+            )
+            t["analysis"]["decisionRunId"] = run_id
+            decision_run_ids[str(t["rosterId"])] = run_id
+    response["decisionRunIds"] = decision_run_ids
+    response["tradeRunId"] = uuid.uuid4().hex
+    response["analysisTiming"] = clock.to_dict(detail=detail)
+    _stamp_valuation_mode(response, valuation_mode, valuation_note)
+    return JSONResponse(
+        content=response,
+        headers={
+            "Cache-Control": "no-store",
+            # Server-Timing metric names are tokens; the per-team stage names
+            # carry ':' (``team:<rid>:decision``), which is not a token char.
+            "Server-Timing": clock.server_timing(detail=detail).replace(":", "_"),
+        },
+    )
+
+
+@app.get("/api/trade/depth-disclosure-shadow")
+async def get_trade_depth_disclosure_shadow(request: Request, days: int = 0):
+    """The depth-note SHADOW counters for one league (LVA Package 4, owner
+    decision 2026-10-21).  PRIVATE: aggregate counts only, no names or values.
+
+    An allowlisted admin session first (so nobody else learns the flag
+    state), then 404 unless ``low_value_depth_disclosure_shadow`` is ON, then
+    the session's team must be a member of the requested league in
+    the loaded contract's rosters -- unprovable membership (another league's
+    contract loaded, no team for the session) is refused, never assumed.
+    Never under ``/api/public``; the frontend has no bridge route for it.
+    """
+    from src.api import feature_flags as _ff  # noqa: PLC0415
+
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    if not _ff.is_enabled("low_value_depth_disclosure_shadow"):
+        return JSONResponse(status_code=404, content={"error": "not_found"})
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    contract = latest_contract_data
+    loaded_league = ((contract or {}).get("meta") or {}).get("leagueKey")
+    owner = _requester_owner_id(request, league_cfg)
+    teams = (((contract or {}).get("sleeper") or {}).get("teams")) or []
+    member = bool(owner) and any(
+        isinstance(t, dict) and str(t.get("ownerId") or "") == owner for t in teams
+    )
+    if not contract or loaded_league != league_cfg.key or not member:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "league_membership_required", "leagueKey": league_cfg.key},
+            headers={"Cache-Control": "no-store"},
+        )
+    from src.trade import depth_disclosure_shadow as _depth_shadow  # noqa: PLC0415
+
+    payload = await run_in_threadpool(
+        _depth_shadow.read_counters, league_cfg.key, days=days if days > 0 else None
+    )
+    return JSONResponse(content=payload, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/trade/analyze/status")
+async def get_trade_analyze_status(request: Request, requestId: str = ""):
+    """The stage an Analyze Trade request is executing (see the route above).
+
+    Readable only by the signed-in user who sent the request: entries are
+    keyed by session owner, so another user's request id answers
+    ``unknown``.  Reports what the server is doing now and how long it has
+    taken so far — never an estimate of the time remaining.
+    """
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    rid = _trade_analyze_runtime.request_id_from(requestId)
+    if rid is None:
+        return JSONResponse(status_code=400, content={"error": "invalid_request_id"})
+    snap = _trade_analyze_runtime.PROGRESS.snapshot(
+        _trade_analyze_runtime.session_owner(session, request.cookies.get(JASON_AUTH_COOKIE_NAME)),
+        rid,
+    )
+    if snap is None:
+        return JSONResponse(
+            status_code=404,
+            content={"state": "unknown", "requestId": rid},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(content=snap, headers={"Cache-Control": "no-store"})
 
 
 def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
@@ -13981,6 +21189,37 @@ async def post_admin_nfl_data_flush(request: Request):
     return JSONResponse(content={"ok": True, "evicted": deleted})
 
 
+@app.get("/api/admin/diagnostics")
+async def get_admin_diagnostics(request: Request):
+    """The UNREDACTED ``/api/status`` + ``/api/health`` content.
+
+    The anonymous endpoints serve the public projection
+    (``src/api/public_diagnostics.py``): no filesystem path, raw Sleeper id,
+    env-derived probe target or traceback.  This is where an operator reads
+    what they withheld, behind the same allowlist as every other
+    ``/api/admin/*`` route.  Read-only: it sends no alert (``send_alerts=False``)
+    and changes no state.  The backup COVERAGE detail is not here either -- it
+    stays on-box (``python -m src.api.backup_health``), per that module.
+    """
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    health_code, health = _health_content(send_alerts=False)
+    # Same split as ``get_status``: the state check on the loop, the probes
+    # in the threadpool.
+    status_payload = _scrape_status_payload()
+    status = await run_in_threadpool(_status_content, status_payload)
+    return JSONResponse(
+        content={
+            "schemaVersion": "private-diagnostics.v1",
+            "redaction": "none",
+            "status": status,
+            "health": {"httpStatus": health_code, **health},
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/api/admin/scrape-telemetry")
 async def get_admin_scrape_telemetry(request: Request, limit: int = 400):
     """Read back the durable scrape telemetry written on this box.
@@ -14148,24 +21387,26 @@ async def get_admin_guest_passes(request: Request):
 
 @app.post("/api/admin/guest-pass/{pass_id:int}/revoke")
 async def post_admin_guest_pass_revoke(pass_id: int, request: Request):
-    """Mark a guest pass revoked.  Active sessions minted from the
-    pass remain valid until their next request hits
-    ``_get_auth_session`` and finds the pass's per-session
-    ``expires_at_epoch`` already past — but a revoke specifically
-    flips the ``validate`` gate False, so NO new sessions can be
-    minted.  For an immediate boot, follow with
-    ``POST /api/admin/sessions/force-logout-all``.
+    """Revoke a guest pass and end every session it minted.
+
+    ``guest_passes.revoke`` marks the pass (no new logins) and deletes
+    the persisted sessions; this process's in-memory sessions from the
+    pass are dropped here too.  Independently, ``_get_auth_session``
+    refuses any guest session whose pass is no longer active, so a
+    session cached anywhere else dies on its next request.
     """
     session_or_err = _require_admin_session(request)
     if isinstance(session_or_err, JSONResponse):
         return session_or_err
     session = session_or_err
     ok = await run_in_threadpool(_guest_passes.revoke, pass_id)
+    dropped = _drop_guest_pass_sessions(pass_id)
     log.info(
-        "admin action: guest_pass revoke id=%d by %s ok=%s",
+        "admin action: guest_pass revoke id=%d by %s ok=%s sessions_dropped=%d",
         pass_id,
         session.get("username"),
         ok,
+        dropped,
     )
     return JSONResponse(content={"ok": ok, "id": pass_id})
 
@@ -14194,6 +21435,106 @@ async def post_admin_signal_state_migrate(request: Request):
         result.get("counts"),
     )
     return JSONResponse(content=result)
+
+
+def _player_realized_content(sleeper_id: str, league_key: str, scoring_settings: dict) -> dict:
+    """Blocking body of ``get_player_realized`` (nflverse + Sleeper fetches).
+
+    Run via ``run_in_threadpool``; returns the JSON body for every branch."""
+    # Fetch weekly stats via nfl_data_ingest (already flag-gated —
+    # returns [] when nfl_data_ingest is off).  We scope to the
+    # current season for freshness + prior season for comparison.
+    from src.nfl_data import ingest as _ing
+    from src.nfl_data import pbp_weekly as _pbp_weekly
+    from src.nfl_data import realized_points as _rp
+
+    now_year = datetime.now(timezone.utc).year
+    years = [now_year - 1, now_year]
+    weekly = _ing.fetch_weekly_stats(years)
+
+    if not weekly:
+        return {
+            "sleeperId": sleeper_id,
+            "leagueKey": league_key,
+            "reason": "no_stats_available",
+            "weeks": [],
+            "totalPoints": 0.0,
+            "weekCount": 0,
+        }
+
+    # Find this player's GSIS via the unified mapper, then filter.
+    from src.identity import unified_mapper as _um
+
+    # The MASTER Sleeper player directory — ``{player_id: {gsis_id,
+    # full_name, position, ...}}``, which is what ``resolve_player``
+    # indexes.
+    #
+    # This used to read ``sleeper_block["players"]`` / ``["playerDict"]``.
+    # The contract's sleeper block has NEITHER key (it carries
+    # ``idToPlayer`` / ``playerIds`` / ``positions``), so ``players_dir``
+    # was always ``None`` and every request returned
+    # ``reason: "unmapped_player"`` — a well-formed 200 that answered
+    # nothing, for every player, always. ``idToPlayer`` could not have
+    # substituted either: it is ``{id: name}`` and carries no
+    # ``gsis_id``, which is the join key the weekly stat rows use.
+    #
+    # ``fetch_nfl_players`` is the existing process-cached full dump
+    # (~5 MB once per process, ``{}`` on any failure), so this adds no
+    # new download path and no second cache.
+    from src.public_league.sleeper_client import fetch_nfl_players as _fetch_nfl_players
+
+    players_dir = _fetch_nfl_players()
+    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
+    if resolved is None or not resolved.gsis_id:
+        return {
+            "sleeperId": sleeper_id,
+            "leagueKey": league_key,
+            "reason": "unmapped_player",
+            "weeks": [],
+        }
+    # ``player_id``, not ``player_id_gsis``.
+    #
+    # ``player_id_gsis`` is the field name on the WeeklyStatRow
+    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
+    # use ``player_id``. Filtering on the dataclass name matched ZERO
+    # rows for every player, so this endpoint returned a well-formed
+    # 200 with an empty ``weeks`` list — for everyone, always.
+    #
+    # Measured 2026-07-27 on the real 2025 file: the old expression
+    # matched 0 rows for a GSIS id the correct one matched 17.
+    #
+    # It went unnoticed because nothing CALLS this endpoint — the flag
+    # defaults ON, so the route has been live and answering wrongly.
+    # (An earlier version of this comment said the flag was off. It is
+    # not, and believing so made a live defect read as dormant.)
+    #
+    # Both keys are accepted so a caller passing normalized
+    # dataclass-shaped rows still works.
+    target_gsis = str(resolved.gsis_id or "").strip()
+    player_rows = [
+        r
+        for r in weekly
+        if target_gsis
+        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
+    ]
+    # The six reception bands and the player special-teams rules have no
+    # column on the weekly feed; without this the response is a total that
+    # silently omits them.  With it, a season the artifact does not cover
+    # is reported in ``unscored`` rather than scored as zero.
+    _pbp_index = _pbp_weekly.SeasonPbpIndex()
+    cumulative = _rp.compute_cumulative_points(
+        [_pbp_index.attach(r) for r in player_rows],
+        scoring_settings,
+        position=resolved.position,
+    )
+    return {
+        "sleeperId": sleeper_id,
+        "gsisId": resolved.gsis_id,
+        "fullName": resolved.full_name,
+        "position": resolved.position,
+        "leagueKey": league_key,
+        **cumulative,
+    }
 
 
 @app.get("/api/player/{sleeper_id}/realized")
@@ -14265,106 +21606,12 @@ async def get_player_realized(sleeper_id: str, request: Request):
             }
         )
 
-    # Fetch weekly stats via nfl_data_ingest (already flag-gated —
-    # returns [] when nfl_data_ingest is off).  We scope to the
-    # current season for freshness + prior season for comparison.
-    from src.nfl_data import ingest as _ing
-    from src.nfl_data import pbp_weekly as _pbp_weekly
-    from src.nfl_data import realized_points as _rp
-
-    now_year = datetime.now(timezone.utc).year
-    years = [now_year - 1, now_year]
-    weekly = _ing.fetch_weekly_stats(years)
-
-    if not weekly:
-        return JSONResponse(
-            content={
-                "sleeperId": sleeper_id,
-                "leagueKey": league_cfg.key,
-                "reason": "no_stats_available",
-                "weeks": [],
-                "totalPoints": 0.0,
-                "weekCount": 0,
-            }
-        )
-
-    # Find this player's GSIS via the unified mapper, then filter.
-    from src.identity import unified_mapper as _um
-
-    # The MASTER Sleeper player directory — ``{player_id: {gsis_id,
-    # full_name, position, ...}}``, which is what ``resolve_player``
-    # indexes.
-    #
-    # This used to read ``sleeper_block["players"]`` / ``["playerDict"]``.
-    # The contract's sleeper block has NEITHER key (it carries
-    # ``idToPlayer`` / ``playerIds`` / ``positions``), so ``players_dir``
-    # was always ``None`` and every request returned
-    # ``reason: "unmapped_player"`` — a well-formed 200 that answered
-    # nothing, for every player, always. ``idToPlayer`` could not have
-    # substituted either: it is ``{id: name}`` and carries no
-    # ``gsis_id``, which is the join key the weekly stat rows use.
-    #
-    # ``fetch_nfl_players`` is the existing process-cached full dump
-    # (~5 MB once per process, ``{}`` on any failure), so this adds no
-    # new download path and no second cache.
-    from src.public_league.sleeper_client import fetch_nfl_players as _fetch_nfl_players
-
-    players_dir = _fetch_nfl_players()
-    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
-    if resolved is None or not resolved.gsis_id:
-        return JSONResponse(
-            content={
-                "sleeperId": sleeper_id,
-                "leagueKey": league_cfg.key,
-                "reason": "unmapped_player",
-                "weeks": [],
-            }
-        )
-    # ``player_id``, not ``player_id_gsis``.
-    #
-    # ``player_id_gsis`` is the field name on the WeeklyStatRow
-    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
-    # use ``player_id``. Filtering on the dataclass name matched ZERO
-    # rows for every player, so this endpoint returned a well-formed
-    # 200 with an empty ``weeks`` list — for everyone, always.
-    #
-    # Measured 2026-07-27 on the real 2025 file: the old expression
-    # matched 0 rows for a GSIS id the correct one matched 17.
-    #
-    # It went unnoticed because nothing CALLS this endpoint — the flag
-    # defaults ON, so the route has been live and answering wrongly.
-    # (An earlier version of this comment said the flag was off. It is
-    # not, and believing so made a live defect read as dormant.)
-    #
-    # Both keys are accepted so a caller passing normalized
-    # dataclass-shaped rows still works.
-    target_gsis = str(resolved.gsis_id or "").strip()
-    player_rows = [
-        r
-        for r in weekly
-        if target_gsis
-        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
-    ]
-    # The six reception bands and the player special-teams rules have no
-    # column on the weekly feed; without this the response is a total that
-    # silently omits them.  With it, a season the artifact does not cover
-    # is reported in ``unscored`` rather than scored as zero.
-    _pbp_index = _pbp_weekly.SeasonPbpIndex()
-    cumulative = _rp.compute_cumulative_points(
-        [_pbp_index.attach(r) for r in player_rows],
-        scoring_settings,
-        position=resolved.position,
+    # Network fetch (nflverse + Sleeper directory) and scoring run in the
+    # threadpool, never on the event loop (measured 8.5 s cold).
+    content = await run_in_threadpool(
+        _player_realized_content, sleeper_id, league_cfg.key, scoring_settings
     )
-    return JSONResponse(
-        content={
-            "sleeperId": sleeper_id,
-            "gsisId": resolved.gsis_id,
-            "fullName": resolved.full_name,
-            "position": resolved.position,
-            "leagueKey": league_cfg.key,
-            **cumulative,
-        }
-    )
+    return JSONResponse(content=content)
 
 
 @app.post("/api/trade/simulate-mc")
@@ -14509,6 +21756,8 @@ async def post_trade_simulate_mc(request: Request):
                 ),
             },
         )
+    if isinstance(enriched, dict):
+        enriched["packageModel"] = _package_model.receipt()
     return JSONResponse(content=enriched)
 
 
@@ -14532,6 +21781,9 @@ async def run_signal_alerts(request: Request):
     Cron clients authenticate via the shared ``SIGNAL_ALERT_CRON_TOKEN``
     as a Bearer token; browser clients still need a password session.
     """
+    # The timer's curl gives up at 300 s; later sections size their own
+    # time budget from this.
+    _sweep_started = time.monotonic()
     # Two auth paths: (1) a password-session admin from the browser,
     # (2) an opaque bearer token for cron / systemd timers.  Either is
     # sufficient on its own.  Failure mode: if no session AND no token
@@ -14759,6 +22011,9 @@ async def run_signal_alerts(request: Request):
                             email=email,
                             delivery=_deliver_email_smtp,
                             league_key=cfg.key,
+                            # W12-F006: Terminal takes precedence for a player
+                            # its delivered email already covered.
+                            terminal_notified=result.get("notifiedPlayerSignals"),
                         )
                     except Exception as exc:  # noqa: BLE001
                         log.warning(
@@ -14781,6 +22036,29 @@ async def run_signal_alerts(request: Request):
 
     result = await run_in_threadpool(_run_sweep)
 
+    # Manager Intelligence saved-manager activity alerts (Batch F) ride the
+    # same sweep and email channel.  Bounded (distinct managers, call and
+    # time budgets, stop on Sleeper's 429), flag-gated, and a failure here
+    # degrades to an error field — never a failed sweep.
+    try:
+        from src.api import feature_flags as _mi_ff  # noqa: PLC0415
+        from src.intel import manager_alerts as _mi_alerts  # noqa: PLC0415
+
+        result["managerIntelAlerts"] = await run_in_threadpool(
+            lambda: _mi_alerts.run_sweep(
+                contract=latest_contract_data,
+                delivery=_deliver_email_smtp,
+                enabled=_mi_ff.is_enabled("manager_intelligence"),
+                wall_seconds=min(
+                    _mi_alerts.SWEEP_WALL_SECONDS,
+                    max(0.0, 240.0 - (time.monotonic() - _sweep_started)),
+                ),
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("manager intel saved-manager alerts failed: %s", exc)
+        result["managerIntelAlerts"] = {"error": str(exc)}
+
     # Operator alerts piggyback on the signal-alert cron so we don't
     # need another timer.  Checks: scrape success rate, circuit
     # breakers, contract health, data freshness.  Never raises.
@@ -14798,6 +22076,12 @@ async def run_signal_alerts(request: Request):
             contract_health=contract_health,
             data_age_hours=data_age_hours,
             scrape_interval_hours=float(SCRAPE_INTERVAL_HOURS),
+            draft_valuation=await run_in_threadpool(_draft_valuation_health),
+            pregame_archive=await run_in_threadpool(_pregame_archive_health),
+            roster_construction=await run_in_threadpool(_roster_construction_health),
+            backup_coverage=await run_in_threadpool(_backup_coverage_alert_rows),
+            failed_units=await run_in_threadpool(_failed_systemd_units),
+            forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )
@@ -14828,294 +22112,58 @@ async def run_signal_alerts(request: Request):
         log.warning("source_health_alerts check failed: %s", exc)
         result["sourceStalenessAlerts"] = {"error": str(exc)}
 
+    # Signals owner-session reconnect notice: at most ONE email per failure
+    # episode (revoked/expired refresh credential, access denied), recorded by
+    # the renewal timer in the session store's non-secret status file.  The
+    # notice carries no token.  docs/sources/SIGNALS_ACCOUNT_CONNECTION.md.
+    try:
+        from src.sources import signals_auth as _signals_auth
+
+        from src.utils import owner_notify as _owner_notify
+
+        # Off the event loop: it takes a file lock and may send ntfy/SMTP.
+        # The owner's ntfy webhook (NOTIFY_WEBHOOK_URL, the same path the uptime
+        # probe uses) first; SMTP only as fallback.  One notice per episode.
+        result["signalsAuthNotice"] = await run_in_threadpool(
+            _signals_auth.deliver_reconnect_notice,
+            channels=[("ntfy", _owner_notify.channel())],
+            delivery=_deliver_email_smtp if ALERT_TO else None,
+            to_email=ALERT_TO or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("signals auth notice failed: %s", exc)
+        result["signalsAuthNotice"] = {"error": type(exc).__name__}
+
     return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 
 
 # ── LEAGUE NARRATIVE ARTICLES (preview / recap) ─────────────────────
-# Public read endpoints + admin-only generation trigger.  Articles are
-# persisted to ``exports/narratives/<season>/week-<NN>/<mode>-<id>.json``
-# by the cron generator (see ``scripts/generate_weekly_narratives.py``
-# and ``.github/workflows/weekly-narratives.yml``).  These endpoints
-# serve them — they do NOT generate on read so a slow Anthropic round
-# trip never blocks a page load.
+# The three routes (GET /api/league/articles, GET
+# /api/league/articles/{season}/{week}/{matchup_id}/{mode}, POST
+# /api/league/articles/generate) live in src/public_league/articles_api.py
+# (CLEANUP-4).  Included HERE, where the decorators used to sit, so route
+# order is unchanged.  The handlers resolve this module's collaborators
+# (_require_admin_session, _resolve_league_for_request, LeagueResolutionError,
+# anthropic, run_in_threadpool, log) at request time through the host
+# provider, so patches on ``server`` keep applying.
+from src.public_league import articles_api as _articles_api  # noqa: E402
 
+_articles_api.configure_host(lambda: sys.modules[__name__])
+app.include_router(_articles_api.router)
 
-@app.get("/api/league/articles")
-async def get_league_articles(request: Request):
-    """List narrative articles, optionally filtered by season/week.
+# ── BRISKET TRADE ADVISOR (public League Hub trade advisor) ───────────
+# Owner directive 2026-10-19.  The three routes live in
+# src/api/public_trade_advisor_api.py under /api/public/league/trade-advisor/
+# (public by the existing prefix rule; no change to _PUBLIC_API_EXACT).  Same
+# late-binding host arrangement as the articles router: the handlers read
+# latest_contract_data / _public_league_key_error / _client_ip_from_request
+# on this module at request time.  Gated by the ``brisket_trade_advisor``
+# flag (default OFF until the frontend lands): off -> 503
+# advisor_unavailable/disabled.
+from src.api import public_trade_advisor_api as _public_trade_advisor_api  # noqa: E402
 
-    Query params:
-      * ``season`` (optional) — restrict to one season label.
-      * ``week`` (optional) — restrict to one week within season.
-
-    Returns a flat array of {season, week, mode, matchupId, title,
-    generatedAt, home, away, kicker} so the frontend list page can
-    render a slate without N follow-up requests.  Heavy fields
-    (body, lede) are omitted from the index response — clients fetch
-    them via the single-article endpoint.
-    """
-    from src.public_league import matchup_narrative as _mn
-
-    season = (request.query_params.get("season") or "").strip() or None
-    week_raw = (request.query_params.get("week") or "").strip()
-    try:
-        week_filter = int(week_raw) if week_raw else None
-    except ValueError:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "bad_request", "message": "week must be an integer"},
-        )
-
-    items = _mn.list_articles(season=season)
-    if week_filter is not None:
-        items = [r for r in items if int(r.get("week") or -1) == week_filter]
-
-    # Hydrate index entries with the small subset of article fields
-    # needed for a slate list (title, kicker, home/away identity).
-    enriched = []
-    for entry in items:
-        full = _mn.load_article(
-            entry["season"],
-            entry["week"],
-            entry["matchupId"],
-            entry["mode"],
-        )
-        if not full:
-            continue
-        enriched.append(
-            {
-                "season": entry["season"],
-                "week": entry["week"],
-                "mode": entry["mode"],
-                "matchupId": entry["matchupId"],
-                "title": full.get("title"),
-                "kicker": full.get("kicker"),
-                "angleUsed": full.get("angleUsed"),
-                "isChampionship": full.get("isChampionship", False),
-                "roundLabel": full.get("roundLabel", ""),
-                "home": full.get("home", {}),
-                "away": full.get("away", {}),
-                "generatedAt": full.get("generatedAt"),
-                "wordCount": full.get("wordCount", 0),
-            }
-        )
-
-    return JSONResponse(
-        content={
-            "articles": enriched,
-            "total": len(enriched),
-            "season": season,
-            "week": week_filter,
-        },
-        headers={"Cache-Control": "public, max-age=120"},
-    )
-
-
-@app.get("/api/league/articles/{season}/{week}/{matchup_id}/{mode}")
-async def get_league_article(season: str, week: int, matchup_id: int, mode: str):
-    """Single article — full body, ready to render."""
-    from src.public_league import matchup_narrative as _mn
-
-    if mode not in {"preview", "recap"}:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "bad_request", "message": "mode must be preview|recap"},
-        )
-    article = _mn.load_article(season, week, matchup_id, mode)
-    if article is None:
-        return JSONResponse(
-            status_code=404,
-            content={
-                "error": "not_found",
-                "message": (f"No {mode} article on disk for {season} W{week} matchup {matchup_id}"),
-            },
-        )
-    return JSONResponse(
-        content=article,
-        # Cache for 5 minutes; new articles propagate via cron not on-demand.
-        headers={"Cache-Control": "public, max-age=300"},
-    )
-
-
-@app.post("/api/league/articles/generate")
-async def post_generate_league_article(request: Request):
-    """Admin trigger: generate a single article on demand.
-
-    Body shape:
-        {
-          "season": "2025",         // optional, defaults to current season
-          "week": 17,                // optional, detector picks live week
-          "matchupId": 1,            // required for single-article runs
-          "mode": "preview" | "recap",
-          "force": true|false        // optional, default false
-        }
-
-    Returns the generated article on success, 404 if the matchup
-    can't be found in the snapshot, 503 if the Anthropic SDK isn't
-    configured.
-
-    NOTE: this is the synchronous, single-matchup path — full slate
-    generation is the cron's job.  Hold a session at the wheel; this
-    will block for 10-30 seconds while Claude generates.
-    """
-    session_or_err = _require_admin_session(request)
-    if isinstance(session_or_err, JSONResponse):
-        return session_or_err
-
-    try:
-        body = await request.json()
-    except Exception:  # noqa: BLE001
-        body = {}
-    if not isinstance(body, dict):
-        body = {}
-
-    mode = str(body.get("mode") or "").strip().lower()
-    if mode not in {"preview", "recap"}:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "bad_request", "message": "mode must be preview|recap"},
-        )
-    matchup_id = body.get("matchupId")
-    if matchup_id is None:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "bad_request", "message": "matchupId required"},
-        )
-    try:
-        matchup_id = int(matchup_id)
-    except (TypeError, ValueError):
-        return JSONResponse(
-            status_code=400,
-            content={"error": "bad_request", "message": "matchupId must be an integer"},
-        )
-    explicit_week = body.get("week")
-    if explicit_week is not None:
-        try:
-            explicit_week = int(explicit_week)
-        except (TypeError, ValueError):
-            return JSONResponse(
-                status_code=400,
-                content={"error": "bad_request", "message": "week must be an integer"},
-            )
-    explicit_season = body.get("season")
-    explicit_season = str(explicit_season) if explicit_season else None
-    force = bool(body.get("force"))
-
-    # Resolve league via the standard resolver (so admins can override
-    # via ?leagueKey=).
-    try:
-        league_cfg = _resolve_league_for_request(request, body=body)
-    except LeagueResolutionError as err:
-        return err.json_response()
-
-    if anthropic is None:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "anthropic_unavailable", "message": "anthropic SDK not installed"},
-        )
-    api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
-    if not api_key:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "error": "anthropic_unavailable",
-                "message": "ANTHROPIC_API_KEY not configured",
-            },
-        )
-
-    # Build the snapshot off the event loop — it does ~85 HTTP GETs
-    # against Sleeper.
-    from src.public_league import matchup_narrative as _mn
-    from src.public_league.snapshot import build_public_snapshot
-
-    snapshot = await run_in_threadpool(
-        build_public_snapshot,
-        league_cfg.sleeper_league_id,
-    )
-    current = snapshot.current_season
-    if current is None:
-        return JSONResponse(
-            status_code=503,
-            content={"error": "snapshot_unavailable", "message": "Sleeper snapshot empty"},
-        )
-
-    season = explicit_season or current.season
-    if explicit_week is not None:
-        week = explicit_week
-    else:
-        from src.public_league import matchup_preview as _mp
-
-        detected_week, detected_mode = _mp._detect_current_week(current)  # noqa: SLF001
-        if detected_week == 0:
-            return JSONResponse(
-                status_code=404,
-                content={"error": "week_not_found", "message": "no live week detected"},
-            )
-        if mode == "recap" and detected_mode == "preview":
-            week = max(1, detected_week - 1)
-        else:
-            week = detected_week
-
-    if not force:
-        existing = _mn.load_article(season, week, matchup_id, mode)
-        if existing is not None:
-            return JSONResponse(
-                status_code=200,
-                content={"article": existing, "regenerated": False},
-            )
-
-    brief = _mn.build_brief(
-        snapshot,
-        season=season,
-        week=week,
-        matchup_id=matchup_id,
-        mode=mode,
-    )
-    if brief is None:
-        return JSONResponse(
-            status_code=404,
-            content={
-                "error": "matchup_not_found",
-                "message": f"no matchup_id={matchup_id} in {season} W{week}",
-            },
-        )
-    prior = _mn.collect_prior_articles(season, n=6)
-    client = anthropic.AsyncAnthropic(api_key=api_key)
-    try:
-        article = await _mn.generate_article(
-            client=client,
-            brief=brief,
-            prior_articles=prior,
-        )
-    except Exception as exc:  # noqa: BLE001 — collapse SDK / network / parse to one structured error
-        # generate_article raises RuntimeError for malformed JSON, but
-        # SDK layer can raise APIStatusError / RateLimitError /
-        # APIConnectionError / asyncio.TimeoutError before parsing.
-        # All of these are operational failures the admin caller wants
-        # to retry against, not unstructured 500s.
-        log.warning(
-            "league_article_generation_failed",
-            extra={
-                "season": season,
-                "week": week,
-                "matchupId": matchup_id,
-                "mode": mode,
-                "error_type": type(exc).__name__,
-            },
-        )
-        return JSONResponse(
-            status_code=502,
-            content={
-                "error": "generation_failed",
-                "errorType": type(exc).__name__,
-                "message": str(exc),
-            },
-        )
-    _mn.save_article(article)
-    return JSONResponse(
-        status_code=200,
-        content={"article": article, "regenerated": True},
-    )
+_public_trade_advisor_api.configure_host(lambda: sys.modules[__name__])
+app.include_router(_public_trade_advisor_api.router)
 
 
 # Static file mount for backend-generated assets (CSS, images if any).
@@ -15364,15 +22412,28 @@ async def get_intel_summary(request: Request):
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
 
 
-def _intel_contract_context() -> dict:
+def _intel_contract_context(league_key: str | None = None) -> dict:
     """Position, value and team maps from the loaded contract.
 
     Every piece is optional: a missing contract yields empty maps, which
     makes the partner-fit and value-match terms abstain rather than
     taking the whole lead list down with them.
+
+    ``league_key`` is the league the leads are FOR.  The loaded contract
+    is ONE league's rosters and board (``meta.leagueKey``); when it was
+    built for a different league every map here would be that other
+    league's owners and values, so the context abstains instead
+    (LI1842-DEFECT-01).  ``POST /api/intel/leads`` already refuses such a
+    request with the standard 503 before it gets here
+    (``require_loaded_contract=True``); this is the second line so a
+    direct caller cannot reintroduce the leak.  An unstamped contract is
+    treated as "nothing proven to the contrary", as the resolver does.
     """
     try:
         contract = latest_contract_data or {}
+        loaded_key = (contract.get("meta") or {}).get("leagueKey")
+        if league_key and loaded_key and loaded_key != league_key:
+            return {"teams": [], "positions": {}, "values": {}}
         sleeper_block = contract.get("sleeper") or {}
         teams = sleeper_block.get("teams") or []
         positions = {}
@@ -15399,7 +22460,7 @@ def _build_intel_leads(league_cfg, asset_id: str, mode: str) -> dict:
     """Assemble one lead list.  Runs in a threadpool — pure sync."""
     from src.intel import lead_service, roster_shape
 
-    ctx = _intel_contract_context()
+    ctx = _intel_contract_context(league_cfg.key)
     teams = ctx["teams"]
     positions = ctx["positions"]
     values = ctx["values"]
@@ -15461,8 +22522,12 @@ async def post_intel_leads(request: Request):
 
     # Body parsed BEFORE the resolver so a body leagueKey reaches it —
     # the POST convention used by the other league-scoped endpoints.
+    # ``require_loaded_contract``: the roster-fit and value terms read the
+    # loaded contract, which is one league's.  Another league's request is
+    # a 503 ``data_not_ready`` (the ``/api/trade/*`` rule), never that
+    # league's owners and values served as this one's (LI1842-DEFECT-01).
     try:
-        league_cfg = _resolve_league_for_request(request, body=body)
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
     except LeagueResolutionError as err:
         return err.json_response()
 
@@ -16005,7 +23070,9 @@ async def get_playerctx_player(request: Request):
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
+def main() -> None:
+    """Serve this module's ``app`` (``python server.py`` lands here through
+    the ``__main__`` guard at the top of the file)."""
     import uvicorn
 
     print()

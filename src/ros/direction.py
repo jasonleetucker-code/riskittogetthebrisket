@@ -19,6 +19,12 @@ from __future__ import annotations
 
 from typing import Any
 
+#: The concept this classifier measures.  It is the deadline buy/sell
+#: stance read off simulated odds, NOT the canonical competitive posture
+#: (``src.roster_intel.window.competitive_posture``: PUSH / HOLD / RETOOL /
+#: REBUILD).  Pinned by ``tests/roster_intel/test_team_semantics.py``.
+CONCEPT = "deadline_buy_sell_stance"
+
 # Per-position age thresholds at which a player counts as "veteran"
 # in the dynasty-age profile.  Spec values verbatim.
 _VETERAN_AGE: dict[str, int] = {

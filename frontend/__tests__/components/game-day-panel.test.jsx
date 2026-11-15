@@ -20,7 +20,7 @@
  *     focus and expanded sections across a refresh.
  */
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import GameDayPanel, { validMatchupPayload } from "@/components/GameDayPanel";
 import { formatPct, formatPoints } from "@/lib/game-day-view";
@@ -34,6 +34,34 @@ import MIXED from "../fixtures/game-day/mixed-slate.json";
 import FEED_DOWN from "../fixtures/game-day/live-feed-down.json";
 import STALE from "../fixtures/game-day/stale.json";
 import PENDING from "../fixtures/game-day/pending.json";
+
+// The Game Day panel code-splits three sections with React.lazy
+// (BestBallDetailsBody, DataInfoBody, GamePlayers).  The FIRST wait in this
+// file that reveals each one paid its chunk compilation (CPU-bound, so it
+// grows with the full suite's worker load) plus React 19's 300 ms Suspense
+// reveal throttle inside Testing Library's 1 s default — and "Best-ball
+// details" kept failing intermittently in full vitest runs even after a
+// one-off 5 s bump on the single test that happened to run first.  Which
+// test reveals a panel first is an accident of file order and `-t` filters,
+// so the fix is the #1792 pattern (dfs-workspace.test.jsx): compile every
+// game-day module before any timed wait (the glob covers new panels), and
+// give every wait that crosses a lazy boundary the same explicit budget.
+// Assertions are unchanged; a wait still returns the moment its element
+// appears.
+const GAME_DAY_MODULES = import.meta.glob("../../components/game-day/*.jsx");
+beforeAll(async () => {
+  await Promise.all(Object.values(GAME_DAY_MODULES).map((load) => load()));
+}, 60_000);
+
+/** Budget for a wait that reveals a React.lazy section (see above). */
+const LAZY_REVEAL = { timeout: 10_000 };
+
+// The per-test timeout must EXCEED the wait budget, or the budget is
+// fictional: vitest's default testTimeout is 5 s, so a 10 s reveal budget
+// was cut off at 5 s ("Test timed out in 5000ms") exactly when the suite
+// was loaded enough to need it.  Same setting as trade-asset-quantity /
+// trade-screenshot-import-page.
+vi.setConfig({ testTimeout: 30_000 });
 
 const mockUserState = { state: { selectedTeam: null } };
 vi.mock("@/components/useUserState", () => ({
@@ -138,11 +166,10 @@ describe("GameDayPanel — pregame", () => {
   it("labels the pregame lineup illustrative and never shows a counting lineup", async () => {
     await renderReady(PREGAME);
     fireEvent.click(screen.getByRole("button", { name: "Best-ball details" }));
-    // First test to open the lazy BestBallDetailsBody: its cold import
-    // (now incl. the ds PlayerNameButton → next/link, #1337) can exceed
-    // the default 1 s under a full parallel suite run.
+    // Opens the lazy BestBallDetailsBody (incl. the ds PlayerNameButton →
+    // next/link, #1337): LAZY_REVEAL, see the top of the file.
     expect(
-      (await screen.findAllByText("Projected lineup (illustrative)", {}, { timeout: 5000 })).length,
+      (await screen.findAllByText("Projected lineup (illustrative)", {}, LAZY_REVEAL)).length,
     ).toBe(2);
     expect(screen.queryByText("Currently counting")).toBeNull();
     expect(screen.getAllByText(/Projected finish averages the best lineup/).length).toBe(2);
@@ -199,7 +226,7 @@ describe("GameDayPanel — live (real halftime capture)", () => {
     expect(within(row).getByText("0.0")).toBeInTheDocument();
     expect(within(row).getByText("No players have played yet")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Best-ball details" }));
-    expect(await screen.findByText(/no lineup is counting/)).toBeInTheDocument();
+    expect(await screen.findByText(/no lineup is counting/, {}, LAZY_REVEAL)).toBeInTheDocument();
   });
 
   it("lists the NFL slate in the payload's kickoff order, halftime observed", async () => {
@@ -267,6 +294,8 @@ describe("GameDayPanel — withheld probability", () => {
     const note = await screen.findByText(
       (_, el) =>
         el?.tagName === "P" && el.textContent.startsWith(`Game status unknown for ${ghost.name}`),
+      {},
+      LAZY_REVEAL,
     );
     expect(within(note).getByRole("link", { name: ghost.name })).toHaveAttribute(
       "href",
@@ -363,7 +392,11 @@ describe("GameDayPanel — freshness is never hidden", () => {
   it("lists every source with its status and age in Data info, failures visible", async () => {
     await renderReady(FEED_DOWN);
     fireEvent.click(screen.getByRole("button", { name: "Data info" }));
-    const table = await screen.findByRole("table", { name: /data sources and their freshness/ });
+    const table = await screen.findByRole(
+      "table",
+      { name: /data sources and their freshness/ },
+      LAZY_REVEAL,
+    );
     const espn = within(table).getByText(/^ESPN scoreboard/).closest("tr");
     expect(espn).toHaveTextContent("error (http_error:403)");
     expect(within(table).getByText(/^Sleeper league/).closest("tr")).toHaveTextContent("ok");
@@ -416,7 +449,8 @@ describe("GameDayPanel — final", () => {
     fireEvent.click(screen.getByRole("button", { name: "Best-ball details" }));
     // Both sides have TNF players whose game is over.
     expect(
-      (await screen.findAllByRole("heading", { name: "Game finished", level: 4 })).length,
+      (await screen.findAllByRole("heading", { name: "Game finished", level: 4 }, LAZY_REVEAL))
+        .length,
     ).toBe(2);
   });
 });
@@ -441,7 +475,9 @@ describe("GameDayPanel — mixed slate game status", () => {
     const row = container.querySelector(`[data-game-id="${played.gameId}"]`);
     fireEvent.click(within(row).getByRole("button", { name: /Players/ }));
     const negative = played.players.find((p) => p.state !== "not_started" && p.pointsScored < 0);
-    expect(await within(row).findByText(formatPoints(negative.pointsScored))).toBeInTheDocument();
+    expect(
+      await within(row).findByText(formatPoints(negative.pointsScored), {}, LAZY_REVEAL),
+    ).toBeInTheDocument();
   });
 });
 
@@ -469,7 +505,7 @@ describe("GameDayPanel — missing is never zero", () => {
     expect(within(heroRow("Team 8")).getByText("Partial — scoring missing for 1 player")).toBeInTheDocument();
     const row = container.querySelector('[data-game-id="2026_3_ATL_GB"]');
     fireEvent.click(within(row).getByRole("button", { name: /Players/ }));
-    const cells = (await within(row).findByText(live.name)).closest("tr");
+    const cells = (await within(row).findByText(live.name, {}, LAZY_REVEAL)).closest("tr");
     expect(cells).toHaveTextContent("Unavailable");
     expect(cells).not.toHaveTextContent(/\b0\.0\b/);
   });
@@ -482,7 +518,9 @@ describe("GameDayPanel — missing is never zero", () => {
     const { container } = await renderReady(p);
     const row = container.querySelector('[data-game-id="2026_3_ATL_GB"]');
     fireEvent.click(within(row).getByRole("button", { name: /Players/ }));
-    expect((await within(row).findByText(live.name)).closest("tr")).toHaveTextContent("0.0");
+    expect((await within(row).findByText(live.name, {}, LAZY_REVEAL)).closest("tr")).toHaveTextContent(
+      "0.0",
+    );
   });
 
   it("never shows a fabricated 50% when nothing priced the week", async () => {
@@ -734,9 +772,9 @@ describe("GameDayPanel — background refresh", () => {
     const tnf = view.container.querySelector('[data-game-id="2026_3_ATL_GB"]');
     const toggle = within(tnf).getByRole("button", { name: /Players/ });
     fireEvent.click(toggle);
-    await screen.findByText("1 projection family");
-    await within(tnf).findByRole("table");
-    await screen.findAllByText("Currently counting");
+    await screen.findByText("1 projection family", {}, LAZY_REVEAL);
+    await within(tnf).findByRole("table", {}, LAZY_REVEAL);
+    await screen.findAllByText("Currently counting", {}, LAZY_REVEAL);
     toggle.focus();
     const root = view.container.querySelector('[data-game-day-ready="true"]');
     const scrollSpy = vi.spyOn(window, "scrollTo").mockImplementation(() => {});

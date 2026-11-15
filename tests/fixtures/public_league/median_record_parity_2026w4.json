@@ -1,0 +1,682 @@
+{
+ "_provenance": {
+  "capturedAt": "2026-10-08",
+  "source": "Sleeper public API GET /v1/league/{id}, /rosters, /matchups/{week}; fields reduced to those the record reads",
+  "weeks": [
+   1,
+   2,
+   3,
+   4
+  ]
+ },
+ "leagues": {
+  "dynasty_main": {
+   "leagueId": "1312006700437352448",
+   "season": "2026",
+   "total_rosters": 12,
+   "settings": {
+    "league_average_match": 1,
+    "last_scored_leg": 4,
+    "playoff_week_start": 15,
+    "playoff_teams": 7,
+    "playoff_seed_type": 1,
+    "num_teams": 12,
+    "best_ball": 1
+   },
+   "rosters": [
+    {
+     "roster_id": 1,
+     "settings": {
+      "wins": 7,
+      "losses": 1,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 2,
+     "settings": {
+      "wins": 2,
+      "losses": 6,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 3,
+     "settings": {
+      "wins": 4,
+      "losses": 4,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 4,
+     "settings": {
+      "wins": 4,
+      "losses": 4,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 5,
+     "settings": {
+      "wins": 5,
+      "losses": 3,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 6,
+     "settings": {
+      "wins": 6,
+      "losses": 2,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 7,
+     "settings": {
+      "wins": 0,
+      "losses": 8,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 8,
+     "settings": {
+      "wins": 6,
+      "losses": 2,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 9,
+     "settings": {
+      "wins": 7,
+      "losses": 1,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 10,
+     "settings": {
+      "wins": 4,
+      "losses": 4,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 11,
+     "settings": {
+      "wins": 1,
+      "losses": 7,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 12,
+     "settings": {
+      "wins": 2,
+      "losses": 6,
+      "ties": 0
+     }
+    }
+   ],
+   "matchups": {
+    "1": [
+     {
+      "roster_id": 1,
+      "matchup_id": 4,
+      "points": 404.46
+     },
+     {
+      "roster_id": 2,
+      "matchup_id": 5,
+      "points": 312.87
+     },
+     {
+      "roster_id": 3,
+      "matchup_id": 2,
+      "points": 279.96
+     },
+     {
+      "roster_id": 4,
+      "matchup_id": 4,
+      "points": 363.78
+     },
+     {
+      "roster_id": 5,
+      "matchup_id": 1,
+      "points": 393.44
+     },
+     {
+      "roster_id": 6,
+      "matchup_id": 6,
+      "points": 473.3
+     },
+     {
+      "roster_id": 7,
+      "matchup_id": 1,
+      "points": 274.7
+     },
+     {
+      "roster_id": 8,
+      "matchup_id": 3,
+      "points": 452.3
+     },
+     {
+      "roster_id": 9,
+      "matchup_id": 6,
+      "points": 453.37
+     },
+     {
+      "roster_id": 10,
+      "matchup_id": 5,
+      "points": 315.67
+     },
+     {
+      "roster_id": 11,
+      "matchup_id": 3,
+      "points": 319.11
+     },
+     {
+      "roster_id": 12,
+      "matchup_id": 2,
+      "points": 303.97
+     }
+    ],
+    "2": [
+     {
+      "roster_id": 1,
+      "matchup_id": 4,
+      "points": 325.17
+     },
+     {
+      "roster_id": 2,
+      "matchup_id": 6,
+      "points": 341.75
+     },
+     {
+      "roster_id": 3,
+      "matchup_id": 3,
+      "points": 353.46
+     },
+     {
+      "roster_id": 4,
+      "matchup_id": 2,
+      "points": 278.12
+     },
+     {
+      "roster_id": 5,
+      "matchup_id": 2,
+      "points": 323.23
+     },
+     {
+      "roster_id": 6,
+      "matchup_id": 4,
+      "points": 307.85
+     },
+     {
+      "roster_id": 7,
+      "matchup_id": 3,
+      "points": 310.64
+     },
+     {
+      "roster_id": 8,
+      "matchup_id": 1,
+      "points": 360.4
+     },
+     {
+      "roster_id": 9,
+      "matchup_id": 5,
+      "points": 461.18
+     },
+     {
+      "roster_id": 10,
+      "matchup_id": 5,
+      "points": 415.16
+     },
+     {
+      "roster_id": 11,
+      "matchup_id": 6,
+      "points": 325.79
+     },
+     {
+      "roster_id": 12,
+      "matchup_id": 1,
+      "points": 305.02
+     }
+    ],
+    "3": [
+     {
+      "roster_id": 1,
+      "matchup_id": 3,
+      "points": 401.21
+     },
+     {
+      "roster_id": 2,
+      "matchup_id": 3,
+      "points": 327.37
+     },
+     {
+      "roster_id": 3,
+      "matchup_id": 4,
+      "points": 346.85
+     },
+     {
+      "roster_id": 4,
+      "matchup_id": 5,
+      "points": 355.35
+     },
+     {
+      "roster_id": 5,
+      "matchup_id": 2,
+      "points": 391.71
+     },
+     {
+      "roster_id": 6,
+      "matchup_id": 1,
+      "points": 414.69
+     },
+     {
+      "roster_id": 7,
+      "matchup_id": 5,
+      "points": 269.59
+     },
+     {
+      "roster_id": 8,
+      "matchup_id": 6,
+      "points": 442.5
+     },
+     {
+      "roster_id": 9,
+      "matchup_id": 2,
+      "points": 418.88
+     },
+     {
+      "roster_id": 10,
+      "matchup_id": 6,
+      "points": 446.17
+     },
+     {
+      "roster_id": 11,
+      "matchup_id": 4,
+      "points": 314.27
+     },
+     {
+      "roster_id": 12,
+      "matchup_id": 1,
+      "points": 225.92
+     }
+    ],
+    "4": [
+     {
+      "roster_id": 1,
+      "matchup_id": 2,
+      "points": 434.17
+     },
+     {
+      "roster_id": 2,
+      "matchup_id": 5,
+      "points": 294.3
+     },
+     {
+      "roster_id": 3,
+      "matchup_id": 4,
+      "points": 386.18
+     },
+     {
+      "roster_id": 4,
+      "matchup_id": 4,
+      "points": 460.69
+     },
+     {
+      "roster_id": 5,
+      "matchup_id": 2,
+      "points": 417.9
+     },
+     {
+      "roster_id": 6,
+      "matchup_id": 3,
+      "points": 397.26
+     },
+     {
+      "roster_id": 7,
+      "matchup_id": 1,
+      "points": 226.57
+     },
+     {
+      "roster_id": 8,
+      "matchup_id": 5,
+      "points": 351.58
+     },
+     {
+      "roster_id": 9,
+      "matchup_id": 6,
+      "points": 441.38
+     },
+     {
+      "roster_id": 10,
+      "matchup_id": 3,
+      "points": 375.04
+     },
+     {
+      "roster_id": 11,
+      "matchup_id": 6,
+      "points": 293.86
+     },
+     {
+      "roster_id": 12,
+      "matchup_id": 1,
+      "points": 284.71
+     }
+    ]
+   }
+  },
+  "dynasty_new": {
+   "leagueId": "1320092771247222784",
+   "season": "2026",
+   "total_rosters": 10,
+   "settings": {
+    "league_average_match": 0,
+    "last_scored_leg": 4,
+    "playoff_week_start": 15,
+    "playoff_teams": 6,
+    "playoff_seed_type": 0,
+    "num_teams": 10,
+    "best_ball": 0
+   },
+   "rosters": [
+    {
+     "roster_id": 1,
+     "settings": {
+      "wins": 4,
+      "losses": 0,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 2,
+     "settings": {
+      "wins": 4,
+      "losses": 0,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 3,
+     "settings": {
+      "wins": 1,
+      "losses": 3,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 4,
+     "settings": {
+      "wins": 2,
+      "losses": 2,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 5,
+     "settings": {
+      "wins": 0,
+      "losses": 4,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 6,
+     "settings": {
+      "wins": 2,
+      "losses": 2,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 7,
+     "settings": {
+      "wins": 3,
+      "losses": 1,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 8,
+     "settings": {
+      "wins": 1,
+      "losses": 3,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 9,
+     "settings": {
+      "wins": 2,
+      "losses": 2,
+      "ties": 0
+     }
+    },
+    {
+     "roster_id": 10,
+     "settings": {
+      "wins": 1,
+      "losses": 3,
+      "ties": 0
+     }
+    }
+   ],
+   "matchups": {
+    "1": [
+     {
+      "roster_id": 1,
+      "matchup_id": 5,
+      "points": 194.3
+     },
+     {
+      "roster_id": 2,
+      "matchup_id": 4,
+      "points": 225.76
+     },
+     {
+      "roster_id": 3,
+      "matchup_id": 3,
+      "points": 100.98
+     },
+     {
+      "roster_id": 4,
+      "matchup_id": 1,
+      "points": 174.26
+     },
+     {
+      "roster_id": 5,
+      "matchup_id": 5,
+      "points": 118.6
+     },
+     {
+      "roster_id": 6,
+      "matchup_id": 2,
+      "points": 119.8
+     },
+     {
+      "roster_id": 7,
+      "matchup_id": 2,
+      "points": 154.38
+     },
+     {
+      "roster_id": 8,
+      "matchup_id": 4,
+      "points": 96.76
+     },
+     {
+      "roster_id": 9,
+      "matchup_id": 3,
+      "points": 191.26
+     },
+     {
+      "roster_id": 10,
+      "matchup_id": 1,
+      "points": 163.12
+     }
+    ],
+    "2": [
+     {
+      "roster_id": 1,
+      "matchup_id": 5,
+      "points": 194.2
+     },
+     {
+      "roster_id": 2,
+      "matchup_id": 3,
+      "points": 186.78
+     },
+     {
+      "roster_id": 3,
+      "matchup_id": 3,
+      "points": 109.16
+     },
+     {
+      "roster_id": 4,
+      "matchup_id": 2,
+      "points": 98.5
+     },
+     {
+      "roster_id": 5,
+      "matchup_id": 4,
+      "points": 76.58
+     },
+     {
+      "roster_id": 6,
+      "matchup_id": 2,
+      "points": 120.6
+     },
+     {
+      "roster_id": 7,
+      "matchup_id": 1,
+      "points": 205.96
+     },
+     {
+      "roster_id": 8,
+      "matchup_id": 5,
+      "points": 121.4
+     },
+     {
+      "roster_id": 9,
+      "matchup_id": 4,
+      "points": 115.04
+     },
+     {
+      "roster_id": 10,
+      "matchup_id": 1,
+      "points": 129.66
+     }
+    ],
+    "3": [
+     {
+      "roster_id": 1,
+      "matchup_id": 4,
+      "points": 163.38
+     },
+     {
+      "roster_id": 2,
+      "matchup_id": 5,
+      "points": 132.8
+     },
+     {
+      "roster_id": 3,
+      "matchup_id": 3,
+      "points": 118.3
+     },
+     {
+      "roster_id": 4,
+      "matchup_id": 2,
+      "points": 197.6
+     },
+     {
+      "roster_id": 5,
+      "matchup_id": 5,
+      "points": 91.62
+     },
+     {
+      "roster_id": 6,
+      "matchup_id": 1,
+      "points": 167.68
+     },
+     {
+      "roster_id": 7,
+      "matchup_id": 2,
+      "points": 237.08
+     },
+     {
+      "roster_id": 8,
+      "matchup_id": 3,
+      "points": 105.02
+     },
+     {
+      "roster_id": 9,
+      "matchup_id": 4,
+      "points": 158.3
+     },
+     {
+      "roster_id": 10,
+      "matchup_id": 1,
+      "points": 122.52
+     }
+    ],
+    "4": [
+     {
+      "roster_id": 1,
+      "matchup_id": 4,
+      "points": 145.36
+     },
+     {
+      "roster_id": 2,
+      "matchup_id": 3,
+      "points": 210.92
+     },
+     {
+      "roster_id": 3,
+      "matchup_id": 1,
+      "points": 109.88
+     },
+     {
+      "roster_id": 4,
+      "matchup_id": 2,
+      "points": 174.5
+     },
+     {
+      "roster_id": 5,
+      "matchup_id": 5,
+      "points": 119.26
+     },
+     {
+      "roster_id": 6,
+      "matchup_id": 4,
+      "points": 139.22
+     },
+     {
+      "roster_id": 7,
+      "matchup_id": 3,
+      "points": 163.9
+     },
+     {
+      "roster_id": 8,
+      "matchup_id": 5,
+      "points": 152.04
+     },
+     {
+      "roster_id": 9,
+      "matchup_id": 2,
+      "points": 169.36
+     },
+     {
+      "roster_id": 10,
+      "matchup_id": 1,
+      "points": 113.16
+     }
+    ]
+   }
+  }
+ }
+}

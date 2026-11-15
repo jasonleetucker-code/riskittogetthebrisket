@@ -56,11 +56,25 @@ latest instant first; (2) origin priority (``store.ORIGIN_PRIORITY``);
 Corrections: an observation superseded via ``store.record_correction``
 is skipped by selection (the superseding row stands on its own; the
 original stays readable in the store).
+
+Bitemporal reads (opt-in ``knowledge_cutoff``): the two instant-strict
+reads bound the VALID time (``observed_date`` / ``observed_at``) but, by
+default, read the ledger's CURRENT knowledge of that past — a correction
+or a backfilled observation recorded today changes what an old instant
+"knew".  For leakage-safe evaluation pass ``knowledge_cutoff`` (UTC-aware)
+to also bound the TRANSACTION time: an observation counts only when its
+``recorded_at`` is a proven instant at or before the cutoff, and a
+correction excludes its superseded row only when the correction's own
+``recorded_at`` is at or before the cutoff.  An unprovable ``recorded_at``
+is NOT known at the cutoff (conservatively missing, the same posture as an
+unknown same-day ``observed_at``).  ``None`` (the default) keeps the
+original query and results byte-identical.
 """
 
 from __future__ import annotations
 
 import sqlite3
+from bisect import bisect_right
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
@@ -207,9 +221,18 @@ def _select_best(rows: list[sqlite3.Row]) -> sqlite3.Row | None:
     """
     if not rows:
         return None
+    return _selection_order(rows)[0]
 
-    # Python's sort is stable; do it in passes, least significant
-    # first, all ascending-normalized.
+
+def _selection_order(rows: list[sqlite3.Row]) -> list[sqlite3.Row]:
+    """``rows`` in :func:`_select_best`'s preference order, best first.
+
+    Python's sort is stable; do it in passes, least significant first,
+    all ascending-normalized.  Because every pass is stable, the order
+    this imposes on any SUBSET of ``rows`` is exactly the order sorting
+    that subset alone would produce (input order breaks full ties in
+    both) — the property :class:`_KnownBeforeIndex` rests on.
+    """
     ordered = sorted(rows, key=lambda r: str(r["content_hash"]))
     ordered = sorted(ordered, key=lambda r: origin_rank(str(r["origin"])))
     ordered = sorted(
@@ -217,8 +240,111 @@ def _select_best(rows: list[sqlite3.Row]) -> sqlite3.Row | None:
         key=lambda r: (1, str(r["observed_at"])) if r["observed_at"] else (0, ""),
         reverse=True,
     )
-    ordered = sorted(ordered, key=lambda r: str(r["observed_date"]), reverse=True)
-    return ordered[0]
+    return sorted(ordered, key=lambda r: str(r["observed_date"]), reverse=True)
+
+
+class _KnownBeforeIndex:
+    """One asset's candidate rows, indexed so each instant-strict request
+    is answered without re-filtering and re-sorting the whole history.
+
+    :func:`_select_best` ranks ``observed_date`` first, so the best
+    admissible row lives in the LATEST date that has one: ``requested``'s
+    own day when one of its rows carries a PROVEN instant at or before the
+    request, otherwise the latest earlier day (every row of an earlier day
+    is admissible).  Rows are grouped by date in their fetch order and a
+    group is put in :func:`_selection_order` only when a request reaches
+    it; by the subset property that equals the group's order inside the
+    full sort, so the first admissible row of the first admissible group
+    IS ``_select_best`` of the per-request filter.  Pinned against the
+    retired per-request form by
+    ``tests/history/test_batch_known_before_selection_equivalence.py``.
+    """
+
+    __slots__ = ("_by_date", "_dates", "_ordered")
+
+    def __init__(self, rows: list[sqlite3.Row]) -> None:
+        self._by_date: dict[str, list[sqlite3.Row]] = {}
+        for r in rows:
+            self._by_date.setdefault(str(r["observed_date"]), []).append(r)
+        self._dates = sorted(self._by_date)
+        self._ordered: dict[str, list[sqlite3.Row]] = {}
+
+    def _group(self, day: str) -> list[sqlite3.Row]:
+        group = self._ordered.get(day)
+        if group is None:
+            group = _selection_order(self._by_date[day])
+            self._ordered[day] = group
+        return group
+
+    def best(self, requested: str, utc: datetime) -> sqlite3.Row | None:
+        j = bisect_right(self._dates, requested)
+        if j and self._dates[j - 1] == requested:
+            for r in self._group(requested):
+                if _instant_at_or_before(r["observed_at"], utc):
+                    return r
+            j -= 1
+        if j:
+            return self._group(self._dates[j - 1])[0]
+        return None
+
+
+def _recorded_at_or_before(recorded_at: Any, cutoff_utc: datetime) -> bool:
+    """True only when a ledger ``recorded_at`` stamp is a PROVEN instant at
+    or before ``cutoff_utc`` (same parsing rule as :func:`parse_instant_utc`:
+    a time component is required, naive means UTC).  An unprovable stamp is
+    not known at the cutoff."""
+    parsed = parse_instant_utc(recorded_at)
+    return parsed is not None and parsed <= cutoff_utc
+
+
+def _known_at_cutoff(
+    conn: sqlite3.Connection,
+    rows: list[sqlite3.Row],
+    cutoff_utc: datetime,
+) -> list[sqlite3.Row]:
+    """The subset of ``rows`` (fetched WITHOUT the corrections filter) that
+    the ledger knew, and had not yet corrected away, at ``cutoff_utc``.
+
+    * an observation recorded after the cutoff (or at an unprovable time)
+      is invisible;
+    * an observation is excluded as superseded only when its correction was
+      recorded at or before the cutoff — a correction recorded later did not
+      exist yet, so the original row stands as it did then.
+    """
+    known = [r for r in rows if _recorded_at_or_before(r["recorded_at"], cutoff_utc)]
+    if not known:
+        return known
+    ids = [int(r["id"]) for r in known]
+    corrected: set[int] = set()
+    # Chunked so a long history never exceeds SQLite's bound-parameter limit.
+    for start in range(0, len(ids), 500):
+        chunk = ids[start : start + 500]
+        marks = ",".join("?" for _ in chunk)
+        for c in conn.execute(
+            f"SELECT superseded_id, recorded_at FROM corrections WHERE superseded_id IN ({marks})",
+            chunk,
+        ).fetchall():
+            if _recorded_at_or_before(c["recorded_at"], cutoff_utc):
+                corrected.add(int(c["superseded_id"]))
+    return [r for r in known if int(r["id"]) not in corrected]
+
+
+def _cutoff_utc(knowledge_cutoff: datetime | None, caller: str) -> datetime | None:
+    if knowledge_cutoff is None:
+        return None
+    if knowledge_cutoff.tzinfo is None:
+        raise ObservationError(
+            f"naive knowledge_cutoff passed to {caller}; knowledge cutoffs must be UTC-aware"
+        )
+    return knowledge_cutoff.astimezone(timezone.utc)
+
+
+def _stamp_cutoff(result: dict[str, Any], cutoff_utc: datetime | None) -> dict[str, Any]:
+    """Name the knowledge bound on a result — only when one was requested,
+    so the default shape is unchanged."""
+    if cutoff_utc is not None:
+        result["knowledgeCutoff"] = cutoff_utc.isoformat()
+    return result
 
 
 def _fetch_candidates(
@@ -230,6 +356,7 @@ def _fetch_candidates(
     date_max: str,
     strict_before_date: str | None = None,
     instant_max: datetime | None = None,
+    knowledge_cutoff: datetime | None = None,
 ) -> list[sqlite3.Row]:
     """Date-bounded candidate rows, superseded observations excluded.
 
@@ -239,17 +366,29 @@ def _fetch_candidates(
     (:func:`_instant_at_or_before` — a date-only or unparseable stamp
     is an unknown instant and never qualifies); rows on strictly
     earlier dates always qualify.
+
+    ``knowledge_cutoff`` (UTC-aware, opt-in) applies the bitemporal
+    bound described in the module docstring
+    (:func:`_known_at_cutoff`).  ``None`` issues the original query.
     """
-    q = (
-        f"SELECT {_SELECT_COLS} FROM observations "
-        "WHERE asset_key=? AND lane=? AND source_key=? AND observed_date<=? "
-        "AND id NOT IN (SELECT superseded_id FROM corrections)"
-    )
+    if knowledge_cutoff is None:
+        q = (
+            f"SELECT {_SELECT_COLS} FROM observations "
+            "WHERE asset_key=? AND lane=? AND source_key=? AND observed_date<=? "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)"
+        )
+    else:
+        q = (
+            f"SELECT {_SELECT_COLS} FROM observations "
+            "WHERE asset_key=? AND lane=? AND source_key=? AND observed_date<=?"
+        )
     params: list[Any] = [asset_key, lane, source_key, date_max]
     if strict_before_date is not None:
         q += " AND observed_date<?"
         params.append(strict_before_date)
     rows = conn.execute(q, params).fetchall()
+    if knowledge_cutoff is not None:
+        rows = _known_at_cutoff(conn, rows, knowledge_cutoff)
     if instant_max is None:
         return rows
     boundary = date_max
@@ -311,6 +450,7 @@ def value_known_before(
     source_key: str = "",
     max_age_days: int | None = None,
     path: Path | None = None,
+    knowledge_cutoff: datetime | None = None,
 ) -> dict[str, Any]:
     """Instant-strict as-of lookup for at-the-time analyses (C3-U9).
 
@@ -318,21 +458,29 @@ def value_known_before(
     same-day observation whose scrape instant is unknown does NOT.
     ``instant`` must be timezone-aware (UTC semantics are the ledger's
     contract; a naive instant is refused rather than guessed).
+
+    ``knowledge_cutoff`` (opt-in, UTC-aware) additionally ignores every
+    observation and correction RECORDED after it — see the module
+    docstring.  ``None`` is byte-identical to the original behaviour.
     """
     if instant.tzinfo is None:
         raise ObservationError(
             "naive datetime passed to value_known_before; as-of instants must be UTC-aware"
         )
+    cutoff = _cutoff_utc(knowledge_cutoff, "value_known_before")
     utc = instant.astimezone(timezone.utc)
     requested = utc.date().isoformat()
     if requested < HISTORY_FLOOR:
-        return _unavailable(asset_key, lane, source_key, requested, REASON_BEFORE_BOUNDARY)
+        return _stamp_cutoff(
+            _unavailable(asset_key, lane, source_key, requested, REASON_BEFORE_BOUNDARY),
+            cutoff,
+        )
 
     conn = _connect_readonly(path)
     if conn is None:
         out = _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR)
         out["requestedInstant"] = utc.isoformat()
-        return out
+        return _stamp_cutoff(out, cutoff)
     try:
         rows = _fetch_candidates(
             conn,
@@ -341,13 +489,16 @@ def value_known_before(
             source_key,
             date_max=requested,
             instant_max=utc,
+            knowledge_cutoff=cutoff,
         )
     finally:
         conn.close()
 
     best = _select_best(rows)
     if best is None:
-        return _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR)
+        return _stamp_cutoff(
+            _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR), cutoff
+        )
     result = _result_from_row(best, requested)
     result["requestedInstant"] = utc.isoformat()
     if (
@@ -359,8 +510,8 @@ def value_known_before(
         out["requestedInstant"] = utc.isoformat()
         out["nearestPriorDate"] = result["observedDate"]
         out["nearestPriorDistanceDays"] = result["distanceDays"]
-        return out
-    return result
+        return _stamp_cutoff(out, cutoff)
+    return _stamp_cutoff(result, cutoff)
 
 
 def batch_as_of(
@@ -422,6 +573,7 @@ def batch_known_before(
     source_key: str = "",
     max_age_days: int | None = None,
     path: Path | None = None,
+    knowledge_cutoff: datetime | None = None,
 ) -> dict[str, Any]:
     """Instant-strict as-of lookup for a batch of ``(asset_key, instant)``
     pairs — the batched sibling of :func:`value_known_before`.
@@ -449,7 +601,11 @@ def batch_known_before(
     ``max_age_days`` has no default freshness budget (``None``): staleness
     is a live-serving concept, and historical replay has no owner-approved
     notion of "too old" to invent one.
+
+    ``knowledge_cutoff`` (opt-in, UTC-aware) applies one bitemporal bound
+    to the whole batch (module docstring); ``None`` is byte-identical.
     """
+    cutoff = _cutoff_utc(knowledge_cutoff, "batch_known_before")
     normalized: list[tuple[str, datetime]] = []
     for asset_key, instant in requests:
         if instant.tzinfo is None:
@@ -492,21 +648,17 @@ def batch_known_before(
                 continue
 
             max_date = max(normalized[i][1].date().isoformat() for i in eligible_idxs)
-            rows = _fetch_candidates(conn, asset_key, lane, source_key, date_max=max_date)
+            rows = _fetch_candidates(
+                conn, asset_key, lane, source_key, date_max=max_date, knowledge_cutoff=cutoff
+            )
+            # Indexed ONCE per key, not filtered + re-sorted (four passes
+            # over the whole history) once per request.  Same selection.
+            index = _KnownBeforeIndex(rows)
 
             for i in eligible_idxs:
                 utc = normalized[i][1]
                 requested = utc.date().isoformat()
-                filtered = [
-                    r
-                    for r in rows
-                    if str(r["observed_date"]) < requested
-                    or (
-                        str(r["observed_date"]) == requested
-                        and _instant_at_or_before(r["observed_at"], utc)
-                    )
-                ]
-                best = _select_best(filtered)
+                best = index.best(requested, utc)
                 if best is None:
                     out = _unavailable(asset_key, lane, source_key, requested, REASON_NO_PRIOR)
                     out["requestedInstant"] = utc.isoformat()
@@ -532,6 +684,10 @@ def batch_known_before(
         if conn is not None:
             conn.close()
 
+    if cutoff is not None:
+        for r in results:
+            if r is not None:
+                _stamp_cutoff(r, cutoff)
     n = len(results)
     exact = sum(1 for r in results if r is not None and r["fidelity"] == FIDELITY_EXACT)
     prior = sum(1 for r in results if r is not None and r["fidelity"] == FIDELITY_NEAREST_PRIOR)
@@ -544,7 +700,7 @@ def batch_known_before(
         agg = FIDELITY_NEAREST_PRIOR
     else:
         agg = FIDELITY_PARTIAL
-    return {
+    out = {
         "results": results,
         "summary": {
             "items": n,
@@ -555,6 +711,7 @@ def batch_known_before(
             "fidelity": agg,
         },
     }
+    return _stamp_cutoff(out, cutoff)
 
 
 def series(
@@ -619,6 +776,158 @@ def series(
     }
 
 
+GENERATION_MATCH_INSTANT = "instant"
+GENERATION_MATCH_DATE = "date"
+
+
+def parse_instant_utc(stamp: Any) -> datetime | None:
+    """A PROVEN instant as UTC (naive = UTC, the ledger's legacy rule —
+    see :func:`_instant_at_or_before`), else ``None``."""
+    s = str(stamp or "").strip()
+    if not store.has_time_component(s):
+        return None
+    try:
+        parsed = datetime.fromisoformat(s[:-1] + "+00:00" if s.endswith("Z") else s)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def value_at_generation(
+    asset_key: str,
+    *,
+    observed_date: str,
+    observed_at: Any,
+    lane: str,
+    source_key: str = "",
+    allow_date_fallback: bool = True,
+    path: Path | None = None,
+) -> dict[str, Any]:
+    """The observation recorded IN one board generation — not merely on its
+    date.
+
+    A generation is one recorded scrape: ``(observed_date, observed_at)``.
+    Production records every scrape, so several generations share a date,
+    and a row from an EARLIER scrape that day is not evidence about a later
+    one (a source that failed at 22:00 is absent from the 22:00 generation
+    even though it answered at 08:00).  So:
+
+    * the generation carries a proven instant → a row matching that instant
+      exactly is ``present`` with ``match: "instant"``; failing that, rows on
+      the date with NO instant (legacy / backfill records, whose scrape is
+      unknown) answer at ``match: "date"`` — labelled, never passed off as
+      instant-exact; rows at a different proven instant never qualify;
+    * the generation has no instant → the best row on the date (standard tie
+      rule) at ``match: "date"``.
+
+    ``allow_date_fallback=False`` restricts a generation WITH an instant to
+    the exact-instant match (the date fallback is for generations whose
+    scrape time was never recorded, not a substitute for a recorded one).
+
+    A present answer carries the full point-lookup shape
+    (:func:`_result_from_row` — value, rank, tier, confidence, provenance)
+    plus ``present`` / ``match``.  ``{"present": False, "match": None}``
+    when nothing qualifies.  Read-only; superseded observations are skipped.
+    """
+    absent: dict[str, Any] = {"present": False, "match": None, "value": None}
+    conn = _connect_readonly(path)
+    if conn is None:
+        return absent
+    try:
+        rows = conn.execute(
+            f"SELECT {_SELECT_COLS} FROM observations "
+            "WHERE asset_key=? AND lane=? AND source_key=? AND observed_date=? "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)",
+            (asset_key, lane, source_key, observed_date),
+        ).fetchall()
+    finally:
+        conn.close()
+    if not rows:
+        return absent
+
+    gen_instant = parse_instant_utc(observed_at)
+    match = GENERATION_MATCH_DATE
+    if gen_instant is not None:
+        exact = [r for r in rows if parse_instant_utc(r["observed_at"]) == gen_instant]
+        if exact:
+            rows, match = exact, GENERATION_MATCH_INSTANT
+        elif not allow_date_fallback:
+            return absent
+        else:
+            rows = [r for r in rows if parse_instant_utc(r["observed_at"]) is None]
+    best = _select_best(rows)
+    if best is None:
+        return absent
+    return {**_result_from_row(best, observed_date), "present": True, "match": match}
+
+
+def generation_has_instant_rows(
+    asset_key: str,
+    *,
+    observed_date: str,
+    observed_at: Any,
+    lane: str,
+    path: Path | None = None,
+) -> bool:
+    """Did this generation (``observed_date`` + a proven ``observed_at``)
+    record ANY row in ``lane`` for the asset, under any source key?
+
+    When it did, that scrape stamped its rows with its instant, so an
+    instant-less row on the same date is NOT this generation's record and
+    must not stand in for one by date.  ``False`` for a generation with no
+    proven instant, or no ledger.
+    """
+    gen_instant = parse_instant_utc(observed_at)
+    if gen_instant is None:
+        return False
+    conn = _connect_readonly(path)
+    if conn is None:
+        return False
+    try:
+        rows = conn.execute(
+            "SELECT observed_at FROM observations "
+            "WHERE asset_key=? AND lane=? AND observed_date=? AND observed_at IS NOT NULL "
+            "AND id NOT IN (SELECT superseded_id FROM corrections)",
+            (asset_key, lane, observed_date),
+        ).fetchall()
+    finally:
+        conn.close()
+    return any(parse_instant_utc(r["observed_at"]) == gen_instant for r in rows)
+
+
+def _previous_board_date(conn: sqlite3.Connection, before_date: Any) -> str | None:
+    """The latest canonical board date STRICTLY BEFORE ``before_date`` —
+    the one comparator rule :func:`previous_board_ranks` (``rankChange``)
+    and :func:`previous_board_date` (value-movement attribution) share."""
+    boundary = store.as_of_date(before_date)
+    row = conn.execute(
+        "SELECT MAX(observed_date) FROM observations WHERE lane=? AND observed_date<?",
+        (LANE_CANONICAL, boundary),
+    ).fetchone()
+    return str(row[0]) if row and row[0] else None
+
+
+def previous_board_date(
+    *,
+    before_date: date | datetime | str,
+    path: Path | None = None,
+) -> str | None:
+    """The comparator board generation for ``before_date``: the latest
+    canonical board date strictly before it, or ``None`` when no earlier
+    generation exists (or no ledger does) — "no comparator", never a
+    guessed date.  Same rule ``rankChange`` derives from."""
+    boundary = store.as_of_date(before_date)
+    conn = _connect_readonly(path)
+    if conn is None:
+        return None
+    try:
+        return _previous_board_date(conn, boundary)
+    finally:
+        conn.close()
+
+
 def previous_board_ranks(
     *,
     before_date: date | datetime | str,
@@ -644,11 +953,7 @@ def previous_board_ranks(
     if conn is None:
         return {}
     try:
-        prev_date_row = conn.execute(
-            "SELECT MAX(observed_date) FROM observations WHERE lane=? AND observed_date<?",
-            (LANE_CANONICAL, boundary),
-        ).fetchone()
-        prev_date = prev_date_row[0] if prev_date_row else None
+        prev_date = _previous_board_date(conn, boundary)
         if not prev_date:
             return {}
         rows = conn.execute(
@@ -669,3 +974,45 @@ def previous_board_ranks(
         if best is not None and best["rank"] is not None:
             out[key] = (str(best["observed_date"]), int(best["rank"]))
     return out
+
+
+def source_lane_coverage(path: Path | None = None) -> dict[str, Any]:
+    """Read-only observation depth of the ``source_value`` lane, per source key.
+
+    Answers "how many point-in-time days does the ledger hold for this
+    vendor's own numbers, and since when" without creating the database
+    (``_connect_readonly``).  A missing ledger answers ``exists: False`` with a
+    reason -- never zero observations, which would read as "recorded nothing"
+    rather than "nothing to read".  Corrected rows still count: this is a depth
+    census, not an as-of read.
+    """
+    conn = _connect_readonly(path)
+    if conn is None:
+        return {
+            "exists": False,
+            "historyFloor": HISTORY_FLOOR,
+            "reason": "no temporal ledger at this path; nothing can be read",
+            "sources": {},
+        }
+    try:
+        rows = conn.execute(
+            "SELECT source_key, COUNT(*) AS n, COUNT(DISTINCT observed_date) AS days, "
+            "MIN(observed_date) AS first, MAX(observed_date) AS last "
+            "FROM observations WHERE lane = ? GROUP BY source_key",
+            (store.LANE_SOURCE,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {
+        "exists": True,
+        "historyFloor": HISTORY_FLOOR,
+        "sources": {
+            str(r["source_key"]): {
+                "observations": int(r["n"]),
+                "distinctDates": int(r["days"]),
+                "firstDate": r["first"],
+                "lastDate": r["last"],
+            }
+            for r in rows
+        },
+    }

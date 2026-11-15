@@ -24,6 +24,7 @@ import subprocess
 from pathlib import Path
 
 from src.model_registry.holdout import source_roles
+from src.model_registry.training_manifest import SCOPES, default_manifest
 from src.model_registry.versioning import (
     ModelRegistry,
     ModelVersion,
@@ -116,7 +117,9 @@ def training_input_paths() -> dict[str, Path]:
     every rookie slice were unrecorded, so a challenger could not be
     reproduced from its own record.
 
-    Derived from the fitter's own source tables rather than mirrored here.
+    Derived from the one training manifest (``training_manifest``, which the
+    fitter's ``OFFENSE_SOURCES`` / ``fit_hill_curve_percentile`` tables are
+    views of) rather than mirrored here.
     A hand-maintained parallel list stops covering the thing it mirrors —
     the B1 pin instrument had this same defect and named three of six
     OFFENSE sources within a day of being written.
@@ -140,23 +143,20 @@ def training_input_paths() -> dict[str, Path]:
         if role.role == "train":
             _record(role.label, REPO / role.path)
 
+    # Every other trainer, straight from the one training manifest — including
+    # GLOBAL's DraftSharks-Combined pair, which is a declared board there (its
+    # two paths), not code the provenance has to know about separately.
+    manifest = default_manifest()
+    # Single-file boards first, so each file keeps the label it has always been
+    # fingerprinted under (registry continuity); the concatenation only adds a
+    # file no single-file board already covers.
+    trainers = [b for scope in SCOPES for b in manifest.trainers(scope)]
+    for board in sorted(trainers, key=lambda b: len(b.paths) > 1):
+        for rel in board.paths:
+            suffix = f":{Path(rel).name}" if len(board.paths) > 1 else ""
+            _record(f"{board.scope}:{board.label}{suffix}", REPO / rel)
+
     fitter = _fitter_module()
-    for table, scope in (
-        (getattr(fitter, "OFFENSE_SOURCES", {}), "OFFENSE"),
-        (getattr(fitter, "GLOBAL_SOURCES", {}), "GLOBAL"),
-        (getattr(fitter, "IDP_CSV_SOURCES", {}), "IDP"),
-    ):
-        for label, (rel, _column) in table.items():
-            _record(f"{scope}:{label}", REPO / rel)
-
-    # GLOBAL builds DraftSharks-Combined by concatenating the SF and IDP
-    # slices in code, so it appears in no source table at all. Both halves
-    # are already recorded above under their own scopes; this only catches
-    # the case where one of them is dropped from a table but still
-    # concatenated.
-    for rel in ("CSVs/site_raw/draftSharksSf.csv", "CSVs/site_raw/draftSharksIdp.csv"):
-        _record(f"GLOBAL:DraftSharks-Combined:{Path(rel).name}", REPO / rel)
-
     snapshot = _resolve_fit_snapshot(fitter)
     if snapshot is not None:
         _record("boardSnapshot", snapshot)

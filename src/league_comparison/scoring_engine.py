@@ -92,7 +92,8 @@ class PlayerSeasonScore:
     unscored: tuple[tuple[str, float], ...] = ()
     """Configured NONZERO rules no source supplied for this season.
 
-    Non-empty means :attr:`total_points` is a LOWER BOUND. Carried rather
+    Non-empty means :attr:`total_points` is PARTIAL — not a lower bound,
+    since an unscored rule may be a penalty (``pass_int_td``). Carried rather
     than dropped because a season total that silently omits a rule the
     league pays reads exactly like a season total that does not — which
     is the whole failure this engine's realized-points source exists to
@@ -233,7 +234,7 @@ def compute_player_season_scores(
         b["canonical"] = canonical
         b["total"] += pts
         # Union across weeks: one week that could not supply a rule makes
-        # the season total a lower bound.
+        # the season total partial (the rule may be a bonus or a penalty).
         for key, rate in rp.unscored:
             b["unscored"][key] = rate
         # Count any game where the player had a stat row, regardless

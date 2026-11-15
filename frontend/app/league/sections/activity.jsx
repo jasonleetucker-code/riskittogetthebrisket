@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { Avatar, Card, EmptyCard, Stat, nameFor } from "../shared.jsx";
 import TradeFlowSankey from "@/components/graphs/TradeFlowSankey";
 import ActivityHeatmap from "@/components/graphs/ActivityHeatmap";
+import { historyGradeBasisText } from "@/lib/trade-history-grade-policy";
 
 function ActivitySection({ managers, data, onNavigate }) {
   const feed = data?.feed || [];
@@ -44,6 +45,9 @@ function ActivitySection({ managers, data, onNavigate }) {
       return tokens.includes(q);
     });
   }, [feed, filter]);
+  // The grade-basis sentence explains grades, so it shows only when the feed
+  // carries at least one (a feed built without a valuation has none).
+  const hasGrades = feed.some((t) => (t.sides || []).some((s) => s.grade || s.currentGrade));
 
   if (!feed.length && !data?.totalCount) return <EmptyCard label="Trade activity" />;
 
@@ -112,6 +116,14 @@ function ActivitySection({ managers, data, onNavigate }) {
         }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {hasGrades && filtered.length > 0 ? (
+            <div
+              data-testid="activity-grade-basis"
+              style={{ fontSize: "0.68rem", color: "var(--subtext)", lineHeight: 1.45 }}
+            >
+              {historyGradeBasisText()}
+            </div>
+          ) : null}
           {filtered.map((t) => (
             <TradeCard key={t.transactionId} trade={t} managers={managers} onNavigate={onNavigate} />
           ))}
@@ -150,28 +162,18 @@ export function TradeCard({ trade, managers, onNavigate }) {
               <span style={{ cursor: side.ownerId ? "pointer" : "default", color: side.ownerId ? "var(--cyan)" : "var(--text)" }}>
                 {side.displayName || side.teamName || nameFor(managers, side.ownerId)}
               </span>
-              {side.grade && side.grade.available === false ? (
-                // No admissible historical evidence for this side's assets
-                // as of the trade's own date — an honest "we don't know",
-                // never a grade silently computed from today's values.
-                <span
-                  title="This trade predates our historical value coverage, or one of its assets has no recorded value as of that date."
-                  style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500, fontStyle: "italic" }}
-                >
-                  {side.grade.label}
-                </span>
-              ) : (
-                side.grade && (
-                  <>
-                    <span style={{ fontSize: "0.78rem", fontWeight: 800, color: side.grade.color }}>
-                      {side.grade.grade}
-                    </span>
-                    <span style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500 }}>
-                      {side.grade.label}
-                    </span>
-                  </>
-                )
-              )}
+              <TradeGradeBand
+                grade={side.grade}
+                when="When traded"
+                unavailableTitle="This trade predates our historical value coverage, or one of its assets has no recorded value as of that date."
+                testId="activity-grade-at-trade"
+              />
+              <TradeGradeBand
+                grade={side.currentGrade}
+                when="Today"
+                unavailableTitle="One of this side's assets has no value on today's board."
+                testId="activity-grade-today"
+              />
             </div>
             <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 2 }}>Received:</div>
             <ul style={{ paddingInlineStart: 16, margin: "4px 0 0", fontSize: "0.72rem" }}>
@@ -199,3 +201,38 @@ export function TradeCard({ trade, managers, onNavigate }) {
 }
 
 export default ActivitySection;
+
+// One grade band: the at-the-time grade ("When traded", from the canonical
+// ledger as of the trade's own date) or the current grade ("Today", the same
+// assets on today's board — owner decision 2026-10-17).  Both come from the
+// backend's one grading function under the active package model; this only
+// renders a band and label (no values reach the public payload).  An
+// unavailable grade is an honest "we don't know", never a grade computed
+// from some other date's values.  The label is a VALUE-BALANCE word (OD-F6
+// option A: the lowest tier reads "Evenly valued", never the market-fairness
+// verdict's "FAIR"); the hover text states the basis.
+function TradeGradeBand({ grade, when, unavailableTitle, testId }) {
+  if (!grade) return null;
+  if (grade.available === false) {
+    return (
+      <span
+        data-testid={testId}
+        title={unavailableTitle}
+        style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500, fontStyle: "italic" }}
+      >
+        {when}: <span>{grade.label}</span>
+      </span>
+    );
+  }
+  return (
+    <span
+      data-testid={testId}
+      title={historyGradeBasisText()}
+      style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}
+    >
+      <span style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500 }}>{when}</span>
+      <span style={{ fontSize: "0.78rem", fontWeight: 800, color: grade.color }}>{grade.grade}</span>
+      <span style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500 }}>{grade.label}</span>
+    </span>
+  );
+}

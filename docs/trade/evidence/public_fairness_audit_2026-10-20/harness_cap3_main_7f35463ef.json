@@ -1,0 +1,198 @@
+{
+  "bands": "fairness_bands_v2",
+  "codeRoot": "main@7f35463ef (merged into the audit branch; includes train 17: #1861, #1886)",
+  "counts": {
+    "D1_privateCategory_notEven_whenPublicFair": 126,
+    "D1_privateCategory_whenPublicFair": {
+      "APPROXIMATELY_EVEN": 18,
+      "FAVORABLE": 12,
+      "STRONGLY_UNFAVORABLE": 1,
+      "UNAVAILABLE": 4,
+      "UNFAVORABLE": 109
+    },
+    "D1_privateCategory_whenPublicNotFair": {
+      "APPROXIMATELY_EVEN": 6,
+      "FAVORABLE": 135,
+      "STRONGLY_FAVORABLE": 104,
+      "STRONGLY_UNFAVORABLE": 351,
+      "UNAVAILABLE": 268,
+      "UNFAVORABLE": 1603
+    },
+    "D1_privateComponentA_differs": 14,
+    "D1_privateComponentA_differs_dueToForcedRelease": 14,
+    "D1_privateComponentA_notEvaluated": 1725,
+    "D1_publicFair_byComponentA": {
+      "componentA_agreesFair": {
+        "APPROXIMATELY_EVEN|None": 18,
+        "FAVORABLE|None": 11,
+        "UNFAVORABLE|None": 30
+      },
+      "componentA_notEvaluated": {
+        "UNAVAILABLE|None": 4,
+        "UNFAVORABLE|roster_limit": 78
+      },
+      "componentA_notFair": {
+        "FAVORABLE|None": 1,
+        "STRONGLY_UNFAVORABLE|None": 1,
+        "UNFAVORABLE|None": 1
+      }
+    },
+    "D1_teamEvaluations": 2611,
+    "P1_teamContextInvariant_violations": 0,
+    "P2_publicEqualsEngine_violations": 0,
+    "P3_twoTeamSymmetry_violations": 0,
+    "P4_independentRecompute_violations": 0,
+    "P5_valueFree_violations": 0,
+    "P6_forcedReleaseSentinel_privateComponentA_moved": 184,
+    "P6_forcedReleaseSentinel_publicChanged": 0,
+    "byTeamCount": {
+      "2": 1485,
+      "3": 60,
+      "4": 60
+    },
+    "publicResults": {
+      "FAIR": 144,
+      "NOT_FAIR": 2467,
+      "UNABLE_TO_DETERMINE": 779
+    },
+    "refusedByLedger": 0,
+    "trades": 1605
+  },
+  "examples": {
+    "D1_category": [
+      {
+        "category": "UNFAVORABLE",
+        "legs": [
+          [
+            "pick:main:2027:r1:o1",
+            1,
+            2
+          ],
+          [
+            "pick:main:2027:r1:o2",
+            2,
+            1
+          ]
+        ],
+        "reason": "roster_limit",
+        "shape": "2:1v1",
+        "team": 1
+      },
+      {
+        "category": "UNFAVORABLE",
+        "legs": [
+          [
+            "pick:main:2027:r1:o1",
+            1,
+            2
+          ],
+          [
+            "pick:main:2027:r1:o2",
+            2,
+            1
+          ]
+        ],
+        "reason": "roster_limit",
+        "shape": "2:1v1",
+        "team": 2
+      },
+      {
+        "category": "UNFAVORABLE",
+        "legs": [
+          [
+            "pick:main:2027:r1:o1",
+            1,
+            2
+          ],
+          [
+            "pick:main:2028:r1:o2",
+            2,
+            1
+          ]
+        ],
+        "reason": "roster_limit",
+        "shape": "2:1v1",
+        "team": 1
+      }
+    ],
+    "D1_forcedRelease": [
+      {
+        "category": "FAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            3
+          ],
+          [
+            "p:102",
+            1,
+            3
+          ],
+          [
+            "p:302",
+            3,
+            1
+          ]
+        ],
+        "privateComponentA": "fair",
+        "public": "NOT_FAIR",
+        "shape": "2:2v1",
+        "team": 3
+      },
+      {
+        "category": "FAVORABLE",
+        "legs": [
+          [
+            "p:101",
+            1,
+            3
+          ],
+          [
+            "pick:main:2027:r1:o1",
+            1,
+            3
+          ],
+          [
+            "pick:main:2027:r1:o3",
+            3,
+            1
+          ]
+        ],
+        "privateComponentA": "fair",
+        "public": "NOT_FAIR",
+        "shape": "2:2v1",
+        "team": 3
+      },
+      {
+        "category": "STRONGLY_UNFAVORABLE",
+        "legs": [
+          [
+            "p:103",
+            1,
+            3
+          ],
+          [
+            "p:105",
+            1,
+            3
+          ],
+          [
+            "p:301",
+            3,
+            1
+          ]
+        ],
+        "privateComponentA": "lopsided",
+        "public": "FAIR",
+        "shape": "2:2v1",
+        "team": 3
+      }
+    ]
+  },
+  "ok": true,
+  "publicDigest": "8501804266dd9670c7e355486d147d180bf4b7f9a32fe2b31c0ffdad9edd67db",
+  "publicDigestUnderForcedReleaseSentinel": "8501804266dd9670c7e355486d147d180bf4b7f9a32fe2b31c0ffdad9edd67db",
+  "rosterSize": 3,
+  "seed": 20261020
+}

@@ -23,10 +23,19 @@ function setWindow(opts = {}) {
     innerWidth: opts.innerWidth ?? 1920,
     location: { pathname: opts.pathname ?? "/" },
   };
-  globalThis.navigator = {
-    connection: opts.effectiveType ? { effectiveType: opts.effectiveType } : undefined,
-    deviceMemory: opts.deviceMemory,
-  };
+  // Node >= 21 ships a getter-only global `navigator`; plain assignment throws
+  // ("Cannot set property navigator ... which has only a getter") unless an
+  // earlier test happened to delete it first. defineProperty works on every
+  // Node version, so the outcome no longer depends on which tests ran before.
+  Object.defineProperty(globalThis, "navigator", {
+    value: {
+      connection: opts.effectiveType ? { effectiveType: opts.effectiveType } : undefined,
+      deviceMemory: opts.deviceMemory,
+    },
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  });
   globalThis.document = { hidden: opts.hidden ?? false };
 }
 

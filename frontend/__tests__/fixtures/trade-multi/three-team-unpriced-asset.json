@@ -1,0 +1,4283 @@
+{
+ "_fixture": {
+  "board": "synthetic",
+  "description": "A 3-team cycle carrying a rostered player the board does not price: the two teams it touches are UNABLE (asset_not_evaluable), never priced at 0.",
+  "generator": "tests/trade/multi_team_ui_payloads.py",
+  "request": {
+   "assets": [
+    {
+     "from": 1,
+     "id": "p:105",
+     "to": 2
+    },
+    {
+     "from": 2,
+     "id": "p:201",
+     "to": 3
+    },
+    {
+     "from": 3,
+     "id": "p:301",
+     "to": 1
+    }
+   ],
+   "teams": [
+    1,
+    2,
+    3
+   ],
+   "useTeamContext": false
+  },
+  "scenario": "three-team-unpriced-asset"
+ },
+ "decisionRunIds": {
+  "1": null,
+  "2": null,
+  "3": null
+ },
+ "fairnessBands": {
+  "absoluteMinimum": 250.0,
+  "basis": "larger_package_utility",
+  "fairTradeLevels": [
+   "fair"
+  ],
+  "lopsidedPct": 18.0,
+  "postLaunchValidation": "OD-F4",
+  "slightPct": 3.5,
+  "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+  "unfairPct": 9.0,
+  "version": "fairness_bands_v2"
+ },
+ "generation": "2026-10-20T11:00:00+00:00",
+ "leagueKey": "synth",
+ "ledger": {
+  "legs": [
+   {
+    "from": 1,
+    "id": "p:105",
+    "to": 2
+   },
+   {
+    "from": 2,
+    "id": "p:201",
+    "to": 3
+   },
+   {
+    "from": 3,
+    "id": "p:301",
+    "to": 1
+   }
+  ],
+  "unverifiableAssetIds": []
+ },
+ "mode": "asset_only",
+ "multiTeamVersion": "multi_team_v1",
+ "packageModel": {
+  "classification": "ACTIVE",
+  "family": "geom",
+  "id": "geom_q078_v1",
+  "label": "Geometric Value Adjustment (q = 0.78)",
+  "version": "1"
+ },
+ "perspectiveRosterId": 1,
+ "rosters": {
+  "asOf": "2026-10-20",
+  "state": "current"
+ },
+ "snapshotChanged": null,
+ "summary": {
+  "conservation": {
+   "assetsReceived": 3,
+   "assetsSent": 3,
+   "balanced": true,
+   "pricedRawReceived": 9500,
+   "pricedRawSent": 9500
+  },
+  "fairnessOverall": {
+   "reasonCode": "not_all_teams_fair",
+   "state": "NOT_FAIR"
+  },
+  "legCount": 3,
+  "lines": [
+   "Team A: Unavailable \u2014 insufficient evidence.",
+   "Team B: Unavailable \u2014 insufficient evidence.",
+   "Team C: Strongly favorable."
+  ],
+  "nonConservedNote": "Adjusted package gaps and roster utility are per-team quantities and need not sum to zero.",
+  "perTeam": [
+   {
+    "category": "UNAVAILABLE",
+    "fairness": "UNABLE",
+    "headline": "NOT_ENOUGH_EVIDENCE",
+    "rosterId": 1,
+    "teamName": "Team A"
+   },
+   {
+    "category": "UNAVAILABLE",
+    "fairness": "UNABLE",
+    "headline": "NOT_ENOUGH_EVIDENCE",
+    "rosterId": 2,
+    "teamName": "Team B"
+   },
+   {
+    "category": "STRONGLY_FAVORABLE",
+    "fairness": "NOT_FAIR",
+    "headline": "YES",
+    "rosterId": 3,
+    "teamName": "Team C"
+   }
+  ],
+  "teamCount": 3
+ },
+ "teamCount": 3,
+ "teams": [
+  {
+   "analysis": {
+    "basis": "single_lens:equity",
+    "confidence": "MEDIUM",
+    "decision": {
+     "bands": {
+      "absoluteMinimum": 250.0,
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
+      "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
+      "slightPct": 3.5,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v2"
+     },
+     "components": {},
+     "confidence": {
+      "axes": {},
+      "bottleneck": [
+       "evidence"
+      ],
+      "isProbability": false,
+      "level": null,
+      "statement": "No confidence is stated: material information is missing."
+     },
+     "coverage": [
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": "objectiveValue",
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "asset_value",
+       "evidence": {
+        "band": {
+         "absoluteGap": 2500.0,
+         "bands": "fairness_bands_v2",
+         "label": "LOPSIDED",
+         "level": "lopsided",
+         "relativePct": 100.0,
+         "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+        },
+        "rawGap": 2500,
+        "receivingAdjusted": 2500.0,
+        "sendingAdjusted": 0,
+        "vaAdjustedGap": 2500
+       },
+       "evidenceKind": "independent",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": "canonical_value",
+       "owner": "src/trade/analyze_trade.py::equity_verdict + src/valuation_math",
+       "role": "decides",
+       "state": "evaluated",
+       "uncertainty": {
+        "kind": "confidence_bucket",
+        "value": 0
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": "rosterBenefit",
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "immediate_improvement",
+       "evidence": null,
+       "evidenceKind": "independent",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "league_scored_projection",
+       "owner": "src/roster_intel/best_ball_utility.py",
+       "role": "decides",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "monte_carlo_se",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": "no roster-level long-term quantity is wired; counted once, via asset value",
+        "state": "approximate"
+       },
+       "component": "objectiveValue",
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "long_term",
+       "evidence": {
+        "via": "canonical dynasty value (long-horizon) inside asset_value"
+       },
+       "evidenceKind": "correlated",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": "canonical_value",
+       "owner": "src/trade/analyze_trade.py",
+       "role": "explain_only",
+       "state": "partial",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": "objectiveValue",
+       "contribution": {
+        "direction": "context",
+        "magnitude": null,
+        "unit": "release cost charged once to asset value"
+       },
+       "dimension": "roster_construction",
+       "evidence": null,
+       "evidenceKind": "contextual",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "league_roster_rules",
+       "owner": "src/trade/roster_capacity.py",
+       "role": "gate",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "none",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "market_evidence",
+       "evidence": null,
+       "evidenceKind": "correlated",
+       "exclusionReason": "not_computed",
+       "freshness": "unknown",
+       "lineage": "real_trade_ledger",
+       "owner": "src/trade/comparable_trades.py",
+       "role": "explain_only",
+       "state": "unavailable",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "competitive_strategy",
+       "evidence": null,
+       "evidenceKind": "contextual",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "team_strategy_context",
+       "owner": "src/roster_intel/window.py::competitive_posture",
+       "role": "tiebreak",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "range",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "risk",
+       "evidence": {
+        "lowConfidenceAssets": 0,
+        "sourceDisagreementAssets": 0,
+        "unstampedAssets": 2
+       },
+       "evidenceKind": "explanatory",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": null,
+       "owner": "src/api/confidence.py (stamps) via the evidence lens",
+       "role": "confidence_only",
+       "state": "evaluated",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": "counterparty acceptance is not evaluated",
+        "state": "approximate"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "feasibility",
+       "evidence": {
+        "counterpartyAcceptance": "not_evaluated",
+        "notOwnedBySender": 0,
+        "pickOwnership": "observed"
+       },
+       "evidenceKind": "contextual",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": "ownership_records",
+       "owner": "src/identity/picks.py + src/api/trade_simulator.py",
+       "role": "gate",
+       "state": "evaluated",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "opportunity_cost",
+       "evidence": null,
+       "evidenceKind": "independent",
+       "exclusionReason": "not_wired",
+       "freshness": "unknown",
+       "lineage": null,
+       "owner": "(none: best-alternative comparison is not wired)",
+       "role": "explain_only",
+       "state": "unavailable",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": "roster limit only; trade deadline and saved LOCK / EXCLUDE are not applied",
+        "state": "approximate"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "league_constraints",
+       "evidence": null,
+       "evidenceKind": "contextual",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "league_roster_rules",
+       "owner": "src/trade/roster_capacity.py",
+       "role": "gate",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      }
+     ],
+     "deciding": "evidenceGate",
+     "executes": false,
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "headlineText": "NOT ENOUGH EVIDENCE",
+     "leaning": "MAKE",
+     "mainCounterargument": null,
+     "missingEvidence": [
+      {
+       "code": "unpriced_assets",
+       "evidence": {
+        "assets": [
+         "A Unpriced"
+        ]
+       },
+       "text": "On the board but unpriced (unknown, not worth 0): A Unpriced"
+      }
+     ],
+     "posture": {
+      "available": false,
+      "reason": "asset_only_mode"
+     },
+     "primaryReason": {
+      "component": "evidence",
+      "evidence": {
+       "assets": [
+        "A Unpriced"
+       ]
+      },
+      "kind": "gate",
+      "stance": "neutral",
+      "text": "On the board but unpriced (unknown, not worth 0): A Unpriced"
+     },
+     "reasons": [],
+     "receipt": {
+      "analyzeConfig": {
+       "depthNotableLossPpg": 0.5,
+       "largeMultiple": 3.0,
+       "materialityPpg": 1.0
+      },
+      "bands": "fairness_bands_v2",
+      "boardStamp": "2026-10-20T11:00:00+00:00",
+      "decisionVersion": "trade_decision_v2",
+      "packageModel": {
+       "classification": "ACTIVE",
+       "family": "geom",
+       "id": "geom_q078_v1",
+       "label": "Geometric Value Adjustment (q = 0.78)",
+       "version": "1"
+      },
+      "postureParamsVersion": null,
+      "projectionBasis": null,
+      "requestHash": "ada47d97acd3bd6ee780cf20c48fb94ddf0bd1fb28ba11a737e783d52ee0df3b",
+      "scoringFingerprint": null,
+      "strategy": {
+       "inferredClassification": null,
+       "inferredStrategy": null,
+       "reasoning": "Asset-only analysis: no strategy is used.",
+       "requested": null,
+       "source": "asset_only",
+       "used": null
+      }
+     },
+     "recommendationOnly": true,
+     "strategy": {
+      "inferredClassification": null,
+      "inferredStrategy": null,
+      "label": null,
+      "options": [
+       {
+        "label": "Win now",
+        "value": "WIN_NOW"
+       },
+       {
+        "label": "Balanced",
+        "value": "BALANCED"
+       },
+       {
+        "label": "Long-term value",
+        "value": "LONG_TERM"
+       }
+      ],
+      "postureMap": {
+       "HOLD": "BALANCED",
+       "PUSH": "WIN_NOW",
+       "REBUILD": "LONG_TERM",
+       "RETOOL": "BALANCED"
+      },
+      "reasoning": "Asset-only analysis: no strategy is used.",
+      "requested": null,
+      "requestedValid": null,
+      "source": "asset_only",
+      "used": null
+     },
+     "subtext": "A reliable recommendation cannot be made yet.",
+     "version": "trade_decision_v2",
+     "whatWouldChange": [
+      {
+       "evidence": {
+        "code": "unpriced_assets"
+       },
+       "flipsTo": null,
+       "kind": "evidence",
+       "text": "Resolve: On the board but unpriced (unknown, not worth 0): A Unpriced"
+      }
+     ]
+    },
+    "decisionRunId": null,
+    "dimensions": [
+     {
+      "available": true,
+      "detail": {
+       "band": {
+        "absoluteGap": 2500.0,
+        "bands": "fairness_bands_v2",
+        "label": "LOPSIDED",
+        "level": "lopsided",
+        "relativePct": 100.0,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+       },
+       "bandsReceipt": {
+        "absoluteMinimum": 250.0,
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
+        "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
+        "slightPct": 3.5,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+        "unfairPct": 9.0,
+        "version": "fairness_bands_v2"
+       },
+       "hypotheticalPicksOut": [],
+       "incomplete": true,
+       "largerPackageUtility": 2500.0,
+       "magnitude": "stretch",
+       "notOwnedBySender": [],
+       "packageModel": {
+        "classification": "ACTIVE",
+        "family": "geom",
+        "id": "geom_q078_v1",
+        "label": "Geometric Value Adjustment (q = 0.78)",
+        "version": "1"
+       },
+       "rawGap": 2500,
+       "receivingAdjusted": 2500.0,
+       "receivingValue": 2500,
+       "receivingValueAdjustment": 0.0,
+       "sendingAdjusted": 0,
+       "sendingValue": 0,
+       "sendingValueAdjustment": 0.0,
+       "unpricedIn": [],
+       "unpricedOut": [
+        "A Unpriced"
+       ],
+       "unresolvedIn": [],
+       "unresolvedOut": [],
+       "vaAdjustedGap": 2500,
+       "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
+      },
+      "dimension": "equity",
+      "direction": "favors",
+      "lineage": "canonical_value",
+      "votes": true
+     },
+     {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "rosterUtility",
+      "lineage": "league_scored_projection",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "feasibility",
+      "lineage": "league_roster_rules",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     {
+      "available": true,
+      "detail": {
+       "lowConfidenceAssets": [],
+       "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+       "projectionCoverage": null,
+       "rosterUtilityStandardError": null,
+       "sourceDisagreementAssets": [],
+       "unstampedAssets": [
+        "C TwoFive",
+        "A Unpriced"
+       ]
+      },
+      "dimension": "evidence",
+      "direction": null,
+      "lineage": null,
+      "votes": false
+     },
+     {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "strategicPosture",
+      "lineage": "team_strategy_context",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     {
+      "available": false,
+      "dimension": "marketCorroboration",
+      "lineage": "real_trade_ledger",
+      "unavailableReason": "not_computed",
+      "votes": false
+     }
+    ],
+    "lenses": {
+     "comparables": {
+      "available": false,
+      "dimension": "marketCorroboration",
+      "lineage": "real_trade_ledger",
+      "unavailableReason": "not_computed",
+      "votes": false
+     },
+     "evidence": {
+      "available": true,
+      "detail": {
+       "lowConfidenceAssets": [],
+       "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+       "projectionCoverage": null,
+       "rosterUtilityStandardError": null,
+       "sourceDisagreementAssets": [],
+       "unstampedAssets": [
+        "C TwoFive",
+        "A Unpriced"
+       ]
+      },
+      "dimension": "evidence",
+      "direction": null,
+      "lineage": null,
+      "votes": false
+     },
+     "feasibility": {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "feasibility",
+      "lineage": "league_roster_rules",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     "market": {
+      "available": true,
+      "detail": {
+       "band": {
+        "absoluteGap": 2500.0,
+        "bands": "fairness_bands_v2",
+        "label": "LOPSIDED",
+        "level": "lopsided",
+        "relativePct": 100.0,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+       },
+       "bandsReceipt": {
+        "absoluteMinimum": 250.0,
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
+        "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
+        "slightPct": 3.5,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+        "unfairPct": 9.0,
+        "version": "fairness_bands_v2"
+       },
+       "hypotheticalPicksOut": [],
+       "incomplete": true,
+       "largerPackageUtility": 2500.0,
+       "magnitude": "stretch",
+       "notOwnedBySender": [],
+       "packageModel": {
+        "classification": "ACTIVE",
+        "family": "geom",
+        "id": "geom_q078_v1",
+        "label": "Geometric Value Adjustment (q = 0.78)",
+        "version": "1"
+       },
+       "rawGap": 2500,
+       "receivingAdjusted": 2500.0,
+       "receivingValue": 2500,
+       "receivingValueAdjustment": 0.0,
+       "sendingAdjusted": 0,
+       "sendingValue": 0,
+       "sendingValueAdjustment": 0.0,
+       "unpricedIn": [],
+       "unpricedOut": [
+        "A Unpriced"
+       ],
+       "unresolvedIn": [],
+       "unresolvedOut": [],
+       "vaAdjustedGap": 2500,
+       "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
+      },
+      "dimension": "equity",
+      "direction": "favors",
+      "lineage": "canonical_value",
+      "votes": true
+     },
+     "posture": {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "strategicPosture",
+      "lineage": "team_strategy_context",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     "roster": {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "rosterUtility",
+      "lineage": "league_scored_projection",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     }
+    },
+    "reasonsAgainst": [],
+    "reasonsFor": [
+     "+2,500 package value after Value Adjustment (stretch gap)"
+    ],
+    "recommendation": "MAKE",
+    "teamContext": {
+     "applied": false,
+     "mode": "asset_only"
+    },
+    "topUncertainty": "On the board but unpriced \u2014 unknown, not worth 0, so left out of the package math: A Unpriced",
+    "unavailableDimensions": [
+     {
+      "dimension": "valueUncertainty",
+      "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
+      "reason": "unaudited_model"
+     },
+     {
+      "dimension": "currentSeasonEquity",
+      "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
+      "reason": "counterfactual_not_wired"
+     }
+    ],
+    "uncertainty": [
+     "On the board but unpriced \u2014 unknown, not worth 0, so left out of the package math: A Unpriced"
+    ],
+    "version": "analyze_trade_v3"
+   },
+   "category": "UNAVAILABLE",
+   "categoryReason": null,
+   "categoryText": "Unavailable \u2014 insufficient evidence",
+   "comparables": {
+    "state": "not_computed_multi_team"
+   },
+   "fairness": {
+    "bands": "fairness_bands_v2",
+    "gap": null,
+    "largerAdjustedSide": null,
+    "largerPackageUtility": null,
+    "level": null,
+    "reasonCode": "asset_not_evaluable",
+    "relativePct": null,
+    "state": "UNABLE"
+   },
+   "gives": [
+    {
+     "assetId": "p:105",
+     "kind": "player",
+     "label": "A Unpriced",
+     "toRosterId": 2,
+     "value": null,
+     "valueState": "unpriced"
+    }
+   ],
+   "receives": [
+    {
+     "assetId": "p:301",
+     "fromRosterId": 3,
+     "kind": "player",
+     "label": "C TwoFive",
+     "value": 2500,
+     "valueState": "priced"
+    }
+   ],
+   "rosterId": 1,
+   "simulation": {
+    "after": {
+     "byPosition": {
+      "DEF": {
+       "count": 0,
+       "value": 0
+      },
+      "IDP": {
+       "count": 0,
+       "value": 0
+      },
+      "K": {
+       "count": 0,
+       "value": 0
+      },
+      "PICK": {
+       "count": 2,
+       "value": 5000
+      },
+      "QB": {
+       "count": 1,
+       "value": 4000
+      },
+      "RB": {
+       "count": 1,
+       "value": 3000
+      },
+      "TE": {
+       "count": 0,
+       "value": 0
+      },
+      "WR": {
+       "count": 3,
+       "value": 8800
+      }
+     },
+     "tiers": {
+      "depth": 3,
+      "elite": 0,
+      "high": 0,
+      "mid": 4
+     },
+     "totalValue": 20800
+    },
+    "before": {
+     "byPosition": {
+      "DEF": {
+       "count": 0,
+       "value": 0
+      },
+      "IDP": {
+       "count": 0,
+       "value": 0
+      },
+      "K": {
+       "count": 0,
+       "value": 0
+      },
+      "PICK": {
+       "count": 2,
+       "value": 5000
+      },
+      "QB": {
+       "count": 1,
+       "value": 4000
+      },
+      "RB": {
+       "count": 2,
+       "value": 3000
+      },
+      "TE": {
+       "count": 0,
+       "value": 0
+      },
+      "WR": {
+       "count": 2,
+       "value": 6300
+      }
+     },
+     "tiers": {
+      "depth": 3,
+      "elite": 0,
+      "high": 0,
+      "mid": 4
+     },
+     "totalValue": 18300
+    },
+    "competitivePosture": {
+     "available": false,
+     "unavailableReason": "league_bundle_not_warm"
+    },
+    "delta": {
+     "byPosition": {
+      "DEF": {
+       "count": 0,
+       "value": 0
+      },
+      "IDP": {
+       "count": 0,
+       "value": 0
+      },
+      "K": {
+       "count": 0,
+       "value": 0
+      },
+      "PICK": {
+       "count": 0,
+       "value": 0
+      },
+      "QB": {
+       "count": 0,
+       "value": 0
+      },
+      "RB": {
+       "count": -1,
+       "value": 0
+      },
+      "TE": {
+       "count": 0,
+       "value": 0
+      },
+      "WR": {
+       "count": 1,
+       "value": 2500
+      }
+     },
+     "tiers": {
+      "depth": 0,
+      "elite": 0,
+      "high": 0,
+      "mid": 0
+     },
+     "totalValue": 2500
+    },
+    "equity": 2500,
+    "finalRosterSimulation": {
+     "available": true,
+     "cleanupApplied": [],
+     "cleanupIsUpperBound": false,
+     "coreAfter": {
+      "available": true,
+      "demand": {
+       "bySlot": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 1
+       },
+       "dedicatedBasis": {
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "flexSlots": [
+        "FLEX"
+       ],
+       "multiplier": 1.5,
+       "multiplierProvenance": "owner_addendum_839_amended_899",
+       "multiplierStatus": "PRIOR",
+       "starterBasis": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "superflexFoldedIntoQb": true,
+       "total": 4
+      },
+      "duplicateIds": [],
+      "members": [
+       {
+        "name": "A Qb",
+        "playerId": "103",
+        "position": "QB",
+        "role": "starter",
+        "slot": "QB",
+        "value": 4000.0
+       },
+       {
+        "name": "A Three",
+        "playerId": "102",
+        "position": "RB",
+        "role": "starter",
+        "slot": "RB",
+        "value": 3000.0
+       },
+       {
+        "name": "A Six",
+        "playerId": "101",
+        "position": "WR",
+        "role": "starter",
+        "slot": "WR",
+        "value": 6000.0
+       },
+       {
+        "name": "C TwoFive",
+        "playerId": "301",
+        "position": "WR",
+        "role": "starter",
+        "slot": "WR",
+        "value": 2500.0
+       },
+       {
+        "name": "A Depth",
+        "playerId": "104",
+        "position": "WR",
+        "role": "starter",
+        "slot": "FLEX",
+        "value": 300.0
+       }
+      ],
+      "reserveCount": 0,
+      "slotSource": null,
+      "starterCount": 5,
+      "starterSlots": [
+       "QB",
+       "RB",
+       "WR",
+       "WR",
+       "FLEX"
+      ],
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [],
+      "unpricedIds": []
+     },
+     "coreBefore": {
+      "available": true,
+      "demand": {
+       "bySlot": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 1
+       },
+       "dedicatedBasis": {
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "flexSlots": [
+        "FLEX"
+       ],
+       "multiplier": 1.5,
+       "multiplierProvenance": "owner_addendum_839_amended_899",
+       "multiplierStatus": "PRIOR",
+       "starterBasis": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "superflexFoldedIntoQb": true,
+       "total": 4
+      },
+      "duplicateIds": [],
+      "members": [
+       {
+        "name": "A Qb",
+        "playerId": "103",
+        "position": "QB",
+        "role": "starter",
+        "slot": "QB",
+        "value": 4000.0
+       },
+       {
+        "name": "A Three",
+        "playerId": "102",
+        "position": "RB",
+        "role": "starter",
+        "slot": "RB",
+        "value": 3000.0
+       },
+       {
+        "name": "A Six",
+        "playerId": "101",
+        "position": "WR",
+        "role": "starter",
+        "slot": "WR",
+        "value": 6000.0
+       },
+       {
+        "name": "A Depth",
+        "playerId": "104",
+        "position": "WR",
+        "role": "starter",
+        "slot": "WR",
+        "value": 300.0
+       }
+      ],
+      "reserveCount": 0,
+      "slotSource": null,
+      "starterCount": 4,
+      "starterSlots": [
+       "QB",
+       "RB",
+       "WR",
+       "WR",
+       "FLEX"
+      ],
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "FLEX"
+      ],
+      "unpricedIds": [
+       "105"
+      ]
+     },
+     "displacements": [],
+     "isVerdict": false,
+     "movements": [
+      {
+       "kind": "moved",
+       "name": "A Depth",
+       "playerId": "104",
+       "position": "WR",
+       "roleAfter": "starter",
+       "roleBefore": "starter",
+       "slotAfter": "FLEX",
+       "slotBefore": "WR"
+      },
+      {
+       "kind": "promoted",
+       "name": "C TwoFive",
+       "playerId": "301",
+       "position": "WR",
+       "roleAfter": "starter",
+       "roleBefore": null,
+       "slotAfter": "WR",
+       "slotBefore": null
+      }
+     ],
+     "needsCreated": [],
+     "needsFixed": [],
+     "notes": [],
+     "outgoingNotFound": [],
+     "promotions": [
+      {
+       "kind": "promoted",
+       "name": "C TwoFive",
+       "playerId": "301",
+       "position": "WR",
+       "roleAfter": "starter",
+       "roleBefore": null,
+       "slotAfter": "WR",
+       "slotBefore": null
+      }
+     ],
+     "strengthAfter": {
+      "available": true,
+      "byPosition": [
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "103"
+        ],
+        "position": "QB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 4000.0,
+        "value": 4000.0
+       },
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "102"
+        ],
+        "position": "RB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 3000.0,
+        "value": 3000.0
+       },
+       {
+        "count": 3,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "101",
+         "301",
+         "104"
+        ],
+        "position": "WR",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 3,
+        "starterValue": 8800.0,
+        "value": 8800.0
+       }
+      ],
+      "fullRosterValue": null,
+      "isComplete": false,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "positionOrder": [
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "reserveValue": 0.0,
+      "starterValue": 15800.0,
+      "total": 15800.0,
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [],
+      "unpricedCount": 0,
+      "unpricedIds": []
+     },
+     "strengthBefore": {
+      "available": true,
+      "byPosition": [
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "103"
+        ],
+        "position": "QB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 4000.0,
+        "value": 4000.0
+       },
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "102"
+        ],
+        "position": "RB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 3000.0,
+        "value": 3000.0
+       },
+       {
+        "count": 2,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "101",
+         "104"
+        ],
+        "position": "WR",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 2,
+        "starterValue": 6300.0,
+        "value": 6300.0
+       }
+      ],
+      "fullRosterValue": null,
+      "isComplete": false,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "positionOrder": [
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "reserveValue": 0.0,
+      "starterValue": 13300.0,
+      "total": 13300.0,
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "FLEX"
+      ],
+      "unpricedCount": 1,
+      "unpricedIds": [
+       "105"
+      ]
+     },
+     "strengthDelta": 2500.0,
+     "unavailableReason": null,
+     "unpricedIncoming": [],
+     "weaknessAfter": null,
+     "weaknessBefore": null
+    },
+    "ownedPickChecks": {
+     "alreadyOwnedByReceiver": [],
+     "hypotheticalPicksOut": [],
+     "incomingPickHolders": [],
+     "notOwnedBySender": [],
+     "repeatedOwnedPick": [],
+     "rule": "src/identity/picks.py::lookup_league_pick_owner",
+     "unverified": []
+    },
+    "receiving": [
+     {
+      "age": null,
+      "assetClass": "offense",
+      "basePos": "WR",
+      "confidenceBucket": null,
+      "hasSourceDisagreement": null,
+      "name": "C TwoFive",
+      "playerId": "301",
+      "pos": "WR",
+      "quarantined": false,
+      "rank": null,
+      "sourceLabel": "C TwoFive",
+      "tier": "depth",
+      "value": 2500,
+      "valueFreshness": null
+     }
+    ],
+    "rosterCapacity": {
+     "certainty": "exact",
+     "forcedDropCutCost": 0.0,
+     "forcedDropReleaseCost": null,
+     "forcedDropValue": 0.0,
+     "forcedDrops": [],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 1,
+     "ladderExhausted": false,
+     "notes": [
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+     ],
+     "openSpotsAfter": 3,
+     "openSpotsBefore": 3,
+     "outgoing": 1,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 0,
+     "overLimitAfterMax": 0,
+     "overLimitAfterMin": 0,
+     "overLimitBefore": 0,
+     "requiresDrops": false,
+     "rosterLimit": 8,
+     "rungOrderWasTied": false,
+     "sizeAfter": 5,
+     "sizeBefore": 5,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 0,
+     "valueScale": "rankDerivedValue"
+    },
+    "sending": [
+     {
+      "age": null,
+      "assetClass": "offense",
+      "basePos": "RB",
+      "confidenceBucket": null,
+      "hasSourceDisagreement": null,
+      "name": "A Unpriced",
+      "playerId": "105",
+      "pos": "RB",
+      "quarantined": false,
+      "rank": null,
+      "sourceLabel": "A Unpriced",
+      "tier": "depth",
+      "value": 0,
+      "valueFreshness": null
+     }
+    ],
+    "team": {
+     "name": "Team A",
+     "ownerId": "owner1",
+     "rosterId": 1
+    },
+    "teamContext": {
+     "applied": false,
+     "mode": "asset_only"
+    },
+    "teamImpact": {
+     "ageDelta": 0.0,
+     "competitivePosture": null,
+     "depthDelta": {
+      "QB": 0,
+      "RB": 0,
+      "TE": 0,
+      "WR": 0
+     },
+     "fitScore": 62.5,
+     "lineupDisplacement": {
+      "arrived": [
+       {
+        "name": "C TwoFive",
+        "position": "WR",
+        "value": 2500,
+        "valueScale": "rankDerivedValue"
+       }
+      ],
+      "departed": [
+       {
+        "name": "A Unpriced",
+        "position": "RB",
+        "value": 0,
+        "valueScale": "rankDerivedValue"
+       }
+      ],
+      "displaced": [],
+      "isValueDelta": false,
+      "promoted": [],
+      "startersAfter": 5,
+      "startersBefore": 5
+     },
+     "posture": null,
+     "postureSource": "unavailable",
+     "rationale": [
+      "Adds a starting WR (+2500.0 starter value)",
+      "Net raw equity +2500 (before Value Adjustment)",
+      "Roster-shape fit score +62"
+     ],
+     "redundancy": [],
+     "scarcityDelta": {
+      "QB": 0.0,
+      "RB": 1500.0,
+      "TE": 0,
+      "WR": -216.7
+     },
+     "starterDelta": {
+      "QB": 0,
+      "RB": -1,
+      "TE": 0,
+      "WR": 1
+     },
+     "starterValueDelta": {
+      "QB": 0.0,
+      "RB": 0.0,
+      "TE": 0,
+      "WR": 2500.0
+     },
+     "unscalablePositions": [
+      "TE"
+     ],
+     "windowFit": null
+    },
+    "unresolvedIn": [],
+    "unresolvedOut": []
+   },
+   "team": {
+    "name": "Team A",
+    "rosterId": 1
+   },
+   "unverifiableAssetIds": []
+  },
+  {
+   "analysis": {
+    "basis": "single_lens:equity",
+    "confidence": "MEDIUM",
+    "decision": {
+     "bands": {
+      "absoluteMinimum": 250.0,
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
+      "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
+      "slightPct": 3.5,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v2"
+     },
+     "components": {},
+     "confidence": {
+      "axes": {},
+      "bottleneck": [
+       "evidence"
+      ],
+      "isProbability": false,
+      "level": null,
+      "statement": "No confidence is stated: material information is missing."
+     },
+     "coverage": [
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": "objectiveValue",
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "asset_value",
+       "evidence": {
+        "band": {
+         "absoluteGap": 7000.0,
+         "bands": "fairness_bands_v2",
+         "label": "LOPSIDED",
+         "level": "lopsided",
+         "relativePct": 100.0,
+         "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+        },
+        "rawGap": -7000,
+        "receivingAdjusted": 0,
+        "sendingAdjusted": 7000.0,
+        "vaAdjustedGap": -7000
+       },
+       "evidenceKind": "independent",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": "canonical_value",
+       "owner": "src/trade/analyze_trade.py::equity_verdict + src/valuation_math",
+       "role": "decides",
+       "state": "evaluated",
+       "uncertainty": {
+        "kind": "confidence_bucket",
+        "value": 0
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": "rosterBenefit",
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "immediate_improvement",
+       "evidence": null,
+       "evidenceKind": "independent",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "league_scored_projection",
+       "owner": "src/roster_intel/best_ball_utility.py",
+       "role": "decides",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "monte_carlo_se",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": "no roster-level long-term quantity is wired; counted once, via asset value",
+        "state": "approximate"
+       },
+       "component": "objectiveValue",
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "long_term",
+       "evidence": {
+        "via": "canonical dynasty value (long-horizon) inside asset_value"
+       },
+       "evidenceKind": "correlated",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": "canonical_value",
+       "owner": "src/trade/analyze_trade.py",
+       "role": "explain_only",
+       "state": "partial",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": "objectiveValue",
+       "contribution": {
+        "direction": "context",
+        "magnitude": null,
+        "unit": "release cost charged once to asset value"
+       },
+       "dimension": "roster_construction",
+       "evidence": null,
+       "evidenceKind": "contextual",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "league_roster_rules",
+       "owner": "src/trade/roster_capacity.py",
+       "role": "gate",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "none",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "market_evidence",
+       "evidence": null,
+       "evidenceKind": "correlated",
+       "exclusionReason": "not_computed",
+       "freshness": "unknown",
+       "lineage": "real_trade_ledger",
+       "owner": "src/trade/comparable_trades.py",
+       "role": "explain_only",
+       "state": "unavailable",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "competitive_strategy",
+       "evidence": null,
+       "evidenceKind": "contextual",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "team_strategy_context",
+       "owner": "src/roster_intel/window.py::competitive_posture",
+       "role": "tiebreak",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "range",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "risk",
+       "evidence": {
+        "lowConfidenceAssets": 0,
+        "sourceDisagreementAssets": 0,
+        "unstampedAssets": 2
+       },
+       "evidenceKind": "explanatory",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": null,
+       "owner": "src/api/confidence.py (stamps) via the evidence lens",
+       "role": "confidence_only",
+       "state": "evaluated",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": "counterparty acceptance is not evaluated",
+        "state": "approximate"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "feasibility",
+       "evidence": {
+        "counterpartyAcceptance": "not_evaluated",
+        "notOwnedBySender": 0,
+        "pickOwnership": "observed"
+       },
+       "evidenceKind": "contextual",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": "ownership_records",
+       "owner": "src/identity/picks.py + src/api/trade_simulator.py",
+       "role": "gate",
+       "state": "evaluated",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "opportunity_cost",
+       "evidence": null,
+       "evidenceKind": "independent",
+       "exclusionReason": "not_wired",
+       "freshness": "unknown",
+       "lineage": null,
+       "owner": "(none: best-alternative comparison is not wired)",
+       "role": "explain_only",
+       "state": "unavailable",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": "roster limit only; trade deadline and saved LOCK / EXCLUDE are not applied",
+        "state": "approximate"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "league_constraints",
+       "evidence": null,
+       "evidenceKind": "contextual",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "league_roster_rules",
+       "owner": "src/trade/roster_capacity.py",
+       "role": "gate",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      }
+     ],
+     "deciding": "evidenceGate",
+     "executes": false,
+     "headline": "NOT_ENOUGH_EVIDENCE",
+     "headlineText": "NOT ENOUGH EVIDENCE",
+     "leaning": "PASS",
+     "mainCounterargument": null,
+     "missingEvidence": [
+      {
+       "code": "unpriced_assets",
+       "evidence": {
+        "assets": [
+         "A Unpriced"
+        ]
+       },
+       "text": "On the board but unpriced (unknown, not worth 0): A Unpriced"
+      }
+     ],
+     "posture": {
+      "available": false,
+      "reason": "asset_only_mode"
+     },
+     "primaryReason": {
+      "component": "evidence",
+      "evidence": {
+       "assets": [
+        "A Unpriced"
+       ]
+      },
+      "kind": "gate",
+      "stance": "neutral",
+      "text": "On the board but unpriced (unknown, not worth 0): A Unpriced"
+     },
+     "reasons": [],
+     "receipt": {
+      "analyzeConfig": {
+       "depthNotableLossPpg": 0.5,
+       "largeMultiple": 3.0,
+       "materialityPpg": 1.0
+      },
+      "bands": "fairness_bands_v2",
+      "boardStamp": "2026-10-20T11:00:00+00:00",
+      "decisionVersion": "trade_decision_v2",
+      "packageModel": {
+       "classification": "ACTIVE",
+       "family": "geom",
+       "id": "geom_q078_v1",
+       "label": "Geometric Value Adjustment (q = 0.78)",
+       "version": "1"
+      },
+      "postureParamsVersion": null,
+      "projectionBasis": null,
+      "requestHash": "d2e3eee599fe1adac23e5d25fe3cd3b82a34cf9c40f57e69ada517614b3d03e9",
+      "scoringFingerprint": null,
+      "strategy": {
+       "inferredClassification": null,
+       "inferredStrategy": null,
+       "reasoning": "Asset-only analysis: no strategy is used.",
+       "requested": null,
+       "source": "asset_only",
+       "used": null
+      }
+     },
+     "recommendationOnly": true,
+     "strategy": {
+      "inferredClassification": null,
+      "inferredStrategy": null,
+      "label": null,
+      "options": [
+       {
+        "label": "Win now",
+        "value": "WIN_NOW"
+       },
+       {
+        "label": "Balanced",
+        "value": "BALANCED"
+       },
+       {
+        "label": "Long-term value",
+        "value": "LONG_TERM"
+       }
+      ],
+      "postureMap": {
+       "HOLD": "BALANCED",
+       "PUSH": "WIN_NOW",
+       "REBUILD": "LONG_TERM",
+       "RETOOL": "BALANCED"
+      },
+      "reasoning": "Asset-only analysis: no strategy is used.",
+      "requested": null,
+      "requestedValid": null,
+      "source": "asset_only",
+      "used": null
+     },
+     "subtext": "A reliable recommendation cannot be made yet.",
+     "version": "trade_decision_v2",
+     "whatWouldChange": [
+      {
+       "evidence": {
+        "code": "unpriced_assets"
+       },
+       "flipsTo": null,
+       "kind": "evidence",
+       "text": "Resolve: On the board but unpriced (unknown, not worth 0): A Unpriced"
+      }
+     ]
+    },
+    "decisionRunId": null,
+    "dimensions": [
+     {
+      "available": true,
+      "detail": {
+       "band": {
+        "absoluteGap": 7000.0,
+        "bands": "fairness_bands_v2",
+        "label": "LOPSIDED",
+        "level": "lopsided",
+        "relativePct": 100.0,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+       },
+       "bandsReceipt": {
+        "absoluteMinimum": 250.0,
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
+        "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
+        "slightPct": 3.5,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+        "unfairPct": 9.0,
+        "version": "fairness_bands_v2"
+       },
+       "hypotheticalPicksOut": [],
+       "incomplete": true,
+       "largerPackageUtility": 7000.0,
+       "magnitude": "stretch",
+       "notOwnedBySender": [],
+       "packageModel": {
+        "classification": "ACTIVE",
+        "family": "geom",
+        "id": "geom_q078_v1",
+        "label": "Geometric Value Adjustment (q = 0.78)",
+        "version": "1"
+       },
+       "rawGap": -7000,
+       "receivingAdjusted": 0,
+       "receivingValue": 0,
+       "receivingValueAdjustment": 0.0,
+       "sendingAdjusted": 7000.0,
+       "sendingValue": 7000,
+       "sendingValueAdjustment": 0.0,
+       "unpricedIn": [
+        "A Unpriced"
+       ],
+       "unpricedOut": [],
+       "unresolvedIn": [],
+       "unresolvedOut": [],
+       "vaAdjustedGap": -7000,
+       "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
+      },
+      "dimension": "equity",
+      "direction": "opposes",
+      "lineage": "canonical_value",
+      "votes": true
+     },
+     {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "rosterUtility",
+      "lineage": "league_scored_projection",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "feasibility",
+      "lineage": "league_roster_rules",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     {
+      "available": true,
+      "detail": {
+       "lowConfidenceAssets": [],
+       "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+       "projectionCoverage": null,
+       "rosterUtilityStandardError": null,
+       "sourceDisagreementAssets": [],
+       "unstampedAssets": [
+        "A Unpriced",
+        "B Seven"
+       ]
+      },
+      "dimension": "evidence",
+      "direction": null,
+      "lineage": null,
+      "votes": false
+     },
+     {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "strategicPosture",
+      "lineage": "team_strategy_context",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     {
+      "available": false,
+      "dimension": "marketCorroboration",
+      "lineage": "real_trade_ledger",
+      "unavailableReason": "not_computed",
+      "votes": false
+     }
+    ],
+    "lenses": {
+     "comparables": {
+      "available": false,
+      "dimension": "marketCorroboration",
+      "lineage": "real_trade_ledger",
+      "unavailableReason": "not_computed",
+      "votes": false
+     },
+     "evidence": {
+      "available": true,
+      "detail": {
+       "lowConfidenceAssets": [],
+       "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+       "projectionCoverage": null,
+       "rosterUtilityStandardError": null,
+       "sourceDisagreementAssets": [],
+       "unstampedAssets": [
+        "A Unpriced",
+        "B Seven"
+       ]
+      },
+      "dimension": "evidence",
+      "direction": null,
+      "lineage": null,
+      "votes": false
+     },
+     "feasibility": {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "feasibility",
+      "lineage": "league_roster_rules",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     "market": {
+      "available": true,
+      "detail": {
+       "band": {
+        "absoluteGap": 7000.0,
+        "bands": "fairness_bands_v2",
+        "label": "LOPSIDED",
+        "level": "lopsided",
+        "relativePct": 100.0,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+       },
+       "bandsReceipt": {
+        "absoluteMinimum": 250.0,
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
+        "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
+        "slightPct": 3.5,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+        "unfairPct": 9.0,
+        "version": "fairness_bands_v2"
+       },
+       "hypotheticalPicksOut": [],
+       "incomplete": true,
+       "largerPackageUtility": 7000.0,
+       "magnitude": "stretch",
+       "notOwnedBySender": [],
+       "packageModel": {
+        "classification": "ACTIVE",
+        "family": "geom",
+        "id": "geom_q078_v1",
+        "label": "Geometric Value Adjustment (q = 0.78)",
+        "version": "1"
+       },
+       "rawGap": -7000,
+       "receivingAdjusted": 0,
+       "receivingValue": 0,
+       "receivingValueAdjustment": 0.0,
+       "sendingAdjusted": 7000.0,
+       "sendingValue": 7000,
+       "sendingValueAdjustment": 0.0,
+       "unpricedIn": [
+        "A Unpriced"
+       ],
+       "unpricedOut": [],
+       "unresolvedIn": [],
+       "unresolvedOut": [],
+       "vaAdjustedGap": -7000,
+       "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
+      },
+      "dimension": "equity",
+      "direction": "opposes",
+      "lineage": "canonical_value",
+      "votes": true
+     },
+     "posture": {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "strategicPosture",
+      "lineage": "team_strategy_context",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     "roster": {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "rosterUtility",
+      "lineage": "league_scored_projection",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     }
+    },
+    "reasonsAgainst": [
+     "-7,000 package value against you after Value Adjustment (stretch gap)"
+    ],
+    "reasonsFor": [],
+    "recommendation": "PASS",
+    "teamContext": {
+     "applied": false,
+     "mode": "asset_only"
+    },
+    "topUncertainty": "On the board but unpriced \u2014 unknown, not worth 0, so left out of the package math: A Unpriced",
+    "unavailableDimensions": [
+     {
+      "dimension": "valueUncertainty",
+      "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
+      "reason": "unaudited_model"
+     },
+     {
+      "dimension": "currentSeasonEquity",
+      "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
+      "reason": "counterfactual_not_wired"
+     }
+    ],
+    "uncertainty": [
+     "On the board but unpriced \u2014 unknown, not worth 0, so left out of the package math: A Unpriced"
+    ],
+    "version": "analyze_trade_v3"
+   },
+   "category": "UNAVAILABLE",
+   "categoryReason": null,
+   "categoryText": "Unavailable \u2014 insufficient evidence",
+   "comparables": {
+    "state": "not_computed_multi_team"
+   },
+   "fairness": {
+    "bands": "fairness_bands_v2",
+    "gap": null,
+    "largerAdjustedSide": null,
+    "largerPackageUtility": null,
+    "level": null,
+    "reasonCode": "asset_not_evaluable",
+    "relativePct": null,
+    "state": "UNABLE"
+   },
+   "gives": [
+    {
+     "assetId": "p:201",
+     "kind": "player",
+     "label": "B Seven",
+     "toRosterId": 3,
+     "value": 7000,
+     "valueState": "priced"
+    }
+   ],
+   "receives": [
+    {
+     "assetId": "p:105",
+     "fromRosterId": 1,
+     "kind": "player",
+     "label": "A Unpriced",
+     "value": null,
+     "valueState": "unpriced"
+    }
+   ],
+   "rosterId": 2,
+   "simulation": {
+    "after": {
+     "byPosition": {
+      "DEF": {
+       "count": 0,
+       "value": 0
+      },
+      "IDP": {
+       "count": 0,
+       "value": 0
+      },
+      "K": {
+       "count": 0,
+       "value": 0
+      },
+      "PICK": {
+       "count": 2,
+       "value": 5000
+      },
+      "QB": {
+       "count": 1,
+       "value": 5000
+      },
+      "RB": {
+       "count": 2,
+       "value": 2000
+      },
+      "TE": {
+       "count": 1,
+       "value": 200
+      },
+      "WR": {
+       "count": 0,
+       "value": 0
+      }
+     },
+     "tiers": {
+      "depth": 4,
+      "elite": 0,
+      "high": 0,
+      "mid": 2
+     },
+     "totalValue": 12200
+    },
+    "before": {
+     "byPosition": {
+      "DEF": {
+       "count": 0,
+       "value": 0
+      },
+      "IDP": {
+       "count": 0,
+       "value": 0
+      },
+      "K": {
+       "count": 0,
+       "value": 0
+      },
+      "PICK": {
+       "count": 2,
+       "value": 5000
+      },
+      "QB": {
+       "count": 1,
+       "value": 5000
+      },
+      "RB": {
+       "count": 1,
+       "value": 2000
+      },
+      "TE": {
+       "count": 1,
+       "value": 200
+      },
+      "WR": {
+       "count": 1,
+       "value": 7000
+      }
+     },
+     "tiers": {
+      "depth": 3,
+      "elite": 0,
+      "high": 1,
+      "mid": 2
+     },
+     "totalValue": 19200
+    },
+    "competitivePosture": {
+     "available": false,
+     "unavailableReason": "league_bundle_not_warm"
+    },
+    "delta": {
+     "byPosition": {
+      "DEF": {
+       "count": 0,
+       "value": 0
+      },
+      "IDP": {
+       "count": 0,
+       "value": 0
+      },
+      "K": {
+       "count": 0,
+       "value": 0
+      },
+      "PICK": {
+       "count": 0,
+       "value": 0
+      },
+      "QB": {
+       "count": 0,
+       "value": 0
+      },
+      "RB": {
+       "count": 1,
+       "value": 0
+      },
+      "TE": {
+       "count": 0,
+       "value": 0
+      },
+      "WR": {
+       "count": -1,
+       "value": -7000
+      }
+     },
+     "tiers": {
+      "depth": 1,
+      "elite": 0,
+      "high": -1,
+      "mid": 0
+     },
+     "totalValue": -7000
+    },
+    "equity": -7000,
+    "finalRosterSimulation": {
+     "available": true,
+     "cleanupApplied": [],
+     "cleanupIsUpperBound": false,
+     "coreAfter": {
+      "available": true,
+      "demand": {
+       "bySlot": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 1
+       },
+       "dedicatedBasis": {
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "flexSlots": [
+        "FLEX"
+       ],
+       "multiplier": 1.5,
+       "multiplierProvenance": "owner_addendum_839_amended_899",
+       "multiplierStatus": "PRIOR",
+       "starterBasis": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "superflexFoldedIntoQb": true,
+       "total": 4
+      },
+      "duplicateIds": [],
+      "members": [
+       {
+        "name": "B Qb",
+        "playerId": "203",
+        "position": "QB",
+        "role": "starter",
+        "slot": "QB",
+        "value": 5000.0
+       },
+       {
+        "name": "B Two",
+        "playerId": "202",
+        "position": "RB",
+        "role": "starter",
+        "slot": "RB",
+        "value": 2000.0
+       },
+       {
+        "name": "B Depth",
+        "playerId": "204",
+        "position": "TE",
+        "role": "starter",
+        "slot": "FLEX",
+        "value": 200.0
+       }
+      ],
+      "reserveCount": 0,
+      "slotSource": null,
+      "starterCount": 3,
+      "starterSlots": [
+       "QB",
+       "RB",
+       "WR",
+       "WR",
+       "FLEX"
+      ],
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "WR",
+       "WR"
+      ],
+      "unpricedIds": [
+       "105"
+      ]
+     },
+     "coreBefore": {
+      "available": true,
+      "demand": {
+       "bySlot": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 1
+       },
+       "dedicatedBasis": {
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "flexSlots": [
+        "FLEX"
+       ],
+       "multiplier": 1.5,
+       "multiplierProvenance": "owner_addendum_839_amended_899",
+       "multiplierStatus": "PRIOR",
+       "starterBasis": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "superflexFoldedIntoQb": true,
+       "total": 4
+      },
+      "duplicateIds": [],
+      "members": [
+       {
+        "name": "B Qb",
+        "playerId": "203",
+        "position": "QB",
+        "role": "starter",
+        "slot": "QB",
+        "value": 5000.0
+       },
+       {
+        "name": "B Two",
+        "playerId": "202",
+        "position": "RB",
+        "role": "starter",
+        "slot": "RB",
+        "value": 2000.0
+       },
+       {
+        "name": "B Seven",
+        "playerId": "201",
+        "position": "WR",
+        "role": "starter",
+        "slot": "WR",
+        "value": 7000.0
+       },
+       {
+        "name": "B Depth",
+        "playerId": "204",
+        "position": "TE",
+        "role": "starter",
+        "slot": "FLEX",
+        "value": 200.0
+       }
+      ],
+      "reserveCount": 0,
+      "slotSource": null,
+      "starterCount": 4,
+      "starterSlots": [
+       "QB",
+       "RB",
+       "WR",
+       "WR",
+       "FLEX"
+      ],
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "WR"
+      ],
+      "unpricedIds": []
+     },
+     "displacements": [
+      {
+       "kind": "displaced",
+       "name": "B Seven",
+       "playerId": "201",
+       "position": "WR",
+       "roleAfter": null,
+       "roleBefore": "starter",
+       "slotAfter": null,
+       "slotBefore": "WR"
+      }
+     ],
+     "isVerdict": false,
+     "movements": [
+      {
+       "kind": "displaced",
+       "name": "B Seven",
+       "playerId": "201",
+       "position": "WR",
+       "roleAfter": null,
+       "roleBefore": "starter",
+       "slotAfter": null,
+       "slotBefore": "WR"
+      }
+     ],
+     "needsCreated": [],
+     "needsFixed": [],
+     "notes": [],
+     "outgoingNotFound": [],
+     "promotions": [],
+     "strengthAfter": {
+      "available": true,
+      "byPosition": [
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "203"
+        ],
+        "position": "QB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 5000.0,
+        "value": 5000.0
+       },
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "202"
+        ],
+        "position": "RB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 2000.0,
+        "value": 2000.0
+       },
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "204"
+        ],
+        "position": "TE",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 200.0,
+        "value": 200.0
+       }
+      ],
+      "fullRosterValue": null,
+      "isComplete": false,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "positionOrder": [
+       "QB",
+       "RB",
+       "TE"
+      ],
+      "reserveValue": 0.0,
+      "starterValue": 7200.0,
+      "total": 7200.0,
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "WR",
+       "WR"
+      ],
+      "unpricedCount": 1,
+      "unpricedIds": [
+       "105"
+      ]
+     },
+     "strengthBefore": {
+      "available": true,
+      "byPosition": [
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "203"
+        ],
+        "position": "QB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 5000.0,
+        "value": 5000.0
+       },
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "202"
+        ],
+        "position": "RB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 2000.0,
+        "value": 2000.0
+       },
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "201"
+        ],
+        "position": "WR",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 7000.0,
+        "value": 7000.0
+       },
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "204"
+        ],
+        "position": "TE",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 200.0,
+        "value": 200.0
+       }
+      ],
+      "fullRosterValue": null,
+      "isComplete": false,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "positionOrder": [
+       "QB",
+       "RB",
+       "WR",
+       "TE"
+      ],
+      "reserveValue": 0.0,
+      "starterValue": 14200.0,
+      "total": 14200.0,
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "WR"
+      ],
+      "unpricedCount": 0,
+      "unpricedIds": []
+     },
+     "strengthDelta": -7000.0,
+     "unavailableReason": null,
+     "unpricedIncoming": [
+      "105"
+     ],
+     "weaknessAfter": null,
+     "weaknessBefore": null
+    },
+    "ownedPickChecks": {
+     "alreadyOwnedByReceiver": [],
+     "hypotheticalPicksOut": [],
+     "incomingPickHolders": [],
+     "notOwnedBySender": [],
+     "repeatedOwnedPick": [],
+     "rule": "src/identity/picks.py::lookup_league_pick_owner",
+     "unverified": []
+    },
+    "receiving": [
+     {
+      "age": null,
+      "assetClass": "offense",
+      "basePos": "RB",
+      "confidenceBucket": null,
+      "hasSourceDisagreement": null,
+      "name": "A Unpriced",
+      "playerId": "105",
+      "pos": "RB",
+      "quarantined": false,
+      "rank": null,
+      "sourceLabel": "A Unpriced",
+      "tier": "depth",
+      "value": 0,
+      "valueFreshness": null
+     }
+    ],
+    "rosterCapacity": {
+     "certainty": "exact",
+     "forcedDropCutCost": 0.0,
+     "forcedDropReleaseCost": null,
+     "forcedDropValue": 0.0,
+     "forcedDrops": [],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 1,
+     "ladderExhausted": false,
+     "notes": [
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+     ],
+     "openSpotsAfter": 4,
+     "openSpotsBefore": 4,
+     "outgoing": 1,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 0,
+     "overLimitAfterMax": 0,
+     "overLimitAfterMin": 0,
+     "overLimitBefore": 0,
+     "requiresDrops": false,
+     "rosterLimit": 8,
+     "rungOrderWasTied": false,
+     "sizeAfter": 4,
+     "sizeBefore": 4,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 0,
+     "valueScale": "rankDerivedValue"
+    },
+    "sending": [
+     {
+      "age": null,
+      "assetClass": "offense",
+      "basePos": "WR",
+      "confidenceBucket": null,
+      "hasSourceDisagreement": null,
+      "name": "B Seven",
+      "playerId": "201",
+      "pos": "WR",
+      "quarantined": false,
+      "rank": null,
+      "sourceLabel": "B Seven",
+      "tier": "high",
+      "value": 7000,
+      "valueFreshness": null
+     }
+    ],
+    "team": {
+     "name": "Team B",
+     "ownerId": "owner2",
+     "rosterId": 2
+    },
+    "teamContext": {
+     "applied": false,
+     "mode": "asset_only"
+    },
+    "teamImpact": {
+     "ageDelta": 0.0,
+     "competitivePosture": null,
+     "depthDelta": {
+      "QB": 0,
+      "RB": 1,
+      "TE": 0,
+      "WR": 0
+     },
+     "fitScore": -100.0,
+     "lineupDisplacement": {
+      "arrived": [],
+      "departed": [
+       {
+        "name": "B Seven",
+        "position": "WR",
+        "value": 7000,
+        "valueScale": "rankDerivedValue"
+       }
+      ],
+      "displaced": [],
+      "isValueDelta": false,
+      "promoted": [],
+      "startersAfter": 3,
+      "startersBefore": 4
+     },
+     "posture": null,
+     "postureSource": "unavailable",
+     "rationale": [
+      "Loses a starting WR (-7000.0 starter value)",
+      "Net raw equity -7000 (before Value Adjustment)",
+      "Roster-shape fit score -100"
+     ],
+     "redundancy": [],
+     "scarcityDelta": {
+      "QB": 0.0,
+      "RB": 0.0,
+      "TE": 0.0,
+      "WR": -7000.0
+     },
+     "starterDelta": {
+      "QB": 0,
+      "RB": 0,
+      "TE": 0,
+      "WR": -1
+     },
+     "starterValueDelta": {
+      "QB": 0.0,
+      "RB": 0.0,
+      "TE": 0.0,
+      "WR": -7000.0
+     },
+     "unscalablePositions": [],
+     "windowFit": null
+    },
+    "unresolvedIn": [],
+    "unresolvedOut": []
+   },
+   "team": {
+    "name": "Team B",
+    "rosterId": 2
+   },
+   "unverifiableAssetIds": []
+  },
+  {
+   "analysis": {
+    "basis": "single_lens:equity",
+    "confidence": "MEDIUM",
+    "decision": {
+     "bands": {
+      "absoluteMinimum": 250.0,
+      "basis": "larger_package_utility",
+      "fairTradeLevels": [
+       "fair"
+      ],
+      "lopsidedPct": 18.0,
+      "postLaunchValidation": "OD-F4",
+      "slightPct": 3.5,
+      "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+      "unfairPct": 9.0,
+      "version": "fairness_bands_v2"
+     },
+     "components": {
+      "objectiveValue": {
+       "band": {
+        "absoluteGap": 4500.0,
+        "bands": "fairness_bands_v2",
+        "label": "LOPSIDED",
+        "level": "lopsided",
+        "relativePct": 64.29,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+       },
+       "direction": "favors",
+       "evaluated": true,
+       "forcedReleaseCost": null,
+       "kind": "independent",
+       "largerAdjustedSide": 7000,
+       "largerPackageUtility": 7000,
+       "magnitude": "large",
+       "netGap": 4500,
+       "unit": "canonical value points (adjusted package)",
+       "vaAdjustedGap": 4500
+      },
+      "rosterBenefit": {
+       "evaluated": false,
+       "kind": "independent",
+       "state": "excluded_by_mode"
+      }
+     },
+     "confidence": {
+      "axes": {
+       "agreement": "HIGH",
+       "assetEvidence": "MEDIUM",
+       "coverage": "MEDIUM",
+       "margin": "HIGH",
+       "precision": "HIGH"
+      },
+      "bottleneck": [
+       "coverage",
+       "assetEvidence"
+      ],
+      "isProbability": false,
+      "level": "MEDIUM",
+      "statement": "Medium confidence \u2014 limited by coverage: asset-only: roster and fit not considered; assetEvidence: a traded asset has low or no confidence stamp"
+     },
+     "coverage": [
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": "objectiveValue",
+       "contribution": {
+        "direction": "favors",
+        "magnitude": "large",
+        "unit": "canonical value"
+       },
+       "dimension": "asset_value",
+       "evidence": {
+        "band": {
+         "absoluteGap": 4500.0,
+         "bands": "fairness_bands_v2",
+         "label": "LOPSIDED",
+         "level": "lopsided",
+         "relativePct": 64.29,
+         "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+        },
+        "rawGap": 4500,
+        "receivingAdjusted": 7000.0,
+        "sendingAdjusted": 2500.0,
+        "vaAdjustedGap": 4500
+       },
+       "evidenceKind": "independent",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": "canonical_value",
+       "owner": "src/trade/analyze_trade.py::equity_verdict + src/valuation_math",
+       "role": "decides",
+       "state": "evaluated",
+       "uncertainty": {
+        "kind": "confidence_bucket",
+        "value": 0
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": "rosterBenefit",
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "immediate_improvement",
+       "evidence": null,
+       "evidenceKind": "independent",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "league_scored_projection",
+       "owner": "src/roster_intel/best_ball_utility.py",
+       "role": "decides",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "monte_carlo_se",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": "no roster-level long-term quantity is wired; counted once, via asset value",
+        "state": "approximate"
+       },
+       "component": "objectiveValue",
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "long_term",
+       "evidence": {
+        "via": "canonical dynasty value (long-horizon) inside asset_value"
+       },
+       "evidenceKind": "correlated",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": "canonical_value",
+       "owner": "src/trade/analyze_trade.py",
+       "role": "explain_only",
+       "state": "partial",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": "objectiveValue",
+       "contribution": {
+        "direction": "context",
+        "magnitude": null,
+        "unit": "release cost charged once to asset value"
+       },
+       "dimension": "roster_construction",
+       "evidence": null,
+       "evidenceKind": "contextual",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "league_roster_rules",
+       "owner": "src/trade/roster_capacity.py",
+       "role": "gate",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "none",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "market_evidence",
+       "evidence": null,
+       "evidenceKind": "correlated",
+       "exclusionReason": "not_computed",
+       "freshness": "unknown",
+       "lineage": "real_trade_ledger",
+       "owner": "src/trade/comparable_trades.py",
+       "role": "explain_only",
+       "state": "unavailable",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "competitive_strategy",
+       "evidence": null,
+       "evidenceKind": "contextual",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "team_strategy_context",
+       "owner": "src/roster_intel/window.py::competitive_posture",
+       "role": "tiebreak",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "range",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "risk",
+       "evidence": {
+        "lowConfidenceAssets": 0,
+        "sourceDisagreementAssets": 0,
+        "unstampedAssets": 2
+       },
+       "evidenceKind": "explanatory",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": null,
+       "owner": "src/api/confidence.py (stamps) via the evidence lens",
+       "role": "confidence_only",
+       "state": "evaluated",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": "counterparty acceptance is not evaluated",
+        "state": "approximate"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "feasibility",
+       "evidence": {
+        "counterpartyAcceptance": "not_evaluated",
+        "notOwnedBySender": 0,
+        "pickOwnership": "observed"
+       },
+       "evidenceKind": "contextual",
+       "exclusionReason": null,
+       "freshness": "unknown",
+       "lineage": "ownership_records",
+       "owner": "src/identity/picks.py + src/api/trade_simulator.py",
+       "role": "gate",
+       "state": "evaluated",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": null,
+        "state": "exact"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "opportunity_cost",
+       "evidence": null,
+       "evidenceKind": "independent",
+       "exclusionReason": "not_wired",
+       "freshness": "unknown",
+       "lineage": null,
+       "owner": "(none: best-alternative comparison is not wired)",
+       "role": "explain_only",
+       "state": "unavailable",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      },
+      {
+       "applicability": {
+        "reason": "roster limit only; trade deadline and saved LOCK / EXCLUDE are not applied",
+        "state": "approximate"
+       },
+       "component": null,
+       "contribution": {
+        "direction": null,
+        "magnitude": null,
+        "unit": null
+       },
+       "dimension": "league_constraints",
+       "evidence": null,
+       "evidenceKind": "contextual",
+       "exclusionReason": "asset_only_mode",
+       "freshness": "unknown",
+       "lineage": "league_roster_rules",
+       "owner": "src/trade/roster_capacity.py",
+       "role": "gate",
+       "state": "excluded_by_mode",
+       "uncertainty": {
+        "kind": "unknown",
+        "value": null
+       }
+      }
+     ],
+     "deciding": "objectiveValue",
+     "executes": false,
+     "headline": "YES",
+     "headlineText": "YES \u2014 MAKE THE TRADE",
+     "leaning": "MAKE",
+     "mainCounterargument": null,
+     "missingEvidence": [],
+     "posture": {
+      "available": false,
+      "reason": "asset_only_mode"
+     },
+     "primaryReason": {
+      "component": "objectiveValue",
+      "evidence": {
+       "band": {
+        "absoluteGap": 4500.0,
+        "bands": "fairness_bands_v2",
+        "label": "LOPSIDED",
+        "level": "lopsided",
+        "relativePct": 64.29,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+       },
+       "forcedReleaseCost": null,
+       "largerAdjustedSide": 7000,
+       "netGap": 4500,
+       "vaAdjustedGap": 4500
+      },
+      "kind": "independent",
+      "stance": "for",
+      "text": "+4,500 package value for you after Value Adjustment \u2014 64.3% of the larger package, LOPSIDED band"
+     },
+     "reasons": [
+      {
+       "component": "objectiveValue",
+       "evidence": {
+        "band": {
+         "absoluteGap": 4500.0,
+         "bands": "fairness_bands_v2",
+         "label": "LOPSIDED",
+         "level": "lopsided",
+         "relativePct": 64.29,
+         "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+        },
+        "forcedReleaseCost": null,
+        "largerAdjustedSide": 7000,
+        "netGap": 4500,
+        "vaAdjustedGap": 4500
+       },
+       "kind": "independent",
+       "stance": "for",
+       "text": "+4,500 package value for you after Value Adjustment \u2014 64.3% of the larger package, LOPSIDED band"
+      }
+     ],
+     "receipt": {
+      "analyzeConfig": {
+       "depthNotableLossPpg": 0.5,
+       "largeMultiple": 3.0,
+       "materialityPpg": 1.0
+      },
+      "bands": "fairness_bands_v2",
+      "boardStamp": "2026-10-20T11:00:00+00:00",
+      "decisionVersion": "trade_decision_v2",
+      "packageModel": {
+       "classification": "ACTIVE",
+       "family": "geom",
+       "id": "geom_q078_v1",
+       "label": "Geometric Value Adjustment (q = 0.78)",
+       "version": "1"
+      },
+      "postureParamsVersion": null,
+      "projectionBasis": null,
+      "requestHash": "3eb95d0676ca758bfbb61137061cbc965f20cf1f920dda772c2158c135fec9e8",
+      "scoringFingerprint": null,
+      "strategy": {
+       "inferredClassification": null,
+       "inferredStrategy": null,
+       "reasoning": "Asset-only analysis: no strategy is used.",
+       "requested": null,
+       "source": "asset_only",
+       "used": null
+      }
+     },
+     "recommendationOnly": true,
+     "strategy": {
+      "inferredClassification": null,
+      "inferredStrategy": null,
+      "label": null,
+      "options": [
+       {
+        "label": "Win now",
+        "value": "WIN_NOW"
+       },
+       {
+        "label": "Balanced",
+        "value": "BALANCED"
+       },
+       {
+        "label": "Long-term value",
+        "value": "LONG_TERM"
+       }
+      ],
+      "postureMap": {
+       "HOLD": "BALANCED",
+       "PUSH": "WIN_NOW",
+       "REBUILD": "LONG_TERM",
+       "RETOOL": "BALANCED"
+      },
+      "reasoning": "Asset-only analysis: no strategy is used.",
+      "requested": null,
+      "requestedValid": null,
+      "source": "asset_only",
+      "used": null
+     },
+     "subtext": null,
+     "version": "trade_decision_v2",
+     "whatWouldChange": [
+      {
+       "evidence": {
+        "assetValue": 4825,
+        "searchStep": 25,
+        "side": "send"
+       },
+       "flipsTo": "NO_TOO_CLOSE",
+       "kind": "price",
+       "text": "If you also had to send an asset worth about 4,825, the answer would be NO \u2014 TOO CLOSE"
+      }
+     ]
+    },
+    "decisionRunId": null,
+    "dimensions": [
+     {
+      "available": true,
+      "detail": {
+       "band": {
+        "absoluteGap": 4500.0,
+        "bands": "fairness_bands_v2",
+        "label": "LOPSIDED",
+        "level": "lopsided",
+        "relativePct": 64.29,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+       },
+       "bandsReceipt": {
+        "absoluteMinimum": 250.0,
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
+        "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
+        "slightPct": 3.5,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+        "unfairPct": 9.0,
+        "version": "fairness_bands_v2"
+       },
+       "hypotheticalPicksOut": [],
+       "incomplete": false,
+       "largerPackageUtility": 7000.0,
+       "magnitude": "stretch",
+       "notOwnedBySender": [],
+       "packageModel": {
+        "classification": "ACTIVE",
+        "family": "geom",
+        "id": "geom_q078_v1",
+        "label": "Geometric Value Adjustment (q = 0.78)",
+        "version": "1"
+       },
+       "rawGap": 4500,
+       "receivingAdjusted": 7000.0,
+       "receivingValue": 7000,
+       "receivingValueAdjustment": 0.0,
+       "sendingAdjusted": 2500.0,
+       "sendingValue": 2500,
+       "sendingValueAdjustment": 0.0,
+       "unpricedIn": [],
+       "unpricedOut": [],
+       "unresolvedIn": [],
+       "unresolvedOut": [],
+       "vaAdjustedGap": 4500,
+       "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
+      },
+      "dimension": "equity",
+      "direction": "favors",
+      "lineage": "canonical_value",
+      "votes": true
+     },
+     {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "rosterUtility",
+      "lineage": "league_scored_projection",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "feasibility",
+      "lineage": "league_roster_rules",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     {
+      "available": true,
+      "detail": {
+       "lowConfidenceAssets": [],
+       "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+       "projectionCoverage": null,
+       "rosterUtilityStandardError": null,
+       "sourceDisagreementAssets": [],
+       "unstampedAssets": [
+        "B Seven",
+        "C TwoFive"
+       ]
+      },
+      "dimension": "evidence",
+      "direction": null,
+      "lineage": null,
+      "votes": false
+     },
+     {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "strategicPosture",
+      "lineage": "team_strategy_context",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     {
+      "available": false,
+      "dimension": "marketCorroboration",
+      "lineage": "real_trade_ledger",
+      "unavailableReason": "not_computed",
+      "votes": false
+     }
+    ],
+    "lenses": {
+     "comparables": {
+      "available": false,
+      "dimension": "marketCorroboration",
+      "lineage": "real_trade_ledger",
+      "unavailableReason": "not_computed",
+      "votes": false
+     },
+     "evidence": {
+      "available": true,
+      "detail": {
+       "lowConfidenceAssets": [],
+       "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+       "projectionCoverage": null,
+       "rosterUtilityStandardError": null,
+       "sourceDisagreementAssets": [],
+       "unstampedAssets": [
+        "B Seven",
+        "C TwoFive"
+       ]
+      },
+      "dimension": "evidence",
+      "direction": null,
+      "lineage": null,
+      "votes": false
+     },
+     "feasibility": {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "feasibility",
+      "lineage": "league_roster_rules",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     "market": {
+      "available": true,
+      "detail": {
+       "band": {
+        "absoluteGap": 4500.0,
+        "bands": "fairness_bands_v2",
+        "label": "LOPSIDED",
+        "level": "lopsided",
+        "relativePct": 64.29,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20"
+       },
+       "bandsReceipt": {
+        "absoluteMinimum": 250.0,
+        "basis": "larger_package_utility",
+        "fairTradeLevels": [
+         "fair"
+        ],
+        "lopsidedPct": 18.0,
+        "postLaunchValidation": "OD-F4",
+        "slightPct": 3.5,
+        "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+        "unfairPct": 9.0,
+        "version": "fairness_bands_v2"
+       },
+       "hypotheticalPicksOut": [],
+       "incomplete": false,
+       "largerPackageUtility": 7000.0,
+       "magnitude": "stretch",
+       "notOwnedBySender": [],
+       "packageModel": {
+        "classification": "ACTIVE",
+        "family": "geom",
+        "id": "geom_q078_v1",
+        "label": "Geometric Value Adjustment (q = 0.78)",
+        "version": "1"
+       },
+       "rawGap": 4500,
+       "receivingAdjusted": 7000.0,
+       "receivingValue": 7000,
+       "receivingValueAdjustment": 0.0,
+       "sendingAdjusted": 2500.0,
+       "sendingValue": 2500,
+       "sendingValueAdjustment": 0.0,
+       "unpricedIn": [],
+       "unpricedOut": [],
+       "unresolvedIn": [],
+       "unresolvedOut": [],
+       "vaAdjustedGap": 4500,
+       "valueAdjustment": "Geometric Value Adjustment (q = 0.78)"
+      },
+      "dimension": "equity",
+      "direction": "favors",
+      "lineage": "canonical_value",
+      "votes": true
+     },
+     "posture": {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "strategicPosture",
+      "lineage": "team_strategy_context",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     },
+     "roster": {
+      "available": false,
+      "detail": {
+       "note": "not included in Asset-Only analysis"
+      },
+      "dimension": "rosterUtility",
+      "lineage": "league_scored_projection",
+      "unavailableReason": "asset_only_mode",
+      "votes": false
+     }
+    },
+    "reasonsAgainst": [],
+    "reasonsFor": [
+     "+4,500 package value after Value Adjustment (stretch gap)"
+    ],
+    "recommendation": "MAKE",
+    "teamContext": {
+     "applied": false,
+     "mode": "asset_only"
+    },
+    "topUncertainty": null,
+    "unavailableDimensions": [
+     {
+      "dimension": "valueUncertainty",
+      "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
+      "reason": "unaudited_model"
+     },
+     {
+      "dimension": "currentSeasonEquity",
+      "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
+      "reason": "counterfactual_not_wired"
+     }
+    ],
+    "uncertainty": [],
+    "version": "analyze_trade_v3"
+   },
+   "category": "STRONGLY_FAVORABLE",
+   "categoryReason": null,
+   "categoryText": "Strongly favorable",
+   "comparables": {
+    "state": "not_computed_multi_team"
+   },
+   "fairness": {
+    "bands": "fairness_bands_v2",
+    "gap": 4500,
+    "largerAdjustedSide": 7000.0,
+    "largerPackageUtility": 7000.0,
+    "level": "lopsided",
+    "reasonCode": "outside_fairness_threshold",
+    "relativePct": 64.29,
+    "state": "NOT_FAIR"
+   },
+   "gives": [
+    {
+     "assetId": "p:301",
+     "kind": "player",
+     "label": "C TwoFive",
+     "toRosterId": 1,
+     "value": 2500,
+     "valueState": "priced"
+    }
+   ],
+   "receives": [
+    {
+     "assetId": "p:201",
+     "fromRosterId": 2,
+     "kind": "player",
+     "label": "B Seven",
+     "value": 7000,
+     "valueState": "priced"
+    }
+   ],
+   "rosterId": 3,
+   "simulation": {
+    "after": {
+     "byPosition": {
+      "DEF": {
+       "count": 0,
+       "value": 0
+      },
+      "IDP": {
+       "count": 1,
+       "value": 1800
+      },
+      "K": {
+       "count": 0,
+       "value": 0
+      },
+      "PICK": {
+       "count": 2,
+       "value": 5000
+      },
+      "QB": {
+       "count": 1,
+       "value": 3500
+      },
+      "RB": {
+       "count": 1,
+       "value": 4000
+      },
+      "TE": {
+       "count": 0,
+       "value": 0
+      },
+      "WR": {
+       "count": 2,
+       "value": 7150
+      }
+     },
+     "tiers": {
+      "depth": 3,
+      "elite": 0,
+      "high": 1,
+      "mid": 3
+     },
+     "totalValue": 21450
+    },
+    "before": {
+     "byPosition": {
+      "DEF": {
+       "count": 0,
+       "value": 0
+      },
+      "IDP": {
+       "count": 1,
+       "value": 1800
+      },
+      "K": {
+       "count": 0,
+       "value": 0
+      },
+      "PICK": {
+       "count": 2,
+       "value": 5000
+      },
+      "QB": {
+       "count": 1,
+       "value": 3500
+      },
+      "RB": {
+       "count": 1,
+       "value": 4000
+      },
+      "TE": {
+       "count": 0,
+       "value": 0
+      },
+      "WR": {
+       "count": 2,
+       "value": 2650
+      }
+     },
+     "tiers": {
+      "depth": 4,
+      "elite": 0,
+      "high": 0,
+      "mid": 3
+     },
+     "totalValue": 16950
+    },
+    "competitivePosture": {
+     "available": false,
+     "unavailableReason": "league_bundle_not_warm"
+    },
+    "delta": {
+     "byPosition": {
+      "DEF": {
+       "count": 0,
+       "value": 0
+      },
+      "IDP": {
+       "count": 0,
+       "value": 0
+      },
+      "K": {
+       "count": 0,
+       "value": 0
+      },
+      "PICK": {
+       "count": 0,
+       "value": 0
+      },
+      "QB": {
+       "count": 0,
+       "value": 0
+      },
+      "RB": {
+       "count": 0,
+       "value": 0
+      },
+      "TE": {
+       "count": 0,
+       "value": 0
+      },
+      "WR": {
+       "count": 0,
+       "value": 4500
+      }
+     },
+     "tiers": {
+      "depth": -1,
+      "elite": 0,
+      "high": 1,
+      "mid": 0
+     },
+     "totalValue": 4500
+    },
+    "equity": 4500,
+    "finalRosterSimulation": {
+     "available": true,
+     "cleanupApplied": [],
+     "cleanupIsUpperBound": false,
+     "coreAfter": {
+      "available": true,
+      "demand": {
+       "bySlot": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 1
+       },
+       "dedicatedBasis": {
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "flexSlots": [
+        "FLEX"
+       ],
+       "multiplier": 1.5,
+       "multiplierProvenance": "owner_addendum_839_amended_899",
+       "multiplierStatus": "PRIOR",
+       "starterBasis": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "superflexFoldedIntoQb": true,
+       "total": 4
+      },
+      "duplicateIds": [],
+      "members": [
+       {
+        "name": "C Qb",
+        "playerId": "303",
+        "position": "QB",
+        "role": "starter",
+        "slot": "QB",
+        "value": 3500.0
+       },
+       {
+        "name": "C Four",
+        "playerId": "302",
+        "position": "RB",
+        "role": "starter",
+        "slot": "RB",
+        "value": 4000.0
+       },
+       {
+        "name": "B Seven",
+        "playerId": "201",
+        "position": "WR",
+        "role": "starter",
+        "slot": "WR",
+        "value": 7000.0
+       },
+       {
+        "name": "C Depth",
+        "playerId": "304",
+        "position": "WR",
+        "role": "starter",
+        "slot": "WR",
+        "value": 150.0
+       }
+      ],
+      "reserveCount": 0,
+      "slotSource": null,
+      "starterCount": 4,
+      "starterSlots": [
+       "QB",
+       "RB",
+       "WR",
+       "WR",
+       "FLEX"
+      ],
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "FLEX"
+      ],
+      "unpricedIds": []
+     },
+     "coreBefore": {
+      "available": true,
+      "demand": {
+       "bySlot": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 1
+       },
+       "dedicatedBasis": {
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "flexSlots": [
+        "FLEX"
+       ],
+       "multiplier": 1.5,
+       "multiplierProvenance": "owner_addendum_839_amended_899",
+       "multiplierStatus": "PRIOR",
+       "starterBasis": {
+        "FLEX": 1,
+        "QB": 1,
+        "RB": 1,
+        "WR": 2
+       },
+       "superflexFoldedIntoQb": true,
+       "total": 4
+      },
+      "duplicateIds": [],
+      "members": [
+       {
+        "name": "C Qb",
+        "playerId": "303",
+        "position": "QB",
+        "role": "starter",
+        "slot": "QB",
+        "value": 3500.0
+       },
+       {
+        "name": "C Four",
+        "playerId": "302",
+        "position": "RB",
+        "role": "starter",
+        "slot": "RB",
+        "value": 4000.0
+       },
+       {
+        "name": "C TwoFive",
+        "playerId": "301",
+        "position": "WR",
+        "role": "starter",
+        "slot": "WR",
+        "value": 2500.0
+       },
+       {
+        "name": "C Depth",
+        "playerId": "304",
+        "position": "WR",
+        "role": "starter",
+        "slot": "WR",
+        "value": 150.0
+       }
+      ],
+      "reserveCount": 0,
+      "slotSource": null,
+      "starterCount": 4,
+      "starterSlots": [
+       "QB",
+       "RB",
+       "WR",
+       "WR",
+       "FLEX"
+      ],
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "FLEX"
+      ],
+      "unpricedIds": []
+     },
+     "displacements": [
+      {
+       "kind": "displaced",
+       "name": "C TwoFive",
+       "playerId": "301",
+       "position": "WR",
+       "roleAfter": null,
+       "roleBefore": "starter",
+       "slotAfter": null,
+       "slotBefore": "WR"
+      }
+     ],
+     "isVerdict": false,
+     "movements": [
+      {
+       "kind": "promoted",
+       "name": "B Seven",
+       "playerId": "201",
+       "position": "WR",
+       "roleAfter": "starter",
+       "roleBefore": null,
+       "slotAfter": "WR",
+       "slotBefore": null
+      },
+      {
+       "kind": "displaced",
+       "name": "C TwoFive",
+       "playerId": "301",
+       "position": "WR",
+       "roleAfter": null,
+       "roleBefore": "starter",
+       "slotAfter": null,
+       "slotBefore": "WR"
+      }
+     ],
+     "needsCreated": [],
+     "needsFixed": [],
+     "notes": [],
+     "outgoingNotFound": [],
+     "promotions": [
+      {
+       "kind": "promoted",
+       "name": "B Seven",
+       "playerId": "201",
+       "position": "WR",
+       "roleAfter": "starter",
+       "roleBefore": null,
+       "slotAfter": "WR",
+       "slotBefore": null
+      }
+     ],
+     "strengthAfter": {
+      "available": true,
+      "byPosition": [
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "303"
+        ],
+        "position": "QB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 3500.0,
+        "value": 3500.0
+       },
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "302"
+        ],
+        "position": "RB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 4000.0,
+        "value": 4000.0
+       },
+       {
+        "count": 2,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "201",
+         "304"
+        ],
+        "position": "WR",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 2,
+        "starterValue": 7150.0,
+        "value": 7150.0
+       }
+      ],
+      "fullRosterValue": null,
+      "isComplete": false,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "positionOrder": [
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "reserveValue": 0.0,
+      "starterValue": 14650.0,
+      "total": 14650.0,
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "FLEX"
+      ],
+      "unpricedCount": 0,
+      "unpricedIds": []
+     },
+     "strengthBefore": {
+      "available": true,
+      "byPosition": [
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "303"
+        ],
+        "position": "QB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 3500.0,
+        "value": 3500.0
+       },
+       {
+        "count": 1,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "302"
+        ],
+        "position": "RB",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 1,
+        "starterValue": 4000.0,
+        "value": 4000.0
+       },
+       {
+        "count": 2,
+        "leaguePercentile": null,
+        "leagueRank": null,
+        "members": [
+         "301",
+         "304"
+        ],
+        "position": "WR",
+        "reserveCount": 0,
+        "reserveValue": 0.0,
+        "starterCount": 2,
+        "starterValue": 2650.0,
+        "value": 2650.0
+       }
+      ],
+      "fullRosterValue": null,
+      "isComplete": false,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "positionOrder": [
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "reserveValue": 0.0,
+      "starterValue": 10150.0,
+      "total": 10150.0,
+      "unavailableReason": null,
+      "unfilledReserveSlots": [
+       "FLEX",
+       "QB",
+       "RB",
+       "WR"
+      ],
+      "unfilledStarterSlots": [
+       "FLEX"
+      ],
+      "unpricedCount": 0,
+      "unpricedIds": []
+     },
+     "strengthDelta": 4500.0,
+     "unavailableReason": null,
+     "unpricedIncoming": [],
+     "weaknessAfter": null,
+     "weaknessBefore": null
+    },
+    "ownedPickChecks": {
+     "alreadyOwnedByReceiver": [],
+     "hypotheticalPicksOut": [],
+     "incomingPickHolders": [],
+     "notOwnedBySender": [],
+     "repeatedOwnedPick": [],
+     "rule": "src/identity/picks.py::lookup_league_pick_owner",
+     "unverified": []
+    },
+    "receiving": [
+     {
+      "age": null,
+      "assetClass": "offense",
+      "basePos": "WR",
+      "confidenceBucket": null,
+      "hasSourceDisagreement": null,
+      "name": "B Seven",
+      "playerId": "201",
+      "pos": "WR",
+      "quarantined": false,
+      "rank": null,
+      "sourceLabel": "B Seven",
+      "tier": "high",
+      "value": 7000,
+      "valueFreshness": null
+     }
+    ],
+    "rosterCapacity": {
+     "certainty": "exact",
+     "forcedDropCutCost": 0.0,
+     "forcedDropReleaseCost": null,
+     "forcedDropValue": 0.0,
+     "forcedDrops": [],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 1,
+     "ladderExhausted": false,
+     "notes": [
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+     ],
+     "openSpotsAfter": 3,
+     "openSpotsBefore": 3,
+     "outgoing": 1,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 0,
+     "overLimitAfterMax": 0,
+     "overLimitAfterMin": 0,
+     "overLimitBefore": 0,
+     "requiresDrops": false,
+     "rosterLimit": 8,
+     "rungOrderWasTied": false,
+     "sizeAfter": 5,
+     "sizeBefore": 5,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 0,
+     "valueScale": "rankDerivedValue"
+    },
+    "sending": [
+     {
+      "age": null,
+      "assetClass": "offense",
+      "basePos": "WR",
+      "confidenceBucket": null,
+      "hasSourceDisagreement": null,
+      "name": "C TwoFive",
+      "playerId": "301",
+      "pos": "WR",
+      "quarantined": false,
+      "rank": null,
+      "sourceLabel": "C TwoFive",
+      "tier": "depth",
+      "value": 2500,
+      "valueFreshness": null
+     }
+    ],
+    "team": {
+     "name": "Team C",
+     "ownerId": "owner3",
+     "rosterId": 3
+    },
+    "teamContext": {
+     "applied": false,
+     "mode": "asset_only"
+    },
+    "teamImpact": {
+     "ageDelta": 0.0,
+     "competitivePosture": null,
+     "depthDelta": {
+      "QB": 0,
+      "RB": 0,
+      "TE": 0,
+      "WR": 0
+     },
+     "fitScore": 100.0,
+     "lineupDisplacement": {
+      "arrived": [
+       {
+        "name": "B Seven",
+        "position": "WR",
+        "value": 7000,
+        "valueScale": "rankDerivedValue"
+       }
+      ],
+      "departed": [
+       {
+        "name": "C TwoFive",
+        "position": "WR",
+        "value": 2500,
+        "valueScale": "rankDerivedValue"
+       }
+      ],
+      "displaced": [],
+      "isValueDelta": false,
+      "promoted": [],
+      "startersAfter": 4,
+      "startersBefore": 4
+     },
+     "posture": null,
+     "postureSource": "unavailable",
+     "rationale": [
+      "Shifts WR starter quality (+4500.0)",
+      "Net raw equity +4500 (before Value Adjustment)",
+      "Roster-shape fit score +100"
+     ],
+     "redundancy": [],
+     "scarcityDelta": {
+      "QB": 0.0,
+      "RB": 0.0,
+      "TE": 0,
+      "WR": 2250.0
+     },
+     "starterDelta": {
+      "QB": 0,
+      "RB": 0,
+      "TE": 0,
+      "WR": 0
+     },
+     "starterValueDelta": {
+      "QB": 0.0,
+      "RB": 0.0,
+      "TE": 0,
+      "WR": 4500.0
+     },
+     "unscalablePositions": [
+      "TE"
+     ],
+     "windowFit": null
+    },
+    "unresolvedIn": [],
+    "unresolvedOut": []
+   },
+   "team": {
+    "name": "Team C",
+    "rosterId": 3
+   },
+   "unverifiableAssetIds": []
+  }
+ ],
+ "tradeRunId": "fixture",
+ "valuationMode": "market"
+}

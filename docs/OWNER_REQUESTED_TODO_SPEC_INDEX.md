@@ -129,7 +129,7 @@ Required semantics:
 
 - generic / hypothetical / repeatable pick representations may be added more than once or represented with quantity > 1 on either side;
 - multiple **distinct real owned picks** must all be addable even when they currently render to the same descriptive tier/label (for example two different owned picks both shown as “Mid 2027 1st”);
-- the **same exact unique owned-pick identity** remains non-duplicable, so one real pick cannot be accidentally counted twice;
+- ~~the **same exact unique owned-pick identity** remains non-duplicable, so one real pick cannot be accidentally counted twice;~~ **SUPERSEDED 2026-10-03 (owner decision):** every calculator asset — owned picks and players included — is repeatable without limit. Trade Calculator assets are hypothetical quantities, not inventory-enforced unique objects; real uniqueness remains in ownership records, transaction history, pick identity and roster-aware recommendations. Pointer: `docs/OWNER_REQUESTED_TODO.md` → "Added 2026-10-03 — Trade Calculator: unlimited asset quantity + Early/Mid/Late market picks";
 - value, Value Adjustment, package math, equalizers, share URLs, persistence, exports and mobile/desktop round-trips must preserve every valid copy or distinct identity;
 - removing one generic copy removes only that copy, not every matching label.
 
@@ -191,7 +191,7 @@ Create one current-season Power engine distinct from Team Strength, Playoff Pred
 
 Build objective institutional awards on top of canonical realized scoring and the canonical Player Impact family. Realized Lineup VORP remains the dominance foundation; MVP must additionally use continuous and actual standings-value evidence rather than an arbitrary team-success eligibility shortcut. Postseason/championship awards, MOTY vs GMOTY separation, top races, immutable historical methodology, and no fabricated retro inputs remain required.
 
-**Binding change (owner decision 2026-09-26, supersedes the 2026-08-13 "no hard gate" rule):** League MVP requires meaningful team success — playoff-field membership + >.500 (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6). OPOY / DPOY / ROY / positional awards do not inherit it; Manager of the Year keeps its own validated team-success eligibility.
+**Binding change (owner decision 2026-09-26, supersedes the 2026-08-13 "no hard gate" rule):** League MVP requires meaningful team success — playoff-field membership + .500 or better (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6) *(record half corrected 2026-09-29: .500 or better — exactly .500 counts)*. OPOY / DPOY / ROY / positional awards do not inherit it; ~~Manager of the Year keeps its own validated team-success eligibility.~~ *Superseded: unified Manager of the Year has no playoff or record gate.*
 
 **Full binding specs:** reconciliation §6.4 + `PLAYER_IMPACT_WAR_MVP_SPEC.md`.
 
@@ -235,7 +235,7 @@ Create one canonical player-impact engine with four distinct season metrics:
 
 The same remove-and-re-solve primitive owns **Game Changer Points** for The Upside Report. Counterfactual league-median results must recompute the median using the changed score. Negative impact is valid; missing evidence is unavailable, never zero.
 
-These metrics become first-class player-season statistics on appropriate UPP/history surfaces and deterministic inputs to Awards. MVP must use xWAR + VORP + actual WAR as complementary evidence; do not reduce MVP to a single raw leader. League MVP's playoff-field + >.500 eligibility gate (owner decision 2026-09-26) applies to League MVP only. Final deterministic MVP aggregation requires methodology validation and owner approval.
+These metrics become first-class player-season statistics on appropriate UPP/history surfaces and deterministic inputs to Awards. MVP must use xWAR + VORP + actual WAR as complementary evidence; do not reduce MVP to a single raw leader. League MVP's playoff-field + .500-or-better eligibility gate (record half corrected 2026-09-29 from >.500) (owner decision 2026-09-26) applies to League MVP only. Final deterministic MVP aggregation requires methodology validation and owner approval.
 
 **Full binding spec:** `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md`.
 

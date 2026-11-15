@@ -69,6 +69,10 @@ class StaleSourceAlert:
     hours_stale: float | None  # None: a state alert with no age (health, coverage)
     threshold_hours: float | None
     transition: str  # "stale" | "recovered"
+    # The age is measured from a FIRST OBSERVATION (a fetch time), so it is a
+    # lower bound and ``last_seen_iso`` is when we first saw the content, not
+    # when the vendor published it (freshness D1).
+    age_is_lower_bound: bool = False
 
 
 def load_thresholds(path: Path | None = None) -> dict[str, float]:
@@ -241,11 +245,19 @@ def detect_stale_sources(
     *,
     thresholds: dict[str, float] | None = None,
     now_epoch: float | None = None,
+    seasonally_inactive: "set[str] | None" = None,
 ) -> list[StaleSourceAlert]:
     """Given the ``/api/status.source_health`` shape, return the
     stale-source alerts (no cooldown consideration — that's the
-    caller's concern)."""
+    caller's concern).
+
+    ``seasonally_inactive`` names sources in a DECLARED seasonal window
+    whose inactive state was re-verified within threshold (resolved by
+    ``src/sources/seasonal_policy.watchdog_seasonal_split``, owner decision
+    2026-10-03).  They are not stale sources and do not page.  Default
+    ``None`` = no exclusions (fail closed)."""
     thresholds = thresholds or load_thresholds()
+    skip = seasonally_inactive or set()
     now = now_epoch or time.time()
     out: list[StaleSourceAlert] = []
     if not isinstance(source_health, dict):
@@ -256,7 +268,7 @@ def detect_stale_sources(
     if not isinstance(sources, dict):
         return out
     for src, entry in sources.items():
-        if not isinstance(entry, dict):
+        if not isinstance(entry, dict) or src in skip:
             continue
         last_seen_iso = str(
             entry.get("lastFetched") or entry.get("lastSeen") or entry.get("lastFetchedAt") or ""
@@ -319,13 +331,19 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
         for subset, sub in (entry.get("subsets") or {}).items():
             if not isinstance(sub, dict) or sub.get("state") not in _CONTENT_ALERT_STATES:
                 continue
+            baseline = sub.get("clockIsObservationBaseline") is True
             out.append(
                 StaleSourceAlert(
                     source=f"content:{key}/{subset}",
-                    last_seen_iso=str(sub.get("sourceDataAsOf") or ""),
+                    last_seen_iso=str(
+                        (sub.get("observationBaselineAt") if baseline else None)
+                        or sub.get("sourceDataAsOf")
+                        or ""
+                    ),
                     hours_stale=_number(sub.get("ageHours")),
                     threshold_hours=_number(sub.get("expectedCadenceHours")),
                     transition="stale",
+                    age_is_lower_bound=baseline,
                 )
             )
         if entry.get("health") not in (None, "HEALTHY"):
@@ -342,6 +360,23 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
             out.append(
                 StaleSourceAlert(
                     source=f"coverage:{key}",
+                    last_seen_iso="",
+                    hours_stale=None,
+                    threshold_hours=None,
+                    transition="stale",
+                )
+            )
+        if entry.get("role") == "model_input" and _at_least(entry.get("excludedRows"), 1):
+            # Votes WITHHELD on some rows (freshness quarantine / FAILED
+            # health): the subset states above can miss this, because a
+            # board pricing several universes is quarantined per universe —
+            # IDP Trade Calculator's offense rows age out while its players
+            # subset stays ON_SCHEDULE on IDP-only publications.  Degraded
+            # evidence, not an outage (owner 2026-10-07): an alert, never an
+            # error.
+            out.append(
+                StaleSourceAlert(
+                    source=f"content:{key}:votes_withheld",
                     last_seen_iso="",
                     hours_stale=None,
                     threshold_hours=None,
@@ -383,6 +418,31 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
     return out
 
 
+def _verified_seasonally_inactive(
+    thresholds: dict[str, float] | None, now_epoch: float
+) -> set[str]:
+    """Sources re-verified seasonally inactive within their threshold.
+
+    Same owner and same rule as ``scripts/watchdog_freshness.py``.  Any
+    failure reading the policy/state returns the empty set — i.e. the
+    source is alerted on normally (fail closed), never silently muted.
+    """
+    try:
+        from datetime import datetime, timezone  # noqa: PLC0415
+
+        from src.sources.seasonal_policy import watchdog_seasonal_split  # noqa: PLC0415
+
+        th = thresholds or load_thresholds()
+        verified, _lapsed = watchdog_seasonal_split(
+            None,
+            datetime.fromtimestamp(now_epoch, tz=timezone.utc),
+            lambda key: resolve_threshold(key, th),
+        )
+        return set(verified)
+    except Exception:  # noqa: BLE001 — alerting must not crash on this
+        return set()
+
+
 def check_and_alert(
     source_health: dict[str, Any],
     *,
@@ -403,70 +463,76 @@ def check_and_alert(
          "skipped_cooldown": int}
     """
     state_user = "_system_source_health"
-    state = user_kv.get_user_state(state_user, path=kv_path)
-    alert_state = dict(state.get("sourceHealthAlertState") or {})
     now = time.time()
     stale = detect_stale_sources(
         source_health,
         thresholds=thresholds,
         now_epoch=now,
+        seasonally_inactive=_verified_seasonally_inactive(thresholds, now),
     ) + detect_content_alerts(source_weighting)
     stale_sources = {a.source for a in stale}
-
-    # Detect recovery transitions — sources in alert_state marked stale
-    # that are NO longer stale now.
-    recovery_alerts: list[StaleSourceAlert] = []
-    for src, entry in list(alert_state.items()):
-        if not isinstance(entry, dict):
-            continue
-        if entry.get("currentlyStale") and src not in stale_sources:
-            recovery_alerts.append(
-                StaleSourceAlert(
-                    source=src,
-                    last_seen_iso=str(entry.get("lastAlertedAt") or ""),
-                    hours_stale=0.0,
-                    threshold_hours=0.0,
-                    transition="recovered",
-                )
-            )
 
     summary = {"stale": 0, "recovered": 0, "delivered": 0, "skipped_cooldown": 0}
     to_send: list[StaleSourceAlert] = []
 
-    # Stale alerts — apply cooldown.
-    for alert in stale:
-        prev = alert_state.get(alert.source) or {}
-        last_alerted = float(prev.get("lastAlertedAt") or 0)
-        cooldown_sec = cooldown_hours * 3600.0
-        if prev.get("currentlyStale") and (now - last_alerted) < cooldown_sec:
-            summary["skipped_cooldown"] += 1
-            continue
-        to_send.append(alert)
-        alert_state[alert.source] = {
-            "currentlyStale": True,
-            "lastAlertedAt": now,
-            "lastSeenIso": alert.last_seen_iso,
-            "hoursStale": alert.hours_stale,
-        }
-        summary["stale"] += 1
+    # The cooldown / recovery decision is made on the CURRENT state, inside
+    # the user_kv write lock, and persisted in the same transaction BEFORE
+    # sending (so a delivery crash doesn't cause re-alerts next pass).
+    # Deciding on a copy read earlier let two overlapping sweeps both send
+    # the same alert, and the later write discarded the earlier's state.
+    def _decide(state: dict[str, Any]) -> None:
+        to_send.clear()
+        for k in ("stale", "recovered", "skipped_cooldown"):
+            summary[k] = 0
+        alert_state = dict(state.get("sourceHealthAlertState") or {})
 
-    # Recovery alerts always fire (they're inherently rate-limited by
-    # the "was previously stale" precondition).
-    for r in recovery_alerts:
-        to_send.append(r)
-        alert_state[r.source] = {
-            "currentlyStale": False,
-            "lastAlertedAt": now,
-        }
-        summary["recovered"] += 1
+        # Detect recovery transitions — sources in alert_state marked stale
+        # that are NO longer stale now.
+        recovery_alerts: list[StaleSourceAlert] = []
+        for src, entry in list(alert_state.items()):
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("currentlyStale") and src not in stale_sources:
+                recovery_alerts.append(
+                    StaleSourceAlert(
+                        source=src,
+                        last_seen_iso=str(entry.get("lastAlertedAt") or ""),
+                        hours_stale=0.0,
+                        threshold_hours=0.0,
+                        transition="recovered",
+                    )
+                )
 
-    # Persist state BEFORE sending so a delivery crash doesn't cause
-    # re-alerts next pass.
-    user_kv.merge_user_state(
-        state_user,
-        {"sourceHealthAlertState": alert_state},
-        path=kv_path,
-    )
+        # Stale alerts — apply cooldown.
+        for alert in stale:
+            prev = alert_state.get(alert.source) or {}
+            last_alerted = float(prev.get("lastAlertedAt") or 0)
+            cooldown_sec = cooldown_hours * 3600.0
+            if prev.get("currentlyStale") and (now - last_alerted) < cooldown_sec:
+                summary["skipped_cooldown"] += 1
+                continue
+            to_send.append(alert)
+            alert_state[alert.source] = {
+                "currentlyStale": True,
+                "lastAlertedAt": now,
+                "lastSeenIso": alert.last_seen_iso,
+                "hoursStale": alert.hours_stale,
+            }
+            summary["stale"] += 1
+
+        # Recovery alerts always fire (they're inherently rate-limited by
+        # the "was previously stale" precondition).
+        for r in recovery_alerts:
+            to_send.append(r)
+            alert_state[r.source] = {
+                "currentlyStale": False,
+                "lastAlertedAt": now,
+            }
+            summary["recovered"] += 1
+
+        state["sourceHealthAlertState"] = alert_state
+
+    user_kv.mutate_user_state(state_user, _decide, path=kv_path)
 
     if not to_send:
         return summary
@@ -504,6 +570,13 @@ def _format_body(alerts: list[StaleSourceAlert]) -> str:
                 lines.append(f"  • {a.source}")
                 continue
             threshold = "unknown" if a.threshold_hours is None else f"{a.threshold_hours:.0f}h"
+            if a.age_is_lower_bound:
+                lines.append(
+                    f"  • {a.source}: at least {a.hours_stale:.1f}h stale "
+                    f"(threshold {threshold}) — first observed {a.last_seen_iso}, "
+                    "publication time unknown"
+                )
+                continue
             lines.append(
                 f"  • {a.source}: {a.hours_stale:.1f}h stale "
                 f"(threshold {threshold}) — last seen {a.last_seen_iso}"

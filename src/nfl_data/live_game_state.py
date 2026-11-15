@@ -11,6 +11,11 @@ This module owns what an observed game state IS (:class:`ObservedGameState`,
   shapes (owner-named for live game state; flag
   ``sportsdataio_live_game_state``, default OFF, plus the
   ``SPORTSDATAIO_API_KEY`` credential).
+* ``balldontlie`` — BALLDONTLIE's keyed NFL ``games`` endpoint, parsed by
+  :mod:`src.nfl_data.balldontlie_live_game_state` (flag
+  ``balldontlie_live_game_state``, default OFF, plus ``BALLDONTLIE_API_KEY``).
+  A PARTIAL provider — lifecycle and score, no period or clock — collected
+  in SHADOW only (:func:`compare_snapshots`), never selected.
 
 Every state carries ``provider`` so a consumer can always say which feed
 supplied it; choosing ONE provider per poll (never merging two providers'
@@ -104,17 +109,20 @@ PHASE_UNKNOWN = "UNKNOWN"
 
 PROVIDER_ESPN = "espn"
 PROVIDER_SPORTSDATAIO = "sportsdataio"
-PROVIDERS: tuple[str, ...] = (PROVIDER_ESPN, PROVIDER_SPORTSDATAIO)
+PROVIDER_BALLDONTLIE = "balldontlie"
+PROVIDERS: tuple[str, ...] = (PROVIDER_ESPN, PROVIDER_SPORTSDATAIO, PROVIDER_BALLDONTLIE)
 #: Lineage label per provider (``GameEvidence.source`` and freshness).
 PROVIDER_SOURCE_LABELS: Mapping[str, str] = {
     PROVIDER_ESPN: "espn:scoreboard",
     PROVIDER_SPORTSDATAIO: "sportsdataio:scores",
+    PROVIDER_BALLDONTLIE: "balldontlie:games",
 }
 #: The provider-specific flag for each provider.  The Game Day master
 #: switch ``game_day_live_game_state`` gates every provider as well.
 PROVIDER_FLAGS: Mapping[str, str] = {
     PROVIDER_ESPN: "game_day_live_game_state",
     PROVIDER_SPORTSDATAIO: "sportsdataio_live_game_state",
+    PROVIDER_BALLDONTLIE: "balldontlie_live_game_state",
 }
 
 
@@ -568,6 +576,26 @@ def fetch_live_game_state(
             http_get=_http_get,
             env=_env,
         )
+    if provider == PROVIDER_BALLDONTLIE:
+        from src.nfl_data import balldontlie_live_game_state as _bdl
+
+        if dates is not None:
+            return ScoreboardSnapshot(
+                observed_at=clock(),
+                enabled=True,
+                source_url=None,
+                http_status=None,
+                error="invalid_query:balldontlie reads by season+week, not dates",
+                provider=PROVIDER_BALLDONTLIE,
+            )
+        return _bdl.fetch_games_by_week(
+            season=season,
+            week=week,
+            season_type=2 if season_type is None else season_type,
+            now=clock,
+            http_get=_http_get,
+            env=_env,
+        )
     if provider != PROVIDER_ESPN:
         return ScoreboardSnapshot(
             observed_at=clock(),
@@ -719,6 +747,104 @@ def regulation_fraction_remaining(state: ObservedGameState) -> RegulationRemaini
     return RegulationRemaining(min(1.0, max(0.0, seconds / _REGULATION_SECONDS)), None)
 
 
+# ── Provider comparison (shadow evidence) ────────────────────────────
+
+
+def _clock_diff(a: ObservedGameState, b: ObservedGameState) -> float | None:
+    if a.clock_seconds is None or b.clock_seconds is None:
+        return None
+    return round(abs(a.clock_seconds - b.clock_seconds), 3)
+
+
+def compare_snapshots(
+    candidate: ScoreboardSnapshot, reference: ScoreboardSnapshot | None
+) -> dict[str, Any]:
+    """Per-game comparison of two providers' observations.  Never reconciles.
+
+    Games are matched on canonical (home, away) team codes — never on
+    provider ids.  Each matched game reports both sides of every canonical
+    field and an ``agree`` flag per field that BOTH providers stated; a field
+    only one side states is reported as ``candidate_missing`` /
+    ``reference_missing``, never counted as agreement.  Unmatched games are
+    listed on both sides.  Used for shadow evidence only.
+    """
+    out: dict[str, Any] = {
+        "candidateProvider": candidate.provider,
+        "candidateOk": candidate.ok,
+        "candidateError": candidate.error,
+        "referenceProvider": getattr(reference, "provider", None),
+        "referenceOk": bool(reference is not None and reference.ok),
+        "referenceError": getattr(reference, "error", None) if reference is not None else "none",
+        "games": [],
+        "unmatchedCandidate": [],
+        "unmatchedReference": [],
+    }
+    cand = {(g.home_team, g.away_team): g for g in candidate.games} if candidate.ok else {}
+    ref = (
+        {(g.home_team, g.away_team): g for g in reference.games}
+        if reference is not None and reference.ok and reference.provider != candidate.provider
+        else {}
+    )
+    for key in sorted(set(cand) | set(ref)):
+        c, r = cand.get(key), ref.get(key)
+        if c is None:
+            out["unmatchedReference"].append(f"{key[1]}@{key[0]}")
+            continue
+        row: dict[str, Any] = {
+            "game": f"{key[1]}@{key[0]}",
+            "candidate": {
+                "phase": c.phase,
+                "status": c.status_name,
+                "lifecycle": c.lifecycle_state,
+                "period": c.period,
+                "clockSeconds": c.clock_seconds,
+                "homeScore": c.home_score,
+                "awayScore": c.away_score,
+                "completed": c.completed,
+                "kickoff": c.kickoff.isoformat() if c.kickoff else None,
+            },
+        }
+        if r is None:
+            if ref:
+                out["unmatchedCandidate"].append(row["game"])
+            row["reference"] = None
+            out["games"].append(row)
+            continue
+        row["reference"] = {
+            "phase": r.phase,
+            "status": r.status_name,
+            "lifecycle": r.lifecycle_state,
+            "period": r.period,
+            "clockSeconds": r.clock_seconds,
+            "homeScore": r.home_score,
+            "awayScore": r.away_score,
+            "completed": r.completed,
+            "kickoff": r.kickoff.isoformat() if r.kickoff else None,
+        }
+        fields: dict[str, Any] = {}
+        for name, a, b in (
+            ("lifecycle", c.lifecycle_state, r.lifecycle_state),
+            ("phase", c.phase, r.phase),
+            ("period", c.period, r.period),
+            ("homeScore", c.home_score, r.home_score),
+            ("awayScore", c.away_score, r.away_score),
+            ("completed", c.completed, r.completed),
+        ):
+            if a is None:
+                fields[name] = "candidate_missing" if b is not None else "both_missing"
+            elif b is None:
+                fields[name] = "reference_missing"
+            else:
+                fields[name] = a == b
+        fields["clockDiffSeconds"] = _clock_diff(c, r)
+        fields["kickoffDiffSeconds"] = (
+            abs((c.kickoff - r.kickoff).total_seconds()) if c.kickoff and r.kickoff else None
+        )
+        row["fields"] = fields
+        out["games"].append(row)
+    return out
+
+
 __all__ = [
     "ESPN_SCOREBOARD_URL",
     "FLAG_NAME",
@@ -728,6 +854,7 @@ __all__ = [
     "PROVIDER_FLAGS",
     "PROVIDER_SOURCE_LABELS",
     "PROVIDER_SPORTSDATAIO",
+    "PROVIDER_BALLDONTLIE",
     "PHASE_CANCELED",
     "PHASE_DELAYED",
     "PHASE_END_PERIOD",
@@ -741,6 +868,7 @@ __all__ = [
     "ObservedGameState",
     "RegulationRemaining",
     "ScoreboardSnapshot",
+    "compare_snapshots",
     "fetch_live_game_state",
     "parse_scoreboard",
     "provider_source_label",

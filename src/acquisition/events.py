@@ -31,6 +31,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+from src.public_league import ownership
+
 #: How an asset ARRIVED.  Closed set; a method not on this list is a
 #: schema change, not a string someone passes in.
 ACQUISITION_METHODS = (
@@ -236,7 +238,11 @@ def events_from_transaction(
     slots = slot_by_origin or {}
 
     def _owner(rid: Any) -> str | None:
-        """Roster id -> Sleeper user id, or None.  Never a guess."""
+        """Roster id -> Sleeper user id, or None.  Never a guess.
+
+        A recorded mid-season hand-off (``public_league.ownership``) gives
+        weeks before it to the outgoing owner, not today's roster holder.
+        """
         if rid is None:
             return None
         for probe in (rid, _int_or_none(rid), str(rid)):
@@ -244,7 +250,7 @@ def events_from_transaction(
                 continue
             found = owners.get(probe)
             if found:
-                return str(found)
+                return ownership.owner_at(sleeper_league_id, rid, str(found), week)
         return None
 
     def _mk(**kw: Any) -> AcquisitionEvent:
@@ -368,6 +374,8 @@ def events_from_draft_picks(
     owners = owner_by_roster or {}
 
     def _owner(rid: Any) -> str | None:
+        # Draft picks are made before week 1: a roster handed off
+        # mid-season drafted under its outgoing owner.
         if rid is None:
             return None
         for probe in (rid, _int_or_none(rid), str(rid)):
@@ -375,7 +383,7 @@ def events_from_draft_picks(
                 continue
             found = owners.get(probe)
             if found:
-                return str(found)
+                return ownership.owner_at(sleeper_league_id, rid, str(found), 0)
         return None
 
     for pick in picks or []:

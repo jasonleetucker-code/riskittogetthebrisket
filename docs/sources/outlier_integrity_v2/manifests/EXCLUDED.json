@@ -1,0 +1,24 @@
+{
+ "boards": [
+  {
+   "addCommit": "eb10d3e12d2234c292bc7e9ead414275cd8d6861",
+   "board": "dynasty_export_20261019_052349.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": false,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "b639608f68176b9a395527e6e9ea992e324baa75d997b8ea289e587e61eae11c",
+   "population": "EXCLUDED",
+   "reason": "V1 diagnosis board (design contact; contaminated)",
+   "roles": [],
+   "scrapeTimestamp": "2026-10-19T05:23:48.885300+00:00",
+   "zipSha256": "381e53ec85f3b522fa2db66819f7bf58c49a4d14216bd0d2fae582fe09a73c0a"
+  }
+ ],
+ "count": 1,
+ "population": "EXCLUDED",
+ "schema": "oiv2-population-manifest/v1"
+}

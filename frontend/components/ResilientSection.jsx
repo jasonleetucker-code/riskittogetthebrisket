@@ -14,13 +14,49 @@
  *     <MonteCarloButton sides={sides} />
  *   </ResilientSection>
  *
- * On error, renders a small fallback banner in place of the
- * crashed children, logs to console with a tagged prefix, and
- * continues rendering the rest of the page.  User can click
- * "Retry this section" to remount.
+ *   // Around a React.lazy section:
+ *   <ResilientSection name="Trade suggestions" recovery="reload">
+ *     <Suspense fallback={null}><LazyDesk /></Suspense>
+ *   </ResilientSection>
+ *
+ * On error, renders a compact negative banner in place of the crashed
+ * children, logs to console with a tagged prefix, and continues
+ * rendering the rest of the page.
+ *
+ * The fallback is styled with the design system's own classes
+ * (`ds-banner--negative`, `ds-btn--sm`) rather than by importing the
+ * `Banner` / `Button` components: this boundary is EAGER on /league
+ * (LeagueClient) and /trade, and importing those components (plus
+ * Banner's Icon) pulled ~3.2 KB into /league's first-load page chunk —
+ * measured — for markup that only exists on the error path.
+ *
+ * Recovery — "Retry this section" or "Reload page":
+ *
+ *   - "retry" (default) remounts the children.  Right for a render
+ *     crash that may not recur.
+ *   - "reload" reloads the page.  REQUIRED around a React.lazy section:
+ *     React.lazy caches a rejected import, so remounting re-throws the
+ *     same failure forever.  The realistic failure is a deploy:
+ *     deploy/deploy.sh swaps `.next` and deletes the old build, so a tab
+ *     opened before the deploy 404s on its old chunk hashes the first
+ *     time it asks for an on-demand section.  Only a reload fetches the
+ *     new build's chunk names.
+ *
+ * A webpack ChunkLoadError is recovered by reload whatever `recovery`
+ * says — a remount cannot fix a missing chunk.
  */
 import React from "react";
 
+function isChunkLoadError(error) {
+  return (
+    error?.name === "ChunkLoadError" ||
+    /Loading (CSS )?chunk [^ ]+ failed/i.test(String(error?.message || ""))
+  );
+}
+
+function reloadPage() {
+  window.location.reload();
+}
 
 export default class ResilientSection extends React.Component {
   constructor(props) {
@@ -47,51 +83,39 @@ export default class ResilientSection extends React.Component {
   };
 
   render() {
-    if (this.state.error) {
+    const { error } = this.state;
+    if (error) {
+      const reload =
+        this.props.recovery === "reload" || isChunkLoadError(error);
       // Custom fallback if provided.
       if (typeof this.props.fallback === "function") {
         return this.props.fallback({
-          error: this.state.error,
-          retry: this._retry,
+          error,
+          retry: reload ? reloadPage : this._retry,
+          reload,
           name: this.props.name,
         });
       }
-      // Default fallback: compact banner.
+      // Default fallback: the design system's negative banner.
       return (
-        <div
-          role="alert"
-          style={{
-            padding: "var(--space-md, 16px)",
-            border: "1px dashed rgba(239, 68, 68, 0.4)",
-            borderRadius: "var(--radius-md, 8px)",
-            background: "rgba(239, 68, 68, 0.05)",
-            color: "var(--subtext, #aaa)",
-            fontSize: "0.85rem",
-            margin: "8px 0",
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 4, color: "#f87171" }}>
-            {this.props.name || "Section"} unavailable
+        <div role="alert" className="ds-banner ds-banner--negative">
+          <div className="ds-banner__body">
+            <p className="ds-banner__title">{`${this.props.name || "Section"} unavailable`}</p>
+            <p>
+              {reload
+                ? "This section could not be loaded — the site may have been updated since this page was opened. Reload to get the latest version; the rest of the page keeps working."
+                : "This section hit an error and was hidden so the rest of the page keeps working."}
+            </p>
+            <div style={{ marginTop: "var(--space-2)" }}>
+              <button
+                type="button"
+                className="ds-btn ds-btn--secondary ds-btn--sm"
+                onClick={reload ? reloadPage : this._retry}
+              >
+                {reload ? "Reload page" : "Retry this section"}
+              </button>
+            </div>
           </div>
-          <div style={{ marginBottom: 6 }}>
-            This section hit an error and was hidden so the rest of
-            the page keeps working.
-          </div>
-          <button
-            type="button"
-            onClick={this._retry}
-            style={{
-              padding: "4px 10px",
-              fontSize: "0.72rem",
-              background: "transparent",
-              border: "1px solid rgba(255,255,255,0.15)",
-              color: "var(--subtext)",
-              borderRadius: 4,
-              cursor: "pointer",
-            }}
-          >
-            Retry this section
-          </button>
         </div>
       );
     }

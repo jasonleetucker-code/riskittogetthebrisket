@@ -573,8 +573,8 @@ def build_brief(
     away_rid = metrics.roster_id_of(away_entry)
     if home_rid is None or away_rid is None:
         return None
-    home_owner = metrics.resolve_owner(snapshot.managers, season_snap.league_id, home_rid)
-    away_owner = metrics.resolve_owner(snapshot.managers, season_snap.league_id, away_rid)
+    home_owner = metrics.resolve_owner(snapshot.managers, season_snap.league_id, home_rid, week)
+    away_owner = metrics.resolve_owner(snapshot.managers, season_snap.league_id, away_rid, week)
     if not home_owner or not away_owner:
         return None
 
@@ -730,7 +730,7 @@ def build_brief(
             "ownerId": owner_id,
             "rosterId": rid,
             "displayName": metrics.display_name_for(snapshot, owner_id),
-            "teamName": metrics.team_name(snapshot, season_snap.league_id, rid),
+            "teamName": metrics.team_name(snapshot, season_snap.league_id, rid, week),
             "playoffSeed": seed,
             "preWeekRecord": {
                 "wins": pre_rec.get("wins", 0),

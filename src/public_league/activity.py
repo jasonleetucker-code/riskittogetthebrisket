@@ -171,6 +171,41 @@ def _apply_trade_grades(
             side["grade"] = result["grade"]
 
 
+def _apply_current_grades(
+    feed: list[dict[str, Any]],
+    current: Callable[[dict[str, Any]], "float | None"],
+) -> None:
+    """Attach a ``currentGrade`` block: the same trade at TODAY's board.
+
+    Owner decision 2026-10-17: public ``/league`` shows a current-grade band
+    beside the at-the-time grade, computed by the same
+    ``trade_grading.grade_trade_sides`` (and so the same active package
+    model) as the private /trades Current Grade.  Band and label only — the
+    values never leave the backend.  A side with any asset today's board does
+    not price is ``available: False``; never a partial total, never zero.
+    """
+
+    def today(asset: dict[str, Any], _instant: Any) -> "float | None":
+        return current(asset)
+
+    for trade in feed:
+        sides = trade.get("sides") or []
+        if len(sides) < 2:
+            continue
+        for side in sides:
+            got, got_missing = _resolve_side(side.get("receivedAssets"), today, None)
+            gave, gave_missing = _resolve_side(side.get("sentAssets"), today, None)
+            missing = got_missing + gave_missing
+            if missing:
+                side["currentGrade"] = {
+                    **_unavailable_grade("unpriced_today", missing),
+                    "label": "Current value unavailable",
+                }
+                continue
+            (result,) = trade_grading.grade_trade_sides([(got, gave)])
+            side["currentGrade"] = result["grade"]
+
+
 def _pick_asset(pick: dict[str, Any], snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     season = pick.get("season")
     round_ = pick.get("round")
@@ -240,7 +275,9 @@ def _normalize_trade(
     total_assets = 0
     total_notable = 0
     for rid in roster_ids:
-        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+        owner_id = metrics.resolve_owner(
+            snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+        )
         received_player_ids = [pid for pid, r in adds_map.items() if int(r) == rid]
         sent_player_ids = [pid for pid, r in drops_map.items() if int(r) == rid]
         received_picks = picks_by_owner.get(rid, [])
@@ -261,7 +298,7 @@ def _normalize_trade(
                 "rosterId": rid,
                 "ownerId": owner_id,
                 "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
+                "teamName": metrics.team_name(snapshot, season.league_id, rid, metrics.tx_week(tx))
                 if owner_id
                 else f"Team {rid}",
                 "receivedAssets": received_assets,
@@ -374,6 +411,86 @@ def _timeline_by_week(feed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+# ── HTTP serving view ────────────────────────────────────────────────────
+# ``build_section``'s output is consumed IN-PROCESS by the overview
+# (``feed`` per-side counts, ``biggestBlockbusters``), the CSV exporter
+# (counts, ``leagueId``), the archives section and the full public
+# contract, and grading itself needs ``sentAssets`` — so it is never
+# trimmed.  ``GET /api/public/league/activity`` ships it to exactly two
+# readers, and ~40% of its bytes were fields neither reads (measured
+# 2026-10-03: 421 KB, with ``sentAssets`` 78 KB, ``grade.missingAssets``
+# 66 KB and ``biggestBlockbusters`` 19 KB):
+#
+#   * /league?tab=activity — ``app/league/sections/activity.jsx`` (header
+#     stats, ``TradeCard``) + ``TradeFlowSankey`` + ``ActivityHeatmap``;
+#   * /league/activity — ``lib/activity-feed.js::publicTradeToEvent``.
+#
+# These allowlists are the union of what those read (audit recorded in
+# the PR that introduced them).  Allowlists, not denylists: a field added
+# to ``build_section`` later stays off the wire until a reader needs it.
+_SERVED_SECTION_KEYS = (
+    "feed",
+    "totalCount",
+    "picksMovedCount",
+    "playersMovedCount",
+    "mostActiveTrader",
+    "mostFrequentPartnerPair",
+    "positionMixMoved",
+)
+_SERVED_TRADE_KEYS = ("transactionId", "season", "week", "createdAt", "totalAssets", "sides")
+_SERVED_SIDE_KEYS = (
+    "rosterId",
+    "ownerId",
+    "displayName",
+    "teamName",
+    "receivedAssets",
+    "grade",
+    "currentGrade",
+)
+# ``season`` / ``round`` stay on picks: ``TradeCard`` falls back to them
+# when a pick has no ``label``.
+_SERVED_ASSET_KEYS = ("kind", "playerName", "position", "label", "season", "round")
+# ``available`` keeps the honest "insufficient historical evidence" state;
+# ``reason`` / ``missingAssets`` are diagnostics no page renders.
+_SERVED_GRADE_KEYS = ("available", "grade", "color", "label")
+
+
+def _pick(src: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    # Presence-preserving: an absent key stays absent (never a default),
+    # so a missing grade or value cannot be coerced into a zero here.
+    return {k: src[k] for k in keys if k in src}
+
+
+def serving_view(section: dict[str, Any]) -> dict[str, Any]:
+    """The ``GET /api/public/league/activity`` body: ``section`` reduced
+    to the fields its page readers use.  Pure; never mutates ``section``.
+    """
+    view = _pick(section, _SERVED_SECTION_KEYS)
+    feed = []
+    for trade in section.get("feed") or []:
+        out = _pick(trade, _SERVED_TRADE_KEYS)
+        sides = []
+        for side in trade.get("sides") or []:
+            s = _pick(side, _SERVED_SIDE_KEYS)
+            if "receivedAssets" in s:
+                s["receivedAssets"] = [
+                    _pick(a, _SERVED_ASSET_KEYS) if isinstance(a, dict) else a
+                    for a in side["receivedAssets"] or []
+                ]
+            # Both grade blocks (at-the-time and today's band) serve the same
+            # four public keys; values and diagnostics never leave.
+            for gk in ("grade", "currentGrade"):
+                if isinstance(side.get(gk), dict):
+                    s[gk] = _pick(side[gk], _SERVED_GRADE_KEYS)
+            sides.append(s)
+        if "sides" in out:
+            out["sides"] = sides
+        feed.append(out)
+    if "feed" in view:
+        view["feed"] = feed
+    return view
+
+
 def build_section(
     snapshot: PublicLeagueSnapshot,
     limit: int = 200,
@@ -430,6 +547,11 @@ def build_section(
                     requests.append((asset, instant))
         resolve = valuation_factory(requests)
         _apply_trade_grades(feed, resolve)
+        # Today's-board resolver rides on the factory (``server.py``'s
+        # ``_PublicActivityValuation``) so no caller signature changes.
+        current = getattr(valuation_factory, "current_valuation", None)
+        if callable(current):
+            _apply_current_grades(feed, current)
     by_manager = _by_manager_counts(feed)
     partner_pairs = _partner_pairs(feed)
     blockbusters = _biggest_blockbusters(feed)

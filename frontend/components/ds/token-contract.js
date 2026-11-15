@@ -183,6 +183,13 @@ export const LIGHT_THEME_REQUIRED = [
   "--warning",
   "--info",
   "--focus-ring",
+  // Categorical series: their own light-surface steps (Owner Decision 14).
+  "--chart-1",
+  "--chart-2",
+  "--chart-3",
+  "--chart-4",
+  "--chart-5",
+  "--chart-6",
 ];
 
 /**
@@ -211,6 +218,13 @@ export const PSI_EDITORIAL_REQUIRED = [
   "--data-down",
   "--focus-ring",
   "--font-display",
+  // Categorical series: their own light-surface steps (Owner Decision 14).
+  "--chart-1",
+  "--chart-2",
+  "--chart-3",
+  "--chart-4",
+  "--chart-5",
+  "--chart-6",
 ];
 
 /** Chart series slots in their validated fixed order. Never cycle. */

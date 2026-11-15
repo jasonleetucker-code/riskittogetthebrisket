@@ -49,10 +49,7 @@ function PhaseFailure({ failure }) {
     return (
       <EmptyState
         title="Choose a team"
-        message={
-          message ||
-          "Pick your team above to see league phases and your natural trade partners."
-        }
+        message="We could not tell which team is yours because your account is not linked to one. Select your team with the “Pick your team” control in the header to see league phases and your natural trade partners."
       />
     );
   }
@@ -137,6 +134,22 @@ export default function TeamPhasePanel() {
         (p) => p.winnerOwnerId === myOwnerId || p.rebuilderOwnerId === myOwnerId,
       )
     : [];
+
+  // W20-F008: say WHY the partner list is empty. A pairing is skipped (never
+  // scored with a fabricated gap) when either team's Team Strength or core age
+  // is unmeasured, so "both sides exist" can still mean no partnerships.
+  let noPartnersReason = null;
+  if (analysis.partnerships.length === 0) {
+    const hasRebuild = analysis.teams.some((t) => t.phase.key === "rebuild");
+    const hasWinner = analysis.teams.some(
+      (t) => t.phase.key === "win_now" || t.phase.key === "contender",
+    );
+    noPartnersReason = !hasRebuild
+      ? "the league has no Rebuild team (Team Strength at or below the league median with a core younger than the league median), so there is no win-now ↔ rebuild pairing."
+      : !hasWinner
+        ? "the league has no Win-now or Contender team to pair with its rebuilders."
+        : "every win-now ↔ rebuild pairing involves a team whose Team Strength or core age is unmeasured, so none can be scored.";
+  }
 
   const columns = [
     {
@@ -226,6 +239,15 @@ export default function TeamPhasePanel() {
         density="compact"
         defaultSort={{ key: "totalValue", direction: "desc" }}
       />
+
+      {noPartnersReason && (
+        // W20-F008: an empty partner list used to render nothing at all, so
+        // "no pairing exists" and "the block is broken" looked identical.
+        // The classification rule itself (strict below-median age) is unchanged.
+        <p className="muted" style={{ fontSize: "0.74rem", marginTop: "var(--space-3)" }}>
+          No trade partners to suggest right now: {noPartnersReason}
+        </p>
+      )}
 
       {myPartnerships.length > 0 && (
         <div style={{ marginTop: "var(--space-3)" }}>

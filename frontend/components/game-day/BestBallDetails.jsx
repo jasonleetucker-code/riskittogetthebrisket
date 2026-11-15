@@ -16,9 +16,13 @@ const BestBallDetailsBody = lazy(() => import("./BestBallDetailsBody"));
 
 export default function BestBallDetails({ payload }) {
   if (!payload?.team) return null;
+  // A managed league (lineage.bestBall === false) counts submitted
+  // starters; calling its lineup "best ball" describes a rule it does not
+  // play under.  Unknown keeps the historical title.
+  const managed = payload.lineage?.bestBall === false;
   return (
     <CollapsiblePanel
-      title="Best-ball details"
+      title={managed ? "Lineup details" : "Best-ball details"}
       subtitle="Who is counting, who could still enter, and whose game is over."
       defaultCollapsed
       mountCollapsedChildren={false}

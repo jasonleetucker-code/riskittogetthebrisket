@@ -352,6 +352,26 @@ def read_events(league_key: str, *, path: Path | None = None) -> list[dict[str, 
         conn.close()
 
 
+def read_first_recorded(league_key: str, *, path: Path | None = None) -> dict[str, tuple[str, str]]:
+    """``{source_ref: (earliest, latest) first_recorded_at}`` for one league.
+
+    When THIS ledger first recorded each event of a transaction -- the
+    collection clock the completed-trade evidence uses for point-in-time
+    correctness (a backfilled trade is not knowable before it was recorded).
+    ``last_seen_at`` is deliberately not read: it moves on every re-run.
+    """
+    conn = connect(path)
+    try:
+        rows = conn.execute(
+            "SELECT source_ref, MIN(first_recorded_at), MAX(first_recorded_at) "
+            "FROM acquisition_events WHERE league_key = ? GROUP BY source_ref",
+            (league_key,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {str(r[0]): (str(r[1]), str(r[2])) for r in rows if r[1] and r[2]}
+
+
 def replace_derivations(
     league_key: str,
     holdings: Sequence[dict[str, Any]],

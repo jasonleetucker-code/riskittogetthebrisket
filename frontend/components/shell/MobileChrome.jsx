@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from "react";
 import { Drawer, Icon } from "@/components/ds";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
+import NavLinkList from "@/components/shell/NavLinkList";
 import {
   MOBILE_TABS,
   MOBILE_TABS_PUBLIC,
@@ -36,22 +37,7 @@ function DrawerGroup({ label, items, pathname, onNavigate }) {
   return (
     <div className="shell-drawer-group">
       <p className="shell-drawer-group-label">{label}</p>
-      <div className="shell-drawer-list">
-        {items.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="shell-menu-item"
-            aria-current={isNavActive(item.href, pathname) ? "page" : undefined}
-            onClick={onNavigate}
-          >
-            <span>{item.label}</span>
-            {item.hint ? (
-              <span className="shell-menu-item-hint">{item.hint}</span>
-            ) : null}
-          </Link>
-        ))}
-      </div>
+      <NavLinkList items={items} pathname={pathname} onNavigate={onNavigate} />
     </div>
   );
 }

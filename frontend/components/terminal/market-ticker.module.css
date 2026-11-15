@@ -1,8 +1,7 @@
-/* market-ticker.module.css — Chase Upside Market Ticker (C8-PSI-01).
-   Structural/layout styles only. Delta coloring and confidence ticks
-   ride ds/Badge's <Movement> (ds.css, --data-up/--data-down tokens);
-   the scope switch rides ds/SegmentedControl (ds.css). Nothing here
-   duplicates either. */
+/* market-ticker.module.css — homepage Buy/Sell ticker (C8-PSI-01 layout,
+   C6-SIG-02 content). Structural/layout styles only. BUY / SELL / CONFLICT
+   ride ds/Badge (ds.css tones — the same badge TopSignalsRail uses).
+   Nothing here duplicates it. */
 
 .ticker {
   display: flex;
@@ -132,14 +131,10 @@
   text-transform: uppercase;
 }
 
-.itemRoster .itemLabel {
-  color: var(--cyan);
-}
-
-.itemDot {
-  color: var(--cyan);
-  font-size: 0.5rem;
-  line-height: 1;
+.itemLineage {
+  font-size: 0.66rem;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .itemAlert .itemTrigger {

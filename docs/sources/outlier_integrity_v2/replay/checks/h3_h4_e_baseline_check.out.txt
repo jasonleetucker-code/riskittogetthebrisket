@@ -1,0 +1,9 @@
+# python docs/sources/outlier_integrity_v2/replay/checks/h3_h4_e_baseline_check.py   (cwd = repo root; decision code as at 8c33447d0a, frozen thresholds)
+dynasty_export_20260803_235610.zip payload JJ idptc 837
+  inc vote 837 integrity None prov None dropped ['idpTradeCalc', 'draftSharks'] value 8158
+  v2nh vote 7674 integrity {'status': 'voting', 'primaryReason': 'voting', 'category': 'voting_normally'} prov {'payload': 837.0, 'csv': 7674, 'selected': 'csv', 'proof': 'row', 'reason': 'broken_feed:payload_provenance_conflict'} dropped [] value 8105
+  provenance {"boardProof": false, "provenGroups": [], "rowProofs": 1, ...}
+dynasty_export_20260806_150742.zip payload JJ idptc None
+  inc vote 7674 integrity None prov None dropped ['draftSharks'] value 8136
+  v2nh vote 7674 integrity {'status': 'voting', 'primaryReason': 'voting_name_only_identity', 'category': 'voting_normally', 'identity': 'NAME_ONLY'} prov None dropped [] value 8059
+  provenance {"boardProof": false, "provenGroups": [], "rowProofs": 0, ...}

@@ -101,15 +101,18 @@ function isRenderableCurve(c) {
 // Colour palette per position group.  Keys match the ``assetClass`` /
 // coarse position taxonomy the frontend already uses so the Hill
 // chart legend matches the badge colours elsewhere on the board.
+// Eight groups exceed Owner Decision 14's six slots, so this chart keeps the
+// previous palette unchanged until a >6-category fold design is approved.
+const LEGACY = CHART_COLORS.legacyCategorical;
 const GROUP_COLORS = {
-  QB: CHART_COLORS.categorical[0],
-  RB: CHART_COLORS.categorical[2],
-  WR: CHART_COLORS.categorical[1],
-  TE: CHART_COLORS.categorical[3],
-  DL: CHART_COLORS.categorical[4],
-  LB: CHART_COLORS.categorical[5],
-  DB: CHART_COLORS.categorical[6],
-  PICK: CHART_COLORS.categorical[7],
+  QB: LEGACY[0],
+  RB: LEGACY[2],
+  WR: LEGACY[1],
+  TE: LEGACY[3],
+  DL: LEGACY[4],
+  LB: LEGACY[5],
+  DB: LEGACY[6],
+  PICK: LEGACY[7],
   OTHER: CHART_COLORS.axisLabel,
 };
 
@@ -262,7 +265,9 @@ export default function HillCurveExplorer({
           </g>
         ))}
 
-        {/* Scatter first, so the curves sit visually on top of dots. */}
+        {/* Scatter first, so the curves sit visually on top of dots.
+            Dot opacity 0.9 (was 0.55): at 0.55 marks fell to ~2:1 against
+            the plot; 0.9 is the contrast repair, colours are unchanged. */}
         {groupKeys.map((g) => {
           const color = GROUP_COLORS[g] || CHART_COLORS.axisLabel;
           return (
@@ -274,7 +279,7 @@ export default function HillCurveExplorer({
                   cy={s.y}
                   r={2.25}
                   fill={color}
-                  fillOpacity={0.55}
+                  fillOpacity={0.9}
                   style={onPointClick ? { cursor: "pointer" } : undefined}
                   onClick={onPointClick ? () => onPointClick(s.raw) : undefined}
                 >

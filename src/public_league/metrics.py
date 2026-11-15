@@ -8,9 +8,11 @@ results stay consistent across cards.
 
 from __future__ import annotations
 
+import time
 from collections import defaultdict
 from typing import Any, Iterable
 
+from . import ownership
 from .identity import ManagerRegistry
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
@@ -184,6 +186,69 @@ def week_is_fully_scored(
     return all(is_scored(e) for e in entries)
 
 
+#: year -> (monotonic read time, rows).  One contract build calls the
+#: finished-week rule ~100 times; without this each would re-read and
+#: JSON-parse the year's schedule.  30 s is far below any cadence the
+#: schedule changes on, and a lagging read can only WITHHOLD a week (schedule
+#: data only moves toward "final"), never admit one early.
+_NFL_SCHEDULE_MEMO: dict[int, tuple[float, list[dict[str, Any]]]] = {}
+_NFL_SCHEDULE_MEMO_SECONDS = 30.0
+
+
+def _nfl_schedule_rows(season_year: int) -> list[dict[str, Any]]:
+    """The nflverse schedule through its canonical owner, cache-only: this
+    runs on request paths and must never fetch.  Any failure is an empty
+    answer, which ``nfl_week_games_final`` reports as UNKNOWN."""
+    now = time.monotonic()
+    hit = _NFL_SCHEDULE_MEMO.get(season_year)
+    if hit is not None and now - hit[0] < _NFL_SCHEDULE_MEMO_SECONDS:
+        return hit[1]
+    try:
+        from src.nfl_data import ingest  # noqa: PLC0415
+
+        rows = list(ingest.fetch_schedules([int(season_year)], cache_only=True) or [])
+    except Exception:  # noqa: BLE001
+        rows = []
+    _NFL_SCHEDULE_MEMO[season_year] = (now, rows)
+    return rows
+
+
+def nfl_week_games_final(season_year: Any, week: int) -> bool | None:
+    """Has every game of NFL regular-season ``week`` finished?
+
+    Tri-state, like ``last_scored_week``:
+
+    * ``True`` — the schedule lists the week's games and every one is
+      ``completed``;
+    * ``False`` — at least one listed game is not (not started, or kicked
+      off with no published result: in progress or postponed);
+    * ``None`` — UNKNOWN: no schedule, or no games listed for that week.
+
+    Per-game state is Game Day's canonical reading of the same nflverse rows
+    (``game_day_week.schedule_games``: both scores AND the result published,
+    past kickoff, ``game_type == "REG"``), so "is this NFL game final" has one
+    definition.  ``now`` only sanity-checks that a completed game's kickoff
+    is in the past; nothing here infers completion from the clock.
+
+    This is evidence from the NFL side, independent of fantasy scoring.  It
+    is what tells a fully-scored-LOOKING league week from a finished one: on
+    the evening of Sunday 2026-09-27 every roster in ``dynasty_main`` had
+    non-zero week-3 points while Monday Night Football (PHI @ CHI) was still
+    unplayed, and ``week_is_fully_scored`` alone read the week as final.
+    """
+    try:
+        year = int(season_year)
+        wk = int(week)
+    except (TypeError, ValueError):
+        return None
+    from src.ros.game_day_week import schedule_games  # noqa: PLC0415
+
+    games = schedule_games(_nfl_schedule_rows(year), season=year, week=wk, now=time.time())
+    if not games:
+        return None
+    return all(game.state == "completed" for game in games)
+
+
 def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
     """Regular-season weeks whose scoring is FINISHED.
 
@@ -202,14 +267,24 @@ def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
       "hasn't played yet" (measured: the four zero rosters in live week 2
       carried a literal ``0.0``, not ``null``).
     * **data completeness** — every roster reporting a real score, in the
-      expected number of rows (``week_is_fully_scored``).  This admits a
-      genuinely finished week when the host clock lags a refresh cycle.
+      expected number of rows (``week_is_fully_scored``), AND every NFL game
+      of that week published final (``nfl_week_games_final is True``).
+      This admits a genuinely finished week when the host clock lags a
+      refresh cycle.  The NFL half is required because non-zero scores for
+      every roster are NOT proof of a finished week: after Sunday's games
+      every roster can have points while Monday's game is unplayed
+      (2026-09-27, week 3 read as final before Monday Night Football).  An
+      unknown NFL answer withholds the week until the host clock admits it.
 
     An in-progress week fails both, which is the point.  Both failing is
     also why the return is a WITHHOLDING rather than a guess: an
     unverifiable week is simply absent, never assumed complete.
     """
     horizon = last_scored_week(season)
+    # A season the host marks ``complete`` has no week left in progress
+    # (same rule as ``final_weeks``), so its fully-scored weeks need no NFL
+    # evidence -- and past years' schedules are not guaranteed to be cached.
+    complete = str(season.league.get("status") or "").lower() == "complete"
     out: list[int] = []
     for wk in season.regular_season_weeks:
         if horizon is not None and wk <= horizon:
@@ -218,7 +293,7 @@ def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
         if week_is_fully_scored(
             season.matchups_by_week.get(wk) or [],
             expected_rosters=season.num_teams or None,
-        ):
+        ) and (complete or nfl_week_games_final(season.season, wk) is True):
             out.append(wk)
     return out
 
@@ -256,16 +331,96 @@ def final_weeks(season: SeasonSnapshot) -> list[int]:
     ]
 
 
+#: Reasons :func:`host_lineups_open_from_week` names.
+HOST_WEEK_NOT_FINAL = "host_week_not_final"
+HOST_WEEK_FINALITY_UNKNOWN = "host_week_finality_unknown"
+
+
+def host_lineups_open_from_week(
+    season: SeasonSnapshot, nfl_state: dict[str, Any] | None
+) -> tuple[int | None, str | None]:
+    """``(first week whose host LINEUPS are not yet awarded, reason)``.
+
+    A distinct question from :func:`final_weeks` ("is the week's SCORING
+    finished?").  Sleeper scores a best-ball week as its games end -- its own
+    ``last_scored_leg`` counts the week, so ``final_weeks`` includes it -- but
+    it awards the week's optimized best-ball lineups (and absorbs stat
+    corrections) only once it stops DISPLAYING the week, ``/state/nfl``
+    ``display_week``.  Between the two, every recorded lineup is provisional
+    and is not the roster optimum (dynasty_main 2026 week 8, 2026-11-03: the
+    whole season was withheld as "best-ball rule contradicted").
+
+    Anything that compares recorded lineups with the roster optimum -- e.g.
+    ``player_impact.detect_contradictions`` -- must only be given weeks below
+    this bound.  Evidence, not assumption:
+
+    * a season the host marks ``complete`` -> ``(None, None)``: all awarded;
+    * ``nfl_state`` for a LATER season -> ``(None, None)``;
+    * ``nfl_state`` for an EARLIER season -> ``(1, HOST_WEEK_NOT_FINAL)``;
+    * the host's current season -> ``(display_week, HOST_WEEK_NOT_FINAL)``;
+    * ``nfl_state`` unreadable or without a usable week ->
+      ``(None, HOST_WEEK_FINALITY_UNKNOWN)``: the caller withholds the newest
+      scored week (fail closed on one week, never on a season).
+
+    Pure: the caller fetches ``/state/nfl`` (``sleeper_client.fetch_nfl_state``).
+    """
+    if str(season.league.get("status") or "").lower() == "complete":
+        return None, None
+    if not isinstance(nfl_state, dict):
+        return None, HOST_WEEK_FINALITY_UNKNOWN
+    try:
+        host_season = int(str(nfl_state.get("season") or "").strip())
+        this_season = int(str(season.season).strip())
+    except ValueError:
+        return None, HOST_WEEK_FINALITY_UNKNOWN
+    if host_season > this_season:
+        return None, None
+    if host_season < this_season:
+        return 1, HOST_WEEK_NOT_FINAL  # the host has not started this season
+    raw = nfl_state.get("display_week")
+    if isinstance(raw, bool) or raw is None:
+        return None, HOST_WEEK_FINALITY_UNKNOWN
+    try:
+        display = int(raw)
+    except (TypeError, ValueError):
+        return None, HOST_WEEK_FINALITY_UNKNOWN
+    return max(1, display), HOST_WEEK_NOT_FINAL
+
+
+def tx_week(tx: dict[str, Any]) -> int | None:
+    """The week a Sleeper transaction belongs to (its ``leg``), or ``None``."""
+    for key in ("leg", "_leg"):
+        try:
+            week = int(tx.get(key))
+        except (TypeError, ValueError):
+            continue
+        if week > 0:
+            return week
+    return None
+
+
 def resolve_owner(
     registry: ManagerRegistry,
     league_id: str,
     roster_id: Any,
+    week: Any = None,
 ) -> str:
+    """Owner of ``roster_id`` — in ``week`` when given.
+
+    Pass the week whenever the event belongs to one (a matchup, a
+    transaction's ``leg``) so a mid-season hand-off attributes earlier weeks
+    to the outgoing owner (``ownership.owner_at``).  Season-level facts (the
+    roster's standings line) leave it out and resolve to the current owner.
+    """
     try:
         rid_int = int(roster_id)
     except (TypeError, ValueError):
         return ""
-    return registry.roster_to_owner.get((str(league_id or ""), rid_int), "")
+    lid = str(league_id or "")
+    current = registry.roster_to_owner.get((lid, rid_int), "")
+    if not current:
+        return ""
+    return ownership.owner_at(lid, rid_int, current, week)
 
 
 # ── Standings ────────────────────────────────────────────────────────────
@@ -347,12 +502,18 @@ def pre_week_standings(
     season: SeasonSnapshot,
     registry: ManagerRegistry,
     week: int,
+    *,
+    owner_week: int | None = None,
 ) -> list[dict[str, Any]]:
     """Standings as of the start of ``week`` — only regular-season games
     completed strictly before ``week`` count.
 
-    Returns a list sorted by standings rank with per-owner totals.
+    Returns a list sorted by standings rank with per-owner totals.  Each
+    roster's line is credited to the owner holding it in ``owner_week``
+    (default ``week``, the week being entered); see the comment at the
+    owner lookup below.
     """
+    attribution_week = week if owner_week is None else owner_week
     by_owner: dict[str, dict[str, Any]] = {}
 
     def _ensure(owner_id: str) -> dict[str, Any]:
@@ -374,8 +535,15 @@ def pre_week_standings(
             if not is_scored(a) and not is_scored(b):
                 continue
             pa, pb = matchup_points(a), matchup_points(b)
-            oa = resolve_owner(registry, season.league_id, a.get("roster_id"))
-            ob = resolve_owner(registry, season.league_id, b.get("roster_id"))
+            # Attributed to whoever holds each roster in ``attribution_week``: the
+            # standings line is the roster's (a hand-off does not reset a
+            # team's record, and Sleeper's own settings record is the
+            # roster's), and the owner is the one that week's matchup resolves
+            # to, so a caller joining this to that week's sides by owner id
+            # finds the row.  No recorded hand-off → the current owner, as
+            # before.
+            oa = resolve_owner(registry, season.league_id, a.get("roster_id"), attribution_week)
+            ob = resolve_owner(registry, season.league_id, b.get("roster_id"), attribution_week)
             if oa:
                 rec_a = _ensure(oa)
                 rec_a["pointsFor"] += pa
@@ -692,11 +860,40 @@ def walk_matchup_pairs(
 
 
 # ── Shared team-name resolver ────────────────────────────────────────────
-def team_name(snapshot: PublicLeagueSnapshot, league_id: str, roster_id: int | None) -> str:
-    """Historical team name for a roster in a league."""
+def team_name(
+    snapshot: PublicLeagueSnapshot,
+    league_id: str,
+    roster_id: int | None,
+    week: Any = None,
+) -> str:
+    """Historical team name for a roster in a league — in ``week`` when given.
+
+    Pass the event's week exactly as for :func:`resolve_owner`: a week before a
+    mid-season hand-off names the roster by the OUTGOING manager's alias for
+    that league-season (``identity.register_handed_off_owners``), never the
+    successor's current team name.  No week keeps the current owner's name.
+    """
     if roster_id is None:
         return ""
-    owner_id = resolve_owner(snapshot.managers, league_id, roster_id)
+    owner_id = resolve_owner(snapshot.managers, league_id, roster_id, week)
+    return team_name_for_owner(snapshot, league_id, roster_id, owner_id)
+
+
+def team_name_for_owner(
+    snapshot: PublicLeagueSnapshot,
+    league_id: str,
+    roster_id: int | None,
+    owner_id: str,
+) -> str:
+    """Team name for ``roster_id`` as ``owner_id`` held it in ``league_id``.
+
+    For a caller that already holds the attributed owner (a per-manager
+    aggregate whose owner came from :func:`resolve_owner` with a week), so the
+    name follows the same attribution instead of re-resolving to the current
+    owner.  :func:`team_name` is this with the owner resolved for it.
+    """
+    if roster_id is None:
+        return ""
     manager = snapshot.managers.by_owner_id.get(owner_id) if owner_id else None
     if not manager:
         return f"Team {roster_id}"

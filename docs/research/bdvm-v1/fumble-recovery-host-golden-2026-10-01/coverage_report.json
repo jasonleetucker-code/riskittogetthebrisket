@@ -1,0 +1,1314 @@
+{
+ "scope": "LOCAL, reporting only",
+ "census": "census.json",
+ "leagues": {
+  "dynasty_main": {
+   "idpEnabled": true,
+   "lanes": [
+    {
+     "lane": "clayProjections",
+     "position": "QB",
+     "family": "QB",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": -52.5,
+     "afterCount": 17,
+     "afterPoints": -394.5,
+     "afterTop": [
+      [
+       "fum_lost",
+       -436.0
+      ],
+      [
+       "pass_2pt",
+       82.0
+      ],
+      [
+       "pass_int_td",
+       -56.0
+      ],
+      [
+       "rush_2pt",
+       12.0
+      ],
+      [
+       "rec_30_39",
+       1.2
+      ],
+      [
+       "rec_20_29",
+       1.0
+      ],
+      [
+       "rec_0_4",
+       0.8
+      ],
+      [
+       "rec_5_9",
+       0.5
+      ],
+      [
+       "kr_yd",
+       0.0
+      ],
+      [
+       "pr_yd",
+       0.0
+      ],
+      [
+       "rec_10_19",
+       0.0
+      ],
+      [
+       "rec_2pt",
+       0.0
+      ],
+      [
+       "rec_40p",
+       0.0
+      ],
+      [
+       "st_ff",
+       0.0
+      ],
+      [
+       "st_fum_rec",
+       0.0
+      ],
+      [
+       "st_td",
+       0.0
+      ],
+      [
+       "st_tkl_solo",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "fum_lost",
+      "kr_yd",
+      "pass_2pt",
+      "pr_yd",
+      "rec_2pt",
+      "rush_2pt",
+      "st_td"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "clayProjections",
+     "position": "RB",
+     "family": "RB",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": 1296.7,
+     "afterCount": 17,
+     "afterPoints": 1821.5,
+     "afterTop": [
+      [
+       "kr_yd",
+       719.1
+      ],
+      [
+       "rec_5_9",
+       383.5
+      ],
+      [
+       "rec_10_19",
+       345.8
+      ],
+      [
+       "fum_lost",
+       -260.0
+      ],
+      [
+       "st_tkl_solo",
+       196.8
+      ],
+      [
+       "rec_0_4",
+       181.8
+      ],
+      [
+       "rec_20_29",
+       85.0
+      ],
+      [
+       "rec_40p",
+       56.0
+      ],
+      [
+       "rec_30_39",
+       28.8
+      ],
+      [
+       "st_td",
+       24.0
+      ],
+      [
+       "rush_2pt",
+       22.0
+      ],
+      [
+       "st_ff",
+       12.8
+      ],
+      [
+       "pr_yd",
+       9.7
+      ],
+      [
+       "rec_2pt",
+       8.0
+      ],
+      [
+       "st_fum_rec",
+       6.4
+      ],
+      [
+       "pass_2pt",
+       2.0
+      ],
+      [
+       "pass_int_td",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "fum_lost",
+      "kr_yd",
+      "pass_2pt",
+      "pr_yd",
+      "rec_2pt",
+      "rush_2pt",
+      "st_td"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "clayProjections",
+     "position": "WR",
+     "family": "WR",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": 4151.2,
+     "afterCount": 17,
+     "afterPoints": 5346.1,
+     "afterTop": [
+      [
+       "rec_10_19",
+       1487.2
+      ],
+      [
+       "kr_yd",
+       992.4
+      ],
+      [
+       "rec_5_9",
+       968.0
+      ],
+      [
+       "rec_20_29",
+       653.0
+      ],
+      [
+       "rec_40p",
+       356.0
+      ],
+      [
+       "rec_30_39",
+       311.2
+      ],
+      [
+       "pr_yd",
+       256.5
+      ],
+      [
+       "rec_0_4",
+       217.8
+      ],
+      [
+       "fum_lost",
+       -200.0
+      ],
+      [
+       "st_tkl_solo",
+       151.6
+      ],
+      [
+       "st_td",
+       90.0
+      ],
+      [
+       "rec_2pt",
+       56.0
+      ],
+      [
+       "st_fum_rec",
+       6.4
+      ],
+      [
+       "pass_2pt",
+       0.0
+      ],
+      [
+       "pass_int_td",
+       0.0
+      ],
+      [
+       "rush_2pt",
+       0.0
+      ],
+      [
+       "st_ff",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "fum_lost",
+      "kr_yd",
+      "pass_2pt",
+      "pr_yd",
+      "rec_2pt",
+      "rush_2pt",
+      "st_td"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "clayProjections",
+     "position": "TE",
+     "family": "TE",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": 1854.4,
+     "afterCount": 17,
+     "afterPoints": 1806.4,
+     "afterTop": [
+      [
+       "rec_10_19",
+       645.0
+      ],
+      [
+       "rec_5_9",
+       546.0
+      ],
+      [
+       "rec_20_29",
+       241.0
+      ],
+      [
+       "st_tkl_solo",
+       160.9
+      ],
+      [
+       "rec_0_4",
+       136.5
+      ],
+      [
+       "rec_30_39",
+       77.5
+      ],
+      [
+       "fum_lost",
+       -68.0
+      ],
+      [
+       "rec_40p",
+       40.0
+      ],
+      [
+       "rec_2pt",
+       20.0
+      ],
+      [
+       "st_ff",
+       4.2
+      ],
+      [
+       "st_fum_rec",
+       3.2
+      ],
+      [
+       "kr_yd",
+       0.0
+      ],
+      [
+       "pass_2pt",
+       0.0
+      ],
+      [
+       "pass_int_td",
+       0.0
+      ],
+      [
+       "pr_yd",
+       0.0
+      ],
+      [
+       "rush_2pt",
+       0.0
+      ],
+      [
+       "st_td",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "fum_lost",
+      "kr_yd",
+      "pass_2pt",
+      "pr_yd",
+      "rec_2pt",
+      "rush_2pt",
+      "st_td"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "clayProjections",
+     "position": "EDGE",
+     "family": "DL",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": 110.0,
+     "afterCount": 17,
+     "afterPoints": 10857.1,
+     "afterTop": [
+      [
+       "idp_tkl_loss",
+       4596.2
+      ],
+      [
+       "idp_qb_hit",
+       3356.0
+      ],
+      [
+       "idp_pass_def",
+       1537.0
+      ],
+      [
+       "idp_sack_yd",
+       463.3
+      ],
+      [
+       "idp_ff",
+       394.3
+      ],
+      [
+       "idp_fum_rec",
+       188.2
+      ],
+      [
+       "idp_blk_kick",
+       132.5
+      ],
+      [
+       "st_tkl_solo",
+       101.1
+      ],
+      [
+       "st_td",
+       24.0
+      ],
+      [
+       "idp_safe",
+       21.2
+      ],
+      [
+       "idp_int_ret_yd",
+       19.6
+      ],
+      [
+       "idp_fum_ret_yd",
+       16.4
+      ],
+      [
+       "st_ff",
+       4.2
+      ],
+      [
+       "st_fum_rec",
+       3.2
+      ],
+      [
+       "idp_def_td",
+       0.0
+      ],
+      [
+       "kr_yd",
+       0.0
+      ],
+      [
+       "pr_yd",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "idp_blk_kick",
+      "idp_def_td",
+      "idp_ff",
+      "idp_fum_rec",
+      "idp_fum_ret_yd",
+      "idp_int_ret_yd",
+      "idp_pass_def",
+      "idp_qb_hit",
+      "idp_sack_yd",
+      "idp_safe",
+      "idp_tkl_loss",
+      "kr_yd",
+      "pr_yd",
+      "st_td"
+     ],
+     "noLongerReported": [
+      "pass_int_td",
+      "rec_0_4",
+      "rec_10_19",
+      "rec_20_29",
+      "rec_30_39",
+      "rec_40p",
+      "rec_5_9"
+     ]
+    },
+    {
+     "lane": "clayProjections",
+     "position": "LB",
+     "family": "LB",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": 1022.9,
+     "afterCount": 17,
+     "afterPoints": 12034.2,
+     "afterTop": [
+      [
+       "idp_tkl_loss",
+       4227.3
+      ],
+      [
+       "idp_pass_def",
+       2623.5
+      ],
+      [
+       "idp_qb_hit",
+       2601.2
+      ],
+      [
+       "st_tkl_solo",
+       928.3
+      ],
+      [
+       "idp_ff",
+       636.0
+      ],
+      [
+       "idp_sack_yd",
+       370.1
+      ],
+      [
+       "idp_fum_rec",
+       274.3
+      ],
+      [
+       "idp_int_ret_yd",
+       143.6
+      ],
+      [
+       "st_ff",
+       72.2
+      ],
+      [
+       "idp_def_td",
+       57.2
+      ],
+      [
+       "idp_blk_kick",
+       31.8
+      ],
+      [
+       "idp_fum_ret_yd",
+       28.0
+      ],
+      [
+       "st_fum_rec",
+       22.3
+      ],
+      [
+       "idp_safe",
+       15.9
+      ],
+      [
+       "kr_yd",
+       2.4
+      ],
+      [
+       "pr_yd",
+       0.0
+      ],
+      [
+       "st_td",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "idp_blk_kick",
+      "idp_def_td",
+      "idp_ff",
+      "idp_fum_rec",
+      "idp_fum_ret_yd",
+      "idp_int_ret_yd",
+      "idp_pass_def",
+      "idp_qb_hit",
+      "idp_sack_yd",
+      "idp_safe",
+      "idp_tkl_loss",
+      "kr_yd",
+      "pr_yd",
+      "st_td"
+     ],
+     "noLongerReported": [
+      "pass_int_td",
+      "rec_0_4",
+      "rec_10_19",
+      "rec_20_29",
+      "rec_30_39",
+      "rec_40p",
+      "rec_5_9"
+     ]
+    },
+    {
+     "lane": "clayProjections",
+     "position": "CB",
+     "family": "DB",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": 1037.8,
+     "afterCount": 17,
+     "afterPoints": 13556.9,
+     "afterTop": [
+      [
+       "idp_pass_def",
+       8326.3
+      ],
+      [
+       "idp_tkl_loss",
+       2153.9
+      ],
+      [
+       "st_tkl_solo",
+       936.3
+      ],
+      [
+       "idp_qb_hit",
+       481.2
+      ],
+      [
+       "idp_ff",
+       474.9
+      ],
+      [
+       "idp_int_ret_yd",
+       373.0
+      ],
+      [
+       "idp_fum_rec",
+       287.1
+      ],
+      [
+       "idp_def_td",
+       120.8
+      ],
+      [
+       "idp_sack_yd",
+       85.0
+      ],
+      [
+       "kr_yd",
+       81.7
+      ],
+      [
+       "idp_blk_kick",
+       53.0
+      ],
+      [
+       "idp_fum_ret_yd",
+       49.4
+      ],
+      [
+       "st_ff",
+       42.5
+      ],
+      [
+       "st_fum_rec",
+       41.5
+      ],
+      [
+       "st_td",
+       24.0
+      ],
+      [
+       "pr_yd",
+       15.6
+      ],
+      [
+       "idp_safe",
+       10.6
+      ]
+     ],
+     "newlyReported": [
+      "idp_blk_kick",
+      "idp_def_td",
+      "idp_ff",
+      "idp_fum_rec",
+      "idp_fum_ret_yd",
+      "idp_int_ret_yd",
+      "idp_pass_def",
+      "idp_qb_hit",
+      "idp_sack_yd",
+      "idp_safe",
+      "idp_tkl_loss",
+      "kr_yd",
+      "pr_yd",
+      "st_td"
+     ],
+     "noLongerReported": [
+      "pass_int_td",
+      "rec_0_4",
+      "rec_10_19",
+      "rec_20_29",
+      "rec_30_39",
+      "rec_40p",
+      "rec_5_9"
+     ]
+    },
+    {
+     "lane": "idpShowProjections",
+     "position": "EDGE",
+     "family": "DL",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": 110.0,
+     "afterCount": 10,
+     "afterPoints": 764.3,
+     "afterTop": [
+      [
+       "idp_sack_yd",
+       463.3
+      ],
+      [
+       "idp_blk_kick",
+       132.5
+      ],
+      [
+       "st_tkl_solo",
+       101.1
+      ],
+      [
+       "st_td",
+       24.0
+      ],
+      [
+       "idp_int_ret_yd",
+       19.6
+      ],
+      [
+       "idp_fum_ret_yd",
+       16.4
+      ],
+      [
+       "st_ff",
+       4.2
+      ],
+      [
+       "st_fum_rec",
+       3.2
+      ],
+      [
+       "kr_yd",
+       0.0
+      ],
+      [
+       "pr_yd",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "idp_blk_kick",
+      "idp_fum_ret_yd",
+      "idp_int_ret_yd",
+      "idp_sack_yd",
+      "kr_yd",
+      "pr_yd",
+      "st_td"
+     ],
+     "noLongerReported": [
+      "pass_int_td",
+      "rec_0_4",
+      "rec_10_19",
+      "rec_20_29",
+      "rec_30_39",
+      "rec_40p",
+      "rec_5_9"
+     ]
+    },
+    {
+     "lane": "idpShowProjections",
+     "position": "LB",
+     "family": "LB",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": 1022.9,
+     "afterCount": 10,
+     "afterPoints": 1598.7,
+     "afterTop": [
+      [
+       "st_tkl_solo",
+       928.3
+      ],
+      [
+       "idp_sack_yd",
+       370.1
+      ],
+      [
+       "idp_int_ret_yd",
+       143.6
+      ],
+      [
+       "st_ff",
+       72.2
+      ],
+      [
+       "idp_blk_kick",
+       31.8
+      ],
+      [
+       "idp_fum_ret_yd",
+       28.0
+      ],
+      [
+       "st_fum_rec",
+       22.3
+      ],
+      [
+       "kr_yd",
+       2.4
+      ],
+      [
+       "pr_yd",
+       0.0
+      ],
+      [
+       "st_td",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "idp_blk_kick",
+      "idp_fum_ret_yd",
+      "idp_int_ret_yd",
+      "idp_sack_yd",
+      "kr_yd",
+      "pr_yd",
+      "st_td"
+     ],
+     "noLongerReported": [
+      "pass_int_td",
+      "rec_0_4",
+      "rec_10_19",
+      "rec_20_29",
+      "rec_30_39",
+      "rec_40p",
+      "rec_5_9"
+     ]
+    },
+    {
+     "lane": "idpShowProjections",
+     "position": "CB",
+     "family": "DB",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 10,
+     "beforePoints": 1037.8,
+     "afterCount": 10,
+     "afterPoints": 1702.0,
+     "afterTop": [
+      [
+       "st_tkl_solo",
+       936.3
+      ],
+      [
+       "idp_int_ret_yd",
+       373.0
+      ],
+      [
+       "idp_sack_yd",
+       85.0
+      ],
+      [
+       "kr_yd",
+       81.7
+      ],
+      [
+       "idp_blk_kick",
+       53.0
+      ],
+      [
+       "idp_fum_ret_yd",
+       49.4
+      ],
+      [
+       "st_ff",
+       42.5
+      ],
+      [
+       "st_fum_rec",
+       41.5
+      ],
+      [
+       "st_td",
+       24.0
+      ],
+      [
+       "pr_yd",
+       15.6
+      ]
+     ],
+     "newlyReported": [
+      "idp_blk_kick",
+      "idp_fum_ret_yd",
+      "idp_int_ret_yd",
+      "idp_sack_yd",
+      "kr_yd",
+      "pr_yd",
+      "st_td"
+     ],
+     "noLongerReported": [
+      "pass_int_td",
+      "rec_0_4",
+      "rec_10_19",
+      "rec_20_29",
+      "rec_30_39",
+      "rec_40p",
+      "rec_5_9"
+     ]
+    },
+    {
+     "lane": "reconstructedBaseline (PBP built)",
+     "position": "WR",
+     "family": "WR",
+     "status": "complete",
+     "reason": null,
+     "beforeCount": 0,
+     "beforePoints": 0,
+     "afterCount": 0,
+     "afterPoints": 0,
+     "afterTop": [],
+     "newlyReported": [],
+     "noLongerReported": []
+    },
+    {
+     "lane": "reconstructedBaseline (PBP built)",
+     "position": "LB",
+     "family": "LB",
+     "status": "complete",
+     "reason": null,
+     "beforeCount": 0,
+     "beforePoints": 0,
+     "afterCount": 0,
+     "afterPoints": 0,
+     "afterTop": [],
+     "newlyReported": [],
+     "noLongerReported": []
+    },
+    {
+     "lane": "reconstructedBaseline (no PBP artifact)",
+     "position": "WR",
+     "family": "WR",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 0,
+     "beforePoints": 0,
+     "afterCount": 10,
+     "afterPoints": 4151.2,
+     "afterTop": [
+      [
+       "rec_10_19",
+       1487.2
+      ],
+      [
+       "rec_5_9",
+       968.0
+      ],
+      [
+       "rec_20_29",
+       653.0
+      ],
+      [
+       "rec_40p",
+       356.0
+      ],
+      [
+       "rec_30_39",
+       311.2
+      ],
+      [
+       "rec_0_4",
+       217.8
+      ],
+      [
+       "st_tkl_solo",
+       151.6
+      ],
+      [
+       "st_fum_rec",
+       6.4
+      ],
+      [
+       "pass_int_td",
+       0.0
+      ],
+      [
+       "st_ff",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "pass_int_td",
+      "rec_0_4",
+      "rec_10_19",
+      "rec_20_29",
+      "rec_30_39",
+      "rec_40p",
+      "rec_5_9",
+      "st_ff",
+      "st_fum_rec",
+      "st_tkl_solo"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "reconstructedBaseline (no PBP artifact)",
+     "position": "LB",
+     "family": "LB",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 0,
+     "beforePoints": 0,
+     "afterCount": 3,
+     "afterPoints": 1022.9,
+     "afterTop": [
+      [
+       "st_tkl_solo",
+       928.3
+      ],
+      [
+       "st_ff",
+       72.2
+      ],
+      [
+       "st_fum_rec",
+       22.3
+      ]
+     ],
+     "newlyReported": [
+      "st_ff",
+      "st_fum_rec",
+      "st_tkl_solo"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "reconstructedBaseline (legacy snapshot, coverage not recorded)",
+     "position": "WR",
+     "family": "WR",
+     "status": "unverifiable",
+     "reason": "proxy_coverage_not_recorded",
+     "beforeCount": 0,
+     "beforePoints": 0,
+     "afterCount": 0,
+     "afterPoints": 0,
+     "afterTop": [],
+     "newlyReported": [],
+     "noLongerReported": []
+    },
+    {
+     "lane": "reconstructedBaseline (legacy snapshot, coverage not recorded)",
+     "position": "LB",
+     "family": "LB",
+     "status": "unverifiable",
+     "reason": "proxy_coverage_not_recorded",
+     "beforeCount": 0,
+     "beforePoints": 0,
+     "afterCount": 0,
+     "afterPoints": 0,
+     "afterTop": [],
+     "newlyReported": [],
+     "noLongerReported": []
+    }
+   ]
+  },
+  "dynasty_new": {
+   "idpEnabled": false,
+   "lanes": [
+    {
+     "lane": "clayProjections",
+     "position": "QB",
+     "family": "QB",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 2,
+     "beforePoints": 0.0,
+     "afterCount": 7,
+     "afterPoints": -124.0,
+     "afterTop": [
+      [
+       "fum_lost",
+       -218.0
+      ],
+      [
+       "pass_2pt",
+       82.0
+      ],
+      [
+       "rush_2pt",
+       12.0
+      ],
+      [
+       "rec_2pt",
+       0.0
+      ],
+      [
+       "st_ff",
+       0.0
+      ],
+      [
+       "st_fum_rec",
+       0.0
+      ],
+      [
+       "st_td",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "fum_lost",
+      "pass_2pt",
+      "rec_2pt",
+      "rush_2pt",
+      "st_td"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "clayProjections",
+     "position": "RB",
+     "family": "RB",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 2,
+     "beforePoints": 5.0,
+     "afterCount": 7,
+     "afterPoints": -69.0,
+     "afterTop": [
+      [
+       "fum_lost",
+       -130.0
+      ],
+      [
+       "st_td",
+       24.0
+      ],
+      [
+       "rush_2pt",
+       22.0
+      ],
+      [
+       "rec_2pt",
+       8.0
+      ],
+      [
+       "st_ff",
+       3.0
+      ],
+      [
+       "pass_2pt",
+       2.0
+      ],
+      [
+       "st_fum_rec",
+       2.0
+      ]
+     ],
+     "newlyReported": [
+      "fum_lost",
+      "pass_2pt",
+      "rec_2pt",
+      "rush_2pt",
+      "st_td"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "clayProjections",
+     "position": "WR",
+     "family": "WR",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 2,
+     "beforePoints": 2.0,
+     "afterCount": 7,
+     "afterPoints": 48.0,
+     "afterTop": [
+      [
+       "fum_lost",
+       -100.0
+      ],
+      [
+       "st_td",
+       90.0
+      ],
+      [
+       "rec_2pt",
+       56.0
+      ],
+      [
+       "st_fum_rec",
+       2.0
+      ],
+      [
+       "pass_2pt",
+       0.0
+      ],
+      [
+       "rush_2pt",
+       0.0
+      ],
+      [
+       "st_ff",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "fum_lost",
+      "pass_2pt",
+      "rec_2pt",
+      "rush_2pt",
+      "st_td"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "clayProjections",
+     "position": "TE",
+     "family": "TE",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 2,
+     "beforePoints": 2.0,
+     "afterCount": 7,
+     "afterPoints": -12.0,
+     "afterTop": [
+      [
+       "fum_lost",
+       -34.0
+      ],
+      [
+       "rec_2pt",
+       20.0
+      ],
+      [
+       "st_ff",
+       1.0
+      ],
+      [
+       "st_fum_rec",
+       1.0
+      ],
+      [
+       "pass_2pt",
+       0.0
+      ],
+      [
+       "rush_2pt",
+       0.0
+      ],
+      [
+       "st_td",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "fum_lost",
+      "pass_2pt",
+      "rec_2pt",
+      "rush_2pt",
+      "st_td"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "reconstructedBaseline (PBP built)",
+     "position": "WR",
+     "family": "WR",
+     "status": "complete",
+     "reason": null,
+     "beforeCount": 0,
+     "beforePoints": 0,
+     "afterCount": 0,
+     "afterPoints": 0,
+     "afterTop": [],
+     "newlyReported": [],
+     "noLongerReported": []
+    },
+    {
+     "lane": "reconstructedBaseline (no PBP artifact)",
+     "position": "WR",
+     "family": "WR",
+     "status": "partial",
+     "reason": null,
+     "beforeCount": 0,
+     "beforePoints": 0,
+     "afterCount": 2,
+     "afterPoints": 2.0,
+     "afterTop": [
+      [
+       "st_fum_rec",
+       2.0
+      ],
+      [
+       "st_ff",
+       0.0
+      ]
+     ],
+     "newlyReported": [
+      "st_ff",
+      "st_fum_rec"
+     ],
+     "noLongerReported": []
+    },
+    {
+     "lane": "reconstructedBaseline (legacy snapshot, coverage not recorded)",
+     "position": "WR",
+     "family": "WR",
+     "status": "unverifiable",
+     "reason": "proxy_coverage_not_recorded",
+     "beforeCount": 0,
+     "beforePoints": 0,
+     "afterCount": 0,
+     "afterPoints": 0,
+     "afterTop": [],
+     "newlyReported": [],
+     "noLongerReported": []
+    }
+   ]
+  }
+ }
+}

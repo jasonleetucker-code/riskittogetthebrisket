@@ -1,0 +1,3304 @@
+{
+ "preregistration": "idp_accuracy_G_v1",
+ "label": "retrospective_point_in_time",
+ "promotes": false,
+ "rehearsal": false,
+ "stage": 2,
+ "pins": {
+  "preregistration": {
+   "path": "docs/valuation/idp_accuracy/G_PREREGISTRATION.md",
+   "blob": "a60ae89c80617c2837a5ed1d8a0fe90248d9751e",
+   "firstCommit": "4c53736fb478cf0d158f86185db0eb82c67f03e9",
+   "unchangedSince": true
+  },
+  "stage1Commit": "127149899c7a1658d092234a9001d92e75003dfd",
+  "stage1CommitPushed": true,
+  "stage1CodeSha256": "27e19a04172f5c3e29960169b1e8fba82c61f5389baae27285769d67a0bdabca",
+  "stage2Head": "a31b17b2fbde148b93f0847c908f579513e8fb6b",
+  "scriptSha256": "b2a775acecf12bf003acced80da445483ee616f34786a9b0283d19d78ec53b84",
+  "manifestSha256": "a6c67e33ff501d5888305f0514467e5580a6f62a2ff54ae51cd02d7b9807a22f",
+  "scoresSha256": "c503c49ce6962f24ce6d27ff4183d23f19d6b01a4009df3190845d7452e19860",
+  "reproducedBaseVectors": {
+   "champion": true,
+   "A_dv": true,
+   "A_vorg": true,
+   "A_tradeValue": true,
+   "R0_mu": true,
+   "C": true,
+   "D": true,
+   "D_se": true
+  }
+ },
+ "preconditions": {
+  "scorer": {
+   "playerWeeksCompared": 3299,
+   "maxAbsDiff": 0.00444,
+   "within0.0051": 3299,
+   "awardedNonzeroWithoutStatLine": 0,
+   "note": "Sleeper publishes player points rounded to 2 decimals; the host-native scorer is unrounded",
+   "ok": true
+  },
+  "lineup": {
+   "teamWeeks": 72,
+   "maxAbsDiff": 0.01222,
+   "within0.02": 72,
+   "rule": "a rostered player with no stat line scores 0.0 and is startable (the host's rule)",
+   "ok": true
+  },
+  "ok": true
+ },
+ "status": "completed",
+ "claimsLabel": "retrospective_point_in_time",
+ "champion": "champion_rebuilt",
+ "cohort": {
+  "size": 651,
+  "byPosition": {
+   "QB": 54,
+   "RB": 94,
+   "WR": 133,
+   "TE": 58,
+   "DL": 118,
+   "LB": 90,
+   "DB": 104
+  },
+  "qualifyingPositions": [
+   "QB",
+   "RB",
+   "WR",
+   "TE",
+   "DL",
+   "LB",
+   "DB"
+  ],
+  "withinAxisTested": true,
+  "crossAxisTested": true
+ },
+ "evaluableCandidates": [
+  "A",
+  "C",
+  "D"
+ ],
+ "bExcluded": {
+  "evaluable": false,
+  "status": "not_evaluable: degenerate_market_exact",
+  "anchor": "champion-rebuilt (no served contract in the archive)",
+  "rowsAvailable": 0,
+  "rowsExcluded": 1067,
+  "rowsMoved": 0,
+  "evidenceStates": {
+   "partial": 805,
+   "unavailable": 40
+  },
+  "topExclusionReasons": {
+   "evidence_partial": 694,
+   "pick": 138,
+   "single_source_haircut": 89,
+   "unsupported_position": 57,
+   "no_market_value": 38,
+   "quarantined": 27,
+   "evidence_unavailable": 21,
+   "off_cap_value_only": 2
+  },
+  "configUnchanged": true,
+  "paramSetId": "league_fair_value_v1:1ba0dfff046b"
+ },
+ "outcome": {
+  "primary": "LAMBC: realized league-average marginal best-ball contribution, cutoff rosters, weeks 1-6",
+  "unit": "league points per week",
+  "distribution": {
+   "mean": 3.2877,
+   "sd": 3.8101,
+   "zeros": 79
+  }
+ },
+ "families": {
+  "F1": {
+   "delta1|A": {
+    "p": 0.001,
+    "adjusted": 0.006,
+    "reject": true,
+    "m": 6,
+    "rank": 1
+   },
+   "delta2|A": {
+    "p": 0.002,
+    "adjusted": 0.01,
+    "reject": true,
+    "m": 6,
+    "rank": 2
+   },
+   "delta2|D": {
+    "p": 0.002,
+    "adjusted": 0.01,
+    "reject": true,
+    "m": 6,
+    "rank": 3
+   },
+   "delta1|C": {
+    "p": 0.07196,
+    "adjusted": 0.21589,
+    "reject": false,
+    "m": 6,
+    "rank": 4
+   },
+   "delta2|C": {
+    "p": 0.08796,
+    "adjusted": 0.21589,
+    "reject": false,
+    "m": 6,
+    "rank": 5
+   },
+   "delta1|D": {
+    "p": 0.46377,
+    "adjusted": 0.46377,
+    "reject": false,
+    "m": 6,
+    "rank": 6
+   }
+  },
+  "F2": {
+   "rho|A|DL": {
+    "p": 0.001,
+    "adjusted": 0.02099,
+    "reject": true,
+    "m": 21,
+    "rank": 1
+   },
+   "rho|A|QB": {
+    "p": 0.001,
+    "adjusted": 0.02099,
+    "reject": true,
+    "m": 21,
+    "rank": 2
+   },
+   "rho|A|WR": {
+    "p": 0.001,
+    "adjusted": 0.02099,
+    "reject": true,
+    "m": 21,
+    "rank": 3
+   },
+   "rho|A|LB": {
+    "p": 0.002,
+    "adjusted": 0.03598,
+    "reject": true,
+    "m": 21,
+    "rank": 4
+   },
+   "rho|A|TE": {
+    "p": 0.002,
+    "adjusted": 0.03598,
+    "reject": true,
+    "m": 21,
+    "rank": 5
+   },
+   "rho|A|DB": {
+    "p": 0.004,
+    "adjusted": 0.06397,
+    "reject": false,
+    "m": 21,
+    "rank": 6
+   },
+   "rho|A|RB": {
+    "p": 0.004,
+    "adjusted": 0.06397,
+    "reject": false,
+    "m": 21,
+    "rank": 7
+   },
+   "rho|C|WR": {
+    "p": 0.02199,
+    "adjusted": 0.30785,
+    "reject": false,
+    "m": 21,
+    "rank": 8
+   },
+   "rho|C|DB": {
+    "p": 0.08196,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 9
+   },
+   "rho|C|TE": {
+    "p": 0.21189,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 10
+   },
+   "rho|C|RB": {
+    "p": 0.22189,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 11
+   },
+   "rho|D|DB": {
+    "p": 0.24788,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 12
+   },
+   "rho|D|QB": {
+    "p": 0.31884,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 13
+   },
+   "rho|C|QB": {
+    "p": 0.32784,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 14
+   },
+   "rho|D|WR": {
+    "p": 0.4038,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 15
+   },
+   "rho|C|LB": {
+    "p": 0.50375,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 16
+   },
+   "rho|D|DL": {
+    "p": 0.54173,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 17
+   },
+   "rho|D|TE": {
+    "p": 0.68366,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 18
+   },
+   "rho|C|DL": {
+    "p": 0.78961,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 19
+   },
+   "rho|D|LB": {
+    "p": 0.94653,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 20
+   },
+   "rho|D|RB": {
+    "p": 0.97651,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 21,
+    "rank": 21
+   }
+  },
+  "F3": {
+   "d3pos|A": {
+    "p": 0.01,
+    "adjusted": 0.05997,
+    "reject": false,
+    "m": 6,
+    "rank": 1
+   },
+   "d3pool|A": {
+    "p": 0.08896,
+    "adjusted": 0.44478,
+    "reject": false,
+    "m": 6,
+    "rank": 2
+   },
+   "d3pos|C": {
+    "p": 0.52274,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 6,
+    "rank": 3
+   },
+   "d3pool|C": {
+    "p": 0.71064,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 6,
+    "rank": 4
+   },
+   "d3pos|D": {
+    "p": 0.7996,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 6,
+    "rank": 5
+   },
+   "d3pool|D": {
+    "p": 1.0,
+    "adjusted": 1.0,
+    "reject": false,
+    "m": 6,
+    "rank": 6
+   }
+  }
+ },
+ "byCandidate": {
+  "A": {
+   "delta1_withinSpearman": {
+    "point": -0.2663,
+    "lo": -0.3259,
+    "hi": -0.2015,
+    "nValid": 2000,
+    "p": 0.001,
+    "holmAdjustedP": 0.006,
+    "reject": true
+   },
+   "delta2_crossConcordance": {
+    "point": -0.041,
+    "lo": -0.0685,
+    "hi": -0.0148,
+    "nValid": 2000,
+    "p": 0.002,
+    "holmAdjustedP": 0.01,
+    "reject": true
+   },
+   "delta3pos_elitePrecision12": {
+    "point": -0.131,
+    "lo": -0.2262,
+    "hi": -0.0357,
+    "nValid": 2000,
+    "p": 0.01,
+    "holmAdjustedP": 0.05997,
+    "reject": false
+   },
+   "delta3pool_elitePrecision36": {
+    "point": -0.1389,
+    "lo": -0.2778,
+    "hi": 0.0,
+    "nValid": 2000,
+    "p": 0.08896,
+    "holmAdjustedP": 0.44478,
+    "reject": false
+   },
+   "idpOverShareOfWrongPairs": {
+    "point": 0.3943,
+    "lo": 0.3301,
+    "hi": 0.4588,
+    "nValid": 2000
+   },
+   "perPosition": {
+    "QB": {
+     "point": -0.4264,
+     "lo": -0.6522,
+     "hi": -0.2164,
+     "nValid": 2000,
+     "p": 0.001,
+     "holmAdjustedP": 0.02099,
+     "reject": true
+    },
+    "RB": {
+     "point": -0.1459,
+     "lo": -0.2587,
+     "hi": -0.0417,
+     "nValid": 2000,
+     "p": 0.004,
+     "holmAdjustedP": 0.06397,
+     "reject": false
+    },
+    "WR": {
+     "point": -0.1602,
+     "lo": -0.2438,
+     "hi": -0.082,
+     "nValid": 2000,
+     "p": 0.001,
+     "holmAdjustedP": 0.02099,
+     "reject": true
+    },
+    "TE": {
+     "point": -0.266,
+     "lo": -0.4382,
+     "hi": -0.1,
+     "nValid": 2000,
+     "p": 0.002,
+     "holmAdjustedP": 0.03598,
+     "reject": true
+    },
+    "DL": {
+     "point": -0.3036,
+     "lo": -0.4824,
+     "hi": -0.1271,
+     "nValid": 2000,
+     "p": 0.001,
+     "holmAdjustedP": 0.02099,
+     "reject": true
+    },
+    "LB": {
+     "point": -0.2642,
+     "lo": -0.4287,
+     "hi": -0.1033,
+     "nValid": 2000,
+     "p": 0.002,
+     "holmAdjustedP": 0.03598,
+     "reject": true
+    },
+    "DB": {
+     "point": -0.2979,
+     "lo": -0.4855,
+     "hi": -0.1128,
+     "nValid": 2000,
+     "p": 0.004,
+     "holmAdjustedP": 0.06397,
+     "reject": false
+    }
+   },
+   "rawAbsolute": {
+    "spearmanByPosition": {
+     "QB": 0.2597,
+     "RB": 0.5181,
+     "WR": 0.5292,
+     "TE": 0.3788,
+     "DL": -0.0063,
+     "LB": 0.2826,
+     "DB": 0.0347
+    },
+    "crossConcordance": 0.6094,
+    "precision12ByPosition": {
+     "QB": 0.333,
+     "RB": 0.333,
+     "WR": 0.5,
+     "TE": 0.333,
+     "DL": 0.083,
+     "LB": 0.167,
+     "DB": 0.083
+    },
+    "precision36": 0.278
+   }
+  },
+  "C": {
+   "delta1_withinSpearman": {
+    "point": -0.0493,
+    "lo": -0.1004,
+    "hi": 0.0034,
+    "nValid": 2000,
+    "p": 0.07196,
+    "holmAdjustedP": 0.21589,
+    "reject": false
+   },
+   "delta2_crossConcordance": {
+    "point": 0.0291,
+    "lo": -0.0046,
+    "hi": 0.0637,
+    "nValid": 2000,
+    "p": 0.08796,
+    "holmAdjustedP": 0.21589,
+    "reject": false
+   },
+   "delta3pos_elitePrecision12": {
+    "point": 0.0714,
+    "lo": -0.0714,
+    "hi": 0.131,
+    "nValid": 2000,
+    "p": 0.52274,
+    "holmAdjustedP": 1.0,
+    "reject": false
+   },
+   "delta3pool_elitePrecision36": {
+    "point": 0.0556,
+    "lo": -0.1111,
+    "hi": 0.2222,
+    "nValid": 2000,
+    "p": 0.71064,
+    "holmAdjustedP": 1.0,
+    "reject": false
+   },
+   "idpOverShareOfWrongPairs": {
+    "point": 0.5836,
+    "lo": 0.5133,
+    "hi": 0.6496,
+    "nValid": 2000
+   },
+   "perPosition": {
+    "QB": {
+     "point": -0.0758,
+     "lo": -0.2429,
+     "hi": 0.0704,
+     "nValid": 2000,
+     "p": 0.32784,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "RB": {
+     "point": -0.0771,
+     "lo": -0.204,
+     "hi": 0.041,
+     "nValid": 2000,
+     "p": 0.22189,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "WR": {
+     "point": -0.1101,
+     "lo": -0.2074,
+     "hi": -0.0145,
+     "nValid": 2000,
+     "p": 0.02199,
+     "holmAdjustedP": 0.30785,
+     "reject": false
+    },
+    "TE": {
+     "point": 0.0996,
+     "lo": -0.0595,
+     "hi": 0.2573,
+     "nValid": 2000,
+     "p": 0.21189,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "DL": {
+     "point": 0.0144,
+     "lo": -0.1173,
+     "hi": 0.1441,
+     "nValid": 2000,
+     "p": 0.78961,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "LB": {
+     "point": -0.0441,
+     "lo": -0.1742,
+     "hi": 0.0853,
+     "nValid": 2000,
+     "p": 0.50375,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "DB": {
+     "point": -0.1525,
+     "lo": -0.3278,
+     "hi": 0.0173,
+     "nValid": 2000,
+     "p": 0.08196,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    }
+   },
+   "rawAbsolute": {
+    "spearmanByPosition": {
+     "QB": 0.6103,
+     "RB": 0.5869,
+     "WR": 0.5793,
+     "TE": 0.7444,
+     "DL": 0.3117,
+     "LB": 0.5028,
+     "DB": 0.1801
+    },
+    "crossConcordance": 0.6795,
+    "precision12ByPosition": {
+     "QB": 0.583,
+     "RB": 0.667,
+     "WR": 0.5,
+     "TE": 0.583,
+     "DL": 0.333,
+     "LB": 0.5,
+     "DB": 0.083
+    },
+    "precision36": 0.472
+   }
+  },
+  "D": {
+   "delta1_withinSpearman": {
+    "point": -0.0236,
+    "lo": -0.0841,
+    "hi": 0.0366,
+    "nValid": 2000,
+    "p": 0.46377,
+    "holmAdjustedP": 0.46377,
+    "reject": false
+   },
+   "delta2_crossConcordance": {
+    "point": 0.0499,
+    "lo": 0.0179,
+    "hi": 0.0829,
+    "nValid": 2000,
+    "p": 0.002,
+    "holmAdjustedP": 0.01,
+    "reject": true
+   },
+   "delta3pos_elitePrecision12": {
+    "point": 0.0,
+    "lo": -0.119,
+    "hi": 0.0952,
+    "nValid": 2000,
+    "p": 0.7996,
+    "holmAdjustedP": 1.0,
+    "reject": false
+   },
+   "delta3pool_elitePrecision36": {
+    "point": 0.0,
+    "lo": -0.1674,
+    "hi": 0.1944,
+    "nValid": 2000,
+    "p": 1.0,
+    "holmAdjustedP": 1.0,
+    "reject": false
+   },
+   "idpOverShareOfWrongPairs": {
+    "point": 0.5226,
+    "lo": 0.4504,
+    "hi": 0.5924,
+    "nValid": 2000
+   },
+   "perPosition": {
+    "QB": {
+     "point": -0.074,
+     "lo": -0.2169,
+     "hi": 0.0655,
+     "nValid": 2000,
+     "p": 0.31884,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "RB": {
+     "point": 0.0025,
+     "lo": -0.0963,
+     "hi": 0.1009,
+     "nValid": 2000,
+     "p": 0.97651,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "WR": {
+     "point": -0.0548,
+     "lo": -0.1702,
+     "hi": 0.0586,
+     "nValid": 2000,
+     "p": 0.4038,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "TE": {
+     "point": 0.035,
+     "lo": -0.1672,
+     "hi": 0.2218,
+     "nValid": 2000,
+     "p": 0.68366,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "DL": {
+     "point": 0.0465,
+     "lo": -0.0916,
+     "hi": 0.1985,
+     "nValid": 2000,
+     "p": 0.54173,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "LB": {
+     "point": -0.004,
+     "lo": -0.1806,
+     "hi": 0.1667,
+     "nValid": 2000,
+     "p": 0.94653,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "DB": {
+     "point": -0.1162,
+     "lo": -0.3209,
+     "hi": 0.0764,
+     "nValid": 2000,
+     "p": 0.24788,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    }
+   },
+   "rawAbsolute": {
+    "spearmanByPosition": {
+     "QB": 0.6121,
+     "RB": 0.6665,
+     "WR": 0.6346,
+     "TE": 0.6798,
+     "DL": 0.3438,
+     "LB": 0.5428,
+     "DB": 0.2164
+    },
+    "crossConcordance": 0.7003,
+    "precision12ByPosition": {
+     "QB": 0.417,
+     "RB": 0.583,
+     "WR": 0.417,
+     "TE": 0.583,
+     "DL": 0.25,
+     "LB": 0.333,
+     "DB": 0.167
+    },
+    "precision36": 0.417
+   }
+  },
+  "R0": {
+   "delta1_withinSpearman": {
+    "point": -0.0493,
+    "lo": -0.1004,
+    "hi": 0.0034,
+    "nValid": 2000
+   },
+   "delta2_crossConcordance": {
+    "point": -0.0054,
+    "lo": -0.0395,
+    "hi": 0.0303,
+    "nValid": 2000
+   },
+   "delta3pos_elitePrecision12": {
+    "point": 0.0714,
+    "lo": -0.0714,
+    "hi": 0.131,
+    "nValid": 2000
+   },
+   "delta3pool_elitePrecision36": {
+    "point": -0.0833,
+    "lo": -0.25,
+    "hi": 0.1111,
+    "nValid": 2000
+   },
+   "idpOverShareOfWrongPairs": {
+    "point": 0.5105,
+    "lo": 0.4474,
+    "hi": 0.5722,
+    "nValid": 2000
+   },
+   "perPosition": {
+    "QB": {
+     "point": -0.0758,
+     "lo": -0.2429,
+     "hi": 0.0704,
+     "nValid": 2000
+    },
+    "RB": {
+     "point": -0.0771,
+     "lo": -0.204,
+     "hi": 0.041,
+     "nValid": 2000
+    },
+    "WR": {
+     "point": -0.1101,
+     "lo": -0.2074,
+     "hi": -0.0145,
+     "nValid": 2000
+    },
+    "TE": {
+     "point": 0.0996,
+     "lo": -0.0595,
+     "hi": 0.2573,
+     "nValid": 2000
+    },
+    "DL": {
+     "point": 0.0144,
+     "lo": -0.1173,
+     "hi": 0.1441,
+     "nValid": 2000
+    },
+    "LB": {
+     "point": -0.0441,
+     "lo": -0.1742,
+     "hi": 0.0853,
+     "nValid": 2000
+    },
+    "DB": {
+     "point": -0.1525,
+     "lo": -0.3278,
+     "hi": 0.0173,
+     "nValid": 2000
+    }
+   },
+   "rawAbsolute": {
+    "spearmanByPosition": {
+     "QB": 0.6103,
+     "RB": 0.5869,
+     "WR": 0.5793,
+     "TE": 0.7444,
+     "DL": 0.3117,
+     "LB": 0.5028,
+     "DB": 0.1801
+    },
+    "crossConcordance": 0.645,
+    "precision12ByPosition": {
+     "QB": 0.583,
+     "RB": 0.667,
+     "WR": 0.5,
+     "TE": 0.583,
+     "DL": 0.333,
+     "LB": 0.5,
+     "DB": 0.083
+    },
+    "precision36": 0.333
+   }
+  },
+  "champion": {
+   "rawAbsolute": {
+    "spearmanByPosition": {
+     "QB": 0.686,
+     "RB": 0.664,
+     "WR": 0.6894,
+     "TE": 0.6448,
+     "DL": 0.2973,
+     "LB": 0.5468,
+     "DB": 0.3326
+    },
+    "crossConcordance": 0.6504,
+    "precision12ByPosition": {
+     "QB": 0.333,
+     "RB": 0.5,
+     "WR": 0.583,
+     "TE": 0.583,
+     "DL": 0.25,
+     "LB": 0.417,
+     "DB": 0.083
+    },
+    "precision36": 0.417,
+    "idpOverShareOfWrongPairs": 0.1497
+   }
+  }
+ },
+ "verdicts": {
+  "A": {
+   "within": {
+    "axis": "within",
+    "candidate": "A",
+    "delta": -0.2663,
+    "threshold": 0.05,
+    "f1Reject": true,
+    "f1HolmAdjustedP": 0.006,
+    "f2SignificantNegativePositions": [
+     "QB",
+     "WR",
+     "TE",
+     "DL",
+     "LB"
+    ],
+    "positionsBelowPointFloor": [
+     "QB",
+     "RB",
+     "WR",
+     "TE",
+     "DL",
+     "LB",
+     "DB"
+    ],
+    "otherAxisDelta": -0.041,
+    "otherAxisFloor": -0.01,
+    "otherAxisGuardOk": false,
+    "stabilitySignChanged": [],
+    "verdict": "champion_better"
+   },
+   "cross": {
+    "axis": "cross",
+    "candidate": "A",
+    "delta": -0.041,
+    "threshold": 0.02,
+    "f1Reject": true,
+    "f1HolmAdjustedP": 0.01,
+    "f2SignificantNegativePositions": [
+     "QB",
+     "WR",
+     "TE",
+     "DL",
+     "LB"
+    ],
+    "positionsBelowPointFloor": [
+     "QB",
+     "RB",
+     "WR",
+     "TE",
+     "DL",
+     "LB",
+     "DB"
+    ],
+    "otherAxisDelta": -0.2663,
+    "otherAxisFloor": -0.02,
+    "otherAxisGuardOk": false,
+    "stabilitySignChanged": [],
+    "verdict": "champion_better"
+   }
+  },
+  "C": {
+   "within": {
+    "axis": "within",
+    "candidate": "C",
+    "delta": -0.0493,
+    "threshold": 0.05,
+    "f1Reject": false,
+    "f1HolmAdjustedP": 0.2159,
+    "f2SignificantNegativePositions": [],
+    "positionsBelowPointFloor": [
+     "WR",
+     "DB"
+    ],
+    "otherAxisDelta": 0.0291,
+    "otherAxisFloor": -0.01,
+    "otherAxisGuardOk": true,
+    "stabilitySignChanged": [],
+    "verdict": "no_detectable_difference"
+   },
+   "cross": {
+    "axis": "cross",
+    "candidate": "C",
+    "delta": 0.0291,
+    "threshold": 0.02,
+    "f1Reject": false,
+    "f1HolmAdjustedP": 0.2159,
+    "f2SignificantNegativePositions": [],
+    "positionsBelowPointFloor": [
+     "WR",
+     "DB"
+    ],
+    "otherAxisDelta": -0.0493,
+    "otherAxisFloor": -0.02,
+    "otherAxisGuardOk": false,
+    "stabilitySignChanged": [
+     "S3_D2"
+    ],
+    "verdict": "no_detectable_difference"
+   }
+  },
+  "D": {
+   "within": {
+    "axis": "within",
+    "candidate": "D",
+    "delta": -0.0236,
+    "threshold": 0.05,
+    "f1Reject": false,
+    "f1HolmAdjustedP": 0.4638,
+    "f2SignificantNegativePositions": [],
+    "positionsBelowPointFloor": [
+     "DB"
+    ],
+    "otherAxisDelta": 0.0499,
+    "otherAxisFloor": -0.01,
+    "otherAxisGuardOk": true,
+    "stabilitySignChanged": [
+     "S1_Wb_weeks4to6",
+     "S4_sigma0"
+    ],
+    "verdict": "no_detectable_difference"
+   },
+   "cross": {
+    "axis": "cross",
+    "candidate": "D",
+    "delta": 0.0499,
+    "threshold": 0.02,
+    "f1Reject": true,
+    "f1HolmAdjustedP": 0.01,
+    "f2SignificantNegativePositions": [],
+    "positionsBelowPointFloor": [
+     "DB"
+    ],
+    "otherAxisDelta": -0.0236,
+    "otherAxisFloor": -0.02,
+    "otherAxisGuardOk": false,
+    "stabilitySignChanged": [
+     "S4_sigma0"
+    ],
+    "verdict": "advance_blocked_regression"
+   }
+  }
+ },
+ "stability": {
+  "S1_Wa_weeks1to3": {
+   "n": 651,
+   "delta1": {
+    "A": -0.2723,
+    "C": -0.0332,
+    "D": -0.0106
+   },
+   "delta2": {
+    "A": -0.0633,
+    "C": 0.0104,
+    "D": 0.0321
+   },
+   "idpOverShare": {
+    "A": 0.4315,
+    "C": 0.6217,
+    "D": 0.5633
+   },
+   "championIdpOverShare": 0.1781,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S2_age_plus1": {
+   "n": 651,
+   "delta1": {
+    "A": -0.2436
+   },
+   "delta2": {
+    "A": -0.033
+   },
+   "idpOverShare": {
+    "A": 0.3954
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S2_age_minus1": {
+   "n": 651,
+   "delta1": {
+    "A": -0.2872
+   },
+   "delta2": {
+    "A": -0.0486
+   },
+   "idpOverShare": {
+    "A": 0.3927
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S3_D2": {
+   "n": 651,
+   "delta1": {
+    "C": -0.0487
+   },
+   "delta2": {
+    "C": -0.0406
+   },
+   "idpOverShare": {
+    "C": 0.1138
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S3_D4": {
+   "n": 651,
+   "delta1": {
+    "C": -0.0493
+   },
+   "delta2": {
+    "C": 0.0291
+   },
+   "idpOverShare": {
+    "C": 0.5836
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S3_D5": {
+   "state": "not_evaluable: degenerate_one_pseudo_week_allocation"
+  },
+  "S4_sigma0": {
+   "n": 651,
+   "delta1": {
+    "D": 0.0017
+   },
+   "delta2": {
+    "D": -0.0054
+   },
+   "idpOverShare": {
+    "D": 0.2213
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S4_ownteam": {
+   "n": 651,
+   "delta1": {
+    "D": -0.0953
+   },
+   "delta2": {
+    "D": 0.0188
+   },
+   "idpOverShare": {
+    "D": 0.5871
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S5_projection_mix": {
+   "state": "not_evaluable: no_real_projection_snapshot_with_a_creation_stamp_before_the_cutoff"
+  },
+  "S6_pairwise_support": {
+   "n": {
+    "A": 661,
+    "C": 664,
+    "D": 654
+   },
+   "delta1": {
+    "A": -0.2755,
+    "C": -0.0667,
+    "D": -0.0191
+   },
+   "delta2": {
+    "A": -0.044,
+    "C": 0.0249,
+    "D": 0.0514
+   },
+   "idpOverShare": {
+    "A": 0.389,
+    "C": 0.5776,
+    "D": 0.5214
+   }
+  },
+  "S7_placeholder": {
+   "n": 651,
+   "delta1": {
+    "C": -0.0492,
+    "D": -0.0333
+   },
+   "delta2": {
+    "C": 0.0281,
+    "D": 0.0452
+   },
+   "idpOverShare": {
+    "C": 0.6049,
+    "D": 0.5435
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S8_cluster_bootstrap": {
+   "A": {
+    "delta1": {
+     "lo": -0.3254,
+     "hi": -0.1985,
+     "nValid": 2000
+    },
+    "delta2": {
+     "lo": -0.0643,
+     "hi": -0.0144,
+     "nValid": 2000
+    }
+   },
+   "C": {
+    "delta1": {
+     "lo": -0.091,
+     "hi": -0.0063,
+     "nValid": 2000
+    },
+    "delta2": {
+     "lo": -0.0019,
+     "hi": 0.0592,
+     "nValid": 2000
+    }
+   },
+   "D": {
+    "delta1": {
+     "lo": -0.0768,
+     "hi": 0.0307,
+     "nValid": 2000
+    },
+    "delta2": {
+     "lo": 0.0192,
+     "hi": 0.0783,
+     "nValid": 2000
+    }
+   },
+   "clusters": 32,
+   "replicates": 2000
+  },
+  "S9_n_weighted": {
+   "n": 651,
+   "delta1": {
+    "A": -0.252,
+    "C": -0.0589,
+    "D": -0.0245
+   },
+   "delta2": {
+    "A": -0.041,
+    "C": 0.0291,
+    "D": 0.0499
+   },
+   "idpOverShare": {
+    "A": 0.3943,
+    "C": 0.5836,
+    "D": 0.5226
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S9_cross_rostered_only": {
+   "n": 505,
+   "delta1": {
+    "A": -0.242,
+    "C": -0.022,
+    "D": -0.012
+   },
+   "delta2": {
+    "A": -0.0426,
+    "C": 0.0339,
+    "D": 0.049
+   },
+   "idpOverShare": {
+    "A": 0.3978,
+    "C": 0.6071,
+    "D": 0.5368
+   },
+   "championIdpOverShare": 0.1673,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S10_pseudo0": {
+   "n": 651,
+   "delta1": {
+    "D": -0.0306
+   },
+   "delta2": {
+    "D": 0.0482
+   },
+   "idpOverShare": {
+    "D": 0.5272
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S10_pseudo16": {
+   "n": 651,
+   "delta1": {
+    "D": -0.0108
+   },
+   "delta2": {
+    "D": 0.0487
+   },
+   "idpOverShare": {
+    "D": 0.5095
+   },
+   "championIdpOverShare": 0.1497,
+   "qualifyingPositionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ]
+  },
+  "S1_Wb_weeks4to6": {
+   "delta1": {
+    "A": -0.1348,
+    "C": -0.0475,
+    "D": 0.0306
+   },
+   "delta2": {
+    "A": -0.0058,
+    "C": 0.0401,
+    "D": 0.0707
+   },
+   "idpOverShare": {
+    "A": 0.376,
+    "C": 0.5488,
+    "D": 0.4983
+   },
+   "n": 690,
+   "labelled": "exploratory (deviation D1)"
+  }
+ },
+ "stabilityApplicability": {
+  "S1_Wa_weeks1to3": [
+   "A",
+   "C",
+   "D"
+  ],
+  "S2_age_plus1": [
+   "A"
+  ],
+  "S2_age_minus1": [
+   "A"
+  ],
+  "S3_D2": [
+   "C"
+  ],
+  "S3_D4": [
+   "C"
+  ],
+  "S4_sigma0": [
+   "D"
+  ],
+  "S4_ownteam": [
+   "D"
+  ],
+  "S6_pairwise_support": [
+   "A",
+   "C",
+   "D"
+  ],
+  "S1_Wb_weeks4to6": [
+   "A",
+   "C",
+   "D"
+  ]
+ },
+ "wb": {
+  "window": "Wb",
+  "labelled": "exploratory (deviation D1)",
+  "archive": {
+   "name": "dynasty_export_20260930_130404.zip",
+   "sha256": "59338ef068c37d84e66ac68ed24f8c3ed67042bda9d13d59bca754e559cede7e",
+   "cutoffInstant": "2026-09-30T13:04:04.598312+00:00"
+  },
+  "kickoff": {
+   "kickoffUtc": "2026-10-02T00:15:00+00:00",
+   "gameId": "2026_04_PIT_CLE",
+   "clock": "nflverse gametime is US Eastern"
+  },
+  "champion": "champion_rebuilt",
+  "cohort": 690,
+  "byPosition": {
+   "QB": 59,
+   "RB": 104,
+   "WR": 151,
+   "TE": 64,
+   "DL": 118,
+   "LB": 90,
+   "DB": 104
+  },
+  "scoreVectorSha256": {
+   "champion": "207f8d6625bf547875339427d0f4cabdb95f9eccb5122e5d235426e78d145dfd",
+   "A_dv": "291b197f13c3e8ca7faa852ed2d81492bcb3a50e59631a9cfc0658cc0f2300f6",
+   "A_vorg": "84735b01d49186e890d53d6d8fe64321636f2ab7fac6c0fff81f44c437934237",
+   "R0_mu": "23f120bdb7382a8bee0bc50d1a165ccef6755cb18cd9eaeaedcc308c4962027e",
+   "C": "c65775380e6e02e5d4e1f5723e067b1bc58c092eafae2b052eeb1fed33b92815",
+   "D": "cce2fc5a9485c6ea23de0caa0b36aab658bd164f3ab76e1bd78c19f947687613"
+  },
+  "vectorsHashedBeforeOutcomesJoined": true,
+  "result": {
+   "n": 690,
+   "delta1": {
+    "A": -0.1348,
+    "C": -0.0475,
+    "D": 0.0306
+   },
+   "delta2": {
+    "A": -0.0058,
+    "C": 0.0401,
+    "D": 0.0707
+   },
+   "idpOverShare": {
+    "A": 0.376,
+    "C": 0.5488,
+    "D": 0.4983
+   },
+   "championIdpOverShare": 0.1618
+  }
+ },
+ "wbEffectOnVerdict": {
+  "A": {
+   "within": "Wb sign check included (exploratory)",
+   "cross": "Wb sign check included (exploratory)"
+  },
+  "C": {
+   "within": "Wb sign check included (exploratory)",
+   "cross": "Wb sign check included (exploratory)"
+  },
+  "D": {
+   "within": "Wb sign check included (exploratory)",
+   "cross": "Wb sign check included (exploratory)"
+  }
+ },
+ "descriptive": {
+  "eliteSeparation": {
+   "C": {
+    "QB": {
+     "predictionRatio": null,
+     "outcomeRatio": 2.756
+    },
+    "RB": {
+     "predictionRatio": 14.299,
+     "outcomeRatio": 2.792
+    },
+    "WR": {
+     "predictionRatio": 3.108,
+     "outcomeRatio": 1.895
+    },
+    "TE": {
+     "predictionRatio": null,
+     "outcomeRatio": 2.269
+    },
+    "DL": {
+     "predictionRatio": 20.05,
+     "outcomeRatio": 1.929
+    },
+    "LB": {
+     "predictionRatio": 6.463,
+     "outcomeRatio": 1.882
+    },
+    "DB": {
+     "predictionRatio": 13.427,
+     "outcomeRatio": 1.824
+    }
+   },
+   "D": {
+    "QB": {
+     "predictionRatio": 1.944,
+     "outcomeRatio": 2.756
+    },
+    "RB": {
+     "predictionRatio": 1.69,
+     "outcomeRatio": 2.792
+    },
+    "WR": {
+     "predictionRatio": 1.46,
+     "outcomeRatio": 1.895
+    },
+    "TE": {
+     "predictionRatio": 1.616,
+     "outcomeRatio": 2.269
+    },
+    "DL": {
+     "predictionRatio": 1.535,
+     "outcomeRatio": 1.929
+    },
+    "LB": {
+     "predictionRatio": 1.356,
+     "outcomeRatio": 1.882
+    },
+    "DB": {
+     "predictionRatio": 1.211,
+     "outcomeRatio": 1.824
+    }
+   },
+   "champion_A_B": "unavailable: no_validated_points_mapping"
+  },
+  "secondaryOutcomeRealizedPpg": {
+   "n": 599,
+   "positionsUsed": [
+    "QB",
+    "RB",
+    "WR",
+    "TE",
+    "DL",
+    "LB",
+    "DB"
+   ],
+   "A": {
+    "delta1_withinSpearman": {
+     "point": -0.2181,
+     "lo": -0.2853,
+     "hi": -0.159,
+     "nValid": 500,
+     "p": 0.00399,
+     "holmAdjustedP": 0.02395,
+     "reject": true
+    },
+    "delta2_crossConcordance": {
+     "point": 0.012,
+     "lo": -0.0156,
+     "hi": 0.0401,
+     "nValid": 500,
+     "p": 0.39521,
+     "holmAdjustedP": 0.79042,
+     "reject": false
+    },
+    "delta3pos_elitePrecision12": {
+     "point": -0.131,
+     "lo": -0.2024,
+     "hi": -0.0238,
+     "nValid": 500,
+     "p": 0.01597,
+     "holmAdjustedP": 0.09581,
+     "reject": false
+    },
+    "delta3pool_elitePrecision36": {
+     "point": -0.1111,
+     "lo": -0.25,
+     "hi": 0.0278,
+     "nValid": 500,
+     "p": 0.17166,
+     "holmAdjustedP": 0.85828,
+     "reject": false
+    },
+    "idpOverShareOfWrongPairs": {
+     "point": 0.3154,
+     "lo": 0.2532,
+     "hi": 0.3736,
+     "nValid": 500
+    },
+    "perPosition": {
+     "QB": {
+      "point": -0.25,
+      "lo": -0.4579,
+      "hi": -0.0568,
+      "nValid": 500,
+      "p": 0.01597,
+      "holmAdjustedP": 0.27146,
+      "reject": false
+     },
+     "RB": {
+      "point": -0.0817,
+      "lo": -0.1882,
+      "hi": 0.0091,
+      "nValid": 500,
+      "p": 0.0998,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "WR": {
+      "point": -0.1583,
+      "lo": -0.2467,
+      "hi": -0.0844,
+      "nValid": 500,
+      "p": 0.00399,
+      "holmAdjustedP": 0.08383,
+      "reject": false
+     },
+     "TE": {
+      "point": -0.2488,
+      "lo": -0.4119,
+      "hi": -0.0796,
+      "nValid": 500,
+      "p": 0.00798,
+      "holmAdjustedP": 0.1517,
+      "reject": false
+     },
+     "DL": {
+      "point": -0.2472,
+      "lo": -0.4318,
+      "hi": -0.0605,
+      "nValid": 500,
+      "p": 0.01597,
+      "holmAdjustedP": 0.27146,
+      "reject": false
+     },
+     "LB": {
+      "point": -0.2349,
+      "lo": -0.404,
+      "hi": -0.0796,
+      "nValid": 500,
+      "p": 0.00798,
+      "holmAdjustedP": 0.1517,
+      "reject": false
+     },
+     "DB": {
+      "point": -0.3056,
+      "lo": -0.5074,
+      "hi": -0.1176,
+      "nValid": 500,
+      "p": 0.00399,
+      "holmAdjustedP": 0.08383,
+      "reject": false
+     }
+    },
+    "rawAbsolute": {
+     "spearmanByPosition": {
+      "QB": 0.3645,
+      "RB": 0.6516,
+      "WR": 0.578,
+      "TE": 0.375,
+      "DL": 0.1227,
+      "LB": 0.3392,
+      "DB": 0.0931
+     },
+     "crossConcordance": 0.6302,
+     "precision12ByPosition": {
+      "QB": 0.417,
+      "RB": 0.417,
+      "WR": 0.417,
+      "TE": 0.333,
+      "DL": 0.167,
+      "LB": 0.25,
+      "DB": 0.167
+     },
+     "precision36": 0.361
+    }
+   },
+   "C": {
+    "delta1_withinSpearman": {
+     "point": -0.0169,
+     "lo": -0.0731,
+     "hi": 0.0332,
+     "nValid": 500,
+     "p": 0.55888,
+     "holmAdjustedP": 0.79042,
+     "reject": false
+    },
+    "delta2_crossConcordance": {
+     "point": 0.0849,
+     "lo": 0.0519,
+     "hi": 0.1236,
+     "nValid": 500,
+     "p": 0.00399,
+     "holmAdjustedP": 0.02395,
+     "reject": true
+    },
+    "delta3pos_elitePrecision12": {
+     "point": 0.0357,
+     "lo": -0.0714,
+     "hi": 0.131,
+     "nValid": 500,
+     "p": 0.55888,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "delta3pool_elitePrecision36": {
+     "point": -0.0278,
+     "lo": -0.1944,
+     "hi": 0.1111,
+     "nValid": 500,
+     "p": 0.62275,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "idpOverShareOfWrongPairs": {
+     "point": 0.4934,
+     "lo": 0.4284,
+     "hi": 0.5605,
+     "nValid": 500
+    },
+    "perPosition": {
+     "QB": {
+      "point": -0.0439,
+      "lo": -0.2398,
+      "hi": 0.1346,
+      "nValid": 500,
+      "p": 0.63473,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "RB": {
+      "point": 0.0243,
+      "lo": -0.0732,
+      "hi": 0.1226,
+      "nValid": 500,
+      "p": 0.55888,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "WR": {
+      "point": -0.1012,
+      "lo": -0.1928,
+      "hi": -0.0141,
+      "nValid": 500,
+      "p": 0.01597,
+      "holmAdjustedP": 0.27146,
+      "reject": false
+     },
+     "TE": {
+      "point": 0.0931,
+      "lo": -0.0812,
+      "hi": 0.2662,
+      "nValid": 500,
+      "p": 0.28343,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "DL": {
+      "point": 0.0431,
+      "lo": -0.0938,
+      "hi": 0.1762,
+      "nValid": 500,
+      "p": 0.53094,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "LB": {
+      "point": -0.0281,
+      "lo": -0.1577,
+      "hi": 0.1147,
+      "nValid": 500,
+      "p": 0.68263,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "DB": {
+      "point": -0.1058,
+      "lo": -0.2638,
+      "hi": 0.0482,
+      "nValid": 500,
+      "p": 0.20359,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     }
+    },
+    "rawAbsolute": {
+     "spearmanByPosition": {
+      "QB": 0.5706,
+      "RB": 0.7576,
+      "WR": 0.6351,
+      "TE": 0.717,
+      "DL": 0.4131,
+      "LB": 0.5461,
+      "DB": 0.2929
+     },
+     "crossConcordance": 0.7032,
+     "precision12ByPosition": {
+      "QB": 0.583,
+      "RB": 0.667,
+      "WR": 0.583,
+      "TE": 0.583,
+      "DL": 0.333,
+      "LB": 0.417,
+      "DB": 0.167
+     },
+     "precision36": 0.444
+    }
+   },
+   "D": {
+    "delta1_withinSpearman": {
+     "point": -0.0573,
+     "lo": -0.1155,
+     "hi": -0.0041,
+     "nValid": 500,
+     "p": 0.0479,
+     "holmAdjustedP": 0.14371,
+     "reject": false
+    },
+    "delta2_crossConcordance": {
+     "point": 0.0727,
+     "lo": 0.041,
+     "hi": 0.1062,
+     "nValid": 500,
+     "p": 0.00399,
+     "holmAdjustedP": 0.02395,
+     "reject": true
+    },
+    "delta3pos_elitePrecision12": {
+     "point": -0.0119,
+     "lo": -0.1253,
+     "hi": 0.0952,
+     "nValid": 500,
+     "p": 0.84232,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "delta3pool_elitePrecision36": {
+     "point": 0.0,
+     "lo": -0.1944,
+     "hi": 0.1389,
+     "nValid": 500,
+     "p": 0.8982,
+     "holmAdjustedP": 1.0,
+     "reject": false
+    },
+    "idpOverShareOfWrongPairs": {
+     "point": 0.4112,
+     "lo": 0.3384,
+     "hi": 0.4785,
+     "nValid": 500
+    },
+    "perPosition": {
+     "QB": {
+      "point": -0.144,
+      "lo": -0.3658,
+      "hi": 0.0415,
+      "nValid": 500,
+      "p": 0.17565,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "RB": {
+      "point": 0.0301,
+      "lo": -0.0648,
+      "hi": 0.1159,
+      "nValid": 500,
+      "p": 0.50299,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "WR": {
+      "point": -0.1015,
+      "lo": -0.2279,
+      "hi": 0.0042,
+      "nValid": 500,
+      "p": 0.07186,
+      "holmAdjustedP": 0.93413,
+      "reject": false
+     },
+     "TE": {
+      "point": -0.0071,
+      "lo": -0.229,
+      "hi": 0.2063,
+      "nValid": 500,
+      "p": 0.98603,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "DL": {
+      "point": 0.0053,
+      "lo": -0.1485,
+      "hi": 0.1467,
+      "nValid": 500,
+      "p": 0.97804,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "LB": {
+      "point": -0.0129,
+      "lo": -0.1871,
+      "hi": 0.1616,
+      "nValid": 500,
+      "p": 0.82236,
+      "holmAdjustedP": 1.0,
+      "reject": false
+     },
+     "DB": {
+      "point": -0.1711,
+      "lo": -0.3636,
+      "hi": 0.0166,
+      "nValid": 500,
+      "p": 0.06387,
+      "holmAdjustedP": 0.89421,
+      "reject": false
+     }
+    },
+    "rawAbsolute": {
+     "spearmanByPosition": {
+      "QB": 0.4704,
+      "RB": 0.7633,
+      "WR": 0.6347,
+      "TE": 0.6167,
+      "DL": 0.3753,
+      "LB": 0.5613,
+      "DB": 0.2276
+     },
+     "crossConcordance": 0.6909,
+     "precision12ByPosition": {
+      "QB": 0.583,
+      "RB": 0.667,
+      "WR": 0.5,
+      "TE": 0.5,
+      "DL": 0.25,
+      "LB": 0.333,
+      "DB": 0.167
+     },
+     "precision36": 0.472
+    }
+   },
+   "R0": {
+    "delta1_withinSpearman": {
+     "point": -0.0169,
+     "lo": -0.0731,
+     "hi": 0.0332,
+     "nValid": 500
+    },
+    "delta2_crossConcordance": {
+     "point": 0.0979,
+     "lo": 0.0651,
+     "hi": 0.136,
+     "nValid": 500
+    },
+    "delta3pos_elitePrecision12": {
+     "point": 0.0357,
+     "lo": -0.0714,
+     "hi": 0.131,
+     "nValid": 500
+    },
+    "delta3pool_elitePrecision36": {
+     "point": 0.0556,
+     "lo": -0.0833,
+     "hi": 0.2222,
+     "nValid": 500
+    },
+    "idpOverShareOfWrongPairs": {
+     "point": 0.4396,
+     "lo": 0.3682,
+     "hi": 0.5071,
+     "nValid": 500
+    },
+    "perPosition": {
+     "QB": {
+      "point": -0.0439,
+      "lo": -0.2398,
+      "hi": 0.1346,
+      "nValid": 500
+     },
+     "RB": {
+      "point": 0.0243,
+      "lo": -0.0732,
+      "hi": 0.1226,
+      "nValid": 500
+     },
+     "WR": {
+      "point": -0.1012,
+      "lo": -0.1928,
+      "hi": -0.0141,
+      "nValid": 500
+     },
+     "TE": {
+      "point": 0.0931,
+      "lo": -0.0812,
+      "hi": 0.2662,
+      "nValid": 500
+     },
+     "DL": {
+      "point": 0.0431,
+      "lo": -0.0938,
+      "hi": 0.1762,
+      "nValid": 500
+     },
+     "LB": {
+      "point": -0.0281,
+      "lo": -0.1577,
+      "hi": 0.1147,
+      "nValid": 500
+     },
+     "DB": {
+      "point": -0.1058,
+      "lo": -0.2638,
+      "hi": 0.0482,
+      "nValid": 500
+     }
+    },
+    "rawAbsolute": {
+     "spearmanByPosition": {
+      "QB": 0.5706,
+      "RB": 0.7576,
+      "WR": 0.6351,
+      "TE": 0.717,
+      "DL": 0.4131,
+      "LB": 0.5461,
+      "DB": 0.2929
+     },
+     "crossConcordance": 0.7161,
+     "precision12ByPosition": {
+      "QB": 0.583,
+      "RB": 0.667,
+      "WR": 0.583,
+      "TE": 0.583,
+      "DL": 0.333,
+      "LB": 0.417,
+      "DB": 0.167
+     },
+     "precision36": 0.528
+    }
+   }
+  },
+  "failureSlices": {
+   "position:QB": {
+    "n": 54,
+    "delta_rho": {
+     "A": -0.4264,
+     "C": -0.0758,
+     "D": -0.074
+    },
+    "positionsUsed": {
+     "A": [
+      "QB"
+     ],
+     "C": [
+      "QB"
+     ],
+     "D": [
+      "QB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "position:RB": {
+    "n": 94,
+    "delta_rho": {
+     "A": -0.1459,
+     "C": -0.0771,
+     "D": 0.0025
+    },
+    "positionsUsed": {
+     "A": [
+      "RB"
+     ],
+     "C": [
+      "RB"
+     ],
+     "D": [
+      "RB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "position:WR": {
+    "n": 133,
+    "delta_rho": {
+     "A": -0.1602,
+     "C": -0.1101,
+     "D": -0.0548
+    },
+    "positionsUsed": {
+     "A": [
+      "WR"
+     ],
+     "C": [
+      "WR"
+     ],
+     "D": [
+      "WR"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "position:TE": {
+    "n": 58,
+    "delta_rho": {
+     "A": -0.266,
+     "C": 0.0996,
+     "D": 0.035
+    },
+    "positionsUsed": {
+     "A": [
+      "TE"
+     ],
+     "C": [
+      "TE"
+     ],
+     "D": [
+      "TE"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "position:DL": {
+    "n": 118,
+    "delta_rho": {
+     "A": -0.3036,
+     "C": 0.0144,
+     "D": 0.0465
+    },
+    "positionsUsed": {
+     "A": [
+      "DL"
+     ],
+     "C": [
+      "DL"
+     ],
+     "D": [
+      "DL"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "position:LB": {
+    "n": 90,
+    "delta_rho": {
+     "A": -0.2642,
+     "C": -0.0441,
+     "D": -0.004
+    },
+    "positionsUsed": {
+     "A": [
+      "LB"
+     ],
+     "C": [
+      "LB"
+     ],
+     "D": [
+      "LB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "position:DB": {
+    "n": 104,
+    "delta_rho": {
+     "A": -0.2979,
+     "C": -0.1525,
+     "D": -0.1162
+    },
+    "positionsUsed": {
+     "A": [
+      "DB"
+     ],
+     "C": [
+      "DB"
+     ],
+     "D": [
+      "DB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "championBand:1-50": {
+    "n": 46,
+    "delta_rho": {
+     "A": -0.264,
+     "C": 0.1343,
+     "D": -0.0188
+    },
+    "positionsUsed": {
+     "A": [
+      "QB",
+      "RB",
+      "WR"
+     ],
+     "C": [
+      "QB",
+      "RB",
+      "WR"
+     ],
+     "D": [
+      "QB",
+      "RB",
+      "WR"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "championBand:51-150": {
+    "n": 79,
+    "delta_rho": {
+     "A": -0.2423,
+     "C": 0.1075,
+     "D": 0.0895
+    },
+    "positionsUsed": {
+     "A": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "LB"
+     ],
+     "C": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "LB"
+     ],
+     "D": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "LB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": -0.039,
+     "C": -0.0382,
+     "D": -0.0505
+    }
+   },
+   "championBand:151-300": {
+    "n": 116,
+    "delta_rho": {
+     "A": -0.1804,
+     "C": 0.0268,
+     "D": 0.0243
+    },
+    "positionsUsed": {
+     "A": [
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB"
+     ],
+     "C": [
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB"
+     ],
+     "D": [
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": 0.0252,
+     "C": 0.1378,
+     "D": 0.1659
+    }
+   },
+   "championBand:301-800": {
+    "n": 347,
+    "delta_rho": {
+     "A": -0.3462,
+     "C": 0.0266,
+     "D": 0.1726
+    },
+    "positionsUsed": {
+     "A": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "C": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "D": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": -0.0123,
+     "C": 0.1339,
+     "D": 0.1581
+    }
+   },
+   "championBand:offCapValueOnly": {
+    "n": 63,
+    "delta_rho": {
+     "A": -0.1618,
+     "C": 0.0265,
+     "D": 0.1901
+    },
+    "positionsUsed": {
+     "A": [
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "C": [
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "D": [
+      "DL",
+      "LB",
+      "DB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "age:<=24": {
+    "n": 184,
+    "delta_rho": {
+     "A": -0.2506,
+     "C": -0.1793,
+     "D": -0.0589
+    },
+    "positionsUsed": {
+     "A": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "C": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "D": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": -0.0107,
+     "C": 0.0239,
+     "D": 0.0552
+    }
+   },
+   "age:25-28": {
+    "n": 335,
+    "delta_rho": {
+     "A": -0.1441,
+     "C": -0.1243,
+     "D": -0.1029
+    },
+    "positionsUsed": {
+     "A": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "C": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "D": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": -0.0157,
+     "C": 0.0062,
+     "D": 0.0311
+    }
+   },
+   "age:>=29": {
+    "n": 132,
+    "delta_rho": {
+     "A": -0.0414,
+     "C": -0.0116,
+     "D": -0.0203
+    },
+    "positionsUsed": {
+     "A": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "C": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "D": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": -0.0056,
+     "C": -0.0225,
+     "D": -0.0075
+    }
+   },
+   "rostered": {
+    "n": 505,
+    "delta_rho": {
+     "A": -0.242,
+     "C": -0.022,
+     "D": -0.012
+    },
+    "positionsUsed": {
+     "A": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "C": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "D": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": -0.0426,
+     "C": 0.0339,
+     "D": 0.049
+    }
+   },
+   "unrostered": {
+    "n": 146,
+    "delta_rho": {
+     "A": -0.2025,
+     "C": -0.0718,
+     "D": 0.0944
+    },
+    "positionsUsed": {
+     "A": [
+      "RB",
+      "WR",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "C": [
+      "RB",
+      "WR",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "D": [
+      "RB",
+      "WR",
+      "DL",
+      "LB",
+      "DB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": 0.0735,
+     "C": 0.1245,
+     "D": 0.178
+    }
+   },
+   "dlLbHybrid": {
+    "n": 37,
+    "delta_rho": {
+     "A": -0.0083,
+     "C": 0.0865,
+     "D": 0.1762
+    },
+    "positionsUsed": {
+     "A": [
+      "DL"
+     ],
+     "C": [
+      "DL"
+     ],
+     "D": [
+      "DL"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": null,
+     "C": null,
+     "D": null
+    }
+   },
+   "gamesPlayed<=3": {
+    "n": 137,
+    "delta_rho": {
+     "A": -0.1077,
+     "C": -0.1147,
+     "D": 0.0101
+    },
+    "positionsUsed": {
+     "A": [
+      "QB",
+      "RB",
+      "WR",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "C": [
+      "QB",
+      "RB",
+      "WR",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "D": [
+      "QB",
+      "RB",
+      "WR",
+      "DL",
+      "LB",
+      "DB"
+     ]
+    },
+    "deltaCrossConcordance": {
+     "A": -0.0056,
+     "C": 0.0133,
+     "D": 0.0458
+    }
+   }
+  },
+  "worstRankErrorsVsChampion": {
+   "A": [
+    {
+     "player": "Byron Young",
+     "position": "DL",
+     "errorIncrease": 0.746,
+     "candidatePercentileRank": 0.136,
+     "realizedPercentileRank": 0.932
+    },
+    {
+     "player": "Terrion Arnold",
+     "position": "DB",
+     "errorIncrease": 0.745,
+     "candidatePercentileRank": 0.808,
+     "realizedPercentileRank": 0.043
+    },
+    {
+     "player": "Oluwafemi Oladejo",
+     "position": "DL",
+     "errorIncrease": 0.729,
+     "candidatePercentileRank": 0.932,
+     "realizedPercentileRank": 0.161
+    },
+    {
+     "player": "Jeremy Chinn",
+     "position": "DB",
+     "errorIncrease": 0.683,
+     "candidatePercentileRank": 0.125,
+     "realizedPercentileRank": 0.846
+    },
+    {
+     "player": "Omarr Norman-Lott",
+     "position": "DL",
+     "errorIncrease": 0.665,
+     "candidatePercentileRank": 0.72,
+     "realizedPercentileRank": 0.047
+    },
+    {
+     "player": "Shemar Stewart",
+     "position": "DL",
+     "errorIncrease": 0.644,
+     "candidatePercentileRank": 0.966,
+     "realizedPercentileRank": 0.203
+    },
+    {
+     "player": "Malachi Moore",
+     "position": "DB",
+     "errorIncrease": 0.635,
+     "candidatePercentileRank": 0.788,
+     "realizedPercentileRank": 0.087
+    },
+    {
+     "player": "Nick Martin",
+     "position": "LB",
+     "errorIncrease": 0.617,
+     "candidatePercentileRank": 0.911,
+     "realizedPercentileRank": 0.094
+    },
+    {
+     "player": "Shemar James",
+     "position": "LB",
+     "errorIncrease": 0.578,
+     "candidatePercentileRank": 0.956,
+     "realizedPercentileRank": 0.244
+    },
+    {
+     "player": "Talanoa Hufanga",
+     "position": "DB",
+     "errorIncrease": 0.577,
+     "candidatePercentileRank": 0.298,
+     "realizedPercentileRank": 0.952
+    },
+    {
+     "player": "Mykel Williams",
+     "position": "DL",
+     "errorIncrease": 0.542,
+     "candidatePercentileRank": 0.924,
+     "realizedPercentileRank": 0.297
+    },
+    {
+     "player": "Riley Leonard",
+     "position": "QB",
+     "errorIncrease": 0.537,
+     "candidatePercentileRank": 0.778,
+     "realizedPercentileRank": 0.148
+    },
+    {
+     "player": "Quinn Ewers",
+     "position": "QB",
+     "errorIncrease": 0.537,
+     "candidatePercentileRank": 0.796,
+     "realizedPercentileRank": 0.148
+    },
+    {
+     "player": "Budda Baker",
+     "position": "DB",
+     "errorIncrease": 0.529,
+     "candidatePercentileRank": 0.221,
+     "realizedPercentileRank": 1.0
+    },
+    {
+     "player": "Nolan Smith",
+     "position": "DL",
+     "errorIncrease": 0.525,
+     "candidatePercentileRank": 0.042,
+     "realizedPercentileRank": 0.61
+    },
+    {
+     "player": "Jaydon Blue",
+     "position": "RB",
+     "errorIncrease": 0.521,
+     "candidatePercentileRank": 0.83,
+     "realizedPercentileRank": 0.069
+    },
+    {
+     "player": "Xavier Restrepo",
+     "position": "WR",
+     "errorIncrease": 0.519,
+     "candidatePercentileRank": 0.639,
+     "realizedPercentileRank": 0.056
+    },
+    {
+     "player": "Jack Kiser",
+     "position": "LB",
+     "errorIncrease": 0.511,
+     "candidatePercentileRank": 0.611,
+     "realizedPercentileRank": 0.094
+    },
+    {
+     "player": "Minkah Fitzpatrick",
+     "position": "DB",
+     "errorIncrease": 0.481,
+     "candidatePercentileRank": 0.077,
+     "realizedPercentileRank": 0.788
+    },
+    {
+     "player": "Chimere Dike",
+     "position": "WR",
+     "errorIncrease": 0.474,
+     "candidatePercentileRank": 0.91,
+     "realizedPercentileRank": 0.398
+    }
+   ],
+   "C": [
+    {
+     "player": "Mike Jackson",
+     "position": "DB",
+     "errorIncrease": 0.644,
+     "candidatePercentileRank": 0.779,
+     "realizedPercentileRank": 0.043
+    },
+    {
+     "player": "Jonathon Cooper",
+     "position": "DL",
+     "errorIncrease": 0.636,
+     "candidatePercentileRank": 0.746,
+     "realizedPercentileRank": 0.047
+    },
+    {
+     "player": "Matthew Golden",
+     "position": "WR",
+     "errorIncrease": 0.541,
+     "candidatePercentileRank": 0.218,
+     "realizedPercentileRank": 0.955
+    },
+    {
+     "player": "James Conner",
+     "position": "RB",
+     "errorIncrease": 0.532,
+     "candidatePercentileRank": 0.777,
+     "realizedPercentileRank": 0.069
+    },
+    {
+     "player": "Brandon Aiyuk",
+     "position": "WR",
+     "errorIncrease": 0.496,
+     "candidatePercentileRank": 0.737,
+     "realizedPercentileRank": 0.056
+    },
+    {
+     "player": "Isaiah Likely",
+     "position": "TE",
+     "errorIncrease": 0.448,
+     "candidatePercentileRank": 0.414,
+     "realizedPercentileRank": 1.0
+    },
+    {
+     "player": "Devin White",
+     "position": "LB",
+     "errorIncrease": 0.444,
+     "candidatePercentileRank": 0.611,
+     "realizedPercentileRank": 0.094
+    },
+    {
+     "player": "Geno Stone",
+     "position": "DB",
+     "errorIncrease": 0.442,
+     "candidatePercentileRank": 0.663,
+     "realizedPercentileRank": 0.043
+    },
+    {
+     "player": "Bhayshul Tuten",
+     "position": "RB",
+     "errorIncrease": 0.436,
+     "candidatePercentileRank": 0.351,
+     "realizedPercentileRank": 0.862
+    },
+    {
+     "player": "Blake Corum",
+     "position": "RB",
+     "errorIncrease": 0.436,
+     "candidatePercentileRank": 0.309,
+     "realizedPercentileRank": 0.766
+    },
+    {
+     "player": "Bryce Young",
+     "position": "QB",
+     "errorIncrease": 0.426,
+     "candidatePercentileRank": 0.148,
+     "realizedPercentileRank": 0.833
+    },
+    {
+     "player": "Kevin Byard",
+     "position": "DB",
+     "errorIncrease": 0.423,
+     "candidatePercentileRank": 0.846,
+     "realizedPercentileRank": 0.279
+    },
+    {
+     "player": "Malaki Starks",
+     "position": "DB",
+     "errorIncrease": 0.413,
+     "candidatePercentileRank": 0.106,
+     "realizedPercentileRank": 0.712
+    },
+    {
+     "player": "Tyrel Dodson",
+     "position": "LB",
+     "errorIncrease": 0.4,
+     "candidatePercentileRank": 0.856,
+     "realizedPercentileRank": 0.094
+    },
+    {
+     "player": "Talanoa Hufanga",
+     "position": "DB",
+     "errorIncrease": 0.385,
+     "candidatePercentileRank": 0.49,
+     "realizedPercentileRank": 0.952
+    },
+    {
+     "player": "Ollie Gordon",
+     "position": "RB",
+     "errorIncrease": 0.383,
+     "candidatePercentileRank": 0.053,
+     "realizedPercentileRank": 0.777
+    },
+    {
+     "player": "DeShon Elliott",
+     "position": "DB",
+     "errorIncrease": 0.375,
+     "candidatePercentileRank": 0.837,
+     "realizedPercentileRank": 0.043
+    },
+    {
+     "player": "Mason Graham",
+     "position": "DL",
+     "errorIncrease": 0.356,
+     "candidatePercentileRank": 0.102,
+     "realizedPercentileRank": 0.864
+    },
+    {
+     "player": "Dorance Armstrong",
+     "position": "DL",
+     "errorIncrease": 0.347,
+     "candidatePercentileRank": 0.678,
+     "realizedPercentileRank": 0.178
+    },
+    {
+     "player": "Dee Winters",
+     "position": "LB",
+     "errorIncrease": 0.344,
+     "candidatePercentileRank": 0.278,
+     "realizedPercentileRank": 0.644
+    }
+   ],
+   "D": [
+    {
+     "player": "Malik Nabers",
+     "position": "WR",
+     "errorIncrease": 0.789,
+     "candidatePercentileRank": 0.18,
+     "realizedPercentileRank": 0.97
+    },
+    {
+     "player": "Geno Stone",
+     "position": "DB",
+     "errorIncrease": 0.683,
+     "candidatePercentileRank": 0.904,
+     "realizedPercentileRank": 0.043
+    },
+    {
+     "player": "Mike Jackson",
+     "position": "DB",
+     "errorIncrease": 0.644,
+     "candidatePercentileRank": 0.779,
+     "realizedPercentileRank": 0.043
+    },
+    {
+     "player": "Devin White",
+     "position": "LB",
+     "errorIncrease": 0.622,
+     "candidatePercentileRank": 0.789,
+     "realizedPercentileRank": 0.094
+    },
+    {
+     "player": "Jonathon Cooper",
+     "position": "DL",
+     "errorIncrease": 0.61,
+     "candidatePercentileRank": 0.72,
+     "realizedPercentileRank": 0.047
+    },
+    {
+     "player": "MarShawn Lloyd",
+     "position": "RB",
+     "errorIncrease": 0.564,
+     "candidatePercentileRank": 0.032,
+     "realizedPercentileRank": 0.606
+    },
+    {
+     "player": "Isaiah Likely",
+     "position": "TE",
+     "errorIncrease": 0.552,
+     "candidatePercentileRank": 0.31,
+     "realizedPercentileRank": 1.0
+    },
+    {
+     "player": "Jalen Carter",
+     "position": "DL",
+     "errorIncrease": 0.551,
+     "candidatePercentileRank": 0.288,
+     "realizedPercentileRank": 0.898
+    },
+    {
+     "player": "Kevin Byard",
+     "position": "DB",
+     "errorIncrease": 0.49,
+     "candidatePercentileRank": 0.913,
+     "realizedPercentileRank": 0.279
+    },
+    {
+     "player": "Fred Warner",
+     "position": "LB",
+     "errorIncrease": 0.478,
+     "candidatePercentileRank": 0.411,
+     "realizedPercentileRank": 0.911
+    },
+    {
+     "player": "Jaycee Horn",
+     "position": "DB",
+     "errorIncrease": 0.476,
+     "candidatePercentileRank": 0.712,
+     "realizedPercentileRank": 0.154
+    },
+    {
+     "player": "Nolan Smith",
+     "position": "DL",
+     "errorIncrease": 0.432,
+     "candidatePercentileRank": 0.136,
+     "realizedPercentileRank": 0.61
+    },
+    {
+     "player": "Matthew Golden",
+     "position": "WR",
+     "errorIncrease": 0.414,
+     "candidatePercentileRank": 0.346,
+     "realizedPercentileRank": 0.955
+    },
+    {
+     "player": "Travis Hunter",
+     "position": "WR",
+     "errorIncrease": 0.406,
+     "candidatePercentileRank": 0.278,
+     "realizedPercentileRank": 0.835
+    },
+    {
+     "player": "Marquise Brown",
+     "position": "WR",
+     "errorIncrease": 0.406,
+     "candidatePercentileRank": 0.624,
+     "realizedPercentileRank": 0.113
+    },
+    {
+     "player": "Malaki Starks",
+     "position": "DB",
+     "errorIncrease": 0.375,
+     "candidatePercentileRank": 0.144,
+     "realizedPercentileRank": 0.712
+    },
+    {
+     "player": "Rashan Gary",
+     "position": "DL",
+     "errorIncrease": 0.373,
+     "candidatePercentileRank": 0.797,
+     "realizedPercentileRank": 0.356
+    },
+    {
+     "player": "Edgerrin Cooper",
+     "position": "LB",
+     "errorIncrease": 0.367,
+     "candidatePercentileRank": 0.578,
+     "realizedPercentileRank": 0.956
+    },
+    {
+     "player": "Tyrel Dodson",
+     "position": "LB",
+     "errorIncrease": 0.367,
+     "candidatePercentileRank": 0.822,
+     "realizedPercentileRank": 0.094
+    },
+    {
+     "player": "Quinnen Williams",
+     "position": "DL",
+     "errorIncrease": 0.364,
+     "candidatePercentileRank": 0.347,
+     "realizedPercentileRank": 0.788
+    }
+   ]
+  },
+  "rosterCounterfactuals": {
+   "teams": 12,
+   "swapsPerTeam": {
+    "min": 4380,
+    "max": 7008
+   },
+   "swapsTotal": 73730,
+   "swapsWithNonzeroRealizedGain": 66808,
+   "candidates": {
+    "champion": {
+     "pairwiseSignAccuracy": 0.7183,
+     "swapsCounted": 66808,
+     "topSwapMeanRealizedPointsOver6Weeks": -4.95,
+     "top3MeanRealizedPointsOver6Weeks": -7.651,
+     "predictedGap": "unavailable: no_validated_points_mapping"
+    },
+    "A": {
+     "pairwiseSignAccuracy": 0.6469,
+     "swapsCounted": 66808,
+     "topSwapMeanRealizedPointsOver6Weeks": -12.553,
+     "top3MeanRealizedPointsOver6Weeks": -10.31,
+     "predictedGap": "unavailable: no_validated_points_mapping",
+     "teamsBeatingChampionTopSwap": 5
+    },
+    "C": {
+     "pairwiseSignAccuracy": 0.6485,
+     "swapsCounted": 66808,
+     "topSwapMeanRealizedPointsOver6Weeks": -12.439,
+     "top3MeanRealizedPointsOver6Weeks": -7.665,
+     "topSwapMeanPredictedPointsPerWeek": 1.962,
+     "predictedMinusRealizedPerWeek": 4.035,
+     "gapNote": "selection on predicted gain inflates the prediction; reported, never used to score",
+     "teamsBeatingChampionTopSwap": 5
+    },
+    "D": {
+     "pairwiseSignAccuracy": 0.739,
+     "swapsCounted": 66808,
+     "topSwapMeanRealizedPointsOver6Weeks": -3.323,
+     "top3MeanRealizedPointsOver6Weeks": -2.005,
+     "topSwapMeanPredictedPointsPerWeek": 4.978,
+     "predictedMinusRealizedPerWeek": 5.532,
+     "gapNote": "selection on predicted gain inflates the prediction; reported, never used to score",
+     "teamsBeatingChampionTopSwap": 5
+    }
+   }
+  },
+  "tradeExamples": {
+   "categories": {
+    "a": "offense-for-IDP 1-for-1",
+    "b": "2-for-1",
+    "c": "2-for-1 forcing a cut"
+   },
+   "a": {
+    "category": "a",
+    "sampled": 150,
+    "universeSize": 57034,
+    "skipped": {},
+    "candidates": {
+     "champion": {
+      "correct": 75.0,
+      "n": 148,
+      "share": 0.5068,
+      "wilson95": [
+       0.427,
+       0.586
+      ],
+      "tradesWithRealizedWinner": 148
+     },
+     "A": {
+      "correct": 83.0,
+      "n": 148,
+      "share": 0.5608,
+      "wilson95": [
+       0.48,
+       0.638
+      ],
+      "tradesWithRealizedWinner": 148
+     },
+     "C": {
+      "correct": 102.0,
+      "n": 148,
+      "share": 0.6892,
+      "wilson95": [
+       0.611,
+       0.758
+      ],
+      "tradesWithRealizedWinner": 148
+     },
+     "D": {
+      "correct": 111.0,
+      "n": 148,
+      "share": 0.75,
+      "wilson95": [
+       0.675,
+       0.813
+      ],
+      "tradesWithRealizedWinner": 148
+     }
+    }
+   },
+   "b": {
+    "category": "b",
+    "sampled": 150,
+    "universeSize": 4874961,
+    "skipped": {},
+    "candidates": {
+     "champion": {
+      "correct": 77.0,
+      "n": 150,
+      "share": 0.5133,
+      "wilson95": [
+       0.434,
+       0.592
+      ],
+      "tradesWithRealizedWinner": 150,
+      "upgradeSideCalledWinner": 72,
+      "upgradeSideActuallyWon": 81
+     },
+     "A": {
+      "correct": 62.0,
+      "n": 150,
+      "share": 0.4133,
+      "wilson95": [
+       0.338,
+       0.493
+      ],
+      "tradesWithRealizedWinner": 150,
+      "upgradeSideCalledWinner": 66,
+      "upgradeSideActuallyWon": 78
+     },
+     "C": {
+      "correct": 81.5,
+      "n": 150,
+      "share": 0.5433,
+      "wilson95": [
+       0.467,
+       0.624
+      ],
+      "tradesWithRealizedWinner": 150,
+      "upgradeSideCalledWinner": 74,
+      "upgradeSideActuallyWon": 90
+     },
+     "D": {
+      "correct": 82.0,
+      "n": 150,
+      "share": 0.5467,
+      "wilson95": [
+       0.467,
+       0.624
+      ],
+      "tradesWithRealizedWinner": 150,
+      "upgradeSideCalledWinner": 39,
+      "upgradeSideActuallyWon": 69
+     }
+    }
+   },
+   "c": {
+    "category": "c",
+    "sampled": 150,
+    "universeSize": 3450317,
+    "skipped": {},
+    "candidates": {
+     "champion": {
+      "correct": 74.0,
+      "n": 150,
+      "share": 0.4933,
+      "wilson95": [
+       0.414,
+       0.573
+      ],
+      "tradesWithRealizedWinner": 150
+     },
+     "A": {
+      "correct": 58.0,
+      "n": 150,
+      "share": 0.3867,
+      "wilson95": [
+       0.312,
+       0.467
+      ],
+      "tradesWithRealizedWinner": 150
+     },
+     "C": {
+      "correct": 84.5,
+      "n": 150,
+      "share": 0.5633,
+      "wilson95": [
+       0.48,
+       0.637
+      ],
+      "tradesWithRealizedWinner": 150
+     },
+     "D": {
+      "correct": 96.0,
+      "n": 150,
+      "share": 0.64,
+      "wilson95": [
+       0.561,
+       0.712
+      ],
+      "tradesWithRealizedWinner": 150
+     }
+    }
+   },
+   "note": "a dynasty trade is a multi-year bet; six weeks of lineup points cannot grade it"
+  }
+ },
+ "timingsSec": 1566.1
+}

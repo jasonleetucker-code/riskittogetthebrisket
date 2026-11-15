@@ -183,3 +183,23 @@
   font-size: var(--font-size-2xs);
   color: var(--text-tertiary);
 }
+
+/* ── KTC Market benchmark line (Market tab) — a named comparison, kept
+   out of the breakdown of sources that voted. ── */
+.benchmark {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.benchmarkNote {
+  font-family: var(--font-ui);
+  font-weight: var(--font-weight-regular);
+  color: var(--text-secondary);
+}

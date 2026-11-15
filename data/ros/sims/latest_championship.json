@@ -1,44 +1,64 @@
 {
-  "computedAt": "2026-09-28T09:04:01.014256+00:00",
+  "computedAt": "2026-11-15T17:31:00.235046+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.9956,
-      "finalsOdds": 0.997,
+      "championshipOdds": 0.5611,
+      "finalsOdds": 1.0,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.01,
+      "expectedFinish": 1.44,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.002,
-      "finalsOdds": 0.1796,
-      "semifinalOdds": 0.9226,
+      "championshipOdds": 0.4389,
+      "finalsOdds": 0.9999,
+      "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.1,
-      "contenderTier": "Dangerous Playoff Team"
+      "expectedFinish": 1.56,
+      "contenderTier": "Favorite"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "Joey",
-      "championshipOdds": 0.0013,
-      "finalsOdds": 0.3697,
-      "semifinalOdds": 0.9402,
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0001,
+      "semifinalOdds": 0.7811,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.83,
+      "expectedFinish": 3.8,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
-      "championshipOdds": 0.0011,
-      "finalsOdds": 0.4411,
-      "semifinalOdds": 0.9561,
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.4126,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.69,
+      "expectedFinish": 5.3,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "714912789268865024",
+      "displayName": "MaKayla",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0113,
+      "playoffOdds": 1.0,
+      "expectedFinish": 5.22,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "831633191830933504",
+      "displayName": "Collin",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.6855,
+      "playoffOdds": 1.0,
+      "expectedFinish": 4.25,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -46,19 +66,29 @@
       "displayName": "Kich",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.002,
-      "playoffOdds": 0.8573,
-      "expectedFinish": 5.5,
+      "semifinalOdds": 0.1095,
+      "playoffOdds": 0.9999,
+      "expectedFinish": 5.43,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
-      "ownerId": "1303549304882892800",
-      "displayName": "Blaine",
+      "ownerId": "711452264774041600",
+      "displayName": "Ed",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.009,
-      "expectedFinish": 9.5,
+      "playoffOdds": 0.0001,
+      "expectedFinish": 8.37,
+      "contenderTier": "Rebuilder / Seller"
+    },
+    {
+      "ownerId": "1393410658032177152",
+      "displayName": "schoeppeya",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0,
+      "playoffOdds": 0.0,
+      "expectedFinish": 10.17,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -68,7 +98,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 11.98,
+      "expectedFinish": 12.0,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -77,49 +107,19 @@
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.126,
-      "expectedFinish": 7.84,
-      "contenderTier": "Long Shot"
-    },
-    {
-      "ownerId": "711452264774041600",
-      "displayName": "Ed",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0,
-      "playoffOdds": 0.0105,
-      "expectedFinish": 9.21,
+      "playoffOdds": 0.0,
+      "expectedFinish": 8.63,
       "contenderTier": "Rebuilder / Seller"
     },
     {
-      "ownerId": "712035316776669184",
-      "displayName": "jstuedle",
+      "ownerId": "735693375101108224",
+      "displayName": "John",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 11.02,
+      "expectedFinish": 10.83,
       "contenderTier": "Rebuilder / Seller"
-    },
-    {
-      "ownerId": "714912789268865024",
-      "displayName": "MaKayla",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0011,
-      "semifinalOdds": 0.0537,
-      "playoffOdds": 1.0,
-      "expectedFinish": 6.74,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "831633191830933504",
-      "displayName": "Collin",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0115,
-      "semifinalOdds": 0.1254,
-      "playoffOdds": 0.9972,
-      "expectedFinish": 5.57,
-      "contenderTier": "Dangerous Playoff Team"
     }
   ],
   "n_simulations": 10000,
@@ -130,7 +130,33 @@
     "byeTeams": 1,
     "playoffWeekStart": 15,
     "source": "league_settings",
-    "reason": ""
+    "reason": "",
+    "seedType": "reseed",
+    "seedTypeReason": "",
+    "divisions": 0,
+    "divisionsReason": "",
+    "divisionRule": "recorded_no_playoff_effect",
+    "leagueRules": {
+      "qualification": "overall_record",
+      "seeding": "overall_record",
+      "standingsTiebreakers": [
+        "points_for"
+      ],
+      "divisionCount": 3,
+      "divisionPlayoffEffect": "none",
+      "divisionChampion": "best_overall_record_in_division",
+      "divisionChampionTiebreakers": [],
+      "approvedAt": "2026-11-08"
+    }
   },
-  "rosStrengthAvailable": true
+  "rosStrengthAvailable": true,
+  "engine": "src.ros.playoff_sim",
+  "season": 2026,
+  "standingsRule": {
+    "medianGame": true,
+    "state": "counted",
+    "threshold": "median",
+    "tieRule": "exact_median_is_tie",
+    "source": "https://support.sleeper.com/en/articles/3971690-extra-game-each-week-against-league-median"
+  }
 }

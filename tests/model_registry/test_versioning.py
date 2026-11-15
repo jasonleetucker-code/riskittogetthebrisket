@@ -243,16 +243,16 @@ class TestPersistence:
 class TestProvenance:
     def test_fingerprint_changes_with_content(self, tmp_path):
         p = tmp_path / "a.csv"
-        p.write_text("a,b\n1,2\n")
+        p.write_text("a,b\n1,2\n", encoding="utf-8")
         first = fingerprint_file(p)
-        p.write_text("a,b\n1,3\n")
+        p.write_text("a,b\n1,3\n", encoding="utf-8")
         assert fingerprint_file(p) != first
 
     def test_missing_inputs_are_stamped_not_dropped(self, tmp_path):
         """MECHANISM TEST. Omitting a missing input would make a fit on
         five sources indistinguishable from one on six."""
         present = tmp_path / "p.csv"
-        present.write_text("x\n1\n")
+        present.write_text("x\n1\n", encoding="utf-8")
         out = fingerprint_inputs({"P": present, "Gone": tmp_path / "nope.csv"})
         assert out["Gone"] == "missing"
         assert out["P"].startswith("sha256:")

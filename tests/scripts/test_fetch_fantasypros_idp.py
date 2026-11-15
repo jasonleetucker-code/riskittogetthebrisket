@@ -15,6 +15,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
+
 from scripts import fetch_fantasypros_idp as fp
 
 
@@ -178,10 +180,10 @@ class TestBuildRowsFromFixture(unittest.TestCase):
                     )
                 }
             )
-            (tmp / "combined.html").write_text(combined_html)
-            (tmp / "dl.html").write_text(dl_html)
-            (tmp / "lb.html").write_text(lb_html)
-            (tmp / "db.html").write_text(db_html)
+            (tmp / "combined.html").write_text(combined_html, encoding="utf-8")
+            (tmp / "dl.html").write_text(dl_html, encoding="utf-8")
+            (tmp / "lb.html").write_text(lb_html, encoding="utf-8")
+            (tmp / "db.html").write_text(db_html, encoding="utf-8")
 
             dest = tmp / "out.csv"
             # Bypass row-count floors on the tiny test fixture
@@ -231,7 +233,7 @@ class TestMainExitCodes(unittest.TestCase):
             tmp = Path(tmpdir)
             bad = _wrap_html({"count": 0})  # no 'players' key
             for fname in ("combined.html", "dl.html", "lb.html", "db.html"):
-                (tmp / fname).write_text(bad)
+                (tmp / fname).write_text(bad, encoding="utf-8")
             dest = tmp / "out.csv"
             rc = fp.main(["--from-dir", str(tmp), "--dest", str(dest)])
             self.assertEqual(rc, 2)
@@ -243,15 +245,136 @@ class TestMainExitCodes(unittest.TestCase):
             # 1 player on combined — below the 50-row floor.
             combined = _wrap_html({"players": _make_players((1, "Solo", "DE1", "DE"))})
             fam = _wrap_html({"players": _make_players((1, "Solo", "DE1", "DE"))})
-            (tmp / "combined.html").write_text(combined)
-            (tmp / "dl.html").write_text(fam)
-            (tmp / "lb.html").write_text(fam)
-            (tmp / "db.html").write_text(fam)
+            (tmp / "combined.html").write_text(combined, encoding="utf-8")
+            (tmp / "dl.html").write_text(fam, encoding="utf-8")
+            (tmp / "lb.html").write_text(fam, encoding="utf-8")
+            (tmp / "db.html").write_text(fam, encoding="utf-8")
             dest = tmp / "out.csv"
             # Use default floors (combined=50, individual=25) so this trips.
             rc = fp.main(["--from-dir", str(tmp), "--dest", str(dest)])
             self.assertEqual(rc, 2)
 
 
+# PENDING (Batch 3 Unit G review, 2026-10-01).  The duplicate is a real
+# defect, but de-duplicating in the fetcher is NOT freshness-neutral, so the
+# fix is deferred and these tests stay as strict xfails until it lands:
+#
+# * ``dataset_integrity.parse_board`` keys the second occurrence of a name as
+#   ``name#2``.  Dropping those rows (15 of 299 on the 2026-09-30 board, 5%)
+#   clears ``broadChange`` (minRows 5, minFraction 0.02), so the first fetch
+#   after the fix would log a BROAD publication the vendor never made: it
+#   resets ``lastBroadDatasetChangeAt``, raises the source's freshness weight
+#   and writes a false event into its cadence/style history.  Stale would
+#   read as current.  The dataset-state owner has no representation-change
+#   marker to absorb a one-time parser change, and adding one would change
+#   its semantics for every source.
+# * Display metadata also moves: ``data_contract._select_fp_meta`` would stamp
+#   the kept row's family/rank (e.g. Dallas Turner LB/89) on rows that today
+#   carry DL/118, and ``sourceAudit.ambiguous`` flips to false.
+#
+# Recorded as ``fantasypros-idp-dual-family-duplicates`` (open) in
+# ``config/sources/source_lineage.json``.  Remove the markers in the patch
+# that lands the fix together with a freshness-neutral mechanism.
+_PENDING_DEDUPE = pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason=(
+        "pending: FantasyPros IDP dual-family dedupe deferred -- dropping the "
+        "name#2 rows would log a false broad change and reset the freshness clock "
+        "(fantasypros-idp-dual-family-duplicates)"
+    ),
+)
+
+
+class TestOneObservationPerPlayer(unittest.TestCase):
+    """Batch 3 Unit G integrity sweep (2026-10-01).
+
+    FantasyPros lists dual-eligible edge rushers on BOTH the DL and the LB
+    positional pages.  A player absent from the combined page is emitted
+    once per family page with two different effective ranks -- 15 such
+    duplicates on the 2026-09-30 board (16 on 2026-09-23; e.g. Dallas
+    Turner: LB page -> 89, DL page -> 118).  One board should carry one
+    observation per player.  The contract already serves the better
+    effective rank (its highest-value pick), so the duplicate does not
+    change a vote today -- see the PENDING note above for why the fix is
+    deferred.
+    """
+
+    def _row(self, name, rank, pos_id):
+        return {"name": name, "rank": rank, "pos_id": pos_id, "team": "TST"}
+
+    @_PENDING_DEDUPE
+    def test_dual_listed_player_emitted_once_with_best_rank(self):
+        combined = [self._row(f"C{i}", i, "LB") for i in range(1, 6)]
+        lb_rows = [self._row(f"C{i}", i, "LB") for i in range(1, 6)]
+        lb_rows.append(self._row("Edge Guy", 6, "DE"))
+        dl_rows = [
+            self._row("C1", 1, "LB"),
+            self._row("C5", 2, "LB"),
+            self._row("Edge Guy", 9, "DE"),
+        ]
+        family_rows = {"LB": lb_rows, "DL": dl_rows}
+        rows, _anchors = fp._build_rows(combined, family_rows)
+        edge = [r for r in rows if r["name"] == "Edge Guy"]
+        self.assertEqual(len(edge), 1, edge)
+        by_name = {r["name"]: r for r in combined}
+        best = min(
+            fp._interpolate(6.0, fp._build_anchor_curve(lb_rows, by_name)),
+            fp._interpolate(9.0, fp._build_anchor_curve(dl_rows, by_name)),
+        )
+        self.assertEqual(edge[0]["effectiveRank"], int(round(best)))
+
+    @_PENDING_DEDUPE
+    def test_no_name_appears_twice(self):
+        combined = [self._row("A", 1, "LB"), self._row("B", 2, "DE")]
+        family_rows = {
+            "LB": [self._row("A", 1, "LB"), self._row("X", 2, "DE")],
+            "DL": [self._row("B", 1, "DE"), self._row("X", 2, "DE")],
+        }
+        rows, _ = fp._build_rows(combined, family_rows)
+        names = [r["name"] for r in rows]
+        self.assertEqual(len(names), len(set(names)), names)
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestUpstreamClockEvidence(unittest.TestCase):
+    """2026-10-17: FantasyPros' dynasty IDP experts last updated on 09-04
+    while we fetched every 2 h.  The page's own ``last_updated_ts`` is
+    recorded as evidence (it changes no weight by itself)."""
+
+    def test_metadata_reads_the_page_clock(self):
+        meta = fp.upstream_metadata(
+            {
+                "last_updated": "9/04",
+                "last_updated_ts": 1788489264,
+                "experts_available": {
+                    "total": 6,
+                    "included": [4317, 5598],
+                    "excluded": [1, 2, 3, 4],
+                },
+            }
+        )
+        self.assertEqual(meta["publishedAt"], "2026-09-04T02:34:24Z")
+        self.assertEqual(meta["expertsIncluded"], 2)
+        self.assertEqual(meta["expertsTotal"], 6)
+
+    def test_no_stated_time_records_nothing(self):
+        self.assertIsNone(fp.upstream_metadata({"players": []}))
+        self.assertIsNone(fp.upstream_metadata({"last_updated_ts": "soon"}))
+
+    def test_sidecar_is_read_by_the_dataset_recorder(self):
+        import json as _json
+
+        from scripts.record_source_datasets import _upstream_sidecar
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            (tmp / "fantasyProsIdp_upstream.json").write_text(
+                _json.dumps({"publishedAt": "2026-09-04T02:34:24Z"}), encoding="utf-8"
+            )
+            self.assertEqual(
+                _upstream_sidecar(tmp, "fantasyProsIdp"), ("2026-09-04T02:34:24Z", None)
+            )

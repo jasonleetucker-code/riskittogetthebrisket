@@ -1,0 +1,6932 @@
+{
+ "schema": "hill-alignment-audit/v1",
+ "declaration": {
+  "questions": [
+   "scale: native normalized value / Hill(rank in the population the curve assumes)",
+   "population: Hill(population-correct rank) / Hill(live rank) -- why the replay's nativeVsHill differs from the scale term",
+   "disagreement: log2(source players-only rank / leave-that-source-out board players-only rank) -- scale-free; KTC is compared with BOTH KTC families removed"
+  ],
+  "populations": {
+   "ktc_live": "board rows the source covers, offense players AND picks interleaved (Phase 1 offense scope admits PICK) -> OFFENSE master",
+   "ktc_players": "board offense players the source covers -> OFFENSE master (the population every OFFENSE rank voter and holdout is ranked in)",
+   "ktc_vendor": "players in the vendor CSV, picks removed -> OFFENSE master (board-coverage effect isolated)",
+   "idptc_live": "board offense+IDP+picks pool -> GLOBAL master",
+   "idptc_offense": "IDPTC's board offense players -> OFFENSE master",
+   "idptc_idp": "IDPTC's board IDP players -> IDP master (CIRCULAR: the IDP master is fit on IDPTC's own IDP slice; reported, never used for a verdict)",
+   "picks": "NON-COMPARABLE: no Hill master prices pick ranks for these sources; picks take the anchor path"
+  },
+  "breakdowns": [
+   "position",
+   "assetClass",
+   "rank band on the population-correct rank (1-50, 51-100, 101-200, 201-300, 301-400, 401+)",
+   "row weight state (NORMAL / DEGRADED / SEVERELY_DEGRADED) + source subset freshness",
+   "independent source count (<=2, 3-4, 5-8, 9+)"
+  ],
+  "verdicts": {
+   "scale_mismatch_confirmed": "population-correct median scale ratio outside [0.90, 1.10] in >= 3 of the bands 51-100..301-400",
+   "population_share": "mean log2(population factor) / mean log2(live ratio) over ranks 51-400; >= 0.5 means the replay metric was mostly population",
+   "stable": "across >= 5 archive dates, max - min of the daily median vendor-population scale ratio per band <= 0.10"
+  },
+  "hampel_variants": [
+   "floor_1000_incumbent",
+   "floor_1250",
+   "floor_1500",
+   "floor_750",
+   "mad_only_no_floor",
+   "mad_scaled_1p4826_no_floor"
+  ],
+  "hampel_reported": [
+   "observations excluded",
+   "rows with any exclusion",
+   "KTC Crowd / KTC Trades / both / IDPTC exclusions",
+   "rows changed and top-200 membership changes vs the incumbent"
+  ],
+  "candidates": {
+   "incumbent": "production as built",
+   "c1_ktc_scale_map": "each KTC board's values pass a monotone map V' = H_off(F_ktc^-1(v)), F_ktc = that board's own Hill fit (fitter grid, players-only top 400, canonical /499 coordinate) on the CURRENT snapshot only; H_off = live OFFENSE master. Keeps KTC's local spacing around its own curve; applied to every KTC row incl. picks. Circularity: the target master trains on 6 boards, one of them KTC base (same crowd) -- not a consensus containing KTC Crowd as a vote, but not KTC-free either",
+   "c2_ktc_rank_hill": "KTC Crowd + Trades leave _VALUE_BASED_SOURCES (corrected native_values_as_ranks; IDPTC stays value-direct)"
+  },
+  "candidate_metrics": [
+   "rows changed; median / p90 / max |delta %| (Hill board guard definitions)",
+   "top-25 / top-50 / top-100 / top-200 membership vs incumbent",
+   "KTC and total outlier exclusions (diagnostic, NOT an objective)",
+   "KTC family leverage: |V - V(no KTC)| / V(no KTC) on rows KTC covers",
+   "sparse rows (<= 2 independent families): changed, median |delta %|",
+   "contract structural errors",
+   "build seconds",
+   "Coker + data-chosen contrast set (regression examples only)"
+  ],
+  "candidate_gates": {
+   "board_impact": "every Hill board guard rail from config/model_registry/hill_autopilot_policy.json::boardImpact",
+   "no_new_structural_errors": "structural validation errors not above incumbent",
+   "leverage": "KTC family leverage p90 <= 1.25x incumbent (a candidate may not buy alignment by handing KTC more control)",
+   "cost": "build seconds <= 1.5x incumbent median"
+  },
+  "never": [
+   "select or tune toward KTC Market parity (reported as context only)",
+   "treat fewer outlier exclusions as success",
+   "promote: any numeric calibration is a challenger for the Hill Autopilot / model registry, which this audit does not touch"
+  ],
+  "holdout": "point-in-time only where the archive genuinely carries the inputs: exports/archive zips carry the KTC Crowd / KTC Trades / IDPTC CSVs, not every voter, so a full point-in-time BOARD rebuild is out of reach here; the scale ratio and the c1 map are tested forward in time (fit on day d, scored on d+7)"
+ },
+ "declarationSha256": "543fd3a3b7a56423647e8d326881dd14b2a14321d8bc317d08e17403470e390a",
+ "postHocAdditions": {
+  "addedAt": "independent review of PR #1573, 2026-10-01",
+  "candidates": {
+   "c3_ktc_players_rank_hill": "the README section 4 recommendation as written: KTC Crowd and KTC Trades PLAYER rows vote Hill_OFFENSE(players-only rank) -- the rank among the board's offense players that source covers, picks removed; KTC PICK rows stay value-direct. Phase 1 ordinals (and therefore the rookie ladders that read KTC Crowd's rank) are untouched. Replay-only patch; same metrics and gates as c1/c2."
+  },
+  "dlf_native": "dlfValuesSfTep gets the Part A scale-band treatment (vendor rank and board players-only rank, OFFENSE master, same verdict rule) and the Part B rank-space treatment against (i) the incumbent (already leave-DLF-Values-out, but holds DLF Rank) and (ii) a board without the whole DLF family; stability from the CSV's git history under the same <= 0.10 rule. The join is the production CSV join, run in one diagnostic build.",
+  "evidentialWeight": "post-hoc: chosen after seeing c2; a pass is weaker evidence than a predeclared pass, a failure is not weakened"
+ },
+ "postHocAdditionsSha256": "c10a02d1a1ae3455126f410f6158566c69131ebdb0bb29306601813fac8d665c",
+ "pins": {
+  "codeRevision": "169f0895dc4a153efe65e782693115b71667a795",
+  "workingTreeDirty": false,
+  "payload": {
+   "path": "exports\\latest\\dynasty_data_2026-09-30.json",
+   "sha256": "69a0f4b4e26486c1265fe9211cabffc72ea4fefcffefddf8501ffe89b5d49bba",
+   "scrapeTimestamp": "2026-09-30T13:04:04.598312+00:00"
+  },
+  "sourceCsvs": {
+   "dlfIdp.csv": "3fe56fb6f9e74e9cfbf52acf90e8654d272afd811c4e93e9ba2fcbe1be090b0e",
+   "dlfRookieIdp.csv": "2eef67a693ab312232e934287effffebf4112063eb62aa33f50d225f9a0fdb88",
+   "dlfRookieSf.csv": "e2bb108f7d389a7dc518eff38874d734eade305819947ecc62a6933e32d0dcdd",
+   "dlfSf.csv": "9c0f7b83ec22beea013aab829b1b1d31e676f820cfba3150015890668f6bdc12",
+   "dlfValuesSfTep.csv": "38284bc9f52a8929cd865cf15a218a724820959b6ad782984b0e542bb8eac187",
+   "dlfValuesSfTepPicks.csv": "be71d397997b7c51e5942f4fae1bc79a5a2bb4a217c831006f45f0df563dd2d1",
+   "draftSharksIdp.csv": "2eccf4cd00e0e6e72d89688ad9e2422fafcce416fd335ecc5d51ce17052b0aec",
+   "draftSharksRosIdp.csv": "2fdf19819be2a94fe043760660ed620806ebb58627d4366aa8763c403afed6bf",
+   "draftSharksRosSf.csv": "ff8dd0b0dfafc718605e88efe716678594ab089ba4e1205cad97baef5448680c",
+   "draftSharksSf.csv": "f591d3d5c5bdd013f2460c5a9c4e0969e3959aa64ead4783c763d27ee5919e81",
+   "dynastyDaddySf.csv": "399f0eb5b268b8ffdbe5198c127e4a03d0ad501c06ad808641f079638dc1605a",
+   "dynastyNerdsSfTep.csv": "96c1e6c9d1dd4a9ee7cf8b9d722020e5ed69463e77386ae853390d74237ca576",
+   "fantasyCalc.csv": "4e3f64fea007142d7c1e333f063028ed20726b0f0db4bae337cf74fc218db408",
+   "fantasyNavigatorSf.csv": "957dd43f5594096c43cefbcee5005ce926aef36967c845d3c450b32744b5b5a5",
+   "fantasyProsFitzmaurice.csv": "d398e8a676fdbeb81994568158a085358e12b57b78e2d7b4a0414e2e65d281a8",
+   "fantasyProsIdp.csv": "41ee06ebf745092293d9478316e6b8247ba7c6d31a2f8cb753e6a76608414a56",
+   "fantasyProsSf.csv": "8b744b5854de52854320d794ac7b9758864c10a512e7df492afdf1e00a454b63",
+   "flockFantasySf.csv": "40ca625084e0f7636403e9eff2f649f57a6ba8bd8c7e56804b0ed98e6ed2d587",
+   "flockFantasySfRookies.csv": "0a0219625ea4e542bd4c26745285633d128d1af6ad9b8f822c7840174b1fa7de",
+   "idpShow.csv": "b8d1a6e116421573045e680625795040a6bf93d7a6c225479db1fe79c0cc03f0",
+   "idpShowCombined.csv": "1d7c30daecb24d62dfcc5e991d190888bad908262a44a661f817f73db0f15ba4",
+   "idpTradeCalc.csv": "75abdac13302fb855ab170ce869216380baa133c377695782cf384eacb2f9e47",
+   "ktc.csv": "c208f1c542e97e749c20574c22098d8a445cb0537760c771d41dc2891866ef6f",
+   "ktcCrowdSfTep.csv": "c53263b3f40c3cb7371760e44093bec00f6d3d4af7ce3bc4ab7c862ce8d9f915",
+   "ktcCrowdTradesSfTep.csv": "fa1b4497982cd7e5951bc77832b5a02417436df1e7d489e1222d166b4ad9c716",
+   "ktcSfTep.csv": "80cd550a8d6020569140eab585a999779d6429c6869731280640ee0f40eb101d",
+   "ktcTradesSfTep.csv": "e001133041cee34f28c26ece213704deb80e4e5d036f99da2e2912439972e86f",
+   "otcffbSf.csv": "d7020aacc3e92e365e5e191f05d8e61f65102eda126400bcd4154bb44ef61cfb",
+   "pfkDynasty.csv": "39c9bb8e97a7e55a7c1d0c1db28557abba42afffa95226fac91d2e4876bbe235",
+   "yahooBoone.csv": "2003a09a82f88cc5204f8a3f584baab4611be03f0ba5257e25bf96b4504b5ca4"
+  },
+  "freshnessState": {
+   "dlfIdp_dataset.json": "112b8f1ba6ca780d9cbe8a51f826d5388833b3916f5afeb84886a11ade240c2e",
+   "dlfRookieIdp_dataset.json": "fb67b6e0af1504c4d2655ac16a81e8fb2b791e4f728fb59b12631fb9deb9978d",
+   "dlfRookieSf_dataset.json": "22506f53a92960fca01e4995d11cb1a786b03fd5820562ba0ab71109d2e177fd",
+   "dlfSf_dataset.json": "1c555024fed2fb1391f7059f67383bebcccb9869a4b976765eff44c47e0b48f6",
+   "dlfValuesSfTep_dataset.json": "1a1563c4b5a86ec3773261ecfe0d67259a50c0daa53ca150d5590912ec883c7b",
+   "draftSharks_dataset.json": "d6cad76989223282195b6948fdbd03943d8c99e90729471351ef40ef80f3ac85",
+   "draftSharksIdp_dataset.json": "a2aa182737a4ee09b8afba2a2b5c179f615fd64a384d4336d09653ef9b31ef51",
+   "dynastyDaddySf_dataset.json": "1be4647485188ea62230e271938198595c5c8c0f0054a6cbf765ba0c188053b1",
+   "dynastyNerdsSfTep_dataset.json": "fd8b3691ca4116dec85b94b347dd275260aa475bf245755845d42dc015fa1e39",
+   "fantasyCalc_dataset.json": "893085e4d651a4399561b9830778f55a3aa326beb4785a936f0f956fcdd73394",
+   "fantasyNavigatorSf_dataset.json": "093a8a4b1020a6e186010d5be048ab23b746f33b19f631b27ea681ef2f7959b2",
+   "fantasyProsFitzmaurice_dataset.json": "453f7951dd5917c20fc62ed3fbb100f3d3ee21131e1bb88176ca34ed3cc8db09",
+   "fantasyProsIdp_dataset.json": "b8b28a5204381ad0772df1967e4cc18060d6f1a364f9109df6bb3283e6f2ebe5",
+   "fantasyProsSf_dataset.json": "7c404b8ee09c8465b16767ff90f21131ffe22988d4da2fbe9a5efdcbedce6495",
+   "flockFantasySf_dataset.json": "a41228001e70d46a50880e665d0e7e1ad6f04d9b345ec4a2fddd6ad58b6be1ad",
+   "flockFantasySfRookies_dataset.json": "c941c1d406e13e811fc15fbc7ed12996976f82867a45b5a7a55e210d17974293",
+   "idpShowCombined_dataset.json": "7f3b1fe7496913a49c0fdb6ab04a8b1ecdc46e0984d0850ab46058478e5a59c5",
+   "idpTradeCalc_dataset.json": "9cdb1dfc831d3b914d62854dfc268e88498433e30fe19d38ff77e0093d727485",
+   "ktcCrowdSfTep_dataset.json": "7e318ce937e4c6fb85920434a79ce555975c0fd63edb3b0e23d585bccea79130",
+   "ktcCrowdTradesSfTep_dataset.json": "3e7512d08fda9288187aa26a2a8eb15473a2eb0613f0c6d4f7c7840a57d7d38b",
+   "ktcTradesSfTep_dataset.json": "2dc644d16cb8a121f98c2d6a5ca36e6a16bb075952870d414d5e265442aa4f76",
+   "otcffbSf_dataset.json": "c374a391b553b2426edbb2cbcbbb2950ce7359d55393403c2708f0b0627cca4f",
+   "pfkDynasty_dataset.json": "4232cf0c1c69b9a16ad43623e91c5a40acef10a53bcbaa0120ba5b78554aac9a",
+   "yahooBoone_dataset.json": "b7f0a1f3b9de3024b56de279d1184cace7a0f8c0eb2936df716d5e7f002bd650"
+  },
+  "fetchStamps": {
+   "dlf_last_success": "1790843254",
+   "dlfIdp_last_success": "1790843254",
+   "dlfRookieIdp_last_success": "1790843254",
+   "dlfRookieSf_last_success": "1790843254",
+   "dlfSf_last_success": "1790843254",
+   "dlfValuesSfTep_last_success": "1790843254",
+   "draftSharks_last_success": "1790836806",
+   "draftSharksIdp_last_success": "1790836806",
+   "draftSharksRos_last_success": "1790836819",
+   "dynastyDaddy_last_success": "1790836642",
+   "dynastyDaddySf_last_success": "1790836642",
+   "dynastyNerdsSfTep_last_success": "1790836821",
+   "fantasyCalc_last_success": "1790836643",
+   "fantasyNavigatorSf_last_success": "1790836644",
+   "fantasyProsFitzmaurice_last_success": "1790836820",
+   "fantasyProsIdp_last_success": "1790836822",
+   "fantasyProsSf_last_success": "1790836821",
+   "flockFantasy_last_success": "1790836646",
+   "flockFantasyRookies_last_success": "1790773448",
+   "flockFantasySf_last_success": "1790836646",
+   "flockFantasySfRookies_last_success": "1790773448",
+   "idpShow_last_success": "1790843532",
+   "idpShowCombined_last_success": "1790843532",
+   "idpTradeCalc_last_success": "1790836641",
+   "ktc_last_success": "1790836641",
+   "ktcCrowdSfTep_last_success": "1790836641",
+   "ktcCrowdTradesSfTep_last_success": "1790836641",
+   "ktcSfTep_last_success": "1790836641",
+   "ktcTradesSfTep_last_success": "1790836641",
+   "otcffbSf_last_success": "1790836643",
+   "pfkDynasty_last_success": "1790836645",
+   "sleeper_last_success": "1790836476.921358",
+   "yahooBoone_last_success": "1790836826"
+  },
+  "freshnessConfig": "3ccf97aff37d6ea5166001669fd7408d5ba4ab458b3ec92888641fdb2445c681",
+  "config": {
+   "config/bdvm/event_types_v1.json": "a3b40bc5b0699d5a40d6fd48b466f803c788c3ac4e00ea0f43817fc70082c14c",
+   "config/bdvm/params_v1.json": "1b641fb0eed514fe1ce4c0952fbdbdb97dc78b5ea1fbf235634ddcd24a021147",
+   "config/bdvm/pick_outcomes_v1.json": "5af5e5bcd171a6d68f7824d1079c846bebf65c42a28f7a8fb44fe1ca13bff7a6",
+   "config/bridges/bridges_v1.json": "16da3208b40e65b1e8a2e47d0e5072f807e4dd9cdabf84555d63eab3bb581160",
+   "config/ci/release_gate_classification.json": "78521d112a8e81c2c7cfa474d5da2b1fd72884da169e2a6521c92a9bcdb8f137",
+   "config/coercion_baseline.json": "7aa7db318be317f74ea79ddcd602c76ad2c691a803336ebf43c6bdb1ee7d2b79",
+   "config/confidence/gate_v1.json": "fcb4846670a7cb2b56c19a4b1b6f9c4b2ee96b675f35cf888193bb7dd1d1a79b",
+   "config/consensus_edge/params_v1.json": "890d54132a63e5522f7cde38e74a18113f60b338ff1e205fe2922f798798ac04",
+   "config/dfs/presets.json": "69fc9429d5704f5ee8245fc4f5439cc08b4669e37d9531a50b6bb7ca44fd4b82",
+   "config/dfs/providers.json": "8b0092510358ec94a38d15e294625a1eb4d88db8c2525c118383adf9780faf6b",
+   "config/dfs/rulesets.json": "f455c12f3bf2fe4854a80601017513fde92a1e36a20543f26e7810aea48a95f4",
+   "config/dfs/source_seeds.json": "7c7c169d997b4049ab3b3e10eab290afbdcb4a19141d5c7378aae327022d7085",
+   "config/espn_schema_baseline.json": "39efbd12c9af9845bcfb3086ed0c94ac7b2fb2bbebb3df3abf4bcd9b6e9ca958",
+   "config/identity/id_overrides.json": "cdaf9f2749a2a57ee72303da0544451ed553f5ef34c22fbd4efd86a4e5b27392",
+   "config/league_comparison.json": "9a021d66b4284274ebbb031c3ad65f70ff1d13d79e81e0ca20f87c5a019e89aa",
+   "config/league_intel/dynasty_new/sleeper_league_snapshot_2026-08-25.json": "537122e8442f9bc6b569ff4c84c14bf42070ae544872a997a7f2d416864d5071",
+   "config/league_intel/sleeper_league_snapshot_2026-07-26.json": "81c6c6c0dde12952c3c0032e533e92292e93bd588832ab825b760899ae7fe962",
+   "config/leagues/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "config/leagues/award_eligibility_overrides.json": "b456c4707cfac1474eee9923e1e9321c0939d74f219b711642d2af84774b518e",
+   "config/leagues/default_superflex_idp.template.json": "85437b5718dd0e6770370089d440c46c4ed7a0661fc9d06a858ab4f10d7c480e",
+   "config/leagues/owner_names.json": "853c9332e7a236ff28d80bd2180ab29c95ca03b9e82c2c7ad492595c33a08b06",
+   "config/leagues/README.md": "47b437463084015faa923a21958e939e86d6e29d5ab54884413834b426458a21",
+   "config/leagues/registry.json": "ef61b7719df83dfec76a0b21f170d38ba9d55ecacca0080325e263fa7c219766",
+   "config/model_registry/hill_autopilot_policy.json": "63cc861479808252d44f35ffe16af58722ddaf1b94d0bd48e000e1e64abd3f5f",
+   "config/model_registry/hill_autopilot_runs.jsonl": "a685d949dc985ab8617b4d229f75f3d3ae3e5efd6371ec69a93c29da242f0bff",
+   "config/model_registry/hill_scope_masters.json": "6740a880cee8f2744f04b0fd99f9e8f6cb50e00decae4f393628c9f04e521f39",
+   "config/power/attested/dynasty_main_2026_week_00.json": "9d7cc617762301dadcaa06191e9633cbdc697946f969310bf62beb51656a6005",
+   "config/projections/source_capability_census.json": "b47d7396cefeee2b733257dd96e90e894135c93a673fb23ab6fb9944d249e6c1",
+   "config/roster_intel/meaningful_core.json": "62e04092c107d5313d984ac88c6a74ecda44321a04c2257dd9cdcab3a40770a0",
+   "config/sharp/curated_universe.json": "398510e998bf1f675d982b22f26947eecf7f7aeabb0502d95beb853abea1d9c0",
+   "config/sharp/discovery_seeds.json": "a7fc8059a5f45f7344acfd1154a32d52ae25959e110230684236c6128f6d8590",
+   "config/sharp/ffpc_asset_mappings.json": "e3566b3a06430868d71e9287dfd6c6c520a3da027aabea01951d407ee131dc2f",
+   "config/sharp/ffpc_sources.json": "f1b286ee6709b0d9493ce72c9aa88e255e48ecc766f718a29d91a3c3c220becb",
+   "config/sharp/scoring_v2.json": "9a5af740ae9f13adffb2f63a80f2844cfb64e0cd253b8a0ec62482973570b626",
+   "config/sharp/workbooks/dynasty_fantasy_football_sharps_100.xlsx": "3f032b006b0f44b069fb83dde5eb23f6cffe9f9dfd12fb42d72fe17bbedd014d",
+   "config/source_staleness.json": "6a0b926cb03ec9ac6d8a0dcc18e511ddfdac88123f258ad627074feb9db62d22",
+   "config/sources/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "config/sources/dlf_sources.template.json": "3845d2d85a9eb46d3fb452ee84118cf84b8f8939932cb42262e491955ff2e864",
+   "config/sources/freshness_v1.json": "3ccf97aff37d6ea5166001669fd7408d5ba4ab458b3ec92888641fdb2445c681",
+   "config/steward/contracts.schema.json": "521d2f57dcfc1285a5bbd06182fc70948808467d7f6e9a84d3c38c01315421ea",
+   "config/steward/routing.json": "db3e2a9a911eb70c26192aaf9847064d258e78adb59b46903a66fa94bd0ef902",
+   "config/team_assignment.json": "a318ea0c3ce03b7826fc06d4eedf44945f5a0d24299f4c84394b8445e5f18938",
+   "config/thresholds.json": "d90b241f01127a0402a4adf7b870445b1577988ef156fc996c754cc37729b2d8",
+   "config/tiers/thresholds.json": "b535c97465766b354de3d84a96ec385bc1707a51aab452da9b036cf4df40709b",
+   "config/trade/analyze_trade.json": "dc8e05b4825f521f1c17a266843b37199ebecc8203b505aa87b9ec78286792b3",
+   "config/trade/faab.json": "4a7d3b20f839aee4e5b0ba62b2f9d1ff3637a29714a593d810d6ac120694e637",
+   "config/trade/team_impact.json": "65a13865aec0b92d8d55fe8f3f25769f973d8dbc77bb2f16fc4f6e8a56bc9729",
+   "config/weights/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "config/weights/default_weights.json": "fd937579d42898a347d60c4d09fa927874a51411b25543b3505f3a724c039ea7",
+   "config/weights/pick_year_discount.json": "071d34f9000632dc551d5b57b0dbc8c22b0870edac2586a5c66af36d0e961a79",
+   "config/weights/source_row_floors.json": "f242b931113d111f4e9399cdcbb2502ecb35cb2f4bce82d9137523629720a542",
+   "config/weights/te_premium_curve.json": "2dd219751770f3fe6ca3af938f0b3525c5a9aec96548976605e77803d92f0bac",
+   "config/weights/top50_coverage_floors.json": "67056b2cf5335f20928ef2bd9fc82f3015e87b028d6ba8bd6a09904db6abc923"
+  },
+  "localLeagueSnapshots": {
+   "tracked": false,
+   "files": {},
+   "note": "gitignored; a checkout without them keeps completed-draft picks (1131 vs 1041 rows on 2026-09-30)"
+  },
+  "flags": {
+   "multi_bridge_ladder": false,
+   "source_freshness_weighting": true,
+   "source_family_cap": true,
+   "source_universe_freshness": true,
+   "ledger_rank_change": true,
+   "unified_id_mapper": false,
+   "nfl_data_ingest": true,
+   "realized_points_api": true,
+   "value_confidence_intervals": false,
+   "positional_tiers": false,
+   "usage_signals": false,
+   "espn_injury_feed": false,
+   "depth_chart_validation": false,
+   "monte_carlo_trade": true,
+   "dynamic_source_weights": false,
+   "te_basis_conversion": true,
+   "idp_scoring_fit": true,
+   "reception_scoring_fit": true,
+   "bdvm_engine": true,
+   "perfect_draft": true,
+   "rookie_auction": true,
+   "dfs_workspace": true,
+   "dfs_sportsdataio_slates": false,
+   "dfs_auto_slates": true,
+   "consensus_edge": false,
+   "host_native_scoring": false,
+   "waiver_live_opportunity": true,
+   "game_day_live_game_state": true,
+   "sleeper_weekly_projections": true,
+   "sportsdataio_live_game_state": false,
+   "balldontlie_live_game_state": false,
+   "fantasynerds_weekly_projections": false,
+   "sportsdataio_weekly_projections": false
+  },
+  "contractVersion": "2026-03-10.v2",
+  "hampel": {
+   "k": 2.75,
+   "minN": 4,
+   "minThreshold": 1000.0
+  },
+  "singleSourceRetention": 0.3,
+  "liveLeagueContext": [
+   {
+    "args": [],
+    "result": {
+     "roster_count": 12,
+     "bonus_rec_te": 0.0,
+     "fetched_from_sleeper": true
+    }
+   },
+   {
+    "args": [
+     12
+    ],
+    "result": {
+     "roster_count": 12,
+     "bonus_rec_te": 0.0,
+     "fetched_from_sleeper": true
+    }
+   },
+   {
+    "args": [
+     12
+    ],
+    "result": {
+     "roster_count": 12,
+     "bonus_rec_te": 0.0,
+     "fetched_from_sleeper": true
+    }
+   }
+  ],
+  "fullTreeDirty": false
+ },
+ "boardRows": 1131,
+ "outputs": {
+  "incumbentBoardSha256": "9090458d00c39f5c400f7870de798a11889e802faf9926300e5cd216ba9b0d4b"
+ },
+ "scaleVsPopulation": {
+  "summary": {
+   "ktcCrowdSfTep": {
+    "observations": 498,
+    "nonComparablePicks": 36,
+    "byBand": {
+     "ratioLive": {
+      "1-50": {
+       "n": 50,
+       "median": 0.955,
+       "p25": 0.902,
+       "p75": 0.999,
+       "meanLog2": -0.0678
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.153,
+       "p25": 1.107,
+       "p75": 1.167,
+       "meanLog2": 0.187
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.306,
+       "p25": 1.233,
+       "p75": 1.36,
+       "meanLog2": 0.3737
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.448,
+       "p25": 1.438,
+       "p75": 1.455,
+       "meanLog2": 0.5327
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.302,
+       "p25": 1.23,
+       "p75": 1.387,
+       "meanLog2": 0.373
+      },
+      "401+": {
+       "n": 62,
+       "median": 0.941,
+       "p25": 0.638,
+       "p75": 0.975,
+       "meanLog2": -0.3016
+      }
+     },
+     "ratioPop": {
+      "1-50": {
+       "n": 50,
+       "median": 0.943,
+       "p25": 0.897,
+       "p75": 0.983,
+       "meanLog2": -0.0825
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.087,
+       "p25": 1.067,
+       "p75": 1.118,
+       "meanLog2": 0.124
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.204,
+       "p25": 1.146,
+       "p75": 1.253,
+       "meanLog2": 0.2609
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.32,
+       "p25": 1.314,
+       "p75": 1.328,
+       "meanLog2": 0.4012
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.185,
+       "p25": 1.122,
+       "p75": 1.261,
+       "meanLog2": 0.2403
+      },
+      "401+": {
+       "n": 62,
+       "median": 0.868,
+       "p25": 0.59,
+       "p75": 0.896,
+       "meanLog2": -0.419
+      }
+     },
+     "populationFactor": {
+      "1-50": {
+       "n": 50,
+       "median": 1.012,
+       "p25": 1.0,
+       "p75": 1.014,
+       "meanLog2": 0.0147
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.039,
+       "p25": 1.035,
+       "p75": 1.054,
+       "meanLog2": 0.063
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.083,
+       "p25": 1.078,
+       "p75": 1.085,
+       "meanLog2": 0.1128
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.096,
+       "p25": 1.093,
+       "p75": 1.098,
+       "meanLog2": 0.1315
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.097,
+       "p25": 1.095,
+       "p75": 1.098,
+       "meanLog2": 0.1328
+      },
+      "401+": {
+       "n": 62,
+       "median": 1.085,
+       "p25": 1.082,
+       "p75": 1.088,
+       "meanLog2": 0.1173
+      }
+     },
+     "ratioVendor": {
+      "1-50": {
+       "n": 50,
+       "median": 0.943,
+       "p25": 0.897,
+       "p75": 0.983,
+       "meanLog2": -0.0825
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.079,
+       "p25": 1.056,
+       "p75": 1.109,
+       "meanLog2": 0.1125
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.184,
+       "p25": 1.125,
+       "p75": 1.209,
+       "meanLog2": 0.2271
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.269,
+       "p25": 1.262,
+       "p75": 1.278,
+       "meanLog2": 0.3437
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.125,
+       "p25": 1.061,
+       "p75": 1.193,
+       "meanLog2": 0.1631
+      },
+      "401+": {
+       "n": 62,
+       "median": 0.823,
+       "p25": 0.559,
+       "p75": 0.849,
+       "meanLog2": -0.497
+      }
+     },
+     "ratioPopChallenger": {
+      "1-50": {
+       "n": 50,
+       "median": 1.141,
+       "p25": 1.036,
+       "p75": 1.247,
+       "meanLog2": 0.184
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.582,
+       "p25": 1.486,
+       "p75": 1.605,
+       "meanLog2": 0.6297
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.835,
+       "p25": 1.725,
+       "p75": 1.93,
+       "meanLog2": 0.8655
+      },
+      "201-300": {
+       "n": 100,
+       "median": 2.074,
+       "p25": 2.059,
+       "p75": 2.082,
+       "meanLog2": 1.0508
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.879,
+       "p25": 1.784,
+       "p75": 1.999,
+       "meanLog2": 0.9059
+      },
+      "401+": {
+       "n": 62,
+       "median": 1.383,
+       "p25": 0.939,
+       "p75": 1.426,
+       "meanLog2": 0.2527
+      }
+     }
+    },
+    "byPosition": {
+     "QB": {
+      "n": 72,
+      "median": 1.098,
+      "p25": 0.945,
+      "p75": 1.303,
+      "meanLog2": 0.1145
+     },
+     "RB": {
+      "n": 124,
+      "median": 1.147,
+      "p25": 1.019,
+      "p75": 1.291,
+      "meanLog2": 0.1302
+     },
+     "TE": {
+      "n": 76,
+      "median": 1.221,
+      "p25": 1.111,
+      "p75": 1.308,
+      "meanLog2": 0.256
+     },
+     "WR": {
+      "n": 190,
+      "median": 1.147,
+      "p25": 1.013,
+      "p75": 1.285,
+      "meanLog2": 0.1184
+     }
+    },
+    "byAssetClass": {
+     "offense": {
+      "n": 462,
+      "median": 1.152,
+      "p25": 1.04,
+      "p75": 1.296,
+      "meanLog2": 0.1436
+     }
+    },
+    "byWeightState": {
+     "DEGRADED": {
+      "n": 3,
+      "median": 0.898,
+      "p25": 0.887,
+      "p75": 0.98,
+      "meanLog2": -0.0868
+     },
+     "NORMAL": {
+      "n": 459,
+      "median": 1.155,
+      "p25": 1.041,
+      "p75": 1.296,
+      "meanLog2": 0.1451
+     }
+    },
+    "byCoverage": {
+     "3-4": {
+      "n": 31,
+      "median": 0.637,
+      "p25": 0.553,
+      "p75": 0.881,
+      "meanLog2": -0.5086
+     },
+     "5-8": {
+      "n": 58,
+      "median": 1.066,
+      "p25": 0.892,
+      "p75": 1.182,
+      "meanLog2": 0.0125
+     },
+     "9+": {
+      "n": 371,
+      "median": 1.198,
+      "p25": 1.084,
+      "p75": 1.308,
+      "meanLog2": 0.2218
+     },
+     "<=2": {
+      "n": 2,
+      "median": 0.76,
+      "p25": 0.652,
+      "p75": 0.868,
+      "meanLog2": -0.4575
+     }
+    },
+    "verdict": {
+     "bandsOutsideTolerance": [
+      "101-200",
+      "201-300",
+      "301-400"
+     ],
+     "scaleMismatchConfirmed": true,
+     "meanLog2Live": 0.3923,
+     "meanLog2PopulationFactor": 0.1167,
+     "populationShare": 0.298
+    }
+   },
+   "ktcTradesSfTep": {
+    "observations": 498,
+    "nonComparablePicks": 36,
+    "byBand": {
+     "ratioLive": {
+      "1-50": {
+       "n": 50,
+       "median": 1.001,
+       "p25": 0.944,
+       "p75": 1.021,
+       "meanLog2": -0.0095
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.226,
+       "p25": 1.14,
+       "p75": 1.24,
+       "meanLog2": 0.2587
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.324,
+       "p25": 1.292,
+       "p75": 1.391,
+       "meanLog2": 0.4213
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.532,
+       "p25": 1.511,
+       "p75": 1.565,
+       "meanLog2": 0.6206
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.592,
+       "p25": 1.504,
+       "p75": 1.606,
+       "meanLog2": 0.626
+      },
+      "401+": {
+       "n": 62,
+       "median": 1.158,
+       "p25": 0.777,
+       "p75": 1.299,
+       "meanLog2": 0.0403
+      }
+     },
+     "ratioPop": {
+      "1-50": {
+       "n": 50,
+       "median": 0.994,
+       "p25": 0.944,
+       "p75": 1.014,
+       "meanLog2": -0.0147
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.187,
+       "p25": 1.129,
+       "p75": 1.197,
+       "meanLog2": 0.2227
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.25,
+       "p25": 1.217,
+       "p75": 1.3,
+       "meanLog2": 0.3343
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.421,
+       "p25": 1.407,
+       "p75": 1.443,
+       "meanLog2": 0.5112
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.457,
+       "p25": 1.375,
+       "p75": 1.472,
+       "meanLog2": 0.4986
+      },
+      "401+": {
+       "n": 62,
+       "median": 1.068,
+       "p25": 0.718,
+       "p75": 1.194,
+       "meanLog2": -0.077
+      }
+     },
+     "populationFactor": {
+      "1-50": {
+       "n": 50,
+       "median": 1.0,
+       "p25": 1.0,
+       "p75": 1.011,
+       "meanLog2": 0.0052
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.025,
+       "p25": 1.01,
+       "p75": 1.037,
+       "meanLog2": 0.036
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.06,
+       "p25": 1.058,
+       "p75": 1.068,
+       "meanLog2": 0.087
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.077,
+       "p25": 1.073,
+       "p75": 1.084,
+       "meanLog2": 0.1094
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.092,
+       "p25": 1.091,
+       "p75": 1.094,
+       "meanLog2": 0.1274
+      },
+      "401+": {
+       "n": 62,
+       "median": 1.085,
+       "p25": 1.081,
+       "p75": 1.088,
+       "meanLog2": 0.1173
+      }
+     },
+     "ratioVendor": {
+      "1-50": {
+       "n": 50,
+       "median": 0.994,
+       "p25": 0.944,
+       "p75": 1.014,
+       "meanLog2": -0.0147
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.187,
+       "p25": 1.129,
+       "p75": 1.197,
+       "meanLog2": 0.2227
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.236,
+       "p25": 1.21,
+       "p75": 1.288,
+       "meanLog2": 0.3239
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.401,
+       "p25": 1.388,
+       "p75": 1.413,
+       "meanLog2": 0.4865
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.409,
+       "p25": 1.328,
+       "p75": 1.436,
+       "meanLog2": 0.4555
+      },
+      "401+": {
+       "n": 62,
+       "median": 1.031,
+       "p25": 0.693,
+       "p75": 1.157,
+       "meanLog2": -0.1263
+      }
+     },
+     "ratioPopChallenger": {
+      "1-50": {
+       "n": 50,
+       "median": 1.19,
+       "p25": 1.059,
+       "p75": 1.308,
+       "meanLog2": 0.2517
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.711,
+       "p25": 1.574,
+       "p75": 1.733,
+       "meanLog2": 0.7285
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.908,
+       "p25": 1.835,
+       "p75": 2.004,
+       "meanLog2": 0.939
+      },
+      "201-300": {
+       "n": 100,
+       "median": 2.23,
+       "p25": 2.202,
+       "p75": 2.274,
+       "meanLog2": 1.1608
+      },
+      "301-400": {
+       "n": 100,
+       "median": 2.311,
+       "p25": 2.185,
+       "p75": 2.329,
+       "meanLog2": 1.1643
+      },
+      "401+": {
+       "n": 62,
+       "median": 1.701,
+       "p25": 1.143,
+       "p75": 1.901,
+       "meanLog2": 0.5945
+      }
+     }
+    },
+    "byPosition": {
+     "QB": {
+      "n": 72,
+      "median": 1.282,
+      "p25": 1.072,
+      "p75": 1.415,
+      "meanLog2": 0.2815
+     },
+     "RB": {
+      "n": 124,
+      "median": 1.273,
+      "p25": 1.144,
+      "p75": 1.435,
+      "meanLog2": 0.3104
+     },
+     "TE": {
+      "n": 76,
+      "median": 1.272,
+      "p25": 1.197,
+      "p75": 1.409,
+      "meanLog2": 0.3488
+     },
+     "WR": {
+      "n": 190,
+      "median": 1.27,
+      "p25": 1.188,
+      "p75": 1.424,
+      "meanLog2": 0.2882
+     }
+    },
+    "byAssetClass": {
+     "offense": {
+      "n": 462,
+      "median": 1.273,
+      "p25": 1.186,
+      "p75": 1.422,
+      "meanLog2": 0.3031
+     }
+    },
+    "byWeightState": {
+     "DEGRADED": {
+      "n": 3,
+      "median": 1.391,
+      "p25": 1.241,
+      "p75": 1.412,
+      "meanLog2": 0.374
+     },
+     "NORMAL": {
+      "n": 459,
+      "median": 1.273,
+      "p25": 1.186,
+      "p75": 1.421,
+      "meanLog2": 0.3026
+     }
+    },
+    "byCoverage": {
+     "3-4": {
+      "n": 31,
+      "median": 1.067,
+      "p25": 0.755,
+      "p75": 1.191,
+      "meanLog2": -0.0352
+     },
+     "5-8": {
+      "n": 58,
+      "median": 1.289,
+      "p25": 1.197,
+      "p75": 1.431,
+      "meanLog2": 0.2596
+     },
+     "9+": {
+      "n": 371,
+      "median": 1.287,
+      "p25": 1.194,
+      "p75": 1.425,
+      "meanLog2": 0.3432
+     },
+     "<=2": {
+      "n": 2,
+      "median": 0.651,
+      "p25": 0.634,
+      "p75": 0.668,
+      "meanLog2": -0.6221
+     }
+    },
+    "verdict": {
+     "bandsOutsideTolerance": [
+      "51-100",
+      "101-200",
+      "201-300",
+      "301-400"
+     ],
+     "scaleMismatchConfirmed": true,
+     "meanLog2Live": 0.5135,
+     "meanLog2PopulationFactor": 0.0977,
+     "populationShare": 0.19
+    }
+   },
+   "idpTradeCalc": {
+    "observations": 892,
+    "nonComparablePicks": 84,
+    "byBand": {
+     "ratioLive": {
+      "1-50": {
+       "n": 50,
+       "median": 1.061,
+       "p25": 1.053,
+       "p75": 1.076,
+       "meanLog2": 0.0942
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.161,
+       "p25": 1.079,
+       "p75": 1.174,
+       "meanLog2": 0.1857
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.122,
+       "p25": 1.109,
+       "p75": 1.132,
+       "meanLog2": 0.1663
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.045,
+       "p25": 1.031,
+       "p75": 1.079,
+       "meanLog2": 0.0742
+      },
+      "301-400": {
+       "n": 100,
+       "median": 0.873,
+       "p25": 0.853,
+       "p75": 0.929,
+       "meanLog2": -0.1778
+      },
+      "401+": {
+       "n": 32,
+       "median": 0.685,
+       "p25": 0.657,
+       "p75": 0.713,
+       "meanLog2": -0.541
+      }
+     },
+     "ratioPop": {
+      "1-50": {
+       "n": 50,
+       "median": 0.937,
+       "p25": 0.924,
+       "p75": 0.977,
+       "meanLog2": -0.0789
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.076,
+       "p25": 1.052,
+       "p75": 1.103,
+       "meanLog2": 0.107
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.185,
+       "p25": 1.139,
+       "p75": 1.234,
+       "meanLog2": 0.2445
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.305,
+       "p25": 1.294,
+       "p75": 1.313,
+       "meanLog2": 0.38
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.153,
+       "p25": 1.111,
+       "p75": 1.225,
+       "meanLog2": 0.2178
+      },
+      "401+": {
+       "n": 32,
+       "median": 0.931,
+       "p25": 0.893,
+       "p75": 0.964,
+       "meanLog2": -0.1042
+      }
+     },
+     "populationFactor": {
+      "1-50": {
+       "n": 50,
+       "median": 1.136,
+       "p25": 1.119,
+       "p75": 1.147,
+       "meanLog2": 0.1731
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.048,
+       "p25": 1.025,
+       "p75": 1.086,
+       "meanLog2": 0.0787
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.972,
+       "p25": 0.91,
+       "p75": 0.983,
+       "meanLog2": -0.0782
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.805,
+       "p25": 0.793,
+       "p75": 0.824,
+       "meanLog2": -0.3059
+      },
+      "301-400": {
+       "n": 100,
+       "median": 0.759,
+       "p25": 0.746,
+       "p75": 0.773,
+       "meanLog2": -0.3956
+      },
+      "401+": {
+       "n": 32,
+       "median": 0.737,
+       "p25": 0.736,
+       "p75": 0.741,
+       "meanLog2": -0.4368
+      }
+     },
+     "ratioVendor": {
+      "1-50": {
+       "n": 0
+      },
+      "51-100": {
+       "n": 0
+      },
+      "101-200": {
+       "n": 0
+      },
+      "201-300": {
+       "n": 0
+      },
+      "301-400": {
+       "n": 0
+      },
+      "401+": {
+       "n": 0
+      }
+     },
+     "ratioPopChallenger": {
+      "1-50": {
+       "n": 50,
+       "median": 1.132,
+       "p25": 1.042,
+       "p75": 1.212,
+       "meanLog2": 0.1874
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.542,
+       "p25": 1.491,
+       "p75": 1.588,
+       "meanLog2": 0.6128
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.807,
+       "p25": 1.712,
+       "p75": 1.901,
+       "meanLog2": 0.8492
+      },
+      "201-300": {
+       "n": 100,
+       "median": 2.045,
+       "p25": 2.034,
+       "p75": 2.057,
+       "meanLog2": 1.0296
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.83,
+       "p25": 1.767,
+       "p75": 1.94,
+       "meanLog2": 0.8834
+      },
+      "401+": {
+       "n": 32,
+       "median": 1.482,
+       "p25": 1.422,
+       "p75": 1.535,
+       "meanLog2": 0.5667
+      }
+     }
+    },
+    "byPosition": {
+     "DB": {
+      "n": 122,
+      "median": 0.823,
+      "p25": 0.76,
+      "p75": 0.884,
+      "meanLog2": -0.3148
+     },
+     "DL": {
+      "n": 146,
+      "median": 0.792,
+      "p25": 0.672,
+      "p75": 0.865,
+      "meanLog2": -0.4085
+     },
+     "LB": {
+      "n": 108,
+      "median": 0.798,
+      "p25": 0.633,
+      "p75": 0.853,
+      "meanLog2": -0.4227
+     },
+     "QB": {
+      "n": 67,
+      "median": 1.102,
+      "p25": 0.965,
+      "p75": 1.236,
+      "meanLog2": 0.1262
+     },
+     "RB": {
+      "n": 117,
+      "median": 1.151,
+      "p25": 1.068,
+      "p75": 1.256,
+      "meanLog2": 0.1941
+     },
+     "TE": {
+      "n": 72,
+      "median": 1.218,
+      "p25": 1.134,
+      "p75": 1.263,
+      "meanLog2": 0.2481
+     },
+     "WR": {
+      "n": 176,
+      "median": 1.149,
+      "p25": 1.056,
+      "p75": 1.262,
+      "meanLog2": 0.1891
+     }
+    },
+    "byAssetClass": {
+     "idp": {
+      "n": 376,
+      "median": 0.802,
+      "p25": 0.705,
+      "p75": 0.873,
+      "meanLog2": -0.3821
+     },
+     "offense": {
+      "n": 432,
+      "median": 1.151,
+      "p25": 1.06,
+      "p75": 1.259,
+      "meanLog2": 0.1905
+     }
+    },
+    "byWeightState": {
+     "DEGRADED": {
+      "n": 3,
+      "median": 1.072,
+      "p25": 0.992,
+      "p75": 1.111,
+      "meanLog2": 0.056
+     },
+     "NORMAL": {
+      "n": 429,
+      "median": 1.152,
+      "p25": 1.061,
+      "p75": 1.259,
+      "meanLog2": 0.1915
+     }
+    },
+    "byCoverage": {
+     "3-4": {
+      "n": 14,
+      "median": 0.973,
+      "p25": 0.914,
+      "p75": 1.028,
+      "meanLog2": -0.0249
+     },
+     "5-8": {
+      "n": 53,
+      "median": 1.11,
+      "p25": 1.003,
+      "p75": 1.15,
+      "meanLog2": 0.1063
+     },
+     "9+": {
+      "n": 365,
+      "median": 1.188,
+      "p25": 1.086,
+      "p75": 1.275,
+      "meanLog2": 0.211
+     }
+    },
+    "idpByBandCircular": {
+     "1-50": {
+      "n": 50,
+      "median": 0.583,
+      "p25": 0.531,
+      "p75": 0.615,
+      "meanLog2": -0.811
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.64,
+      "p25": 0.588,
+      "p75": 0.685,
+      "meanLog2": -0.6544
+     },
+     "101-200": {
+      "n": 101,
+      "median": 0.775,
+      "p25": 0.732,
+      "p75": 0.824,
+      "meanLog2": -0.3483
+     },
+     "201-300": {
+      "n": 99,
+      "median": 0.859,
+      "p25": 0.802,
+      "p75": 0.943,
+      "meanLog2": -0.1967
+     },
+     "301-400": {
+      "n": 76,
+      "median": 0.864,
+      "p25": 0.831,
+      "p75": 0.902,
+      "meanLog2": -0.2074
+     }
+    },
+    "liveByBandAllClasses": {
+     "1-50": {
+      "n": 50,
+      "median": 1.059,
+      "p25": 1.051,
+      "p75": 1.067,
+      "meanLog2": 0.0802
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.161,
+      "p25": 1.126,
+      "p75": 1.174,
+      "meanLog2": 0.2016
+     },
+     "101-200": {
+      "n": 102,
+      "median": 1.109,
+      "p25": 1.089,
+      "p75": 1.12,
+      "meanLog2": 0.1479
+     },
+     "201-300": {
+      "n": 98,
+      "median": 1.13,
+      "p25": 1.123,
+      "p75": 1.146,
+      "meanLog2": 0.18
+     },
+     "301-400": {
+      "n": 100,
+      "median": 1.046,
+      "p25": 1.031,
+      "p75": 1.08,
+      "meanLog2": 0.0816
+     },
+     "401+": {
+      "n": 492,
+      "median": 0.863,
+      "p25": 0.687,
+      "p75": 0.976,
+      "meanLog2": -0.2568
+     }
+    },
+    "verdict": {
+     "bandsOutsideTolerance": [
+      "101-200",
+      "201-300",
+      "301-400"
+     ],
+     "scaleMismatchConfirmed": true,
+     "meanLog2Live": 0.0444,
+     "meanLog2PopulationFactor": -0.2115,
+     "populationShare": -4.759
+    }
+   }
+  },
+  "poolComposition": {
+   "ktcCrowdSfTep": {
+    "rowsInPool": 498,
+    "byClass": {
+     "offense": 462,
+     "pick": 36
+    },
+    "picksInTop400": 35,
+    "idpInTop400": 0
+   },
+   "ktcTradesSfTep": {
+    "rowsInPool": 498,
+    "byClass": {
+     "offense": 462,
+     "pick": 36
+    },
+    "picksInTop400": 35,
+    "idpInTop400": 0
+   },
+   "idpTradeCalc": {
+    "rowsInPool": 892,
+    "byClass": {
+     "idp": 376,
+     "offense": 432,
+     "pick": 84
+    },
+    "picksInTop400": 60,
+    "idpInTop400": 83
+   }
+  },
+  "nativeCurveShapes": {
+   "ktcCrowdSfTep": {
+    "role": "live value voter",
+    "playersOnly": {
+     "n": 400,
+     "c": 0.112,
+     "s": 0.91,
+     "rmse": 201.9
+    },
+    "withPicksAsTheFitterReads": {
+     "n": 400,
+     "c": 0.119,
+     "s": 0.87,
+     "rmse": 181.8
+    },
+    "picksInTop400": 35
+   },
+   "ktcTradesSfTep": {
+    "role": "live value voter",
+    "playersOnly": {
+     "n": 400,
+     "c": 0.13,
+     "s": 0.935,
+     "rmse": 145.0
+    },
+    "withPicksAsTheFitterReads": {
+     "n": 400,
+     "c": 0.135,
+     "s": 0.89,
+     "rmse": 125.2
+    },
+    "picksInTop400": 35
+   },
+   "ktc (base)": {
+    "role": "OFFENSE trainer; non-voting",
+    "playersOnly": {
+     "n": 400,
+     "c": 0.105,
+     "s": 0.925,
+     "rmse": 209.0
+    },
+    "withPicksAsTheFitterReads": {
+     "n": 400,
+     "c": 0.111,
+     "s": 0.875,
+     "rmse": 193.9
+    },
+    "picksInTop400": 36
+   },
+   "dynastyDaddySf": {
+    "role": "OFFENSE trainer; rank voter",
+    "playersOnly": {
+     "n": 381,
+     "c": 0.056,
+     "s": 1.21,
+     "rmse": 304.2
+    }
+   },
+   "dynastyNerdsSfTep": {
+    "role": "OFFENSE trainer; rank voter",
+    "playersOnly": {
+     "n": 294,
+     "c": 0.056,
+     "s": 1.73,
+     "rmse": 253.8
+    }
+   },
+   "yahooBoone": {
+    "role": "OFFENSE trainer; rank voter",
+    "playersOnly": {
+     "n": 400,
+     "c": 0.076,
+     "s": 1.26,
+     "rmse": 363.9
+    }
+   },
+   "fantasyProsFitzmaurice": {
+    "role": "OFFENSE trainer; rank voter",
+    "playersOnly": {
+     "n": 297,
+     "c": 0.122,
+     "s": 1.31,
+     "rmse": 489.0
+    }
+   },
+   "draftSharksSf": {
+    "role": "OFFENSE trainer; rank voter",
+    "playersOnly": {
+     "n": 360,
+     "c": 0.028,
+     "s": 0.83,
+     "rmse": 186.0
+    }
+   },
+   "fantasyCalc": {
+    "role": "OFFENSE holdout; rank voter",
+    "playersOnly": {
+     "n": 397,
+     "c": 0.044,
+     "s": 1.075,
+     "rmse": 327.6
+    }
+   },
+   "otcffbSf": {
+    "role": "OFFENSE holdout; rank voter",
+    "playersOnly": {
+     "n": 370,
+     "c": 0.041,
+     "s": 1.01,
+     "rmse": 191.5
+    }
+   },
+   "pfkDynasty": {
+    "role": "OFFENSE holdout; rank voter",
+    "playersOnly": {
+     "n": 400,
+     "c": 0.085,
+     "s": 1.11,
+     "rmse": 215.6
+    }
+   },
+   "fantasyNavigatorSf": {
+    "role": "OFFENSE holdout; rank voter (ktcCrowd family)",
+    "playersOnly": {
+     "n": 400,
+     "c": 0.05,
+     "s": 1.345,
+     "rmse": 366.6
+    }
+   },
+   "dlfValuesSfTep": {
+    "role": "non-voting; measurement gate pending",
+    "playersOnly": {
+     "n": 323,
+     "c": 0.062,
+     "s": 1.69,
+     "rmse": 266.0
+    }
+   },
+   "_liveOffenseMaster": {
+    "c": 0.11,
+    "s": 1.11
+   }
+  },
+  "pendingOffenseChallenger": {
+   "version": 171,
+   "status": "rejected",
+   "notes": [
+    "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+   ],
+   "c": 0.066,
+   "s": 1.085
+  },
+  "sourceSubsetFreshness": {
+   "ktcCrowdSfTep": {
+    "players": {
+     "freshness": 1.0,
+     "ageHours": 7.0,
+     "expectedCadenceHours": 12.0,
+     "state": "ON_SCHEDULE"
+    },
+    "picks": {
+     "freshness": 1.0,
+     "ageHours": 7.0,
+     "expectedCadenceHours": 12.0,
+     "state": "ON_SCHEDULE"
+    }
+   },
+   "ktcTradesSfTep": {
+    "players": {
+     "freshness": 1.0,
+     "ageHours": 7.0,
+     "expectedCadenceHours": 12.0,
+     "state": "ON_SCHEDULE"
+    },
+    "picks": {
+     "freshness": 1.0,
+     "ageHours": 7.0,
+     "expectedCadenceHours": 12.0,
+     "state": "ON_SCHEDULE"
+    }
+   },
+   "idpTradeCalc": {
+    "players": {
+     "freshness": 0.9827,
+     "ageHours": 159.2,
+     "expectedCadenceHours": 135.8,
+     "state": "ON_SCHEDULE"
+    },
+    "picks": {
+     "freshness": 0.0589,
+     "ageHours": 803.8,
+     "expectedCadenceHours": 135.8,
+     "state": "SEVERELY_STALE"
+    }
+   }
+  },
+  "liveMasters": {
+   "offense": {
+    "c": 0.11,
+    "s": 1.11
+   },
+   "shared_market": {
+    "c": 0.112,
+    "s": 0.725
+   },
+   "idp": {
+    "c": 0.083,
+    "s": 1.11
+   }
+  },
+  "correctedReplayMetric": {
+   "ktcCrowdSfTep": {
+    "1-50": {
+     "n": 50,
+     "medianNativeOverHill": 0.955
+    },
+    "51-100": {
+     "n": 50,
+     "medianNativeOverHill": 1.144
+    },
+    "101-150": {
+     "n": 50,
+     "medianNativeOverHill": 1.205
+    },
+    "151-200": {
+     "n": 50,
+     "medianNativeOverHill": 1.318
+    },
+    "201-250": {
+     "n": 50,
+     "medianNativeOverHill": 1.434
+    },
+    "251-300": {
+     "n": 50,
+     "medianNativeOverHill": 1.447
+    },
+    "301-350": {
+     "n": 49,
+     "medianNativeOverHill": 1.441
+    },
+    "351-400": {
+     "n": 47,
+     "medianNativeOverHill": 1.317
+    },
+    "401-450": {
+     "n": 48,
+     "medianNativeOverHill": 1.167
+    },
+    "451-500": {
+     "n": 48,
+     "medianNativeOverHill": 0.785
+    }
+   },
+   "ktcTradesSfTep": {
+    "1-50": {
+     "n": 50,
+     "medianNativeOverHill": 0.997
+    },
+    "51-100": {
+     "n": 50,
+     "medianNativeOverHill": 1.217
+    },
+    "101-150": {
+     "n": 50,
+     "medianNativeOverHill": 1.276
+    },
+    "151-200": {
+     "n": 50,
+     "medianNativeOverHill": 1.355
+    },
+    "201-250": {
+     "n": 50,
+     "medianNativeOverHill": 1.5
+    },
+    "251-300": {
+     "n": 50,
+     "medianNativeOverHill": 1.536
+    },
+    "301-350": {
+     "n": 49,
+     "medianNativeOverHill": 1.598
+    },
+    "351-400": {
+     "n": 46,
+     "medianNativeOverHill": 1.603
+    },
+    "401-450": {
+     "n": 50,
+     "medianNativeOverHill": 1.403
+    },
+    "451-500": {
+     "n": 47,
+     "medianNativeOverHill": 1.081
+    }
+   }
+  },
+  "replayCounterfactualErratum": {
+   "what": "the 2026-09-30 native_values_as_ranks emptied _VALUE_BASED_SOURCES; IDPTC then entered Phase 1c and its native value was decoded as a rank",
+   "idptcEffectiveRankMinMax": [
+    9900,
+    9992
+   ],
+   "replayMetricUnderOldPatch": {
+    "notComparableRankMoved": 856
+   },
+   "boardDiffOldPatch": {
+    "rowsCompared": 1131,
+    "rowsChanged": 980,
+    "byGroup": {
+     "IDP": {
+      "changed": 375,
+      "medianAbs": 181,
+      "p90Abs": 634,
+      "maxAbs": 3863
+     },
+     "PICK": {
+      "changed": 144,
+      "medianAbs": 454.0,
+      "p90Abs": 754,
+      "maxAbs": 843
+     },
+     "QB": {
+      "changed": 72,
+      "medianAbs": 73.5,
+      "p90Abs": 144,
+      "maxAbs": 283
+     },
+     "RB": {
+      "changed": 123,
+      "medianAbs": 75,
+      "p90Abs": 120,
+      "maxAbs": 224
+     },
+     "TE": {
+      "changed": 76,
+      "medianAbs": 101.0,
+      "p90Abs": 177,
+      "maxAbs": 404
+     },
+     "WR": {
+      "changed": 190,
+      "medianAbs": 83.0,
+      "p90Abs": 152,
+      "maxAbs": 974
+     }
+    },
+    "top200MembershipChanges": 36,
+    "largestMoves": [
+     {
+      "asset": "Aidan Hutchinson",
+      "group": "IDP",
+      "delta": -3863,
+      "rankBefore": 34,
+      "rankAfter": 198
+     },
+     {
+      "asset": "Will Anderson",
+      "group": "IDP",
+      "delta": -3570,
+      "rankBefore": 42,
+      "rankAfter": 221
+     },
+     {
+      "asset": "Myles Garrett",
+      "group": "IDP",
+      "delta": -3356,
+      "rankBefore": 61,
+      "rankAfter": 298
+     },
+     {
+      "asset": "Jacob Rodriguez",
+      "group": "IDP",
+      "delta": -2072,
+      "rankBefore": 72,
+      "rankAfter": 176
+     },
+     {
+      "asset": "Arvell Reese",
+      "group": "IDP",
+      "delta": -1858,
+      "rankBefore": 67,
+      "rankAfter": 147
+     }
+    ]
+   },
+   "boardDiffCorrectedPatch": {
+    "rowsCompared": 1131,
+    "rowsChanged": 598,
+    "byGroup": {
+     "PICK": {
+      "changed": 139,
+      "medianAbs": 330,
+      "p90Abs": 729,
+      "maxAbs": 814
+     },
+     "QB": {
+      "changed": 72,
+      "medianAbs": 67.0,
+      "p90Abs": 134,
+      "maxAbs": 284
+     },
+     "RB": {
+      "changed": 123,
+      "medianAbs": 69,
+      "p90Abs": 113,
+      "maxAbs": 223
+     },
+     "TE": {
+      "changed": 75,
+      "medianAbs": 104,
+      "p90Abs": 158,
+      "maxAbs": 404
+     },
+     "WR": {
+      "changed": 189,
+      "medianAbs": 80,
+      "p90Abs": 144,
+      "maxAbs": 345
+     }
+    },
+    "top200MembershipChanges": 10,
+    "largestMoves": [
+     {
+      "asset": "2029 Late 2nd",
+      "group": "PICK",
+      "delta": -814,
+      "rankBefore": 233,
+      "rankAfter": 395
+     },
+     {
+      "asset": "2029 Early 1st",
+      "group": "PICK",
+      "delta": -788,
+      "rankBefore": 84,
+      "rankAfter": 111
+     },
+     {
+      "asset": "2028 Late 2nd",
+      "group": "PICK",
+      "delta": -773,
+      "rankBefore": 209,
+      "rankAfter": 305
+     },
+     {
+      "asset": "2029 Round 2",
+      "group": "PICK",
+      "delta": -769,
+      "rankBefore": null,
+      "rankAfter": null
+     },
+     {
+      "asset": "2029 Mid 2nd",
+      "group": "PICK",
+      "delta": -768,
+      "rankBefore": 211,
+      "rankAfter": 311
+     }
+    ]
+   }
+  }
+ },
+ "disagreement": {
+  "note": "KTC Crowd and KTC Trades are each compared with a board built WITHOUT BOTH KTC families (same provider, correlated); IDPTC without IDPTC; every rank voter without itself.",
+  "bySource": {
+   "ktcCrowdSfTep": {
+    "rows": 462,
+    "looUnpriced": 0,
+    "outlierDroppedRows": {
+     "n": 10,
+     "rankRatio": {
+      "n": 10,
+      "median": 1.017,
+      "p25": 0.691,
+      "p75": 1.66,
+      "meanLog2": 0.061
+     },
+     "scaleTerm": {
+      "n": 10,
+      "median": 0.954,
+      "p25": 0.882,
+      "p75": 1.084,
+      "meanLog2": -0.0852
+     },
+     "orderTermOnHill": {
+      "n": 10,
+      "median": 0.979,
+      "p25": 0.827,
+      "p75": 1.224,
+      "meanLog2": -0.0179
+     }
+    },
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.919,
+      "p25": 0.811,
+      "p75": 1.271,
+      "meanLog2": -0.0344
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.006,
+      "p25": 0.858,
+      "p75": 1.138,
+      "meanLog2": -0.0068
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.994,
+      "p25": 0.903,
+      "p75": 1.081,
+      "meanLog2": -0.0204
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.986,
+      "p25": 0.886,
+      "p75": 1.082,
+      "meanLog2": -0.0152
+     },
+     "301-400": {
+      "n": 100,
+      "median": 0.983,
+      "p25": 0.931,
+      "p75": 1.094,
+      "meanLog2": 0.0221
+     },
+     "401+": {
+      "n": 62,
+      "median": 1.017,
+      "p25": 0.973,
+      "p75": 1.066,
+      "meanLog2": 0.0547
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.058,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.956,
+      "p25": 0.872,
+      "p75": 1.022,
+      "meanLog2": -0.0706
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.062,
+      "p25": 0.984,
+      "p75": 1.157,
+      "meanLog2": 0.089
+     },
+     "101-200": {
+      "n": 100,
+      "median": 1.143,
+      "p25": 1.032,
+      "p75": 1.216,
+      "meanLog2": 0.1881
+     },
+     "201-300": {
+      "n": 100,
+      "median": 1.209,
+      "p25": 1.103,
+      "p75": 1.293,
+      "meanLog2": 0.2551
+     },
+     "301-400": {
+      "n": 100,
+      "median": 1.048,
+      "p25": 0.927,
+      "p75": 1.124,
+      "meanLog2": 0.0335
+     },
+     "401+": {
+      "n": 62,
+      "median": 0.744,
+      "p25": 0.51,
+      "p75": 0.839,
+      "meanLog2": -0.5283
+     }
+    },
+    "hampelDropRate": 0.022,
+    "valueSplitByBand": {
+     "nativeOverLoo": {
+      "1-50": {
+       "n": 50,
+       "median": 0.956,
+       "p25": 0.872,
+       "p75": 1.022,
+       "meanLog2": -0.0706
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.062,
+       "p25": 0.984,
+       "p75": 1.157,
+       "meanLog2": 0.089
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.143,
+       "p25": 1.032,
+       "p75": 1.216,
+       "meanLog2": 0.1881
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.209,
+       "p25": 1.103,
+       "p75": 1.293,
+       "meanLog2": 0.2551
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.048,
+       "p25": 0.927,
+       "p75": 1.124,
+       "meanLog2": 0.0335
+      },
+      "401+": {
+       "n": 62,
+       "median": 0.744,
+       "p25": 0.51,
+       "p75": 0.839,
+       "meanLog2": -0.5283
+      }
+     },
+     "scaleTerm": {
+      "1-50": {
+       "n": 50,
+       "median": 0.943,
+       "p25": 0.897,
+       "p75": 0.983,
+       "meanLog2": -0.0825
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.087,
+       "p25": 1.067,
+       "p75": 1.118,
+       "meanLog2": 0.124
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.204,
+       "p25": 1.146,
+       "p75": 1.253,
+       "meanLog2": 0.2609
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.32,
+       "p25": 1.314,
+       "p75": 1.328,
+       "meanLog2": 0.4012
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.185,
+       "p25": 1.122,
+       "p75": 1.261,
+       "meanLog2": 0.2403
+      },
+      "401+": {
+       "n": 62,
+       "median": 0.868,
+       "p25": 0.59,
+       "p75": 0.896,
+       "meanLog2": -0.419
+      }
+     },
+     "orderTermOnHill": {
+      "1-50": {
+       "n": 50,
+       "median": 1.016,
+       "p25": 0.952,
+       "p75": 1.077,
+       "meanLog2": 0.0119
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.963,
+       "p25": 0.906,
+       "p75": 1.061,
+       "meanLog2": -0.035
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.943,
+       "p25": 0.886,
+       "p75": 1.009,
+       "meanLog2": -0.0728
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.916,
+       "p25": 0.842,
+       "p75": 0.983,
+       "meanLog2": -0.1461
+      },
+      "301-400": {
+       "n": 100,
+       "median": 0.891,
+       "p25": 0.795,
+       "p75": 0.944,
+       "meanLog2": -0.2067
+      },
+      "401+": {
+       "n": 62,
+       "median": 0.886,
+       "p25": 0.831,
+       "p75": 0.95,
+       "meanLog2": -0.1093
+      }
+     }
+    }
+   },
+   "ktcTradesSfTep": {
+    "rows": 462,
+    "looUnpriced": 0,
+    "outlierDroppedRows": {
+     "n": 2,
+     "rankRatio": {
+      "n": 2,
+      "median": 0.776,
+      "p25": 0.763,
+      "p75": 0.789,
+      "meanLog2": -0.3663
+     },
+     "scaleTerm": {
+      "n": 2,
+      "median": 1.167,
+      "p25": 1.155,
+      "p75": 1.178,
+      "meanLog2": 0.2221
+     },
+     "orderTermOnHill": {
+      "n": 2,
+      "median": 1.122,
+      "p25": 1.109,
+      "p75": 1.136,
+      "meanLog2": 0.1659
+     }
+    },
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.023,
+      "p25": 0.844,
+      "p75": 1.105,
+      "meanLog2": -0.0199
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.015,
+      "p25": 0.919,
+      "p75": 1.098,
+      "meanLog2": -0.0003
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.989,
+      "p25": 0.941,
+      "p75": 1.058,
+      "meanLog2": -0.0086
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.993,
+      "p25": 0.903,
+      "p75": 1.041,
+      "meanLog2": -0.0335
+     },
+     "301-400": {
+      "n": 100,
+      "median": 0.959,
+      "p25": 0.896,
+      "p75": 1.052,
+      "meanLog2": -0.0097
+     },
+     "401+": {
+      "n": 62,
+      "median": 1.017,
+      "p25": 0.968,
+      "p75": 1.167,
+      "meanLog2": 0.1008
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.043,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.98,
+      "p25": 0.937,
+      "p75": 1.047,
+      "meanLog2": -0.0104
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.127,
+      "p25": 1.069,
+      "p75": 1.202,
+      "meanLog2": 0.1815
+     },
+     "101-200": {
+      "n": 100,
+      "median": 1.184,
+      "p25": 1.127,
+      "p75": 1.255,
+      "meanLog2": 0.2505
+     },
+     "201-300": {
+      "n": 100,
+      "median": 1.282,
+      "p25": 1.229,
+      "p75": 1.366,
+      "meanLog2": 0.3784
+     },
+     "301-400": {
+      "n": 100,
+      "median": 1.288,
+      "p25": 1.161,
+      "p75": 1.403,
+      "meanLog2": 0.3258
+     },
+     "401+": {
+      "n": 62,
+      "median": 0.907,
+      "p25": 0.64,
+      "p75": 1.065,
+      "meanLog2": -0.2346
+     }
+    },
+    "hampelDropRate": 0.004,
+    "valueSplitByBand": {
+     "nativeOverLoo": {
+      "1-50": {
+       "n": 50,
+       "median": 0.98,
+       "p25": 0.937,
+       "p75": 1.047,
+       "meanLog2": -0.0104
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.127,
+       "p25": 1.069,
+       "p75": 1.202,
+       "meanLog2": 0.1815
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.184,
+       "p25": 1.128,
+       "p75": 1.255,
+       "meanLog2": 0.2505
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.282,
+       "p25": 1.23,
+       "p75": 1.366,
+       "meanLog2": 0.3784
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.287,
+       "p25": 1.161,
+       "p75": 1.403,
+       "meanLog2": 0.3257
+      },
+      "401+": {
+       "n": 62,
+       "median": 0.907,
+       "p25": 0.64,
+       "p75": 1.065,
+       "meanLog2": -0.2347
+      }
+     },
+     "scaleTerm": {
+      "1-50": {
+       "n": 50,
+       "median": 0.994,
+       "p25": 0.944,
+       "p75": 1.014,
+       "meanLog2": -0.0147
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.187,
+       "p25": 1.129,
+       "p75": 1.197,
+       "meanLog2": 0.2227
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.25,
+       "p25": 1.217,
+       "p75": 1.3,
+       "meanLog2": 0.3343
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.421,
+       "p25": 1.407,
+       "p75": 1.443,
+       "meanLog2": 0.5112
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.457,
+       "p25": 1.375,
+       "p75": 1.472,
+       "meanLog2": 0.4986
+      },
+      "401+": {
+       "n": 62,
+       "median": 1.068,
+       "p25": 0.718,
+       "p75": 1.194,
+       "meanLog2": -0.077
+      }
+     },
+     "orderTermOnHill": {
+      "1-50": {
+       "n": 50,
+       "median": 0.986,
+       "p25": 0.969,
+       "p75": 1.028,
+       "meanLog2": 0.0042
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.955,
+       "p25": 0.909,
+       "p75": 1.03,
+       "meanLog2": -0.0412
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.943,
+       "p25": 0.9,
+       "p75": 0.988,
+       "meanLog2": -0.0838
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.905,
+       "p25": 0.863,
+       "p75": 0.956,
+       "meanLog2": -0.1328
+      },
+      "301-400": {
+       "n": 100,
+       "median": 0.908,
+       "p25": 0.832,
+       "p75": 0.979,
+       "meanLog2": -0.1729
+      },
+      "401+": {
+       "n": 62,
+       "median": 0.887,
+       "p25": 0.75,
+       "p75": 0.953,
+       "meanLog2": -0.1577
+      }
+     }
+    }
+   },
+   "idpTradeCalc": {
+    "rows": 432,
+    "looUnpriced": 0,
+    "outlierDroppedRows": {
+     "n": 3,
+     "rankRatio": {
+      "n": 3,
+      "median": 1.222,
+      "p25": 0.837,
+      "p75": 1.411,
+      "meanLog2": -0.0598
+     },
+     "scaleTerm": {
+      "n": 3,
+      "median": 0.932,
+      "p25": 0.917,
+      "p75": 0.952,
+      "meanLog2": -0.0968
+     },
+     "orderTermOnHill": {
+      "n": 3,
+      "median": 0.971,
+      "p25": 0.925,
+      "p75": 1.254,
+      "meanLog2": 0.1305
+     }
+    },
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.961,
+      "p25": 0.82,
+      "p75": 1.144,
+      "meanLog2": -0.0425
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.883,
+      "p75": 1.098,
+      "meanLog2": -0.0093
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.985,
+      "p25": 0.9,
+      "p75": 1.08,
+      "meanLog2": -0.0085
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.944,
+      "p25": 0.855,
+      "p75": 1.063,
+      "meanLog2": -0.0511
+     },
+     "301-400": {
+      "n": 100,
+      "median": 0.977,
+      "p25": 0.927,
+      "p75": 1.145,
+      "meanLog2": 0.0533
+     },
+     "401+": {
+      "n": 32,
+      "median": 1.035,
+      "p25": 0.988,
+      "p75": 1.099,
+      "meanLog2": 0.1029
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.056,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.961,
+      "p25": 0.911,
+      "p75": 1.021,
+      "meanLog2": -0.0412
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.051,
+      "p25": 0.998,
+      "p75": 1.128,
+      "meanLog2": 0.073
+     },
+     "101-200": {
+      "n": 100,
+      "median": 1.134,
+      "p25": 1.055,
+      "p75": 1.198,
+      "meanLog2": 0.1703
+     },
+     "201-300": {
+      "n": 100,
+      "median": 1.215,
+      "p25": 1.111,
+      "p75": 1.318,
+      "meanLog2": 0.2668
+     },
+     "301-400": {
+      "n": 100,
+      "median": 1.025,
+      "p25": 0.919,
+      "p75": 1.129,
+      "meanLog2": 0.0143
+     },
+     "401+": {
+      "n": 32,
+      "median": 0.826,
+      "p25": 0.716,
+      "p75": 0.91,
+      "meanLog2": -0.3184
+     }
+    },
+    "hampelDropRate": 0.007,
+    "valueSplitByBand": {
+     "nativeOverLoo": {
+      "1-50": {
+       "n": 50,
+       "median": 0.953,
+       "p25": 0.907,
+       "p75": 1.014,
+       "meanLog2": -0.0547
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.048,
+       "p25": 0.967,
+       "p75": 1.108,
+       "meanLog2": 0.0593
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.098,
+       "p25": 1.035,
+       "p75": 1.178,
+       "meanLog2": 0.1358
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.202,
+       "p25": 1.068,
+       "p75": 1.303,
+       "meanLog2": 0.2409
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.021,
+       "p25": 0.891,
+       "p75": 1.129,
+       "meanLog2": -0.0088
+      },
+      "401+": {
+       "n": 32,
+       "median": 0.826,
+       "p25": 0.716,
+       "p75": 0.91,
+       "meanLog2": -0.3224
+      }
+     },
+     "scaleTerm": {
+      "1-50": {
+       "n": 50,
+       "median": 0.937,
+       "p25": 0.924,
+       "p75": 0.977,
+       "meanLog2": -0.0789
+      },
+      "51-100": {
+       "n": 50,
+       "median": 1.076,
+       "p25": 1.052,
+       "p75": 1.103,
+       "meanLog2": 0.107
+      },
+      "101-200": {
+       "n": 100,
+       "median": 1.185,
+       "p25": 1.139,
+       "p75": 1.234,
+       "meanLog2": 0.2445
+      },
+      "201-300": {
+       "n": 100,
+       "median": 1.305,
+       "p25": 1.294,
+       "p75": 1.313,
+       "meanLog2": 0.38
+      },
+      "301-400": {
+       "n": 100,
+       "median": 1.153,
+       "p25": 1.111,
+       "p75": 1.225,
+       "meanLog2": 0.2178
+      },
+      "401+": {
+       "n": 32,
+       "median": 0.931,
+       "p25": 0.893,
+       "p75": 0.964,
+       "meanLog2": -0.1042
+      }
+     },
+     "orderTermOnHill": {
+      "1-50": {
+       "n": 50,
+       "median": 1.014,
+       "p25": 0.972,
+       "p75": 1.055,
+       "meanLog2": 0.0242
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.967,
+       "p25": 0.904,
+       "p75": 1.03,
+       "meanLog2": -0.0477
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.934,
+       "p25": 0.859,
+       "p75": 0.999,
+       "meanLog2": -0.1087
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.925,
+       "p25": 0.83,
+       "p75": 1.006,
+       "meanLog2": -0.1392
+      },
+      "301-400": {
+       "n": 100,
+       "median": 0.9,
+       "p25": 0.762,
+       "p75": 0.965,
+       "meanLog2": -0.2266
+      },
+      "401+": {
+       "n": 32,
+       "median": 0.887,
+       "p25": 0.806,
+       "p75": 0.985,
+       "meanLog2": -0.2182
+      }
+     }
+    }
+   },
+   "dlfRookieSf": {
+    "status": "non_comparable_rookie_only_list",
+    "rows": 0
+   },
+   "dlfSf": {
+    "rows": 286,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.948,
+      "p25": 0.746,
+      "p75": 1.168,
+      "meanLog2": -0.0183
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.975,
+      "p25": 0.816,
+      "p75": 1.169,
+      "meanLog2": -0.0414
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.976,
+      "p25": 0.83,
+      "p75": 1.068,
+      "meanLog2": -0.0366
+     },
+     "201-300": {
+      "n": 86,
+      "median": 1.017,
+      "p25": 0.942,
+      "p75": 1.166,
+      "meanLog2": 0.087
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.161,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.03,
+      "p25": 0.98,
+      "p75": 1.099,
+      "meanLog2": 0.0446
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.005,
+      "p25": 0.922,
+      "p75": 1.092,
+      "meanLog2": 0.0065
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.965,
+      "p25": 0.906,
+      "p75": 1.115,
+      "meanLog2": -0.0113
+     },
+     "201-300": {
+      "n": 86,
+      "median": 0.962,
+      "p25": 0.863,
+      "p75": 1.067,
+      "meanLog2": -0.0517
+     }
+    },
+    "hampelDropRate": 0.024,
+    "outlierDroppedRows": {
+     "n": 7,
+     "rankRatio": {
+      "n": 7,
+      "median": 0.634,
+      "p25": 0.608,
+      "p75": 1.449,
+      "meanLog2": -0.2896
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "draftSharks": {
+    "rows": 368,
+    "looUnpriced": 4,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.019,
+      "p25": 0.485,
+      "p75": 1.447,
+      "meanLog2": -0.0986
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.949,
+      "p25": 0.812,
+      "p75": 1.138,
+      "meanLog2": 0.0083
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.974,
+      "p25": 0.836,
+      "p75": 1.118,
+      "meanLog2": -0.017
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.987,
+      "p25": 0.89,
+      "p75": 1.092,
+      "meanLog2": -0.005
+     },
+     "301-400": {
+      "n": 68,
+      "median": 1.018,
+      "p25": 0.971,
+      "p75": 1.088,
+      "meanLog2": 0.1004
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.177,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.912,
+      "p25": 0.823,
+      "p75": 1.059,
+      "meanLog2": -0.0594
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.997,
+      "p25": 0.889,
+      "p75": 1.095,
+      "meanLog2": -0.0401
+     },
+     "101-200": {
+      "n": 100,
+      "median": 1.16,
+      "p25": 1.014,
+      "p75": 1.361,
+      "meanLog2": 0.2245
+     },
+     "201-300": {
+      "n": 100,
+      "median": 1.356,
+      "p25": 1.234,
+      "p75": 1.499,
+      "meanLog2": 0.4375
+     },
+     "301-400": {
+      "n": 68,
+      "median": 1.359,
+      "p25": 1.231,
+      "p75": 1.51,
+      "meanLog2": 0.4464
+     }
+    },
+    "hampelDropRate": 0.122,
+    "outlierDroppedRows": {
+     "n": 45,
+     "rankRatio": {
+      "n": 45,
+      "median": 0.808,
+      "p25": 0.589,
+      "p75": 1.737,
+      "meanLog2": -0.025
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "dynastyDaddySf": {
+    "rows": 380,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.886,
+      "p75": 1.062,
+      "meanLog2": -0.0089
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.969,
+      "p25": 0.905,
+      "p75": 1.041,
+      "meanLog2": -0.0221
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.981,
+      "p25": 0.885,
+      "p75": 1.128,
+      "meanLog2": -0.0476
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.928,
+      "p25": 0.84,
+      "p75": 1.055,
+      "meanLog2": -0.068
+     },
+     "301-400": {
+      "n": 80,
+      "median": 1.051,
+      "p25": 0.971,
+      "p75": 1.292,
+      "meanLog2": 0.1653
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.111,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.014,
+      "p25": 0.992,
+      "p75": 1.039,
+      "meanLog2": 0.0272
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.983,
+      "p25": 0.95,
+      "p75": 1.027,
+      "meanLog2": -0.0071
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.977,
+      "p25": 0.912,
+      "p75": 1.067,
+      "meanLog2": -0.0029
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.972,
+      "p25": 0.912,
+      "p75": 1.067,
+      "meanLog2": -0.0112
+     },
+     "301-400": {
+      "n": 80,
+      "median": 0.898,
+      "p25": 0.819,
+      "p75": 0.966,
+      "meanLog2": -0.1991
+     }
+    },
+    "hampelDropRate": 0.005,
+    "outlierDroppedRows": {
+     "n": 2,
+     "rankRatio": {
+      "n": 2,
+      "median": 0.58,
+      "p25": 0.537,
+      "p75": 0.623,
+      "meanLog2": -0.8014
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "dynastyNerdsSfTep": {
+    "rows": 294,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.737,
+      "p75": 1.2,
+      "meanLog2": -0.0664
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.951,
+      "p25": 0.859,
+      "p75": 1.148,
+      "meanLog2": 0.0123
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.952,
+      "p25": 0.84,
+      "p75": 1.117,
+      "meanLog2": -0.0352
+     },
+     "201-300": {
+      "n": 94,
+      "median": 1.034,
+      "p25": 0.946,
+      "p75": 1.138,
+      "meanLog2": 0.0675
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.102,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.016,
+      "p25": 0.98,
+      "p75": 1.089,
+      "meanLog2": 0.0483
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.981,
+      "p25": 0.891,
+      "p75": 1.043,
+      "meanLog2": -0.0469
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.958,
+      "p25": 0.872,
+      "p75": 1.053,
+      "meanLog2": -0.0641
+     },
+     "201-300": {
+      "n": 94,
+      "median": 0.906,
+      "p25": 0.829,
+      "p75": 1.002,
+      "meanLog2": -0.1367
+     }
+    },
+    "hampelDropRate": 0.017,
+    "outlierDroppedRows": {
+     "n": 5,
+     "rankRatio": {
+      "n": 5,
+      "median": 0.606,
+      "p25": 0.527,
+      "p75": 1.489,
+      "meanLog2": -0.2846
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "fantasyCalc": {
+    "rows": 389,
+    "looUnpriced": 1,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.933,
+      "p25": 0.752,
+      "p75": 1.074,
+      "meanLog2": -0.0892
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.842,
+      "p75": 1.208,
+      "meanLog2": 0.0447
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.97,
+      "p25": 0.827,
+      "p75": 1.09,
+      "meanLog2": -0.0604
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.975,
+      "p25": 0.895,
+      "p75": 1.088,
+      "meanLog2": -0.0054
+     },
+     "301-400": {
+      "n": 89,
+      "median": 1.022,
+      "p25": 0.951,
+      "p75": 1.145,
+      "meanLog2": 0.0971
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.134,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.02,
+      "p25": 0.983,
+      "p75": 1.084,
+      "meanLog2": 0.0545
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.916,
+      "p75": 1.061,
+      "meanLog2": -0.0223
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.982,
+      "p25": 0.898,
+      "p75": 1.068,
+      "meanLog2": -0.0183
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.93,
+      "p25": 0.876,
+      "p75": 1.006,
+      "meanLog2": -0.0786
+     },
+     "301-400": {
+      "n": 89,
+      "median": 0.901,
+      "p25": 0.845,
+      "p75": 0.994,
+      "meanLog2": -0.1227
+     }
+    },
+    "hampelDropRate": 0.005,
+    "outlierDroppedRows": {
+     "n": 2,
+     "rankRatio": {
+      "n": 2,
+      "median": 0.621,
+      "p25": 0.608,
+      "p75": 0.633,
+      "meanLog2": -0.6893
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "fantasyNavigatorSf": {
+    "rows": 447,
+    "looUnpriced": 2,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.941,
+      "p25": 0.835,
+      "p75": 1.098,
+      "meanLog2": -0.0288
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.962,
+      "p25": 0.86,
+      "p75": 1.078,
+      "meanLog2": -0.0352
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.952,
+      "p25": 0.829,
+      "p75": 1.135,
+      "meanLog2": -0.0658
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.881,
+      "p25": 0.828,
+      "p75": 1.012,
+      "meanLog2": -0.1113
+     },
+     "301-400": {
+      "n": 107,
+      "median": 0.975,
+      "p25": 0.88,
+      "p75": 1.307,
+      "meanLog2": 0.0852
+     },
+     "401+": {
+      "n": 40,
+      "median": 1.02,
+      "p25": 0.983,
+      "p75": 1.077,
+      "meanLog2": 0.1213
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.143,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.052,
+      "p25": 1.002,
+      "p75": 1.095,
+      "meanLog2": 0.0784
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.035,
+      "p25": 0.999,
+      "p75": 1.112,
+      "meanLog2": 0.0624
+     },
+     "101-200": {
+      "n": 100,
+      "median": 1.059,
+      "p25": 0.969,
+      "p75": 1.133,
+      "meanLog2": 0.0858
+     },
+     "201-300": {
+      "n": 100,
+      "median": 1.032,
+      "p25": 0.963,
+      "p75": 1.088,
+      "meanLog2": 0.0496
+     },
+     "301-400": {
+      "n": 107,
+      "median": 0.956,
+      "p25": 0.914,
+      "p75": 1.063,
+      "meanLog2": -0.0126
+     },
+     "401+": {
+      "n": 40,
+      "median": 0.977,
+      "p25": 0.899,
+      "p75": 1.078,
+      "meanLog2": -0.008
+     }
+    },
+    "hampelDropRate": 0.009,
+    "outlierDroppedRows": {
+     "n": 4,
+     "rankRatio": {
+      "n": 4,
+      "median": 0.616,
+      "p25": 0.52,
+      "p75": 0.638,
+      "meanLog2": -0.9617
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "fantasyProsFitzmaurice": {
+    "rows": 297,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.754,
+      "p75": 1.25,
+      "meanLog2": -0.1009
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.947,
+      "p25": 0.821,
+      "p75": 1.072,
+      "meanLog2": -0.0768
+     },
+     "101-200": {
+      "n": 105,
+      "median": 0.936,
+      "p25": 0.867,
+      "p75": 1.053,
+      "meanLog2": -0.0439
+     },
+     "201-300": {
+      "n": 92,
+      "median": 1.008,
+      "p25": 0.947,
+      "p75": 1.082,
+      "meanLog2": 0.0369
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.111,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.018,
+      "p25": 0.951,
+      "p75": 1.107,
+      "meanLog2": 0.036
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.005,
+      "p25": 0.93,
+      "p75": 1.086,
+      "meanLog2": 0.004
+     },
+     "101-200": {
+      "n": 105,
+      "median": 0.967,
+      "p25": 0.9,
+      "p75": 1.03,
+      "meanLog2": -0.0507
+     },
+     "201-300": {
+      "n": 92,
+      "median": 0.924,
+      "p25": 0.858,
+      "p75": 1.003,
+      "meanLog2": -0.1
+     }
+    },
+    "hampelDropRate": 0.01,
+    "outlierDroppedRows": {
+     "n": 3,
+     "rankRatio": {
+      "n": 3,
+      "median": 0.25,
+      "p25": 0.23,
+      "p75": 0.88,
+      "meanLog2": -1.2181
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "fantasyProsSf": {
+    "rows": 383,
+    "looUnpriced": 1,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.973,
+      "p25": 0.67,
+      "p75": 1.145,
+      "meanLog2": -0.0616
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.995,
+      "p25": 0.849,
+      "p75": 1.192,
+      "meanLog2": 0.0466
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.957,
+      "p25": 0.871,
+      "p75": 1.091,
+      "meanLog2": -0.0313
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.919,
+      "p25": 0.849,
+      "p75": 1.12,
+      "meanLog2": -0.042
+     },
+     "301-400": {
+      "n": 83,
+      "median": 1.016,
+      "p25": 0.954,
+      "p75": 1.135,
+      "meanLog2": 0.0988
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.11,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.006,
+      "p25": 0.966,
+      "p75": 1.113,
+      "meanLog2": 0.0379
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.993,
+      "p25": 0.911,
+      "p75": 1.065,
+      "meanLog2": -0.0147
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.994,
+      "p25": 0.921,
+      "p75": 1.067,
+      "meanLog2": -0.0181
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.988,
+      "p25": 0.935,
+      "p75": 1.053,
+      "meanLog2": -0.0262
+     },
+     "301-400": {
+      "n": 83,
+      "median": 0.927,
+      "p25": 0.852,
+      "p75": 0.987,
+      "meanLog2": -0.0836
+     }
+    },
+    "hampelDropRate": 0.016,
+    "outlierDroppedRows": {
+     "n": 6,
+     "rankRatio": {
+      "n": 6,
+      "median": 0.591,
+      "p25": 0.574,
+      "p75": 5.4,
+      "meanLog2": 0.3958
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "flockFantasySf": {
+    "rows": 405,
+    "looUnpriced": 2,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.908,
+      "p25": 0.75,
+      "p75": 1.084,
+      "meanLog2": -0.0421
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.964,
+      "p25": 0.904,
+      "p75": 1.066,
+      "meanLog2": 0.0016
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.923,
+      "p25": 0.864,
+      "p75": 1.032,
+      "meanLog2": -0.0447
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.928,
+      "p25": 0.871,
+      "p75": 1.07,
+      "meanLog2": -0.0462
+     },
+     "301-400": {
+      "n": 100,
+      "median": 1.041,
+      "p25": 0.925,
+      "p75": 1.139,
+      "meanLog2": 0.0922
+     },
+     "401+": {
+      "n": 5,
+      "median": 1.271,
+      "p25": 1.098,
+      "p75": 1.397,
+      "meanLog2": 0.3121
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.114,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.026,
+      "p25": 0.995,
+      "p75": 1.084,
+      "meanLog2": 0.045
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.988,
+      "p25": 0.933,
+      "p75": 1.023,
+      "meanLog2": -0.024
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.998,
+      "p25": 0.934,
+      "p75": 1.035,
+      "meanLog2": -0.0195
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.961,
+      "p25": 0.921,
+      "p75": 1.038,
+      "meanLog2": -0.0262
+     },
+     "301-400": {
+      "n": 100,
+      "median": 0.91,
+      "p25": 0.817,
+      "p75": 1.023,
+      "meanLog2": -0.0903
+     },
+     "401+": {
+      "n": 5,
+      "median": 0.84,
+      "p25": 0.69,
+      "p75": 0.91,
+      "meanLog2": -0.3358
+     }
+    },
+    "hampelDropRate": 0.002,
+    "outlierDroppedRows": {
+     "n": 1,
+     "rankRatio": {
+      "n": 1,
+      "median": 0.499,
+      "p25": 0.499,
+      "p75": 0.499,
+      "meanLog2": -1.0036
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "flockFantasySfRookies": {
+    "status": "non_comparable_rookie_only_list",
+    "rows": 0
+   },
+   "idpShowCombined": {
+    "rows": 356,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.924,
+      "p25": 0.803,
+      "p75": 1.155,
+      "meanLog2": -0.0249
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.957,
+      "p25": 0.846,
+      "p75": 1.081,
+      "meanLog2": -0.0533
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.964,
+      "p25": 0.845,
+      "p75": 1.144,
+      "meanLog2": -0.0135
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.947,
+      "p25": 0.869,
+      "p75": 1.134,
+      "meanLog2": -0.0086
+     },
+     "301-400": {
+      "n": 56,
+      "median": 1.03,
+      "p25": 0.982,
+      "p75": 1.111,
+      "meanLog2": 0.111
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.115,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.937,
+      "p25": 0.899,
+      "p75": 1.0,
+      "meanLog2": -0.0739
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.066,
+      "p25": 1.011,
+      "p75": 1.138,
+      "meanLog2": 0.1037
+     },
+     "101-200": {
+      "n": 100,
+      "median": 1.138,
+      "p25": 1.033,
+      "p75": 1.242,
+      "meanLog2": 0.1587
+     },
+     "201-300": {
+      "n": 100,
+      "median": 1.171,
+      "p25": 1.108,
+      "p75": 1.256,
+      "meanLog2": 0.2075
+     },
+     "301-400": {
+      "n": 56,
+      "median": 1.176,
+      "p25": 1.1,
+      "p75": 1.217,
+      "meanLog2": 0.2029
+     }
+    },
+    "hampelDropRate": 0.017,
+    "outlierDroppedRows": {
+     "n": 6,
+     "rankRatio": {
+      "n": 6,
+      "median": 1.263,
+      "p25": 0.774,
+      "p75": 1.504,
+      "meanLog2": 0.4842
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "otcffbSf": {
+    "rows": 369,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.947,
+      "p25": 0.8,
+      "p75": 1.114,
+      "meanLog2": -0.0105
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.952,
+      "p25": 0.883,
+      "p75": 1.023,
+      "meanLog2": -0.0265
+     },
+     "101-200": {
+      "n": 101,
+      "median": 0.921,
+      "p25": 0.862,
+      "p75": 1.008,
+      "meanLog2": -0.0446
+     },
+     "201-300": {
+      "n": 105,
+      "median": 0.893,
+      "p25": 0.819,
+      "p75": 1.007,
+      "meanLog2": -0.0983
+     },
+     "301-400": {
+      "n": 63,
+      "median": 1.079,
+      "p25": 0.998,
+      "p75": 1.431,
+      "meanLog2": 0.2234
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.144,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.009,
+      "p25": 0.977,
+      "p75": 1.051,
+      "meanLog2": 0.0304
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.985,
+      "p25": 0.955,
+      "p75": 1.032,
+      "meanLog2": -0.0073
+     },
+     "101-200": {
+      "n": 101,
+      "median": 0.982,
+      "p25": 0.933,
+      "p75": 1.033,
+      "meanLog2": -0.0191
+     },
+     "201-300": {
+      "n": 105,
+      "median": 0.989,
+      "p25": 0.921,
+      "p75": 1.08,
+      "meanLog2": 0.0035
+     },
+     "301-400": {
+      "n": 63,
+      "median": 0.891,
+      "p25": 0.826,
+      "p75": 0.937,
+      "meanLog2": -0.1743
+     }
+    },
+    "hampelDropRate": 0.003,
+    "outlierDroppedRows": {
+     "n": 1,
+     "rankRatio": {
+      "n": 1,
+      "median": 0.6,
+      "p25": 0.6,
+      "p75": 0.6,
+      "meanLog2": -0.737
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "pfkDynasty": {
+    "rows": 455,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 0.95,
+      "p25": 0.788,
+      "p75": 1.174,
+      "meanLog2": -0.0792
+     },
+     "51-100": {
+      "n": 50,
+      "median": 1.039,
+      "p25": 0.855,
+      "p75": 1.179,
+      "meanLog2": 0.02
+     },
+     "101-200": {
+      "n": 100,
+      "median": 1.0,
+      "p25": 0.877,
+      "p75": 1.138,
+      "meanLog2": -0.0135
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.94,
+      "p25": 0.871,
+      "p75": 1.076,
+      "meanLog2": -0.0232
+     },
+     "301-400": {
+      "n": 100,
+      "median": 0.984,
+      "p25": 0.935,
+      "p75": 1.094,
+      "meanLog2": 0.047
+     },
+     "401+": {
+      "n": 55,
+      "median": 0.996,
+      "p25": 0.977,
+      "p75": 1.05,
+      "meanLog2": 0.0374
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.081,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.018,
+      "p25": 0.977,
+      "p75": 1.07,
+      "meanLog2": 0.0578
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.98,
+      "p25": 0.879,
+      "p75": 1.105,
+      "meanLog2": -0.0173
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.972,
+      "p25": 0.896,
+      "p75": 1.082,
+      "meanLog2": -0.0233
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.951,
+      "p25": 0.901,
+      "p75": 1.008,
+      "meanLog2": -0.0833
+     },
+     "301-400": {
+      "n": 100,
+      "median": 0.892,
+      "p25": 0.849,
+      "p75": 0.953,
+      "meanLog2": -0.1523
+     },
+     "401+": {
+      "n": 55,
+      "median": 0.916,
+      "p25": 0.83,
+      "p75": 1.029,
+      "meanLog2": -0.1097
+     }
+    },
+    "hampelDropRate": 0.022,
+    "outlierDroppedRows": {
+     "n": 10,
+     "rankRatio": {
+      "n": 10,
+      "median": 0.98,
+      "p25": 0.575,
+      "p75": 1.472,
+      "meanLog2": -0.0375
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   },
+   "yahooBoone": {
+    "rows": 387,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 52,
+      "median": 0.977,
+      "p25": 0.761,
+      "p75": 1.346,
+      "meanLog2": -0.0562
+     },
+     "51-100": {
+      "n": 48,
+      "median": 1.011,
+      "p25": 0.836,
+      "p75": 1.14,
+      "meanLog2": -0.0213
+     },
+     "101-200": {
+      "n": 102,
+      "median": 0.935,
+      "p25": 0.859,
+      "p75": 1.08,
+      "meanLog2": -0.069
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.931,
+      "p25": 0.809,
+      "p75": 1.139,
+      "meanLog2": -0.0491
+     },
+     "301-400": {
+      "n": 85,
+      "median": 1.006,
+      "p25": 0.929,
+      "p75": 1.099,
+      "meanLog2": 0.0353
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.114,
+    "contributionOverLooByBand": {
+     "1-50": {
+      "n": 52,
+      "median": 1.007,
+      "p25": 0.934,
+      "p75": 1.117,
+      "meanLog2": 0.0333
+     },
+     "51-100": {
+      "n": 48,
+      "median": 0.966,
+      "p25": 0.896,
+      "p75": 1.06,
+      "meanLog2": -0.0287
+     },
+     "101-200": {
+      "n": 102,
+      "median": 0.984,
+      "p25": 0.886,
+      "p75": 1.056,
+      "meanLog2": -0.0389
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.922,
+      "p25": 0.812,
+      "p75": 1.038,
+      "meanLog2": -0.1192
+     },
+     "301-400": {
+      "n": 85,
+      "median": 0.873,
+      "p25": 0.798,
+      "p75": 0.966,
+      "meanLog2": -0.1421
+     }
+    },
+    "hampelDropRate": 0.034,
+    "outlierDroppedRows": {
+     "n": 13,
+     "rankRatio": {
+      "n": 13,
+      "median": 0.679,
+      "p25": 0.55,
+      "p75": 1.602,
+      "meanLog2": -0.3459
+     },
+     "scaleTerm": {
+      "n": 0
+     },
+     "orderTermOnHill": {
+      "n": 0
+     }
+    }
+   }
+  }
+ },
+ "outlierSensitivity": {
+  "incumbent": {
+   "ktcDropsByLiveRankBand": {
+    "401+": 1,
+    "1-50": 6,
+    "51-100": 4,
+    "101-200": 1
+   },
+   "observationsExcluded": 161,
+   "rowsWithAnyExclusion": 116,
+   "ktcCrowd": 10,
+   "ktcTrades": 2,
+   "bothKtc": 1,
+   "idpTradeCalc": 5,
+   "bySource": {
+    "draftSharks": 45,
+    "draftSharksIdp": 22,
+    "fantasyProsIdp": 13,
+    "yahooBoone": 13,
+    "pfkDynasty": 10,
+    "ktcCrowdSfTep": 10,
+    "idpShowCombined": 9,
+    "dlfSf": 7,
+    "fantasyProsSf": 6,
+    "dynastyNerdsSfTep": 5,
+    "idpTradeCalc": 5,
+    "fantasyNavigatorSf": 4,
+    "fantasyProsFitzmaurice": 3,
+    "fantasyCalc": 2,
+    "ktcTradesSfTep": 2,
+    "dynastyDaddySf": 2,
+    "dlfIdp": 1,
+    "otcffbSf": 1,
+    "flockFantasySf": 1
+   }
+  },
+  "floor_750": {
+   "ktcDropsByLiveRankBand": {
+    "401+": 4,
+    "101-200": 10,
+    "1-50": 7,
+    "51-100": 8,
+    "201-300": 3
+   },
+   "observationsExcluded": 291,
+   "rowsWithAnyExclusion": 201,
+   "ktcCrowd": 21,
+   "ktcTrades": 11,
+   "bothKtc": 5,
+   "idpTradeCalc": 12,
+   "bySource": {
+    "draftSharks": 74,
+    "draftSharksIdp": 29,
+    "ktcCrowdSfTep": 21,
+    "pfkDynasty": 19,
+    "idpShowCombined": 19,
+    "yahooBoone": 19,
+    "fantasyProsIdp": 14,
+    "fantasyProsSf": 13,
+    "dynastyNerdsSfTep": 12,
+    "idpTradeCalc": 12,
+    "ktcTradesSfTep": 11,
+    "dlfSf": 10,
+    "fantasyNavigatorSf": 8,
+    "fantasyProsFitzmaurice": 8,
+    "dynastyDaddySf": 8,
+    "fantasyCalc": 5,
+    "dlfIdp": 3,
+    "flockFantasySfRookies": 2,
+    "otcffbSf": 2,
+    "flockFantasySf": 2
+   },
+   "rowsChanged": 135,
+   "top200MembershipChanges": 6
+  },
+  "floor_1000_incumbent": {
+   "ktcDropsByLiveRankBand": {
+    "401+": 1,
+    "1-50": 6,
+    "51-100": 4,
+    "101-200": 1
+   },
+   "observationsExcluded": 161,
+   "rowsWithAnyExclusion": 116,
+   "ktcCrowd": 10,
+   "ktcTrades": 2,
+   "bothKtc": 1,
+   "idpTradeCalc": 5,
+   "bySource": {
+    "draftSharks": 45,
+    "draftSharksIdp": 22,
+    "fantasyProsIdp": 13,
+    "yahooBoone": 13,
+    "pfkDynasty": 10,
+    "ktcCrowdSfTep": 10,
+    "idpShowCombined": 9,
+    "dlfSf": 7,
+    "fantasyProsSf": 6,
+    "dynastyNerdsSfTep": 5,
+    "idpTradeCalc": 5,
+    "fantasyNavigatorSf": 4,
+    "fantasyProsFitzmaurice": 3,
+    "fantasyCalc": 2,
+    "ktcTradesSfTep": 2,
+    "dynastyDaddySf": 2,
+    "dlfIdp": 1,
+    "otcffbSf": 1,
+    "flockFantasySf": 1
+   },
+   "rowsChanged": 0,
+   "top200MembershipChanges": 0
+  },
+  "floor_1250": {
+   "ktcDropsByLiveRankBand": {
+    "1-50": 4,
+    "51-100": 1
+   },
+   "observationsExcluded": 86,
+   "rowsWithAnyExclusion": 69,
+   "ktcCrowd": 5,
+   "ktcTrades": 0,
+   "bothKtc": 0,
+   "idpTradeCalc": 2,
+   "bySource": {
+    "draftSharks": 24,
+    "draftSharksIdp": 15,
+    "fantasyProsIdp": 8,
+    "idpShowCombined": 7,
+    "yahooBoone": 6,
+    "fantasyProsSf": 5,
+    "ktcCrowdSfTep": 5,
+    "pfkDynasty": 4,
+    "fantasyNavigatorSf": 3,
+    "dynastyNerdsSfTep": 2,
+    "dlfSf": 2,
+    "fantasyProsFitzmaurice": 2,
+    "idpTradeCalc": 2,
+    "fantasyCalc": 1
+   },
+   "rowsChanged": 84,
+   "top200MembershipChanges": 6
+  },
+  "floor_1500": {
+   "ktcDropsByLiveRankBand": {
+    "1-50": 3
+   },
+   "observationsExcluded": 50,
+   "rowsWithAnyExclusion": 44,
+   "ktcCrowd": 3,
+   "ktcTrades": 0,
+   "bothKtc": 0,
+   "idpTradeCalc": 1,
+   "bySource": {
+    "draftSharks": 16,
+    "draftSharksIdp": 11,
+    "fantasyProsIdp": 5,
+    "yahooBoone": 5,
+    "ktcCrowdSfTep": 3,
+    "idpShowCombined": 2,
+    "fantasyProsFitzmaurice": 2,
+    "dynastyNerdsSfTep": 1,
+    "dlfSf": 1,
+    "fantasyNavigatorSf": 1,
+    "pfkDynasty": 1,
+    "idpTradeCalc": 1,
+    "fantasyProsSf": 1
+   },
+   "rowsChanged": 123,
+   "top200MembershipChanges": 8
+  },
+  "mad_only_no_floor": {
+   "ktcDropsByLiveRankBand": {
+    "401+": 45,
+    "301-400": 34,
+    "101-200": 22,
+    "1-50": 11,
+    "201-300": 38,
+    "51-100": 12
+   },
+   "observationsExcluded": 807,
+   "rowsWithAnyExclusion": 462,
+   "ktcCrowd": 61,
+   "ktcTrades": 101,
+   "bothKtc": 27,
+   "idpTradeCalc": 91,
+   "bySource": {
+    "draftSharks": 139,
+    "ktcTradesSfTep": 101,
+    "idpTradeCalc": 91,
+    "idpShowCombined": 85,
+    "ktcCrowdSfTep": 61,
+    "draftSharksIdp": 48,
+    "yahooBoone": 43,
+    "fantasyProsIdp": 36,
+    "pfkDynasty": 33,
+    "dlfSf": 25,
+    "dynastyDaddySf": 24,
+    "dynastyNerdsSfTep": 21,
+    "fantasyProsFitzmaurice": 20,
+    "fantasyCalc": 18,
+    "fantasyNavigatorSf": 15,
+    "fantasyProsSf": 15,
+    "otcffbSf": 10,
+    "dlfIdp": 8,
+    "flockFantasySf": 7,
+    "flockFantasySfRookies": 5,
+    "dlfRookieIdp": 1,
+    "dlfRookieSf": 1
+   },
+   "rowsChanged": 440,
+   "top200MembershipChanges": 8
+  },
+  "mad_scaled_1p4826_no_floor": {
+   "ktcDropsByLiveRankBand": {
+    "401+": 27,
+    "301-400": 10,
+    "1-50": 4,
+    "201-300": 13,
+    "101-200": 7,
+    "51-100": 3
+   },
+   "observationsExcluded": 340,
+   "rowsWithAnyExclusion": 240,
+   "ktcCrowd": 27,
+   "ktcTrades": 37,
+   "bothKtc": 10,
+   "idpTradeCalc": 36,
+   "bySource": {
+    "draftSharks": 73,
+    "idpShowCombined": 43,
+    "ktcTradesSfTep": 37,
+    "draftSharksIdp": 36,
+    "idpTradeCalc": 36,
+    "ktcCrowdSfTep": 27,
+    "fantasyProsIdp": 23,
+    "yahooBoone": 14,
+    "pfkDynasty": 8,
+    "dynastyDaddySf": 7,
+    "dlfSf": 7,
+    "fantasyNavigatorSf": 5,
+    "fantasyProsSf": 5,
+    "otcffbSf": 5,
+    "dlfIdp": 4,
+    "fantasyProsFitzmaurice": 3,
+    "dynastyNerdsSfTep": 3,
+    "flockFantasySfRookies": 1,
+    "flockFantasySf": 1,
+    "dlfRookieIdp": 1,
+    "dlfRookieSf": 1
+   },
+   "rowsChanged": 263,
+   "top200MembershipChanges": 6
+  },
+  "off": {
+   "ktcDropsByLiveRankBand": {},
+   "observationsExcluded": 0,
+   "rowsWithAnyExclusion": 0,
+   "ktcCrowd": 0,
+   "ktcTrades": 0,
+   "bothKtc": 0,
+   "idpTradeCalc": 0,
+   "bySource": {},
+   "rowsChanged": 163,
+   "top200MembershipChanges": 8
+  }
+ },
+ "candidates": {
+  "c1OwnCurveFits": {
+   "ktcCrowdSfTep": {
+    "n": 400,
+    "c": 0.112,
+    "s": 0.91,
+    "rmse": 201.9
+   },
+   "ktcTradesSfTep": {
+    "n": 400,
+    "c": 0.13,
+    "s": 0.935,
+    "rmse": 145.0
+   }
+  },
+  "results": {
+   "incumbent": {
+    "boardSha256": "9090458d00c39f5c400f7870de798a11889e802faf9926300e5cd216ba9b0d4b",
+    "boardImpact": {
+     "pass": true,
+     "gates": {
+      "same_row_set": true,
+      "unpriced": true,
+      "median_value_change": true,
+      "p90_value_change": true,
+      "max_value_change": true,
+      "top25_overlap": true,
+      "top100_overlap": true,
+      "median_rank_shift": true,
+      "p90_rank_shift": true
+     },
+     "metrics": {
+      "rows": 1131,
+      "unpricedFraction": 0.0,
+      "medianAbsPctValueChange": 0.0,
+      "p90AbsPctValueChange": 0.0,
+      "maxAbsPctValueChange": 0.0,
+      "medianAbsRankShift": 0.0,
+      "p90AbsRankShift": 0.0,
+      "top25Overlap": 25,
+      "top100Overlap": 100
+     }
+    },
+    "boardImpactPlayersOnly": {
+     "rows": 969,
+     "unpricedFraction": 0.0,
+     "medianAbsPctValueChange": 0.0,
+     "p90AbsPctValueChange": 0.0,
+     "maxAbsPctValueChange": 0.0,
+     "medianAbsRankShift": 0.0,
+     "p90AbsRankShift": 0.0,
+     "top25Overlap": 25,
+     "top100Overlap": 100
+    },
+    "boardDiff": {
+     "rowsCompared": 1131,
+     "rowsChanged": 0,
+     "byGroup": {},
+     "top200MembershipChanges": 0,
+     "largestMoves": []
+    },
+    "topOverlap": {
+     "25": 25,
+     "50": 50,
+     "100": 100,
+     "200": 200
+    },
+    "outliers": {
+     "ktcDropsByLiveRankBand": {
+      "401+": 1,
+      "1-50": 6,
+      "51-100": 4,
+      "101-200": 1
+     },
+     "observationsExcluded": 161,
+     "rowsWithAnyExclusion": 116,
+     "ktcCrowd": 10,
+     "ktcTrades": 2,
+     "bothKtc": 1,
+     "idpTradeCalc": 5,
+     "bySource": {
+      "draftSharks": 45,
+      "draftSharksIdp": 22,
+      "fantasyProsIdp": 13,
+      "yahooBoone": 13,
+      "pfkDynasty": 10,
+      "ktcCrowdSfTep": 10,
+      "idpShowCombined": 9,
+      "dlfSf": 7,
+      "fantasyProsSf": 6,
+      "dynastyNerdsSfTep": 5,
+      "idpTradeCalc": 5,
+      "fantasyNavigatorSf": 4,
+      "fantasyProsFitzmaurice": 3,
+      "fantasyCalc": 2,
+      "ktcTradesSfTep": 2,
+      "dynastyDaddySf": 2,
+      "dlfIdp": 1,
+      "otcffbSf": 1,
+      "flockFantasySf": 1
+     }
+    },
+    "ktcLeverage": {
+     "rows": 462,
+     "median": 0.0205,
+     "p90": 0.0603,
+     "max": 2.5349
+    },
+    "sparseRows": {
+     "sparseRows": 127,
+     "changed": 0,
+     "medianAbsPctChanged": 0.0,
+     "maxAbsPctChanged": 0.0
+    },
+    "pickRows": {
+     "changed": 0,
+     "medianAbsDelta": 0,
+     "maxAbsDelta": 0
+    },
+    "structuralErrors": 0,
+    "buildSeconds": 0.677,
+    "assets": {
+     "Jalen Coker": {
+      "value": 3288,
+      "rank": 155,
+      "ktcDropped": [
+       "ktcCrowdSfTep",
+       "ktcTradesSfTep"
+      ]
+     },
+     "Ladd McConkey": {
+      "value": 5561,
+      "rank": 48,
+      "ktcDropped": []
+     },
+     "Quinshon Judkins": {
+      "value": 4908,
+      "rank": 69,
+      "ktcDropped": []
+     },
+     "MarShawn Lloyd": {
+      "value": 2497,
+      "rank": 239,
+      "ktcDropped": []
+     },
+     "Travis Hunter": {
+      "value": 4024,
+      "rank": 103,
+      "ktcDropped": []
+     },
+     "Michael Mayer": {
+      "value": 2470,
+      "rank": 245,
+      "ktcDropped": []
+     },
+     "Aidan Hutchinson": {
+      "value": 6411,
+      "rank": 34,
+      "ktcDropped": []
+     },
+     "Will Anderson": {
+      "value": 5928,
+      "rank": 42,
+      "ktcDropped": []
+     },
+     "Jeremiyah Love": {
+      "value": 7859,
+      "rank": 16,
+      "ktcDropped": []
+     },
+     "Fernando Mendoza": {
+      "value": 5332,
+      "rank": 57,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.01": {
+      "value": 7859,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.02": {
+      "value": 5332,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2027 Round 1": {
+      "value": 5643,
+      "rank": null,
+      "ktcDropped": []
+     }
+    }
+   },
+   "c1_ktc_scale_map": {
+    "boardSha256": "b92132f50a926e477487214449cb778a250534b23285038c8fcdef01304552c7",
+    "boardImpact": {
+     "pass": true,
+     "gates": {
+      "same_row_set": true,
+      "unpriced": true,
+      "median_value_change": true,
+      "p90_value_change": true,
+      "max_value_change": true,
+      "top25_overlap": true,
+      "top100_overlap": true,
+      "median_rank_shift": true,
+      "p90_rank_shift": true
+     },
+     "metrics": {
+      "rows": 1131,
+      "unpricedFraction": 0.0,
+      "medianAbsPctValueChange": 0.00749071193553635,
+      "p90AbsPctValueChange": 0.09751903709162368,
+      "maxAbsPctValueChange": 0.40460526315789475,
+      "medianAbsRankShift": 12.0,
+      "p90AbsRankShift": 27.0,
+      "top25Overlap": 25,
+      "top100Overlap": 100
+     }
+    },
+    "boardImpactPlayersOnly": {
+     "rows": 969,
+     "unpricedFraction": 0.0,
+     "medianAbsPctValueChange": 0.00129356740823238,
+     "p90AbsPctValueChange": 0.06200432588320115,
+     "maxAbsPctValueChange": 0.40460526315789475,
+     "medianAbsRankShift": 12.0,
+     "p90AbsRankShift": 25.0,
+     "top25Overlap": 25,
+     "top100Overlap": 100
+    },
+    "boardDiff": {
+     "rowsCompared": 1131,
+     "rowsChanged": 598,
+     "byGroup": {
+      "PICK": {
+       "changed": 139,
+       "medianAbs": 144,
+       "p90Abs": 530,
+       "maxAbs": 557
+      },
+      "QB": {
+       "changed": 71,
+       "medianAbs": 56,
+       "p90Abs": 112,
+       "maxAbs": 162
+      },
+      "RB": {
+       "changed": 124,
+       "medianAbs": 57.0,
+       "p90Abs": 138,
+       "maxAbs": 369
+      },
+      "TE": {
+       "changed": 75,
+       "medianAbs": 68,
+       "p90Abs": 125,
+       "maxAbs": 282
+      },
+      "WR": {
+       "changed": 189,
+       "medianAbs": 66,
+       "p90Abs": 134,
+       "maxAbs": 290
+      }
+     },
+     "top200MembershipChanges": 10,
+     "largestMoves": [
+      {
+       "asset": "2029 Late 2nd",
+       "group": "PICK",
+       "delta": -557,
+       "rankBefore": 233,
+       "rankAfter": 301
+      },
+      {
+       "asset": "2029 Early 3rd",
+       "group": "PICK",
+       "delta": -554,
+       "rankBefore": 285,
+       "rankAfter": 450
+      },
+      {
+       "asset": "2029 Mid 2nd",
+       "group": "PICK",
+       "delta": -553,
+       "rankBefore": 211,
+       "rankAfter": 279
+      },
+      {
+       "asset": "2029 Round 2",
+       "group": "PICK",
+       "delta": -551,
+       "rankBefore": null,
+       "rankAfter": null
+      },
+      {
+       "asset": "2029 Round 3",
+       "group": "PICK",
+       "delta": -548,
+       "rankBefore": null,
+       "rankAfter": null
+      },
+      {
+       "asset": "2029 Mid 3rd",
+       "group": "PICK",
+       "delta": -547,
+       "rankBefore": 313,
+       "rankAfter": 503
+      },
+      {
+       "asset": "2029 Late 3rd",
+       "group": "PICK",
+       "delta": -542,
+       "rankBefore": 338,
+       "rankAfter": 555
+      },
+      {
+       "asset": "2029 Early 2nd",
+       "group": "PICK",
+       "delta": -541,
+       "rankBefore": 184,
+       "rankAfter": 236
+      },
+      {
+       "asset": "2027 Mid 3rd",
+       "group": "PICK",
+       "delta": -535,
+       "rankBefore": 258,
+       "rankAfter": 360
+      },
+      {
+       "asset": "2028 Early 3rd",
+       "group": "PICK",
+       "delta": -533,
+       "rankBefore": 272,
+       "rankAfter": 394
+      }
+     ]
+    },
+    "topOverlap": {
+     "25": 25,
+     "50": 48,
+     "100": 100,
+     "200": 195
+    },
+    "outliers": {
+     "ktcDropsByLiveRankBand": {
+      "401+": 2,
+      "51-100": 1,
+      "1-50": 3
+     },
+     "observationsExcluded": 161,
+     "rowsWithAnyExclusion": 120,
+     "ktcCrowd": 5,
+     "ktcTrades": 1,
+     "bothKtc": 0,
+     "idpTradeCalc": 7,
+     "bySource": {
+      "draftSharks": 49,
+      "draftSharksIdp": 22,
+      "fantasyProsIdp": 13,
+      "yahooBoone": 11,
+      "pfkDynasty": 9,
+      "idpShowCombined": 9,
+      "fantasyProsSf": 7,
+      "idpTradeCalc": 7,
+      "dlfSf": 7,
+      "dynastyNerdsSfTep": 6,
+      "ktcCrowdSfTep": 5,
+      "fantasyProsFitzmaurice": 5,
+      "fantasyNavigatorSf": 4,
+      "otcffbSf": 2,
+      "dynastyDaddySf": 2,
+      "dlfIdp": 1,
+      "fantasyCalc": 1,
+      "ktcTradesSfTep": 1
+     }
+    },
+    "ktcLeverage": {
+     "rows": 462,
+     "median": 0.0193,
+     "p90": 0.0865,
+     "max": 1.4485
+    },
+    "sparseRows": {
+     "sparseRows": 127,
+     "changed": 2,
+     "medianAbsPctChanged": 0.2057,
+     "maxAbsPctChanged": 0.2128
+    },
+    "pickRows": {
+     "changed": 139,
+     "medianAbsDelta": 144,
+     "maxAbsDelta": 557
+    },
+    "structuralErrors": 0,
+    "buildSeconds": 1.123,
+    "assets": {
+     "Jalen Coker": {
+      "value": 3372,
+      "rank": 140,
+      "ktcDropped": [
+       "ktcCrowdSfTep"
+      ]
+     },
+     "Ladd McConkey": {
+      "value": 5519,
+      "rank": 51,
+      "ktcDropped": []
+     },
+     "Quinshon Judkins": {
+      "value": 4864,
+      "rank": 69,
+      "ktcDropped": []
+     },
+     "MarShawn Lloyd": {
+      "value": 2381,
+      "rank": 246,
+      "ktcDropped": []
+     },
+     "Travis Hunter": {
+      "value": 4024,
+      "rank": 101,
+      "ktcDropped": []
+     },
+     "Michael Mayer": {
+      "value": 2431,
+      "rank": 237,
+      "ktcDropped": []
+     },
+     "Aidan Hutchinson": {
+      "value": 6411,
+      "rank": 34,
+      "ktcDropped": []
+     },
+     "Will Anderson": {
+      "value": 5928,
+      "rank": 42,
+      "ktcDropped": []
+     },
+     "Jeremiyah Love": {
+      "value": 7869,
+      "rank": 16,
+      "ktcDropped": []
+     },
+     "Fernando Mendoza": {
+      "value": 5298,
+      "rank": 58,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.01": {
+      "value": 7869,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.02": {
+      "value": 5298,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2027 Round 1": {
+      "value": 5524,
+      "rank": null,
+      "ktcDropped": []
+     }
+    },
+    "gates": {
+     "board_impact": true,
+     "no_new_structural_errors": true,
+     "leverage": false,
+     "cost": false
+    },
+    "eligible": false,
+    "postHoc": false
+   },
+   "c2_ktc_rank_hill": {
+    "boardSha256": "6b0ec18721b4a9c8fe732dd9581a8012d663f69cab1e46982f37876e7ef25142",
+    "boardImpact": {
+     "pass": true,
+     "gates": {
+      "same_row_set": true,
+      "unpriced": true,
+      "median_value_change": true,
+      "p90_value_change": true,
+      "max_value_change": true,
+      "top25_overlap": true,
+      "top100_overlap": true,
+      "median_rank_shift": true,
+      "p90_rank_shift": true
+     },
+     "metrics": {
+      "rows": 1131,
+      "unpricedFraction": 0.0,
+      "medianAbsPctValueChange": 0.01263641585295807,
+      "p90AbsPctValueChange": 0.08420009905894008,
+      "maxAbsPctValueChange": 0.34145104008117705,
+      "medianAbsRankShift": 16.0,
+      "p90AbsRankShift": 33.0,
+      "top25Overlap": 25,
+      "top100Overlap": 98
+     }
+    },
+    "boardImpactPlayersOnly": {
+     "rows": 969,
+     "unpricedFraction": 0.0,
+     "medianAbsPctValueChange": 0.0016807355632946098,
+     "p90AbsPctValueChange": 0.06623058053965658,
+     "maxAbsPctValueChange": 0.3184,
+     "medianAbsRankShift": 14.5,
+     "p90AbsRankShift": 31.0,
+     "top25Overlap": 25,
+     "top100Overlap": 99
+    },
+    "boardDiff": {
+     "rowsCompared": 1131,
+     "rowsChanged": 598,
+     "byGroup": {
+      "PICK": {
+       "changed": 139,
+       "medianAbs": 330,
+       "p90Abs": 729,
+       "maxAbs": 814
+      },
+      "QB": {
+       "changed": 72,
+       "medianAbs": 67.0,
+       "p90Abs": 134,
+       "maxAbs": 284
+      },
+      "RB": {
+       "changed": 123,
+       "medianAbs": 69,
+       "p90Abs": 113,
+       "maxAbs": 223
+      },
+      "TE": {
+       "changed": 75,
+       "medianAbs": 104,
+       "p90Abs": 158,
+       "maxAbs": 404
+      },
+      "WR": {
+       "changed": 189,
+       "medianAbs": 80,
+       "p90Abs": 144,
+       "maxAbs": 345
+      }
+     },
+     "top200MembershipChanges": 10,
+     "largestMoves": [
+      {
+       "asset": "2029 Late 2nd",
+       "group": "PICK",
+       "delta": -814,
+       "rankBefore": 233,
+       "rankAfter": 395
+      },
+      {
+       "asset": "2029 Early 1st",
+       "group": "PICK",
+       "delta": -788,
+       "rankBefore": 84,
+       "rankAfter": 111
+      },
+      {
+       "asset": "2028 Late 2nd",
+       "group": "PICK",
+       "delta": -773,
+       "rankBefore": 209,
+       "rankAfter": 305
+      },
+      {
+       "asset": "2029 Round 2",
+       "group": "PICK",
+       "delta": -769,
+       "rankBefore": null,
+       "rankAfter": null
+      },
+      {
+       "asset": "2029 Mid 2nd",
+       "group": "PICK",
+       "delta": -768,
+       "rankBefore": 211,
+       "rankAfter": 311
+      },
+      {
+       "asset": "2028 Mid 1st",
+       "group": "PICK",
+       "delta": -767,
+       "rankBefore": 82,
+       "rankAfter": 108
+      },
+      {
+       "asset": "2027 Mid 3rd",
+       "group": "PICK",
+       "delta": -751,
+       "rankBefore": 258,
+       "rankAfter": 450
+      },
+      {
+       "asset": "2027 Early 3rd",
+       "group": "PICK",
+       "delta": -743,
+       "rankBefore": 244,
+       "rankAfter": 416
+      },
+      {
+       "asset": "2027 Round 3",
+       "group": "PICK",
+       "delta": -743,
+       "rankBefore": null,
+       "rankAfter": null
+      },
+      {
+       "asset": "2028 Mid 2nd",
+       "group": "PICK",
+       "delta": -741,
+       "rankBefore": 187,
+       "rankAfter": 264
+      }
+     ]
+    },
+    "topOverlap": {
+     "25": 25,
+     "50": 48,
+     "100": 98,
+     "200": 195
+    },
+    "outliers": {
+     "ktcDropsByLiveRankBand": {
+      "101-200": 1,
+      "1-50": 4,
+      "51-100": 1,
+      "301-400": 1
+     },
+     "observationsExcluded": 175,
+     "rowsWithAnyExclusion": 129,
+     "ktcCrowd": 6,
+     "ktcTrades": 1,
+     "bothKtc": 0,
+     "idpTradeCalc": 9,
+     "bySource": {
+      "draftSharks": 56,
+      "draftSharksIdp": 22,
+      "yahooBoone": 14,
+      "fantasyProsIdp": 13,
+      "idpShowCombined": 11,
+      "pfkDynasty": 9,
+      "idpTradeCalc": 9,
+      "fantasyProsSf": 9,
+      "ktcCrowdSfTep": 6,
+      "fantasyProsFitzmaurice": 5,
+      "dlfSf": 5,
+      "dynastyNerdsSfTep": 3,
+      "fantasyNavigatorSf": 3,
+      "dynastyDaddySf": 3,
+      "fantasyCalc": 2,
+      "flockFantasySf": 2,
+      "dlfIdp": 1,
+      "ktcTradesSfTep": 1,
+      "otcffbSf": 1
+     }
+    },
+    "ktcLeverage": {
+     "rows": 462,
+     "median": 0.0231,
+     "p90": 0.0625,
+     "max": 2.3256
+    },
+    "sparseRows": {
+     "sparseRows": 127,
+     "changed": 2,
+     "medianAbsPctChanged": 0.2182,
+     "maxAbsPctChanged": 0.3184
+    },
+    "pickRows": {
+     "changed": 139,
+     "medianAbsDelta": 330,
+     "maxAbsDelta": 814
+    },
+    "structuralErrors": 0,
+    "buildSeconds": 0.741,
+    "assets": {
+     "Jalen Coker": {
+      "value": 3443,
+      "rank": 131,
+      "ktcDropped": []
+     },
+     "Ladd McConkey": {
+      "value": 5491,
+      "rank": 50,
+      "ktcDropped": []
+     },
+     "Quinshon Judkins": {
+      "value": 4830,
+      "rank": 67,
+      "ktcDropped": []
+     },
+     "MarShawn Lloyd": {
+      "value": 2372,
+      "rank": 242,
+      "ktcDropped": []
+     },
+     "Travis Hunter": {
+      "value": 4024,
+      "rank": 98,
+      "ktcDropped": []
+     },
+     "Michael Mayer": {
+      "value": 2392,
+      "rank": 239,
+      "ktcDropped": []
+     },
+     "Aidan Hutchinson": {
+      "value": 6411,
+      "rank": 34,
+      "ktcDropped": []
+     },
+     "Will Anderson": {
+      "value": 5928,
+      "rank": 42,
+      "ktcDropped": []
+     },
+     "Jeremiyah Love": {
+      "value": 8033,
+      "rank": 17,
+      "ktcDropped": []
+     },
+     "Fernando Mendoza": {
+      "value": 5276,
+      "rank": 57,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.01": {
+      "value": 8033,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.02": {
+      "value": 5276,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2027 Round 1": {
+      "value": 5458,
+      "rank": null,
+      "ktcDropped": []
+     }
+    },
+    "gates": {
+     "board_impact": true,
+     "no_new_structural_errors": true,
+     "leverage": true,
+     "cost": true
+    },
+    "eligible": true,
+    "postHoc": false
+   },
+   "c3_ktc_players_rank_hill": {
+    "boardSha256": "5c9791d8166c7da7877a1cfd8f6c7c39a84aca796aca3feef3d370232b063714",
+    "boardImpact": {
+     "pass": true,
+     "gates": {
+      "same_row_set": true,
+      "unpriced": true,
+      "median_value_change": true,
+      "p90_value_change": true,
+      "max_value_change": true,
+      "top25_overlap": true,
+      "top100_overlap": true,
+      "median_rank_shift": true,
+      "p90_rank_shift": true
+     },
+     "metrics": {
+      "rows": 1131,
+      "unpricedFraction": 0.0,
+      "medianAbsPctValueChange": 0.0010326810196084344,
+      "p90AbsPctValueChange": 0.048943270300333706,
+      "maxAbsPctValueChange": 0.4096,
+      "medianAbsRankShift": 10.0,
+      "p90AbsRankShift": 22.0,
+      "top25Overlap": 25,
+      "top100Overlap": 98
+     }
+    },
+    "boardImpactPlayersOnly": {
+     "rows": 969,
+     "unpricedFraction": 0.0,
+     "medianAbsPctValueChange": 0.0020421013703021177,
+     "p90AbsPctValueChange": 0.05255905511811024,
+     "maxAbsPctValueChange": 0.4096,
+     "medianAbsRankShift": 11.0,
+     "p90AbsRankShift": 22.0,
+     "top25Overlap": 25,
+     "top100Overlap": 100
+    },
+    "boardDiff": {
+     "rowsCompared": 1131,
+     "rowsChanged": 527,
+     "byGroup": {
+      "PICK": {
+       "changed": 67,
+       "medianAbs": 41,
+       "p90Abs": 87,
+       "maxAbs": 174
+      },
+      "QB": {
+       "changed": 72,
+       "medianAbs": 60.0,
+       "p90Abs": 105,
+       "maxAbs": 267
+      },
+      "RB": {
+       "changed": 124,
+       "medianAbs": 56.0,
+       "p90Abs": 102,
+       "maxAbs": 187
+      },
+      "TE": {
+       "changed": 75,
+       "medianAbs": 89,
+       "p90Abs": 149,
+       "maxAbs": 391
+      },
+      "WR": {
+       "changed": 189,
+       "medianAbs": 64,
+       "p90Abs": 130,
+       "maxAbs": 345
+      }
+     },
+     "top200MembershipChanges": 4,
+     "largestMoves": [
+      {
+       "asset": "Darren Waller",
+       "group": "TE",
+       "delta": -391,
+       "rankBefore": 274,
+       "rankAfter": 344
+      },
+      {
+       "asset": "Justin Jefferson",
+       "group": "WR",
+       "delta": 345,
+       "rankBefore": 15,
+       "rankAfter": 14
+      },
+      {
+       "asset": "CeeDee Lamb",
+       "group": "WR",
+       "delta": 311,
+       "rankBefore": 18,
+       "rankAfter": 16
+      },
+      {
+       "asset": "Jeremy Ruckert",
+       "group": "TE",
+       "delta": -276,
+       "rankBefore": 525,
+       "rankAfter": 687
+      },
+      {
+       "asset": "Jared Goff",
+       "group": "QB",
+       "delta": -267,
+       "rankBefore": 63,
+       "rankAfter": 69
+      },
+      {
+       "asset": "Amon-Ra St. Brown",
+       "group": "WR",
+       "delta": 258,
+       "rankBefore": 12,
+       "rankAfter": 9
+      },
+      {
+       "asset": "Malik Heath",
+       "group": "WR",
+       "delta": 256,
+       "rankBefore": null,
+       "rankAfter": null
+      },
+      {
+       "asset": "Colston Loveland",
+       "group": "TE",
+       "delta": 229,
+       "rankBefore": 21,
+       "rankAfter": 20
+      },
+      {
+       "asset": "Brock Wright",
+       "group": "TE",
+       "delta": -219,
+       "rankBefore": 521,
+       "rankAfter": 649
+      },
+      {
+       "asset": "Tre' Harris",
+       "group": "WR",
+       "delta": -209,
+       "rankBefore": 259,
+       "rankAfter": 288
+      }
+     ]
+    },
+    "topOverlap": {
+     "25": 25,
+     "50": 48,
+     "100": 98,
+     "200": 198
+    },
+    "outliers": {
+     "ktcDropsByLiveRankBand": {
+      "1-50": 4
+     },
+     "observationsExcluded": 171,
+     "rowsWithAnyExclusion": 123,
+     "ktcCrowd": 3,
+     "ktcTrades": 1,
+     "bothKtc": 0,
+     "idpTradeCalc": 11,
+     "bySource": {
+      "draftSharks": 55,
+      "draftSharksIdp": 22,
+      "yahooBoone": 14,
+      "fantasyProsIdp": 13,
+      "idpShowCombined": 11,
+      "idpTradeCalc": 11,
+      "pfkDynasty": 8,
+      "fantasyProsSf": 8,
+      "fantasyProsFitzmaurice": 6,
+      "dynastyNerdsSfTep": 5,
+      "dlfSf": 5,
+      "ktcCrowdSfTep": 3,
+      "fantasyNavigatorSf": 2,
+      "dynastyDaddySf": 2,
+      "flockFantasySf": 2,
+      "dlfIdp": 1,
+      "ktcTradesSfTep": 1,
+      "fantasyCalc": 1,
+      "otcffbSf": 1
+     }
+    },
+    "ktcLeverage": {
+     "rows": 462,
+     "median": 0.0175,
+     "p90": 0.0529,
+     "max": 2.6047
+    },
+    "sparseRows": {
+     "sparseRows": 127,
+     "changed": 2,
+     "medianAbsPctChanged": 0.2968,
+     "maxAbsPctChanged": 0.4096
+    },
+    "pickRows": {
+     "changed": 67,
+     "medianAbsDelta": 41,
+     "maxAbsDelta": 174
+    },
+    "structuralErrors": 0,
+    "buildSeconds": 0.916,
+    "assets": {
+     "Jalen Coker": {
+      "value": 3447,
+      "rank": 134,
+      "ktcDropped": []
+     },
+     "Ladd McConkey": {
+      "value": 5496,
+      "rank": 51,
+      "ktcDropped": []
+     },
+     "Quinshon Judkins": {
+      "value": 4839,
+      "rank": 68,
+      "ktcDropped": []
+     },
+     "MarShawn Lloyd": {
+      "value": 2378,
+      "rank": 251,
+      "ktcDropped": []
+     },
+     "Travis Hunter": {
+      "value": 4024,
+      "rank": 102,
+      "ktcDropped": []
+     },
+     "Michael Mayer": {
+      "value": 2436,
+      "rank": 241,
+      "ktcDropped": []
+     },
+     "Aidan Hutchinson": {
+      "value": 6411,
+      "rank": 35,
+      "ktcDropped": []
+     },
+     "Will Anderson": {
+      "value": 5928,
+      "rank": 42,
+      "ktcDropped": []
+     },
+     "Jeremiyah Love": {
+      "value": 8033,
+      "rank": 17,
+      "ktcDropped": []
+     },
+     "Fernando Mendoza": {
+      "value": 5282,
+      "rank": 59,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.01": {
+      "value": 8033,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.02": {
+      "value": 5282,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2027 Round 1": {
+      "value": 5643,
+      "rank": null,
+      "ktcDropped": []
+     }
+    },
+    "gates": {
+     "board_impact": true,
+     "no_new_structural_errors": true,
+     "leverage": true,
+     "cost": true
+    },
+    "eligible": true,
+    "postHoc": true
+   }
+  },
+  "c3VsC2": {
+   "rowsChanged": 555,
+   "top200MembershipChanges": 8,
+   "playersOnly": {
+    "rows": 969,
+    "unpricedFraction": 0.0,
+    "medianAbsPctValueChange": 0.0,
+    "p90AbsPctValueChange": 0.017074117190531625,
+    "maxAbsPctValueChange": 0.08391608391608392,
+    "medianAbsRankShift": 9.0,
+    "p90AbsRankShift": 15.0,
+    "top25Overlap": 25,
+    "top100Overlap": 99
+   },
+   "pickRows": {
+    "changed": 115,
+    "medianAbsDelta": 470,
+    "maxAbsDelta": 814
+   }
+  }
+ },
+ "dlfNative": {
+  "role": "non-voting (not in _RANKING_SOURCES); measurement only",
+  "vendorRows": 323,
+  "joinedRowsByAssetClass": {
+   "offense": 323
+  },
+  "joinedOffenseRowsOnBoard": 323,
+  "byBand": {
+   "ratioPop": {
+    "1-50": {
+     "n": 50,
+     "median": 0.827,
+     "p25": 0.737,
+     "p75": 0.893,
+     "meanLog2": -0.2957
+    },
+    "51-100": {
+     "n": 50,
+     "median": 0.492,
+     "p25": 0.409,
+     "p75": 0.604,
+     "meanLog2": -1.0347
+    },
+    "101-200": {
+     "n": 100,
+     "median": 0.183,
+     "p25": 0.109,
+     "p75": 0.261,
+     "meanLog2": -2.5591
+    },
+    "201-300": {
+     "n": 100,
+     "median": 0.041,
+     "p25": 0.022,
+     "p75": 0.057,
+     "meanLog2": -4.7921
+    },
+    "301-400": {
+     "n": 23,
+     "median": 0.009,
+     "p25": 0.003,
+     "p75": 0.011,
+     "meanLog2": -7.7489
+    }
+   },
+   "ratioVendor": {
+    "1-50": {
+     "n": 50,
+     "median": 0.827,
+     "p25": 0.737,
+     "p75": 0.893,
+     "meanLog2": -0.2957
+    },
+    "51-100": {
+     "n": 50,
+     "median": 0.492,
+     "p25": 0.409,
+     "p75": 0.604,
+     "meanLog2": -1.0347
+    },
+    "101-200": {
+     "n": 100,
+     "median": 0.183,
+     "p25": 0.109,
+     "p75": 0.261,
+     "meanLog2": -2.5591
+    },
+    "201-300": {
+     "n": 100,
+     "median": 0.041,
+     "p25": 0.022,
+     "p75": 0.057,
+     "meanLog2": -4.7921
+    },
+    "301-400": {
+     "n": 23,
+     "median": 0.009,
+     "p25": 0.003,
+     "p75": 0.011,
+     "meanLog2": -7.7489
+    }
+   },
+   "populationFactor": {
+    "1-50": {
+     "n": 50,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    },
+    "51-100": {
+     "n": 50,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    },
+    "101-200": {
+     "n": 100,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    },
+    "201-300": {
+     "n": 100,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    },
+    "301-400": {
+     "n": 23,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    }
+   }
+  },
+  "byPosition": {
+   "QB": {
+    "n": 57,
+    "median": 0.262,
+    "p25": 0.038,
+    "p75": 0.699,
+    "meanLog2": -2.7342
+   },
+   "RB": {
+    "n": 91,
+    "median": 0.145,
+    "p25": 0.048,
+    "p75": 0.412,
+    "meanLog2": -3.3092
+   },
+   "TE": {
+    "n": 47,
+    "median": 0.094,
+    "p25": 0.057,
+    "p75": 0.311,
+    "meanLog2": -3.1034
+   },
+   "WR": {
+    "n": 128,
+    "median": 0.124,
+    "p25": 0.048,
+    "p75": 0.394,
+    "meanLog2": -2.9454
+   }
+  },
+  "byCoverage": {
+   "5-8": {
+    "n": 4,
+    "median": 0.012,
+    "p25": 0.009,
+    "p75": 0.014,
+    "meanLog2": -6.8161
+   },
+   "9+": {
+    "n": 319,
+    "median": 0.145,
+    "p25": 0.051,
+    "p75": 0.479,
+    "meanLog2": -2.9862
+   }
+  },
+  "verdict": {
+   "bandsOutsideTolerance": [
+    "51-100",
+    "101-200",
+    "201-300",
+    "301-400"
+   ],
+   "scaleMismatchConfirmed": true,
+   "populationShare": null,
+   "populationShareNote": "undefined: DLF Values has no live rank (it does not vote)"
+  },
+  "familyVotersDisabledForLoo": [
+   "dlfIdp",
+   "dlfRookieIdp",
+   "dlfRookieSf",
+   "dlfSf"
+  ],
+  "disagreement": {
+   "vsIncumbent_containsDlfRank": {
+    "rows": 323,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.89,
+      "p75": 1.121,
+      "meanLog2": -0.0084
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.965,
+      "p25": 0.898,
+      "p75": 1.037,
+      "meanLog2": -0.0191
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.946,
+      "p25": 0.884,
+      "p75": 1.042,
+      "meanLog2": -0.0373
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.984,
+      "p25": 0.928,
+      "p75": 1.081,
+      "meanLog2": 0.0287
+     },
+     "301-400": {
+      "n": 23,
+      "median": 1.039,
+      "p25": 0.997,
+      "p75": 1.108,
+      "meanLog2": 0.1012
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.056,
+    "valueSplitByBand": {
+     "nativeOverLoo": {
+      "1-50": {
+       "n": 50,
+       "median": 0.837,
+       "p25": 0.741,
+       "p75": 0.914,
+       "meanLog2": -0.289
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.483,
+       "p25": 0.384,
+       "p75": 0.591,
+       "meanLog2": -1.0833
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.164,
+       "p25": 0.104,
+       "p75": 0.243,
+       "meanLog2": -2.6446
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.039,
+       "p25": 0.02,
+       "p75": 0.053,
+       "meanLog2": -4.9249
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.008,
+       "p25": 0.003,
+       "p75": 0.011,
+       "meanLog2": -7.9039
+      }
+     },
+     "scaleTerm": {
+      "1-50": {
+       "n": 50,
+       "median": 0.827,
+       "p25": 0.737,
+       "p75": 0.893,
+       "meanLog2": -0.2957
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.492,
+       "p25": 0.409,
+       "p75": 0.604,
+       "meanLog2": -1.0347
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.183,
+       "p25": 0.109,
+       "p75": 0.261,
+       "meanLog2": -2.5591
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.041,
+       "p25": 0.022,
+       "p75": 0.057,
+       "meanLog2": -4.7921
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.009,
+       "p25": 0.003,
+       "p75": 0.011,
+       "meanLog2": -7.7489
+      }
+     },
+     "orderTermOnHill": {
+      "1-50": {
+       "n": 50,
+       "median": 1.005,
+       "p25": 0.973,
+       "p75": 1.039,
+       "meanLog2": 0.0067
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.987,
+       "p25": 0.935,
+       "p75": 1.02,
+       "meanLog2": -0.0486
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.962,
+       "p25": 0.896,
+       "p75": 1.019,
+       "meanLog2": -0.0855
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.944,
+       "p25": 0.859,
+       "p75": 1.001,
+       "meanLog2": -0.1328
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.927,
+       "p25": 0.845,
+       "p75": 0.984,
+       "meanLog2": -0.155
+      }
+     }
+    }
+   },
+   "vsNoDlfFamily": {
+    "rows": 323,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.874,
+      "p75": 1.125,
+      "meanLog2": 0.0104
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.975,
+      "p25": 0.89,
+      "p75": 1.065,
+      "meanLog2": -0.0204
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.955,
+      "p25": 0.884,
+      "p75": 1.042,
+      "meanLog2": -0.0395
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.983,
+      "p25": 0.922,
+      "p75": 1.089,
+      "meanLog2": 0.0309
+     },
+     "301-400": {
+      "n": 23,
+      "median": 1.039,
+      "p25": 0.998,
+      "p75": 1.135,
+      "meanLog2": 0.1061
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.059,
+    "valueSplitByBand": {
+     "nativeOverLoo": {
+      "1-50": {
+       "n": 50,
+       "median": 0.836,
+       "p25": 0.745,
+       "p75": 0.928,
+       "meanLog2": -0.2874
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.484,
+       "p25": 0.382,
+       "p75": 0.589,
+       "meanLog2": -1.0817
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.165,
+       "p25": 0.106,
+       "p75": 0.244,
+       "meanLog2": -2.6464
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.039,
+       "p25": 0.02,
+       "p75": 0.054,
+       "meanLog2": -4.9278
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.008,
+       "p25": 0.003,
+       "p75": 0.011,
+       "meanLog2": -7.9019
+      }
+     },
+     "scaleTerm": {
+      "1-50": {
+       "n": 50,
+       "median": 0.827,
+       "p25": 0.737,
+       "p75": 0.893,
+       "meanLog2": -0.2957
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.492,
+       "p25": 0.409,
+       "p75": 0.604,
+       "meanLog2": -1.0347
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.183,
+       "p25": 0.109,
+       "p75": 0.261,
+       "meanLog2": -2.5591
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.041,
+       "p25": 0.022,
+       "p75": 0.057,
+       "meanLog2": -4.7921
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.009,
+       "p25": 0.003,
+       "p75": 0.011,
+       "meanLog2": -7.7489
+      }
+     },
+     "orderTermOnHill": {
+      "1-50": {
+       "n": 50,
+       "median": 1.011,
+       "p25": 0.974,
+       "p75": 1.046,
+       "meanLog2": 0.0082
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.983,
+       "p25": 0.925,
+       "p75": 1.021,
+       "meanLog2": -0.047
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.958,
+       "p25": 0.892,
+       "p75": 1.014,
+       "meanLog2": -0.0873
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.946,
+       "p25": 0.846,
+       "p75": 1.005,
+       "meanLog2": -0.1357
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.927,
+       "p25": 0.831,
+       "p75": 0.995,
+       "meanLog2": -0.153
+      }
+     }
+    }
+   }
+  },
+  "csvSha256": "38284bc9f52a8929cd865cf15a218a724820959b6ad782984b0e542bb8eac187",
+  "stability": {
+   "days": 5,
+   "distinctContentVersions": 5,
+   "pins": {
+    "20260925": {
+     "commit": "744ca99b8269c010a51e1c514aa8530082b5c499",
+     "sha256": "4534f8a9231b778ce4566fce4ebb9e8656010d0ec344e3f8429f0af01f97cc74"
+    },
+    "20260926": {
+     "commit": "ebc28b5363627dfc369e7c976e254a728e316753",
+     "sha256": "13e084da9fe571f4e8893855691fea9f20d697ac1b2c447af758a6bea2a180e5"
+    },
+    "20260927": {
+     "commit": "ccfd7a49f86fdfdef411986982fffe994548d09b",
+     "sha256": "06dbe8b0723a83bba36d6704105be47c1cfd989f737c339b4de92c5d2fd5da5a"
+    },
+    "20260928": {
+     "commit": "dde7a13d453a2accc2ce8457530a2b876a138e10",
+     "sha256": "ac9bd5a686f2e3c08dc18f8cae504b7d2ade5999ee0f08902bd8ca69f92cc72c"
+    },
+    "20260929": {
+     "commit": "7d8831f5ba67b4409e2f558de68c4ceab001e99f",
+     "sha256": "38284bc9f52a8929cd865cf15a218a724820959b6ad782984b0e542bb8eac187"
+    }
+   },
+   "dailyMedianScaleRatioByBand": {
+    "20260925": {
+     "51-100": 0.502,
+     "101-200": 0.182,
+     "201-300": 0.042,
+     "301-400": 0.009
+    },
+    "20260926": {
+     "51-100": 0.502,
+     "101-200": 0.182,
+     "201-300": 0.041,
+     "301-400": 0.009
+    },
+    "20260927": {
+     "51-100": 0.502,
+     "101-200": 0.182,
+     "201-300": 0.041,
+     "301-400": 0.009
+    },
+    "20260928": {
+     "51-100": 0.494,
+     "101-200": 0.182,
+     "201-300": 0.041,
+     "301-400": 0.009
+    },
+    "20260929": {
+     "51-100": 0.492,
+     "101-200": 0.183,
+     "201-300": 0.041,
+     "301-400": 0.009
+    }
+   },
+   "rangeByBand": {
+    "51-100": {
+     "days": 5,
+     "min": 0.492,
+     "max": 0.502,
+     "range": 0.01
+    },
+    "101-200": {
+     "days": 5,
+     "min": 0.182,
+     "max": 0.183,
+     "range": 0.001
+    },
+    "201-300": {
+     "days": 5,
+     "min": 0.041,
+     "max": 0.042,
+     "range": 0.001
+    },
+    "301-400": {
+     "days": 5,
+     "min": 0.009,
+     "max": 0.009,
+     "range": 0.0
+    }
+   },
+   "stable": true
+  }
+ },
+ "holdout": {
+  "dates": [
+   "20260909",
+   "20260910",
+   "20260911",
+   "20260912",
+   "20260913",
+   "20260914",
+   "20260915",
+   "20260916",
+   "20260917",
+   "20260918",
+   "20260919",
+   "20260920",
+   "20260921",
+   "20260922",
+   "20260923",
+   "20260924",
+   "20260925",
+   "20260926",
+   "20260927",
+   "20260928",
+   "20260929",
+   "20260930"
+  ],
+  "sources": {
+   "ktcCrowdSfTep": {
+    "days": 22,
+    "dailyMedianScaleRatioByBand": {
+     "20260909": {
+      "51-100": 1.085,
+      "101-200": 1.22,
+      "201-300": 1.331,
+      "301-400": 1.187
+     },
+     "20260910": {
+      "51-100": 1.084,
+      "101-200": 1.224,
+      "201-300": 1.33,
+      "301-400": 1.188
+     },
+     "20260911": {
+      "51-100": 1.083,
+      "101-200": 1.228,
+      "201-300": 1.329,
+      "301-400": 1.195
+     },
+     "20260912": {
+      "51-100": 1.083,
+      "101-200": 1.225,
+      "201-300": 1.331,
+      "301-400": 1.186
+     },
+     "20260913": {
+      "51-100": 1.083,
+      "101-200": 1.225,
+      "201-300": 1.331,
+      "301-400": 1.182
+     },
+     "20260914": {
+      "51-100": 1.083,
+      "101-200": 1.225,
+      "201-300": 1.328,
+      "301-400": 1.179
+     },
+     "20260915": {
+      "51-100": 1.081,
+      "101-200": 1.229,
+      "201-300": 1.329,
+      "301-400": 1.195
+     },
+     "20260916": {
+      "51-100": 1.084,
+      "101-200": 1.227,
+      "201-300": 1.329,
+      "301-400": 1.186
+     },
+     "20260917": {
+      "51-100": 1.087,
+      "101-200": 1.224,
+      "201-300": 1.326,
+      "301-400": 1.177
+     },
+     "20260918": {
+      "51-100": 1.091,
+      "101-200": 1.228,
+      "201-300": 1.327,
+      "301-400": 1.167
+     },
+     "20260919": {
+      "51-100": 1.093,
+      "101-200": 1.226,
+      "201-300": 1.326,
+      "301-400": 1.172
+     },
+     "20260920": {
+      "51-100": 1.096,
+      "101-200": 1.232,
+      "201-300": 1.328,
+      "301-400": 1.173
+     },
+     "20260921": {
+      "51-100": 1.094,
+      "101-200": 1.228,
+      "201-300": 1.323,
+      "301-400": 1.183
+     },
+     "20260922": {
+      "51-100": 1.094,
+      "101-200": 1.222,
+      "201-300": 1.323,
+      "301-400": 1.184
+     },
+     "20260923": {
+      "51-100": 1.089,
+      "101-200": 1.216,
+      "201-300": 1.318,
+      "301-400": 1.191
+     },
+     "20260924": {
+      "51-100": 1.089,
+      "101-200": 1.211,
+      "201-300": 1.319,
+      "301-400": 1.188
+     },
+     "20260925": {
+      "51-100": 1.09,
+      "101-200": 1.21,
+      "201-300": 1.318,
+      "301-400": 1.189
+     },
+     "20260926": {
+      "51-100": 1.089,
+      "101-200": 1.212,
+      "201-300": 1.32,
+      "301-400": 1.188
+     },
+     "20260927": {
+      "51-100": 1.089,
+      "101-200": 1.211,
+      "201-300": 1.32,
+      "301-400": 1.185
+     },
+     "20260928": {
+      "51-100": 1.085,
+      "101-200": 1.206,
+      "201-300": 1.32,
+      "301-400": 1.187
+     },
+     "20260929": {
+      "51-100": 1.087,
+      "101-200": 1.203,
+      "201-300": 1.324,
+      "301-400": 1.188
+     },
+     "20260930": {
+      "51-100": 1.087,
+      "101-200": 1.204,
+      "201-300": 1.324,
+      "301-400": 1.189
+     }
+    },
+    "rangeByBand": {
+     "51-100": {
+      "days": 22,
+      "min": 1.081,
+      "max": 1.096,
+      "range": 0.015
+     },
+     "101-200": {
+      "days": 22,
+      "min": 1.203,
+      "max": 1.232,
+      "range": 0.029
+     },
+     "201-300": {
+      "days": 22,
+      "min": 1.318,
+      "max": 1.331,
+      "range": 0.013
+     },
+     "301-400": {
+      "days": 22,
+      "min": 1.167,
+      "max": 1.195,
+      "range": 0.028
+     }
+    },
+    "stable": true,
+    "ownCurveFitByDay": {
+     "20260909": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 190.2
+     },
+     "20260910": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 191.5
+     },
+     "20260911": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.92,
+      "rmse": 189.3
+     },
+     "20260912": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 190.7
+     },
+     "20260913": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 190.5
+     },
+     "20260914": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 189.2
+     },
+     "20260915": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 187.1
+     },
+     "20260916": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 186.5
+     },
+     "20260917": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 188.6
+     },
+     "20260918": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 191.3
+     },
+     "20260919": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 188.7
+     },
+     "20260920": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 188.4
+     },
+     "20260921": {
+      "n": 400,
+      "c": 0.114,
+      "s": 0.925,
+      "rmse": 183.8
+     },
+     "20260922": {
+      "n": 400,
+      "c": 0.113,
+      "s": 0.92,
+      "rmse": 184.4
+     },
+     "20260923": {
+      "n": 400,
+      "c": 0.113,
+      "s": 0.92,
+      "rmse": 186.9
+     },
+     "20260924": {
+      "n": 400,
+      "c": 0.113,
+      "s": 0.92,
+      "rmse": 188.4
+     },
+     "20260925": {
+      "n": 400,
+      "c": 0.113,
+      "s": 0.92,
+      "rmse": 190.3
+     },
+     "20260926": {
+      "n": 400,
+      "c": 0.113,
+      "s": 0.92,
+      "rmse": 191.3
+     },
+     "20260927": {
+      "n": 400,
+      "c": 0.113,
+      "s": 0.92,
+      "rmse": 193.6
+     },
+     "20260928": {
+      "n": 400,
+      "c": 0.112,
+      "s": 0.91,
+      "rmse": 199.0
+     },
+     "20260929": {
+      "n": 400,
+      "c": 0.112,
+      "s": 0.91,
+      "rmse": 200.4
+     },
+     "20260930": {
+      "n": 400,
+      "c": 0.112,
+      "s": 0.91,
+      "rmse": 201.9
+     }
+    },
+    "forwardMapCheck": [
+     {
+      "fitOn": "20260909",
+      "scoredOn": "20260916",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0681,
+       "101-200": 0.0808,
+       "201-300": 0.0461,
+       "301-400": 0.2774
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0681,
+       "101-200": 0.0808,
+       "201-300": 0.0461,
+       "301-400": 0.2774
+      }
+     },
+     {
+      "fitOn": "20260910",
+      "scoredOn": "20260917",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0647,
+       "101-200": 0.0791,
+       "201-300": 0.0471,
+       "301-400": 0.2914
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0647,
+       "101-200": 0.0791,
+       "201-300": 0.0471,
+       "301-400": 0.2914
+      }
+     },
+     {
+      "fitOn": "20260911",
+      "scoredOn": "20260918",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0634,
+       "101-200": 0.0687,
+       "201-300": 0.0355,
+       "301-400": 0.3271
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0645,
+       "101-200": 0.0747,
+       "201-300": 0.0456,
+       "301-400": 0.311
+      }
+     },
+     {
+      "fitOn": "20260912",
+      "scoredOn": "20260919",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0551,
+       "101-200": 0.0758,
+       "201-300": 0.0442,
+       "301-400": 0.3024
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0551,
+       "101-200": 0.0758,
+       "201-300": 0.0442,
+       "301-400": 0.3024
+      }
+     },
+     {
+      "fitOn": "20260913",
+      "scoredOn": "20260920",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0532,
+       "101-200": 0.0755,
+       "201-300": 0.0466,
+       "301-400": 0.301
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0532,
+       "101-200": 0.0755,
+       "201-300": 0.0466,
+       "301-400": 0.301
+      }
+     },
+     {
+      "fitOn": "20260914",
+      "scoredOn": "20260921",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0481,
+       "101-200": 0.0705,
+       "201-300": 0.0379,
+       "301-400": 0.2839
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0481,
+       "101-200": 0.0705,
+       "201-300": 0.0379,
+       "301-400": 0.2839
+      }
+     },
+     {
+      "fitOn": "20260915",
+      "scoredOn": "20260922",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0552,
+       "101-200": 0.0656,
+       "201-300": 0.0408,
+       "301-400": 0.2849
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0621,
+       "101-200": 0.0704,
+       "201-300": 0.0415,
+       "301-400": 0.288
+      }
+     },
+     {
+      "fitOn": "20260916",
+      "scoredOn": "20260923",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0666,
+       "101-200": 0.0664,
+       "201-300": 0.0366,
+       "301-400": 0.2697
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0735,
+       "101-200": 0.0713,
+       "201-300": 0.0376,
+       "301-400": 0.2726
+      }
+     },
+     {
+      "fitOn": "20260917",
+      "scoredOn": "20260924",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0703,
+       "101-200": 0.0595,
+       "201-300": 0.0324,
+       "301-400": 0.2795
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0773,
+       "101-200": 0.0639,
+       "201-300": 0.0339,
+       "301-400": 0.2826
+      }
+     },
+     {
+      "fitOn": "20260918",
+      "scoredOn": "20260925",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0701,
+       "101-200": 0.0571,
+       "201-300": 0.0301,
+       "301-400": 0.2753
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0773,
+       "101-200": 0.0615,
+       "201-300": 0.0316,
+       "301-400": 0.2783
+      }
+     },
+     {
+      "fitOn": "20260919",
+      "scoredOn": "20260926",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0664,
+       "101-200": 0.0579,
+       "201-300": 0.0281,
+       "301-400": 0.2753
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.073,
+       "101-200": 0.062,
+       "201-300": 0.029,
+       "301-400": 0.2783
+      }
+     },
+     {
+      "fitOn": "20260920",
+      "scoredOn": "20260927",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0636,
+       "101-200": 0.0597,
+       "201-300": 0.0238,
+       "301-400": 0.2823
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0705,
+       "101-200": 0.064,
+       "201-300": 0.0243,
+       "301-400": 0.2854
+      }
+     },
+     {
+      "fitOn": "20260921",
+      "scoredOn": "20260928",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0628,
+       "101-200": 0.0453,
+       "201-300": 0.0297,
+       "301-400": 0.2781
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0771,
+       "101-200": 0.0478,
+       "201-300": 0.0291,
+       "301-400": 0.3005
+      }
+     },
+     {
+      "fitOn": "20260922",
+      "scoredOn": "20260929",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0757,
+       "101-200": 0.0517,
+       "201-300": 0.031,
+       "301-400": 0.2767
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0822,
+       "101-200": 0.0503,
+       "201-300": 0.0376,
+       "301-400": 0.2958
+      }
+     },
+     {
+      "fitOn": "20260923",
+      "scoredOn": "20260930",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0739,
+       "101-200": 0.0498,
+       "201-300": 0.032,
+       "301-400": 0.2803
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0819,
+       "101-200": 0.0475,
+       "201-300": 0.039,
+       "301-400": 0.2996
+      }
+     }
+    ]
+   },
+   "ktcTradesSfTep": {
+    "days": 22,
+    "dailyMedianScaleRatioByBand": {
+     "20260909": {
+      "51-100": 1.163,
+      "101-200": 1.236,
+      "201-300": 1.378,
+      "301-400": 1.35
+     },
+     "20260910": {
+      "51-100": 1.161,
+      "101-200": 1.237,
+      "201-300": 1.376,
+      "301-400": 1.35
+     },
+     "20260911": {
+      "51-100": 1.162,
+      "101-200": 1.237,
+      "201-300": 1.376,
+      "301-400": 1.354
+     },
+     "20260912": {
+      "51-100": 1.171,
+      "101-200": 1.265,
+      "201-300": 1.393,
+      "301-400": 1.351
+     },
+     "20260913": {
+      "51-100": 1.177,
+      "101-200": 1.27,
+      "201-300": 1.397,
+      "301-400": 1.357
+     },
+     "20260914": {
+      "51-100": 1.183,
+      "101-200": 1.278,
+      "201-300": 1.408,
+      "301-400": 1.377
+     },
+     "20260915": {
+      "51-100": 1.185,
+      "101-200": 1.281,
+      "201-300": 1.408,
+      "301-400": 1.377
+     },
+     "20260916": {
+      "51-100": 1.185,
+      "101-200": 1.28,
+      "201-300": 1.408,
+      "301-400": 1.378
+     },
+     "20260917": {
+      "51-100": 1.192,
+      "101-200": 1.283,
+      "201-300": 1.414,
+      "301-400": 1.383
+     },
+     "20260918": {
+      "51-100": 1.191,
+      "101-200": 1.285,
+      "201-300": 1.413,
+      "301-400": 1.38
+     },
+     "20260919": {
+      "51-100": 1.195,
+      "101-200": 1.28,
+      "201-300": 1.419,
+      "301-400": 1.415
+     },
+     "20260920": {
+      "51-100": 1.197,
+      "101-200": 1.284,
+      "201-300": 1.419,
+      "301-400": 1.391
+     },
+     "20260921": {
+      "51-100": 1.2,
+      "101-200": 1.279,
+      "201-300": 1.416,
+      "301-400": 1.449
+     },
+     "20260922": {
+      "51-100": 1.204,
+      "101-200": 1.28,
+      "201-300": 1.418,
+      "301-400": 1.46
+     },
+     "20260923": {
+      "51-100": 1.198,
+      "101-200": 1.272,
+      "201-300": 1.414,
+      "301-400": 1.459
+     },
+     "20260924": {
+      "51-100": 1.194,
+      "101-200": 1.27,
+      "201-300": 1.416,
+      "301-400": 1.46
+     },
+     "20260925": {
+      "51-100": 1.193,
+      "101-200": 1.265,
+      "201-300": 1.418,
+      "301-400": 1.463
+     },
+     "20260926": {
+      "51-100": 1.188,
+      "101-200": 1.261,
+      "201-300": 1.417,
+      "301-400": 1.459
+     },
+     "20260927": {
+      "51-100": 1.192,
+      "101-200": 1.272,
+      "201-300": 1.425,
+      "301-400": 1.466
+     },
+     "20260928": {
+      "51-100": 1.189,
+      "101-200": 1.262,
+      "201-300": 1.423,
+      "301-400": 1.463
+     },
+     "20260929": {
+      "51-100": 1.188,
+      "101-200": 1.253,
+      "201-300": 1.422,
+      "301-400": 1.463
+     },
+     "20260930": {
+      "51-100": 1.187,
+      "101-200": 1.25,
+      "201-300": 1.421,
+      "301-400": 1.464
+     }
+    },
+    "rangeByBand": {
+     "51-100": {
+      "days": 22,
+      "min": 1.161,
+      "max": 1.204,
+      "range": 0.043
+     },
+     "101-200": {
+      "days": 22,
+      "min": 1.236,
+      "max": 1.285,
+      "range": 0.049
+     },
+     "201-300": {
+      "days": 22,
+      "min": 1.376,
+      "max": 1.425,
+      "range": 0.049
+     },
+     "301-400": {
+      "days": 22,
+      "min": 1.35,
+      "max": 1.466,
+      "range": 0.116
+     }
+    },
+    "stable": false,
+    "ownCurveFitByDay": {
+     "20260909": {
+      "n": 400,
+      "c": 0.128,
+      "s": 0.96,
+      "rmse": 136.7
+     },
+     "20260910": {
+      "n": 400,
+      "c": 0.129,
+      "s": 0.97,
+      "rmse": 140.6
+     },
+     "20260911": {
+      "n": 400,
+      "c": 0.129,
+      "s": 0.97,
+      "rmse": 137.3
+     },
+     "20260912": {
+      "n": 400,
+      "c": 0.131,
+      "s": 0.97,
+      "rmse": 137.4
+     },
+     "20260913": {
+      "n": 400,
+      "c": 0.132,
+      "s": 0.97,
+      "rmse": 138.1
+     },
+     "20260914": {
+      "n": 400,
+      "c": 0.135,
+      "s": 0.98,
+      "rmse": 132.7
+     },
+     "20260915": {
+      "n": 400,
+      "c": 0.135,
+      "s": 0.98,
+      "rmse": 132.5
+     },
+     "20260916": {
+      "n": 400,
+      "c": 0.135,
+      "s": 0.98,
+      "rmse": 132.1
+     },
+     "20260917": {
+      "n": 400,
+      "c": 0.135,
+      "s": 0.975,
+      "rmse": 135.9
+     },
+     "20260918": {
+      "n": 400,
+      "c": 0.135,
+      "s": 0.975,
+      "rmse": 138.9
+     },
+     "20260919": {
+      "n": 400,
+      "c": 0.135,
+      "s": 0.97,
+      "rmse": 136.4
+     },
+     "20260920": {
+      "n": 400,
+      "c": 0.135,
+      "s": 0.97,
+      "rmse": 136.4
+     },
+     "20260921": {
+      "n": 400,
+      "c": 0.134,
+      "s": 0.96,
+      "rmse": 123.9
+     },
+     "20260922": {
+      "n": 400,
+      "c": 0.135,
+      "s": 0.96,
+      "rmse": 126.4
+     },
+     "20260923": {
+      "n": 400,
+      "c": 0.133,
+      "s": 0.95,
+      "rmse": 128.3
+     },
+     "20260924": {
+      "n": 400,
+      "c": 0.132,
+      "s": 0.945,
+      "rmse": 131.4
+     },
+     "20260925": {
+      "n": 400,
+      "c": 0.132,
+      "s": 0.945,
+      "rmse": 132.1
+     },
+     "20260926": {
+      "n": 400,
+      "c": 0.131,
+      "s": 0.94,
+      "rmse": 135.5
+     },
+     "20260927": {
+      "n": 400,
+      "c": 0.132,
+      "s": 0.94,
+      "rmse": 137.1
+     },
+     "20260928": {
+      "n": 400,
+      "c": 0.131,
+      "s": 0.94,
+      "rmse": 138.8
+     },
+     "20260929": {
+      "n": 400,
+      "c": 0.13,
+      "s": 0.935,
+      "rmse": 142.0
+     },
+     "20260930": {
+      "n": 400,
+      "c": 0.13,
+      "s": 0.935,
+      "rmse": 145.0
+     }
+    },
+    "forwardMapCheck": [
+     {
+      "fitOn": "20260909",
+      "scoredOn": "20260916",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.1007,
+       "101-200": 0.0565,
+       "201-300": 0.067,
+       "301-400": 0.0788
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.055,
+       "101-200": 0.0187,
+       "201-300": 0.0324,
+       "301-400": 0.1037
+      }
+     },
+     {
+      "fitOn": "20260910",
+      "scoredOn": "20260917",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0966,
+       "101-200": 0.0642,
+       "201-300": 0.0764,
+       "301-400": 0.0633
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0552,
+       "101-200": 0.0208,
+       "201-300": 0.0241,
+       "301-400": 0.1113
+      }
+     },
+     {
+      "fitOn": "20260911",
+      "scoredOn": "20260918",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0999,
+       "101-200": 0.0675,
+       "201-300": 0.0773,
+       "301-400": 0.0656
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0592,
+       "101-200": 0.0214,
+       "201-300": 0.0252,
+       "301-400": 0.1141
+      }
+     },
+     {
+      "fitOn": "20260912",
+      "scoredOn": "20260919",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0985,
+       "101-200": 0.0512,
+       "201-300": 0.0649,
+       "301-400": 0.0585
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0696,
+       "101-200": 0.0235,
+       "201-300": 0.0244,
+       "301-400": 0.0825
+      }
+     },
+     {
+      "fitOn": "20260913",
+      "scoredOn": "20260920",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0909,
+       "101-200": 0.0406,
+       "201-300": 0.0591,
+       "301-400": 0.0806
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0704,
+       "101-200": 0.0192,
+       "201-300": 0.0287,
+       "301-400": 0.1127
+      }
+     },
+     {
+      "fitOn": "20260914",
+      "scoredOn": "20260921",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0741,
+       "101-200": 0.0253,
+       "201-300": 0.0426,
+       "301-400": 0.0343
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0799,
+       "101-200": 0.0155,
+       "201-300": 0.0157,
+       "301-400": 0.0462
+      }
+     },
+     {
+      "fitOn": "20260915",
+      "scoredOn": "20260922",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0707,
+       "101-200": 0.0256,
+       "201-300": 0.0476,
+       "301-400": 0.0419
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0661,
+       "101-200": 0.0107,
+       "201-300": 0.0128,
+       "301-400": 0.0501
+      }
+     },
+     {
+      "fitOn": "20260916",
+      "scoredOn": "20260923",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0517,
+       "101-200": 0.0209,
+       "201-300": 0.042,
+       "301-400": 0.0445
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0601,
+       "101-200": 0.0138,
+       "201-300": 0.0108,
+       "301-400": 0.0582
+      }
+     },
+     {
+      "fitOn": "20260917",
+      "scoredOn": "20260924",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0466,
+       "101-200": 0.012,
+       "201-300": 0.0351,
+       "301-400": 0.0385
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0624,
+       "101-200": 0.0074,
+       "201-300": 0.01,
+       "301-400": 0.0561
+      }
+     },
+     {
+      "fitOn": "20260918",
+      "scoredOn": "20260925",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0453,
+       "101-200": 0.0132,
+       "201-300": 0.0417,
+       "301-400": 0.0417
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0613,
+       "101-200": 0.0092,
+       "201-300": 0.0138,
+       "301-400": 0.0543
+      }
+     },
+     {
+      "fitOn": "20260919",
+      "scoredOn": "20260926",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0357,
+       "101-200": 0.0172,
+       "201-300": 0.032,
+       "301-400": 0.0294
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0575,
+       "101-200": 0.0108,
+       "201-300": 0.0143,
+       "301-400": 0.0591
+      }
+     },
+     {
+      "fitOn": "20260920",
+      "scoredOn": "20260927",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0397,
+       "101-200": 0.0129,
+       "201-300": 0.039,
+       "301-400": 0.0364
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0556,
+       "101-200": 0.0127,
+       "201-300": 0.0113,
+       "301-400": 0.0645
+      }
+     },
+     {
+      "fitOn": "20260921",
+      "scoredOn": "20260928",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0433,
+       "101-200": 0.0206,
+       "201-300": 0.0246,
+       "301-400": 0.0397
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0634,
+       "101-200": 0.0148,
+       "201-300": 0.0153,
+       "301-400": 0.0586
+      }
+     },
+     {
+      "fitOn": "20260922",
+      "scoredOn": "20260929",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0343,
+       "101-200": 0.0329,
+       "201-300": 0.0111,
+       "301-400": 0.0485
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.067,
+       "101-200": 0.017,
+       "201-300": 0.0127,
+       "301-400": 0.0587
+      }
+     },
+     {
+      "fitOn": "20260923",
+      "scoredOn": "20260930",
+      "outOfSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0419,
+       "101-200": 0.0251,
+       "201-300": 0.014,
+       "301-400": 0.0525
+      },
+      "inSampleMedianAbsLog2ByBand": {
+       "51-100": 0.0599,
+       "101-200": 0.0225,
+       "201-300": 0.0153,
+       "301-400": 0.0589
+      }
+     }
+    ]
+   }
+  }
+ },
+ "invariants": {
+  "rebuild_is_identical": true,
+  "direct_hill_matches_pipeline_rank_hill": {
+   "agree": 832,
+   "disagree": 0
+  },
+  "hampel_1000_variant_equals_incumbent": true,
+  "csv_patch_identity_rows_changed": 0,
+  "c3_patch": {
+   "partitionCalls": 2,
+   "rowsRewritten": {
+    "ktcCrowdSfTep": 924,
+    "ktcTradesSfTep": 924
+   },
+   "outOfRangeRewritten": 0,
+   "restored": 1848,
+   "contributionCheck": {
+    "ktcCrowdSfTep": {
+     "playerRowsMatchHillPlayersOnlyRank": 462,
+     "playerRowsMismatch": 0,
+     "pickRowsUnchanged": 36,
+     "pickRowsChanged": 0
+    },
+    "ktcTradesSfTep": {
+     "playerRowsMatchHillPlayersOnlyRank": 462,
+     "playerRowsMismatch": 0,
+     "pickRowsUnchanged": 36,
+     "pickRowsChanged": 0
+    },
+    "publishedSiteValuesDiffering": 0,
+    "ok": true
+   }
+  },
+  "c3_patch_restored_after_build": true,
+  "dlf_join_probe_board_unchanged": true
+ },
+ "invariantsOk": true
+}

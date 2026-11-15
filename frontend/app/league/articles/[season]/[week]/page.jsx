@@ -11,6 +11,7 @@
 import Link from "next/link";
 import { Card } from "../../../shared-server.jsx";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 
 function backendUrl() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -65,7 +66,7 @@ function groupByMatchup(articles) {
 
 export default async function WeekArticlesPage({ params }) {
   const { season, week } = await params;
-  const payload = await fetchSlate(season, week);
+  const [payload, leagueHome] = await Promise.all([fetchSlate(season, week), leagueHomeHref()]);
   const articles = payload?.articles || [];
   const matchups = groupByMatchup(articles);
 
@@ -77,7 +78,7 @@ export default async function WeekArticlesPage({ params }) {
           subtitle="Matchup previews & recaps"
         />
         <div style={{ display: "flex", gap: 8, marginTop: -4, marginBottom: 8 }}>
-          <Link href="/league" style={{ color: "var(--cyan)", fontSize: "0.78rem", textDecoration: "none" }}>
+          <Link href={leagueHome} style={{ color: "var(--cyan)", fontSize: "0.78rem", textDecoration: "none" }}>
             ← Back to /league
           </Link>
         </div>

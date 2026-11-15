@@ -22,7 +22,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "audit_identity_matches.py"
@@ -40,9 +39,23 @@ def _load_module():
 _mod = _load_module()
 
 
-def _latest_export() -> Path | None:
-    candidates = sorted((REPO / "exports" / "latest").glob("dynasty_data_*.json"))
-    return candidates[-1] if candidates else None
+def _run_on_pinned_board(tmp_path, monkeypatch, capsys, *extra: str):
+    """Run the audit's ``main()`` in-process over the PINNED board: its payload
+    and its CSVs (``_mod.REPO`` is where the script resolves ``CSVs/site_raw``),
+    never today's ``exports/latest`` and refresh -- a data refresh must not be
+    able to change a hard-gate result (tests/test_pinned_board.py)."""
+    from tests.archive_fixtures import pinned_board_payload, pinned_board_root
+
+    payload, _ = pinned_board_payload()
+    payload_path = tmp_path / "pinned_payload.json"
+    payload_path.write_text(json.dumps(payload), encoding="utf-8")
+    out = tmp_path / "report.json"
+    monkeypatch.setattr(_mod, "REPO", pinned_board_root())
+    monkeypatch.setattr(
+        sys, "argv", [str(SCRIPT), "--json-path", str(payload_path), "--json", str(out), *extra]
+    )
+    code = _mod.main()
+    return code, out, capsys.readouterr()
 
 
 # ── alias collision-delta invariant ──────────────────────────────────
@@ -150,27 +163,9 @@ class TestAuditSources:
 
 
 class TestCommittedDataRegression:
-    @pytest.mark.skipif(_latest_export() is None, reason="no committed export payload")
-    def test_script_end_to_end_exit_zero(self, tmp_path):
-        out = tmp_path / "report.json"
-        proc = subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPT),
-                "--json-path",
-                str(_latest_export()),
-                "--json",
-                str(out),
-                "--limit",
-                "1",
-            ],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            cwd=str(REPO),
-            timeout=600,
-        )
-        assert proc.returncode == 0, proc.stderr[-2000:]
+    def test_script_end_to_end_exit_zero(self, tmp_path, monkeypatch, capsys):
+        code, out, captured = _run_on_pinned_board(tmp_path, monkeypatch, capsys, "--limit", "1")
+        assert code == 0, captured.err[-2000:]
         report = json.loads(out.read_text(encoding="utf-8"))
         # Every registered source produced an entry.
         from src.api.data_contract import _SOURCE_CSV_PATHS
@@ -189,7 +184,7 @@ class TestCommittedDataRegression:
         unexpected = [c for c in report["aliasCollisions"] if not c.get("knownPoolDuplicate")]
         assert unexpected == []
 
-    def test_gate_exits_zero_under_the_flag_ci_actually_passes(self, tmp_path):
+    def test_gate_exits_zero_under_the_flag_ci_actually_passes(self, tmp_path, monkeypatch, capsys):
         """The CI invocation, verbatim — including ``--fail-on-collision``.
 
         Every other end-to-end test here omits that flag, so none of them
@@ -200,34 +195,18 @@ class TestCommittedDataRegression:
         ``Audit Identity Matches`` went red on ``main`` anyway.  A test
         that does not pass the flag cannot see that.
         """
-        out = tmp_path / "report.json"
-        proc = subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPT),
-                "--json-path",
-                str(_latest_export()),
-                "--json",
-                str(out),
-                "--limit",
-                "10",
-                "--fail-on-collision",
-            ],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            cwd=str(REPO),
-            timeout=600,
+        code, out, captured = _run_on_pinned_board(
+            tmp_path, monkeypatch, capsys, "--limit", "10", "--fail-on-collision"
         )
-        assert proc.returncode == 0, (
-            "identity audit gate failed:\n" + proc.stdout[-3000:] + proc.stderr[-2000:]
+        assert code == 0, (
+            "identity audit gate failed:" + chr(10) + captured.out[-3000:] + captured.err[-2000:]
         )
         # Allow-listed collisions stay VISIBLE — marked, not hidden.
         report = json.loads(out.read_text(encoding="utf-8"))
         known = [c for c in report["aliasCollisions"] if c.get("knownPoolDuplicate")]
         if known:
-            assert "::notice title=Known pool duplicate" in proc.stdout
-            assert "::error title=Alias collision" not in proc.stdout
+            assert "::notice title=Known pool duplicate" in captured.out
+            assert "::error title=Alias collision" not in captured.out
 
     def test_gate_still_fails_on_a_collision_outside_the_allowlist(self, tmp_path):
         """The exemption must not become a blanket pass.

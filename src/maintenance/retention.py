@@ -26,6 +26,10 @@ not tight budgets):
   source-history fallback in ``server.py`` mines these when the
   dedicated history log is missing/empty; 45d is well past any window
   the UI reads).
+* ``data/identity_capture_evidence/identity_capture_evidence_*.json.gz``
+                                       — keep 30 days
+  (``capture_evidence.BOX_EVIDENCE_RETENTION_DAYS``).  Full V2.1 U2/U2b
+  stamps, gitignored; git keeps only the checksummed manifest.
 
 NEVER touched (hard-guarded, not merely un-globbed):
 ``exports/latest/``, ``data/rank_history.jsonl``, ``data/identity/``,
@@ -420,6 +424,24 @@ def prune_data_dir(
         DYNASTY_DATA_MAX_AGE_DAYS,
         protected,
         report._cat("dynasty_data"),
+        now=now,
+        dry_run=dry_run,
+    )
+
+    # 6. Full V2.1 identity-capture evidence (gitignored; the committed
+    #    manifest carries its checksum).  The window is owned by
+    #    ``capture_evidence`` so the manifest states the retention it gets.
+    from src.identity.capture_evidence import (  # noqa: PLC0415
+        BOX_EVIDENCE_RETENTION_DAYS,
+        EVIDENCE_DIR_REL,
+    )
+
+    _prune_by_age(
+        base_dir / EVIDENCE_DIR_REL,
+        "identity_capture_evidence_*.json.gz",
+        BOX_EVIDENCE_RETENTION_DAYS,
+        protected,
+        report._cat("identity_capture_evidence"),
         now=now,
         dry_run=dry_run,
     )

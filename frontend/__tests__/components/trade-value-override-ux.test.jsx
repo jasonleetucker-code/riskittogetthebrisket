@@ -133,6 +133,29 @@ describe("/trade manual override UX", () => {
     await waitFor(() => expect(inputB).toHaveValue(null));
   });
 
+  it("renders NO per-player reset affordance beside an overridden value (owner intake #781, TCM-D14)", async () => {
+    seedTwoSideWorkspace();
+    render(<TradePage />);
+    const input = await screen.findByLabelText(
+      /Override Bijan Robinson's value for this trade/i,
+    );
+    await userEvent.type(input, "5000");
+    await waitFor(() => expect(input).toHaveValue(5000));
+    // The retired affordance was a ghost "Reset" button labelled
+    // "Reset Bijan Robinson to the default value".  Only the ONE global
+    // "Reset Values" control may remain.
+    expect(
+      screen.queryByRole("button", { name: /Reset Bijan Robinson/i }),
+    ).toBeNull();
+    const resets = screen
+      .queryAllByRole("button")
+      .filter((b) => /^\s*reset\b/i.test(b.textContent || ""));
+    expect(resets.map((b) => b.textContent.trim())).toEqual(["Reset Values"]);
+    // Emptying the input still clears the override.
+    await userEvent.clear(input);
+    await waitFor(() => expect(input).toHaveValue(null));
+  });
+
   it("disables the top-level Reset Values control when nothing is overridden", async () => {
     seedTwoSideWorkspace();
     render(<TradePage />);

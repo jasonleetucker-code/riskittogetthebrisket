@@ -6,6 +6,7 @@ import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
 import { useTerminal } from "@/components/useTerminal";
 import { computePortfolio } from "@/lib/portfolio-insights";
+import { PICK_OWNERSHIP_UNAVAILABLE_LABEL } from "@/lib/pick-ownership";
 import { Panel, SkeletonTable } from "@/components/ds";
 
 const POS_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK"];
@@ -139,6 +140,7 @@ export default function PortfolioSummary() {
     lineupKnown,
     pickCount,
     pickValue,
+    pickOwnershipUnavailable,
     byPosition,
     byAge,
     volExposure,
@@ -167,6 +169,11 @@ export default function PortfolioSummary() {
           {coverage < 1 && unresolved.length > 0 && (
             <span className="portfolio-agg-hint">
               {unresolved.length} unresolved
+            </span>
+          )}
+          {pickOwnershipUnavailable && (
+            <span className="portfolio-agg-hint" title={PICK_OWNERSHIP_UNAVAILABLE_LABEL}>
+              excludes picks (ownership unavailable)
             </span>
           )}
         </div>
@@ -199,11 +206,17 @@ export default function PortfolioSummary() {
               <strong>Bench</strong>{" "}
               {formatValue(benchValue)} · {formatPct(100 - starterPct)} · {benchCount}
             </span>
-            {pickCount > 0 && (
+            {pickOwnershipUnavailable ? (
               <span>
-                <strong>Picks</strong>{" "}
-                {formatValue(pickValue)} · {pickCount}
+                <strong>Picks</strong> —
               </span>
+            ) : (
+              pickCount > 0 && (
+                <span>
+                  <strong>Picks</strong>{" "}
+                  {formatValue(pickValue)} · {pickCount}
+                </span>
+              )
             )}
           </div>
         </div>

@@ -62,6 +62,8 @@ describe("isNoPlayerDataRoute — the cost decision", () => {
 
   it("matches descendants, so /admin/sharp-identities is covered", () => {
     expect(isNoPlayerDataRoute("/admin/sharp-identities")).toBe(true);
+    // The Model Lab (IC-6) reads only /api/model-lab, never the player contract.
+    expect(isNoPlayerDataRoute("/admin/model-lab")).toBe(true);
   });
 
   it("does not match on a shared prefix string", () => {
@@ -88,6 +90,11 @@ describe("the two routes deliberately NOT gated", () => {
   it("keeps /tools/trade-coverage on the pipeline — it reads useApp().rawData", () => {
     expect(isNoPlayerDataRoute("/tools/trade-coverage")).toBe(false);
     expect(privateDataEnabled("/tools/trade-coverage")).toBe(true);
+  });
+
+  it("gates /dfs, which reads only /api/dfs/* and never the dynasty board", () => {
+    expect(isNoPlayerDataRoute("/dfs")).toBe(true);
+    expect(privateDataEnabled("/dfs")).toBe(false);
   });
 
   it("gates the other /tools health pages, which read /api/status instead", () => {

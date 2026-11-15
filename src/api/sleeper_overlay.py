@@ -53,7 +53,7 @@ from typing import Any
 
 from src.identity import picks as _pick_identity
 from src.utils.name_clean import strip_display_suffix
-from src.utils.owner_names import owner_label
+from src.utils.owner_names import owner_label, owner_name_for_user_id
 
 log = logging.getLogger(__name__)
 
@@ -123,15 +123,75 @@ def _utc_now_ms() -> int:
     return int(time.time() * 1000)
 
 
-def _http_get_json(url: str) -> Any:
-    """Fetch a Sleeper endpoint and parse JSON.  Returns ``None`` on
-    any failure — callers treat missing data as "no overlay available"
-    and serve the data-not-ready state.
+# Outcome kinds of :func:`_http_get_json_classified`.  Same vocabulary as
+# ``public_league.sleeper_client`` (``ok`` / ``not_found`` / ``error``) plus the
+# one state only this breaker-guarded path has.
+FETCH_OK = "ok"
+FETCH_NOT_FOUND = "not_found"
+FETCH_ERROR = "error"
+FETCH_BREAKER_OPEN = "breaker_open"
 
-    Protected by the ``sleeper_api`` circuit breaker: after repeated
-    failures the breaker OPENs and this call fails fast (returns
-    None) for 60s, preventing a Sleeper outage from turning into 10
-    minutes of /api/data timeouts.
+
+#: Upper bound on the bytes read from a 404's body to decide whether it is
+#: Sleeper's own (empty / JSON ``null``).  ``null`` plus whitespace is a handful of
+#: bytes; reading ``limit + 1`` is enough to tell "longer than any real one"
+#: without ever buffering an arbitrary error page.  PRIOR, not fitted.
+_NOT_FOUND_BODY_MAX_BYTES = 64
+
+
+def _is_sleepers_own_404(exc: urllib.error.HTTPError) -> bool:
+    """Whether a 404's body is what Sleeper answers for an id that does not exist:
+    empty, or JSON ``null`` (surrounding whitespace aside).
+
+    Reads at most ``_NOT_FOUND_BODY_MAX_BYTES + 1`` bytes.  Anything else -- an
+    HTML page, a gateway / WAF message, a JSON error object, an over-long body, a
+    body that cannot be read -- is NOT recognised, so the caller treats the 404 as
+    an ordinary failure.
+    """
+    try:
+        body = exc.read(_NOT_FOUND_BODY_MAX_BYTES + 1)
+    except Exception:  # noqa: BLE001 -- an unreadable body proves nothing
+        return False
+    if not isinstance(body, (bytes, bytearray)):
+        return False
+    if len(body) > _NOT_FOUND_BODY_MAX_BYTES:
+        return False
+    return bytes(body).strip() in (b"", b"null")
+
+
+def _http_get_json_classified(url: str) -> tuple[str, Any]:
+    """``(kind, payload)`` for one Sleeper GET -- :func:`_http_get_json` with the
+    outcome kept.
+
+    * ``ok`` -- a non-null JSON body;
+    * ``not_found`` -- an HTTP 404 whose body is EMPTY or JSON ``null`` (what
+      Sleeper itself answers for an id that does not exist), or a 200 whose body
+      is JSON ``null`` (same reading as ``sleeper_client.request_json_classified``);
+    * ``breaker_open`` -- the ``sleeper_api`` breaker refused the call, so
+      Sleeper was NOT contacted;
+    * ``error`` -- a transport failure, timeout, any other HTTP status, a
+      non-JSON body, or a 404 with ANY other body (see below).
+
+    **A genuine 404 is an answer, not an availability failure.**  The breaker
+    exists to stop a Sleeper OUTAGE turning into minutes of timeouts.  Sleeper's
+    own 404 for one specific league / draft / user must not count toward the trip
+    threshold: before this, five deleted leagues in a row (the Sharp transaction
+    crawl's queue head held ~598 of them) opened the breaker and every healthy
+    league behind them fast-failed for the rest of the run.
+
+    **But a 404 is reported to the breaker as NOTHING -- neither success nor
+    failure.**  It proves one id is absent, not that Sleeper is healthy, so it
+    must not forgive an outage: a HALF_OPEN probe that gets a 404 stays
+    HALF_OPEN (the next real 200 closes it, a real failure re-opens it).
+
+    **And only Sleeper's own 404 is spared.**  A 404 whose body is anything but
+    empty / JSON ``null`` (an HTML error page, a WAF or gateway answer, a JSON
+    error envelope) is not Sleeper saying "no such league" -- it is something in
+    front of Sleeper refusing the request, which is exactly the outage the breaker
+    exists for.  It is an ``error`` and counts.  The body is read with a hard
+    size bound (:data:`_NOT_FOUND_BODY_MAX_BYTES`); an unreadable or oversized one
+    is not recognised either.  5xx, 429, other statuses, timeouts, transport
+    errors and non-JSON bodies count as before.
     """
     # Circuit breaker: fail fast when Sleeper is tripped.
     try:
@@ -145,7 +205,7 @@ def _http_get_json(url: str) -> Any:
         )
         if not bp.can_call():
             log.warning("sleeper_overlay: breaker OPEN, fast-fail %s", url)
-            return None
+            return FETCH_BREAKER_OPEN, None
     except Exception:  # noqa: BLE001 — never let CB itself break the fetch
         bp = None
 
@@ -153,28 +213,67 @@ def _http_get_json(url: str) -> Any:
         req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
         with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SEC) as resp:
             body = resp.read()
+    except urllib.error.HTTPError as exc:
+        # HTTPError is a URLError subclass, so it must be matched first.
+        if exc.code == 404:
+            if _is_sleepers_own_404(exc):
+                # An answer about one id, not evidence about availability: the
+                # breaker hears nothing (see the docstring).
+                log.info("sleeper_overlay: %s answered 404 (not found)", url)
+                return FETCH_NOT_FOUND, None
+            log.warning(
+                "sleeper_overlay: %s answered 404 with a body that is not Sleeper's "
+                "own (neither empty nor JSON null); counted as a failure",
+                url,
+            )
+            if bp is not None:
+                bp.report_failure("http_404_unrecognised_body")
+            return FETCH_ERROR, None
+        log.warning("sleeper_overlay: fetch %s failed: %s", url, exc)
+        if bp is not None:
+            bp.report_failure(exc)
+        return FETCH_ERROR, None
     except (
         urllib.error.URLError,
-        urllib.error.HTTPError,
         TimeoutError,
         http.client.RemoteDisconnected,
     ) as exc:
         log.warning("sleeper_overlay: fetch %s failed: %s", url, exc)
         if bp is not None:
             bp.report_failure(exc)
-        return None
+        return FETCH_ERROR, None
     try:
         parsed = json.loads(body)
-        if bp is not None:
-            bp.report_success()
-        return parsed
     except (json.JSONDecodeError, ValueError):
         log.warning("sleeper_overlay: non-JSON response from %s", url)
         if bp is not None:
             # JSON-parse failure counts as a failure — Sleeper returning
             # an HTML challenge page means they're blocking us.
             bp.report_failure("non_json")
-        return None
+        return FETCH_ERROR, None
+    if bp is not None:
+        bp.report_success()
+    if parsed is None:
+        return FETCH_NOT_FOUND, None
+    return FETCH_OK, parsed
+
+
+def _http_get_json(url: str) -> Any:
+    """Fetch a Sleeper endpoint and parse JSON.  Returns ``None`` on
+    any failure — callers treat missing data as "no overlay available"
+    and serve the data-not-ready state.
+
+    Protected by the ``sleeper_api`` circuit breaker: after repeated
+    failures the breaker OPENs and this call fails fast (returns
+    None) for 60s, preventing a Sleeper outage from turning into 10
+    minutes of /api/data timeouts.  Sleeper's own 404 (empty / JSON ``null``
+    body) does NOT count as a failure and is not reported to the breaker at all;
+    a 404 with any other body DOES count (see
+    :func:`_http_get_json_classified`).  Either way it still returns ``None``
+    here, so callers that cannot tell "gone" from "failed" read it
+    exactly as before.
+    """
+    return _http_get_json_classified(url)[1]
 
 
 class _BuildFetcher:
@@ -331,10 +430,10 @@ def _format_pick_label(season: str, round_num: int, slot: int | None = None) -> 
 def _build_pick_ownership(
     sleeper_league_id: str,
     roster_ids: list[int],
-    num_rounds: int = 6,
-    num_years: int = 3,
+    num_rounds: int | None = None,
     getter=None,
-) -> dict[int, list[dict[str, Any]]]:
+    league_season: Any = None,
+) -> dict[int, list[dict[str, Any]]] | None:
     """Return ``{rosterId: [pickDetail, ...]}`` — which future picks
     each roster currently owns based on the league's
     ``/traded_picks`` endpoint.
@@ -345,29 +444,54 @@ def _build_pick_ownership(
     ownership.  Matches the scraper's team_pick_details construction
     in Dynasty Scraper.py (fetch_sleeper_rosters).
 
-    Returns an empty map on any fetch failure — callers degrade to
-    the data-not-ready state for draft-capital widgets.
+    Returns ``None`` when ``/traded_picks`` was not OBSERVED (failed
+    fetch, or a non-list body): ownership is UNKNOWN, and folding the
+    defaults over a missing diff would publish "no pick was ever traded"
+    as fact.  A 200 empty list is an observation and still folds the
+    defaults.  The state vocabulary lives in ``src/identity/picks.py``
+    (``traded_picks_observation`` / ``pick_ownership_fields``).
     """
     import datetime as _dt
 
     if not roster_ids:
         return {}
-    current_year = _dt.datetime.now(_dt.timezone.utc).year
-    years = [current_year + y for y in range(num_years)]
-    # #1414: a class THIS league has drafted and rostered is no longer an
-    # owned pick.  League-scoped verdict from the league's persisted
-    # draft-class snapshot (written off the request path by the warm pass);
-    # no snapshot → unknown → every year kept.
-    try:
-        from src.api.draft_class_evidence import active_seasons_for_league
+    if num_rounds is None:
+        from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS
 
-        years = active_seasons_for_league(sleeper_league_id, years)
+        num_rounds = OWNED_PICK_DEFAULT_ROUNDS
+    # #1414 + Wave A: which seasons a league owns picks in is the
+    # league-scoped canonical answer (``pick_lifecycle.league_draft_years``)
+    # — the SAME horizon the scraper publishes.  This builder used to seed
+    # three calendar years where the scraper seeded four, so the overlay
+    # never carried the third future class.  League-scoped verdict from the
+    # league's persisted draft-class snapshot (written off the request path
+    # by the warm pass); no snapshot → unknown → nothing retired.
+    try:
+        from src.api.draft_class_evidence import league_draft_years_for
+
+        years = list(
+            league_draft_years_for(
+                sleeper_league_id, league_season=league_season
+            ).owned_pick_seasons
+        )
     except Exception as exc:  # noqa: BLE001 — unknown never retires
         log.warning("sleeper_overlay: draft-class lifecycle unavailable: %s", exc)
+        from src.identity.pick_lifecycle import OWNED_PICK_HORIZON_CLASSES
 
-    traded = (getter or _http_get_json)(
-        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
+        current_year = _dt.datetime.now(_dt.timezone.utc).year
+        years = [current_year + y for y in range(OWNED_PICK_HORIZON_CLASSES)]
+
+    traded = _pick_identity.traded_picks_observation(
+        (getter or _http_get_json)(
+            f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
+        )
     )
+    if traded is None:
+        log.warning(
+            "sleeper_overlay: /traded_picks not observed for %s; pick ownership unknown",
+            sleeper_league_id,
+        )
+        return None
 
     # The seed + traded-diff fold is owned by the canonical pick-identity
     # module (C1-ID-02) — one implementation instead of the four copies
@@ -380,7 +504,7 @@ def _build_pick_ownership(
     owned = _pick_identity.build_pick_ownership(
         league_key or "unregistered-league",
         roster_ids,
-        traded if isinstance(traded, list) else [],
+        traded,
         seasons=years,
         rounds=num_rounds,
     )
@@ -424,7 +548,11 @@ def _build_teams_block(
 
     Also populates ``picks`` (list of pick labels) + ``pickDetails``
     (raw {season, round, ...} dicts) per team by resolving
-    ``/traded_picks`` against each roster's default ownership.
+    ``/traded_picks`` against each roster's default ownership.  Every
+    team carries ``pickOwnershipState`` (``observed`` | ``unavailable``)
+    and ``pickOwnershipReason``; when ``/traded_picks`` was not observed
+    the rosters still publish but ``picks`` / ``pickDetails`` are ``None``
+    (unknown), never ``[]``.
     This is what unblocks /api/draft-capital + angle-finder for
     non-default leagues.
     """
@@ -482,7 +610,21 @@ def _build_teams_block(
                 roster_ids.append(int(r["roster_id"]))
             except (TypeError, ValueError):
                 continue
-    pick_ownership = _build_pick_ownership(sleeper_league_id, roster_ids, getter=getter)
+    # Same league facts the scraper reads: Sleeper's own season (a floor on
+    # the draft-year anchor) and its configured rookie-draft round count —
+    # seeding 6 rounds for a 4-round league published picks that do not exist.
+    from src.identity.pick_lifecycle import league_draft_rounds
+
+    pick_ownership = _build_pick_ownership(
+        sleeper_league_id,
+        roster_ids,
+        num_rounds=league_draft_rounds(league_settings),
+        getter=getter,
+        league_season=league_info.get("season") if isinstance(league_info, dict) else None,
+    )
+    # None = /traded_picks not observed: every team's picks are UNKNOWN
+    # (``None``), never ``[]`` — an empty list would say "owns no picks".
+    pick_state = _pick_identity.pick_ownership_fields(pick_ownership is not None)
 
     teams: list[dict[str, Any]] = []
     for r in rosters:
@@ -506,8 +648,15 @@ def _build_teams_block(
             rid_int = int(roster_id) if roster_id is not None else 0
         except (TypeError, ValueError):
             rid_int = 0
-        pick_details = pick_ownership.get(rid_int, [])
-        pick_labels = [p["label"] for p in pick_details]
+        pick_details: list[dict[str, Any]] | None
+        pick_labels: list[str] | None
+        if pick_ownership is None:
+            pick_details = None
+            pick_labels = None
+        else:
+            # Observed: a roster absent from the fold genuinely owns none.
+            pick_details = pick_ownership.get(rid_int, [])
+            pick_labels = [p["label"] for p in pick_details]
 
         # FAAB used lives at ``roster.settings.waiver_budget_used``
         # and is reset every season by Sleeper.  Combined with the
@@ -537,6 +686,7 @@ def _build_teams_block(
                 "playerIds": [str(pid) for pid in player_ids if pid],
                 "picks": pick_labels,
                 "pickDetails": pick_details,
+                **pick_state,
                 "faabBudget": league_faab_budget,
                 "faabUsed": faab_used,
                 "faabRemaining": faab_remaining,
@@ -1277,6 +1427,59 @@ NFL_WIDE_SLEEPER_FIELDS: tuple[str, ...] = (
 )
 
 
+def relabel_sleeper_block(sleeper: Mapping[str, Any] | None) -> dict[str, str]:
+    """Bring a baked ``sleeper`` block's team labels up to the names keyed
+    by permanent Sleeper user id (``config/leagues/owner_names.json``
+    ``_byUserId``).  Mutates the block in place; returns ``{old: new}``.
+
+    A contract built from an export scraped before a name was configured
+    carries the old label (a raw handle) until the next scrape, while the
+    live overlay ``/api/data`` splices on already uses the configured name
+    — so server-side engines (Team Strength, trade tools) and the page
+    would name the same roster two ways.  Labels are display; identity is
+    ``ownerId`` / ``roster_id`` and is never touched.  A rename is skipped
+    when another team already carries the new label (labels must stay
+    unambiguous within the league).
+    """
+    if not isinstance(sleeper, dict):
+        return {}
+    teams = [t for t in (sleeper.get("teams") or []) if isinstance(t, dict)]
+    current = {t.get("name") for t in teams}
+    renames: dict[str, str] = {}
+    for team in teams:
+        new = owner_name_for_user_id(team.get("ownerId"))
+        old = team.get("name")
+        if new and isinstance(old, str) and old and old != new:
+            renames[old] = new
+    # Never rename onto a label another team already carries.
+    renames = {o: n for o, n in renames.items() if n not in current}
+    if not renames:
+        return {}
+    for team in teams:
+        if team.get("name") in renames:
+            team["name"] = renames[team["name"]]
+        if isinstance(team.get("picks"), list):
+            team["picks"] = [_pick_identity.relabel_pick_origin(p, renames) for p in team["picks"]]
+        for pick in team.get("pickDetails") or []:
+            if not isinstance(pick, dict):
+                continue
+            if pick.get("fromTeam") in renames:
+                pick["fromTeam"] = renames[pick["fromTeam"]]
+            pick["label"] = _pick_identity.relabel_pick_origin(pick.get("label"), renames)
+    for trade in sleeper.get("trades") or []:
+        if not isinstance(trade, dict):
+            continue
+        for side in trade.get("sides") or []:
+            if not isinstance(side, dict):
+                continue
+            if side.get("team") in renames:
+                side["team"] = renames[side["team"]]
+            for key in ("got", "gave"):
+                if isinstance(side.get(key), list):
+                    side[key] = [_pick_identity.relabel_pick_origin(x, renames) for x in side[key]]
+    return renames
+
+
 def league_config_is_complete(config: Mapping[str, Any] | None) -> bool:
     """Is this enough of a league to publish as READY?
 
@@ -1430,7 +1633,7 @@ def fetch_sleeper_overlay(
         {
             "leagueId":    str,
             "leagueName":  str,
-            "teams":       [{name, ownerId, roster_id, players, playerIds, picks=[], pickDetails=[]}],
+            "teams":       [{name, ownerId, roster_id, players, playerIds, picks, pickDetails, pickOwnershipState, pickOwnershipReason}],
             "trades":      [<raw sleeper trade dicts>],
             "tradeWindowDays":  int,
             "tradeWindowStart": iso-str,
@@ -1697,6 +1900,29 @@ def fetch_sleeper_teams_overlay(
     with _CACHE_LOCK:
         _TEAMS_CACHE[sleeper_league_id] = {"payload": dict(payload), "_cached_at": now}
     return payload
+
+
+def overlay_observation_servable(fetched_at: Any, *, now: float | None = None) -> bool:
+    """Whether an overlay observed at ``fetched_at`` may still be served.
+
+    The ONE statement of this module's freshness contract for callers that
+    hold an overlay-derived artifact (``server.py`` keeps encoded
+    ``/api/data`` bytes): an observation is servable while it is younger
+    than ``_STALE_SERVE_MAX_SEC`` -- the same ceiling
+    ``fetch_sleeper_overlay`` applies to its own stale-serve.  Fails
+    closed: a missing, unparseable, zone-less or future stamp is NOT
+    servable, so an unknown age can never extend the window.
+    """
+    if not isinstance(fetched_at, str) or not fetched_at:
+        return False
+    try:
+        observed = _dt.datetime.fromisoformat(fetched_at.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if observed.tzinfo is None:
+        return False
+    age = (time.time() if now is None else now) - observed.timestamp()
+    return 0.0 <= age < _STALE_SERVE_MAX_SEC
 
 
 def invalidate_overlay_cache(sleeper_league_id: str | None = None) -> None:

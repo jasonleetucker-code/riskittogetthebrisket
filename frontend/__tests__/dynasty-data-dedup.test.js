@@ -196,6 +196,44 @@ describe("contract data layer dedup + TTL", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("a failed custom mix is LABELLED as the default board and never cached", async () => {
+    // Rankings must not pass the default board off as the custom
+    // source/TE mix the user asked for (incident review, 2026-10-05).
+    globalThis.fetch = vi.fn((url) => {
+      if (String(url).includes("/api/rankings/overrides")) {
+        return Promise.resolve({
+          ok: false,
+          status: 503,
+          text: async () => JSON.stringify({ error: "data_not_ready", message: "Not compatible." }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => structuredClone(BASE_PAYLOAD) });
+    });
+    const first = await fetchDynastyData({ tepMultiplier: 1.15 });
+    expect(first.ok).toBe(true);
+    expect(first.overrideFailure).toMatchObject({
+      kind: "degraded",
+      code: "data_not_ready",
+      message: "Not compatible.",
+    });
+    // Not memoised: the next load asks for the mix again.
+    await fetchDynastyData({ tepMultiplier: 1.15 });
+    const posts = globalThis.fetch.mock.calls.filter(([u]) =>
+      String(u).includes("/api/rankings/overrides"),
+    );
+    expect(posts).toHaveLength(2);
+  });
+
+  it("an unreachable overrides endpoint is labelled 'offline', not silent", async () => {
+    globalThis.fetch = vi.fn((url) =>
+      String(url).includes("/api/rankings/overrides")
+        ? Promise.reject(new Error("network down"))
+        : Promise.resolve({ ok: true, json: async () => structuredClone(BASE_PAYLOAD) }),
+    );
+    const result = await fetchDynastyData({ tepMultiplier: 1.15 });
+    expect(result.overrideFailure?.kind).toBe("offline");
+  });
+
   it("the base fetch revalidates with no-cache, never no-store", async () => {
     await fetchDynastyData();
     const [url, opts] = globalThis.fetch.mock.calls[0];

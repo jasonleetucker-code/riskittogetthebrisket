@@ -118,7 +118,7 @@ def _default_payload_path() -> Path | None:
 def _load_rows(payload_path: Path) -> list[dict[str, Any]]:
     from src.api.data_contract import build_api_data_contract  # noqa: PLC0415
 
-    payload = json.loads(payload_path.read_text())
+    payload = json.loads(payload_path.read_text(encoding="utf-8"))
     contract = build_api_data_contract(payload)
     rows: list[dict[str, Any]] = []
     for row in contract.get("playersArray") or []:
@@ -387,7 +387,7 @@ def main() -> int:
 
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(json.dumps(payload_out, indent=2) + "\n")
+        args.out.write_text(json.dumps(payload_out, indent=2) + "\n", encoding="utf-8")
         print(f"\nWrote {args.out}")
     return 0
 

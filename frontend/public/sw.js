@@ -61,7 +61,20 @@
 // payload after deployment, and the rankings UI interpreted its
 // missing score fields as real zeroes.  The version bump evicts every
 // such payload already stored on visitors' devices.
-const CACHE_VERSION = "chaseupside-v8";
+// v9: /api/auction/ added to NEVER_CACHE.  The rookie auction room's
+// responses carry private balances, private maximum bids and live room
+// state; the network-first fallback would otherwise store them at rest
+// and could replay a stale balance offline as if it were current.  The
+// bump evicts anything already stored.
+// v10: /api/public/league/trade-advisor added to NEVER_CACHE (review
+// R2-7 / privacy F-2).  The Brisket Trade Advisor's team and asset lists
+// and its analyze answers are served `no-store`, but the public-league
+// network-first branch below put every GET into CacheStorage regardless.
+// Nothing in them is a value, yet "no cache holding" is the advisor's
+// contract and an offline replay of a stale roster list would build a
+// trade against rosters that no longer exist.  The bump evicts anything
+// already stored.
+const CACHE_VERSION = "chaseupside-v10";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;
@@ -87,6 +100,19 @@ const NEVER_CACHE = [
   // payload's caching now.
   "/api/data",
   "/api/dynasty-data",
+  // Rookie auction room: private bids/balances + authoritative live
+  // state.  Never at rest, never replayed offline.  The pages too: invite,
+  // reset and email-verification URLs carry one-time tokens.
+  "/api/auction/",
+  "/auction",
+  // Brisket Trade Advisor (public, value-free, but served no-store and
+  // roster-state dependent): never at rest, never replayed offline.  Must
+  // sit here because the generic `/api/public/league` branch below would
+  // otherwise network-first-and-put it.
+  "/api/public/league/trade-advisor",
+  // Waiver Wire Comparison: live roster ownership, served with its own
+  // freshness stamps — never replayed from CacheStorage.
+  "/api/public/waiver-compare",
 ];
 
 function isNeverCache(url) {
@@ -194,8 +220,9 @@ self.addEventListener("push", (event) => {
   }
   const title = String(payload.title || "Chase Upside").slice(0, 120);
   const body = String(payload.body || "").slice(0, 300);
-  const url = typeof payload.url === "string" ? payload.url : "/";
+  const url = safeNotificationPath(payload.url);
   const tag = typeof payload.tag === "string" ? payload.tag : undefined;
+  const timestamp = Number.isFinite(payload.ts) ? payload.ts : undefined;
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -204,13 +231,16 @@ self.addEventListener("push", (event) => {
       data: { url },
       tag,
       renotify: !!tag,
+      timestamp,
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/";
+  // Only ever open a same-origin PATH.  A tap navigates; it never acts
+  // (no bid, no trade acceptance) — the page it opens is authenticated.
+  const target = safeNotificationPath(event.notification.data && event.notification.data.url);
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const c of clients) {
@@ -228,6 +258,19 @@ self.addEventListener("notificationclick", (event) => {
     }),
   );
 });
+
+function safeNotificationPath(raw) {
+  // Resolve exactly as the browser will, then require our own origin — a
+  // string prefix check is not enough ("/\t/evil.com" resolves off-origin).
+  if (typeof raw !== "string" || raw.length > 300) return "/";
+  try {
+    const u = new URL(raw, self.location.origin);
+    if (u.origin !== self.location.origin) return "/";
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return "/";
+  }
+}
 
 async function offlineFallback() {
   const shell = await caches.match("/");

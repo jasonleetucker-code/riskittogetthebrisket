@@ -99,9 +99,9 @@ from src.packages import SEND as _SEND
 from src.packages import UNCONSTRAINED_OUTGOING as _UNCONSTRAINED_OUTGOING
 from src.packages import EligibilityPolicy as _EligibilityPolicy
 from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
-from src.trade.ktc_va import (
+from src.valuation_math.package_model import adjust_pair as _adjust_pair
+from src.valuation_math.package_model import (
     adjusted_pair_totals as _adjusted_pair_totals,  # noqa: F401
-    ktc_adjust_package,
 )
 from src.utils.name_clean import normalize_position as _normalize_position
 
@@ -122,27 +122,33 @@ _IDP_POSITIONS: frozenset[str] = frozenset(
 _IDP_FAMILIES: frozenset[str] = frozenset({"DL", "LB", "DB"})
 
 
-def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
-    """KTC's VA from the perspective of ``small`` as team1.
+def _value_adjustment(
+    small: Sequence[float],
+    large: Sequence[float],
+    *,
+    model_id: str | None = None,
+) -> float:
+    """The active package model's VA from the perspective of ``small`` as team1.
 
-    Returns the VA magnitude when KTC awards it to the ``small`` side
+    Returns the VA magnitude when the model awards it to the ``small`` side
     (``small`` is team1 → side==1), else 0.0.  Thin compat shim around
-    :func:`ktc_adjust_package` so existing callers (tests, importers)
-    keep working with the legacy float-return signature.
+    :func:`src.valuation_math.package_model.adjust_pair` so existing callers
+    (tests, importers) keep working with the legacy float-return signature.
+    ``model_id=None`` is the ACTIVE model; an explicit id (e.g. the KTC
+    rollback model) passes straight through to the dispatch.
 
     The legacy V2 implementation lived inline here; it was replaced
-    with KTC's actual algorithm via :mod:`src.trade.ktc_va` so the
-    Angle Finder grades trades the same way the trade calculator
-    displays them (PR follow-up to #335).
+    with the package-model dispatch so the Angle Finder grades trades the
+    same way the trade calculator displays them (PR follow-up to #335).
     """
     small_sorted = sorted((float(v) for v in small), reverse=True)
     large_sorted = sorted((float(v) for v in large), reverse=True)
     if not small_sorted or not large_sorted:
         return 0.0
-    result = ktc_adjust_package(small_sorted, large_sorted)
-    if not result.displayed or result.value <= 0 or result.side != 1:
+    value, side, displayed = _adjust_pair(small_sorted, large_sorted, model_id=model_id)
+    if not displayed or value <= 0 or side != 1:
         return 0.0
-    return float(result.value)
+    return float(value)
 
 
 def _is_idp_position(position: Any) -> bool:
@@ -389,6 +395,32 @@ def _capacity_block(
         }
 
 
+def _counterparty_block(
+    resolver: Any,
+    owner_id: Any,
+    *,
+    incoming: Sequence[Any],
+    outgoing: Sequence[Any],
+) -> dict[str, Any]:
+    """The counterparty's capacity read via the owner, or a NAMED unavailable."""
+    from src.trade.roster_capacity import (  # noqa: PLC0415
+        counterparty_capacity_block,
+        player_names_only,
+    )
+
+    owner = str(owner_id or "")
+    if not owner or "+" in owner:
+        return {
+            "unavailable": "multiple_counterparties" if "+" in owner else "counterparty_unresolved",
+            "notes": ["this package does not come from exactly one team"],
+        }
+    return counterparty_capacity_block(
+        resolver(owner),
+        incoming_players=player_names_only(incoming),
+        outgoing_players=player_names_only(outgoing),
+    )
+
+
 def find_angles(
     players_array: list[dict[str, Any]],
     selected_player_name: str,
@@ -598,7 +630,7 @@ _ANGLE_POLICY = _EligibilityPolicy(min_value=None, allow_unknown_value=True, req
 # carry no canonical asset id, which means the dedup identity here falls back
 # to names — the substrate reports that rather than letting it pass as an id
 # key.
-def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
+def _angle_sides(pool, sizes, *, side, outgoing_policy, required=(), against=None, refused=None):
     """Every candidate package side, via the canonical substrate.
 
     ``side`` and ``outgoing_policy`` are REQUIRED and are threaded from the
@@ -608,7 +640,7 @@ def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
     would put a C3-CON-01 outgoing constraint on an incoming pool — the §2.2
     asymmetry inverted, which blocks acquiring a player the user protects.
     """
-    from src.packages import enumerate_sides  # noqa: PLC0415
+    from src.packages import enumerate_sides, topology_is_allowed  # noqa: PLC0415
 
     sides, _report = enumerate_sides(
         pool,
@@ -623,6 +655,15 @@ def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
         adapt=False,
     )
     for side_assets in sides:
+        # C3-TOPO-01 (Wave B): a generated counter-package keeps the two
+        # sides' PLAYER counts within one of each other.  ``against`` is the
+        # fixed side the user built (offer mode: what we send; acquire mode:
+        # what we want).  Picks are not players, so "2 players + a pick for 3
+        # players" is even.  Refusals are counted, never silent.
+        if against is not None and not topology_is_allowed(side_assets, against):
+            if refused is not None:
+                refused["topologyRejected"] = refused.get("topologyRejected", 0) + 1
+            continue
         yield tuple(a.source for a in side_assets)
 
 
@@ -670,6 +711,7 @@ def find_angle_packages(
     seed_player_names: list[str] | None = None,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    counterparty_context: Any | None = None,
     constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
@@ -826,8 +868,12 @@ def find_angle_packages(
             "assumed offense<->IDP exchange rate."
         )
 
-    # Target sizes: N-1, N, N+1 — never less than 1.
+    # Target sizes: N-1, N, N+1 — never less than 1.  These are ASSET counts;
+    # the C3-TOPO-01 player-count rule is applied per package against the
+    # offer (``offer_side_assets``), because an offer can carry picks.
     target_sizes = sorted({max(1, offer_size - 1), offer_size, offer_size + 1})
+    offer_side_assets = _angle_pool_assets(offer_entries)
+    topology_report: dict[str, int] = {"topologyRejected": 0}
 
     # Normalise position filter.
     position_filter: set[str] | None = None
@@ -1100,6 +1146,8 @@ def find_angle_packages(
                 side=_RECEIVE,
                 outgoing_policy=_UNCONSTRAINED_OUTGOING,
                 required=_angle_pool_assets(seed_entries),
+                against=offer_side_assets,
+                refused=topology_report,
             ):
                 cand = _make_candidate(combo, team_label, owner_label)
                 if cand is not None:
@@ -1114,6 +1162,8 @@ def find_angle_packages(
                 target_sizes,
                 side=_RECEIVE,
                 outgoing_policy=_UNCONSTRAINED_OUTGOING,
+                against=offer_side_assets,
+                refused=topology_report,
             ):
                 cand = _make_candidate(
                     combo,
@@ -1155,6 +1205,29 @@ def find_angle_packages(
                 incoming=c.get("players") or [],
                 outgoing=offer_players,
             )
+    # Wave B (C3-CAP-01): the counterparty's roster consequence too — it
+    # receives the offer and sends the candidate.  Reported, never ranked.
+    if counterparty_context is not None:
+        # Seed mode labels a candidate with every target team ("a+b") even when
+        # all its players come from one roster; the real holder is decided by
+        # the players themselves.
+        holder_by_name = {
+            str(n): str(t.get("ownerId") or "")
+            for t in sleeper_teams
+            if isinstance(t, dict)
+            for n in (t.get("players") or [])
+        }
+        for c in candidates:
+            owners = {
+                holder_by_name.get(str(p.get("name") or ""), "") for p in c.get("players") or []
+            }
+            owner = next(iter(owners)) if len(owners) == 1 else c.get("owner_id")
+            c["counterpartyRosterCapacity"] = _counterparty_block(
+                counterparty_context,
+                owner,
+                incoming=offer_players,
+                outgoing=c.get("players") or [],
+            )
 
     warnings.extend(_diagnostic_warnings(diag))
 
@@ -1178,6 +1251,8 @@ def find_angle_packages(
             "candidate_pool_per_team": candidate_pool_per_team,
             "per_team_limit": per_team_limit,
             "target_sizes": target_sizes,
+            "topologyRule": "abs(players_send - players_receive) <= 1 (C3-TOPO-01; picks are not players)",
+            "topologyRejected": topology_report["topologyRejected"],
             "positions": sorted(position_filter) if position_filter else [],
             "min_player_my_value": int(min_my_value_floor),
             "target_team_owner_ids": sorted(target_ids) if target_ids else [],
@@ -1202,6 +1277,7 @@ def find_acquisition_packages(
     min_player_my_value: float = 0.0,
     include_idp: bool = False,
     capacity_context: Any | None = None,
+    counterparty_context: Any | None = None,
     constraints: Any | None = None,
 ) -> dict[str, Any]:
     """Find offer-side packages from the user's roster that acquire a
@@ -1237,8 +1313,14 @@ def find_acquisition_packages(
     warnings: list[str] = []
 
     by_name: dict[str, dict[str, Any]] = {}
+    # Names more than one board row carries (a QB and a DL namesake).  The
+    # first-row-wins lookup above cannot tell which one this roster holds, so
+    # such an entry must not assert a team to the constraint owner.
+    shared_names: set[str] = set()
     for row in players_array:
         name = str(row.get("canonicalName") or row.get("displayName") or "")
+        if name and name in by_name:
+            shared_names.add(name)
         if name and name not in by_name:
             by_name[name] = row
 
@@ -1367,6 +1449,8 @@ def find_acquisition_packages(
         )
 
     target_sizes = sorted({max(1, desired_size - 1), desired_size, desired_size + 1})
+    desired_side_assets = _angle_pool_assets(desired_entries)
+    topology_report: dict[str, int] = {"topologyRejected": 0}
 
     position_filter: set[str] | None = None
     if positions:
@@ -1403,25 +1487,68 @@ def find_acquisition_packages(
             {
                 "name": pname,
                 "position": str(row.get("position") or ""),
+                # C3-CON-02: the OUTGOING pool carries the NFL team so the
+                # constraint owner judges this entry, not a name-keyed board
+                # lookup.  ``None`` (UNKNOWN, which fails closed under a team
+                # rule) when the name is shared and the row may be the namesake.
+                "team": (None if pname in shared_names else (row.get("team") or None)),
                 "my_value": my_v,
                 # See find_angle_packages: ``row`` is what gets priced.
                 "row": row,
             }
         )
     pool.sort(key=lambda p: -p["my_value"])
-    pool = pool[: max(1, int(candidate_pool))]
 
-    # C3-CON-01.  The policy is built from the pool that will actually be
-    # enumerated, so §2.2's NFL-team rule resolves against today's board rather
-    # than against stored state.  ENFORCEMENT happens inside the substrate; the
-    # partition here only supplies the reasons, because a count cannot explain a
-    # short list.
+    # C3-CON-01.  The policy is built from the WHOLE eligible roster, so §2.2's
+    # NFL-team rule resolves against today's board rather than against stored
+    # state, and the constraints are applied BEFORE the ``candidate_pool``
+    # truncation: truncating first let protected players occupy the top slots
+    # and then vanish, leaving fewer than ``candidate_pool`` sendable assets.
+    # ENFORCEMENT still happens inside the substrate; the partition here only
+    # supplies the reasons and decides which sendable assets survive the cap.
     from src.trade.constraints import blocked_outgoing as _blocked  # noqa: PLC0415
     from src.trade.constraints import outgoing_eligibility  # noqa: PLC0415
+    from src.trade.constraints import partition_sendable  # noqa: PLC0415
+    from src.trade.constraints import resolve_locked_outgoing  # noqa: PLC0415
 
-    _blocked_out = _blocked(pool, constraints)
-    _outgoing_policy = outgoing_eligibility(pool, constraints)
-    if pool and len(_blocked_out) >= len(pool):
+    full_pool = pool
+    _blocked_out = _blocked(full_pool, constraints)
+    _outgoing_policy = outgoing_eligibility(full_pool, constraints)
+    # C3-CON-03 LOCK: resolved against the full roster; an unsatisfiable lock is
+    # an honest no-result, never a silently unlocked candidate list (§4).
+    lock = resolve_locked_outgoing(full_pool, constraints)
+    if not lock.satisfiable:
+        return {
+            "acquire": {
+                "players": [],
+                "size": 0,
+                "my_total": 0,
+                "market_total": 0,
+                "targets": [],
+            },
+            "candidates": [],
+            "lockedOutgoing": lock.to_dict(),
+            "noResultReason": lock.no_result_reason,
+            "noResultLabel": "No qualifying trade found under current constraints",
+            "warnings": [*warnings, "A locked player cannot be included in a counter-package."],
+        }
+    if len(lock.required) > max(target_sizes):
+        return {
+            "acquire": {"players": [], "size": 0, "my_total": 0, "market_total": 0, "targets": []},
+            "candidates": [],
+            "lockedOutgoing": lock.to_dict(),
+            "noResultReason": "locked_players_exceed_package_size",
+            "noResultLabel": "No qualifying trade found under current constraints",
+            "warnings": [
+                *warnings,
+                f"More players are locked than a counter-package here can send "
+                f"({max(target_sizes)}).",
+            ],
+        }
+    locked_ids = {id(e) for e in lock.required}
+    sendable, _ = partition_sendable(full_pool, constraints)
+    pool = [e for e in sendable if id(e) not in locked_ids][: max(1, int(candidate_pool))]
+    if full_pool and len(_blocked_out) >= len(full_pool):
         return {
             "acquire": {
                 "players": [],
@@ -1535,6 +1662,9 @@ def find_acquisition_packages(
         # that carries C3-CON-01.
         side=_SEND,
         outgoing_policy=_outgoing_policy,
+        required=_angle_pool_assets(list(lock.required)),
+        against=desired_side_assets,
+        refused=topology_report,
     ):
         cand = _make_candidate(combo)
         if cand is not None:
@@ -1555,6 +1685,31 @@ def find_acquisition_packages(
                 capacity_context,
                 incoming=desired_players,
                 outgoing=c.get("players") or [],
+            )
+    # The counterparty is whoever holds the desired players; it receives the
+    # candidate and sends them.  Several holders is several counterparties —
+    # named, not merged into one roster.
+    if counterparty_context is not None:
+        holders = sorted({str(p.get("owner_id") or "") for p in desired_players})
+        for c in candidates:
+            c["counterpartyRosterCapacity"] = (
+                _counterparty_block(
+                    counterparty_context,
+                    holders[0],
+                    incoming=c.get("players") or [],
+                    outgoing=desired_players,
+                )
+                if len(holders) == 1 and holders[0]
+                else {
+                    "unavailable": (
+                        "multiple_counterparties" if len(holders) > 1 else "counterparty_unresolved"
+                    ),
+                    "notes": [
+                        "the desired players are held by more than one team"
+                        if len(holders) > 1
+                        else "the desired players' holder did not resolve"
+                    ],
+                }
             )
 
     warnings.extend(_diagnostic_warnings(diag))
@@ -1586,6 +1741,8 @@ def find_acquisition_packages(
             "limit": limit,
             "candidate_pool": candidate_pool,
             "target_sizes": target_sizes,
+            "topologyRule": "abs(players_send - players_receive) <= 1 (C3-TOPO-01; picks are not players)",
+            "topologyRejected": topology_report["topologyRejected"],
             "positions": sorted(position_filter) if position_filter else [],
             "min_player_my_value": int(min_my_value_floor),
             "include_idp": bool(include_idp),

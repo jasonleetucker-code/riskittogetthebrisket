@@ -29,10 +29,17 @@
  * and select; each button is aria-selected + aria-controls its panel id.
  * Overflow scrolls horizontally with no visible scrollbar; tabs never
  * wrap or truncate to a 21-item pile.
+ *
+ * Hydration gate: until React has attached the click handlers
+ * (useHydrated), every tab renders `disabled` and the tablist carries
+ * `aria-busy="true"`; the selected tab still reads as selected.  A
+ * server-rendered tab that looks live but silently drops a click is worse
+ * than one that is visibly not ready yet.  Rationale: ./useHydrated.js.
  */
 "use client";
 
 import React, { useEffect, useId, useRef } from "react";
+import { useHydrated } from "./useHydrated";
 
 /** DOM id of the tab button for `tabId` under `idPrefix`. */
 export function tabId(idPrefix, id) {
@@ -49,6 +56,7 @@ export function Tabs({ tabs, active, onChange, label, idPrefix, className = "" }
   const autoPrefix = useId();
   const prefix = idPrefix || `ds-tabs${autoPrefix}`;
   const activeIndex = Math.max(0, tabs.findIndex((t) => t.id === active));
+  const hydrated = useHydrated();
 
   // idPrefix is required in practice: without it the consumer cannot
   // build panel ids matching aria-controls (Tabs renders no panels).
@@ -90,6 +98,7 @@ export function Tabs({ tabs, active, onChange, label, idPrefix, className = "" }
     <div
       role="tablist"
       aria-label={label}
+      aria-busy={hydrated ? undefined : true}
       className={`ds-tabs ${className}`.trim()}
       onKeyDown={onKeyDown}
     >
@@ -107,6 +116,7 @@ export function Tabs({ tabs, active, onChange, label, idPrefix, className = "" }
             aria-selected={selected}
             aria-controls={tabPanelId(prefix, tab.id)}
             tabIndex={i === activeIndex ? 0 : -1}
+            disabled={!hydrated}
             className="ds-tab"
             onClick={() => onChange?.(tab.id)}
           >

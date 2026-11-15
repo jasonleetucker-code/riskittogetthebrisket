@@ -34,7 +34,7 @@ WORKFLOW = (
 
 def _gate_script() -> str:
     """The `Verify` step's inline python, straight out of the shipped YAML."""
-    doc = yaml.safe_load(WORKFLOW.read_text())
+    doc = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     for job in doc["jobs"].values():
         for step in job.get("steps", []):
             run = step.get("run") or ""
@@ -97,7 +97,7 @@ def test_a_push_triggered_smoke_is_never_classified_off_a_deploy():
 
 def test_the_two_no_verdict_statuses_are_handled_downstream():
     """A status the gate cannot render would exit non-zero on a non-failure."""
-    script = WORKFLOW.read_text()
+    script = WORKFLOW.read_text(encoding="utf-8")
     for status in ("deploy_superseded", "deploy_unmeasured"):
         assert f'status == "{status}"' in script, (
             f"{status} is produced but never handled — it would fall through "

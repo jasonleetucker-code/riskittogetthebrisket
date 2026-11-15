@@ -142,9 +142,12 @@ SCENARIOS: dict[str, tuple[str, dict, str]] = {
     ),
     "stale": (
         "real_halftime",
-        {"serve_lag": 7200.0},
+        {"serve_lag": 7200.0, "background_standin": "collector_absent_generation_stale"},
         "REAL halftime capture served two hours after the collector's last tick (no "
-        "tick since) — the generation is served as-is at its true age, marked stale.",
+        "tick since) — the generation is served as-is at its true age, marked stale, "
+        "while ONE background refresh runs (games are live, so a collector that far "
+        "behind is absent).  The background attempt is a deterministic stand-in "
+        "started at the request (the thread itself is not run by the generator).",
     ),
 }
 
@@ -216,9 +219,28 @@ def _tick(world: _World) -> None:
         raise RuntimeError(f"collector tick failed: {report.outcome} {report.error} {league}")
 
 
-def _serve(owner_id: str, now: float) -> dict:
+def _running_standin(reason: str, now: float) -> dict:
+    attempt = live.BackgroundAttempt(
+        league_key="dynasty_main", season=SEASON, week=WEEK, reason=reason, started_at=now
+    )
+    return {"state": "running", "triggered": True, **attempt.to_dict(), "previous": None}
+
+
+def _serve(owner_id: str, now: float, background_standin: str | None = None) -> dict:
     league = LEAGUES["dynasty_main"]
+    standin = (
+        mock.patch.object(
+            live,
+            "ensure_background_compute",
+            return_value=_running_standin(background_standin, now),
+        )
+        if background_standin
+        else mock.patch.object(
+            live, "ensure_background_compute", side_effect=AssertionError("unexpected refresh")
+        )
+    )
     with (
+        standin,
         mock.patch("time.time", return_value=now),
         mock.patch.object(
             matchup_intel, "_fetch_league_week", side_effect=RuntimeError("replay: no network")
@@ -282,14 +304,7 @@ def _build_cold(scenario_dir: str) -> dict:
     """A cold request: no generation, the background compute reported running."""
     captured = datetime.fromisoformat(_scenario(scenario_dir)["meta"]["capturedAt"]).timestamp()
     now = captured + 1.0
-    attempt = live.BackgroundAttempt(
-        league_key="dynasty_main",
-        season=SEASON,
-        week=WEEK,
-        reason="no_collector_generation",
-        started_at=now,
-    )
-    running = {"state": "running", "triggered": True, **attempt.to_dict(), "previous": None}
+    running = _running_standin("no_collector_generation", now)
     with (
         _replay_seams(scenario_dir) as league,
         mock.patch.object(live, "ensure_background_compute", return_value=running),
@@ -335,7 +350,11 @@ def build(name: str) -> dict:
         else:
             world, now = _run_world(sc, opts)
         roster = opts.get("roster", ROSTER)
-        payload = _serve(f"owner-{roster}", now + opts.get("serve_lag", SERVE_LAG_SECONDS))
+        payload = _serve(
+            f"owner-{roster}",
+            now + opts.get("serve_lag", SERVE_LAG_SECONDS),
+            opts.get("background_standin"),
+        )
     finally:
         live.LIVE_ROOT, game_day_sim._SIM_CACHE_ROOT = saved
         live._generation_cache.clear()

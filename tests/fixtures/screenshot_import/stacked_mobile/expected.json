@@ -1,0 +1,38 @@
+{
+  "layoutKind": "stacked",
+  "mustBeIgnored": [
+    "Brian Thomas"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Bijan Robinson",
+          "text": "Bijan Robinson"
+        },
+        {
+          "boardName": "2027 Round 1",
+          "text": "2027 1st"
+        },
+        {
+          "boardName": "2027 Round 1",
+          "text": "2027 1st"
+        }
+      ],
+      "label": "Team A"
+    },
+    {
+      "assets": [
+        {
+          "boardName": "Patrick Mahomes",
+          "text": "Patrick Mahomes"
+        },
+        {
+          "boardName": "Jordan Davis",
+          "text": "Jordan Davis"
+        }
+      ],
+      "label": "Team B"
+    }
+  ]
+}

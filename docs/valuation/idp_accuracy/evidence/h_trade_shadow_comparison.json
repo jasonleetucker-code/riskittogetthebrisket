@@ -1,0 +1,2527 @@
+{
+ "label": "H_trade_shadow_comparison",
+ "promotes": false,
+ "authority": "docs/owner/IDP_VALUATION_ACCURACY_DIRECTIVE_2026-10-25.md section 12",
+ "generatedBy": "scripts/idp_accuracy/trade_shadow_comparison.py",
+ "inputs": {
+  "headShaAtRun": "6afb032a78e2412566be40da0e3bcb43efd09169",
+  "archive": {
+   "name": "dynasty_export_20261025_120337.zip",
+   "sha256": "50fb251a79bc79abac54bcbcfc98c3018fc6b105115eb6dbd7928e3b6c8dc8f6"
+  },
+  "servedBoard": {
+   "tree": "bdbc83a1fba1b1278c7862362f9a18a2da69b970",
+   "pinned": true,
+   "rows": 1107,
+   "pricedRows": 1008,
+   "servedBoardSha256": "4e6ba1f5c1695f5968e33d69aa26d5776e9587872e438ea8ea179baeed7d8712"
+  },
+  "laneAPins": {
+   "archiveSha256": "50fb251a79bc79abac54bcbcfc98c3018fc6b105115eb6dbd7928e3b6c8dc8f6",
+   "servedBoardSha256": "4e6ba1f5c1695f5968e33d69aa26d5776e9587872e438ea8ea179baeed7d8712",
+   "scoringFingerprint": "sf1:9e51824690d091f9",
+   "repoSha": "bdbc83a1fba1b1278c7862362f9a18a2da69b970"
+  },
+  "laneAAgreement": {
+   "archiveSha256": true,
+   "servedBoardSha256": true,
+   "scoringFingerprint": true
+  },
+  "league": {
+   "leagueKey": "dynasty_main",
+   "scoringFingerprint": "sf1:9e51824690d091f9",
+   "teams": 12,
+   "rosterSizes": [
+    58,
+    58,
+    58,
+    58,
+    58,
+    58,
+    58,
+    58,
+    58,
+    58,
+    58,
+    58
+   ],
+   "rosterLimit": 58,
+   "rosterSettingsUsed": {
+    "teamCount": 12,
+    "rosterSize": 58,
+    "taxiSize": 0,
+    "starters": {
+     "QB": 1,
+     "RB": 2,
+     "WR": 3,
+     "TE": 2,
+     "FLEX": 2,
+     "SFLEX": 1,
+     "K": 1,
+     "DL": 3,
+     "LB": 3,
+     "DB": 3,
+     "IDP_FLEX": 0
+    }
+   },
+   "starterSlots": [
+    "QB",
+    "RB",
+    "RB",
+    "WR",
+    "WR",
+    "WR",
+    "TE",
+    "TE",
+    "FLEX",
+    "FLEX",
+    "SUPER_FLEX",
+    "K",
+    "DL",
+    "DL",
+    "DL",
+    "LB",
+    "LB",
+    "LB",
+    "DB",
+    "DB",
+    "DB"
+   ],
+   "slotsAgreeWithSleeperRosterPositions": true
+  },
+  "rosters": {
+   "source": "the archive's Sleeper block (public /rosters, captured 2026-10-25T12:01:14.491673+00:00)",
+   "rosteredPlayers": 696,
+   "census": {
+    "rostered": 696,
+    "priced": 643,
+    "noBoardRow": 1,
+    "positionUnknown": 1,
+    "nameJoinDisagrees": 1
+   },
+   "liveCrossCheck": {
+    "liveRosteredPlayers": 696,
+    "inBoth": 696,
+    "onlyInArchive": 0,
+    "onlyInLive": 0,
+    "note": "public /rosters fetched now vs the pinned snapshot; the examples use the pinned snapshot so the board and the rosters agree"
+   }
+  },
+  "weeklyPoints": {
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "scorer": "src.nfl_data.realized_points.compute_weekly_points(source='sleeper')",
+   "scoredPlayerWeeks": 3753,
+   "zeroFilledPlayerWeeks": 423,
+   "scorerCheckVsHostAwardedPoints": {
+    "playerWeeksCompared": 3406,
+    "within0_01": 3406,
+    "maxAbsDiff": 0.0044,
+    "hostAwardedNonzeroWithoutALine": 0
+   },
+   "solverCheckVsHostTeamTotals": {
+    "teamWeeksQualifying": 7,
+    "within0_015": 7,
+    "maxAbsDiff": 0.0
+   }
+  },
+  "leagueUtilitySource": {
+   "state": "available",
+   "origin": "git:origin/claude/idp-g-backtest",
+   "sha256": "5e546d5049b70bf334559e556ba53e04ceff4a18270bdd6f4b1edc35ee8e451c",
+   "preregistration": "idp_accuracy_G_v1",
+   "window": "W0",
+   "promotes": false,
+   "candidates": "C = projected ppg over the D1 starter threshold; D = expected league-average marginal best-ball points per week",
+   "cutoff": "2026-09-09 (latest archive before the first 2026 kickoff); veterans only",
+   "vectorsFile": "4dbcb029dbf1eb0d6a4889a5292b219f4a2016472011f5fe20ab501563f5b81e",
+   "scoredC": 664,
+   "scoredD": 654,
+   "players": 834
+  },
+  "packageModel": {
+   "id": "geom_q078_v1",
+   "family": "geom",
+   "version": "1",
+   "label": "Geometric Value Adjustment (q = 0.78)",
+   "classification": "ACTIVE"
+  },
+  "fairnessBands": {
+   "version": "fairness_bands_v2",
+   "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+   "basis": "larger_package_utility",
+   "absoluteMinimum": 250.0,
+   "slightPct": 3.5,
+   "unfairPct": 9.0,
+   "lopsidedPct": 18.0,
+   "fairTradeLevels": [
+    "fair"
+   ],
+   "postLaunchValidation": "OD-F4"
+  },
+  "datasets": {
+   "stats/2026/1": {
+    "sha256": "0e2453cc8cbb5315001d5f990f7f5a8e934d675ee0d809a9dde5d491f1d2d5ff",
+    "bytes": 569056,
+    "cachedAtUtc": "2026-10-26T07:53:48Z"
+   },
+   "stats/2026/2": {
+    "sha256": "616ce95a9f34e975e12ab2ecba380c525e27bb104e84160c7a748c2e11f5bea1",
+    "bytes": 574480,
+    "cachedAtUtc": "2026-10-26T07:53:49Z"
+   },
+   "stats/2026/3": {
+    "sha256": "255fb568b17433754fb1eaa8858fc2646cf667244c083ee44067f992655172d8",
+    "bytes": 573997,
+    "cachedAtUtc": "2026-10-26T07:53:49Z"
+   },
+   "stats/2026/4": {
+    "sha256": "6a7e8256ed4e92a61b6a3d73233a54e281ba39c53667b8c61c22be6a43f393d5",
+    "bytes": 585518,
+    "cachedAtUtc": "2026-10-26T07:53:49Z"
+   },
+   "stats/2026/5": {
+    "sha256": "11ae27fcc6872eb04f3972259fa63bdb510e22e51314198bd0ce962af4f82070",
+    "bytes": 555127,
+    "cachedAtUtc": "2026-10-26T07:53:49Z"
+   },
+   "stats/2026/6": {
+    "sha256": "e9086612023efd3beea10174475c7010ae8401305d0b489923ddfeaeb1e7d77e",
+    "bytes": 513801,
+    "cachedAtUtc": "2026-10-26T07:53:50Z"
+   },
+   "matchups/1": {
+    "sha256": "9f4d2663ac8a4960d6299ec97199dccba070828e19e0ff0e15b875314b2221b2",
+    "bytes": 18649,
+    "cachedAtUtc": "2026-10-26T07:53:50Z"
+   },
+   "matchups/2": {
+    "sha256": "ac8be4fffb6c0dc35df103295539a6d4843b75195596b77d7ade21a617e3df02",
+    "bytes": 18695,
+    "cachedAtUtc": "2026-10-26T07:53:51Z"
+   },
+   "matchups/3": {
+    "sha256": "142ca76bb94e966dad28f699362bb7fd8d6ea71f658c06f82e958807ac1218e0",
+    "bytes": 18672,
+    "cachedAtUtc": "2026-10-26T07:53:51Z"
+   },
+   "matchups/4": {
+    "sha256": "c1c28e4add27364429437778d172fdfa65d9894c4637ae12ab839cda77a913a7",
+    "bytes": 18735,
+    "cachedAtUtc": "2026-10-26T07:53:52Z"
+   },
+   "matchups/5": {
+    "sha256": "b8c08a1546f9e2a5b68e3c7f62547b23f20b6ff1c4f7ca154ab697004799966e",
+    "bytes": 18732,
+    "cachedAtUtc": "2026-10-26T07:53:53Z"
+   },
+   "matchups/6": {
+    "sha256": "3fec893d6fe76fa37901e9aad7f6d4d66bbad200b83a1754dd1b1a3e2b41cdf7",
+    "bytes": 18677,
+    "cachedAtUtc": "2026-10-26T07:53:53Z"
+   },
+   "rosters": {
+    "sha256": "5454a5269885d5988fddeceda0acdd0185f087aa4f1f98b420f7ce83f9770604",
+    "bytes": 14759,
+    "cachedAtUtc": "2026-10-26T07:53:53Z"
+   }
+  }
+ },
+ "leagueUtilityCoverage": {
+  "QB": {
+   "pricedRostered": 61,
+   "scored": 50,
+   "scoredShare": 0.82,
+   "top25ByValueScored": 24,
+   "top25ByValue": 25
+  },
+  "RB": {
+   "pricedRostered": 92,
+   "scored": 73,
+   "scoredShare": 0.793,
+   "top25ByValueScored": 23,
+   "top25ByValue": 25
+  },
+  "WR": {
+   "pricedRostered": 147,
+   "scored": 112,
+   "scoredShare": 0.762,
+   "top25ByValueScored": 23,
+   "top25ByValue": 25
+  },
+  "TE": {
+   "pricedRostered": 61,
+   "scored": 48,
+   "scoredShare": 0.787,
+   "top25ByValueScored": 22,
+   "top25ByValue": 25
+  },
+  "DL": {
+   "pricedRostered": 106,
+   "scored": 82,
+   "scoredShare": 0.774,
+   "top25ByValueScored": 21,
+   "top25ByValue": 25
+  },
+  "LB": {
+   "pricedRostered": 77,
+   "scored": 65,
+   "scoredShare": 0.844,
+   "top25ByValueScored": 21,
+   "top25ByValue": 25
+  },
+  "DB": {
+   "pricedRostered": 99,
+   "scored": 75,
+   "scoredShare": 0.758,
+   "top25ByValueScored": 20,
+   "top25ByValue": 25
+  }
+ },
+ "cutLadderTieCensus": {
+  "rule": "incumbent ladder, flag forced_drop_cheapest_legal OFF",
+  "tieBreak": "asset.name.lower() among equal effective cut cost (src/draft/displacement.py)",
+  "rosters": 12,
+  "rostersWithATiedFirstCut": 12,
+  "firstCutIsAlphabeticallyFirstOfTheTiedSet": 11,
+  "tiedSetSize": {
+   "min": 12,
+   "median": 28,
+   "max": 43
+  },
+  "chosenReleaseCostMinusCheapestInTiedSet": {
+   "rostersWhereChosenIsNotTheCheapest": 11,
+   "mean": 1125.8,
+   "max": 1649.0,
+   "unit": "rankDerivedValue (release cost = base value x scarcity multiplier 1.0)"
+  },
+  "replayedLineupPointsLostByTheChosenCut": {
+   "rostersMeasured": 12,
+   "rostersWhereTheChosenCutCostsPoints": 9,
+   "mean": 2.48,
+   "max": 12.19,
+   "rostersWhoseTiedSetHoldsALegalCutThatCostsNothing": 12,
+   "cheapestLegalCutInTheTiedSetMean": 0.0,
+   "unit": "best-ball lineup points per week, weeks 1-6 replay, after the incoming player lands; legal = the roster still fills as many starting slots"
+  },
+  "unpricedShareOfTiedSetMean": 0.147,
+  "lineupGuardIgnored": "the tied set ignores the ladder's lineup-feasibility guard, which protects the COUNT of fillable starting slots (a kicker is the usual casualty), not best-ball points; the real first cut, from the owner, is what is compared",
+  "ownerSignalLimit": "capacity.rungOrderWasTied is True only when two or more FORCED drops tie each other, so a single forced drop never reports a tie even when dozens of candidates were tied; this census measures that",
+  "note": "the cheapest-legal flag path already ties on player id; this is the default path, which Perfect Draft also uses"
+ },
+ "selection": {
+  "method": "seeded draws of trades from each category's structural universe, kept when the live fairness band calls them FAIR; the smallest sha256 of the trade key is the example. Outcome-free: no replay result enters the choice.",
+  "seed": 20261026,
+  "priors": {
+   "minAssetValue": 2000.0,
+   "minStarValue": 4000.0,
+   "minDepthValue": 1500.0,
+   "minIdpRookieValue": 3000.0
+  },
+  "perCategory": [
+   {
+    "category": "offense_for_idp_1for1",
+    "seed": "20261026:offense_for_idp_1for1",
+    "draws": 350,
+    "structurallyValid": 350,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.75,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   },
+   {
+    "category": "offense_for_idp_rookie_1for1",
+    "seed": "20261026:offense_for_idp_rookie_1for1",
+    "draws": 1943,
+    "structurallyValid": 955,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 0
+    }
+   },
+   {
+    "category": "offense_for_idp_2for1",
+    "seed": "20261026:offense_for_idp_2for1",
+    "draws": 2007,
+    "structurallyValid": 799,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.188,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   },
+   {
+    "category": "starter_upgrade_2for1",
+    "seed": "20261026:starter_upgrade_2for1",
+    "draws": 22105,
+    "structurallyValid": 396,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.172,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   },
+   {
+    "category": "depth_package_1for2",
+    "seed": "20261026:depth_package_1for2",
+    "draws": 830,
+    "structurallyValid": 678,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.875,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   },
+   {
+    "category": "cut_requiring_2for3",
+    "seed": "20261026:cut_requiring_2for3",
+    "draws": 1828,
+    "structurallyValid": 1828,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.75,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   }
+  ]
+ },
+ "examples": [
+  {
+   "id": "T1",
+   "category": "offense_for_idp_1for1",
+   "description": "offense for IDP (both scored by the shadow candidates)",
+   "shape": "1-for-1",
+   "selection": {
+    "category": "offense_for_idp_1for1",
+    "seed": "20261026:offense_for_idp_1for1",
+    "draws": 350,
+    "structurallyValid": 350,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.75,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   },
+   "sides": {
+    "A": {
+     "gives": [
+      {
+       "name": "Elijah Arroyo",
+       "position": "TE",
+       "boardValue": 2199.0,
+       "boardRank": 280,
+       "confidence": "low"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Azeez Al-Shaair",
+       "position": "LB",
+       "boardValue": 2050.0,
+       "boardRank": 315,
+       "confidence": "low"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 2199.0,
+      "receiveRaw": 2050.0,
+      "sendValueAdjustment": 0.0,
+      "receiveValueAdjustment": 0.0,
+      "sendAdjusted": 2199.0,
+      "receiveAdjusted": 2050.0,
+      "gap": -149.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 6.78
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Elijah Arroyo",
+        "position": "TE",
+        "state": "scored",
+        "C": -4.11,
+        "D": 1.06,
+        "DStandardError": 0.11,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Azeez Al-Shaair",
+        "position": "LB",
+        "state": "scored",
+        "C": 0.04,
+        "D": 3.76,
+        "DStandardError": 0.19,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": 2.7,
+       "C": 4.15,
+       "additive": false,
+       "countsDiffer": false,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": null
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 58,
+        "final": 58
+       },
+       "before": 389.66,
+       "landed": 392.51,
+       "final": 392.51,
+       "delta": 2.85,
+       "deltaBeforeCleanup": 2.85,
+       "weeklyDelta": [
+        0.79,
+        1.17,
+        0.0,
+        0.0,
+        7.95,
+        7.17
+       ],
+       "weeksImproved": 4,
+       "weeksWorsened": 0,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": 2.85,
+       "packageMinusSum": -0.0
+      },
+      "averageWeekReading": {
+       "before": 334.09,
+       "final": 335.36,
+       "delta": 1.27,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Elijah Arroyo": 0,
+       "Azeez Al-Shaair": 4
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 58,
+       "overLimitAfter": 0,
+       "requiresDrops": false,
+       "certainty": "exact",
+       "forcedDrops": [],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    },
+    "B": {
+     "gives": [
+      {
+       "name": "Azeez Al-Shaair",
+       "position": "LB",
+       "boardValue": 2050.0,
+       "boardRank": 315,
+       "confidence": "low"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Elijah Arroyo",
+       "position": "TE",
+       "boardValue": 2199.0,
+       "boardRank": 280,
+       "confidence": "low"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 2050.0,
+      "receiveRaw": 2199.0,
+      "sendValueAdjustment": 0.0,
+      "receiveValueAdjustment": 0.0,
+      "sendAdjusted": 2050.0,
+      "receiveAdjusted": 2199.0,
+      "gap": 149.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 6.78
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Azeez Al-Shaair",
+        "position": "LB",
+        "state": "scored",
+        "C": 0.04,
+        "D": 3.76,
+        "DStandardError": 0.19,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Elijah Arroyo",
+        "position": "TE",
+        "state": "scored",
+        "C": -4.11,
+        "D": 1.06,
+        "DStandardError": 0.11,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": -2.7,
+       "C": -4.15,
+       "additive": false,
+       "countsDiffer": false,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": null
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 58,
+        "final": 58
+       },
+       "before": 409.08,
+       "landed": 407.72,
+       "final": 407.72,
+       "delta": -1.36,
+       "deltaBeforeCleanup": -1.36,
+       "weeklyDelta": [
+        -1.46,
+        -1.17,
+        -2.16,
+        0.0,
+        -2.04,
+        -1.32
+       ],
+       "weeksImproved": 0,
+       "weeksWorsened": 5,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": -1.36,
+       "packageMinusSum": -0.0
+      },
+      "averageWeekReading": {
+       "before": 376.34,
+       "final": 375.83,
+       "delta": -0.51,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Azeez Al-Shaair": 5,
+       "Elijah Arroyo": 0
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 58,
+       "overLimitAfter": 0,
+       "requiresDrops": false,
+       "certainty": "exact",
+       "forcedDrops": [],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    }
+   },
+   "readout": {
+    "marketPrice": {
+     "favours": "even",
+     "band": "FAIR"
+    },
+    "leagueUtilityD": {
+     "favours": "A",
+     "netForA": 2.7
+    },
+    "teamTransactionImpact": {
+     "deltaA": 2.85,
+     "deltaB": -1.36,
+     "pattern": "A gains and B loses"
+    },
+    "note": "descriptive only: three different units and three different evidence bases"
+   },
+   "isVerdict": false
+  },
+  {
+   "id": "T2",
+   "category": "offense_for_idp_rookie_1for1",
+   "description": "offense for an IDP the shadow candidates cannot score (a rookie)",
+   "shape": "1-for-1",
+   "selection": {
+    "category": "offense_for_idp_rookie_1for1",
+    "seed": "20261026:offense_for_idp_rookie_1for1",
+    "draws": 1943,
+    "structurallyValid": 955,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 0
+    }
+   },
+   "sides": {
+    "A": {
+     "gives": [
+      {
+       "name": "Matthew Stafford",
+       "position": "QB",
+       "boardValue": 3628.0,
+       "boardRank": 126,
+       "confidence": "high"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Caleb Downs",
+       "position": "DB",
+       "boardValue": 3526.0,
+       "boardRank": 130,
+       "confidence": "low"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 3628.0,
+      "receiveRaw": 3526.0,
+      "sendValueAdjustment": 0.0,
+      "receiveValueAdjustment": 0.0,
+      "sendAdjusted": 3628.0,
+      "receiveAdjusted": 3526.0,
+      "gap": -102.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 2.81
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Matthew Stafford",
+        "position": "QB",
+        "state": "scored",
+        "C": 2.29,
+        "D": 8.35,
+        "DStandardError": 0.53,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Caleb Downs",
+        "position": "DB",
+        "state": "unavailable",
+        "C": null,
+        "D": null,
+        "DStandardError": null,
+        "reason": "rookie_prior_only"
+       }
+      ],
+      "complete": false,
+      "net": {
+       "D": null,
+       "C": null,
+       "additive": false,
+       "countsDiffer": false,
+       "meaning": "withheld: an asset on one side has no score (unavailable is never zero)",
+       "bias": null
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 58,
+        "final": 58
+       },
+       "before": 401.42,
+       "landed": 392.32,
+       "final": 392.32,
+       "delta": -9.11,
+       "deltaBeforeCleanup": -9.11,
+       "weeklyDelta": [
+        6.73,
+        -11.38,
+        0.0,
+        -0.76,
+        -38.93,
+        -10.3
+       ],
+       "weeksImproved": 1,
+       "weeksWorsened": 4,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": -9.11,
+       "packageMinusSum": -0.0
+      },
+      "averageWeekReading": {
+       "before": 340.63,
+       "final": 334.26,
+       "delta": -6.36,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Matthew Stafford": 4,
+       "Caleb Downs": 3
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 58,
+       "overLimitAfter": 0,
+       "requiresDrops": false,
+       "certainty": "exact",
+       "forcedDrops": [],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    },
+    "B": {
+     "gives": [
+      {
+       "name": "Caleb Downs",
+       "position": "DB",
+       "boardValue": 3526.0,
+       "boardRank": 130,
+       "confidence": "low"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Matthew Stafford",
+       "position": "QB",
+       "boardValue": 3628.0,
+       "boardRank": 126,
+       "confidence": "high"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 3526.0,
+      "receiveRaw": 3628.0,
+      "sendValueAdjustment": 0.0,
+      "receiveValueAdjustment": 0.0,
+      "sendAdjusted": 3526.0,
+      "receiveAdjusted": 3628.0,
+      "gap": 102.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 2.81
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Caleb Downs",
+        "position": "DB",
+        "state": "unavailable",
+        "C": null,
+        "D": null,
+        "DStandardError": null,
+        "reason": "rookie_prior_only"
+       }
+      ],
+      "receive": [
+       {
+        "name": "Matthew Stafford",
+        "position": "QB",
+        "state": "scored",
+        "C": 2.29,
+        "D": 8.35,
+        "DStandardError": 0.53,
+        "reason": null
+       }
+      ],
+      "complete": false,
+      "net": {
+       "D": null,
+       "C": null,
+       "additive": false,
+       "countsDiffer": false,
+       "meaning": "withheld: an asset on one side has no score (unavailable is never zero)",
+       "bias": null
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 58,
+        "final": 58
+       },
+       "before": 350.48,
+       "landed": 362.04,
+       "final": 362.04,
+       "delta": 11.56,
+       "deltaBeforeCleanup": 11.56,
+       "weeklyDelta": [
+        -0.1,
+        6.11,
+        10.9,
+        2.81,
+        38.33,
+        11.32
+       ],
+       "weeksImproved": 5,
+       "weeksWorsened": 1,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": 11.56,
+       "packageMinusSum": -0.0
+      },
+      "averageWeekReading": {
+       "before": 301.24,
+       "final": 315.55,
+       "delta": 14.31,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Caleb Downs": 3,
+       "Matthew Stafford": 5
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 58,
+       "overLimitAfter": 0,
+       "requiresDrops": false,
+       "certainty": "exact",
+       "forcedDrops": [],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    }
+   },
+   "readout": {
+    "marketPrice": {
+     "favours": "even",
+     "band": "FAIR"
+    },
+    "leagueUtilityD": {
+     "favours": "unavailable",
+     "netForA": null
+    },
+    "teamTransactionImpact": {
+     "deltaA": -9.11,
+     "deltaB": 11.56,
+     "pattern": "B gains and A loses"
+    },
+    "note": "descriptive only: three different units and three different evidence bases"
+   },
+   "isVerdict": false
+  },
+  {
+   "id": "T3",
+   "category": "offense_for_idp_2for1",
+   "description": "two offense players for one IDP (consolidation across the position divide)",
+   "shape": "2-for-1",
+   "selection": {
+    "category": "offense_for_idp_2for1",
+    "seed": "20261026:offense_for_idp_2for1",
+    "draws": 2007,
+    "structurallyValid": 799,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.188,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   },
+   "sides": {
+    "A": {
+     "gives": [
+      {
+       "name": "Brian Thomas",
+       "position": "WR",
+       "boardValue": 3387.0,
+       "boardRank": 142,
+       "confidence": "high"
+      },
+      {
+       "name": "Ray Davis",
+       "position": "RB",
+       "boardValue": 1646.0,
+       "boardRank": 472,
+       "confidence": "low"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Cedric Gray",
+       "position": "LB",
+       "boardValue": 4444.0,
+       "boardRank": 84,
+       "confidence": "low"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 5033.0,
+      "receiveRaw": 4444.0,
+      "sendValueAdjustment": 0.0,
+      "receiveValueAdjustment": 362.0,
+      "sendAdjusted": 5033.0,
+      "receiveAdjusted": 4806.0,
+      "gap": -227.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 4.86
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Brian Thomas",
+        "position": "WR",
+        "state": "scored",
+        "C": 1.41,
+        "D": 4.05,
+        "DStandardError": 0.3,
+        "reason": null
+       },
+       {
+        "name": "Ray Davis",
+        "position": "RB",
+        "state": "scored",
+        "C": -4.15,
+        "D": 2.2,
+        "DStandardError": 0.33,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Cedric Gray",
+        "position": "LB",
+        "state": "scored",
+        "C": -0.97,
+        "D": 4.2,
+        "DStandardError": 0.34,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": -2.05,
+       "C": 1.77,
+       "additive": false,
+       "countsDiffer": true,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": "players competing for the same slots have diminishing returns, so a naive sum favours the side that receives more players; read Team Transaction Impact"
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 57,
+        "final": 57
+       },
+       "before": 266.88,
+       "landed": 267.92,
+       "final": 267.92,
+       "delta": 1.04,
+       "deltaBeforeCleanup": 1.04,
+       "weeklyDelta": [
+        -1.68,
+        1.5,
+        0.0,
+        1.55,
+        2.71,
+        2.14
+       ],
+       "weeksImproved": 4,
+       "weeksWorsened": 1,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": 1.04,
+       "packageMinusSum": 0.0
+      },
+      "averageWeekReading": {
+       "before": 230.27,
+       "final": 230.27,
+       "delta": 0.0,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Brian Thomas": 3,
+       "Ray Davis": 1,
+       "Cedric Gray": 4
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 57,
+       "overLimitAfter": 0,
+       "requiresDrops": false,
+       "certainty": "exact",
+       "forcedDrops": [],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    },
+    "B": {
+     "gives": [
+      {
+       "name": "Cedric Gray",
+       "position": "LB",
+       "boardValue": 4444.0,
+       "boardRank": 84,
+       "confidence": "low"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Brian Thomas",
+       "position": "WR",
+       "boardValue": 3387.0,
+       "boardRank": 142,
+       "confidence": "high"
+      },
+      {
+       "name": "Ray Davis",
+       "position": "RB",
+       "boardValue": 1646.0,
+       "boardRank": 472,
+       "confidence": "low"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 4444.0,
+      "receiveRaw": 5033.0,
+      "sendValueAdjustment": 362.0,
+      "receiveValueAdjustment": 0.0,
+      "sendAdjusted": 4806.0,
+      "receiveAdjusted": 5033.0,
+      "gap": 227.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 4.86
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Cedric Gray",
+        "position": "LB",
+        "state": "scored",
+        "C": -0.97,
+        "D": 4.2,
+        "DStandardError": 0.34,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Brian Thomas",
+        "position": "WR",
+        "state": "scored",
+        "C": 1.41,
+        "D": 4.05,
+        "DStandardError": 0.3,
+        "reason": null
+       },
+       {
+        "name": "Ray Davis",
+        "position": "RB",
+        "state": "scored",
+        "C": -4.15,
+        "D": 2.2,
+        "DStandardError": 0.33,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": 2.05,
+       "C": -1.77,
+       "additive": false,
+       "countsDiffer": true,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": "players competing for the same slots have diminishing returns, so a naive sum favours the side that receives more players; read Team Transaction Impact"
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 59,
+        "final": 58
+       },
+       "before": 446.6,
+       "landed": 446.81,
+       "final": 446.81,
+       "delta": 0.21,
+       "deltaBeforeCleanup": 0.21,
+       "weeklyDelta": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.28,
+        0.0
+       ],
+       "weeksImproved": 1,
+       "weeksWorsened": 0,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": 0.21,
+       "packageMinusSum": 0.0
+      },
+      "averageWeekReading": {
+       "before": 394.55,
+       "final": 394.55,
+       "delta": 0.0,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Cedric Gray": 0,
+       "Brian Thomas": 0,
+       "Ray Davis": 1
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 59,
+       "overLimitAfter": 1,
+       "requiresDrops": true,
+       "certainty": "exact",
+       "forcedDrops": [
+        {
+         "name": "Aaron Donald",
+         "position": "DL",
+         "boardValue": null,
+         "releaseCost": 1874.0,
+         "effectiveCutCost": 0.0,
+         "valueBasis": "assumedWaiver",
+         "rung": 1,
+         "acquiredInTrade": false,
+         "rosterIdKnown": true
+        }
+       ],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    }
+   },
+   "readout": {
+    "marketPrice": {
+     "favours": "even",
+     "band": "FAIR"
+    },
+    "leagueUtilityD": {
+     "favours": "B",
+     "netForA": -2.05
+    },
+    "teamTransactionImpact": {
+     "deltaA": 1.04,
+     "deltaB": 0.21,
+     "pattern": "both rosters gain lineup points"
+    },
+    "note": "descriptive only: three different units and three different evidence bases"
+   },
+   "isVerdict": false
+  },
+  {
+   "id": "T4",
+   "category": "starter_upgrade_2for1",
+   "description": "starter upgrade: two same-position players for one better one",
+   "shape": "2-for-1",
+   "selection": {
+    "category": "starter_upgrade_2for1",
+    "seed": "20261026:starter_upgrade_2for1",
+    "draws": 22105,
+    "structurallyValid": 396,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.172,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   },
+   "sides": {
+    "A": {
+     "gives": [
+      {
+       "name": "DJ Moore",
+       "position": "WR",
+       "boardValue": 3598.0,
+       "boardRank": 129,
+       "confidence": "high"
+      },
+      {
+       "name": "Romeo Doubs",
+       "position": "WR",
+       "boardValue": 2548.0,
+       "boardRank": 225,
+       "confidence": "high"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Parker Washington",
+       "position": "WR",
+       "boardValue": 5802.0,
+       "boardRank": 40,
+       "confidence": "high"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 6146.0,
+      "receiveRaw": 5802.0,
+      "sendValueAdjustment": 0.0,
+      "receiveValueAdjustment": 561.0,
+      "sendAdjusted": 6146.0,
+      "receiveAdjusted": 6363.0,
+      "gap": 217.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 3.74
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "DJ Moore",
+        "position": "WR",
+        "state": "scored",
+        "C": 1.24,
+        "D": 5.42,
+        "DStandardError": 0.46,
+        "reason": null
+       },
+       {
+        "name": "Romeo Doubs",
+        "position": "WR",
+        "state": "scored",
+        "C": -0.16,
+        "D": 4.1,
+        "DStandardError": 0.37,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Parker Washington",
+        "position": "WR",
+        "state": "scored",
+        "C": -1.2,
+        "D": 4.22,
+        "DStandardError": 0.39,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": -5.3,
+       "C": -2.28,
+       "additive": false,
+       "countsDiffer": true,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": "players competing for the same slots have diminishing returns, so a naive sum favours the side that receives more players; read Team Transaction Impact"
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 57,
+        "final": 57
+       },
+       "before": 377.35,
+       "landed": 379.91,
+       "final": 379.91,
+       "delta": 2.55,
+       "deltaBeforeCleanup": 2.55,
+       "weeklyDelta": [
+        -2.37,
+        5.16,
+        -3.39,
+        -8.41,
+        24.33,
+        0.0
+       ],
+       "weeksImproved": 2,
+       "weeksWorsened": 3,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": 2.19,
+       "packageMinusSum": 0.37
+      },
+      "averageWeekReading": {
+       "before": 329.87,
+       "final": 334.04,
+       "delta": 4.17,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "DJ Moore": 2,
+       "Romeo Doubs": 2,
+       "Parker Washington": 4
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 57,
+       "overLimitAfter": 0,
+       "requiresDrops": false,
+       "certainty": "exact",
+       "forcedDrops": [],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    },
+    "B": {
+     "gives": [
+      {
+       "name": "Parker Washington",
+       "position": "WR",
+       "boardValue": 5802.0,
+       "boardRank": 40,
+       "confidence": "high"
+      }
+     ],
+     "receives": [
+      {
+       "name": "DJ Moore",
+       "position": "WR",
+       "boardValue": 3598.0,
+       "boardRank": 129,
+       "confidence": "high"
+      },
+      {
+       "name": "Romeo Doubs",
+       "position": "WR",
+       "boardValue": 2548.0,
+       "boardRank": 225,
+       "confidence": "high"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 5802.0,
+      "receiveRaw": 6146.0,
+      "sendValueAdjustment": 561.0,
+      "receiveValueAdjustment": 0.0,
+      "sendAdjusted": 6363.0,
+      "receiveAdjusted": 6146.0,
+      "gap": -217.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 3.74
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Parker Washington",
+        "position": "WR",
+        "state": "scored",
+        "C": -1.2,
+        "D": 4.22,
+        "DStandardError": 0.39,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "DJ Moore",
+        "position": "WR",
+        "state": "scored",
+        "C": 1.24,
+        "D": 5.42,
+        "DStandardError": 0.46,
+        "reason": null
+       },
+       {
+        "name": "Romeo Doubs",
+        "position": "WR",
+        "state": "scored",
+        "C": -0.16,
+        "D": 4.1,
+        "DStandardError": 0.37,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": 5.3,
+       "C": 2.28,
+       "additive": false,
+       "countsDiffer": true,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": "players competing for the same slots have diminishing returns, so a naive sum favours the side that receives more players; read Team Transaction Impact"
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 59,
+        "final": 58
+       },
+       "before": 403.89,
+       "landed": 402.46,
+       "final": 399.38,
+       "delta": -4.51,
+       "deltaBeforeCleanup": -1.44,
+       "weeklyDelta": [
+        1.64,
+        -5.16,
+        1.2,
+        4.17,
+        -28.91,
+        0.0
+       ],
+       "weeksImproved": 3,
+       "weeksWorsened": 2,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": -2.99,
+       "packageMinusSum": 1.55
+      },
+      "averageWeekReading": {
+       "before": 355.77,
+       "final": 347.32,
+       "delta": -8.45,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Parker Washington": 4,
+       "DJ Moore": 2,
+       "Romeo Doubs": 2
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 59,
+       "overLimitAfter": 1,
+       "requiresDrops": true,
+       "certainty": "exact",
+       "forcedDrops": [
+        {
+         "name": "Alim McNeill",
+         "position": "DL",
+         "boardValue": 1310.0,
+         "releaseCost": 1310.0,
+         "effectiveCutCost": 0.0,
+         "valueBasis": "board",
+         "rung": 1,
+         "acquiredInTrade": false,
+         "rosterIdKnown": true
+        }
+       ],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    }
+   },
+   "readout": {
+    "marketPrice": {
+     "favours": "even",
+     "band": "FAIR"
+    },
+    "leagueUtilityD": {
+     "favours": "B",
+     "netForA": -5.3
+    },
+    "teamTransactionImpact": {
+     "deltaA": 2.55,
+     "deltaB": -4.51,
+     "pattern": "A gains and B loses"
+    },
+    "note": "descriptive only: three different units and three different evidence bases"
+   },
+   "isVerdict": false
+  },
+  {
+   "id": "T5",
+   "category": "depth_package_1for2",
+   "description": "depth package: one star for two mid-value players",
+   "shape": "1-for-2",
+   "selection": {
+    "category": "depth_package_1for2",
+    "seed": "20261026:depth_package_1for2",
+    "draws": 830,
+    "structurallyValid": 678,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.875,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   },
+   "sides": {
+    "A": {
+     "gives": [
+      {
+       "name": "Derrick Henry",
+       "position": "RB",
+       "boardValue": 4641.0,
+       "boardRank": 76,
+       "confidence": "medium"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Mark Andrews",
+       "position": "TE",
+       "boardValue": 3047.0,
+       "boardRank": 172,
+       "confidence": "high"
+      },
+      {
+       "name": "Mac Jones",
+       "position": "QB",
+       "boardValue": 2001.0,
+       "boardRank": 325,
+       "confidence": "medium"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 4641.0,
+      "receiveRaw": 5048.0,
+      "sendValueAdjustment": 440.0,
+      "receiveValueAdjustment": 0.0,
+      "sendAdjusted": 5081.0,
+      "receiveAdjusted": 5048.0,
+      "gap": -33.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 0.71
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Derrick Henry",
+        "position": "RB",
+        "state": "scored",
+        "C": 4.95,
+        "D": 9.17,
+        "DStandardError": 0.68,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Mark Andrews",
+        "position": "TE",
+        "state": "scored",
+        "C": 0.53,
+        "D": 4.21,
+        "DStandardError": 0.38,
+        "reason": null
+       },
+       {
+        "name": "Mac Jones",
+        "position": "QB",
+        "state": "scored",
+        "C": -3.06,
+        "D": 3.75,
+        "DStandardError": 0.45,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": -1.21,
+       "C": -7.48,
+       "additive": false,
+       "countsDiffer": true,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": "players competing for the same slots have diminishing returns, so a naive sum favours the side that receives more players; read Team Transaction Impact"
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 59,
+        "final": 58
+       },
+       "before": 401.42,
+       "landed": 389.51,
+       "final": 388.14,
+       "delta": -13.28,
+       "deltaBeforeCleanup": -11.91,
+       "weeklyDelta": [
+        -27.63,
+        -7.8,
+        -11.91,
+        -16.6,
+        -15.75,
+        0.0
+       ],
+       "weeksImproved": 0,
+       "weeksWorsened": 5,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": -12.04,
+       "packageMinusSum": 0.13
+      },
+      "averageWeekReading": {
+       "before": 340.63,
+       "final": 328.19,
+       "delta": -12.43,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Derrick Henry": 5,
+       "Mark Andrews": 3,
+       "Mac Jones": 0
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 59,
+       "overLimitAfter": 1,
+       "requiresDrops": true,
+       "certainty": "exact",
+       "forcedDrops": [
+        {
+         "name": "Akayleb Evans",
+         "position": "DB",
+         "boardValue": null,
+         "releaseCost": 1917.0,
+         "effectiveCutCost": 0.0,
+         "valueBasis": "assumedWaiver",
+         "rung": 1,
+         "acquiredInTrade": false,
+         "rosterIdKnown": true
+        }
+       ],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    },
+    "B": {
+     "gives": [
+      {
+       "name": "Mark Andrews",
+       "position": "TE",
+       "boardValue": 3047.0,
+       "boardRank": 172,
+       "confidence": "high"
+      },
+      {
+       "name": "Mac Jones",
+       "position": "QB",
+       "boardValue": 2001.0,
+       "boardRank": 325,
+       "confidence": "medium"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Derrick Henry",
+       "position": "RB",
+       "boardValue": 4641.0,
+       "boardRank": 76,
+       "confidence": "medium"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 5048.0,
+      "receiveRaw": 4641.0,
+      "sendValueAdjustment": 0.0,
+      "receiveValueAdjustment": 440.0,
+      "sendAdjusted": 5048.0,
+      "receiveAdjusted": 5081.0,
+      "gap": 33.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 0.71
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Mark Andrews",
+        "position": "TE",
+        "state": "scored",
+        "C": 0.53,
+        "D": 4.21,
+        "DStandardError": 0.38,
+        "reason": null
+       },
+       {
+        "name": "Mac Jones",
+        "position": "QB",
+        "state": "scored",
+        "C": -3.06,
+        "D": 3.75,
+        "DStandardError": 0.45,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Derrick Henry",
+        "position": "RB",
+        "state": "scored",
+        "C": 4.95,
+        "D": 9.17,
+        "DStandardError": 0.68,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": 1.21,
+       "C": 7.48,
+       "additive": false,
+       "countsDiffer": true,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": "players competing for the same slots have diminishing returns, so a naive sum favours the side that receives more players; read Team Transaction Impact"
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 57,
+        "final": 57
+       },
+       "before": 293.14,
+       "landed": 305.25,
+       "final": 305.25,
+       "delta": 12.11,
+       "deltaBeforeCleanup": 12.11,
+       "weeklyDelta": [
+        30.34,
+        4.12,
+        11.27,
+        3.9,
+        20.89,
+        2.15
+       ],
+       "weeksImproved": 6,
+       "weeksWorsened": 0,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": 11.81,
+       "packageMinusSum": 0.3
+      },
+      "averageWeekReading": {
+       "before": 251.2,
+       "final": 265.43,
+       "delta": 14.23,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Mark Andrews": 5,
+       "Mac Jones": 0,
+       "Derrick Henry": 6
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 57,
+       "overLimitAfter": 0,
+       "requiresDrops": false,
+       "certainty": "exact",
+       "forcedDrops": [],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    }
+   },
+   "readout": {
+    "marketPrice": {
+     "favours": "even",
+     "band": "FAIR"
+    },
+    "leagueUtilityD": {
+     "favours": "B",
+     "netForA": -1.21
+    },
+    "teamTransactionImpact": {
+     "deltaA": -13.28,
+     "deltaB": 12.11,
+     "pattern": "B gains and A loses"
+    },
+    "note": "descriptive only: three different units and three different evidence bases"
+   },
+   "isVerdict": false
+  },
+  {
+   "id": "T6",
+   "category": "cut_requiring_2for3",
+   "description": "cut-requiring: two for three, side A starts at the roster limit",
+   "shape": "2-for-3",
+   "selection": {
+    "category": "cut_requiring_2for3",
+    "seed": "20261026:cut_requiring_2for3",
+    "draws": 1828,
+    "structurallyValid": 1828,
+    "marketFairKept": 64,
+    "keepLimit": 64,
+    "fairCandidateSet": {
+     "n": 64,
+     "withNetD": 64,
+     "shareSideAGainsD": 0.75,
+     "meaning": "share of the drawn market-FAIR candidates whose receive-minus-give D is positive for side A; a seeded sample, not a population estimate"
+    }
+   },
+   "sides": {
+    "A": {
+     "gives": [
+      {
+       "name": "Travis Kelce",
+       "position": "TE",
+       "boardValue": 3473.0,
+       "boardRank": 133,
+       "confidence": "high"
+      },
+      {
+       "name": "Nick Emmanwori",
+       "position": "DB",
+       "boardValue": 3989.0,
+       "boardRank": 106,
+       "confidence": "low"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Joe Milton",
+       "position": "QB",
+       "boardValue": 1598.0,
+       "boardRank": 492,
+       "confidence": "medium"
+      },
+      {
+       "name": "Quentin Lake",
+       "position": "DB",
+       "boardValue": 1739.0,
+       "boardRank": 421,
+       "confidence": "low"
+      },
+      {
+       "name": "A.J. Brown",
+       "position": "WR",
+       "boardValue": 4564.0,
+       "boardRank": 80,
+       "confidence": "high"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 7462.0,
+      "receiveRaw": 7901.0,
+      "sendValueAdjustment": 244.0,
+      "receiveValueAdjustment": 0.0,
+      "sendAdjusted": 7706.0,
+      "receiveAdjusted": 7901.0,
+      "gap": 195.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 2.83
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Travis Kelce",
+        "position": "TE",
+        "state": "scored",
+        "C": 2.33,
+        "D": 6.43,
+        "DStandardError": 0.42,
+        "reason": null
+       },
+       {
+        "name": "Nick Emmanwori",
+        "position": "DB",
+        "state": "scored",
+        "C": 2.01,
+        "D": 3.94,
+        "DStandardError": 0.53,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Joe Milton",
+        "position": "QB",
+        "state": "scored",
+        "C": -1.57,
+        "D": 1.66,
+        "DStandardError": 0.34,
+        "reason": null
+       },
+       {
+        "name": "Quentin Lake",
+        "position": "DB",
+        "state": "scored",
+        "C": -0.05,
+        "D": 3.3,
+        "DStandardError": 0.4,
+        "reason": null
+       },
+       {
+        "name": "A.J. Brown",
+        "position": "WR",
+        "state": "scored",
+        "C": 3.59,
+        "D": 6.98,
+        "DStandardError": 0.62,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": 1.57,
+       "C": -2.37,
+       "additive": false,
+       "countsDiffer": true,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": "players competing for the same slots have diminishing returns, so a naive sum favours the side that receives more players; read Team Transaction Impact"
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 59,
+        "final": 58
+       },
+       "before": 446.6,
+       "landed": 443.55,
+       "final": 443.55,
+       "delta": -3.05,
+       "deltaBeforeCleanup": -3.05,
+       "weeklyDelta": [
+        14.77,
+        -1.15,
+        -3.34,
+        -26.68,
+        0.0,
+        -1.92
+       ],
+       "weeksImproved": 1,
+       "weeksWorsened": 4,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": -3.57,
+       "packageMinusSum": 0.52
+      },
+      "averageWeekReading": {
+       "before": 394.55,
+       "final": 391.5,
+       "delta": -3.05,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Travis Kelce": 4,
+       "Nick Emmanwori": 2,
+       "Joe Milton": 0,
+       "Quentin Lake": 3,
+       "A.J. Brown": 0
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 59,
+       "overLimitAfter": 1,
+       "requiresDrops": true,
+       "certainty": "exact",
+       "forcedDrops": [
+        {
+         "name": "Aaron Donald",
+         "position": "DL",
+         "boardValue": null,
+         "releaseCost": 1874.0,
+         "effectiveCutCost": 0.0,
+         "valueBasis": "assumedWaiver",
+         "rung": 1,
+         "acquiredInTrade": false,
+         "rosterIdKnown": true
+        }
+       ],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    },
+    "B": {
+     "gives": [
+      {
+       "name": "Joe Milton",
+       "position": "QB",
+       "boardValue": 1598.0,
+       "boardRank": 492,
+       "confidence": "medium"
+      },
+      {
+       "name": "Quentin Lake",
+       "position": "DB",
+       "boardValue": 1739.0,
+       "boardRank": 421,
+       "confidence": "low"
+      },
+      {
+       "name": "A.J. Brown",
+       "position": "WR",
+       "boardValue": 4564.0,
+       "boardRank": 80,
+       "confidence": "high"
+      }
+     ],
+     "receives": [
+      {
+       "name": "Travis Kelce",
+       "position": "TE",
+       "boardValue": 3473.0,
+       "boardRank": 133,
+       "confidence": "high"
+      },
+      {
+       "name": "Nick Emmanwori",
+       "position": "DB",
+       "boardValue": 3989.0,
+       "boardRank": 106,
+       "confidence": "low"
+      }
+     ],
+     "marketPrice": {
+      "quantity": "Market Price",
+      "status": "canonical, read-only (rankDerivedValue through the live package model)",
+      "valueScale": "rankDerivedValue (1-9999)",
+      "packageModel": "geom_q078_v1",
+      "fairnessBands": "fairness_bands_v2",
+      "state": "priced",
+      "sendRaw": 7901.0,
+      "receiveRaw": 7462.0,
+      "sendValueAdjustment": 0.0,
+      "receiveValueAdjustment": 244.0,
+      "sendAdjusted": 7901.0,
+      "receiveAdjusted": 7706.0,
+      "gap": -195.0,
+      "gapMeaning": "receiveAdjusted - sendAdjusted; positive = this team receives more",
+      "band": {
+       "level": "fair",
+       "label": "FAIR",
+       "relativePct": 2.83
+      }
+     },
+     "leagueUtility": {
+      "quantity": "League Utility",
+      "status": "SHADOW, uncalibrated, not served (Lane F/G candidates C and D)",
+      "units": {
+       "C": "projected league points per game over the weakest started player at the position",
+       "D": "expected league-average marginal best-ball points per week"
+      },
+      "give": [
+       {
+        "name": "Joe Milton",
+        "position": "QB",
+        "state": "scored",
+        "C": -1.57,
+        "D": 1.66,
+        "DStandardError": 0.34,
+        "reason": null
+       },
+       {
+        "name": "Quentin Lake",
+        "position": "DB",
+        "state": "scored",
+        "C": -0.05,
+        "D": 3.3,
+        "DStandardError": 0.4,
+        "reason": null
+       },
+       {
+        "name": "A.J. Brown",
+        "position": "WR",
+        "state": "scored",
+        "C": 3.59,
+        "D": 6.98,
+        "DStandardError": 0.62,
+        "reason": null
+       }
+      ],
+      "receive": [
+       {
+        "name": "Travis Kelce",
+        "position": "TE",
+        "state": "scored",
+        "C": 2.33,
+        "D": 6.43,
+        "DStandardError": 0.42,
+        "reason": null
+       },
+       {
+        "name": "Nick Emmanwori",
+        "position": "DB",
+        "state": "scored",
+        "C": 2.01,
+        "D": 3.94,
+        "DStandardError": 0.53,
+        "reason": null
+       }
+      ],
+      "complete": true,
+      "net": {
+       "D": -1.57,
+       "C": 2.37,
+       "additive": false,
+       "countsDiffer": true,
+       "meaning": "receive minus give of per-asset values; NOT roster-aware, so a naive sum",
+       "bias": "players competing for the same slots have diminishing returns, so a naive sum favours the side that receives more players; read Team Transaction Impact"
+      }
+     },
+     "teamTransactionImpact": {
+      "quantity": "Team Transaction Impact",
+      "status": "read-only replay of the league's real weeks 1-6 on the exact solver (hindsight)",
+      "unit": "optimal best-ball lineup points per week, mean of weeks 1-6",
+      "bestBallReplay": {
+       "rosterSizes": {
+        "before": 58,
+        "landed": 57,
+        "final": 57
+       },
+       "before": 350.48,
+       "landed": 354.94,
+       "final": 354.94,
+       "delta": 4.46,
+       "deltaBeforeCleanup": 4.46,
+       "weeklyDelta": [
+        -8.57,
+        2.77,
+        5.86,
+        26.7,
+        0.0,
+        0.0
+       ],
+       "weeksImproved": 3,
+       "weeksWorsened": 1,
+       "weeks": 6,
+       "sumOfSingleMoveDeltas": 4.46,
+       "packageMinusSum": 0.0
+      },
+      "averageWeekReading": {
+       "before": 301.24,
+       "final": 305.53,
+       "delta": 4.3,
+       "note": "each player at his points per game played: no weekly spread, so no best-ball depth value (a player with no game is unassignable, not zero)"
+      },
+      "startedWeeks": {
+       "Joe Milton": 0,
+       "Quentin Lake": 3,
+       "A.J. Brown": 1,
+       "Travis Kelce": 4,
+       "Nick Emmanwori": 1
+      },
+      "startedWeeksMeaning": "weeks (of 6) each gave-away player started for the BEFORE roster and each received player starts for the FINAL roster",
+      "capacity": {
+       "rosterLimit": 58,
+       "sizeBefore": 58,
+       "sizeAfter": 57,
+       "overLimitAfter": 0,
+       "requiresDrops": false,
+       "certainty": "exact",
+       "forcedDrops": [],
+       "forcedDropsMissingFromRoster": 0,
+       "rungOrderWasTied": false,
+       "selectionRule": null,
+       "owner": "src.trade.roster_capacity.assess_roster_capacity (read-only)"
+      },
+      "isVerdict": false
+     }
+    }
+   },
+   "readout": {
+    "marketPrice": {
+     "favours": "even",
+     "band": "FAIR"
+    },
+    "leagueUtilityD": {
+     "favours": "A",
+     "netForA": 1.57
+    },
+    "teamTransactionImpact": {
+     "deltaA": -3.05,
+     "deltaB": 4.46,
+     "pattern": "B gains and A loses"
+    },
+    "note": "descriptive only: three different units and three different evidence bases"
+   },
+   "isVerdict": false
+  }
+ ],
+ "limits": [
+  "Examples are a seeded sample of trades the market calls FAIR, one per category; they show how the three quantities can differ, not how often.",
+  "Market Price is the 2026-10-25 board; League Utility is the 2026-09-09 cutoff projection prior (veterans only; rookies and players without a prior season are UNAVAILABLE); the replay is weeks 1-6 of 2026. Three dates, three evidence bases.",
+  "Team Transaction Impact is a hindsight replay of six realised weeks (Lane B measured in-sample lineup gains at about four times what walking forward realises). It is not a forecast and carries no interval.",
+  "The replay uses today's rosters over weeks 1-6, so a player acquired mid-season is credited for weeks he spent elsewhere, and a missing stat line scores 0.0 as the host does.",
+  "League Utility sums are naive per-asset sums, withheld when any asset is unscored, and biased toward the side that receives more players when the counts differ.",
+  "Forced drops come from the live capacity owner with league scarcity unread (the live multiplier is inert at 1.0); the flag-gated cheapest-legal rule is whatever the checkout defaults to, stated per example.",
+  "Nothing here is an Accept/Decline answer, a served value or a promotion."
+ ]
+}

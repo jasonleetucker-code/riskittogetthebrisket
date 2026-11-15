@@ -20,8 +20,11 @@ import {
 } from "@/lib/game-day-view";
 import styles from "./game-day.module.css";
 
-function remainingCell(player, detail) {
+function remainingCell(player, detail, pending) {
   if (player.state === "completed" || player.state === "inactive") return "None left";
+  // PENDING deliberately withholds projectedRemaining (matchup_intel):
+  // not computed yet is not "no projection".
+  if (pending && detail?.projectedRemaining == null) return "Computing";
   const value = formatPoints(player.projectedRemaining);
   if (value !== null) return value;
   const why = reasonText(detail?.progressUnavailableReason);
@@ -41,7 +44,7 @@ function scoredCell(player) {
   return formatPoints(player.pointsScored) ?? "Unavailable";
 }
 
-export default function GamePlayers({ game, index, teamName, opponentName }) {
+export default function GamePlayers({ game, index, teamName, opponentName, pending = false }) {
   const rows = useMemo(
     () =>
       [...game.players]
@@ -71,10 +74,10 @@ export default function GamePlayers({ game, index, teamName, opponentName }) {
       key: "remaining",
       header: "Left",
       headerInfo:
-        "Projected points still to come: the pregame weekly projection times the share of regulation left on the observed game clock.",
+        "Projected points still to come: the weekly projection locked at kickoff (the preseason average when there is no weekly line) times the share of regulation left on the observed game clock. A player whose game has not started keeps his full projection.",
       headerInfoLabel: "Projected points left",
       numeric: true,
-      render: (p) => remainingCell(p, p.detail),
+      render: (p) => remainingCell(p, p.detail, pending),
     },
     {
       key: "lineup",

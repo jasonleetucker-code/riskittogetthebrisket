@@ -1,0 +1,218 @@
+{
+ "computedOn": "pin2015 (payload sha256 3ef54acda8c1062f96d02692fc22ea8ebc7e8f9bc38168359efac60675119199)",
+ "mustInclude": [
+  {
+   "onPin2015": "NOT produced by the rule: Draft Sharks votes 3001 for Theo Johnson on pin2015 and the incumbent keeps it in B' (2186 -> 2105, DLF Values' own vote). The owner-named case (3182, 2184 -> 2023) is on the PR #1817 lane's board dynasty_export_20261020_052241 (I_INDEPENDENT); it is covered by the frozen panel tests/fixtures/oiv2/panel_theo_johnson_pr1817_lane.json transcribed from that lane's pre-registration dump.",
+   "row": "Theo Johnson",
+   "source": "draftSharks",
+   "valueContribution": 3182
+  }
+ ],
+ "pairs": [
+  {
+   "row": "Ashton Jeanty",
+   "source": "ktcCrowdSfTep",
+   "valueContributionBprime": 6971
+  },
+  {
+   "row": "Brock Purdy",
+   "source": "idpTradeCalc",
+   "valueContributionBprime": 6439
+  },
+  {
+   "row": "Brock Purdy",
+   "source": "yahooBoone",
+   "valueContributionBprime": 8561
+  },
+  {
+   "row": "CeeDee Lamb",
+   "source": "idpTradeCalc",
+   "valueContributionBprime": 7343
+  },
+  {
+   "row": "Courtland Sutton",
+   "source": "draftSharks",
+   "valueContributionBprime": 3453
+  },
+  {
+   "row": "Dak Prescott",
+   "source": "yahooBoone",
+   "valueContributionBprime": 7146
+  },
+  {
+   "row": "Evan Engram",
+   "source": "draftSharks",
+   "valueContributionBprime": 3109
+  },
+  {
+   "row": "Harold Fannin",
+   "source": "yahooBoone",
+   "valueContributionBprime": 4441
+  },
+  {
+   "row": "Isaiah Likely",
+   "source": "ktcCrowdSfTep",
+   "valueContributionBprime": 5773
+  },
+  {
+   "row": "Jalen Coker",
+   "source": "ktcCrowdSfTep",
+   "valueContributionBprime": 4761
+  },
+  {
+   "row": "Joe Burrow",
+   "source": "draftSharks",
+   "valueContributionBprime": 9486
+  },
+  {
+   "row": "Joe Burrow",
+   "source": "fantasyProsSf",
+   "valueContributionBprime": 9345
+  },
+  {
+   "row": "Joe Burrow",
+   "source": "idpTradeCalc",
+   "valueContributionBprime": 7080
+  },
+  {
+   "row": "Joe Burrow",
+   "source": "ktcCrowdSfTep",
+   "valueContributionBprime": 6833
+  },
+  {
+   "row": "Josh Cameron",
+   "source": "draftSharks",
+   "valueContributionBprime": 2633
+  },
+  {
+   "row": "Oscar Delp",
+   "source": "draftSharks",
+   "valueContributionBprime": 3218
+  },
+  {
+   "row": "Patrick Mahomes",
+   "source": "fantasyProsFitzmaurice",
+   "valueContributionBprime": 8687
+  },
+  {
+   "row": "Patrick Mahomes",
+   "source": "idpTradeCalc",
+   "valueContributionBprime": 6402
+  },
+  {
+   "row": "Patrick Mahomes",
+   "source": "ktcCrowdSfTep",
+   "valueContributionBprime": 6329
+  },
+  {
+   "row": "Puka Nacua",
+   "source": "idpTradeCalc",
+   "valueContributionBprime": 8033
+  }
+ ],
+ "pin0527": [
+  {
+   "row": "Ashton Jeanty",
+   "source": "ktcCrowdSfTep",
+   "valueContributionBprime": 6983
+  },
+  {
+   "row": "Brock Purdy",
+   "source": "idpTradeCalc",
+   "valueContributionBprime": 6439
+  },
+  {
+   "row": "Brock Purdy",
+   "source": "yahooBoone",
+   "valueContributionBprime": 8561
+  },
+  {
+   "row": "CeeDee Lamb",
+   "source": "idpTradeCalc",
+   "valueContributionBprime": 7343
+  },
+  {
+   "row": "Colston Loveland",
+   "source": "flockFantasySf",
+   "valueContributionBprime": 7804
+  },
+  {
+   "row": "Courtland Sutton",
+   "source": "draftSharks",
+   "valueContributionBprime": 3429
+  },
+  {
+   "row": "Dalton Schultz",
+   "source": "draftSharks",
+   "valueContributionBprime": 3733
+  },
+  {
+   "row": "Evan Engram",
+   "source": "draftSharks",
+   "valueContributionBprime": 3109
+  },
+  {
+   "row": "Harold Fannin",
+   "source": "yahooBoone",
+   "valueContributionBprime": 4441
+  },
+  {
+   "row": "Hunter Henry",
+   "source": "draftSharks",
+   "valueContributionBprime": 3671
+  },
+  {
+   "row": "Joe Burrow",
+   "source": "draftSharks",
+   "valueContributionBprime": 9486
+  },
+  {
+   "row": "Joe Burrow",
+   "source": "fantasyProsSf",
+   "valueContributionBprime": 9345
+  },
+  {
+   "row": "Joe Burrow",
+   "source": "idpTradeCalc",
+   "valueContributionBprime": 7080
+  },
+  {
+   "row": "Joe Burrow",
+   "source": "ktcCrowdSfTep",
+   "valueContributionBprime": 6793
+  },
+  {
+   "row": "Kenneth Walker",
+   "source": "otcffbSf",
+   "valueContributionBprime": 8561
+  },
+  {
+   "row": "Patrick Mahomes",
+   "source": "fantasyProsFitzmaurice",
+   "valueContributionBprime": 8687
+  },
+  {
+   "row": "Patrick Mahomes",
+   "source": "idpTradeCalc",
+   "valueContributionBprime": 6402
+  },
+  {
+   "row": "Patrick Mahomes",
+   "source": "ktcCrowdSfTep",
+   "valueContributionBprime": 6357
+  },
+  {
+   "row": "Patrick Mahomes",
+   "source": "yahooBoone",
+   "valueContributionBprime": 8561
+  },
+  {
+   "row": "Trevor Lawrence",
+   "source": "draftSharks",
+   "valueContributionBprime": 8711
+  }
+ ],
+ "rule": "On pin2015 (and reported on the newest I_INDEPENDENT board): build A' = release defaults (dlf_values_rank_hill_vote OFF, DLF IDP held) and B' = the same with dlf_values_rank_hill_vote ON, incumbent filter. The D4 regression set is every (offense row, source) pair dropped by the incumbent in B' and not in A', excluding DLF Values' own vote. Membership is computed by this rule at Stage 3 and committed before the V_HELDOUT run; it is not edited afterwards.",
+ "schema": "oiv2-d4-regression-set/v1",
+ "status": "computed by the registered rule before the Stage 2 freeze (DEVIATIONS T1/T2); provisional thresholds do not enter membership (A' and B' are incumbent builds)"
+}

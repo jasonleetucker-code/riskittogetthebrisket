@@ -765,3 +765,40 @@ def test_the_same_week_transitions_pregame_to_live_to_final_without_double_proje
     assert all(
         player.projected_remaining == 0.0 for team in final.week.teams for player in team.players
     )
+
+
+def test_bye_week_player_is_inactive_with_zero_remaining_not_projected():
+    """P0 audit (owner master package 2026-10-17): a bye player has no weekly
+    row, so the estimate owner's preseason fallback projected him; he must be
+    inactive with 0.0 remaining instead."""
+    from src.ros.game_day_week import GameEvidence, bye_teams_for_week, resolve_scoring_week
+
+    players = {k: dict(v) for k, v in META.items()}
+    players["p1"] = dict(players["p1"], team="SEA")
+    players["p2"] = dict(players["p2"], team="MIN")
+    rows = [
+        {"season": 2026, "week": 1, "game_type": "REG", "home_team": "SEA", "away_team": "DAL"},
+        {"season": 2026, "week": 2, "game_type": "REG", "home_team": "MIN", "away_team": "DAL"},
+        {"season": 2026, "week": 2, "game_type": "REG", "home_team": "SEA", "away_team": "NYG"},
+    ]
+    byes = bye_teams_for_week(rows, season=2026, week=1)
+    assert "MIN" in byes and "SEA" not in byes
+    # No rows for a week -> no byes inferred.
+    assert bye_teams_for_week(rows, season=2026, week=9) == frozenset()
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload=LEAGUE,
+        rosters=_rosters(),
+        matchups=None,
+        players_meta=players,
+        starter_slots=SLOTS,
+        estimates={"ann alpha": 20.0, "bob bravo": 12.0},
+        estimate_source="fixture",
+        game_evidence={"SEA": GameEvidence("not_started", "fixture", 100.0)},
+        now=50.0,
+        bye_teams=byes,
+    )
+    by_id = {p.player_id: p for t in result.week.teams for p in t.players}
+    assert by_id["p2"].state == "inactive"
+    assert by_id["p2"].projected_remaining == 0.0
+    assert by_id["p1"].state == "not_started" and by_id["p1"].projected_remaining == 20.0

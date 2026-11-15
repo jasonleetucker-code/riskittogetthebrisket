@@ -1113,3 +1113,50 @@ def test_fetch_sleeper_user_team_falls_back_to_display_name(monkeypatch):
     server._SLEEPER_USER_TEAM_CACHE.clear()
     result = server._fetch_sleeper_user_team("L-MAIN", "U-JASON")
     assert result == {"ownerId": "U-JASON", "teamName": "jasonleetucker"}
+
+
+def _no_board(monkeypatch):
+    for name in (
+        "latest_contract_data",
+        "latest_data_bytes",
+        "latest_data_gzip_bytes",
+        "latest_data_etag",
+    ):
+        monkeypatch.setattr(server, name, None)
+    for name in (
+        "latest_runtime_data",
+        "latest_runtime_data_bytes",
+        "latest_runtime_data_gzip_bytes",
+    ):
+        if hasattr(server, name):
+            monkeypatch.setattr(server, name, None)
+
+
+def test_no_board_503_carries_a_code_and_a_reason(two_league_registry, monkeypatch):
+    """The Rankings banner said "declining for the reason above" with no
+    reason (2026-10-05): this route put a SENTENCE in ``error``.  It now
+    sends a machine code plus a message, and names a failed build as one."""
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _no_board(monkeypatch)
+        monkeypatch.setattr(server, "contract_health", {"ok": True, "status": "ok", "errors": []})
+        r = c.get("/api/data")
+        assert r.status_code == 503
+        assert r.json()["error"] == "data_not_ready"
+        assert r.json()["message"]
+
+        monkeypatch.setattr(
+            server,
+            "contract_health",
+            {
+                "ok": False,
+                "status": "invalid",
+                "errors": ["contract build failed: IndexError: list index out of range"],
+            },
+        )
+        r = c.get("/api/dynasty-data")
+        assert r.status_code == 503
+        body = r.json()
+        assert body["error"] == "contract_build_failed"
+        assert "build failed" in body["message"]
+        # The exception text is diagnostics (on /api/status), not UI copy.
+        assert "IndexError" not in body["message"]

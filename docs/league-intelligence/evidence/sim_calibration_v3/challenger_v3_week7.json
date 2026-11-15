@@ -1,0 +1,186 @@
+{
+  "schemaVersion": "research-sim-points-v3",
+  "kind": "RESEARCH_CANDIDATE_NOT_SERVED",
+  "promotes": false,
+  "evaluatedWeek": 7,
+  "model": {
+    "source": "research-v3-challenger",
+    "meanByFamily": {
+      "DB": {
+        "a": 6.984168,
+        "b": 3.259231,
+        "mode": "ols",
+        "n": 545
+      },
+      "DL": {
+        "a": 6.393203,
+        "b": 2.830225,
+        "mode": "ols",
+        "n": 421
+      },
+      "K": {
+        "a": 8.190613,
+        "b": 1.138422,
+        "mode": "ols",
+        "n": 114
+      },
+      "LB": {
+        "a": 9.036996,
+        "b": 2.738328,
+        "mode": "ols",
+        "n": 505
+      },
+      "QB": {
+        "a": 11.807972,
+        "b": 6.827413,
+        "mode": "ols",
+        "n": 195
+      },
+      "RB": {
+        "a": 3.852786,
+        "b": 6.871881,
+        "mode": "ols",
+        "n": 420
+      },
+      "TE": {
+        "a": 3.373507,
+        "b": 4.218368,
+        "mode": "ols",
+        "n": 304
+      },
+      "WR": {
+        "a": 4.321494,
+        "b": 5.899464,
+        "mode": "ols",
+        "n": 623
+      }
+    },
+    "pooledMean": {
+      "a": 0.0,
+      "b": 10.645862,
+      "n": 3127
+    },
+    "reAnchored": false,
+    "cvByFamily": {
+      "DB": 0.895,
+      "DL": 1.13,
+      "K": 1.2,
+      "LB": 0.74,
+      "QB": 0.75,
+      "RB": 1.005,
+      "TE": 1.2,
+      "WR": 1.08
+    },
+    "pooledCv": 1.035,
+    "rawFamily": {},
+    "tauL2": 0.000379,
+    "tauR2": 0.007937
+  },
+  "fit": {
+    "fitWeeks": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "fitPlayerWeeks": 3127,
+    "prequentialPlayerWeeks": 2571,
+    "prequentialWeeks": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "cv": {
+      "LB": {
+        "cv": 0.74,
+        "n": 419,
+        "measured": true,
+        "meanLogScore": -3.48143
+      },
+      "DB": {
+        "cv": 0.895,
+        "n": 454,
+        "measured": true,
+        "meanLogScore": -3.41667
+      },
+      "WR": {
+        "cv": 1.08,
+        "n": 501,
+        "measured": true,
+        "meanLogScore": -3.36633
+      },
+      "QB": {
+        "cv": 0.75,
+        "n": 163,
+        "measured": true,
+        "meanLogScore": -3.83071
+      },
+      "TE": {
+        "cv": 1.2,
+        "n": 245,
+        "measured": true,
+        "meanLogScore": -3.21537
+      },
+      "RB": {
+        "cv": 1.005,
+        "n": 344,
+        "measured": true,
+        "meanLogScore": -3.43509
+      },
+      "DL": {
+        "cv": 1.13,
+        "n": 350,
+        "measured": true,
+        "meanLogScore": -3.46278
+      },
+      "K": {
+        "cv": 1.2,
+        "n": 95,
+        "measured": true,
+        "meanLogScore": -3.9706
+      }
+    },
+    "pooledCv": {
+      "cv": 1.035,
+      "n": 2571,
+      "meanLogScore": -3.4790199360817953
+    },
+    "shocks": {
+      "tauL2": 0.0003787388859274149,
+      "tauR2": 0.007937315458402368,
+      "tauL2Raw": 0.0003787388859274149,
+      "tauW2Raw": 0.008316054344329783,
+      "pairsCross": true,
+      "residualPlayerWeeks": 2571
+    },
+    "cIdioByFamily": {
+      "DB": 0.8903,
+      "DL": 1.1263,
+      "K": 1.1965,
+      "LB": 0.7344,
+      "QB": 0.7444,
+      "RB": 1.0009,
+      "TE": 1.1965,
+      "WR": 1.0761
+    }
+  },
+  "note": "Family anchors are inputs of the evaluated week (mean as-of rosValue over its pool, \u00a73.1) and are attached at evaluation time; they are not part of this file.",
+  "study": {
+    "promotes": false,
+    "status": "RESEARCH_CANDIDATE_NOT_SERVED",
+    "cardFingerprint": "sf1:9e51824690d091f9",
+    "codeSha": "75c6206790da8bf171566e8c8cb9448f8f127cf1",
+    "studyCodeDirty": false,
+    "scriptSha256": "b55b29d7cef0dbbbd41e24d7134052526e823cd637b58b3667fb6b6ee876e278",
+    "preregistration": {
+      "path": "docs/league-intelligence/SIM_CALIBRATION_V3_PREREGISTRATION_2026-10-27.md",
+      "commit": "c52ff4d7f0b41e27a6422f25ad4b661d8d145f1f",
+      "committedAt": "2026-10-27T05:10:03-04:00",
+      "isAncestorOfCodeSha": true
+    }
+  }
+}

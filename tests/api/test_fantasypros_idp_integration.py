@@ -3,6 +3,12 @@
 These tests pin down the contract-level wiring for the 6th ranking
 source so a future refactor cannot silently drop FP from the blend
 and cannot break the combined-authority + anchored-extension rules.
+
+The registry class is pure config and runs in the hard gate.  The CSV-shape,
+enrichment and live-payload classes read today's scraped
+``CSVs/site_raw/fantasyProsIdp.csv`` (or a live API snapshot), so they carry
+``@pytest.mark.livedata`` -- the non-blocking advisory lane (CLAUDE.md "CI has
+two lanes").
 """
 
 from __future__ import annotations
@@ -13,6 +19,8 @@ import os
 import unittest
 from pathlib import Path
 
+import pytest
+
 from src.api.data_contract import (
     _IDP_SIGNAL_KEYS,
     _RANKING_SOURCES,
@@ -22,14 +30,19 @@ from src.api.data_contract import (
 from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_IDP
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FP_CSV = REPO_ROOT / "CSVs" / "site_raw" / "fantasyProsIdp.csv"
 LIVE_API_JSON = REPO_ROOT / "tests" / "api" / "_live_api_fixture.json"
 
 
+def _live_fp_csv() -> Path:
+    """TODAY's scraped CSV.  Every user is a ``livedata`` class."""
+    return REPO_ROOT / "CSVs" / "site_raw" / "fantasyProsIdp.csv"
+
+
 def _fp_csv_rows() -> list[dict[str, str]]:
-    if not FP_CSV.exists():
+    fp_csv = _live_fp_csv()
+    if not fp_csv.exists():
         return []
-    with FP_CSV.open("r", encoding="utf-8-sig") as f:
+    with fp_csv.open("r", encoding="utf-8-sig") as f:
         return list(csv.DictReader(f))
 
 
@@ -96,11 +109,13 @@ class TestFantasyProsIdpRegistry(unittest.TestCase):
         self.assertTrue(src.get("needs_shared_market_translation", False))
 
 
+# Reads TODAY'S CSVs/site_raw/fantasyProsIdp.csv (or a live API snapshot): advisory tier.
+@pytest.mark.livedata
 class TestFantasyProsIdpCsvShape(unittest.TestCase):
     """Shape + algorithmic invariants of the scraped CSV file on disk."""
 
     def test_csv_exists(self):
-        self.assertTrue(FP_CSV.exists(), f"{FP_CSV} missing")
+        self.assertTrue(_live_fp_csv().exists(), f"{_live_fp_csv()} missing")
 
     def test_csv_has_required_columns(self):
         rows = _fp_csv_rows()
@@ -302,6 +317,8 @@ class TestFantasyProsIdpCsvShape(unittest.TestCase):
                 last_eff = eff
 
 
+# Reads TODAY'S CSVs/site_raw/fantasyProsIdp.csv (or a live API snapshot): advisory tier.
+@pytest.mark.livedata
 class TestFantasyProsIdpEnrichment(unittest.TestCase):
     """End-to-end: FP CSV rows surface on contract rows that match by name."""
 
@@ -403,6 +420,8 @@ class TestFantasyProsIdpEnrichment(unittest.TestCase):
         self.assertIn("fantasyProsIdp", ts)
 
 
+# Reads TODAY'S CSVs/site_raw/fantasyProsIdp.csv (or a live API snapshot): advisory tier.
+@pytest.mark.livedata
 class TestFantasyProsIdpLivePayload(unittest.TestCase):
     """Live payload assertions — skipped if snapshot not present."""
 
