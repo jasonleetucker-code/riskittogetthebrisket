@@ -33,7 +33,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from graders.deterministic import CaseError, grade_file, list_case_ids, load_case  # noqa: E402
+from graders.deterministic import (  # noqa: E402
+    CaseError,
+    grade_file,
+    list_case_ids,
+    load_artifact,
+    load_case,
+)
+from steward_adapter import artifact_from_state  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -65,6 +72,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Fail when a required CI workflow cannot be verified.",
     )
+    parser.add_argument(
+        "--steward-state", type=Path, help="Private Steward SQLite state holding source receipt."
+    )
+    parser.add_argument(
+        "--require-verified-steward-receipt",
+        action="store_true",
+        help="Fail when the submitted artifact cannot be matched to its private source receipt.",
+    )
     args = parser.parse_args(argv)
 
     if args.list:
@@ -79,6 +94,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--require-verified-diff needs --repo")
     if args.require_verified_ci and args.ci_repo is None:
         parser.error("--require-verified-ci needs --ci-repo")
+    if args.require_verified_steward_receipt and args.steward_state is None:
+        parser.error("--require-verified-steward-receipt needs --steward-state")
 
     try:
         result = grade_file(
@@ -91,6 +108,45 @@ def main(argv: list[str] | None = None) -> int:
             trusted_ref=args.trusted_ref,
             trusted_base=args.ci_base_branch,
         )
+        artifact = load_artifact(Path(args.artifact))
+        source = artifact.get("source_receipt")
+        if source is not None and args.steward_state is not None:
+            expected = artifact_from_state(args.steward_state, source["run_id"])
+            if artifact != expected:
+                result.evidence.append(
+                    {
+                        "check": "steward_receipt_mapping",
+                        "level": "NOT_CHECKED",
+                        "reason": "artifact_mismatch",
+                    }
+                )
+                result.failures.append("eval artifact does not match the persisted Steward receipt")
+                result.passed = False
+            else:
+                result.evidence.append(
+                    {"check": "steward_receipt_mapping", "level": "VERIFIED_AGAINST_ARTIFACT"}
+                )
+        elif source is not None:
+            result.evidence.append(
+                {
+                    "check": "steward_receipt_mapping",
+                    "level": "NOT_CHECKED",
+                    "reason": "no_steward_state",
+                }
+            )
+        elif args.steward_state is not None:
+            result.evidence.append(
+                {
+                    "check": "steward_receipt_mapping",
+                    "level": "NOT_CHECKED",
+                    "reason": "no_source_receipt",
+                }
+            )
+            result.failures.append("eval artifact has no source_receipt identity")
+            result.passed = False
+        if args.require_verified_steward_receipt and source is None:
+            result.failures.append("source receipt mapping could not be verified")
+            result.passed = False
     except (CaseError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

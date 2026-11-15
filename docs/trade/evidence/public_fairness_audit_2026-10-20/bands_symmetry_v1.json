@@ -1,0 +1,14 @@
+{
+  "bandsRoot": "origin/claude/advisor-public-backend@fae7209b6b (src/valuation_math identical to c5dfa95ed4, where this was run)",
+  "hasCountsAsFairTrade": false,
+  "levels": {
+    "fair": 1060,
+    "lopsided": 14410,
+    "slight": 1629,
+    "unfair": 2901
+  },
+  "samples": 20000,
+  "status": "PROVISIONAL",
+  "swapMismatches": 0,
+  "version": "fairness_bands_v1"
+}

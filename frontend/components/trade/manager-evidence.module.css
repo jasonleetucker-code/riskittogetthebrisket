@@ -1,0 +1,23 @@
+.evidence {
+  font-size: 0.82rem;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 6px;
+}
+
+.evidence summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.evidence ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+}
+
+.note {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}

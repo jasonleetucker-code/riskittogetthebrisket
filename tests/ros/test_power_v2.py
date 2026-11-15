@@ -81,7 +81,8 @@ class TestLoadTeamStrength(unittest.TestCase):
                         {"ownerId": "beta", "teamRosStrength": 60.0, "startingLineupScore": 60.0},
                         {"ownerId": "gamma", "teamRosStrength": 30.0, "startingLineupScore": 30.0},
                     ]
-                )
+                ),
+                encoding="utf-8",
             )
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 result = power_v2._load_team_strength_percentiles()
@@ -450,7 +451,7 @@ class TestBuildSectionPreseason(unittest.TestCase):
             tmp_root = Path(tmp)
             target = tmp_root / "team_strength" / "latest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps(ts_rows))
+            target.write_text(json.dumps(ts_rows), encoding="utf-8")
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 section = power_v2.build_section(snapshot)
 
@@ -484,12 +485,16 @@ class TestBuildSectionPreseason(unittest.TestCase):
         # scored weeks provide a mature-enough active-season fixture; sample
         # reliability is now handled by the smooth evidence curve rather
         # than per-component activation cliffs.
-        rosters = [{"owner_id": f"o{i}", "roster_id": i} for i in range(1, 4)]
+        # Real pairings (matchup_id): an unpaired row is a scored week with
+        # no game, so a fixture without them has no W/L record to keep --
+        # it used to read as 0-4 for every team (#1530 finding B).
+        rosters = [{"owner_id": f"o{i}", "roster_id": i} for i in range(1, 5)]
         matchups = {
             wk: [
-                {"roster_id": 1, "points": 110.0 + wk},
-                {"roster_id": 2, "points": 90.0 + wk},
-                {"roster_id": 3, "points": 85.0 + wk},
+                {"roster_id": 1, "matchup_id": 1, "points": 110.0 + wk},
+                {"roster_id": 2, "matchup_id": 1, "points": 90.0 + wk},
+                {"roster_id": 3, "matchup_id": 2, "points": 85.0 + wk},
+                {"roster_id": 4, "matchup_id": 2, "points": 80.0 + wk},
             ]
             for wk in (1, 2, 3, 4)
         }
@@ -507,9 +512,10 @@ class TestBuildSectionPreseason(unittest.TestCase):
                             "startingLineupScore": 50.0,
                             "healthAvailabilityScore": 100,
                         }
-                        for i in range(1, 4)
+                        for i in range(1, 5)
                     ]
-                )
+                ),
+                encoding="utf-8",
             )
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 section = power_v2.build_section(snapshot)

@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from src.bdvm.params import ParamSet
-from src.bdvm.scoring import score_stat_line_per_game_detailed, season_line_to_per_game
+from src.bdvm.scoring import score_stat_line_per_game_breakdown, season_line_to_per_game
 from src.bdvm.source_vocabulary import capability_for, record_coverage, worst_status
 from src.nfl_data.first_down_rate import with_imputed_first_downs
 
@@ -40,6 +40,23 @@ _STAT_BASES = ("season", "per_game")
 
 class ProjectionError(ValueError):
     """Raised on malformed projection inputs."""
+
+
+@dataclass(frozen=True)
+class FpgResolution:
+    """One record's per-game points under a card, from one scoring call.
+
+    ``components`` are ``(scoring_key, raw_stat, rate, awarded_points)`` per
+    game — the canonical scorer's own arithmetic, so they sum to ``fpg``
+    exactly for a stat-line record.  Empty when the source supplied points
+    rather than a stat line (``scoring_native`` then says whose rules
+    those points use).
+    """
+
+    fpg: float
+    scoring_native: bool
+    unscored: tuple[str, ...] = ()
+    components: tuple[tuple[str, float, float, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -105,13 +122,24 @@ class ProjectionRecord:
     ) -> tuple[float, bool, tuple[str, ...]]:
         """``resolve_fpg`` plus the league-card keys the stat line could not
         score (empty for source-scored fpg/fpts, which we did not score)."""
+        resolved = self.resolve_fpg_breakdown(scoring_settings)
+        return resolved.fpg, resolved.scoring_native, resolved.unscored
+
+    def resolve_fpg_breakdown(self, scoring_settings: Mapping[str, Any]) -> "FpgResolution":
+        """:meth:`resolve_fpg_detailed` plus the scorer's per-key components.
+
+        The detailed method delegates here, so the components and the total
+        come from ONE scoring call.  Components are per-game
+        ``(scoring_key, raw_stat, rate, awarded_points)``; empty for a
+        source-scored ``fpg`` / ``fpts`` record (we scored nothing).
+        """
         if self.stat_line is not None:
             per_game = (
                 dict(self.stat_line)
                 if self.stat_basis == "per_game"
                 else season_line_to_per_game(self.stat_line, self.games)
             )
-            points, unscored = score_stat_line_per_game_detailed(
+            scored = score_stat_line_per_game_breakdown(
                 per_game,
                 scoring_settings,
                 position=self.position,
@@ -127,11 +155,16 @@ class ProjectionRecord:
                 # the bonus.  See src/nfl_data/first_down_rate.py.
                 impute_first_downs=True,
             )
-            return points, True, unscored
+            return FpgResolution(
+                fpg=scored.points,
+                scoring_native=True,
+                unscored=scored.unscored,
+                components=scored.components,
+            )
         if self.fpg is not None:
-            return float(self.fpg), self.scoring_native, ()
+            return FpgResolution(fpg=float(self.fpg), scoring_native=self.scoring_native)
         assert self.fpts is not None  # guaranteed by __post_init__
-        return float(self.fpts) / self.games, self.scoring_native, ()
+        return FpgResolution(fpg=float(self.fpts) / self.games, scoring_native=self.scoring_native)
 
     @property
     def capability(self):

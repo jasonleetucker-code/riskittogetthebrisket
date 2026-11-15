@@ -23,6 +23,21 @@ import { useEffect, useState } from "react";
  * A separate critical banner fires when ``scrape_stalled`` is true
  * regardless of age — that's a background-worker hang the operator
  * needs to see immediately.
+ *
+ * In the 6-24h tier the copy depends on what the refresh pipeline is
+ * doing, using only fields ``/api/health`` serves:
+ *
+ *   - ``scrape_running``                       → "a refresh is running now"
+ *   - ``current_step`` failed|blocked, a non-empty
+ *     ``latest_run_critical_source_failures``, or
+ *     ``source_health_ok === false``           → the last attempt failed;
+ *                                                NO promise that another is
+ *                                                about to land
+ *   - none of the above                        → the plain "next scheduled
+ *                                                scrape should land soon"
+ *
+ * ``current_step`` keeps its terminal value ("failed" / "blocked") until the
+ * next run starts, so it describes the LAST attempt, not a live one.
  */
 const POLL_MS = 60_000;
 const WARNING_HOURS = 6;
@@ -178,9 +193,47 @@ export default function StaleDataBanner() {
     );
   }
 
+  const hoursOld = Math.round(age);
+  const lastRefresh = lastScrape ? <span>Last successful refresh: {formatAgo(lastScrape)}.</span> : null;
+
+  // A refresh is in flight right now: say so, and make no promise about its
+  // outcome (a run that is currently going may still fail).
+  if (health.scrape_running === true) {
+    return (
+      <BannerShell severity="warning">
+        <strong>Data is {hoursOld}h old.</strong>{" "}
+        A data refresh is running now.{" "}
+        {lastRefresh}
+      </BannerShell>
+    );
+  }
+
+  // Recent refresh attempts are failing: never tell the user another one
+  // "should land soon" while the evidence says the pipeline is not landing.
+  const failedSources = Array.isArray(health.latest_run_critical_source_failures)
+    ? health.latest_run_critical_source_failures.filter(Boolean)
+    : [];
+  const step = String(health.current_step || "");
+  const lastAttemptFailed = step === "failed" || step === "blocked";
+  const sourcesUnhealthy = health.source_health_ok === false;
+  if (lastAttemptFailed || failedSources.length > 0 || sourcesUnhealthy) {
+    return (
+      <BannerShell severity="warning">
+        <strong>Data is {hoursOld}h old.</strong>{" "}
+        {lastAttemptFailed
+          ? "The last refresh attempt did not complete, so values are from the last successful refresh."
+          : "Recent refreshes are not completing cleanly, so values may be out of date."}{" "}
+        {failedSources.length > 0 && (
+          <span>Failing sources: {failedSources.slice(0, 5).join(", ")}{failedSources.length > 5 ? ` and ${failedSources.length - 5} more` : ""}.</span>
+        )}{" "}
+        {lastRefresh}
+      </BannerShell>
+    );
+  }
+
   return (
     <BannerShell severity="warning">
-      <strong>Data is {Math.round(age)}h old.</strong>{" "}
+      <strong>Data is {hoursOld}h old.</strong>{" "}
       The next scheduled scrape should land soon (every 2 hours).{" "}
       {lastScrape && <span>Last refresh: {formatAgo(lastScrape)}.</span>}
     </BannerShell>

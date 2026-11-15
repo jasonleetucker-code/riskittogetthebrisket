@@ -33,7 +33,7 @@ import threading
 import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import Any, Iterable, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Iterable, List, Mapping, Optional, Sequence
 
 from .base import NewsItem, NewsProvider
 from .digest import build_player_digests
@@ -256,8 +256,15 @@ class NewsService:
         limit_per_provider: int = DEFAULT_LIMIT_PER_PROVIDER,
         total_limit: int = DEFAULT_TOTAL_LIMIT,
         clock=time.time,
+        on_refresh: Optional[Callable[..., Any]] = None,
     ) -> None:
         self._providers = list(providers)
+        # Called once per REAL refresh (never on a cache hit) with the
+        # aggregate's items, ``fetched_at`` (its ``generated_at``) and the
+        # request's ``player_meta``.  Production wires the as-known metadata
+        # archive here (``src/news/archive.py``); it must not raise, and a
+        # failure in it never reaches the response.
+        self._on_refresh = on_refresh
         self._ttl = max(0.0, float(cache_ttl_s))
         self._limit_per_provider = max(1, int(limit_per_provider))
         self._total_limit = max(1, int(total_limit))
@@ -383,6 +390,13 @@ class NewsService:
                 expired = [k for k, (exp, _v) in self._cache.items() if now >= exp]
                 for k in expired:
                     self._cache.pop(k, None)
+            if self._on_refresh is not None:
+                try:
+                    self._on_refresh(
+                        base.items, fetched_at=base.generated_at, player_meta=player_meta
+                    )
+                except Exception as exc:  # noqa: BLE001 — never fail the response
+                    log.warning("news on_refresh hook raised: %s", exc)
         finally:
             # Release followers even if the refresh itself raised —
             # they loop back, see no in-flight entry, and can take
@@ -489,6 +503,7 @@ def build_default_service(
     enabled: Optional[Sequence[str]] = None,
     cache_ttl_s: float = DEFAULT_CACHE_TTL_S,
     provider_config: Optional[dict[str, dict[str, Any]]] = None,
+    archive_metadata: bool = True,
 ) -> NewsService:
     """Construct a ``NewsService`` with the production provider set.
 
@@ -498,6 +513,9 @@ def build_default_service(
 
     ``provider_config`` lets callers pass per-provider kwargs,
     e.g. ``{"sleeper": {"lookback_hours": 48}}``.
+
+    ``archive_metadata`` (default on) appends each refresh's item METADATA to
+    the as-known archive (``src/news/archive.py``) on a background thread.
     """
     if enabled is None:
         enabled = _DEFAULT_ENABLED
@@ -513,7 +531,12 @@ def build_default_service(
             instances.append(build_provider(key, **cfg.get(key, {})))
         except Exception as exc:
             log.warning("news provider %r failed to build: %s", name, exc)
-    return NewsService(instances, cache_ttl_s=cache_ttl_s)
+    on_refresh = None
+    if archive_metadata:
+        from .archive import archive_in_background
+
+        on_refresh = archive_in_background
+    return NewsService(instances, cache_ttl_s=cache_ttl_s, on_refresh=on_refresh)
 
 
 __all__ = [

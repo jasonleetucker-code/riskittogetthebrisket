@@ -46,7 +46,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -303,6 +303,55 @@ def _team_key(registry: Any, league_id: str, roster_id: Any) -> str | None:
         return None
 
 
+def week_matchup_structure(
+    entries: Sequence[Mapping[str, Any]],
+    key_of: Callable[[Mapping[str, Any]], Any],
+) -> tuple[list[tuple[Any, Any]], tuple[Any, ...], list[str]]:
+    """``(pairs, byes, structural_issues)`` for one week's matchup rows.
+
+    THE grouping rule for "who played whom".  Deliberately not
+    ``metrics.matchup_pairs``, which silently drops any group that is not
+    exactly two rows -- a broken matchup would then look like a bye and
+    the season like complete.  ``key_of`` maps a row to a team identity
+    (``None`` skips the row), so a consumer keyed by roster id shares this
+    rule instead of re-deriving it:
+
+    * no ``matchup_id`` and a score -> a real bye;
+    * no ``matchup_id`` and no score -> ``unscored:<team>`` (missing data);
+    * a one-row group -> ``unpaired:<team>`` (partner row missing);
+    * a group of three or more -> ``group_size:<n>:<teams>`` (unsupported).
+    """
+    groups: dict[Any, list[Any]] = {}
+    bye_teams: list[Any] = []
+    structural: list[str] = []
+    for entry in entries:
+        key = key_of(entry)
+        if key is None or key == "":
+            continue
+        mid = entry.get("matchup_id")
+        if mid is None:
+            if entry.get("points") is not None:
+                bye_teams.append(key)
+            else:
+                # Neither a score nor a matchup in a finalized week is
+                # missing data, not a quiet bye.
+                structural.append(f"unscored:{key}")
+            continue
+        groups.setdefault(mid, []).append(key)
+    pairs: list[tuple[Any, Any]] = []
+    for mid in sorted(groups, key=str):
+        members = groups[mid]
+        if len(members) == 2:
+            pairs.append((members[0], members[1]))
+        elif len(members) == 1:
+            structural.append(f"unpaired:{members[0]}")
+        else:
+            structural.append(
+                f"group_size:{len(members)}:{','.join(sorted(str(m) for m in members))}"
+            )
+    return pairs, tuple(sorted(bye_teams, key=str)), structural
+
+
 def season_week_inputs(
     season: SeasonSnapshot, registry: Any, *, cutoff_week: int | None = None
 ) -> list[WeekInput]:
@@ -325,42 +374,16 @@ def season_week_inputs(
             key = _team_key(registry, season.league_id, entry.get("roster_id"))
             if key:
                 scores[key] = float(metrics.matchup_points(entry))
-        # Grouped here rather than through ``metrics.matchup_pairs``, which
-        # silently drops any group that is not exactly two rows -- a broken
-        # matchup would then look like a bye and the season like complete.
-        groups: dict[Any, list[str]] = {}
-        bye_teams: list[str] = []
-        structural: list[str] = []
-        for entry in entries:
-            key = _team_key(registry, season.league_id, entry.get("roster_id"))
-            if not key:
-                continue
-            mid = entry.get("matchup_id")
-            if mid is None:
-                if entry.get("points") is not None:
-                    bye_teams.append(key)
-                else:
-                    # Neither a score nor a matchup in a finalized week is
-                    # missing data, not a quiet bye.
-                    structural.append(f"unscored:{key}")
-                continue
-            groups.setdefault(mid, []).append(key)
-        pairs: list[tuple[str, str]] = []
-        for mid in sorted(groups, key=str):
-            members = groups[mid]
-            if len(members) == 2:
-                pairs.append((members[0], members[1]))
-            elif len(members) == 1:
-                structural.append(f"unpaired:{members[0]}")
-            else:
-                structural.append(f"group_size:{len(members)}:{','.join(sorted(members))}")
+        pairs, bye_teams, structural = week_matchup_structure(
+            entries, lambda entry: _team_key(registry, season.league_id, entry.get("roster_id"))
+        )
         if scores or structural:
             out.append(
                 WeekInput(
                     week=wk,
                     scores=scores,
                     pairs=pairs,
-                    byes=tuple(sorted(bye_teams)),
+                    byes=bye_teams,
                     structural_issues=tuple(structural),
                 )
             )

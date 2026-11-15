@@ -1,0 +1,37 @@
+====================================================================
+BOARD DIFF  before.json -> after.json
+====================================================================
+      rows: 1131 -> 1131
+    ranked: 740 -> 740
+    priced: 1028 -> 1028
+     picks: 162 -> 162
+       idp: 428 -> 428
+
+  VALUES: 487 moved, 0 newly priced, 0 newly unpriced
+    |pct change|  p50=1.2%  p90=3.5%  max=14.2%
+    Josh Cameron                          1436 ->    1640  (+14.2%)
+    Adam Trautman                         1183 ->    1341  (+13.4%)
+    Theo Johnson                          2168 ->    1892  (-12.7%)
+    Jahdae Walker                         1118 ->    1016  (-9.1%)
+    DeMario Douglas                       1589 ->    1478  (-7.0%)
+    Mike Gesicki                          2250 ->    2094  (-6.9%)
+    Darnell Washington                    2062 ->    1920  (-6.9%)
+    Deshaun Watson                        2442 ->    2607  (+6.8%)
+    Phil Mafah                            1014 ->    1079  (+6.4%)
+    Gabe Davis                            1020 ->    1084  (+6.3%)
+    Efton Chism                           1388 ->    1472  (+6.1%)
+    Ja'Tavion Sanders                     2008 ->    1897  (-5.5%)
+    David Njoku                           2192 ->    2072  (-5.5%)
+    Jalen Nailor                          1671 ->    1580  (-5.4%)
+    Skyy Moore                            1118 ->    1178  (+5.4%)
+
+  RANKS: 649 changed
+
+  LABELS:
+    canonicalTierId            645 flipped   e.g. 2028 Early 1st: 10 -> 11
+    confidenceBucket            69 flipped   e.g. Aaron Rodgers: medium -> low
+    confidenceLabel            234 flipped   e.g. Aaron Rodgers: Medium — limited by agreement -> Low — limited by agreement
+    marketGapDirection          16 flipped   e.g. Bo Melton: retail_premium -> consensus_premium
+    hasSourceDisagreement       23 flipped   e.g. Ben Sinnott: True -> False
+
+  SOURCE COVERAGE: 437 rows vote differently

@@ -30,7 +30,12 @@
  * so the three cannot drift — see lib/public-routes.js.
  */
 import { NextResponse } from "next/server";
-import { MOVED_ROUTES, isPublicPath, isSelfAuthedPagePath } from "@/lib/public-routes";
+import {
+  MOVED_ROUTES,
+  isPublicPath,
+  isSelfAuthedPagePath,
+  isUnlistedPagePath,
+} from "@/lib/public-routes";
 
 const SESSION_COOKIE = "jason_session";
 
@@ -50,6 +55,13 @@ export function middleware(request) {
   // Self-authenticating pages (the auction room) render their own sign-in;
   // their data is authorised per request by the backend.
   if (isSelfAuthedPagePath(pathname)) return NextResponse.next();
+  // Unlisted pages: open to anyone with the exact link, never advertised.
+  // Defence in depth for crawlers that ignore robots.txt.
+  if (isUnlistedPagePath(pathname)) {
+    const res = NextResponse.next();
+    res.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return res;
+  }
   if (request.cookies.get(SESSION_COOKIE)) return NextResponse.next();
 
   // Preserve the full destination (including query) so login lands the

@@ -35,6 +35,9 @@ from src.api import sleeper_overlay
 from src.api.data_contract import build_api_data_contract, stamp_optimal_lineups
 from tests.api.test_league_routing import shared_scoring_registry  # noqa: F401
 
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "golden" / "input_export.json.gz"
 
 

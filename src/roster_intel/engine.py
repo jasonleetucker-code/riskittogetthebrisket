@@ -54,8 +54,12 @@ __all__ = [
     "RosterIntel",
     "RosterValues",
     "analyze_roster",
-    "position_needs",
+    "position_deficits",
 ]
+
+
+def _round_or_none(value: float | None) -> float | None:
+    return None if value is None else round(value, 3)
 
 
 @dataclass(frozen=True)
@@ -68,9 +72,16 @@ class RosterValues:
     that makes a trade findable.
     """
 
-    market: float = 0.0
-    consensus: float = 0.0
-    league_adjusted: float = 0.0
+    #: ``None`` means NOT MEASURED, never a measured 0.0 (W20-F010).  ``market`` /
+    #: ``consensus`` are real only when the caller supplied a value for EVERY rostered
+    #: player; a partial sum would present missing-as-zero as a total.
+    market: float | None = None
+    consensus: float | None = None
+    #: The league-adjusted lens is WITHDRAWN (CLAUDE.md "valuation_mode: accepted,
+    #: ignored, and stamped"): always ``None``, reason ``league_adjusted_withdrawn``.
+    league_adjusted: float | None = None
+    market_reason: str | None = "player_values_not_supplied"
+    consensus_reason: str | None = "player_values_not_supplied"
     ros: float = 0.0
     # Starting-lineup ROS value vs everything else.
     starters_ros: float = 0.0
@@ -91,9 +102,17 @@ class RosterValues:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "market": round(self.market, 3),
-            "consensus": round(self.consensus, 3),
-            "leagueAdjusted": round(self.league_adjusted, 3),
+            "market": _round_or_none(self.market),
+            "marketState": "unavailable" if self.market is None else "supplied",
+            "marketUnavailableReason": self.market_reason if self.market is None else None,
+            "consensus": _round_or_none(self.consensus),
+            "consensusState": "unavailable" if self.consensus is None else "supplied",
+            "consensusUnavailableReason": (
+                self.consensus_reason if self.consensus is None else None
+            ),
+            "leagueAdjusted": None,
+            "leagueAdjustedState": "unavailable",
+            "leagueAdjustedUnavailableReason": "league_adjusted_withdrawn",
             "ros": round(self.ros, 3),
             "startersRos": round(self.starters_ros, 3),
             "benchRos": round(self.bench_ros, 3),
@@ -122,6 +141,16 @@ class PositionDeficit:
     starter.  ``concentration_risk`` answers "would one absence hurt" —
     acquire insurance.  A consumer that multiplies them reproduces the
     QB inversion.
+
+    **It carries no need VERDICT** (C2-WEAK-01, 2026-10-07).  It used to
+    publish ``urgent = profile.urgent_need or deficit > 0`` — a second
+    answer to "is this position a need", computed beside the canonical
+    one in ``src/roster_intel/weakness.py`` and able to disagree with it
+    (a deficit in 0-100 ROS-index units vs the rung ladder over the
+    meaningful core).  The verdict is gone; the two MEASUREMENTS stay,
+    because they answer questions weakness does not.  Whether a position
+    is a need is read from ``TeamWeakness``, which ``/api/gameplan``
+    publishes beside this as ``roster.weakness``.
     """
 
     position: str
@@ -129,7 +158,6 @@ class PositionDeficit:
     concentration_risk: float
     replacement_baseline: float | None
     actual_contribution: float
-    urgent: bool
     reasons: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
@@ -143,7 +171,6 @@ class PositionDeficit:
                 else None
             ),
             "actualContribution": round(self.actual_contribution, 3),
-            "urgent": self.urgent,
             "reasons": list(self.reasons),
             "_semantics": {
                 "deficit": "contribution shortfall vs a replacement-level occupant; >0 means acquire a starter",
@@ -153,11 +180,16 @@ class PositionDeficit:
         }
 
 
-def position_needs(
+def position_deficits(
     profile: RosterProfile,
     replacement: Mapping[str, PositionReplacement] | None = None,
 ) -> dict[str, PositionDeficit]:
-    """Deficit and concentration risk per position.
+    """Deficit and concentration risk per position — MEASUREMENTS, not need.
+
+    Renamed from ``position_needs`` (C2-WEAK-01, 2026-10-07): the
+    canonical need answer is ``weakness.build_team_weakness`` and a
+    function named "needs" here was a second one.  This reports two
+    quantities and decides nothing.
 
     ``deficit`` = what a replacement-level occupant of this position's
     dedicated slots WOULD contribute, minus what the roster actually
@@ -193,7 +225,6 @@ def position_needs(
             concentration_risk=prof.fragility,
             replacement_baseline=baseline,
             actual_contribution=prof.marginal_points,
-            urgent=prof.urgent_need or deficit > 0,
             reasons=tuple(reasons),
         )
     return out
@@ -209,7 +240,7 @@ class RosterIntel:
     filled_slots: int
     total_slots: int
     profile: RosterProfile
-    needs: dict[str, PositionDeficit]
+    deficits: dict[str, PositionDeficit]
     window: CompetitiveWindow
     playoff_odds: float | None = None
     championship_odds: float | None = None
@@ -226,7 +257,10 @@ class RosterIntel:
             "filledSlots": self.filled_slots,
             "totalSlots": self.total_slots,
             "positions": self.profile.to_dict()["positions"],
-            "needs": {k: v.to_dict() for k, v in sorted(self.needs.items())},
+            # Named for what it measures.  This key was ``needs`` until
+            # C2-WEAK-01 (2026-10-07); the canonical need answer is the
+            # weakness block ``/api/gameplan`` publishes beside it.
+            "positionDeficits": {k: v.to_dict() for k, v in sorted(self.deficits.items())},
             "competitiveWindow": self.window.to_dict(),
             "playoffOdds": self.playoff_odds,
             "playoffOddsCi": list(self.playoff_odds_ci) if self.playoff_odds_ci else None,
@@ -252,9 +286,21 @@ def _rollup_values(
     portfolio is what you would trade, not what you would score.
     """
     pv = player_values or {}
-    market = consensus = adjusted = ros = starters = bench = 0.0
+    ros = starters = bench = 0.0
+    market_sum = consensus_sum = 0.0
+    market_missing = consensus_missing = 0
     priced = unpriced = 0
     for p in pool:
+        row = pv.get(p.player_id) or pv.get(p.canonical_name) or {}
+        m, c = row.get("marketValue"), row.get("consensusValue")
+        if isinstance(m, (int, float)) and not isinstance(m, bool):
+            market_sum += float(m)
+        else:
+            market_missing += 1
+        if isinstance(c, (int, float)) and not isinstance(c, bool):
+            consensus_sum += float(c)
+        else:
+            consensus_missing += 1
         if not is_priced(p):
             # UNKNOWN, not zero: no value arithmetic, still counted as a
             # body the board could not price.
@@ -269,14 +315,22 @@ def _rollup_values(
             starters += max(0.0, p.ros_value)
         else:
             bench += max(0.0, p.ros_value)
-        row = pv.get(p.player_id) or pv.get(p.canonical_name) or {}
-        market += float(row.get("marketValue") or 0.0)
-        consensus += float(row.get("consensusValue") or 0.0)
-        adjusted += float(row.get("leagueAdjustedDynastyValue") or row.get("consensusValue") or 0.0)
+
+    def _lane(total: float, missing: int) -> tuple[float | None, str | None]:
+        if player_values is None:
+            return None, "player_values_not_supplied"
+        if not pool or missing:
+            return None, "player_values_incomplete"
+        return total, None
+
+    market, market_reason = _lane(market_sum, market_missing)
+    consensus, consensus_reason = _lane(consensus_sum, consensus_missing)
     return RosterValues(
         market=market,
         consensus=consensus,
-        league_adjusted=adjusted,
+        league_adjusted=None,
+        market_reason=market_reason,
+        consensus_reason=consensus_reason,
         ros=ros,
         starters_ros=starters,
         bench_ros=bench,
@@ -319,19 +373,22 @@ class _Odds:
 def _odds_for(
     owner_id: str,
     playoff_odds: Sequence[Mapping[str, Any]] | None,
+    championship_unavailable: Mapping[str, Any] | None = None,
 ) -> _Odds:
     """Pull this owner's row out of playoff_sim output.
 
-    The simulator's row schema is NOT fixed.  ``simulate_playoff_odds``
-    on main emits ``playoffOdds`` / ``byeOdds`` / ``topSeedOdds`` /
-    ``seedDistribution`` and NOTHING else — no championship odds and no
-    confidence intervals.  The bracket run and the Wilson intervals
-    come from the LI-8 work, which is a separate unmerged branch.
+    ``simulate_playoff_odds`` (the one playoff engine, C5-PLAY-01) runs the
+    bracket and publishes ``championshipOdds`` with Wilson intervals — UNLESS
+    it cannot play the bracket as the host plays it, in which case every
+    row's title fields are ``None`` and the payload says why in
+    ``championshipUnavailable`` (``{reason, detail}``).  The caller hands
+    that block in, and a missing title odd cites it (#1699 review F2) rather
+    than guessing at a cause.
 
-    So the fields are read defensively AND their absence is reported.
-    Missing intervals stay None rather than collapsing to zero width: a
-    point estimate presented without an interval reads as a certainty,
-    and 0.61 from 2,000 sims is +/- 2 points.
+    Fields are still read defensively and their absence reported.  Missing
+    intervals stay None rather than collapsing to zero width: a point
+    estimate presented without an interval reads as a certainty, and 0.61
+    from 2,000 sims is +/- 2 points.
     """
     if not playoff_odds:
         return _Odds()
@@ -352,11 +409,18 @@ def _odds_for(
 
     notes: list[str] = []
     if ch is None:
-        notes.append(
-            "simulator supplied no championshipOdds; this build of "
-            "src/ros/playoff_sim.py stops at playoff qualification and does "
-            "not run the bracket"
-        )
+        reason = (championship_unavailable or {}).get("reason")
+        if reason:
+            detail = (championship_unavailable or {}).get("detail")
+            notes.append(
+                f"championship odds withheld by the playoff simulator "
+                f"(championshipUnavailable: {reason})" + (f": {detail}" if detail else "")
+            )
+        else:
+            notes.append(
+                "simulator supplied no championshipOdds for this owner and the "
+                "forecast carried no championshipUnavailable reason"
+            )
     if po is not None and playoff_ci is None:
         notes.append(
             "playoff odds carry no confidence interval; treat the point "
@@ -388,6 +452,7 @@ def analyze_roster(
     lineup_scores: Mapping[str, float] | None = None,
     override_state: str | None = None,
     override_reason: str | None = None,
+    championship_unavailable: Mapping[str, Any] | None = None,
 ) -> RosterIntel:
     """Full WS-J analysis for one roster.
 
@@ -395,6 +460,8 @@ def analyze_roster(
     from ``src/ros/playoff_sim.py``.  Supplying it upgrades the
     competitive window's competitiveness axis from a structural proxy
     to simulated odds AND attaches the probabilities directly.
+    ``championship_unavailable`` is that payload's ``championshipUnavailable``
+    block, cited when title odds are missing.
     """
     pool_list = list(pool)
     slots_list = list(slots)
@@ -409,7 +476,7 @@ def analyze_roster(
         player_meta=player_meta,
         marginals=marg,
     )
-    needs = position_needs(profile, replacement)
+    deficits = position_deficits(profile, replacement)
     window = compute_window(
         owner_id,
         pool_list,
@@ -420,7 +487,7 @@ def analyze_roster(
         override_state=override_state,
         override_reason=override_reason,
     )
-    odds = _odds_for(owner_id, playoff_odds)
+    odds = _odds_for(owner_id, playoff_odds, championship_unavailable)
 
     notes: list[str] = []
     if odds.source == "unavailable":
@@ -465,7 +532,7 @@ def analyze_roster(
         filled_slots=marg.filled_slots,
         total_slots=marg.total_slots,
         profile=profile,
-        needs=needs,
+        deficits=deficits,
         window=window,
         playoff_odds=odds.playoff,
         championship_odds=odds.championship,

@@ -26,8 +26,20 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_DIR = Path(__file__).resolve().parents[2] / "data" / "robust_filter_shadow"
+#: Each non-default challenger keeps its own ledger + panels beside the joint
+#: filter's, so two challengers' records never share a file.
+CHALLENGER_DIRS = {
+    "joint": DEFAULT_DIR,
+    "rank_space": DEFAULT_DIR.parent / "robust_filter_shadow_rank_space",
+    "rank_space_per_vote": DEFAULT_DIR.parent / "robust_filter_shadow_rank_space_per_vote",
+}
 LEDGER_NAME = "ledger.jsonl"
 PANEL_DIR = "panels"
+
+
+def challenger_dir(challenger: str = "joint") -> Path:
+    """The default ledger directory for ``challenger`` (``KeyError`` when unknown)."""
+    return CHALLENGER_DIRS[challenger]
 
 
 class PanelConflict(RuntimeError):

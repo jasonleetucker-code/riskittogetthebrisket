@@ -1,7 +1,8 @@
 """2026 Waiver King eligibility override — the rule itself (owner directive 2026-09-26).
 
-Joel (owner 712035316776669184) and Blaine (owner 1303549304882892800) may
-not WIN Waiver King in the 2026 season of the dynasty league
+Joel (owner 712035316776669184), Blaine (owner 1303549304882892800) and John
+(owner 735693375101108224 — took over Joel's roster 11 from week 6; owner
+decision 2026-10-17) may not WIN Waiver King in the 2026 season of the dynasty league
 (1312006700437352448).  The rule is season-scoped, not date-scoped: it binds
 2026 forever and nothing else.  Award-level behaviour (winner fall-through,
 metric preservation, standings labels, other awards unaffected) is pinned in
@@ -18,6 +19,7 @@ from src.public_league import award_eligibility as ae
 
 JOEL = "712035316776669184"
 BLAINE = "1303549304882892800"
+JOHN = "735693375101108224"
 LEAGUE_2026 = "1312006700437352448"
 OTHERS = [
     "468418790212759552",  # Jason
@@ -37,7 +39,7 @@ def _rule(owner, *, season="2026", league=LEAGUE_2026, award="waiver_king"):
     return ae.ineligibility(season=season, league_id=league, award=award, owner_id=owner)
 
 
-@pytest.mark.parametrize("owner", [JOEL, BLAINE])
+@pytest.mark.parametrize("owner", [JOEL, BLAINE, JOHN])
 def test_2026_joel_and_blaine_are_ineligible_for_waiver_king(owner):
     hit = _rule(owner)
     assert hit is not None
@@ -51,7 +53,7 @@ def test_2026_every_other_manager_is_eligible(owner):
     assert _rule(owner) is None
 
 
-@pytest.mark.parametrize("owner", [JOEL, BLAINE])
+@pytest.mark.parametrize("owner", [JOEL, BLAINE, JOHN])
 def test_2027_starts_with_no_rule(owner):
     # A new season is a new label AND a new Sleeper league id; either alone
     # already frees them.
@@ -59,7 +61,7 @@ def test_2027_starts_with_no_rule(owner):
     assert _rule(owner, season="2027", league="1400000000000000000") is None
 
 
-@pytest.mark.parametrize("owner", [JOEL, BLAINE])
+@pytest.mark.parametrize("owner", [JOEL, BLAINE, JOHN])
 def test_other_seasons_and_leagues_are_untouched(owner):
     assert _rule(owner, season="2025") is None
     assert _rule(owner, league="1320092771247222784") is None  # dynasty_new
@@ -85,7 +87,7 @@ def test_other_seasons_and_leagues_are_untouched(owner):
         "champion",
     ],
 )
-@pytest.mark.parametrize("owner", [JOEL, BLAINE])
+@pytest.mark.parametrize("owner", [JOEL, BLAINE, JOHN])
 def test_only_waiver_king_is_affected(owner, award):
     assert _rule(owner, award=award) is None
 
@@ -106,13 +108,14 @@ def test_the_rule_is_not_a_date_check(monkeypatch):
     monkeypatch.setattr(_dt, "datetime", _Future)
     assert _rule(JOEL) is not None
     assert _rule(BLAINE) is not None
+    assert _rule(JOHN) is not None
     source = open(ae.__file__, encoding="utf-8").read()
     assert "datetime" not in source and "date.today" not in source
 
 
 def test_season_rules_lists_exactly_one_award_for_2026():
     assert ae.season_rules(season="2026", league_id=LEAGUE_2026) == {
-        "waiver_king": frozenset({JOEL, BLAINE})
+        "waiver_king": frozenset({JOEL, BLAINE, JOHN})
     }
     assert ae.season_rules(season="2027", league_id=LEAGUE_2026) == {}
 
@@ -122,7 +125,7 @@ def test_the_rule_carries_its_provenance():
     (rule,) = raw["overrides"]
     assert rule["type"] == "owner_season_eligibility_override"
     assert rule["season"] == "2026" and rule["award"] == "waiver_king"
-    assert {o["ownerId"] for o in rule["owners"]} == {JOEL, BLAINE}
+    assert {o["ownerId"] for o in rule["owners"]} == {JOEL, BLAINE, JOHN}
     assert rule["decidedBy"] and rule["decidedAt"] and rule["reason"]
 
 

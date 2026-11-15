@@ -15,6 +15,8 @@ import { LoadingState, EmptyState } from "@/components/ui";
 import { Card } from "../shared-server.jsx";
 import { Avatar, nameFor } from "../shared.jsx";
 import PlayoffOddsChart from "@/components/graphs/PlayoffOddsChart";
+import OddsExperimentalNote from "@/components/league/OddsExperimentalNote";
+import DivisionOddsTable from "@/components/league/DivisionOddsTable";
 import { ImpactValue } from "@/components/league/ScheduleImpact";
 import { interpretation, teamRowFor } from "@/lib/schedule-impact";
 
@@ -84,10 +86,10 @@ async function _fetchRosPower() {
 // Module-level cache of the playoff-odds fetch, ported unchanged from the
 // retired power.jsx. ``RosPowerSection`` is conditionally mounted by tab
 // selection, so without caching, every tab-switch back to Power refetches
-// /api/public/league/playoffOdds — which runs a 10,000-simulation Monte
-// Carlo on the backend and makes probabilities visibly jitter between
-// visits. Same v1 data source as before: retiring the power-RANKING
-// engine does not touch playoff-odds methodology.
+// /api/public/league/playoffOdds. Since C5-PLAY-01 that section is the ONE
+// canonical playoff forecast (src/ros/playoff_sim.py) in the public shape —
+// the same numbers the Championship tab shows — read from the scheduled
+// forecast file, with a single shared live run only on a cache miss.
 const ODDS_CACHE_TTL_MS = 30 * 60 * 1000;
 const _oddsCache = {
   data: null,
@@ -830,9 +832,15 @@ export default function RosPowerSection({ managers } = {}) {
       {oddsData && Array.isArray(oddsData.owners) && oddsData.owners.length > 0 ? (
         <Card
           title="Playoff odds"
-          subtitle="Monte Carlo over remaining regular-season weeks; samples each owner's score from their actual weekly history."
+          subtitle="Simulated estimate over the remaining regular-season weeks, from each team's projected weekly scoring (its current roster in best-ball leagues, otherwise its weekly history)."
         >
+          {/* Only beside actual probabilities: a preseason / refused chart
+              shows none, and a refusal is not a projection. */}
+          {oddsData.owners.some((o) => o?.playoffProbability != null) ? (
+            <OddsExperimentalNote />
+          ) : null}
           <PlayoffOddsChart data={oddsData} />
+          <DivisionOddsTable data={oddsData} />
         </Card>
       ) : null}
       {oddsError ? (

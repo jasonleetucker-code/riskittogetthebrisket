@@ -29,6 +29,9 @@ from src.api.data_contract import build_api_data_contract, build_rankings_delta_
 from tests.api.test_source_overrides import _fixture_raw_payload
 
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
+
 def _raw_hash(payload: dict) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 

@@ -38,6 +38,9 @@ from src.api.data_contract import (
 )
 
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
+
 def _unweighted(values: list[float]) -> tuple[float, float | None]:
     return count_aware_mean_median_blend(values)
 

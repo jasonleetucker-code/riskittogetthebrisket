@@ -1,8 +1,20 @@
 # Product Plan — Start Here
 
+**Permanent owner delivery process (2026-10-19):** independent
+*authorized* development may run concurrently, and the designated
+Integration Authority can merge qualifying green, reviewed routine PRs
+without repeated owner confirmation. This changes workflow, **not**
+roadmap scope or owner-only consequential gates. Read
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md`.
+
 The canonical product/roadmap front door for **Risk It To Get The Brisket** is:
 
 **[`docs/MASTER_PRODUCT_PLAN.md`](docs/MASTER_PRODUCT_PLAN.md)**
+
+**Three-month retroactive audit (July 30–Oct 30, 2026):** `docs/MASTER_PRODUCT_PLAN.md` §13 and `docs/owner/CHASE_UPSIDE_90_DAY_CONVERSATION_AUDIT_2026-10-30.md` preserve 72 previously recovered requirements, 88 October RIT tracks, recovered dated interim owner directives, and specific no-detail-loss checks. `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §23 is the agent-ready implementation nuance crosswalk; `docs/BRISKET_IDEAS.md` §18 defines ongoing capture. Unmerged League Tycoon research has been rescued separately but remains parked. This is a high-coverage **recoverable evidence** audit, not literal proof of every raw chat.
+
+**Owner clarification, 2026-10-30 — buildable specificity and coordinated work:** read [`docs/MASTER_PRODUCT_PLAN.md` §12](docs/MASTER_PRODUCT_PLAN.md) for the Oct 9–30 family-to-owner map and dependency/parallel-lane graph, [`docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §§21–22](docs/OWNER_PRODUCT_BACKLOG_SPEC.md) for explicit behaviors, inputs, outputs, acceptance cases and outstanding evidence, and [`docs/BRISKET_IDEAS.md` §§15–16](docs/BRISKET_IDEAS.md) for mandatory detailed owner-intake and shared-foundation orchestration. The original 88-trace October 11–25 recovery is in [`docs/owner/RIT_14DAY_AUDIT_RECONCILIATION_2026-10-25.md`](docs/owner/RIT_14DAY_AUDIT_RECONCILIATION_2026-10-25.md). These are pointers **within the existing planning hierarchy**, not independent roadmaps or implementation permissions.
 
 For current authorized execution order — **the only record that says what may be built right now** — read:
 
@@ -12,10 +24,15 @@ For current authorized execution order — **the only record that says what may 
 
 ## Current position, in one line
 
-**The B-Series is complete and the B→C gate is CLEARED by explicit owner approval.** C1A units 1–4 are
-CLOSED at their owner checkpoints. The current authorization is exactly what
-`docs/EXECUTION_PLAN.md` §0 names (today: `C1-U6`, with `C1-U5` deliberately deferred); that file is
-the only record that authorizes implementation.
+**The current authorization is exactly the set of dated owner directives in `docs/EXECUTION_PLAN.md`
+§0 — read it; that file is the only record that authorizes implementation.** As of 2026-10-07 that set
+leads with the repository stabilization / truth-reconciliation campaign and otherwise covers the
+Calculator completion campaign with the always-parallel Premium UI lane, Schedule Intelligence, DFS, the
+Rookie Auction Room (mock-first), Adaptive Learning / Valuation Trust, Signals and performance work.
+
+*Historical (kept for traceability):* the B-Series is complete and the B→C gate was CLEARED by explicit
+owner approval; C1A units 1–6 are closed (C1-U6 closed at its owner checkpoint 2026-08-16; C1-U5 merged
+as #876 on 2026-08-17). This line previously read "today: `C1-U6`, with `C1-U5` deliberately deferred".
 
 ## The canonical set, in reading order
 

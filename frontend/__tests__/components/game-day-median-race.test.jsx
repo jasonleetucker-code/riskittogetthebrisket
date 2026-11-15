@@ -90,6 +90,28 @@ describe("Live Median Race — the board is the backend's", () => {
     expect(bubble.textContent).toContain(`${first.teamName} ${formatPct(first.beatMedianPct)}`);
   });
 
+  it("gives each bubble team its own titled box, in backend order (2026-10-20 phone overflow)", async () => {
+    // V1 run 39352593915: a real one-word team name on the bubble widened
+    // every phone /game-day.  Each entry is its own element (the CSS clips it
+    // inside that box) carrying the full text in `title`; the line reads the
+    // same as before.  Layout itself is asserted by the e2e spec.
+    const payload = clone(HALFTIME);
+    const longName = "JasonTuckerSheepFollower";
+    for (const t of payload.medianRace.teams) if (t.rosterId === "2") t.teamName = longName;
+    payload.medianRace.bubble = ["10", "2", "6"];
+    await show(payload);
+    const dd = screen.getByText("On the bubble").closest("div").querySelector("dd");
+    const expected = payload.medianRace.bubble.map((rid) => {
+      const t = payload.medianRace.teams.find((x) => x.rosterId === rid);
+      return `${t.teamName} ${formatPct(t.beatMedianPct)}`;
+    });
+    const entries = [...dd.querySelectorAll("span[title]")];
+    expect(entries.map((e) => e.getAttribute("title"))).toEqual(expected);
+    expect(entries.map((e) => e.textContent)).toEqual(expected);
+    expect(entries.every((e) => /bubbleTeam/.test(e.className))).toBe(true);
+    expect(dd.textContent).toBe(expected.join(" · "));
+  });
+
   it("marks the selected team with text, and its number equals the hero's", async () => {
     await show(HALFTIME);
     const sel = rowFor(HALFTIME.team.rosterId);

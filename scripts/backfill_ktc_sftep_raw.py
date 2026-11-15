@@ -45,7 +45,7 @@ def _load_export_top_level_ktc_sftep(date: str) -> dict[str, int]:
     if not export.exists():
         return {}
     try:
-        raw = json.loads(export.read_text())
+        raw = json.loads(export.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001
         print(f"  [warn] failed to read {export}: {exc}", file=sys.stderr)
         return {}
@@ -90,7 +90,7 @@ def main() -> int:
         print(f"snapshot file not found: {args.path}", file=sys.stderr)
         return 1
 
-    lines = args.path.read_text().splitlines()
+    lines = args.path.read_text(encoding="utf-8").splitlines()
     rewritten: list[str] = []
     total_replaced = 0
     total_unchanged = 0
@@ -170,8 +170,8 @@ def main() -> int:
         return 0
 
     backup = args.path.with_suffix(args.path.suffix + ".bak")
-    backup.write_text(args.path.read_text())
-    args.path.write_text("\n".join(rewritten) + ("\n" if rewritten else ""))
+    backup.write_text(args.path.read_text(encoding="utf-8"), encoding="utf-8")
+    args.path.write_text("\n".join(rewritten) + ("\n" if rewritten else ""), encoding="utf-8")
     print(f"Wrote {args.path} (backup at {backup})")
     return 0
 

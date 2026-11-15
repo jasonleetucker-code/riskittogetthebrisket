@@ -1,0 +1,17 @@
+====================================================================
+BOARD DIFF  before.json -> d5.json
+====================================================================
+      rows: 1131 -> 1131
+    ranked: 740 -> 740
+    priced: 1028 -> 1028
+     picks: 162 -> 162
+       idp: 428 -> 428
+
+  VALUES: 0 moved, 0 newly priced, 0 newly unpriced
+
+  RANKS: 0 changed
+
+  LABELS:
+    confidenceLabel            142 flipped   e.g. Akeem Davis-Gaither: Medium — limited by independence, agreement -> Medium — limited by independence, freshness, agreement
+
+ASSERTION OK: no value changed.

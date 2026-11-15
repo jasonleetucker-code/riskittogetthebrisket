@@ -1507,8 +1507,30 @@ VALUE_DATASETS: dict[str, ValueDatasetSpec] = {
 }
 
 
+def _declared_votes_by_key(keys: Sequence[str]) -> dict[str, bool]:
+    """Whether each board key VOTES under this process's flags (CSV present).
+
+    Derived from the vote-state owner (``data_contract.private_source_vote_policy``),
+    never hardcoded: the Signals IDP families are held unless their release
+    flags are on.  An unreadable owner answers ``False`` for every key (an
+    unproven vote is not a vote).
+    """
+    try:
+        from src.api.data_contract import private_source_vote_policy  # noqa: PLC0415
+
+        policy = private_source_vote_policy()
+    except Exception:  # noqa: BLE001 — metadata must never break a collection
+        return {str(k): False for k in keys}
+    return {str(k): bool((policy.get(str(k)) or {}).get("votesWhenPresent")) for k in keys}
+
+
 def value_dataset_metadata(spec: ValueDatasetSpec) -> dict[str, Any]:
-    """Declared contract of one authenticated value dataset (it VOTES)."""
+    """Declared contract of one authenticated value dataset.
+
+    ``votes`` / ``votesByKey`` come from the vote-state owner: offense votes;
+    each Signals IDP family is HELD (shadow) unless its release flags are on.
+    """
+    votes_by_key = _declared_votes_by_key(list(spec.output_keys()))
     return {
         "provider": PROVIDER,
         "family": PROVIDER,
@@ -1524,12 +1546,16 @@ def value_dataset_metadata(spec: ValueDatasetSpec) -> dict[str, Any]:
         "unit": "native_value",
         "basis": BASIS_NATIVE_VALUE,
         "voteBasis": (
-            "value-ordered rank WITHIN family (derived) -> backbone family ladder -> IDP Hill"
+            "value-ordered rank WITHIN family (derived) -> bridge family ladder in "
+            "shared-market coordinates (Candidate F coverage-aligned under "
+            "signals_idp_xwalk_v2, else Candidate A shadow only) -> GLOBAL Hill; the "
+            "cross-family level is the bridge's, never Signals'"
             if spec.family_boards
             else "value-ordered rank (derived) -> percentile -> Hill"
         ),
         "intendedConsumer": "canonical_rank_signal",
-        "votes": True,
+        "votes": bool(votes_by_key) and all(votes_by_key.values()),
+        "votesByKey": votes_by_key,
         "visibility": "authenticated_only",
         "lineage": (
             "one Signals provider family, declared inside FantasyCalc's B10 group: Signals' "
@@ -2219,6 +2245,272 @@ def _record_value_dataset_state(
     )
 
 
+def family_quarantine_enabled() -> bool:
+    """Whether a family board failing its OWN checks withholds only itself.
+
+    Flag ``signals_idp_family_quarantine`` (default OFF).  The collector
+    process (``dynasty-signals-values``) carries no EnvironmentFile, so on
+    the box the registry DEFAULT governs it; an env override only reaches it
+    through the unit.  Any error reading the flag is OFF — release-level
+    quarantine, the incumbent and conservative behaviour."""
+    try:
+        from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+        return bool(is_enabled("signals_idp_family_quarantine"))
+    except Exception:  # noqa: BLE001 — fail to the incumbent rule
+        return False
+
+
+#: Per-board collection states (``boardStatus``).  A family board's state is
+#: its OWN truth, never its siblings': a board that passed its checks but was
+#: withheld because another family failed says so (``withheld_by_sibling``)
+#: instead of reading as broken, and a board that failed says why.
+BOARD_ACCEPTED = "accepted"
+BOARD_QUARANTINED = "quarantined"
+BOARD_WITHHELD_BY_SIBLING = "withheld_by_sibling"
+BOARD_WITHHELD_BY_RELEASE = "withheld_by_release"
+BOARD_NOT_COLLECTED = "not_collected"
+
+
+def _board_as_of(rows: Sequence[Mapping[str, Any]]) -> str | None:
+    """The newest vendor stamp ON THIS BOARD's rows — never a sibling's.
+
+    ``None`` when no row carries one: an unknown upstream clock, not the
+    release's (a family must not inherit another family's freshness)."""
+    stamps = [str(r.get("value_as_of")) for r in rows if r.get("value_as_of")]
+    return max(stamps) if stamps else None
+
+
+def _board_check(
+    key: str, board_rows: Sequence[Mapping[str, Any]], last_count: Any
+) -> tuple[str | None, str | None]:
+    """``(error, reason)`` for one board standing on its own; ``(None, None)`` = ok."""
+    floor = MIN_BOARD_ROWS.get(key, 1)
+    if not board_rows:
+        return f"{key}: no voting rows after the selection hierarchy", "empty"
+    if len(board_rows) < floor:
+        return (
+            f"{key}: below board floor: {len(board_rows)} voting rows < {floor}",
+            "below_floor",
+        )
+    if last_count and len(board_rows) < last_count * ROW_COLLAPSE_FRACTION:
+        return f"{key}: row-count collapse: {len(board_rows)} vs last good {last_count}", (
+            "row_collapse"
+        )
+    return None, None
+
+
+def _value_board_status(
+    spec: ValueDatasetSpec,
+    boards: Mapping[str, Sequence[Mapping[str, Any]]],
+    last_counts: Mapping[str, Any],
+    *,
+    states: Mapping[str, str],
+    reasons: Mapping[str, str | None],
+    clocks: Mapping[str, str | None],
+) -> dict[str, dict[str, Any]]:
+    """Truthful per-board (per-family for IDP) collection status.
+
+    Counts, states and the board's own clock only — no row, name or value."""
+    family_of = {v: k for k, v in spec.family_boards.items()}
+    out: dict[str, dict[str, Any]] = {}
+    for key in spec.output_keys():
+        rows = boards.get(key) or []
+        out[key] = {
+            "family": family_of.get(key),
+            "state": states.get(key, BOARD_NOT_COLLECTED),
+            "reason": reasons.get(key),
+            "rows": len(rows),
+            "floor": MIN_BOARD_ROWS.get(key, 1),
+            "lastGoodRows": last_counts.get(key),
+            "asOf": clocks.get(key),
+        }
+    return out
+
+
+def _family_scoped_plan(
+    spec: ValueDatasetSpec,
+    boards: Mapping[str, list[dict[str, Any]]],
+    failed: Mapping[str, str],
+    latest: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Pure planning for a family-scoped quarantine (no I/O).
+
+    Accepted families publish their new rows; each failed family CARRIES its
+    last good rows forward unchanged (its CSV is not rewritten and its clock
+    does not move), so ``latest.json`` stays the exact source of every board
+    CSV and the next run's collapse guard still compares against the failed
+    family's last GOOD count.  A failed family with no last good release
+    carries nothing and stays absent — never an empty board."""
+    if not spec.family_boards or not failed or set(failed) >= set(boards):
+        raise ValueError("family-scoped quarantine needs >= 1 accepted and >= 1 failed family")
+    last_rows = list((latest or {}).get("boardRows") or [])
+    composite: dict[str, list[dict[str, Any]]] = {}
+    carried: dict[str, int] = {}
+    for key in spec.output_keys():
+        if key in failed:
+            kept = [dict(r) for r in last_rows if spec.board_key_for(r) == key]
+            composite[key] = kept
+            carried[key] = len(kept)
+        else:
+            composite[key] = list(boards[key])
+    rows = [r for key in spec.output_keys() for r in composite[key]]
+    accepted = [k for k in spec.output_keys() if k not in failed]
+    return {
+        "accepted": accepted,
+        "failed": dict(failed),
+        "boards": composite,
+        "rows": rows,
+        "asOf": _board_as_of(rows),
+        "carriedRows": carried,
+        "carriedFrom": (latest or {}).get("contentSha256"),
+    }
+
+
+def _publish_family_scoped(
+    spec: ValueDatasetSpec,
+    store: SignalsStore,
+    board_key: str,
+    plan: Mapping[str, Any],
+    *,
+    outcome: dict[str, Any],
+    fstate: dict[str, Any],
+    latest: Mapping[str, Any] | None,
+    csv_paths: Mapping[str, Path],
+    state_dir: Path,
+    at: datetime,
+    raw_sha: str,
+    raw_blob: bytes,
+    raw_pages: Sequence[Any],
+    obs: Sequence[Mapping[str, Any]],
+    errors: Sequence[str],
+    warnings: Sequence[str],
+    excluded: Mapping[str, int],
+    season: int | None,
+    publication: str | None,
+    board_clocks: Mapping[str, str | None],
+) -> None:
+    """I/O half of a family-scoped quarantine (``signals_idp_family_quarantine``).
+
+    * accepted families: CSV written (or verified unchanged), HEALTHY with
+      their OWN clock, ``_last_success`` stamped;
+    * failed families: CSV untouched (last good keeps voting with its true
+      age), DEGRADED, NO ``_last_success`` — a sibling's success never
+      refreshes a failed family's clock;
+    * the release is recorded in quarantine as well (scope ``family``), so
+      the audit trail is the same shape as a release-level quarantine.
+
+    Outcome ``partially_quarantined``: not a success (``consecutiveFailures``
+    grows and the run is not ``ok``), not a release-level quarantine either.
+    """
+    failed: Mapping[str, str] = plan["failed"]
+    accepted: Sequence[str] = plan["accepted"]
+    composite: Mapping[str, list[dict[str, Any]]] = plan["boards"]
+    rows: list[dict[str, Any]] = plan["rows"]
+    as_of = plan["asOf"]
+    family_errors = [e for e in errors if str(e).split(":", 1)[0] in failed]
+
+    if raw_pages:
+        _write_raw_values(store, board_key, raw_sha, raw_blob)
+    store.quarantine(
+        board_key,
+        raw_sha,
+        {
+            "dataset": spec.key,
+            "scope": "family",
+            "quarantinedFamilies": sorted(failed),
+            "quarantinedAt": iso(at),
+            "rawSha256": raw_sha if raw_pages else None,
+            "parserVersion": VALUES_PARSER_VERSION,
+            "observationCount": len(obs),
+            "errors": list(family_errors)[:25],
+            "warnings": list(warnings)[:25],
+        },
+    )
+    csha = board_content_sha256(rows, as_of)
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[str(r["basis"])] = counts.get(str(r["basis"]), 0) + 1
+    if (
+        latest is not None
+        and latest.get("contentSha256") == csha
+        and all(csv_paths[k].is_file() for k in accepted)
+    ):
+        fstate["lastVerifiedUnchangedAt"] = iso(at)
+    else:
+        release = {
+            "schemaVersion": VALUES_SCHEMA_VERSION,
+            "provider": PROVIDER,
+            "dataset": spec.key,
+            "sourceKey": spec.source_key,
+            "metadata": value_dataset_metadata(spec),
+            "season": season,
+            "publicationDate": publication,
+            "asOf": as_of,
+            "fetchedAt": iso(at),
+            "parserVersion": VALUES_PARSER_VERSION,
+            "rawSha256": raw_sha,
+            "contentSha256": csha,
+            "previousContentSha256": (latest or {}).get("contentSha256"),
+            "rowCount": len(rows),
+            "boardRowCounts": {k: len(v) for k, v in composite.items()},
+            "basisCounts": counts,
+            "excluded": dict(excluded),
+            "warnings": list(warnings)[:25],
+            # A composite: accepted families from THIS fetch, failed families
+            # carried verbatim from ``carriedFrom``.  Observations are this
+            # fetch's (provenance), boardRows are what the CSVs carry.
+            "familyScope": {
+                "acceptedFamilies": list(accepted),
+                "quarantinedFamilies": sorted(failed),
+                "quarantineReasons": dict(failed),
+                "carriedFrom": plan.get("carriedFrom"),
+                "carriedRows": dict(plan.get("carriedRows") or {}),
+            },
+            "observations": list(obs),
+            "boardRows": rows,
+        }
+        # CSVs before latest.json (see the release-level path).  Only the
+        # ACCEPTED families' CSVs are written.
+        for key in accepted:
+            atomic_write_bytes(csv_paths[key], render_board_csv(composite[key]).encode("utf-8"))
+        store.publish_release(board_key, release)
+        fstate["lastGoodContentSha256"] = csha
+        fstate["lastPublishedAt"] = iso(at)
+    for key, path in csv_paths.items():
+        if key in failed:
+            _record_value_dataset_state(
+                key,
+                state_dir=state_dir,
+                csv_path=path,
+                health="DEGRADED",
+                at=at,
+                upstream_published_at=None,
+                errors=[e for e in family_errors if str(e).startswith(f"{key}:")],
+            )
+            continue
+        _record_value_dataset_state(
+            key,
+            state_dir=state_dir,
+            csv_path=path,
+            health="HEALTHY",
+            at=at,
+            upstream_published_at=board_clocks.get(key),
+        )
+        _write_last_success(state_dir, key, at)
+    outcome.update(
+        outcome="partially_quarantined",
+        contentSha256=csha,
+        rowCount=len(rows),
+        boardRowCounts={k: len(v) for k, v in composite.items()},
+        basisCounts=counts,
+        excluded=dict(excluded),
+        familiesQuarantined=sorted(failed),
+        errors=list(family_errors)[:10],
+        asOf=as_of,
+    )
+
+
 def _write_last_success(state_dir: Path, source_key: str, at: datetime) -> None:
     atomic_write_bytes(
         Path(state_dir) / f"{source_key}_last_success",
@@ -2251,8 +2543,13 @@ def collect_value_dataset(
     its true age) untouched.
 
     Outcomes: ``published`` · ``unchanged_content`` · ``quarantined`` ·
-    ``auth_unavailable`` · ``access_denied`` · ``rate_limited`` ·
-    ``fetch_failed`` · ``request_budget_exhausted`` · ``no_universe``
+    ``partially_quarantined`` (family-scoped quarantine, flag
+    ``signals_idp_family_quarantine``) · ``auth_unavailable`` ·
+    ``access_denied`` · ``rate_limited`` · ``fetch_failed`` ·
+    ``request_budget_exhausted`` · ``no_universe``
+
+    Every outcome carries ``boardStatus``: one entry per registry key (per
+    family for IDP) with its own state, reason, row count, floor and clock.
     """
     store = SignalsStore(Path(store_root))
     board_key = _value_board_key(spec)
@@ -2300,28 +2597,84 @@ def collect_value_dataset(
     raw_sha = hashlib.sha256(raw_blob).hexdigest()
     rows: list[dict[str, Any]] = []
     boards: dict[str, list[dict[str, Any]]] = {k: [] for k in csv_paths}
+    last_counts = (latest or {}).get("boardRowCounts") or {}
+    # Per-board truth (boardStatus).  Release-level errors / stops leave
+    # every board at the state set here; the per-board checks refine it.
+    board_states: dict[str, str] = dict.fromkeys(
+        csv_paths, BOARD_WITHHELD_BY_RELEASE if errors else BOARD_NOT_COLLECTED
+    )
+    board_reasons: dict[str, str | None] = {}
+    failed_boards: dict[str, str] = {}
     if not errors and stop is None:
         rows, more = build_board_rows(obs, spec)
         for k, v in more.items():
             excluded[k] = excluded.get(k, 0) + v
         for r in rows:
             boards[str(spec.board_key_for(r))].append(r)
-        last_counts = (latest or {}).get("boardRowCounts") or {}
-        # Every board must stand on its own: one family collapsing withholds
-        # the whole release (all boards keep their last good copy).
+        # Every board must stand on its own: by default one family
+        # collapsing withholds the whole release (all boards keep their last
+        # good copy); ``signals_idp_family_quarantine`` withholds only it.
         for key, board_rows in boards.items():
-            floor = MIN_BOARD_ROWS.get(key, 1)
-            last_count = last_counts.get(key)
-            if not board_rows:
-                errors.append(f"{key}: no voting rows after the selection hierarchy")
-            elif len(board_rows) < floor:
-                errors.append(f"{key}: below board floor: {len(board_rows)} voting rows < {floor}")
-            elif last_count and len(board_rows) < last_count * ROW_COLLAPSE_FRACTION:
-                errors.append(
-                    f"{key}: row-count collapse: {len(board_rows)} vs last good {last_count}"
-                )
+            err, reason = _board_check(key, board_rows, last_counts.get(key))
+            if err:
+                errors.append(err)
+                failed_boards[key] = str(reason)
+                board_states[key] = BOARD_QUARANTINED
+                board_reasons[key] = reason
+            else:
+                board_states[key] = BOARD_ACCEPTED
+        if failed_boards:
+            for key in boards:
+                if key not in failed_boards:
+                    board_states[key] = BOARD_WITHHELD_BY_SIBLING
+    # Each board's upstream clock is its OWN rows' newest vendor stamp; the
+    # single offense board keeps the dataset clock (incl. the publication).
+    board_clocks: dict[str, str | None] = (
+        {k: _board_as_of(v) for k, v in boards.items()}
+        if spec.family_boards
+        else {spec.source_key: as_of}
+    )
 
-    if errors:
+    plan: dict[str, Any] | None = None
+    if (
+        errors
+        and failed_boards
+        and spec.family_boards
+        and len(failed_boards) < len(boards)
+        and family_quarantine_enabled()
+    ):
+        try:
+            plan = _family_scoped_plan(spec, boards, failed_boards, latest)
+        except Exception as exc:  # noqa: BLE001 — fall back to release-level quarantine
+            plan = None
+            outcome["familyQuarantineFallback"] = type(exc).__name__
+
+    if plan is not None:
+        _publish_family_scoped(
+            spec,
+            store,
+            board_key,
+            plan,
+            outcome=outcome,
+            fstate=fstate,
+            latest=latest,
+            csv_paths=csv_paths,
+            state_dir=state_dir,
+            at=at,
+            raw_sha=raw_sha,
+            raw_blob=raw_blob,
+            raw_pages=raw_pages,
+            obs=obs,
+            errors=errors,
+            warnings=warnings,
+            excluded=excluded,
+            season=season,
+            publication=publication,
+            board_clocks=board_clocks,
+        )
+        for key in plan["accepted"]:
+            board_states[key] = BOARD_ACCEPTED
+    elif errors:
         if raw_pages:
             _write_raw_values(store, board_key, raw_sha, raw_blob)
         store.quarantine(
@@ -2410,10 +2763,19 @@ def collect_value_dataset(
                 csv_path=path,
                 health="HEALTHY",
                 at=at,
-                upstream_published_at=as_of,
+                upstream_published_at=board_clocks.get(key),
             )
             _write_last_success(state_dir, key, at)
 
+    outcome["boardStatus"] = _value_board_status(
+        spec,
+        plan["boards"] if plan is not None else boards,
+        last_counts,
+        states=board_states,
+        reasons=board_reasons,
+        clocks=board_clocks,
+    )
+    fstate["lastBoardStatus"] = outcome["boardStatus"]
     fstate["lastOutcome"] = outcome.get("outcome")
     if outcome.get("outcome") in ("published", "unchanged_content"):
         fstate["consecutiveFailures"] = 0
@@ -2501,8 +2863,18 @@ def collect_values(
             "lastRunOk": ok,
             "lastSuccessAt": summary["startedAt"] if ok else prior.get("lastSuccessAt"),
             "datasets": {
-                k: {kk: v.get(kk) for kk in ("outcome", "reason", "rowCount", "asOf")}
+                k: {
+                    kk: v.get(kk)
+                    for kk in ("outcome", "reason", "rowCount", "asOf", "familiesQuarantined")
+                    if kk != "familiesQuarantined" or v.get(kk)
+                }
                 for k, v in summary["datasets"].items()
+            },
+            # Per registry key (per family for IDP): its OWN state and clock.
+            "boardStatus": {
+                key: {kk: st.get(kk) for kk in ("state", "reason", "rows", "asOf")}
+                for v in summary["datasets"].values()
+                for key, st in (v.get("boardStatus") or {}).items()
             },
             "requests": client.requests,
         },

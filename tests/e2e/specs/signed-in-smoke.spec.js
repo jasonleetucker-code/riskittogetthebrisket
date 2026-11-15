@@ -272,15 +272,25 @@ test.describe("signed-in: basic navigation + UI render", () => {
       timeout: 60_000,
     });
 
-    // The page's substance is the source registry it exposes for
-    // toggling.  Pin it to the backend's count so a settings page that
-    // renders its shell but drops the registry fails.
+    // The page's substance is the source registry it exposes.  Pin it to
+    // the backend's count so a settings page that renders its shell but
+    // drops the registry fails.  Every registered source renders as ONE
+    // of two things: an include toggle, or — for a private source the
+    // backend says does not vote (held / shadow / unavailable, e.g. the
+    // Signals boards on a box that never provisioned them) — a vote-state
+    // cell with no control.  Counting toggles alone raced the contract
+    // load: before it arrives every source shows a toggle, after it the
+    // non-voting ones correctly lose theirs, so the old assertion passed
+    // only when it polled first (and failed at 20 of 26 when it did not).
     const toggles = authedPage.locator(
       'input.settings-src-toggle[aria-label^="Include "]',
     );
+    const nonVoting = authedPage.locator(
+      '[data-testid^="settings-src-vote-state-"]',
+    );
     await expect
-      .poll(() => toggles.count(), {
-        message: `settings should expose >= ${registeredCount} source toggles`,
+      .poll(async () => (await toggles.count()) + (await nonVoting.count()), {
+        message: `settings should list >= ${registeredCount} sources (toggles + not-voting rows)`,
         timeout: 60_000,
       })
       .toBeGreaterThanOrEqual(registeredCount);

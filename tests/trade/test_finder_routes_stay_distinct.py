@@ -145,17 +145,19 @@ def test_the_nav_does_not_promise_arbitrage_from_the_board_filter():
     entries = re.findall(r'\{\s*href:\s*"([^"]+)"[^}]*?label:\s*"([^"]+)"[^}]*?\}', nav)
     by_href = dict(entries)
 
-    # The invariant is about which ROUTE owns the word, not the exact
-    # string: the nav label is now "Arbitrage" so it matches the page's
-    # own <h1> (they disagreed before, which was its own small part of
-    # the confusion).  What must never drift is the word landing on the
-    # route that does not compute it.
+    # The invariant is about which ROUTE owns the computation's name, not the
+    # exact string.  Since the 2026-11-06 owner decision (Part 16: say
+    # "disagreement", not "arbitrage") the /arbitrage page and its nav entry
+    # are "Market Disagreement"; the nav label still matches the page's own
+    # <h1>.  What must never drift is that name -- old or new -- landing on
+    # the route that does not compute it.
     arbitrage_label = by_href.get("/arbitrage", "")
     assert (
-        "arbitrage" in arbitrage_label.lower()
-    ), f"/arbitrage should carry the arbitrage label, got {arbitrage_label!r}"
+        "disagreement" in arbitrage_label.lower()
+    ), f"/arbitrage should carry the market-disagreement label, got {arbitrage_label!r}"
     finder_label = by_href.get("/finder", "")
-    assert "arbitrage" not in finder_label.lower(), (
-        f"/finder is labelled {finder_label!r}, which promises arbitrage it does "
-        "not compute — this is exactly what produced the phantom in backlog #6"
-    )
+    for word in ("arbitrage", "disagreement"):
+        assert word not in finder_label.lower(), (
+            f"/finder is labelled {finder_label!r}, which promises {word} it does "
+            "not compute — this is exactly what produced the phantom in backlog #6"
+        )

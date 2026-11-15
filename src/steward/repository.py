@@ -323,7 +323,20 @@ def context(repo: Path, paths: list[str], *, max_chars: int = 12000) -> dict:
                 "complete": len(excerpt) == len(content),
             }
         )
-    return {"sources": output, "omitted": omitted, "characters": max_chars - remaining}
+    return {
+        "sources": output,
+        "omitted": omitted,
+        "characters": max_chars - remaining,
+        "budget": {
+            "requested_docs": len(paths),
+            "selected_docs": len(output),
+            "complete_docs": sum(source["complete"] for source in output),
+            "utf8_bytes": sum(len(source["content"].encode("utf-8")) for source in output),
+            "budget_omissions": sum(item["reason"] == "context budget" for item in omitted),
+            "input_tokens": None,
+            "tool_definitions_exposed": None,
+        },
+    }
 
 
 def work_units(tasks: list[dict], inv: dict, reconciliation: dict) -> list[dict]:

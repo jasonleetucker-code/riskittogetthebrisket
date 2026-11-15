@@ -1,0 +1,64 @@
+{
+  "_comment": "Machine-readable reconciliation for the repository stabilization campaign (owner directive 2026-10-07). Human narrative: docs/audit/STABILIZATION_2026-10-07.md. Classes: A ACTIVE_AND_NEEDED, B READY_FOR_INTEGRATION, C SUPERSEDED_BY_MAIN, D ABSORBED_INTO_INTEGRATION_TRAIN, E VALIDATION_ONLY_DO_NOT_MERGE, F BLOCKED_WITH_SPECIFIC_UNBLOCK, G STALE_CLOSE_CANDIDATE, H OWNER_DECISION_REQUIRED. Point-in-time record; GitHub is the live truth.",
+  "recordedAt": "2026-10-07",
+  "before": {
+    "mainSha": "96da962fa19c1fe2e125b97ffddf537050dec95d",
+    "productionServedSha": "1eec690fa3f713c5ecc2fcbacbc244639f43d06a",
+    "productionServedShaSource": "GET https://chaseupside.com/api/status build.commit (commit_source detached_head); Deploy Production run 37621154868 green",
+    "productionBehindMain": "3 commits, all automated DLF/IDP Show refreshes (class C)",
+    "openPullRequests": 37,
+    "openIssues": 89,
+    "openMachineIssues": 26,
+    "workClaimRowsMarkedActiveButMergedOrClosed": 69,
+    "openPrsWithoutClaimRow": 10,
+    "localWorktrees": 91
+  },
+  "pullRequests": [
+    {"pr": 1667, "class": "B", "title": "AI architecture campaign release train", "head": "d14d800f7", "evidence": "Merges cleanly with main 96da962fa (merge-tree bb078217a, 0 conflicted paths, 0 overlapping files); every component head is an exact ancestor; own CI green incl. Validate PR + journeys; main movement since merge-base 9a5d63af0 = RELEVANT_BASE_MOVE (class-B #1668 playerctx/name_clean + 155 class-C data commits) with no semantic dependency.", "gates": ["independent review of composed diff (no GitHub reviews existed)", "owner authority recorded (2026-10-07 directive, EXECUTION_PLAN section 0)", "close #1648 BEFORE merge (its head is a first-parent ancestor)", "one main merge into the train + strict release-candidate.yml on the train ref", "merge commit (not squash/rebase) to preserve ancestry", "deploy verification: artifact identity, rollback, served build.commit"]},
+    {"pr": 1648, "class": "E", "title": "AI campaign current-main rehearsal", "evidence": "Validation-only per owner; must not merge. Its head c0f70b333 is on #1667's first-parent history, so its commits (f9db8da39 scheduled-refresh lock install, 55cfb2a5c claims, 67a34d01d deploy archive) reach main only through the reviewed train.", "action": "close unmerged before #1667 merges"},
+    {"pr": 1629, "class": "D", "evidence": "head cff01d866 exact ancestor of #1667 head; base main → auto-flips merged when #1667 lands"},
+    {"pr": 1630, "class": "D", "evidence": "head c75498538 exact ancestor of #1667 head; base main"},
+    {"pr": "1631-1641,1643-1647", "class": "D", "evidence": "stacked drafts; every head an exact ancestor of #1667 head (git cherry: nothing missing)", "action": "after #1667 merges: close each as ABSORBED with the ancestry proof (stacked bases will not auto-flip)"},
+    {"pr": 1665, "class": "D", "evidence": "head 7d71b7b1e exact ancestor; base main"},
+    {"pr": 1666, "class": "D", "evidence": "head 55224ca1a exact ancestor; base main"},
+    {"pr": 1656, "class": "C", "state": "CLOSED 2026-10-07", "evidence": "commit 83b1f5e80 has the same stable patch-id (a25ebcf5d667) as d3335e2f4, on main via hotfix #1657 (merge c44575ac5); test green on main"},
+    {"pr": 1654, "class": "B", "evidence": "Signals on-box verification own concurrency group + fail-closed HEAD check; not on main; CI green; on-box verification has never produced a successful run (37282869391 failed on the IndexError fixed by #1657).", "action": "release candidate, merge, then dispatch with collect:true"},
+    {"pr": 1652, "class": "B", "evidence": "Pick Projector on the locked draft-order rule (docs/picks/DRAFT_ORDER_RULE.md, owner 2026-10-04: worst record first, lower total Points For breaks ties); CI green; clean merge; coercion baseline 642/636 = exactly the 6 entries it deletes.", "action": "release candidate, merge, verify /api/ros/pick-projections in production"},
+    {"pr": 1533, "class": "F", "unblock": "fix its own new test test_concurrent_duplicate_admin_request_acts_once (httpx cookie domain AttributeError), resolve docs/WORK_CLAIMS.md conflict, re-run CI"},
+    {"pr": 1513, "class": "H", "decision": "OD-MOTY-1, OD-MOTY-7..10: ship a non-promoted validation-track candidate at all? Options: rebase as unpromoted track / land docs+intake only / close. Note the full intake text exists only on this branch.", "evidence": "8 conflicted files; dependency #1517 merged so replay must re-run"},
+    {"pr": 1505, "class": "B", "evidence": "docs-only owner intake (player win-impact in MVP formula); clean; CI from 2026-09-27", "action": "re-run CI then merge"},
+    {"pr": 1659, "class": "B", "evidence": "next 16.3.6→16.3.8 patch; green incl. journeys"},
+    {"pr": 1662, "class": "B", "evidence": "anthropic ~=1.11.0; green. Interacts with #1667 hash locks (pins anthropic==1.8.0): merge before the train or regenerate locks after."},
+    {"pr": 1661, "class": "B", "evidence": "numpy floor ~=2.5; green; same lock interaction"},
+    {"pr": 1663, "class": "F", "unblock": "re-run CI: only failure is the 4.0s lifespan timing tripwire at 4.47s; if it repeats, inspect fastapi 0.142 startup"},
+    {"pr": 1660, "class": "F", "unblock": "vitest 5 requires Node ^22.12; repo pins Node 20 (frontend engines, pr-validation.yml, deploy.yml). Needs an approved Node upgrade first (#1467)."},
+    {"pr": 1575, "class": "B", "action": "rebase then merge (actions group)"},
+    {"pr": 1508, "class": "B", "action": "rebase then merge (uvicorn; stale CI from 2026-09-28)"},
+    {"pr": 1506, "class": "B", "action": "rebase then merge (tzdata)"},
+    {"pr": 1674, "class": "A", "title": "CLEANUP-1 claims/status reconciliation + claim checker hardening"},
+    {"pr": 1675, "class": "A", "title": "CLEANUP-3 source-state reporting fixes"}
+  ],
+  "issues": {
+    "closed": [
+      {"issues": [1046, 1061, 1190, 1326, 1343, 1347, 1348, 1349, 1369, 1382, 1385, 1387, 1392, 1393, 1539, 1568, 1653, 1655], "reason": "Production health check green 6 consecutive runs since 2026-10-05T14:34Z; trackers orphaned by health-check.yml author-clause dedupe defect (bot login is app/github-actions)"},
+      {"issues": [737], "reason": "intel refresh green since 2026-09-21; close step lacked GH_REPO and swallowed the gh error"},
+      {"issues": [777, 895], "reason": "creator retired in #1315; superseded by Hill Autopilot v2 (BACKLOG_REPLAN_2026-09-10 already classified DUPLICATE/SUPERSEDED)"},
+      {"issues": [1672], "reason": "duplicate of #898 created because the dedupe lookup scanned only the 50 newest open issues"}
+    ],
+    "opened": [
+      {"issue": 1676, "reason": "retention-health red daily with no tracker: C1-RET-07 identity-report stream has had no producer since 2026-04-20 (owner/methodology decision)"}
+    ],
+    "realBlockersLeftOpen": [
+      {"issue": 951, "why": "Sharp production gate cannot measure: needs SHARP_SMOKE_TOKEN secret + matching prod .env (owner credential action)"},
+      {"issue": 898, "why": "rank-form drift is real (offense +90.7 RMSE, IDP +154.6); constants are human-updated per ADR-008"},
+      {"issue": 1673, "why": "live /waivers mobile a11y scrollable-region-focusable on .ds-table-wrap"},
+      {"issue": 1322, "why": "Hill Autopilot blocker tracker; latest autopilot HOLD reasons are parameter_stability/forward_persistence, not board-impact — owner may close or retitle"}
+    ]
+  },
+  "automationDefectsFound": [
+    {"id": "A", "file": ".github/workflows/health-check.yml", "defect": "tracker lookup selects .author.login == github-actions; gh reports app/github-actions → new issue per failure, never closed"},
+    {"id": "B", "file": ".github/workflows/audit-rank-form-drift.yml, refit-hill-curves.yml", "defect": "title lookup --limit 50 cannot see older trackers"},
+    {"id": "C", "file": ".github/workflows/intel-refresh.yml", "defect": "close step has no GH_REPO in a checkout-less job and swallows gh errors"},
+    {"id": "D", "file": ".github/workflows/verify-sharp-production.yml", "defect": "comments on every green-but-unmeasured run (812 comments on #951)"}
+  ]
+}

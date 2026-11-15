@@ -48,12 +48,14 @@ IDENTITY RULES, ALL FAIL CLOSED
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from src.identity.picks import (
     MarketPickRef,
@@ -71,6 +73,7 @@ from src.identity.resolution import (
 from src.sources.ktc_identity import KtcIdentityMap, identity_from_rows
 from src.trade import market_trade_archive as archive
 from src.trade import market_trade_format as mtf
+from src.trade import market_trade_groups as grp
 
 SOURCE_KTC = "ktc_trade_database"
 SOURCE_SLEEPER_DISCOVERY = "sleeper_sharp_discovery"
@@ -88,6 +91,116 @@ KIND_PLAYER = "player"
 KIND_PICK = "pick"
 KIND_FAAB = "faab"
 KIND_UNRESOLVED = "unresolved"
+
+
+# ── Evidence fields (chaseTradeMarket P2: G8) ────────────────────────────
+#
+# Additive, per observation.  They feed the shadow trade-market estimator and
+# its validation; no projection (TC-07/08/09) reads them and no value moves.
+#
+# * ``observationChannel`` -- HOW the trade reached us.  ``sleeper_observed``:
+#   we read the host transaction ourselves (Sharp / Insider crawls, our own
+#   leagues).  ``ktc_database``: KTC's trade database showed it to us -- the
+#   same population KTC's own Trades value is fit on, so it is never
+#   independent evidence against KTC Trades (owner directive V2 §5).
+# * ``collectedAt`` -- the instant the record AS NORMALIZED HERE was complete
+#   on this box: the conservative point-in-time key.  A model with training
+#   cutoff T may use the observation only when ``collectedAt <= T``.
+#   ``firstCollectedAt`` -- the first instant ANY part of it was collected
+#   (collection latency).  ``collectedAtBasis`` names the clock.  Unknown is
+#   ``None`` with the basis saying why -- never the trade date.
+# * ``collectionPath`` -- for the intel-ledger lane, WHICH crawl wrote it.  The
+#   lane is called ``sleeper_sharp_discovery`` but two crawls write that
+#   ledger: the Sharp transaction crawl (``sharp_league_fetch`` cursor) and the
+#   Insider pool crawl (own-league members' other leagues).  A league with no
+#   Sharp cursor row was written by the Insider crawl -- the only other writer
+#   (``ledger.ingest_events`` has exactly these two callers).  A league WITH a
+#   cursor row is Sharp-covered; the Insider crawl may also have written some
+#   of its rows, which this label cannot separate.  The table has a third
+#   writer, the platform ledger (FFPC via ``platform_ledger.ingest_batch``):
+#   its rows carry ``platform != 'sleeper'`` and are NOT Sleeper trades, so
+#   the lane excludes and counts them (``nonSleeperTradesExcluded``) rather
+#   than stamping Sleeper host / crawl / exclusivity facts on them.  A ledger
+#   without the platform column predates that writer and is Sleeper-only; an
+#   unrecorded platform on a migrated ledger is ``unknown``, never Sleeper.
+# * ``sideEvidence`` -- aligned 1:1 with ``sides``: per side an optional
+#   pseudonymous ``managerKey`` (HMAC of the host user id under a box-local
+#   secret the caller supplies; no secret, no key), and per received asset the
+#   index of the side that SENT it plus a pick's origin roster slot where the
+#   host record states one.  Roster slots and keys never leave the box: the
+#   reference projection copies none of these fields.
+CHANNEL_SLEEPER = grp.CHANNEL_SLEEPER
+CHANNEL_KTC = grp.CHANNEL_KTC
+OBSERVATION_CHANNEL_BY_SOURCE = {
+    SOURCE_KTC: CHANNEL_KTC,
+    SOURCE_SLEEPER_DISCOVERY: CHANNEL_SLEEPER,
+    SOURCE_OWN_LEAGUE: CHANNEL_SLEEPER,
+}
+
+COLLECTION_PATH_SHARP = "sharp_transaction_crawl"
+COLLECTION_PATH_INSIDER = "insider_pool_crawl"
+COLLECTION_PATH_UNKNOWN = "unknown"
+
+COLLECTED_BASIS_KTC_TRADE = "ktc_archive_first_fetch"
+COLLECTED_BASIS_SLEEPER = "intel_ledger_ingested_ms"
+COLLECTED_BASIS_OWN = "acquisition_first_recorded_at"
+COLLECTED_BASIS_UNKNOWN = "collection_time_unrecorded"
+
+SIDE_ATTRIBUTION_RECEIVED = grp.SIDE_ATTRIBUTION_RECEIVED
+SIDE_ATTRIBUTION_PACKAGES = grp.SIDE_ATTRIBUTION_PACKAGES
+MANAGER_KEY_KEYED = "keyed"
+MANAGER_KEY_NO_SECRET = "side_key_secret_unprovisioned"
+MANAGER_KEY_NOT_OBSERVED = "host_user_not_observed"
+#: Domain separation for the HMAC input, so a key minted here can never equal
+#: one minted for another purpose from the same id under the same secret.
+_MANAGER_KEY_DOMAIN = "ctm-side-key-v1:sleeper_user:"
+
+
+def manager_key(user_id: Any, secret: bytes | None) -> str | None:
+    """Pseudonymous, stable manager key: HMAC-SHA256 of the host user id under
+    a box-local secret.  ``None`` without a secret or a user id -- never a
+    plain hash, which anyone holding the public id could recompute."""
+    uid = str(user_id or "").strip()
+    if not secret or not uid:
+        return None
+    digest = hmac.new(secret, f"{_MANAGER_KEY_DOMAIN}{uid}".encode(), hashlib.sha256)
+    return "mk:" + digest.hexdigest()[:24]
+
+
+def _iso_from_ms(ms: Any) -> str | None:
+    if ms is None:
+        return None
+    try:
+        return datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc).isoformat()
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
+
+
+def _iso_utc(value: Any) -> str | None:
+    """Normalize an ISO timestamp to UTC ISO; ``None`` when unparseable."""
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+def _collection_fields(first: str | None, complete: str | None, basis: str) -> dict[str, Any]:
+    if complete is None and first is None:
+        return {
+            "collectedAt": None,
+            "firstCollectedAt": None,
+            "collectedAtBasis": COLLECTED_BASIS_UNKNOWN,
+        }
+    return {
+        "collectedAt": complete,
+        "firstCollectedAt": first if first is not None else complete,
+        "collectedAtBasis": basis if complete is not None else COLLECTED_BASIS_UNKNOWN,
+    }
 
 
 # ── Identity context ──────────────────────────────────────────────────────
@@ -271,6 +384,12 @@ def market_ref_from_vendor_label(
     return ref, vendor_grade, None, None
 
 
+def _asset_evidence(
+    sender_side: int | None = None, pick_origin: str | None = None
+) -> dict[str, Any]:
+    return {"senderSideIndex": sender_side, "pickOriginRosterSlot": pick_origin}
+
+
 # ── KTC lane ──────────────────────────────────────────────────────────────
 
 
@@ -338,8 +457,15 @@ def normalize_ktc_row(
     raw: Mapping[str, Any],
     identity: KtcIdentityMap,
     ctx: IdentityContext,
+    *,
+    first_fetched_at: str | None = None,
 ) -> dict[str, Any]:
-    """One archived KTC revision -> one normalized observation."""
+    """One archived KTC revision -> one normalized observation.
+
+    ``first_fetched_at`` is when the archive first saw this trade id at all
+    (its oldest revision); without it the revision's own fetch time stands in.
+    ``collectedAt`` is this REVISION's first fetch: the content normalized here
+    did not exist on the box before it."""
     from src.sources.ktc_trades import host_platform, observed_date  # noqa: PLC0415
 
     payload = raw["payload"]
@@ -354,6 +480,14 @@ def normalize_ktc_row(
     elif t2.get("isVftFavored") is True and t1.get("isVftFavored") is not True:
         vft_side = 1
     used = payload.get("isUsedInVft")
+    revision_at = _iso_utc(raw.get("firstFetchedAt"))
+    collection = _collection_fields(
+        _iso_utc(first_fetched_at) or revision_at, revision_at, COLLECTED_BASIS_KTC_TRADE
+    )
+    sides = [
+        _ktc_side(t1.get("playerIds") or [], identity, ctx),
+        _ktc_side(t2.get("playerIds") or [], identity, ctx),
+    ]
     return {
         "observationId": f"{SOURCE_KTC}:{raw['sourceNativeId']}#{raw['payloadSha256'][:12]}",
         "sourceFamily": SOURCE_KTC,
@@ -372,10 +506,7 @@ def normalize_ktc_row(
         "timeFidelity": "day",
         "_format": mtf.format_from_ktc_settings(settings),
         "formatSource": "ktc_vendor_settings",
-        "sides": [
-            _ktc_side(t1.get("playerIds") or [], identity, ctx),
-            _ktc_side(t2.get("playerIds") or [], identity, ctx),
-        ],
+        "sides": sides,
         "teamCount": 2,
         # Which team RECEIVED which package is not stated by the feed, and is
         # not needed: for a two-team trade the partition into two packages is
@@ -387,6 +518,16 @@ def normalize_ktc_row(
         },
         "provenance": [PROVENANCE_BY_SOURCE[SOURCE_KTC]],
         "caveats": [],
+        "observationChannel": CHANNEL_KTC,
+        **collection,
+        # KTC names two packages, never who sent which, and no manager.
+        "sideEvidence": {
+            "attribution": SIDE_ATTRIBUTION_PACKAGES,
+            "managerKeyState": MANAGER_KEY_NOT_OBSERVED,
+            "sides": [
+                {"managerKey": None, "assets": [_asset_evidence() for _ in side]} for side in sides
+            ],
+        },
     }
 
 
@@ -402,8 +543,10 @@ def ktc_observations(
             "reason": "archive_empty" if exists else "archive_missing",
         }
     latest: dict[str, dict[str, Any]] = {}
+    first_seen: dict[str, Any] = {}
     for r in raws:
         latest[r["sourceNativeId"]] = r  # ordered oldest-first, so last wins
+        first_seen.setdefault(r["sourceNativeId"], r.get("firstFetchedAt"))
     identity_cache: dict[str | None, KtcIdentityMap] = {}
     out: list[dict[str, Any]] = []
     for r in latest.values():
@@ -413,7 +556,11 @@ def ktc_observations(
         if sha not in identity_cache:
             rows = archive.read_identity_snapshot(sha, path=archive_path) if sha else None
             identity_cache[sha] = identity_from_rows(rows or [], source="archived_snapshot")
-        out.append(normalize_ktc_row(r, identity_cache[sha], ctx))
+        out.append(
+            normalize_ktc_row(
+                r, identity_cache[sha], ctx, first_fetched_at=first_seen.get(r["sourceNativeId"])
+            )
+        )
     # A row without a revision count is not counted as revised (unknown is
     # not "revised"), and no number is fabricated for it.
     revised = sum(
@@ -471,18 +618,63 @@ def _sides_from_movements(
     exchanged) and is left out of the sides; an add with no matching drop means
     the sending roster was outside the recorded pool, so the record is partial.
     """
+    sides, caveats, _evidence = _sides_and_evidence_from_movements(moves, to_asset)
+    return sides, caveats
+
+
+def _movement_pair_key(m: Mapping[str, Any]) -> str:
+    """What pairs an ``add`` with its ``drop``: the movement id's suffix after
+    the action (``<asset>[:<discriminator>]`` -- see ``crawler._events_from_tx``),
+    so two same-season+round picks from different origins pair correctly.
+    Falls back to the bare asset id."""
+    mid = str(m.get("movement_id") or "")
+    marker = f":{m.get('action')}:"
+    if marker in mid:
+        return mid.split(marker, 1)[1]
+    return str(m.get("asset_id"))
+
+
+def _pick_origin_from_key(key: str, asset_id: str) -> str | None:
+    """The origin roster slot a Sleeper pick movement states (``...:o<slot>``);
+    ``None`` when the crawler fell back to an index discriminator."""
+    if not key.startswith(f"{asset_id}:"):
+        return None
+    disc = key[len(asset_id) + 1 :]
+    return disc[1:] if disc.startswith("o") and disc[1:].isdigit() else None
+
+
+def _sides_and_evidence_from_movements(
+    moves: list[dict[str, Any]],
+    to_asset,
+    *,
+    side_key_secret: bytes | None = None,
+) -> tuple[list[list[dict[str, Any]]], list[str], dict[str, Any]]:
+    """:func:`_sides_from_movements` plus ``sideEvidence`` aligned to the sides.
+
+    Sender attribution pairs each add with the drop of the same movement key;
+    an add whose drop is missing, or whose key two rosters dropped, has sender
+    ``None`` -- unknown, never guessed.  A side's ``managerKey`` exists only
+    when exactly one host user is recorded for that roster in this trade.
+    """
     received: dict[str, list[dict[str, Any]]] = {}
+    received_keys: dict[str, list[tuple[str, str]]] = {}
     sent_count: dict[str, int] = {}
     add_count: dict[str, int] = {}
+    droppers: dict[str, set[str]] = {}
+    users: dict[str, set[str]] = {}
     rosters: set[str] = set()
     for m in moves:
         rid = str(m.get("roster_id") or "?")
         rosters.add(rid)
+        if m.get("user_id"):
+            users.setdefault(rid, set()).add(str(m["user_id"]))
         if m["action"] == "add":
             received.setdefault(rid, []).append(to_asset(m))
+            received_keys.setdefault(rid, []).append((_movement_pair_key(m), str(m["asset_id"])))
             add_count[m["asset_id"]] = add_count.get(m["asset_id"], 0) + 1
         elif m["action"] == "drop":
             sent_count[m["asset_id"]] = sent_count.get(m["asset_id"], 0) + 1
+            droppers.setdefault(_movement_pair_key(m), set()).add(rid)
     caveats: list[str] = []
     released = sum(max(0, n - add_count.get(a, 0)) for a, n in sent_count.items())
     unsent = sum(max(0, n - sent_count.get(a, 0)) for a, n in add_count.items())
@@ -490,8 +682,31 @@ def _sides_from_movements(
         caveats.append(f"released_in_trade:{released}")
     if unsent:
         caveats.append(f"partial_record_adds_without_sender:{unsent}")
-    sides = [received.get(rid, []) for rid in sorted(rosters)]
-    return sides, caveats
+    order = sorted(rosters)
+    index = {rid: i for i, rid in enumerate(order)}
+    sides = [received.get(rid, []) for rid in order]
+    evidence_sides: list[dict[str, Any]] = []
+    for rid in order:
+        side_assets = []
+        for key, asset_id in received_keys.get(rid, []):
+            senders = droppers.get(key) or set()
+            sender = index[next(iter(senders))] if len(senders) == 1 else None
+            side_assets.append(_asset_evidence(sender, _pick_origin_from_key(key, asset_id)))
+        found = users.get(rid) or set()
+        evidence_sides.append(
+            {
+                "managerKey": (
+                    manager_key(next(iter(found)), side_key_secret) if len(found) == 1 else None
+                ),
+                "assets": side_assets,
+            }
+        )
+    evidence = {
+        "attribution": SIDE_ATTRIBUTION_RECEIVED,
+        "managerKeyState": MANAGER_KEY_KEYED if side_key_secret else MANAGER_KEY_NO_SECRET,
+        "sides": evidence_sides,
+    }
+    return sides, caveats, evidence
 
 
 #: ``formatSource`` labels for a Sharp-discovery trade.  The census counts
@@ -643,12 +858,33 @@ def load_league_seasons(ledger_path: Path | None) -> dict[str, str]:
     return {str(r[0]): str(r[1]) for r in rows if r[0] and r[1]}
 
 
+def _sharp_crawled_leagues(conn: sqlite3.Connection) -> set[str] | None:
+    """League ids the Sharp transaction crawl holds a cursor for, or ``None``
+    when the cursor table is unreadable (an older ledger) -- then every trade's
+    ``collectionPath`` is ``unknown``, never assumed."""
+    try:
+        return {
+            str(r[0]) for r in conn.execute("SELECT league_id FROM sharp_league_fetch").fetchall()
+        }
+    except sqlite3.DatabaseError:
+        return None
+
+
+def _movement_platform_expr(conn: sqlite3.Connection) -> str:
+    """SQL for each movement's platform.  A ledger without the platform
+    column predates the platform ledger, whose writers are the only source of
+    non-Sleeper rows, so every row there is Sleeper (``ingest_events``)."""
+    cols = {str(r[1]) for r in conn.execute("PRAGMA table_info(asset_movements)").fetchall()}
+    return "m.platform" if "platform" in cols else "'sleeper'"
+
+
 def sleeper_discovery_observations(
     *,
     ledger_path: Path | None = None,
     ctx: IdentityContext,
     captures: Mapping[str, list[dict[str, Any]]] | None = None,
     observations: Mapping[str, list[dict[str, Any]]] | None = None,
+    side_key_secret: bytes | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if ledger_path is None:
         try:
@@ -668,7 +904,9 @@ def sleeper_discovery_observations(
                 dict(r)
                 for r in conn.execute(
                     "SELECT m.movement_id, m.tx_id, m.league_id, m.asset_id, m.asset_type, "
-                    "m.action, m.roster_id, m.ts, t.created_ms, t.status "
+                    "m.action, m.roster_id, m.ts, t.created_ms, t.status, m.user_id, "
+                    "m.ingested_ms AS m_ingested_ms, t.ingested_ms AS t_ingested_ms, "
+                    f"{_movement_platform_expr(conn)} AS m_platform "
                     "FROM asset_movements m LEFT JOIN transactions t ON t.tx_id = m.tx_id "
                     "WHERE m.tx_type = 'trade' ORDER BY m.league_id, m.tx_id, m.movement_id"
                 ).fetchall()
@@ -685,6 +923,7 @@ def sleeper_discovery_observations(
                     "SELECT league_id, COUNT(*) FROM league_memberships GROUP BY league_id"
                 ).fetchall()
             }
+            sharp_crawled = _sharp_crawled_leagues(conn)
         finally:
             conn.close()
     except sqlite3.DatabaseError as exc:
@@ -698,9 +937,21 @@ def sleeper_discovery_observations(
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for m in moves:
         grouped.setdefault((str(m["league_id"]), str(m["tx_id"])), []).append(m)
+    non_sleeper: dict[str, int] = {}
+    for key in list(grouped):
+        platforms = {
+            str(m.get("m_platform") or "").strip().lower() or "unknown" for m in grouped[key]
+        }
+        if platforms != {"sleeper"}:
+            # Not a Sleeper trade (or not provably one): none of this lane's
+            # Sleeper interpretation applies.  Counted, never relabelled.
+            label = "+".join(sorted(platforms - {"sleeper"}))
+            non_sleeper[label] = non_sleeper.get(label, 0) + 1
+            del grouped[key]
 
     out: list[dict[str, Any]] = []
     format_sources: dict[str, int] = {}
+    collection_paths: dict[str, int] = {}
     for (league_id, tx_id), group in grouped.items():
         lg = leagues.get(league_id) or {}
         try:
@@ -710,10 +961,29 @@ def sleeper_discovery_observations(
         created = group[0].get("created_ms")
         if created is None:
             created = group[0].get("ts")
-        sides, caveats = _sides_from_movements(
-            group, lambda m: _sleeper_asset(m["asset_id"], m["asset_type"], ctx)
+        sides, caveats, side_evidence = _sides_and_evidence_from_movements(
+            group,
+            lambda m: _sleeper_asset(m["asset_id"], m["asset_type"], ctx),
+            side_key_secret=side_key_secret,
         )
         caveats.append("sleeper_trade_faab_component_not_recorded")
+        ingested = [
+            int(v)
+            for m in group
+            for v in (m.get("m_ingested_ms"), m.get("t_ingested_ms"))
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+        ]
+        collection = _collection_fields(
+            _iso_from_ms(min(ingested)) if ingested else None,
+            _iso_from_ms(max(ingested)) if ingested else None,
+            COLLECTED_BASIS_SLEEPER,
+        )
+        if sharp_crawled is None:
+            collection_path = COLLECTION_PATH_UNKNOWN
+        elif league_id in sharp_crawled:
+            collection_path = COLLECTION_PATH_SHARP
+        else:
+            collection_path = COLLECTION_PATH_INSIDER
         fmt, fmt_source, fmt_evidence = _sleeper_league_format(
             {**lg, "league_id": league_id},
             settings,
@@ -752,12 +1022,19 @@ def sleeper_discovery_observations(
                 "vendorFlags": {},
                 "provenance": [PROVENANCE_BY_SOURCE[SOURCE_SLEEPER_DISCOVERY]],
                 "caveats": caveats,
+                "observationChannel": CHANNEL_SLEEPER,
+                **collection,
+                "collectionPath": collection_path,
+                "sideEvidence": side_evidence,
             }
         )
+        collection_paths[collection_path] = collection_paths.get(collection_path, 0) + 1
     return out, {
         "available": True,
         "trades": len(out),
         "leagues": len({k[0] for k in grouped}),
+        "tradesByCollectionPath": dict(sorted(collection_paths.items())),
+        "nonSleeperTradesExcluded": dict(sorted(non_sleeper.items())),
         "formatCaptures": {
             "state": capture_state,
             "leaguesWithCapture": len(captures),
@@ -935,6 +1212,37 @@ def _own_league_format(
     )
 
 
+def _own_side_evidence(
+    teams: Sequence[tuple[str, Mapping[str, Any]]], secret: bytes | None
+) -> dict[str, Any]:
+    """``sideEvidence`` for one own-league trade, aligned with its sides (the
+    same sorted team order).  A received asset's sender is the one team whose
+    ``sent`` list holds the same asset id; none or several -> ``None``."""
+    senders: dict[str, set[int]] = {}
+    for i, (_, team) in enumerate(teams):
+        for a in team.get("sent") or []:
+            senders.setdefault(str(a.get("assetId")), set()).add(i)
+    sides = []
+    for _, team in teams:
+        assets = []
+        for a in team.get("received") or []:
+            aid = str(a.get("assetId"))
+            found = senders.get(aid) or set()
+            lp = parse_league_pick_id(aid) if a.get("assetKind") == "pick" else None
+            assets.append(
+                _asset_evidence(
+                    next(iter(found)) if len(found) == 1 else None,
+                    str(lp.origin_roster_id) if lp is not None else None,
+                )
+            )
+        sides.append({"managerKey": manager_key(team.get("ownerUserId"), secret), "assets": assets})
+    return {
+        "attribution": SIDE_ATTRIBUTION_RECEIVED,
+        "managerKeyState": MANAGER_KEY_KEYED if secret else MANAGER_KEY_NO_SECRET,
+        "sides": sides,
+    }
+
+
 def own_league_observations(
     *,
     league_keys: Iterable[str] | None = None,
@@ -943,6 +1251,7 @@ def own_league_observations(
     allow_stale_scoring: bool = False,
     format_index: Any = None,
     own_league_format_path: Path | None = None,
+    side_key_secret: bytes | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Own registered leagues' trades, each in its OWN season's format.
 
@@ -951,7 +1260,7 @@ def own_league_observations(
     when not supplied.  The point-in-time rule is :func:`_own_league_format`.
     """
     from src.trade import own_league_format_capture as olfc  # noqa: PLC0415
-    from src.trade.market_trade_ledger import market_trades  # noqa: PLC0415
+    from src.trade.market_trade_ledger import market_trades, trade_collection_times  # noqa: PLC0415
 
     if league_keys is None:
         try:
@@ -986,12 +1295,21 @@ def own_league_observations(
             rows = market_trades(key, path=acquisition_path)
         except Exception as exc:  # noqa: BLE001
             return out, {"available": False, "reason": f"acquisition_unreadable:{exc}"}
+        try:
+            collected = trade_collection_times(key, path=acquisition_path)
+        except Exception:  # noqa: BLE001 — absence is a state: collectedAt unknown
+            collected = {}
         for t in rows:
             tx = str(t["sourceRef"]).removeprefix("tx:")
+            teams = sorted(t["teams"].items())
             sides = [
                 [_own_asset(a["assetId"], a["assetKind"], ctx) for a in team["received"]]
-                for _, team in sorted(t["teams"].items())
+                for _, team in teams
             ]
+            times = collected.get(str(t["sourceRef"])) or {}
+            collection = _collection_fields(
+                _iso_utc(times.get("first")), _iso_utc(times.get("complete")), COLLECTED_BASIS_OWN
+            )
             fmt, fmt_source, fmt_evidence = _own_league_format(
                 t,
                 league_key=key,
@@ -1025,6 +1343,9 @@ def own_league_observations(
                     "vendorFlags": {},
                     "provenance": [PROVENANCE_BY_SOURCE[SOURCE_OWN_LEAGUE]],
                     "caveats": ["sleeper_trade_faab_component_not_recorded"],
+                    "observationChannel": CHANNEL_SLEEPER,
+                    **collection,
+                    "sideEvidence": _own_side_evidence(teams, side_key_secret),
                 }
             )
     return out, {
@@ -1053,7 +1374,11 @@ def build_observations(
     lanes: Iterable[str] = (SOURCE_KTC, SOURCE_SLEEPER_DISCOVERY, SOURCE_OWN_LEAGUE),
     allow_stale_scoring: bool = False,
     own_league_format_path: Path | None = None,
+    side_key_secret: bytes | None = None,
 ) -> dict[str, Any]:
+    """Every requested lane, normalized.  ``side_key_secret`` (box-local,
+    supplied by the caller -- never generated or stored here) enables the
+    pseudonymous per-side ``managerKey``; without it every key is ``None``."""
     ctx = ctx if ctx is not None else IdentityContext.load_default()
     wanted = set(lanes)
     observations: list[dict[str, Any]] = []
@@ -1076,6 +1401,7 @@ def build_observations(
             ctx=ctx,
             captures=captures,
             observations=format_observations,
+            side_key_secret=side_key_secret,
         )
         observations += rows
         status[SOURCE_SLEEPER_DISCOVERY] = st
@@ -1086,6 +1412,7 @@ def build_observations(
             ctx=ctx,
             allow_stale_scoring=allow_stale_scoring,
             own_league_format_path=own_league_format_path,
+            side_key_secret=side_key_secret,
         )
         observations += rows
         status[SOURCE_OWN_LEAGUE] = st

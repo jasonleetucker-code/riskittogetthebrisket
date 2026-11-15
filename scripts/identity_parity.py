@@ -119,7 +119,9 @@ def sweep_directory(directory_path: Path) -> dict:
     pairs_path = REPO / "docs/master-site-audit/evidence/W06/fuzzy-false-merges.json"
     f006 = {"pairs": 0, "falseMerges": 0, "detail": []}
     if pairs_path.exists():
-        for src_name, wrong_name, pos, _score, _method in json.loads(pairs_path.read_text()):
+        for src_name, wrong_name, pos, _score, _method in json.loads(
+            pairs_path.read_text(encoding="utf-8")
+        ):
             f006["pairs"] += 1
             wrong_ids = {c.sleeper_id for c in idx.by_clean.get(clean_name(wrong_name), [])}
             got = R.resolve_canonical_v2(idx, name=src_name, position=pos or None)

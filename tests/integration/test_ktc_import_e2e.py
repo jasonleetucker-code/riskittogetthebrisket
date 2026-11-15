@@ -14,53 +14,20 @@ regression.
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 import server
-from src.trade import ktc_import
 from src.canonical import normalization_validator as nv
 
 
 # The specific URL from the user's original bug report — one pick,
-# three players, across two sides.
+# three players, across two sides.  The live-network half of this suite
+# lives in ``test_ktc_import_live.py`` (advisory ``livedata`` tier).
 _BUG_URL = (
     "https://keeptradecut.com/trade-calculator"
     "?var=5&pickVal=0&teamOne=1934|1273|1712&teamTwo=1415"
     "&format=2&isStartup=0&tep=1"
 )
-
-
-def test_ktc_backend_returns_pick_with_valid_canonical_name():
-    """Invariant 1: backend's resolve_trade_url returns
-    '2027 Mid 4th' (or similar canonical pick name) for KTC ID 1712."""
-    try:
-        result = ktc_import.resolve_trade_url(_BUG_URL)
-    except Exception as exc:
-        pytest.skip(f"KTC upstream unreachable: {exc}")
-    pick_entries = [e for e in (result["sideOne"] + result["sideTwo"]) if e.get("isPick")]
-    assert pick_entries, "Backend dropped the pick from the KTC URL"
-    for pe in pick_entries:
-        name = pe["name"]
-        assert nv.is_valid_pick_name(name), (
-            f"KTC pick name {name!r} doesn't match any canonical "
-            f"pick shape — will never resolve in rowByName.get()"
-        )
-
-
-def test_ktc_backend_returns_all_four_assets():
-    """The URL has 4 assets (3 players + 1 pick).  None should be
-    silently dropped."""
-    try:
-        result = ktc_import.resolve_trade_url(_BUG_URL)
-    except Exception as exc:
-        pytest.skip(f"KTC upstream unreachable: {exc}")
-    total = len(result["sideOne"]) + len(result["sideTwo"])
-    unresolved = len(result["unresolved"]["sideOne"]) + len(result["unresolved"]["sideTwo"])
-    assert total + unresolved == 4, (
-        f"KTC parsed 4 IDs but returned {total} resolved + "
-        f"{unresolved} unresolved — something went missing"
-    )
 
 
 def test_ktc_endpoint_returns_structured_response(monkeypatch):

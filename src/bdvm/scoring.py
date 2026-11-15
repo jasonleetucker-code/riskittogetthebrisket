@@ -35,6 +35,7 @@ measurement rather than invention.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Mapping
 
 from src.nfl_data.first_down_rate import with_imputed_first_downs
@@ -78,6 +79,41 @@ def score_stat_line_per_game_detailed(
     already carries first downs, on an unmeasured position, and in a
     league that does not pay the bonus.
     """
+    scored = score_stat_line_per_game_breakdown(
+        stat_line, scoring_settings, position=position, impute_first_downs=impute_first_downs
+    )
+    return scored.points, scored.unscored
+
+
+@dataclass(frozen=True)
+class PerGameScore:
+    """One per-game projected line's score, with the scorer's own components.
+
+    ``components`` are ``(scoring_key, raw_stat, rate, awarded_points)``
+    from the SAME canonical scoring call that produced ``points`` (carried
+    on :class:`~src.nfl_data.realized_points.RealizedPoints`), never a
+    second scoring pass; their ``awarded_points`` sum to ``points``
+    exactly, in order.  Empty for an empty line (``points`` 0.0, the
+    pre-existing contract of :func:`score_stat_line_per_game_detailed`).
+    """
+
+    points: float
+    unscored: tuple[str, ...]
+    components: tuple[tuple[str, float, float, float], ...] = ()
+
+
+def score_stat_line_per_game_breakdown(
+    stat_line: Mapping[str, Any],
+    scoring_settings: Mapping[str, Any],
+    *,
+    position: str,
+    impute_first_downs: bool = False,
+) -> PerGameScore:
+    """:func:`score_stat_line_per_game_detailed` plus the per-key components.
+
+    The detailed function delegates here, so both answers come from one
+    scoring call by construction.
+    """
     row, _ = (
         with_imputed_first_downs(stat_line, position)
         if impute_first_downs
@@ -87,7 +123,7 @@ def score_stat_line_per_game_detailed(
     row.setdefault("week", 0)
     result = compute_weekly_points(row, dict(scoring_settings), position=position)
     if result is None:  # only when stat_line is empty/falsy
-        return 0.0, ()
+        return PerGameScore(points=0.0, unscored=())
     # ``unscored``: configured NONZERO card rules whose stat the line could not
     # supply (reception-distance bonuses, special-teams tackles, pick-sixes
     # thrown...).  The points are then a PARTIAL TOTAL, not a lower bound:
@@ -100,7 +136,11 @@ def score_stat_line_per_game_detailed(
     # has no fumbles column, so ``fum_lost`` scores nothing) is added per
     # record by ``src.bdvm.source_vocabulary.record_coverage`` — the consensus
     # ``unscored_keys`` and the service payload carry both.
-    return float(result.fantasy_points), tuple(sorted({k for k, _r in result.unscored}))
+    return PerGameScore(
+        points=float(result.fantasy_points),
+        unscored=tuple(sorted({k for k, _r in result.unscored})),
+        components=tuple(result.components),
+    )
 
 
 def season_line_to_per_game(stat_line: Mapping[str, Any], games: float) -> dict[str, float]:

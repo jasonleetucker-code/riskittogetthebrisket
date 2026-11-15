@@ -36,7 +36,7 @@ def history_path(tmp_path, monkeypatch):
         )
     # Reverse so we write oldest-first just to match production style.
     for line in reversed(lines):
-        path.open("a").write(json.dumps(line) + "\n")
+        path.open("a", encoding="utf-8").write(json.dumps(line) + "\n")
     monkeypatch.setattr(rank_history, "HISTORY_PATH", path)
     return path
 
@@ -450,7 +450,7 @@ def test_value_history_fallback_covers_when_rank_history_missing(tmp_path, monke
     from datetime import date, timedelta
 
     rank_path = tmp_path / "rank_history.jsonl"
-    rank_path.write_text("")  # empty — the recent log has no coverage
+    rank_path.write_text("", encoding="utf-8")  # empty — the recent log has no coverage
     monkeypatch.setattr(rank_history, "HISTORY_PATH", rank_path)
 
     value_path = tmp_path / "source_value_history.jsonl"
@@ -528,7 +528,7 @@ def test_dismissal_resolves_via_alias_key_after_rename(history_path):
     # Append "Alice Renamed::offense" to every snapshot with the
     # same ranks the log already has for Alice.
     log_lines = []
-    with history_path.open("r") as f:
+    with history_path.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -540,7 +540,7 @@ def test_dismissal_resolves_via_alias_key_after_rename(history_path):
                 ranks["Alice Renamed::offense"] = alice_rank
             obj["ranks"] = ranks
             log_lines.append(obj)
-    with history_path.open("w") as f:
+    with history_path.open("w", encoding="utf-8") as f:
         for obj in log_lines:
             f.write(json.dumps(obj) + "\n")
     future_ts = int((datetime.now(timezone.utc) + timedelta(days=3)).timestamp() * 1000)
@@ -670,7 +670,7 @@ def test_delta_does_not_subtract_two_different_populations(tmp_path, monkeypatch
     from src.api import source_history
 
     rank_path = tmp_path / "rank_history.jsonl"
-    rank_path.write_text("")  # force the value-history path
+    rank_path.write_text("", encoding="utf-8")  # force the value-history path
     monkeypatch.setattr(rank_history, "HISTORY_PATH", rank_path)
     value_path = tmp_path / "source_value_history.jsonl"
     monkeypatch.setattr(source_history, "HISTORY_PATH", value_path)
@@ -719,7 +719,7 @@ def test_delta_still_counts_a_player_acquired_inside_the_window(tmp_path, monkey
     from src.api import source_history
 
     rank_path = tmp_path / "rank_history.jsonl"
-    rank_path.write_text("")
+    rank_path.write_text("", encoding="utf-8")
     monkeypatch.setattr(rank_history, "HISTORY_PATH", rank_path)
     value_path = tmp_path / "source_value_history.jsonl"
     monkeypatch.setattr(source_history, "HISTORY_PATH", value_path)

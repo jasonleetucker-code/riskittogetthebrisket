@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
@@ -28,6 +29,7 @@ from typing import TYPE_CHECKING, Any, Iterable
 from src.ros import ROS_DATA_DIR
 from src.ros.lineup import RosterPlayer, flatten_starter_slots, optimize_lineup
 from src.utils.name_clean import resolve_canonical_name
+from src.utils.singleflight import SingleFlight
 
 if TYPE_CHECKING:
     from src.public_league.snapshot import PublicLeagueSnapshot
@@ -87,9 +89,9 @@ def compute_team_strength(
     # ROS source, which is the state ``unmapped`` exists to report.
     #
     # This matters beyond the roster page: an unmapped player scores
-    # ZERO toward ``teamRosStrength``, which sets the projected
-    # reverse-standings draft order behind the Pick Projector. Eight
-    # phantom zeroes biased that order.
+    # ZERO toward ``teamRosStrength``, which feeds the season simulation's
+    # forecast of final record and Points For (and, until 2026-10-04, set
+    # the Pick Projector's order directly). Eight phantom zeroes biased it.
     #
     # Note ``.lower()`` alone would fix only 14 of the 16 stored names.
     # "Greg Rousseau" and "Chig Okonkwo" need the alias map, which is
@@ -370,11 +372,29 @@ def load_ros_aggregate_players() -> list[dict[str, Any]]:
     if not path.exists():
         return []
     try:
-        payload = json.loads(path.read_text())
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return []
     players = payload.get("players") if isinstance(payload, dict) else None
     return players if isinstance(players, list) else []
+
+
+def _league_cfg_for_strength(league_key: str | None) -> Any:
+    """The registry league a team-strength computation is FOR, or ``None``.
+
+    No key means the registry default -- the historical implicit path of
+    every caller that does not name a league.  A key that names NO
+    registered league is ``None``, never the default: scoring one league's
+    rosters under (and fetching the Sleeper overlay of) the DEFAULT league
+    answers the wrong league's question and, through the persist step,
+    stores it under the bogus key (LI1842-DEFECT-06).  Callers treat
+    ``None`` as "cannot compute" and return no rows.
+    """
+    from src.api.league_registry import get_default_league, get_league_by_key  # noqa: PLC0415
+
+    if league_key:
+        return get_league_by_key(league_key)
+    return get_default_league()
 
 
 def compute_team_strength_from_snapshot(
@@ -398,10 +418,12 @@ def compute_team_strength_from_snapshot(
         if current is None or not current.rosters:
             return []
 
-        from src.api.league_registry import get_default_league, get_league_by_key  # noqa: PLC0415
         from src.public_league import metrics  # noqa: PLC0415
 
-        cfg = (get_league_by_key(league_key) if league_key else None) or get_default_league()
+        cfg = _league_cfg_for_strength(league_key)
+        if cfg is None:
+            LOG.warning("[ros] team-strength live fallback: unknown league %r", league_key)
+            return []
         starter_slots = flatten_starter_slots(
             (getattr(cfg, "roster_settings", None) or {}).get("starters")
         )
@@ -454,7 +476,7 @@ def compute_team_strength_live(
     nfl_players: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """SECOND-TIER fallback for callers with no ``PublicLeagueSnapshot`` in
-    hand (e.g. ``/api/ros/pick-projections``).  Fetches the Sleeper
+    hand (e.g. ``/api/ros/team-strength``).  Fetches the Sleeper
     overlay (cached, ``force_refresh=False`` — 15-min TTL + stale-serve +
     per-league single-flight lock, so this rarely hits the network cold)
     and hydrates it the same way the scheduled scrape does.  ``nfl_players``
@@ -464,10 +486,9 @@ def compute_team_strength_live(
     Returns ``[]`` on any failure; never raises.
     """
     try:
-        from src.api.league_registry import get_default_league, get_league_by_key  # noqa: PLC0415
         from src.api.sleeper_overlay import fetch_sleeper_overlay  # noqa: PLC0415
 
-        cfg = (get_league_by_key(league_key) if league_key else None) or get_default_league()
+        cfg = _league_cfg_for_strength(league_key)
         sleeper_league_id = getattr(cfg, "sleeper_league_id", None)
         if not cfg or not sleeper_league_id:
             return []
@@ -525,6 +546,18 @@ def compute_team_strength_live(
 # `load_or_compute_team_strength` writes back to disk.
 _LIVE_COMPUTE_TTL_SECONDS = 120.0
 _live_compute_cache: dict[str | None, tuple[float, list[dict[str, Any]]]] = {}
+# The TTL above only helps callers that arrive AFTER a compute finishes;
+# callers arriving DURING one (a cold page load fans out to Analyze Trade,
+# Gameplan, the playoff sim ...) each used to start their own overlay fetch
+# and full lineup solve.  One compute per (league, persist) in flight; the
+# others wait for and share its rows — when it succeeds.  A failure is never
+# fanned out: those callers make ONE shared retry (bounded: two computes).
+_live_compute_flights = SingleFlight()
+# The flight key is (league, persist) but the cache key is the league, so two
+# flights for one league can store at once: the store's read-compare-write is
+# made atomic under this lock (same arrangement as best_ball_utility's
+# ``_ensemble_lock``).
+_live_compute_lock = threading.Lock()
 
 # How old the PERSISTED snapshot file may be before the fast path in
 # `load_or_compute_team_strength` stops trusting it and falls through to
@@ -603,6 +636,29 @@ def persisted_fast_path_rows(league_key: str | None = None) -> list[dict[str, An
     return None
 
 
+def _store_live_compute(
+    league_key: str | None, started: float, rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Record a live compute in the TTL cache; returns the rows to answer with.
+
+    Never last-writer-wins: an attempt that STARTED before the cached entry
+    does not replace it, and a failure (``[]``) does not replace a success
+    still inside its TTL — a late-failing retry would otherwise erase a newer
+    good answer.  When the attempt failed but a fresh success is cached, that
+    success is the answer (it is what a caller arriving now would read).
+    """
+    with _live_compute_lock:
+        existing = _live_compute_cache.get(league_key)
+        if existing is not None:
+            fresh_success = bool(existing[1]) and (
+                time.monotonic() - existing[0] < _LIVE_COMPUTE_TTL_SECONDS
+            )
+            if existing[0] > started or (fresh_success and not rows):
+                return rows or (existing[1] if fresh_success else rows)
+        _live_compute_cache[league_key] = (started, rows)
+    return rows
+
+
 def load_or_compute_team_strength(
     league_key: str | None = None,
     *,
@@ -644,16 +700,31 @@ def load_or_compute_team_strength(
     if cached is not None and now - cached[0] < _LIVE_COMPUTE_TTL_SECONDS:
         return cached[1]
 
-    rows = compute_team_strength_live(league_key)
-    if not team_strength_has_evidence(rows):
-        # Evidence-less rows are a failure; answer "unavailable" rather than
-        # handing every consumer twelve zeros to rank, z-score or simulate.
-        rows = []
-    _live_compute_cache[league_key] = (now, rows)
+    def _compute(check_cache: bool = True) -> list[dict[str, Any]]:
+        started = time.monotonic()
+        hit = _live_compute_cache.get(league_key) if check_cache else None
+        if hit is not None and started - hit[0] < _LIVE_COMPUTE_TTL_SECONDS:
+            return hit[1]
+        rows = compute_team_strength_live(league_key)
+        if not team_strength_has_evidence(rows):
+            # Evidence-less rows are a failure; answer "unavailable" rather than
+            # handing every consumer twelve zeros to rank, z-score or simulate.
+            rows = []
+        rows = _store_live_compute(league_key, started, rows)
 
-    if rows:
-        _persist_best_effort(rows, league_key=league_key, persist=persist)
+        if rows:
+            _persist_best_effort(rows, league_key=league_key, persist=persist)
+        return rows
 
+    # Only rows WITH evidence are shared: a caller whose concurrent leader
+    # failed joins ONE shared retry, which alone may bypass the failure the
+    # leader just cached (bounded: two computes per wave).
+    rows, _shared = _live_compute_flights.run_sharing_success(
+        (league_key, bool(persist)),
+        _compute,
+        failed=lambda rows: not rows,
+        retry=lambda: _compute(check_cache=False),
+    )
     return rows
 
 
@@ -732,7 +803,7 @@ def write_team_strength_snapshot(
     target = _team_strength_path(league_key)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_suffix(target.suffix + f".tmp-{int(time.time() * 1000)}")
-    tmp.write_text(json.dumps(rows, indent=2))
+    tmp.write_text(json.dumps(rows, indent=2), encoding="utf-8")
     tmp.replace(target)
     return target
 
@@ -744,6 +815,6 @@ def load_team_strength_snapshot(
     if not target.exists():
         return None
     try:
-        return json.loads(target.read_text())
+        return json.loads(target.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None

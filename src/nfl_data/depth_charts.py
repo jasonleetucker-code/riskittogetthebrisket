@@ -20,18 +20,31 @@ reliable.
 Endpoint
 --------
     https://site.api.espn.com/apis/site/v2/sports/football/nfl
-        /teams/{team_id}/depthchart
+        /teams/{team_id}/depthcharts
 
 32 calls per nightly refresh — negligible load.  Cached in
 ``src.nfl_data.cache`` with a 12h TTL.
+
+**Plural ``depthcharts``, not ``depthchart``** (repaired 2026-10-25).  The
+singular path this module was written against answers HTTP 200 with a
+bare ``{}`` for every team, and the parser read that as "no players" —
+so ``dynasty-depth-charts-refresh`` logged ``0/32 OK`` on every run in
+its retained journal and never wrote a single snapshot.  The plural path
+publishes formations (``Base 3-4 D`` / ``Special Teams`` / ``3WR 1TE``),
+each a map of formation slots (``wr1``, ``lde``, ``qb``) to an ordered
+athlete list; see :func:`_parse_depth_payload`.  Fixture:
+``tests/nfl_data/fixtures/espn_depthcharts_buf_2026-10-25.json``.
 
 Degradation
 -----------
 * Flag ``depth_chart_validation`` OFF → returns [] and signal
   engine treats every usage signal as un-cross-checked (falls back
   to the existing non-gated path).
-* Network error → cached prior + warning log.
-* Schema drift → empty + warning log.
+* Network error → [] + warning log; nothing is cached.
+* Schema drift (a 200 that parses to no entries, or a non-``success``
+  status) → [] + warning log + breaker failure, and **nothing is
+  cached** — an empty answer cached for 12h would read as "this team
+  has no depth chart" rather than "we could not read it".
 """
 
 from __future__ import annotations
@@ -49,7 +62,7 @@ from src.nfl_data import cache as _cache
 _LOGGER = logging.getLogger(__name__)
 
 _ESPN_DEPTH_URL = (
-    "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/depthchart"
+    "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/depthcharts"
 )
 _UA = "riskit-depth-chart/1.0"
 _TTL_SECONDS = 12 * 3600
@@ -167,62 +180,118 @@ def fetch_team_depth_chart(
         if bp is not None:
             bp.report_failure(exc)
         return []
-    parsed = _parse_depth_payload(raw)
+    status = raw.get("status") if isinstance(raw, dict) else None
+    parsed = _parse_depth_payload(raw) if status in (None, "success") else []
+    if not parsed:
+        # A 200 that yields nothing is schema drift or an upstream outage,
+        # never "this team has no depth chart".  Not cached, so the next
+        # run asks again instead of serving the empty answer for 12h.
+        keys = sorted(raw)[:8] if isinstance(raw, dict) else type(raw).__name__
+        _LOGGER.warning(
+            "espn depth team=%s: no entries parsed (status=%r, top-level keys=%s)",
+            team_id,
+            status,
+            keys,
+        )
+        if bp is not None:
+            bp.report_failure(ValueError("empty depth chart payload"))
+        return []
     if bp is not None:
         bp.report_success()
     _cache.put(key, [e.to_dict() for e in parsed], cache_dir=cache_dir)
     return parsed
 
 
-def _parse_depth_payload(payload: Any) -> list[DepthChartEntry]:
-    """Parse ESPN's depth-chart response.  Shape varies slightly
-    between pre-season and regular-season endpoints; we handle
-    both defensively.
+#: ESPN special-teams formation slots that are a SECONDARY duty of a player
+#: listed at his real position elsewhere on the same chart (a WR returning
+#: kicks, the punter holding).  A move on the kick-return ladder is not a
+#: depth-chart promotion at the player's position, so these never become
+#: entries.  PK and P are real positions and are kept.
+_SECONDARY_DUTY_SLOTS = frozenset({"PR", "KR", "H", "LS"})
 
-    Expected common shape:
+
+def _parse_depth_payload(payload: Any) -> list[DepthChartEntry]:
+    """Parse ESPN's depth-chart response into one entry per
+    (position, athlete).
+
+    Live shape (``/teams/{id}/depthcharts``, verified 2026-10-25 on all 32
+    teams)::
+
         {
-          "team": {"abbreviation": "BUF"},
-          "athletes": [
-            {"position": {"abbreviation": "QB"},
-             "items": [{"athlete": {...}, ...}, ...]}
+          "team": {"abbreviation": "BUF", ...},
+          "status": "success",
+          "depthchart": [
+            {"name": "3WR 1TE",
+             "positions": {
+               "wr1": {"position": {"abbreviation": "WR"},
+                       "athletes": [{"id": "...", "displayName": "..."}, ...]},
+               "qb":  {...}, ...}},
+            {"name": "Base 3-4 D", ...}, {"name": "Special Teams", ...}
           ]
         }
-    Older/alternative shape has athletes groups keyed by formation.
+
+    ``slot`` is the athlete's index in his formation slot's ordered list
+    (1 = starter).  ``position`` is ESPN's own abbreviation for that slot,
+    so the three receiver slots ``wr1`` / ``wr2`` / ``wr3`` all report
+    ``WR`` (each has a slot-1 starter) while ``LDE`` and ``RDE`` stay
+    distinct roles.  An athlete listed more than once at one position keeps
+    his best (lowest) slot.  Secondary special-teams duties are skipped
+    (:data:`_SECONDARY_DUTY_SLOTS`).
+
+    The legacy ``{"athletes": [{"position", "items"}]}`` shape is still
+    accepted for payloads that carry it.
     """
-    out: list[DepthChartEntry] = []
     if not isinstance(payload, dict):
-        return out
+        return []
     team_abbr = str(((payload.get("team") or {}).get("abbreviation")) or "").upper()
-    athletes_top = payload.get("athletes") or []
-    if not isinstance(athletes_top, list):
-        return out
-    for grp in athletes_top:
+
+    best: dict[tuple[str, str], DepthChartEntry] = {}
+
+    def _add(pos: str, slot: int, athlete: Any) -> None:
+        if not isinstance(athlete, dict) or not pos:
+            return
+        espn_id = str(athlete.get("id") or "").strip()
+        if not espn_id:
+            return
+        prev = best.get((pos, espn_id))
+        if prev is not None and prev.slot <= slot:
+            return
+        best[(pos, espn_id)] = DepthChartEntry(
+            team_abbrev=team_abbr,
+            position=pos,
+            slot=slot,
+            espn_athlete_id=espn_id,
+            full_name=str(athlete.get("displayName") or athlete.get("fullName") or ""),
+        )
+
+    formations = payload.get("depthchart")
+    for formation in formations if isinstance(formations, list) else ():
+        positions = formation.get("positions") if isinstance(formation, dict) else None
+        if not isinstance(positions, dict):
+            continue
+        for slot_key, grp in positions.items():
+            if not isinstance(grp, dict):
+                continue
+            pos = str(((grp.get("position") or {}).get("abbreviation")) or slot_key)
+            pos = pos.strip().upper()
+            athletes = grp.get("athletes")
+            if pos in _SECONDARY_DUTY_SLOTS or not isinstance(athletes, list):
+                continue
+            for i, athlete in enumerate(athletes):
+                _add(pos, i + 1, athlete)
+
+    legacy = payload.get("athletes")
+    for grp in legacy if isinstance(legacy, list) else ():
         if not isinstance(grp, dict):
             continue
         pos = str(((grp.get("position") or {}).get("abbreviation")) or "").upper()
-        items = grp.get("items") or []
-        if not isinstance(items, list):
-            continue
-        for i, item in enumerate(items):
-            if not isinstance(item, dict):
-                continue
-            athlete = item.get("athlete") or {}
-            if not isinstance(athlete, dict):
-                continue
-            espn_id = str(athlete.get("id") or "").strip()
-            if not espn_id:
-                continue
-            full_name = str(athlete.get("displayName") or athlete.get("fullName") or "")
-            out.append(
-                DepthChartEntry(
-                    team_abbrev=team_abbr,
-                    position=pos,
-                    slot=i + 1,
-                    espn_athlete_id=espn_id,
-                    full_name=full_name,
-                )
-            )
-    return out
+        items = grp.get("items")
+        for i, item in enumerate(items if isinstance(items, list) else ()):
+            if isinstance(item, dict):
+                _add(pos, i + 1, item.get("athlete"))
+
+    # dicts keep insertion order, so the output follows the payload's order.
+    return list(best.values())
 
 
 def _from_cached(d: dict[str, Any]) -> DepthChartEntry:

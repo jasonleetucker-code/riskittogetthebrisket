@@ -44,7 +44,9 @@ def real_registry(monkeypatch):
 
 
 def _registry_league(key: str) -> dict:
-    registry = json.loads((REPO / "config" / "leagues" / "registry.json").read_text())
+    registry = json.loads(
+        (REPO / "config" / "leagues" / "registry.json").read_text(encoding="utf-8")
+    )
     return next(lg for lg in registry["leagues"] if lg["key"] == key)
 
 

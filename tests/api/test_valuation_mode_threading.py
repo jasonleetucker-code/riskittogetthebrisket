@@ -397,9 +397,13 @@ def test_the_mode_parser(body, params, expected):
 def test_the_stamp_records_market_explicitly_rather_than_by_omission():
     """ "This is the market board" and "this field is missing" must not
     read the same to a client deciding what label to show."""
+    from src.valuation_math import package_model
+
     result: dict = {}
     server._stamp_valuation_mode(result, "market", None)
-    assert result == {"valuationMode": "market"}
+    # The stamp also names the package model behind every adjusted number
+    # (owner VA package 2026-10-17) — a receipt, not a second mode.
+    assert result == {"valuationMode": "market", "packageModel": package_model.receipt()}
 
 
 def test_the_stamp_appends_to_existing_warnings_rather_than_replacing_them():

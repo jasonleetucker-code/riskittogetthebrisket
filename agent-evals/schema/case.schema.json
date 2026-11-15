@@ -34,7 +34,8 @@
         "stale_evidence_rejection",
         "external_guidance_hygiene",
         "cross_session_continuity",
-        "missing_never_zero"
+        "missing_never_zero",
+        "steward_receipt_integrity"
       ],
       "description": "Which named behavior (docs/AGENT_OPERATING_SYSTEM.md / engineering-reliability Priority 8) this case exercises."
     },

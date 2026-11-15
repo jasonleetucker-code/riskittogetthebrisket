@@ -121,7 +121,7 @@ def test_a_failing_upstream_is_attempted_once_not_once_per_caller(cold_cache, mo
     attempts: list[float] = []
     a_lock = threading.Lock()
 
-    def failing_builder(league_id, max_seasons=None):
+    def failing_builder(league_id, max_seasons=None, **_kwargs):
         with a_lock:
             attempts.append(time.time())
         time.sleep(REBUILD_SECONDS)
@@ -144,7 +144,7 @@ def test_waiters_do_not_hold_worker_tokens_for_the_whole_retry_chain(cold_cache,
     serialised behind the lock.
     """
 
-    def failing_builder(league_id, max_seasons=None):
+    def failing_builder(league_id, max_seasons=None, **_kwargs):
         time.sleep(REBUILD_SECONDS)
         raise RuntimeError("sleeper 503")
 
@@ -169,7 +169,7 @@ def test_the_cooldown_expires_so_the_outage_is_not_sticky(cold_cache, monkeypatc
     """
     monkeypatch.setattr(server, "_PUBLIC_LEAGUE_FAILURE_COOLDOWN_SECONDS", 0.2)
 
-    def failing_builder(league_id, max_seasons=None):
+    def failing_builder(league_id, max_seasons=None, **_kwargs):
         raise RuntimeError("sleeper 503")
 
     monkeypatch.setattr(server, "build_public_snapshot", failing_builder)
@@ -177,7 +177,7 @@ def test_the_cooldown_expires_so_the_outage_is_not_sticky(cold_cache, monkeypatc
         server._get_public_snapshot(force_refresh=True)
 
     # Still inside the cooldown: served from memory, upstream untouched.
-    def exploding_builder(league_id, max_seasons=None):
+    def exploding_builder(league_id, max_seasons=None, **_kwargs):
         raise AssertionError("upstream must not be called during cooldown")
 
     monkeypatch.setattr(server, "build_public_snapshot", exploding_builder)
@@ -190,7 +190,7 @@ def test_the_cooldown_expires_so_the_outage_is_not_sticky(cold_cache, monkeypatc
     # Cooldown lapsed — a recovered upstream is reached immediately.
     reached = []
 
-    def recovered_builder(league_id, max_seasons=None):
+    def recovered_builder(league_id, max_seasons=None, **_kwargs):
         reached.append(1)
 
         class _Snap:
@@ -224,7 +224,7 @@ def test_a_healthy_upstream_still_rebuilds_exactly_once(cold_cache, monkeypatch)
     calls: list[float] = []
     c_lock = threading.Lock()
 
-    def slow_builder(league_id, max_seasons=None):
+    def slow_builder(league_id, max_seasons=None, **_kwargs):
         with c_lock:
             calls.append(time.time())
         time.sleep(REBUILD_SECONDS)

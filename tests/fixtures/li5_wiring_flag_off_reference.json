@@ -1,0 +1,1931 @@
+{
+ "digests": {
+  "capacity/fds0/one_for_two": "1ad597094596ed748821f92507ab37cc95cee7e4a777845bee2bd232f0eff88b",
+  "capacity/fds0/two_for_one": "d481d823aeff9c14ca145e654eb4782df9fb6603f6974e15167a415d8643b461",
+  "capacity/fds0/valuable_two": "9293c8fe4c64bff25a325b6e6cda02fa36406f22d72694171b132118dc6227cd",
+  "capacity/fds0/waiverValues": "e1ef8aba579e5f801e155c19eaab86fceef893f4bb0efb626a5fae153efd3ce7",
+  "capacity/fds0/zero_for_two": "25df11e79931fe46cc72ae1b078a4a1ccf7d8b2d6230dfcc374f22a933b155c5",
+  "capacity/fds1/one_for_two": "811ceee3b9faa1d72d5e3e6195c437e4a34b1bf2f2801f2eae6d25cd49d88205",
+  "capacity/fds1/two_for_one": "b6b848f2409aa45236b61ffef81d12919389fa9ad2e9adbc809eb9a95e27c4c6",
+  "capacity/fds1/valuable_two": "295908cba8dfea23d2f802821fe5d7f706836bbae0d81024b4f68a9242b66a26",
+  "capacity/fds1/waiverValues": "e1ef8aba579e5f801e155c19eaab86fceef893f4bb0efb626a5fae153efd3ce7",
+  "capacity/fds1/zero_for_two": "272cd68adc98f5955907103027e7abd1c628b4bba631b5ea0e2a78b8beca6601",
+  "draft/o1": "3f1276fe6d0041befcb1dc27cd05e4104487e2afb44caa3f9e8970fdfcfed760",
+  "draft/o2": "fa9361b1f1aaa8368adff8b81e7cfb799306ebbacbf0125d9b6e65ca47947471",
+  "draftApi/o1": "3f1276fe6d0041befcb1dc27cd05e4104487e2afb44caa3f9e8970fdfcfed760",
+  "draftApi/o2": "fa9361b1f1aaa8368adff8b81e7cfb799306ebbacbf0125d9b6e65ca47947471",
+  "droppability/league": "b5b97b595300036a0e65c6ec5c8e34a2e16b018e0d11a6d613a8e1c75b102a1e",
+  "droppability/o1": "28702b8e4599d64832f3cecfc1d158bd22ae9d1c0178a28945ab122f15bccbe2",
+  "droppability/o2": "b505c92fc4ba53c1a64c6f2e1e35e7dfd5e6bb8b91f1627e4c145b327bb73642"
+ },
+ "payloads": {
+  "capacity": {
+   "fds0/one_for_two": {
+    "capacity": {
+     "certainty": "exact",
+     "forcedDropCutCost": 0.0,
+     "forcedDropReleaseCost": 600.0,
+     "forcedDropValue": 600.0,
+     "forcedDrops": [
+      {
+       "acquiredInTrade": true,
+       "effectiveCutCost": 0.0,
+       "name": "Them Filler WR",
+       "playerId": "them_filler_wr",
+       "position": "WR",
+       "releaseCost": 600.0,
+       "rung": 1,
+       "scarcityMultiplier": 1.0,
+       "value": 600.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 2500.0
+      }
+     ],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 2,
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no league key \u2014 positional scarcity inert",
+      "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+     ],
+     "openSpotsAfter": 0,
+     "openSpotsBefore": 0,
+     "outgoing": 1,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 1,
+     "overLimitAfterMax": 1,
+     "overLimitAfterMin": 1,
+     "overLimitBefore": 0,
+     "requiresDrops": true,
+     "rosterLimit": 16,
+     "rungOrderWasTied": false,
+     "sizeAfter": 17,
+     "sizeBefore": 16,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 0,
+     "valueScale": "rankDerivedValue"
+    },
+    "forcedDropCost": 600.0,
+    "forcedDropCostBasis": {
+     "addedReleases": 1,
+     "state": "exact",
+     "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+    }
+   },
+   "fds0/two_for_one": {
+    "capacity": {
+     "certainty": "exact",
+     "forcedDropCutCost": 0.0,
+     "forcedDropReleaseCost": null,
+     "forcedDropValue": 0.0,
+     "forcedDrops": [],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 1,
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no league key \u2014 positional scarcity inert"
+     ],
+     "openSpotsAfter": 1,
+     "openSpotsBefore": 0,
+     "outgoing": 2,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 0,
+     "overLimitAfterMax": 0,
+     "overLimitAfterMin": 0,
+     "overLimitBefore": 0,
+     "requiresDrops": false,
+     "rosterLimit": 16,
+     "rungOrderWasTied": false,
+     "sizeAfter": 15,
+     "sizeBefore": 16,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 0,
+     "valueScale": "rankDerivedValue"
+    },
+    "forcedDropCost": 0.0,
+    "forcedDropCostBasis": {
+     "state": "none"
+    }
+   },
+   "fds0/valuable_two": {
+    "capacity": {
+     "certainty": "exact",
+     "forcedDropCutCost": 0.0,
+     "forcedDropReleaseCost": 1650.0,
+     "forcedDropValue": 1650.0,
+     "forcedDrops": [
+      {
+       "acquiredInTrade": false,
+       "effectiveCutCost": 0.0,
+       "name": "Us DL2",
+       "playerId": "us_dl2",
+       "position": "DL",
+       "releaseCost": 1650.0,
+       "rung": 1,
+       "scarcityMultiplier": 1.0,
+       "value": 1650.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1900.0
+      }
+     ],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 2,
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no league key \u2014 positional scarcity inert",
+      "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+     ],
+     "openSpotsAfter": 0,
+     "openSpotsBefore": 0,
+     "outgoing": 1,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 1,
+     "overLimitAfterMax": 1,
+     "overLimitAfterMin": 1,
+     "overLimitBefore": 0,
+     "requiresDrops": true,
+     "rosterLimit": 16,
+     "rungOrderWasTied": false,
+     "sizeAfter": 17,
+     "sizeBefore": 16,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 0,
+     "valueScale": "rankDerivedValue"
+    },
+    "forcedDropCost": 1650.0,
+    "forcedDropCostBasis": {
+     "addedReleases": 1,
+     "state": "exact",
+     "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+    }
+   },
+   "fds0/waiverValues": {
+    "DB": 1600.0,
+    "DEF": 700.0,
+    "DL": 1900.0,
+    "K": 600.0,
+    "LB": 1700.0,
+    "QB": 2400.0,
+    "RB": 1800.0,
+    "TE": 1600.0,
+    "WR": 2500.0
+   },
+   "fds0/zero_for_two": {
+    "capacity": {
+     "certainty": "exact",
+     "forcedDropCutCost": 0.0,
+     "forcedDropReleaseCost": 2250.0,
+     "forcedDropValue": 2250.0,
+     "forcedDrops": [
+      {
+       "acquiredInTrade": true,
+       "effectiveCutCost": 0.0,
+       "name": "Them Filler WR",
+       "playerId": "them_filler_wr",
+       "position": "WR",
+       "releaseCost": 600.0,
+       "rung": 1,
+       "scarcityMultiplier": 1.0,
+       "value": 600.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 2500.0
+      },
+      {
+       "acquiredInTrade": false,
+       "effectiveCutCost": 0.0,
+       "name": "Us DL2",
+       "playerId": "us_dl2",
+       "position": "DL",
+       "releaseCost": 1650.0,
+       "rung": 2,
+       "scarcityMultiplier": 1.0,
+       "value": 1650.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1900.0
+      }
+     ],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 2,
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no league key \u2014 positional scarcity inert",
+      "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+      "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+     ],
+     "openSpotsAfter": 0,
+     "openSpotsBefore": 0,
+     "outgoing": 0,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 2,
+     "overLimitAfterMax": 2,
+     "overLimitAfterMin": 2,
+     "overLimitBefore": 0,
+     "requiresDrops": true,
+     "rosterLimit": 16,
+     "rungOrderWasTied": true,
+     "sizeAfter": 18,
+     "sizeBefore": 16,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 0,
+     "valueScale": "rankDerivedValue"
+    },
+    "forcedDropCost": 2250.0,
+    "forcedDropCostBasis": {
+     "addedReleases": 2,
+     "state": "exact",
+     "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+    }
+   },
+   "fds1/one_for_two": {
+    "capacity": {
+     "certainty": "exact",
+     "forcedDropCharge": 600.0,
+     "forcedDropChargeBasis": {
+      "addedReleases": 1,
+      "assumedWaiverDrops": 0,
+      "packageCreditForgone": 0,
+      "rule": "cheapest_legal_roster_rational_v1",
+      "state": "exact",
+      "valueScale": "releaseCost (rankDerivedValue x scarcity; package credit for an acquired piece)"
+     },
+     "forcedDropCutCost": 0.0,
+     "forcedDropMarginal": 600.0,
+     "forcedDropReleaseCost": 600.0,
+     "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
+     "forcedDropSelection": {
+      "chargeUnit": "rankDerivedValue x scarcity (package credit for an acquired piece)",
+      "flag": "forced_drop_cheapest_legal",
+      "packageApplied": false,
+      "packageCreditClamp": null,
+      "preTradeCleanupCost": null,
+      "rule": "cheapest_legal_roster_rational_v1",
+      "searchBound": 64,
+      "searchBoundExceeded": false,
+      "tieBreak": null
+     },
+     "forcedDropValue": 600.0,
+     "forcedDrops": [
+      {
+       "acquiredInTrade": true,
+       "chargeBasis": "release_value_no_package",
+       "effectiveCutCost": 0.0,
+       "name": "Them Filler WR",
+       "playerId": "them_filler_wr",
+       "position": "WR",
+       "releaseCost": 600.0,
+       "rung": 1,
+       "scarcityMultiplier": 1.0,
+       "value": 600.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 2500.0
+      }
+     ],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 2,
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no league key \u2014 positional scarcity inert"
+     ],
+     "openSpotsAfter": 0,
+     "openSpotsBefore": 0,
+     "outgoing": 1,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 1,
+     "overLimitAfterMax": 1,
+     "overLimitAfterMin": 1,
+     "overLimitBefore": 0,
+     "requiresDrops": true,
+     "rosterLimit": 16,
+     "rungOrderWasTied": false,
+     "sizeAfter": 17,
+     "sizeBefore": 16,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 0,
+     "valueScale": "rankDerivedValue"
+    },
+    "forcedDropCost": 600.0,
+    "forcedDropCostBasis": {
+     "addedReleases": 1,
+     "assumedWaiverDrops": 0,
+     "packageCreditForgone": 0,
+     "rule": "cheapest_legal_roster_rational_v1",
+     "state": "exact",
+     "valueScale": "releaseCost (rankDerivedValue x scarcity; package credit for an acquired piece)"
+    }
+   },
+   "fds1/two_for_one": {
+    "capacity": {
+     "certainty": "exact",
+     "forcedDropCharge": 0.0,
+     "forcedDropChargeBasis": {
+      "rule": "cheapest_legal_roster_rational_v1",
+      "state": "none"
+     },
+     "forcedDropCutCost": 0.0,
+     "forcedDropMarginal": 0.0,
+     "forcedDropReleaseCost": null,
+     "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
+     "forcedDropSelection": {
+      "chargeUnit": "rankDerivedValue x scarcity (package credit for an acquired piece)",
+      "flag": "forced_drop_cheapest_legal",
+      "packageApplied": null,
+      "packageCreditClamp": null,
+      "preTradeCleanupCost": null,
+      "rule": "cheapest_legal_roster_rational_v1",
+      "searchBound": 64,
+      "searchBoundExceeded": false,
+      "tieBreak": null
+     },
+     "forcedDropValue": 0.0,
+     "forcedDrops": [],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 1,
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no league key \u2014 positional scarcity inert"
+     ],
+     "openSpotsAfter": 1,
+     "openSpotsBefore": 0,
+     "outgoing": 2,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 0,
+     "overLimitAfterMax": 0,
+     "overLimitAfterMin": 0,
+     "overLimitBefore": 0,
+     "requiresDrops": false,
+     "rosterLimit": 16,
+     "rungOrderWasTied": false,
+     "sizeAfter": 15,
+     "sizeBefore": 16,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 0,
+     "valueScale": "rankDerivedValue"
+    },
+    "forcedDropCost": 0.0,
+    "forcedDropCostBasis": {
+     "rule": "cheapest_legal_roster_rational_v1",
+     "state": "none"
+    }
+   },
+   "fds1/valuable_two": {
+    "capacity": {
+     "certainty": "exact",
+     "forcedDropCharge": 600.0,
+     "forcedDropChargeBasis": {
+      "addedReleases": 1,
+      "assumedWaiverDrops": 1,
+      "bound": "upper",
+      "packageCreditForgone": 0,
+      "rule": "cheapest_legal_roster_rational_v1",
+      "state": "assumed",
+      "valueScale": "releaseCost (rankDerivedValue x scarcity; package credit for an acquired piece)"
+     },
+     "forcedDropCutCost": 0.0,
+     "forcedDropMarginal": 600.0,
+     "forcedDropReleaseCost": 600.0,
+     "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
+     "forcedDropSelection": {
+      "chargeUnit": "rankDerivedValue x scarcity (package credit for an acquired piece)",
+      "flag": "forced_drop_cheapest_legal",
+      "packageApplied": false,
+      "packageCreditClamp": null,
+      "preTradeCleanupCost": null,
+      "rule": "cheapest_legal_roster_rational_v1",
+      "searchBound": 64,
+      "searchBoundExceeded": false,
+      "tieBreak": null
+     },
+     "forcedDropValue": 0.0,
+     "forcedDrops": [
+      {
+       "acquiredInTrade": false,
+       "chargeBasis": "release_value",
+       "effectiveCutCost": 0.0,
+       "name": "Us Ghost",
+       "playerId": "us ghost",
+       "position": "",
+       "releaseCost": 600.0,
+       "rung": 1,
+       "scarcityMultiplier": 1.0,
+       "value": null,
+       "valueBasis": "assumedWaiver",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 600.0
+      }
+     ],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 2,
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no league key \u2014 positional scarcity inert"
+     ],
+     "openSpotsAfter": 0,
+     "openSpotsBefore": 0,
+     "outgoing": 1,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 1,
+     "overLimitAfterMax": 1,
+     "overLimitAfterMin": 1,
+     "overLimitBefore": 0,
+     "requiresDrops": true,
+     "rosterLimit": 16,
+     "rungOrderWasTied": false,
+     "sizeAfter": 17,
+     "sizeBefore": 16,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 1,
+     "valueScale": "rankDerivedValue"
+    },
+    "forcedDropCost": 600.0,
+    "forcedDropCostBasis": {
+     "addedReleases": 1,
+     "assumedWaiverDrops": 1,
+     "bound": "upper",
+     "packageCreditForgone": 0,
+     "rule": "cheapest_legal_roster_rational_v1",
+     "state": "assumed",
+     "valueScale": "releaseCost (rankDerivedValue x scarcity; package credit for an acquired piece)"
+    }
+   },
+   "fds1/waiverValues": {
+    "DB": 1600.0,
+    "DEF": 700.0,
+    "DL": 1900.0,
+    "K": 600.0,
+    "LB": 1700.0,
+    "QB": 2400.0,
+    "RB": 1800.0,
+    "TE": 1600.0,
+    "WR": 2500.0
+   },
+   "fds1/zero_for_two": {
+    "capacity": {
+     "certainty": "exact",
+     "forcedDropCharge": 1200.0,
+     "forcedDropChargeBasis": {
+      "addedReleases": 2,
+      "assumedWaiverDrops": 1,
+      "bound": "upper",
+      "packageCreditForgone": 0,
+      "rule": "cheapest_legal_roster_rational_v1",
+      "state": "assumed",
+      "valueScale": "releaseCost (rankDerivedValue x scarcity; package credit for an acquired piece)"
+     },
+     "forcedDropCutCost": 0.0,
+     "forcedDropMarginal": 1200.0,
+     "forcedDropReleaseCost": 1200.0,
+     "forcedDropReleaseCostBasis": "gross_post_trade_cleanup_including_pre_owed",
+     "forcedDropSelection": {
+      "chargeUnit": "rankDerivedValue x scarcity (package credit for an acquired piece)",
+      "flag": "forced_drop_cheapest_legal",
+      "packageApplied": false,
+      "packageCreditClamp": null,
+      "preTradeCleanupCost": null,
+      "rule": "cheapest_legal_roster_rational_v1",
+      "searchBound": 64,
+      "searchBoundExceeded": false,
+      "tieBreak": null
+     },
+     "forcedDropValue": 600.0,
+     "forcedDrops": [
+      {
+       "acquiredInTrade": true,
+       "chargeBasis": "release_value_no_package",
+       "effectiveCutCost": 0.0,
+       "name": "Them Filler WR",
+       "playerId": "them_filler_wr",
+       "position": "WR",
+       "releaseCost": 600.0,
+       "rung": 1,
+       "scarcityMultiplier": 1.0,
+       "value": 600.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 2500.0
+      },
+      {
+       "acquiredInTrade": false,
+       "chargeBasis": "release_value",
+       "effectiveCutCost": 0.0,
+       "name": "Us Ghost",
+       "playerId": "us ghost",
+       "position": "",
+       "releaseCost": 600.0,
+       "rung": 2,
+       "scarcityMultiplier": 1.0,
+       "value": null,
+       "valueBasis": "assumedWaiver",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 600.0
+      }
+     ],
+     "forcedDropsAreUpperBound": false,
+     "incoming": 2,
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no league key \u2014 positional scarcity inert"
+     ],
+     "openSpotsAfter": 0,
+     "openSpotsBefore": 0,
+     "outgoing": 0,
+     "outgoingNotOnRoster": 0,
+     "overLimitAfter": 2,
+     "overLimitAfterMax": 2,
+     "overLimitAfterMin": 2,
+     "overLimitBefore": 0,
+     "requiresDrops": true,
+     "rosterLimit": 16,
+     "rungOrderWasTied": false,
+     "sizeAfter": 18,
+     "sizeBefore": 16,
+     "taxiOccupiedMax": 0,
+     "taxiOccupiedMin": 0,
+     "taxiSize": 0,
+     "unpricedForcedDrops": 1,
+     "valueScale": "rankDerivedValue"
+    },
+    "forcedDropCost": 1200.0,
+    "forcedDropCostBasis": {
+     "addedReleases": 2,
+     "assumedWaiverDrops": 1,
+     "bound": "upper",
+     "packageCreditForgone": 0,
+     "rule": "cheapest_legal_roster_rational_v1",
+     "state": "assumed",
+     "valueScale": "releaseCost (rankDerivedValue x scarcity; package credit for an acquired piece)"
+    }
+   }
+  },
+  "draft": {
+   "o1": {
+    "contextVersion": "2026-08-04.v3",
+    "counts": {
+     "assumedWaiverRungs": 2,
+     "auctionRookiesExcludedFromWaivers": 1,
+     "cutRungs": 6,
+     "freeAgents": 22,
+     "rosterPlayers": 16,
+     "undroppable": 10,
+     "unmatchedRosterPlayers": 1
+    },
+    "cutLadder": {
+     "notes": [],
+     "rungs": [
+      {
+       "baseValue": 1650.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us DL2",
+       "playerId": "us_dl2",
+       "position": "DL",
+       "rung": 1,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1900.0
+      },
+      {
+       "baseValue": 600.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us Ghost",
+       "playerId": "us_ghost",
+       "position": "",
+       "rung": 2,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "assumedWaiver",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 600.0
+      },
+      {
+       "baseValue": 1700.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us LB Unpriced",
+       "playerId": "us_lb_unpriced",
+       "position": "LB",
+       "rung": 3,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "assumedWaiver",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1700.0
+      },
+      {
+       "baseValue": 900.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us QB2",
+       "playerId": "us_qb2",
+       "position": "QB",
+       "rung": 4,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 2400.0
+      },
+      {
+       "baseValue": 1500.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us RB3",
+       "playerId": "us_rb3",
+       "position": "RB",
+       "rung": 5,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1800.0
+      },
+      {
+       "baseValue": 1300.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us TE2",
+       "playerId": "us_te2",
+       "position": "TE",
+       "rung": 6,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1600.0
+      }
+     ],
+     "undroppable": [
+      {
+       "name": "Us WR3",
+       "playerId": "us_wr3",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us DB1",
+       "playerId": "us_db1",
+       "position": "DB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us DL1",
+       "playerId": "us_dl1",
+       "position": "DL",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us LB1",
+       "playerId": "us_lb1",
+       "position": "LB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us TE1",
+       "playerId": "us_te1",
+       "position": "TE",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us RB2",
+       "playerId": "us_rb2",
+       "position": "RB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us WR2",
+       "playerId": "us_wr2",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us RB1",
+       "playerId": "us_rb1",
+       "position": "RB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us QB1",
+       "playerId": "us_qb1",
+       "position": "QB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us WR1",
+       "playerId": "us_wr1",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      }
+     ],
+     "unfilledSlotsAtBaseline": 0
+    },
+    "leagueKey": null,
+    "notes": [
+     "1 rostered player(s) did not join to the board and are treated as unpriced \u2014 verify before releasing",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openRosterSpots": 0,
+    "rosterByPosition": {
+     "DB": 1,
+     "DL": 2,
+     "LB": 2,
+     "QB": 2,
+     "RB": 3,
+     "TE": 2,
+     "WR": 3
+    },
+    "rosterCount": 16,
+    "rosterSize": 16,
+    "startersByPosition": {
+     "DB": 1,
+     "DL": 1,
+     "FLEX": 1,
+     "LB": 1,
+     "QB": 1,
+     "RB": 2,
+     "TE": 1,
+     "WR": 2
+    },
+    "taxiSize": 0,
+    "taxiSlotsAvailable": 0,
+    "team": {
+     "name": "Us",
+     "ownerId": "o1",
+     "rosterId": 1
+    },
+    "unmatchedRosterPlayers": [
+     "Us Ghost"
+    ],
+    "valueScale": "rankDerivedValue",
+    "waiverLadder": [
+     2400.0,
+     1900.0,
+     1900.0,
+     1800.0,
+     1700.0,
+     1700.0,
+     1600.0,
+     1600.0,
+     1600.0,
+     1550.0,
+     1500.0,
+     1500.0,
+     1500.0,
+     1400.0,
+     1400.0,
+     1200.0,
+     1100.0,
+     900.0,
+     700.0,
+     600.0,
+     450.0,
+     300.0
+    ],
+    "waiverValues": {
+     "DB": 1600.0,
+     "DEF": 700.0,
+     "DL": 1900.0,
+     "K": 600.0,
+     "LB": 1700.0,
+     "QB": 2400.0,
+     "RB": 1800.0,
+     "TE": 1600.0,
+     "WR": 1700.0
+    }
+   },
+   "o2": {
+    "contextVersion": "2026-08-04.v3",
+    "counts": {
+     "assumedWaiverRungs": 0,
+     "auctionRookiesExcludedFromWaivers": 1,
+     "cutRungs": 0,
+     "freeAgents": 22,
+     "rosterPlayers": 8,
+     "undroppable": 8,
+     "unmatchedRosterPlayers": 0
+    },
+    "cutLadder": {
+     "notes": [
+      "roster cannot fill 2 starting slot(s) before any cut \u2014 ladder measured against that baseline"
+     ],
+     "rungs": [],
+     "undroppable": [
+      {
+       "name": "Them Filler WR",
+       "playerId": "them_filler_wr",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them DB",
+       "playerId": "them_db",
+       "position": "DB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them LB",
+       "playerId": "them_lb",
+       "position": "LB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them DL",
+       "playerId": "them_dl",
+       "position": "DL",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them RB",
+       "playerId": "them_rb",
+       "position": "RB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them TE",
+       "playerId": "them_te",
+       "position": "TE",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them QB",
+       "playerId": "them_qb",
+       "position": "QB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them WR",
+       "playerId": "them_wr",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      }
+     ],
+     "unfilledSlotsAtBaseline": 2
+    },
+    "leagueKey": null,
+    "notes": [
+     "no league key \u2014 positional scarcity inert",
+     "roster cannot fill 2 starting slot(s) before any cut \u2014 ladder measured against that baseline"
+    ],
+    "openRosterSpots": 8,
+    "rosterByPosition": {
+     "DB": 1,
+     "DL": 1,
+     "LB": 1,
+     "QB": 1,
+     "RB": 1,
+     "TE": 1,
+     "WR": 2
+    },
+    "rosterCount": 8,
+    "rosterSize": 16,
+    "startersByPosition": {
+     "DB": 1,
+     "DL": 1,
+     "FLEX": 1,
+     "LB": 1,
+     "QB": 1,
+     "RB": 2,
+     "TE": 1,
+     "WR": 2
+    },
+    "taxiSize": 0,
+    "taxiSlotsAvailable": 0,
+    "team": {
+     "name": "Them",
+     "ownerId": "o2",
+     "rosterId": 2
+    },
+    "unmatchedRosterPlayers": [],
+    "valueScale": "rankDerivedValue",
+    "waiverLadder": [
+     2400.0,
+     1900.0,
+     1900.0,
+     1800.0,
+     1700.0,
+     1700.0,
+     1600.0,
+     1600.0,
+     1600.0,
+     1550.0,
+     1500.0,
+     1500.0,
+     1500.0,
+     1400.0,
+     1400.0,
+     1200.0,
+     1100.0,
+     900.0,
+     700.0,
+     600.0,
+     450.0,
+     300.0
+    ],
+    "waiverValues": {
+     "DB": 1600.0,
+     "DEF": 700.0,
+     "DL": 1900.0,
+     "K": 600.0,
+     "LB": 1700.0,
+     "QB": 2400.0,
+     "RB": 1800.0,
+     "TE": 1600.0,
+     "WR": 1700.0
+    }
+   }
+  },
+  "draftApi": {
+   "o1": {
+    "contextVersion": "2026-08-04.v3",
+    "counts": {
+     "assumedWaiverRungs": 2,
+     "auctionRookiesExcludedFromWaivers": 1,
+     "cutRungs": 6,
+     "freeAgents": 22,
+     "rosterPlayers": 16,
+     "undroppable": 10,
+     "unmatchedRosterPlayers": 1
+    },
+    "cutLadder": {
+     "notes": [],
+     "rungs": [
+      {
+       "baseValue": 1650.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us DL2",
+       "playerId": "us_dl2",
+       "position": "DL",
+       "rung": 1,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1900.0
+      },
+      {
+       "baseValue": 600.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us Ghost",
+       "playerId": "us_ghost",
+       "position": "",
+       "rung": 2,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "assumedWaiver",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 600.0
+      },
+      {
+       "baseValue": 1700.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us LB Unpriced",
+       "playerId": "us_lb_unpriced",
+       "position": "LB",
+       "rung": 3,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "assumedWaiver",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1700.0
+      },
+      {
+       "baseValue": 900.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us QB2",
+       "playerId": "us_qb2",
+       "position": "QB",
+       "rung": 4,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 2400.0
+      },
+      {
+       "baseValue": 1500.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us RB3",
+       "playerId": "us_rb3",
+       "position": "RB",
+       "rung": 5,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1800.0
+      },
+      {
+       "baseValue": 1300.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us TE2",
+       "playerId": "us_te2",
+       "position": "TE",
+       "rung": 6,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1600.0
+      }
+     ],
+     "undroppable": [
+      {
+       "name": "Us WR3",
+       "playerId": "us_wr3",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us DB1",
+       "playerId": "us_db1",
+       "position": "DB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us DL1",
+       "playerId": "us_dl1",
+       "position": "DL",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us LB1",
+       "playerId": "us_lb1",
+       "position": "LB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us TE1",
+       "playerId": "us_te1",
+       "position": "TE",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us RB2",
+       "playerId": "us_rb2",
+       "position": "RB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us WR2",
+       "playerId": "us_wr2",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us RB1",
+       "playerId": "us_rb1",
+       "position": "RB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us QB1",
+       "playerId": "us_qb1",
+       "position": "QB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us WR1",
+       "playerId": "us_wr1",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      }
+     ],
+     "unfilledSlotsAtBaseline": 0
+    },
+    "leagueKey": null,
+    "notes": [
+     "1 rostered player(s) did not join to the board and are treated as unpriced \u2014 verify before releasing",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openRosterSpots": 0,
+    "rosterByPosition": {
+     "DB": 1,
+     "DL": 2,
+     "LB": 2,
+     "QB": 2,
+     "RB": 3,
+     "TE": 2,
+     "WR": 3
+    },
+    "rosterCount": 16,
+    "rosterSize": 16,
+    "startersByPosition": {
+     "DB": 1,
+     "DL": 1,
+     "FLEX": 1,
+     "LB": 1,
+     "QB": 1,
+     "RB": 2,
+     "TE": 1,
+     "WR": 2
+    },
+    "taxiSize": 0,
+    "taxiSlotsAvailable": 0,
+    "team": {
+     "name": "Us",
+     "ownerId": "o1",
+     "rosterId": 1
+    },
+    "unmatchedRosterPlayers": [
+     "Us Ghost"
+    ],
+    "valueScale": "rankDerivedValue",
+    "waiverLadder": [
+     2400.0,
+     1900.0,
+     1900.0,
+     1800.0,
+     1700.0,
+     1700.0,
+     1600.0,
+     1600.0,
+     1600.0,
+     1550.0,
+     1500.0,
+     1500.0,
+     1500.0,
+     1400.0,
+     1400.0,
+     1200.0,
+     1100.0,
+     900.0,
+     700.0,
+     600.0,
+     450.0,
+     300.0
+    ],
+    "waiverValues": {
+     "DB": 1600.0,
+     "DEF": 700.0,
+     "DL": 1900.0,
+     "K": 600.0,
+     "LB": 1700.0,
+     "QB": 2400.0,
+     "RB": 1800.0,
+     "TE": 1600.0,
+     "WR": 1700.0
+    }
+   },
+   "o2": {
+    "contextVersion": "2026-08-04.v3",
+    "counts": {
+     "assumedWaiverRungs": 0,
+     "auctionRookiesExcludedFromWaivers": 1,
+     "cutRungs": 0,
+     "freeAgents": 22,
+     "rosterPlayers": 8,
+     "undroppable": 8,
+     "unmatchedRosterPlayers": 0
+    },
+    "cutLadder": {
+     "notes": [
+      "roster cannot fill 2 starting slot(s) before any cut \u2014 ladder measured against that baseline"
+     ],
+     "rungs": [],
+     "undroppable": [
+      {
+       "name": "Them Filler WR",
+       "playerId": "them_filler_wr",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them DB",
+       "playerId": "them_db",
+       "position": "DB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them LB",
+       "playerId": "them_lb",
+       "position": "LB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them DL",
+       "playerId": "them_dl",
+       "position": "DL",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them RB",
+       "playerId": "them_rb",
+       "position": "RB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them TE",
+       "playerId": "them_te",
+       "position": "TE",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them QB",
+       "playerId": "them_qb",
+       "position": "QB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them WR",
+       "playerId": "them_wr",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      }
+     ],
+     "unfilledSlotsAtBaseline": 2
+    },
+    "leagueKey": null,
+    "notes": [
+     "no league key \u2014 positional scarcity inert",
+     "roster cannot fill 2 starting slot(s) before any cut \u2014 ladder measured against that baseline"
+    ],
+    "openRosterSpots": 8,
+    "rosterByPosition": {
+     "DB": 1,
+     "DL": 1,
+     "LB": 1,
+     "QB": 1,
+     "RB": 1,
+     "TE": 1,
+     "WR": 2
+    },
+    "rosterCount": 8,
+    "rosterSize": 16,
+    "startersByPosition": {
+     "DB": 1,
+     "DL": 1,
+     "FLEX": 1,
+     "LB": 1,
+     "QB": 1,
+     "RB": 2,
+     "TE": 1,
+     "WR": 2
+    },
+    "taxiSize": 0,
+    "taxiSlotsAvailable": 0,
+    "team": {
+     "name": "Them",
+     "ownerId": "o2",
+     "rosterId": 2
+    },
+    "unmatchedRosterPlayers": [],
+    "valueScale": "rankDerivedValue",
+    "waiverLadder": [
+     2400.0,
+     1900.0,
+     1900.0,
+     1800.0,
+     1700.0,
+     1700.0,
+     1600.0,
+     1600.0,
+     1600.0,
+     1550.0,
+     1500.0,
+     1500.0,
+     1500.0,
+     1400.0,
+     1400.0,
+     1200.0,
+     1100.0,
+     900.0,
+     700.0,
+     600.0,
+     450.0,
+     300.0
+    ],
+    "waiverValues": {
+     "DB": 1600.0,
+     "DEF": 700.0,
+     "DL": 1900.0,
+     "K": 600.0,
+     "LB": 1700.0,
+     "QB": 2400.0,
+     "RB": 1800.0,
+     "TE": 1600.0,
+     "WR": 1700.0
+    }
+   }
+  },
+  "droppability": {
+   "league": {
+    "o1": {
+     "contractVersion": "roster-droppability/2026-08-18.v1",
+     "counts": {
+      "assumedWaiverRungs": 2,
+      "cutRungs": 6,
+      "rosterPlayers": 16,
+      "undroppable": 10,
+      "unmatchedRosterPlayers": 1
+     },
+     "cutLadder": {
+      "notes": [],
+      "rungs": [
+       {
+        "baseValue": 1650.0,
+        "effectiveCutCost": 0.0,
+        "name": "Us DL2",
+        "playerId": "us_dl2",
+        "position": "DL",
+        "rung": 1,
+        "scarcityMultiplier": 1.0,
+        "valueBasis": "board",
+        "valueScale": "rankDerivedValue",
+        "waiverValue": 1900.0
+       },
+       {
+        "baseValue": 600.0,
+        "effectiveCutCost": 0.0,
+        "name": "Us Ghost",
+        "playerId": "us_ghost",
+        "position": "",
+        "rung": 2,
+        "scarcityMultiplier": 1.0,
+        "valueBasis": "assumedWaiver",
+        "valueScale": "rankDerivedValue",
+        "waiverValue": 600.0
+       },
+       {
+        "baseValue": 1700.0,
+        "effectiveCutCost": 0.0,
+        "name": "Us LB Unpriced",
+        "playerId": "us_lb_unpriced",
+        "position": "LB",
+        "rung": 3,
+        "scarcityMultiplier": 1.0,
+        "valueBasis": "assumedWaiver",
+        "valueScale": "rankDerivedValue",
+        "waiverValue": 1700.0
+       },
+       {
+        "baseValue": 900.0,
+        "effectiveCutCost": 0.0,
+        "name": "Us QB2",
+        "playerId": "us_qb2",
+        "position": "QB",
+        "rung": 4,
+        "scarcityMultiplier": 1.0,
+        "valueBasis": "board",
+        "valueScale": "rankDerivedValue",
+        "waiverValue": 2400.0
+       },
+       {
+        "baseValue": 1500.0,
+        "effectiveCutCost": 0.0,
+        "name": "Us RB3",
+        "playerId": "us_rb3",
+        "position": "RB",
+        "rung": 5,
+        "scarcityMultiplier": 1.0,
+        "valueBasis": "board",
+        "valueScale": "rankDerivedValue",
+        "waiverValue": 1800.0
+       },
+       {
+        "baseValue": 1300.0,
+        "effectiveCutCost": 0.0,
+        "name": "Us TE2",
+        "playerId": "us_te2",
+        "position": "TE",
+        "rung": 6,
+        "scarcityMultiplier": 1.0,
+        "valueBasis": "board",
+        "valueScale": "rankDerivedValue",
+        "waiverValue": 1600.0
+       }
+      ],
+      "undroppable": [
+       {
+        "name": "Us WR3",
+        "playerId": "us_wr3",
+        "position": "WR",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Us DB1",
+        "playerId": "us_db1",
+        "position": "DB",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Us DL1",
+        "playerId": "us_dl1",
+        "position": "DL",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Us LB1",
+        "playerId": "us_lb1",
+        "position": "LB",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Us TE1",
+        "playerId": "us_te1",
+        "position": "TE",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Us RB2",
+        "playerId": "us_rb2",
+        "position": "RB",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Us WR2",
+        "playerId": "us_wr2",
+        "position": "WR",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Us RB1",
+        "playerId": "us_rb1",
+        "position": "RB",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Us QB1",
+        "playerId": "us_qb1",
+        "position": "QB",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Us WR1",
+        "playerId": "us_wr1",
+        "position": "WR",
+        "reason": "required_to_fill_starting_lineup"
+       }
+      ],
+      "unfilledSlotsAtBaseline": 0
+     },
+     "notes": [
+      "1 rostered player(s) did not join to the board and are treated as unpriced \u2014 verify before releasing",
+      "positional scarcity not supplied \u2014 multiplier inert (1.0); rung ORDER is unaffected for any pair whose costs differ by more than 1.353x"
+     ],
+     "owner": "src/draft/displacement.py",
+     "scarcityApplied": false,
+     "slotSource": "sleeper_roster_positions",
+     "starterSlots": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "team": {
+      "ownerId": "o1",
+      "rosterId": 1,
+      "teamName": "Us"
+     },
+     "unmatchedRosterPlayers": [
+      "Us Ghost"
+     ],
+     "valueScale": "rankDerivedValue",
+     "waiverPopulation": {
+      "excludedKeys": 2,
+      "freeAgents": 22,
+      "source": "contract_auction_rookies"
+     },
+     "waiverValues": {
+      "DB": 1600.0,
+      "DEF": 700.0,
+      "DL": 1900.0,
+      "K": 600.0,
+      "LB": 1700.0,
+      "QB": 2400.0,
+      "RB": 1800.0,
+      "TE": 1600.0,
+      "WR": 1700.0
+     }
+    },
+    "o2": {
+     "contractVersion": "roster-droppability/2026-08-18.v1",
+     "counts": {
+      "assumedWaiverRungs": 0,
+      "cutRungs": 0,
+      "rosterPlayers": 8,
+      "undroppable": 8,
+      "unmatchedRosterPlayers": 0
+     },
+     "cutLadder": {
+      "notes": [
+       "roster cannot fill 2 starting slot(s) before any cut \u2014 ladder measured against that baseline"
+      ],
+      "rungs": [],
+      "undroppable": [
+       {
+        "name": "Them Filler WR",
+        "playerId": "them_filler_wr",
+        "position": "WR",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Them DB",
+        "playerId": "them_db",
+        "position": "DB",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Them LB",
+        "playerId": "them_lb",
+        "position": "LB",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Them DL",
+        "playerId": "them_dl",
+        "position": "DL",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Them RB",
+        "playerId": "them_rb",
+        "position": "RB",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Them TE",
+        "playerId": "them_te",
+        "position": "TE",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Them QB",
+        "playerId": "them_qb",
+        "position": "QB",
+        "reason": "required_to_fill_starting_lineup"
+       },
+       {
+        "name": "Them WR",
+        "playerId": "them_wr",
+        "position": "WR",
+        "reason": "required_to_fill_starting_lineup"
+       }
+      ],
+      "unfilledSlotsAtBaseline": 2
+     },
+     "notes": [
+      "roster cannot fill 2 starting slot(s) before any cut \u2014 ladder measured against that baseline",
+      "positional scarcity not supplied \u2014 multiplier inert (1.0); rung ORDER is unaffected for any pair whose costs differ by more than 1.353x"
+     ],
+     "owner": "src/draft/displacement.py",
+     "scarcityApplied": false,
+     "slotSource": "sleeper_roster_positions",
+     "starterSlots": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "DL",
+      "LB",
+      "DB"
+     ],
+     "team": {
+      "ownerId": "o2",
+      "rosterId": 2,
+      "teamName": "Them"
+     },
+     "unmatchedRosterPlayers": [],
+     "valueScale": "rankDerivedValue",
+     "waiverPopulation": {
+      "excludedKeys": 2,
+      "freeAgents": 22,
+      "source": "contract_auction_rookies"
+     },
+     "waiverValues": {
+      "DB": 1600.0,
+      "DEF": 700.0,
+      "DL": 1900.0,
+      "K": 600.0,
+      "LB": 1700.0,
+      "QB": 2400.0,
+      "RB": 1800.0,
+      "TE": 1600.0,
+      "WR": 1700.0
+     }
+    }
+   },
+   "o1": {
+    "contractVersion": "roster-droppability/2026-08-18.v1",
+    "counts": {
+     "assumedWaiverRungs": 2,
+     "cutRungs": 6,
+     "rosterPlayers": 16,
+     "undroppable": 10,
+     "unmatchedRosterPlayers": 1
+    },
+    "cutLadder": {
+     "notes": [],
+     "rungs": [
+      {
+       "baseValue": 1650.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us DL2",
+       "playerId": "us_dl2",
+       "position": "DL",
+       "rung": 1,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1900.0
+      },
+      {
+       "baseValue": 600.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us Ghost",
+       "playerId": "us_ghost",
+       "position": "",
+       "rung": 2,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "assumedWaiver",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 600.0
+      },
+      {
+       "baseValue": 1700.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us LB Unpriced",
+       "playerId": "us_lb_unpriced",
+       "position": "LB",
+       "rung": 3,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "assumedWaiver",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1700.0
+      },
+      {
+       "baseValue": 900.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us QB2",
+       "playerId": "us_qb2",
+       "position": "QB",
+       "rung": 4,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 2400.0
+      },
+      {
+       "baseValue": 1500.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us RB3",
+       "playerId": "us_rb3",
+       "position": "RB",
+       "rung": 5,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1800.0
+      },
+      {
+       "baseValue": 1300.0,
+       "effectiveCutCost": 0.0,
+       "name": "Us TE2",
+       "playerId": "us_te2",
+       "position": "TE",
+       "rung": 6,
+       "scarcityMultiplier": 1.0,
+       "valueBasis": "board",
+       "valueScale": "rankDerivedValue",
+       "waiverValue": 1600.0
+      }
+     ],
+     "undroppable": [
+      {
+       "name": "Us WR3",
+       "playerId": "us_wr3",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us DB1",
+       "playerId": "us_db1",
+       "position": "DB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us DL1",
+       "playerId": "us_dl1",
+       "position": "DL",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us LB1",
+       "playerId": "us_lb1",
+       "position": "LB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us TE1",
+       "playerId": "us_te1",
+       "position": "TE",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us RB2",
+       "playerId": "us_rb2",
+       "position": "RB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us WR2",
+       "playerId": "us_wr2",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us RB1",
+       "playerId": "us_rb1",
+       "position": "RB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us QB1",
+       "playerId": "us_qb1",
+       "position": "QB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Us WR1",
+       "playerId": "us_wr1",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      }
+     ],
+     "unfilledSlotsAtBaseline": 0
+    },
+    "notes": [
+     "1 rostered player(s) did not join to the board and are treated as unpriced \u2014 verify before releasing",
+     "positional scarcity not supplied \u2014 multiplier inert (1.0); rung ORDER is unaffected for any pair whose costs differ by more than 1.353x"
+    ],
+    "owner": "src/draft/displacement.py",
+    "scarcityApplied": false,
+    "slotSource": "sleeper_roster_positions",
+    "starterSlots": [
+     "QB",
+     "RB",
+     "RB",
+     "WR",
+     "WR",
+     "TE",
+     "FLEX",
+     "DL",
+     "LB",
+     "DB"
+    ],
+    "team": {
+     "ownerId": "o1",
+     "rosterId": 1,
+     "teamName": "Us"
+    },
+    "unmatchedRosterPlayers": [
+     "Us Ghost"
+    ],
+    "valueScale": "rankDerivedValue",
+    "waiverPopulation": {
+     "excludedKeys": 2,
+     "freeAgents": 22,
+     "source": "contract_auction_rookies"
+    },
+    "waiverValues": {
+     "DB": 1600.0,
+     "DEF": 700.0,
+     "DL": 1900.0,
+     "K": 600.0,
+     "LB": 1700.0,
+     "QB": 2400.0,
+     "RB": 1800.0,
+     "TE": 1600.0,
+     "WR": 1700.0
+    }
+   },
+   "o2": {
+    "contractVersion": "roster-droppability/2026-08-18.v1",
+    "counts": {
+     "assumedWaiverRungs": 0,
+     "cutRungs": 0,
+     "rosterPlayers": 8,
+     "undroppable": 8,
+     "unmatchedRosterPlayers": 0
+    },
+    "cutLadder": {
+     "notes": [
+      "roster cannot fill 2 starting slot(s) before any cut \u2014 ladder measured against that baseline"
+     ],
+     "rungs": [],
+     "undroppable": [
+      {
+       "name": "Them Filler WR",
+       "playerId": "them_filler_wr",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them DB",
+       "playerId": "them_db",
+       "position": "DB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them LB",
+       "playerId": "them_lb",
+       "position": "LB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them DL",
+       "playerId": "them_dl",
+       "position": "DL",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them RB",
+       "playerId": "them_rb",
+       "position": "RB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them TE",
+       "playerId": "them_te",
+       "position": "TE",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them QB",
+       "playerId": "them_qb",
+       "position": "QB",
+       "reason": "required_to_fill_starting_lineup"
+      },
+      {
+       "name": "Them WR",
+       "playerId": "them_wr",
+       "position": "WR",
+       "reason": "required_to_fill_starting_lineup"
+      }
+     ],
+     "unfilledSlotsAtBaseline": 2
+    },
+    "notes": [
+     "roster cannot fill 2 starting slot(s) before any cut \u2014 ladder measured against that baseline",
+     "positional scarcity not supplied \u2014 multiplier inert (1.0); rung ORDER is unaffected for any pair whose costs differ by more than 1.353x"
+    ],
+    "owner": "src/draft/displacement.py",
+    "scarcityApplied": false,
+    "slotSource": "sleeper_roster_positions",
+    "starterSlots": [
+     "QB",
+     "RB",
+     "RB",
+     "WR",
+     "WR",
+     "TE",
+     "FLEX",
+     "DL",
+     "LB",
+     "DB"
+    ],
+    "team": {
+     "ownerId": "o2",
+     "rosterId": 2,
+     "teamName": "Them"
+    },
+    "unmatchedRosterPlayers": [],
+    "valueScale": "rankDerivedValue",
+    "waiverPopulation": {
+     "excludedKeys": 2,
+     "freeAgents": 22,
+     "source": "contract_auction_rookies"
+    },
+    "waiverValues": {
+     "DB": 1600.0,
+     "DEF": 700.0,
+     "DL": 1900.0,
+     "K": 600.0,
+     "LB": 1700.0,
+     "QB": 2400.0,
+     "RB": 1800.0,
+     "TE": 1600.0,
+     "WR": 1700.0
+    }
+   }
+  }
+ }
+}

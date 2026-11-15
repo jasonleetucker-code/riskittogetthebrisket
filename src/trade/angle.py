@@ -99,9 +99,9 @@ from src.packages import SEND as _SEND
 from src.packages import UNCONSTRAINED_OUTGOING as _UNCONSTRAINED_OUTGOING
 from src.packages import EligibilityPolicy as _EligibilityPolicy
 from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
-from src.trade.ktc_va import (
+from src.valuation_math.package_model import adjust_pair as _adjust_pair
+from src.valuation_math.package_model import (
     adjusted_pair_totals as _adjusted_pair_totals,  # noqa: F401
-    ktc_adjust_package,
 )
 from src.utils.name_clean import normalize_position as _normalize_position
 
@@ -122,27 +122,33 @@ _IDP_POSITIONS: frozenset[str] = frozenset(
 _IDP_FAMILIES: frozenset[str] = frozenset({"DL", "LB", "DB"})
 
 
-def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
-    """KTC's VA from the perspective of ``small`` as team1.
+def _value_adjustment(
+    small: Sequence[float],
+    large: Sequence[float],
+    *,
+    model_id: str | None = None,
+) -> float:
+    """The active package model's VA from the perspective of ``small`` as team1.
 
-    Returns the VA magnitude when KTC awards it to the ``small`` side
+    Returns the VA magnitude when the model awards it to the ``small`` side
     (``small`` is team1 → side==1), else 0.0.  Thin compat shim around
-    :func:`ktc_adjust_package` so existing callers (tests, importers)
-    keep working with the legacy float-return signature.
+    :func:`src.valuation_math.package_model.adjust_pair` so existing callers
+    (tests, importers) keep working with the legacy float-return signature.
+    ``model_id=None`` is the ACTIVE model; an explicit id (e.g. the KTC
+    rollback model) passes straight through to the dispatch.
 
     The legacy V2 implementation lived inline here; it was replaced
-    with KTC's actual algorithm via :mod:`src.trade.ktc_va` so the
-    Angle Finder grades trades the same way the trade calculator
-    displays them (PR follow-up to #335).
+    with the package-model dispatch so the Angle Finder grades trades the
+    same way the trade calculator displays them (PR follow-up to #335).
     """
     small_sorted = sorted((float(v) for v in small), reverse=True)
     large_sorted = sorted((float(v) for v in large), reverse=True)
     if not small_sorted or not large_sorted:
         return 0.0
-    result = ktc_adjust_package(small_sorted, large_sorted)
-    if not result.displayed or result.value <= 0 or result.side != 1:
+    value, side, displayed = _adjust_pair(small_sorted, large_sorted, model_id=model_id)
+    if not displayed or value <= 0 or side != 1:
         return 0.0
-    return float(result.value)
+    return float(value)
 
 
 def _is_idp_position(position: Any) -> bool:
@@ -1307,8 +1313,14 @@ def find_acquisition_packages(
     warnings: list[str] = []
 
     by_name: dict[str, dict[str, Any]] = {}
+    # Names more than one board row carries (a QB and a DL namesake).  The
+    # first-row-wins lookup above cannot tell which one this roster holds, so
+    # such an entry must not assert a team to the constraint owner.
+    shared_names: set[str] = set()
     for row in players_array:
         name = str(row.get("canonicalName") or row.get("displayName") or "")
+        if name and name in by_name:
+            shared_names.add(name)
         if name and name not in by_name:
             by_name[name] = row
 
@@ -1475,25 +1487,68 @@ def find_acquisition_packages(
             {
                 "name": pname,
                 "position": str(row.get("position") or ""),
+                # C3-CON-02: the OUTGOING pool carries the NFL team so the
+                # constraint owner judges this entry, not a name-keyed board
+                # lookup.  ``None`` (UNKNOWN, which fails closed under a team
+                # rule) when the name is shared and the row may be the namesake.
+                "team": (None if pname in shared_names else (row.get("team") or None)),
                 "my_value": my_v,
                 # See find_angle_packages: ``row`` is what gets priced.
                 "row": row,
             }
         )
     pool.sort(key=lambda p: -p["my_value"])
-    pool = pool[: max(1, int(candidate_pool))]
 
-    # C3-CON-01.  The policy is built from the pool that will actually be
-    # enumerated, so §2.2's NFL-team rule resolves against today's board rather
-    # than against stored state.  ENFORCEMENT happens inside the substrate; the
-    # partition here only supplies the reasons, because a count cannot explain a
-    # short list.
+    # C3-CON-01.  The policy is built from the WHOLE eligible roster, so §2.2's
+    # NFL-team rule resolves against today's board rather than against stored
+    # state, and the constraints are applied BEFORE the ``candidate_pool``
+    # truncation: truncating first let protected players occupy the top slots
+    # and then vanish, leaving fewer than ``candidate_pool`` sendable assets.
+    # ENFORCEMENT still happens inside the substrate; the partition here only
+    # supplies the reasons and decides which sendable assets survive the cap.
     from src.trade.constraints import blocked_outgoing as _blocked  # noqa: PLC0415
     from src.trade.constraints import outgoing_eligibility  # noqa: PLC0415
+    from src.trade.constraints import partition_sendable  # noqa: PLC0415
+    from src.trade.constraints import resolve_locked_outgoing  # noqa: PLC0415
 
-    _blocked_out = _blocked(pool, constraints)
-    _outgoing_policy = outgoing_eligibility(pool, constraints)
-    if pool and len(_blocked_out) >= len(pool):
+    full_pool = pool
+    _blocked_out = _blocked(full_pool, constraints)
+    _outgoing_policy = outgoing_eligibility(full_pool, constraints)
+    # C3-CON-03 LOCK: resolved against the full roster; an unsatisfiable lock is
+    # an honest no-result, never a silently unlocked candidate list (§4).
+    lock = resolve_locked_outgoing(full_pool, constraints)
+    if not lock.satisfiable:
+        return {
+            "acquire": {
+                "players": [],
+                "size": 0,
+                "my_total": 0,
+                "market_total": 0,
+                "targets": [],
+            },
+            "candidates": [],
+            "lockedOutgoing": lock.to_dict(),
+            "noResultReason": lock.no_result_reason,
+            "noResultLabel": "No qualifying trade found under current constraints",
+            "warnings": [*warnings, "A locked player cannot be included in a counter-package."],
+        }
+    if len(lock.required) > max(target_sizes):
+        return {
+            "acquire": {"players": [], "size": 0, "my_total": 0, "market_total": 0, "targets": []},
+            "candidates": [],
+            "lockedOutgoing": lock.to_dict(),
+            "noResultReason": "locked_players_exceed_package_size",
+            "noResultLabel": "No qualifying trade found under current constraints",
+            "warnings": [
+                *warnings,
+                f"More players are locked than a counter-package here can send "
+                f"({max(target_sizes)}).",
+            ],
+        }
+    locked_ids = {id(e) for e in lock.required}
+    sendable, _ = partition_sendable(full_pool, constraints)
+    pool = [e for e in sendable if id(e) not in locked_ids][: max(1, int(candidate_pool))]
+    if full_pool and len(_blocked_out) >= len(full_pool):
         return {
             "acquire": {
                 "players": [],
@@ -1607,6 +1662,7 @@ def find_acquisition_packages(
         # that carries C3-CON-01.
         side=_SEND,
         outgoing_policy=_outgoing_policy,
+        required=_angle_pool_assets(list(lock.required)),
         against=desired_side_assets,
         refused=topology_report,
     ):

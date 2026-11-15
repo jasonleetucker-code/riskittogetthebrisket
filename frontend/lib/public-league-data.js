@@ -8,9 +8,12 @@
 //
 //   {
 //     contractVersion: "public-league/YYYY-MM-DD.vN",
+//     leagueKey: "<registry key>" | null,   // which league answered (never a Sleeper id)
 //     league: {
-//       rootLeagueId, leagueName, seasonsCovered, leagueIds,
-//       currentLeagueId, generatedAt, managers: [ ... ]
+//       leagueName, seasonsCovered, historyCoverage, currentSeason,
+//       generatedAt, managers: [ ... ]
+//       // NO raw Sleeper ids (rootLeagueId / leagueIds / currentLeagueId /
+//       // per-row leagueId / draftId) — public_contract.RAW_SLEEPER_ID_FIELDS
 //     },
 //     sections: {
 //       history, rivalries, awards, records, franchise, activity,
@@ -21,7 +24,7 @@
 //
 // Or for a single section request:
 //
-//   { contractVersion, league, section, data }
+//   { contractVersion, leagueKey, league, section, data }
 //
 // Any caller importing anything from frontend/lib/dynasty-data.js or
 // frontend/components/useDynastyData is a privacy leak in the public

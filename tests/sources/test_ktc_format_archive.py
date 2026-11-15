@@ -36,9 +36,13 @@ from pathlib import Path
 import pytest
 
 from src.source_archive import store as archive_store
+from src.identity import capture_evidence
+from src.sources.ktc_identity import extract_embedded_array
 from src.source_archive.store import ArchivedBoard, read_boards
 from src.sources import ktc_format_archive as kfa
 from src.sources import ktc_value_sources as kvs
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 REPO = Path(__file__).resolve().parents[2]
 CAPTURED_AT = "2026-10-01T19:00:00+00:00"
@@ -759,9 +763,9 @@ class TestNoServedValueChange:
         self, projection, tmp_path, monkeypatch
     ):
         from src.api.data_contract import build_api_data_contract
-        from tests.archive_fixtures import newest_complete_raw_payload
+        from tests.archive_fixtures import pinned_board_payload
 
-        raw, archive = newest_complete_raw_payload()
+        raw, archive = pinned_board_payload()
         if raw is None:
             pytest.skip("no complete archived scrape available")
 
@@ -928,7 +932,7 @@ class TestFailureIsolation:
 
     def test_an_unwritable_archive_path_never_raises(self, tmp_path):
         blocker = tmp_path / "file"
-        blocker.write_text("x")
+        blocker.write_text("x", encoding="utf-8")
         out = asyncio.run(
             kfa.archive_variants_safely(
                 _CountingPage(_payload()),
@@ -1039,12 +1043,22 @@ def _scrape_ktc_slice(**overrides):
         "_archive_ktc_format_variants": kfa.archive_variants_safely,
         "_ktc_selected_hashes": kfa.selected_hashes,
         "_ktc_extract_tep": lambda *_a, **_k: None,
+        "_ktc_extract_embedded_array": extract_embedded_array,
         "_telemetry": _Telemetry(),
         "clean_name": lambda n: str(n).strip(),
         "get_cached": lambda _key: None,
         "set_cache": lambda *_a, **_k: None,
         "page_dump": None,
+        # V2.1 U2 identity evidence: the real collector, so the slice also
+        # proves evidence never changes the KTC result.
+        "_capture_evidence": capture_evidence,
+        "_CAPTURE_EVIDENCE": capture_evidence.CaptureEvidenceCollector(),
     }
+
+    def _cev(method, *args, **kwargs):
+        return getattr(ns["_CAPTURE_EVIDENCE"], method)(*args, **kwargs)
+
+    ns["_cev"] = _cev
 
     def match_all(players, name_map, results, site_key=None):
         for p in players:

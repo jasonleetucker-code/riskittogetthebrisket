@@ -1,6 +1,6 @@
 """Full-pipeline tests for the joint outlier/sparse challenger (#1555 Batch 2 Unit C).
 
-Built from the newest complete archived scrape (no live board, no network), once
+Built from the pinned complete archived scrape (no live board, no network), once
 with ``joint_outlier_sparse_challenger`` off (the incumbent) and once on. The
 assertions are invariants, never counts over the live board.
 """
@@ -13,12 +13,14 @@ import pytest
 
 from src.api import data_contract as dc
 from src.api import value_replay as vr
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 @pytest.fixture(scope="module")
 def boards():
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     raw = json.loads(json.dumps(payload))
@@ -47,7 +49,7 @@ def test_flags_default_off_and_off_never_calls_the_challenger(boards, monkeypatc
         raise AssertionError("challenger filter called with the flag off")
 
     monkeypatch.setattr(dc, "_joint_robust_filter", _refuse)
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     again = vr.build(json.loads(json.dumps(payload)))
     key = lambda c: [  # noqa: E731
         (r.get("displayName"), r.get("rankDerivedValue"), r.get("canonicalConsensusRank"))
@@ -68,7 +70,7 @@ def test_the_filter_receives_capped_evidence_weights(monkeypatch):
         return real(obs, weights, families, **kw)
 
     monkeypatch.setattr(dc, "_joint_robust_filter", spy)
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     built = vr.build(
         json.loads(json.dumps(payload)), {"flag": ("joint_outlier_sparse_challenger", True)}
     )

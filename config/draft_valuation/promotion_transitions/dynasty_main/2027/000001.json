@@ -1,0 +1,19 @@
+{
+ "schema": "draft_valuation_promotion_transition_v1",
+ "leagueKey": "dynasty_main",
+ "draftYear": 2027,
+ "sequence": 1,
+ "at": "2026-10-18T19:03:00.546150+00:00",
+ "from": null,
+ "to": {
+  "state": "FALLBACK_VERIFIED",
+  "evaluationState": "FALLBACK_VERIFIED",
+  "servingState": "FALLBACK",
+  "wouldPromote": false
+ },
+ "alert": "Draft valuation dynasty_main 2027: NONE -> FALLBACK_VERIFIED\nevaluationState=FALLBACK_VERIFIED servingState=FALLBACK mode=dry_run\nfailing gates: class_window_open: class_window_closed:opens 2027-05-01T00:00:00+00:00 (NFL Draft 2027 not yet complete per policy)\nreasons: class_window_closed:opens 2027-05-01T00:00:00+00:00 (NFL Draft 2027 not yet complete per policy)",
+ "checksum": {
+  "algorithm": "sha256",
+  "value": "2c77275eb5e1c22438659aeb982809591581570db98ce443f5397a215a5e0b46"
+ }
+}

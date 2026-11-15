@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-10-05T06:21:05.173934+00:00",
-  "forecastSha256": "a6730cedf5f3a5612e7c2434a625503455bbd7be770ded35c8165589a34b0bbe",
+  "computedAt": "2026-11-15T23:17:03.512586+00:00",
+  "forecastSha256": "8760a86a6a932a834f6c7775183d2103c5a0c149d914f295ccb895545c4d110e",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "d4f4dd10820e53b68b9bda211127b506caed1893ef56d5065eccc18a8cee5a76",
-    "leagueSnapshotGeneratedAt": "2026-10-05T06:20:58+00:00",
+    "inputsSha256": "4cf8dae7726b66e2122659d4e71b350baa1d3fd2213096add44eb133539bb31d",
+    "leagueSnapshotGeneratedAt": "2026-11-15T23:17:01+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -14,24 +14,33 @@
       "winners_bracket",
       "losers_bracket"
     ],
-    "leagueSnapshotSha256": "cd4003ef56657d7b52999d4b51e2e868ce55dd682b084d3110ce7239a36e0d64",
+    "leagueSnapshotSha256": "6af5636f377f2df5eda9b13e506deb88e7e5c2df687a04888f9e4556f66b9de5",
+    "pointsModelFallbackSha256": "67ee9153fce3166a2b8568add3a0af51479077d117b210fd90fa1bd03dc98f96",
     "pointsModelFileSha256": null,
-    "rosAggregateSha256": "748514e028fb59525613ddbf4966c2b8c1ccd9fff8af14f8805cdd306ec90536",
-    "rosAggregatedAt": "2026-10-05T06:20:49.479343+00:00",
+    "pointsModelSource": "fallback-constants",
+    "rosAggregateSha256": "146fa0356593869160bebc787285b6c343bc4b4d4f44dac2fba42ba6ff1484be",
+    "rosAggregatedAt": "2026-11-15T23:16:55.145526+00:00",
     "teamStrengthFileFresh": true,
-    "teamStrengthFileSha256": "049525b26892a3ff9b80935e0130833592af1802ac2a71555ce2eb7e11c274f7"
+    "teamStrengthFileSha256": "078a42cd0da6039e94e433d8eff6fec1f18a56331276910daf7c86f92c7ced9c"
   },
   "kind": "playoff",
-  "lastScoredWeek": 3,
+  "lastScoredWeek": 9,
   "leagueKey": "dynasty_main",
   "model": {
-    "codeSha": "c381af036f408659dfe04ebbf5d900c37f7f3127",
-    "codeShaCapturedAt": "2026-10-05T06:20:46.208266+00:00",
+    "codeSha": "2e0a0f7269d08195438d7fef48c05fce438738db",
+    "codeShaCapturedAt": "2026-11-15T23:16:53.541864+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": true,
       "championship": {
-        "_SIM_CACHE_TTL_SEC": 21600
+        "ENGINE": "src.ros.playoff_sim",
+        "_ROW_FIELDS": [
+          "championshipOdds",
+          "finalsOdds",
+          "semifinalOdds",
+          "playoffOdds",
+          "expectedFinish"
+        ]
       },
       "playoffSim": {
         "BEST_BALL_PRESIM_MAX_WEEKS": 1200,
@@ -39,14 +48,44 @@
         "BEST_BALL_VARIANCE_BUMP": 1.1,
         "DEFAULT_SIMULATIONS": 10000,
         "DEPTH_VARIANCE_LIFT_MAX": 0.15,
+        "DIVISION_RULE_SOURCE": "https://sleeper.com/blog/how-do-fantasy-playoffs-work",
+        "DRAFT_ORDER_RECORD_BASIS": "head_to_head_with_half_win_ties",
+        "DRAFT_ORDER_RECORD_BASIS_STATE": "provisional_median_game_counting_unresolved",
         "MAX_SIMULATIONS": 60000,
         "MIN_SIMULATIONS": 2000,
         "ODDS_SE_TOLERANCE": 0.005,
         "PRESIM_CHECK_EVERY": 40,
         "PRESIM_MEAN_TOLERANCE": 0.01,
         "ROS_BLEND": 0.2,
+        "ROS_EVIDENCE_INCUMBENT": "incumbent_presim_plus_ros_multiplier",
+        "ROS_EVIDENCE_ONCE": "ros_counted_once",
+        "SEED_TYPE_RESEED": "reseed",
         "SIM_CHECK_EVERY": 1000,
+        "SIM_COUNT_MISSING": "canonical_forecast_simulation_count_missing",
         "TEAM_STRENGTH_UNAVAILABLE": "team_strength_unavailable",
+        "_BRACKET_ROW_FIELDS": [
+          "championshipOdds",
+          "finalsOdds",
+          "semifinalOdds",
+          "expectedFinish"
+        ],
+        "_FINAL_TEAMS_LEFT": 2,
+        "_REGULAR_SEASON_ROW_FIELDS": [
+          "ownerId",
+          "displayName",
+          "expectedWins",
+          "draftSlotDistribution",
+          "finalWins",
+          "finalPointsFor",
+          "division",
+          "divisionName",
+          "divisionChampionOdds",
+          "divisionChampionOddsCi",
+          "divisionTitleBasis",
+          "divisionTitleTieOdds"
+        ],
+        "_SEMIFINAL_LOSER_PLACEMENT": 3,
+        "_SEMIFINAL_TEAMS_LEFT": 4,
         "_SIM_CACHE_TTL_SEC": 21600,
         "_TRADE_IMPACT_METHODOLOGY": "Both arms run on one shared RNG seed and an identical simulation count, so the reported delta is the trade's effect rather than the difference between two independent Monte Carlo runs. Intervals are paired (McNemar-style, conservative on the discordant-pair count). A delta whose interval spans zero is flagged significant=false and must not be presented as a result."
       },
@@ -70,17 +109,18 @@
         "rosValuePerPoint": 2.7,
         "sampleSize": 0,
         "source": "fallback-constants"
-      }
+      },
+      "rosEvidenceMethod": "incumbent_presim_plus_ros_multiplier"
     },
-    "simParamsSha256": "886e50c2cdf942dcdbfdc0feb06df15263d5fa072a4d8c15423b73874b2d8097"
+    "simParamsSha256": "bdf1fe829605ac0ac501958ac607090a49acba607aaeba2d4710980ad7d72822"
   },
-  "nSimulations": 9000,
+  "nSimulations": 10000,
   "nullReasons": {
     "inputs.contractGeneration": "not_an_input_of_the_playoff_or_title_simulators",
-    "inputs.pointsModelFileSha256": "file_absent"
+    "inputs.pointsModelFileSha256": "fallback_constants_in_use:file_absent"
   },
   "producer": "src.ros.scrape._refresh_sim_caches_for_league",
   "schema": "ros-forecast-identity/v1",
   "season": "2026",
-  "week": 4
+  "week": 10
 }

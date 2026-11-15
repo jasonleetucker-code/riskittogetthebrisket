@@ -23,11 +23,11 @@ What is here:
 **No production path writes or reads the ledger yet, and that is the
 intended state**, not an oversight — the ledger is the substrate later
 consumers (ingestion, Player File intelligence) are authorized to build
-on.  Said plainly because this repo already carries
-``src/news/unified_signal_engine.py``, which describes itself as "single
-entry point for every BUY/SELL/HOLD decision" and is imported by nothing in
-production — a module that claims to be wired is worse than one that says it
-is not.
+on.  Said plainly because this repo used to carry
+``src/news/unified_signal_engine.py``, which described itself as "single
+entry point for every BUY/SELL/HOLD decision" and was imported by nothing in
+production (retired by C6-SIG-01, replaced by ``src/signals/reconciler.py``)
+— a module that claims to be wired is worse than one that says it is not.
 
 Not here, on purpose:
 

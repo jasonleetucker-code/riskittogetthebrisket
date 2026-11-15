@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useAuthContext } from "@/app/AppShellWrapper";
-import { FailureState, HelpModal, InfoTip } from "@/components/ds";
+import { FailureState, InfoTip } from "@/components/ds";
 import {
   useSettings,
   SETTINGS_DEFAULTS as DEFAULTS,
@@ -18,8 +18,19 @@ import {
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import { sourceVoteFields } from "@/lib/source-vote-state";
 import { ROS_SOURCES } from "@/lib/ros-sources";
+import { votingStatusBlock } from "@/lib/source-voting-status";
 import PushNotificationToggle from "@/components/PushNotificationToggle";
 import CustomAlertsConfigurator from "@/components/CustomAlertsConfigurator";
+import { useLeague } from "@/components/useLeague";
+
+// Code-split (React.lazy, not next/dynamic — see CLAUDE.md "Perfect Draft"):
+// the editor sits in a collapsed section and loads only when opened.
+const TradeProtectionsEditor = lazy(() => import("@/components/TradeProtectionsEditor"));
+// The Source Voting table (owner directive 2026-10-19 §8) is split the same
+// way: a static import put DataTable + the ds status primitives on this
+// page's critical path (page + shared chunks 180.1 -> 208.3 KB, measured);
+// lazy keeps that at 186.5 KB and loads the table just after first paint.
+const SourceVotingStatus = lazy(() => import("@/components/SourceVotingStatus"));
 
 // The settings page enumerates the canonical ranking registry directly
 // so a newly registered source automatically shows up here without any
@@ -62,7 +73,9 @@ function Section({ title, defaultOpen = true, children }) {
         </span>
       </button>
       <div id={bodyId} hidden={!open} style={open ? { marginTop: 10 } : undefined}>
-        {children}
+        {/* A function child mounts only while open, so a lazily loaded
+            panel's chunk is fetched when someone opens it, not on page load. */}
+        {typeof children === "function" ? (open ? children() : null) : children}
       </div>
     </div>
   );
@@ -185,15 +198,12 @@ export default function SettingsPage() {
   // Stable ids so each sibling <label> can point at its control.  Every
   // numeric valuation control on this page reached assistive tech
   // unnamed until 2026-08-18 — the labels were siblings, not wrappers.
-  const tepNonNativeId = useId();
-  const tepNativeId = useId();
   const sortBasisId = useId();
   // Only to point an operator at where the moved panels went; nothing
   // on this page is gated by it.
   const { isAdmin } = useAuthContext();
   const {
     settings,
-    hydrated: settingsHydrated,
     update,
     updateSiteWeight,
     resetSiteWeights,
@@ -205,6 +215,7 @@ export default function SettingsPage() {
     setNotifications,
     toggleWatchlist,
   } = useUserState();
+  const { selectedLeague, selectedLeagueKey } = useLeague();
   const [watchAddName, setWatchAddName] = useState("");
   const [hydrated, setHydrated] = useState(true);
   const [emailDraft, setEmailDraft] = useState("");
@@ -254,21 +265,6 @@ export default function SettingsPage() {
     const v = Number(rawData?.rankingsOverride?.tepMultiplierDerived);
     return Number.isFinite(v) ? v : 1.15;
   })();
-  const tepSliderValue = (() => {
-    const raw = settings?.tepMultiplier;
-    if (raw === null || raw === undefined) return tepDefault;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : tepDefault;
-  })();
-  // AUTO is nullish and ONLY nullish.  This used to also count an
-  // explicit 1.15 as "default", which made the two states render
-  // identically — the caption said "Default 1.15×" whether the backend
-  // was measuring the TE basis or being overridden by a flat number, and
-  // the reset link was hidden in both.  They do materially different
-  // things, so the UI has to be able to tell you which one you are on.
-  const tepIsAuto =
-    settings?.tepMultiplier === null || settings?.tepMultiplier === undefined;
-
   // Parallel "TEP-native" multiplier — the per-bucket boost applied
   // to TEP-native sources (DN SF-TEP, Yahoo Boone, FP Fitzmaurice)
   // on TE rows.  Mirrors the non-TEP knob above; default 1.10.
@@ -276,16 +272,6 @@ export default function SettingsPage() {
     const v = Number(rawData?.rankingsOverride?.tepNativeMultiplierDerived);
     return Number.isFinite(v) ? v : 1.1;
   })();
-  const tepNativeInputValue = (() => {
-    const raw = settings?.tepNativeMultiplier;
-    if (raw === null || raw === undefined) return tepNativeDefault;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : tepNativeDefault;
-  })();
-  const tepNativeIsDefault =
-    settings?.tepNativeMultiplier === null ||
-    settings?.tepNativeMultiplier === undefined;
-
   // Split the canonical registry into offense / IDP groups by the
   // declared scope field.  idpTradeCalc is listed under IDP (its
   // primary backbone scope) even though its `extraScopes` also
@@ -406,158 +392,30 @@ export default function SettingsPage() {
             <option value="standard">Standard (1QB)</option>
           </select>
         </div>
+        {/* The MANUAL TE-premium override is withdrawn (DEFECT-02, held for
+            owner approval).  The two inputs used to post
+            ``tep_multiplier`` / ``tep_native_multiplier`` from
+            localStorage, which re-ran the blend and returned a different
+            canonical ``rankDerivedValue`` per device; the server now ignores
+            them (``data_contract._TEP_OVERRIDES_DISABLED``) and
+            ``useDynastyData`` no longer sends them.  Shown read-only so the
+            premium the board applies stays visible. */}
         <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 8,
-          }}
+          data-testid="tep-premium-readonly"
+          style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}
         >
-          <label
-            htmlFor={tepNonNativeId}
-            style={{ minWidth: 140, fontSize: "0.82rem" }}
-          >
-            TEP — non-native
-          </label>
-          <input
-            id={tepNonNativeId}
-            type="number"
-            min={1.0}
-            max={1.5}
-            step={0.01}
-            value={tepSliderValue}
-            // Wheel-scrolling a focused number input silently mutates
-            // it (and a stray tick here pins TEP to an explicit
-            // override that overrides the league default).  Blur on
-            // wheel so only deliberate typing changes the value.
-            onWheel={(e) => e.currentTarget.blur()}
-            onChange={(e) => {
-              const n = parseFloat(e.target.value);
-              if (Number.isFinite(n)) {
-                update("tepMultiplier", Math.max(1.0, Math.min(1.5, n)));
-              }
-            }}
-            style={{
-              width: 90,
-              padding: "4px 8px",
-              fontSize: "0.82rem",
-              fontFamily: "var(--mono)",
-            }}
-          />
+          <div style={{ fontSize: "0.82rem" }}>
+            TE premium — <strong>automatic</strong>
+          </div>
           <span className="muted" style={{ fontSize: "0.66rem" }}>
-            {tepIsAuto
-              ? `Auto — the measured TE-basis curve, ~${tepDefault.toFixed(2)}× and up, on non-TEP sources`
-              : `Custom ${Number(tepSliderValue).toFixed(2)}× flat — overrides the measured curve`}
+            {`Non-TEP sources: the measured TE-basis curve, ~${tepDefault.toFixed(2)}× and up. ` +
+              `TEP-native sources: ${tepNativeDefault.toFixed(2)}×. Applied at blend time, on TE rows only.`}
+          </span>
+          <span className="muted" style={{ fontSize: "0.66rem" }}>
+            Manual TE-premium overrides are no longer applied: every device sees the
+            same canonical values.
           </span>
         </div>
-        {!tepIsAuto && (
-          <div style={{ marginTop: 4, marginBottom: 6 }}>
-            <button
-              type="button"
-              className="button-reset"
-              style={{
-                fontSize: "0.7rem",
-                color: "var(--accent-gold, #4f9bec)",
-                textDecoration: "underline",
-                cursor: "pointer",
-                padding: 0,
-              }}
-              onClick={() => update("tepMultiplier", null)}
-            >
-              Reset to auto (measured curve)
-            </button>
-          </div>
-        )}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 8,
-          }}
-        >
-          <label
-            htmlFor={tepNativeId}
-            style={{ minWidth: 140, fontSize: "0.82rem" }}
-          >
-            TEP — native
-          </label>
-          <input
-            id={tepNativeId}
-            type="number"
-            min={1.0}
-            max={1.5}
-            step={0.01}
-            value={tepNativeInputValue}
-            onWheel={(e) => e.currentTarget.blur()}
-            onChange={(e) => {
-              const n = parseFloat(e.target.value);
-              if (Number.isFinite(n)) {
-                update("tepNativeMultiplier", Math.max(1.0, Math.min(1.5, n)));
-              }
-            }}
-            style={{
-              width: 90,
-              padding: "4px 8px",
-              fontSize: "0.82rem",
-              fontFamily: "var(--mono)",
-            }}
-          />
-          <span className="muted" style={{ fontSize: "0.66rem" }}>
-            {tepNativeIsDefault
-              ? `Default ${tepNativeDefault.toFixed(2)}× — applied to TEP-native sources on TE rows`
-              : `Custom ${Number(tepNativeInputValue).toFixed(2)}× — TEP-native sources on TE rows`}
-          </span>
-        </div>
-        {!tepNativeIsDefault && (
-          <div style={{ marginTop: 4, marginBottom: 6 }}>
-            <button
-              type="button"
-              className="button-reset"
-              style={{
-                fontSize: "0.7rem",
-                color: "var(--accent-gold, #4f9bec)",
-                textDecoration: "underline",
-                cursor: "pointer",
-                padding: 0,
-              }}
-              onClick={() => update("tepNativeMultiplier", null)}
-            >
-              Reset to default ({tepNativeDefault.toFixed(2)}×)
-            </button>
-          </div>
-        )}
-        <p
-          className="muted"
-          style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}
-        >
-          Applied at blend time, on TE rows only.
-          <InfoTip label="the two TE Premium multipliers">
-          Two parallel TE Premium multipliers, both applied at blend time on TE
-          rows only. <strong>Non-native</strong> covers sources whose published
-          board doesn&apos;t already bake in TE premium (DLF, FBG, FP consensus,
-          Flock, DD, DraftSharks). <strong>Native</strong> covers sources tagged{" "}
-          <span
-            style={{
-              fontFamily: "var(--mono)",
-              fontSize: "0.62rem",
-              padding: "0 4px",
-              border: "1px solid var(--green, #4ade80)",
-              color: "var(--green, #4ade80)",
-              borderRadius: 3,
-            }}
-          >
-            TEP NATIVE
-          </span>{" "}
-          (IDPTC, DN SfTep, Yahoo Boone, FP Fitzmaurice) — their boards already
-          publish some TE premium so the smaller default (1.10×) is a
-          calibration nudge, not a fresh boost. KTC (standard SF and SF-TE++) is
-          the canonical baseline and passes through both knobs unchanged.
-          Changing either value re-runs the canonical ranking pipeline so every
-          page (rankings, trade calculator, edge) sees the same values.
-        </InfoTip>
-        </p>
       </Section>
 
       </SettingsGroup>
@@ -606,31 +464,27 @@ export default function SettingsPage() {
           style={{ fontSize: "0.72rem", marginBottom: 10 }}
           className="muted"
         >
-          This is the only setting that changes the numbers themselves. It
-          applies everywhere — rankings, the trade calculator, exports.
+          Values are always the market board. This is not a setting.
         </div>
         <div style={{ marginBottom: 8 }}>
           <label style={{ fontSize: "0.82rem", marginRight: 8 }}>
             Value basis
           </label>
-          {/* A <select> has no honest indeterminate state — a blank
-              option would read as a third choice — so this one stays
-              disabled until settings hydrate instead. The displayed
-              value is still the default for that one frame, but the
-              control cannot be acted on while it might be about to
-              change under the user's cursor. The /rankings and /trade
-              toggles get the stronger treatment (no highlight at all);
-              see the note above `getHydratedSnapshot` in useSettings. */}
+          {/* Read-only on purpose.  The "My league" lens was withdrawn
+              2026-08-14 (CLAUDE.md, "valuation_mode: accepted, ignored,
+              and stamped"): the server ignores the request and every
+              fetch helper reads the basis through readValuationMode(),
+              which is always market.  The control stays only so the
+              basis is visible, so it shows market whatever an old
+              device still has in localStorage, and it offers no other
+              choice.  Do not re-thread a selector here. */}
           <select
             aria-label="Valuation mode"
             className="select"
-            value={settings.valuationMode}
-            disabled={!settingsHydrated}
-            aria-busy={!settingsHydrated}
-            onChange={(e) => update("valuationMode", e.target.value)}
+            value="market"
+            disabled
           >
             <option value="market">Market</option>
-            <option value="leagueAdjusted">My league</option>
           </select>
         </div>
         <div
@@ -638,59 +492,16 @@ export default function SettingsPage() {
           className="muted"
         >
           <p>
-            <strong>Market</strong> — the blended consensus board exactly as the
-            pipeline computes it. Shared by every league on the same scoring
-            settings.
+            <strong>Market</strong> — the blended consensus board from the
+            canonical pipeline, shared by every league on the same scoring
+            settings. Rankings, the trade calculator and exports all read it.
+            The source weights and TE premium on this page still apply to it.
           </p>
           <p>
-            <strong>My league</strong> — takes that board and re-prices it by
-            how scarce each position actually is here. We solve your exact
-            starting lineup against the 12 real rosters, measure the drop-off
-            from the best player at a position to the last startable one, and
-            scale every player at that position by up to ±10%. Thin positions
-            lift; deep positions trim. Ranks and tiers are recomputed on the
-            backend.
+            The &quot;My league&quot; positional-scarcity lens was withdrawn and
+            no longer changes any number. A device that still has it saved
+            shows the market board like every other.
           </p>
-          {/* The two definitions above are the choice being made and
-              stay visible.  The rest — scope, exclusions, interaction
-              with custom weights — is reference material a user reads
-              once, so it moves behind a button instead of occupying
-              three paragraphs above the next control. */}
-          <HelpModal
-            title="How the league-adjusted board works"
-            label="What this changes"
-          >
-            <h3>What it does not include, deliberately</h3>
-            <p>
-              <strong>No tight-end premium.</strong> Our market anchor is
-              already KTC&apos;s TE++ board, so applying another would count the
-              same premium twice.
-            </p>
-            <p>
-              <strong>No player projections.</strong> No source we can use
-              publishes raw statistical categories yet, so there is nothing to
-              re-score under your rules.
-            </p>
-            <p>
-              <strong>No per-player judgment.</strong> The adjustment is
-              identical for every player at a position, so it can never reorder
-              your RBs against each other.
-            </p>
-            <h3>What it does change</h3>
-            <p>
-              How positions — and <strong>players versus draft picks</strong> —
-              are priced against one another. Picks carry no scarcity
-              measurement, so they stay at market value while players move
-              around them. That is enough to shift most ranks and to change
-              trade verdicts.
-            </p>
-            <h3>When it does not apply</h3>
-            <p>
-              Not applied while custom source weights are active: the two cannot
-              be combined correctly yet, so the board stays on your custom
-              market values.
-            </p>
-          </HelpModal>
         </div>
       </Section>
 
@@ -718,6 +529,44 @@ export default function SettingsPage() {
           onChange={(v) => update("showSiteCols", v)}
           hint="Per-site value columns in rankings"
         />
+      </Section>
+
+      {/* Owner directive 2026-10-19 §8: every source's actual voting
+          status on the canonical board — Last Updated, Freshness, Voting
+          Weight, Status and why.  Read from the contract's
+          `sourceVotingStatus` (already loaded; no second fetch).  Same
+          component as /tools/source-health. */}
+      <Section title="Source Voting" defaultOpen>
+        <div
+          style={{ fontSize: "0.72rem", marginBottom: 10 }}
+          className="muted"
+        >
+          How each ranking source votes on the site&apos;s consensus values
+          right now: when it last genuinely updated, how much voting power its
+          freshness keeps, the weight it votes with, and why. Your own source
+          weights below are applied on top of this. Full diagnostics are on{" "}
+          <Link href="/tools/source-health">Source Health</Link>.
+        </div>
+        {!rawData && failure ? (
+          <p className="muted" style={{ fontSize: "0.72rem" }}>
+            Source voting status needs the board data, which did not load (see
+            the message above).
+          </p>
+        ) : (
+          <Suspense
+            fallback={
+              <p className="muted" role="status" style={{ fontSize: "0.72rem" }}>
+                Loading source voting status…
+              </p>
+            }
+          >
+            <SourceVotingStatus
+              block={votingStatusBlock(rawData)}
+              loading={loading && !rawData}
+              context="source voting status"
+            />
+          </Suspense>
+        )}
       </Section>
 
       <Section title="Ranking Sources" defaultOpen>
@@ -803,12 +652,6 @@ export default function SettingsPage() {
           checked={settings.rosEnabled !== false}
           onChange={(v) => update("rosEnabled", v)}
           hint="Master switch.  Off hides every ROS-driven surface (Championship tab, Trade-deadline dashboard, ROS Fit panel, player tags).  Does not affect the Power tab — it has no v1 fallback to fall back to (V1-52 retired it)."
-        />
-        <ToggleRow
-          label="Use ROS-driven Playoff Odds"
-          checked={!!settings.useRosPlayoffOdds}
-          onChange={(v) => update("useRosPlayoffOdds", v)}
-          hint="When enabled, the playoff Monte Carlo uses ROS-blended weekly score distributions instead of empirical-only.  PR-future toggle for the playoff-odds section swap; ROS Championship tab uses ROS by default."
         />
         <ToggleRow
           label="Show ROS Fit panel on Trade Calculator"
@@ -1088,6 +931,24 @@ export default function SettingsPage() {
         <CustomAlertsConfigurator enabled={!!serverBacked} players={rows} />
       </Section>
 
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="Trade recommendations"
+        description="Personal rules for generated trade ideas in the selected league. They never change any value."
+      >
+      <Section title="Trade protections" defaultOpen={false}>
+        {() => (
+          <Suspense fallback={<p className="muted" role="status">Loading trade protections…</p>}>
+            <TradeProtectionsEditor
+              enabled={!!serverBacked}
+              leagueKey={selectedLeagueKey}
+              leagueName={selectedLeague?.displayName}
+              players={rows}
+            />
+          </Suspense>
+        )}
+      </Section>
       </SettingsGroup>
 
       <div
@@ -1375,7 +1236,7 @@ function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
       });
       if (!res.ok) {
         const text = await res.text().catch(() => "");
-        if (res.status === 401) {
+        if (res.status === 401 || res.status === 403) {
           setFeedback("Admin session required.");
         } else {
           setFeedback(

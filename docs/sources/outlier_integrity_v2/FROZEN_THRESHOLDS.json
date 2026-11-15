@@ -1,0 +1,1240 @@
+{
+ "boardsRead": [
+  "dynasty_export_20260714_233659.zip",
+  "dynasty_export_20260715_234323.zip",
+  "dynasty_export_20260716_234047.zip",
+  "dynasty_export_20260717_233701.zip",
+  "dynasty_export_20260718_233845.zip",
+  "dynasty_export_20260719_234246.zip",
+  "dynasty_export_20260720_234315.zip",
+  "dynasty_export_20260721_234338.zip",
+  "dynasty_export_20260722_234350.zip",
+  "dynasty_export_20260723_234119.zip",
+  "dynasty_export_20260724_234602.zip",
+  "dynasty_export_20260725_174518.zip",
+  "dynasty_export_20260726_234351.zip",
+  "dynasty_export_20260727_234712.zip",
+  "dynasty_export_20260728_234257.zip",
+  "dynasty_export_20260729_234404.zip",
+  "dynasty_export_20260730_234456.zip",
+  "dynasty_export_20260731_234435.zip",
+  "dynasty_export_20260801_234420.zip",
+  "dynasty_export_20260802_234410.zip",
+  "dynasty_export_20260803_235610.zip",
+  "dynasty_export_20260804_234442.zip",
+  "dynasty_export_20260805_234032.zip",
+  "dynasty_export_20260806_150742.zip",
+  "dynasty_export_20260807_231948.zip",
+  "dynasty_export_20260808_230641.zip",
+  "dynasty_export_20260809_230755.zip",
+  "dynasty_export_20260810_232112.zip",
+  "dynasty_export_20260811_232600.zip",
+  "dynasty_export_20260812_232543.zip",
+  "dynasty_export_20260813_232644.zip",
+  "dynasty_export_20260814_230212.zip",
+  "dynasty_export_20260815_230043.zip",
+  "dynasty_export_20260816_225946.zip",
+  "dynasty_export_20260817_230203.zip",
+  "dynasty_export_20260818_230211.zip",
+  "dynasty_export_20260819_230341.zip",
+  "dynasty_export_20260820_230504.zip",
+  "dynasty_export_20260821_230238.zip",
+  "dynasty_export_20260822_230108.zip",
+  "dynasty_export_20260823_230044.zip",
+  "dynasty_export_20260824_230400.zip",
+  "dynasty_export_20260825_230528.zip",
+  "dynasty_export_20260826_211658.zip",
+  "dynasty_export_20260827_153424.zip",
+  "dynasty_export_20260828_234428.zip",
+  "dynasty_export_20260829_211720.zip",
+  "dynasty_export_20260830_213746.zip",
+  "dynasty_export_20260831_230447.zip",
+  "dynasty_export_20260901_212308.zip",
+  "dynasty_export_20260902_212027.zip",
+  "dynasty_export_20260903_225148.zip",
+  "dynasty_export_20260904_223450.zip",
+  "dynasty_export_20260905_204615.zip",
+  "dynasty_export_20260906_205400.zip",
+  "dynasty_export_20260907_230241.zip",
+  "dynasty_export_20260908_212819.zip",
+  "dynasty_export_20260909_211525.zip",
+  "dynasty_export_20260910_224947.zip",
+  "dynasty_export_20260911_212200.zip",
+  "dynasty_export_20260912_223716.zip",
+  "dynasty_export_20260913_223956.zip",
+  "dynasty_export_20260914_233241.zip",
+  "dynasty_export_20260915_214858.zip",
+  "dynasty_export_20260916_214700.zip",
+  "dynasty_export_20260917_214927.zip",
+  "dynasty_export_20260918_211845.zip",
+  "dynasty_export_20260919_223220.zip",
+  "dynasty_export_20260920_224450.zip",
+  "dynasty_export_20260921_234150.zip",
+  "dynasty_export_20260922_214329.zip",
+  "dynasty_export_20260923_215107.zip",
+  "dynasty_export_20260924_232149.zip",
+  "dynasty_export_20260925_233646.zip",
+  "dynasty_export_20260926_164906.zip",
+  "dynasty_export_20260927_214140.zip",
+  "dynasty_export_20260928_233322.zip",
+  "dynasty_export_20260929_194208.zip",
+  "dynasty_export_20260930_130404.zip"
+ ],
+ "evidence": {
+  "b3": {
+   "selected": {
+    "n_min": 20,
+    "rho_min": 0.0,
+    "tau_gross": "ln 4"
+   },
+   "settings": [
+    {
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1124,
+     "injectionsCaught": 1121,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1124,
+     "injectionsCaught": 1121,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1124,
+     "injectionsCaught": 1121,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1124,
+     "injectionsCaught": 1121,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1124,
+     "injectionsCaught": 1121,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1124,
+     "injectionsCaught": 1121,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1124,
+     "injectionsCaught": 1121,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1124,
+     "injectionsCaught": 1121,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    }
+   ],
+   "status": "FAILED_SELECTION"
+  },
+  "epsilon_b2": {
+   "boardProofCountsByGrid": {
+    "0.01": 0,
+    "0.02": 0,
+    "0.05": 0
+   },
+   "boards": 77,
+   "feasible": true,
+   "selected": 0.01
+  },
+  "k_c": {
+   "byKc": {
+    "4.0": {
+     "boards": 22,
+     "feasible": true,
+     "maxRate": 0.0004,
+     "totalHolds": 10,
+     "worst": [
+      {
+       "board": "dynasty_export_20260924_232149.zip",
+       "holds": 3,
+       "rate": 0.0004,
+       "votes": 7496
+      },
+      {
+       "board": "dynasty_export_20260915_214858.zip",
+       "holds": 1,
+       "rate": 0.000156,
+       "votes": 6395
+      },
+      {
+       "board": "dynasty_export_20260909_211525.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6919
+      },
+      {
+       "board": "dynasty_export_20260917_214927.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6917
+      },
+      {
+       "board": "dynasty_export_20260923_215107.zip",
+       "holds": 1,
+       "rate": 0.000139,
+       "votes": 7198
+      }
+     ]
+    },
+    "6.0": {
+     "boards": 22,
+     "feasible": true,
+     "maxRate": 0.0004,
+     "totalHolds": 10,
+     "worst": [
+      {
+       "board": "dynasty_export_20260924_232149.zip",
+       "holds": 3,
+       "rate": 0.0004,
+       "votes": 7496
+      },
+      {
+       "board": "dynasty_export_20260915_214858.zip",
+       "holds": 1,
+       "rate": 0.000156,
+       "votes": 6395
+      },
+      {
+       "board": "dynasty_export_20260909_211525.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6919
+      },
+      {
+       "board": "dynasty_export_20260917_214927.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6917
+      },
+      {
+       "board": "dynasty_export_20260923_215107.zip",
+       "holds": 1,
+       "rate": 0.000139,
+       "votes": 7198
+      }
+     ]
+    },
+    "8.0": {
+     "boards": 22,
+     "feasible": true,
+     "maxRate": 0.0004,
+     "totalHolds": 10,
+     "worst": [
+      {
+       "board": "dynasty_export_20260924_232149.zip",
+       "holds": 3,
+       "rate": 0.0004,
+       "votes": 7496
+      },
+      {
+       "board": "dynasty_export_20260915_214858.zip",
+       "holds": 1,
+       "rate": 0.000156,
+       "votes": 6395
+      },
+      {
+       "board": "dynasty_export_20260909_211525.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6919
+      },
+      {
+       "board": "dynasty_export_20260917_214927.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6917
+      },
+      {
+       "board": "dynasty_export_20260923_215107.zip",
+       "holds": 1,
+       "rate": 0.000139,
+       "votes": 7198
+      }
+     ]
+    }
+   },
+   "feasible": true,
+   "selected": 4.0
+  },
+  "tau_C": {
+   "boards": [
+    "dynasty_export_20260818_230211.zip",
+    "dynasty_export_20260901_212308.zip",
+    "dynasty_export_20260916_214700.zip",
+    "dynasty_export_20260930_130404.zip"
+   ],
+   "byGrid": {
+    "ln 4": {
+     "AD1c": {
+      "material": 1236,
+      "passed": 1135,
+      "rate": 0.9183
+     },
+     "AD1d": {
+      "material": 910,
+      "passed": 828,
+      "rate": 0.9099
+     },
+     "feasible": false
+    },
+    "ln 5": {
+     "AD1c": {
+      "material": 1236,
+      "passed": 1111,
+      "rate": 0.8989
+     },
+     "AD1d": {
+      "material": 910,
+      "passed": 827,
+      "rate": 0.9088
+     },
+     "feasible": false
+    },
+    "ln 6": {
+     "AD1c": {
+      "material": 1236,
+      "passed": 1101,
+      "rate": 0.8908
+     },
+     "AD1d": {
+      "material": 910,
+      "passed": 825,
+      "rate": 0.9066
+     },
+     "feasible": false
+    }
+   },
+   "feasible": false,
+   "selected": "ln 4"
+  },
+  "tau_age": {
+   "contradictionsByGrid": {
+    "1.0": 0,
+    "1.5": 0,
+    "2.0": 0
+   },
+   "feasible": true,
+   "idVerifiedJoinsWithAge": 0,
+   "maxAbsDiff": null,
+   "selected": 1.0
+  },
+  "tau_board": {
+   "boardsPerCell": {
+    "dlfRookieSf|offense": 20,
+    "dlfSf|offense": 41,
+    "draftSharksIdp|idp": 44,
+    "draftSharks|offense": 44,
+    "dynastyDaddySf|offense": 44,
+    "dynastyNerdsSfTep|offense": 44,
+    "fantasyCalc|offense": 44,
+    "fantasyNavigatorSf|offense": 10,
+    "fantasyProsFitzmaurice|offense": 44,
+    "fantasyProsIdp|idp": 44,
+    "fantasyProsSf|offense": 44,
+    "flockFantasySfRookies|offense": 20,
+    "flockFantasySf|offense": 44,
+    "idpShowCombined|idp": 41,
+    "idpShowCombined|offense": 41,
+    "idpTradeCalc|idp": 44,
+    "idpTradeCalc|offense": 44,
+    "ktcCrowdSfTep|offense": 20,
+    "ktcTradesSfTep|offense": 22,
+    "otcffbSf|offense": 44,
+    "pfkDynasty|offense": 44,
+    "yahooBoone|offense": 44
+   },
+   "selected": {
+    "dlfRookieSf|offense": 0.050468,
+    "dlfSf|offense": 0.006612,
+    "draftSharksIdp|idp": 0.027322,
+    "draftSharks|offense": 0.010973,
+    "dynastyDaddySf|offense": 0.00955,
+    "dynastyNerdsSfTep|offense": 0.009221,
+    "fantasyCalc|offense": 0.014142,
+    "fantasyNavigatorSf|offense": 0.00516,
+    "fantasyProsFitzmaurice|offense": 0.007673,
+    "fantasyProsIdp|idp": 0.028915,
+    "fantasyProsSf|offense": 0.007438,
+    "flockFantasySfRookies|offense": 0.049583,
+    "flockFantasySf|offense": 0.010745,
+    "idpShowCombined|idp": 0.005766,
+    "idpShowCombined|offense": 0.008027,
+    "idpTradeCalc|idp": 0.060273,
+    "idpTradeCalc|offense": 0.015,
+    "ktcCrowdSfTep|offense": 0.01957,
+    "ktcTradesSfTep|offense": 0.010553,
+    "otcffbSf|offense": 0.011259,
+    "pfkDynasty|offense": 0.011869,
+    "yahooBoone|offense": 0.009759
+   }
+  },
+  "tau_c_mad": {
+   "dlfRookieSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.005882453847267044,
+      "n": 664
+     },
+     "51_150": {
+      "mad": 0.0098510771296354,
+      "n": 265
+     },
+     "gt400": {
+      "mad": 0.00657849213320727,
+      "n": 9,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.00657849213320727,
+      "n": 17,
+      "pooled": true
+     }
+    },
+    "pooledMad": 0.00657849213320727,
+    "pooledN": 955
+   },
+   "dlfSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 8222
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 7164
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 3524
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 18910
+   },
+   "draftSharks": {
+    "bands": {
+     "151_400": {
+      "mad": 0.001148721696552002,
+      "n": 9316
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 10721
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 2762
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 22799
+   },
+   "draftSharksIdp": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0011372893329246736,
+      "n": 13353
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 4820
+     },
+     "gt400": {
+      "mad": 0.000713577880407712,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 569
+     }
+    },
+    "pooledMad": 0.000713577880407712,
+    "pooledN": 18742
+   },
+   "dynastyDaddySf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.014144444730962213,
+      "n": 14286
+     },
+     "51_150": {
+      "mad": 0.008977527377907357,
+      "n": 8551
+     },
+     "gt400": {
+      "mad": 0.010632521558172403,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 4063
+     }
+    },
+    "pooledMad": 0.010632521558172403,
+    "pooledN": 26900
+   },
+   "dynastyNerdsSfTep": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 10915
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 7888
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 3998
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 22801
+   },
+   "fantasyCalc": {
+    "bands": {
+     "151_400": {
+      "mad": 0.019221245628619155,
+      "n": 16148
+     },
+     "51_150": {
+      "mad": 0.01650292375414164,
+      "n": 8480
+     },
+     "gt400": {
+      "mad": 0.01846847456365097,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.018777473307734383,
+      "n": 4066
+     }
+    },
+    "pooledMad": 0.01846847456365097,
+    "pooledN": 28694
+   },
+   "fantasyNavigatorSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0026897524948390483,
+      "n": 3583
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 1651
+     },
+     "gt400": {
+      "mad": 0.003370547451342798,
+      "n": 318
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 796
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 6348
+   },
+   "fantasyProsFitzmaurice": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 10925
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 8043
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 4243
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 23211
+   },
+   "fantasyProsIdp": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 7812
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 4818
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 581
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 13211
+   },
+   "fantasyProsSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.00776421011999151,
+      "n": 14599
+     },
+     "51_150": {
+      "mad": 0.008525389713064158,
+      "n": 7147
+     },
+     "gt400": {
+      "mad": 0.0040201116505116374,
+      "n": 810
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 3449
+     }
+    },
+    "pooledMad": 0.007492024224561966,
+    "pooledN": 26005
+   },
+   "flockFantasySf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 16467
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 8429
+     },
+     "gt400": {
+      "mad": 0.001976466673237809,
+      "n": 44
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 3902
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 28842
+   },
+   "flockFantasySfRookies": {
+    "bands": {
+     "151_400": {
+      "mad": 0.005790395303933771,
+      "n": 499
+     },
+     "51_150": {
+      "mad": 0.008905340066192036,
+      "n": 274
+     },
+     "gt400": {
+      "mad": 0.0065883751648465605,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0065883751648465605,
+      "n": 17,
+      "pooled": true
+     }
+    },
+    "pooledMad": 0.0065883751648465605,
+    "pooledN": 790
+   },
+   "idpShowCombined": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 12300
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 11640
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 2120
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 26060
+   },
+   "idpTradeCalc": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 33118
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 19529
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 1167
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 5164
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 58978
+   },
+   "ktcCrowdSfTep": {
+    "bands": {
+     "151_400": {
+      "mad": 0.006346847432434188,
+      "n": 3221
+     },
+     "51_150": {
+      "mad": 0.006470470764260661,
+      "n": 2603
+     },
+     "gt400": {
+      "mad": 0.011843793732798424,
+      "n": 640
+     },
+     "le50": {
+      "mad": 0.007584749201852148,
+      "n": 911
+     }
+    },
+    "pooledMad": 0.006878558325686512,
+    "pooledN": 7375
+   },
+   "ktcTradesSfTep": {
+    "bands": {
+     "151_400": {
+      "mad": 0.002328584665023392,
+      "n": 4113
+     },
+     "51_150": {
+      "mad": 0.00581881597104994,
+      "n": 3274
+     },
+     "gt400": {
+      "mad": 0.002676189204758206,
+      "n": 336
+     },
+     "le50": {
+      "mad": 0.008723942786931893,
+      "n": 1348
+     }
+    },
+    "pooledMad": 0.0036059016887453055,
+    "pooledN": 9071
+   },
+   "otcffbSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.011550825588113156,
+      "n": 16416
+     },
+     "51_150": {
+      "mad": 0.005261891293807608,
+      "n": 8810
+     },
+     "gt400": {
+      "mad": 0.007674131154887576,
+      "n": 5,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 3917
+     }
+    },
+    "pooledMad": 0.007674131154887576,
+    "pooledN": 29148
+   },
+   "pfkDynasty": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 15566
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 7327
+     },
+     "gt400": {
+      "mad": 0.002957850150417052,
+      "n": 1145
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 3382
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 27420
+   },
+   "yahooBoone": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 17241
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 8774
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 4009
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 30024
+   }
+  }
+ },
+ "populationRead": "E_BASELINE + E_DEV only",
+ "schema": "oiv2-frozen-thresholds/v1",
+ "selected": {
+  "epsilon_b2": 0.01,
+  "k_c": 4.0,
+  "n_min": 20,
+  "rho_min": 0.0,
+  "tau_C": "ln 4",
+  "tau_age": 1.0,
+  "tau_board": {
+   "dlfRookieSf|offense": 0.050468,
+   "dlfSf|offense": 0.006612,
+   "draftSharksIdp|idp": 0.027322,
+   "draftSharks|offense": 0.010973,
+   "dynastyDaddySf|offense": 0.00955,
+   "dynastyNerdsSfTep|offense": 0.009221,
+   "fantasyCalc|offense": 0.014142,
+   "fantasyNavigatorSf|offense": 0.00516,
+   "fantasyProsFitzmaurice|offense": 0.007673,
+   "fantasyProsIdp|idp": 0.028915,
+   "fantasyProsSf|offense": 0.007438,
+   "flockFantasySfRookies|offense": 0.049583,
+   "flockFantasySf|offense": 0.010745,
+   "idpShowCombined|idp": 0.005766,
+   "idpShowCombined|offense": 0.008027,
+   "idpTradeCalc|idp": 0.060273,
+   "idpTradeCalc|offense": 0.015,
+   "ktcCrowdSfTep|offense": 0.01957,
+   "ktcTradesSfTep|offense": 0.010553,
+   "otcffbSf|offense": 0.011259,
+   "pfkDynasty|offense": 0.011869,
+   "yahooBoone|offense": 0.009759
+  },
+  "tau_c": {
+   "dlfRookieSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dlfSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "draftSharks": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "draftSharksIdp": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dynastyDaddySf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dynastyNerdsSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyCalc": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyNavigatorSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsFitzmaurice": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsIdp": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "flockFantasySf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "flockFantasySfRookies": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "idpShowCombined": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "idpTradeCalc": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "ktcCrowdSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "ktcTradesSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "otcffbSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "pfkDynasty": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "yahooBoone": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   }
+  },
+  "tau_gross": "ln 4"
+ },
+ "selectionFailures": [
+  "b3 (n_min, rho_min, tau_gross)",
+  "tau_C"
+ ],
+ "selectionSeed": 20261020,
+ "status": "frozen_stage2",
+ "thresholdsFile": "config/sources/outlier_integrity_v2.json",
+ "thresholdsFileSha256": "e0569bef74b3777a9f3a9c3e2eab0140f2b876c824b6edcfc5eeca501d0a382c",
+ "verdictConsequence": "FAILED_SELECTION recorded for the B3b triple: the run cannot reach READY FOR APPROVAL (prereg section 3.5); the most conservative registered setting is used"
+}

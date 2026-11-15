@@ -25,6 +25,8 @@ const {
   prodUrl,
   getJson,
   annotate,
+  DISCLOSURE_SELECTOR,
+  readCellText,
 } = require("./helpers");
 
 const BOARD_ROW = ".ds-table-wrap table tbody tr.rankings-row-clickable";
@@ -48,7 +50,10 @@ test.describe("V1-111: premium rankings render backend stamps", () => {
     prodPage: page,
   }, testInfo) => {
     // Backend truth first, over the same session.
-    const { status, body: contract } = await getJson(page, "/api/data?view=app");
+    const { status, body: contract } = await getJson(
+      page,
+      "/api/data?view=app",
+    );
     expect(status, "/api/data must serve the session").toBe(200);
     const rankMap = backendRankMap(contract);
     expect(
@@ -63,9 +68,11 @@ test.describe("V1-111: premium rankings render backend stamps", () => {
 
     await page.goto(prodUrl("/rankings"), { waitUntil: "domcontentloaded" });
     const rows = page.locator(BOARD_ROW);
-    await expect(rows.first(), "rankings board should render rows").toBeVisible({
-      timeout: 90_000,
-    });
+    await expect(rows.first(), "rankings board should render rows").toBeVisible(
+      {
+        timeout: 90_000,
+      },
+    );
 
     // ── The premium scope is present AND active ──────────────────────
     const scope = page.locator("section.psi-editorial");
@@ -87,9 +94,11 @@ test.describe("V1-111: premium rankings render backend stamps", () => {
 
     // ── Top row: rank #1, real name, real value ──────────────────────
     const first = rows.first();
-    const firstRankText = (
-      await first.locator('td[data-col="rank"]').innerText()
-    ).trim();
+    // The rank cell also carries the row's visually hidden disclosure
+    // toggle ("Source breakdown for <name>", #1849), still in innerText —
+    // read the visible rank only, then assert the toggle explicitly below.
+    const firstRankCell = first.locator('td[data-col="rank"]');
+    const firstRankText = await readCellText(firstRankCell);
     const firstRank = parseInt(firstRankText, 10);
     expect(
       firstRank,
@@ -99,12 +108,30 @@ test.describe("V1-111: premium rankings render backend stamps", () => {
     const backendTop = rankMap.get(1);
     expect(backendTop, "backend stamps no rank-1 row").toBeTruthy();
     const renderedName = (
-      await first.locator('td[data-col="name"] .rankings-player-name').innerText()
+      await first
+        .locator('td[data-col="name"] .rankings-player-name')
+        .innerText()
     ).trim();
     expect(
       renderedName,
       "the top row's player is not the backend's rank-1 player",
     ).toBe(backendTop.name);
+
+    // The disclosure toggle (#1849): one per row, in the rank column,
+    // named for THIS row's player, collapsed on load.
+    const disclosure = firstRankCell.locator(DISCLOSURE_SELECTOR);
+    await expect(
+      disclosure,
+      "the top row's rank cell must carry exactly one disclosure toggle",
+    ).toHaveCount(1);
+    await expect(
+      disclosure,
+      "the disclosure toggle must be named for the top row's own player",
+    ).toHaveText(`Source breakdown for ${renderedName}`);
+    await expect(
+      disclosure,
+      "the top row's source breakdown must be collapsed on load",
+    ).toHaveAttribute("aria-expanded", "false");
 
     const renderedValue = (
       await first.locator('td[data-col="value"] button').first().innerText()
@@ -124,11 +151,11 @@ test.describe("V1-111: premium rankings render backend stamps", () => {
     let partialsSeen = 0;
     for (let i = 0; i < sampleCount; i += 1) {
       const row = rows.nth(i);
-      const rankText = (
-        await row.locator('td[data-col="rank"]').innerText()
-      ).trim();
+      const rankText = await readCellText(row.locator('td[data-col="rank"]'));
       const name = (
-        await row.locator('td[data-col="name"] .rankings-player-name').innerText()
+        await row
+          .locator('td[data-col="name"] .rankings-player-name')
+          .innerText()
       ).trim();
       if (rankText.startsWith("—")) {
         // Partial-data state: an unranked row must really be unranked
@@ -174,7 +201,9 @@ test.describe("V1-111: premium rankings render backend stamps", () => {
 
     // buildRows' fail-fast (zero rank stamps → empty board + console
     // error) must not have fired; nor any other page error.
-    const failFast = consoleErrors.filter((t) => /rank stamp|buildRows/i.test(t));
+    const failFast = consoleErrors.filter((t) =>
+      /rank stamp|buildRows/i.test(t),
+    );
     expect(
       failFast,
       "buildRows reported missing backend stamps — the board would be a client-side construction",

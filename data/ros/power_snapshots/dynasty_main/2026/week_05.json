@@ -1,0 +1,396 @@
+{
+  "blend": {
+    "forwardWeight": 0.318289,
+    "resultsEvidence": 0.917915,
+    "resultsWeight": 0.681711,
+    "scoredGames": 5,
+    "scoredGamesDiverged": false,
+    "scoredGamesMax": 5,
+    "targetForwardWeight": 0.3,
+    "targetResultsWeight": 0.7
+  },
+  "effectiveWeights": {
+    "all_play": 0.47561252803603404,
+    "recent": 0.04756125280360339,
+    "team_ros_strength": 0.3182887098150178,
+    "wl_record": 0.1585375093453447
+  },
+  "finalizedAt": "2026-10-13T07:13:16.056425+00:00",
+  "leagueKey": "dynasty_main",
+  "methodologyVersion": "canonical-power-2026.09-v2",
+  "preseason": false,
+  "rankSource": "canonical_engine",
+  "ranking": [
+    {
+      "allPlay": 0.8545,
+      "componentRanks": {
+        "all_play": 1,
+        "recent": 1,
+        "team_ros_strength": 1,
+        "wl_record": 2
+      },
+      "components": {
+        "all_play": 0.8545,
+        "recent": 0.9583,
+        "team_ros_strength": 0.9583,
+        "team_vorp": null,
+        "wl_record": 0.8
+      },
+      "displayName": "Brent",
+      "ownerId": "1002085133723299840",
+      "pointsPerGame": 438.438,
+      "powerScore": 88.39,
+      "powerScoreDelta": -3.58,
+      "priorPowerScore": 91.97,
+      "priorRank": 1,
+      "rank": 1,
+      "rankDelta": 0,
+      "recentAvg": 434.705,
+      "record": "8-2",
+      "rosStrengthPercentile": 0.9583,
+      "teamName": "Theres always next year ",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.7091,
+      "componentRanks": {
+        "all_play": 3,
+        "recent": 2,
+        "team_ros_strength": 2,
+        "wl_record": 1
+      },
+      "components": {
+        "all_play": 0.7091,
+        "recent": 0.875,
+        "team_ros_strength": 0.875,
+        "team_vorp": null,
+        "wl_record": 0.9
+      },
+      "displayName": "Jason",
+      "ownerId": "468418790212759552",
+      "pointsPerGame": 404.27,
+      "powerScore": 80.01,
+      "powerScoreDelta": 3.34,
+      "priorPowerScore": 76.67,
+      "priorRank": 2,
+      "rank": 2,
+      "rankDelta": 0,
+      "recentAvg": 404.2225,
+      "record": "9-1",
+      "rosStrengthPercentile": 0.875,
+      "teamName": "Brent\u2019s Boyfriend\u2019s Booty",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.7818,
+      "componentRanks": {
+        "all_play": 2,
+        "recent": 3,
+        "team_ros_strength": 3,
+        "wl_record": 2
+      },
+      "components": {
+        "all_play": 0.7818,
+        "recent": 0.7917,
+        "team_ros_strength": 0.7917,
+        "team_vorp": null,
+        "wl_record": 0.8
+      },
+      "displayName": "Joey",
+      "ownerId": "1012114412049731584",
+      "pointsPerGame": 413.602,
+      "powerScore": 78.83,
+      "powerScoreDelta": 3.59,
+      "priorPowerScore": 75.24,
+      "priorRank": 3,
+      "rank": 3,
+      "rankDelta": 0,
+      "recentAvg": 403.9275,
+      "record": "8-2",
+      "rosStrengthPercentile": 0.7917,
+      "teamName": "Queso Fresco",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.5818,
+      "componentRanks": {
+        "all_play": 6,
+        "recent": 8,
+        "team_ros_strength": 4,
+        "wl_record": 5
+      },
+      "components": {
+        "all_play": 0.5818,
+        "recent": 0.375,
+        "team_ros_strength": 0.7083,
+        "team_vorp": null,
+        "wl_record": 0.6
+      },
+      "displayName": "Eric",
+      "ownerId": "609821340567941120",
+      "pointsPerGame": 383.856,
+      "powerScore": 61.51,
+      "powerScoreDelta": -6.41,
+      "priorPowerScore": 67.92,
+      "priorRank": 4,
+      "rank": 4,
+      "rankDelta": 0,
+      "recentAvg": 361.495,
+      "record": "6-4",
+      "rosStrengthPercentile": 0.7083,
+      "teamName": "Pop Trunk",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.6182,
+      "componentRanks": {
+        "all_play": 5,
+        "recent": 4,
+        "team_ros_strength": 6,
+        "wl_record": 4
+      },
+      "components": {
+        "all_play": 0.6182,
+        "recent": 0.7083,
+        "team_ros_strength": 0.5417,
+        "team_vorp": null,
+        "wl_record": 0.7
+      },
+      "displayName": "MaKayla",
+      "ownerId": "714912789268865024",
+      "pointsPerGame": 394.394,
+      "powerScore": 61.11,
+      "powerScoreDelta": 1.46,
+      "priorPowerScore": 59.65,
+      "priorRank": 5,
+      "rank": 5,
+      "rankDelta": 0,
+      "recentAvg": 394.6325,
+      "record": "7-3",
+      "rosStrengthPercentile": 0.5417,
+      "teamName": "Rage Against The Achane ",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.5455,
+      "componentRanks": {
+        "all_play": 7,
+        "recent": 6,
+        "team_ros_strength": 5,
+        "wl_record": 5
+      },
+      "components": {
+        "all_play": 0.5455,
+        "recent": 0.5417,
+        "team_ros_strength": 0.625,
+        "team_vorp": null,
+        "wl_record": 0.6
+      },
+      "displayName": "Collin",
+      "ownerId": "831633191830933504",
+      "pointsPerGame": 378.55,
+      "powerScore": 57.92,
+      "powerScoreDelta": 6.54,
+      "priorPowerScore": 51.38,
+      "priorRank": 7,
+      "rank": 6,
+      "rankDelta": 1,
+      "recentAvg": 382.2425,
+      "record": "6-4",
+      "rosStrengthPercentile": 0.625,
+      "teamName": "CollinFoz",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.6364,
+      "componentRanks": {
+        "all_play": 4,
+        "recent": 5,
+        "team_ros_strength": 8,
+        "wl_record": 8
+      },
+      "components": {
+        "all_play": 0.6364,
+        "recent": 0.625,
+        "team_ros_strength": 0.375,
+        "team_vorp": null,
+        "wl_record": 0.5
+      },
+      "displayName": "Kich",
+      "ownerId": "1208452010173538304",
+      "pointsPerGame": 377.782,
+      "powerScore": 53.1,
+      "powerScoreDelta": -1.87,
+      "priorPowerScore": 54.97,
+      "priorRank": 6,
+      "rank": 7,
+      "rankDelta": -1,
+      "recentAvg": 393.31,
+      "record": "5-5",
+      "rosStrengthPercentile": 0.375,
+      "teamName": "Unsolicited Diggs Pics ",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.4545,
+      "componentRanks": {
+        "all_play": 8,
+        "recent": 7,
+        "team_ros_strength": 7,
+        "wl_record": 5
+      },
+      "components": {
+        "all_play": 0.4545,
+        "recent": 0.4583,
+        "team_ros_strength": 0.4583,
+        "team_vorp": null,
+        "wl_record": 0.6
+      },
+      "displayName": "Ty",
+      "ownerId": "473973924808355840",
+      "pointsPerGame": 347.36,
+      "powerScore": 47.9,
+      "powerScoreDelta": 2.7,
+      "priorPowerScore": 45.2,
+      "priorRank": 8,
+      "rank": 8,
+      "rankDelta": 0,
+      "recentAvg": 364.21,
+      "record": "6-4",
+      "rosStrengthPercentile": 0.4583,
+      "teamName": "PorchHonkey",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.3455,
+      "componentRanks": {
+        "all_play": 9,
+        "recent": 9,
+        "team_ros_strength": 10,
+        "wl_record": 9
+      },
+      "components": {
+        "all_play": 0.3455,
+        "recent": 0.2917,
+        "team_ros_strength": 0.2083,
+        "team_vorp": null,
+        "wl_record": 0.2
+      },
+      "displayName": "Ed",
+      "ownerId": "711452264774041600",
+      "pointsPerGame": 314.534,
+      "powerScore": 27.62,
+      "powerScoreDelta": -4.46,
+      "priorPowerScore": 32.08,
+      "priorRank": 9,
+      "rank": 9,
+      "rankDelta": 0,
+      "recentAvg": 314.95,
+      "record": "2-8",
+      "rosStrengthPercentile": 0.2083,
+      "teamName": "JerryJones and the Boyz",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.2727,
+      "componentRanks": {
+        "all_play": 10,
+        "recent": 10,
+        "team_ros_strength": 11,
+        "wl_record": 11
+      },
+      "components": {
+        "all_play": 0.2727,
+        "recent": 0.2083,
+        "team_ros_strength": 0.125,
+        "team_vorp": null,
+        "wl_record": 0.1
+      },
+      "displayName": "jstuedle",
+      "ownerId": "712035316776669184",
+      "pointsPerGame": 294.872,
+      "powerScore": 19.53,
+      "powerScoreDelta": -3.8,
+      "priorPowerScore": 23.33,
+      "priorRank": 10,
+      "rank": 10,
+      "rankDelta": 0,
+      "recentAvg": 288.8125,
+      "record": "1-9",
+      "rosStrengthPercentile": 0.125,
+      "teamName": "jstuedle",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.0909,
+      "componentRanks": {
+        "all_play": 12,
+        "recent": 12,
+        "team_ros_strength": 9,
+        "wl_record": 9
+      },
+      "components": {
+        "all_play": 0.0909,
+        "recent": 0.0417,
+        "team_ros_strength": 0.2917,
+        "team_vorp": null,
+        "wl_record": 0.2
+      },
+      "displayName": "Blaine",
+      "ownerId": "1303549304882892800",
+      "pointsPerGame": 272.552,
+      "powerScore": 16.98,
+      "powerScoreDelta": 1.34,
+      "priorPowerScore": 15.64,
+      "priorRank": 11,
+      "rank": 11,
+      "rankDelta": 0,
+      "recentAvg": 264.6975,
+      "record": "2-8",
+      "rosStrengthPercentile": 0.2917,
+      "teamName": "The fags",
+      "teamVorp": null
+    },
+    {
+      "allPlay": 0.1091,
+      "componentRanks": {
+        "all_play": 11,
+        "recent": 11,
+        "team_ros_strength": 12,
+        "wl_record": 12
+      },
+      "components": {
+        "all_play": 0.1091,
+        "recent": 0.125,
+        "team_ros_strength": 0.0417,
+        "team_vorp": null,
+        "wl_record": 0.0
+      },
+      "displayName": "Roy",
+      "ownerId": "472206636534984704",
+      "pointsPerGame": 270.026,
+      "powerScore": 7.11,
+      "powerScoreDelta": 1.17,
+      "priorPowerScore": 5.94,
+      "priorRank": 12,
+      "rank": 12,
+      "rankDelta": 0,
+      "recentAvg": 268.8575,
+      "record": "0-10",
+      "rosStrengthPercentile": 0.0417,
+      "teamName": "Chargers Team Doctor",
+      "teamVorp": null
+    }
+  ],
+  "schemaVersion": 1,
+  "scoringConfigFingerprint": "3b8c61c5ab7072823e29cd5907103ad75459e1290bb46229813783d4c4a13b05",
+  "season": "2026",
+  "week": 5,
+  "weights": {
+    "all_play": 0.3,
+    "recent": 0.15,
+    "team_ros_strength": 0.3,
+    "team_vorp": 0.15,
+    "wl_record": 0.1
+  }
+}

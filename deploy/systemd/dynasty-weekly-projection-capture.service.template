@@ -1,0 +1,50 @@
+[Unit]
+Description=Weekly projection pool point-in-time capture (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Appends the FULL weekly projection pool (every position, free agents and
+# placeholders, raw stat lines + provider updated_at + our fetch time + each
+# league's league-scored points keyed by scoring fingerprint) for the current
+# NFL week and the next three to
+#   data/projections/weekly_archive/<season>/w<week>/<source>_<fetchedAt>.json.gz
+# via scripts/capture_weekly_projections.py (src/ros/weekly_projection_archive.py).
+#
+# WHY: IDP streaming (owner directive 2026-10-29, IST-1) is backtested
+# against what providers projected BEFORE kickoff. That evidence is
+# PERISHABLE — once a week is played the pre-kickoff pool is gone — so it is
+# collected now, on the box, ahead of any consumer.
+#
+# NOT under data/ros/: scheduled-refresh.yml force-adds data/ros/ to a public
+# repository. data/ is gitignored and data/projections/ is in no force-add
+# list; deploy.sh never removes gitignored data/.
+#
+# Exit codes (scripts/capture_weekly_projections.py):
+#   0 - captured (written, or unchanged content not re-written), or the
+#       weekly_projection_capture gate is off
+#   1 - no source produced usable data for the current week
+#   2 - error
+#
+# ROLLBACK: add RISKIT_FEATURE_WEEKLY_PROJECTION_CAPTURE=0 to __APP_DIR__/.env
+# (EnvironmentFile= is applied after Environment= and wins), or
+# `systemctl disable --now __SERVICE_NAME__-weekly-projection-capture.timer`.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+# The registry default is OFF (a script-only gate may not default ON); this
+# unit is the deliberate opt-in. .env below can still turn it off.
+Environment=RISKIT_FEATURE_WEEKLY_PROJECTION_CAPTURE=1
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/capture_weekly_projections.py
+StandardOutput=journal
+StandardError=journal
+# Two sources x four weeks, sequential, >= 1.5 s apart; ~10 s observed.
+TimeoutStartSec=600
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

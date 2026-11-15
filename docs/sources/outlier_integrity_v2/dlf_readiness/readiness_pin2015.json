@@ -1,0 +1,3477 @@
+{
+ "R1": {
+  "C": {
+   "capViolations": [],
+   "correlationGroups": {
+    "dlfIdp": "dlf",
+    "dlfRookieIdp": "dlf",
+    "dlfRookieSf": "dlf",
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf"
+   },
+   "examples": [
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1833
+      },
+      "dlfRookieIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1892
+      }
+     },
+     "row": "AJ Haulcy"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1868
+      },
+      "dlfRookieIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1973
+      }
+     },
+     "row": "Akheem Mesidor"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 3050
+      },
+      "dlfRookieIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 3050
+      }
+     },
+     "row": "Anthony Hill"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfRookieSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2440
+      },
+      "dlfSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2628
+      }
+     },
+     "row": "Antonio Williams"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 3677
+      },
+      "dlfRookieIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 3721
+      }
+     },
+     "row": "Arvell Reese"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfRookieSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1318
+      },
+      "dlfSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1550
+      }
+     },
+     "row": "Brenen Thompson"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfRookieSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1660
+      },
+      "dlfSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1478
+      }
+     },
+     "row": "Bryce Lance"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfRookieSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2288
+      },
+      "dlfSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2041
+      }
+     },
+     "row": "Caleb Douglas"
+    }
+   ],
+   "independentCountMismatchCount": 0,
+   "independentCountMismatches": [],
+   "memberCombinations": {
+    "dlfIdp+dlfRookieIdp": 18,
+    "dlfRookieSf+dlfSf": 40
+   },
+   "pass": true,
+   "providers": {
+    "dlfIdp": "dynastyLeagueFootball",
+    "dlfRookieIdp": "dynastyLeagueFootball",
+    "dlfRookieSf": "dynastyLeagueFootball",
+    "dlfSf": "dynastyLeagueFootball",
+    "dlfValuesSfTep": "dynastyLeagueFootball"
+   },
+   "rowsWithTwoOrMoreDlfMembers": 58
+  },
+  "C''": {
+   "capViolations": [],
+   "correlationGroups": {
+    "dlfIdp": "dlf",
+    "dlfRookieIdp": "dlf",
+    "dlfRookieSf": "dlf",
+    "dlfSf": "dlf",
+    "dlfValuesSfTep": "dlf"
+   },
+   "examples": [
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 5258
+      },
+      "dlfValuesSfTep": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 4408
+      }
+     },
+     "row": "A.J. Brown"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2400
+      },
+      "dlfValuesSfTep": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2362
+      }
+     },
+     "row": "Aaron Jones"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2312
+      },
+      "dlfValuesSfTep": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1985
+      }
+     },
+     "row": "Aaron Rodgers"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfRookieSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1357
+      },
+      "dlfValuesSfTep": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1422
+      }
+     },
+     "row": "Adam Randall"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2288
+      },
+      "dlfValuesSfTep": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2375
+      }
+     },
+     "row": "Adonai Mitchell"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfSf": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2308
+      },
+      "dlfValuesSfTep": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 2203
+      }
+     },
+     "row": "AJ Barner"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1833
+      },
+      "dlfRookieIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1892
+      }
+     },
+     "row": "AJ Haulcy"
+    },
+    {
+     "familyTotal": 1.0,
+     "members": {
+      "dlfIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1868
+      },
+      "dlfRookieIdp": {
+       "appliedWeight": 0.5,
+       "familyAdjustment": 0.5,
+       "preFamilyWeight": 1.0,
+       "value": 1973
+      }
+     },
+     "row": "Akheem Mesidor"
+    }
+   ],
+   "independentCountMismatchCount": 0,
+   "independentCountMismatches": [],
+   "memberCombinations": {
+    "dlfIdp+dlfRookieIdp": 18,
+    "dlfRookieSf+dlfSf+dlfValuesSfTep": 40,
+    "dlfRookieSf+dlfValuesSfTep": 9,
+    "dlfSf+dlfValuesSfTep": 244
+   },
+   "pass": true,
+   "providers": {
+    "dlfIdp": "dynastyLeagueFootball",
+    "dlfRookieIdp": "dynastyLeagueFootball",
+    "dlfRookieSf": "dynastyLeagueFootball",
+    "dlfSf": "dynastyLeagueFootball",
+    "dlfValuesSfTep": "dynastyLeagueFootball"
+   },
+   "rowsWithTwoOrMoreDlfMembers": 311
+  }
+ },
+ "R10": {
+  "byAssetClass": {
+   "offense": 317
+  },
+  "byPosition": {
+   "QB": 54,
+   "RB": 89,
+   "TE": 46,
+   "WR": 128
+  },
+  "dlfValuesPicksVotes": 0,
+  "layerARefusals": [
+   {
+    "reason": "identity_unresolved:team_only_mismatch",
+    "row": "Jarquez Hunter",
+    "verdict": "UNRESOLVED"
+   },
+   {
+    "reason": "identity_unresolved:team_only_mismatch",
+    "row": "Jerome Ford",
+    "verdict": "UNRESOLVED"
+   }
+  ],
+  "notVoting": [],
+  "pass": true,
+  "reasons": {
+   "voting": 316,
+   "voting_name_only_identity": 1
+  },
+  "votesOnBoardA": 0,
+  "votesOnBoardC": 0,
+  "votingRows": 317
+ },
+ "R2": {
+  "dlfIdp": {
+   "byAssetClass": {
+    "idp": 171
+   },
+   "byPosition": {
+    "DB": 35,
+    "DL": 78,
+    "LB": 58
+   },
+   "byRookie": {
+    "False": 153,
+    "True": 18
+   },
+   "csvEntries": 175,
+   "csvEntriesWithoutObservation": [
+    "Travis Hunter",
+    "Emmanuel McNeil-Warren",
+    "R Mason Thomas",
+    "Cashius Howell"
+   ],
+   "heldBoardAStatuses": {},
+   "layerARefusals": [],
+   "observationsOnBoard": 171,
+   "positionVsDlfRawExport": [],
+   "votesOnHeldBoardA": 0,
+   "votingRows": 171
+  },
+  "dlfRookieIdp": {
+   "byAssetClass": {
+    "idp": 29
+   },
+   "byPosition": {
+    "DB": 5,
+    "DL": 13,
+    "LB": 11
+   },
+   "byRookie": {
+    "True": 29
+   },
+   "csvEntries": 29,
+   "csvEntriesWithoutObservation": [],
+   "heldBoardAStatuses": {},
+   "layerARefusals": [],
+   "observationsOnBoard": 29,
+   "positionVsDlfRawExport": [],
+   "votesOnHeldBoardA": 0,
+   "votingRows": 29
+  },
+  "pass": true,
+  "registryNote": {
+   "dlfIdp.excludes_rookies": true,
+   "dlfIdpVotesOnRookieRows": 18
+  },
+  "rowsWithBothDlfIdpBoards": [
+   "AJ Haulcy",
+   "Akheem Mesidor",
+   "Anthony Hill",
+   "Arvell Reese",
+   "Caleb Downs",
+   "CJ Allen",
+   "David Bailey",
+   "Dillon Thieneman",
+   "Gabe Jacas",
+   "Jacob Rodriguez",
+   "Jaishawn Barham",
+   "Jake Golday",
+   "Josiah Trotter",
+   "Kaleb Elarms-Orr",
+   "Kendal Daniels",
+   "Malachi Lawrence",
+   "Rueben Bain",
+   "Sonny Styles"
+  ]
+ },
+ "R3": {
+  "effectiveRankMismatches": [],
+  "entries": [
+   {
+    "effectiveRank": 52,
+    "idptcOwnVote": 5667,
+    "ladderExpected": 52,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 1,
+    "row": "Jacob Rodriguez",
+    "status": null,
+    "vote": 5165
+   },
+   {
+    "effectiveRank": 53,
+    "idptcOwnVote": 4173,
+    "ladderExpected": 53,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 2,
+    "row": "Sonny Styles",
+    "status": null,
+    "vote": 5130
+   },
+   {
+    "effectiveRank": 116,
+    "idptcOwnVote": 5651,
+    "ladderExpected": 116,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 3,
+    "row": "Arvell Reese",
+    "status": null,
+    "vote": 3721
+   },
+   {
+    "effectiveRank": 116,
+    "idptcOwnVote": 3595,
+    "ladderExpected": 116,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 3,
+    "row": "David Bailey",
+    "status": null,
+    "vote": 3721
+   },
+   {
+    "effectiveRank": 151,
+    "idptcOwnVote": 3396,
+    "ladderExpected": 151,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 5,
+    "row": "Josiah Trotter",
+    "status": null,
+    "vote": 3283
+   },
+   {
+    "effectiveRank": 174,
+    "idptcOwnVote": 3593,
+    "ladderExpected": 174,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 6,
+    "row": "Caleb Downs",
+    "status": null,
+    "vote": 3059
+   },
+   {
+    "effectiveRank": 175,
+    "idptcOwnVote": 3367,
+    "ladderExpected": 175,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 7,
+    "row": "Anthony Hill",
+    "status": null,
+    "vote": 3050
+   },
+   {
+    "effectiveRank": 183,
+    "idptcOwnVote": 3264,
+    "ladderExpected": 183,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 8,
+    "row": "Dillon Thieneman",
+    "status": null,
+    "vote": 2982
+   },
+   {
+    "effectiveRank": 243,
+    "idptcOwnVote": 2129,
+    "ladderExpected": 243,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 9,
+    "row": "CJ Allen",
+    "status": null,
+    "vote": 2568
+   },
+   {
+    "effectiveRank": 243,
+    "idptcOwnVote": 2955,
+    "ladderExpected": 243,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 9,
+    "row": "Rueben Bain",
+    "status": null,
+    "vote": 2568
+   },
+   {
+    "effectiveRank": 388,
+    "idptcOwnVote": 2011,
+    "ladderExpected": 388,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 11,
+    "row": "Akheem Mesidor",
+    "status": null,
+    "vote": 1973
+   },
+   {
+    "effectiveRank": 388,
+    "idptcOwnVote": 1953,
+    "ladderExpected": 388,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 11,
+    "row": "Jaishawn Barham",
+    "status": null,
+    "vote": 1973
+   },
+   {
+    "effectiveRank": 394,
+    "idptcOwnVote": 2001,
+    "ladderExpected": 394,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 13,
+    "row": "Jake Golday",
+    "status": null,
+    "vote": 1956
+   },
+   {
+    "effectiveRank": 396,
+    "idptcOwnVote": 1232,
+    "ladderExpected": 396,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 14,
+    "row": "Gabe Jacas",
+    "status": null,
+    "vote": 1950
+   },
+   {
+    "effectiveRank": 417,
+    "idptcOwnVote": 1988,
+    "ladderExpected": 417,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 15,
+    "row": "AJ Haulcy",
+    "status": null,
+    "vote": 1892
+   },
+   {
+    "effectiveRank": 426,
+    "idptcOwnVote": 1925,
+    "ladderExpected": 426,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 16,
+    "row": "Cashius Howell",
+    "status": null,
+    "vote": 1868
+   },
+   {
+    "effectiveRank": 442,
+    "idptcOwnVote": 1918,
+    "ladderExpected": 442,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 17,
+    "row": "Kaleb Elarms-Orr",
+    "status": null,
+    "vote": 1828
+   },
+   {
+    "effectiveRank": 442,
+    "idptcOwnVote": 1939,
+    "ladderExpected": 442,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 17,
+    "row": "Malachi Lawrence",
+    "status": null,
+    "vote": 1828
+   },
+   {
+    "effectiveRank": 451,
+    "idptcOwnVote": 1992,
+    "ladderExpected": 451,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 19,
+    "row": "Emmanuel McNeil-Warren",
+    "status": null,
+    "vote": 1806
+   },
+   {
+    "effectiveRank": 451,
+    "idptcOwnVote": 1238,
+    "ladderExpected": 451,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 20,
+    "row": "Peter Woods",
+    "status": null,
+    "vote": 1806
+   },
+   {
+    "effectiveRank": 455,
+    "idptcOwnVote": 1913,
+    "ladderExpected": 455,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 21,
+    "row": "Kendal Daniels",
+    "status": null,
+    "vote": 1796
+   },
+   {
+    "effectiveRank": 462,
+    "idptcOwnVote": 1911,
+    "ladderExpected": 462,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 22,
+    "row": "R Mason Thomas",
+    "status": null,
+    "vote": 1780
+   },
+   {
+    "effectiveRank": 470,
+    "idptcOwnVote": 1269,
+    "ladderExpected": 470,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 23,
+    "row": "Zion Young",
+    "status": null,
+    "vote": 1762
+   },
+   {
+    "effectiveRank": 474,
+    "idptcOwnVote": 1916,
+    "ladderExpected": 474,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 24,
+    "row": "Keldric Faulk",
+    "status": null,
+    "vote": 1753
+   },
+   {
+    "effectiveRank": 598,
+    "idptcOwnVote": 1273,
+    "ladderExpected": 598,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 25,
+    "row": "TJ Parker",
+    "status": null,
+    "vote": 1522
+   },
+   {
+    "effectiveRank": 609,
+    "idptcOwnVote": 1244,
+    "ladderExpected": 609,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 26,
+    "row": "Kyle Louis",
+    "status": null,
+    "vote": 1505
+   },
+   {
+    "effectiveRank": 614,
+    "idptcOwnVote": 1282,
+    "ladderExpected": 614,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 27,
+    "row": "Bryce Boettcher",
+    "status": null,
+    "vote": 1498
+   },
+   {
+    "effectiveRank": 614,
+    "idptcOwnVote": 1319,
+    "ladderExpected": 614,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 27,
+    "row": "Harold Perkins",
+    "status": null,
+    "vote": 1498
+   },
+   {
+    "effectiveRank": 624,
+    "idptcOwnVote": 1910,
+    "ladderExpected": 624,
+    "method": "rookie_ladder_translation_via_idpTradeCalc",
+    "rawRank": 29,
+    "row": "Treydan Stukes",
+    "status": null,
+    "vote": 1483
+   }
+  ],
+  "ladder": [
+   52,
+   53,
+   116,
+   150,
+   151,
+   174,
+   175,
+   183,
+   243,
+   356,
+   388,
+   391,
+   394,
+   396,
+   417,
+   426,
+   442,
+   450,
+   451,
+   451,
+   455,
+   462,
+   470,
+   474,
+   598,
+   609,
+   614,
+   616,
+   624,
+   637,
+   644,
+   655,
+   657,
+   661,
+   664,
+   668,
+   668,
+   692,
+   766,
+   770,
+   771,
+   780,
+   796,
+   803,
+   806,
+   825,
+   838,
+   840,
+   841,
+   864,
+   864,
+   868,
+   868,
+   885,
+   890,
+   890,
+   890
+  ],
+  "ladderDepth": 57,
+  "ladderReference": "idpTradeCalc",
+  "orderPreserved": true,
+  "pass": true,
+  "stressIncumbent_noIDPTC": {
+   "dlfIdp": {
+    "methods": {
+     "exact": 171
+    },
+    "statuses": {
+     "voting": 171
+    }
+   },
+   "dlfIdpEffectiveRankRatioVsC": {
+    "max": 1.233,
+    "median": 0.938,
+    "min": 0.596,
+    "n": 171
+   },
+   "dlfIdpSharedMarketTranslated": {
+    "True": 171
+   },
+   "dlfRookieIdp": {
+    "methods": {
+     "direct": 29
+    },
+    "statuses": {
+     "filter_dropped": 8,
+     "voting": 21
+    }
+   },
+   "dlfRookieIdpTop3": [
+    {
+     "effectiveRank": 1,
+     "rawRank": 1,
+     "row": "Jacob Rodriguez",
+     "rowValue": 4420,
+     "status": "filter_dropped",
+     "vote": 9999
+    },
+    {
+     "effectiveRank": 2,
+     "rawRank": 2,
+     "row": "Sonny Styles",
+     "rowValue": 6163,
+     "status": null,
+     "vote": 9841
+    },
+    {
+     "effectiveRank": 3,
+     "rawRank": 3,
+     "row": "Arvell Reese",
+     "rowValue": 5063,
+     "status": "filter_dropped",
+     "vote": 9665
+    },
+    {
+     "effectiveRank": 3,
+     "rawRank": 3,
+     "row": "David Bailey",
+     "rowValue": 3675,
+     "status": "filter_dropped",
+     "vote": 9665
+    }
+   ]
+  },
+  "stressV2_noIDPTC": {
+   "dlfIdp": {
+    "methods": {
+     "exact": 171
+    },
+    "statuses": {
+     "voting": 171
+    }
+   },
+   "dlfIdpEffectiveRankRatioVsC": {
+    "max": 1.233,
+    "median": 0.938,
+    "min": 0.596,
+    "n": 171
+   },
+   "dlfIdpSharedMarketTranslated": {
+    "True": 171
+   },
+   "dlfRookieIdp": {
+    "methods": {
+     "direct": 29
+    },
+    "statuses": {
+     "normalization_untranslated": 29
+    }
+   },
+   "dlfRookieIdpTop3": [
+    {
+     "effectiveRank": 1,
+     "rawRank": 1,
+     "row": "Jacob Rodriguez",
+     "rowValue": 4420,
+     "status": "normalization_untranslated",
+     "vote": 9999
+    },
+    {
+     "effectiveRank": 2,
+     "rawRank": 2,
+     "row": "Sonny Styles",
+     "rowValue": 5980,
+     "status": "normalization_untranslated",
+     "vote": 9841
+    },
+    {
+     "effectiveRank": 3,
+     "rawRank": 3,
+     "row": "Arvell Reese",
+     "rowValue": 5063,
+     "status": "normalization_untranslated",
+     "vote": 9665
+    },
+    {
+     "effectiveRank": 3,
+     "rawRank": 3,
+     "row": "David Bailey",
+     "rowValue": 3675,
+     "status": "normalization_untranslated",
+     "vote": 9665
+    }
+   ]
+  },
+  "wrongMethod": []
+ },
+ "R4": {
+  "C": {
+   "dlfIdp": {
+    "excludedV2": [],
+    "incumbentDropsBoardB": [
+     {
+      "row": "Jared Verse",
+      "status": "filter_dropped",
+      "vote": 4671
+     }
+    ],
+    "keptDissentV2": [],
+    "reasonsV2": {
+     "voting_name_only_identity": 171
+    }
+   },
+   "dlfRookieIdp": {
+    "excludedV2": [],
+    "incumbentDropsBoardB": [],
+    "keptDissentV2": [],
+    "reasonsV2": {
+     "voting_name_only_identity": 29
+    }
+   },
+   "pass": true
+  },
+  "C''": {
+   "dlfIdp": {
+    "excludedV2": [],
+    "incumbentDropsBoardB": [
+     {
+      "row": "Jared Verse",
+      "status": "filter_dropped",
+      "vote": 4671
+     }
+    ],
+    "keptDissentV2": [],
+    "reasonsV2": {
+     "voting_name_only_identity": 171
+    }
+   },
+   "dlfRookieIdp": {
+    "excludedV2": [],
+    "incumbentDropsBoardB": [],
+    "keptDissentV2": [],
+    "reasonsV2": {
+     "voting_name_only_identity": 29
+    }
+   },
+   "pass": true
+  }
+ },
+ "R5": {
+  "B_vs_A": {
+   "comparison": "B vs A (contrast: DLF IDP added under the incumbent)",
+   "statusChangeCounts": {
+    "draftSharksIdp: voting -> filter_dropped": 18,
+    "fantasyProsIdp: voting -> filter_dropped": 10,
+    "idpTradeCalc: voting -> filter_dropped": 3
+   },
+   "statusChanges": [
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Aidan Hutchinson",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Alex Singleton",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Anthony Hill",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Barrett Carter",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Carson Schwesinger",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Chase Young",
+     "source": "idpTradeCalc"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "CJ Allen",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Danielle Hunter",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "David Bailey",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "DeMarvion Overshown",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Dillon Thieneman",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Edgerrin Cooper",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Jacob Rodriguez",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Jihaad Campbell",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Jordyn Brooks",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Josiah Trotter",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Josiah Trotter",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Myles Garrett",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Nick Bolton",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Nick Emmanwori",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Nick Herbig",
+     "source": "idpTradeCalc"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Patrick Queen",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Quay Walker",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Quincy Williams",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Robert Spillane",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Roquan Smith",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Sonny Styles",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "T.J. Watt",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Trevin Wallace",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Trey Hendrickson",
+     "source": "idpTradeCalc"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Will Anderson",
+     "source": "draftSharksIdp"
+    }
+   ],
+   "votesLost": [
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Aidan Hutchinson",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Alex Singleton",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Anthony Hill",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Barrett Carter",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Carson Schwesinger",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Chase Young",
+     "source": "idpTradeCalc"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "CJ Allen",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Danielle Hunter",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "David Bailey",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "DeMarvion Overshown",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Dillon Thieneman",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Edgerrin Cooper",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Jacob Rodriguez",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Jihaad Campbell",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Jordyn Brooks",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Josiah Trotter",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Josiah Trotter",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Myles Garrett",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Nick Bolton",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Nick Emmanwori",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Nick Herbig",
+     "source": "idpTradeCalc"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Patrick Queen",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Quay Walker",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Quincy Williams",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Robert Spillane",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Roquan Smith",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Sonny Styles",
+     "source": "fantasyProsIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "T.J. Watt",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Trevin Wallace",
+     "source": "draftSharksIdp"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Trey Hendrickson",
+     "source": "idpTradeCalc"
+    },
+    {
+     "after": "filter_dropped",
+     "before": "voting",
+     "row": "Will Anderson",
+     "source": "draftSharksIdp"
+    }
+   ],
+   "votingCounts": {
+    "draftSharksIdp": {
+     "votingAfter": 302,
+     "votingBefore": 320
+    },
+    "fantasyProsIdp": {
+     "votingAfter": 239,
+     "votingBefore": 249
+    },
+    "idpTradeCalc": {
+     "votingAfter": 374,
+     "votingBefore": 377
+    }
+   }
+  },
+  "C_vs_A": {
+   "comparison": "C vs A (production \u2192 V2 + DLF IDP)",
+   "statusChangeCounts": {
+    "idpShowCombined: freshness_or_health_zero_weight -> observation_absent": 1
+   },
+   "statusChanges": [
+    {
+     "after": "observation_absent",
+     "before": "freshness_or_health_zero_weight",
+     "row": "Byron Murphy",
+     "source": "idpShowCombined"
+    }
+   ],
+   "votesLost": [],
+   "votingCounts": {
+    "draftSharksIdp": {
+     "votingAfter": 320,
+     "votingBefore": 320
+    },
+    "fantasyProsIdp": {
+     "votingAfter": 249,
+     "votingBefore": 249
+    },
+    "idpTradeCalc": {
+     "votingAfter": 377,
+     "votingBefore": 377
+    }
+   }
+  },
+  "C_vs_D": {
+   "comparison": "C vs D (DLF IDP added under V2)",
+   "statusChangeCounts": {},
+   "statusChanges": [],
+   "votesLost": [],
+   "votingCounts": {
+    "draftSharksIdp": {
+     "votingAfter": 320,
+     "votingBefore": 320
+    },
+    "fantasyProsIdp": {
+     "votingAfter": 249,
+     "votingBefore": 249
+    },
+    "idpTradeCalc": {
+     "votingAfter": 377,
+     "votingBefore": 377
+    }
+   }
+  },
+  "Cpp_vs_Cp": {
+   "comparison": "C'' vs C' (DLF IDP added under V2 + D4)",
+   "statusChangeCounts": {},
+   "statusChanges": [],
+   "votesLost": [],
+   "votingCounts": {
+    "draftSharksIdp": {
+     "votingAfter": 320,
+     "votingBefore": 320
+    },
+    "fantasyProsIdp": {
+     "votingAfter": 249,
+     "votingBefore": 249
+    },
+    "idpTradeCalc": {
+     "votingAfter": 377,
+     "votingBefore": 377
+    }
+   }
+  }
+ },
+ "R6": {
+  "axisChanges": {
+   "agreement: high -> low": 4,
+   "agreement: high -> medium": 8,
+   "agreement: low -> medium": 7,
+   "agreement: medium -> high": 15,
+   "agreement: medium -> low": 19,
+   "applicability: high -> medium": 1,
+   "applicability: medium -> high": 19,
+   "applicability: medium -> low": 1,
+   "coverage: high -> medium": 75,
+   "coverage: medium -> low": 69,
+   "freshness: low -> medium": 7,
+   "freshness: medium -> high": 23,
+   "independence: low -> medium": 30
+  },
+  "bucketTransitionsAllIdp": {
+   "low->low": 253,
+   "low->medium": 26,
+   "medium->low": 20,
+   "medium->medium": 98,
+   "none->none": 31
+  },
+  "bucketTransitionsDlfSilent": {
+   "low->low": 182,
+   "medium->medium": 33,
+   "none->none": 31
+  },
+  "bucketTransitionsDlfVotes": {
+   "low->low": 71,
+   "low->medium": 26,
+   "medium->low": 20,
+   "medium->medium": 65
+  },
+  "dlfSilentRowsWhoseReasonsChanged": [
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "2 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "2 of 4 families price within 15% of the published value"
+    ],
+    "row": "Alex Anzalone"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "row": "Alex Wright"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "row": "Alim McNeill"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "row": "Alohi Gilman"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "row": "Alontae Taylor"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "row": "Amani Hooker"
+   },
+   {
+    "after": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 5 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 2 families price within 15% of the published value"
+    ],
+    "before": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 4 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 2 families price within 15% of the published value"
+    ],
+    "row": "Andrew Wingard"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "2 of 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "2 of 3 families price within 15% of the published value"
+    ],
+    "row": "Antonio Johnson"
+   },
+   {
+    "after": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "before": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "row": "Ashton Gillotte"
+   },
+   {
+    "after": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "before": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "row": "Avieon Terrell"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "row": "B.J. Hill"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "row": "Baron Browning"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "row": "Billy Bowman"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "row": "Bobby Okereke"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "1 of 2 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "1 of 2 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "row": "Bobby Wagner"
+   },
+   {
+    "after": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "before": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "row": "Brandon Cisse"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "row": "Brandon Dorlus"
+   },
+   {
+    "after": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "before": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "row": "Branson Combs"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "row": "Bryan Bresee"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "row": "Bryan Cook"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "row": "Bud Clark"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "2 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "2 of 4 families price within 15% of the published value"
+    ],
+    "row": "C.J. Gardner-Johnson"
+   },
+   {
+    "after": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 5 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 2 families price within 15% of the published value"
+    ],
+    "before": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 4 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 2 families price within 15% of the published value"
+    ],
+    "row": "Caleb Banks"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "row": "Calen Bullock"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "2 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "2 of 4 families price within 15% of the published value"
+    ],
+    "row": "Cam Bynum"
+   },
+   {
+    "after": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 5 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 2 families price within 15% of the published value"
+    ],
+    "before": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 4 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 2 families price within 15% of the published value"
+    ],
+    "row": "Cam Taylor-Britt"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "All 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "All 3 families price within 15% of the published value"
+    ],
+    "row": "Cameron Heyward"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "row": "Chamarri Conner"
+   },
+   {
+    "after": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "before": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "row": "Chris Braswell"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "row": "Chris Johnson"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 2 families price within 15% of the published value"
+    ],
+    "row": "Christen Miller"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "0 of 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "0 of 3 families price within 15% of the published value"
+    ],
+    "row": "Christian Barmore"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "0 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "0 of 4 families price within 15% of the published value"
+    ],
+    "row": "Christian Benford"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "1 of 2 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "1 of 2 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "row": "Christian Elliss"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "0 of 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "0 of 3 families price within 15% of the published value"
+    ],
+    "row": "Christian Gonzalez"
+   },
+   {
+    "after": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 5 eligible evidence families",
+     "1 of 2 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "before": [
+     "2 independent evidence families \u2014 too few to corroborate",
+     "Covers 2 of 4 eligible evidence families",
+     "1 of 2 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 3 families price within 15% of the published value"
+    ],
+    "row": "Christian Harris"
+   },
+   {
+    "after": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 5 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "before": [
+     "1 independent evidence family \u2014 too few to corroborate",
+     "Covers 1 of 4 eligible evidence families",
+     "All contributing evidence is current",
+     "0 of 1 families price within 15% of the published value"
+    ],
+    "row": "Christian Izien"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "3 of 4 families price within 15% of the published value"
+    ],
+    "row": "Christian Rozeboom"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "0 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "0 of 4 families price within 15% of the published value"
+    ],
+    "row": "Coby Bryant"
+   },
+   {
+    "after": [
+     "3 independent evidence families",
+     "Covers 3 of 5 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "before": [
+     "3 independent evidence families",
+     "Covers 3 of 4 eligible evidence families",
+     "1 of 3 contributing families is past their staleness budget",
+     "1 observed family did not reach the value (withheld or rejected) and count against every share axis: idpShow",
+     "1 of 4 families price within 15% of the published value"
+    ],
+    "row": "Cody Barton"
+   }
+  ],
+  "dlfSilentRowsWhoseReasonsChangedCount": 215,
+  "downgradeBottleneckAxesWhereDlfVotes": {
+   "agreement": 20
+  },
+  "downgradesWhereDlfVotes": 20,
+  "eligibleFamilyDeltaWhereDlfSilent": {
+   "0": 31,
+   "1": 215
+  },
+  "independentFamilyDeltaWhereDlfVotes": {
+   "1": 182
+  },
+  "pass": true,
+  "upgradesWhereDlfVotes": 26
+ },
+ "R7": {
+  "A": {
+   "blendIntegrityViolations": [],
+   "dlfTranslationOrderBreaks": {
+    "dlfIdp": 0,
+    "dlfRookieIdp": 0
+   },
+   "idpPricedRows": 397,
+   "idpQuarantined": 10,
+   "idpRankInversions": 0,
+   "idpRankedRows": 311,
+   "quarantined": 48,
+   "rankInversions": 0,
+   "rankedRows": 740,
+   "ranksContiguous": true,
+   "sourceHealthErrors": [],
+   "status": "degraded",
+   "structuralErrors": [],
+   "valuesOutsideScale": []
+  },
+  "C": {
+   "blendIntegrityViolations": [],
+   "dlfTranslationOrderBreaks": {
+    "dlfIdp": 0,
+    "dlfRookieIdp": 0
+   },
+   "idpPricedRows": 397,
+   "idpQuarantined": 10,
+   "idpRankInversions": 0,
+   "idpRankedRows": 310,
+   "quarantined": 48,
+   "rankInversions": 0,
+   "rankedRows": 740,
+   "ranksContiguous": true,
+   "sourceHealthErrors": [],
+   "status": "degraded",
+   "structuralErrors": [],
+   "valuesOutsideScale": []
+  },
+  "C'": {
+   "blendIntegrityViolations": [],
+   "dlfTranslationOrderBreaks": {
+    "dlfIdp": 0,
+    "dlfRookieIdp": 0
+   },
+   "idpPricedRows": 397,
+   "idpQuarantined": 10,
+   "idpRankInversions": 0,
+   "idpRankedRows": 310,
+   "quarantined": 48,
+   "rankInversions": 0,
+   "rankedRows": 740,
+   "ranksContiguous": true,
+   "sourceHealthErrors": [],
+   "status": "degraded",
+   "structuralErrors": [],
+   "valuesOutsideScale": []
+  },
+  "C''": {
+   "blendIntegrityViolations": [],
+   "dlfTranslationOrderBreaks": {
+    "dlfIdp": 0,
+    "dlfRookieIdp": 0
+   },
+   "idpPricedRows": 397,
+   "idpQuarantined": 10,
+   "idpRankInversions": 0,
+   "idpRankedRows": 310,
+   "quarantined": 48,
+   "rankInversions": 0,
+   "rankedRows": 740,
+   "ranksContiguous": true,
+   "sourceHealthErrors": [],
+   "status": "degraded",
+   "structuralErrors": [],
+   "valuesOutsideScale": []
+  },
+  "D": {
+   "blendIntegrityViolations": [],
+   "dlfTranslationOrderBreaks": {
+    "dlfIdp": 0,
+    "dlfRookieIdp": 0
+   },
+   "idpPricedRows": 397,
+   "idpQuarantined": 10,
+   "idpRankInversions": 0,
+   "idpRankedRows": 310,
+   "quarantined": 48,
+   "rankInversions": 0,
+   "rankedRows": 740,
+   "ranksContiguous": true,
+   "sourceHealthErrors": [],
+   "status": "degraded",
+   "structuralErrors": [],
+   "valuesOutsideScale": []
+  }
+ },
+ "R8": {
+  "A": {
+   "altDropped": [],
+   "altFamilyValue": 3599,
+   "altSourcesConsidered": [
+    "idpTradeCalc"
+   ],
+   "confidence": "low",
+   "dlfIdpObservation": null,
+   "dlfVotes": {
+    "dlfSf": 2613
+   },
+   "primaryFamilyValue": 2323,
+   "rank": 130,
+   "value": 3599
+  },
+  "B": {
+   "altDropped": [],
+   "altFamilyValue": 3493,
+   "altSourcesConsidered": [
+    "dlfIdp",
+    "idpTradeCalc"
+   ],
+   "confidence": "low",
+   "dlfIdpObservation": null,
+   "dlfVotes": {
+    "dlfSf": 2613
+   },
+   "primaryFamilyValue": 2323,
+   "rank": 133,
+   "value": 3493
+  },
+  "C": {
+   "altDropped": [],
+   "altFamilyValue": 3493,
+   "altSourcesConsidered": [
+    "dlfIdp",
+    "idpTradeCalc"
+   ],
+   "confidence": "low",
+   "dlfIdpObservation": null,
+   "dlfVotes": {
+    "dlfSf": 2613
+   },
+   "primaryFamilyValue": 2365,
+   "rank": 136,
+   "value": 3493
+  },
+  "C'": {
+   "altDropped": [],
+   "altFamilyValue": 3599,
+   "altSourcesConsidered": [
+    "idpTradeCalc"
+   ],
+   "confidence": "low",
+   "dlfIdpObservation": null,
+   "dlfVotes": {
+    "dlfSf": 2613,
+    "dlfValuesSfTep": 2080
+   },
+   "primaryFamilyValue": 2331,
+   "rank": 130,
+   "value": 3599
+  },
+  "C''": {
+   "altDropped": [],
+   "altFamilyValue": 3493,
+   "altSourcesConsidered": [
+    "dlfIdp",
+    "idpTradeCalc"
+   ],
+   "confidence": "low",
+   "dlfIdpObservation": null,
+   "dlfVotes": {
+    "dlfSf": 2613,
+    "dlfValuesSfTep": 2080
+   },
+   "primaryFamilyValue": 2331,
+   "rank": 135,
+   "value": 3493
+  },
+  "D": {
+   "altDropped": [],
+   "altFamilyValue": 3599,
+   "altSourcesConsidered": [
+    "idpTradeCalc"
+   ],
+   "confidence": "low",
+   "dlfIdpObservation": null,
+   "dlfVotes": {
+    "dlfSf": 2613
+   },
+   "primaryFamilyValue": 2365,
+   "rank": 130,
+   "value": 3599
+  }
+ },
+ "R9": {
+  "movedPickProvenance": {
+   "rookie_pool_tether": 51
+  },
+  "movedPicks": [
+   {
+    "after": 7462,
+    "basis": "Jeremiyah Love",
+    "before": 7238,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 1.01"
+   },
+   {
+    "after": 5358,
+    "basis": "Fernando Mendoza",
+    "before": 5386,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 1.02"
+   },
+   {
+    "after": 5218,
+    "basis": "Sonny Styles",
+    "before": 5094,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 1.04"
+   },
+   {
+    "after": 5199,
+    "basis": "Arvell Reese",
+    "before": 5029,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 1.05"
+   },
+   {
+    "after": 4932,
+    "basis": "Jacob Rodriguez",
+    "before": 4709,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 1.06"
+   },
+   {
+    "after": 4709,
+    "basis": "Kenyon Sadiq",
+    "before": 4624,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 1.07"
+   },
+   {
+    "after": 4642,
+    "basis": "Jordyn Tyson",
+    "before": 4591,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 1.08"
+   },
+   {
+    "after": 4033,
+    "basis": "CJ Allen",
+    "before": 3987,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 1.12"
+   },
+   {
+    "after": 3759,
+    "basis": "Dillon Thieneman",
+    "before": 3690,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 2.02"
+   },
+   {
+    "after": 3653,
+    "basis": "Caleb Downs",
+    "before": 3569,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 2.03"
+   },
+   {
+    "after": 3616,
+    "basis": "David Bailey",
+    "before": 3482,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 2.04"
+   },
+   {
+    "after": 3361,
+    "basis": "Ty Simpson",
+    "before": 3389,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 2.05"
+   },
+   {
+    "after": 3226,
+    "basis": "Omar Cooper",
+    "before": 3225,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 2.07"
+   },
+   {
+    "after": 2928,
+    "basis": "Antonio Williams",
+    "before": 2927,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 2.11"
+   },
+   {
+    "after": 2765,
+    "basis": "Anthony Hill",
+    "before": 2752,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.02"
+   },
+   {
+    "after": 2752,
+    "basis": "Emmett Johnson",
+    "before": 2687,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.03"
+   },
+   {
+    "after": 2687,
+    "basis": "Mike Washington",
+    "before": 2684,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.04"
+   },
+   {
+    "after": 2685,
+    "basis": "Ja'Kobi Lane",
+    "before": 2649,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.05"
+   },
+   {
+    "after": 2493,
+    "basis": "Josiah Trotter",
+    "before": 2455,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.07"
+   },
+   {
+    "after": 2455,
+    "basis": "Caleb Douglas",
+    "before": 2385,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.08"
+   },
+   {
+    "after": 2386,
+    "basis": "Malachi Fields",
+    "before": 2372,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.09"
+   },
+   {
+    "after": 2373,
+    "basis": "Carson Beck",
+    "before": 2372,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.10"
+   },
+   {
+    "after": 2372,
+    "basis": "Max Klare",
+    "before": 2368,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.11"
+   },
+   {
+    "after": 2346,
+    "basis": "Rueben Bain",
+    "before": 2330,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 3.12"
+   },
+   {
+    "after": 2210,
+    "basis": "Nicholas Singleton",
+    "before": 2209,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 4.03"
+   },
+   {
+    "after": 2117,
+    "basis": "Kaleb Elarms-Orr",
+    "before": 2145,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 4.04"
+   },
+   {
+    "after": 1974,
+    "basis": "Matt Hibner",
+    "before": 1972,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 4.06"
+   },
+   {
+    "after": 1922,
+    "basis": "AJ Haulcy",
+    "before": 1929,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 4.09"
+   },
+   {
+    "after": 1903,
+    "basis": "Jake Golday",
+    "before": 1910,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.01"
+   },
+   {
+    "after": 1884,
+    "basis": "John Michael Gyllenborg",
+    "before": 1891,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.02"
+   },
+   {
+    "after": 1878,
+    "basis": "Akheem Mesidor",
+    "before": 1884,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.03"
+   },
+   {
+    "after": 1867,
+    "basis": "Treydan Stukes",
+    "before": 1874,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.04"
+   },
+   {
+    "after": 1851,
+    "basis": "Emmanuel McNeil-Warren",
+    "before": 1856,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.06"
+   },
+   {
+    "after": 1841,
+    "basis": "Marlin Klein",
+    "before": 1850,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.07"
+   },
+   {
+    "after": 1815,
+    "basis": "Kyle Louis",
+    "before": 1806,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.08"
+   },
+   {
+    "after": 1808,
+    "basis": "Skyler Bell",
+    "before": 1799,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.09"
+   },
+   {
+    "after": 1808,
+    "basis": "Elijah Sarratt",
+    "before": 1783,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.10"
+   },
+   {
+    "after": 1800,
+    "basis": "Kaytron Allen",
+    "before": 1779,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.11"
+   },
+   {
+    "after": 1789,
+    "basis": "Nate Boerkircher",
+    "before": 1770,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 5.12"
+   },
+   {
+    "after": 1788,
+    "basis": "Chris Brazzell",
+    "before": 1748,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.01"
+   },
+   {
+    "after": 1783,
+    "basis": "Demond Claiborne",
+    "before": 1745,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.02"
+   },
+   {
+    "after": 1739,
+    "basis": "Cashius Howell",
+    "before": 1725,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.03"
+   },
+   {
+    "after": 1725,
+    "basis": "Malachi Lawrence",
+    "before": 1718,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.04"
+   },
+   {
+    "after": 1719,
+    "basis": "Sam Roush",
+    "before": 1715,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.05"
+   },
+   {
+    "after": 1718,
+    "basis": "Jack Endries",
+    "before": 1708,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.06"
+   },
+   {
+    "after": 1716,
+    "basis": "Kendal Daniels",
+    "before": 1707,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.07"
+   },
+   {
+    "after": 1708,
+    "basis": "Michael Trigg",
+    "before": 1690,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.08"
+   },
+   {
+    "after": 1693,
+    "basis": "Jaishawn Barham",
+    "before": 1681,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.09"
+   },
+   {
+    "after": 1691,
+    "basis": "R Mason Thomas",
+    "before": 1669,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.10"
+   },
+   {
+    "after": 1676,
+    "basis": "Keldric Faulk",
+    "before": 1668,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.11"
+   },
+   {
+    "after": 1669,
+    "basis": "Chris Johnson",
+    "before": 1666,
+    "provenance": "rookie_pool_tether",
+    "row": "2027 Pick 6.12"
+   }
+  ],
+  "sampleTrades": [
+   {
+    "base": {
+     "adjustedGap": -659,
+     "rawGap": -1172,
+     "sideA": [
+      3555
+     ],
+     "sideB": [
+      2394,
+      2333
+     ]
+    },
+    "sideA": [
+     "Myles Garrett"
+    ],
+    "sideB": [
+     "T.J. Watt",
+     "Danielle Hunter"
+    ],
+    "target": {
+     "adjustedGap": -747,
+     "rawGap": -1255,
+     "sideA": [
+      3469
+     ],
+     "sideB": [
+      2415,
+      2309
+     ]
+    },
+    "trade": "1-for-2 edge rushers"
+   },
+   {
+    "base": {
+     "adjustedGap": 2687,
+     "rawGap": 2687,
+     "sideA": [
+      4624
+     ],
+     "sideB": [
+      1937
+     ]
+    },
+    "sideA": [
+     "Jacob Rodriguez"
+    ],
+    "sideB": [
+     "Trevin Wallace"
+    ],
+    "target": {
+     "adjustedGap": 2998,
+     "rawGap": 2998,
+     "sideA": [
+      4932
+     ],
+     "sideB": [
+      1934
+     ]
+    },
+    "trade": "rookie LB for vet LB"
+   },
+   {
+    "base": {
+     "adjustedGap": 5502,
+     "rawGap": 6460,
+     "sideA": [
+      4772,
+      4354
+     ],
+     "sideB": [
+      2666
+     ]
+    },
+    "sideA": [
+     "Aidan Hutchinson",
+     "Will Anderson"
+    ],
+    "sideB": [
+     "Jared Verse"
+    ],
+    "target": {
+     "adjustedGap": 5380,
+     "rawGap": 6350,
+     "sideA": [
+      4772,
+      4407
+     ],
+     "sideB": [
+      2829
+     ]
+    },
+    "trade": "2-for-1 IDP stars"
+   }
+  ],
+  "tradeAssetsChanged": 421,
+  "tradeAssetsChangedNotExplainedByRowChange": [],
+  "tradeValueEqualsCanonicalMismatches": 0
+ },
+ "buildSeconds": {
+  "A": 2.06,
+  "B": 1.44,
+  "B_noIDPTC": 1.13,
+  "C": 2.24,
+  "C'": 2.29,
+  "C''": 2.85,
+  "C_noIDPTC": 2.15,
+  "D": 2.92
+ },
+ "codeSha": "766468a75a",
+ "impactSummary": {
+  "I1": {
+   "base": "D",
+   "label": "increment: DLF IDP given V2",
+   "summary": {
+    "idp": {
+     "confidenceChanges": {
+      "low->medium": 26,
+      "medium->low": 20
+     },
+     "down": 80,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 8,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 6.66,
+     "medianAbsPctOfMoved": 1.27,
+     "p90AbsPctOfMoved": 4.01,
+     "pricedRows": 397,
+     "rankChangesGe25": 13,
+     "up": 100,
+     "valueMoved": 180
+    },
+    "offense": {
+     "confidenceChanges": {},
+     "down": 1,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 2.95,
+     "medianAbsPctOfMoved": 2.95,
+     "p90AbsPctOfMoved": 2.95,
+     "pricedRows": 488,
+     "rankChangesGe25": 0,
+     "up": 0,
+     "valueMoved": 1
+    },
+    "pick": {
+     "confidenceChanges": {},
+     "down": 9,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 4.74,
+     "medianAbsPctOfMoved": 0.52,
+     "p90AbsPctOfMoved": 2.43,
+     "pricedRows": 120,
+     "rankChangesGe25": 0,
+     "up": 29,
+     "valueMoved": 38
+    },
+    "top100": {
+     "entered": [
+      "Makai Lemon"
+     ],
+     "left": [
+      "Fred Warner"
+     ]
+    },
+    "top200": {
+     "entered": [
+      "Anthony Hill",
+      "Jared Verse",
+      "Laiatu Latu",
+      "Nick Bosa"
+     ],
+     "left": [
+      "Braelon Allen",
+      "DeMarvion Overshown",
+      "Emmett Johnson",
+      "Tremaine Edmunds"
+     ]
+    }
+   },
+   "target": "C"
+  },
+  "I2": {
+   "base": "D",
+   "label": "increment: D4 given V2",
+   "summary": {
+    "idp": {
+     "confidenceChanges": {},
+     "down": 0,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 0.0,
+     "medianAbsPctOfMoved": 0.0,
+     "p90AbsPctOfMoved": 0.0,
+     "pricedRows": 397,
+     "rankChangesGe25": 0,
+     "up": 0,
+     "valueMoved": 0
+    },
+    "offense": {
+     "confidenceChanges": {
+      "high->medium": 2,
+      "low->medium": 8,
+      "medium->high": 3,
+      "medium->low": 3
+     },
+     "down": 191,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 4.39,
+     "medianAbsPctOfMoved": 0.21,
+     "p90AbsPctOfMoved": 1.26,
+     "pricedRows": 488,
+     "rankChangesGe25": 2,
+     "up": 111,
+     "valueMoved": 302
+    },
+    "pick": {
+     "confidenceChanges": {},
+     "down": 18,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 1.47,
+     "medianAbsPctOfMoved": 0.11,
+     "p90AbsPctOfMoved": 0.59,
+     "pricedRows": 120,
+     "rankChangesGe25": 0,
+     "up": 25,
+     "valueMoved": 43
+    },
+    "top100": {
+     "entered": [],
+     "left": []
+    },
+    "top200": {
+     "entered": [],
+     "left": []
+    }
+   },
+   "target": "C'"
+  },
+  "I3": {
+   "base": "C",
+   "label": "increment: D4 given V2 + DLF IDP",
+   "summary": {
+    "idp": {
+     "confidenceChanges": {},
+     "down": 0,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 0.0,
+     "medianAbsPctOfMoved": 0.0,
+     "p90AbsPctOfMoved": 0.0,
+     "pricedRows": 397,
+     "rankChangesGe25": 0,
+     "up": 0,
+     "valueMoved": 0
+    },
+    "offense": {
+     "confidenceChanges": {
+      "high->medium": 2,
+      "low->medium": 8,
+      "medium->high": 3,
+      "medium->low": 3
+     },
+     "down": 191,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 4.39,
+     "medianAbsPctOfMoved": 0.21,
+     "p90AbsPctOfMoved": 1.26,
+     "pricedRows": 488,
+     "rankChangesGe25": 2,
+     "up": 111,
+     "valueMoved": 302
+    },
+    "pick": {
+     "confidenceChanges": {},
+     "down": 18,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 1.41,
+     "medianAbsPctOfMoved": 0.11,
+     "p90AbsPctOfMoved": 0.59,
+     "pricedRows": 120,
+     "rankChangesGe25": 0,
+     "up": 24,
+     "valueMoved": 42
+    },
+    "top100": {
+     "entered": [
+      "Fred Warner"
+     ],
+     "left": [
+      "Makai Lemon"
+     ]
+    },
+    "top200": {
+     "entered": [
+      "Emmett Johnson"
+     ],
+     "left": [
+      "Wan'Dale Robinson"
+     ]
+    }
+   },
+   "target": "C''"
+  },
+  "I4": {
+   "base": "C'",
+   "label": "increment: DLF IDP given V2 + D4",
+   "summary": {
+    "idp": {
+     "confidenceChanges": {
+      "low->medium": 26,
+      "medium->low": 20
+     },
+     "down": 80,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 8,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 6.66,
+     "medianAbsPctOfMoved": 1.27,
+     "p90AbsPctOfMoved": 4.01,
+     "pricedRows": 397,
+     "rankChangesGe25": 13,
+     "up": 100,
+     "valueMoved": 180
+    },
+    "offense": {
+     "confidenceChanges": {},
+     "down": 1,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 2.95,
+     "medianAbsPctOfMoved": 2.95,
+     "p90AbsPctOfMoved": 2.95,
+     "pricedRows": 488,
+     "rankChangesGe25": 0,
+     "up": 0,
+     "valueMoved": 1
+    },
+    "pick": {
+     "confidenceChanges": {},
+     "down": 9,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 4.58,
+     "medianAbsPctOfMoved": 0.69,
+     "p90AbsPctOfMoved": 2.43,
+     "pricedRows": 120,
+     "rankChangesGe25": 0,
+     "up": 28,
+     "valueMoved": 37
+    },
+    "top100": {
+     "entered": [],
+     "left": []
+    },
+    "top200": {
+     "entered": [
+      "Anthony Hill",
+      "Jared Verse",
+      "Laiatu Latu",
+      "Nick Bosa"
+     ],
+     "left": [
+      "Braelon Allen",
+      "DeMarvion Overshown",
+      "Tremaine Edmunds",
+      "Wan'Dale Robinson"
+     ]
+    }
+   },
+   "target": "C''"
+  },
+  "S1": {
+   "base": "A",
+   "label": "V2 only (DLF IDP held, D4 off)",
+   "summary": {
+    "idp": {
+     "confidenceChanges": {},
+     "down": 0,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 1,
+     "maxAbsPct": 0.0,
+     "medianAbsPctOfMoved": 0.0,
+     "p90AbsPctOfMoved": 0.0,
+     "pricedRows": 397,
+     "rankChangesGe25": 0,
+     "up": 0,
+     "valueMoved": 0
+    },
+    "offense": {
+     "confidenceChanges": {
+      "high->medium": 6,
+      "low->medium": 1,
+      "medium->high": 1,
+      "medium->low": 6
+     },
+     "down": 34,
+     "enteredRankedBoard": 1,
+     "ge10pct": 1,
+     "ge5pct": 2,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 34.57,
+     "medianAbsPctOfMoved": 0.14,
+     "p90AbsPctOfMoved": 2.49,
+     "pricedRows": 488,
+     "rankChangesGe25": 4,
+     "up": 155,
+     "valueMoved": 189
+    },
+    "pick": {
+     "confidenceChanges": {},
+     "down": 2,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 3.09,
+     "medianAbsPctOfMoved": 0.41,
+     "p90AbsPctOfMoved": 1.94,
+     "pricedRows": 120,
+     "rankChangesGe25": 0,
+     "up": 23,
+     "valueMoved": 25
+    },
+    "top100": {
+     "entered": [],
+     "left": []
+    },
+    "top200": {
+     "entered": [
+      "Dalton Schultz",
+      "Michael Mayer"
+     ],
+     "left": [
+      "2029 Mid 2nd",
+      "Woody Marks"
+     ]
+    }
+   },
+   "target": "D"
+  },
+  "S2": {
+   "base": "A",
+   "label": "V2 + DLF IDP + DLF Rookie IDP (\u00a79 primary target)",
+   "summary": {
+    "idp": {
+     "confidenceChanges": {
+      "low->medium": 26,
+      "medium->low": 20
+     },
+     "down": 80,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 8,
+     "leftRankedBoard": 1,
+     "maxAbsPct": 6.66,
+     "medianAbsPctOfMoved": 1.27,
+     "p90AbsPctOfMoved": 4.01,
+     "pricedRows": 397,
+     "rankChangesGe25": 13,
+     "up": 100,
+     "valueMoved": 180
+    },
+    "offense": {
+     "confidenceChanges": {
+      "high->medium": 6,
+      "low->medium": 1,
+      "medium->high": 1,
+      "medium->low": 6
+     },
+     "down": 35,
+     "enteredRankedBoard": 1,
+     "ge10pct": 1,
+     "ge5pct": 2,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 34.57,
+     "medianAbsPctOfMoved": 0.15,
+     "p90AbsPctOfMoved": 2.57,
+     "pricedRows": 488,
+     "rankChangesGe25": 5,
+     "up": 155,
+     "valueMoved": 190
+    },
+    "pick": {
+     "confidenceChanges": {},
+     "down": 10,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 4.74,
+     "medianAbsPctOfMoved": 0.69,
+     "p90AbsPctOfMoved": 2.43,
+     "pricedRows": 120,
+     "rankChangesGe25": 0,
+     "up": 41,
+     "valueMoved": 51
+    },
+    "top100": {
+     "entered": [
+      "Makai Lemon"
+     ],
+     "left": [
+      "Fred Warner"
+     ]
+    },
+    "top200": {
+     "entered": [
+      "Anthony Hill",
+      "Dalton Schultz",
+      "Jared Verse",
+      "Laiatu Latu",
+      "Michael Mayer",
+      "Nick Bosa"
+     ],
+     "left": [
+      "2029 Mid 2nd",
+      "Braelon Allen",
+      "DeMarvion Overshown",
+      "Emmett Johnson",
+      "Tremaine Edmunds",
+      "Woody Marks"
+     ]
+    }
+   },
+   "target": "C"
+  },
+  "S3": {
+   "base": "A",
+   "label": "V2 + D4 (DLF IDP held)",
+   "summary": {
+    "idp": {
+     "confidenceChanges": {},
+     "down": 0,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 1,
+     "maxAbsPct": 0.0,
+     "medianAbsPctOfMoved": 0.0,
+     "p90AbsPctOfMoved": 0.0,
+     "pricedRows": 397,
+     "rankChangesGe25": 0,
+     "up": 0,
+     "valueMoved": 0
+    },
+    "offense": {
+     "confidenceChanges": {
+      "high->medium": 8,
+      "low->medium": 8,
+      "medium->high": 4,
+      "medium->low": 8
+     },
+     "down": 184,
+     "enteredRankedBoard": 1,
+     "ge10pct": 1,
+     "ge5pct": 3,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 34.57,
+     "medianAbsPctOfMoved": 0.31,
+     "p90AbsPctOfMoved": 1.94,
+     "pricedRows": 488,
+     "rankChangesGe25": 6,
+     "up": 167,
+     "valueMoved": 351
+    },
+    "pick": {
+     "confidenceChanges": {},
+     "down": 15,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 4.12,
+     "medianAbsPctOfMoved": 0.17,
+     "p90AbsPctOfMoved": 1.14,
+     "pricedRows": 120,
+     "rankChangesGe25": 0,
+     "up": 35,
+     "valueMoved": 50
+    },
+    "top100": {
+     "entered": [],
+     "left": []
+    },
+    "top200": {
+     "entered": [
+      "Dalton Schultz",
+      "Michael Mayer"
+     ],
+     "left": [
+      "2029 Mid 2nd",
+      "Woody Marks"
+     ]
+    }
+   },
+   "target": "C'"
+  },
+  "S4": {
+   "base": "A",
+   "label": "V2 + DLF IDP + DLF Rookie IDP + D4 (everything)",
+   "summary": {
+    "idp": {
+     "confidenceChanges": {
+      "low->medium": 26,
+      "medium->low": 20
+     },
+     "down": 80,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 8,
+     "leftRankedBoard": 1,
+     "maxAbsPct": 6.66,
+     "medianAbsPctOfMoved": 1.27,
+     "p90AbsPctOfMoved": 4.01,
+     "pricedRows": 397,
+     "rankChangesGe25": 13,
+     "up": 100,
+     "valueMoved": 180
+    },
+    "offense": {
+     "confidenceChanges": {
+      "high->medium": 8,
+      "low->medium": 8,
+      "medium->high": 4,
+      "medium->low": 8
+     },
+     "down": 185,
+     "enteredRankedBoard": 1,
+     "ge10pct": 1,
+     "ge5pct": 3,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 34.57,
+     "medianAbsPctOfMoved": 0.31,
+     "p90AbsPctOfMoved": 1.94,
+     "pricedRows": 488,
+     "rankChangesGe25": 6,
+     "up": 167,
+     "valueMoved": 352
+    },
+    "pick": {
+     "confidenceChanges": {},
+     "down": 20,
+     "enteredRankedBoard": 0,
+     "ge10pct": 0,
+     "ge5pct": 0,
+     "leftRankedBoard": 0,
+     "maxAbsPct": 4.74,
+     "medianAbsPctOfMoved": 0.57,
+     "p90AbsPctOfMoved": 2.35,
+     "pricedRows": 120,
+     "rankChangesGe25": 0,
+     "up": 46,
+     "valueMoved": 66
+    },
+    "top100": {
+     "entered": [],
+     "left": []
+    },
+    "top200": {
+     "entered": [
+      "Anthony Hill",
+      "Dalton Schultz",
+      "Jared Verse",
+      "Laiatu Latu",
+      "Michael Mayer",
+      "Nick Bosa"
+     ],
+     "left": [
+      "2029 Mid 2nd",
+      "Braelon Allen",
+      "DeMarvion Overshown",
+      "Tremaine Edmunds",
+      "Wan'Dale Robinson",
+      "Woody Marks"
+     ]
+    }
+   },
+   "target": "C''"
+  }
+ },
+ "inputsSha": "7e1ab657e16db922",
+ "payloadSha256": "3ef54acda8c1062f96d02692fc22ea8ebc7e8f9bc38168359efac60675119199",
+ "peakRssMb": 297.0,
+ "pin": "pin2015",
+ "schema": "oiv2-dlf-readiness/v1",
+ "verdicts": [
+  [
+   "R1",
+   "DLF IDP / Rookie IDP vote inside the one DLF family cap; never a second DLF family vote",
+   true
+  ],
+  [
+   "R2",
+   "correct populations (IDP only, rookie board on rookies only, held on A)",
+   true
+  ],
+  [
+   "R3",
+   "DLF Rookie IDP translated through its IDPTC ladder; fails closed without it (V2)",
+   true
+  ],
+  [
+   "R4",
+   "DLF's own IDP votes not rejected under V2",
+   true
+  ],
+  [
+   "R5",
+   "DS / FP / IDPTC keep voting when DLF is added under V2 (C vs D, C'' vs C')",
+   true
+  ],
+  [
+   "R5b",
+   "C vs A: other-source IDP votes lost = 0 (V2 Layer A / B decisions, independent of DLF)",
+   "INFO"
+  ],
+  [
+   "R6",
+   "confidence reflects the added evidence (DLF = +1 family where it votes; no bucket change where silent)",
+   true
+  ],
+  [
+   "R7",
+   "board consistency (structural lane, ranks, IDP ranks, scale, blend integrity)",
+   true
+  ],
+  [
+   "R8",
+   "two-way player: published value = DB alt value; dlfIdp in the alt panel only where restored; V2 drops nothing",
+   true
+  ],
+  [
+   "R9",
+   "picks move only through the rookie tether; trade engines read the one canonical value",
+   true
+  ],
+  [
+   "R10",
+   "D4: DLF Values votes offense only, held on A / C, never priced as picks, no Layer C drop of its own votes",
+   true
+  ]
+ ]
+}

@@ -1,0 +1,33 @@
+{
+  "_comment": "REAL screenshot (redacted derivative): an uncropped full-browser KeepTradeCut trade page. The browser tab strip, bookmark bar and profile avatar are blanked with solid fill; everything else (address bar, site sidebar, banner, controls, Insights widget, ads) is kept as layout noise. Bryce Young / Omarion Hampton appear in the Insights widget and must never be imported.",
+  "forbiddenWarnings": [
+    "missing_side",
+    "low_layout_confidence",
+    "trade_region_not_detected"
+  ],
+  "layoutKind": "two_column",
+  "mustBeIgnored": [
+    "Bryce Young",
+    "Omarion Hampton"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Jaxson Dart",
+          "text": "Jaxson Dart"
+        }
+      ],
+      "label": "Team 1 gets"
+    },
+    {
+      "assets": [
+        {
+          "boardName": "De'Von Achane",
+          "text": "De'Von Achane"
+        }
+      ],
+      "label": "Team 2 gets"
+    }
+  ]
+}

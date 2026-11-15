@@ -9,6 +9,25 @@ when any of these conditions hold:
     * Signal-alert cron hasn't run in > 36h (expected every 12h)
     * Session-store SQLite integrity check fails
     * Data freshness > 3 × scrape interval
+    * A draft-capital dollars generation serving last-known-good or
+      unavailable (Batch F, one alert per league + draft class)
+    * A Game Day pregame-projections archive that could not be built, so
+      its week's raw weekly-projection log is being kept (one alert per
+      league + season + week)
+    * A forecast family whose served model has trailed its simple named baseline
+      under the pre-declared degradation rule (MD-104): a REVIEW REQUEST for the
+      owner, one per league + family + target + model version + rule version.
+      It promotes, demotes and changes nothing.
+    * Roster Construction's CURRENT season withheld because its lineup rules
+      are contradicted by the host's own matchups (owner decision D2; one
+      alert per league + season)
+    * An irreplaceable store the newest backup generation does not hold while
+      its source exists on this host, or one the writer recorded as failed or
+      shed (one alert per store), and a post-deploy restore proof that failed,
+      could not run or died mid-way (``src/api/backup_health.py``)
+    * A shipped ``dynasty-*`` / ``riskit-*`` systemd service in the ``failed``
+      state -- a timer whose latest run failed (``src/api/systemd_failures.py``;
+      one alert per unit)
 
 Cooldown: each alert class has a 4-hour re-alert cooldown keyed
 on the synthetic user ``_system_ops_alerts`` in user_kv so the
@@ -174,17 +193,598 @@ def _check_data_freshness(
     )
 
 
+def _check_draft_valuation(rows: list[dict[str, Any]]) -> list[OpsAlert]:
+    """Draft-capital dollars generations that are not serving a fresh answer.
+
+    One alert per (league, draft class), keyed ``draft_valuation:<league>:<year>``
+    so the existing cooldown and recovery bookkeeping apply per class.  A row
+    comes from ``src/draft/rookie_auction/generation.generation_health``:
+    ``last_known_good`` (a refresh failed; the class still serves its last
+    verified allocation) is a warning; ``unavailable`` for an unexpected
+    reason (no verified allocation at all — the board is refused) is
+    critical.  Expected answers (retired class, unconfigured league) arrive
+    with ``degraded: False`` and never alert.  No rows means "not checked",
+    never "healthy".
+    """
+    alerts: list[OpsAlert] = []
+    for row in rows or []:
+        if not isinstance(row, dict) or not row.get("degraded"):
+            continue
+        league = row.get("leagueKey")
+        year = row.get("draftYear")
+        state = row.get("allocationState")
+        reason = row.get("reason") or "unknown"
+        if state == "last_known_good":
+            alerts.append(
+                OpsAlert(
+                    severity="warning",
+                    category=f"draft_valuation:{league}:{year}",
+                    title=f"Draft capital {year} ({league}) serving last known good",
+                    detail=(
+                        f"The {year} class's rookie-auction refresh failed ({reason}); the last "
+                        f"verified whole-dollar allocation from {row.get('lastValidAt')} is "
+                        "being served, labelled last_known_good.  Check "
+                        "/api/draft-capital budgetPolicy.classes."
+                    ),
+                )
+            )
+        else:
+            alerts.append(
+                OpsAlert(
+                    severity="critical",
+                    category=f"draft_valuation:{league}:{year}",
+                    title=f"Draft capital {year} ({league}) unavailable",
+                    detail=(
+                        f"No verified whole-dollar allocation exists for the {year} class "
+                        f"({reason}).  Its picks are unpriced or the board is refused — "
+                        "never $0, never another year's curve."
+                    ),
+                )
+            )
+    return alerts
+
+
+def _check_roster_construction(rows: list[dict[str, Any]]) -> list[OpsAlert]:
+    """Roster Construction's CURRENT season withheld as lineup-rules-unverified.
+
+    Owner decision D2 (2026-11-01) withholds a whole season when any finalized
+    week's matchups contradict its recorded lineup rules -- fail closed, by
+    design.  For a past season that is a fixed fact; for the CURRENT season it
+    means one new contradicted week (a stat correction, a mid-season settings
+    change) has taken the live page's season offline, so it is surfaced here.
+    One alert per (league, season), keyed ``roster_construction:<league>:<season>``.
+    A row comes from ``server._roster_construction_health`` and exists only
+    while the current season is unavailable; ``None`` from the sweep means
+    "not checked", never "healthy".
+    """
+    alerts: list[OpsAlert] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        league, season = row.get("leagueKey"), row.get("season")
+        alerts.append(
+            OpsAlert(
+                severity="warning",
+                category=f"roster_construction:{league}:{season}",
+                title=f"Roster Construction {season} ({league}) withheld: lineup rules unverified",
+                detail=(
+                    f"The host's own {season} matchups contradict the season's recorded "
+                    f"starting-lineup settings ({', '.join(row.get('contradictions') or []) or 'unknown'}; "
+                    f"weeks {row.get('contradictedWeeks') or 'unknown'}), so the private "
+                    f"/roster-construction page serves {season} as unavailable "
+                    f"({row.get('reason')}).  Nothing is inferred.  Re-run "
+                    "scripts/roster_construction_parity_census.py to see which team-weeks."
+                ),
+            )
+        )
+    return alerts
+
+
+def _check_backup_coverage(block: dict[str, Any] | None) -> list[OpsAlert]:
+    """Irreplaceable-store coverage and the restore proof, from ``alert_rows``.
+
+    One alert per uncovered store, keyed ``backup_ledger:<store>``, and one for
+    the proof keyed ``backup_restore_proof``.  The email goes to the operator, so
+    it names the store (the public ``/api/health`` block never does).  A store
+    that does not exist on this host never reaches here -- ``absent_by_design``
+    is not a finding.
+    """
+    alerts: list[OpsAlert] = []
+    for row in (block or {}).get("rows") or []:
+        if not isinstance(row, dict):
+            continue
+        if row.get("kind") == "ledger":
+            store, status = row.get("store"), row.get("status")
+            alerts.append(
+                OpsAlert(
+                    severity="critical" if row.get("writerClass") == "core" else "warning",
+                    category=f"backup_ledger:{store}",
+                    title=f"Backup does not hold irreplaceable store {store} ({status})",
+                    detail=(
+                        f"The newest state-backup generation has no copy of {store}, but the "
+                        f"store exists on this host (status: {status}).  It cannot be "
+                        "rebuilt from anything else.  Check the nightly unit "
+                        "(`sudo journalctl -u riskit-state-backup.service`), disk space, "
+                        "and that the root-owned writer copy is current "
+                        "(deploy/apply_hardening.sh refreshes it)."
+                    ),
+                )
+            )
+        elif row.get("kind") == "restore_proof":
+            result = row.get("result")
+            alerts.append(
+                OpsAlert(
+                    severity="critical" if result == "failed" else "warning",
+                    category="backup_restore_proof",
+                    title=f"Backup restore proof did not pass ({result})",
+                    detail=(
+                        f"The post-deploy restore proof reports {result} "
+                        f"(completed {row.get('completedAt') or 'never'}, "
+                        f"{row.get('failures')} failed artifact(s)).  A backup that "
+                        "does not restore is not a backup: read the "
+                        "`Retention backup + restore proof` workflow run."
+                    ),
+                )
+            )
+    return alerts
+
+
+def _check_failed_units(units: list[str] | None) -> list[OpsAlert]:
+    """One alert per shipped systemd service whose latest run failed.
+
+    Keyed ``systemd_unit:<unit>`` so cooldown and recovery are per unit.  A
+    oneshot service stays ``failed`` until its next successful run, so the
+    recovery notice fires when that run succeeds.  ``None`` from the sweep is
+    "not checked" (see ``check_and_alert``), never "no failures".
+    """
+    return [
+        OpsAlert(
+            severity="warning",
+            category=f"systemd_unit:{unit}",
+            title=f"systemd unit {unit} is in the failed state",
+            detail=(
+                f"The latest run of {unit} exited non-zero or timed out, and it has not "
+                f"succeeded since.  Read why with: sudo journalctl -u {unit} -n 80 --no-pager.  "
+                f"Clear it by fixing the cause and letting the timer fire "
+                f"(sudo systemctl start {unit} to run it now)."
+            ),
+        )
+        for unit in (units or [])
+    ]
+
+
+def _check_pregame_archive(rows: list[dict[str, Any]]) -> list[OpsAlert]:
+    """Game Day pregame-projections archives that could not be established.
+
+    One alert per (league, season, week), keyed
+    ``pregame_archive:<league>:<season>:<week>`` so the cooldown and recovery
+    bookkeeping apply per week.  A row comes from
+    ``src/ros/game_day_live.pregame_archive_health``: it exists exactly while
+    ``ensure_pregame_archive`` is keeping that week's raw log because the
+    archive could not be built, written, read back or made durable (fail closed
+    -- nothing is deleted).  The row disappears when that is established, which
+    is how the recovery notice fires.  No rows means "nothing failing"; the
+    sweep passes ``None`` -- never an empty list -- when the store could not be
+    read.
+
+    Three reasons are not build failures and say so: ``archive_unreadable`` (a
+    file at the archive path that does not read back, which the collector never
+    overwrites), ``archive_directory_unflushed`` (the verified archive is in
+    place; only making its rename durable is pending -- a byte-identical
+    rewrite of the archive followed by a directory flush while the raw weekly
+    log remains, whatever step failed last; only a re-flush once it is gone)
+    and ``raw_log_prune_failed`` (the archive is in place; only removing the
+    raw log failed).
+
+    Every text is chosen by what is still on disk, which the row states in two
+    fields: ``weeklyLogRetained`` (the raw weekly-projection log itself) and
+    ``rawLogRetained`` (the week's ``observations/`` directory, which holds
+    every source's log).  Three states: the weekly log is retained (what the
+    byte-identical rewrite protects); only other sources' raw observations are
+    left (nothing to protect or rebuild from -- e.g. a prune that removed the
+    weekly log but not the rest); or nothing is.  The weekly log lives inside
+    ``observations/``, so it implies that directory.  A row without
+    ``weeklyLogRetained`` (built before the field existed) is read the way its
+    reader meant it: ``rawLogRetained`` for both.
+
+    A legacy read-back-mismatch row whose leftover could not be set aside
+    (``setAsideFailed``) has its own text: the refused rename is the blocker.
+    A throttled row whose marker is no longer being refreshed
+    (``throttleStale: true``) does not claim "at most hourly": its text says
+    the failure marker could not be updated, so the collector retries on every
+    pass, and that the time shown is when the marker was last recorded.  Every
+    other row's text is unchanged by either field.
+    """
+    alerts: list[OpsAlert] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        league, season, week = row.get("leagueKey"), row.get("season"), row.get("week")
+        reason = row.get("reason") or "unknown"
+        failure = f"could not be established ({reason}; failed {row.get('failedAt')})."
+        # When the incident began: ``firstFailedAt``, or ``failedAt`` on a marker
+        # written before the start was recorded.  ``failedAt`` alone is the latest
+        # attempt (for ``archive_unreadable``, the latest hourly re-record).
+        since = row.get("firstFailedAt") or row.get("failedAt")
+        unreadable = f"could not be established ({reason}; failing since {since})."
+        weekly = row.get("weeklyLogRetained")
+        if not isinstance(weekly, bool):
+            weekly = bool(row.get("rawLogRetained"))
+        observations = weekly or bool(row.get("rawLogRetained"))
+        # A throttling marker no longer being refreshed: the hourly limit is not
+        # holding, so no text may promise it (see ``pregame_archive_health``).
+        stale = row.get("throttleStale") is True
+        hourly = (
+            "on every pass while its failure marker cannot be updated (see below)"
+            if stale
+            else "at most hourly"
+        )
+        stale_note = (
+            f"  The failure marker has not been updated since {row.get('failedAt')}, although "
+            "every retry updates it, so the hourly throttle is not holding: the marker most "
+            "likely could not be updated (it reads back but cannot be written or replaced -- a "
+            "read-only file, say), so the collector retries on every pass and warns each time "
+            "that the failure is NOT recorded.  If instead the collector has not run the retry at "
+            f"all (out of season, or stopped), nothing is retried.  {row.get('failedAt')} is "
+            "when the marker was last recorded, not the latest attempt."
+            if stale
+            else ""
+        )
+        stale_title = " (failure marker not updating)" if stale else ""
+        if weekly and reason == "archive_directory_unflushed":
+            kind = row.get("flushFailure")
+            if kind == "rewrite":
+                # The latest attempt never reached a flush: the rewrite itself
+                # (a write, a read or the sha256 check) could not complete.
+                lead = (
+                    f"The verified pregame weekly-projections archive for {league} {season} week "
+                    f"{week} is in place, but the byte-identical rewrite that re-establishes the "
+                    f"rename that put it there could not complete ({reason}; flush failure: "
+                    f"rewrite; failing since {since}).  Until that rewrite and its directory "
+                    "flush succeed a power loss could undo the rename"
+                )
+                cause = (
+                    "The rewrite stopped before any directory flush ran (an I/O error, or a copy "
+                    "whose sha256 did not match), and the accepted archive was left untouched."
+                )
+                closing = (
+                    "This resolves when the byte-identical rewrite and its directory flush succeed."
+                )
+            else:
+                lead = (
+                    f"The verified pregame weekly-projections archive for {league} {season} week "
+                    f"{week} is in place, but the directory holding it could not be flushed to disk "
+                    f"({reason}; flush failure: {kind or 'unrecorded'}; failing since "
+                    f"{since}).  Until a flush succeeds a power loss could undo the rename that put "
+                    "it there"
+                )
+                cause = {
+                    "open": "The directory could not be opened, so no fsync ran.",
+                    "fsync": "fsync reported an error.",
+                }.get(kind, "The failed step is not on record.")
+                closing = "This resolves when the directory flush succeeds."
+            title = (
+                f"Pregame projections archive for {season} week {week} "
+                f"awaiting a durable directory flush{stale_title}"
+            )
+            detail = (
+                f"{lead}, so the raw weekly-projection log is retained -- the prune keeps it "
+                "rather than delete evidence the archive may not yet durably hold.  "
+                f"{cause}  Whatever the failed step, the Game Day collector's retry, {hourly}, "
+                "rewrites the accepted archive byte for byte -- its own bytes, read back "
+                "and checked by sha256, never rebuilt from the raw log -- renames that copy over "
+                "it and flushes the directory again: no bare re-flush is trusted, because Linux "
+                "reports a write error to only one fsync and the marker that would record it is "
+                "best effort.  See pregame_projections.retained.json beside the week.  "
+                f"{closing}{stale_note}"
+            )
+        elif weekly and reason == "raw_log_prune_failed":
+            title = (
+                f"Pregame projections archive for {season} week {week} in place; "
+                f"raw log not removed{stale_title}"
+            )
+            detail = (
+                f"The verified pregame weekly-projections archive for {league} {season} week "
+                f"{week} is in place, but the week's raw observations could not be removed after "
+                f"it was established ({reason}; failing since {since}).  Nothing is lost: the raw "
+                f"log simply stays on disk.  The Game Day collector retries {hourly} -- each "
+                "retry first makes the archive's rename durable again (by a byte-identical "
+                "rewrite of its own bytes, checked by sha256, while the raw weekly log remains; "
+                "never a rebuild), then removes the raw log again.  See "
+                "pregame_projections.retained.json beside the week.  This resolves when the raw "
+                f"log is removed.{stale_note}"
+            )
+        elif weekly and reason == "archive_unreadable":
+            title = f"Pregame projections archive for {season} week {week} unreadable"
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{unreadable}  A file is at the archive path but does not read back, and the Game "
+                "Day collector never overwrites an unreadable archive, so it is not rebuilt.  The "
+                "raw weekly-projection log is retained -- the prune keeps it rather than delete "
+                "evidence it has not archived -- and that week's pregame baseline is not "
+                "preserved for the projection scorecard until the archive reads back.  The "
+                "collector re-checks the file on every pass; see pregame_projections.retained.json "
+                "beside the week.  This resolves when the file at the archive path reads back, or "
+                "once it is removed and the next hourly build succeeds."
+            )
+        elif weekly and reason == "archive_readback_mismatch" and row.get("setAsideFailed"):
+            # A LEGACY marker (no candidateFlow): an archive an earlier version
+            # left at the accepted path never passed verification, and the rename
+            # that would set it aside was refused.  ``failedAt`` is only the
+            # latest hourly attempt; the incident began at ``firstFailedAt``.
+            title = (
+                f"Pregame projections archive for {season} week {week} not built; "
+                f"untrusted archive could not be set aside{stale_title}"
+            )
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{unreadable}  A file an earlier version of the collector left at the archive "
+                "path never passed verification, so it is not trusted, and the rename that sets "
+                "it aside (to pregame_projections.json.gz.mismatch) was refused: that refused "
+                "rename is what blocks the rebuild.  The untrusted file stays at the archive "
+                "path and is never accepted.  The raw weekly-projection log is retained -- the "
+                "prune keeps it rather than delete evidence it has not archived -- but until a "
+                "verified archive exists that week's pregame baseline is not preserved for the "
+                f"projection scorecard.  The Game Day collector retries the set-aside {hourly}; "
+                "see pregame_projections.retained.json beside the week.  This resolves when the "
+                "set-aside rename succeeds and the rebuilt archive verifies."
+                f"{stale_note}"
+            )
+        elif weekly:
+            title = f"Pregame projections archive for {season} week {week} not built"
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{failure}  The raw weekly-projection log is retained -- the prune keeps it "
+                "rather than delete evidence it has not archived -- but until the archive "
+                "exists that week's pregame baseline is not preserved for the projection "
+                "scorecard, and its raw observations stay on disk.  The Game Day collector "
+                "retries hourly; see pregame_projections.retained.json beside the week.  This "
+                "resolves when a build succeeds."
+            )
+        elif observations and reason == "archive_directory_unflushed":
+            # Only other sources' raw observations are left: the weekly log the
+            # byte-identical rewrite protects is gone, so the retry re-flushes only.
+            kind = row.get("flushFailure")
+            if kind == "rewrite":
+                lead = (
+                    f"The verified pregame weekly-projections archive for {league} {season} week "
+                    f"{week} is in place, but the byte-identical rewrite that re-establishes the "
+                    f"rename that put it there could not complete ({reason}; flush failure: "
+                    f"rewrite; failing since {since})"
+                )
+                cause = (
+                    "That rewrite stopped before any directory flush ran (an I/O error, or a copy "
+                    "whose sha256 did not match), and the accepted archive was left untouched."
+                )
+            else:
+                lead = (
+                    f"The verified pregame weekly-projections archive for {league} {season} week "
+                    f"{week} is in place, but the directory holding it could not be flushed to disk "
+                    f"({reason}; flush failure: {kind or 'unrecorded'}; failing since {since})"
+                )
+                cause = {
+                    "open": "The directory could not be opened, so no fsync ran.",
+                    "fsync": "fsync reported an error.",
+                }.get(kind, "The failed step is not on record.")
+            title = (
+                f"Pregame projections archive for {season} week {week} "
+                f"awaiting a durable directory flush{stale_title}"
+            )
+            detail = (
+                f"{lead}.  {cause}  The raw weekly-projection log is no longer on disk, so there "
+                "is nothing left to protect: the archive is the only record of that week's pregame "
+                f"projections, and the Game Day collector's retry, {hourly}, only re-flushes "
+                "the directory -- it never rewrites or rebuilds the archive.  The week's other raw "
+                "observations stay on disk until that flush succeeds.  See "
+                "pregame_projections.retained.json beside the week.  This resolves when the "
+                f"directory flush succeeds.{stale_note}"
+            )
+        elif observations and reason == "raw_log_prune_failed":
+            title = (
+                f"Pregame projections archive for {season} week {week} in place; "
+                f"raw observations not fully removed{stale_title}"
+            )
+            detail = (
+                f"The verified pregame weekly-projections archive for {league} {season} week "
+                f"{week} is in place, but the week's raw observations could not be fully removed "
+                f"after it was established ({reason}; failing since {since}).  The raw "
+                "weekly-projection log itself is already gone, and the archive was established "
+                "before the prune ran, so nothing is lost; the week's other raw observations stay "
+                f"on disk.  The Game Day collector retries {hourly} -- with no weekly log left "
+                "to protect, each retry only re-flushes the directory holding the archive (never a "
+                "rewrite or a rebuild), then removes the remaining observations again.  See "
+                "pregame_projections.retained.json beside the week.  This resolves when the "
+                f"remaining raw observations are removed.{stale_note}"
+            )
+        elif observations and reason == "archive_unreadable":
+            title = f"Pregame projections archive for {season} week {week} unreadable"
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{unreadable}  A file is at the archive path but does not read back, and the Game "
+                "Day collector never overwrites an unreadable archive.  The raw weekly-projection "
+                "log is no longer on disk either, so the archive cannot be rebuilt: unless that "
+                "file is repaired, the week's pregame baseline is lost from the projection "
+                "scorecard.  The week's other raw observations are kept while the file is "
+                "unreadable.  The collector re-checks the file on every pass; see "
+                "pregame_projections.retained.json beside the week.  This resolves when the file "
+                "at the archive path reads back, or once it is removed -- the week is then left "
+                "with no archive and nothing to build one from."
+            )
+        elif observations:
+            title = (
+                f"Pregame projections archive for {season} week {week} not built; "
+                "raw weekly log gone"
+            )
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{failure}  The raw weekly-projection log it is built from is no longer on disk, "
+                "so no build can run and none is retried: unless an archive is already in place, "
+                "the week's pregame baseline is not preserved for the projection scorecard.  The "
+                "week's other raw observations are still on disk.  The Game Day collector's next "
+                "pass clears this marker: at once if no file is at the archive path, or after "
+                "re-flushing the directory holding a readable archive there (a flush that fails "
+                "replaces it with archive_directory_unflushed instead); a file there that does not "
+                "read back replaces it with archive_unreadable.  See "
+                "pregame_projections.retained.json beside the week."
+            )
+        else:
+            # No raw log and no readable archive: nothing is left to rebuild
+            # from and the prune never revisits a week without observations/,
+            # so there is no retry and no automatic resolution.
+            title = f"Pregame projections archive for {season} week {week} cannot be rebuilt"
+            detail = (
+                f"The pregame weekly-projections archive for {league} {season} week {week} "
+                f"{failure}  The raw weekly-projection log is gone and no readable archive "
+                "exists, so the week cannot be rebuilt: its pregame baseline is permanently "
+                "missing from the projection scorecard.  The Game Day collector does not "
+                "retry a week that has no raw log.  This alert keeps firing until the failure "
+                "marker (pregame_projections.retained.json beside the week) is removed."
+            )
+        alerts.append(
+            OpsAlert(
+                severity="warning",
+                category=f"pregame_archive:{league}:{season}:{week}",
+                title=title,
+                detail=detail,
+            )
+        )
+    return alerts
+
+
+FORECAST_DEGRADATION_PREFIX = "forecast_degradation:"
+_FORECAST_REVIEWS_FILE = "forecast_scorecard.json"
+
+
+FORECAST_REVIEWS_MAX_AGE_HOURS = 10 * 24.0
+
+
+def forecast_degradation_reviews(
+    path: Any = None,
+    *,
+    now: float | None = None,
+    max_age_hours: float = FORECAST_REVIEWS_MAX_AGE_HOURS,
+) -> list[dict[str, Any]] | None:
+    """Pending review requests from the standing scorecard, or ``None`` when unknown.
+
+    The scorecard (``scripts/forecast_scorecard.py``) writes its result to the
+    private learning store; this only reads its ``degradationReviews``.  No file
+    means the scorecard has not fired anything (``[]``); a file that does not
+    parse is UNKNOWN (``None``), never "recovered".  So is a STALE file (its
+    ``evaluatedAt`` missing, unparseable, or older than ``max_age_hours``): a
+    stopped timer must not freeze a review as active, or as healthy, forever.
+    """
+    import json
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    target = (
+        Path(path)
+        if path is not None
+        else Path(__file__).resolve().parents[2]
+        / "data"
+        / "learning"
+        / "scorecards"
+        / _FORECAST_REVIEWS_FILE
+    )
+    try:
+        if not target.exists():
+            return []
+        body = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(body, dict):
+        return None
+    stamp = body.get("evaluatedAt")
+    try:
+        evaluated = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+        if evaluated.tzinfo is None:
+            evaluated = evaluated.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    current = time.time() if now is None else now
+    age_hours = (current - evaluated.timestamp()) / 3600.0
+    if age_hours > max_age_hours or age_hours < -1.0:
+        return None
+    rows = body.get("degradationReviews")
+    return [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else None
+
+
+def _check_forecast_degradation(rows: list[dict[str, Any]]) -> list[OpsAlert]:
+    """One review request per fired degradation rule (MD-104).
+
+    ``category`` comes from the review row (it names the rule version and model
+    version), so a new model version or a new rule version is a new review.  The
+    text always states the effect: a request for a human to look, nothing more.
+    """
+    alerts: list[OpsAlert] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        category = row.get("category")
+        if not isinstance(category, str) or not category.startswith(FORECAST_DEGRADATION_PREFIX):
+            continue
+        metric = row.get("metric")
+        ci = row.get("deltaCi95")
+        try:
+            ci_text = f", 95% CI {float(ci[0]):.4f} to {float(ci[1]):.4f}"
+        except (TypeError, ValueError, IndexError, KeyError):
+            ci_text = ""
+        alerts.append(
+            OpsAlert(
+                severity="warning",
+                category=category,
+                title=(
+                    f"Forecast review requested: {row.get('family')} model "
+                    f"{row.get('modelVersion')} trails {row.get('baseline')} "
+                    f"(rule {row.get('ruleVersion')})"
+                ),
+                detail=(
+                    f"League {row.get('leagueKey')}, target {row.get('target')}: the served model's "
+                    f"{metric} is worse than the {row.get('baseline')} baseline by "
+                    f"{row.get('delta'):.4f} (declared margin {row.get('margin')}{ci_text}) on "
+                    f"{row.get('eligible')} identical samples, for {row.get('streak')} consecutive "
+                    f"evaluations (rule requires {row.get('streakRequired')}).  Rule version "
+                    f"{row.get('ruleVersion')} is declared in "
+                    "config/forecast_scorecard/degradation_rule_v1.json.  This is a REVIEW REQUEST "
+                    "only: nothing was promoted, demoted, disabled or changed.  Detail: "
+                    "data/learning/scorecards/forecast_scorecard.json on the box."
+                    if isinstance(row.get("delta"), (int, float))
+                    else "Review requested; see data/learning/scorecards/forecast_scorecard.json."
+                ),
+            )
+        )
+    return alerts
+
+
 def _load_ops_state(path: Any = None) -> dict[str, Any]:
     state = user_kv.get_user_state(_OPS_STATE_USER, path=path)
     return dict(state.get("opsAlertState") or {})
 
 
-def _save_ops_state(state: dict[str, Any], path: Any = None) -> None:
-    user_kv.merge_user_state(
-        _OPS_STATE_USER,
-        {"opsAlertState": state},
-        path=path,
-    )
+def _save_ops_state(state: dict[str, Any], categories: set[str], path: Any = None) -> None:
+    """Write back ONLY the categories this sweep changed, onto the CURRENT
+    stored state, under the user_kv write lock.
+
+    The sweep reads its state, then delivers (seconds), then writes.  Writing
+    the whole ``opsAlertState`` copy back discarded every category another
+    sweep recorded meanwhile -- including a delivered alert's cooldown, which
+    then fired again.  A category this sweep did not touch keeps its stored
+    value; one it removed is removed.
+    """
+    if not categories:
+        return
+
+    def _apply(entry: dict[str, Any]) -> None:
+        current = entry.get("opsAlertState")
+        current = dict(current) if isinstance(current, dict) else {}
+        for category in categories:
+            if category in state:
+                current[category] = state[category]
+            else:
+                current.pop(category, None)
+        entry["opsAlertState"] = current
+
+    user_kv.mutate_user_state(_OPS_STATE_USER, _apply, path=path)
 
 
 def _should_fire(
@@ -196,6 +796,12 @@ def _should_fire(
     """Cooldown check.  Returns True when an alert should fire,
     False when it's within the re-alert window."""
     last = state.get(alert.category) or {}
+    if alert.category.startswith(FORECAST_DEGRADATION_PREFIX):
+        # Review requests are deduplicated per incident, not per cooldown window:
+        # once the owner has been told, a persisting condition stays silent.  It
+        # re-arms only after its recovery notice (the condition cleared).
+        delivered = last.get("deliveredAt") or last.get("firedAt")
+        return delivered is None or bool(last.get("recoveryFired"))
     # Audit F-20: the window is spent by a DELIVERED alert, never by the
     # decision to send one.  "We decided to alert", "we attempted delivery"
     # and "the operator was told" are three different facts, and only the
@@ -286,6 +892,12 @@ def check_and_alert(
     contract_health: dict[str, Any] | None = None,
     data_age_hours: float | None = None,
     scrape_interval_hours: float = 2.0,
+    draft_valuation: list[dict[str, Any]] | None = None,
+    pregame_archive: list[dict[str, Any]] | None = None,
+    roster_construction: list[dict[str, Any]] | None = None,
+    backup_coverage: dict[str, Any] | None = None,
+    failed_units: list[str] | None = None,
+    forecast_degradation: list[dict[str, Any]] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     kv_path: Any = None,
@@ -305,10 +917,42 @@ def check_and_alert(
     df = _check_data_freshness(data_age_hours, scrape_interval_hours)
     if df:
         alerts.append(df)
+    alerts.extend(_check_draft_valuation(draft_valuation or []))
+    alerts.extend(_check_pregame_archive(pregame_archive or []))
+    alerts.extend(_check_roster_construction(roster_construction or []))
+    alerts.extend(_check_backup_coverage(backup_coverage))
+    alerts.extend(_check_failed_units(failed_units))
+    try:
+        alerts.extend(_check_forecast_degradation(forecast_degradation or []))
+    except Exception as exc:  # noqa: BLE001 -- malformed scorecard content never breaks the sweep
+        _LOGGER.warning("forecast degradation check skipped: %s", exc)
 
     active_categories = {a.category for a in alerts}
     now = time.time()
     state = _load_ops_state(path=kv_path)
+    if draft_valuation is None:
+        # Not checked this sweep is UNKNOWN, not recovered: keep any firing
+        # draft-valuation class out of the recovery notices.
+        active_categories |= {c for c in state if str(c).startswith("draft_valuation:")}
+    if pregame_archive is None:
+        # Likewise: an unreadable Game Day store is UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c).startswith("pregame_archive:")}
+    if roster_construction is None:
+        # Not checked (flag lookup or snapshot failed) is UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c).startswith("roster_construction:")}
+    if forecast_degradation is None:
+        # An unreadable scorecard is UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c).startswith(FORECAST_DEGRADATION_PREFIX)}
+
+    if failed_units is None:
+        # systemctl could not be asked: UNKNOWN, not recovered.
+        active_categories |= {c for c in state if str(c).startswith("systemd_unit:")}
+    # An unjudgeable half (unreadable state root, a proof that has not reported,
+    # or no backup pass at all) is UNKNOWN, not recovered.
+    if not (backup_coverage or {}).get("ledgersChecked"):
+        active_categories |= {c for c in state if str(c).startswith("backup_ledger:")}
+    if not (backup_coverage or {}).get("proofChecked"):
+        active_categories |= {c for c in state if str(c) == "backup_restore_proof"}
 
     # Recovery alerts first — for conditions that were firing but
     # aren't now.
@@ -373,5 +1017,10 @@ def check_and_alert(
             if not entry.get("deliveredAt"):
                 state.pop(a.category, None)
 
-    _save_ops_state(state, path=kv_path)
+    # Only what this sweep changed: every firing category (recorded or rolled
+    # back), and recoveries only when their notice was actually delivered.
+    touched = {a.category for a in firing}
+    if delivered:
+        touched |= {r.category for r in recovery_alerts}
+    _save_ops_state(state, touched, path=kv_path)
     return summary

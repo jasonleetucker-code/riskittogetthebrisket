@@ -11,34 +11,65 @@
 
 import { useEffect, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
+import { FailureState } from "@/components/ds";
+import { classifyContractFailure } from "@/lib/contract-failure";
 import { EmptyCard } from "../shared.jsx";
 import { Card } from "../shared-server.jsx";
 
 // Module-level cache so tab-switching doesn't re-fetch on every mount.
 // Same pattern + 30-min TTL that the other ROS sections use.
 const CACHE_TTL_MS = 30 * 60 * 1000;
-const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
+const _cache = { data: null, failure: null, inflight: null, fetchedAt: 0 };
 
-async function _fetchRosTeamStrength() {
-  const fresh = _cache.data && Date.now() - _cache.fetchedAt < CACHE_TTL_MS;
-  if (fresh) return { data: _cache.data, error: null };
+// Where an anonymous visitor is sent to sign in, and where they land after.
+export const ROS_TEAM_STRENGTH_LOGIN_HREF = `/login?next=${encodeURIComponent(
+  "/league?tab=rosTeamStrength",
+)}`;
+
+// 401 = signed out; 403 = signed in but not permitted.  This section is a
+// PRIVATE section (src/public_league/public_contract.py
+// PRIVATE_INTELLIGENCE_SECTIONS), so an anonymous 401 is the expected
+// answer, not a fault and never a reason to keep spinning.
+export function isAuthFailure(failure) {
+  return failure?.kind === "auth" || failure?.kind === "forbidden";
+}
+
+export function _resetRosTeamStrengthCache() {
+  _cache.data = null;
+  _cache.failure = null;
+  _cache.inflight = null;
+  _cache.fetchedAt = 0;
+}
+
+async function _fetchRosTeamStrength({ force = false } = {}) {
+  const fresh = !force && _cache.data && Date.now() - _cache.fetchedAt < CACHE_TTL_MS;
+  if (fresh) return { data: _cache.data, failure: null };
   if (_cache.inflight) return _cache.inflight;
 
   const promise = fetch("/api/public/league/rosTeamStrength")
-    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-    .then((payload) => {
-      const body = payload?.data || payload?.section || payload;
-      _cache.data = body;
-      _cache.error = null;
-      _cache.fetchedAt = Date.now();
-      _cache.inflight = null;
-      return { data: body, error: null };
+    .then(async (r) => {
+      let body = null;
+      try {
+        body = await r.json();
+      } catch {
+        body = null;
+      }
+      if (!r.ok) return { failure: classifyContractFailure(r.status, body) };
+      return { payload: body };
     })
-    .catch((err) => {
+    .catch(() => ({ failure: classifyContractFailure(null, null) }))
+    .then((result) => {
       _cache.inflight = null;
-      const message = String(err?.message || err);
-      _cache.error = message;
-      return { data: _cache.data, error: message };
+      if (result.failure) {
+        _cache.data = null;
+        _cache.failure = result.failure;
+        return { data: null, failure: result.failure };
+      }
+      const body = result.payload?.data || result.payload?.section || result.payload;
+      _cache.data = body;
+      _cache.failure = null;
+      _cache.fetchedAt = Date.now();
+      return { data: body, failure: null };
     });
 
   _cache.inflight = promise;
@@ -137,16 +168,25 @@ function TeamRow({ team, expanded, onToggle }) {
 
 export default function RosTeamStrengthSection() {
   const [data, setData] = useState(() => _cache.data);
-  const [error, setError] = useState(_cache.error);
-  const [loading, setLoading] = useState(!_cache.data);
+  const [failure, setFailure] = useState(_cache.failure);
+  const [loading, setLoading] = useState(!_cache.data && !_cache.failure);
   const [expanded, setExpanded] = useState(null);
+
+  const load = (opts) => {
+    setLoading(true);
+    return _fetchRosTeamStrength(opts).then(({ data: d, failure: f }) => {
+      setData(d);
+      setFailure(f);
+      setLoading(false);
+    });
+  };
 
   useEffect(() => {
     let active = true;
-    _fetchRosTeamStrength().then(({ data: d, error: e }) => {
+    _fetchRosTeamStrength().then(({ data: d, failure: f }) => {
       if (!active) return;
       setData(d);
-      setError(e);
+      setFailure(f);
       setLoading(false);
     });
     return () => {
@@ -155,10 +195,29 @@ export default function RosTeamStrengthSection() {
   }, []);
 
   if (loading && !data) return <LoadingState message="Loading ROS roster strength..." />;
-  if (error && !data) {
+  if (failure && !data) {
+    if (isAuthFailure(failure)) {
+      return (
+        <Card>
+          <div role="status" data-testid="ros-team-strength-auth-required">
+            <EmptyState
+              title="Team Strength is available to signed-in league members"
+              message="This view breaks down each roster's lineup and depth, so it is not shown publicly."
+            />
+            <p style={{ textAlign: "center", marginTop: 8 }}>
+              <a href={ROS_TEAM_STRENGTH_LOGIN_HREF}>Sign in to view Team Strength</a>
+            </p>
+          </div>
+        </Card>
+      );
+    }
     return (
       <Card>
-        <EmptyState title="ROS roster strength unavailable" message={error} />
+        <FailureState
+          failure={failure}
+          context="ROS roster strength"
+          onRetry={() => load({ force: true })}
+        />
       </Card>
     );
   }

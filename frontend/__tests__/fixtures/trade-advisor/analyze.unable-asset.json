@@ -1,0 +1,54 @@
+{
+  "status": "success",
+  "leagueKey": "main",
+  "generation": "925cb8176237c9eb",
+  "fairnessVersion": "fairness_bands_v2",
+  "snapshotChanged": null,
+  "rosters": {
+    "state": "current",
+    "asOf": "2026-10-20"
+  },
+  "teamCount": 2,
+  "perspectiveRosterId": 1,
+  "overall": {
+    "result": "UNABLE_TO_DETERMINE",
+    "label": "UNABLE TO DETERMINE",
+    "reasonCode": "evidence_insufficient",
+    "reasonText": "There isn't enough reliable information to judge this whole trade.",
+    "note": null
+  },
+  "teams": [
+    {
+      "rosterId": 1,
+      "result": "UNABLE_TO_DETERMINE",
+      "label": "UNABLE TO DETERMINE",
+      "reasonCode": "asset_not_evaluable",
+      "reasonText": "One or more assets this team sends or receives can't be valued right now.",
+      "unavailableAssetIds": [
+        "p:9999"
+      ]
+    },
+    {
+      "rosterId": 2,
+      "result": "UNABLE_TO_DETERMINE",
+      "label": "UNABLE TO DETERMINE",
+      "reasonCode": "asset_not_evaluable",
+      "reasonText": "One or more assets this team sends or receives can't be valued right now.",
+      "unavailableAssetIds": [
+        "p:9999"
+      ]
+    }
+  ],
+  "trade": [
+    {
+      "id": "p:202",
+      "from": 2,
+      "to": 1
+    },
+    {
+      "id": "p:9999",
+      "from": 1,
+      "to": 2
+    }
+  ]
+}

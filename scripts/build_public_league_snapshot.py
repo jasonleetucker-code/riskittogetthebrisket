@@ -20,6 +20,7 @@ if str(REPO_ROOT) not in sys.path:
 from src.api import league_registry  # noqa: E402
 from src.public_league import build_public_contract, build_public_snapshot  # noqa: E402
 from src.public_league import snapshot_store  # noqa: E402
+from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402
 
 
 def _default_league_id() -> str:
@@ -64,8 +65,12 @@ def main() -> int:
     parser.add_argument(
         "--max-seasons",
         type=int,
-        default=2,
-        help="Max dynasty seasons to ingest (default 2).",
+        default=None,
+        help=(
+            "Safety cap on dynasty seasons to walk (default: the pipeline's "
+            "PUBLIC_MAX_SEASONS, i.e. the league's whole history).  A lower "
+            "value persists a TRUNCATED history, and the snapshot says so."
+        ),
     )
     parser.add_argument(
         "--no-players",
@@ -77,7 +82,7 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     snapshot = build_public_snapshot(
         args.league_id,
-        max_seasons=args.max_seasons,
+        max_seasons=args.max_seasons if args.max_seasons is not None else PUBLIC_MAX_SEASONS,
         include_nfl_players=not args.no_players,
     )
     if not snapshot.seasons:
@@ -86,9 +91,10 @@ def main() -> int:
     contract = build_public_contract(snapshot)
     snapshot_store.persist_snapshot(snapshot, contract=contract)
     logging.info(
-        "Persisted snapshot for league %s (%d seasons, %d managers) to %s",
+        "Persisted snapshot for league %s (%d seasons, history %s, %d managers) to %s",
         snapshot.root_league_id,
         len(snapshot.seasons),
+        (snapshot.history_coverage or {}).get("state", "unknown"),
         len(snapshot.managers.by_owner_id),
         snapshot_store.DATA_DIR,
     )

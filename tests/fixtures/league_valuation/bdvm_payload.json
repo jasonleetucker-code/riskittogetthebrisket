@@ -1,0 +1,998 @@
+{
+  "_comment": "Synthetic BDVM values payload (shape of src.bdvm.service.run_valuation). No real players.",
+  "meta": {
+    "asOf": "2026-10-19",
+    "leagueKey": "dynasty_main",
+    "modelVersion": "bdvm-1.0.0",
+    "paramSetId": "params_v1:abcdef123456",
+    "projectionSnapshot": {
+      "asOf": "2026-10-14T06:10:00+00:00",
+      "asOfSource": "snapshot",
+      "asOfUnknown": false
+    }
+  },
+  "players": [
+    {
+      "fundamental": {
+        "balanced": 1000.0
+      },
+      "group": "QB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic QB 0",
+      "playerId": "5000",
+      "position": "QB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 4.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 950.0
+      },
+      "group": "QB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic QB 1",
+      "playerId": "5001",
+      "position": "QB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 2,
+        "sources": [
+          "clay_espn",
+          "idpshow"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 3.5
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 850.0
+      },
+      "group": "WR",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic WR 2",
+      "playerId": "5002",
+      "position": "WR",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 1,
+        "sources": [
+          "clay_espn"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 2.5
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 800.0
+      },
+      "group": "RB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic RB 3",
+      "playerId": "5003",
+      "position": "RB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 2.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 900.0
+      },
+      "group": "TE",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic TE 4",
+      "playerId": "5004",
+      "position": "TE",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 2,
+        "sources": [
+          "clay_espn",
+          "idpshow"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 3.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 750.0
+      },
+      "group": "WR",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic WR 5",
+      "playerId": "5005",
+      "position": "WR",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 1,
+        "sources": [
+          "clay_espn"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 1.5
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 700.0
+      },
+      "group": "RB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic RB 6",
+      "playerId": "5006",
+      "position": "RB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 1.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 600.0
+      },
+      "group": "QB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic QB 7",
+      "playerId": "5007",
+      "position": "QB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 2,
+        "sources": [
+          "clay_espn",
+          "idpshow"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 0.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 650.0
+      },
+      "group": "TE",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic TE 8",
+      "playerId": "5008",
+      "position": "TE",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 1,
+        "sources": [
+          "clay_espn"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 0.5
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 550.0
+      },
+      "group": "WR",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic WR 9",
+      "playerId": "5009",
+      "position": "WR",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": -0.5
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 500.0
+      },
+      "group": "RB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic RB 10",
+      "playerId": "5010",
+      "position": "RB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 2,
+        "sources": [
+          "clay_espn",
+          "idpshow"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": -1.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 400.0
+      },
+      "group": "WR",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic WR 11",
+      "playerId": "5011",
+      "position": "WR",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 1,
+        "sources": [
+          "clay_espn"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": -2.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 450.0
+      },
+      "group": "TE",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic TE 12",
+      "playerId": "5012",
+      "position": "TE",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": -1.5
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 350.0
+      },
+      "group": "RB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic RB 13",
+      "playerId": "5013",
+      "position": "RB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 2,
+        "sources": [
+          "clay_espn",
+          "idpshow"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": -2.5
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 300.0
+      },
+      "group": "QB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic QB 14",
+      "playerId": "5014",
+      "position": "QB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 1,
+        "sources": [
+          "clay_espn"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": -3.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 250.0
+      },
+      "group": "WR",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic WR 15",
+      "playerId": "5015",
+      "position": "WR",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": -3.5
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 420.0
+      },
+      "group": "LB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic LB d0",
+      "playerId": "6000",
+      "position": "LB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 1.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 380.0
+      },
+      "group": "DL",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic DL d1",
+      "playerId": "6001",
+      "position": "DL",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 2.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 340.0
+      },
+      "group": "DB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic DB d2",
+      "playerId": "6002",
+      "position": "DB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 3.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 300.0
+      },
+      "group": "LB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic LB d3",
+      "playerId": "6003",
+      "position": "LB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 4.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 500.0
+      },
+      "group": "DL",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic DL d4",
+      "playerId": "6004",
+      "position": "DL",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 5.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 460.0
+      },
+      "group": "DB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic DB d5",
+      "playerId": "6005",
+      "position": "DB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 6.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 700.0
+      },
+      "group": "WR",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic Quarantined",
+      "playerId": "7002",
+      "position": "WR",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 3.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 900.0
+      },
+      "group": "RB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic Haircut",
+      "playerId": "7003",
+      "position": "RB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 9.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 880.0
+      },
+      "group": "DB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic TwoWay",
+      "playerId": "7004",
+      "position": "DB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 8.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 950.0
+      },
+      "group": "TE",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic Blend",
+      "playerId": "7005",
+      "position": "TE",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 9.5
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 990.0
+      },
+      "group": "RB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic OffCap",
+      "playerId": "7006",
+      "position": "RB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 9.9
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 999.0
+      },
+      "group": "RB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic Proxy",
+      "playerId": "7008",
+      "position": "RB",
+      "projection": {
+        "anyProxy": true,
+        "sourceCount": 1,
+        "sources": [
+          "reconstructed_baseline"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 9.99
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 998.0
+      },
+      "group": "QB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic Stale",
+      "playerId": "7009",
+      "position": "QB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 1,
+        "sources": [
+          "clay_espn"
+        ],
+        "staleSources": [
+          "clay_espn"
+        ]
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 9.98
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "win_now": 500.0
+      },
+      "group": "TE",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic NoBalanced",
+      "playerId": "7010",
+      "position": "TE",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 2.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 400.0
+      },
+      "group": "WR",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic NoVorg",
+      "playerId": "7011",
+      "position": "WR",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    },
+    {
+      "fundamental": {
+        "balanced": 300.0
+      },
+      "group": "LB",
+      "market": {
+        "gap": 99999.0,
+        "marketValue": 1.0
+      },
+      "name": "Synthetic NoMarket",
+      "playerId": "7012",
+      "position": "LB",
+      "projection": {
+        "anyProxy": false,
+        "sourceCount": 3,
+        "sources": [
+          "clay_espn",
+          "idpshow",
+          "manual"
+        ],
+        "staleSources": []
+      },
+      "raw": {
+        "fpg": 10.0,
+        "replacement": 8.0,
+        "vorg": 1.0
+      },
+      "tradeValue": {
+        "balanced": 5000.0
+      }
+    }
+  ],
+  "status": "ok",
+  "unpriced": [
+    {
+      "name": "Synthetic Rookie",
+      "position": "WR",
+      "reason": "no_projection"
+    }
+  ]
+}

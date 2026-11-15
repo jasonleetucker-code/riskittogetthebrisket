@@ -151,11 +151,23 @@ test.describe("api: roster-aware trade suggestions", () => {
         expect(String(asset.name || "").length).toBeGreaterThan(0);
         expect(Number.isFinite(Number(asset.displayValue))).toBeTruthy();
         expect(Number(asset.displayValue)).toBeGreaterThan(0);
-        // The gate the engine advertises must be the gate it applied.
-        expect(
-          Number(asset.boardRank),
-          `${asset.name} ranks ${asset.boardRank}, past the advertised top-150 gate`,
-        ).toBeLessThanOrEqual(150);
+        // The gate the engine advertises must be the gate it applied.  Two
+        // gates exist: the top-150 board, and the per-position starter floor
+        // (``metadata.positionalFloor``) that admits demanded positions the
+        // global top-N holds none of (IDP).  Every asset names its gate, and
+        // only a floor-admitted asset may rank past 150.
+        if (asset.qualityGate === "positional_floor") {
+          expect(
+            body.metadata?.positionalFloor?.applied,
+            `${asset.name} claims the positional floor, which the response does not advertise`,
+          ).toBe(true);
+        } else {
+          expect(asset.qualityGate, `${asset.name} names no quality gate`).toBe("top_n");
+          expect(
+            Number(asset.boardRank),
+            `${asset.name} ranks ${asset.boardRank}, past the advertised top-150 gate`,
+          ).toBeLessThanOrEqual(150);
+        }
       }
 
       // Correctness: you can only trade away players you own.

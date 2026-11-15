@@ -21,6 +21,10 @@ from datetime import date, timedelta
 from src.api.data_contract import build_api_data_contract
 from src.consensus_edge import panel
 from src.consensus_edge.fair_value import fair_value_index
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _deep_only = unittest.skipIf(
     panel.is_shallow(),

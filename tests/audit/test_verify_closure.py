@@ -54,7 +54,7 @@ def vc():
 
 
 def _write(path: Path, payload) -> Path:
-    path.write_text(json.dumps(payload))
+    path.write_text(json.dumps(payload), encoding="utf-8")
     return path
 
 
@@ -143,7 +143,7 @@ class TestClaimLedgerFailsClosed:
 
     def test_malformed_json_raises(self, vc, tmp_path):
         bad = tmp_path / "bad.json"
-        bad.write_text('{"claims": [BROKEN')
+        bad.write_text('{"claims": [BROKEN', encoding="utf-8")
         with pytest.raises(vc.EvidenceLedgerError, match="not valid JSON"):
             vc.load_required_claim_ledger(bad)
 
@@ -186,7 +186,7 @@ class TestExistingLedgerFailsClosed:
 
     def test_corrupt_full_ledger_raises(self, vc, tmp_path):
         corrupt = tmp_path / "closure.json"
-        corrupt.write_text('{"records": [BROKEN')
+        corrupt.write_text('{"records": [BROKEN', encoding="utf-8")
         with pytest.raises(vc.EvidenceLedgerError, match="not valid JSON"):
             vc.load_existing_ledger_records(corrupt)
 
@@ -230,7 +230,7 @@ class TestRealCliFailsClosed:
         findings = _findings_fixture(tmp_path / "findings.json", ["W01-F001"])
         out = _write(tmp_path / "closure.json", {"records": [{"id": "SENTINEL"}]})
         report = tmp_path / "CLOSURE_STATUS.md"
-        report.write_text("SENTINEL REPORT")
+        report.write_text("SENTINEL REPORT", encoding="utf-8")
 
         proc = _run_cli(
             "--claims-file", str(tmp_path / "absent.json"),
@@ -242,16 +242,16 @@ class TestRealCliFailsClosed:
         assert proc.returncode != 0, proc.stdout
         assert "claims ledger not found" in proc.stderr
         # Last known-good outputs untouched.
-        assert json.loads(out.read_text())["records"] == [{"id": "SENTINEL"}]
-        assert report.read_text() == "SENTINEL REPORT"
+        assert json.loads(out.read_text(encoding="utf-8"))["records"] == [{"id": "SENTINEL"}]
+        assert report.read_text(encoding="utf-8") == "SENTINEL REPORT"
 
     def test_corrupt_claims_ledger_exits_nonzero_and_writes_nothing(self, tmp_path):
         findings = _findings_fixture(tmp_path / "findings.json", ["W01-F001"])
         claims = tmp_path / "claims.json"
-        claims.write_text("{not json")
+        claims.write_text("{not json", encoding="utf-8")
         out = _write(tmp_path / "closure.json", {"records": [{"id": "SENTINEL"}]})
         report = tmp_path / "CLOSURE_STATUS.md"
-        report.write_text("SENTINEL REPORT")
+        report.write_text("SENTINEL REPORT", encoding="utf-8")
 
         proc = _run_cli(
             "--claims-file", str(claims),
@@ -262,17 +262,17 @@ class TestRealCliFailsClosed:
 
         assert proc.returncode != 0
         assert "not valid JSON" in proc.stderr
-        assert json.loads(out.read_text())["records"] == [{"id": "SENTINEL"}]
-        assert report.read_text() == "SENTINEL REPORT"
+        assert json.loads(out.read_text(encoding="utf-8"))["records"] == [{"id": "SENTINEL"}]
+        assert report.read_text(encoding="utf-8") == "SENTINEL REPORT"
 
     def test_filtered_run_with_corrupt_full_ledger_exits_nonzero(self, tmp_path):
         """The exact live failure: --id against an unreadable ledger."""
         findings = _findings_fixture(tmp_path / "findings.json", ["W01-F001", "W02-F002"])
         claims = _write(tmp_path / "claims.json", {"claims": []})
         out = tmp_path / "closure.json"
-        out.write_text('{"records": [BROKEN')
+        out.write_text('{"records": [BROKEN', encoding="utf-8")
         report = tmp_path / "CLOSURE_STATUS.md"
-        report.write_text("SENTINEL REPORT")
+        report.write_text("SENTINEL REPORT", encoding="utf-8")
 
         proc = _run_cli(
             "--id", "W01-F001",
@@ -286,8 +286,8 @@ class TestRealCliFailsClosed:
         assert "filtered update cannot safely proceed" in proc.stderr
         # The corrupt file is left exactly as found — not replaced by a
         # one-record ledger, which is what used to happen.
-        assert out.read_text() == '{"records": [BROKEN'
-        assert report.read_text() == "SENTINEL REPORT"
+        assert out.read_text(encoding="utf-8") == '{"records": [BROKEN'
+        assert report.read_text(encoding="utf-8") == "SENTINEL REPORT"
 
     def test_filtered_run_with_valid_ledger_updates_only_requested(self, tmp_path):
         findings = _findings_fixture(tmp_path / "findings.json", ["W01-F001", "W02-F002"])
@@ -313,7 +313,7 @@ class TestRealCliFailsClosed:
         )  # fmt: skip
 
         assert proc.returncode == 0, proc.stderr
-        records = {r["id"]: r for r in json.loads(out.read_text())["records"]}
+        records = {r["id"]: r for r in json.loads(out.read_text(encoding="utf-8"))["records"]}
         assert len(records) == 3, "untouched records must survive a filtered run"
         assert records["W01-F001"]["closure"] != "STALE", "the requested id updates"
         assert records["W02-F002"]["closure"] == "KEEPME", "others are preserved verbatim"
@@ -333,7 +333,7 @@ class TestRealCliFailsClosed:
         )  # fmt: skip
 
         assert proc.returncode == 0, proc.stderr
-        assert json.loads(out.read_text())["totals"]["findings"] == 1
+        assert json.loads(out.read_text(encoding="utf-8"))["totals"]["findings"] == 1
 
 
 class TestTheRealLedgerIsIntact:

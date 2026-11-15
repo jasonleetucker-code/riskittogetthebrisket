@@ -490,7 +490,7 @@ def main() -> int:
 
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
-        args.json_out.write_text(json.dumps(result["constants"], indent=2))
+        args.json_out.write_text(json.dumps(result["constants"], indent=2), encoding="utf-8")
     return 0
 
 

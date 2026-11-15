@@ -81,7 +81,7 @@ def test_a_negative_player_still_fills_a_slot_nobody_else_can():
 
 def test_realized_objective_reproduces_host_awarded_best_ball_totals():
     """The 10 real 2025 Sleeper best-ball team-weeks still match 10/10."""
-    cases = json.loads((GOLDEN / "golden_bestball_lineups.json").read_text())
+    cases = json.loads((GOLDEN / "golden_bestball_lineups.json").read_text(encoding="utf-8"))
     assert len(cases) == 10
     for case in cases:
         roster = [

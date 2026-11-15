@@ -1,0 +1,159 @@
+{
+  "_comment": [
+    "IDP accuracy Lane B: replacement-level SHADOW methodology (v1).",
+    "Read by src/league_valuation/replacement_shadow.py and the offline report",
+    "scripts/idp_accuracy/replacement_report.py, and by nothing else: no route,",
+    "flag, contract field, cache, engine or page reads it.",
+    "",
+    "Authority: docs/owner/IDP_VALUATION_ACCURACY_DIRECTIVE_2026-10-25.md section 7.",
+    "Shadow only. Nothing here changes a served value, anchor, flag or scoring rule.",
+    "",
+    "PROVENANCE OF EVERY NUMBER: each constant is classified CONVENTION (a number",
+    "already used by an existing owner, cited), PRIOR (chosen for a stated reason,",
+    "never fitted on the board it is applied to) or STRUCTURAL (a definition, not a",
+    "tunable). Nothing is fitted. The report publishes a sensitivity for each PRIOR",
+    "that could change a headline.",
+    "",
+    "paramSetId is the content hash of everything except itself",
+    "(replacement_shadow.param_set_id_for); a test refuses a file whose id does not",
+    "match its content."
+  ],
+  "modelVersion": "replacement_shadow_v1",
+  "paramSetId": "replacement_shadow_v1:2c9789bec6d4",
+  "positions": {
+    "main": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "DL",
+      "LB",
+      "DB"
+    ],
+    "separate": [
+      "K"
+    ],
+    "classification": "STRUCTURAL",
+    "why": "K is reported separately and never enters a cross-position comparison: the served board prices no kicker, so every kicker value is UNPRICED (never zero)."
+  },
+  "window": {
+    "minGames": {
+      "value": 3,
+      "classification": "CONVENTION",
+      "why": "Investigation B's MIN_GAMES (scripts/idp_replacement_research.py). Fewer than this many games is an unestablished role: the player is not a weekly replacement and his ppg is not an expectation."
+    },
+    "walkForwardEvalWeeks": {
+      "value": [
+        4,
+        5,
+        6
+      ],
+      "classification": "STRUCTURAL",
+      "why": "The first weeks with at least minGames of strictly earlier history. A replacement is chosen from weeks before the week it is scored on (directive section 13 rule 13: no future data in historical predictions)."
+    }
+  },
+  "health": {
+    "classification": "CONVENTION",
+    "why": "Investigation B's strict rule (is_healthy_strict): an NFL team, an EXPLICIT status of Active, and no unavailable injury designation. A missing or unrecognised status is UNKNOWN and excluded, never healthy. Questionable is UNCERTAIN: kept in the pool and counted, with a sensitivity that drops it.",
+    "unavailableInjury": [
+      "IR",
+      "Out",
+      "PUP",
+      "Doubtful",
+      "Sus",
+      "NA",
+      "DNR",
+      "COV"
+    ],
+    "uncertainInjury": [
+      "Questionable"
+    ],
+    "unavailableStatuses": [
+      "Inactive",
+      "Injured Reserve",
+      "Physically Unable to Perform",
+      "Non Football Injury",
+      "Practice Squad",
+      "Suspended"
+    ]
+  },
+  "qualification": {
+    "primary": {
+      "kind": "percentile_of_production_starters",
+      "percentile": 10,
+      "classification": "CONVENTION",
+      "why": "Investigation B's A4 bar: P10 of the season-to-date ppg of the players the league's production-optimal lineups start at the position. 'Startable at all'."
+    },
+    "sensitivities": [
+      {
+        "kind": "percentile_of_production_starters",
+        "percentile": 25
+      },
+      {
+        "kind": "percentile_of_production_starters",
+        "percentile": 50
+      },
+      {
+        "kind": "best_ball_starter_floor"
+      }
+    ]
+  },
+  "levels": {
+    "rank": {
+      "value": 3,
+      "classification": "CONVENTION",
+      "why": "LI-5's waiver tier averages free-agent ranks 1-3 (DEFAULT_BAND = 2); the 3rd-best is the rank the directive names."
+    },
+    "topK": {
+      "value": 5,
+      "classification": "PRIOR",
+      "why": "The smallest panel whose median survives one outlying player in each direction (the blend's own n>=5 rung, CLAUDE.md step 7). Sensitivities at 3 and 10 are published."
+    },
+    "topKSensitivities": [
+      3,
+      10
+    ],
+    "band": {
+      "value": 2,
+      "classification": "CONVENTION",
+      "why": "LI-5 DEFAULT_BAND: the best-ball starter floor averages the lowest `band` team marginals."
+    }
+  },
+  "allocation": {
+    "rounds": {
+      "value": 3,
+      "classification": "PRIOR",
+      "why": "Three serial matching rounds: each team makes at most one claim per round; a round's winners leave the pool. 11 of 12 live rosters sit at the 58 cap, so every claim is a swap and deep multi-claim sequences are not realistic in one waiver cycle."
+    },
+    "method": "serial_max_gain_matching",
+    "mechanismNote": "A planner allocation (maximises total lineup points gained, each free agent to at most one team). It is NOT a model of FAAB bids and does not predict who wins a contested player.",
+    "candidateCapPerPosition": {
+      "value": 25,
+      "classification": "PRIOR",
+      "why": "Bounds compute only: the top candidates by ppg at each eligible position. A candidate outside the cap would need to beat 25 better-producing players at his own position to matter."
+    }
+  },
+  "teamSpecific": {
+    "scenario": "remove_best_started_player_at_position",
+    "classification": "STRUCTURAL",
+    "why": "The neutral hypothetical used for the table: the team loses its highest-ppg player at the position. The evaluator accepts any package."
+  },
+  "bootstrap": {
+    "replicates": {
+      "value": 500,
+      "classification": "PRIOR",
+      "why": "Percentile-interval resolution about 0.002; compute stays below a minute per table."
+    },
+    "seed": 20261025,
+    "level": 0.95,
+    "unit": "level definitions: each player's own played weeks are resampled with replacement and the whole definition is recomputed (propagates small-sample ppg noise and winner's-curse selection). Team-level and player-level tables: the cluster (team / player) is resampled, conditional on the realised ppg estimates.",
+    "caveat": "Six weeks is a small window. Intervals describe sampling noise inside it, not forward regression of a wire player's production."
+  },
+  "eligibility": {
+    "default": "sleeper_fantasy_positions",
+    "comparison": "nominal",
+    "classification": "STRUCTURAL",
+    "why": "Sleeper evaluates slot eligibility against fantasy_positions (a DL/LB hybrid is legal at either slot; Lane A verified the exact solver reproduces Sleeper's best-ball totals 72 of 72 on that basis). The nominal-position mode is Investigation B's pool keying and is the comparison for the eligibility-uncertainty band."
+  },
+  "unitsNote": "Levels are published in two units that are never mixed: ppg (league-scored points per game played, from the host-native scorer) and board value (rankDerivedValue, 1-9999). A player the board does not price has NO board value (UNPRICED, counted); a player with no games has NO ppg. Neither is ever zero."
+}

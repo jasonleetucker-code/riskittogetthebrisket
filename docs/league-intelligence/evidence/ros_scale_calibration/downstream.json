@@ -1,0 +1,1189 @@
+{
+  "code": {
+    "codeSha": "f7509c913eed2c3cd1b635c507f4af723beb9c7b",
+    "scriptSha256": "ed1651db90fc663de6be61cfe8fb03506139011dca6e68dfd146a1a8479f35dc",
+    "studyCodeDirty": false
+  },
+  "fitWeeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "idpShareOfTop100": {
+    "C0:mu": 0.53,
+    "C0:par": 0.5,
+    "CF:mu": 0.21,
+    "CF:par": 0.33,
+    "CG:mu": 0.24,
+    "CG:par": 0.33,
+    "CR:mu": 0.17,
+    "CR:par": 0.36,
+    "F:mu": 0.53,
+    "F:par": 0.5,
+    "rosRankOverall<=100": 0.53
+  },
+  "lineupStarterChangesVsC0": {
+    "CF": {
+      "max": 2,
+      "meanChanged": 0.8333333333333334
+    },
+    "CG": {
+      "max": 0,
+      "meanChanged": 0.0
+    },
+    "CR": {
+      "max": 2,
+      "meanChanged": 1.0
+    },
+    "F": {
+      "max": 0,
+      "meanChanged": 0.0
+    }
+  },
+  "models": {
+    "C0": {
+      "fits": {
+        "*": {
+          "a": 6.047174,
+          "b": 0.244391,
+          "n": 3603,
+          "source": "C0:*"
+        }
+      },
+      "modelId": "C0"
+    },
+    "CF": {
+      "fits": {
+        "DB": {
+          "a": 7.248062,
+          "b": 0.169968,
+          "n": 636,
+          "source": "CF:DB"
+        },
+        "DL": {
+          "a": 6.057133,
+          "b": 0.162476,
+          "n": 490,
+          "source": "CF:DL"
+        },
+        "K": {
+          "a": 7.983681,
+          "b": 0.200276,
+          "n": 131,
+          "source": "CF:K"
+        },
+        "LB": {
+          "a": 9.09408,
+          "b": 0.106193,
+          "n": 579,
+          "source": "CF:LB"
+        },
+        "QB": {
+          "a": 11.818604,
+          "b": 0.242549,
+          "n": 225,
+          "source": "CF:QB"
+        },
+        "RB": {
+          "a": 4.361184,
+          "b": 0.324508,
+          "n": 476,
+          "source": "CF:RB"
+        },
+        "TE": {
+          "a": 3.26002,
+          "b": 0.389013,
+          "n": 349,
+          "source": "CF:TE"
+        },
+        "WR": {
+          "a": 4.008748,
+          "b": 0.355895,
+          "n": 717,
+          "source": "CF:WR"
+        }
+      },
+      "modelId": "CF"
+    },
+    "CG": {
+      "fits": {
+        "DB": {
+          "a": 7.525451,
+          "b": 0.141088,
+          "n": 1705,
+          "source": "CG:IDP"
+        },
+        "DL": {
+          "a": 7.525451,
+          "b": 0.141088,
+          "n": 1705,
+          "source": "CG:IDP"
+        },
+        "K": {
+          "a": 7.983681,
+          "b": 0.200276,
+          "n": 131,
+          "source": "CG:K"
+        },
+        "LB": {
+          "a": 7.525451,
+          "b": 0.141088,
+          "n": 1705,
+          "source": "CG:IDP"
+        },
+        "QB": {
+          "a": 4.541208,
+          "b": 0.350172,
+          "n": 1767,
+          "source": "CG:OFF"
+        },
+        "RB": {
+          "a": 4.541208,
+          "b": 0.350172,
+          "n": 1767,
+          "source": "CG:OFF"
+        },
+        "TE": {
+          "a": 4.541208,
+          "b": 0.350172,
+          "n": 1767,
+          "source": "CG:OFF"
+        },
+        "WR": {
+          "a": 4.541208,
+          "b": 0.350172,
+          "n": 1767,
+          "source": "CG:OFF"
+        }
+      },
+      "modelId": "CG"
+    },
+    "CR": {
+      "fits": {
+        "DB": {
+          "a": 15.773679,
+          "b": -1.41393,
+          "n": 636,
+          "source": "CR:DB"
+        },
+        "DL": {
+          "a": 17.936966,
+          "b": -2.292155,
+          "n": 490,
+          "source": "CR:DL"
+        },
+        "K": {
+          "a": 10.352681,
+          "b": -0.521614,
+          "n": 131,
+          "source": "CR:K"
+        },
+        "LB": {
+          "a": 19.381978,
+          "b": -2.196092,
+          "n": 579,
+          "source": "CR:LB"
+        },
+        "QB": {
+          "a": 32.638091,
+          "b": -5.011746,
+          "n": 225,
+          "source": "CR:QB"
+        },
+        "RB": {
+          "a": 32.131198,
+          "b": -6.0522,
+          "n": 476,
+          "source": "CR:RB"
+        },
+        "TE": {
+          "a": 18.181938,
+          "b": -3.35615,
+          "n": 349,
+          "source": "CR:TE"
+        },
+        "WR": {
+          "a": 29.237281,
+          "b": -4.919799,
+          "n": 717,
+          "source": "CR:WR"
+        }
+      },
+      "modelId": "CR"
+    },
+    "F": {
+      "fits": {},
+      "modelId": "F"
+    }
+  },
+  "playoffSim": "INSUFFICIENT_BY_CONSTRUCTION (no completed season with as-of ROS snapshots; see V3 C2)",
+  "preregistration": "docs/league-intelligence/ROS_SCALE_CALIBRATION_PREREGISTRATION_2026-10-28.md",
+  "promotes": false,
+  "replacementStarterTier": {
+    "C0": {
+      "DB": 11.52,
+      "DL": 12.48,
+      "K": 7.97,
+      "LB": 12.27,
+      "QB": 13.25,
+      "RB": 12.129999999999999,
+      "TE": 9.614999999999998,
+      "WR": 10.985
+    },
+    "CF": {
+      "DB": 11.575,
+      "DL": 10.754999999999999,
+      "K": 9.56,
+      "LB": 11.405,
+      "QB": 18.95,
+      "RB": 12.44,
+      "TE": 8.934999999999999,
+      "WR": 11.74
+    },
+    "CG": {
+      "DB": 10.685,
+      "DL": 11.235,
+      "K": 9.56,
+      "LB": 11.115,
+      "QB": 14.855,
+      "RB": 13.260000000000002,
+      "TE": 9.655000000000001,
+      "WR": 11.615
+    },
+    "CR": {
+      "DB": 10.91,
+      "DL": 10.655000000000001,
+      "K": 9.379999999999999,
+      "LB": 11.094999999999999,
+      "QB": 18.31,
+      "RB": 12.485,
+      "TE": 8.575,
+      "WR": 11.295
+    },
+    "F": {
+      "DB": 8.295,
+      "DL": 9.74,
+      "K": 2.91,
+      "LB": 9.435,
+      "QB": 10.91,
+      "RB": 9.215,
+      "TE": 5.405,
+      "WR": 7.485
+    }
+  },
+  "representativePlayers": [
+    {
+      "family": "QB",
+      "familyRank": 1,
+      "mu": {
+        "C0": 27.15,
+        "CF": 32.77,
+        "CG": 34.78,
+        "CR": 32.64,
+        "F": 31.99
+      },
+      "name": "josh allen",
+      "par": {
+        "C0": 13.9,
+        "CF": 13.82,
+        "CG": 19.93,
+        "CR": 14.33,
+        "F": 21.08
+      },
+      "rosValue": 86.36
+    },
+    {
+      "family": "QB",
+      "familyRank": 12,
+      "mu": {
+        "C0": 15.46,
+        "CF": 21.16,
+        "CG": 18.02,
+        "CR": 20.18,
+        "F": 14.26
+      },
+      "name": "jared goff",
+      "par": {
+        "C0": 2.21,
+        "CF": 2.21,
+        "CG": 3.17,
+        "CR": 1.87,
+        "F": 3.35
+      },
+      "rosValue": 38.5
+    },
+    {
+      "family": "QB",
+      "familyRank": 36,
+      "mu": {
+        "C0": 8.9,
+        "CF": 14.65,
+        "CG": 8.63,
+        "CR": 14.68,
+        "F": 4.33
+      },
+      "name": "fernando mendoza",
+      "par": {
+        "C0": -4.35,
+        "CF": -4.3,
+        "CG": -6.22,
+        "CR": -3.63,
+        "F": -6.58
+      },
+      "rosValue": 11.68
+    },
+    {
+      "family": "RB",
+      "familyRank": 1,
+      "mu": {
+        "C0": 27.15,
+        "CF": 32.38,
+        "CG": 34.77,
+        "CR": 32.13,
+        "F": 31.97
+      },
+      "name": "jahmyr gibbs",
+      "par": {
+        "C0": 15.02,
+        "CF": 19.94,
+        "CG": 21.51,
+        "CR": 19.65,
+        "F": 22.76
+      },
+      "rosValue": 86.33
+    },
+    {
+      "family": "RB",
+      "familyRank": 12,
+      "mu": {
+        "C0": 15.43,
+        "CF": 16.82,
+        "CG": 17.98,
+        "CR": 17.09,
+        "F": 14.21
+      },
+      "name": "bhayshul tuten",
+      "par": {
+        "C0": 3.3,
+        "CF": 4.38,
+        "CG": 4.72,
+        "CR": 4.61,
+        "F": 5.0
+      },
+      "rosValue": 38.38
+    },
+    {
+      "family": "RB",
+      "familyRank": 36,
+      "mu": {
+        "C0": 10.67,
+        "CF": 10.5,
+        "CG": 11.16,
+        "CR": 10.44,
+        "F": 7.0
+      },
+      "name": "woody marks",
+      "par": {
+        "C0": -1.46,
+        "CF": -1.94,
+        "CG": -2.1,
+        "CR": -2.04,
+        "F": -2.21
+      },
+      "rosValue": 18.91
+    },
+    {
+      "family": "WR",
+      "familyRank": 1,
+      "mu": {
+        "C0": 21.98,
+        "CF": 27.21,
+        "CG": 27.37,
+        "CR": 29.24,
+        "F": 24.14
+      },
+      "name": "jaxon smith njigba",
+      "par": {
+        "C0": 10.99,
+        "CF": 15.47,
+        "CG": 15.75,
+        "CR": 17.94,
+        "F": 16.66
+      },
+      "rosValue": 65.19
+    },
+    {
+      "family": "WR",
+      "familyRank": 12,
+      "mu": {
+        "C0": 15.42,
+        "CF": 17.65,
+        "CG": 17.97,
+        "CR": 17.01,
+        "F": 14.2
+      },
+      "name": "tetairoa mcmillan",
+      "par": {
+        "C0": 4.43,
+        "CF": 5.91,
+        "CG": 6.35,
+        "CR": 5.72,
+        "F": 6.72
+      },
+      "rosValue": 38.34
+    },
+    {
+      "family": "WR",
+      "familyRank": 36,
+      "mu": {
+        "C0": 11.36,
+        "CF": 11.75,
+        "CG": 12.16,
+        "CR": 11.61,
+        "F": 8.06
+      },
+      "name": "jayden reed",
+      "par": {
+        "C0": 0.38,
+        "CF": 0.01,
+        "CG": 0.54,
+        "CR": 0.31,
+        "F": 0.57
+      },
+      "rosValue": 21.75
+    },
+    {
+      "family": "TE",
+      "familyRank": 1,
+      "mu": {
+        "C0": 14.76,
+        "CF": 17.12,
+        "CG": 17.02,
+        "CR": 18.18,
+        "F": 13.2
+      },
+      "name": "brock bowers",
+      "par": {
+        "C0": 5.14,
+        "CF": 8.19,
+        "CG": 7.37,
+        "CR": 9.61,
+        "F": 7.79
+      },
+      "rosValue": 35.64
+    },
+    {
+      "family": "TE",
+      "familyRank": 12,
+      "mu": {
+        "C0": 10.43,
+        "CF": 10.24,
+        "CG": 10.82,
+        "CR": 9.84,
+        "F": 6.64
+      },
+      "name": "dallas goedert",
+      "par": {
+        "C0": 0.82,
+        "CF": 1.3,
+        "CG": 1.17,
+        "CR": 1.27,
+        "F": 1.24
+      },
+      "rosValue": 17.94
+    },
+    {
+      "family": "TE",
+      "familyRank": 36,
+      "mu": {
+        "C0": 8.6,
+        "CF": 7.33,
+        "CG": 8.2,
+        "CR": 6.25,
+        "F": 3.87
+      },
+      "name": "colby parkinson",
+      "par": {
+        "C0": -1.01,
+        "CF": -1.61,
+        "CG": -1.45,
+        "CR": -2.33,
+        "F": -1.53
+      },
+      "rosValue": 10.46
+    },
+    {
+      "family": "K",
+      "familyRank": 1,
+      "mu": {
+        "C0": 8.29,
+        "CF": 9.82,
+        "CG": 9.82,
+        "CR": 10.35,
+        "F": 3.4
+      },
+      "name": "harrison butker",
+      "par": {
+        "C0": 0.32,
+        "CF": 0.26,
+        "CG": 0.26,
+        "CR": 0.97,
+        "F": 0.49
+      },
+      "rosValue": 9.18
+    },
+    {
+      "family": "K",
+      "familyRank": 12,
+      "mu": {
+        "C0": 7.56,
+        "CF": 9.23,
+        "CG": 9.23,
+        "CR": 9.06,
+        "F": 2.3
+      },
+      "name": "andy borregales",
+      "par": {
+        "C0": -0.41,
+        "CF": -0.33,
+        "CG": -0.33,
+        "CR": -0.32,
+        "F": -0.61
+      },
+      "rosValue": 6.2
+    },
+    {
+      "family": "DL",
+      "familyRank": 1,
+      "mu": {
+        "C0": 27.36,
+        "CF": 20.23,
+        "CG": 19.83,
+        "CR": 17.94,
+        "F": 32.3
+      },
+      "name": "aidan hutchinson",
+      "par": {
+        "C0": 14.88,
+        "CF": 9.47,
+        "CG": 8.59,
+        "CR": 7.28,
+        "F": 22.56
+      },
+      "rosValue": 87.2
+    },
+    {
+      "family": "DL",
+      "familyRank": 12,
+      "mu": {
+        "C0": 15.35,
+        "CF": 12.24,
+        "CG": 12.9,
+        "CR": 12.24,
+        "F": 14.1
+      },
+      "name": "jared verse",
+      "par": {
+        "C0": 2.87,
+        "CF": 1.49,
+        "CG": 1.66,
+        "CR": 1.59,
+        "F": 4.36
+      },
+      "rosValue": 38.06
+    },
+    {
+      "family": "DL",
+      "familyRank": 36,
+      "mu": {
+        "C0": 11.63,
+        "CF": 9.77,
+        "CG": 10.75,
+        "CR": 9.72,
+        "F": 8.46
+      },
+      "name": "chase young",
+      "par": {
+        "C0": -0.85,
+        "CF": -0.99,
+        "CG": -0.49,
+        "CR": -0.93,
+        "F": -1.28
+      },
+      "rosValue": 22.83
+    },
+    {
+      "family": "LB",
+      "familyRank": 1,
+      "mu": {
+        "C0": 28.49,
+        "CF": 18.85,
+        "CG": 20.48,
+        "CR": 19.38,
+        "F": 34.01
+      },
+      "name": "jack campbell",
+      "par": {
+        "C0": 16.22,
+        "CF": 7.44,
+        "CG": 9.37,
+        "CR": 8.29,
+        "F": 24.58
+      },
+      "rosValue": 91.83
+    },
+    {
+      "family": "LB",
+      "familyRank": 12,
+      "mu": {
+        "C0": 18.78,
+        "CF": 14.63,
+        "CG": 14.87,
+        "CR": 13.92,
+        "F": 19.29
+      },
+      "name": "devin lloyd",
+      "par": {
+        "C0": 6.51,
+        "CF": 3.22,
+        "CG": 3.76,
+        "CR": 2.83,
+        "F": 9.86
+      },
+      "rosValue": 52.09
+    },
+    {
+      "family": "LB",
+      "familyRank": 36,
+      "mu": {
+        "C0": 12.09,
+        "CF": 11.72,
+        "CG": 11.01,
+        "CR": 11.51,
+        "F": 9.16
+      },
+      "name": "demetrius knight",
+      "par": {
+        "C0": -0.18,
+        "CF": 0.32,
+        "CG": -0.1,
+        "CR": 0.42,
+        "F": -0.28
+      },
+      "rosValue": 24.73
+    },
+    {
+      "family": "DB",
+      "familyRank": 1,
+      "mu": {
+        "C0": 16.75,
+        "CF": 14.69,
+        "CG": 13.71,
+        "CR": 15.77,
+        "F": 16.23
+      },
+      "name": "kyle hamilton",
+      "par": {
+        "C0": 5.23,
+        "CF": 3.12,
+        "CG": 3.02,
+        "CR": 4.86,
+        "F": 7.93
+      },
+      "rosValue": 43.81
+    },
+    {
+      "family": "DB",
+      "familyRank": 12,
+      "mu": {
+        "C0": 14.12,
+        "CF": 12.86,
+        "CG": 12.19,
+        "CR": 12.26,
+        "F": 12.23
+      },
+      "name": "jeremy chinn",
+      "par": {
+        "C0": 2.6,
+        "CF": 1.29,
+        "CG": 1.5,
+        "CR": 1.35,
+        "F": 3.94
+      },
+      "rosValue": 33.03
+    },
+    {
+      "family": "DB",
+      "familyRank": 36,
+      "mu": {
+        "C0": 11.88,
+        "CF": 11.3,
+        "CG": 10.89,
+        "CR": 10.71,
+        "F": 8.83
+      },
+      "name": "michael taaffe",
+      "par": {
+        "C0": 0.36,
+        "CF": -0.27,
+        "CG": 0.21,
+        "CR": -0.2,
+        "F": 0.54
+      },
+      "rosValue": 23.85
+    }
+  ],
+  "snapshot": "data/ros/aggregate/history/2026-10-28T09-05-28.941305+00-00.json",
+  "snapshotSha256": "641a6cf65e616be0b8f544f372cb928a6282f3ef8e19c40446daf55f3428de51",
+  "status": "RESEARCH_EVIDENCE_NOT_FOR_PROMOTION",
+  "teams": [
+    {
+      "C0": {
+        "composite": 273.53,
+        "expectedLineupPoints": 342.87
+      },
+      "CF": {
+        "composite": 270.3,
+        "expectedLineupPoints": 340.12
+      },
+      "CG": {
+        "composite": 268.91,
+        "expectedLineupPoints": 339.58
+      },
+      "CR": {
+        "composite": 265.91,
+        "expectedLineupPoints": 332.62
+      },
+      "F": {
+        "composite": 259.93,
+        "expectedLineupPoints": 327.16
+      },
+      "liveComposite": 684.93,
+      "ranks": {
+        "C0:composite": 2,
+        "C0:expectedLineupPoints": 2,
+        "CF:composite": 2,
+        "CF:expectedLineupPoints": 2,
+        "CG:composite": 2,
+        "CG:expectedLineupPoints": 2,
+        "CR:composite": 2,
+        "CR:expectedLineupPoints": 2,
+        "F:composite": 2,
+        "F:expectedLineupPoints": 2,
+        "liveComposite": 1
+      },
+      "team": 1
+    },
+    {
+      "C0": {
+        "composite": 221.07,
+        "expectedLineupPoints": 275.22
+      },
+      "CF": {
+        "composite": 214.99,
+        "expectedLineupPoints": 266.35
+      },
+      "CG": {
+        "composite": 210.69,
+        "expectedLineupPoints": 261.52
+      },
+      "CR": {
+        "composite": 207.66,
+        "expectedLineupPoints": 259.7
+      },
+      "F": {
+        "composite": 180.54,
+        "expectedLineupPoints": 224.63
+      },
+      "liveComposite": 417.72,
+      "ranks": {
+        "C0:composite": 8,
+        "C0:expectedLineupPoints": 8,
+        "CF:composite": 8,
+        "CF:expectedLineupPoints": 8,
+        "CG:composite": 9,
+        "CG:expectedLineupPoints": 9,
+        "CR:composite": 8,
+        "CR:expectedLineupPoints": 8,
+        "F:composite": 8,
+        "F:expectedLineupPoints": 8,
+        "liveComposite": 8
+      },
+      "team": 2
+    },
+    {
+      "C0": {
+        "composite": 199.45,
+        "expectedLineupPoints": 248.12
+      },
+      "CF": {
+        "composite": 194.52,
+        "expectedLineupPoints": 240.28
+      },
+      "CG": {
+        "composite": 191.92,
+        "expectedLineupPoints": 236.66
+      },
+      "CR": {
+        "composite": 188.82,
+        "expectedLineupPoints": 232.45
+      },
+      "F": {
+        "composite": 148.07,
+        "expectedLineupPoints": 183.57
+      },
+      "liveComposite": 355.9,
+      "ranks": {
+        "C0:composite": 10,
+        "C0:expectedLineupPoints": 10,
+        "CF:composite": 10,
+        "CF:expectedLineupPoints": 10,
+        "CG:composite": 10,
+        "CG:expectedLineupPoints": 10,
+        "CR:composite": 10,
+        "CR:expectedLineupPoints": 11,
+        "F:composite": 10,
+        "F:expectedLineupPoints": 10,
+        "liveComposite": 10
+      },
+      "team": 3
+    },
+    {
+      "C0": {
+        "composite": 257.03,
+        "expectedLineupPoints": 321.2
+      },
+      "CF": {
+        "composite": 253.74,
+        "expectedLineupPoints": 317.64
+      },
+      "CG": {
+        "composite": 257.3,
+        "expectedLineupPoints": 322.95
+      },
+      "CR": {
+        "composite": 253.78,
+        "expectedLineupPoints": 318.16
+      },
+      "F": {
+        "composite": 233.18,
+        "expectedLineupPoints": 294.31
+      },
+      "liveComposite": 595.86,
+      "ranks": {
+        "C0:composite": 3,
+        "C0:expectedLineupPoints": 3,
+        "CF:composite": 4,
+        "CF:expectedLineupPoints": 4,
+        "CG:composite": 4,
+        "CG:expectedLineupPoints": 4,
+        "CR:composite": 4,
+        "CR:expectedLineupPoints": 4,
+        "F:composite": 3,
+        "F:expectedLineupPoints": 3,
+        "liveComposite": 3
+      },
+      "team": 4
+    },
+    {
+      "C0": {
+        "composite": 234.55,
+        "expectedLineupPoints": 293.4
+      },
+      "CF": {
+        "composite": 238.08,
+        "expectedLineupPoints": 299.03
+      },
+      "CG": {
+        "composite": 235.71,
+        "expectedLineupPoints": 294.61
+      },
+      "CR": {
+        "composite": 234.38,
+        "expectedLineupPoints": 294.17
+      },
+      "F": {
+        "composite": 200.47,
+        "expectedLineupPoints": 252.19
+      },
+      "liveComposite": 489.79,
+      "ranks": {
+        "C0:composite": 6,
+        "C0:expectedLineupPoints": 6,
+        "CF:composite": 6,
+        "CF:expectedLineupPoints": 6,
+        "CG:composite": 6,
+        "CG:expectedLineupPoints": 6,
+        "CR:composite": 6,
+        "CR:expectedLineupPoints": 6,
+        "F:composite": 6,
+        "F:expectedLineupPoints": 6,
+        "liveComposite": 6
+      },
+      "team": 5
+    },
+    {
+      "C0": {
+        "composite": 244.56,
+        "expectedLineupPoints": 308.89
+      },
+      "CF": {
+        "composite": 251.34,
+        "expectedLineupPoints": 316.71
+      },
+      "CG": {
+        "composite": 252.13,
+        "expectedLineupPoints": 319.86
+      },
+      "CR": {
+        "composite": 246.82,
+        "expectedLineupPoints": 310.97
+      },
+      "F": {
+        "composite": 216.68,
+        "expectedLineupPoints": 275.67
+      },
+      "liveComposite": 570.13,
+      "ranks": {
+        "C0:composite": 5,
+        "C0:expectedLineupPoints": 5,
+        "CF:composite": 5,
+        "CF:expectedLineupPoints": 5,
+        "CG:composite": 5,
+        "CG:expectedLineupPoints": 5,
+        "CR:composite": 5,
+        "CR:expectedLineupPoints": 5,
+        "F:composite": 5,
+        "F:expectedLineupPoints": 5,
+        "liveComposite": 4
+      },
+      "team": 6
+    },
+    {
+      "C0": {
+        "composite": 183.97,
+        "expectedLineupPoints": 225.85
+      },
+      "CF": {
+        "composite": 179.24,
+        "expectedLineupPoints": 221.58
+      },
+      "CG": {
+        "composite": 175.77,
+        "expectedLineupPoints": 217.28
+      },
+      "CR": {
+        "composite": 172.9,
+        "expectedLineupPoints": 213.04
+      },
+      "F": {
+        "composite": 123.94,
+        "expectedLineupPoints": 149.82
+      },
+      "liveComposite": 313.84,
+      "ranks": {
+        "C0:composite": 12,
+        "C0:expectedLineupPoints": 12,
+        "CF:composite": 12,
+        "CF:expectedLineupPoints": 12,
+        "CG:composite": 12,
+        "CG:expectedLineupPoints": 12,
+        "CR:composite": 12,
+        "CR:expectedLineupPoints": 12,
+        "F:composite": 12,
+        "F:expectedLineupPoints": 12,
+        "liveComposite": 12
+      },
+      "team": 7
+    },
+    {
+      "C0": {
+        "composite": 249.42,
+        "expectedLineupPoints": 312.27
+      },
+      "CF": {
+        "composite": 260.91,
+        "expectedLineupPoints": 330.84
+      },
+      "CG": {
+        "composite": 262.25,
+        "expectedLineupPoints": 330.18
+      },
+      "CR": {
+        "composite": 256.75,
+        "expectedLineupPoints": 325.42
+      },
+      "F": {
+        "composite": 221.85,
+        "expectedLineupPoints": 280.79
+      },
+      "liveComposite": 567.18,
+      "ranks": {
+        "C0:composite": 4,
+        "C0:expectedLineupPoints": 4,
+        "CF:composite": 3,
+        "CF:expectedLineupPoints": 3,
+        "CG:composite": 3,
+        "CG:expectedLineupPoints": 3,
+        "CR:composite": 3,
+        "CR:expectedLineupPoints": 3,
+        "F:composite": 4,
+        "F:expectedLineupPoints": 4,
+        "liveComposite": 5
+      },
+      "team": 8
+    },
+    {
+      "C0": {
+        "composite": 276.94,
+        "expectedLineupPoints": 347.77
+      },
+      "CF": {
+        "composite": 280.21,
+        "expectedLineupPoints": 350.09
+      },
+      "CG": {
+        "composite": 277.68,
+        "expectedLineupPoints": 349.7
+      },
+      "CR": {
+        "composite": 269.05,
+        "expectedLineupPoints": 339.4
+      },
+      "F": {
+        "composite": 264.85,
+        "expectedLineupPoints": 334.59
+      },
+      "liveComposite": 679.39,
+      "ranks": {
+        "C0:composite": 1,
+        "C0:expectedLineupPoints": 1,
+        "CF:composite": 1,
+        "CF:expectedLineupPoints": 1,
+        "CG:composite": 1,
+        "CG:expectedLineupPoints": 1,
+        "CR:composite": 1,
+        "CR:expectedLineupPoints": 1,
+        "F:composite": 1,
+        "F:expectedLineupPoints": 1,
+        "liveComposite": 2
+      },
+      "team": 9
+    },
+    {
+      "C0": {
+        "composite": 226.56,
+        "expectedLineupPoints": 283.33
+      },
+      "CF": {
+        "composite": 229.66,
+        "expectedLineupPoints": 285.38
+      },
+      "CG": {
+        "composite": 228.29,
+        "expectedLineupPoints": 285.4
+      },
+      "CR": {
+        "composite": 222.48,
+        "expectedLineupPoints": 278.59
+      },
+      "F": {
+        "composite": 188.52,
+        "expectedLineupPoints": 236.93
+      },
+      "liveComposite": 489.39,
+      "ranks": {
+        "C0:composite": 7,
+        "C0:expectedLineupPoints": 7,
+        "CF:composite": 7,
+        "CF:expectedLineupPoints": 7,
+        "CG:composite": 7,
+        "CG:expectedLineupPoints": 7,
+        "CR:composite": 7,
+        "CR:expectedLineupPoints": 7,
+        "F:composite": 7,
+        "F:expectedLineupPoints": 7,
+        "liveComposite": 7
+      },
+      "team": 10
+    },
+    {
+      "C0": {
+        "composite": 191.25,
+        "expectedLineupPoints": 237.8
+      },
+      "CF": {
+        "composite": 192.29,
+        "expectedLineupPoints": 239.06
+      },
+      "CG": {
+        "composite": 189.13,
+        "expectedLineupPoints": 234.92
+      },
+      "CR": {
+        "composite": 187.01,
+        "expectedLineupPoints": 233.89
+      },
+      "F": {
+        "composite": 136.48,
+        "expectedLineupPoints": 167.92
+      },
+      "liveComposite": 350.94,
+      "ranks": {
+        "C0:composite": 11,
+        "C0:expectedLineupPoints": 11,
+        "CF:composite": 11,
+        "CF:expectedLineupPoints": 11,
+        "CG:composite": 11,
+        "CG:expectedLineupPoints": 11,
+        "CR:composite": 11,
+        "CR:expectedLineupPoints": 10,
+        "F:composite": 11,
+        "F:expectedLineupPoints": 11,
+        "liveComposite": 11
+      },
+      "team": 11
+    },
+    {
+      "C0": {
+        "composite": 210.63,
+        "expectedLineupPoints": 262.5
+      },
+      "CF": {
+        "composite": 208.01,
+        "expectedLineupPoints": 259.89
+      },
+      "CG": {
+        "composite": 210.9,
+        "expectedLineupPoints": 264.57
+      },
+      "CR": {
+        "composite": 200.21,
+        "expectedLineupPoints": 249.27
+      },
+      "F": {
+        "composite": 164.56,
+        "expectedLineupPoints": 205.36
+      },
+      "liveComposite": 384.84,
+      "ranks": {
+        "C0:composite": 9,
+        "C0:expectedLineupPoints": 9,
+        "CF:composite": 9,
+        "CF:expectedLineupPoints": 9,
+        "CG:composite": 8,
+        "CG:expectedLineupPoints": 8,
+        "CR:composite": 9,
+        "CR:expectedLineupPoints": 9,
+        "F:composite": 9,
+        "F:expectedLineupPoints": 9,
+        "liveComposite": 9
+      },
+      "team": 12
+    }
+  ]
+}

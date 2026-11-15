@@ -1,0 +1,63 @@
+{
+  "source_key": "ffc2qbAdp",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-10-29T06:34:39.129238+00:00",
+  "completed_at": "2026-10-29T06:34:39.419106+00:00",
+  "player_count": 126,
+  "diagnostics": {},
+  "source_id": "ffc2qbAdp",
+  "source_name": "Fantasy Football Calculator 2QB ADP",
+  "source_url": "https://fantasyfootballcalculator.com/adp/2qb",
+  "source_type": "adp",
+  "scoring_format": "ppr",
+  "is_superflex": false,
+  "is_2qb": true,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": false,
+  "is_dynasty": false,
+  "is_projection_source": false,
+  "stale_after_hours": 24,
+  "kept_previous": null,
+  "kept_previous_rows": null,
+  "content_hash": "66262930484f9862126851b562c3b284476f3f7ddd4b89f6dca22a5ede54f731",
+  "content_state": "unchanged",
+  "content_first_observed_at": "2026-10-26T21:17:55.045271+00:00",
+  "last_content_change": null,
+  "rank_basis": {
+    "basisDeclared": false,
+    "bases": [
+      {
+        "basis": "total_ranked:131",
+        "rows": 126,
+        "totalRanked": [
+          131
+        ],
+        "groups": {
+          "OFFENSE": 123,
+          "OTHER": 3
+        }
+      }
+    ],
+    "groupCoverage": {
+      "OFFENSE": 123,
+      "OTHER": 3
+    },
+    "groupBases": {
+      "OFFENSE": [
+        "total_ranked:131"
+      ],
+      "OTHER": [
+        "total_ranked:131"
+      ]
+    },
+    "mixedRankBasis": false,
+    "groupsSplitAcrossBases": [],
+    "issues": [],
+    "transitionIssues": [],
+    "adapterIssues": [],
+    "baseline": false
+  },
+  "source_mode": null
+}

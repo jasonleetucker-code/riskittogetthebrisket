@@ -168,7 +168,10 @@ On top of the public snapshot sit **five** separate per-manager trade/waiver cou
 (`activity.py::_by_manager_counts`, `superlatives.py::_activity_counts`,
 `franchise.py::_trade_waiver_counts`, `records.py`, `overview.py`) — two of which are
 logically byte-identical — plus a sixth client-side one in
-`frontend/lib/league-analysis.js::analyzeTradeTendencies`.
+`frontend/lib/league-analysis.js::analyzeTradeTendencies`.  **Update (C6-MGR-01):**
+that sixth one is deleted; private per-manager trade/waiver/FAAB tendencies now have
+one owner, `src/intel/manager_scout.py` (`GET /api/manager-scout`), consumed by
+`/trades`.  The five public-snapshot counters are unchanged.
 
 Consolidating these is real work and is **deliberately not in this PR** — they are live,
 independently tested, and unifying them alongside a storage migration would make the diff

@@ -22,6 +22,13 @@ from pathlib import Path
 
 import pytest
 
+# drives the production backup shell's GNU tar; tar reads C: paths as a remote host on Windows.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32", reason="Linux-only: drives the production backup shell's GNU tar"
+)
+
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "deploy" / "backup" / "riskit-state-backup.sh"
 
@@ -84,6 +91,7 @@ def _run_backup_dir(tmp_path: Path, src: Path, label: str = "") -> subprocess.Co
     return subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=60)
 
 
+@_LINUX_ONLY
 def test_a_relabelled_directory_is_still_archived(tmp_path):
     """THE production defect: the label was used as the tar MEMBER.
 
@@ -105,6 +113,7 @@ def test_a_relabelled_directory_is_still_archived(tmp_path):
     assert "history/snapshot_2026-08-11.json" in listing, listing
 
 
+@_LINUX_ONLY
 def test_an_unlabelled_directory_still_uses_its_basename(tmp_path):
     src = tmp_path / "data" / "faab"
     src.mkdir(parents=True)
@@ -116,6 +125,7 @@ def test_an_unlabelled_directory_still_uses_its_basename(tmp_path):
     assert (tmp_path / "dest" / "dirs" / "faab.tar.gz").exists()
 
 
+@_LINUX_ONLY
 def test_a_file_changing_mid_read_warns_but_keeps_the_generation(tmp_path):
     """GNU tar exits 1 for "file changed as we read it" and 2 for a fatal
     error; treating them alike discarded every OTHER artifact because one
@@ -218,6 +228,34 @@ def test_al_p2_store_is_in_the_backup_list(line):
     assert line in SCRIPT.read_text(encoding="utf-8"), f"missing from the backup list: {line}"
 
 
+# ── Adaptive Learning G4: the as-known capture stores ─────────────────────
+#
+# The register's "As-known injury + news capture" addendum.  Their writers
+# (src/nfl_data/injury_history.py, src/news/archive.py) default to exactly
+# these directories; a rename on either side without the other would leave the
+# store outside every generation.
+
+G4_LINES = (
+    'optional backup_dir "${DATA_DIR}/nfl_data/injury_history"',
+    'optional backup_dir "${DATA_DIR}/news_archive"',
+)
+
+
+@pytest.mark.parametrize("line", G4_LINES)
+def test_g4_capture_store_is_in_the_backup_list(line):
+    assert line in SCRIPT.read_text(encoding="utf-8"), f"missing from the backup list: {line}"
+
+
+def test_g4_backup_paths_match_the_writers_default_dirs():
+    from src.news import archive as news_archive
+    from src.nfl_data import injury_history
+
+    body = SCRIPT.read_text(encoding="utf-8")
+    for module in (injury_history, news_archive):
+        rel = module.DEFAULT_DIR.relative_to(REPO / "data").as_posix()
+        assert f'backup_dir "${{DATA_DIR}}/{rel}"' in body, rel
+
+
 def _classified_backup_calls() -> list[tuple[str, str, list[str]]]:
     """Every backup_* call as (class, function, args); `optional` is the
     wrapper that makes a store OPTIONAL, everything else is CORE."""
@@ -271,6 +309,7 @@ def test_artifact_names_are_unique_within_a_generation():
         names[key] = src
 
 
+@_LINUX_ONLY
 def test_backup_dir_excludes_named_members(tmp_path):
     """The exclusion arguments keep the live database out of the tar and
     leave everything else in it."""
@@ -395,6 +434,15 @@ AL_P2_OPTIONAL = {
     "robust_filter_shadow",
     # Signals Fantasy private store: vendor serves current values only.
     "signals_sources",
+    # Adaptive Learning G4 as-known capture stores (2026-10-07): ESPN serves the
+    # current injury report only; news feeds roll forward.
+    "injury_history",
+    "news_archive",
+    # AL-P5 (2026-10-15): the Best Offers served-run log the DECISION receipts
+    # point into. Optional: small, but never allowed to fail a core generation.
+    "trade_best_offers",
+    # C6-ANA-01 analyst claim ledger (INSERT-only, as-recorded timestamps).
+    "analyst_ledger.sqlite",
 }
 
 

@@ -5,8 +5,9 @@
  *
  * Implements §4 steps 2-3 of
  * docs/trade/V1_45_TRADE_CALCULATOR_L4_EVIDENCE_RECIPE.md against the
- * merged render (frontend/app/trade/trade-sections.jsx SimulationPanel,
- * PR #1120): build a trade through the deployed UI whose receiving
+ * merged render (SimulationPanel, PR #1120 — then in
+ * frontend/app/trade/trade-sections.jsx, since #1710 in
+ * frontend/app/trade/trade-simulation-panel.jsx): build a trade through the deployed UI whose receiving
  * roster sits at the league's roster cap, capture the page's OWN
  * POST /api/trade/simulate, and assert the rendered Final-roster
  * section matches the response's stamps field-for-field on what is
@@ -34,6 +35,7 @@ const {
   strengthText,
   desktopOnly,
 } = require("./helpers");
+const { closeTradeSheet, openTradeSearch } = require("../../helpers/trade-builder");
 
 /** Board display names (the trade search pool), lowercased → exact. */
 function boardNames(contract) {
@@ -172,10 +174,7 @@ test.describe("V1-45: /trade renders finalRosterSimulation from the page's own s
 
     // Add assets through the page's own search-and-pick flow.
     async function addToSide(sideLabel, name) {
-      const input = page.getByLabel(
-        `Search to add a player to Side ${sideLabel}`,
-      );
-      await input.click();
+      const input = await openTradeSearch(page, sideLabel);
       await input.fill(name);
       const result = page
         .locator(".trade-side-search-result")
@@ -192,6 +191,7 @@ test.describe("V1-45: /trade renders finalRosterSimulation from the page's own s
         `search should surface "${name}" verbatim`,
       ).toBeVisible({ timeout: 15_000 });
       await result.click();
+      await closeTradeSheet(page);
       await expect(
         page.getByRole("button", {
           name: `Remove ${name} from Side ${sideLabel}`,
@@ -211,6 +211,9 @@ test.describe("V1-45: /trade renders finalRosterSimulation from the page's own s
         res.request().method() === "POST",
       { timeout: 60_000 },
     );
+    // TC-D2 / TCM-H13: Simulate impact lives in Supporting intelligence's
+    // Roster tab (the one roster-consequence surface beside the decision).
+    await page.getByRole("tab", { name: "Roster", exact: true }).click();
     const simulateBtn = page.getByRole("button", { name: /^Simulate impact$/ });
     await expect(simulateBtn).toBeEnabled({ timeout: 15_000 });
     await simulateBtn.click();

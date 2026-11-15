@@ -9,4 +9,9 @@ Read and follow `AI_INSTRUCTIONS.md` and the shared documents it routes to. In p
 - `ASSISTANT_COORDINATION.md`
 - `CLAUDE.md` as the legacy-named **universal technical runbook**, not a Claude-only authority.
 
+The permanent owner 2026-10-19 rapid parallel-build and qualified
+automatic routine-merge policy is model-neutral in
+`docs/AGENT_OPERATING_SYSTEM.md` §3 and
+`ASSISTANT_COORDINATION.md`. No Copilot-only exception applies.
+
 Do not create Copilot-only product, architecture, safety, evidence, or workflow rules. Provider-specific instructions may only describe how Copilot accesses the shared system.

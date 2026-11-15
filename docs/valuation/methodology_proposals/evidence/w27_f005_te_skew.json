@@ -1,0 +1,2578 @@
+{
+  "activationStatus": "NOT ACTIVATED",
+  "codeRevision": "d7db52a43b8c96a7c44e2d62a24cb70c9114c37a",
+  "finding": "W27-F005",
+  "history": {
+    "boards": [
+      {
+        "archive": "exports/archive/dynasty_export_20260908_212819.zip",
+        "date": "2026-09-08",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "4547fdea4e13709f154ac870801b357d52ca3d27cb86abfa140b9d3277b81fc6",
+        "pricedRows": 0,
+        "treeContentSha256": "35264fbb7dafc43af89e4382197571a391843ca7acbc64f193f0f0ac3023d12e",
+        "treeRevision": "714282501fe0582b8e7dc3305478c1dbde332d7b"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260909_211525.zip",
+        "date": "2026-09-09",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "9f5c8a1a066efe4dda62677249071051410e2e5af75c17b292f62b526220c431",
+        "pricedRows": 486,
+        "treeContentSha256": "4a934d0b1df36ba1662b9e970b4a74fccf094adc88c0dc4cbd4f9935c81ceaed",
+        "treeRevision": "bd7eda6052a3c40e3dceb2d3bf3f6c8f128078e1"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260910_224947.zip",
+        "date": "2026-09-10",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "d0025d49b3ec35c4b3057f556d08c9e9606cdf1f8b45267cfa9ce4b895c70fa3",
+        "pricedRows": 486,
+        "treeContentSha256": "6bc8f1c94950f6def1af0bf4bd4406b03ed611123ac8043c4816081ea9907fcc",
+        "treeRevision": "53b87921a115751c16c9749fa84ddbb40b118224"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260911_212200.zip",
+        "date": "2026-09-11",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "f8db7292de8682e7eee7014fefc2fb8b06f50d394e28e953315bfaacc54feb2d",
+        "pricedRows": 486,
+        "treeContentSha256": "b702289ed2e01d3d497370e39754c45e12bfdaafd6ebfb9f5c542393c6851266",
+        "treeRevision": "2a18436e342c43705fc7baa258c39407ff65ba0f"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260912_223716.zip",
+        "date": "2026-09-12",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "09450ebb357f569840e4beb6712da39420b7e25cc9f7e7e291cd22b72bf8ab94",
+        "pricedRows": 486,
+        "treeContentSha256": "dadd7bdd65c03c88aaadeb102966d6d60b6669691dd8839d2d4305645f127012",
+        "treeRevision": "e9bea4b67a9d64ad164bf731ebb955a896ac7d9d"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260913_223956.zip",
+        "date": "2026-09-13",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "70f621f5bd22977ca20b00d571a36805a2e9fa715ff315a69fe62e55f2b4a04e",
+        "pricedRows": 486,
+        "treeContentSha256": "11024777cc69bbab2ebd79c87f1c4417da09ba8b6f935ce25cff6ac6f16d1e48",
+        "treeRevision": "a00e1b37812c2e18d79c32ba779e7b8854b93812"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260914_233241.zip",
+        "date": "2026-09-14",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "8f609d137e8ee511277089cb22ed9ae9900e50ad40a68a38c04ab7c55735193b",
+        "pricedRows": 486,
+        "treeContentSha256": "9176019eb824a2969344dd30b4b4dd91776d659afd5e0d5cb6edbf2ef0a3dc97",
+        "treeRevision": "c62fabd40415db64ac459948b96cd8a9541457ad"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260915_214858.zip",
+        "date": "2026-09-15",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "651c78cffbc2f038b29c9144b9e2bb552821752cb96209e296905c509de298ec",
+        "pricedRows": 486,
+        "treeContentSha256": "0b66a65e1e43412bde3f4b4d4cb0fdee23d74a6a666e9bd257124f0a40d89898",
+        "treeRevision": "95e6478d2cc6370d3034a145992037c733889f5b"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260916_214700.zip",
+        "date": "2026-09-16",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "f67de0cd51ea8f8882aa658856117259cd695d4107d65e7473805230ac458a86",
+        "pricedRows": 486,
+        "treeContentSha256": "7718b616e9b16ac9c12b7f25c2cef08b35eb2c500f6687c310f624897f6f2833",
+        "treeRevision": "907dfee4df574a32f06c010434106204874d1a27"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260917_214927.zip",
+        "date": "2026-09-17",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "bd780c51e815ecedd79a1aed72b843c6bacc6f6a945b39b693b57f26b2f11665",
+        "pricedRows": 486,
+        "treeContentSha256": "1e2faedd287738b8b3a9dbe7e9846f71fbd2767412b1ef20f67ca2cb2e1b0010",
+        "treeRevision": "6f265e370af73097081769e30ef16fbf943ea6c9"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260918_211845.zip",
+        "date": "2026-09-18",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "fb2ee412bd686725f8279ac375db68fb8874d0748b53b0bb73234b375ff0dff1",
+        "pricedRows": 486,
+        "treeContentSha256": "bf9c2cfc32e06147964946cf53fb7d0d5ed355c8b505fdb491d4f2b8d5d06ea1",
+        "treeRevision": "a341709d88dfa5d267802ec82eb0113f181908de"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260919_223220.zip",
+        "date": "2026-09-19",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "754ca122bbe91931a6d42229477da9f971b5ee4e48befaf904c9ad55d29e9341",
+        "pricedRows": 486,
+        "treeContentSha256": "025787e5e37a462e1486d36972feda832eeb7f64652865ae8fe1ff7c8581ec29",
+        "treeRevision": "7f81c38660c3a869fca9d3bba871d1416e09d102"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260920_224450.zip",
+        "date": "2026-09-20",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "faceb098971d44c1b6355e65ac80d55c80216a3b3881a8d79d1a90bd2835b7a8",
+        "pricedRows": 486,
+        "treeContentSha256": "63e66dfca6c7ee7f5b1b0e64e4bc8b94dc6b118574ee381b39f743928205a58a",
+        "treeRevision": "307a324bd8ddecac3af5694953c4084a1e8204c3"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260921_234150.zip",
+        "date": "2026-09-21",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "1ccda26602b951d96c448ad73894656865e5505f5037522e1888e9b77a5aaf84",
+        "pricedRows": 498,
+        "treeContentSha256": "5edf162a4dacaf8ab63a285bd10183c2a2ae4db636b85f51fb2e7a0c5020e377",
+        "treeRevision": "24e18bdcc49ea44e15f2b402f2e42634de0cd124"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260922_214329.zip",
+        "date": "2026-09-22",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "989dcf54e0ec583123795a60aa795dbb76710b8aa7332ba5b2f85ea6c6373675",
+        "pricedRows": 498,
+        "treeContentSha256": "4195c8e0113425b1ffbe1b4f1e0357af7db79ae37ede69deadafa27c80422461",
+        "treeRevision": "c577cabf0f9d05066dc96341779ccb660725de9d"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260923_215107.zip",
+        "date": "2026-09-23",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "54efec9331611aa0ee8ab141f340490a8a51692fb4c05d723cfe248884565142",
+        "pricedRows": 498,
+        "treeContentSha256": "fd092dd6232b4273de550bed69d4c203d398b9a5cda5572567eaa3d63e462e95",
+        "treeRevision": "36bace41974c616f5617c7f80147ac89dd74c13d"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260924_232149.zip",
+        "date": "2026-09-24",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "1b614ce0e19263a37aa2a46ac1e6d207bf279980f3adfbb51f14e6033d84a1ba",
+        "pricedRows": 498,
+        "treeContentSha256": "ae72675fd8541bfafb55bf933680d9598f071e4e7d36ac4a275ee83ba1dc42b2",
+        "treeRevision": "84e5954b38460b96cbe247e63762b0a2597c7bb5"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260925_233646.zip",
+        "date": "2026-09-25",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "6ef77581bd5bac784589a6568aac74b70f3e67d782a0454bb6eb84e631979028",
+        "pricedRows": 498,
+        "treeContentSha256": "9a0da0f320b609f48845d11d4801391d8bf2ccbce2ebcca58bbf6f8189d71c4a",
+        "treeRevision": "70722931b1c651d94e460b0739d6c3c195796be6"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260926_164906.zip",
+        "date": "2026-09-26",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "2ba0af9bbdbceaa17cbd5ea70fd5d2aa0904987f9daa5a320b4643b3458b89f2",
+        "pricedRows": 498,
+        "treeContentSha256": "67e5cce638700598999190cf18aba19d9417e0620827dd35bfef27d3130cace6",
+        "treeRevision": "1928d489834501b026192a874af2e3326c2d5b69"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260927_214140.zip",
+        "date": "2026-09-27",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "58f071180f55487500379d47844c6921c58f7a6a4db5f11c40322102912c2b59",
+        "pricedRows": 498,
+        "treeContentSha256": "b70b9da730a8450a69ccbad580308329d526392fc94d7739b81d6b6afa58d034",
+        "treeRevision": "1a240b7a5fd4901c361231689ef423d41a9142ca"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260928_233322.zip",
+        "date": "2026-09-28",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "989c8ebfa0a46e2b9746a78b211b7220cb0ee04378f52b8b4e928d54202a477e",
+        "pricedRows": 497,
+        "treeContentSha256": "56c5c6ad4c01d8ba4ffbfde7711ae9a9b7dee7d9dd629745f5cc3c13164e77a4",
+        "treeRevision": "c9dc390f17ec079fa79564e4fabefd5e0b642063"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260929_194208.zip",
+        "date": "2026-09-29",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "7903d55c127eeb75cd0b12b7a6d13254209f215dbf202e636cdb39bbe91e73b4",
+        "pricedRows": 498,
+        "treeContentSha256": "a6b3fa67e462a849998c503d919a9209ac0db21c58fb656f0373e6b5554c4598",
+        "treeRevision": "8ea2c18493f6c16425f973e860ea9b58e61e0d0e"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20260930_130404.zip",
+        "date": "2026-09-30",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "8e5c0f2491bc5fdd5f74943ac483994345aa8a07e71f3253a4f286fb9553000f",
+        "pricedRows": 498,
+        "treeContentSha256": "cfba2ac8725d7664642674d43b9651a24e0868004181cda97703fa026ef94cb5",
+        "treeRevision": "10c9d7429a91aecc4300f25916a5a0444f3ea510"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261002_193506.zip",
+        "date": "2026-10-02",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "ff84ac0d518949d6111fb1f601b553bd26f1901489a76db0c26ac63e8cdafb91",
+        "pricedRows": 497,
+        "treeContentSha256": "5ec3b2a57e3100546317b2010433b789c9d820efbac2f84e6aa93982270ee668",
+        "treeRevision": "adb00b95a94825ddf2db1d7aa5ad9e0f3befae61"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261003_214933.zip",
+        "date": "2026-10-03",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "996f1a50ff60d0bbae3d582963538b6bdc44f01bf1018409e337e539d957f687",
+        "pricedRows": 497,
+        "treeContentSha256": "ad6ae4d99bafeef0aca8a230de0c8ecb550c9901892a0b3c33e267111265091c",
+        "treeRevision": "5fdf8cf151660d9fea7533aec5d909af386f9307"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261004_233916.zip",
+        "date": "2026-10-04",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "24237846c06bb9cdb6052dc43146bc031ec6ee5cce09dfb5f3b92394f7925960",
+        "pricedRows": 497,
+        "treeContentSha256": "88cf5176e4837fce203dd03a19b6645bb844f8b262f19a74e0701d8f797570dd",
+        "treeRevision": "954ad2792a78a2f25a2481f03ab5ffabc7ced6c7"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261005_225803.zip",
+        "date": "2026-10-05",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "e17a5c6851f60b5f0e51308b0a99e9354aa59b84cccae725cbc936cab0bc0f0e",
+        "pricedRows": 497,
+        "treeContentSha256": "2d34e13119b4508da270e7ba69d2798bd1aa8cb16e06c15c02fe8367b3202a4a",
+        "treeRevision": "f15dc4b16b35461b9c409463c418b48c0678b0a1"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261006_211735.zip",
+        "date": "2026-10-06",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "ccdc6194cb923a987ccef77aef7c6f5a8b26826f7214af2f79080a23e37b8fc8",
+        "pricedRows": 497,
+        "treeContentSha256": "9fe2797036f2ab117f3125ee868e52386261cf6f8f60674242ae7ece20c94cc6",
+        "treeRevision": "770752a4bd02cdbeb32f224d4247f4638762e5c1"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261007_232213.zip",
+        "date": "2026-10-07",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "4011f101a3e66a564f3eede8ce8d91ff97c7274ab2307639acd986dab1170d49",
+        "pricedRows": 497,
+        "treeContentSha256": "e87ef1d898d73bf70838d1578bc92f04d01d82ab52c8e6b909242482e6ab4a0d",
+        "treeRevision": "da1522ac824e3b569884344af5c19a3f423d6321"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261008_201231.zip",
+        "date": "2026-10-08",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "a7ae69c131875e393235f200a060d6a676797189db8bc3f42b785f2aa3f99dd8",
+        "pricedRows": 496,
+        "treeContentSha256": "e3e80ebcd7e0685a8880f282b80b7b0866396a83478ee4c9d13bd17722f8a92b",
+        "treeRevision": "87008850d369cac6192fa419b131cb6ac3948b3e"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261009_212133.zip",
+        "date": "2026-10-09",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "2fd1d10edcab6e94ea2ef6661dc0fc49ec42233f2613bfc0f1e34fa14b42c3bc",
+        "pricedRows": 497,
+        "treeContentSha256": "e51141f9c18dd8066330f778670dd5259bbcb157101bd27898bdaffb0b9e20f5",
+        "treeRevision": "e0a4de980588be9c7989050065cb7593c8a503ef"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261010_235341.zip",
+        "date": "2026-10-10",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "71518753c3817cb7ef9807ba857950ca05d3071d7d0d225e679ad4da072217cf",
+        "pricedRows": 485,
+        "treeContentSha256": "65a7ee8a904cc769f5c39745ff7c5b4fb6bc488816fd6feec0a23528eb32ac32",
+        "treeRevision": "adec42bd4dc76b8a7e478af1d7db660a34ba6a61"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261011_191416.zip",
+        "date": "2026-10-11",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "670ad9143816f1740645640807865f71c5163bda74766cda8723aad9c814088c",
+        "pricedRows": 485,
+        "treeContentSha256": "d091a9de1ddcfb79ba212a230c6a34c309597360441b3522739cccdaa7c2eb59",
+        "treeRevision": "947358d6a463c4733a507eb4773872ccc72f97ba"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261012_231649.zip",
+        "date": "2026-10-12",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "447051a1204e2468253440c48e98042110ab9478d2424087ef375fb8851a268f",
+        "pricedRows": 485,
+        "treeContentSha256": "e41ae802000b12c6a06cd02302b2c4392e40d4bd71b1dc5307ecd36eddf07642",
+        "treeRevision": "fbbb0086dd3da700ae306f998a6b8407379462e6"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261013_213606.zip",
+        "date": "2026-10-13",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "4bedacb3ffe77902322bd92ba8b3d5ed8627c2d1023d0cb7b5872a494e467d90",
+        "pricedRows": 484,
+        "treeContentSha256": "29460d2ee69e3ffd0fe16c84d3262469c752346fcb3db106760b060fe26fde72",
+        "treeRevision": "d3e4ce28c5846b8317d3c6adde179cbab62bb54c"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261014_233024.zip",
+        "date": "2026-10-14",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "4e74e94ccefe56cb745e9228587e6d6a1e9dfc603a0df707c1405074956e771d",
+        "pricedRows": 485,
+        "treeContentSha256": "91b03659364f24000115109a64b9febcf3c6274e856bce60e672446b09b5afdd",
+        "treeRevision": "4d1f10859fb386cc399a976b1edd94c3dfffb441"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261015_215027.zip",
+        "date": "2026-10-15",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "3cb41ec32851419f7292a07f5082841ccabadf7d361f9ab9c6cd44fe05202692",
+        "pricedRows": 485,
+        "treeContentSha256": "c90b574be51b099af1e63552233c522aa164f1e678dd26a8723c9b5e9527188c",
+        "treeRevision": "c40cf212213495a6ceb59e5bf4789b95adaa622a"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261016_214642.zip",
+        "date": "2026-10-16",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "70eb7761324f3de9e9931a8e2b4195752bd76ccb72f1a1ac0a32a6be5194176f",
+        "pricedRows": 485,
+        "treeContentSha256": "e0ed24590e0f91267c8048c350147eff14b03eb650b51c9aa2a85a5bac1d3e36",
+        "treeRevision": "f5f09bf4a28428e5e30ade4c397937ae943545c0"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261017_224340.zip",
+        "date": "2026-10-17",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "c7e620b967442b15b7d18cd925f1a9bd02ab61e9553613e85fb983b4ae31e0d5",
+        "pricedRows": 485,
+        "treeContentSha256": "0d2501099359cc1d2d98190dc41c85f56498c279b553e74c02930aac10776e34",
+        "treeRevision": "802f08c7d606312259ab04628f5099f7c0326f4c"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261018_223931.zip",
+        "date": "2026-10-18",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "f88da40cd4f280e01882d220f7ef4f872aa6b66ed5ae2a3d8a03da788e711d42",
+        "pricedRows": 486,
+        "treeContentSha256": "bca8238c8b8bf284a277a13623d30958d7db9f1e1ec6b64d1d5143f2d0515381",
+        "treeRevision": "554f0785865b48dcc1d10624cbf7ba3eaf475ba3"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261019_235843.zip",
+        "date": "2026-10-19",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "a8839a659d76e94366a7aa1dcf15168502b42a763845c08d0ada2bf8e3f0b1ae",
+        "pricedRows": 486,
+        "treeContentSha256": "ef16edde651a3c91c4c14bc652779b4ff6610489b24fa17908c2b29edae96a52",
+        "treeRevision": "ae1fb9936b25215b24fd0ca89373c3523e4774af"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261020_215604.zip",
+        "date": "2026-10-20",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "6beeef9c93fd2eebc04dea42305005d0b54066706d370b9b72817b2be13d712d",
+        "pricedRows": 486,
+        "treeContentSha256": "70c098360cce4300ecbe02328ae7a1f58ae8360f5a0eb06fadd7623ad8e6bb93",
+        "treeRevision": "343d47a634d8ae7320e14821624936a0fae519f2"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261021_234140.zip",
+        "date": "2026-10-21",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "185a46c5f4e5a6ecdb6f2fa940afe2985fcdc346970e70e0410ada735baa496d",
+        "pricedRows": 486,
+        "treeContentSha256": "65413224fff151cd1e0003523403a0690c5b63bfcf4f640d8e8def4855a1ba39",
+        "treeRevision": "a6e2cff41850fe0be94ffa6ef0df90c2bb26c102"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261022_215820.zip",
+        "date": "2026-10-22",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "2aa489fd5b627cb8be4b4f0fe6cb573f4f51c266ac5189a781a297fb7af73bb9",
+        "pricedRows": 486,
+        "treeContentSha256": "48eafeee24ebe3c878a574b7456b9c068fbe5bbe08b137480606520280f166e1",
+        "treeRevision": "f8b0bc3581132c9e47922b1f5821c444e4cade59"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261023_233408.zip",
+        "date": "2026-10-23",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "5f1ba2c4843c46bf1e8e1143eb21eb8c1657ad7a8538031e707e01892b86ad6e",
+        "pricedRows": 486,
+        "treeContentSha256": "84c443dd3d8ebf3ce2fe1ca311f027996577f7dabcaf0014c60461a9a31033da",
+        "treeRevision": "c4eb8a4dd6592689829aa60f1e814aaa497b06b6"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261024_224730.zip",
+        "date": "2026-10-24",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "4f302ebef8053814d9879800cd7a87446cb04d3c40381d737a6c15c9453a0bac",
+        "pricedRows": 485,
+        "treeContentSha256": "e74568028caf59ed5b425dbfb6cbc6a1d342cc3de2c4f0f0b763d67a31f93bc5",
+        "treeRevision": "d90f514a570c3dd121211a48748b4c0a40eaa4cf"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+        "date": "2026-10-25",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "ff6f83d4bfc8d9f2c9359c2fabe22e73e08b173ca6a5db5dc1093b9ecd782b6d",
+        "pricedRows": 485,
+        "treeContentSha256": "5c44dde68581aa46bc2e0e9a13f7f2a36ce036a700f14f2305e6382b94e76484",
+        "treeRevision": "40f5dc569492fb74f5031a46dc9742649f261f3e"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261026_211452.zip",
+        "date": "2026-10-26",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "d25c0f2df581b795035bdc2fe62d35d51f075f5fa88d8f4ffb9af7636e47c649",
+        "pricedRows": 485,
+        "treeContentSha256": "e91058a1eda79ad93a38c227eab95c251d68dc5511b761efc8a6fa92bd6e90a3",
+        "treeRevision": "184a9f7564448c0e10acd0969a5476d1b94de0d6"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261027_210158.zip",
+        "date": "2026-10-27",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "4640e94c96fbb8c285ff643d65f93ed56d7f83179c797ec14d28f3fcbafd0bce",
+        "pricedRows": 486,
+        "treeContentSha256": "47e06d3b3bc7d83580705c60a3634c96e5623b98d8802a5d3ea95306914f1839",
+        "treeRevision": "4401bb18e08e7f0daabe912430b4fb5a92b5eb87"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261028_225516.zip",
+        "date": "2026-10-28",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "2993505f91b85ecdbeefdf58680fce57edcc5e84dbe07443cd796f5055a1d5a9",
+        "pricedRows": 486,
+        "treeContentSha256": "e656b9700ebee116a2a274a09b1f8cc73f9ba4010ea8391c20dd749246002cf0",
+        "treeRevision": "91a7bb518958ec6e2c44e293e4d2533a201ff568"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261029_195459.zip",
+        "date": "2026-10-29",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "7f27fca0d21ea1c62b85620554f7e81c0d91ca7dbe6978ef2cfa08e8f9ee20c9",
+        "pricedRows": 486,
+        "treeContentSha256": "4030f309472d4c64c5dc8f3612ff66b9a8513d64b2856c2ef4a09b89cb8dbf73",
+        "treeRevision": "177bbd39b75302796114bee2167dfa3f3881786b"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261030_194522.zip",
+        "date": "2026-10-30",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "5fbee5824d24742bba539937780588c43b8c8b3f4e5163ebac4b917df9e77d0d",
+        "pricedRows": 486,
+        "treeContentSha256": "b02b6d3e6cb365c924bdb33bebd7a350178c4cd39820efa27a65b23f05511a8d",
+        "treeRevision": "dbebc1c354878d478c8cf632243e9fd4eceecdb3"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261031_234854.zip",
+        "date": "2026-10-31",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "97901127c1882175d535d4424505692e805ba034f1ec45686968721045b5a607",
+        "pricedRows": 486,
+        "treeContentSha256": "0a3601021e1859ec3fde59a7405dd2e5a1e2754c3facd648d1c6f9dc0b46a3da",
+        "treeRevision": "d9e27e6220b971c4e17e249d518e3660c5e1f41d"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261101_205240.zip",
+        "date": "2026-11-01",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "e72d7bde91ded4b9e574d9f3779b58a481d3aaca5624805407a65b9badb8f433",
+        "pricedRows": 485,
+        "treeContentSha256": "56a8421907d39c3677d35488824efed1d3dd0a753c6b0fd0e37ea7c19fbc2e08",
+        "treeRevision": "b6482b018c3e28e8ec95bafd924114487d583aef"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261102_203315.zip",
+        "date": "2026-11-02",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "d8d073dfac131464dbc5ec5d961f13b5f2846193eab43231786d4562988a3486",
+        "pricedRows": 485,
+        "treeContentSha256": "0538108da714d52af92b22b25bad9e39b4f4f4ba9b4a5de6e6d2c4d965e53199",
+        "treeRevision": "2697c32a8f9deab4f41867ac4f31d9bae878144d"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261103_234517.zip",
+        "date": "2026-11-03",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "a4610b7ffbed7fad91e9a9eec33f35a1d741e8784fef27468ded6ef261e34ab8",
+        "pricedRows": 485,
+        "treeContentSha256": "5dd833eaa32ff4eb06e7030e683019c1dda13e11e5f6aa7ce2d6cfb309d45539",
+        "treeRevision": "a0c662e0fde6a979f6b64b612fd97735a9367c4d"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261104_221514.zip",
+        "date": "2026-11-04",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "e0e24fe30a312ece8e87ee531992f2114da2cc606eb4883730417fb4ea3c19d6",
+        "pricedRows": 485,
+        "treeContentSha256": "93827456e74f9289b79ca457b9015a10a58d3e28689c43f50b46e3f9ad6a63a0",
+        "treeRevision": "a428f1d0d5749474f9a7f629cf22974495de3721"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261105_211711.zip",
+        "date": "2026-11-05",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "3ecb63d428575732f7b49f939b92ac27900ecee0a8eadde551e27483c62739cb",
+        "pricedRows": 485,
+        "treeContentSha256": "f26cd5f5a5381bd5329b110eda1089393344014f81a1d4cf8f07da13f57c39f4",
+        "treeRevision": "cde28a23347c692cc750255624c6dffda9c4b0b1"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261106_194518.zip",
+        "date": "2026-11-06",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "18a3f2e29916ddf666030d1b6a303632dd118c96b32f32d5c205a21b1ec07df1",
+        "pricedRows": 485,
+        "treeContentSha256": "9313c6e31ced224281d7752e78146b140bfb24050a98f0ba0977a0bed4143a43",
+        "treeRevision": "2550b42abf36728731320bcfd78f762b7833402e"
+      },
+      {
+        "archive": "exports/archive/dynasty_export_20261107_063955.zip",
+        "date": "2026-11-07",
+        "networkAttemptsRefused": 0,
+        "payloadSha256": "7d35c88dafe5fa2232d9f253b4ca5066b14b08e5cd04edbba3e42cdedaa4eade",
+        "pricedRows": 485,
+        "treeContentSha256": "cb2973419f68e1fd8c5f4db8ed24e35f735a6a276681f5b9627d2674252e0042",
+        "treeRevision": "505d2cb173f8e3c77b86257be31e9ecc02d707cf"
+      }
+    ],
+    "buildFailures": [],
+    "byHorizon": {
+      "14": {
+        "horizonDays": 14,
+        "labelDates": 45,
+        "signals": {
+          "c0": {
+            "byPosition": {
+              "ALL": {
+                "buyObs": 983,
+                "distinctPlayers": 179,
+                "hitRate": 0.454,
+                "meanRelMoveAfterBuy": -0.0156,
+                "meanRelMoveAfterSell": 0.0144,
+                "observations": 4845,
+                "playerClusteredHitRate": 0.518,
+                "sellObs": 3862
+              },
+              "QB": {
+                "buyObs": 543,
+                "distinctPlayers": 30,
+                "hitRate": 0.429,
+                "meanRelMoveAfterBuy": -0.0183,
+                "meanRelMoveAfterSell": 0.0215,
+                "observations": 834,
+                "playerClusteredHitRate": 0.461,
+                "sellObs": 291
+              },
+              "RB": {
+                "buyObs": 99,
+                "distinctPlayers": 47,
+                "hitRate": 0.432,
+                "meanRelMoveAfterBuy": -0.0474,
+                "meanRelMoveAfterSell": 0.0112,
+                "observations": 1372,
+                "playerClusteredHitRate": 0.497,
+                "sellObs": 1273
+              },
+              "TE": {
+                "buyObs": 30,
+                "distinctPlayers": 36,
+                "hitRate": 0.484,
+                "meanRelMoveAfterBuy": 0.006,
+                "meanRelMoveAfterSell": 0.0124,
+                "observations": 1111,
+                "playerClusteredHitRate": 0.558,
+                "sellObs": 1081
+              },
+              "WR": {
+                "buyObs": 311,
+                "distinctPlayers": 66,
+                "hitRate": 0.465,
+                "meanRelMoveAfterBuy": -0.0028,
+                "meanRelMoveAfterSell": 0.0179,
+                "observations": 1528,
+                "playerClusteredHitRate": 0.536,
+                "sellObs": 1217
+              }
+            },
+            "icDates": 45,
+            "icStdev": 0.0773,
+            "labelPersistenceAtHorizon": {
+              "QB": 0.817,
+              "RB": 0.846,
+              "TE": 0.911,
+              "WR": 0.786
+            },
+            "meanInformationCoefficient": -0.1573
+          },
+          "c1": {
+            "byPosition": {
+              "ALL": {
+                "buyObs": 1099,
+                "distinctPlayers": 162,
+                "hitRate": 0.405,
+                "meanRelMoveAfterBuy": -0.017,
+                "meanRelMoveAfterSell": 0.0218,
+                "observations": 2573,
+                "playerClusteredHitRate": 0.511,
+                "sellObs": 1474
+              },
+              "QB": {
+                "buyObs": 406,
+                "distinctPlayers": 28,
+                "hitRate": 0.408,
+                "meanRelMoveAfterBuy": -0.0161,
+                "meanRelMoveAfterSell": 0.0551,
+                "observations": 480,
+                "playerClusteredHitRate": 0.433,
+                "sellObs": 74
+              },
+              "RB": {
+                "buyObs": 131,
+                "distinctPlayers": 44,
+                "hitRate": 0.418,
+                "meanRelMoveAfterBuy": -0.0168,
+                "meanRelMoveAfterSell": 0.0159,
+                "observations": 691,
+                "playerClusteredHitRate": 0.532,
+                "sellObs": 560
+              },
+              "TE": {
+                "buyObs": 57,
+                "distinctPlayers": 34,
+                "hitRate": 0.487,
+                "meanRelMoveAfterBuy": 0.0221,
+                "meanRelMoveAfterSell": 0.0113,
+                "observations": 495,
+                "playerClusteredHitRate": 0.592,
+                "sellObs": 438
+              },
+              "WR": {
+                "buyObs": 505,
+                "distinctPlayers": 56,
+                "hitRate": 0.35,
+                "meanRelMoveAfterBuy": -0.0222,
+                "meanRelMoveAfterSell": 0.0355,
+                "observations": 907,
+                "playerClusteredHitRate": 0.486,
+                "sellObs": 402
+              }
+            },
+            "icDates": 45,
+            "icStdev": 0.108,
+            "labelPersistenceAtHorizon": {
+              "QB": 0.629,
+              "RB": 0.528,
+              "TE": 0.547,
+              "WR": 0.638
+            },
+            "meanInformationCoefficient": -0.1742
+          }
+        }
+      },
+      "28": {
+        "horizonDays": 28,
+        "labelDates": 31,
+        "signals": {
+          "c0": {
+            "byPosition": {
+              "ALL": {
+                "buyObs": 603,
+                "distinctPlayers": 167,
+                "hitRate": 0.454,
+                "meanRelMoveAfterBuy": -0.033,
+                "meanRelMoveAfterSell": 0.0177,
+                "observations": 3380,
+                "playerClusteredHitRate": 0.513,
+                "sellObs": 2777
+              },
+              "QB": {
+                "buyObs": 359,
+                "distinctPlayers": 27,
+                "hitRate": 0.423,
+                "meanRelMoveAfterBuy": -0.0449,
+                "meanRelMoveAfterSell": 0.0168,
+                "observations": 577,
+                "playerClusteredHitRate": 0.475,
+                "sellObs": 218
+              },
+              "RB": {
+                "buyObs": 55,
+                "distinctPlayers": 44,
+                "hitRate": 0.44,
+                "meanRelMoveAfterBuy": -0.0948,
+                "meanRelMoveAfterSell": 0.0104,
+                "observations": 969,
+                "playerClusteredHitRate": 0.472,
+                "sellObs": 914
+              },
+              "TE": {
+                "buyObs": 19,
+                "distinctPlayers": 35,
+                "hitRate": 0.476,
+                "meanRelMoveAfterBuy": 0.0225,
+                "meanRelMoveAfterSell": 0.0158,
+                "observations": 800,
+                "playerClusteredHitRate": 0.558,
+                "sellObs": 781
+              },
+              "WR": {
+                "buyObs": 170,
+                "distinctPlayers": 61,
+                "hitRate": 0.466,
+                "meanRelMoveAfterBuy": 0.0059,
+                "meanRelMoveAfterSell": 0.0272,
+                "observations": 1034,
+                "playerClusteredHitRate": 0.533,
+                "sellObs": 864
+              }
+            },
+            "icDates": 31,
+            "icStdev": 0.083,
+            "labelPersistenceAtHorizon": {
+              "QB": 0.693,
+              "RB": 0.745,
+              "TE": 0.897,
+              "WR": 0.712
+            },
+            "meanInformationCoefficient": -0.1757
+          },
+          "c1": {
+            "byPosition": {
+              "ALL": {
+                "buyObs": 722,
+                "distinctPlayers": 146,
+                "hitRate": 0.406,
+                "meanRelMoveAfterBuy": -0.0293,
+                "meanRelMoveAfterSell": 0.0283,
+                "observations": 1765,
+                "playerClusteredHitRate": 0.465,
+                "sellObs": 1043
+              },
+              "QB": {
+                "buyObs": 261,
+                "distinctPlayers": 24,
+                "hitRate": 0.422,
+                "meanRelMoveAfterBuy": -0.0194,
+                "meanRelMoveAfterSell": 0.0537,
+                "observations": 313,
+                "playerClusteredHitRate": 0.431,
+                "sellObs": 52
+              },
+              "RB": {
+                "buyObs": 81,
+                "distinctPlayers": 40,
+                "hitRate": 0.418,
+                "meanRelMoveAfterBuy": -0.0445,
+                "meanRelMoveAfterSell": 0.0127,
+                "observations": 502,
+                "playerClusteredHitRate": 0.469,
+                "sellObs": 421
+              },
+              "TE": {
+                "buyObs": 44,
+                "distinctPlayers": 33,
+                "hitRate": 0.503,
+                "meanRelMoveAfterBuy": 0.0255,
+                "meanRelMoveAfterSell": 0.0154,
+                "observations": 330,
+                "playerClusteredHitRate": 0.551,
+                "sellObs": 286
+              },
+              "WR": {
+                "buyObs": 336,
+                "distinctPlayers": 49,
+                "hitRate": 0.335,
+                "meanRelMoveAfterBuy": -0.0405,
+                "meanRelMoveAfterSell": 0.0598,
+                "observations": 620,
+                "playerClusteredHitRate": 0.421,
+                "sellObs": 284
+              }
+            },
+            "icDates": 31,
+            "icStdev": 0.1007,
+            "labelPersistenceAtHorizon": {
+              "QB": 0.534,
+              "RB": 0.349,
+              "TE": 0.439,
+              "WR": 0.487
+            },
+            "meanInformationCoefficient": -0.1538
+          }
+        }
+      },
+      "7": {
+        "horizonDays": 7,
+        "labelDates": 52,
+        "signals": {
+          "c0": {
+            "byPosition": {
+              "ALL": {
+                "buyObs": 1164,
+                "distinctPlayers": 183,
+                "hitRate": 0.466,
+                "meanRelMoveAfterBuy": -0.0072,
+                "meanRelMoveAfterSell": 0.0096,
+                "observations": 5673,
+                "playerClusteredHitRate": 0.517,
+                "sellObs": 4509
+              },
+              "QB": {
+                "buyObs": 627,
+                "distinctPlayers": 31,
+                "hitRate": 0.468,
+                "meanRelMoveAfterBuy": -0.0075,
+                "meanRelMoveAfterSell": 0.0142,
+                "observations": 961,
+                "playerClusteredHitRate": 0.492,
+                "sellObs": 334
+              },
+              "RB": {
+                "buyObs": 114,
+                "distinctPlayers": 47,
+                "hitRate": 0.434,
+                "meanRelMoveAfterBuy": -0.0219,
+                "meanRelMoveAfterSell": 0.0087,
+                "observations": 1576,
+                "playerClusteredHitRate": 0.5,
+                "sellObs": 1462
+              },
+              "TE": {
+                "buyObs": 37,
+                "distinctPlayers": 37,
+                "hitRate": 0.495,
+                "meanRelMoveAfterBuy": 0.0028,
+                "meanRelMoveAfterSell": 0.0077,
+                "observations": 1297,
+                "playerClusteredHitRate": 0.549,
+                "sellObs": 1260
+              },
+              "WR": {
+                "buyObs": 386,
+                "distinctPlayers": 68,
+                "hitRate": 0.472,
+                "meanRelMoveAfterBuy": -0.0034,
+                "meanRelMoveAfterSell": 0.0111,
+                "observations": 1839,
+                "playerClusteredHitRate": 0.523,
+                "sellObs": 1453
+              }
+            },
+            "icDates": 52,
+            "icStdev": 0.0733,
+            "labelPersistenceAtHorizon": {
+              "QB": 0.875,
+              "RB": 0.902,
+              "TE": 0.93,
+              "WR": 0.855
+            },
+            "meanInformationCoefficient": -0.1607
+          },
+          "c1": {
+            "byPosition": {
+              "ALL": {
+                "buyObs": 1313,
+                "distinctPlayers": 165,
+                "hitRate": 0.379,
+                "meanRelMoveAfterBuy": -0.0121,
+                "meanRelMoveAfterSell": 0.016,
+                "observations": 3021,
+                "playerClusteredHitRate": 0.482,
+                "sellObs": 1708
+              },
+              "QB": {
+                "buyObs": 488,
+                "distinctPlayers": 28,
+                "hitRate": 0.392,
+                "meanRelMoveAfterBuy": -0.0122,
+                "meanRelMoveAfterSell": 0.0417,
+                "observations": 574,
+                "playerClusteredHitRate": 0.47,
+                "sellObs": 86
+              },
+              "RB": {
+                "buyObs": 170,
+                "distinctPlayers": 45,
+                "hitRate": 0.362,
+                "meanRelMoveAfterBuy": -0.0138,
+                "meanRelMoveAfterSell": 0.0136,
+                "observations": 801,
+                "playerClusteredHitRate": 0.474,
+                "sellObs": 631
+              },
+              "TE": {
+                "buyObs": 58,
+                "distinctPlayers": 34,
+                "hitRate": 0.464,
+                "meanRelMoveAfterBuy": 0.0063,
+                "meanRelMoveAfterSell": 0.0083,
+                "observations": 565,
+                "playerClusteredHitRate": 0.574,
+                "sellObs": 507
+              },
+              "WR": {
+                "buyObs": 597,
+                "distinctPlayers": 58,
+                "hitRate": 0.34,
+                "meanRelMoveAfterBuy": -0.0134,
+                "meanRelMoveAfterSell": 0.0228,
+                "observations": 1081,
+                "playerClusteredHitRate": 0.439,
+                "sellObs": 484
+              }
+            },
+            "icDates": 52,
+            "icStdev": 0.1088,
+            "labelPersistenceAtHorizon": {
+              "QB": 0.74,
+              "RB": 0.664,
+              "TE": 0.653,
+              "WR": 0.744
+            },
+            "meanInformationCoefficient": -0.2045
+          }
+        }
+      }
+    },
+    "teCensusByDate": [
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 0
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 0
+        },
+        "date": "2026-09-08"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 7
+        },
+        "date": "2026-09-09"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 28
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 5
+        },
+        "date": "2026-09-10"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 29
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 3
+        },
+        "date": "2026-09-11"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 27
+        },
+        "c1": {
+          "buy": 2,
+          "sell": 7
+        },
+        "date": "2026-09-12"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 26
+        },
+        "c1": {
+          "buy": 2,
+          "sell": 7
+        },
+        "date": "2026-09-13"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 27
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 9
+        },
+        "date": "2026-09-14"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 27
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-09-15"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 27
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 9
+        },
+        "date": "2026-09-16"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-09-17"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 26
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 10
+        },
+        "date": "2026-09-18"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 27
+        },
+        "c1": {
+          "buy": 2,
+          "sell": 9
+        },
+        "date": "2026-09-19"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 28
+        },
+        "c1": {
+          "buy": 2,
+          "sell": 12
+        },
+        "date": "2026-09-20"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 3,
+          "sell": 7
+        },
+        "date": "2026-09-21"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 3,
+          "sell": 8
+        },
+        "date": "2026-09-22"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 5,
+          "sell": 6
+        },
+        "date": "2026-09-23"
+      },
+      {
+        "c0": {
+          "buy": 2,
+          "sell": 22
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 9
+        },
+        "date": "2026-09-24"
+      },
+      {
+        "c0": {
+          "buy": 2,
+          "sell": 23
+        },
+        "c1": {
+          "buy": 2,
+          "sell": 9
+        },
+        "date": "2026-09-25"
+      },
+      {
+        "c0": {
+          "buy": 2,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 2,
+          "sell": 8
+        },
+        "date": "2026-09-26"
+      },
+      {
+        "c0": {
+          "buy": 2,
+          "sell": 26
+        },
+        "c1": {
+          "buy": 2,
+          "sell": 10
+        },
+        "date": "2026-09-27"
+      },
+      {
+        "c0": {
+          "buy": 2,
+          "sell": 26
+        },
+        "c1": {
+          "buy": 2,
+          "sell": 9
+        },
+        "date": "2026-09-28"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-09-29"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 23
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 9
+        },
+        "date": "2026-09-30"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-10-02"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 8
+        },
+        "date": "2026-10-03"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-10-04"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-10-05"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 12
+        },
+        "date": "2026-10-06"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 11
+        },
+        "date": "2026-10-07"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 23
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 14
+        },
+        "date": "2026-10-08"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 23
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 14
+        },
+        "date": "2026-10-09"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 14
+        },
+        "date": "2026-10-10"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 21
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-10-11"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 21
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 9
+        },
+        "date": "2026-10-12"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 21
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 11
+        },
+        "date": "2026-10-13"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 20
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-10-14"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 21
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 12
+        },
+        "date": "2026-10-15"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 21
+        },
+        "c1": {
+          "buy": 2,
+          "sell": 10
+        },
+        "date": "2026-10-16"
+      },
+      {
+        "c0": {
+          "buy": 2,
+          "sell": 20
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 12
+        },
+        "date": "2026-10-17"
+      },
+      {
+        "c0": {
+          "buy": 2,
+          "sell": 21
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-10-18"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 21
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 10
+        },
+        "date": "2026-10-19"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 21
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 11
+        },
+        "date": "2026-10-20"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 13
+        },
+        "date": "2026-10-21"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 22
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 9
+        },
+        "date": "2026-10-22"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 22
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 12
+        },
+        "date": "2026-10-23"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 13
+        },
+        "date": "2026-10-24"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 11
+        },
+        "date": "2026-10-25"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 10
+        },
+        "date": "2026-10-26"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 10
+        },
+        "date": "2026-10-27"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 27
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 9
+        },
+        "date": "2026-10-28"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 27
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 9
+        },
+        "date": "2026-10-29"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 25
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 9
+        },
+        "date": "2026-10-30"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 26
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 11
+        },
+        "date": "2026-10-31"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 26
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 12
+        },
+        "date": "2026-11-01"
+      },
+      {
+        "c0": {
+          "buy": 0,
+          "sell": 26
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 12
+        },
+        "date": "2026-11-02"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 24
+        },
+        "c1": {
+          "buy": 0,
+          "sell": 10
+        },
+        "date": "2026-11-03"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 22
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 9
+        },
+        "date": "2026-11-04"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 21
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 11
+        },
+        "date": "2026-11-05"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 22
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 9
+        },
+        "date": "2026-11-06"
+      },
+      {
+        "c0": {
+          "buy": 1,
+          "sell": 22
+        },
+        "c1": {
+          "buy": 1,
+          "sell": 10
+        },
+        "date": "2026-11-07"
+      }
+    ]
+  },
+  "pinned": {
+    "C2_nativeAsBase": {
+      "boardSha256": "4f422e7e02eec747a3ec740938d1007a826fa5f995582559c54c2fa9e42d8816",
+      "census_C1_on_C2_gate005": {
+        "QB": {
+          "belowGate": 19,
+          "buy": 13,
+          "sell": 1,
+          "unmeasured": 0
+        },
+        "RB": {
+          "belowGate": 32,
+          "buy": 3,
+          "sell": 12,
+          "unmeasured": 0
+        },
+        "TE": {
+          "belowGate": 21,
+          "buy": 2,
+          "sell": 7,
+          "unmeasured": 0
+        },
+        "WR": {
+          "belowGate": 45,
+          "buy": 9,
+          "sell": 8,
+          "unmeasured": 0
+        }
+      },
+      "census_gate005": {
+        "QB": {
+          "belowGate": 12,
+          "buy": 15,
+          "sell": 6,
+          "unmeasured": 0
+        },
+        "RB": {
+          "belowGate": 15,
+          "buy": 5,
+          "sell": 27,
+          "unmeasured": 0
+        },
+        "TE": {
+          "belowGate": 13,
+          "buy": 1,
+          "sell": 16,
+          "unmeasured": 0
+        },
+        "WR": {
+          "belowGate": 20,
+          "buy": 15,
+          "sell": 27,
+          "unmeasured": 0
+        }
+      },
+      "oracleCensus_gate005": {
+        "QB": {
+          "belowGate": 12,
+          "buy": 15,
+          "sell": 6,
+          "unmeasured": 0
+        },
+        "RB": {
+          "belowGate": 15,
+          "buy": 5,
+          "sell": 27,
+          "unmeasured": 0
+        },
+        "TE": {
+          "belowGate": 15,
+          "buy": 2,
+          "sell": 13,
+          "unmeasured": 0
+        },
+        "WR": {
+          "belowGate": 20,
+          "buy": 15,
+          "sell": 27,
+          "unmeasured": 0
+        }
+      },
+      "oracleVsPipelineTeValue": {
+        "maxAbsPctError": 0.034,
+        "medianAbsPctError": 0.0125,
+        "medianSignedPctError": 0.0066,
+        "n": 30
+      },
+      "sourcesConverted": [
+        "idpTradeCalc",
+        "dlfValuesSfTep",
+        "dynastyNerdsSfTep",
+        "fantasyProsFitzmaurice",
+        "yahooBoone",
+        "draftSharks"
+      ],
+      "tePosture": {
+        "controls": {
+          "QB": 0.0272,
+          "RB": -0.0414,
+          "WR": -0.0395
+        },
+        "n": 462,
+        "registryTepNative": null,
+        "teLift": 0.1914,
+        "theta": 1.002
+      },
+      "teSourceRowsNowOnCurve": 309,
+      "valueImpacts": {
+        "maxPctChangeByPosition": {
+          "DB": 0.0,
+          "DL": 0.0,
+          "LB": 0.0,
+          "PICK": 0.0367,
+          "QB": 0.0,
+          "RB": 0.0,
+          "TE": 0.2496,
+          "WR": 0.0
+        },
+        "medianPctChangeByPosition": {
+          "DB": 0.0,
+          "DL": 0.0,
+          "LB": 0.0,
+          "PICK": 0.0,
+          "QB": 0.0,
+          "RB": 0.0,
+          "TE": 0.0256,
+          "WR": 0.0
+        },
+        "rankDisplacement": {
+          "max": 45,
+          "median": 1.0
+        },
+        "rowsChangedByPosition": {
+          "PICK": 33,
+          "TE": 82
+        },
+        "topTeMovers": [
+          {
+            "after": 761,
+            "before": 609,
+            "name": "Lake McRee",
+            "pct": 0.2496,
+            "rankAfter": null,
+            "rankBefore": null
+          },
+          {
+            "after": 783,
+            "before": 631,
+            "name": "RJ Maryland",
+            "pct": 0.2409,
+            "rankAfter": null,
+            "rankBefore": null
+          },
+          {
+            "after": 826,
+            "before": 673,
+            "name": "DJ Rogers",
+            "pct": 0.2273,
+            "rankAfter": null,
+            "rankBefore": null
+          },
+          {
+            "after": 2072,
+            "before": 1927,
+            "name": "Justin Joly",
+            "pct": 0.0752,
+            "rankAfter": 308,
+            "rankBefore": 346
+          },
+          {
+            "after": 1849,
+            "before": 1727,
+            "name": "Zach Ertz",
+            "pct": 0.0706,
+            "rankAfter": 384,
+            "rankBefore": 429
+          },
+          {
+            "after": 2715,
+            "before": 2549,
+            "name": "Mason Taylor",
+            "pct": 0.0651,
+            "rankAfter": 219,
+            "rankBefore": 238
+          },
+          {
+            "after": 2022,
+            "before": 1906,
+            "name": "Cole Kmet",
+            "pct": 0.0609,
+            "rankAfter": 319,
+            "rankBefore": 358
+          },
+          {
+            "after": 2779,
+            "before": 2621,
+            "name": "Pat Freiermuth",
+            "pct": 0.0603,
+            "rankAfter": 210,
+            "rankBefore": 228
+          },
+          {
+            "after": 2540,
+            "before": 2396,
+            "name": "Gunnar Helm",
+            "pct": 0.0601,
+            "rankAfter": 240,
+            "rankBefore": 251
+          },
+          {
+            "after": 1685,
+            "before": 1596,
+            "name": "Tanner Koziol",
+            "pct": 0.0558,
+            "rankAfter": 449,
+            "rankBefore": 472
+          },
+          {
+            "after": 3269,
+            "before": 3097,
+            "name": "Oronde Gadsden",
+            "pct": 0.0555,
+            "rankAfter": 154,
+            "rankBefore": 172
+          },
+          {
+            "after": 1729,
+            "before": 1644,
+            "name": "Josh Cuevas",
+            "pct": 0.0517,
+            "rankAfter": 431,
+            "rankBefore": 457
+          }
+        ]
+      }
+    },
+    "census": {
+      "C0_incumbent_gate005": {
+        "QB": {
+          "belowGate": 12,
+          "buy": 15,
+          "sell": 6,
+          "unmeasured": 0
+        },
+        "RB": {
+          "belowGate": 15,
+          "buy": 5,
+          "sell": 27,
+          "unmeasured": 0
+        },
+        "TE": {
+          "belowGate": 7,
+          "buy": 1,
+          "sell": 22,
+          "unmeasured": 0
+        },
+        "WR": {
+          "belowGate": 20,
+          "buy": 15,
+          "sell": 27,
+          "unmeasured": 0
+        }
+      },
+      "C0_incumbent_gate015": {
+        "QB": {
+          "belowGate": 29,
+          "buy": 3,
+          "sell": 1,
+          "unmeasured": 0
+        },
+        "RB": {
+          "belowGate": 40,
+          "buy": 0,
+          "sell": 7,
+          "unmeasured": 0
+        },
+        "TE": {
+          "belowGate": 26,
+          "buy": 0,
+          "sell": 4,
+          "unmeasured": 0
+        },
+        "WR": {
+          "belowGate": 58,
+          "buy": 1,
+          "sell": 3,
+          "unmeasured": 0
+        }
+      },
+      "C1_scaleNeutral_gate005": {
+        "QB": {
+          "belowGate": 19,
+          "buy": 13,
+          "sell": 1,
+          "unmeasured": 0
+        },
+        "RB": {
+          "belowGate": 33,
+          "buy": 3,
+          "sell": 11,
+          "unmeasured": 0
+        },
+        "TE": {
+          "belowGate": 20,
+          "buy": 1,
+          "sell": 9,
+          "unmeasured": 0
+        },
+        "WR": {
+          "belowGate": 41,
+          "buy": 13,
+          "sell": 8,
+          "unmeasured": 0
+        }
+      },
+      "C1_scaleNeutral_gate015": {
+        "QB": {
+          "belowGate": 32,
+          "buy": 1,
+          "sell": 0,
+          "unmeasured": 0
+        },
+        "RB": {
+          "belowGate": 46,
+          "buy": 0,
+          "sell": 1,
+          "unmeasured": 0
+        },
+        "TE": {
+          "belowGate": 29,
+          "buy": 0,
+          "sell": 1,
+          "unmeasured": 0
+        },
+        "WR": {
+          "belowGate": 61,
+          "buy": 1,
+          "sell": 0,
+          "unmeasured": 0
+        }
+      },
+      "C3_positionRecentred_gate005": {
+        "QB": {
+          "belowGate": 13,
+          "buy": 10,
+          "sell": 10,
+          "unmeasured": 0
+        },
+        "RB": {
+          "belowGate": 22,
+          "buy": 13,
+          "sell": 12,
+          "unmeasured": 0
+        },
+        "TE": {
+          "belowGate": 18,
+          "buy": 5,
+          "sell": 7,
+          "unmeasured": 0
+        },
+        "WR": {
+          "belowGate": 31,
+          "buy": 17,
+          "sell": 14,
+          "unmeasured": 0
+        }
+      }
+    },
+    "decomposition": {
+      "byPosition": {
+        "QB": {
+          "n": 33,
+          "ordinalMedian": -0.0232,
+          "ordinalPositiveShare": 0.182,
+          "tierMedian": 0.0134,
+          "tierShareOfTotal": -0.386,
+          "totalMedian": -0.0347
+        },
+        "RB": {
+          "n": 47,
+          "ordinalMedian": 0.0186,
+          "ordinalPositiveShare": 0.553,
+          "tierMedian": 0.0698,
+          "tierShareOfTotal": 0.956,
+          "totalMedian": 0.073
+        },
+        "TE": {
+          "n": 30,
+          "ordinalMedian": 0.0307,
+          "ordinalPositiveShare": 0.7,
+          "tierMedian": 0.0688,
+          "tierShareOfTotal": 0.89,
+          "totalMedian": 0.0773
+        },
+        "WR": {
+          "n": 62,
+          "ordinalMedian": -0.0035,
+          "ordinalPositiveShare": 0.387,
+          "tierMedian": 0.0622,
+          "tierShareOfTotal": 1.67,
+          "totalMedian": 0.0373
+        }
+      },
+      "maxDecompositionError": 0.0,
+      "ordinalSumOverUniverse": 0.0,
+      "tierCurve": [
+        {
+          "board": 9997.0,
+          "ktcMarket": 9999.0,
+          "logMarketOverBoard": 0.0002,
+          "rank": 1
+        },
+        {
+          "board": 8653.0,
+          "ktcMarket": 7707.0,
+          "logMarketOverBoard": -0.1158,
+          "rank": 11
+        },
+        {
+          "board": 6914.0,
+          "ktcMarket": 6425.4,
+          "logMarketOverBoard": -0.0733,
+          "rank": 26
+        },
+        {
+          "board": 5431.0,
+          "ktcMarket": 5517.1,
+          "logMarketOverBoard": 0.0157,
+          "rank": 51
+        },
+        {
+          "board": 3742.0,
+          "ktcMarket": 3911.8,
+          "logMarketOverBoard": 0.0444,
+          "rank": 101
+        },
+        {
+          "board": 2853.0,
+          "ktcMarket": 3091.0,
+          "logMarketOverBoard": 0.0801,
+          "rank": 151
+        },
+        {
+          "board": 2306.0,
+          "ktcMarket": 2640.5,
+          "logMarketOverBoard": 0.1355,
+          "rank": 201
+        },
+        {
+          "board": 1889.0,
+          "ktcMarket": 2255.9,
+          "logMarketOverBoard": 0.1775,
+          "rank": 251
+        },
+        {
+          "board": 1664.0,
+          "ktcMarket": 1917.7,
+          "logMarketOverBoard": 0.1419,
+          "rank": 301
+        },
+        {
+          "board": 1238.0,
+          "ktcMarket": 1364.1,
+          "logMarketOverBoard": 0.097,
+          "rank": 401
+        }
+      ],
+      "universeSize": 485
+    },
+    "incumbentRestatementMismatches": 0,
+    "inputs": {
+      "archive": "exports/archive/dynasty_export_20261106_194518.zip",
+      "archiveSha256": "d4b196eace153ec17a2c29bff53b66568bda3264a48c09aaadac852c7ce7ced1",
+      "boardDate": "2026-11-06",
+      "incumbentBoardSha256": "80700fff0b33407dcc551c6896f1fdb2e83360e04d9e25d59b2a35bb93abd621",
+      "networkAttemptsRefused": 0,
+      "payloadMember": "dynasty_data_2026-11-06.json",
+      "payloadSha256": "18a3f2e29916ddf666030d1b6a303632dd118c96b32f32d5c205a21b1ec07df1",
+      "scrapeTimestamp": "2026-11-06T19:45:17.887719+00:00",
+      "treeContentSha256": "9313c6e31ced224281d7752e78146b140bfb24050a98f0ba0977a0bed4143a43",
+      "treeRevision": "2550b42abf36728731320bcfd78f762b7833402e"
+    },
+    "ktcUpliftOracle": {
+      "byPosition": {
+        "QB": {
+          "identical": 71,
+          "medianRatio": 1.0,
+          "n": 71
+        },
+        "RB": {
+          "identical": 128,
+          "medianRatio": 1.0,
+          "n": 128
+        },
+        "TE": {
+          "identical": 0,
+          "medianRatio": 1.3483,
+          "n": 78
+        },
+        "WR": {
+          "identical": 186,
+          "medianRatio": 1.0,
+          "n": 186
+        }
+      },
+      "curveConstants": {
+        "a": 43.555794,
+        "ceiling": 2.0531,
+        "floor": 1.209206,
+        "k": 0.632839,
+        "rangeLow": 1.2092
+      },
+      "teBands": {
+        "TE1-12": {
+          "actualMedian": 1.2255,
+          "curveMedian": 1.2092,
+          "n": 12
+        },
+        "TE13-24": {
+          "actualMedian": 1.2716,
+          "curveMedian": 1.2923,
+          "n": 12
+        },
+        "TE25-40": {
+          "actualMedian": 1.3183,
+          "curveMedian": 1.3449,
+          "n": 16
+        },
+        "TE41+": {
+          "actualMedian": 1.4994,
+          "curveMedian": 1.4981,
+          "n": 38
+        }
+      },
+      "teMeanLogResidualActualOverCurve": 0.0003,
+      "teMedianLogResidualActualOverCurve": -0.0098
+    },
+    "labelFlips_C0_to_C1": {
+      "byPosition": {
+        "QB": {
+          "buy->hold": 7,
+          "hold->buy": 5,
+          "sell->hold": 5
+        },
+        "RB": {
+          "buy->hold": 3,
+          "buy->sell": 1,
+          "hold->buy": 2,
+          "sell->hold": 17
+        },
+        "TE": {
+          "hold->sell": 1,
+          "sell->hold": 14
+        },
+        "WR": {
+          "buy->hold": 11,
+          "hold->buy": 9,
+          "sell->hold": 19
+        }
+      },
+      "teExamples": [
+        {
+          "after": "sell",
+          "afterRatio": 0.0758,
+          "before": "hold",
+          "beforeRatio": 0.0008,
+          "name": "Colston Loveland",
+          "rank": 25
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0319,
+          "before": "sell",
+          "beforeRatio": 0.0616,
+          "name": "Kenyon Sadiq",
+          "rank": 77
+        },
+        {
+          "after": "hold",
+          "afterRatio": -0.0163,
+          "before": "sell",
+          "beforeRatio": 0.0526,
+          "name": "Kyle Pitts",
+          "rank": 92
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0336,
+          "before": "sell",
+          "beforeRatio": 0.0737,
+          "name": "Brenton Strange",
+          "rank": 117
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0337,
+          "before": "sell",
+          "beforeRatio": 0.0966,
+          "name": "Terrance Ferguson",
+          "rank": 134
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0,
+          "before": "sell",
+          "beforeRatio": 0.072,
+          "name": "T.J. Hockenson",
+          "rank": 136
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0143,
+          "before": "sell",
+          "beforeRatio": 0.0835,
+          "name": "Eli Stowers",
+          "rank": 137
+        },
+        {
+          "after": "hold",
+          "afterRatio": -0.0171,
+          "before": "sell",
+          "beforeRatio": 0.0556,
+          "name": "Travis Kelce",
+          "rank": 140
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0056,
+          "before": "sell",
+          "beforeRatio": 0.0744,
+          "name": "Juwan Johnson",
+          "rank": 156
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0254,
+          "before": "sell",
+          "beforeRatio": 0.1033,
+          "name": "Jake Ferguson",
+          "rank": 165
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0158,
+          "before": "sell",
+          "beforeRatio": 0.0897,
+          "name": "Chig Okonkwo",
+          "rank": 167
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0,
+          "before": "sell",
+          "beforeRatio": 0.0738,
+          "name": "Oronde Gadsden",
+          "rank": 172
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0214,
+          "before": "sell",
+          "beforeRatio": 0.1077,
+          "name": "Hunter Henry",
+          "rank": 185
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0482,
+          "before": "sell",
+          "beforeRatio": 0.1281,
+          "name": "AJ Barner",
+          "rank": 202
+        },
+        {
+          "after": "hold",
+          "afterRatio": 0.0471,
+          "before": "sell",
+          "beforeRatio": 0.1417,
+          "name": "Dalton Schultz",
+          "rank": 219
+        }
+      ]
+    },
+    "leagueFacts": {
+      "boardTeBasisConstant": "tepp",
+      "dedicatedTeSlots": 2,
+      "flexSlots": 2,
+      "scoringKeys": {
+        "bonus_fd_te": 1.0,
+        "bonus_fd_wr": 1.0,
+        "bonus_rec_te": 0.0,
+        "bonus_rec_wr": 0.02,
+        "rec": 0.1,
+        "rec_td": 6.0
+      },
+      "superFlexSlots": 1
+    },
+    "leaveKtcOut": {
+      "census_gate005": {
+        "QB": {
+          "belowGate": 12,
+          "buy": 15,
+          "sell": 6,
+          "unmeasured": 0
+        },
+        "RB": {
+          "belowGate": 13,
+          "buy": 5,
+          "sell": 29,
+          "unmeasured": 0
+        },
+        "TE": {
+          "belowGate": 6,
+          "buy": 1,
+          "sell": 23,
+          "unmeasured": 0
+        },
+        "WR": {
+          "belowGate": 15,
+          "buy": 15,
+          "sell": 32,
+          "unmeasured": 0
+        }
+      },
+      "teMedianSignedGap": 0.0972,
+      "tePosture": {
+        "controls": {
+          "QB": 0.0338,
+          "RB": -0.0274,
+          "WR": -0.033
+        },
+        "n": 462,
+        "registryTepNative": null,
+        "teLift": 0.1649,
+        "theta": 0.865
+      }
+    },
+    "tePosture": {
+      "ktcTeppReference": {
+        "QB": -0.0324,
+        "RB": -0.0333,
+        "TE": 0.1908,
+        "WR": -0.0293
+      },
+      "sources": {
+        "__board__": {
+          "controls": {
+            "QB": 0.0342,
+            "RB": -0.0271,
+            "WR": -0.032
+          },
+          "n": 462,
+          "registryTepNative": null,
+          "teLift": 0.1738,
+          "theta": 0.911
+        },
+        "dlfRookieSf": {
+          "controls": {
+            "QB": 0.0244,
+            "RB": 0.0,
+            "WR": 0.0
+          },
+          "n": 58,
+          "registryTepNative": false,
+          "teLift": 0.0918,
+          "theta": 0.481
+        },
+        "dlfSf": {
+          "controls": {
+            "QB": 0.014,
+            "RB": -0.0761,
+            "WR": 0.0239
+          },
+          "n": 286,
+          "registryTepNative": false,
+          "teLift": -0.0021,
+          "theta": -0.011
+        },
+        "dlfValuesSfTep": {
+          "controls": {
+            "QB": 0.0165,
+            "RB": -0.0195,
+            "WR": 0.0
+          },
+          "n": 319,
+          "registryTepNative": true,
+          "teLift": 0.0565,
+          "theta": 0.296
+        },
+        "draftSharks": {
+          "controls": {
+            "QB": 0.1768,
+            "RB": -0.1127,
+            "WR": -0.0781
+          },
+          "n": 336,
+          "registryTepNative": true,
+          "teLift": 0.156,
+          "theta": 0.818
+        },
+        "dynastyDaddySf": {
+          "controls": {
+            "QB": 0.0728,
+            "RB": 0.0,
+            "WR": -0.0487
+          },
+          "n": 391,
+          "registryTepNative": false,
+          "teLift": 0.0113,
+          "theta": 0.059
+        },
+        "dynastyNerdsSfTep": {
+          "controls": {
+            "QB": 0.0118,
+            "RB": -0.0424,
+            "WR": 0.0
+          },
+          "n": 283,
+          "registryTepNative": true,
+          "teLift": 0.058,
+          "theta": 0.304
+        },
+        "fantasyCalc": {
+          "controls": {
+            "QB": 0.0793,
+            "RB": -0.0001,
+            "WR": -0.0393
+          },
+          "n": 381,
+          "registryTepNative": false,
+          "teLift": 0.0174,
+          "theta": 0.091
+        },
+        "fantasyNavigatorSf": {
+          "controls": {
+            "QB": 0.053,
+            "RB": -0.0283,
+            "WR": 0.01
+          },
+          "n": 436,
+          "registryTepNative": false,
+          "teLift": 0.0097,
+          "theta": 0.051
+        },
+        "fantasyProsFitzmaurice": {
+          "controls": {
+            "QB": 0.0299,
+            "RB": -0.0296,
+            "WR": -0.0103
+          },
+          "n": 297,
+          "registryTepNative": true,
+          "teLift": 0.0529,
+          "theta": 0.277
+        },
+        "fantasyProsSf": {
+          "controls": {
+            "QB": 0.1306,
+            "RB": -0.0739,
+            "WR": 0.0
+          },
+          "n": 439,
+          "registryTepNative": false,
+          "teLift": 0.0245,
+          "theta": 0.128
+        },
+        "flockFantasySf": {
+          "controls": {
+            "QB": 0.0129,
+            "RB": -0.0073,
+            "WR": 0.0
+          },
+          "n": 394,
+          "registryTepNative": false,
+          "teLift": 0.0064,
+          "theta": 0.033
+        },
+        "flockFantasySfRookies": {
+          "controls": {
+            "QB": 0.1376,
+            "RB": -0.1898,
+            "WR": -0.0689
+          },
+          "n": 47,
+          "registryTepNative": false,
+          "teLift": 0.1609,
+          "theta": 0.843
+        },
+        "idpTradeCalc": {
+          "controls": {
+            "QB": -0.0104,
+            "RB": -0.0167,
+            "WR": -0.0065
+          },
+          "n": 431,
+          "registryTepNative": true,
+          "teLift": 0.0955,
+          "theta": 0.5
+        },
+        "ktcCrowdSfTep": {
+          "controls": {
+            "QB": -0.0324,
+            "RB": -0.0333,
+            "WR": -0.0293
+          },
+          "n": 461,
+          "registryTepNative": true,
+          "teLift": 0.1908,
+          "theta": 1.0
+        },
+        "ktcCrowdTradesSfTep": {
+          "controls": {
+            "QB": -0.003,
+            "RB": -0.0383,
+            "WR": -0.045
+          },
+          "n": 461,
+          "registryTepNative": null,
+          "teLift": 0.1898,
+          "theta": 0.995
+        },
+        "ktcTradesSfTep": {
+          "controls": {
+            "QB": 0.0029,
+            "RB": -0.0401,
+            "WR": -0.0574
+          },
+          "n": 461,
+          "registryTepNative": true,
+          "teLift": 0.1868,
+          "theta": 0.979
+        },
+        "otcffbSf": {
+          "controls": {
+            "QB": 0.0598,
+            "RB": 0.0061,
+            "WR": -0.0291
+          },
+          "n": 433,
+          "registryTepNative": false,
+          "teLift": -0.0306,
+          "theta": -0.16
+        },
+        "pfkDynasty": {
+          "controls": {
+            "QB": 0.0495,
+            "RB": -0.0065,
+            "WR": -0.0272
+          },
+          "n": 428,
+          "registryTepNative": false,
+          "teLift": 0.0486,
+          "theta": 0.255
+        },
+        "yahooBoone": {
+          "controls": {
+            "QB": 0.1084,
+            "RB": -0.0518,
+            "WR": -0.0472
+          },
+          "n": 348,
+          "registryTepNative": true,
+          "teLift": 0.0187,
+          "theta": 0.098
+        }
+      }
+    }
+  }
+}

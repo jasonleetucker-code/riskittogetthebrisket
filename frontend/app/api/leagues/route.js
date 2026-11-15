@@ -23,15 +23,20 @@ import { proxyGet } from "@/lib/backend-proxy";
 // exactly the part that tells the UI which league and team to land on.
 export async function GET(request) {
   try {
-    const { data, status } = await proxyGet("/api/leagues", {
+    const { data, status, requestId, traceId } = await proxyGet("/api/leagues", {
       cookie: request.headers.get("cookie") || "",
+      traceparent: request.headers.get("traceparent") || "",
     });
     // Pass the upstream status through verbatim so the client can tell
     // "no leagues configured" from "backend down".
     return NextResponse.json(data, {
       status,
       // Per-user (userDefaultKey/userDefaultTeam). Never cache at the edge.
-      headers: { "Cache-Control": "no-store, private" },
+      headers: {
+        "Cache-Control": "no-store, private",
+        ...(requestId ? { "X-Request-Id": requestId } : {}),
+        ...(traceId ? { "X-Trace-Id": traceId } : {}),
+      },
     });
   } catch (err) {
     return NextResponse.json(

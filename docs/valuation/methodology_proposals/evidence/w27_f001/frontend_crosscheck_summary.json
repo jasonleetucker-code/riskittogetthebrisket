@@ -1,0 +1,120 @@
+{
+ "rows": 430,
+ "idpMarketAction": {
+  "BUY": 238,
+  "SELL": 85,
+  "HOLD": 15,
+  "—": 92
+ },
+ "rankingsEdge": {
+  "offense only": 430
+ },
+ "filterBuyMatches": 0,
+ "filterSellMatches": 0,
+ "titlesContainingOrdinal": 0,
+ "rowsWithNonZeroParsedGap": 0,
+ "sellPanel": [
+  {
+   "name": "Will Anderson",
+   "gap": 0,
+   "title": "IDPTC values this player ~41% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  },
+  {
+   "name": "Aidan Hutchinson",
+   "gap": 0,
+   "title": "IDPTC values this player ~22% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  },
+  {
+   "name": "Sonny Styles",
+   "gap": 0,
+   "title": "IDPTC values this player ~19% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  },
+  {
+   "name": "Arvell Reese",
+   "gap": 0,
+   "title": "IDPTC values this player ~42% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  },
+  {
+   "name": "Jacob Rodriguez",
+   "gap": 0,
+   "title": "IDPTC values this player ~54% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  },
+  {
+   "name": "David Bailey",
+   "gap": 0,
+   "title": "IDPTC values this player ~63% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  },
+  {
+   "name": "Abdul Carter",
+   "gap": 0,
+   "title": "IDPTC values this player ~80% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  },
+  {
+   "name": "Micah Parsons",
+   "gap": 0,
+   "title": "IDPTC values this player ~80% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  },
+  {
+   "name": "Dallas Turner",
+   "gap": 0,
+   "title": "IDPTC values this player ~91% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  },
+  {
+   "name": "Myles Garrett",
+   "gap": 0,
+   "title": "IDPTC values this player ~39% above IDP-expert consensus. IDPTC > IDP experts → IDPTC is overvaluing."
+  }
+ ],
+ "buyPanel": [
+  {
+   "name": "Carson Schwesinger",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~6% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  },
+  {
+   "name": "Fred Warner",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~13% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  },
+  {
+   "name": "Jack Campbell",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~36% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  },
+  {
+   "name": "Nick Bolton",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~29% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  },
+  {
+   "name": "Jordyn Brooks",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~19% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  },
+  {
+   "name": "Ernest Jones",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~10% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  },
+  {
+   "name": "Nick Emmanwori",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~8% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  },
+  {
+   "name": "Edgerrin Cooper",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~34% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  },
+  {
+   "name": "Roquan Smith",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~9% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  },
+  {
+   "name": "Quay Walker",
+   "gap": 0,
+   "title": "IDP-expert consensus values this player ~22% above IDPTC. IDP experts > IDPTC → IDPTC is undervaluing."
+  }
+ ]
+}

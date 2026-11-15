@@ -1,0 +1,8 @@
+{
+  "error": "stale_assets",
+  "message": "Rosters have changed: one or more assets are no longer owned by the team sending them. Refresh and try again.",
+  "reason": "asset_not_owned",
+  "assetIds": [
+    "p:201"
+  ]
+}

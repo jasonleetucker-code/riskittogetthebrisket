@@ -7,9 +7,9 @@ Answers, per underlying trade (never per raw observation):
    ``package_va_required`` / ``unsuitable`` with every reason named.
 3. **How far apart do our board and each source price its two sides?**  Only
    where the topology is identifiable, only on the format the board is built
-   for, and always through the Value Adjustment owner
-   (``src.trade.ktc_va.adjusted_pair_totals``) — a 3-for-1 is never read as an
-   equality of raw sums.
+   for, and always through the package Value Adjustment owner
+   (``src.valuation_math.package_model.adjusted_pair_totals``, ACTIVE model
+   unless one is named) — a 3-for-1 is never read as an equality of raw sums.
 
 WHAT A RESIDUAL HERE IS, AND IS NOT
 ───────────────────────────────────
@@ -47,7 +47,9 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from src.identity.picks import parse_market_pick_id
 from src.sources.ktc_market import KTC_MARKET_KEY
-from src.trade.ktc_va import adjusted_pair_totals
+from src.trade import market_trade_groups as grp
+from src.valuation_math import package_model
+from src.valuation_math.package_model import adjusted_pair_totals
 
 TOPO_1_FOR_1 = "two_team_1_for_1"
 TOPO_2_FOR_1 = "two_team_2_for_1"
@@ -159,6 +161,226 @@ def fit_suitability(trade: Mapping[str, Any], topo: Mapping[str, Any]) -> dict[s
     return {"fit": FIT_PACKAGE, "reasons": ["consolidation_effects_require_package_model"]}
 
 
+# ── Estimator evidence (chaseTradeMarket P2: G8/G9) ──────────────────────
+#
+# Facts the shadow trade-market estimator and its preregistration need, per
+# underlying trade.  ADDITIVE: ``fit_suitability`` above is unchanged, so every
+# existing reader (latent readiness, topology summary, residuals) answers
+# exactly as before.  Two kinds of flag, deliberately separated:
+#
+# * ``hardExclusions`` -- the trade cannot be represented correctly in a
+#   latent-price fit (an unresolved asset, FAAB money the asset space cannot
+#   hold, an unverified dynasty format, a multi-team trade whose senders are
+#   unknown, a host record that leaves any received asset without a sender,
+#   no collection clock for point-in-time folds, ...).  Data
+#   integrity, not methodology.
+# * ``populationFlags`` -- provenance / independence FACTS (KTC-linked,
+#   Insider-crawled, own-league lane, unproven dedupe, FAAB not observable on
+#   the Sleeper lanes, ...).  Which of them exclude a trade from the primary
+#   population is the preregistration's decision (plan G13), never made here.
+#
+# League maturity is reported under BOTH readings the plan names --
+# point-in-time at the trade and league-level as of the build -- from the
+# ``leagueMaturity`` hook the P3 maturity owner fills.  Until it does, every
+# cohort is ``unknown``: maturity is never inferred here.
+
+COHORT_A = "A_three_plus_completed_seasons"
+COHORT_B = "B_two_completed_seasons"
+COHORT_B_PLUS_UNRESOLVED = "two_plus_completed_three_unresolved"
+COHORT_BELOW_TWO = "below_two_completed_seasons"
+COHORT_UNKNOWN = "unknown"
+
+MATURITY_EXACT = "exact"
+MATURITY_LOWER_BOUND = "lower_bound"
+MATURITY_UNKNOWN = "unknown"
+
+
+def maturity_cohort(completed_seasons: Any, certainty: Any) -> str:
+    """Owner directive V2 §2 cohort for one maturity reading, FAIL CLOSED.
+
+    ``exact`` counts place the league directly.  A ``lower_bound`` proves "at
+    least n": 3+ is cohort A, exactly 2 proves the two-season research cohort
+    while A stays unresolved, and below 2 proves nothing.  A lower bound under
+    three is NEVER cohort A, and an unknown count is ``unknown`` -- never the
+    startup bucket.
+    """
+    if isinstance(completed_seasons, bool) or not isinstance(completed_seasons, int):
+        return COHORT_UNKNOWN
+    if completed_seasons < 0:
+        return COHORT_UNKNOWN
+    if certainty == MATURITY_EXACT:
+        if completed_seasons >= 3:
+            return COHORT_A
+        return COHORT_B if completed_seasons == 2 else COHORT_BELOW_TWO
+    if certainty == MATURITY_LOWER_BOUND:
+        if completed_seasons >= 3:
+            return COHORT_A
+        return COHORT_B_PLUS_UNRESOLVED if completed_seasons == 2 else COHORT_UNKNOWN
+    return COHORT_UNKNOWN
+
+
+def _maturity_cohorts(trade: Mapping[str, Any]) -> dict[str, str]:
+    lm = trade.get("leagueMaturity") or {}
+    out = {}
+    for reading in ("pointInTime", "asOfBuild"):
+        r = lm.get(reading) or {}
+        out[reading] = maturity_cohort(r.get("completedSeasons"), r.get("certainty"))
+    return out
+
+
+_NON_DYNASTY_STATES = ("keeper", "redraft")
+
+
+def estimator_evidence(trade: Mapping[str, Any]) -> dict[str, Any]:
+    """Per-trade evidence flags for the trade-market estimator (see above)."""
+    topo = classify_topology(trade)
+    flags = topo["flags"]
+    t = topo["topology"]
+    hard: list[str] = []
+    population: list[str] = []
+    if t in (TOPO_ONE_SIDED, TOPO_EMPTY):
+        hard.append("one_side_empty")
+    for flag, reason in (
+        ("includes_unresolved", "unresolved_asset"),
+        ("includes_faab", "faab_unrepresentable"),
+        ("includes_startup_pick", "startup_pick"),
+        ("includes_pick_beyond_round_6", "pick_round_gt_6"),
+    ):
+        if flag in flags:
+            hard.append(reason)
+    fmt = trade.get("marketFormat") or {}
+    dynasty_state = (fmt.get("general") or {}).get("dynastyState")
+    if dynasty_state in _NON_DYNASTY_STATES:
+        hard.append("not_dynasty")
+    elif dynasty_state != "dynasty":
+        hard.append("dynasty_unverified")
+    if (fmt.get("offense") or {}).get("superflex") is None:
+        hard.append("qb_format_unknown")
+    exclusivity = (trade.get("rosterExclusivity") or {}).get("state")
+    if exclusivity == "multi_copy":
+        hard.append("multi_copy_league")
+    elif exclusivity != "exclusive":
+        hard.append("roster_exclusivity_unknown")
+    side_ev = trade.get("sideEvidence") or {}
+    if t == TOPO_MULTI_TEAM:
+        senders = [
+            a.get("senderSideIndex")
+            for side in side_ev.get("sides") or []
+            for a in side.get("assets") or []
+        ]
+        n_assets = sum(len(s) for s in trade.get("sides") or [])
+        if len(senders) != n_assets or any(x is None for x in senders):
+            # A three-team trade is usable only when every asset's sender is
+            # known (G8 restores it from the host movement's roster slot).
+            hard.append("multi_team_senders_unattributed")
+    elif side_ev.get("attribution") == grp.SIDE_ATTRIBUTION_RECEIVED:
+        # A host record states every sender; a received asset with no sender
+        # proves the record is incomplete -- e.g. a three-team trade the
+        # Insider pool crawl cut down to its two pool rosters, which then
+        # reads as a two-sided trade.  KTC's package partition states no
+        # sender by design and is exempt.
+        senders = [
+            a.get("senderSideIndex")
+            for side in side_ev.get("sides") or []
+            for a in side.get("assets") or []
+        ]
+        n_assets = sum(len(s) for s in trade.get("sides") or [])
+        if len(senders) != n_assets or any(x is None for x in senders):
+            hard.append("partial_record_senders_unattributed")
+    if not trade.get("occurredDate"):
+        hard.append("undated_trade")
+    if _parse_iso(trade.get("representativeCollectedAt") or trade.get("collectedAt")) is None:
+        # Point-in-time folds filter on the collection clock; without it a
+        # trade cannot be placed before or after a training cutoff.
+        hard.append("collected_at_unknown")
+
+    channels = list(trade.get("observationChannels") or [])
+    cross = trade.get("crossFeed") or {}
+    if "ktc_database" in channels:
+        population.append("ktc_database_channel")
+    if cross.get("ktcOverlap") == "possible_cross_feed_overlap":
+        population.append("possible_ktc_overlap")
+    state = trade.get("dedupeState")
+    if state in ("POSSIBLE_OVERLAP", "UNRESOLVED"):
+        population.append(f"dedupe_unproven:{state}")
+    if "insider_pool_crawl" in (trade.get("collectionPaths") or []):
+        population.append("insider_pool_crawl")
+    if "own_league_sleeper" in (trade.get("sourceFamilies") or []):
+        population.append("own_league_lane")
+    caveats = [str(c) for c in trade.get("caveats") or []]
+    if "sleeper_trade_faab_component_not_recorded" in caveats:
+        population.append("faab_unobserved")
+    if any(c.startswith(("partial_record_", "released_in_trade")) for c in caveats):
+        population.append("partial_host_record")
+    if side_ev.get("managerKeyState") != "keyed":
+        population.append("side_manager_keys_unavailable")
+    if trade.get("targetPriceAuthority") == 0:
+        population.append(f"target_disposition:{trade.get('disposition')}")
+    return {
+        "hardExclusions": hard,
+        "populationFlags": population,
+        "maturityCohort": _maturity_cohorts(trade),
+        "observationChannels": channels,
+        "ktcOverlap": cross.get("ktcOverlap"),
+        "overlapClusterId": cross.get("overlapClusterId"),
+    }
+
+
+def _parse_iso(value: Any) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def summarize_estimator_evidence(trades: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Counts only: data lost to EACH hard exclusion (a trade counts under
+    every reason it carries, and once in ``anyHardExclusion``), population-flag
+    counts among the otherwise-usable trades, and maturity cohorts under both
+    readings (owner directive V2 §10 "data lost to each exclusion")."""
+    hard: dict[str, int] = {}
+    # Trades whose ONLY hard exclusion is this reason: what relaxing that one
+    # rule alone would recover (the overlapping counts above cannot say).
+    sole: dict[str, int] = {}
+    population: dict[str, int] = {}
+    cohorts: dict[str, dict[str, int]] = {"pointInTime": {}, "asOfBuild": {}}
+    usable = 0
+    excluded = 0
+    for t in trades:
+        e = estimator_evidence(t)
+        for r in e["hardExclusions"]:
+            hard[r] = hard.get(r, 0) + 1
+        if e["hardExclusions"]:
+            excluded += 1
+            if len(e["hardExclusions"]) == 1:
+                r = e["hardExclusions"][0]
+                sole[r] = sole.get(r, 0) + 1
+            continue
+        usable += 1
+        for f in e["populationFlags"]:
+            population[f] = population.get(f, 0) + 1
+        for reading, cohort in e["maturityCohort"].items():
+            cohorts[reading][cohort] = cohorts[reading].get(cohort, 0) + 1
+    return {
+        "underlyingTrades": len(trades),
+        "anyHardExclusion": excluded,
+        "representable": usable,
+        "lostToEachHardExclusion": dict(sorted(hard.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "lostOnlyToHardExclusion": dict(sorted(sole.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "populationFlagsAmongRepresentable": dict(sorted(population.items())),
+        "maturityCohortsAmongRepresentable": {
+            k: dict(sorted(v.items())) for k, v in cohorts.items()
+        },
+        "notes": [
+            "hard exclusions are data-integrity facts; which population flags exclude a trade "
+            "from the primary population is the preregistration's decision",
+            "maturity cohorts stay 'unknown' until the P3 maturity owner fills leagueMaturity",
+        ],
+    }
+
+
 # ── Board value lookup ────────────────────────────────────────────────────
 
 
@@ -250,11 +472,18 @@ def _orient(sides: Sequence[Sequence[Mapping[str, Any]]], board: BoardIndex) -> 
 
 
 def trade_residual(
-    trade: Mapping[str, Any], board: BoardIndex, source: str
+    trade: Mapping[str, Any],
+    board: BoardIndex,
+    source: str,
+    *,
+    model_id: str | None = None,
 ) -> dict[str, Any] | None:
     """VA-adjusted relative gap for one trade under one source, or ``None``
     when the source does not price every asset (coverage is all-or-nothing:
-    a partially priced side is not a smaller side)."""
+    a partially priced side is not a smaller side).  ``model_id`` selects a
+    registered package model (default: the active one) so a shadow model
+    (the KTC rollback model today) can be evaluated on the same trades
+    without touching production."""
     sides = trade.get("sides") or []
     if len(sides) != 2:
         return None
@@ -263,7 +492,7 @@ def trade_residual(
     vb = [board.values(x).get(source) for x in b]
     if not va or not vb or any(v is None for v in va + vb):
         return None
-    adj_a, adj_b, va_a, va_b = adjusted_pair_totals(va, vb)
+    adj_a, adj_b, va_a, va_b = adjusted_pair_totals(va, vb, model_id=model_id)
     mean = (adj_a + adj_b) / 2.0
     if mean <= 0:
         return None
@@ -355,6 +584,7 @@ def residual_report(
     board_date: date | None,
     sources: Iterable[str] | None = None,
     max_board_lag_days: int = DEFAULT_MAX_BOARD_LAG_DAYS,
+    model_id: str | None = None,
 ) -> dict[str, Any]:
     """Per-source residual summaries over identifiable trades only.
 
@@ -402,7 +632,7 @@ def residual_report(
         by_tep: dict[str, list[float]] = {}
         not_covered = 0
         for t in eligible:
-            r = trade_residual(t, board, src)
+            r = trade_residual(t, board, src, model_id=model_id)
             if r is None:
                 not_covered += 1
                 continue
@@ -436,9 +666,10 @@ def residual_report(
         "excludedByReason": dict(sorted(excluded.items())),
         "boardDate": board_date.isoformat() if board_date else None,
         "maxBoardLagDays": max_board_lag_days,
+        "packageModel": package_model.receipt(model_id),
         "perSource": per_source,
         "notes": [
-            "residual = (VA-adjusted stud side - VA-adjusted other side) / mean, via src.trade.ktc_va",
+            "residual = (VA-adjusted stud side - VA-adjusted other side) / mean, via the package model named in packageModel",
             "a completed trade cleared at 'even' for its two managers; the residual measures a source's disagreement with that clearing",
             "KTC Trades / KTC Market (and the canonical board, which votes KTC Trades) are partly in-sample on KTC rows; see rowsNotYetConsumedByKtcTrades",
             "isUsedInVft is a PROCESSING flag: measured 2026-10-01, 10 of 200 rows flipped False -> True within ~25 minutes of first appearing, so False mostly means not yet consumed (the latest archived revision governs), not deliberately excluded",
@@ -503,9 +734,12 @@ def summarize_topology(trades: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 __all__ = [
     "BoardIndex",
     "classify_topology",
+    "estimator_evidence",
     "fit_suitability",
+    "maturity_cohort",
     "latent_fit_readiness",
     "residual_report",
+    "summarize_estimator_evidence",
     "summarize_topology",
     "trade_residual",
 ]

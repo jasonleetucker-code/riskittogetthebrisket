@@ -1,0 +1,1570 @@
+{
+  "inputs": {
+    "boardDate": "2026-11-13",
+    "rawPayload": "exports/latest/dynasty_data_2026-11-13.json",
+    "rawPayloadSha256": "57c2d2d424950bcbea4363d9bfc06976b2489e79efea44e37fb03bec17b177a3",
+    "scrapeTimestamp": "2026-11-13T07:22:01.833061+00:00"
+  },
+  "result": {
+    "demand": {
+      "dynasty_main": {
+        "bases": {
+          "dedicated": {
+            "DB": 3.0,
+            "DL": 3.0,
+            "K": 1.0,
+            "LB": 3.0,
+            "QB": 1.0,
+            "RB": 2.0,
+            "TE": 2.0,
+            "WR": 3.0
+          },
+          "even_split": {
+            "DB": 3.0,
+            "DL": 3.0,
+            "K": 1.0,
+            "LB": 3.0,
+            "QB": 1.25,
+            "RB": 2.916666666666667,
+            "TE": 2.916666666666667,
+            "WR": 3.916666666666667
+          },
+          "flex_priority": {
+            "DB": 3.0,
+            "DL": 3.0,
+            "K": 1.0,
+            "LB": 3.0,
+            "QB": 2.0,
+            "RB": 3.0,
+            "TE": 2.0,
+            "WR": 4.0
+          }
+        },
+        "leagueKey": "dynasty_main",
+        "resolved": true,
+        "slots": [
+          "QB",
+          "RB",
+          "RB",
+          "WR",
+          "WR",
+          "WR",
+          "TE",
+          "TE",
+          "FLEX",
+          "FLEX",
+          "SUPER_FLEX",
+          "K",
+          "DL",
+          "DL",
+          "DL",
+          "LB",
+          "LB",
+          "LB",
+          "DB",
+          "DB",
+          "DB"
+        ],
+        "source": "registry_starters",
+        "teamCount": 12
+      },
+      "dynasty_new": {
+        "bases": {
+          "dedicated": {
+            "QB": 1.0,
+            "RB": 2.0,
+            "TE": 1.0,
+            "WR": 3.0
+          },
+          "even_split": {
+            "QB": 1.25,
+            "RB": 3.0833333333333335,
+            "TE": 1.5833333333333333,
+            "WR": 4.083333333333334
+          },
+          "flex_priority": {
+            "QB": 2.0,
+            "RB": 4.0,
+            "TE": 1.0,
+            "WR": 3.0
+          }
+        },
+        "leagueKey": "dynasty_new",
+        "resolved": true,
+        "slots": [
+          "QB",
+          "RB",
+          "RB",
+          "WR",
+          "WR",
+          "WR",
+          "TE",
+          "FLEX",
+          "WR_RB_FLEX",
+          "SUPER_FLEX"
+        ],
+        "source": "registry_starters",
+        "teamCount": 10
+      }
+    },
+    "demandVsValue": {
+      "dynasty_main": {
+        "dedicated": {
+          "flat_1_15_pre_adr015": {
+            "demandShare": {
+              "QB": 0.125,
+              "RB": 0.25,
+              "TE": 0.25,
+              "WR": 0.375
+            },
+            "starterPoolSize": {
+              "QB": 12,
+              "RB": 24,
+              "TE": 24,
+              "WR": 36
+            },
+            "starterPoolValue": {
+              "QB": 93029,
+              "RB": 135915,
+              "TE": 107840,
+              "WR": 206014
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1714,
+              "RB": 0.2504,
+              "TE": 0.1987,
+              "WR": 0.3795
+            }
+          },
+          "incumbent_adr015": {
+            "demandShare": {
+              "QB": 0.125,
+              "RB": 0.25,
+              "TE": 0.25,
+              "WR": 0.375
+            },
+            "starterPoolSize": {
+              "QB": 12,
+              "RB": 24,
+              "TE": 24,
+              "WR": 36
+            },
+            "starterPoolValue": {
+              "QB": 93029,
+              "RB": 135915,
+              "TE": 112717,
+              "WR": 206014
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1699,
+              "RB": 0.2482,
+              "TE": 0.2058,
+              "WR": 0.3762
+            }
+          },
+          "no_non_tep_lift": {
+            "demandShare": {
+              "QB": 0.125,
+              "RB": 0.25,
+              "TE": 0.25,
+              "WR": 0.375
+            },
+            "starterPoolSize": {
+              "QB": 12,
+              "RB": 24,
+              "TE": 24,
+              "WR": 36
+            },
+            "starterPoolValue": {
+              "QB": 93029,
+              "RB": 135915,
+              "TE": 99290,
+              "WR": 206014
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1741,
+              "RB": 0.2544,
+              "TE": 0.1859,
+              "WR": 0.3856
+            }
+          },
+          "no_te_lift_any_source": {
+            "demandShare": {
+              "QB": 0.125,
+              "RB": 0.25,
+              "TE": 0.25,
+              "WR": 0.375
+            },
+            "starterPoolSize": {
+              "QB": 12,
+              "RB": 24,
+              "TE": 24,
+              "WR": 36
+            },
+            "starterPoolValue": {
+              "QB": 93029,
+              "RB": 135915,
+              "TE": 96111,
+              "WR": 206014
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1752,
+              "RB": 0.2559,
+              "TE": 0.181,
+              "WR": 0.3879
+            }
+          }
+        },
+        "even_split": {
+          "flat_1_15_pre_adr015": {
+            "demandShare": {
+              "QB": 0.1136,
+              "RB": 0.2652,
+              "TE": 0.2652,
+              "WR": 0.3561
+            },
+            "starterPoolSize": {
+              "QB": 15,
+              "RB": 35,
+              "TE": 35,
+              "WR": 47
+            },
+            "starterPoolValue": {
+              "QB": 109740,
+              "RB": 172090,
+              "TE": 133161,
+              "WR": 241845
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1671,
+              "RB": 0.262,
+              "TE": 0.2027,
+              "WR": 0.3682
+            }
+          },
+          "incumbent_adr015": {
+            "demandShare": {
+              "QB": 0.1136,
+              "RB": 0.2652,
+              "TE": 0.2652,
+              "WR": 0.3561
+            },
+            "starterPoolSize": {
+              "QB": 15,
+              "RB": 35,
+              "TE": 35,
+              "WR": 47
+            },
+            "starterPoolValue": {
+              "QB": 109740,
+              "RB": 172090,
+              "TE": 141377,
+              "WR": 241845
+            },
+            "starterPoolValueShare": {
+              "QB": 0.165,
+              "RB": 0.2588,
+              "TE": 0.2126,
+              "WR": 0.3636
+            }
+          },
+          "no_non_tep_lift": {
+            "demandShare": {
+              "QB": 0.1136,
+              "RB": 0.2652,
+              "TE": 0.2652,
+              "WR": 0.3561
+            },
+            "starterPoolSize": {
+              "QB": 15,
+              "RB": 35,
+              "TE": 35,
+              "WR": 47
+            },
+            "starterPoolValue": {
+              "QB": 109740,
+              "RB": 172090,
+              "TE": 122059,
+              "WR": 241845
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1699,
+              "RB": 0.2665,
+              "TE": 0.189,
+              "WR": 0.3745
+            }
+          },
+          "no_te_lift_any_source": {
+            "demandShare": {
+              "QB": 0.1136,
+              "RB": 0.2652,
+              "TE": 0.2652,
+              "WR": 0.3561
+            },
+            "starterPoolSize": {
+              "QB": 15,
+              "RB": 35,
+              "TE": 35,
+              "WR": 47
+            },
+            "starterPoolValue": {
+              "QB": 109740,
+              "RB": 172090,
+              "TE": 118208,
+              "WR": 241845
+            },
+            "starterPoolValueShare": {
+              "QB": 0.171,
+              "RB": 0.2681,
+              "TE": 0.1842,
+              "WR": 0.3768
+            }
+          }
+        },
+        "flex_priority": {
+          "flat_1_15_pre_adr015": {
+            "demandShare": {
+              "QB": 0.1818,
+              "RB": 0.2727,
+              "TE": 0.1818,
+              "WR": 0.3636
+            },
+            "starterPoolSize": {
+              "QB": 24,
+              "RB": 36,
+              "TE": 24,
+              "WR": 48
+            },
+            "starterPoolValue": {
+              "QB": 150956,
+              "RB": 174957,
+              "TE": 107840,
+              "WR": 244927
+            },
+            "starterPoolValueShare": {
+              "QB": 0.2224,
+              "RB": 0.2578,
+              "TE": 0.1589,
+              "WR": 0.3609
+            }
+          },
+          "incumbent_adr015": {
+            "demandShare": {
+              "QB": 0.1818,
+              "RB": 0.2727,
+              "TE": 0.1818,
+              "WR": 0.3636
+            },
+            "starterPoolSize": {
+              "QB": 24,
+              "RB": 36,
+              "TE": 24,
+              "WR": 48
+            },
+            "starterPoolValue": {
+              "QB": 150956,
+              "RB": 174957,
+              "TE": 112717,
+              "WR": 244927
+            },
+            "starterPoolValueShare": {
+              "QB": 0.2208,
+              "RB": 0.256,
+              "TE": 0.1649,
+              "WR": 0.3583
+            }
+          },
+          "no_non_tep_lift": {
+            "demandShare": {
+              "QB": 0.1818,
+              "RB": 0.2727,
+              "TE": 0.1818,
+              "WR": 0.3636
+            },
+            "starterPoolSize": {
+              "QB": 24,
+              "RB": 36,
+              "TE": 24,
+              "WR": 48
+            },
+            "starterPoolValue": {
+              "QB": 150956,
+              "RB": 174957,
+              "TE": 99290,
+              "WR": 244927
+            },
+            "starterPoolValueShare": {
+              "QB": 0.2253,
+              "RB": 0.2611,
+              "TE": 0.1482,
+              "WR": 0.3655
+            }
+          },
+          "no_te_lift_any_source": {
+            "demandShare": {
+              "QB": 0.1818,
+              "RB": 0.2727,
+              "TE": 0.1818,
+              "WR": 0.3636
+            },
+            "starterPoolSize": {
+              "QB": 24,
+              "RB": 36,
+              "TE": 24,
+              "WR": 48
+            },
+            "starterPoolValue": {
+              "QB": 150956,
+              "RB": 174957,
+              "TE": 96111,
+              "WR": 244927
+            },
+            "starterPoolValueShare": {
+              "QB": 0.2263,
+              "RB": 0.2623,
+              "TE": 0.1441,
+              "WR": 0.3672
+            }
+          }
+        }
+      },
+      "dynasty_new": {
+        "dedicated": {
+          "flat_1_15_pre_adr015": {
+            "demandShare": {
+              "QB": 0.1429,
+              "RB": 0.2857,
+              "TE": 0.1429,
+              "WR": 0.4286
+            },
+            "starterPoolSize": {
+              "QB": 10,
+              "RB": 20,
+              "TE": 10,
+              "WR": 30
+            },
+            "starterPoolValue": {
+              "QB": 81448,
+              "RB": 119595,
+              "TE": 62584,
+              "WR": 183073
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1823,
+              "RB": 0.2677,
+              "TE": 0.1401,
+              "WR": 0.4098
+            }
+          },
+          "incumbent_adr015": {
+            "demandShare": {
+              "QB": 0.1429,
+              "RB": 0.2857,
+              "TE": 0.1429,
+              "WR": 0.4286
+            },
+            "starterPoolSize": {
+              "QB": 10,
+              "RB": 20,
+              "TE": 10,
+              "WR": 30
+            },
+            "starterPoolValue": {
+              "QB": 81448,
+              "RB": 119595,
+              "TE": 64037,
+              "WR": 183073
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1817,
+              "RB": 0.2669,
+              "TE": 0.1429,
+              "WR": 0.4085
+            }
+          },
+          "no_non_tep_lift": {
+            "demandShare": {
+              "QB": 0.1429,
+              "RB": 0.2857,
+              "TE": 0.1429,
+              "WR": 0.4286
+            },
+            "starterPoolSize": {
+              "QB": 10,
+              "RB": 20,
+              "TE": 10,
+              "WR": 30
+            },
+            "starterPoolValue": {
+              "QB": 81448,
+              "RB": 119595,
+              "TE": 58244,
+              "WR": 183073
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1841,
+              "RB": 0.2704,
+              "TE": 0.1317,
+              "WR": 0.4139
+            }
+          },
+          "no_te_lift_any_source": {
+            "demandShare": {
+              "QB": 0.1429,
+              "RB": 0.2857,
+              "TE": 0.1429,
+              "WR": 0.4286
+            },
+            "starterPoolSize": {
+              "QB": 10,
+              "RB": 20,
+              "TE": 10,
+              "WR": 30
+            },
+            "starterPoolValue": {
+              "QB": 81448,
+              "RB": 119595,
+              "TE": 56028,
+              "WR": 183073
+            },
+            "starterPoolValueShare": {
+              "QB": 0.185,
+              "RB": 0.2717,
+              "TE": 0.1273,
+              "WR": 0.4159
+            }
+          }
+        },
+        "even_split": {
+          "flat_1_15_pre_adr015": {
+            "demandShare": {
+              "QB": 0.125,
+              "RB": 0.3083,
+              "TE": 0.1583,
+              "WR": 0.4083
+            },
+            "starterPoolSize": {
+              "QB": 12,
+              "RB": 31,
+              "TE": 16,
+              "WR": 41
+            },
+            "starterPoolValue": {
+              "QB": 93029,
+              "RB": 160131,
+              "TE": 84025,
+              "WR": 222684
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1662,
+              "RB": 0.286,
+              "TE": 0.1501,
+              "WR": 0.3977
+            }
+          },
+          "incumbent_adr015": {
+            "demandShare": {
+              "QB": 0.125,
+              "RB": 0.3083,
+              "TE": 0.1583,
+              "WR": 0.4083
+            },
+            "starterPoolSize": {
+              "QB": 12,
+              "RB": 31,
+              "TE": 16,
+              "WR": 41
+            },
+            "starterPoolValue": {
+              "QB": 93029,
+              "RB": 160131,
+              "TE": 86894,
+              "WR": 222684
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1653,
+              "RB": 0.2846,
+              "TE": 0.1544,
+              "WR": 0.3957
+            }
+          },
+          "no_non_tep_lift": {
+            "demandShare": {
+              "QB": 0.125,
+              "RB": 0.3083,
+              "TE": 0.1583,
+              "WR": 0.4083
+            },
+            "starterPoolSize": {
+              "QB": 12,
+              "RB": 31,
+              "TE": 16,
+              "WR": 41
+            },
+            "starterPoolValue": {
+              "QB": 93029,
+              "RB": 160131,
+              "TE": 77972,
+              "WR": 222684
+            },
+            "starterPoolValueShare": {
+              "QB": 0.168,
+              "RB": 0.2891,
+              "TE": 0.1408,
+              "WR": 0.4021
+            }
+          },
+          "no_te_lift_any_source": {
+            "demandShare": {
+              "QB": 0.125,
+              "RB": 0.3083,
+              "TE": 0.1583,
+              "WR": 0.4083
+            },
+            "starterPoolSize": {
+              "QB": 12,
+              "RB": 31,
+              "TE": 16,
+              "WR": 41
+            },
+            "starterPoolValue": {
+              "QB": 93029,
+              "RB": 160131,
+              "TE": 75065,
+              "WR": 222684
+            },
+            "starterPoolValueShare": {
+              "QB": 0.1689,
+              "RB": 0.2907,
+              "TE": 0.1363,
+              "WR": 0.4042
+            }
+          }
+        },
+        "flex_priority": {
+          "flat_1_15_pre_adr015": {
+            "demandShare": {
+              "QB": 0.2,
+              "RB": 0.4,
+              "TE": 0.1,
+              "WR": 0.3
+            },
+            "starterPoolSize": {
+              "QB": 20,
+              "RB": 40,
+              "TE": 10,
+              "WR": 30
+            },
+            "starterPoolValue": {
+              "QB": 135828,
+              "RB": 186136,
+              "TE": 62584,
+              "WR": 183073
+            },
+            "starterPoolValueShare": {
+              "QB": 0.2393,
+              "RB": 0.3279,
+              "TE": 0.1103,
+              "WR": 0.3225
+            }
+          },
+          "incumbent_adr015": {
+            "demandShare": {
+              "QB": 0.2,
+              "RB": 0.4,
+              "TE": 0.1,
+              "WR": 0.3
+            },
+            "starterPoolSize": {
+              "QB": 20,
+              "RB": 40,
+              "TE": 10,
+              "WR": 30
+            },
+            "starterPoolValue": {
+              "QB": 135828,
+              "RB": 186136,
+              "TE": 64037,
+              "WR": 183073
+            },
+            "starterPoolValueShare": {
+              "QB": 0.2387,
+              "RB": 0.3271,
+              "TE": 0.1125,
+              "WR": 0.3217
+            }
+          },
+          "no_non_tep_lift": {
+            "demandShare": {
+              "QB": 0.2,
+              "RB": 0.4,
+              "TE": 0.1,
+              "WR": 0.3
+            },
+            "starterPoolSize": {
+              "QB": 20,
+              "RB": 40,
+              "TE": 10,
+              "WR": 30
+            },
+            "starterPoolValue": {
+              "QB": 135828,
+              "RB": 186136,
+              "TE": 58244,
+              "WR": 183073
+            },
+            "starterPoolValueShare": {
+              "QB": 0.2411,
+              "RB": 0.3304,
+              "TE": 0.1034,
+              "WR": 0.325
+            }
+          },
+          "no_te_lift_any_source": {
+            "demandShare": {
+              "QB": 0.2,
+              "RB": 0.4,
+              "TE": 0.1,
+              "WR": 0.3
+            },
+            "starterPoolSize": {
+              "QB": 20,
+              "RB": 40,
+              "TE": 10,
+              "WR": 30
+            },
+            "starterPoolValue": {
+              "QB": 135828,
+              "RB": 186136,
+              "TE": 56028,
+              "WR": 183073
+            },
+            "starterPoolValueShare": {
+              "QB": 0.2421,
+              "RB": 0.3318,
+              "TE": 0.0999,
+              "WR": 0.3263
+            }
+          }
+        }
+      }
+    },
+    "edgeSplit": {
+      "flat_1_15_pre_adr015": {
+        "QB": {
+          "buy": 15,
+          "hold": 13,
+          "sell": 5,
+          "unmeasured": 0
+        },
+        "RB": {
+          "buy": 5,
+          "hold": 21,
+          "sell": 21,
+          "unmeasured": 0
+        },
+        "TE": {
+          "buy": 0,
+          "hold": 5,
+          "sell": 22,
+          "unmeasured": 0
+        },
+        "WR": {
+          "buy": 15,
+          "hold": 26,
+          "sell": 23,
+          "unmeasured": 0
+        }
+      },
+      "incumbent_adr015": {
+        "QB": {
+          "buy": 15,
+          "hold": 13,
+          "sell": 4,
+          "unmeasured": 0
+        },
+        "RB": {
+          "buy": 5,
+          "hold": 21,
+          "sell": 21,
+          "unmeasured": 0
+        },
+        "TE": {
+          "buy": 1,
+          "hold": 12,
+          "sell": 18,
+          "unmeasured": 0
+        },
+        "WR": {
+          "buy": 15,
+          "hold": 26,
+          "sell": 23,
+          "unmeasured": 0
+        }
+      },
+      "no_non_tep_lift": {
+        "QB": {
+          "buy": 15,
+          "hold": 13,
+          "sell": 6,
+          "unmeasured": 0
+        },
+        "RB": {
+          "buy": 5,
+          "hold": 21,
+          "sell": 21,
+          "unmeasured": 0
+        },
+        "TE": {
+          "buy": 0,
+          "hold": 1,
+          "sell": 23,
+          "unmeasured": 0
+        },
+        "WR": {
+          "buy": 15,
+          "hold": 28,
+          "sell": 23,
+          "unmeasured": 0
+        }
+      },
+      "no_te_lift_any_source": {
+        "QB": {
+          "buy": 15,
+          "hold": 13,
+          "sell": 6,
+          "unmeasured": 0
+        },
+        "RB": {
+          "buy": 5,
+          "hold": 21,
+          "sell": 21,
+          "unmeasured": 0
+        },
+        "TE": {
+          "buy": 0,
+          "hold": 0,
+          "sell": 23,
+          "unmeasured": 0
+        },
+        "WR": {
+          "buy": 15,
+          "hold": 28,
+          "sell": 23,
+          "unmeasured": 0
+        }
+      }
+    },
+    "incumbentVersus": {
+      "flat_1_15_pre_adr015": {
+        "pctChangeByPosition": {
+          "DB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 136,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "DL": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 148,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "LB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 113,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "PICK": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": -0.0792,
+            "n": 120,
+            "p10": -0.0526,
+            "p90": 0.0
+          },
+          "QB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 73,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "RB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 134,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "TE": {
+            "max": 0.0,
+            "median": -0.1218,
+            "min": -0.2409,
+            "n": 86,
+            "p10": -0.1985,
+            "p90": -0.0277
+          },
+          "WR": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 203,
+            "p10": 0.0,
+            "p90": 0.0
+          }
+        },
+        "rankDisplacementAll": {
+          "max": 229.0,
+          "median": 10.0,
+          "min": 0.0,
+          "n": 738,
+          "p10": 0.0,
+          "p90": 24.0
+        },
+        "rankDisplacementTE": {
+          "max": 229.0,
+          "median": 56.0,
+          "min": 0.0,
+          "n": 81,
+          "p10": 4.0,
+          "p90": 161.0
+        },
+        "rowsChangedByPosition": {
+          "PICK": 46,
+          "TE": 83
+        },
+        "topTeMovers": [
+          {
+            "name": "Austin Hooper",
+            "pct": -0.2409,
+            "rankAlt": 684,
+            "rankBase": 455,
+            "valueAlt": 1276,
+            "valueBase": 1681
+          },
+          {
+            "name": "Luke Musgrave",
+            "pct": -0.2247,
+            "rankAlt": 555,
+            "rankBase": 385,
+            "valueAlt": 1484,
+            "valueBase": 1914
+          },
+          {
+            "name": "Jeremy Ruckert",
+            "pct": -0.2222,
+            "rankAlt": null,
+            "rankBase": 652,
+            "valueAlt": 1064,
+            "valueBase": 1368
+          },
+          {
+            "name": "Foster Moreau",
+            "pct": -0.2137,
+            "rankAlt": 732,
+            "rankBase": 566,
+            "valueAlt": 1174,
+            "valueBase": 1493
+          },
+          {
+            "name": "Will Kacmarek",
+            "pct": -0.2119,
+            "rankAlt": 685,
+            "rankBase": 479,
+            "valueAlt": 1276,
+            "valueBase": 1619
+          },
+          {
+            "name": "Jared Wiley",
+            "pct": -0.2104,
+            "rankAlt": 721,
+            "rankBase": 546,
+            "valueAlt": 1197,
+            "valueBase": 1516
+          },
+          {
+            "name": "Ja'Tavion Sanders",
+            "pct": -0.2075,
+            "rankAlt": 439,
+            "rankBase": 333,
+            "valueAlt": 1658,
+            "valueBase": 2092
+          },
+          {
+            "name": "Josh Oliver",
+            "pct": -0.2034,
+            "rankAlt": null,
+            "rankBase": 616,
+            "valueAlt": 1132,
+            "valueBase": 1421
+          },
+          {
+            "name": "Brevyn Spann-Ford",
+            "pct": -0.1994,
+            "rankAlt": 645,
+            "rankBase": 451,
+            "valueAlt": 1365,
+            "valueBase": 1705
+          },
+          {
+            "name": "Brevin Jordan",
+            "pct": -0.1976,
+            "rankAlt": 725,
+            "rankBase": 580,
+            "valueAlt": 1186,
+            "valueBase": 1478
+          }
+        ]
+      },
+      "no_non_tep_lift": {
+        "pctChangeByPosition": {
+          "DB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 136,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "DL": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 148,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "LB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 113,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "PICK": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": -0.0849,
+            "n": 120,
+            "p10": -0.0617,
+            "p90": 0.0
+          },
+          "QB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 73,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "RB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 134,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "TE": {
+            "max": 0.0,
+            "median": -0.209,
+            "min": -0.3397,
+            "n": 86,
+            "p10": -0.2888,
+            "p90": -0.0927
+          },
+          "WR": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 203,
+            "p10": 0.0,
+            "p90": 0.0
+          }
+        },
+        "rankDisplacementAll": {
+          "max": 277.0,
+          "median": 16.0,
+          "min": 0.0,
+          "n": 732,
+          "p10": 2.0,
+          "p90": 33.0
+        },
+        "rankDisplacementTE": {
+          "max": 277.0,
+          "median": 102.0,
+          "min": 3.0,
+          "n": 75,
+          "p10": 16.4,
+          "p90": 234.2
+        },
+        "rowsChangedByPosition": {
+          "PICK": 59,
+          "TE": 83
+        },
+        "topTeMovers": [
+          {
+            "name": "Austin Hooper",
+            "pct": -0.3397,
+            "rankAlt": null,
+            "rankBase": 455,
+            "valueAlt": 1110,
+            "valueBase": 1681
+          },
+          {
+            "name": "Luke Musgrave",
+            "pct": -0.3135,
+            "rankAlt": 662,
+            "rankBase": 385,
+            "valueAlt": 1314,
+            "valueBase": 1914
+          },
+          {
+            "name": "Jake Tonges",
+            "pct": -0.3037,
+            "rankAlt": 649,
+            "rankBase": 380,
+            "valueAlt": 1341,
+            "valueBase": 1926
+          },
+          {
+            "name": "Ja'Tavion Sanders",
+            "pct": -0.3021,
+            "rankAlt": 568,
+            "rankBase": 333,
+            "valueAlt": 1460,
+            "valueBase": 2092
+          },
+          {
+            "name": "Foster Moreau",
+            "pct": -0.2954,
+            "rankAlt": null,
+            "rankBase": 566,
+            "valueAlt": 1052,
+            "valueBase": 1493
+          },
+          {
+            "name": "Luke Schoonmaker",
+            "pct": -0.2951,
+            "rankAlt": null,
+            "rankBase": 503,
+            "valueAlt": 1111,
+            "valueBase": 1576
+          },
+          {
+            "name": "Jared Wiley",
+            "pct": -0.2942,
+            "rankAlt": null,
+            "rankBase": 546,
+            "valueAlt": 1070,
+            "valueBase": 1516
+          },
+          {
+            "name": "Josh Oliver",
+            "pct": -0.2942,
+            "rankAlt": null,
+            "rankBase": 616,
+            "valueAlt": 1003,
+            "valueBase": 1421
+          },
+          {
+            "name": "Brevyn Spann-Ford",
+            "pct": -0.2897,
+            "rankAlt": 711,
+            "rankBase": 451,
+            "valueAlt": 1211,
+            "valueBase": 1705
+          },
+          {
+            "name": "Ben Sinnott",
+            "pct": -0.2879,
+            "rankAlt": 598,
+            "rankBase": 366,
+            "valueAlt": 1415,
+            "valueBase": 1987
+          }
+        ]
+      },
+      "no_te_lift_any_source": {
+        "pctChangeByPosition": {
+          "DB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 136,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "DL": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 148,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "LB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 113,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "PICK": {
+            "max": 0.0,
+            "median": -0.0055,
+            "min": -0.0849,
+            "n": 120,
+            "p10": -0.0617,
+            "p90": 0.0
+          },
+          "QB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 73,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "RB": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 134,
+            "p10": 0.0,
+            "p90": 0.0
+          },
+          "TE": {
+            "max": -0.0731,
+            "median": -0.2298,
+            "min": -0.3397,
+            "n": 86,
+            "p10": -0.2918,
+            "p90": -0.1252
+          },
+          "WR": {
+            "max": 0.0,
+            "median": 0.0,
+            "min": 0.0,
+            "n": 203,
+            "p10": 0.0,
+            "p90": 0.0
+          }
+        },
+        "rankDisplacementAll": {
+          "max": 262.0,
+          "median": 17.5,
+          "min": 0.0,
+          "n": 732,
+          "p10": 3.0,
+          "p90": 36.0
+        },
+        "rankDisplacementTE": {
+          "max": 262.0,
+          "median": 121.0,
+          "min": 5.0,
+          "n": 75,
+          "p10": 23.4,
+          "p90": 240.6
+        },
+        "rowsChangedByPosition": {
+          "PICK": 64,
+          "TE": 86
+        },
+        "topTeMovers": [
+          {
+            "name": "Austin Hooper",
+            "pct": -0.3397,
+            "rankAlt": null,
+            "rankBase": 455,
+            "valueAlt": 1110,
+            "valueBase": 1681
+          },
+          {
+            "name": "Cole Kmet",
+            "pct": -0.3083,
+            "rankAlt": 623,
+            "rankBase": 361,
+            "valueAlt": 1384,
+            "valueBase": 2001
+          },
+          {
+            "name": "Ja'Tavion Sanders",
+            "pct": -0.3059,
+            "rankAlt": 567,
+            "rankBase": 333,
+            "valueAlt": 1452,
+            "valueBase": 2092
+          },
+          {
+            "name": "Darnell Washington",
+            "pct": -0.3038,
+            "rankAlt": 439,
+            "rankBase": 272,
+            "valueAlt": 1627,
+            "valueBase": 2337
+          },
+          {
+            "name": "Jared Wiley",
+            "pct": -0.3021,
+            "rankAlt": null,
+            "rankBase": 546,
+            "valueAlt": 1058,
+            "valueBase": 1516
+          },
+          {
+            "name": "Will Kacmarek",
+            "pct": -0.2959,
+            "rankAlt": null,
+            "rankBase": 479,
+            "valueAlt": 1140,
+            "valueBase": 1619
+          },
+          {
+            "name": "Ben Sinnott",
+            "pct": -0.2954,
+            "rankAlt": 609,
+            "rankBase": 366,
+            "valueAlt": 1400,
+            "valueBase": 1987
+          },
+          {
+            "name": "Josh Oliver",
+            "pct": -0.2942,
+            "rankAlt": null,
+            "rankBase": 616,
+            "valueAlt": 1003,
+            "valueBase": 1421
+          },
+          {
+            "name": "Colby Parkinson",
+            "pct": -0.2938,
+            "rankAlt": 526,
+            "rankBase": 320,
+            "valueAlt": 1500,
+            "valueBase": 2124
+          },
+          {
+            "name": "Brevyn Spann-Ford",
+            "pct": -0.2897,
+            "rankAlt": 712,
+            "rankBase": 451,
+            "valueAlt": 1211,
+            "valueBase": 1705
+          }
+        ]
+      }
+    },
+    "labelPopulationValueShare": {
+      "flat_1_15_pre_adr015": {
+        "QB": 0.2267,
+        "RB": 0.2602,
+        "TE": 0.1472,
+        "WR": 0.3659
+      },
+      "incumbent_adr015": {
+        "QB": 0.2197,
+        "RB": 0.2557,
+        "TE": 0.1651,
+        "WR": 0.3595
+      },
+      "no_non_tep_lift": {
+        "QB": 0.2325,
+        "RB": 0.2632,
+        "TE": 0.128,
+        "WR": 0.3763
+      },
+      "no_te_lift_any_source": {
+        "QB": 0.2341,
+        "RB": 0.2651,
+        "TE": 0.1218,
+        "WR": 0.379
+      }
+    },
+    "networkAttemptsRefused": 0,
+    "rankBands": {
+      "flat_1_15_pre_adr015": {
+        "top100": 11,
+        "top250": 27,
+        "top50": 5
+      },
+      "incumbent_adr015": {
+        "top100": 12,
+        "top250": 31,
+        "top50": 6
+      },
+      "no_non_tep_lift": {
+        "top100": 10,
+        "top250": 24,
+        "top50": 4
+      },
+      "no_te_lift_any_source": {
+        "top100": 9,
+        "top250": 23,
+        "top50": 4
+      }
+    },
+    "replacementLevelValue": {
+      "dynasty_main": {
+        "incumbent_adr015": {
+          "QB": {
+            "rank": 12,
+            "value": 5784.0
+          },
+          "RB": {
+            "rank": 24,
+            "value": 3988.0
+          },
+          "TE": {
+            "rank": 24,
+            "value": 2964.0
+          },
+          "WR": {
+            "rank": 36,
+            "value": 3640.0
+          }
+        },
+        "no_te_lift_any_source": {
+          "QB": {
+            "rank": 12,
+            "value": 5784.0
+          },
+          "RB": {
+            "rank": 24,
+            "value": 3988.0
+          },
+          "TE": {
+            "rank": 24,
+            "value": 2353.0
+          },
+          "WR": {
+            "rank": 36,
+            "value": 3640.0
+          }
+        }
+      },
+      "dynasty_new": {
+        "incumbent_adr015": {
+          "QB": {
+            "rank": 10,
+            "value": 6637.0
+          },
+          "RB": {
+            "rank": 20,
+            "value": 4224.0
+          },
+          "TE": {
+            "rank": 10,
+            "value": 4625.0
+          },
+          "WR": {
+            "rank": 30,
+            "value": 4118.0
+          }
+        },
+        "no_te_lift_any_source": {
+          "QB": {
+            "rank": 10,
+            "value": 6637.0
+          },
+          "RB": {
+            "rank": 20,
+            "value": 4224.0
+          },
+          "TE": {
+            "rank": 10,
+            "value": 3887.0
+          },
+          "WR": {
+            "rank": 30,
+            "value": 4118.0
+          }
+        }
+      }
+    },
+    "variants": {
+      "flat_1_15_pre_adr015": {
+        "tep_multiplier": 1.15,
+        "tep_native_multiplier": null
+      },
+      "incumbent_adr015": {
+        "tep_multiplier": null,
+        "tep_native_multiplier": null
+      },
+      "no_non_tep_lift": {
+        "tep_multiplier": 1.0,
+        "tep_native_multiplier": null
+      },
+      "no_te_lift_any_source": {
+        "tep_multiplier": 1.0,
+        "tep_native_multiplier": 1.0
+      }
+    },
+    "voteCensusFlat115": {
+      "convertedVotes": 546,
+      "convertedVotesBySource": {
+        "dlfRookieSf": 10,
+        "dlfSf": 42,
+        "dynastyDaddySf": 64,
+        "fantasyCalc": 65,
+        "fantasyProsSf": 81,
+        "flockFantasySf": 65,
+        "idpShowCombined": 62,
+        "otcffbSf": 77,
+        "pfkDynasty": 80
+      },
+      "ktcExemptVotes": 158,
+      "liftPerVote": {
+        "max": 1.15,
+        "median": 1.15,
+        "min": 1.15,
+        "n": 546,
+        "p10": 1.15,
+        "p90": 1.15
+      },
+      "nativeFlatVotes": 310,
+      "rowsWithConvertedVote": 83,
+      "rowsWithNativeFlatVote": 83,
+      "teRows": 86
+    },
+    "voteCensusIncumbent": {
+      "convertedVotes": 546,
+      "convertedVotesBySource": {
+        "dlfRookieSf": 10,
+        "dlfSf": 42,
+        "dynastyDaddySf": 64,
+        "fantasyCalc": 65,
+        "fantasyProsSf": 81,
+        "flockFantasySf": 65,
+        "idpShowCombined": 62,
+        "otcffbSf": 77,
+        "pfkDynasty": 80
+      },
+      "ktcExemptVotes": 158,
+      "liftPerVote": {
+        "max": 1.5957,
+        "median": 1.3917,
+        "min": 1.07,
+        "n": 546,
+        "p10": 1.2183,
+        "p90": 1.5226
+      },
+      "nativeFlatVotes": 310,
+      "rowsWithConvertedVote": 83,
+      "rowsWithNativeFlatVote": 83,
+      "teRows": 86
+    }
+  }
+}

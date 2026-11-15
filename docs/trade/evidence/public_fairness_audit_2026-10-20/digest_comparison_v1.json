@@ -1,0 +1,26 @@
+{
+  "identical": true,
+  "runs": [
+    {
+      "bands": "fairness_bands_v1",
+      "file": "harness_cap3_v1.json",
+      "publicDigest": "5f2002b3c71cfae561b971051f3722035afe34d48497d54c91ae73054e50ce58",
+      "publicDigestUnderForcedReleaseSentinel": "5f2002b3c71cfae561b971051f3722035afe34d48497d54c91ae73054e50ce58",
+      "rosterSize": 3
+    },
+    {
+      "bands": "fairness_bands_v1",
+      "file": "harness_cap6_v1.json",
+      "publicDigest": "5f2002b3c71cfae561b971051f3722035afe34d48497d54c91ae73054e50ce58",
+      "publicDigestUnderForcedReleaseSentinel": "5f2002b3c71cfae561b971051f3722035afe34d48497d54c91ae73054e50ce58",
+      "rosterSize": 6
+    },
+    {
+      "bands": "fairness_bands_v1",
+      "file": "harness_cap8_v1.json",
+      "publicDigest": "5f2002b3c71cfae561b971051f3722035afe34d48497d54c91ae73054e50ce58",
+      "publicDigestUnderForcedReleaseSentinel": "5f2002b3c71cfae561b971051f3722035afe34d48497d54c91ae73054e50ce58",
+      "rosterSize": 8
+    }
+  ]
+}

@@ -21,9 +21,16 @@ These tests pin the behaviour added in the
   collisions and never resurrects the legacy
   ``near_name_value_mismatch`` noise rule.
 
-The tests are deterministic and run on the current
-``exports/latest/dynasty_data_*.json`` snapshot — they do not require
-network or a running scraper.
+Two tiers, decided per class (CLAUDE.md "CI has two lanes").  The
+normalization, canonical-key and expected-source tests are pure, and the two
+structural classes (canonical-key uniqueness, rebuild output sanity) build from
+``tests.archive_fixtures.pinned_board_contract`` -- the pinned archived
+scrape the contract's own source-health definition calls complete -- so they
+run in the hard gate.  The classes that name specific PLAYERS on today's board
+(target-player audit, the top-board single-source allowlist) keep reading the
+current ``exports/latest/dynasty_data_*.json`` snapshot and carry
+``@pytest.mark.livedata``: a named player leaving the board is data, not a
+code defect.  Neither tier needs network or a running scraper.
 """
 
 from __future__ import annotations
@@ -31,6 +38,8 @@ from __future__ import annotations
 import json
 import unittest
 from pathlib import Path
+
+import pytest
 
 from src.api.data_contract import (
     _expected_sources_for_position,
@@ -43,6 +52,7 @@ from src.utils.name_clean import (
     normalize_player_name,
     resolve_canonical_name,
 )
+from tests.archive_fixtures import pinned_board_contract
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -234,6 +244,8 @@ TARGET_PLAYERS = [
 ]
 
 
+# Names specific players on TODAY'S board: advisory tier.
+@pytest.mark.livedata
 class TestTargetPlayerSourceAudit(unittest.TestCase):
     """Verify every target player has a sane sourceAudit block."""
 
@@ -365,11 +377,23 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "DaRon Bland": "Veteran CB only ranked by FootballGuys IDP",
     "Jordan Davis": "Veteran DL only ranked by FootballGuys IDP",
     "Marlon Humphrey": "Veteran CB only ranked by FootballGuys IDP",
-    "Mike Jackson": "Veteran CB only ranked by FootballGuys IDP",
-    "Nahshon Wright": "Veteran CB only ranked by FootballGuys IDP",
+    # Mike Jackson and Nahshon Wright removed 2026-10-18: neither is on the
+    # board any more, so the post-condition below flagged them as stale.
+    # Checked, not assumed: in the committed export archive both raw rows
+    # were ``_fallbackReason: "rostered_guarantee"`` single-site floors
+    # (``_composite`` 503, Sleeper ids 6025 / 7687) — they were in the pool
+    # only because a league roster held them.  Nahshon Wright left the raw
+    # pool in the 2026-09-24 export and Mike Jackson by the 2026-10-04
+    # export; neither Sleeper id appears in the 2026-10-18 ``sleeper``
+    # block.  FantasyPros IDP still lists both ("Mike Jackson Sr.",
+    # "Nahshon Wright"), but CSV sources graft onto pool rows and never
+    # mint one (``_enrich_from_source_csvs``).  Restore an entry if the
+    # player re-enters the top board as a 1-src row.
 }
 
 
+# Allowlist keyed to TODAY'S board: advisory tier.
+@pytest.mark.livedata
 class TestTopBoardSingleSourceAllowlist(unittest.TestCase):
     """Build-time assertion: high-profile top-board players cannot
     silently remain 1-src unless explicitly allow-listed.
@@ -462,8 +486,9 @@ class TestCanonicalIdentityUniqueness(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.payload = _latest_dynasty_payload()
-        cls.contract = build_api_data_contract(cls.payload)
+        cls.contract, _name = pinned_board_contract()
+        if cls.contract is None:
+            raise unittest.SkipTest("no complete archived board")
 
     def test_position_aware_canonical_keys_are_unique(self):
         seen: dict[str, str] = {}
@@ -526,8 +551,18 @@ class TestExpectedSourcesRefinement(unittest.TestCase):
     depth caps.
     """
 
-    def test_rookie_idp_player_does_not_expect_dlf(self):
+    def test_rookie_idp_player_inside_dlf_depth_expects_dlf(self):
+        # DLF IDP ranks rookies (G2-D3, PR #2001: ``excludes_rookies`` is
+        # False — the board lists 21 rookie-class names), so a rookie inside
+        # DLF's depth is EXPECTED to carry a DLF vote, exactly like a veteran.
+        # Whether deep-tail rookie ranks VOTE is a separate rule (PR #2006).
         off, idp = _expected_sources_for_position("LB", is_rookie=True, player_effective_rank=120)
+        self.assertIn("dlfIdp", off | idp)
+        self.assertIn("idpTradeCalc", off | idp)
+
+    def test_rookie_idp_player_beyond_dlf_depth_does_not_expect_dlf(self):
+        # Depth still bounds a rookie the same way it bounds a veteran.
+        off, idp = _expected_sources_for_position("LB", is_rookie=True, player_effective_rank=300)
         self.assertNotIn("dlfIdp", off | idp)
         self.assertIn("idpTradeCalc", off | idp)
 
@@ -551,8 +586,9 @@ class TestRebuildOutputSanity(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.payload = _latest_dynasty_payload()
-        cls.contract = build_api_data_contract(cls.payload)
+        cls.contract, _name = pinned_board_contract()
+        if cls.contract is None:
+            raise unittest.SkipTest("no complete archived board")
 
     def test_every_top_board_row_has_source_audit(self):
         missing = []

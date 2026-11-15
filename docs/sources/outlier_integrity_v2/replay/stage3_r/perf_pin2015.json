@@ -1,0 +1,33 @@
+{
+ "criterion11": {
+  "passes": false,
+  "rssLimitMb": 50,
+  "wallLimit": 1.25
+ },
+ "deltaRssMb": 22.3,
+ "incumbent": {
+  "config": "incumbent",
+  "peakRssMb": 69.6,
+  "wallSeconds": [
+   0.9787,
+   0.9491,
+   0.9468,
+   0.9812,
+   0.959
+  ],
+  "wallSecondsMedian": 0.959
+ },
+ "ratioWall": 1.6875,
+ "v2": {
+  "config": "v2",
+  "peakRssMb": 91.9,
+  "wallSeconds": [
+   1.7067,
+   1.5714,
+   1.58,
+   1.6183,
+   1.6749
+  ],
+  "wallSecondsMedian": 1.6183
+ }
+}

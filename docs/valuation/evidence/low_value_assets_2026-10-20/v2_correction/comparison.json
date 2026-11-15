@@ -1,0 +1,3697 @@
+{
+ "purpose": "RESEARCH ONLY.  Comparison of the recorded (fairness_bands_v1) shadow replay with re-runs on the pinned board; reads run files, computes no band.",
+ "generatedBy": "scripts/low_value_asset_v2_correction_summary.py",
+ "committed": {
+  "provenance": {
+   "bandBasis": "v1_legacy (recorded before the switch existed)",
+   "ownerReceipt": null,
+   "codeSha": "160cc28b5301b8d0abe7354477fb37b157a881a7",
+   "archiveSha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+   "builtBoardSha256": null,
+   "csvTreeRevision": null,
+   "valueOverrides": null,
+   "pricedAssets": 1003
+  },
+  "headline": {
+   "fillerFlipStudy": {
+    "bases": 2825,
+    "cases": 32180,
+    "byClass": {
+     "offense": {
+      "incumbent": {
+       "filler": {
+        "cases": 3600,
+        "flips": 3017,
+        "verdictChanged": 3581,
+        "winnerFlipped": 510,
+        "unfairMadeFair": 143
+       },
+       "depth": {
+        "cases": 3600,
+        "flips": 3047,
+        "verdictChanged": 3599,
+        "winnerFlipped": 638,
+        "unfairMadeFair": 34
+       },
+       "starter": {
+        "cases": 3600,
+        "flips": 3048,
+        "verdictChanged": 3599,
+        "winnerFlipped": 657,
+        "unfairMadeFair": 15
+       }
+      },
+      "criteria": {
+       "A_curve_market": {
+        "F1_fillerFlipFall": 0.2781,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.3381,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.1437,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 3017,
+         "depth": 3047
+        }
+       },
+       "A_curve_replacement": {
+        "F1_fillerFlipFall": 0.2542,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.369,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.1264,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 3017,
+         "depth": 3047
+        }
+       },
+       "B_currency_market": {
+        "F1_fillerFlipFall": 0.2314,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.3738,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.1309,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 3017,
+         "depth": 3047
+        }
+       },
+       "B_currency_replacement": {
+        "F1_fillerFlipFall": 0.2154,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.3714,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.1221,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 3017,
+         "depth": 3047
+        }
+       }
+      },
+      "starterOnlyBasesLevelChanged": {
+       "A_curve_market": 0.3381,
+       "A_curve_replacement": 0.369,
+       "B_currency_market": 0.3738,
+       "B_currency_replacement": 0.3714
+      }
+     },
+     "idp": {
+      "incumbent": {
+       "filler": {
+        "cases": 2656,
+        "flips": 2249,
+        "verdictChanged": 2585,
+        "winnerFlipped": 424,
+        "unfairMadeFair": 57
+       },
+       "depth": {
+        "cases": 2656,
+        "flips": 2320,
+        "verdictChanged": 2656,
+        "winnerFlipped": 495,
+        "unfairMadeFair": 1
+       },
+       "starter": {
+        "cases": 2656,
+        "flips": 2320,
+        "verdictChanged": 2656,
+        "winnerFlipped": 488,
+        "unfairMadeFair": 8
+       }
+      },
+      "criteria": {
+       "A_curve_market": {
+        "F1_fillerFlipFall": 0.197,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.3059,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.0845,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 2249,
+         "depth": 2320
+        }
+       },
+       "A_curve_replacement": {
+        "F1_fillerFlipFall": 0.2103,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.3059,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.0858,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 2249,
+         "depth": 2320
+        }
+       },
+       "B_currency_market": {
+        "F1_fillerFlipFall": 0.1841,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.3618,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.0897,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 2249,
+         "depth": 2320
+        }
+       },
+       "B_currency_replacement": {
+        "F1_fillerFlipFall": 0.1863,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.3586,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.0901,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 2249,
+         "depth": 2320
+        }
+       }
+      },
+      "starterOnlyBasesLevelChanged": {
+       "A_curve_market": 0.3059,
+       "A_curve_replacement": 0.3059,
+       "B_currency_market": 0.3618,
+       "B_currency_replacement": 0.3586
+      }
+     },
+     "picks": {
+      "incumbent": {
+       "filler": {
+        "cases": 1400,
+        "flips": 1098,
+        "verdictChanged": 1398,
+        "winnerFlipped": 380,
+        "unfairMadeFair": 66
+       },
+       "depth": {
+        "cases": 1560,
+        "flips": 1244,
+        "verdictChanged": 1560,
+        "winnerFlipped": 468,
+        "unfairMadeFair": 16
+       },
+       "starter": {
+        "cases": 0,
+        "flips": 0,
+        "verdictChanged": 0,
+        "winnerFlipped": 0,
+        "unfairMadeFair": 0
+       }
+      },
+      "criteria": {
+       "A_curve_market": {
+        "F1_fillerFlipFall": 0.225,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": null,
+        "F2": "not_applicable (no starter picks)",
+        "F3_depthFlipFall": 0.1174,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 1098,
+         "depth": 1244
+        }
+       },
+       "A_curve_replacement": {
+        "F1_fillerFlipFall": 0.2067,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": null,
+        "F2": "not_applicable (no starter picks)",
+        "F3_depthFlipFall": 0.1085,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 1098,
+         "depth": 1244
+        }
+       },
+       "B_currency_market": {
+        "F1_fillerFlipFall": 0.1694,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": null,
+        "F2": "not_applicable (no starter picks)",
+        "F3_depthFlipFall": 0.0908,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 1098,
+         "depth": 1244
+        }
+       },
+       "B_currency_replacement": {
+        "F1_fillerFlipFall": 0.1357,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": null,
+        "F2": "not_applicable (no starter picks)",
+        "F3_depthFlipFall": 0.0715,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 1098,
+         "depth": 1244
+        }
+       }
+      },
+      "starterOnlyBasesLevelChanged": {}
+     },
+     "mixed": {
+      "incumbent": {
+       "filler": {
+        "cases": 3484,
+        "flips": 2909,
+        "verdictChanged": 3429,
+        "winnerFlipped": 570,
+        "unfairMadeFair": 133
+       },
+       "depth": {
+        "cases": 3484,
+        "flips": 2962,
+        "verdictChanged": 3483,
+        "winnerFlipped": 708,
+        "unfairMadeFair": 14
+       },
+       "starter": {
+        "cases": 3484,
+        "flips": 2962,
+        "verdictChanged": 3484,
+        "winnerFlipped": 699,
+        "unfairMadeFair": 23
+       }
+      },
+      "criteria": {
+       "A_curve_market": {
+        "F1_fillerFlipFall": 0.2458,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.3555,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.1067,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 2909,
+         "depth": 2962
+        }
+       },
+       "A_curve_replacement": {
+        "F1_fillerFlipFall": 0.2578,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.4015,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.1131,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 2909,
+         "depth": 2962
+        }
+       },
+       "B_currency_market": {
+        "F1_fillerFlipFall": 0.2121,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.3887,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.0999,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 2909,
+         "depth": 2962
+        }
+       },
+       "B_currency_replacement": {
+        "F1_fillerFlipFall": 0.209,
+        "F1": "fail",
+        "F2_starterBaseLevelChangedShare": 0.4169,
+        "F2": "fail",
+        "F3_depthFlipFall": 0.1009,
+        "F3": "pass",
+        "incumbentFlipCases": {
+         "filler": 2909,
+         "depth": 2962
+        }
+       }
+      },
+      "starterOnlyBasesLevelChanged": {
+       "A_curve_market": 0.3555,
+       "A_curve_replacement": 0.4015,
+       "B_currency_market": 0.3887,
+       "B_currency_replacement": 0.4169
+      }
+     }
+    },
+    "naiveDisclosure": {
+     "filler": {
+      "cases": 11140,
+      "disclosureFires": 6586
+     },
+     "depth": {
+      "cases": 11300,
+      "disclosureFires": 2118
+     },
+     "starter": {
+      "cases": 9740,
+      "disclosureFires": 1249
+     }
+    }
+   },
+   "realExamples": [
+    {
+     "case": "\u00a78.1 Hurts vs Egbuka",
+     "levels": {
+      "GEOM_78": "unfair",
+      "A_curve_market": "unfair",
+      "A_curve_replacement": "unfair",
+      "B_currency_market": "unfair",
+      "B_currency_replacement": "unfair"
+     },
+     "gapA": {
+      "GEOM_78": 722,
+      "A_curve_market": 671,
+      "A_curve_replacement": 609,
+      "B_currency_market": 722,
+      "B_currency_replacement": 722
+     },
+     "disclosure": false
+    },
+    {
+     "case": "\u00a78.1 \u2026 + Isaiah Hodgins",
+     "levels": {
+      "GEOM_78": "fair",
+      "A_curve_market": "slight",
+      "A_curve_replacement": "slight",
+      "B_currency_market": "slight",
+      "B_currency_replacement": "slight"
+     },
+     "gapA": {
+      "GEOM_78": 22,
+      "A_curve_market": 455,
+      "A_curve_replacement": 376,
+      "B_currency_market": 444,
+      "B_currency_replacement": 424
+     },
+     "disclosure": true
+    },
+    {
+     "case": "\u00a78.1 \u2026 + four fillers",
+     "levels": {
+      "GEOM_78": "unfair",
+      "A_curve_market": "fair",
+      "A_curve_replacement": "fair",
+      "B_currency_market": "fair",
+      "B_currency_replacement": "fair"
+     },
+     "gapA": {
+      "GEOM_78": -1300,
+      "A_curve_market": 41,
+      "A_curve_replacement": -94,
+      "B_currency_market": -86,
+      "B_currency_replacement": -179
+     },
+     "disclosure": true
+    },
+    {
+     "case": "\u00a78.1 Gibbs vs Smith + Higgins",
+     "levels": {
+      "GEOM_78": "unfair",
+      "A_curve_market": "unfair",
+      "A_curve_replacement": "unfair",
+      "B_currency_market": "unfair",
+      "B_currency_replacement": "unfair"
+     },
+     "gapA": {
+      "GEOM_78": 1071,
+      "A_curve_market": 1943,
+      "A_curve_replacement": 2026,
+      "B_currency_market": 1412,
+      "B_currency_replacement": 1309
+     },
+     "disclosure": false
+    },
+    {
+     "case": "\u00a78.1 \u2026 + four ~1,000 fillers",
+     "levels": {
+      "GEOM_78": "slight",
+      "A_curve_market": "slight",
+      "A_curve_replacement": "unfair",
+      "B_currency_market": "slight",
+      "B_currency_replacement": "fair"
+     },
+     "gapA": {
+      "GEOM_78": -674,
+      "A_curve_market": 1360,
+      "A_curve_replacement": 1392,
+      "B_currency_market": 665,
+      "B_currency_replacement": 497
+     },
+     "disclosure": true
+    },
+    {
+     "case": "\u00a78.1 Gibbs vs Young + Kraft",
+     "levels": {
+      "GEOM_78": "fair",
+      "A_curve_market": "slight",
+      "A_curve_replacement": "unfair",
+      "B_currency_market": "fair",
+      "B_currency_replacement": "fair"
+     },
+     "gapA": {
+      "GEOM_78": 129,
+      "A_curve_market": 1072,
+      "A_curve_replacement": 1323,
+      "B_currency_market": 394,
+      "B_currency_replacement": 356
+     },
+     "disclosure": false
+    },
+    {
+     "case": "\u00a78.1 Gibbs vs six starters",
+     "levels": {
+      "GEOM_78": "fair",
+      "A_curve_market": "unfair",
+      "A_curve_replacement": "unfair",
+      "B_currency_market": "slight",
+      "B_currency_replacement": "slight"
+     },
+     "gapA": {
+      "GEOM_78": -564,
+      "A_curve_market": 1977,
+      "A_curve_replacement": 1926,
+      "B_currency_market": 1191,
+      "B_currency_replacement": 871
+     },
+     "disclosure": true
+    },
+    {
+     "case": "\u00a78.1 Wilson vs Ferguson + Kelce",
+     "levels": {
+      "GEOM_78": "fair",
+      "A_curve_market": "unfair",
+      "A_curve_replacement": "unfair",
+      "B_currency_market": "unfair",
+      "B_currency_replacement": "unfair"
+     },
+     "gapA": {
+      "GEOM_78": 221,
+      "A_curve_market": 961,
+      "A_curve_replacement": 1123,
+      "B_currency_market": 724,
+      "B_currency_replacement": 749
+     },
+     "disclosure": true
+    },
+    {
+     "case": "\u00a78.1 IDP Schwesinger vs Baun + Parsons",
+     "levels": {
+      "GEOM_78": "fair",
+      "A_curve_market": "unfair",
+      "A_curve_replacement": "unfair",
+      "B_currency_market": "unfair",
+      "B_currency_replacement": "slight"
+     },
+     "gapA": {
+      "GEOM_78": 176,
+      "A_curve_market": 903,
+      "A_curve_replacement": 847,
+      "B_currency_market": 690,
+      "B_currency_replacement": 658
+     },
+     "disclosure": true
+    },
+    {
+     "case": "\u00a78.1 Picks Love vs 2027 1.10 + 2028 Late 1st",
+     "levels": {
+      "GEOM_78": "fair",
+      "A_curve_market": "slight",
+      "A_curve_replacement": "slight",
+      "B_currency_market": "fair",
+      "B_currency_replacement": "fair"
+     },
+     "gapA": {
+      "GEOM_78": -200,
+      "A_curve_market": 640,
+      "A_curve_replacement": 611,
+      "B_currency_market": 238,
+      "B_currency_replacement": 88
+     },
+     "disclosure": true
+    },
+    {
+     "case": "IDP-depth 1: IDP star vs IDP starter + IDP usable depth",
+     "levels": {
+      "GEOM_78": "slight",
+      "A_curve_market": "unfair",
+      "A_curve_replacement": "unfair",
+      "B_currency_market": "unfair",
+      "B_currency_replacement": "unfair"
+     },
+     "gapA": {
+      "GEOM_78": 495,
+      "A_curve_market": 1150,
+      "A_curve_replacement": 1110,
+      "B_currency_market": 1058,
+      "B_currency_replacement": 1033
+     },
+     "disclosure": true
+    },
+    {
+     "case": "IDP-depth 2: WR starter vs IDP starter + two DB fillers",
+     "levels": {
+      "GEOM_78": "unfair",
+      "A_curve_market": "fair",
+      "A_curve_replacement": "fair",
+      "B_currency_market": "fair",
+      "B_currency_replacement": "fair"
+     },
+     "gapA": {
+      "GEOM_78": -832,
+      "A_curve_market": 81,
+      "A_curve_replacement": 168,
+      "B_currency_market": 9,
+      "B_currency_replacement": 43
+     },
+     "disclosure": true
+    },
+    {
+     "case": "IDP-depth 3: two IDP starters vs IDP starter + LB usable depth",
+     "levels": {
+      "GEOM_78": "fair",
+      "A_curve_market": "fair",
+      "A_curve_replacement": "fair",
+      "B_currency_market": "fair",
+      "B_currency_replacement": "slight"
+     },
+     "gapA": {
+      "GEOM_78": 120,
+      "A_curve_market": 67,
+      "A_curve_replacement": 139,
+      "B_currency_market": 196,
+      "B_currency_replacement": 278
+     },
+     "disclosure": true
+    },
+    {
+     "case": "Rookie-pick 1: top rookie vs two firsts + a filler pick",
+     "levels": {
+      "GEOM_78": "slight",
+      "A_curve_market": "slight",
+      "A_curve_replacement": "slight",
+      "B_currency_market": "slight",
+      "B_currency_replacement": "fair"
+     },
+     "gapA": {
+      "GEOM_78": -415,
+      "A_curve_market": 844,
+      "A_curve_replacement": 796,
+      "B_currency_market": 462,
+      "B_currency_replacement": 279
+     },
+     "disclosure": true
+    },
+    {
+     "case": "Rookie-pick 2: early first vs late first + two filler picks",
+     "levels": {
+      "GEOM_78": "unfair",
+      "A_curve_market": "fair",
+      "A_curve_replacement": "fair",
+      "B_currency_market": "fair",
+      "B_currency_replacement": "fair"
+     },
+     "gapA": {
+      "GEOM_78": -791,
+      "A_curve_market": 241,
+      "A_curve_replacement": 184,
+      "B_currency_market": 125,
+      "B_currency_replacement": 22
+     },
+     "disclosure": true
+    }
+   ],
+   "calculatorSample": {
+    "n": 2000,
+    "levelChanged": {
+     "GEOM_78": 0,
+     "A_curve_market": 827,
+     "A_curve_replacement": 852,
+     "B_currency_market": 622,
+     "B_currency_replacement": 657
+    },
+    "leaderFlipped": {
+     "GEOM_78": 0,
+     "A_curve_market": 140,
+     "A_curve_replacement": 163,
+     "B_currency_market": 108,
+     "B_currency_replacement": 100
+    },
+    "levelCountsIncumbent": {
+     "fair": 429,
+     "slight": 485,
+     "unfair": 665,
+     "lopsided": 421
+    },
+    "naiveDisclosureFires": 657
+   },
+   "tradeFinderReplay": {
+    "GEOM_78": {
+     "package_scan": {
+      "trades": 480,
+      "kept": 480,
+      "appear": 0,
+      "disappear": 0,
+      "meanTop10Overlap": 1.0,
+      "lostSensibleDepthVsIncumbent": 0,
+      "starForPile": 0,
+      "levels": {
+       "lopsided": 287,
+       "unfair": 161,
+       "slight": 32
+      }
+     },
+     "finder_all_shapes": {
+      "trades": 480,
+      "kept": 480,
+      "appear": 0,
+      "disappear": 0,
+      "meanTop10Overlap": 1.0,
+      "lostSensibleDepthVsIncumbent": 0,
+      "starForPile": 0,
+      "levels": {
+       "lopsided": 265,
+       "unfair": 203,
+       "slight": 12
+      }
+     },
+     "best_offers": {
+      "trades": 132,
+      "kept": 132,
+      "appear": 0,
+      "disappear": 0,
+      "meanTop10Overlap": 1.0,
+      "lostSensibleDepthVsIncumbent": 0,
+      "starForPile": 0,
+      "levels": {
+       "lopsided": 108,
+       "unfair": 20,
+       "fair": 1,
+       "slight": 3
+      }
+     },
+     "star_builder": {
+      "trades": 660,
+      "kept": 660,
+      "appear": 0,
+      "disappear": 0,
+      "meanTop10Overlap": 1.0,
+      "lostSensibleDepthVsIncumbent": 0,
+      "starForPile": 0,
+      "levels": {
+       "unfair": 369,
+       "lopsided": 162,
+       "slight": 72,
+       "fair": 57
+      }
+     }
+    },
+    "A_curve_market": {
+     "package_scan": {
+      "trades": 480,
+      "kept": 387,
+      "appear": 93,
+      "disappear": 93,
+      "meanTop10Overlap": 0.558,
+      "lostSensibleDepthVsIncumbent": 83,
+      "starForPile": 0,
+      "levels": {
+       "lopsided": 254,
+       "unfair": 181,
+       "slight": 45
+      }
+     },
+     "finder_all_shapes": {
+      "trades": 480,
+      "kept": 92,
+      "appear": 388,
+      "disappear": 388,
+      "meanTop10Overlap": 0.142,
+      "lostSensibleDepthVsIncumbent": 13,
+      "starForPile": 0,
+      "levels": {
+       "lopsided": 286,
+       "unfair": 143,
+       "slight": 50,
+       "fair": 1
+      }
+     },
+     "best_offers": {
+      "trades": 132,
+      "kept": 44,
+      "appear": 88,
+      "disappear": 88,
+      "meanTop10Overlap": 0.325,
+      "lostSensibleDepthVsIncumbent": 64,
+      "starForPile": 0,
+      "levels": {
+       "lopsided": 62,
+       "unfair": 57,
+       "slight": 10,
+       "fair": 3
+      }
+     },
+     "star_builder": {
+      "trades": 660,
+      "kept": 210,
+      "appear": 450,
+      "disappear": 450,
+      "meanTop10Overlap": 0.317,
+      "lostSensibleDepthVsIncumbent": 108,
+      "starForPile": 0,
+      "levels": {
+       "unfair": 363,
+       "lopsided": 115,
+       "slight": 132,
+       "fair": 50
+      }
+     }
+    },
+    "B_currency_market": {
+     "package_scan": {
+      "trades": 480,
+      "kept": 402,
+      "appear": 78,
+      "disappear": 78,
+      "meanTop10Overlap": 0.783,
+      "lostSensibleDepthVsIncumbent": 58,
+      "starForPile": 0,
+      "levels": {
+       "lopsided": 307,
+       "unfair": 151,
+       "slight": 22
+      }
+     },
+     "finder_all_shapes": {
+      "trades": 480,
+      "kept": 189,
+      "appear": 291,
+      "disappear": 291,
+      "meanTop10Overlap": 0.342,
+      "lostSensibleDepthVsIncumbent": 8,
+      "starForPile": 0,
+      "levels": {
+       "lopsided": 281,
+       "unfair": 178,
+       "slight": 20,
+       "fair": 1
+      }
+     },
+     "best_offers": {
+      "trades": 132,
+      "kept": 66,
+      "appear": 66,
+      "disappear": 66,
+      "meanTop10Overlap": 0.517,
+      "lostSensibleDepthVsIncumbent": 43,
+      "starForPile": 0,
+      "levels": {
+       "lopsided": 85,
+       "unfair": 41,
+       "slight": 6
+      }
+     },
+     "star_builder": {
+      "trades": 660,
+      "kept": 299,
+      "appear": 361,
+      "disappear": 361,
+      "meanTop10Overlap": 0.425,
+      "lostSensibleDepthVsIncumbent": 86,
+      "starForPile": 0,
+      "levels": {
+       "unfair": 373,
+       "lopsided": 147,
+       "slight": 80,
+       "fair": 60
+      }
+     }
+    }
+   },
+   "tradeHistory": {
+    "fullyPricedSides": 150,
+    "gradeBucketChangedFullyPriced": {
+     "GEOM_78": 0,
+     "A_curve_market": 84,
+     "A_curve_replacement": 84,
+     "B_currency_market": 63,
+     "B_currency_replacement": 57
+    }
+   },
+   "warRoom": {
+    "samples": 45,
+    "sweetenedSteps": 135,
+    "fillerFlipsAssetOnly": 133,
+    "flipsNeutralisedByTeamContext": 85,
+    "flipsOverAbsorbed_verdictMovesAgainstReceiver": 43,
+    "flipsSurvivingTeamContext": 5,
+    "forcedDropBasis": {
+     "assumedWaiver": 57,
+     "board": 213
+    },
+    "releaseCostPerForcedDropMedian": 1655,
+    "fillerVaCreditMedian": 1982,
+    "releaseChargedMedian": 3128,
+    "releaseAsShareOfFillerCreditMedian": 1.648
+   },
+   "publicCategoryShadow": {
+    "GEOM_78": {
+     "evaluated": 180,
+     "categoryChangedVsGEOM_78": 0
+    },
+    "A_curve_market": {
+     "evaluated": 180,
+     "categoryChangedVsGEOM_78": 84
+    },
+    "A_curve_replacement": {
+     "evaluated": 180,
+     "categoryChangedVsGEOM_78": 92
+    },
+    "B_currency_market": {
+     "evaluated": 180,
+     "categoryChangedVsGEOM_78": 43
+    },
+    "B_currency_replacement": {
+     "evaluated": 180,
+     "categoryChangedVsGEOM_78": 45
+    }
+   }
+  }
+ },
+ "runs": {
+  "v1_reproduction": {
+   "provenance": {
+    "bandBasis": "v1_legacy",
+    "ownerReceipt": {
+     "version": "fairness_bands_v2",
+     "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+     "basis": "larger_package_utility",
+     "absoluteMinimum": 250.0,
+     "slightPct": 3.5,
+     "unfairPct": 9.0,
+     "lopsidedPct": 18.0,
+     "fairTradeLevels": [
+      "fair"
+     ],
+     "postLaunchValidation": "OD-F4"
+    },
+    "codeSha": "deed0aad0014e23e0cfdbcba9ab5927aeafc5121",
+    "archiveSha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+    "builtBoardSha256": "eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833",
+    "csvTreeRevision": "1511ca1d08dfffad4b48d113b2ac9a20d7a5de4b",
+    "valueOverrides": {
+     "Travis Hunter": {
+      "from": 3599.0,
+      "to": 3738.0
+     }
+    },
+    "pricedAssets": 1003
+   },
+   "headline": {
+    "fillerFlipStudy": {
+     "bases": 2825,
+     "cases": 32180,
+     "byClass": {
+      "offense": {
+       "incumbent": {
+        "filler": {
+         "cases": 3600,
+         "flips": 3017,
+         "verdictChanged": 3581,
+         "winnerFlipped": 510,
+         "unfairMadeFair": 143
+        },
+        "depth": {
+         "cases": 3600,
+         "flips": 3047,
+         "verdictChanged": 3599,
+         "winnerFlipped": 638,
+         "unfairMadeFair": 34
+        },
+        "starter": {
+         "cases": 3600,
+         "flips": 3048,
+         "verdictChanged": 3599,
+         "winnerFlipped": 657,
+         "unfairMadeFair": 15
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2781,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3381,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1437,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 3017,
+          "depth": 3047
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2542,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.369,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1264,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 3017,
+          "depth": 3047
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.2314,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3738,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1309,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 3017,
+          "depth": 3047
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.2154,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3714,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1221,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 3017,
+          "depth": 3047
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {
+        "A_curve_market": 0.3381,
+        "A_curve_replacement": 0.369,
+        "B_currency_market": 0.3738,
+        "B_currency_replacement": 0.3714
+       }
+      },
+      "idp": {
+       "incumbent": {
+        "filler": {
+         "cases": 2656,
+         "flips": 2249,
+         "verdictChanged": 2585,
+         "winnerFlipped": 424,
+         "unfairMadeFair": 57
+        },
+        "depth": {
+         "cases": 2656,
+         "flips": 2320,
+         "verdictChanged": 2656,
+         "winnerFlipped": 495,
+         "unfairMadeFair": 1
+        },
+        "starter": {
+         "cases": 2656,
+         "flips": 2320,
+         "verdictChanged": 2656,
+         "winnerFlipped": 488,
+         "unfairMadeFair": 8
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.197,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3059,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0845,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2249,
+          "depth": 2320
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2103,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3059,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0858,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2249,
+          "depth": 2320
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.1841,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3618,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0897,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2249,
+          "depth": 2320
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.1863,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3586,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0901,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2249,
+          "depth": 2320
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {
+        "A_curve_market": 0.3059,
+        "A_curve_replacement": 0.3059,
+        "B_currency_market": 0.3618,
+        "B_currency_replacement": 0.3586
+       }
+      },
+      "picks": {
+       "incumbent": {
+        "filler": {
+         "cases": 1400,
+         "flips": 1098,
+         "verdictChanged": 1398,
+         "winnerFlipped": 380,
+         "unfairMadeFair": 66
+        },
+        "depth": {
+         "cases": 1560,
+         "flips": 1244,
+         "verdictChanged": 1560,
+         "winnerFlipped": 468,
+         "unfairMadeFair": 16
+        },
+        "starter": {
+         "cases": 0,
+         "flips": 0,
+         "verdictChanged": 0,
+         "winnerFlipped": 0,
+         "unfairMadeFair": 0
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.225,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.1174,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1098,
+          "depth": 1244
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2067,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.1085,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1098,
+          "depth": 1244
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.1694,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.0908,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1098,
+          "depth": 1244
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.1357,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.0715,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1098,
+          "depth": 1244
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {}
+      },
+      "mixed": {
+       "incumbent": {
+        "filler": {
+         "cases": 3484,
+         "flips": 2909,
+         "verdictChanged": 3429,
+         "winnerFlipped": 570,
+         "unfairMadeFair": 133
+        },
+        "depth": {
+         "cases": 3484,
+         "flips": 2962,
+         "verdictChanged": 3483,
+         "winnerFlipped": 708,
+         "unfairMadeFair": 14
+        },
+        "starter": {
+         "cases": 3484,
+         "flips": 2962,
+         "verdictChanged": 3484,
+         "winnerFlipped": 699,
+         "unfairMadeFair": 23
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2458,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3555,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1067,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2909,
+          "depth": 2962
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2578,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4015,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1131,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2909,
+          "depth": 2962
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.2121,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3887,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0999,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2909,
+          "depth": 2962
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.209,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4169,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1009,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2909,
+          "depth": 2962
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {
+        "A_curve_market": 0.3555,
+        "A_curve_replacement": 0.4015,
+        "B_currency_market": 0.3887,
+        "B_currency_replacement": 0.4169
+       }
+      }
+     },
+     "naiveDisclosure": {
+      "filler": {
+       "cases": 11140,
+       "disclosureFires": 6586
+      },
+      "depth": {
+       "cases": 11300,
+       "disclosureFires": 2118
+      },
+      "starter": {
+       "cases": 9740,
+       "disclosureFires": 1249
+      }
+     }
+    },
+    "realExamples": [
+     {
+      "case": "\u00a78.1 Hurts vs Egbuka",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 722,
+       "A_curve_market": 671,
+       "A_curve_replacement": 609,
+       "B_currency_market": 722,
+       "B_currency_replacement": 722
+      },
+      "disclosure": false
+     },
+     {
+      "case": "\u00a78.1 \u2026 + Isaiah Hodgins",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "slight",
+       "A_curve_replacement": "slight",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": 22,
+       "A_curve_market": 455,
+       "A_curve_replacement": 376,
+       "B_currency_market": 444,
+       "B_currency_replacement": 424
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 \u2026 + four fillers",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -1300,
+       "A_curve_market": 41,
+       "A_curve_replacement": -94,
+       "B_currency_market": -86,
+       "B_currency_replacement": -179
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Gibbs vs Smith + Higgins",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 1071,
+       "A_curve_market": 1943,
+       "A_curve_replacement": 2026,
+       "B_currency_market": 1412,
+       "B_currency_replacement": 1309
+      },
+      "disclosure": false
+     },
+     {
+      "case": "\u00a78.1 \u2026 + four ~1,000 fillers",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "slight",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -674,
+       "A_curve_market": 1360,
+       "A_curve_replacement": 1392,
+       "B_currency_market": 665,
+       "B_currency_replacement": 497
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Gibbs vs Young + Kraft",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "slight",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": 129,
+       "A_curve_market": 1072,
+       "A_curve_replacement": 1323,
+       "B_currency_market": 394,
+       "B_currency_replacement": 356
+      },
+      "disclosure": false
+     },
+     {
+      "case": "\u00a78.1 Gibbs vs six starters",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": -564,
+       "A_curve_market": 1977,
+       "A_curve_replacement": 1926,
+       "B_currency_market": 1191,
+       "B_currency_replacement": 871
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Wilson vs Ferguson + Kelce",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 221,
+       "A_curve_market": 961,
+       "A_curve_replacement": 1123,
+       "B_currency_market": 724,
+       "B_currency_replacement": 749
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 IDP Schwesinger vs Baun + Parsons",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": 176,
+       "A_curve_market": 903,
+       "A_curve_replacement": 847,
+       "B_currency_market": 690,
+       "B_currency_replacement": 658
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Picks Love vs 2027 1.10 + 2028 Late 1st",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "slight",
+       "A_curve_replacement": "slight",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -200,
+       "A_curve_market": 640,
+       "A_curve_replacement": 611,
+       "B_currency_market": 238,
+       "B_currency_replacement": 88
+      },
+      "disclosure": true
+     },
+     {
+      "case": "IDP-depth 1: IDP star vs IDP starter + IDP usable depth",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 495,
+       "A_curve_market": 1150,
+       "A_curve_replacement": 1110,
+       "B_currency_market": 1058,
+       "B_currency_replacement": 1033
+      },
+      "disclosure": true
+     },
+     {
+      "case": "IDP-depth 2: WR starter vs IDP starter + two DB fillers",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -832,
+       "A_curve_market": 81,
+       "A_curve_replacement": 168,
+       "B_currency_market": 9,
+       "B_currency_replacement": 43
+      },
+      "disclosure": true
+     },
+     {
+      "case": "IDP-depth 3: two IDP starters vs IDP starter + LB usable depth",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": 120,
+       "A_curve_market": 67,
+       "A_curve_replacement": 139,
+       "B_currency_market": 196,
+       "B_currency_replacement": 278
+      },
+      "disclosure": true
+     },
+     {
+      "case": "Rookie-pick 1: top rookie vs two firsts + a filler pick",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "slight",
+       "A_curve_replacement": "slight",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -415,
+       "A_curve_market": 844,
+       "A_curve_replacement": 796,
+       "B_currency_market": 462,
+       "B_currency_replacement": 279
+      },
+      "disclosure": true
+     },
+     {
+      "case": "Rookie-pick 2: early first vs late first + two filler picks",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -791,
+       "A_curve_market": 241,
+       "A_curve_replacement": 184,
+       "B_currency_market": 125,
+       "B_currency_replacement": 22
+      },
+      "disclosure": true
+     }
+    ],
+    "calculatorSample": {
+     "n": 2000,
+     "levelChanged": {
+      "GEOM_78": 0,
+      "A_curve_market": 827,
+      "A_curve_replacement": 852,
+      "B_currency_market": 622,
+      "B_currency_replacement": 657
+     },
+     "leaderFlipped": {
+      "GEOM_78": 0,
+      "A_curve_market": 140,
+      "A_curve_replacement": 163,
+      "B_currency_market": 108,
+      "B_currency_replacement": 100
+     },
+     "levelCountsIncumbent": {
+      "fair": 429,
+      "slight": 485,
+      "unfair": 665,
+      "lopsided": 421
+     },
+     "naiveDisclosureFires": 657
+    },
+    "tradeFinderReplay": {
+     "GEOM_78": {
+      "package_scan": {
+       "trades": 480,
+       "kept": 480,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 287,
+        "unfair": 161,
+        "slight": 32
+       }
+      },
+      "finder_all_shapes": {
+       "trades": 480,
+       "kept": 480,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 265,
+        "unfair": 203,
+        "slight": 12
+       }
+      },
+      "best_offers": {
+       "trades": 132,
+       "kept": 132,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 108,
+        "unfair": 20,
+        "fair": 1,
+        "slight": 3
+       }
+      },
+      "star_builder": {
+       "trades": 660,
+       "kept": 660,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "unfair": 369,
+        "lopsided": 162,
+        "slight": 72,
+        "fair": 57
+       }
+      }
+     },
+     "A_curve_market": {
+      "package_scan": {
+       "trades": 480,
+       "kept": 387,
+       "appear": 93,
+       "disappear": 93,
+       "meanTop10Overlap": 0.558,
+       "lostSensibleDepthVsIncumbent": 83,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 254,
+        "unfair": 181,
+        "slight": 45
+       }
+      },
+      "finder_all_shapes": {
+       "trades": 480,
+       "kept": 92,
+       "appear": 388,
+       "disappear": 388,
+       "meanTop10Overlap": 0.142,
+       "lostSensibleDepthVsIncumbent": 13,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 286,
+        "unfair": 143,
+        "slight": 50,
+        "fair": 1
+       }
+      },
+      "best_offers": {
+       "trades": 132,
+       "kept": 44,
+       "appear": 88,
+       "disappear": 88,
+       "meanTop10Overlap": 0.325,
+       "lostSensibleDepthVsIncumbent": 64,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 62,
+        "unfair": 57,
+        "slight": 10,
+        "fair": 3
+       }
+      },
+      "star_builder": {
+       "trades": 660,
+       "kept": 210,
+       "appear": 450,
+       "disappear": 450,
+       "meanTop10Overlap": 0.317,
+       "lostSensibleDepthVsIncumbent": 107,
+       "starForPile": 0,
+       "levels": {
+        "unfair": 362,
+        "lopsided": 116,
+        "slight": 132,
+        "fair": 50
+       }
+      }
+     },
+     "B_currency_market": {
+      "package_scan": {
+       "trades": 480,
+       "kept": 402,
+       "appear": 78,
+       "disappear": 78,
+       "meanTop10Overlap": 0.783,
+       "lostSensibleDepthVsIncumbent": 58,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 307,
+        "unfair": 151,
+        "slight": 22
+       }
+      },
+      "finder_all_shapes": {
+       "trades": 480,
+       "kept": 189,
+       "appear": 291,
+       "disappear": 291,
+       "meanTop10Overlap": 0.342,
+       "lostSensibleDepthVsIncumbent": 8,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 281,
+        "unfair": 178,
+        "slight": 20,
+        "fair": 1
+       }
+      },
+      "best_offers": {
+       "trades": 132,
+       "kept": 66,
+       "appear": 66,
+       "disappear": 66,
+       "meanTop10Overlap": 0.517,
+       "lostSensibleDepthVsIncumbent": 43,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 85,
+        "unfair": 41,
+        "slight": 6
+       }
+      },
+      "star_builder": {
+       "trades": 660,
+       "kept": 299,
+       "appear": 361,
+       "disappear": 361,
+       "meanTop10Overlap": 0.425,
+       "lostSensibleDepthVsIncumbent": 85,
+       "starForPile": 0,
+       "levels": {
+        "unfair": 373,
+        "lopsided": 147,
+        "slight": 80,
+        "fair": 60
+       }
+      }
+     }
+    },
+    "tradeHistory": {
+     "fullyPricedSides": 150,
+     "gradeBucketChangedFullyPriced": {
+      "GEOM_78": 0,
+      "A_curve_market": 84,
+      "A_curve_replacement": 84,
+      "B_currency_market": 61,
+      "B_currency_replacement": 55
+     }
+    },
+    "warRoom": {
+     "samples": 45,
+     "sweetenedSteps": 135,
+     "fillerFlipsAssetOnly": 133,
+     "flipsNeutralisedByTeamContext": 85,
+     "flipsOverAbsorbed_verdictMovesAgainstReceiver": 43,
+     "flipsSurvivingTeamContext": 5,
+     "forcedDropBasis": {
+      "assumedWaiver": 57,
+      "board": 213
+     },
+     "releaseCostPerForcedDropMedian": 1655,
+     "fillerVaCreditMedian": 1982,
+     "releaseChargedMedian": 3128,
+     "releaseAsShareOfFillerCreditMedian": 1.648
+    },
+    "publicCategoryShadow": {
+     "GEOM_78": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 0
+     },
+     "A_curve_market": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 83
+     },
+     "A_curve_replacement": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 87
+     },
+     "B_currency_market": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 43
+     },
+     "B_currency_replacement": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 43
+     }
+    }
+   }
+  },
+  "v2_same_board": {
+   "provenance": {
+    "bandBasis": "current",
+    "ownerReceipt": {
+     "version": "fairness_bands_v2",
+     "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+     "basis": "larger_package_utility",
+     "absoluteMinimum": 250.0,
+     "slightPct": 3.5,
+     "unfairPct": 9.0,
+     "lopsidedPct": 18.0,
+     "fairTradeLevels": [
+      "fair"
+     ],
+     "postLaunchValidation": "OD-F4"
+    },
+    "codeSha": "deed0aad0014e23e0cfdbcba9ab5927aeafc5121",
+    "archiveSha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+    "builtBoardSha256": "eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833",
+    "csvTreeRevision": "1511ca1d08dfffad4b48d113b2ac9a20d7a5de4b",
+    "valueOverrides": {
+     "Travis Hunter": {
+      "from": 3599.0,
+      "to": 3738.0
+     }
+    },
+    "pricedAssets": 1003
+   },
+   "headline": {
+    "fillerFlipStudy": {
+     "bases": 2825,
+     "cases": 32180,
+     "byClass": {
+      "offense": {
+       "incumbent": {
+        "filler": {
+         "cases": 3600,
+         "flips": 3002,
+         "verdictChanged": 3582,
+         "winnerFlipped": 553,
+         "unfairMadeFair": 121
+        },
+        "depth": {
+         "cases": 3600,
+         "flips": 3029,
+         "verdictChanged": 3599,
+         "winnerFlipped": 666,
+         "unfairMadeFair": 28
+        },
+        "starter": {
+         "cases": 3600,
+         "flips": 3031,
+         "verdictChanged": 3600,
+         "winnerFlipped": 682,
+         "unfairMadeFair": 13
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2901,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4714,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1505,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 3002,
+          "depth": 3029
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2722,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4857,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1416,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 3002,
+          "depth": 3029
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.2458,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4048,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1373,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 3002,
+          "depth": 3029
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.2255,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4048,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1261,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 3002,
+          "depth": 3029
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {
+        "A_curve_market": 0.4714,
+        "A_curve_replacement": 0.4857,
+        "B_currency_market": 0.4048,
+        "B_currency_replacement": 0.4048
+       }
+      },
+      "idp": {
+       "incumbent": {
+        "filler": {
+         "cases": 2656,
+         "flips": 2249,
+         "verdictChanged": 2585,
+         "winnerFlipped": 428,
+         "unfairMadeFair": 53
+        },
+        "depth": {
+         "cases": 2656,
+         "flips": 2320,
+         "verdictChanged": 2656,
+         "winnerFlipped": 495,
+         "unfairMadeFair": 1
+        },
+        "starter": {
+         "cases": 2656,
+         "flips": 2319,
+         "verdictChanged": 2656,
+         "winnerFlipped": 489,
+         "unfairMadeFair": 6
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2045,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4441,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0849,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2249,
+          "depth": 2320
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2188,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4408,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0875,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2249,
+          "depth": 2320
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.1881,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4079,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0905,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2249,
+          "depth": 2320
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.1925,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4211,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0909,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2249,
+          "depth": 2320
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {
+        "A_curve_market": 0.4441,
+        "A_curve_replacement": 0.4408,
+        "B_currency_market": 0.4079,
+        "B_currency_replacement": 0.4211
+       }
+      },
+      "picks": {
+       "incumbent": {
+        "filler": {
+         "cases": 1400,
+         "flips": 1096,
+         "verdictChanged": 1399,
+         "winnerFlipped": 388,
+         "unfairMadeFair": 56
+        },
+        "depth": {
+         "cases": 1560,
+         "flips": 1244,
+         "verdictChanged": 1560,
+         "winnerFlipped": 471,
+         "unfairMadeFair": 13
+        },
+        "starter": {
+         "cases": 0,
+         "flips": 0,
+         "verdictChanged": 0,
+         "winnerFlipped": 0,
+         "unfairMadeFair": 0
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2673,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.1302,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1096,
+          "depth": 1244
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2454,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.1206,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1096,
+          "depth": 1244
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.198,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.1013,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1096,
+          "depth": 1244
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.1569,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.0788,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1096,
+          "depth": 1244
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {}
+      },
+      "mixed": {
+       "incumbent": {
+        "filler": {
+         "cases": 3484,
+         "flips": 2909,
+         "verdictChanged": 3443,
+         "winnerFlipped": 607,
+         "unfairMadeFair": 118
+        },
+        "depth": {
+         "cases": 3484,
+         "flips": 2958,
+         "verdictChanged": 3484,
+         "winnerFlipped": 738,
+         "unfairMadeFair": 8
+        },
+        "starter": {
+         "cases": 3484,
+         "flips": 2957,
+         "verdictChanged": 3484,
+         "winnerFlipped": 727,
+         "unfairMadeFair": 18
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2702,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.5064,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.12,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2909,
+          "depth": 2958
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2747,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.5294,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1227,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2909,
+          "depth": 2958
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.2252,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.445,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1058,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2909,
+          "depth": 2958
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.2159,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4527,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1024,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2909,
+          "depth": 2958
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {
+        "A_curve_market": 0.5064,
+        "A_curve_replacement": 0.5294,
+        "B_currency_market": 0.445,
+        "B_currency_replacement": 0.4527
+       }
+      }
+     },
+     "naiveDisclosure": {
+      "filler": {
+       "cases": 11140,
+       "disclosureFires": 4400
+      },
+      "depth": {
+       "cases": 11300,
+       "disclosureFires": 1116
+      },
+      "starter": {
+       "cases": 9740,
+       "disclosureFires": 700
+      }
+     }
+    },
+    "realExamples": [
+     {
+      "case": "\u00a78.1 Hurts vs Egbuka",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 722,
+       "A_curve_market": 671,
+       "A_curve_replacement": 609,
+       "B_currency_market": 722,
+       "B_currency_replacement": 722
+      },
+      "disclosure": false
+     },
+     {
+      "case": "\u00a78.1 \u2026 + Isaiah Hodgins",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "slight",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": 22,
+       "A_curve_market": 455,
+       "A_curve_replacement": 376,
+       "B_currency_market": 444,
+       "B_currency_replacement": 424
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 \u2026 + four fillers",
+      "levels": {
+       "GEOM_78": "lopsided",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -1300,
+       "A_curve_market": 41,
+       "A_curve_replacement": -94,
+       "B_currency_market": -86,
+       "B_currency_replacement": -179
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Gibbs vs Smith + Higgins",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 1071,
+       "A_curve_market": 1943,
+       "A_curve_replacement": 2026,
+       "B_currency_market": 1412,
+       "B_currency_replacement": 1309
+      },
+      "disclosure": false
+     },
+     {
+      "case": "\u00a78.1 \u2026 + four ~1,000 fillers",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": -674,
+       "A_curve_market": 1360,
+       "A_curve_replacement": 1392,
+       "B_currency_market": 665,
+       "B_currency_replacement": 497
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Gibbs vs Young + Kraft",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": 129,
+       "A_curve_market": 1072,
+       "A_curve_replacement": 1323,
+       "B_currency_market": 394,
+       "B_currency_replacement": 356
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Gibbs vs six starters",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": -564,
+       "A_curve_market": 1977,
+       "A_curve_replacement": 1926,
+       "B_currency_market": 1191,
+       "B_currency_replacement": 871
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Wilson vs Ferguson + Kelce",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 221,
+       "A_curve_market": 961,
+       "A_curve_replacement": 1123,
+       "B_currency_market": 724,
+       "B_currency_replacement": 749
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 IDP Schwesinger vs Baun + Parsons",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 176,
+       "A_curve_market": 903,
+       "A_curve_replacement": 847,
+       "B_currency_market": 690,
+       "B_currency_replacement": 658
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Picks Love vs 2027 1.10 + 2028 Late 1st",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -200,
+       "A_curve_market": 640,
+       "A_curve_replacement": 611,
+       "B_currency_market": 238,
+       "B_currency_replacement": 88
+      },
+      "disclosure": true
+     },
+     {
+      "case": "IDP-depth 1: IDP star vs IDP starter + IDP usable depth",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 495,
+       "A_curve_market": 1150,
+       "A_curve_replacement": 1110,
+       "B_currency_market": 1058,
+       "B_currency_replacement": 1033
+      },
+      "disclosure": true
+     },
+     {
+      "case": "IDP-depth 2: WR starter vs IDP starter + two DB fillers",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -832,
+       "A_curve_market": 81,
+       "A_curve_replacement": 168,
+       "B_currency_market": 9,
+       "B_currency_replacement": 43
+      },
+      "disclosure": true
+     },
+     {
+      "case": "IDP-depth 3: two IDP starters vs IDP starter + LB usable depth",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": 120,
+       "A_curve_market": 67,
+       "A_curve_replacement": 139,
+       "B_currency_market": 196,
+       "B_currency_replacement": 278
+      },
+      "disclosure": true
+     },
+     {
+      "case": "Rookie-pick 1: top rookie vs two firsts + a filler pick",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": -415,
+       "A_curve_market": 844,
+       "A_curve_replacement": 796,
+       "B_currency_market": 462,
+       "B_currency_replacement": 279
+      },
+      "disclosure": true
+     },
+     {
+      "case": "Rookie-pick 2: early first vs late first + two filler picks",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -791,
+       "A_curve_market": 241,
+       "A_curve_replacement": 184,
+       "B_currency_market": 125,
+       "B_currency_replacement": 22
+      },
+      "disclosure": true
+     }
+    ],
+    "calculatorSample": {
+     "n": 2000,
+     "levelChanged": {
+      "GEOM_78": 0,
+      "A_curve_market": 964,
+      "A_curve_replacement": 983,
+      "B_currency_market": 742,
+      "B_currency_replacement": 723
+     },
+     "leaderFlipped": {
+      "GEOM_78": 0,
+      "A_curve_market": 140,
+      "A_curve_replacement": 163,
+      "B_currency_market": 108,
+      "B_currency_replacement": 100
+     },
+     "levelCountsIncumbent": {
+      "fair": 386,
+      "slight": 379,
+      "lopsided": 580,
+      "unfair": 655
+     },
+     "naiveDisclosureFires": 723
+    },
+    "tradeFinderReplay": {
+     "GEOM_78": {
+      "package_scan": {
+       "trades": 480,
+       "kept": 480,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 338,
+        "unfair": 117,
+        "slight": 25
+       }
+      },
+      "finder_all_shapes": {
+       "trades": 480,
+       "kept": 480,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 310,
+        "unfair": 161,
+        "slight": 9
+       }
+      },
+      "best_offers": {
+       "trades": 132,
+       "kept": 132,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 114,
+        "unfair": 16,
+        "fair": 1,
+        "slight": 1
+       }
+      },
+      "star_builder": {
+       "trades": 660,
+       "kept": 660,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "unfair": 327,
+        "lopsided": 218,
+        "slight": 62,
+        "fair": 53
+       }
+      }
+     },
+     "A_curve_market": {
+      "package_scan": {
+       "trades": 480,
+       "kept": 387,
+       "appear": 93,
+       "disappear": 93,
+       "meanTop10Overlap": 0.558,
+       "lostSensibleDepthVsIncumbent": 83,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 393,
+        "unfair": 64,
+        "slight": 23
+       }
+      },
+      "finder_all_shapes": {
+       "trades": 480,
+       "kept": 92,
+       "appear": 388,
+       "disappear": 388,
+       "meanTop10Overlap": 0.142,
+       "lostSensibleDepthVsIncumbent": 13,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 411,
+        "unfair": 51,
+        "slight": 18
+       }
+      },
+      "best_offers": {
+       "trades": 132,
+       "kept": 44,
+       "appear": 88,
+       "disappear": 88,
+       "meanTop10Overlap": 0.325,
+       "lostSensibleDepthVsIncumbent": 64,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 100,
+        "unfair": 26,
+        "slight": 6
+       }
+      },
+      "star_builder": {
+       "trades": 660,
+       "kept": 212,
+       "appear": 448,
+       "disappear": 448,
+       "meanTop10Overlap": 0.333,
+       "lostSensibleDepthVsIncumbent": 106,
+       "starForPile": 0,
+       "levels": {
+        "unfair": 227,
+        "lopsided": 338,
+        "slight": 62,
+        "fair": 33
+       }
+      }
+     },
+     "B_currency_market": {
+      "package_scan": {
+       "trades": 480,
+       "kept": 402,
+       "appear": 78,
+       "disappear": 78,
+       "meanTop10Overlap": 0.783,
+       "lostSensibleDepthVsIncumbent": 58,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 366,
+        "unfair": 103,
+        "slight": 11
+       }
+      },
+      "finder_all_shapes": {
+       "trades": 480,
+       "kept": 189,
+       "appear": 291,
+       "disappear": 291,
+       "meanTop10Overlap": 0.342,
+       "lostSensibleDepthVsIncumbent": 8,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 367,
+        "unfair": 98,
+        "slight": 14,
+        "fair": 1
+       }
+      },
+      "best_offers": {
+       "trades": 132,
+       "kept": 66,
+       "appear": 66,
+       "disappear": 66,
+       "meanTop10Overlap": 0.517,
+       "lostSensibleDepthVsIncumbent": 43,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 103,
+        "unfair": 25,
+        "slight": 4
+       }
+      },
+      "star_builder": {
+       "trades": 660,
+       "kept": 299,
+       "appear": 361,
+       "disappear": 361,
+       "meanTop10Overlap": 0.433,
+       "lostSensibleDepthVsIncumbent": 84,
+       "starForPile": 0,
+       "levels": {
+        "unfair": 323,
+        "lopsided": 223,
+        "slight": 65,
+        "fair": 49
+       }
+      }
+     }
+    },
+    "tradeHistory": {
+     "fullyPricedSides": 150,
+     "gradeBucketChangedFullyPriced": {
+      "GEOM_78": 0,
+      "A_curve_market": 84,
+      "A_curve_replacement": 84,
+      "B_currency_market": 61,
+      "B_currency_replacement": 55
+     }
+    },
+    "warRoom": {
+     "samples": 45,
+     "sweetenedSteps": 135,
+     "fillerFlipsAssetOnly": 133,
+     "flipsNeutralisedByTeamContext": 85,
+     "flipsOverAbsorbed_verdictMovesAgainstReceiver": 43,
+     "flipsSurvivingTeamContext": 5,
+     "forcedDropBasis": {
+      "assumedWaiver": 57,
+      "board": 213
+     },
+     "releaseCostPerForcedDropMedian": 1655,
+     "fillerVaCreditMedian": 1982,
+     "releaseChargedMedian": 3128,
+     "releaseAsShareOfFillerCreditMedian": 1.648
+    },
+    "publicCategoryShadow": {
+     "GEOM_78": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 0
+     },
+     "A_curve_market": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 65
+     },
+     "A_curve_replacement": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 76
+     },
+     "B_currency_market": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 40
+     },
+     "B_currency_replacement": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 37
+     }
+    }
+   }
+  },
+  "v2_current": {
+   "provenance": {
+    "bandBasis": "current",
+    "ownerReceipt": {
+     "version": "fairness_bands_v2",
+     "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+     "basis": "larger_package_utility",
+     "absoluteMinimum": 250.0,
+     "slightPct": 3.5,
+     "unfairPct": 9.0,
+     "lopsidedPct": 18.0,
+     "fairTradeLevels": [
+      "fair"
+     ],
+     "postLaunchValidation": "OD-F4"
+    },
+    "codeSha": "deed0aad0014e23e0cfdbcba9ab5927aeafc5121",
+    "archiveSha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+    "builtBoardSha256": "eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833",
+    "csvTreeRevision": "1511ca1d08dfffad4b48d113b2ac9a20d7a5de4b",
+    "valueOverrides": {},
+    "pricedAssets": 1003
+   },
+   "headline": {
+    "fillerFlipStudy": {
+     "bases": 2825,
+     "cases": 32180,
+     "byClass": {
+      "offense": {
+       "incumbent": {
+        "filler": {
+         "cases": 3600,
+         "flips": 2999,
+         "verdictChanged": 3576,
+         "winnerFlipped": 558,
+         "unfairMadeFair": 136
+        },
+        "depth": {
+         "cases": 3600,
+         "flips": 3029,
+         "verdictChanged": 3600,
+         "winnerFlipped": 687,
+         "unfairMadeFair": 26
+        },
+        "starter": {
+         "cases": 3600,
+         "flips": 3030,
+         "verdictChanged": 3600,
+         "winnerFlipped": 707,
+         "unfairMadeFair": 7
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2901,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4667,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1496,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2999,
+          "depth": 3029
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2774,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4857,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.142,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2999,
+          "depth": 3029
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.2518,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.3976,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.136,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2999,
+          "depth": 3029
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.2304,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4071,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1274,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2999,
+          "depth": 3029
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {
+        "A_curve_market": 0.4667,
+        "A_curve_replacement": 0.4857,
+        "B_currency_market": 0.3976,
+        "B_currency_replacement": 0.4071
+       }
+      },
+      "idp": {
+       "incumbent": {
+        "filler": {
+         "cases": 2656,
+         "flips": 2216,
+         "verdictChanged": 2580,
+         "winnerFlipped": 354,
+         "unfairMadeFair": 42
+        },
+        "depth": {
+         "cases": 2656,
+         "flips": 2288,
+         "verdictChanged": 2656,
+         "winnerFlipped": 407,
+         "unfairMadeFair": 1
+        },
+        "starter": {
+         "cases": 2656,
+         "flips": 2288,
+         "verdictChanged": 2656,
+         "winnerFlipped": 398,
+         "unfairMadeFair": 10
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2103,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4474,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.0966,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2216,
+          "depth": 2288
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2207,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4474,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.097,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2216,
+          "depth": 2288
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.1895,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4079,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1053,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2216,
+          "depth": 2288
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.1949,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4079,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.104,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2216,
+          "depth": 2288
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {
+        "A_curve_market": 0.4474,
+        "A_curve_replacement": 0.4474,
+        "B_currency_market": 0.4079,
+        "B_currency_replacement": 0.4079
+       }
+      },
+      "picks": {
+       "incumbent": {
+        "filler": {
+         "cases": 1400,
+         "flips": 1097,
+         "verdictChanged": 1400,
+         "winnerFlipped": 389,
+         "unfairMadeFair": 56
+        },
+        "depth": {
+         "cases": 1560,
+         "flips": 1241,
+         "verdictChanged": 1560,
+         "winnerFlipped": 469,
+         "unfairMadeFair": 12
+        },
+        "starter": {
+         "cases": 0,
+         "flips": 0,
+         "verdictChanged": 0,
+         "winnerFlipped": 0,
+         "unfairMadeFair": 0
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2707,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.1217,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1097,
+          "depth": 1241
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2443,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.1168,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1097,
+          "depth": 1241
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.1996,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.0935,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1097,
+          "depth": 1241
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.1495,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": null,
+         "F2": "not_applicable (no starter picks)",
+         "F3_depthFlipFall": 0.0741,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 1097,
+          "depth": 1241
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {}
+      },
+      "mixed": {
+       "incumbent": {
+        "filler": {
+         "cases": 3484,
+         "flips": 2859,
+         "verdictChanged": 3429,
+         "winnerFlipped": 594,
+         "unfairMadeFair": 124
+        },
+        "depth": {
+         "cases": 3484,
+         "flips": 2920,
+         "verdictChanged": 3484,
+         "winnerFlipped": 731,
+         "unfairMadeFair": 13
+        },
+        "starter": {
+         "cases": 3484,
+         "flips": 2920,
+         "verdictChanged": 3483,
+         "winnerFlipped": 732,
+         "unfairMadeFair": 12
+        }
+       },
+       "criteria": {
+        "A_curve_market": {
+         "F1_fillerFlipFall": 0.2693,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.509,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.126,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2859,
+          "depth": 2920
+         }
+        },
+        "A_curve_replacement": {
+         "F1_fillerFlipFall": 0.2749,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.5345,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1295,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2859,
+          "depth": 2920
+         }
+        },
+        "B_currency_market": {
+         "F1_fillerFlipFall": 0.2228,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4246,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1086,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2859,
+          "depth": 2920
+         }
+        },
+        "B_currency_replacement": {
+         "F1_fillerFlipFall": 0.2162,
+         "F1": "fail",
+         "F2_starterBaseLevelChangedShare": 0.4476,
+         "F2": "fail",
+         "F3_depthFlipFall": 0.1031,
+         "F3": "pass",
+         "incumbentFlipCases": {
+          "filler": 2859,
+          "depth": 2920
+         }
+        }
+       },
+       "starterOnlyBasesLevelChanged": {
+        "A_curve_market": 0.509,
+        "A_curve_replacement": 0.5345,
+        "B_currency_market": 0.4246,
+        "B_currency_replacement": 0.4476
+       }
+      }
+     },
+     "naiveDisclosure": {
+      "filler": {
+       "cases": 11140,
+       "disclosureFires": 4364
+      },
+      "depth": {
+       "cases": 11300,
+       "disclosureFires": 1112
+      },
+      "starter": {
+       "cases": 9740,
+       "disclosureFires": 699
+      }
+     }
+    },
+    "realExamples": [
+     {
+      "case": "\u00a78.1 Hurts vs Egbuka",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 722,
+       "A_curve_market": 671,
+       "A_curve_replacement": 609,
+       "B_currency_market": 722,
+       "B_currency_replacement": 722
+      },
+      "disclosure": false
+     },
+     {
+      "case": "\u00a78.1 \u2026 + Isaiah Hodgins",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "slight",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": 22,
+       "A_curve_market": 455,
+       "A_curve_replacement": 376,
+       "B_currency_market": 444,
+       "B_currency_replacement": 424
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 \u2026 + four fillers",
+      "levels": {
+       "GEOM_78": "lopsided",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -1300,
+       "A_curve_market": 41,
+       "A_curve_replacement": -94,
+       "B_currency_market": -86,
+       "B_currency_replacement": -179
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Gibbs vs Smith + Higgins",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 1071,
+       "A_curve_market": 1943,
+       "A_curve_replacement": 2026,
+       "B_currency_market": 1412,
+       "B_currency_replacement": 1309
+      },
+      "disclosure": false
+     },
+     {
+      "case": "\u00a78.1 \u2026 + four ~1,000 fillers",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": -674,
+       "A_curve_market": 1360,
+       "A_curve_replacement": 1392,
+       "B_currency_market": 665,
+       "B_currency_replacement": 497
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Gibbs vs Young + Kraft",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": 129,
+       "A_curve_market": 1072,
+       "A_curve_replacement": 1323,
+       "B_currency_market": 394,
+       "B_currency_replacement": 356
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Gibbs vs six starters",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": -564,
+       "A_curve_market": 1977,
+       "A_curve_replacement": 1926,
+       "B_currency_market": 1191,
+       "B_currency_replacement": 871
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Wilson vs Ferguson + Kelce",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 221,
+       "A_curve_market": 961,
+       "A_curve_replacement": 1123,
+       "B_currency_market": 724,
+       "B_currency_replacement": 749
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 IDP Schwesinger vs Baun + Parsons",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 176,
+       "A_curve_market": 903,
+       "A_curve_replacement": 847,
+       "B_currency_market": 690,
+       "B_currency_replacement": 658
+      },
+      "disclosure": true
+     },
+     {
+      "case": "\u00a78.1 Picks Love vs 2027 1.10 + 2028 Late 1st",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -200,
+       "A_curve_market": 640,
+       "A_curve_replacement": 611,
+       "B_currency_market": 238,
+       "B_currency_replacement": 88
+      },
+      "disclosure": true
+     },
+     {
+      "case": "IDP-depth 1: IDP star vs IDP starter + IDP usable depth",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "lopsided",
+       "A_curve_replacement": "lopsided",
+       "B_currency_market": "unfair",
+       "B_currency_replacement": "unfair"
+      },
+      "gapA": {
+       "GEOM_78": 495,
+       "A_curve_market": 1150,
+       "A_curve_replacement": 1110,
+       "B_currency_market": 1058,
+       "B_currency_replacement": 1033
+      },
+      "disclosure": true
+     },
+     {
+      "case": "IDP-depth 2: WR starter vs IDP starter + two DB fillers",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -832,
+       "A_curve_market": 81,
+       "A_curve_replacement": 168,
+       "B_currency_market": 9,
+       "B_currency_replacement": 43
+      },
+      "disclosure": true
+     },
+     {
+      "case": "IDP-depth 3: two IDP starters vs IDP starter + LB usable depth",
+      "levels": {
+       "GEOM_78": "fair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": 120,
+       "A_curve_market": 67,
+       "A_curve_replacement": 139,
+       "B_currency_market": 196,
+       "B_currency_replacement": 278
+      },
+      "disclosure": true
+     },
+     {
+      "case": "Rookie-pick 1: top rookie vs two firsts + a filler pick",
+      "levels": {
+       "GEOM_78": "slight",
+       "A_curve_market": "unfair",
+       "A_curve_replacement": "unfair",
+       "B_currency_market": "slight",
+       "B_currency_replacement": "slight"
+      },
+      "gapA": {
+       "GEOM_78": -415,
+       "A_curve_market": 844,
+       "A_curve_replacement": 796,
+       "B_currency_market": 462,
+       "B_currency_replacement": 279
+      },
+      "disclosure": true
+     },
+     {
+      "case": "Rookie-pick 2: early first vs late first + two filler picks",
+      "levels": {
+       "GEOM_78": "unfair",
+       "A_curve_market": "fair",
+       "A_curve_replacement": "fair",
+       "B_currency_market": "fair",
+       "B_currency_replacement": "fair"
+      },
+      "gapA": {
+       "GEOM_78": -791,
+       "A_curve_market": 241,
+       "A_curve_replacement": 184,
+       "B_currency_market": 125,
+       "B_currency_replacement": 22
+      },
+      "disclosure": true
+     }
+    ],
+    "calculatorSample": {
+     "n": 2000,
+     "levelChanged": {
+      "GEOM_78": 0,
+      "A_curve_market": 965,
+      "A_curve_replacement": 976,
+      "B_currency_market": 742,
+      "B_currency_replacement": 722
+     },
+     "leaderFlipped": {
+      "GEOM_78": 0,
+      "A_curve_market": 141,
+      "A_curve_replacement": 158,
+      "B_currency_market": 108,
+      "B_currency_replacement": 99
+     },
+     "levelCountsIncumbent": {
+      "fair": 385,
+      "slight": 381,
+      "lopsided": 580,
+      "unfair": 654
+     },
+     "naiveDisclosureFires": 722
+    },
+    "tradeFinderReplay": {
+     "GEOM_78": {
+      "package_scan": {
+       "trades": 480,
+       "kept": 480,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 338,
+        "unfair": 117,
+        "slight": 25
+       }
+      },
+      "finder_all_shapes": {
+       "trades": 480,
+       "kept": 480,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 310,
+        "unfair": 161,
+        "slight": 9
+       }
+      },
+      "best_offers": {
+       "trades": 132,
+       "kept": 132,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 114,
+        "unfair": 16,
+        "fair": 1,
+        "slight": 1
+       }
+      },
+      "star_builder": {
+       "trades": 660,
+       "kept": 660,
+       "appear": 0,
+       "disappear": 0,
+       "meanTop10Overlap": 1.0,
+       "lostSensibleDepthVsIncumbent": 0,
+       "starForPile": 0,
+       "levels": {
+        "unfair": 327,
+        "lopsided": 218,
+        "slight": 62,
+        "fair": 53
+       }
+      }
+     },
+     "A_curve_market": {
+      "package_scan": {
+       "trades": 480,
+       "kept": 387,
+       "appear": 93,
+       "disappear": 93,
+       "meanTop10Overlap": 0.558,
+       "lostSensibleDepthVsIncumbent": 83,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 393,
+        "unfair": 64,
+        "slight": 23
+       }
+      },
+      "finder_all_shapes": {
+       "trades": 480,
+       "kept": 92,
+       "appear": 388,
+       "disappear": 388,
+       "meanTop10Overlap": 0.142,
+       "lostSensibleDepthVsIncumbent": 13,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 411,
+        "unfair": 51,
+        "slight": 18
+       }
+      },
+      "best_offers": {
+       "trades": 132,
+       "kept": 44,
+       "appear": 88,
+       "disappear": 88,
+       "meanTop10Overlap": 0.325,
+       "lostSensibleDepthVsIncumbent": 64,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 100,
+        "unfair": 26,
+        "slight": 6
+       }
+      },
+      "star_builder": {
+       "trades": 660,
+       "kept": 212,
+       "appear": 448,
+       "disappear": 448,
+       "meanTop10Overlap": 0.333,
+       "lostSensibleDepthVsIncumbent": 106,
+       "starForPile": 0,
+       "levels": {
+        "unfair": 227,
+        "lopsided": 338,
+        "slight": 62,
+        "fair": 33
+       }
+      }
+     },
+     "B_currency_market": {
+      "package_scan": {
+       "trades": 480,
+       "kept": 402,
+       "appear": 78,
+       "disappear": 78,
+       "meanTop10Overlap": 0.783,
+       "lostSensibleDepthVsIncumbent": 58,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 366,
+        "unfair": 103,
+        "slight": 11
+       }
+      },
+      "finder_all_shapes": {
+       "trades": 480,
+       "kept": 189,
+       "appear": 291,
+       "disappear": 291,
+       "meanTop10Overlap": 0.342,
+       "lostSensibleDepthVsIncumbent": 8,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 367,
+        "unfair": 98,
+        "slight": 14,
+        "fair": 1
+       }
+      },
+      "best_offers": {
+       "trades": 132,
+       "kept": 66,
+       "appear": 66,
+       "disappear": 66,
+       "meanTop10Overlap": 0.517,
+       "lostSensibleDepthVsIncumbent": 43,
+       "starForPile": 0,
+       "levels": {
+        "lopsided": 103,
+        "unfair": 25,
+        "slight": 4
+       }
+      },
+      "star_builder": {
+       "trades": 660,
+       "kept": 299,
+       "appear": 361,
+       "disappear": 361,
+       "meanTop10Overlap": 0.433,
+       "lostSensibleDepthVsIncumbent": 84,
+       "starForPile": 0,
+       "levels": {
+        "unfair": 323,
+        "lopsided": 223,
+        "slight": 65,
+        "fair": 49
+       }
+      }
+     }
+    },
+    "tradeHistory": {
+     "fullyPricedSides": 150,
+     "gradeBucketChangedFullyPriced": {
+      "GEOM_78": 0,
+      "A_curve_market": 84,
+      "A_curve_replacement": 84,
+      "B_currency_market": 61,
+      "B_currency_replacement": 55
+     }
+    },
+    "warRoom": {
+     "samples": 45,
+     "sweetenedSteps": 135,
+     "fillerFlipsAssetOnly": 133,
+     "flipsNeutralisedByTeamContext": 85,
+     "flipsOverAbsorbed_verdictMovesAgainstReceiver": 43,
+     "flipsSurvivingTeamContext": 5,
+     "forcedDropBasis": {
+      "assumedWaiver": 57,
+      "board": 213
+     },
+     "releaseCostPerForcedDropMedian": 1655,
+     "fillerVaCreditMedian": 1982,
+     "releaseChargedMedian": 3128,
+     "releaseAsShareOfFillerCreditMedian": 1.648
+    },
+    "publicCategoryShadow": {
+     "GEOM_78": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 0
+     },
+     "A_curve_market": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 65
+     },
+     "A_curve_replacement": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 76
+     },
+     "B_currency_market": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 40
+     },
+     "B_currency_replacement": {
+      "evaluated": 180,
+      "categoryChangedVsGEOM_78": 37
+     }
+    }
+   }
+  }
+ },
+ "reproduction": {
+  "run": "v1_reproduction",
+  "versus": "committed shadow_replay.json",
+  "leaves": 3465,
+  "equal": 3395,
+  "bySection": {
+   "S1_replacementAnchors": {
+    "leaves": 118,
+    "equal": 117
+   },
+   "S2_classification": {
+    "leaves": 161,
+    "equal": 160
+   },
+   "S3_fillerFlipStudy": {
+    "leaves": 729,
+    "equal": 728
+   },
+   "S4_realExamples": {
+    "leaves": 431,
+    "equal": 430
+   },
+   "S5a_calculatorFairnessSample": {
+    "leaves": 156,
+    "equal": 156
+   },
+   "S5b_tradeFinderReplay": {
+    "leaves": 1228,
+    "equal": 1217
+   },
+   "S5c_tradeHistory": {
+    "leaves": 216,
+    "equal": 193
+   },
+   "S5d_warRoomTeamContext": {
+    "leaves": 230,
+    "equal": 229
+   },
+   "S5e_publicCategoryShadow": {
+    "leaves": 72,
+    "equal": 41
+   },
+   "S6_mathematicalProperties": {
+    "leaves": 113,
+    "equal": 113
+   },
+   "activeModelAtRun": {
+    "leaves": 1,
+    "equal": 1
+   },
+   "treatments": {
+    "leaves": 10,
+    "equal": 10
+   }
+  },
+  "differingPaths": [
+   "/S1_replacementAnchors/byPosition/WR/li5_starterMedianMarginal",
+   "/S2_classification/examples/offense:starter[3]",
+   "/S3_fillerFlipStudy/design/flip",
+   "/S4_realExamples/convention",
+   "/S5b_tradeFinderReplay/comparisonVsIncumbent/A_curve_market/star_builder/levels/lopsided",
+   "/S5b_tradeFinderReplay/comparisonVsIncumbent/A_curve_market/star_builder/levels/unfair",
+   "/S5b_tradeFinderReplay/comparisonVsIncumbent/A_curve_market/star_builder/lostSensibleDepthVsIncumbent",
+   "/S5b_tradeFinderReplay/comparisonVsIncumbent/A_curve_market/star_builder/meanUserRawGainDisappeared",
+   "/S5b_tradeFinderReplay/comparisonVsIncumbent/B_currency_market/star_builder/lostSensibleDepthVsIncumbent",
+   "/S5b_tradeFinderReplay/comparisonVsIncumbent/B_currency_market/star_builder/meanUserRawGainDisappeared",
+   "/S5b_tradeFinderReplay/comparisonVsIncumbent/GEOM_78/star_builder/multiPiece3plus",
+   "/S5b_tradeFinderReplay/comparisonVsIncumbent/GEOM_78/star_builder/sensibleDepth",
+   "/S5b_tradeFinderReplay/timingsSec/A_curve_market",
+   "/S5b_tradeFinderReplay/timingsSec/B_currency_market",
+   "/S5b_tradeFinderReplay/timingsSec/GEOM_78",
+   "/S5c_tradeHistory/C_informational/disclosureFires",
+   "/S5c_tradeHistory/examples[0]/A_curve_market/pctGap",
+   "/S5c_tradeHistory/examples[0]/A_curve_replacement/pctGap",
+   "/S5c_tradeHistory/examples[0]/B_currency_market/pctGap",
+   "/S5c_tradeHistory/examples[0]/B_currency_replacement/pctGap",
+   "/S5c_tradeHistory/examples[0]/GEOM_78/pctGap",
+   "/S5c_tradeHistory/examples[0]/gave[2]",
+   "/S5c_tradeHistory/examples[1]/A_curve_market/pctGap",
+   "/S5c_tradeHistory/examples[1]/A_curve_replacement/pctGap",
+   "/S5c_tradeHistory/examples[1]/B_currency_market/pctGap",
+   "/S5c_tradeHistory/examples[1]/B_currency_replacement/pctGap",
+   "/S5c_tradeHistory/examples[1]/GEOM_78/pctGap",
+   "/S5c_tradeHistory/examples[1]/got[2]",
+   "/S5c_tradeHistory/gradeBucketChangedVsGEOM_78/B_currency_market",
+   "/S5c_tradeHistory/gradeBucketChangedVsGEOM_78/B_currency_replacement",
+   "/S5c_tradeHistory/gradeBucketChangedVsGEOM_78_fullyPricedSides/B_currency_market",
+   "/S5c_tradeHistory/gradeBucketChangedVsGEOM_78_fullyPricedSides/B_currency_replacement",
+   "/S5c_tradeHistory/letterTransitions/B_currency_market/A Fair trade -> A Slight win",
+   "/S5c_tradeHistory/letterTransitions/B_currency_market/A Fair trade -> B+ Slight overpay",
+   "/S5c_tradeHistory/letterTransitions/B_currency_market/A Good win -> A Slight win",
+   "/S5c_tradeHistory/letterTransitions/B_currency_market/B Overpay -> B+ Slight overpay",
+   "/S5c_tradeHistory/letterTransitions/B_currency_replacement/A Fair trade -> A Slight win",
+   "/S5c_tradeHistory/letterTransitions/B_currency_replacement/A Fair trade -> B+ Slight overpay",
+   "/S5d_warRoomTeamContext/elapsedSec",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_market/categoryChangedVsGEOM_78",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_market/categoryCounts/APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_market/categoryCounts/FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_market/categoryCounts/STRONGLY_FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_market/categoryCounts/UNAVAILABLE",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_market/transitions/FAVORABLE->APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_market/transitions/STRONGLY_FAVORABLE->APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_market/transitions/STRONGLY_FAVORABLE->FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_replacement/categoryChangedVsGEOM_78",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_replacement/categoryCounts/FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_replacement/categoryCounts/UNAVAILABLE",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_replacement/transitions/APPROXIMATELY_EVEN->UNFAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_replacement/transitions/FAVORABLE->APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_replacement/transitions/STRONGLY_FAVORABLE->APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_replacement/transitions/STRONGLY_FAVORABLE->FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/A_curve_replacement/transitions/UNFAVORABLE->APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_market/categoryCounts/STRONGLY_FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_market/categoryCounts/UNAVAILABLE",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_market/transitions/FAVORABLE->APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_market/transitions/STRONGLY_FAVORABLE->APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_replacement/categoryChangedVsGEOM_78",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_replacement/categoryCounts/FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_replacement/categoryCounts/STRONGLY_FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_replacement/categoryCounts/UNAVAILABLE",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_replacement/transitions/FAVORABLE->APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_replacement/transitions/STRONGLY_FAVORABLE->APPROXIMATELY_EVEN",
+   "/S5e_publicCategoryShadow/byTreatment/B_currency_replacement/transitions/STRONGLY_FAVORABLE->FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/GEOM_78/categoryCounts/FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/GEOM_78/categoryCounts/STRONGLY_FAVORABLE",
+   "/S5e_publicCategoryShadow/byTreatment/GEOM_78/categoryCounts/UNAVAILABLE",
+   "/S5e_publicCategoryShadow/path"
+  ],
+  "differingPathCount": 70
+ }
+}

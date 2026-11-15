@@ -1,0 +1,6449 @@
+{
+ "code": {
+  "codeDirty": false,
+  "codeSha": "2724b7f3d0eb0b8639dea91cf59c22b7a5014f4a",
+  "librarySha256": "509272c788341632562cb88289598fc2e28a2e82a626b04850c6b8ab57abdf2c",
+  "preregistration": "docs/league-intelligence/TEAM_POINTS_CALIBRATION_PREREGISTRATION_2026-11-08.md",
+  "preregistrationCommit": "b7aa4ac219c9a6c1c3cae34427d35e331f3f91cb",
+  "preregistrationCommitFiles": [
+   "docs/league-intelligence/TEAM_POINTS_CALIBRATION_PREREGISTRATION_2026-11-08.md"
+  ],
+  "preregistrationIsAncestor": true,
+  "scriptSha256": "48b79a1e13a7207a57da6f6d184c9d7a718e0db3e775306b24703b208f91a1dd"
+ },
+ "contributors": {
+  "ranked": {
+   "weeks2to8": {
+    "effects": [
+     {
+      "absBias": -13.24,
+      "contributor": "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "mae": 11.31,
+      "slopeError": 0.34,
+      "spreadRatioError": 0.906,
+      "with": "I",
+      "without": "P_F"
+     },
+     {
+      "absBias": 75.58,
+      "contributor": "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "mae": 37.94,
+      "slopeError": 0.197,
+      "spreadRatioError": -0.013,
+      "with": "P_F",
+      "without": "P_C0"
+     },
+     {
+      "absBias": 3.8,
+      "contributor": "one scale for every position (vs per-family affine CF)",
+      "mae": 0.59,
+      "slopeError": 0.013,
+      "spreadRatioError": -0.006,
+      "with": "P_C0",
+      "without": "P_CF"
+     },
+     {
+      "absBias": -2.69,
+      "contributor": "one scale for every position (vs per-family rank curve CR)",
+      "mae": 1.45,
+      "slopeError": -0.079,
+      "spreadRatioError": -0.034,
+      "with": "P_C0",
+      "without": "P_CR"
+     },
+     {
+      "absBias": -27.81,
+      "contributor": "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "mae": -1.45,
+      "slopeError": -0.002,
+      "spreadRatioError": 0.065,
+      "with": "P_CF",
+      "without": "P_CF_oracle"
+     },
+     {
+      "absBias": -25.9,
+      "contributor": "availability not modelled, fallback means (vs ORACLE pool)",
+      "mae": -25.36,
+      "slopeError": 0.052,
+      "spreadRatioError": 0.027,
+      "with": "P_F",
+      "without": "P_F_oracle"
+     },
+     {
+      "absBias": -24.9,
+      "contributor": "best-ball max over noisy draws (vs deterministic lineup)",
+      "mae": -24.1,
+      "slopeError": 0.123,
+      "spreadRatioError": 0.139,
+      "with": "P_F",
+      "without": "L_F"
+     }
+    ],
+    "method": "effect = error(with) - error(without); each measured alone against its own comparison arm, no interaction or ordering check",
+    "rankings": {
+     "absBias": [
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "one scale for every position (vs per-family affine CF)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)"
+     ],
+     "mae": [
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "one scale for every position (vs per-family affine CF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)"
+     ],
+     "slopeError": [
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "one scale for every position (vs per-family affine CF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "one scale for every position (vs per-family rank curve CR)"
+     ],
+     "spreadRatioError": [
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "one scale for every position (vs per-family affine CF)",
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "one scale for every position (vs per-family rank curve CR)"
+     ]
+    }
+   },
+   "weeks5to8": {
+    "effects": [
+     {
+      "absBias": -13.04,
+      "contributor": "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "mae": 12.31,
+      "slopeError": 0.408,
+      "spreadRatioError": 0.816,
+      "with": "I",
+      "without": "P_F"
+     },
+     {
+      "absBias": 55.94,
+      "contributor": "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "mae": 27.75,
+      "slopeError": -0.203,
+      "spreadRatioError": -0.303,
+      "with": "P_F",
+      "without": "P_C0"
+     },
+     {
+      "absBias": 1.0,
+      "contributor": "one scale for every position (vs per-family affine CF)",
+      "mae": 0.45,
+      "slopeError": 0.037,
+      "spreadRatioError": 0.034,
+      "with": "P_C0",
+      "without": "P_CF"
+     },
+     {
+      "absBias": 6.98,
+      "contributor": "one scale for every position (vs per-family rank curve CR)",
+      "mae": 1.87,
+      "slopeError": 0.023,
+      "spreadRatioError": 0.045,
+      "with": "P_C0",
+      "without": "P_CR"
+     },
+     {
+      "absBias": -12.46,
+      "contributor": "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "mae": 4.44,
+      "slopeError": 0.05,
+      "spreadRatioError": 0.073,
+      "with": "P_CF",
+      "without": "P_CF_oracle"
+     },
+     {
+      "absBias": -35.11,
+      "contributor": "availability not modelled, fallback means (vs ORACLE pool)",
+      "mae": -34.59,
+      "slopeError": 0.047,
+      "spreadRatioError": 0.004,
+      "with": "P_F",
+      "without": "P_F_oracle"
+     },
+     {
+      "absBias": -26.41,
+      "contributor": "best-ball max over noisy draws (vs deterministic lineup)",
+      "mae": -25.89,
+      "slopeError": 0.075,
+      "spreadRatioError": -0.104,
+      "with": "P_F",
+      "without": "L_F"
+     }
+    ],
+    "method": "effect = error(with) - error(without); each measured alone against its own comparison arm, no interaction or ordering check",
+    "rankings": {
+     "absBias": [
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "one scale for every position (vs per-family affine CF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)"
+     ],
+     "mae": [
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)",
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "one scale for every position (vs per-family affine CF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, fallback means (vs ORACLE pool)"
+     ],
+     "slopeError": [
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "one scale for every position (vs per-family affine CF)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)"
+     ],
+     "spreadRatioError": [
+      "ROS multiplier re-applied to the presim (D11 double count, flag OFF)",
+      "availability not modelled, CF means (vs ORACLE appeared-only pool)",
+      "one scale for every position (vs per-family rank curve CR)",
+      "one scale for every position (vs per-family affine CF)",
+      "availability not modelled, fallback means (vs ORACLE pool)",
+      "best-ball max over noisy draws (vs deterministic lineup)",
+      "through-origin rosValue/2.7 conversion (vs one fitted affine scale C0)"
+     ]
+    }
+   }
+  },
+  "reportedQuantities": {
+   "bestBallLift": {
+    "mean": 26.4,
+    "range": [
+     10.24,
+     51.84
+    ],
+    "shareOfPresimMean": 0.0987
+   },
+   "rosMultiplierRange": [
+    0.597,
+    1.349
+   ],
+   "spread": {
+    "depthSdMultiplierRange": [
+     1.124,
+     1.137
+    ],
+    "incumbentMeanSd": 27.99,
+    "presimMeanSd": 24.76,
+    "realizedPooledWithinTeamSdWeeks1to8": 46.16,
+    "zSdAfterConversionCF": 2.125
+   },
+   "unpricedStarterPointShareByWeek": {
+    "1": 0.0205,
+    "2": 0.0038,
+    "3": 0.0245,
+    "4": 0.0373,
+    "5": 0.0071,
+    "6": 0.0106,
+    "7": 0.019,
+    "8": 0.0229
+   }
+  }
+ },
+ "conversions": {
+  "2": {
+   "C0": {
+    "fits": {
+     "*": {
+      "a": 4.545086,
+      "b": 0.339204,
+      "n": 556,
+      "source": "C0:*"
+     }
+    },
+    "modelId": "C0"
+   },
+   "CF": {
+    "fits": {
+     "DB": {
+      "a": 5.99878,
+      "b": 0.20396,
+      "n": 91,
+      "source": "CF:DB"
+     },
+     "DL": {
+      "a": 6.236542,
+      "b": 0.175362,
+      "n": 71,
+      "source": "CF:DL"
+     },
+     "K": {
+      "a": 4.545086,
+      "b": 0.339204,
+      "n": 556,
+      "source": "C0:*(fallback for K)(fallback for K)"
+     },
+     "LB": {
+      "a": 8.659359,
+      "b": 0.236081,
+      "n": 86,
+      "source": "CF:LB"
+     },
+     "QB": {
+      "a": 10.390422,
+      "b": 0.280279,
+      "n": 32,
+      "source": "CF:QB"
+     },
+     "RB": {
+      "a": 1.215989,
+      "b": 0.466464,
+      "n": 76,
+      "source": "CF:RB"
+     },
+     "TE": {
+      "a": 2.928627,
+      "b": 0.379112,
+      "n": 59,
+      "source": "CF:TE"
+     },
+     "WR": {
+      "a": 4.02964,
+      "b": 0.285154,
+      "n": 122,
+      "source": "CF:WR"
+     }
+    },
+    "modelId": "CF"
+   },
+   "CR": {
+    "fits": {
+     "DB": {
+      "a": 12.457814,
+      "b": -0.875951,
+      "n": 91,
+      "source": "CR:DB"
+     },
+     "DL": {
+      "a": 14.640835,
+      "b": -1.503178,
+      "n": 71,
+      "source": "CR:DL"
+     },
+     "K": {
+      "a": 4.545086,
+      "b": 0.339204,
+      "n": 556,
+      "source": "C0:*(fallback for K)(fallback for K)"
+     },
+     "LB": {
+      "a": 21.201398,
+      "b": -2.39735,
+      "n": 86,
+      "source": "CR:LB"
+     },
+     "QB": {
+      "a": 34.608152,
+      "b": -5.807266,
+      "n": 32,
+      "source": "CR:QB"
+     },
+     "RB": {
+      "a": 40.521451,
+      "b": -8.472812,
+      "n": 76,
+      "source": "CR:RB"
+     },
+     "TE": {
+      "a": 17.082434,
+      "b": -3.102048,
+      "n": 59,
+      "source": "CR:TE"
+     },
+     "WR": {
+      "a": 24.538741,
+      "b": -3.993262,
+      "n": 122,
+      "source": "CR:WR"
+     }
+    },
+    "modelId": "CR"
+   }
+  },
+  "3": {
+   "C0": {
+    "fits": {
+     "*": {
+      "a": 5.163018,
+      "b": 0.277976,
+      "n": 1109,
+      "source": "C0:*"
+     }
+    },
+    "modelId": "C0"
+   },
+   "CF": {
+    "fits": {
+     "DB": {
+      "a": 6.21149,
+      "b": 0.196994,
+      "n": 183,
+      "source": "CF:DB"
+     },
+     "DL": {
+      "a": 5.523377,
+      "b": 0.176054,
+      "n": 143,
+      "source": "CF:DL"
+     },
+     "K": {
+      "a": 5.163018,
+      "b": 0.277976,
+      "n": 1109,
+      "source": "C0:*(fallback for K)(fallback for K)"
+     },
+     "LB": {
+      "a": 10.674488,
+      "b": 0.081744,
+      "n": 172,
+      "source": "CF:LB"
+     },
+     "QB": {
+      "a": 11.234796,
+      "b": 0.258469,
+      "n": 67,
+      "source": "CF:QB"
+     },
+     "RB": {
+      "a": 1.820602,
+      "b": 0.386355,
+      "n": 155,
+      "source": "CF:RB"
+     },
+     "TE": {
+      "a": 2.45559,
+      "b": 0.416406,
+      "n": 114,
+      "source": "CF:TE"
+     },
+     "WR": {
+      "a": 3.634538,
+      "b": 0.338977,
+      "n": 237,
+      "source": "CF:WR"
+     }
+    },
+    "modelId": "CF"
+   },
+   "CR": {
+    "fits": {
+     "DB": {
+      "a": 14.619641,
+      "b": -1.313364,
+      "n": 183,
+      "source": "CR:DB"
+     },
+     "DL": {
+      "a": 16.539514,
+      "b": -2.085922,
+      "n": 143,
+      "source": "CR:DL"
+     },
+     "K": {
+      "a": 5.163018,
+      "b": 0.277976,
+      "n": 1109,
+      "source": "C0:*(fallback for K)(fallback for K)"
+     },
+     "LB": {
+      "a": 18.341576,
+      "b": -1.703563,
+      "n": 172,
+      "source": "CR:LB"
+     },
+     "QB": {
+      "a": 32.924182,
+      "b": -5.136063,
+      "n": 67,
+      "source": "CR:QB"
+     },
+     "RB": {
+      "a": 34.800696,
+      "b": -7.143824,
+      "n": 155,
+      "source": "CR:RB"
+     },
+     "TE": {
+      "a": 18.392733,
+      "b": -3.563505,
+      "n": 114,
+      "source": "CR:TE"
+     },
+     "WR": {
+      "a": 28.03931,
+      "b": -4.766289,
+      "n": 237,
+      "source": "CR:WR"
+     }
+    },
+    "modelId": "CR"
+   }
+  },
+  "4": {
+   "C0": {
+    "fits": {
+     "*": {
+      "a": 5.62686,
+      "b": 0.25989,
+      "n": 1640,
+      "source": "C0:*"
+     }
+    },
+    "modelId": "C0"
+   },
+   "CF": {
+    "fits": {
+     "DB": {
+      "a": 6.709165,
+      "b": 0.180406,
+      "n": 278,
+      "source": "CF:DB"
+     },
+     "DL": {
+      "a": 5.91623,
+      "b": 0.178816,
+      "n": 216,
+      "source": "CF:DL"
+     },
+     "K": {
+      "a": 5.62686,
+      "b": 0.25989,
+      "n": 1640,
+      "source": "C0:*(fallback for K)(fallback for K)"
+     },
+     "LB": {
+      "a": 10.170354,
+      "b": 0.082692,
+      "n": 258,
+      "source": "CF:LB"
+     },
+     "QB": {
+      "a": 14.334246,
+      "b": 0.17151,
+      "n": 99,
+      "source": "CF:QB"
+     },
+     "RB": {
+      "a": 2.097724,
+      "b": 0.38433,
+      "n": 228,
+      "source": "CF:RB"
+     },
+     "TE": {
+      "a": 3.190395,
+      "b": 0.389488,
+      "n": 164,
+      "source": "CF:TE"
+     },
+     "WR": {
+      "a": 3.6486,
+      "b": 0.357091,
+      "n": 340,
+      "source": "CF:WR"
+     }
+    },
+    "modelId": "CF"
+   },
+   "CR": {
+    "fits": {
+     "DB": {
+      "a": 14.954133,
+      "b": -1.320751,
+      "n": 278,
+      "source": "CR:DB"
+     },
+     "DL": {
+      "a": 17.535301,
+      "b": -2.19378,
+      "n": 216,
+      "source": "CR:DL"
+     },
+     "K": {
+      "a": 5.62686,
+      "b": 0.25989,
+      "n": 1640,
+      "source": "C0:*(fallback for K)(fallback for K)"
+     },
+     "LB": {
+      "a": 18.281726,
+      "b": -1.793988,
+      "n": 258,
+      "source": "CR:LB"
+     },
+     "QB": {
+      "a": 28.604089,
+      "b": -3.38915,
+      "n": 99,
+      "source": "CR:QB"
+     },
+     "RB": {
+      "a": 34.954685,
+      "b": -7.165423,
+      "n": 228,
+      "source": "CR:RB"
+     },
+     "TE": {
+      "a": 18.522992,
+      "b": -3.515936,
+      "n": 164,
+      "source": "CR:TE"
+     },
+     "WR": {
+      "a": 29.341496,
+      "b": -5.039659,
+      "n": 340,
+      "source": "CR:WR"
+     }
+    },
+    "modelId": "CR"
+   }
+  },
+  "5": {
+   "C0": {
+    "fits": {
+     "*": {
+      "a": 5.783168,
+      "b": 0.254923,
+      "n": 2170,
+      "source": "C0:*"
+     }
+    },
+    "modelId": "C0"
+   },
+   "CF": {
+    "fits": {
+     "DB": {
+      "a": 6.545502,
+      "b": 0.189245,
+      "n": 375,
+      "source": "CF:DB"
+     },
+     "DL": {
+      "a": 5.569263,
+      "b": 0.188197,
+      "n": 288,
+      "source": "CF:DL"
+     },
+     "K": {
+      "a": 8.679831,
+      "b": 0.134968,
+      "n": 78,
+      "source": "CF:K"
+     },
+     "LB": {
+      "a": 9.846906,
+      "b": 0.094447,
+      "n": 344,
+      "source": "CF:LB"
+     },
+     "QB": {
+      "a": 13.568224,
+      "b": 0.182399,
+      "n": 131,
+      "source": "CF:QB"
+     },
+     "RB": {
+      "a": 3.102598,
+      "b": 0.361057,
+      "n": 298,
+      "source": "CF:RB"
+     },
+     "TE": {
+      "a": 3.463541,
+      "b": 0.37847,
+      "n": 214,
+      "source": "CF:TE"
+     },
+     "WR": {
+      "a": 3.927994,
+      "b": 0.354663,
+      "n": 442,
+      "source": "CF:WR"
+     }
+    },
+    "modelId": "CF"
+   },
+   "CR": {
+    "fits": {
+     "DB": {
+      "a": 15.845916,
+      "b": -1.535745,
+      "n": 375,
+      "source": "CR:DB"
+     },
+     "DL": {
+      "a": 18.351328,
+      "b": -2.432668,
+      "n": 288,
+      "source": "CR:DL"
+     },
+     "K": {
+      "a": 10.044023,
+      "b": -0.250536,
+      "n": 78,
+      "source": "CR:K"
+     },
+     "LB": {
+      "a": 18.893391,
+      "b": -1.965846,
+      "n": 344,
+      "source": "CR:LB"
+     },
+     "QB": {
+      "a": 29.0668,
+      "b": -3.721305,
+      "n": 131,
+      "source": "CR:QB"
+     },
+     "RB": {
+      "a": 34.243199,
+      "b": -6.812366,
+      "n": 298,
+      "source": "CR:RB"
+     },
+     "TE": {
+      "a": 18.137507,
+      "b": -3.347244,
+      "n": 214,
+      "source": "CR:TE"
+     },
+     "WR": {
+      "a": 29.277297,
+      "b": -4.965865,
+      "n": 442,
+      "source": "CR:WR"
+     }
+    },
+    "modelId": "CR"
+   }
+  },
+  "6": {
+   "C0": {
+    "fits": {
+     "*": {
+      "a": 5.984446,
+      "b": 0.250063,
+      "n": 2664,
+      "source": "C0:*"
+     }
+    },
+    "modelId": "C0"
+   },
+   "CF": {
+    "fits": {
+     "DB": {
+      "a": 6.662731,
+      "b": 0.195281,
+      "n": 461,
+      "source": "CF:DB"
+     },
+     "DL": {
+      "a": 6.495774,
+      "b": 0.16321,
+      "n": 356,
+      "source": "CF:DL"
+     },
+     "K": {
+      "a": 7.770942,
+      "b": 0.267097,
+      "n": 98,
+      "source": "CF:K"
+     },
+     "LB": {
+      "a": 9.448698,
+      "b": 0.099353,
+      "n": 427,
+      "source": "CF:LB"
+     },
+     "QB": {
+      "a": 12.336513,
+      "b": 0.224584,
+      "n": 166,
+      "source": "CF:QB"
+     },
+     "RB": {
+      "a": 3.464677,
+      "b": 0.349096,
+      "n": 362,
+      "source": "CF:RB"
+     },
+     "TE": {
+      "a": 3.259578,
+      "b": 0.394528,
+      "n": 261,
+      "source": "CF:TE"
+     },
+     "WR": {
+      "a": 4.156321,
+      "b": 0.353321,
+      "n": 533,
+      "source": "CF:WR"
+     }
+    },
+    "modelId": "CF"
+   },
+   "CR": {
+    "fits": {
+     "DB": {
+      "a": 16.299731,
+      "b": -1.594889,
+      "n": 461,
+      "source": "CR:DB"
+     },
+     "DL": {
+      "a": 17.860901,
+      "b": -2.172762,
+      "n": 356,
+      "source": "CR:DL"
+     },
+     "K": {
+      "a": 10.867066,
+      "b": -0.676529,
+      "n": 98,
+      "source": "CR:K"
+     },
+     "LB": {
+      "a": 19.147336,
+      "b": -2.097628,
+      "n": 427,
+      "source": "CR:LB"
+     },
+     "QB": {
+      "a": 31.529388,
+      "b": -4.631883,
+      "n": 166,
+      "source": "CR:QB"
+     },
+     "RB": {
+      "a": 33.584434,
+      "b": -6.592841,
+      "n": 362,
+      "source": "CR:RB"
+     },
+     "TE": {
+      "a": 18.408713,
+      "b": -3.447829,
+      "n": 261,
+      "source": "CR:TE"
+     },
+     "WR": {
+      "a": 29.326071,
+      "b": -4.933171,
+      "n": 533,
+      "source": "CR:WR"
+     }
+    },
+    "modelId": "CR"
+   }
+  },
+  "7": {
+   "C0": {
+    "fits": {
+     "*": {
+      "a": 6.111513,
+      "b": 0.243295,
+      "n": 3127,
+      "source": "C0:*"
+     }
+    },
+    "modelId": "C0"
+   },
+   "CF": {
+    "fits": {
+     "DB": {
+      "a": 6.98564,
+      "b": 0.191204,
+      "n": 545,
+      "source": "CF:DB"
+     },
+     "DL": {
+      "a": 6.417277,
+      "b": 0.158879,
+      "n": 421,
+      "source": "CF:DL"
+     },
+     "K": {
+      "a": 8.241591,
+      "b": 0.178603,
+      "n": 114,
+      "source": "CF:K"
+     },
+     "LB": {
+      "a": 9.359743,
+      "b": 0.09665,
+      "n": 505,
+      "source": "CF:LB"
+     },
+     "QB": {
+      "a": 11.847633,
+      "b": 0.235432,
+      "n": 195,
+      "source": "CF:QB"
+     },
+     "RB": {
+      "a": 3.814723,
+      "b": 0.335946,
+      "n": 420,
+      "source": "CF:RB"
+     },
+     "TE": {
+      "a": 3.366763,
+      "b": 0.381253,
+      "n": 304,
+      "source": "CF:TE"
+     },
+     "WR": {
+      "a": 4.323825,
+      "b": 0.346213,
+      "n": 623,
+      "source": "CF:WR"
+     }
+    },
+    "modelId": "CF"
+   },
+   "CR": {
+    "fits": {
+     "DB": {
+      "a": 16.497998,
+      "b": -1.575221,
+      "n": 545,
+      "source": "CR:DB"
+     },
+     "DL": {
+      "a": 17.806459,
+      "b": -2.191764,
+      "n": 421,
+      "source": "CR:DL"
+     },
+     "K": {
+      "a": 10.239126,
+      "b": -0.415495,
+      "n": 114,
+      "source": "CR:K"
+     },
+     "LB": {
+      "a": 18.851889,
+      "b": -2.044514,
+      "n": 505,
+      "source": "CR:LB"
+     },
+     "QB": {
+      "a": 32.002734,
+      "b": -4.866468,
+      "n": 195,
+      "source": "CR:QB"
+     },
+     "RB": {
+      "a": 32.770562,
+      "b": -6.336361,
+      "n": 420,
+      "source": "CR:RB"
+     },
+     "TE": {
+      "a": 18.068284,
+      "b": -3.347145,
+      "n": 304,
+      "source": "CR:TE"
+     },
+     "WR": {
+      "a": 28.880888,
+      "b": -4.809755,
+      "n": 623,
+      "source": "CR:WR"
+     }
+    },
+    "modelId": "CR"
+   }
+  },
+  "8": {
+   "C0": {
+    "fits": {
+     "*": {
+      "a": 6.046519,
+      "b": 0.2445,
+      "n": 3603,
+      "source": "C0:*"
+     }
+    },
+    "modelId": "C0"
+   },
+   "CF": {
+    "fits": {
+     "DB": {
+      "a": 7.274038,
+      "b": 0.168815,
+      "n": 636,
+      "source": "CF:DB"
+     },
+     "DL": {
+      "a": 6.051986,
+      "b": 0.16286,
+      "n": 490,
+      "source": "CF:DL"
+     },
+     "K": {
+      "a": 7.983681,
+      "b": 0.200276,
+      "n": 131,
+      "source": "CF:K"
+     },
+     "LB": {
+      "a": 9.078306,
+      "b": 0.106835,
+      "n": 579,
+      "source": "CF:LB"
+     },
+     "QB": {
+      "a": 11.818604,
+      "b": 0.242549,
+      "n": 225,
+      "source": "CF:QB"
+     },
+     "RB": {
+      "a": 4.361184,
+      "b": 0.324508,
+      "n": 476,
+      "source": "CF:RB"
+     },
+     "TE": {
+      "a": 3.26002,
+      "b": 0.389013,
+      "n": 349,
+      "source": "CF:TE"
+     },
+     "WR": {
+      "a": 4.008748,
+      "b": 0.355895,
+      "n": 717,
+      "source": "CF:WR"
+     }
+    },
+    "modelId": "CF"
+   },
+   "CR": {
+    "fits": {
+     "DB": {
+      "a": 15.74841,
+      "b": -1.405998,
+      "n": 636,
+      "source": "CR:DB"
+     },
+     "DL": {
+      "a": 17.956899,
+      "b": -2.296808,
+      "n": 490,
+      "source": "CR:DL"
+     },
+     "K": {
+      "a": 10.352681,
+      "b": -0.521614,
+      "n": 131,
+      "source": "CR:K"
+     },
+     "LB": {
+      "a": 19.42946,
+      "b": -2.209678,
+      "n": 579,
+      "source": "CR:LB"
+     },
+     "QB": {
+      "a": 32.638091,
+      "b": -5.011746,
+      "n": 225,
+      "source": "CR:QB"
+     },
+     "RB": {
+      "a": 32.131198,
+      "b": -6.0522,
+      "n": 476,
+      "source": "CR:RB"
+     },
+     "TE": {
+      "a": 18.181938,
+      "b": -3.35615,
+      "n": 349,
+      "source": "CR:TE"
+     },
+     "WR": {
+      "a": 29.237281,
+      "b": -4.919799,
+      "n": 717,
+      "source": "CR:WR"
+     }
+    },
+    "modelId": "CR"
+   }
+  },
+  "9": {
+   "C0": {
+    "fits": {
+     "*": {
+      "a": 6.037759,
+      "b": 0.24277,
+      "n": 4093,
+      "source": "C0:*"
+     }
+    },
+    "modelId": "C0"
+   },
+   "CF": {
+    "fits": {
+     "DB": {
+      "a": 7.179737,
+      "b": 0.170028,
+      "n": 726,
+      "source": "CF:DB"
+     },
+     "DL": {
+      "a": 6.137454,
+      "b": 0.167924,
+      "n": 563,
+      "source": "CF:DL"
+     },
+     "K": {
+      "a": 8.216019,
+      "b": 0.143716,
+      "n": 151,
+      "source": "CF:K"
+     },
+     "LB": {
+      "a": 8.9752,
+      "b": 0.106675,
+      "n": 657,
+      "source": "CF:LB"
+     },
+     "QB": {
+      "a": 10.875104,
+      "b": 0.259102,
+      "n": 256,
+      "source": "CF:QB"
+     },
+     "RB": {
+      "a": 4.701536,
+      "b": 0.313401,
+      "n": 537,
+      "source": "CF:RB"
+     },
+     "TE": {
+      "a": 3.065364,
+      "b": 0.404477,
+      "n": 391,
+      "source": "CF:TE"
+     },
+     "WR": {
+      "a": 3.965483,
+      "b": 0.354454,
+      "n": 812,
+      "source": "CF:WR"
+     }
+    },
+    "modelId": "CF"
+   },
+   "CR": {
+    "fits": {
+     "DB": {
+      "a": 15.669679,
+      "b": -1.400434,
+      "n": 726,
+      "source": "CR:DB"
+     },
+     "DL": {
+      "a": 18.42773,
+      "b": -2.364669,
+      "n": 563,
+      "source": "CR:DL"
+     },
+     "K": {
+      "a": 9.737696,
+      "b": -0.291327,
+      "n": 151,
+      "source": "CR:K"
+     },
+     "LB": {
+      "a": 19.367777,
+      "b": -2.213388,
+      "n": 657,
+      "source": "CR:LB"
+     },
+     "QB": {
+      "a": 33.293882,
+      "b": -5.403518,
+      "n": 256,
+      "source": "CR:QB"
+     },
+     "RB": {
+      "a": 31.436947,
+      "b": -5.805031,
+      "n": 537,
+      "source": "CR:RB"
+     },
+     "TE": {
+      "a": 18.599424,
+      "b": -3.469833,
+      "n": 391,
+      "source": "CR:TE"
+     },
+     "WR": {
+      "a": 29.034666,
+      "b": -4.867705,
+      "n": 812,
+      "source": "CR:WR"
+     }
+    },
+    "modelId": "CR"
+   }
+  }
+ },
+ "generatedAt": "2026-11-08T12:16:39+00:00",
+ "league": {
+  "key": "dynasty_main",
+  "scoringFingerprint": "sf1:9e51824690d091f9",
+  "slots": [
+   "QB",
+   "RB",
+   "RB",
+   "WR",
+   "WR",
+   "WR",
+   "TE",
+   "TE",
+   "FLEX",
+   "FLEX",
+   "SUPER_FLEX",
+   "K",
+   "DL",
+   "DL",
+   "DL",
+   "LB",
+   "LB",
+   "LB",
+   "DB",
+   "DB",
+   "DB"
+  ]
+ },
+ "liveWeek9": {
+  "fits": {
+   "A": {
+    "coef": [
+     153.31065,
+     0.745156
+    ],
+    "dof": 94,
+    "n": 96,
+    "s": 51.5151
+   },
+   "S": {
+    "coef": [
+     28.687501,
+     0.472202,
+     0.541284
+    ],
+    "dof": 69,
+    "n": 72,
+    "s": 47.7663
+   }
+  },
+  "note": "descriptive only: week-9 forward forecasts under each arm (\u00a74 M9)",
+  "teams": {
+   "T01": {
+    "A": [
+     438.11,
+     52.68
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     391.44,
+     51.37
+    ],
+    "B2": [
+     391.44,
+     48.96
+    ],
+    "I": [
+     503.92,
+     33.52
+    ],
+    "S": [
+     421.05,
+     50.05
+    ],
+    "realizedWeeks1to8": [
+     391.44,
+     48.43
+    ]
+   },
+   "T02": {
+    "A": [
+     340.44,
+     51.79
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     320.06,
+     25.81
+    ],
+    "B2": [
+     320.06,
+     48.96
+    ],
+    "I": [
+     234.81,
+     25.32
+    ],
+    "S": [
+     320.51,
+     48.41
+    ],
+    "realizedWeeks1to8": [
+     320.06,
+     24.33
+    ]
+   },
+   "T03": {
+    "A": [
+     309.72,
+     51.94
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     315.1,
+     60.71
+    ],
+    "B2": [
+     315.1,
+     48.96
+    ],
+    "I": [
+     168.64,
+     20.89
+    ],
+    "S": [
+     298.36,
+     48.33
+    ],
+    "realizedWeeks1to8": [
+     315.1,
+     57.24
+    ]
+   },
+   "T04": {
+    "A": [
+     386.05,
+     51.95
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     376.7,
+     58.28
+    ],
+    "B2": [
+     376.7,
+     48.96
+    ],
+    "I": [
+     353.27,
+     29.74
+    ],
+    "S": [
+     380.08,
+     48.31
+    ],
+    "realizedWeeks1to8": [
+     376.7,
+     54.95
+    ]
+   },
+   "T05": {
+    "A": [
+     364.02,
+     51.81
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     376.75,
+     54.04
+    ],
+    "B2": [
+     376.75,
+     48.96
+    ],
+    "I": [
+     292.12,
+     30.66
+    ],
+    "S": [
+     366.14,
+     48.19
+    ],
+    "realizedWeeks1to8": [
+     376.75,
+     50.95
+    ]
+   },
+   "T06": {
+    "A": [
+     378.29,
+     51.89
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     379.57,
+     54.97
+    ],
+    "B2": [
+     379.57,
+     48.96
+    ],
+    "I": [
+     329.62,
+     36.9
+    ],
+    "S": [
+     376.71,
+     48.2
+    ],
+    "realizedWeeks1to8": [
+     379.57,
+     51.83
+    ]
+   },
+   "T07": {
+    "A": [
+     275.86,
+     52.33
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     241.19,
+     51.2
+    ],
+    "B2": [
+     241.19,
+     48.96
+    ],
+    "I": [
+     110.86,
+     18.14
+    ],
+    "S": [
+     236.9,
+     49.82
+    ],
+    "realizedWeeks1to8": [
+     241.19,
+     48.27
+    ]
+   },
+   "T08": {
+    "A": [
+     382.53,
+     51.92
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     388.06,
+     57.14
+    ],
+    "B2": [
+     388.06,
+     48.96
+    ],
+    "I": [
+     346.27,
+     35.81
+    ],
+    "S": [
+     383.99,
+     48.25
+    ],
+    "realizedWeeks1to8": [
+     388.06,
+     53.87
+    ]
+   },
+   "T09": {
+    "A": [
+     443.66,
+     52.79
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     436.15,
+     29.06
+    ],
+    "B2": [
+     436.15,
+     48.96
+    ],
+    "I": [
+     515.34,
+     35.17
+    ],
+    "S": [
+     448.76,
+     49.24
+    ],
+    "realizedWeeks1to8": [
+     436.15,
+     27.39
+    ]
+   },
+   "T10": {
+    "A": [
+     338.35,
+     51.79
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     381.46,
+     44.22
+    ],
+    "B2": [
+     381.46,
+     48.96
+    ],
+    "I": [
+     235.39,
+     27.48
+    ],
+    "S": [
+     352.42,
+     48.96
+    ],
+    "realizedWeeks1to8": [
+     381.46,
+     41.69
+    ]
+   },
+   "T11": {
+    "A": [
+     293.83,
+     52.09
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     296.56,
+     39.97
+    ],
+    "B2": [
+     296.56,
+     48.96
+    ],
+    "I": [
+     141.41,
+     18.27
+    ],
+    "S": [
+     278.26,
+     48.54
+    ],
+    "realizedWeeks1to8": [
+     296.56,
+     37.69
+    ]
+   },
+   "T12": {
+    "A": [
+     319.55,
+     51.87
+    ],
+    "B0": [
+     347.14,
+     71.8
+    ],
+    "B1": [
+     262.67,
+     46.4
+    ],
+    "B2": [
+     262.67,
+     48.96
+    ],
+    "I": [
+     193.44,
+     24.69
+    ],
+    "S": [
+     276.21,
+     50.25
+    ],
+    "realizedWeeks1to8": [
+     262.67,
+     43.75
+    ]
+   }
+  }
+ },
+ "promotes": false,
+ "receipts": {
+  "cache": {
+   "https://api.sleeper.app/v1/league/<dynasty_main>": {
+    "bytes": 5106,
+    "cachedAtUtc": "2026-11-08T11:23:06Z",
+    "sha256": "2f7ffae0df521456e132f0c1c85b74cd331cae5b5e0bb23dcb1280470b6e618c"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/1": {
+    "bytes": 18649,
+    "cachedAtUtc": "2026-11-08T11:23:07Z",
+    "sha256": "9f4d2663ac8a4960d6299ec97199dccba070828e19e0ff0e15b875314b2221b2"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/2": {
+    "bytes": 18695,
+    "cachedAtUtc": "2026-11-08T11:23:07Z",
+    "sha256": "ac8be4fffb6c0dc35df103295539a6d4843b75195596b77d7ade21a617e3df02"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/3": {
+    "bytes": 18672,
+    "cachedAtUtc": "2026-11-08T11:23:08Z",
+    "sha256": "142ca76bb94e966dad28f699362bb7fd8d6ea71f658c06f82e958807ac1218e0"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/4": {
+    "bytes": 18735,
+    "cachedAtUtc": "2026-11-08T11:23:09Z",
+    "sha256": "c1c28e4add27364429437778d172fdfa65d9894c4637ae12ab839cda77a913a7"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/5": {
+    "bytes": 18732,
+    "cachedAtUtc": "2026-11-08T11:23:09Z",
+    "sha256": "b8c08a1546f9e2a5b68e3c7f62547b23f20b6ff1c4f7ca154ab697004799966e"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/6": {
+    "bytes": 18677,
+    "cachedAtUtc": "2026-11-08T11:23:10Z",
+    "sha256": "3fec893d6fe76fa37901e9aad7f6d4d66bbad200b83a1754dd1b1a3e2b41cdf7"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/7": {
+    "bytes": 18623,
+    "cachedAtUtc": "2026-11-08T11:23:10Z",
+    "sha256": "4c0a4ea6cea104dac68d9c3797c204d05a82e5a4d63a3570e42a28fba71bca6b"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/matchups/8": {
+    "bytes": 18696,
+    "cachedAtUtc": "2026-11-08T11:23:11Z",
+    "sha256": "7b7e09952f1f5f50ebd39a23f9784232272c1479668f53b2605ef91a89196617"
+   },
+   "https://api.sleeper.app/v1/league/<dynasty_main>/rosters": {
+    "bytes": 14796,
+    "cachedAtUtc": "2026-11-08T11:23:06Z",
+    "sha256": "02d1a0c50f34966d9b1c7936403a1fd10958b3797158f3423f788ffc0543a959"
+   },
+   "https://api.sleeper.app/v1/players/nfl": {
+    "bytes": 14662477,
+    "cachedAtUtc": "2026-11-08T11:23:14Z",
+    "sha256": "e3ba74b6ab05cd5f359fa44c5329d9ef46e938e410fb6880fcf456a55cc13245"
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/1": {
+    "bytes": 569056,
+    "cachedAtUtc": "2026-11-08T11:23:11Z",
+    "sha256": "0e2453cc8cbb5315001d5f990f7f5a8e934d675ee0d809a9dde5d491f1d2d5ff"
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/2": {
+    "bytes": 574480,
+    "cachedAtUtc": "2026-11-08T11:23:11Z",
+    "sha256": "616ce95a9f34e975e12ab2ecba380c525e27bb104e84160c7a748c2e11f5bea1"
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/3": {
+    "bytes": 573997,
+    "cachedAtUtc": "2026-11-08T11:23:12Z",
+    "sha256": "255fb568b17433754fb1eaa8858fc2646cf667244c083ee44067f992655172d8"
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/4": {
+    "bytes": 585518,
+    "cachedAtUtc": "2026-11-08T11:23:12Z",
+    "sha256": "6a7e8256ed4e92a61b6a3d73233a54e281ba39c53667b8c61c22be6a43f393d5"
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/5": {
+    "bytes": 555127,
+    "cachedAtUtc": "2026-11-08T11:23:12Z",
+    "sha256": "11ae27fcc6872eb04f3972259fa63bdb510e22e51314198bd0ce962af4f82070"
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/6": {
+    "bytes": 513801,
+    "cachedAtUtc": "2026-11-08T11:23:13Z",
+    "sha256": "e9086612023efd3beea10174475c7010ae8401305d0b489923ddfeaeb1e7d77e"
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/7": {
+    "bytes": 510291,
+    "cachedAtUtc": "2026-11-08T11:23:13Z",
+    "sha256": "f234896b04f5e61ee3d453f88d0617de8e1530e2a09c8f79b043d85ac5b91ad6"
+   },
+   "https://api.sleeper.app/v1/stats/nfl/regular/2026/8": {
+    "bytes": 510266,
+    "cachedAtUtc": "2026-11-08T11:23:14Z",
+    "sha256": "6e7fc8488f182d1809e3c06fe1aa3b1af481d5f89bb23ef85b2dd17a212b4f9f"
+   },
+   "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv": {
+    "bytes": 2188934,
+    "cachedAtUtc": "2026-11-08T11:23:06Z",
+    "sha256": "d2cd748c24a91fed676ff5578612de1bd673da13b7892d7ac3580b7b31776a7c"
+   }
+  },
+  "canonicalSolverVsHostTeamPoints": {
+   "misses": [
+    {
+     "host": 360.02,
+     "solver": 365.44,
+     "team": "T08",
+     "week": 8
+    }
+   ],
+   "n": 96,
+   "within005": 95
+  },
+  "networkCalls": 0,
+  "scorerVsHostPlayersPoints": {
+   "n": 4833,
+   "within002": 4833
+  },
+  "snapshots": {
+   "1": {
+    "file": "2026-09-09T21-17-37.092580+00-00.json",
+    "sha256": "6585f7dcec86286db16055c85e30a2e2a2097c2200838c0ea2173c0278ad8cae"
+   },
+   "2": {
+    "file": "2026-09-17T21-51-47.384808+00-00.json",
+    "sha256": "d3f08e17b6980b448390e00f502ad81cff22be847815fcb0bd83b8e4fc5d768d"
+   },
+   "3": {
+    "file": "2026-09-24T23-24-45.550335+00-00.json",
+    "sha256": "fe195dc04cc9719b35a3c6886882cf0eb54cfe4e97174af233055ae64a9074a7"
+   },
+   "4": {
+    "file": "2026-09-30T13-07-10.115786+00-00.json",
+    "sha256": "fd4f3a861ad44599bbfe59705663c7ca3ea13dae50db8a891c8bfcfadb8da0e6"
+   },
+   "5": {
+    "file": "2026-10-08T20-15-39.079400+00-00.json",
+    "sha256": "538cd0566b3b507e554c2370ba8b655266755a5411a777f8542c50732112d570"
+   },
+   "6": {
+    "file": "2026-10-15T21-53-29.185259+00-00.json",
+    "sha256": "cc059ae846980afadc75624a86f87a0225d1535f7aa7981206a478203759622f"
+   },
+   "7": {
+    "file": "2026-10-22T22-01-15.898990+00-00.json",
+    "sha256": "f3f87cc4136011ec6555f3b063d262fbefdf9d41a4c39643f0f94116a9ec2c60"
+   },
+   "8": {
+    "file": "2026-10-29T19-58-09.845578+00-00.json",
+    "sha256": "33b81514a20f5c254ff9832d2f75f78f07b6cf39e4915daef143f3df4ded56ea"
+   },
+   "9": {
+    "file": "2026-11-05T21-20-20.320755+00-00.json",
+    "sha256": "f5d4e8cd9027a4ba68c16c21d1cf515456769582ed731bace9aa2f1ea9c3b0b9"
+   }
+  }
+ },
+ "status": "RESEARCH_EVIDENCE_NOT_FOR_PROMOTION",
+ "summaries": {
+  "weeks2to8": {
+   "I": {
+    "betweenTeamSdPredicted": 117.04,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 2.054,
+    "bias": 66.74,
+    "calibrationSlope": 0.426,
+    "mae": 92.09,
+    "meanPredicted": 278.25,
+    "meanRealized": 344.98,
+    "meanSd": 28.49,
+    "n": 84,
+    "zRms": 5.139,
+    "zSd": 4.013
+   },
+   "I_todayInjury": {
+    "betweenTeamSdPredicted": 118.39,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 2.077,
+    "bias": 66.87,
+    "calibrationSlope": 0.413,
+    "mae": 94.35,
+    "meanPredicted": 278.12,
+    "meanRealized": 344.98,
+    "meanSd": 28.44,
+    "n": 84,
+    "zRms": 5.139,
+    "zSd": 4.01
+   },
+   "L_F": {
+    "betweenTeamSdPredicted": 57.49,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 1.009,
+    "bias": 104.88,
+    "calibrationSlope": 0.889,
+    "mae": 104.88,
+    "meanPredicted": 240.1,
+    "meanRealized": 344.98,
+    "meanSd": null,
+    "n": 84,
+    "zRms": null,
+    "zSd": null
+   },
+   "P_C0": {
+    "betweenTeamSdPredicted": 47.83,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 0.839,
+    "bias": -4.4,
+    "calibrationSlope": 0.963,
+    "mae": 42.84,
+    "meanPredicted": 349.38,
+    "meanRealized": 344.98,
+    "meanSd": 26.65,
+    "n": 84,
+    "zRms": 2.135,
+    "zSd": 2.125
+   },
+   "P_CF": {
+    "betweenTeamSdPredicted": 47.45,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 0.833,
+    "bias": 0.6,
+    "calibrationSlope": 1.024,
+    "mae": 42.25,
+    "meanPredicted": 344.39,
+    "meanRealized": 344.98,
+    "meanSd": 26.12,
+    "n": 84,
+    "zRms": 2.113,
+    "zSd": 2.113
+   },
+   "P_CF_oracle": {
+    "betweenTeamSdPredicted": 51.17,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 0.898,
+    "bias": 28.41,
+    "calibrationSlope": 1.026,
+    "mae": 43.7,
+    "meanPredicted": 316.58,
+    "meanRealized": 344.98,
+    "meanSd": 26.22,
+    "n": 84,
+    "zRms": 2.098,
+    "zSd": 1.777
+   },
+   "P_CR": {
+    "betweenTeamSdPredicted": 45.86,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 0.805,
+    "bias": 7.09,
+    "calibrationSlope": 1.116,
+    "mae": 41.39,
+    "meanPredicted": 337.9,
+    "meanRealized": 344.98,
+    "meanSd": 25.57,
+    "n": 84,
+    "zRms": 2.065,
+    "zSd": 2.055
+   },
+   "P_F": {
+    "betweenTeamSdPredicted": 65.45,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 1.148,
+    "bias": 79.98,
+    "calibrationSlope": 0.766,
+    "mae": 80.78,
+    "meanPredicted": 265.01,
+    "meanRealized": 344.98,
+    "meanSd": 25.22,
+    "n": 84,
+    "zRms": 4.625,
+    "zSd": 2.909
+   },
+   "P_F_oracle": {
+    "betweenTeamSdPredicted": 63.9,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 1.121,
+    "bias": 105.88,
+    "calibrationSlope": 0.818,
+    "mae": 106.14,
+    "meanPredicted": 239.11,
+    "meanRealized": 344.98,
+    "meanSd": 24.62,
+    "n": 84,
+    "zRms": 5.641,
+    "zSd": 2.88
+   },
+   "P_once": {
+    "betweenTeamSdPredicted": 65.45,
+    "betweenTeamSdRealized": 56.99,
+    "betweenTeamSpreadRatio": 1.148,
+    "bias": 79.98,
+    "calibrationSlope": 0.766,
+    "mae": 80.78,
+    "meanPredicted": 265.01,
+    "meanRealized": 344.98,
+    "meanSd": 27.75,
+    "n": 84,
+    "zRms": 4.205,
+    "zSd": 2.645
+   }
+  },
+  "weeks5to8": {
+   "I": {
+    "betweenTeamSdPredicted": 116.27,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 1.827,
+    "bias": 55.91,
+    "calibrationSlope": 0.487,
+    "mae": 81.78,
+    "meanPredicted": 280.65,
+    "meanRealized": 336.56,
+    "meanSd": 27.99,
+    "n": 48,
+    "zRms": 4.535,
+    "zSd": 3.611
+   },
+   "I_todayInjury": {
+    "betweenTeamSdPredicted": 117.65,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 1.848,
+    "bias": 56.02,
+    "calibrationSlope": 0.472,
+    "mae": 84.56,
+    "meanPredicted": 280.54,
+    "meanRealized": 336.56,
+    "meanSd": 27.95,
+    "n": 48,
+    "zRms": 4.541,
+    "zSd": 3.618
+   },
+   "L_F": {
+    "betweenTeamSdPredicted": 56.31,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 0.885,
+    "bias": 95.36,
+    "calibrationSlope": 1.03,
+    "mae": 95.36,
+    "meanPredicted": 241.2,
+    "meanRealized": 336.56,
+    "meanSd": null,
+    "n": 48,
+    "zRms": null,
+    "zSd": null
+   },
+   "P_C0": {
+    "betweenTeamSdPredicted": 43.67,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 0.686,
+    "bias": -13.01,
+    "calibrationSlope": 1.308,
+    "mae": 41.72,
+    "meanPredicted": 349.56,
+    "meanRealized": 336.56,
+    "meanSd": 25.69,
+    "n": 48,
+    "zRms": 2.228,
+    "zSd": 2.14
+   },
+   "P_CF": {
+    "betweenTeamSdPredicted": 45.86,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 0.72,
+    "bias": -12.01,
+    "calibrationSlope": 1.271,
+    "mae": 41.27,
+    "meanPredicted": 348.57,
+    "meanRealized": 336.56,
+    "meanSd": 25.66,
+    "n": 48,
+    "zRms": 2.208,
+    "zSd": 2.125
+   },
+   "P_CF_oracle": {
+    "betweenTeamSdPredicted": 50.49,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 0.793,
+    "bias": 24.47,
+    "calibrationSlope": 1.221,
+    "mae": 36.83,
+    "meanPredicted": 312.09,
+    "meanRealized": 336.56,
+    "meanSd": 25.94,
+    "n": 48,
+    "zRms": 1.898,
+    "zSd": 1.681
+   },
+   "P_CR": {
+    "betweenTeamSdPredicted": 46.51,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 0.731,
+    "bias": -6.03,
+    "calibrationSlope": 1.285,
+    "mae": 39.85,
+    "meanPredicted": 342.59,
+    "meanRealized": 336.56,
+    "meanSd": 25.48,
+    "n": 48,
+    "zRms": 2.096,
+    "zSd": 2.065
+   },
+   "P_F": {
+    "betweenTeamSdPredicted": 64.37,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 1.011,
+    "bias": 68.95,
+    "calibrationSlope": 0.895,
+    "mae": 69.47,
+    "meanPredicted": 267.6,
+    "meanRealized": 336.56,
+    "meanSd": 24.76,
+    "n": 48,
+    "zRms": 3.999,
+    "zSd": 2.558
+   },
+   "P_F_oracle": {
+    "betweenTeamSdPredicted": 63.19,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 0.993,
+    "bias": 104.06,
+    "calibrationSlope": 0.942,
+    "mae": 104.06,
+    "meanPredicted": 232.5,
+    "meanRealized": 336.56,
+    "meanSd": 23.92,
+    "n": 48,
+    "zRms": 5.433,
+    "zSd": 2.549
+   },
+   "P_once": {
+    "betweenTeamSdPredicted": 64.37,
+    "betweenTeamSdRealized": 63.65,
+    "betweenTeamSpreadRatio": 1.011,
+    "bias": 68.95,
+    "calibrationSlope": 0.895,
+    "mae": 69.47,
+    "meanPredicted": 267.6,
+    "meanRealized": 336.56,
+    "meanSd": 27.24,
+    "n": 48,
+    "zRms": 3.635,
+    "zSd": 2.325
+   }
+  }
+ },
+ "weeks": {
+  "2": {
+   "rosterSource": "matchups_week_2",
+   "snapshot": "2026-09-17T21-51-47.384808+00-00.json",
+   "teams": [
+    {
+     "I": [
+      374.62,
+      31.05
+     ],
+     "I_todayInjury": [
+      366.69,
+      31.0
+     ],
+     "L_F": [
+      290.1,
+      0.0
+     ],
+     "P_C0": [
+      418.9,
+      31.19
+     ],
+     "P_CF": [
+      387.08,
+      26.71
+     ],
+     "P_CF_oracle": [
+      371.03,
+      28.72
+     ],
+     "P_CR": [
+      360.92,
+      24.59
+     ],
+     "P_F": [
+      319.14,
+      27.43
+     ],
+     "P_F_oracle": [
+      310.31,
+      29.12
+     ],
+     "P_once": [
+      319.14,
+      30.17
+     ],
+     "depthSdMultiplier": 1.1322,
+     "realized": 325.17,
+     "rosMultiplier": 1.1738,
+     "team": "T01"
+    },
+    {
+     "I": [
+      221.97,
+      26.85
+     ],
+     "I_todayInjury": [
+      223.12,
+      26.94
+     ],
+     "L_F": [
+      215.04,
+      0.0
+     ],
+     "P_C0": [
+      349.96,
+      25.23
+     ],
+     "P_CF": [
+      330.88,
+      22.22
+     ],
+     "P_CF_oracle": [
+      318.78,
+      25.37
+     ],
+     "P_CR": [
+      311.75,
+      19.52
+     ],
+     "P_F": [
+      241.24,
+      23.74
+     ],
+     "P_F_oracle": [
+      232.44,
+      21.47
+     ],
+     "P_once": [
+      241.24,
+      26.11
+     ],
+     "depthSdMultiplier": 1.1312,
+     "realized": 341.75,
+     "rosMultiplier": 0.9201,
+     "team": "T02"
+    },
+    {
+     "I": [
+      224.3,
+      23.62
+     ],
+     "I_todayInjury": [
+      233.66,
+      23.54
+     ],
+     "L_F": [
+      224.95,
+      0.0
+     ],
+     "P_C0": [
+      350.96,
+      28.37
+     ],
+     "P_CF": [
+      328.06,
+      25.99
+     ],
+     "P_CF_oracle": [
+      304.09,
+      24.81
+     ],
+     "P_CR": [
+      314.42,
+      24.91
+     ],
+     "P_F": [
+      237.71,
+      21.04
+     ],
+     "P_F_oracle": [
+      220.39,
+      24.01
+     ],
+     "P_once": [
+      237.71,
+      23.14
+     ],
+     "depthSdMultiplier": 1.1229,
+     "realized": 353.46,
+     "rosMultiplier": 0.9436,
+     "team": "T03"
+    },
+    {
+     "I": [
+      311.29,
+      30.28
+     ],
+     "I_todayInjury": [
+      302.06,
+      30.2
+     ],
+     "L_F": [
+      263.82,
+      0.0
+     ],
+     "P_C0": [
+      387.91,
+      31.4
+     ],
+     "P_CF": [
+      360.34,
+      28.45
+     ],
+     "P_CF_oracle": [
+      363.72,
+      32.76
+     ],
+     "P_CR": [
+      340.86,
+      26.31
+     ],
+     "P_F": [
+      289.39,
+      26.91
+     ],
+     "P_F_oracle": [
+      288.91,
+      30.27
+     ],
+     "P_once": [
+      289.39,
+      29.6
+     ],
+     "depthSdMultiplier": 1.1252,
+     "realized": 278.12,
+     "rosMultiplier": 1.0757,
+     "team": "T04"
+    },
+    {
+     "I": [
+      311.29,
+      29.9
+     ],
+     "I_todayInjury": [
+      301.14,
+      29.84
+     ],
+     "L_F": [
+      263.8,
+      0.0
+     ],
+     "P_C0": [
+      388.04,
+      32.82
+     ],
+     "P_CF": [
+      366.18,
+      29.07
+     ],
+     "P_CF_oracle": [
+      359.66,
+      28.54
+     ],
+     "P_CR": [
+      343.6,
+      26.18
+     ],
+     "P_F": [
+      287.84,
+      26.47
+     ],
+     "P_F_oracle": [
+      282.0,
+      29.37
+     ],
+     "P_once": [
+      287.84,
+      29.11
+     ],
+     "depthSdMultiplier": 1.1297,
+     "realized": 323.23,
+     "rosMultiplier": 1.0815,
+     "team": "T05"
+    },
+    {
+     "I": [
+      367.85,
+      31.31
+     ],
+     "I_todayInjury": [
+      372.83,
+      31.26
+     ],
+     "L_F": [
+      286.63,
+      0.0
+     ],
+     "P_C0": [
+      417.28,
+      32.76
+     ],
+     "P_CF": [
+      392.8,
+      29.96
+     ],
+     "P_CF_oracle": [
+      380.62,
+      34.32
+     ],
+     "P_CR": [
+      368.55,
+      26.72
+     ],
+     "P_F": [
+      318.01,
+      27.74
+     ],
+     "P_F_oracle": [
+      307.63,
+      32.0
+     ],
+     "P_once": [
+      318.01,
+      30.52
+     ],
+     "depthSdMultiplier": 1.1285,
+     "realized": 307.85,
+     "rosMultiplier": 1.1568,
+     "team": "T06"
+    },
+    {
+     "I": [
+      84.6,
+      14.76
+     ],
+     "I_todayInjury": [
+      92.31,
+      14.76
+     ],
+     "L_F": [
+      125.04,
+      0.0
+     ],
+     "P_C0": [
+      249.6,
+      17.7
+     ],
+     "P_CF": [
+      249.72,
+      16.87
+     ],
+     "P_CF_oracle": [
+      237.63,
+      19.71
+     ],
+     "P_CR": [
+      245.74,
+      16.66
+     ],
+     "P_F": [
+      136.88,
+      13.04
+     ],
+     "P_F_oracle": [
+      131.56,
+      13.98
+     ],
+     "P_once": [
+      136.88,
+      14.34
+     ],
+     "depthSdMultiplier": 1.1317,
+     "realized": 310.64,
+     "rosMultiplier": 0.6181,
+     "team": "T07"
+    },
+    {
+     "I": [
+      347.78,
+      38.88
+     ],
+     "I_todayInjury": [
+      358.19,
+      38.88
+     ],
+     "L_F": [
+      283.0,
+      0.0
+     ],
+     "P_C0": [
+      405.96,
+      35.9
+     ],
+     "P_CF": [
+      406.02,
+      38.38
+     ],
+     "P_CF_oracle": [
+      391.79,
+      38.16
+     ],
+     "P_CR": [
+      382.52,
+      34.96
+     ],
+     "P_F": [
+      306.89,
+      34.68
+     ],
+     "P_F_oracle": [
+      291.07,
+      32.88
+     ],
+     "P_once": [
+      306.89,
+      38.15
+     ],
+     "depthSdMultiplier": 1.1211,
+     "realized": 360.4,
+     "rosMultiplier": 1.1332,
+     "team": "T08"
+    },
+    {
+     "I": [
+      537.6,
+      46.46
+     ],
+     "I_todayInjury": [
+      546.72,
+      46.16
+     ],
+     "L_F": [
+      349.99,
+      0.0
+     ],
+     "P_C0": [
+      482.92,
+      44.78
+     ],
+     "P_CF": [
+      443.47,
+      38.23
+     ],
+     "P_CF_oracle": [
+      421.76,
+      35.49
+     ],
+     "P_CR": [
+      407.82,
+      34.83
+     ],
+     "P_F": [
+      389.74,
+      40.96
+     ],
+     "P_F_oracle": [
+      363.37,
+      36.51
+     ],
+     "P_once": [
+      389.74,
+      45.05
+     ],
+     "depthSdMultiplier": 1.1343,
+     "realized": 461.18,
+     "rosMultiplier": 1.3794,
+     "team": "T09"
+    },
+    {
+     "I": [
+      220.12,
+      27.62
+     ],
+     "I_todayInjury": [
+      212.22,
+      27.49
+     ],
+     "L_F": [
+      223.38,
+      0.0
+     ],
+     "P_C0": [
+      336.62,
+      27.69
+     ],
+     "P_CF": [
+      337.4,
+      27.14
+     ],
+     "P_CF_oracle": [
+      337.31,
+      29.11
+     ],
+     "P_CR": [
+      327.98,
+      25.79
+     ],
+     "P_F": [
+      235.83,
+      24.69
+     ],
+     "P_F_oracle": [
+      233.88,
+      24.8
+     ],
+     "P_once": [
+      235.83,
+      27.16
+     ],
+     "depthSdMultiplier": 1.119,
+     "realized": 415.16,
+     "rosMultiplier": 0.9334,
+     "team": "T10"
+    },
+    {
+     "I": [
+      132.65,
+      18.36
+     ],
+     "I_todayInjury": [
+      128.81,
+      18.27
+     ],
+     "L_F": [
+      161.82,
+      0.0
+     ],
+     "P_C0": [
+      286.77,
+      25.04
+     ],
+     "P_CF": [
+      283.07,
+      22.39
+     ],
+     "P_CF_oracle": [
+      262.69,
+      22.79
+     ],
+     "P_CR": [
+      277.6,
+      21.15
+     ],
+     "P_F": [
+      178.63,
+      16.21
+     ],
+     "P_F_oracle": [
+      171.04,
+      15.91
+     ],
+     "P_once": [
+      178.63,
+      17.83
+     ],
+     "depthSdMultiplier": 1.1327,
+     "realized": 325.79,
+     "rosMultiplier": 0.7426,
+     "team": "T11"
+    },
+    {
+     "I": [
+      173.5,
+      25.33
+     ],
+     "I_todayInjury": [
+      168.05,
+      25.34
+     ],
+     "L_F": [
+      194.39,
+      0.0
+     ],
+     "P_C0": [
+      315.3,
+      26.91
+     ],
+     "P_CF": [
+      303.26,
+      25.84
+     ],
+     "P_CF_oracle": [
+      292.52,
+      22.37
+     ],
+     "P_CR": [
+      298.58,
+      24.59
+     ],
+     "P_F": [
+      206.09,
+      22.56
+     ],
+     "P_F_oracle": [
+      199.33,
+      21.35
+     ],
+     "P_once": [
+      206.09,
+      24.82
+     ],
+     "depthSdMultiplier": 1.1226,
+     "realized": 305.02,
+     "rosMultiplier": 0.8418,
+     "team": "T12"
+    }
+   ]
+  },
+  "3": {
+   "rosterSource": "matchups_week_3",
+   "snapshot": "2026-09-24T23-24-45.550335+00-00.json",
+   "teams": [
+    {
+     "I": [
+      359.32,
+      32.92
+     ],
+     "I_todayInjury": [
+      348.7,
+      32.77
+     ],
+     "L_F": [
+      284.4,
+      0.0
+     ],
+     "P_C0": [
+      378.62,
+      31.84
+     ],
+     "P_CF": [
+      364.44,
+      29.12
+     ],
+     "P_CF_oracle": [
+      356.68,
+      29.68
+     ],
+     "P_CR": [
+      366.05,
+      28.87
+     ],
+     "P_F": [
+      309.99,
+      29.12
+     ],
+     "P_F_oracle": [
+      308.6,
+      31.28
+     ],
+     "P_once": [
+      309.99,
+      32.04
+     ],
+     "depthSdMultiplier": 1.1302,
+     "realized": 401.21,
+     "rosMultiplier": 1.1591,
+     "team": "T01"
+    },
+    {
+     "I": [
+      206.16,
+      21.82
+     ],
+     "I_todayInjury": [
+      205.74,
+      21.81
+     ],
+     "L_F": [
+      204.31,
+      0.0
+     ],
+     "P_C0": [
+      324.64,
+      22.7
+     ],
+     "P_CF": [
+      307.17,
+      19.9
+     ],
+     "P_CF_oracle": [
+      279.78,
+      21.32
+     ],
+     "P_CR": [
+      308.41,
+      19.7
+     ],
+     "P_F": [
+      228.62,
+      19.22
+     ],
+     "P_F_oracle": [
+      205.7,
+      18.01
+     ],
+     "P_once": [
+      228.62,
+      21.14
+     ],
+     "depthSdMultiplier": 1.1353,
+     "realized": 327.37,
+     "rosMultiplier": 0.9018,
+     "team": "T02"
+    },
+    {
+     "I": [
+      233.74,
+      28.75
+     ],
+     "I_todayInjury": [
+      244.4,
+      28.57
+     ],
+     "L_F": [
+      225.33,
+      0.0
+     ],
+     "P_C0": [
+      323.86,
+      30.1
+     ],
+     "P_CF": [
+      308.81,
+      29.02
+     ],
+     "P_CF_oracle": [
+      296.0,
+      21.04
+     ],
+     "P_CR": [
+      308.4,
+      28.03
+     ],
+     "P_F": [
+      243.49,
+      25.54
+     ],
+     "P_F_oracle": [
+      231.03,
+      24.93
+     ],
+     "P_once": [
+      243.49,
+      28.1
+     ],
+     "depthSdMultiplier": 1.1255,
+     "realized": 346.85,
+     "rosMultiplier": 0.9599,
+     "team": "T03"
+    },
+    {
+     "I": [
+      319.44,
+      34.53
+     ],
+     "I_todayInjury": [
+      310.4,
+      34.51
+     ],
+     "L_F": [
+      263.26,
+      0.0
+     ],
+     "P_C0": [
+      361.71,
+      28.22
+     ],
+     "P_CF": [
+      343.3,
+      25.97
+     ],
+     "P_CF_oracle": [
+      333.59,
+      25.63
+     ],
+     "P_CR": [
+      343.4,
+      26.15
+     ],
+     "P_F": [
+      293.73,
+      30.6
+     ],
+     "P_F_oracle": [
+      273.48,
+      26.09
+     ],
+     "P_once": [
+      293.73,
+      33.66
+     ],
+     "depthSdMultiplier": 1.1285,
+     "realized": 355.35,
+     "rosMultiplier": 1.0875,
+     "team": "T04"
+    },
+    {
+     "I": [
+      296.44,
+      31.22
+     ],
+     "I_todayInjury": [
+      285.89,
+      31.15
+     ],
+     "L_F": [
+      256.3,
+      0.0
+     ],
+     "P_C0": [
+      353.68,
+      29.43
+     ],
+     "P_CF": [
+      341.74,
+      27.15
+     ],
+     "P_CF_oracle": [
+      343.65,
+      24.58
+     ],
+     "P_CR": [
+      338.88,
+      25.99
+     ],
+     "P_F": [
+      277.71,
+      27.61
+     ],
+     "P_F_oracle": [
+      281.3,
+      27.58
+     ],
+     "P_once": [
+      277.71,
+      30.37
+     ],
+     "depthSdMultiplier": 1.1306,
+     "realized": 391.71,
+     "rosMultiplier": 1.0674,
+     "team": "T05"
+    },
+    {
+     "I": [
+      359.78,
+      34.23
+     ],
+     "I_todayInjury": [
+      365.57,
+      34.15
+     ],
+     "L_F": [
+      281.57,
+      0.0
+     ],
+     "P_C0": [
+      379.21,
+      28.24
+     ],
+     "P_CF": [
+      360.77,
+      27.1
+     ],
+     "P_CF_oracle": [
+      337.55,
+      33.03
+     ],
+     "P_CR": [
+      359.37,
+      26.55
+     ],
+     "P_F": [
+      313.33,
+      30.32
+     ],
+     "P_F_oracle": [
+      296.26,
+      33.4
+     ],
+     "P_once": [
+      313.33,
+      33.35
+     ],
+     "depthSdMultiplier": 1.129,
+     "realized": 414.69,
+     "rosMultiplier": 1.1483,
+     "team": "T06"
+    },
+    {
+     "I": [
+      80.21,
+      14.85
+     ],
+     "I_todayInjury": [
+      87.24,
+      14.86
+     ],
+     "L_F": [
+      119.27,
+      0.0
+     ],
+     "P_C0": [
+      238.61,
+      18.9
+     ],
+     "P_CF": [
+      233.1,
+      16.92
+     ],
+     "P_CF_oracle": [
+      208.58,
+      16.35
+     ],
+     "P_CR": [
+      238.22,
+      16.83
+     ],
+     "P_F": [
+      130.07,
+      13.15
+     ],
+     "P_F_oracle": [
+      104.21,
+      12.26
+     ],
+     "P_once": [
+      130.07,
+      14.46
+     ],
+     "depthSdMultiplier": 1.1297,
+     "realized": 269.59,
+     "rosMultiplier": 0.6167,
+     "team": "T07"
+    },
+    {
+     "I": [
+      364.86,
+      38.4
+     ],
+     "I_todayInjury": [
+      373.41,
+      38.31
+     ],
+     "L_F": [
+      288.19,
+      0.0
+     ],
+     "P_C0": [
+      378.38,
+      33.22
+     ],
+     "P_CF": [
+      385.42,
+      37.4
+     ],
+     "P_CF_oracle": [
+      366.87,
+      31.5
+     ],
+     "P_CR": [
+      376.63,
+      36.14
+     ],
+     "P_F": [
+      313.14,
+      34.11
+     ],
+     "P_F_oracle": [
+      299.25,
+      30.0
+     ],
+     "P_once": [
+      313.14,
+      37.52
+     ],
+     "depthSdMultiplier": 1.1259,
+     "realized": 442.5,
+     "rosMultiplier": 1.1652,
+     "team": "T08"
+    },
+    {
+     "I": [
+      536.21,
+      38.53
+     ],
+     "I_todayInjury": [
+      546.41,
+      38.35
+     ],
+     "L_F": [
+      346.45,
+      0.0
+     ],
+     "P_C0": [
+      438.3,
+      32.4
+     ],
+     "P_CF": [
+      420.88,
+      29.11
+     ],
+     "P_CF_oracle": [
+      403.23,
+      31.67
+     ],
+     "P_CR": [
+      411.14,
+      27.63
+     ],
+     "P_F": [
+      392.07,
+      34.01
+     ],
+     "P_F_oracle": [
+      364.98,
+      36.32
+     ],
+     "P_once": [
+      392.07,
+      37.41
+     ],
+     "depthSdMultiplier": 1.1328,
+     "realized": 418.88,
+     "rosMultiplier": 1.3677,
+     "team": "T09"
+    },
+    {
+     "I": [
+      223.16,
+      28.58
+     ],
+     "I_todayInjury": [
+      216.6,
+      28.41
+     ],
+     "L_F": [
+      222.53,
+      0.0
+     ],
+     "P_C0": [
+      316.61,
+      27.26
+     ],
+     "P_CF": [
+      318.97,
+      27.79
+     ],
+     "P_CF_oracle": [
+      314.46,
+      27.14
+     ],
+     "P_CR": [
+      318.38,
+      27.16
+     ],
+     "P_F": [
+      235.29,
+      25.44
+     ],
+     "P_F_oracle": [
+      232.73,
+      24.9
+     ],
+     "P_once": [
+      235.29,
+      27.98
+     ],
+     "depthSdMultiplier": 1.1238,
+     "realized": 446.17,
+     "rosMultiplier": 0.9484,
+     "team": "T10"
+    },
+    {
+     "I": [
+      122.12,
+      17.56
+     ],
+     "I_todayInjury": [
+      117.57,
+      17.55
+     ],
+     "L_F": [
+      151.97,
+      0.0
+     ],
+     "P_C0": [
+      263.21,
+      20.65
+     ],
+     "P_CF": [
+      268.39,
+      21.59
+     ],
+     "P_CF_oracle": [
+      251.0,
+      18.68
+     ],
+     "P_CR": [
+      272.46,
+      20.93
+     ],
+     "P_F": [
+      168.38,
+      15.52
+     ],
+     "P_F_oracle": [
+      159.56,
+      16.22
+     ],
+     "P_once": [
+      168.38,
+      17.08
+     ],
+     "depthSdMultiplier": 1.1311,
+     "realized": 314.27,
+     "rosMultiplier": 0.7253,
+     "team": "T11"
+    },
+    {
+     "I": [
+      177.66,
+      22.89
+     ],
+     "I_todayInjury": [
+      175.62,
+      22.94
+     ],
+     "L_F": [
+      192.0,
+      0.0
+     ],
+     "P_C0": [
+      299.45,
+      22.42
+     ],
+     "P_CF": [
+      289.24,
+      22.33
+     ],
+     "P_CF_oracle": [
+      275.82,
+      23.04
+     ],
+     "P_CR": [
+      292.0,
+      22.31
+     ],
+     "P_F": [
+      208.36,
+      20.32
+     ],
+     "P_F_oracle": [
+      192.84,
+      21.18
+     ],
+     "P_once": [
+      208.36,
+      22.35
+     ],
+     "depthSdMultiplier": 1.1269,
+     "realized": 225.92,
+     "rosMultiplier": 0.8526,
+     "team": "T12"
+    }
+   ]
+  },
+  "4": {
+   "rosterSource": "matchups_week_4",
+   "snapshot": "2026-09-30T13-07-10.115786+00-00.json",
+   "teams": [
+    {
+     "I": [
+      378.32,
+      34.87
+     ],
+     "I_todayInjury": [
+      371.11,
+      34.78
+     ],
+     "L_F": [
+      292.7,
+      0.0
+     ],
+     "P_C0": [
+      385.02,
+      28.46
+     ],
+     "P_CF": [
+      371.4,
+      26.62
+     ],
+     "P_CF_oracle": [
+      355.64,
+      25.06
+     ],
+     "P_CR": [
+      369.69,
+      26.4
+     ],
+     "P_F": [
+      321.05,
+      30.93
+     ],
+     "P_F_oracle": [
+      307.15,
+      27.67
+     ],
+     "P_once": [
+      321.05,
+      34.02
+     ],
+     "depthSdMultiplier": 1.1274,
+     "realized": 433.64,
+     "rosMultiplier": 1.1784,
+     "team": "T01"
+    },
+    {
+     "I": [
+      214.39,
+      23.5
+     ],
+     "I_todayInjury": [
+      214.94,
+      23.44
+     ],
+     "L_F": [
+      208.17,
+      0.0
+     ],
+     "P_C0": [
+      324.88,
+      20.06
+     ],
+     "P_CF": [
+      315.18,
+      19.5
+     ],
+     "P_CF_oracle": [
+      282.19,
+      21.45
+     ],
+     "P_CR": [
+      311.29,
+      18.76
+     ],
+     "P_F": [
+      237.64,
+      20.67
+     ],
+     "P_F_oracle": [
+      208.56,
+      19.2
+     ],
+     "P_once": [
+      237.64,
+      22.74
+     ],
+     "depthSdMultiplier": 1.1366,
+     "realized": 294.3,
+     "rosMultiplier": 0.9022,
+     "team": "T02"
+    },
+    {
+     "I": [
+      234.61,
+      33.1
+     ],
+     "I_todayInjury": [
+      243.84,
+      33.0
+     ],
+     "L_F": [
+      231.24,
+      0.0
+     ],
+     "P_C0": [
+      332.7,
+      26.68
+     ],
+     "P_CF": [
+      324.18,
+      25.54
+     ],
+     "P_CF_oracle": [
+      314.29,
+      27.38
+     ],
+     "P_CR": [
+      319.87,
+      24.78
+     ],
+     "P_F": [
+      243.66,
+      29.51
+     ],
+     "P_F_oracle": [
+      241.84,
+      26.94
+     ],
+     "P_once": [
+      243.66,
+      32.46
+     ],
+     "depthSdMultiplier": 1.1216,
+     "realized": 386.18,
+     "rosMultiplier": 0.9629,
+     "team": "T03"
+    },
+    {
+     "I": [
+      300.13,
+      33.62
+     ],
+     "I_todayInjury": [
+      288.35,
+      33.7
+     ],
+     "L_F": [
+      258.46,
+      0.0
+     ],
+     "P_C0": [
+      363.11,
+      28.63
+     ],
+     "P_CF": [
+      351.11,
+      29.16
+     ],
+     "P_CF_oracle": [
+      327.23,
+      28.06
+     ],
+     "P_CR": [
+      351.22,
+      29.83
+     ],
+     "P_F": [
+      281.68,
+      29.76
+     ],
+     "P_F_oracle": [
+      261.21,
+      26.92
+     ],
+     "P_once": [
+      281.68,
+      32.74
+     ],
+     "depthSdMultiplier": 1.1296,
+     "realized": 459.36,
+     "rosMultiplier": 1.0655,
+     "team": "T04"
+    },
+    {
+     "I": [
+      308.23,
+      33.37
+     ],
+     "I_todayInjury": [
+      297.58,
+      33.3
+     ],
+     "L_F": [
+      260.06,
+      0.0
+     ],
+     "P_C0": [
+      362.4,
+      27.99
+     ],
+     "P_CF": [
+      362.24,
+      27.5
+     ],
+     "P_CF_oracle": [
+      338.43,
+      26.11
+     ],
+     "P_CR": [
+      359.44,
+      27.01
+     ],
+     "P_F": [
+      288.37,
+      29.57
+     ],
+     "P_F_oracle": [
+      260.29,
+      27.85
+     ],
+     "P_once": [
+      288.37,
+      32.53
+     ],
+     "depthSdMultiplier": 1.1282,
+     "realized": 417.9,
+     "rosMultiplier": 1.0688,
+     "team": "T05"
+    },
+    {
+     "I": [
+      361.01,
+      35.92
+     ],
+     "I_todayInjury": [
+      366.06,
+      35.82
+     ],
+     "L_F": [
+      280.31,
+      0.0
+     ],
+     "P_C0": [
+      380.83,
+      28.55
+     ],
+     "P_CF": [
+      375.82,
+      29.12
+     ],
+     "P_CF_oracle": [
+      349.63,
+      29.46
+     ],
+     "P_CR": [
+      371.12,
+      28.45
+     ],
+     "P_F": [
+      316.09,
+      31.76
+     ],
+     "P_F_oracle": [
+      285.4,
+      30.35
+     ],
+     "P_once": [
+      316.09,
+      34.93
+     ],
+     "depthSdMultiplier": 1.1311,
+     "realized": 397.26,
+     "rosMultiplier": 1.1421,
+     "team": "T06"
+    },
+    {
+     "I": [
+      87.47,
+      13.9
+     ],
+     "I_todayInjury": [
+      95.87,
+      13.91
+     ],
+     "L_F": [
+      128.77,
+      0.0
+     ],
+     "P_C0": [
+      256.34,
+      18.32
+     ],
+     "P_CF": [
+      247.7,
+      16.27
+     ],
+     "P_CF_oracle": [
+      201.39,
+      16.25
+     ],
+     "P_CR": [
+      246.81,
+      15.89
+     ],
+     "P_F": [
+      139.76,
+      12.27
+     ],
+     "P_F_oracle": [
+      120.07,
+      12.93
+     ],
+     "P_once": [
+      139.76,
+      13.5
+     ],
+     "depthSdMultiplier": 1.1325,
+     "realized": 226.57,
+     "rosMultiplier": 0.6258,
+     "team": "T07"
+    },
+    {
+     "I": [
+      366.84,
+      42.43
+     ],
+     "I_todayInjury": [
+      374.59,
+      42.28
+     ],
+     "L_F": [
+      288.9,
+      0.0
+     ],
+     "P_C0": [
+      378.22,
+      34.0
+     ],
+     "P_CF": [
+      391.55,
+      38.08
+     ],
+     "P_CF_oracle": [
+      374.98,
+      40.01
+     ],
+     "P_CR": [
+      383.34,
+      37.22
+     ],
+     "P_F": [
+      314.33,
+      37.6
+     ],
+     "P_F_oracle": [
+      295.18,
+      37.66
+     ],
+     "P_once": [
+      314.33,
+      41.36
+     ],
+     "depthSdMultiplier": 1.1284,
+     "realized": 351.58,
+     "rosMultiplier": 1.1671,
+     "team": "T08"
+    },
+    {
+     "I": [
+      533.53,
+      43.79
+     ],
+     "I_todayInjury": [
+      544.06,
+      43.67
+     ],
+     "L_F": [
+      345.6,
+      0.0
+     ],
+     "P_C0": [
+      430.37,
+      36.21
+     ],
+     "P_CF": [
+      422.92,
+      34.3
+     ],
+     "P_CF_oracle": [
+      408.74,
+      30.99
+     ],
+     "P_CR": [
+      418.6,
+      34.14
+     ],
+     "P_F": [
+      390.09,
+      38.66
+     ],
+     "P_F_oracle": [
+      369.25,
+      34.32
+     ],
+     "P_once": [
+      390.09,
+      42.52
+     ],
+     "depthSdMultiplier": 1.1327,
+     "realized": 441.38,
+     "rosMultiplier": 1.3677,
+     "team": "T09"
+    },
+    {
+     "I": [
+      234.77,
+      25.37
+     ],
+     "I_todayInjury": [
+      227.65,
+      25.27
+     ],
+     "L_F": [
+      230.5,
+      0.0
+     ],
+     "P_C0": [
+      325.31,
+      25.8
+     ],
+     "P_CF": [
+      329.0,
+      27.66
+     ],
+     "P_CF_oracle": [
+      327.45,
+      27.85
+     ],
+     "P_CR": [
+      322.93,
+      26.31
+     ],
+     "P_F": [
+      243.88,
+      22.58
+     ],
+     "P_F_oracle": [
+      241.49,
+      23.88
+     ],
+     "P_once": [
+      243.88,
+      24.83
+     ],
+     "depthSdMultiplier": 1.1237,
+     "realized": 375.04,
+     "rosMultiplier": 0.9626,
+     "team": "T10"
+    },
+    {
+     "I": [
+      126.33,
+      16.76
+     ],
+     "I_todayInjury": [
+      120.47,
+      16.71
+     ],
+     "L_F": [
+      158.7,
+      0.0
+     ],
+     "P_C0": [
+      278.05,
+      21.91
+     ],
+     "P_CF": [
+      285.14,
+      20.79
+     ],
+     "P_CF_oracle": [
+      247.07,
+      21.0
+     ],
+     "P_CR": [
+      283.53,
+      20.67
+     ],
+     "P_F": [
+      173.81,
+      14.83
+     ],
+     "P_F_oracle": [
+      154.85,
+      16.71
+     ],
+     "P_once": [
+      173.81,
+      16.31
+     ],
+     "depthSdMultiplier": 1.1305,
+     "realized": 293.86,
+     "rosMultiplier": 0.7269,
+     "team": "T11"
+    },
+    {
+     "I": [
+      169.2,
+      24.27
+     ],
+     "I_todayInjury": [
+      168.43,
+      24.32
+     ],
+     "L_F": [
+      190.04,
+      0.0
+     ],
+     "P_C0": [
+      305.24,
+      23.55
+     ],
+     "P_CF": [
+      290.6,
+      23.36
+     ],
+     "P_CF_oracle": [
+      276.43,
+      18.25
+     ],
+     "P_CR": [
+      287.75,
+      23.14
+     ],
+     "P_F": [
+      203.85,
+      21.53
+     ],
+     "P_F_oracle": [
+      197.82,
+      21.43
+     ],
+     "P_once": [
+      203.85,
+      23.69
+     ],
+     "depthSdMultiplier": 1.1271,
+     "realized": 284.71,
+     "rosMultiplier": 0.83,
+     "team": "T12"
+    }
+   ]
+  },
+  "5": {
+   "rosterSource": "matchups_week_5",
+   "snapshot": "2026-10-08T20-15-39.079400+00-00.json",
+   "teams": [
+    {
+     "I": [
+      370.75,
+      32.67
+     ],
+     "I_todayInjury": [
+      365.95,
+      32.61
+     ],
+     "L_F": [
+      284.05,
+      0.0
+     ],
+     "P_C0": [
+      383.59,
+      28.68
+     ],
+     "P_CF": [
+      374.81,
+      27.19
+     ],
+     "P_CF_oracle": [
+      359.35,
+      24.43
+     ],
+     "P_CR": [
+      376.53,
+      27.68
+     ],
+     "P_F": [
+      316.52,
+      28.81
+     ],
+     "P_F_oracle": [
+      302.96,
+      28.06
+     ],
+     "P_once": [
+      316.52,
+      31.7
+     ],
+     "depthSdMultiplier": 1.1337,
+     "realized": 456.87,
+     "rosMultiplier": 1.1713,
+     "team": "T01"
+    },
+    {
+     "I": [
+      210.7,
+      20.64
+     ],
+     "I_todayInjury": [
+      211.9,
+      20.53
+     ],
+     "L_F": [
+      209.25,
+      0.0
+     ],
+     "P_C0": [
+      326.9,
+      20.69
+     ],
+     "P_CF": [
+      317.5,
+      19.31
+     ],
+     "P_CF_oracle": [
+      278.83,
+      24.78
+     ],
+     "P_CR": [
+      315.83,
+      19.38
+     ],
+     "P_F": [
+      234.44,
+      18.18
+     ],
+     "P_F_oracle": [
+      188.86,
+      19.7
+     ],
+     "P_once": [
+      234.44,
+      20.0
+     ],
+     "depthSdMultiplier": 1.1354,
+     "realized": 296.38,
+     "rosMultiplier": 0.8987,
+     "team": "T02"
+    },
+    {
+     "I": [
+      255.31,
+      28.07
+     ],
+     "I_todayInjury": [
+      263.27,
+      27.91
+     ],
+     "L_F": [
+      237.13,
+      0.0
+     ],
+     "P_C0": [
+      343.52,
+      25.55
+     ],
+     "P_CF": [
+      331.46,
+      25.26
+     ],
+     "P_CF_oracle": [
+      302.67,
+      28.08
+     ],
+     "P_CR": [
+      330.76,
+      25.21
+     ],
+     "P_F": [
+      258.44,
+      24.94
+     ],
+     "P_F_oracle": [
+      221.0,
+      23.72
+     ],
+     "P_once": [
+      258.44,
+      27.44
+     ],
+     "depthSdMultiplier": 1.1255,
+     "realized": 370.35,
+     "rosMultiplier": 0.9879,
+     "team": "T03"
+    },
+    {
+     "I": [
+      330.19,
+      32.69
+     ],
+     "I_todayInjury": [
+      311.61,
+      32.83
+     ],
+     "L_F": [
+      266.89,
+      0.0
+     ],
+     "P_C0": [
+      373.9,
+      29.31
+     ],
+     "P_CF": [
+      362.98,
+      28.38
+     ],
+     "P_CF_oracle": [
+      323.01,
+      27.33
+     ],
+     "P_CR": [
+      365.9,
+      28.27
+     ],
+     "P_F": [
+      300.94,
+      29.02
+     ],
+     "P_F_oracle": [
+      259.46,
+      28.12
+     ],
+     "P_once": [
+      300.94,
+      31.93
+     ],
+     "depthSdMultiplier": 1.1264,
+     "realized": 436.14,
+     "rosMultiplier": 1.0972,
+     "team": "T04"
+    },
+    {
+     "I": [
+      292.19,
+      28.77
+     ],
+     "I_todayInjury": [
+      280.98,
+      28.75
+     ],
+     "L_F": [
+      253.03,
+      0.0
+     ],
+     "P_C0": [
+      353.74,
+      25.77
+     ],
+     "P_CF": [
+      356.52,
+      24.63
+     ],
+     "P_CF_oracle": [
+      331.71,
+      26.2
+     ],
+     "P_CR": [
+      354.7,
+      24.17
+     ],
+     "P_F": [
+      277.68,
+      25.45
+     ],
+     "P_F_oracle": [
+      235.39,
+      24.43
+     ],
+     "P_once": [
+      277.68,
+      28.0
+     ],
+     "depthSdMultiplier": 1.1302,
+     "realized": 445.69,
+     "rosMultiplier": 1.0523,
+     "team": "T05"
+    },
+    {
+     "I": [
+      358.06,
+      31.23
+     ],
+     "I_todayInjury": [
+      363.61,
+      31.22
+     ],
+     "L_F": [
+      281.5,
+      0.0
+     ],
+     "P_C0": [
+      376.13,
+      28.05
+     ],
+     "P_CF": [
+      375.39,
+      27.54
+     ],
+     "P_CF_oracle": [
+      332.95,
+      29.06
+     ],
+     "P_CR": [
+      375.45,
+      27.77
+     ],
+     "P_F": [
+      311.36,
+      27.73
+     ],
+     "P_F_oracle": [
+      267.79,
+      27.19
+     ],
+     "P_once": [
+      311.36,
+      30.5
+     ],
+     "depthSdMultiplier": 1.1263,
+     "realized": 326.18,
+     "rosMultiplier": 1.15,
+     "team": "T06"
+    },
+    {
+     "I": [
+      82.68,
+      14.15
+     ],
+     "I_todayInjury": [
+      90.69,
+      14.15
+     ],
+     "L_F": [
+      128.3,
+      0.0
+     ],
+     "P_C0": [
+      256.8,
+      16.96
+     ],
+     "P_CF": [
+      251.68,
+      15.59
+     ],
+     "P_CF_oracle": [
+      227.32,
+      17.92
+     ],
+     "P_CR": [
+      248.81,
+      15.17
+     ],
+     "P_F": [
+      138.54,
+      12.51
+     ],
+     "P_F_oracle": [
+      123.08,
+      12.16
+     ],
+     "P_once": [
+      138.54,
+      13.77
+     ],
+     "depthSdMultiplier": 1.1305,
+     "realized": 272.87,
+     "rosMultiplier": 0.5968,
+     "team": "T07"
+    },
+    {
+     "I": [
+      360.4,
+      37.67
+     ],
+     "I_todayInjury": [
+      367.46,
+      37.67
+     ],
+     "L_F": [
+      285.87,
+      0.0
+     ],
+     "P_C0": [
+      374.17,
+      31.85
+     ],
+     "P_CF": [
+      387.02,
+      37.22
+     ],
+     "P_CF_oracle": [
+      374.43,
+      39.35
+     ],
+     "P_CR": [
+      384.86,
+      37.36
+     ],
+     "P_F": [
+      308.11,
+      33.38
+     ],
+     "P_F_oracle": [
+      297.65,
+      34.83
+     ],
+     "P_once": [
+      308.11,
+      36.71
+     ],
+     "depthSdMultiplier": 1.1287,
+     "realized": 461.23,
+     "rosMultiplier": 1.1697,
+     "team": "T08"
+    },
+    {
+     "I": [
+      504.3,
+      35.78
+     ],
+     "I_todayInjury": [
+      519.02,
+      35.71
+     ],
+     "L_F": [
+      329.41,
+      0.0
+     ],
+     "P_C0": [
+      423.81,
+      29.58
+     ],
+     "P_CF": [
+      429.13,
+      30.73
+     ],
+     "P_CF_oracle": [
+      408.1,
+      38.04
+     ],
+     "P_CR": [
+      420.22,
+      30.4
+     ],
+     "P_F": [
+      378.08,
+      31.62
+     ],
+     "P_F_oracle": [
+      353.06,
+      39.62
+     ],
+     "P_once": [
+      378.08,
+      34.78
+     ],
+     "depthSdMultiplier": 1.1315,
+     "realized": 417.38,
+     "rosMultiplier": 1.3339,
+     "team": "T09"
+    },
+    {
+     "I": [
+      248.48,
+      28.46
+     ],
+     "I_todayInjury": [
+      242.67,
+      28.36
+     ],
+     "L_F": [
+      236.27,
+      0.0
+     ],
+     "P_C0": [
+      331.83,
+      24.57
+     ],
+     "P_CF": [
+      337.72,
+      24.94
+     ],
+     "P_CF_oracle": [
+      312.55,
+      28.55
+     ],
+     "P_CR": [
+      336.35,
+      24.5
+     ],
+     "P_F": [
+      252.35,
+      25.29
+     ],
+     "P_F_oracle": [
+      228.14,
+      27.1
+     ],
+     "P_once": [
+      252.35,
+      27.82
+     ],
+     "depthSdMultiplier": 1.1257,
+     "realized": 336.87,
+     "rosMultiplier": 0.9847,
+     "team": "T10"
+    },
+    {
+     "I": [
+      134.01,
+      20.51
+     ],
+     "I_todayInjury": [
+      129.31,
+      20.44
+     ],
+     "L_F": [
+      164.3,
+      0.0
+     ],
+     "P_C0": [
+      283.53,
+      22.96
+     ],
+     "P_CF": [
+      293.86,
+      22.1
+     ],
+     "P_CF_oracle": [
+      223.97,
+      20.96
+     ],
+     "P_CR": [
+      292.16,
+      21.58
+     ],
+     "P_F": [
+      183.4,
+      18.1
+     ],
+     "P_F_oracle": [
+      143.5,
+      16.6
+     ],
+     "P_once": [
+      183.4,
+      19.91
+     ],
+     "depthSdMultiplier": 1.133,
+     "realized": 221.33,
+     "rosMultiplier": 0.7307,
+     "team": "T11"
+    },
+    {
+     "I": [
+      169.78,
+      23.38
+     ],
+     "I_todayInjury": [
+      168.22,
+      23.41
+     ],
+     "L_F": [
+      192.71,
+      0.0
+     ],
+     "P_C0": [
+      305.06,
+      23.2
+     ],
+     "P_CF": [
+      291.82,
+      22.65
+     ],
+     "P_CF_oracle": [
+      252.36,
+      19.81
+     ],
+     "P_CR": [
+      289.0,
+      22.6
+     ],
+     "P_F": [
+      205.31,
+      20.77
+     ],
+     "P_F_oracle": [
+      176.87,
+      18.88
+     ],
+     "P_once": [
+      205.31,
+      22.85
+     ],
+     "depthSdMultiplier": 1.1256,
+     "realized": 243.14,
+     "rosMultiplier": 0.8269,
+     "team": "T12"
+    }
+   ]
+  },
+  "6": {
+   "rosterSource": "matchups_week_6",
+   "snapshot": "2026-10-15T21-53-29.185259+00-00.json",
+   "teams": [
+    {
+     "I": [
+      368.79,
+      34.16
+     ],
+     "I_todayInjury": [
+      366.2,
+      34.09
+     ],
+     "L_F": [
+      280.1,
+      0.0
+     ],
+     "P_C0": [
+      387.04,
+      30.59
+     ],
+     "P_CF": [
+      375.59,
+      28.59
+     ],
+     "P_CF_oracle": [
+      316.07,
+      25.55
+     ],
+     "P_CR": [
+      374.86,
+      28.77
+     ],
+     "P_F": [
+      318.68,
+      30.07
+     ],
+     "P_F_oracle": [
+      253.76,
+      24.9
+     ],
+     "P_once": [
+      318.68,
+      33.08
+     ],
+     "depthSdMultiplier": 1.1358,
+     "realized": 330.96,
+     "rosMultiplier": 1.1572,
+     "team": "T01"
+    },
+    {
+     "I": [
+      217.79,
+      20.72
+     ],
+     "I_todayInjury": [
+      214.44,
+      20.7
+     ],
+     "L_F": [
+      212.47,
+      0.0
+     ],
+     "P_C0": [
+      331.23,
+      19.71
+     ],
+     "P_CF": [
+      322.38,
+      19.54
+     ],
+     "P_CF_oracle": [
+      293.21,
+      23.1
+     ],
+     "P_CR": [
+      319.21,
+      19.61
+     ],
+     "P_F": [
+      238.9,
+      18.26
+     ],
+     "P_F_oracle": [
+      206.62,
+      20.39
+     ],
+     "P_once": [
+      238.9,
+      20.09
+     ],
+     "depthSdMultiplier": 1.1348,
+     "realized": 351.36,
+     "rosMultiplier": 0.9116,
+     "team": "T02"
+    },
+    {
+     "I": [
+      255.66,
+      31.41
+     ],
+     "I_todayInjury": [
+      262.95,
+      31.2
+     ],
+     "L_F": [
+      236.44,
+      0.0
+     ],
+     "P_C0": [
+      346.04,
+      28.9
+     ],
+     "P_CF": [
+      338.15,
+      27.3
+     ],
+     "P_CF_oracle": [
+      328.49,
+      26.35
+     ],
+     "P_CR": [
+      332.75,
+      26.51
+     ],
+     "P_F": [
+      259.95,
+      27.95
+     ],
+     "P_F_oracle": [
+      250.32,
+      25.9
+     ],
+     "P_once": [
+      259.95,
+      30.74
+     ],
+     "depthSdMultiplier": 1.1238,
+     "realized": 291.78,
+     "rosMultiplier": 0.9835,
+     "team": "T03"
+    },
+    {
+     "I": [
+      339.34,
+      30.5
+     ],
+     "I_todayInjury": [
+      321.66,
+      30.56
+     ],
+     "L_F": [
+      275.03,
+      0.0
+     ],
+     "P_C0": [
+      374.34,
+      26.96
+     ],
+     "P_CF": [
+      366.36,
+      26.9
+     ],
+     "P_CF_oracle": [
+      326.6,
+      28.56
+     ],
+     "P_CR": [
+      367.29,
+      27.06
+     ],
+     "P_F": [
+      300.68,
+      27.01
+     ],
+     "P_F_oracle": [
+      247.92,
+      25.35
+     ],
+     "P_once": [
+      300.68,
+      29.71
+     ],
+     "depthSdMultiplier": 1.1291,
+     "realized": 383.6,
+     "rosMultiplier": 1.1286,
+     "team": "T04"
+    },
+    {
+     "I": [
+      289.25,
+      28.14
+     ],
+     "I_todayInjury": [
+      277.21,
+      28.12
+     ],
+     "L_F": [
+      252.89,
+      0.0
+     ],
+     "P_C0": [
+      354.81,
+      24.88
+     ],
+     "P_CF": [
+      356.02,
+      25.28
+     ],
+     "P_CF_oracle": [
+      303.02,
+      28.54
+     ],
+     "P_CR": [
+      353.66,
+      25.19
+     ],
+     "P_F": [
+      276.19,
+      24.95
+     ],
+     "P_F_oracle": [
+      207.89,
+      24.25
+     ],
+     "P_once": [
+      276.19,
+      27.45
+     ],
+     "depthSdMultiplier": 1.1277,
+     "realized": 291.47,
+     "rosMultiplier": 1.0473,
+     "team": "T05"
+    },
+    {
+     "I": [
+      335.11,
+      33.86
+     ],
+     "I_todayInjury": [
+      340.49,
+      33.79
+     ],
+     "L_F": [
+      276.3,
+      0.0
+     ],
+     "P_C0": [
+      369.09,
+      29.86
+     ],
+     "P_CF": [
+      366.92,
+      31.16
+     ],
+     "P_CF_oracle": [
+      341.95,
+      31.67
+     ],
+     "P_CR": [
+      362.86,
+      30.19
+     ],
+     "P_F": [
+      297.8,
+      30.12
+     ],
+     "P_F_oracle": [
+      276.77,
+      29.73
+     ],
+     "P_once": [
+      297.8,
+      33.13
+     ],
+     "depthSdMultiplier": 1.1242,
+     "realized": 375.87,
+     "rosMultiplier": 1.1253,
+     "team": "T06"
+    },
+    {
+     "I": [
+      92.48,
+      15.87
+     ],
+     "I_todayInjury": [
+      100.55,
+      15.87
+     ],
+     "L_F": [
+      133.35,
+      0.0
+     ],
+     "P_C0": [
+      269.79,
+      18.62
+     ],
+     "P_CF": [
+      261.16,
+      16.72
+     ],
+     "P_CF_oracle": [
+      225.94,
+      15.93
+     ],
+     "P_CR": [
+      259.33,
+      16.21
+     ],
+     "P_F": [
+      148.22,
+      14.01
+     ],
+     "P_F_oracle": [
+      130.21,
+      14.32
+     ],
+     "P_once": [
+      148.22,
+      15.41
+     ],
+     "depthSdMultiplier": 1.1323,
+     "realized": 205.66,
+     "rosMultiplier": 0.6239,
+     "team": "T07"
+    },
+    {
+     "I": [
+      360.91,
+      32.87
+     ],
+     "I_todayInjury": [
+      367.12,
+      32.84
+     ],
+     "L_F": [
+      286.86,
+      0.0
+     ],
+     "P_C0": [
+      376.49,
+      27.72
+     ],
+     "P_CF": [
+      390.86,
+      31.26
+     ],
+     "P_CF_oracle": [
+      352.55,
+      30.15
+     ],
+     "P_CR": [
+      387.89,
+      31.5
+     ],
+     "P_F": [
+      309.14,
+      29.16
+     ],
+     "P_F_oracle": [
+      269.29,
+      29.03
+     ],
+     "P_once": [
+      309.14,
+      32.08
+     ],
+     "depthSdMultiplier": 1.1271,
+     "realized": 335.05,
+     "rosMultiplier": 1.1675,
+     "team": "T08"
+    },
+    {
+     "I": [
+      514.05,
+      39.74
+     ],
+     "I_todayInjury": [
+      529.73,
+      39.64
+     ],
+     "L_F": [
+      333.44,
+      0.0
+     ],
+     "P_C0": [
+      428.48,
+      32.35
+     ],
+     "P_CF": [
+      433.02,
+      33.27
+     ],
+     "P_CF_oracle": [
+      383.55,
+      32.84
+     ],
+     "P_CR": [
+      430.75,
+      33.34
+     ],
+     "P_F": [
+      381.18,
+      35.01
+     ],
+     "P_F_oracle": [
+      315.73,
+      31.41
+     ],
+     "P_once": [
+      381.18,
+      38.51
+     ],
+     "depthSdMultiplier": 1.135,
+     "realized": 388.94,
+     "rosMultiplier": 1.3486,
+     "team": "T09"
+    },
+    {
+     "I": [
+      243.59,
+      29.35
+     ],
+     "I_todayInjury": [
+      238.62,
+      29.27
+     ],
+     "L_F": [
+      234.0,
+      0.0
+     ],
+     "P_C0": [
+      332.35,
+      26.86
+     ],
+     "P_CF": [
+      339.7,
+      26.9
+     ],
+     "P_CF_oracle": [
+      317.82,
+      25.07
+     ],
+     "P_CR": [
+      336.43,
+      26.62
+     ],
+     "P_F": [
+      249.77,
+      26.1
+     ],
+     "P_F_oracle": [
+      224.06,
+      24.44
+     ],
+     "P_once": [
+      249.77,
+      28.71
+     ],
+     "depthSdMultiplier": 1.1244,
+     "realized": 374.79,
+     "rosMultiplier": 0.9753,
+     "team": "T10"
+    },
+    {
+     "I": [
+      119.4,
+      17.81
+     ],
+     "I_todayInjury": [
+      118.0,
+      17.83
+     ],
+     "L_F": [
+      152.06,
+      0.0
+     ],
+     "P_C0": [
+      284.79,
+      22.32
+     ],
+     "P_CF": [
+      293.08,
+      21.76
+     ],
+     "P_CF_oracle": [
+      248.45,
+      23.15
+     ],
+     "P_CR": [
+      293.55,
+      21.59
+     ],
+     "P_F": [
+      172.91,
+      15.74
+     ],
+     "P_F_oracle": [
+      146.32,
+      13.47
+     ],
+     "P_once": [
+      172.91,
+      17.31
+     ],
+     "depthSdMultiplier": 1.1314,
+     "realized": 265.39,
+     "rosMultiplier": 0.6905,
+     "team": "T11"
+    },
+    {
+     "I": [
+      178.85,
+      21.83
+     ],
+     "I_todayInjury": [
+      176.88,
+      21.85
+     ],
+     "L_F": [
+      195.41,
+      0.0
+     ],
+     "P_C0": [
+      312.67,
+      23.12
+     ],
+     "P_CF": [
+      301.98,
+      22.55
+     ],
+     "P_CF_oracle": [
+      230.65,
+      18.84
+     ],
+     "P_CR": [
+      297.0,
+      22.53
+     ],
+     "P_F": [
+      212.73,
+      19.38
+     ],
+     "P_F_oracle": [
+      147.47,
+      17.2
+     ],
+     "P_once": [
+      212.73,
+      21.32
+     ],
+     "depthSdMultiplier": 1.1264,
+     "realized": 207.73,
+     "rosMultiplier": 0.8408,
+     "team": "T12"
+    }
+   ]
+  },
+  "7": {
+   "rosterSource": "matchups_week_7",
+   "snapshot": "2026-10-22T22-01-15.898990+00-00.json",
+   "teams": [
+    {
+     "I": [
+      461.87,
+      35.73
+     ],
+     "I_todayInjury": [
+      467.03,
+      35.72
+     ],
+     "L_F": [
+      322.56,
+      0.0
+     ],
+     "P_C0": [
+      413.48,
+      29.3
+     ],
+     "P_CF": [
+      405.97,
+      28.99
+     ],
+     "P_CF_oracle": [
+      369.37,
+      26.24
+     ],
+     "P_CR": [
+      397.16,
+      28.91
+     ],
+     "P_F": [
+      364.01,
+      31.41
+     ],
+     "P_F_oracle": [
+      331.09,
+      29.24
+     ],
+     "P_once": [
+      364.01,
+      34.55
+     ],
+     "depthSdMultiplier": 1.1375,
+     "realized": 357.71,
+     "rosMultiplier": 1.2688,
+     "team": "T01"
+    },
+    {
+     "I": [
+      230.5,
+      24.42
+     ],
+     "I_todayInjury": [
+      228.22,
+      24.27
+     ],
+     "L_F": [
+      219.23,
+      0.0
+     ],
+     "P_C0": [
+      338.02,
+      22.83
+     ],
+     "P_CF": [
+      331.81,
+      21.65
+     ],
+     "P_CF_oracle": [
+      300.21,
+      22.56
+     ],
+     "P_CR": [
+      319.94,
+      21.4
+     ],
+     "P_F": [
+      248.4,
+      21.49
+     ],
+     "P_F_oracle": [
+      218.78,
+      20.47
+     ],
+     "P_once": [
+      248.4,
+      23.64
+     ],
+     "depthSdMultiplier": 1.136,
+     "realized": 344.27,
+     "rosMultiplier": 0.9279,
+     "team": "T02"
+    },
+    {
+     "I": [
+      162.03,
+      20.22
+     ],
+     "I_todayInjury": [
+      161.29,
+      20.1
+     ],
+     "L_F": [
+      180.59,
+      0.0
+     ],
+     "P_C0": [
+      311.72,
+      22.62
+     ],
+     "P_CF": [
+      304.38,
+      20.46
+     ],
+     "P_CF_oracle": [
+      264.18,
+      17.2
+     ],
+     "P_CR": [
+      292.23,
+      20.08
+     ],
+     "P_F": [
+      202.82,
+      17.84
+     ],
+     "P_F_oracle": [
+      168.78,
+      15.17
+     ],
+     "P_once": [
+      202.82,
+      19.62
+     ],
+     "depthSdMultiplier": 1.1332,
+     "realized": 223.17,
+     "rosMultiplier": 0.7989,
+     "team": "T03"
+    },
+    {
+     "I": [
+      367.93,
+      35.64
+     ],
+     "I_todayInjury": [
+      348.29,
+      35.66
+     ],
+     "L_F": [
+      287.54,
+      0.0
+     ],
+     "P_C0": [
+      388.45,
+      30.0
+     ],
+     "P_CF": [
+      380.8,
+      29.73
+     ],
+     "P_CF_oracle": [
+      338.02,
+      31.09
+     ],
+     "P_CR": [
+      373.65,
+      30.24
+     ],
+     "P_F": [
+      321.77,
+      31.53
+     ],
+     "P_F_oracle": [
+      265.83,
+      29.77
+     ],
+     "P_once": [
+      321.77,
+      34.69
+     ],
+     "depthSdMultiplier": 1.1304,
+     "realized": 357.48,
+     "rosMultiplier": 1.1434,
+     "team": "T04"
+    },
+    {
+     "I": [
+      298.19,
+      30.48
+     ],
+     "I_todayInjury": [
+      287.89,
+      30.49
+     ],
+     "L_F": [
+      258.67,
+      0.0
+     ],
+     "P_C0": [
+      367.41,
+      27.49
+     ],
+     "P_CF": [
+      369.38,
+      26.91
+     ],
+     "P_CF_oracle": [
+      335.36,
+      26.4
+     ],
+     "P_CR": [
+      358.92,
+      26.36
+     ],
+     "P_F": [
+      285.16,
+      27.03
+     ],
+     "P_F_oracle": [
+      239.86,
+      21.93
+     ],
+     "P_once": [
+      285.16,
+      29.74
+     ],
+     "depthSdMultiplier": 1.1274,
+     "realized": 352.01,
+     "rosMultiplier": 1.0457,
+     "team": "T05"
+    },
+    {
+     "I": [
+      338.22,
+      34.45
+     ],
+     "I_todayInjury": [
+      346.03,
+      34.49
+     ],
+     "L_F": [
+      277.03,
+      0.0
+     ],
+     "P_C0": [
+      374.21,
+      28.68
+     ],
+     "P_CF": [
+      377.95,
+      29.67
+     ],
+     "P_CF_oracle": [
+      332.87,
+      29.82
+     ],
+     "P_CR": [
+      371.27,
+      29.07
+     ],
+     "P_F": [
+      306.79,
+      30.6
+     ],
+     "P_F_oracle": [
+      264.37,
+      28.24
+     ],
+     "P_once": [
+      306.79,
+      33.66
+     ],
+     "depthSdMultiplier": 1.1258,
+     "realized": 383.05,
+     "rosMultiplier": 1.1025,
+     "team": "T06"
+    },
+    {
+     "I": [
+      111.62,
+      14.21
+     ],
+     "I_todayInjury": [
+      119.71,
+      14.21
+     ],
+     "L_F": [
+      144.09,
+      0.0
+     ],
+     "P_C0": [
+      280.03,
+      16.81
+     ],
+     "P_CF": [
+      275.38,
+      15.67
+     ],
+     "P_CF_oracle": [
+      210.05,
+      16.57
+     ],
+     "P_CR": [
+      259.42,
+      15.21
+     ],
+     "P_F": [
+      163.9,
+      12.51
+     ],
+     "P_F_oracle": [
+      125.7,
+      12.25
+     ],
+     "P_once": [
+      163.9,
+      13.76
+     ],
+     "depthSdMultiplier": 1.1353,
+     "realized": 165.97,
+     "rosMultiplier": 0.681,
+     "team": "T07"
+    },
+    {
+     "I": [
+      354.08,
+      40.45
+     ],
+     "I_todayInjury": [
+      358.17,
+      40.42
+     ],
+     "L_F": [
+      287.13,
+      0.0
+     ],
+     "P_C0": [
+      379.39,
+      33.9
+     ],
+     "P_CF": [
+      392.94,
+      37.67
+     ],
+     "P_CF_oracle": [
+      358.4,
+      35.96
+     ],
+     "P_CR": [
+      384.83,
+      38.21
+     ],
+     "P_F": [
+      311.01,
+      35.86
+     ],
+     "P_F_oracle": [
+      292.41,
+      33.27
+     ],
+     "P_once": [
+      311.01,
+      39.44
+     ],
+     "depthSdMultiplier": 1.128,
+     "realized": 341.4,
+     "rosMultiplier": 1.1385,
+     "team": "T08"
+    },
+    {
+     "I": [
+      519.97,
+      38.42
+     ],
+     "I_todayInjury": [
+      531.15,
+      38.3
+     ],
+     "L_F": [
+      341.61,
+      0.0
+     ],
+     "P_C0": [
+      432.68,
+      31.84
+     ],
+     "P_CF": [
+      439.97,
+      32.07
+     ],
+     "P_CF_oracle": [
+      414.52,
+      33.56
+     ],
+     "P_CR": [
+      429.7,
+      31.87
+     ],
+     "P_F": [
+      391.52,
+      33.83
+     ],
+     "P_F_oracle": [
+      364.54,
+      36.73
+     ],
+     "P_once": [
+      391.52,
+      37.22
+     ],
+     "depthSdMultiplier": 1.1355,
+     "realized": 434.28,
+     "rosMultiplier": 1.3281,
+     "team": "T09"
+    },
+    {
+     "I": [
+      254.72,
+      28.87
+     ],
+     "I_todayInjury": [
+      253.92,
+      28.79
+     ],
+     "L_F": [
+      238.88,
+      0.0
+     ],
+     "P_C0": [
+      346.15,
+      25.82
+     ],
+     "P_CF": [
+      351.32,
+      26.85
+     ],
+     "P_CF_oracle": [
+      309.39,
+      25.73
+     ],
+     "P_CR": [
+      341.51,
+      26.75
+     ],
+     "P_F": [
+      258.52,
+      25.54
+     ],
+     "P_F_oracle": [
+      211.82,
+      22.36
+     ],
+     "P_once": [
+      258.52,
+      28.09
+     ],
+     "depthSdMultiplier": 1.1303,
+     "realized": 402.01,
+     "rosMultiplier": 0.9853,
+     "team": "T10"
+    },
+    {
+     "I": [
+      123.01,
+      15.98
+     ],
+     "I_todayInjury": [
+      123.15,
+      15.99
+     ],
+     "L_F": [
+      153.93,
+      0.0
+     ],
+     "P_C0": [
+      290.14,
+      19.36
+     ],
+     "P_CF": [
+      298.11,
+      18.92
+     ],
+     "P_CF_oracle": [
+      274.42,
+      19.44
+     ],
+     "P_CR": [
+      290.14,
+      18.49
+     ],
+     "P_F": [
+      172.59,
+      14.09
+     ],
+     "P_F_oracle": [
+      166.6,
+      14.73
+     ],
+     "P_once": [
+      172.59,
+      15.49
+     ],
+     "depthSdMultiplier": 1.1346,
+     "realized": 336.9,
+     "rosMultiplier": 0.7128,
+     "team": "T11"
+    },
+    {
+     "I": [
+      189.37,
+      22.36
+     ],
+     "I_todayInjury": [
+      185.33,
+      22.38
+     ],
+     "L_F": [
+      204.12,
+      0.0
+     ],
+     "P_C0": [
+      320.04,
+      24.33
+     ],
+     "P_CF": [
+      310.77,
+      23.28
+     ],
+     "P_CF_oracle": [
+      226.61,
+      20.16
+     ],
+     "P_CR": [
+      295.66,
+      22.72
+     ],
+     "P_F": [
+      218.38,
+      19.87
+     ],
+     "P_F_oracle": [
+      137.58,
+      16.91
+     ],
+     "P_once": [
+      218.38,
+      21.86
+     ],
+     "depthSdMultiplier": 1.1253,
+     "realized": 217.24,
+     "rosMultiplier": 0.8672,
+     "team": "T12"
+    }
+   ]
+  },
+  "8": {
+   "rosterSource": "matchups_week_8",
+   "snapshot": "2026-10-29T19-58-09.845578+00-00.json",
+   "teams": [
+    {
+     "I": [
+      486.31,
+      34.8
+     ],
+     "I_todayInjury": [
+      489.72,
+      34.81
+     ],
+     "L_F": [
+      327.28,
+      0.0
+     ],
+     "P_C0": [
+      421.9,
+      28.23
+     ],
+     "P_CF": [
+      416.43,
+      27.12
+     ],
+     "P_CF_oracle": [
+      376.47,
+      28.86
+     ],
+     "P_CR": [
+      406.83,
+      26.34
+     ],
+     "P_F": [
+      374.15,
+      30.6
+     ],
+     "P_F_oracle": [
+      328.06,
+      30.21
+     ],
+     "P_once": [
+      374.15,
+      33.65
+     ],
+     "depthSdMultiplier": 1.1373,
+     "realized": 421.5,
+     "rosMultiplier": 1.2998,
+     "team": "T01"
+    },
+    {
+     "I": [
+      238.19,
+      22.74
+     ],
+     "I_todayInjury": [
+      232.31,
+      22.66
+     ],
+     "L_F": [
+      224.09,
+      0.0
+     ],
+     "P_C0": [
+      341.92,
+      21.69
+     ],
+     "P_CF": [
+      333.13,
+      20.82
+     ],
+     "P_CF_oracle": [
+      292.24,
+      22.25
+     ],
+     "P_CR": [
+      321.48,
+      20.18
+     ],
+     "P_F": [
+      254.6,
+      20.07
+     ],
+     "P_F_oracle": [
+      189.07,
+      17.63
+     ],
+     "P_once": [
+      254.6,
+      22.07
+     ],
+     "depthSdMultiplier": 1.1333,
+     "realized": 292.16,
+     "rosMultiplier": 0.9356,
+     "team": "T02"
+    },
+    {
+     "I": [
+      163.77,
+      21.5
+     ],
+     "I_todayInjury": [
+      162.78,
+      21.45
+     ],
+     "L_F": [
+      184.23,
+      0.0
+     ],
+     "P_C0": [
+      312.69,
+      22.19
+     ],
+     "P_CF": [
+      302.31,
+      20.12
+     ],
+     "P_CF_oracle": [
+      257.49,
+      19.21
+     ],
+     "P_CR": [
+      290.97,
+      19.79
+     ],
+     "P_F": [
+      206.36,
+      19.04
+     ],
+     "P_F_oracle": [
+      171.89,
+      16.97
+     ],
+     "P_once": [
+      206.36,
+      20.94
+     ],
+     "depthSdMultiplier": 1.1292,
+     "realized": 269.03,
+     "rosMultiplier": 0.7936,
+     "team": "T03"
+    },
+    {
+     "I": [
+      360.09,
+      30.63
+     ],
+     "I_todayInjury": [
+      346.56,
+      30.56
+     ],
+     "L_F": [
+      285.96,
+      0.0
+     ],
+     "P_C0": [
+      380.31,
+      27.21
+     ],
+     "P_CF": [
+      374.58,
+      27.3
+     ],
+     "P_CF_oracle": [
+      361.91,
+      27.78
+     ],
+     "P_CR": [
+      373.01,
+      27.66
+     ],
+     "P_F": [
+      314.63,
+      27.11
+     ],
+     "P_F_oracle": [
+      304.04,
+      29.35
+     ],
+     "P_once": [
+      314.63,
+      29.82
+     ],
+     "depthSdMultiplier": 1.1301,
+     "realized": 379.79,
+     "rosMultiplier": 1.1445,
+     "team": "T04"
+    },
+    {
+     "I": [
+      286.75,
+      26.71
+     ],
+     "I_todayInjury": [
+      278.0,
+      26.63
+     ],
+     "L_F": [
+      252.65,
+      0.0
+     ],
+     "P_C0": [
+      357.04,
+      23.75
+     ],
+     "P_CF": [
+      360.95,
+      25.77
+     ],
+     "P_CF_oracle": [
+      331.23,
+      24.83
+     ],
+     "P_CR": [
+      352.56,
+      25.53
+     ],
+     "P_F": [
+      279.14,
+      23.68
+     ],
+     "P_F_oracle": [
+      252.67,
+      23.52
+     ],
+     "P_once": [
+      279.14,
+      26.05
+     ],
+     "depthSdMultiplier": 1.1282,
+     "realized": 398.56,
+     "rosMultiplier": 1.0273,
+     "team": "T05"
+    },
+    {
+     "I": [
+      336.72,
+      35.29
+     ],
+     "I_todayInjury": [
+      342.61,
+      35.37
+     ],
+     "L_F": [
+      276.18,
+      0.0
+     ],
+     "P_C0": [
+      375.27,
+      30.15
+     ],
+     "P_CF": [
+      381.9,
+      31.08
+     ],
+     "P_CF_oracle": [
+      357.54,
+      32.17
+     ],
+     "P_CR": [
+      374.19,
+      31.3
+     ],
+     "P_F": [
+      305.49,
+      31.38
+     ],
+     "P_F_oracle": [
+      284.06,
+      31.1
+     ],
+     "P_once": [
+      305.49,
+      34.52
+     ],
+     "depthSdMultiplier": 1.1245,
+     "realized": 358.34,
+     "rosMultiplier": 1.1022,
+     "team": "T06"
+    },
+    {
+     "I": [
+      113.27,
+      15.97
+     ],
+     "I_todayInjury": [
+      120.97,
+      15.98
+     ],
+     "L_F": [
+      149.19,
+      0.0
+     ],
+     "P_C0": [
+      282.51,
+      18.96
+     ],
+     "P_CF": [
+      279.14,
+      18.11
+     ],
+     "P_CF_oracle": [
+      247.89,
+      18.87
+     ],
+     "P_CR": [
+      266.29,
+      17.39
+     ],
+     "P_F": [
+      167.43,
+      14.08
+     ],
+     "P_F_oracle": [
+      146.17,
+      15.95
+     ],
+     "P_once": [
+      167.43,
+      15.49
+     ],
+     "depthSdMultiplier": 1.1338,
+     "realized": 203.53,
+     "rosMultiplier": 0.6765,
+     "team": "T07"
+    },
+    {
+     "I": [
+      348.44,
+      36.8
+     ],
+     "I_todayInjury": [
+      351.96,
+      36.83
+     ],
+     "L_F": [
+      281.57,
+      0.0
+     ],
+     "P_C0": [
+      376.43,
+      29.54
+     ],
+     "P_CF": [
+      390.86,
+      33.44
+     ],
+     "P_CF_oracle": [
+      361.68,
+      34.04
+     ],
+     "P_CR": [
+      381.92,
+      33.97
+     ],
+     "P_F": [
+      309.0,
+      32.59
+     ],
+     "P_F_oracle": [
+      284.83,
+      33.96
+     ],
+     "P_once": [
+      309.0,
+      35.85
+     ],
+     "depthSdMultiplier": 1.1289,
+     "realized": 360.02,
+     "rosMultiplier": 1.1276,
+     "team": "T08"
+    },
+    {
+     "I": [
+      509.32,
+      35.68
+     ],
+     "I_todayInjury": [
+      520.54,
+      35.61
+     ],
+     "L_F": [
+      334.14,
+      0.0
+     ],
+     "P_C0": [
+      428.76,
+      29.53
+     ],
+     "P_CF": [
+      435.89,
+      29.76
+     ],
+     "P_CF_oracle": [
+      414.0,
+      31.1
+     ],
+     "P_CR": [
+      423.97,
+      29.13
+     ],
+     "P_F": [
+      385.98,
+      31.43
+     ],
+     "P_F_oracle": [
+      364.16,
+      32.7
+     ],
+     "P_once": [
+      385.98,
+      34.58
+     ],
+     "depthSdMultiplier": 1.135,
+     "realized": 473.83,
+     "rosMultiplier": 1.3196,
+     "team": "T09"
+    },
+    {
+     "I": [
+      252.73,
+      30.69
+     ],
+     "I_todayInjury": [
+      252.35,
+      30.63
+     ],
+     "L_F": [
+      236.87,
+      0.0
+     ],
+     "P_C0": [
+      343.95,
+      27.28
+     ],
+     "P_CF": [
+      348.31,
+      27.59
+     ],
+     "P_CF_oracle": [
+      309.68,
+      24.69
+     ],
+     "P_CR": [
+      338.71,
+      27.65
+     ],
+     "P_F": [
+      259.78,
+      27.21
+     ],
+     "P_F_oracle": [
+      225.71,
+      21.49
+     ],
+     "P_once": [
+      259.78,
+      29.93
+     ],
+     "depthSdMultiplier": 1.128,
+     "realized": 385.94,
+     "rosMultiplier": 0.9729,
+     "team": "T10"
+    },
+    {
+     "I": [
+      138.74,
+      18.08
+     ],
+     "I_todayInjury": [
+      140.74,
+      18.11
+     ],
+     "L_F": [
+      168.27,
+      0.0
+     ],
+     "P_C0": [
+      296.66,
+      19.77
+     ],
+     "P_CF": [
+      302.94,
+      19.08
+     ],
+     "P_CF_oracle": [
+      271.25,
+      19.65
+     ],
+     "P_CR": [
+      297.21,
+      19.32
+     ],
+     "P_F": [
+      187.96,
+      16.02
+     ],
+     "P_F_oracle": [
+      165.78,
+      14.22
+     ],
+     "P_once": [
+      187.96,
+      17.62
+     ],
+     "depthSdMultiplier": 1.1288,
+     "realized": 295.8,
+     "rosMultiplier": 0.7381,
+     "team": "T11"
+    },
+    {
+     "I": [
+      193.32,
+      22.93
+     ],
+     "I_todayInjury": [
+      188.44,
+      22.87
+     ],
+     "L_F": [
+      204.76,
+      0.0
+     ],
+     "P_C0": [
+      319.8,
+      22.54
+     ],
+     "P_CF": [
+      311.04,
+      22.67
+     ],
+     "P_CF_oracle": [
+      269.92,
+      22.47
+     ],
+     "P_CR": [
+      296.46,
+      22.4
+     ],
+     "P_F": [
+      224.18,
+      20.33
+     ],
+     "P_F_oracle": [
+      181.93,
+      19.39
+     ],
+     "P_once": [
+      224.18,
+      22.37
+     ],
+     "depthSdMultiplier": 1.1276,
+     "realized": 313.65,
+     "rosMultiplier": 0.8623,
+     "team": "T12"
+    }
+   ]
+  },
+  "9": {
+   "rosterSource": "current_rosters",
+   "snapshot": "2026-11-05T21-20-20.320755+00-00.json",
+   "teams": [
+    {
+     "I": [
+      503.92,
+      33.52
+     ],
+     "I_todayInjury": [
+      503.82,
+      33.44
+     ],
+     "L_F": [
+      333.11,
+      0.0
+     ],
+     "P_C0": [
+      425.0,
+      27.85
+     ],
+     "P_CF": [
+      418.15,
+      26.77
+     ],
+     "P_CR": [
+      410.07,
+      26.43
+     ],
+     "P_F": [
+      382.21,
+      29.39
+     ],
+     "P_once": [
+      382.21,
+      32.33
+     ],
+     "depthSdMultiplier": 1.1407,
+     "realized": null,
+     "rosMultiplier": 1.3184,
+     "team": "T01"
+    },
+    {
+     "I": [
+      234.81,
+      25.32
+     ],
+     "I_todayInjury": [
+      229.9,
+      25.35
+     ],
+     "L_F": [
+      224.11,
+      0.0
+     ],
+     "P_C0": [
+      338.92,
+      23.06
+     ],
+     "P_CF": [
+      329.96,
+      21.43
+     ],
+     "P_CR": [
+      318.58,
+      21.08
+     ],
+     "P_F": [
+      251.12,
+      22.39
+     ],
+     "P_once": [
+      251.12,
+      24.63
+     ],
+     "depthSdMultiplier": 1.1311,
+     "realized": null,
+     "rosMultiplier": 0.935,
+     "team": "T02"
+    },
+    {
+     "I": [
+      168.64,
+      20.89
+     ],
+     "I_todayInjury": [
+      166.74,
+      20.82
+     ],
+     "L_F": [
+      184.91,
+      0.0
+     ],
+     "P_C0": [
+      314.9,
+      21.77
+     ],
+     "P_CF": [
+      304.84,
+      19.12
+     ],
+     "P_CR": [
+      294.58,
+      18.6
+     ],
+     "P_F": [
+      209.9,
+      18.47
+     ],
+     "P_once": [
+      209.9,
+      20.31
+     ],
+     "depthSdMultiplier": 1.1311,
+     "realized": null,
+     "rosMultiplier": 0.8034,
+     "team": "T03"
+    },
+    {
+     "I": [
+      353.27,
+      29.74
+     ],
+     "I_todayInjury": [
+      343.47,
+      29.75
+     ],
+     "L_F": [
+      283.34,
+      0.0
+     ],
+     "P_C0": [
+      377.0,
+      26.85
+     ],
+     "P_CF": [
+      373.11,
+      27.01
+     ],
+     "P_CR": [
+      368.45,
+      26.78
+     ],
+     "P_F": [
+      312.34,
+      26.34
+     ],
+     "P_once": [
+      312.34,
+      28.97
+     ],
+     "depthSdMultiplier": 1.1291,
+     "realized": null,
+     "rosMultiplier": 1.131,
+     "team": "T04"
+    },
+    {
+     "I": [
+      292.12,
+      30.66
+     ],
+     "I_todayInjury": [
+      285.12,
+      30.51
+     ],
+     "L_F": [
+      252.17,
+      0.0
+     ],
+     "P_C0": [
+      358.29,
+      26.35
+     ],
+     "P_CF": [
+      360.62,
+      27.58
+     ],
+     "P_CR": [
+      352.1,
+      27.43
+     ],
+     "P_F": [
+      282.77,
+      27.04
+     ],
+     "P_once": [
+      282.77,
+      29.75
+     ],
+     "depthSdMultiplier": 1.1339,
+     "realized": null,
+     "rosMultiplier": 1.0331,
+     "team": "T05"
+    },
+    {
+     "I": [
+      329.62,
+      36.9
+     ],
+     "I_todayInjury": [
+      338.22,
+      36.93
+     ],
+     "L_F": [
+      273.07,
+      0.0
+     ],
+     "P_C0": [
+      372.48,
+      30.67
+     ],
+     "P_CF": [
+      380.58,
+      32.37
+     ],
+     "P_CR": [
+      373.42,
+      32.38
+     ],
+     "P_F": [
+      301.92,
+      32.78
+     ],
+     "P_once": [
+      301.92,
+      36.05
+     ],
+     "depthSdMultiplier": 1.1257,
+     "realized": null,
+     "rosMultiplier": 1.0918,
+     "team": "T06"
+    },
+    {
+     "I": [
+      110.86,
+      18.14
+     ],
+     "I_todayInjury": [
+      116.97,
+      18.13
+     ],
+     "L_F": [
+      145.83,
+      0.0
+     ],
+     "P_C0": [
+      279.69,
+      20.25
+     ],
+     "P_CF": [
+      276.31,
+      18.4
+     ],
+     "P_CR": [
+      265.11,
+      18.15
+     ],
+     "P_F": [
+      164.46,
+      15.99
+     ],
+     "P_once": [
+      164.46,
+      17.59
+     ],
+     "depthSdMultiplier": 1.1343,
+     "realized": null,
+     "rosMultiplier": 0.6741,
+     "team": "T07"
+    },
+    {
+     "I": [
+      346.27,
+      35.81
+     ],
+     "I_todayInjury": [
+      347.75,
+      35.84
+     ],
+     "L_F": [
+      282.12,
+      0.0
+     ],
+     "P_C0": [
+      373.16,
+      28.97
+     ],
+     "P_CF": [
+      386.36,
+      32.28
+     ],
+     "P_CR": [
+      375.67,
+      32.54
+     ],
+     "P_F": [
+      307.61,
+      31.74
+     ],
+     "P_once": [
+      307.61,
+      34.91
+     ],
+     "depthSdMultiplier": 1.1283,
+     "realized": null,
+     "rosMultiplier": 1.1257,
+     "team": "T08"
+    },
+    {
+     "I": [
+      515.34,
+      35.17
+     ],
+     "I_todayInjury": [
+      522.66,
+      35.15
+     ],
+     "L_F": [
+      338.49,
+      0.0
+     ],
+     "P_C0": [
+      426.75,
+      29.84
+     ],
+     "P_CF": [
+      433.64,
+      31.18
+     ],
+     "P_CR": [
+      421.37,
+      30.07
+     ],
+     "P_F": [
+      389.65,
+      31.04
+     ],
+     "P_once": [
+      389.65,
+      34.15
+     ],
+     "depthSdMultiplier": 1.1329,
+     "realized": null,
+     "rosMultiplier": 1.3226,
+     "team": "T09"
+    },
+    {
+     "I": [
+      235.39,
+      27.48
+     ],
+     "I_todayInjury": [
+      240.68,
+      27.36
+     ],
+     "L_F": [
+      228.63,
+      0.0
+     ],
+     "P_C0": [
+      335.76,
+      24.52
+     ],
+     "P_CF": [
+      340.86,
+      24.77
+     ],
+     "P_CR": [
+      334.14,
+      24.96
+     ],
+     "P_F": [
+      248.32,
+      24.33
+     ],
+     "P_once": [
+      248.32,
+      26.77
+     ],
+     "depthSdMultiplier": 1.1291,
+     "realized": null,
+     "rosMultiplier": 0.9479,
+     "team": "T10"
+    },
+    {
+     "I": [
+      141.41,
+      18.27
+     ],
+     "I_todayInjury": [
+      142.13,
+      18.34
+     ],
+     "L_F": [
+      169.38,
+      0.0
+     ],
+     "P_C0": [
+      295.64,
+      20.68
+     ],
+     "P_CF": [
+      300.17,
+      20.15
+     ],
+     "P_CR": [
+      292.68,
+      19.77
+     ],
+     "P_F": [
+      188.58,
+      16.17
+     ],
+     "P_once": [
+      188.58,
+      17.79
+     ],
+     "depthSdMultiplier": 1.13,
+     "realized": null,
+     "rosMultiplier": 0.7499,
+     "team": "T11"
+    },
+    {
+     "I": [
+      193.44,
+      24.69
+     ],
+     "I_todayInjury": [
+      186.89,
+      24.62
+     ],
+     "L_F": [
+      205.51,
+      0.0
+     ],
+     "P_C0": [
+      317.43,
+      22.58
+     ],
+     "P_CF": [
+      311.59,
+      23.34
+     ],
+     "P_CR": [
+      298.98,
+      22.9
+     ],
+     "P_F": [
+      223.09,
+      21.93
+     ],
+     "P_once": [
+      223.09,
+      24.12
+     ],
+     "depthSdMultiplier": 1.1261,
+     "realized": null,
+     "rosMultiplier": 0.8671,
+     "team": "T12"
+    }
+   ]
+  }
+ }
+}

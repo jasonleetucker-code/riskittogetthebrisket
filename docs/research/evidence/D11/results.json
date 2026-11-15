@@ -1,0 +1,2248 @@
+{
+ "current": {
+  "dynasty_main": {
+   "arms": {
+    "corrected": {
+     "championshipUnavailable": null,
+     "maxTitle": null,
+     "nSimulations": 0,
+     "playoffInRange": true,
+     "teams": [],
+     "titleEntropy": null,
+     "titleSum": null,
+     "unsimulable": {
+      "detail": "this league counts a weekly median game, but a remaining week does not pair every team with a score distribution, so its median cannot be simulated over the whole league. This is not a 0% chance for anyone.",
+      "reason": "median_game_week_unsimulable",
+      "weeks": [
+       6,
+       7,
+       8,
+       9,
+       10,
+       11,
+       12,
+       13,
+       14
+      ]
+     }
+    },
+    "incumbent": {
+     "championshipUnavailable": null,
+     "maxTitle": null,
+     "nSimulations": 0,
+     "playoffInRange": true,
+     "teams": [],
+     "titleEntropy": null,
+     "titleSum": null,
+     "unsimulable": {
+      "detail": "this league counts a weekly median game, but a remaining week does not pair every team with a score distribution, so its median cannot be simulated over the whole league. This is not a 0% chance for anyone.",
+      "reason": "median_game_week_unsimulable",
+      "weeks": [
+       6,
+       7,
+       8,
+       9,
+       10,
+       11,
+       12,
+       13,
+       14
+      ]
+     }
+    }
+   },
+   "availability": {
+    "currentWeek": 6,
+    "currentWeekSource": "league_leg",
+    "lastWeek": 17,
+    "lastWeekSource": "championship_week",
+    "overrides": 0,
+    "returnEvidence": {
+     "asOf": null,
+     "players": 0,
+     "source": "espn_athlete_current_injury",
+     "state": "unavailable"
+    },
+    "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+    "schedule": "unavailable",
+    "state": "applied",
+    "unavailablePlayerWeeks": 115,
+    "weeks": [
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17
+    ]
+   },
+   "basis": {
+    "1002085133723299840": "presim",
+    "1012114412049731584": "presim",
+    "1208452010173538304": "presim",
+    "1303549304882892800": "presim",
+    "468418790212759552": "presim",
+    "472206636534984704": "presim",
+    "473973924808355840": "presim",
+    "609821340567941120": "presim",
+    "711452264774041600": "presim",
+    "712035316776669184": "empirical",
+    "714912789268865024": "presim",
+    "831633191830933504": "presim"
+   },
+   "publishedIncumbent": {
+    "computedAt": "2026-10-18T19:02:55.996567+00:00",
+    "maxTitle": null,
+    "path": "data/ros/sims/latest_championship.json",
+    "unsimulable": {
+     "detail": "this league counts a weekly median game, but a remaining week does not pair every team with a score distribution, so its median cannot be simulated over the whole league. This is not a 0% chance for anyone.",
+     "reason": "median_game_week_unsimulable",
+     "weeks": [
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+     ]
+    }
+   }
+  },
+  "dynasty_new": {
+   "arms": {
+    "corrected": {
+     "championshipUnavailable": null,
+     "maxTitle": 0.7918,
+     "nSimulations": 20000,
+     "playoffInRange": true,
+     "teams": [
+      {
+       "championshipOdds": 0.7918,
+       "displayName": "Brent",
+       "mean": 261.0,
+       "ownerId": "1002085133723299840",
+       "playoffOdds": 1.0,
+       "sd": 29.89
+      },
+      {
+       "championshipOdds": 0.0293,
+       "displayName": "DeCline",
+       "mean": 205.99,
+       "ownerId": "360184624380633088",
+       "playoffOdds": 1.0,
+       "sd": 20.42
+      },
+      {
+       "championshipOdds": 0.1772,
+       "displayName": "Bkesss",
+       "mean": 227.16,
+       "ownerId": "861387883699879936",
+       "playoffOdds": 1.0,
+       "sd": 34.12
+      },
+      {
+       "championshipOdds": 0.0013,
+       "displayName": "Comacho",
+       "mean": 173.74,
+       "ownerId": "984270279268446208",
+       "playoffOdds": 0.9981,
+       "sd": 24.94
+      },
+      {
+       "championshipOdds": 0.0004,
+       "displayName": "Kanyn",
+       "mean": 158.93,
+       "ownerId": "640377779837296640",
+       "playoffOdds": 0.997,
+       "sd": 33.7
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "Jhall2002",
+       "mean": 128.05,
+       "ownerId": "1202075501976375296",
+       "playoffOdds": 0.9224,
+       "sd": 17.41
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "shayden18",
+       "mean": 114.42,
+       "ownerId": "1202064845743071232",
+       "playoffOdds": 0.078,
+       "sd": 21.17
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "cbonex21",
+       "mean": 109.79,
+       "ownerId": "1033502330853302272",
+       "playoffOdds": 0.0045,
+       "sd": 23.7
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "Roy",
+       "mean": 86.44,
+       "ownerId": "472206636534984704",
+       "playoffOdds": 0.0,
+       "sd": 5.65
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "tedkinney",
+       "mean": 70.26,
+       "ownerId": "720513970041061376",
+       "playoffOdds": 0.0,
+       "sd": 17.44
+      }
+     ],
+     "titleEntropy": 0.6067,
+     "titleSum": 1.0,
+     "unsimulable": null
+    },
+    "incumbent": {
+     "championshipUnavailable": null,
+     "maxTitle": 0.7918,
+     "nSimulations": 20000,
+     "playoffInRange": true,
+     "teams": [
+      {
+       "championshipOdds": 0.7918,
+       "displayName": "Brent",
+       "mean": 261.0,
+       "ownerId": "1002085133723299840",
+       "playoffOdds": 1.0,
+       "sd": 29.89
+      },
+      {
+       "championshipOdds": 0.0293,
+       "displayName": "DeCline",
+       "mean": 205.99,
+       "ownerId": "360184624380633088",
+       "playoffOdds": 1.0,
+       "sd": 20.42
+      },
+      {
+       "championshipOdds": 0.1772,
+       "displayName": "Bkesss",
+       "mean": 227.16,
+       "ownerId": "861387883699879936",
+       "playoffOdds": 1.0,
+       "sd": 34.12
+      },
+      {
+       "championshipOdds": 0.0013,
+       "displayName": "Comacho",
+       "mean": 173.74,
+       "ownerId": "984270279268446208",
+       "playoffOdds": 0.9981,
+       "sd": 24.94
+      },
+      {
+       "championshipOdds": 0.0004,
+       "displayName": "Kanyn",
+       "mean": 158.93,
+       "ownerId": "640377779837296640",
+       "playoffOdds": 0.997,
+       "sd": 33.7
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "Jhall2002",
+       "mean": 128.05,
+       "ownerId": "1202075501976375296",
+       "playoffOdds": 0.9224,
+       "sd": 17.41
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "shayden18",
+       "mean": 114.42,
+       "ownerId": "1202064845743071232",
+       "playoffOdds": 0.078,
+       "sd": 21.17
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "cbonex21",
+       "mean": 109.79,
+       "ownerId": "1033502330853302272",
+       "playoffOdds": 0.0045,
+       "sd": 23.7
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "Roy",
+       "mean": 86.44,
+       "ownerId": "472206636534984704",
+       "playoffOdds": 0.0,
+       "sd": 5.65
+      },
+      {
+       "championshipOdds": 0.0,
+       "displayName": "tedkinney",
+       "mean": 70.26,
+       "ownerId": "720513970041061376",
+       "playoffOdds": 0.0,
+       "sd": 17.44
+      }
+     ],
+     "titleEntropy": 0.6067,
+     "titleSum": 1.0,
+     "unsimulable": null
+    }
+   },
+   "availability": {
+    "currentWeek": 6,
+    "currentWeekSource": "league_leg",
+    "lastWeek": 17,
+    "lastWeekSource": "championship_week",
+    "overrides": 0,
+    "returnEvidence": {
+     "asOf": null,
+     "players": 0,
+     "source": "espn_athlete_current_injury",
+     "state": "unavailable"
+    },
+    "rules": "src/ros/availability.py (bye, override, host status, stated return date)",
+    "schedule": "unavailable",
+    "state": "applied",
+    "unavailablePlayerWeeks": 67,
+    "weeks": [
+     6,
+     7,
+     8,
+     9,
+     10,
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17
+    ]
+   },
+   "basis": {
+    "1002085133723299840": "empirical",
+    "1033502330853302272": "empirical",
+    "1202064845743071232": "empirical",
+    "1202075501976375296": "empirical",
+    "360184624380633088": "empirical",
+    "472206636534984704": "empirical",
+    "640377779837296640": "empirical",
+    "720513970041061376": "empirical",
+    "861387883699879936": "empirical",
+    "984270279268446208": "empirical"
+   },
+   "publishedIncumbent": {
+    "computedAt": "2026-10-18T19:02:56.363713+00:00",
+    "maxTitle": 0.7986,
+    "path": "data/ros/sims/dynasty_new_championship.json",
+    "unsimulable": null
+   }
+  }
+ },
+ "gates": {
+  "G1": {
+   "rule": "structural test",
+   "status": "SEE_TEST tests/ros/test_playoff_ros_counted_once.py"
+  },
+  "G2": {
+   "clusters": 5,
+   "delta": -0.4722830019788814,
+   "hi95": -0.24447742545152185,
+   "lo95": -0.7626904931041443,
+   "rule": "cluster-bootstrap hi95 of \u0394 binary LL \u2264 +0.03",
+   "status": "PASS"
+  },
+  "G3": {
+   "corrected": 0.04763499999999998,
+   "incumbent": 0.060196666666666676,
+   "rule": "fav gap(C) \u2264 fav gap(I) + 0.05",
+   "status": "PASS"
+  },
+  "G4": {
+   "cov80": {
+    "corrected": 0.16666666666666666,
+    "incumbent": 0.15
+   },
+   "pitMean": {
+    "corrected": 0.945365,
+    "incumbent": 0.8307258333333334
+   },
+   "rule": "|PIT\u2212.5| and |cov80\u2212.8| not worse by more than 0.05",
+   "status": "FAIL"
+  },
+  "G5": {
+   "bestBallDelta": {
+    "dynasty_main": -0.4722830019788814
+   },
+   "rule": "start/sit identical; each best-ball league \u0394 \u2264 +0.03",
+   "startSitIdentical": true,
+   "status": "PASS"
+  },
+  "G6": {
+   "perLeague": {
+    "dynasty_main": "bracket_not_playable",
+    "dynasty_new": "PASS"
+   },
+   "rule": "title odds sum to 1 \u00b1 0.005; playoff odds in [0,1]",
+   "status": "PASS"
+  }
+ },
+ "generatedAt": "2026-10-18T22:05:56+00:00",
+ "inputs": "docs/research/evidence/D11/inputs.json",
+ "inputsCapturedAt": "2026-10-18T22:04:27+00:00",
+ "meanOnlyBootstrap": {
+  "clusters": 5,
+  "delta": -0.4800766724166228,
+  "hi95": -0.24661371930827286,
+  "lo95": -0.7797141291528458
+ },
+ "perLeague": {
+  "dynasty_main": {
+   "bestBall": true,
+   "identicalCheck": {
+    "maxAbsDeltaMean": 147.86627598765676,
+    "maxAbsDeltaSd": 1.403127969556941
+   },
+   "medianGame": true,
+   "summary": {
+    "corrected": {
+     "brierBinary": 0.17132741819444444,
+     "cov80": 0.16666666666666666,
+     "favCalibrationGap": 0.04763499999999998,
+     "favMeanP": 0.8809683333333334,
+     "favWinRate": 0.8333333333333334,
+     "llBinary": 0.6609640155975806,
+     "llH2h": 0.44872857136444183,
+     "llMedian": 0.7670817377141499,
+     "nH2h": 30,
+     "nMedian": 60,
+     "nScores": 60,
+     "pitMean": 0.945365,
+     "pitVar": 0.018421046108333332
+    },
+    "incumbent": {
+     "brierBinary": 0.19323558366666668,
+     "cov80": 0.15,
+     "favCalibrationGap": 0.060196666666666676,
+     "favMeanP": 0.9268633333333334,
+     "favWinRate": 0.8666666666666667,
+     "llBinary": 1.133247017576462,
+     "llH2h": 1.0040149831765615,
+     "llMedian": 1.1978630347764123,
+     "nH2h": 30,
+     "nMedian": 60,
+     "nScores": 60,
+     "pitMean": 0.8307258333333334,
+     "pitVar": 0.11036185987430555
+    },
+    "mean_only": {
+     "brierBinary": 0.17022451722222223,
+     "cov80": 0.16666666666666666,
+     "favCalibrationGap": 0.04528999999999994,
+     "favMeanP": 0.8786233333333333,
+     "favWinRate": 0.8333333333333334,
+     "llBinary": 0.6531703451598392,
+     "llH2h": 0.4423876912782,
+     "llMedian": 0.7585616721006587,
+     "nH2h": 30,
+     "nMedian": 60,
+     "nScores": 60,
+     "pitMean": 0.9442966666666667,
+     "pitVar": 0.018474592322222223
+    }
+   },
+   "weeks": [
+    {
+     "aggregate": "data/ros/aggregate/history/2026-09-10T19-28-54.870502+00-00.json",
+     "bases": [
+      "presim"
+     ],
+     "cutoff": "2026-09-10T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        334.12,
+        33.98
+       ],
+       "incumbent": [
+        468.99,
+        35.01
+       ],
+       "mean_only": [
+        334.12,
+        35.01
+       ]
+      },
+      "1012114412049731584": {
+       "corrected": [
+        269.52,
+        31.62
+       ],
+       "incumbent": [
+        322.04,
+        32.32
+       ],
+       "mean_only": [
+        269.52,
+        32.32
+       ]
+      },
+      "1208452010173538304": {
+       "corrected": [
+        214.37,
+        23.4
+       ],
+       "incumbent": [
+        204.28,
+        23.88
+       ],
+       "mean_only": [
+        214.37,
+        23.88
+       ]
+      },
+      "1303549304882892800": {
+       "corrected": [
+        199.27,
+        21.37
+       ],
+       "incumbent": [
+        185.32,
+        21.86
+       ],
+       "mean_only": [
+        199.27,
+        21.86
+       ]
+      },
+      "468418790212759552": {
+       "corrected": [
+        269.67,
+        24.98
+       ],
+       "incumbent": [
+        304.67,
+        25.69
+       ],
+       "mean_only": [
+        269.67,
+        25.69
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        117.3,
+        11.22
+       ],
+       "incumbent": [
+        71.28,
+        11.52
+       ],
+       "mean_only": [
+        117.3,
+        11.52
+       ]
+      },
+      "473973924808355840": {
+       "corrected": [
+        196.74,
+        21.67
+       ],
+       "incumbent": [
+        176.79,
+        22.08
+       ],
+       "mean_only": [
+        196.74,
+        22.08
+       ]
+      },
+      "609821340567941120": {
+       "corrected": [
+        258.29,
+        24.2
+       ],
+       "incumbent": [
+        286.72,
+        24.85
+       ],
+       "mean_only": [
+        258.29,
+        24.85
+       ]
+      },
+      "711452264774041600": {
+       "corrected": [
+        199.52,
+        19.74
+       ],
+       "incumbent": [
+        173.51,
+        20.42
+       ],
+       "mean_only": [
+        199.52,
+        20.42
+       ]
+      },
+      "714912789268865024": {
+       "corrected": [
+        239.24,
+        26.36
+       ],
+       "incumbent": [
+        254.57,
+        26.95
+       ],
+       "mean_only": [
+        239.24,
+        26.95
+       ]
+      },
+      "735693375101108224": {
+       "corrected": [
+        161.17,
+        16.4
+       ],
+       "incumbent": [
+        124.06,
+        16.92
+       ],
+       "mean_only": [
+        161.17,
+        16.92
+       ]
+      },
+      "831633191830933504": {
+       "corrected": [
+        251.74,
+        28.67
+       ],
+       "incumbent": [
+        269.07,
+        29.2
+       ],
+       "mean_only": [
+        251.74,
+        29.2
+       ]
+      }
+     },
+     "week": 1
+    },
+    {
+     "aggregate": "data/ros/aggregate/history/2026-09-17T21-51-47.384808+00-00.json",
+     "bases": [
+      "presim"
+     ],
+     "cutoff": "2026-09-17T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        389.74,
+        45.05
+       ],
+       "incumbent": [
+        537.6,
+        46.46
+       ],
+       "mean_only": [
+        389.74,
+        46.46
+       ]
+      },
+      "1012114412049731584": {
+       "corrected": [
+        306.89,
+        38.15
+       ],
+       "incumbent": [
+        347.78,
+        38.88
+       ],
+       "mean_only": [
+        306.89,
+        38.88
+       ]
+      },
+      "1208452010173538304": {
+       "corrected": [
+        235.83,
+        27.16
+       ],
+       "incumbent": [
+        220.12,
+        27.62
+       ],
+       "mean_only": [
+        235.83,
+        27.62
+       ]
+      },
+      "1303549304882892800": {
+       "corrected": [
+        206.09,
+        24.82
+       ],
+       "incumbent": [
+        173.5,
+        25.33
+       ],
+       "mean_only": [
+        206.09,
+        25.33
+       ]
+      },
+      "468418790212759552": {
+       "corrected": [
+        319.14,
+        30.17
+       ],
+       "incumbent": [
+        374.62,
+        31.05
+       ],
+       "mean_only": [
+        319.14,
+        31.05
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        136.88,
+        14.34
+       ],
+       "incumbent": [
+        84.6,
+        14.76
+       ],
+       "mean_only": [
+        136.88,
+        14.76
+       ]
+      },
+      "473973924808355840": {
+       "corrected": [
+        237.71,
+        23.14
+       ],
+       "incumbent": [
+        224.3,
+        23.62
+       ],
+       "mean_only": [
+        237.71,
+        23.62
+       ]
+      },
+      "609821340567941120": {
+       "corrected": [
+        318.01,
+        30.52
+       ],
+       "incumbent": [
+        367.85,
+        31.31
+       ],
+       "mean_only": [
+        318.01,
+        31.31
+       ]
+      },
+      "711452264774041600": {
+       "corrected": [
+        241.24,
+        26.11
+       ],
+       "incumbent": [
+        221.97,
+        26.85
+       ],
+       "mean_only": [
+        241.24,
+        26.85
+       ]
+      },
+      "714912789268865024": {
+       "corrected": [
+        287.84,
+        29.11
+       ],
+       "incumbent": [
+        311.29,
+        29.9
+       ],
+       "mean_only": [
+        287.84,
+        29.9
+       ]
+      },
+      "735693375101108224": {
+       "corrected": [
+        178.63,
+        17.83
+       ],
+       "incumbent": [
+        132.65,
+        18.36
+       ],
+       "mean_only": [
+        178.63,
+        18.36
+       ]
+      },
+      "831633191830933504": {
+       "corrected": [
+        289.39,
+        29.6
+       ],
+       "incumbent": [
+        311.29,
+        30.28
+       ],
+       "mean_only": [
+        289.39,
+        30.28
+       ]
+      }
+     },
+     "week": 2
+    },
+    {
+     "aggregate": "data/ros/aggregate/history/2026-09-24T21-56-57.990199+00-00.json",
+     "bases": [
+      "presim"
+     ],
+     "cutoff": "2026-09-24T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        392.0,
+        37.41
+       ],
+       "incumbent": [
+        536.1,
+        38.53
+       ],
+       "mean_only": [
+        392.0,
+        38.53
+       ]
+      },
+      "1012114412049731584": {
+       "corrected": [
+        313.14,
+        37.52
+       ],
+       "incumbent": [
+        364.86,
+        38.4
+       ],
+       "mean_only": [
+        313.14,
+        38.4
+       ]
+      },
+      "1208452010173538304": {
+       "corrected": [
+        235.29,
+        27.98
+       ],
+       "incumbent": [
+        223.16,
+        28.58
+       ],
+       "mean_only": [
+        235.29,
+        28.58
+       ]
+      },
+      "1303549304882892800": {
+       "corrected": [
+        208.46,
+        22.37
+       ],
+       "incumbent": [
+        177.81,
+        22.92
+       ],
+       "mean_only": [
+        208.46,
+        22.92
+       ]
+      },
+      "468418790212759552": {
+       "corrected": [
+        309.99,
+        32.04
+       ],
+       "incumbent": [
+        359.33,
+        32.92
+       ],
+       "mean_only": [
+        309.99,
+        32.92
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        130.07,
+        14.46
+       ],
+       "incumbent": [
+        80.21,
+        14.85
+       ],
+       "mean_only": [
+        130.07,
+        14.85
+       ]
+      },
+      "473973924808355840": {
+       "corrected": [
+        243.47,
+        28.09
+       ],
+       "incumbent": [
+        233.7,
+        28.75
+       ],
+       "mean_only": [
+        243.47,
+        28.75
+       ]
+      },
+      "609821340567941120": {
+       "corrected": [
+        313.34,
+        33.35
+       ],
+       "incumbent": [
+        359.81,
+        34.23
+       ],
+       "mean_only": [
+        313.34,
+        34.23
+       ]
+      },
+      "711452264774041600": {
+       "corrected": [
+        228.63,
+        21.14
+       ],
+       "incumbent": [
+        206.16,
+        21.82
+       ],
+       "mean_only": [
+        228.63,
+        21.82
+       ]
+      },
+      "714912789268865024": {
+       "corrected": [
+        277.7,
+        30.37
+       ],
+       "incumbent": [
+        296.42,
+        31.22
+       ],
+       "mean_only": [
+        277.7,
+        31.22
+       ]
+      },
+      "735693375101108224": {
+       "corrected": [
+        168.32,
+        17.07
+       ],
+       "incumbent": [
+        122.05,
+        17.56
+       ],
+       "mean_only": [
+        168.32,
+        17.56
+       ]
+      },
+      "831633191830933504": {
+       "corrected": [
+        293.75,
+        33.65
+       ],
+       "incumbent": [
+        319.47,
+        34.53
+       ],
+       "mean_only": [
+        293.75,
+        34.53
+       ]
+      }
+     },
+     "week": 3
+    },
+    {
+     "aggregate": "data/ros/aggregate/history/2026-09-30T13-07-10.115786+00-00.json",
+     "bases": [
+      "presim"
+     ],
+     "cutoff": "2026-10-01T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        390.09,
+        42.52
+       ],
+       "incumbent": [
+        533.53,
+        43.79
+       ],
+       "mean_only": [
+        390.09,
+        43.79
+       ]
+      },
+      "1012114412049731584": {
+       "corrected": [
+        314.33,
+        41.36
+       ],
+       "incumbent": [
+        366.84,
+        42.43
+       ],
+       "mean_only": [
+        314.33,
+        42.43
+       ]
+      },
+      "1208452010173538304": {
+       "corrected": [
+        243.88,
+        24.83
+       ],
+       "incumbent": [
+        234.77,
+        25.37
+       ],
+       "mean_only": [
+        243.88,
+        25.37
+       ]
+      },
+      "1303549304882892800": {
+       "corrected": [
+        203.85,
+        23.69
+       ],
+       "incumbent": [
+        169.2,
+        24.27
+       ],
+       "mean_only": [
+        203.85,
+        24.27
+       ]
+      },
+      "468418790212759552": {
+       "corrected": [
+        321.05,
+        34.02
+       ],
+       "incumbent": [
+        378.32,
+        34.87
+       ],
+       "mean_only": [
+        321.05,
+        34.87
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        139.76,
+        13.5
+       ],
+       "incumbent": [
+        87.47,
+        13.9
+       ],
+       "mean_only": [
+        139.76,
+        13.9
+       ]
+      },
+      "473973924808355840": {
+       "corrected": [
+        243.66,
+        32.46
+       ],
+       "incumbent": [
+        234.61,
+        33.1
+       ],
+       "mean_only": [
+        243.66,
+        33.1
+       ]
+      },
+      "609821340567941120": {
+       "corrected": [
+        316.09,
+        34.93
+       ],
+       "incumbent": [
+        361.01,
+        35.92
+       ],
+       "mean_only": [
+        316.09,
+        35.92
+       ]
+      },
+      "711452264774041600": {
+       "corrected": [
+        237.64,
+        22.74
+       ],
+       "incumbent": [
+        214.39,
+        23.5
+       ],
+       "mean_only": [
+        237.64,
+        23.5
+       ]
+      },
+      "714912789268865024": {
+       "corrected": [
+        288.37,
+        32.53
+       ],
+       "incumbent": [
+        308.23,
+        33.37
+       ],
+       "mean_only": [
+        288.37,
+        33.37
+       ]
+      },
+      "735693375101108224": {
+       "corrected": [
+        173.81,
+        16.31
+       ],
+       "incumbent": [
+        126.33,
+        16.76
+       ],
+       "mean_only": [
+        173.81,
+        16.76
+       ]
+      },
+      "831633191830933504": {
+       "corrected": [
+        281.68,
+        32.74
+       ],
+       "incumbent": [
+        300.13,
+        33.62
+       ],
+       "mean_only": [
+        281.68,
+        33.62
+       ]
+      }
+     },
+     "week": 4
+    },
+    {
+     "aggregate": "data/ros/aggregate/history/2026-10-08T20-15-39.079400+00-00.json",
+     "bases": [
+      "presim"
+     ],
+     "cutoff": "2026-10-08T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        378.08,
+        34.78
+       ],
+       "incumbent": [
+        504.3,
+        35.78
+       ],
+       "mean_only": [
+        378.08,
+        35.78
+       ]
+      },
+      "1012114412049731584": {
+       "corrected": [
+        308.11,
+        36.71
+       ],
+       "incumbent": [
+        360.4,
+        37.67
+       ],
+       "mean_only": [
+        308.11,
+        37.67
+       ]
+      },
+      "1208452010173538304": {
+       "corrected": [
+        252.35,
+        27.82
+       ],
+       "incumbent": [
+        248.48,
+        28.46
+       ],
+       "mean_only": [
+        252.35,
+        28.46
+       ]
+      },
+      "1303549304882892800": {
+       "corrected": [
+        205.31,
+        22.85
+       ],
+       "incumbent": [
+        169.78,
+        23.38
+       ],
+       "mean_only": [
+        205.31,
+        23.38
+       ]
+      },
+      "468418790212759552": {
+       "corrected": [
+        316.52,
+        31.7
+       ],
+       "incumbent": [
+        370.75,
+        32.67
+       ],
+       "mean_only": [
+        316.52,
+        32.67
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        138.54,
+        13.77
+       ],
+       "incumbent": [
+        82.68,
+        14.15
+       ],
+       "mean_only": [
+        138.54,
+        14.15
+       ]
+      },
+      "473973924808355840": {
+       "corrected": [
+        258.44,
+        27.44
+       ],
+       "incumbent": [
+        255.31,
+        28.07
+       ],
+       "mean_only": [
+        258.44,
+        28.07
+       ]
+      },
+      "609821340567941120": {
+       "corrected": [
+        311.36,
+        30.5
+       ],
+       "incumbent": [
+        358.06,
+        31.23
+       ],
+       "mean_only": [
+        311.36,
+        31.23
+       ]
+      },
+      "711452264774041600": {
+       "corrected": [
+        234.44,
+        20.0
+       ],
+       "incumbent": [
+        210.7,
+        20.64
+       ],
+       "mean_only": [
+        234.44,
+        20.64
+       ]
+      },
+      "714912789268865024": {
+       "corrected": [
+        277.68,
+        28.0
+       ],
+       "incumbent": [
+        292.19,
+        28.77
+       ],
+       "mean_only": [
+        277.68,
+        28.77
+       ]
+      },
+      "735693375101108224": {
+       "corrected": [
+        183.4,
+        19.91
+       ],
+       "incumbent": [
+        134.01,
+        20.51
+       ],
+       "mean_only": [
+        183.4,
+        20.51
+       ]
+      },
+      "831633191830933504": {
+       "corrected": [
+        300.94,
+        31.93
+       ],
+       "incumbent": [
+        330.19,
+        32.69
+       ],
+       "mean_only": [
+        300.94,
+        32.69
+       ]
+      }
+     },
+     "week": 5
+    }
+   ]
+  },
+  "dynasty_new": {
+   "bestBall": false,
+   "identicalCheck": {
+    "maxAbsDeltaMean": 0.0,
+    "maxAbsDeltaSd": 0.0
+   },
+   "medianGame": false,
+   "summary": {
+    "corrected": {
+     "brierBinary": 0.22779203255000002,
+     "cov80": 0.66,
+     "favCalibrationGap": 0.110286,
+     "favMeanP": 0.710286,
+     "favWinRate": 0.6,
+     "llBinary": 0.6708676304428433,
+     "llH2h": 0.6708676304428433,
+     "llMedian": null,
+     "nH2h": 25,
+     "nMedian": 0,
+     "nScores": 50,
+     "pitMean": 0.5940460000000001,
+     "pitVar": 0.102573171384
+    },
+    "incumbent": {
+     "brierBinary": 0.22779203255000002,
+     "cov80": 0.66,
+     "favCalibrationGap": 0.110286,
+     "favMeanP": 0.710286,
+     "favWinRate": 0.6,
+     "llBinary": 0.6708676304428433,
+     "llH2h": 0.6708676304428433,
+     "llMedian": null,
+     "nH2h": 25,
+     "nMedian": 0,
+     "nScores": 50,
+     "pitMean": 0.5940460000000001,
+     "pitVar": 0.102573171384
+    },
+    "mean_only": {
+     "brierBinary": 0.22779203255000002,
+     "cov80": 0.66,
+     "favCalibrationGap": 0.110286,
+     "favMeanP": 0.710286,
+     "favWinRate": 0.6,
+     "llBinary": 0.6708676304428433,
+     "llH2h": 0.6708676304428433,
+     "llMedian": null,
+     "nH2h": 25,
+     "nMedian": 0,
+     "nScores": 50,
+     "pitMean": 0.5940460000000001,
+     "pitVar": 0.102573171384
+    }
+   },
+   "weeks": [
+    {
+     "aggregate": "data/ros/aggregate/history/2026-09-10T19-28-54.870502+00-00.json",
+     "bases": [
+      "pool"
+     ],
+     "cutoff": "2026-09-10T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      },
+      "1033502330853302272": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      },
+      "1202064845743071232": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      },
+      "1202075501976375296": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      },
+      "360184624380633088": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      },
+      "640377779837296640": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      },
+      "720513970041061376": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      },
+      "861387883699879936": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      },
+      "984270279268446208": {
+       "corrected": [
+        0.0,
+        1.0
+       ],
+       "incumbent": [
+        0.0,
+        1.0
+       ],
+       "mean_only": [
+        0.0,
+        1.0
+       ]
+      }
+     },
+     "week": 1
+    },
+    {
+     "aggregate": "data/ros/aggregate/history/2026-09-17T21-51-47.384808+00-00.json",
+     "bases": [
+      "pool"
+     ],
+     "cutoff": "2026-09-17T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        225.41,
+        41.43
+       ],
+       "incumbent": [
+        225.41,
+        41.43
+       ],
+       "mean_only": [
+        225.41,
+        41.43
+       ]
+      },
+      "1033502330853302272": {
+       "corrected": [
+        133.53,
+        41.43
+       ],
+       "incumbent": [
+        133.53,
+        41.43
+       ],
+       "mean_only": [
+        133.53,
+        41.43
+       ]
+      },
+      "1202064845743071232": {
+       "corrected": [
+        143.13,
+        41.43
+       ],
+       "incumbent": [
+        143.13,
+        41.43
+       ],
+       "mean_only": [
+        143.13,
+        41.43
+       ]
+      },
+      "1202075501976375296": {
+       "corrected": [
+        137.67,
+        41.43
+       ],
+       "incumbent": [
+        137.67,
+        41.43
+       ],
+       "mean_only": [
+        137.67,
+        41.43
+       ]
+      },
+      "360184624380633088": {
+       "corrected": [
+        160.78,
+        41.43
+       ],
+       "incumbent": [
+        160.78,
+        41.43
+       ],
+       "mean_only": [
+        160.78,
+        41.43
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        126.87,
+        41.43
+       ],
+       "incumbent": [
+        126.87,
+        41.43
+       ],
+       "mean_only": [
+        126.87,
+        41.43
+       ]
+      },
+      "640377779837296640": {
+       "corrected": [
+        143.32,
+        41.43
+       ],
+       "incumbent": [
+        143.32,
+        41.43
+       ],
+       "mean_only": [
+        143.32,
+        41.43
+       ]
+      },
+      "720513970041061376": {
+       "corrected": [
+        114.13,
+        41.43
+       ],
+       "incumbent": [
+        114.13,
+        41.43
+       ],
+       "mean_only": [
+        114.13,
+        41.43
+       ]
+      },
+      "861387883699879936": {
+       "corrected": [
+        174.69,
+        41.43
+       ],
+       "incumbent": [
+        174.69,
+        41.43
+       ],
+       "mean_only": [
+        174.69,
+        41.43
+       ]
+      },
+      "984270279268446208": {
+       "corrected": [
+        179.69,
+        41.43
+       ],
+       "incumbent": [
+        179.69,
+        41.43
+       ],
+       "mean_only": [
+        179.69,
+        41.43
+       ]
+      }
+     },
+     "week": 2
+    },
+    {
+     "aggregate": "data/ros/aggregate/history/2026-09-24T21-56-57.990199+00-00.json",
+     "bases": [
+      "pool"
+     ],
+     "cutoff": "2026-09-24T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        210.79,
+        42.58
+       ],
+       "incumbent": [
+        210.79,
+        42.58
+       ],
+       "mean_only": [
+        210.79,
+        42.58
+       ]
+      },
+      "1033502330853302272": {
+       "corrected": [
+        123.85,
+        42.58
+       ],
+       "incumbent": [
+        123.85,
+        42.58
+       ],
+       "mean_only": [
+        123.85,
+        42.58
+       ]
+      },
+      "1202064845743071232": {
+       "corrected": [
+        135.57,
+        42.58
+       ],
+       "incumbent": [
+        135.57,
+        42.58
+       ],
+       "mean_only": [
+        135.57,
+        42.58
+       ]
+      },
+      "1202075501976375296": {
+       "corrected": [
+        129.13,
+        42.58
+       ],
+       "incumbent": [
+        129.13,
+        42.58
+       ],
+       "mean_only": [
+        129.13,
+        42.58
+       ]
+      },
+      "360184624380633088": {
+       "corrected": [
+        152.18,
+        42.58
+       ],
+       "incumbent": [
+        152.18,
+        42.58
+       ],
+       "mean_only": [
+        152.18,
+        42.58
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        117.74,
+        42.58
+       ],
+       "incumbent": [
+        117.74,
+        42.58
+       ],
+       "mean_only": [
+        117.74,
+        42.58
+       ]
+      },
+      "640377779837296640": {
+       "corrected": [
+        133.93,
+        42.58
+       ],
+       "incumbent": [
+        133.93,
+        42.58
+       ],
+       "mean_only": [
+        133.93,
+        42.58
+       ]
+      },
+      "720513970041061376": {
+       "corrected": [
+        109.12,
+        42.58
+       ],
+       "incumbent": [
+        109.12,
+        42.58
+       ],
+       "mean_only": [
+        109.12,
+        42.58
+       ]
+      },
+      "861387883699879936": {
+       "corrected": [
+        169.2,
+        42.58
+       ],
+       "incumbent": [
+        169.2,
+        42.58
+       ],
+       "mean_only": [
+        169.2,
+        42.58
+       ]
+      },
+      "984270279268446208": {
+       "corrected": [
+        167.05,
+        42.58
+       ],
+       "incumbent": [
+        167.05,
+        42.58
+       ],
+       "mean_only": [
+        167.05,
+        42.58
+       ]
+      }
+     },
+     "week": 3
+    },
+    {
+     "aggregate": "data/ros/aggregate/history/2026-09-30T13-07-10.115786+00-00.json",
+     "bases": [
+      "pool"
+     ],
+     "cutoff": "2026-10-01T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        209.8,
+        42.54
+       ],
+       "incumbent": [
+        209.8,
+        42.54
+       ],
+       "mean_only": [
+        209.8,
+        42.54
+       ]
+      },
+      "1033502330853302272": {
+       "corrected": [
+        122.28,
+        42.54
+       ],
+       "incumbent": [
+        122.28,
+        42.54
+       ],
+       "mean_only": [
+        122.28,
+        42.54
+       ]
+      },
+      "1202064845743071232": {
+       "corrected": [
+        137.86,
+        42.54
+       ],
+       "incumbent": [
+        137.86,
+        42.54
+       ],
+       "mean_only": [
+        137.86,
+        42.54
+       ]
+      },
+      "1202075501976375296": {
+       "corrected": [
+        132.69,
+        42.54
+       ],
+       "incumbent": [
+        132.69,
+        42.54
+       ],
+       "mean_only": [
+        132.69,
+        42.54
+       ]
+      },
+      "360184624380633088": {
+       "corrected": [
+        155.76,
+        42.54
+       ],
+       "incumbent": [
+        155.76,
+        42.54
+       ],
+       "mean_only": [
+        155.76,
+        42.54
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        114.7,
+        42.54
+       ],
+       "incumbent": [
+        114.7,
+        42.54
+       ],
+       "mean_only": [
+        114.7,
+        42.54
+       ]
+      },
+      "640377779837296640": {
+       "corrected": [
+        137.49,
+        42.54
+       ],
+       "incumbent": [
+        137.49,
+        42.54
+       ],
+       "mean_only": [
+        137.49,
+        42.54
+       ]
+      },
+      "720513970041061376": {
+       "corrected": [
+        110.49,
+        42.54
+       ],
+       "incumbent": [
+        110.49,
+        42.54
+       ],
+       "mean_only": [
+        110.49,
+        42.54
+       ]
+      },
+      "861387883699879936": {
+       "corrected": [
+        171.8,
+        42.54
+       ],
+       "incumbent": [
+        171.8,
+        42.54
+       ],
+       "mean_only": [
+        171.8,
+        42.54
+       ]
+      },
+      "984270279268446208": {
+       "corrected": [
+        170.93,
+        42.54
+       ],
+       "incumbent": [
+        170.93,
+        42.54
+       ],
+       "mean_only": [
+        170.93,
+        42.54
+       ]
+      }
+     },
+     "week": 4
+    },
+    {
+     "aggregate": "data/ros/aggregate/history/2026-10-08T20-15-39.079400+00-00.json",
+     "bases": [
+      "empirical"
+     ],
+     "cutoff": "2026-10-08T22:00:00+00:00",
+     "fidelity": "nearest-prior",
+     "teams": {
+      "1002085133723299840": {
+       "corrected": [
+        264.5,
+        33.24
+       ],
+       "incumbent": [
+        264.5,
+        33.24
+       ],
+       "mean_only": [
+        264.5,
+        33.24
+       ]
+      },
+      "1033502330853302272": {
+       "corrected": [
+        96.59,
+        21.14
+       ],
+       "incumbent": [
+        96.59,
+        21.14
+       ],
+       "mean_only": [
+        96.59,
+        21.14
+       ]
+      },
+      "1202064845743071232": {
+       "corrected": [
+        121.46,
+        18.83
+       ],
+       "incumbent": [
+        121.46,
+        18.83
+       ],
+       "mean_only": [
+        121.46,
+        18.83
+       ]
+      },
+      "1202075501976375296": {
+       "corrected": [
+        127.19,
+        19.43
+       ],
+       "incumbent": [
+        127.19,
+        19.43
+       ],
+       "mean_only": [
+        127.19,
+        19.43
+       ]
+      },
+      "360184624380633088": {
+       "corrected": [
+        194.84,
+        20.93
+       ],
+       "incumbent": [
+        194.84,
+        20.93
+       ],
+       "mean_only": [
+        194.84,
+        20.93
+       ]
+      },
+      "472206636534984704": {
+       "corrected": [
+        86.84,
+        6.13
+       ],
+       "incumbent": [
+        86.84,
+        6.13
+       ],
+       "mean_only": [
+        86.84,
+        6.13
+       ]
+      },
+      "640377779837296640": {
+       "corrected": [
+        156.84,
+        37.43
+       ],
+       "incumbent": [
+        156.84,
+        37.43
+       ],
+       "mean_only": [
+        156.84,
+        37.43
+       ]
+      },
+      "720513970041061376": {
+       "corrected": [
+        72.5,
+        18.21
+       ],
+       "incumbent": [
+        72.5,
+        18.21
+       ],
+       "mean_only": [
+        72.5,
+        18.21
+       ]
+      },
+      "861387883699879936": {
+       "corrected": [
+        225.75,
+        35.34
+       ],
+       "incumbent": [
+        225.75,
+        35.34
+       ],
+       "mean_only": [
+        225.75,
+        35.34
+       ]
+      },
+      "984270279268446208": {
+       "corrected": [
+        183.4,
+        27.75
+       ],
+       "incumbent": [
+        183.4,
+        27.75
+       ],
+       "mean_only": [
+        183.4,
+        27.75
+       ]
+      }
+     },
+     "week": 5
+    }
+   ]
+  }
+ },
+ "pointsModel": {
+  "cvByPosition": {
+   "CB": 0.55,
+   "DB": 0.5,
+   "DE": 0.55,
+   "DL": 0.55,
+   "DT": 0.55,
+   "EDGE": 0.55,
+   "LB": 0.45,
+   "QB": 0.32,
+   "RB": 0.55,
+   "S": 0.5,
+   "TE": 0.65,
+   "WR": 0.6
+  },
+  "defaultCv": 0.55,
+  "generatedAt": null,
+  "rosValuePerPoint": 2.7,
+  "sampleSize": 0,
+  "source": "fallback-constants"
+ },
+ "pooledBestBall": {
+  "corrected": {
+   "brierBinary": 0.17132741819444444,
+   "cov80": 0.16666666666666666,
+   "favCalibrationGap": 0.04763499999999998,
+   "favMeanP": 0.8809683333333334,
+   "favWinRate": 0.8333333333333334,
+   "llBinary": 0.6609640155975806,
+   "llH2h": 0.44872857136444183,
+   "llMedian": 0.7670817377141499,
+   "nH2h": 30,
+   "nMedian": 60,
+   "nScores": 60,
+   "pitMean": 0.945365,
+   "pitVar": 0.018421046108333332
+  },
+  "incumbent": {
+   "brierBinary": 0.19323558366666668,
+   "cov80": 0.15,
+   "favCalibrationGap": 0.060196666666666676,
+   "favMeanP": 0.9268633333333334,
+   "favWinRate": 0.8666666666666667,
+   "llBinary": 1.133247017576462,
+   "llH2h": 1.0040149831765615,
+   "llMedian": 1.1978630347764123,
+   "nH2h": 30,
+   "nMedian": 60,
+   "nScores": 60,
+   "pitMean": 0.8307258333333334,
+   "pitVar": 0.11036185987430555
+  },
+  "mean_only": {
+   "brierBinary": 0.17022451722222223,
+   "cov80": 0.16666666666666666,
+   "favCalibrationGap": 0.04528999999999994,
+   "favMeanP": 0.8786233333333333,
+   "favWinRate": 0.8333333333333334,
+   "llBinary": 0.6531703451598392,
+   "llH2h": 0.4423876912782,
+   "llMedian": 0.7585616721006587,
+   "nH2h": 30,
+   "nMedian": 60,
+   "nScores": 60,
+   "pitMean": 0.9442966666666667,
+   "pitVar": 0.018474592322222223
+  }
+ },
+ "preregistration": "docs/research/PLAYOFF_ROS_D11_PREREGISTRATION.md"
+}

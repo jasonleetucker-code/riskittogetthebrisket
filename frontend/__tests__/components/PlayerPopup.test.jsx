@@ -122,6 +122,30 @@ describe("PlayerPopup", () => {
     );
   });
 
+  // #1337 identity rule: the Player File launcher is built only from a
+  // canonical Sleeper id. It used to fall back to the display NAME, which
+  // sent an id-less row (a pick, an unmatched name) to /players/<name>.
+  it("links the full profile by canonical playerId", () => {
+    const row = { ...makePlayer(), raw: { ...(makePlayer().raw || {}), playerId: "4984" } };
+    renderPopup({ row });
+    expect(
+      screen.getByRole("link", { name: new RegExp(`open full profile for ${row.name}`, "i") }),
+    ).toHaveAttribute("href", "/players/4984");
+  });
+
+  it("offers no full-profile link — never a name-built one — without a canonical id", () => {
+    const base = makePlayer();
+    const row = { ...base, playerId: undefined, raw: { ...(base.raw || {}), playerId: undefined } };
+    renderPopup({ row });
+    expect(screen.queryByRole("link", { name: /open full profile/i })).toBeNull();
+    for (const a of document.querySelectorAll("a[href^='/players/']")) {
+      expect(a.getAttribute("href")).not.toBe(`/players/${encodeURIComponent(row.name)}`);
+      expect(a.getAttribute("href")).toMatch(/^\/players\/compare\?/);
+    }
+    // The name itself is still shown.
+    expect(screen.getAllByText(new RegExp(row.name, "i")).length).toBeGreaterThan(0);
+  });
+
   it("closes the popup when Compare is followed", () => {
     // Otherwise the overlay stays mounted over the page just navigated to.
     const { onClose } = renderPopup();

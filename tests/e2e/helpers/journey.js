@@ -50,15 +50,19 @@ const TITLE = {
   "/news": "News",
   "/trade": "Trade Calculator",
   "/angle": "Package Builder",
-  "/arbitrage": "Arbitrage",
+  "/arbitrage": "Market Disagreement",
   "/trades": "Trade History",
   "/rosters": "Team Strength",
+  "/roster-construction": "Roster Construction",
   "/waivers": "Waivers",
+  "/waiver-advisor": "Waiver Advisor",
   "/draft": "Draft Board",
   "/phases": "Win-now vs Rebuild",
   "/edge": "Source Disagreement",
   "/market/sharp-tracker": "Sharp Tracker",
   "/market/sharp-roster-percentage": "Sharp Roster Percentage",
+  "/market/trade-database": "Trade Database",
+  "/managers": "Manager Intelligence",
   "/league/insider-trading": "Insider Trading",
   "/league": "Hub",
   "/league/activity": "Activity",
@@ -246,11 +250,21 @@ function desktopOnly(test, testInfo) {
   );
 }
 
-/** Gate a spec to the chromium mobile viewport project. */
+/**
+ * Gate a spec to the phone projects: mobile-chromium (CI's chromium phone
+ * viewport) and the WebKit iPhone device projects mobile-390 / mobile-430.
+ *
+ * It used to name mobile-chromium alone, "so a missing webkit install can't
+ * fail the suite".  That reasoning does not need the skip: a WebKit project
+ * only runs when someone selects it with --project, and selecting it already
+ * requires the install.  The skip meant the phone-viewport smoke (rankings
+ * board, player popup, bottom navigation, the windowed board) never ran on
+ * the engine iPhones actually use.
+ */
 function mobileOnly(test, testInfo) {
   test.skip(
-    testInfo.project.name !== "mobile-chromium",
-    "mobile smoke runs on the mobile-chromium project only",
+    !isMobileProject(testInfo),
+    "mobile smoke runs on the phone projects (mobile-chromium, mobile-390, mobile-430)",
   );
 }
 
@@ -557,6 +571,60 @@ async function awaitStreamSettled(page, { timeout = 30_000 } = {}) {
     .catch(() => {});
 }
 
+/**
+ * True for the TypeError WebKit raises when a navigation cancels a fetch that
+ * is still in flight: "Fetch API cannot load <url> due to access control
+ * checks." (Chromium says "Failed to fetch" and, when the page is being
+ * replaced, raises no page error at all.)  An app fetch with no `.catch` turns
+ * that rejection into an uncaught `pageerror` on the page that is going away.
+ *
+ * Measured on WebKit/iPhone-13 (E2E WebKit mobile run, 2026-10-28): all 19
+ * failures of the project were this one signature, e.g. the first `goto` of a
+ * spec racing the home page's `/api/dynasty-data` request, 17 ms after the
+ * navigation began.  The fetch SUCCEEDS when it is not cancelled (the trace
+ * shows 200s) and the same specs pass in Chromium.
+ *
+ * Deliberately narrow so a real failure is never swallowed: only this wording,
+ * and only for a URL on the page's OWN origin (a genuine CORS failure is by
+ * definition cross-origin and still reports).  Any other uncaught error --
+ * including every other fetch failure -- still fails the test.
+ */
+function isNavigationAbortedFetch(err, page) {
+  // Playwright splits WebKit's exception text at its FIRST colon
+  // (playwright-core splitErrorMessage: name = text before ":", message = text
+  // after ":" plus one more character).  For this error the first colon is the
+  // one in "http:", so the URL arrives cut in two: name "Fetch API cannot load
+  // http", message "/127.0.0.1:3000/... due to access control checks."  Rebuild
+  // the original text from the candidate splits and require the WHOLE of it to
+  // be exactly this wording around one URL (anchored at both ends).
+  const name = String((err && err.name) || "").trim();
+  const message = String((err && err.message) || "").trim();
+  const candidates = [message];
+  if (name) candidates.push(`${name}:/${message}`, `${name}: ${message}`);
+  let url = null;
+  for (const candidate of candidates) {
+    const m = /^(?:TypeError:\s*)?(?:Fetch API cannot load|Cannot load) (\S+) due to access control checks\.?$/.exec(
+      candidate,
+    );
+    if (m) {
+      url = m[1];
+      break;
+    }
+  }
+  if (!url) return false;
+  let pageHost = "";
+  let fetchHost = "";
+  try {
+    pageHost = new URL(page.url()).host;
+    fetchHost = new URL(url).host;
+  } catch {
+    return false;
+  }
+  // Exact host:port equality (a substring test would let 127.0.0.1:30001
+  // pass for a page on 127.0.0.1:3000).
+  return !!pageHost && fetchHost === pageHost;
+}
+
 function attachConsoleGuards(page, { allow = [] } = {}) {
   const defaultAllow = [
     // Chrome resource noise (404 favicons, aborted prefetches).
@@ -579,6 +647,7 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
     consoleErrors.push(text);
   });
   page.on("pageerror", (err) => {
+    if (isNavigationAbortedFetch(err, page)) return;
     const text = String(err && err.stack ? err.stack : err);
     if (allowList.some((frag) => text.includes(frag))) return;
     pageErrors.push(text);
@@ -605,6 +674,13 @@ function routeUsefulSnapshot(path) {
   const pending = () => result("pending", "data_pending");
   const main = document.querySelector("main") || document;
   if (path === "/league") {
+    // Brisket Trade Advisor landing (DEFAULT_TAB when the backend serves
+    // it): useful once the server-rendered team picker is interactive.
+    const advisor = document.querySelector('#league-panel-trade-advisor[role="tabpanel"]');
+    if (visible(advisor)) {
+      const picker = advisor.querySelector('input[role="combobox"]#advisor-your-team');
+      return visible(picker) ? result("useful", "public_advisor_team_step") : pending();
+    }
     const topLevelEmpty = all(main, "h2,h3,h4,.empty-state-title").some(el => !el.closest('[role="tabpanel"]') && ["League data unavailable", "No public league data"].includes(text(el)));
     const panel = document.querySelector('#league-panel-overview[role="tabpanel"]');
     if (!visible(panel)) return topLevelEmpty ? result("unavailable", "public_data_unavailable") : pending();
@@ -693,7 +769,25 @@ async function baselineUsefulState(page, path, timeout) {
   if (path === "/trade") {
     await waitVisible(page.locator(SEL.tradeControls));
     // Fixed, non-private query; any eligible match proves the pool is usable.
-    const search = page.locator('.mobile-quick-add-input:visible, .trade-side-search-input:visible').first();
+    // Desktop/tablet: the inline per-side search.  Phones (TC-D2): no inline
+    // search exists; the side's "Add to Side A" button opens a bottom-sheet
+    // search first.  Poll for whichever entry point this layout renders —
+    // inline first, so the desktop path probes nothing extra.
+    const search = page.locator('.trade-side-search-input:visible').first();
+    const addA = page.locator('button[aria-haspopup="dialog"]:has-text("Add to Side A"):visible').first();
+    for (;;) {
+      const inline = await search.isVisible();
+      checkDeadline();
+      if (inline) break;
+      const sheet = await addA.isVisible();
+      checkDeadline();
+      if (sheet) {
+        await addA.click({ timeout: remaining() });
+        checkDeadline();
+        break;
+      }
+      await page.waitForTimeout(Math.min(BASELINE_READINESS_PROTOCOL.pollMs, remaining()));
+    }
     await search.fill("a", { timeout: remaining() });
     checkDeadline();
     await waitVisible(page.locator('.trade-side-search-result:visible').first());
@@ -730,4 +824,5 @@ module.exports = {
   expectNoBadValueTokens,
   attachConsoleGuards,
   awaitStreamSettled,
+  isNavigationAbortedFetch,
 };

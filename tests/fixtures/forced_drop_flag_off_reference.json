@@ -1,0 +1,2023 @@
+{
+ "capacity": {
+  "capped/one_for_three": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3000.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 3,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 2,
+    "overLimitAfterMax": 2,
+    "overLimitAfterMin": 2,
+    "overLimitBefore": 0,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 28,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 2,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "capped/one_for_two": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 1100.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 1,
+    "overLimitAfterMax": 1,
+    "overLimitAfterMin": 1,
+    "overLimitBefore": 0,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": false,
+    "sizeAfter": 27,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 1,
+    "state": "exact",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "capped/outgoing_not_held": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3000.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "1 outgoing player(s) are not on this roster and free no spot: Their QB",
+     "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 1,
+    "overLimitAfter": 2,
+    "overLimitAfterMax": 2,
+    "overLimitAfterMin": 2,
+    "overLimitBefore": 0,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 28,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 2,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "capped/pick_for_two": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3000.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 0,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 2,
+    "overLimitAfterMax": 2,
+    "overLimitAfterMin": 2,
+    "overLimitBefore": 0,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 28,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 2,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "capped/two_for_one": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": 0.0,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 1,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openSpotsAfter": 1,
+    "openSpotsBefore": 0,
+    "outgoing": 2,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 0,
+    "overLimitAfterMax": 0,
+    "overLimitAfterMin": 0,
+    "overLimitBefore": 0,
+    "requiresDrops": false,
+    "rosterLimit": 26,
+    "rungOrderWasTied": false,
+    "sizeAfter": 25,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 0.0,
+   "forcedDropCostBasis": {
+    "state": "none"
+   }
+  },
+  "capped/unpriced_incoming": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 1100.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 1,
+    "overLimitAfterMax": 1,
+    "overLimitAfterMin": 1,
+    "overLimitBefore": 0,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": false,
+    "sizeAfter": 27,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 1,
+    "state": "exact",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "capped/valuable_two": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 1100.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 1,
+    "overLimitAfterMax": 1,
+    "overLimitAfterMin": 1,
+    "overLimitBefore": 0,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": false,
+    "sizeAfter": 27,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 1,
+    "state": "exact",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "capped/zero_for_three": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 4000.0,
+    "forcedDropValue": 2100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": true,
+      "effectiveCutCost": 0.0,
+      "name": "Filler LB",
+      "playerId": "filler_lb",
+      "position": "LB",
+      "releaseCost": 1000.0,
+      "rung": 3,
+      "scarcityMultiplier": 1.0,
+      "value": 1000.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1700.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 3,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 3 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 0,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 3,
+    "overLimitAfterMax": 3,
+    "overLimitAfterMin": 3,
+    "overLimitBefore": 0,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 29,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 2100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 3,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "over_before/one_for_three": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3450.0,
+    "forcedDropValue": 1550.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": true,
+      "effectiveCutCost": 0.0,
+      "name": "Filler RB",
+      "playerId": "filler_rb",
+      "position": "RB",
+      "releaseCost": 450.0,
+      "rung": 3,
+      "scarcityMultiplier": 1.0,
+      "value": 450.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1800.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 3,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "roster is ALREADY 1 over the 26-man limit before this trade \u2014 the drops below include getting back to legal size",
+     "cut ladder truncated at 3 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 3,
+    "overLimitAfterMax": 3,
+    "overLimitAfterMin": 3,
+    "overLimitBefore": 1,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 29,
+    "sizeBefore": 27,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 2,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "over_before/one_for_two": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3000.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "roster is ALREADY 1 over the 26-man limit before this trade \u2014 the drops below include getting back to legal size",
+     "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 2,
+    "overLimitAfterMax": 2,
+    "overLimitAfterMin": 2,
+    "overLimitBefore": 1,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 28,
+    "sizeBefore": 27,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 0.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 1,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "over_before/outgoing_not_held": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3650.0,
+    "forcedDropValue": 1750.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": true,
+      "effectiveCutCost": 0.0,
+      "name": "Filler WR",
+      "playerId": "filler_wr",
+      "position": "WR",
+      "releaseCost": 650.0,
+      "rung": 3,
+      "scarcityMultiplier": 1.0,
+      "value": 650.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "1 outgoing player(s) are not on this roster and free no spot: Their QB",
+     "roster is ALREADY 1 over the 26-man limit before this trade \u2014 the drops below include getting back to legal size",
+     "cut ladder truncated at 3 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 1,
+    "overLimitAfter": 3,
+    "overLimitAfterMax": 3,
+    "overLimitAfterMin": 3,
+    "overLimitBefore": 1,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 29,
+    "sizeBefore": 27,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 2,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "over_before/pick_for_two": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 4000.0,
+    "forcedDropValue": 2100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": true,
+      "effectiveCutCost": 0.0,
+      "name": "Filler LB",
+      "playerId": "filler_lb",
+      "position": "LB",
+      "releaseCost": 1000.0,
+      "rung": 3,
+      "scarcityMultiplier": 1.0,
+      "value": 1000.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1700.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "roster is ALREADY 1 over the 26-man limit before this trade \u2014 the drops below include getting back to legal size",
+     "cut ladder truncated at 3 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 0,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 3,
+    "overLimitAfterMax": 3,
+    "overLimitAfterMin": 3,
+    "overLimitBefore": 1,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 29,
+    "sizeBefore": 27,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 2,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "over_before/two_for_one": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": 0.0,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 1,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "roster is ALREADY 1 over the 26-man limit before this trade \u2014 the drops below include getting back to legal size"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 2,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 0,
+    "overLimitAfterMax": 0,
+    "overLimitAfterMin": 0,
+    "overLimitBefore": 1,
+    "requiresDrops": false,
+    "rosterLimit": 26,
+    "rungOrderWasTied": false,
+    "sizeAfter": 26,
+    "sizeBefore": 27,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 0.0,
+   "forcedDropCostBasis": {
+    "state": "none"
+   }
+  },
+  "over_before/unpriced_incoming": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3000.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "roster is ALREADY 1 over the 26-man limit before this trade \u2014 the drops below include getting back to legal size",
+     "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 2,
+    "overLimitAfterMax": 2,
+    "overLimitAfterMin": 2,
+    "overLimitBefore": 1,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 28,
+    "sizeBefore": 27,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 0.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 1,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "over_before/valuable_two": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3000.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "roster is ALREADY 1 over the 26-man limit before this trade \u2014 the drops below include getting back to legal size",
+     "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 2,
+    "overLimitAfterMax": 2,
+    "overLimitAfterMin": 2,
+    "overLimitBefore": 1,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 28,
+    "sizeBefore": 27,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 0.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 1,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "over_before/zero_for_three": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 4450.0,
+    "forcedDropValue": 2550.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": true,
+      "effectiveCutCost": 0.0,
+      "name": "Filler RB",
+      "playerId": "filler_rb",
+      "position": "RB",
+      "releaseCost": 450.0,
+      "rung": 4,
+      "scarcityMultiplier": 1.0,
+      "value": 450.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1800.0
+     },
+     {
+      "acquiredInTrade": true,
+      "effectiveCutCost": 0.0,
+      "name": "Filler LB",
+      "playerId": "filler_lb",
+      "position": "LB",
+      "releaseCost": 1000.0,
+      "rung": 3,
+      "scarcityMultiplier": 1.0,
+      "value": 1000.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1700.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 3,
+    "ladderExhausted": false,
+    "notes": [
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "roster is ALREADY 1 over the 26-man limit before this trade \u2014 the drops below include getting back to legal size",
+     "cut ladder truncated at 4 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": 0,
+    "openSpotsBefore": 0,
+    "outgoing": 0,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 4,
+    "overLimitAfterMax": 4,
+    "overLimitAfterMin": 4,
+    "overLimitBefore": 1,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 30,
+    "sizeBefore": 27,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 2100.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 3,
+    "lowerBoundReasons": [
+     "unpriced_forced_drops_excluded"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "taxi_unknown/one_for_three": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3000.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 3,
+    "ladderExhausted": false,
+    "notes": [
+     "league carries 2 taxi slot(s) and this source does not say which roster members occupy them \u2014 Sleeper lists taxi players inside `players`, so active occupancy is a RANGE and the capacity conclusion is partial",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": 2,
+    "overLimitAfterMin": 0,
+    "overLimitBefore": 0,
+    "requiresDrops": null,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 28,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 2,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 2,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "taxi_unknown/one_for_two": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 1100.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     }
+    ],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league carries 2 taxi slot(s) and this source does not say which roster members occupy them \u2014 Sleeper lists taxi players inside `players`, so active occupancy is a RANGE and the capacity conclusion is partial",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": 1,
+    "overLimitAfterMin": 0,
+    "overLimitBefore": 0,
+    "requiresDrops": null,
+    "rosterLimit": 26,
+    "rungOrderWasTied": false,
+    "sizeAfter": 27,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 2,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 2,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "taxi_unknown/outgoing_not_held": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3000.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league carries 2 taxi slot(s) and this source does not say which roster members occupy them \u2014 Sleeper lists taxi players inside `players`, so active occupancy is a RANGE and the capacity conclusion is partial",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "1 outgoing player(s) are not on this roster and free no spot: Their QB",
+     "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 1,
+    "overLimitAfter": null,
+    "overLimitAfterMax": 2,
+    "overLimitAfterMin": 0,
+    "overLimitBefore": 0,
+    "requiresDrops": null,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 28,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 2,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 2,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "taxi_unknown/pick_for_two": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 3000.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league carries 2 taxi slot(s) and this source does not say which roster members occupy them \u2014 Sleeper lists taxi players inside `players`, so active occupancy is a RANGE and the capacity conclusion is partial",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 2 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": 0,
+    "outgoing": 0,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": 2,
+    "overLimitAfterMin": 0,
+    "overLimitBefore": 0,
+    "requiresDrops": null,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 28,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 2,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 2,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "taxi_unknown/two_for_one": {
+   "capacity": {
+    "certainty": "exact",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": 0.0,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": false,
+    "incoming": 1,
+    "ladderExhausted": false,
+    "notes": [
+     "league carries 2 taxi slot(s) and this source does not say which roster members occupy them \u2014 Sleeper lists taxi players inside `players`, so active occupancy is a RANGE and the capacity conclusion is partial",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openSpotsAfter": 1,
+    "openSpotsBefore": 0,
+    "outgoing": 2,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": 0,
+    "overLimitAfterMax": 0,
+    "overLimitAfterMin": 0,
+    "overLimitBefore": 0,
+    "requiresDrops": false,
+    "rosterLimit": 26,
+    "rungOrderWasTied": false,
+    "sizeAfter": 25,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 2,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 2,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 0.0,
+   "forcedDropCostBasis": {
+    "state": "none"
+   }
+  },
+  "taxi_unknown/unpriced_incoming": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 1100.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     }
+    ],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league carries 2 taxi slot(s) and this source does not say which roster members occupy them \u2014 Sleeper lists taxi players inside `players`, so active occupancy is a RANGE and the capacity conclusion is partial",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": 1,
+    "overLimitAfterMin": 0,
+    "overLimitBefore": 0,
+    "requiresDrops": null,
+    "rosterLimit": 26,
+    "rungOrderWasTied": false,
+    "sizeAfter": 27,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 2,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 2,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "taxi_unknown/valuable_two": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 1100.0,
+    "forcedDropValue": 1100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     }
+    ],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league carries 2 taxi slot(s) and this source does not say which roster members occupy them \u2014 Sleeper lists taxi players inside `players`, so active occupancy is a RANGE and the capacity conclusion is partial",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": 0,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": 1,
+    "overLimitAfterMin": 0,
+    "overLimitBefore": 0,
+    "requiresDrops": null,
+    "rosterLimit": 26,
+    "rungOrderWasTied": false,
+    "sizeAfter": 27,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 2,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 2,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "taxi_unknown/zero_for_three": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": 0.0,
+    "forcedDropReleaseCost": 4000.0,
+    "forcedDropValue": 2100.0,
+    "forcedDrops": [
+     {
+      "acquiredInTrade": true,
+      "effectiveCutCost": 0.0,
+      "name": "Filler LB",
+      "playerId": "filler_lb",
+      "position": "LB",
+      "releaseCost": 1000.0,
+      "rung": 3,
+      "scarcityMultiplier": 1.0,
+      "value": 1000.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1700.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DB Archer",
+      "playerId": "db_archer",
+      "position": "DB",
+      "releaseCost": 1100.0,
+      "rung": 1,
+      "scarcityMultiplier": 1.0,
+      "value": 1100.0,
+      "valueBasis": "board",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1600.0
+     },
+     {
+      "acquiredInTrade": false,
+      "effectiveCutCost": 0.0,
+      "name": "DL Adams",
+      "playerId": "dl_adams",
+      "position": "DL",
+      "releaseCost": 1900.0,
+      "rung": 2,
+      "scarcityMultiplier": 1.0,
+      "value": null,
+      "valueBasis": "assumedWaiver",
+      "valueScale": "rankDerivedValue",
+      "waiverValue": 1900.0
+     }
+    ],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 3,
+    "ladderExhausted": false,
+    "notes": [
+     "league carries 2 taxi slot(s) and this source does not say which roster members occupy them \u2014 Sleeper lists taxi players inside `players`, so active occupancy is a RANGE and the capacity conclusion is partial",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "cut ladder truncated at 3 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan",
+     "every forced drop scored the same effective cut cost, so the cut ladder's own rung order carried no priority \u2014 these are ordered by release cost instead"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": 0,
+    "outgoing": 0,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": 3,
+    "overLimitAfterMin": 1,
+    "overLimitBefore": 0,
+    "requiresDrops": true,
+    "rosterLimit": 26,
+    "rungOrderWasTied": true,
+    "sizeAfter": 29,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 2,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 2,
+    "unpricedForcedDrops": 1,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": 1000.0,
+   "forcedDropCostBasis": {
+    "addedReleases": 1,
+    "lowerBoundReasons": [
+     "taxi_occupancy_unknown_guaranteed_drops_only"
+    ],
+    "state": "lower_bound",
+    "valueScale": "releaseCost (rankDerivedValue x scarcity)"
+   }
+  },
+  "unknown_cap/one_for_three": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": null,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": null,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 3,
+    "ladderExhausted": false,
+    "notes": [
+     "league roster size is not configured \u2014 capacity is UNKNOWN, not unlimited",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": null,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": null,
+    "overLimitAfterMin": null,
+    "overLimitBefore": null,
+    "requiresDrops": null,
+    "rosterLimit": null,
+    "rungOrderWasTied": false,
+    "sizeAfter": 28,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "unknown_cap/one_for_two": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": null,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": null,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league roster size is not configured \u2014 capacity is UNKNOWN, not unlimited",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": null,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": null,
+    "overLimitAfterMin": null,
+    "overLimitBefore": null,
+    "requiresDrops": null,
+    "rosterLimit": null,
+    "rungOrderWasTied": false,
+    "sizeAfter": 27,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "unknown_cap/outgoing_not_held": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": null,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": null,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league roster size is not configured \u2014 capacity is UNKNOWN, not unlimited",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert",
+     "1 outgoing player(s) are not on this roster and free no spot: Their QB"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": null,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 1,
+    "overLimitAfter": null,
+    "overLimitAfterMax": null,
+    "overLimitAfterMin": null,
+    "overLimitBefore": null,
+    "requiresDrops": null,
+    "rosterLimit": null,
+    "rungOrderWasTied": false,
+    "sizeAfter": 28,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "unknown_cap/pick_for_two": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": null,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": null,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league roster size is not configured \u2014 capacity is UNKNOWN, not unlimited",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": null,
+    "outgoing": 0,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": null,
+    "overLimitAfterMin": null,
+    "overLimitBefore": null,
+    "requiresDrops": null,
+    "rosterLimit": null,
+    "rungOrderWasTied": false,
+    "sizeAfter": 28,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "unknown_cap/two_for_one": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": null,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": null,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 1,
+    "ladderExhausted": false,
+    "notes": [
+     "league roster size is not configured \u2014 capacity is UNKNOWN, not unlimited",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": null,
+    "outgoing": 2,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": null,
+    "overLimitAfterMin": null,
+    "overLimitBefore": null,
+    "requiresDrops": null,
+    "rosterLimit": null,
+    "rungOrderWasTied": false,
+    "sizeAfter": 25,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "unknown_cap/unpriced_incoming": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": null,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": null,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league roster size is not configured \u2014 capacity is UNKNOWN, not unlimited",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": null,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": null,
+    "overLimitAfterMin": null,
+    "overLimitBefore": null,
+    "requiresDrops": null,
+    "rosterLimit": null,
+    "rungOrderWasTied": false,
+    "sizeAfter": 27,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "unknown_cap/valuable_two": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": null,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": null,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 2,
+    "ladderExhausted": false,
+    "notes": [
+     "league roster size is not configured \u2014 capacity is UNKNOWN, not unlimited",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": null,
+    "outgoing": 1,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": null,
+    "overLimitAfterMin": null,
+    "overLimitBefore": null,
+    "requiresDrops": null,
+    "rosterLimit": null,
+    "rungOrderWasTied": false,
+    "sizeAfter": 27,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  },
+  "unknown_cap/zero_for_three": {
+   "capacity": {
+    "certainty": "partial",
+    "forcedDropCutCost": null,
+    "forcedDropReleaseCost": null,
+    "forcedDropValue": null,
+    "forcedDrops": [],
+    "forcedDropsAreUpperBound": true,
+    "incoming": 3,
+    "ladderExhausted": false,
+    "notes": [
+     "league roster size is not configured \u2014 capacity is UNKNOWN, not unlimited",
+     "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+     "no league key \u2014 positional scarcity inert"
+    ],
+    "openSpotsAfter": null,
+    "openSpotsBefore": null,
+    "outgoing": 0,
+    "outgoingNotOnRoster": 0,
+    "overLimitAfter": null,
+    "overLimitAfterMax": null,
+    "overLimitAfterMin": null,
+    "overLimitBefore": null,
+    "requiresDrops": null,
+    "rosterLimit": null,
+    "rungOrderWasTied": false,
+    "sizeAfter": 29,
+    "sizeBefore": 26,
+    "taxiOccupiedMax": 0,
+    "taxiOccupiedMin": 0,
+    "taxiSize": 0,
+    "unpricedForcedDrops": 0,
+    "valueScale": "rankDerivedValue"
+   },
+   "forcedDropCost": null,
+   "forcedDropCostBasis": {
+    "reason": "drop_requirement_undetermined",
+    "state": "unknown"
+   }
+  }
+ },
+ "digests": {
+  "analyze/capped/one_for_three": "0d02f9ec3b7b5f18c7dd4bca8ba54c48e2baa0ae378bb784868e3c2133babbe8",
+  "analyze/capped/one_for_two": "bc3efe17bb326761780afe5ff5c5525ee685e4f3fb16a3e3cf91f9efd2cd8e4b",
+  "analyze/capped/outgoing_not_held": "fbb7b69eb8e2f46e3918868a825f1679e88f609a2b19af1fb03c934e610ca6c5",
+  "analyze/capped/pick_for_two": "9e297359b41958e37dc7551f135c01b207cadbc9372e40b8d341886045b86192",
+  "analyze/capped/two_for_one": "c0d8744eccc42b27cd99224c2a6d2a9296018f00a8011f383fc9f49c4e2bf9a9",
+  "analyze/capped/unpriced_incoming": "33ecd635acc9fb01b19ed22d2fac349f7ec7a4392d4d3473a9d7d130adf9ff8c",
+  "analyze/capped/valuable_two": "e2da90953a77840ae110a245a127d98bc6283749064b5e5e00d6665c05245b66",
+  "analyze/capped/zero_for_three": "ec737bcc7c9daeff1e46f0615862f172715ec249e8beb7c03a63e3e0f0a074ee",
+  "analyze/over_before/one_for_three": "74f68e7176f5970e854933646b9246696c08c31c92ad7515ac675125db3c3dd8",
+  "analyze/over_before/one_for_two": "b6362a872f5cde6a8363d22e5da9cfe54f46b7a42ff6bc3dff6b7df3ebde9691",
+  "analyze/over_before/outgoing_not_held": "736a50da5fa208c68589d731669ed3d66beb5f4b942ab27eaf21f92897e2089b",
+  "analyze/over_before/pick_for_two": "081658a49c1043962f8b114bcf1ae4efb072e62157a1bd65a8df6af1ff81e8ab",
+  "analyze/over_before/two_for_one": "800c3720a4d41e81b42a9ca2e075c925df8730c599168aaa4fa20e4acdd7c621",
+  "analyze/over_before/unpriced_incoming": "f7b97b1f1775a4a065466d6349b0d5a0ea669fd920919717f143fbe4377955fd",
+  "analyze/over_before/valuable_two": "58d296e9af5559eedef1baf622053108627a30437d49ec24133ca76b9674d047",
+  "analyze/over_before/zero_for_three": "df1f4012a88fa60363a6f1f519fc113cb6b4163ffab99f6051da18fbe737c391",
+  "finder/capped": "5bf55ba587c4547691f504517d06ae4fdead6ff6ef2f7b6157c52623df135632",
+  "finder/over_before": "b68b560841cd691f4025008f7a822961d60920e182cec033863af03e3b6a06ad",
+  "simulate/capped/one_for_three": "cb485192eb505cf59e48aeb85ad1785e93a4183826832bfe8e1dbd8bea2e6c6d",
+  "simulate/capped/one_for_two": "a848d7bb15d711f51570d6a56304f4c595a2d5bae0b7252bd75a6f3c22ab9a2f",
+  "simulate/capped/outgoing_not_held": "e78d5b7ecb156d458995208130d26342906adab4857561fb188c4184f8a93013",
+  "simulate/capped/pick_for_two": "f2becb91b337ab2a628781ba3d784287ae35d1e0e3a6a2676c4cb5cfd6f2f4da",
+  "simulate/capped/two_for_one": "e47102ed0828f2a6680c297f371bdf254699f32f33e4eb9e528b90e217e872e8",
+  "simulate/capped/unpriced_incoming": "2917541f05d71489f7263b997d307e4ce7480b270e48cadc6d28157118367bf2",
+  "simulate/capped/valuable_two": "f7e6bdda88f8f60ec33eb2881ace9b43a88f0e13270d6e9274a2538482b852ef",
+  "simulate/capped/zero_for_three": "7acb7536824798856bc3418a39b16c2a498bca262e7f048e9ffd4711a19e3ac9",
+  "simulate/over_before/one_for_three": "d6ce40986e36068f7bdf6e47a4edf89dde6249138d7725d59a58e0d501988c57",
+  "simulate/over_before/one_for_two": "4a1ecb393c33150378ca70d34f29f75d1671b06282056ec005abcfd656822f06",
+  "simulate/over_before/outgoing_not_held": "005e0bb23ac1b40b4fd764aa46263cdbecf07e62456b99b110efdfefc9906d89",
+  "simulate/over_before/pick_for_two": "fdc17fbbcce852cfeabdc5d6aaa524b63c32203f5ce399424f34b043c06c55ba",
+  "simulate/over_before/two_for_one": "a89b2e300cbd756fcac2308f18b48d0cf035ea164e70b76d310ae17895064956",
+  "simulate/over_before/unpriced_incoming": "5b8f1a982132099cd788bd0be0e917579e718d49fa01f95bff9f257a3b276684",
+  "simulate/over_before/valuable_two": "50d646f2266dccb14431f88d7f58130a57db0af5ea510023986f8e18d103b43a",
+  "simulate/over_before/zero_for_three": "868cbde08f52ff073db66d1c8544f03142ff5d3508ad90fa0677e1c3254900bb"
+ }
+}

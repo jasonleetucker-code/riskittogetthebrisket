@@ -30,7 +30,7 @@ def _init_repo(tmp_path: Path) -> Path:
     _git(repo, "init", "-q")
     _git(repo, "config", "user.email", "test@example.com")
     _git(repo, "config", "user.name", "Test")
-    (repo / "README.md").write_text("hello\n")
+    (repo / "README.md").write_text("hello\n", encoding="utf-8")
     _git(repo, "add", ".")
     _git(repo, "commit", "-q", "-m", "init")
     _git(repo, "branch", "-m", "main")
@@ -41,7 +41,7 @@ def _commit_files(repo: Path, files: dict[str, str], message: str) -> None:
     for rel_path, content in files.items():
         path = repo / rel_path
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
     _git(repo, "add", ".")
     _git(repo, "commit", "-q", "-m", message)
 
@@ -92,9 +92,64 @@ def test_workflow_change_is_high_risk_and_forces_both(repo: Path):
     assert scope.frontend is True
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "requirements.lock.txt",
+        "requirements-dev.lock.txt",
+        "config/python-lock.json",
+        "scripts/python_lock.py",
+    ],
+)
+def test_lock_only_change_forces_full_validation(repo: Path, path: str):
+    _git(repo, "checkout", "-q", "-b", "feature")
+    _commit_files(repo, {path: "changed\n"}, "lock change")
+
+    scope = compute_scope(base_ref="main", head_ref="feature", repo_root=str(repo))
+
+    assert scope.changed_paths == [path]
+    assert scope.high_risk is True
+    assert scope.python is True
+    assert scope.frontend is True
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/api/build_identity.py",
+        "scripts/release_artifact.py",
+        "scripts/stage_release_artifact.py",
+    ],
+)
+def test_release_artifact_identity_change_forces_the_frontend_lane(repo: Path, path: str):
+    """A digest change must be packaged and verified against a real Next build."""
+    _git(repo, "checkout", "-q", "-b", "feature")
+    _commit_files(repo, {path: "X = 1\n"}, "release identity change")
+
+    scope = compute_scope(base_ref="main", head_ref="feature", repo_root=str(repo))
+
+    assert scope.high_risk is True
+    assert scope.python is True
+    assert scope.frontend is True
+
+
 def test_canonical_owner_change_is_high_risk(repo: Path):
     _git(repo, "checkout", "-q", "-b", "feature")
     _commit_files(repo, {"src/canonical/player_valuation.py": "X = 1\n"}, "canonical change")
+
+    scope = compute_scope(base_ref="main", head_ref="feature", repo_root=str(repo))
+
+    assert scope.high_risk is True
+    assert scope.python is True
+    assert scope.frontend is True
+
+
+@pytest.mark.parametrize("path", ["scripts/ci_test_shards.py", "config/ci/test_shards.json"])
+def test_shard_plan_change_is_high_risk(repo: Path, path: str):
+    """The shard owner decides which tests each runner executes and what proves
+    none was dropped, so changing it must run the full gate on both sides."""
+    _git(repo, "checkout", "-q", "-b", "feature")
+    _commit_files(repo, {path: "{}\n"}, "shard plan change")
 
     scope = compute_scope(base_ref="main", head_ref="feature", repo_root=str(repo))
 

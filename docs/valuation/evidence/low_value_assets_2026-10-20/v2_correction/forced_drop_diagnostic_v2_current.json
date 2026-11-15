@@ -1,0 +1,940 @@
+{
+ "purpose": "RESEARCH ONLY, EXPLORATORY.  Owner question: is Team Context already charging too much for forced drops (War Room, /api/trade/analyze, Team Context ON, production geom_q078_v1)?  Shadow counterfactuals are recomputed inside the script; no production code, config, value or served path changed.",
+ "generatedBy": "scripts/low_value_asset_forced_drop_diagnostic.py",
+ "activeModelAtRun": "geom_q078_v1",
+ "board": {
+  "archive": "exports/archive/dynasty_export_20261020_052241.zip",
+  "member": "dynasty_data_2026-10-20.json",
+  "sha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+  "matchesShadowReplayBoard": true,
+  "builtBoardSha256": "eed8df11637b17076b4d1aa10ff1c8bf2190cc08afa57e12e0ddc2fa5c290833",
+  "csvTree": {
+   "paths": [
+    "CSVs",
+    "data/scrape_state",
+    "config/weights"
+   ],
+   "source": "git revision",
+   "revisionSha": "1511ca1d08dfffad4b48d113b2ac9a20d7a5de4b",
+   "revisionCommittedAt": "2026-10-20T12:32:15+02:00",
+   "contentSha256": "31687c60b2adc9f347eb58c8da2e15a1198a264d3b98200b1db3fa5f2345bd54"
+  }
+ },
+ "codeSha": "deed0aad0014e23e0cfdbcba9ab5927aeafc5121",
+ "bandBasis": {
+  "basis": "current",
+  "receiptOfOwnerInForce": {
+   "version": "fairness_bands_v2",
+   "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+   "basis": "larger_package_utility",
+   "absoluteMinimum": 250.0,
+   "slightPct": 3.5,
+   "unfairPct": 9.0,
+   "lopsidedPct": 18.0,
+   "fairTradeLevels": [
+    "fair"
+   ],
+   "postLaunchValidation": "OD-F4"
+  },
+  "base": "the band base the production lens used (largerPackageUtility) for PROD and every variant; under v1_legacy the engine ran inside legacy_v1_denominator() (the larger ADJUSTED side)"
+ },
+ "design": "identical to shadow_replay.json S5d_warRoomTeamContext (same archive, seed SEED+2, sampling loop verbatim, 5 opponents per roster); every dynasty_main roster at the 58 cap sends a genuine starter X (2,500-6,500) for Y at 86-97% of X, then receives 1-3 of the opponent's expendable fillers",
+ "reproduction": {
+  "samples": 45,
+  "sweetenedSteps": 135,
+  "fillerFlipsAssetOnly": 133,
+  "neutralised": 85,
+  "overCorrected": 43,
+  "surviving": 5,
+  "matchesShadowReplay_133_85_43_5": true,
+  "productionCutSetReconstructedExactly": "135/135 steps with drops"
+ },
+ "inputs": {
+  "waiverValueByPosition": {
+   "DB": 2156,
+   "DL": 1918,
+   "LB": 2149,
+   "QB": 1923,
+   "RB": 1626,
+   "TE": 2061,
+   "WR": 1802
+  },
+  "pricedBoardFloorByPosition": {
+   "DB": 227,
+   "DL": 226,
+   "LB": 226,
+   "QB": 914,
+   "RB": 278,
+   "TE": 656,
+   "WR": 383
+  },
+  "scarcityMultiplier": "available",
+  "scarcityByPosition": {
+   "DB": {
+    "waiverScarcity": null,
+    "multiplier": 1.0
+   },
+   "DL": {
+    "waiverScarcity": null,
+    "multiplier": 1.0
+   },
+   "K": {
+    "waiverScarcity": null,
+    "multiplier": 1.0
+   },
+   "LB": {
+    "waiverScarcity": null,
+    "multiplier": 1.0
+   },
+   "QB": {
+    "waiverScarcity": null,
+    "multiplier": 1.0
+   },
+   "RB": {
+    "waiverScarcity": null,
+    "multiplier": 1.0
+   },
+   "TE": {
+    "waiverScarcity": null,
+    "multiplier": 1.0
+   },
+   "WR": {
+    "waiverScarcity": null,
+    "multiplier": 1.0
+   }
+  }
+ },
+ "forcedDrops_production": {
+  "forcedDrops": 270,
+  "byBasis": {
+   "assumedWaiver": 57,
+   "board": 213
+  },
+  "releaseCostMedianByBasis": {
+   "assumedWaiver": 1918,
+   "board": 1496
+  },
+  "releaseCostRangeByBasis": {
+   "assumedWaiver": [
+    1802,
+    2156
+   ],
+   "board": [
+    257,
+    1973
+   ]
+  },
+  "byPositionAndBasis": {
+   "DB:assumedWaiver": 24,
+   "DB:board": 120,
+   "DL:assumedWaiver": 20,
+   "DL:board": 24,
+   "LB:board": 25,
+   "QB:board": 14,
+   "RB:board": 10,
+   "WR:assumedWaiver": 13,
+   "WR:board": 20
+  },
+  "scarcityMultipliersUsed": {
+   "1.0": 270
+  },
+  "eccZero": 270,
+  "justAcquiredFillerCut": 26,
+  "cheaperJustAcquiredPieceExistedButWasNotCut": 215,
+  "cheaperLegalSwapExists": 253,
+  "cheaperCandidatesAllLineupProtected": 0
+ },
+ "cutsChosenByCheapestVariants": {
+  "V1": {
+   "cuts": 270,
+   "byBasis": {
+    "board": 270
+   },
+   "justAcquiredFillerCut": 23,
+   "pricedValueQuartiles": [
+    270,
+    445,
+    914
+   ],
+   "pricedValueMin": 226,
+   "atPositionBoardFloor": 27
+  },
+  "V3b": {
+   "cuts": 270,
+   "byBasis": {
+    "assumedWaiver": 188,
+    "board": 82
+   },
+   "justAcquiredFillerCut": 11,
+   "pricedValueQuartiles": [
+    262,
+    420,
+    975
+   ],
+   "pricedValueMin": 226,
+   "atPositionBoardFloor": 8
+  }
+ },
+ "overCorrectionAttribution": {
+  "overCorrections": 43,
+  "byFirstSufficientFix": {
+   "either_selection_or_unpricedCost_fix_alone": 5,
+   "selection_only (cheapest cut, V1)": 34,
+   "needs_packageConsistent_accounting (V4: raw x scarcity vs VA credit)": 1,
+   "needs_both (V3b)": 3
+  },
+  "descriptiveFlags": {
+   "unpricedDropCharged (assumedWaiver)": 8,
+   "cheaperAcquiredFillerExistedButNotCut": 39,
+   "acquiredFillerWasCut": 8,
+   "scarcityMultiplierAbove1": 0,
+   "multipleDrops (k>=2)": 31,
+   "chargeExceedsSumOfIncomingFillerRawValues": 31,
+   "cheaperCandidateLineupProtected": 22
+  }
+ },
+ "counterfactuals": {
+  "PROD": {
+   "flips": 133,
+   "neutralised": 85,
+   "overCorrected": 43,
+   "surviving_underCorrected": 5,
+   "notEvaluable": 0,
+   "stepsWhereChargeExceedsFillerCredit": 127,
+   "chargeOverCreditMedian": 1.648
+  },
+  "V1_cheapestRelease": {
+   "flips": 133,
+   "neutralised": 19,
+   "overCorrected": 4,
+   "surviving_underCorrected": 110,
+   "notEvaluable": 0,
+   "stepsWhereChargeExceedsFillerCredit": 10,
+   "chargeOverCreditMedian": 0.551
+  },
+  "V2a_unpricedExcluded": {
+   "flips": 133,
+   "neutralised": 61,
+   "overCorrected": 38,
+   "surviving_underCorrected": 34,
+   "notEvaluable": 0,
+   "stepsWhereChargeExceedsFillerCredit": 95,
+   "chargeOverCreditMedian": 1.252
+  },
+  "V2b_unpricedBoardFloor": {
+   "flips": 133,
+   "neutralised": 67,
+   "overCorrected": 38,
+   "surviving_underCorrected": 28,
+   "notEvaluable": 0,
+   "stepsWhereChargeExceedsFillerCredit": 97,
+   "chargeOverCreditMedian": 1.288
+  },
+  "V3a_cheapest_unpricedExcluded": {
+   "flips": 133,
+   "neutralised": 4,
+   "overCorrected": 1,
+   "surviving_underCorrected": 128,
+   "notEvaluable": 0,
+   "stepsWhereChargeExceedsFillerCredit": 2,
+   "chargeOverCreditMedian": 0.0
+  },
+  "V3b_cheapest_unpricedBoardFloor": {
+   "flips": 133,
+   "neutralised": 5,
+   "overCorrected": 1,
+   "surviving_underCorrected": 127,
+   "notEvaluable": 0,
+   "stepsWhereChargeExceedsFillerCredit": 2,
+   "chargeOverCreditMedian": 0.253
+  },
+  "V4_packageConsistent": {
+   "flips": 133,
+   "neutralised": 1,
+   "overCorrected": 0,
+   "surviving_underCorrected": 132,
+   "notEvaluable": 0,
+   "stepsWhereChargeExceedsFillerCredit": 0,
+   "chargeOverCreditMedian": 0.253
+  }
+ },
+ "variantDefinitions": {
+  "PROD": "production: trade_decision._objective_value charges rosterCapacity.forcedDropReleaseCost = sum over the ladder's drops of base x scarcity",
+  "V1_cheapestRelease": "cut set = lineup-legal set of minimum total release cost over the whole post-trade roster (incoming pieces included); costs unchanged",
+  "V2a_unpricedExcluded": "production cut set; an unpriced (assumedWaiver) drop charges 0 (the roster_capacity.forced_drop_cost rule used by the Trade Finder)",
+  "V2b_unpricedBoardFloor": "production cut set; an unpriced drop charges min(waiver, lowest priced board value at his position) x scarcity",
+  "V3a_cheapest_unpricedExcluded": "V1 selection with V2a costs",
+  "V3b_cheapest_unpricedBoardFloor": "V1 selection with V2b costs",
+  "V4_packageConsistent": "receiver chooses the legal cut set maximising its net: cutting a just-acquired filler removes it from the package (trade re-scored by the production market lens without it) instead of charging raw value x scarcity; other cuts as V3b"
+ },
+ "examples": [
+  {
+   "send": "Aidan Hutchinson (DL, 4737)",
+   "receive": "Jordyn Tyson (WR, 4587)",
+   "fillers": [
+    "Dohnte Meyers (WR, 1506)",
+    "Dru Phillips (DB, 1293)",
+    "Justice Hill (RB, 1461)"
+   ],
+   "ordinal_k0": 0,
+   "steps": [
+    {
+     "fillersReceived": 1,
+     "fillerVaCredit": 1175,
+     "ordinal_assetOnly": 2,
+     "prodCuts": [
+      "Aaron Donald (DL, unpriced; release 1918)"
+     ],
+     "prodCharged": 1918,
+     "ordinal_prod": -2,
+     "v1Cuts": [
+      "Quan Martin (DB, 227; release 227)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 1918,
+      "V1_cheapestRelease": 227,
+      "V2a_unpricedExcluded": 0,
+      "V2b_unpricedBoardFloor": 226,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 226,
+      "V4_packageConsistent": 226
+     },
+     "ordinalByVariant": {
+      "PROD": -2,
+      "V1_cheapestRelease": 2,
+      "V2a_unpricedExcluded": 2,
+      "V2b_unpricedBoardFloor": 2,
+      "V3a_cheapest_unpricedExcluded": 2,
+      "V3b_cheapest_unpricedBoardFloor": 2,
+      "V4_packageConsistent": 2
+     }
+    },
+    {
+     "fillersReceived": 2,
+     "fillerVaCredit": 1961,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Aaron Donald (DL, unpriced; release 1918)",
+      "Adin Huntington (DL, unpriced; release 1918)"
+     ],
+     "prodCharged": 3836,
+     "ordinal_prod": -3,
+     "v1Cuts": [
+      "Quan Martin (DB, 227; release 227)",
+      "Jonathan Allen (DL, 1197; release 1197)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 3836,
+      "V1_cheapestRelease": 1424,
+      "V2a_unpricedExcluded": 0,
+      "V2b_unpricedBoardFloor": 452,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 452,
+      "V4_packageConsistent": 452
+     },
+     "ordinalByVariant": {
+      "PROD": -3,
+      "V1_cheapestRelease": 1,
+      "V2a_unpricedExcluded": 3,
+      "V2b_unpricedBoardFloor": 3,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 3,
+      "V4_packageConsistent": 3
+     }
+    },
+    {
+     "fillersReceived": 3,
+     "fillerVaCredit": 2677,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Aaron Donald (DL, unpriced; release 1918)",
+      "Adin Huntington (DL, unpriced; release 1918)",
+      "Alex Singleton (LB, 1950; release 1950)"
+     ],
+     "prodCharged": 5786,
+     "ordinal_prod": -3,
+     "v1Cuts": [
+      "Quan Martin (DB, 227; release 227)",
+      "Jonathan Allen (DL, 1197; release 1197)",
+      "Jalen Ramsey (DB, 1223; release 1223)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 5786,
+      "V1_cheapestRelease": 2647,
+      "V2a_unpricedExcluded": 1950,
+      "V2b_unpricedBoardFloor": 2402,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 678,
+      "V4_packageConsistent": 678
+     },
+     "ordinalByVariant": {
+      "PROD": -3,
+      "V1_cheapestRelease": 0,
+      "V2a_unpricedExcluded": 1,
+      "V2b_unpricedBoardFloor": 0,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 3,
+      "V4_packageConsistent": 3
+     }
+    }
+   ]
+  },
+  {
+   "send": "Pat Freiermuth (TE, 2943)",
+   "receive": "Laiatu Latu (DL, 2696)",
+   "fillers": [
+    "Dane Belton (DB, 1226)",
+    "Jake Golday (LB, 1892)",
+    "Jauan Jennings (WR, 1745)"
+   ],
+   "ordinal_k0": 0,
+   "steps": [
+    {
+     "fillersReceived": 1,
+     "fillerVaCredit": 956,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Brandon Cisse (DB, 257; release 257)"
+     ],
+     "prodCharged": 257,
+     "ordinal_prod": 2,
+     "v1Cuts": [
+      "Brandon Cisse (DB, 257; release 257)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 257,
+      "V1_cheapestRelease": 257,
+      "V2a_unpricedExcluded": 257,
+      "V2b_unpricedBoardFloor": 257,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 226,
+      "V4_packageConsistent": 226
+     },
+     "ordinalByVariant": {
+      "PROD": 2,
+      "V1_cheapestRelease": 2,
+      "V2a_unpricedExcluded": 2,
+      "V2b_unpricedBoardFloor": 2,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 2,
+      "V4_packageConsistent": 2
+     }
+    },
+    {
+     "fillersReceived": 2,
+     "fillerVaCredit": 2222,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Brandon Cisse (DB, 257; release 257)",
+      "Chamarri Conner (DB, 1973; release 1973)"
+     ],
+     "prodCharged": 2230,
+     "ordinal_prod": -1,
+     "v1Cuts": [
+      "Brandon Cisse (DB, 257; release 257)",
+      "Dee Alford (DB, 430; release 430)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 2230,
+      "V1_cheapestRelease": 687,
+      "V2a_unpricedExcluded": 2230,
+      "V2b_unpricedBoardFloor": 2230,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 452,
+      "V4_packageConsistent": 452
+     },
+     "ordinalByVariant": {
+      "PROD": -1,
+      "V1_cheapestRelease": 3,
+      "V2a_unpricedExcluded": -1,
+      "V2b_unpricedBoardFloor": -1,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 3,
+      "V4_packageConsistent": 3
+     }
+    },
+    {
+     "fillersReceived": 3,
+     "fillerVaCredit": 3119,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Brandon Cisse (DB, 257; release 257)",
+      "Chamarri Conner (DB, 1973; release 1973)",
+      "Dane Belton (DB, 1226, just acquired; release 1226)"
+     ],
+     "prodCharged": 3456,
+     "ordinal_prod": -2,
+     "v1Cuts": [
+      "Brandon Cisse (DB, 257; release 257)",
+      "Dee Alford (DB, 430; release 430)",
+      "Laquon Treadwell (WR, 1062; release 1062)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 3456,
+      "V1_cheapestRelease": 1749,
+      "V2a_unpricedExcluded": 3456,
+      "V2b_unpricedBoardFloor": 3456,
+      "V3a_cheapest_unpricedExcluded": 257,
+      "V3b_cheapest_unpricedBoardFloor": 709,
+      "V4_packageConsistent": 709
+     },
+     "ordinalByVariant": {
+      "PROD": -2,
+      "V1_cheapestRelease": 3,
+      "V2a_unpricedExcluded": -2,
+      "V2b_unpricedBoardFloor": -2,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 3,
+      "V4_packageConsistent": 3
+     }
+    }
+   ]
+  },
+  {
+   "send": "Matthew Golden (WR, 4403)",
+   "receive": "Nick Bolton (LB, 4205)",
+   "fillers": [
+    "Zach Ertz (TE, 1728)",
+    "Cedric Tillman (WR, 1326)",
+    "Chimere Dike (WR, 1628)"
+   ],
+   "ordinal_k0": 0,
+   "steps": [
+    {
+     "fillersReceived": 1,
+     "fillerVaCredit": 1348,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Brandon Cisse (DB, 257; release 257)"
+     ],
+     "prodCharged": 257,
+     "ordinal_prod": 2,
+     "v1Cuts": [
+      "Brandon Cisse (DB, 257; release 257)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 257,
+      "V1_cheapestRelease": 257,
+      "V2a_unpricedExcluded": 257,
+      "V2b_unpricedBoardFloor": 257,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 226,
+      "V4_packageConsistent": 226
+     },
+     "ordinalByVariant": {
+      "PROD": 2,
+      "V1_cheapestRelease": 2,
+      "V2a_unpricedExcluded": 2,
+      "V2b_unpricedBoardFloor": 2,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 2,
+      "V4_packageConsistent": 2
+     }
+    },
+    {
+     "fillersReceived": 2,
+     "fillerVaCredit": 2155,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Brandon Cisse (DB, 257; release 257)",
+      "Cedric Tillman (WR, 1326, just acquired; release 1326)"
+     ],
+     "prodCharged": 1583,
+     "ordinal_prod": 1,
+     "v1Cuts": [
+      "Brandon Cisse (DB, 257; release 257)",
+      "Dee Alford (DB, 430; release 430)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 1583,
+      "V1_cheapestRelease": 687,
+      "V2a_unpricedExcluded": 1583,
+      "V2b_unpricedBoardFloor": 1583,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 452,
+      "V4_packageConsistent": 452
+     },
+     "ordinalByVariant": {
+      "PROD": 1,
+      "V1_cheapestRelease": 3,
+      "V2a_unpricedExcluded": 1,
+      "V2b_unpricedBoardFloor": 1,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 3,
+      "V4_packageConsistent": 3
+     }
+    },
+    {
+     "fillersReceived": 3,
+     "fillerVaCredit": 2968,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Brandon Cisse (DB, 257; release 257)",
+      "Cedric Tillman (WR, 1326, just acquired; release 1326)",
+      "Chamarri Conner (DB, 1973; release 1973)"
+     ],
+     "prodCharged": 3556,
+     "ordinal_prod": -2,
+     "v1Cuts": [
+      "Brandon Cisse (DB, 257; release 257)",
+      "Dee Alford (DB, 430; release 430)",
+      "Laquon Treadwell (WR, 1062; release 1062)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 3556,
+      "V1_cheapestRelease": 1749,
+      "V2a_unpricedExcluded": 3556,
+      "V2b_unpricedBoardFloor": 3556,
+      "V3a_cheapest_unpricedExcluded": 257,
+      "V3b_cheapest_unpricedBoardFloor": 709,
+      "V4_packageConsistent": 709
+     },
+     "ordinalByVariant": {
+      "PROD": -2,
+      "V1_cheapestRelease": 2,
+      "V2a_unpricedExcluded": -2,
+      "V2b_unpricedBoardFloor": -2,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 3,
+      "V4_packageConsistent": 3
+     }
+    }
+   ]
+  },
+  {
+   "send": "TreVeyon Henderson (RB, 4351)",
+   "receive": "Fred Warner (LB, 4208)",
+   "fillers": [
+    "Mason Graham (DL, 1785)",
+    "Odafe Oweh (DL, 1740)",
+    "Jaleel McLaughlin (RB, 1353)"
+   ],
+   "ordinal_k0": 0,
+   "steps": [
+    {
+     "fillersReceived": 1,
+     "fillerVaCredit": 1392,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Andrew Mukuba (DB, 1533; release 1533)"
+     ],
+     "prodCharged": 1533,
+     "ordinal_prod": -1,
+     "v1Cuts": [
+      "Gracen Halton (DL, 262; release 262)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 1533,
+      "V1_cheapestRelease": 262,
+      "V2a_unpricedExcluded": 1533,
+      "V2b_unpricedBoardFloor": 1533,
+      "V3a_cheapest_unpricedExcluded": 262,
+      "V3b_cheapest_unpricedBoardFloor": 262,
+      "V4_packageConsistent": 262
+     },
+     "ordinalByVariant": {
+      "PROD": -1,
+      "V1_cheapestRelease": 2,
+      "V2a_unpricedExcluded": -1,
+      "V2b_unpricedBoardFloor": -1,
+      "V3a_cheapest_unpricedExcluded": 2,
+      "V3b_cheapest_unpricedBoardFloor": 2,
+      "V4_packageConsistent": 2
+     }
+    },
+    {
+     "fillersReceived": 2,
+     "fillerVaCredit": 2451,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Andrew Mukuba (DB, 1533; release 1533)",
+      "Dane Belton (DB, 1226; release 1226)"
+     ],
+     "prodCharged": 2759,
+     "ordinal_prod": -1,
+     "v1Cuts": [
+      "Gracen Halton (DL, 262; release 262)",
+      "Dane Belton (DB, 1226; release 1226)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 2759,
+      "V1_cheapestRelease": 1488,
+      "V2a_unpricedExcluded": 2759,
+      "V2b_unpricedBoardFloor": 2759,
+      "V3a_cheapest_unpricedExcluded": 1488,
+      "V3b_cheapest_unpricedBoardFloor": 1488,
+      "V4_packageConsistent": 1321
+     },
+     "ordinalByVariant": {
+      "PROD": -1,
+      "V1_cheapestRelease": 2,
+      "V2a_unpricedExcluded": -1,
+      "V2b_unpricedBoardFloor": -1,
+      "V3a_cheapest_unpricedExcluded": 2,
+      "V3b_cheapest_unpricedBoardFloor": 2,
+      "V4_packageConsistent": 2
+     }
+    },
+    {
+     "fillersReceived": 3,
+     "fillerVaCredit": 3093,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Andrew Mukuba (DB, 1533; release 1533)",
+      "Dane Belton (DB, 1226; release 1226)",
+      "Darius Cooper (WR, 1629; release 1629)"
+     ],
+     "prodCharged": 4388,
+     "ordinal_prod": -3,
+     "v1Cuts": [
+      "Gracen Halton (DL, 262; release 262)",
+      "Dane Belton (DB, 1226; release 1226)",
+      "Jev\u00f3n Holland (DB, 1261; release 1261)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 4388,
+      "V1_cheapestRelease": 2749,
+      "V2a_unpricedExcluded": 4388,
+      "V2b_unpricedBoardFloor": 4388,
+      "V3a_cheapest_unpricedExcluded": 2749,
+      "V3b_cheapest_unpricedBoardFloor": 2749,
+      "V4_packageConsistent": 1963
+     },
+     "ordinalByVariant": {
+      "PROD": -3,
+      "V1_cheapestRelease": 0,
+      "V2a_unpricedExcluded": -3,
+      "V2b_unpricedBoardFloor": -3,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 0,
+      "V4_packageConsistent": 2
+     }
+    }
+   ]
+  },
+  {
+   "send": "Justin Herbert (QB, 5853)",
+   "receive": "Sam LaPorta (TE, 5645)",
+   "fillers": [
+    "Brandon Jones (DB, 1509)",
+    "Quinn Ewers (QB, 1209)",
+    "Zonovan Knight (RB, 1047)"
+   ],
+   "ordinal_k0": 0,
+   "steps": [
+    {
+     "fillersReceived": 1,
+     "fillerVaCredit": 1177,
+     "ordinal_assetOnly": 2,
+     "prodCuts": [
+      "Andrew Mukuba (DB, 1533; release 1533)"
+     ],
+     "prodCharged": 1533,
+     "ordinal_prod": -1,
+     "v1Cuts": [
+      "Gracen Halton (DL, 262; release 262)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 1533,
+      "V1_cheapestRelease": 262,
+      "V2a_unpricedExcluded": 1533,
+      "V2b_unpricedBoardFloor": 1533,
+      "V3a_cheapest_unpricedExcluded": 262,
+      "V3b_cheapest_unpricedBoardFloor": 262,
+      "V4_packageConsistent": 262
+     },
+     "ordinalByVariant": {
+      "PROD": -1,
+      "V1_cheapestRelease": 2,
+      "V2a_unpricedExcluded": -1,
+      "V2b_unpricedBoardFloor": -1,
+      "V3a_cheapest_unpricedExcluded": 2,
+      "V3b_cheapest_unpricedBoardFloor": 2,
+      "V4_packageConsistent": 2
+     }
+    },
+    {
+     "fillersReceived": 2,
+     "fillerVaCredit": 1913,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Andrew Mukuba (DB, 1533; release 1533)",
+      "Brandon Jones (DB, 1509, just acquired; release 1509)"
+     ],
+     "prodCharged": 3042,
+     "ordinal_prod": -2,
+     "v1Cuts": [
+      "Gracen Halton (DL, 262; release 262)",
+      "Quinn Ewers (QB, 1209, just acquired; release 1209)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 3042,
+      "V1_cheapestRelease": 1471,
+      "V2a_unpricedExcluded": 3042,
+      "V2b_unpricedBoardFloor": 3042,
+      "V3a_cheapest_unpricedExcluded": 1471,
+      "V3b_cheapest_unpricedBoardFloor": 1471,
+      "V4_packageConsistent": 998
+     },
+     "ordinalByVariant": {
+      "PROD": -2,
+      "V1_cheapestRelease": 0,
+      "V2a_unpricedExcluded": -2,
+      "V2b_unpricedBoardFloor": -2,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 0,
+      "V4_packageConsistent": 2
+     }
+    },
+    {
+     "fillersReceived": 3,
+     "fillerVaCredit": 2409,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Andrew Mukuba (DB, 1533; release 1533)",
+      "Brandon Jones (DB, 1509, just acquired; release 1509)",
+      "Dane Belton (DB, 1226; release 1226)"
+     ],
+     "prodCharged": 4268,
+     "ordinal_prod": -3,
+     "v1Cuts": [
+      "Gracen Halton (DL, 262; release 262)",
+      "Zonovan Knight (RB, 1047, just acquired; release 1047)",
+      "Quinn Ewers (QB, 1209, just acquired; release 1209)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 4268,
+      "V1_cheapestRelease": 2518,
+      "V2a_unpricedExcluded": 4268,
+      "V2b_unpricedBoardFloor": 4268,
+      "V3a_cheapest_unpricedExcluded": 2518,
+      "V3b_cheapest_unpricedBoardFloor": 2518,
+      "V4_packageConsistent": 1494
+     },
+     "ordinalByVariant": {
+      "PROD": -3,
+      "V1_cheapestRelease": -1,
+      "V2a_unpricedExcluded": -3,
+      "V2b_unpricedBoardFloor": -3,
+      "V3a_cheapest_unpricedExcluded": -1,
+      "V3b_cheapest_unpricedBoardFloor": -1,
+      "V4_packageConsistent": 1
+     }
+    }
+   ]
+  },
+  {
+   "send": "Brian Branch (DB, 2561)",
+   "receive": "Tre' Harris (WR, 2387)",
+   "fillers": [
+    "Jaishawn Barham (DL, 1658)",
+    "Austin Ekeler (RB, 1123)",
+    "Raheim Sanders (RB, 1521)"
+   ],
+   "ordinal_k0": 0,
+   "steps": [
+    {
+     "fillersReceived": 1,
+     "fillerVaCredit": 1293,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Akheem Mesidor (DL, 1872; release 1872)"
+     ],
+     "prodCharged": 1872,
+     "ordinal_prod": -3,
+     "v1Cuts": [
+      "Princely Umanmielen (DL, 270; release 270)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 1872,
+      "V1_cheapestRelease": 270,
+      "V2a_unpricedExcluded": 1872,
+      "V2b_unpricedBoardFloor": 1872,
+      "V3a_cheapest_unpricedExcluded": 0,
+      "V3b_cheapest_unpricedBoardFloor": 227,
+      "V4_packageConsistent": 227
+     },
+     "ordinalByVariant": {
+      "PROD": -3,
+      "V1_cheapestRelease": 3,
+      "V2a_unpricedExcluded": -3,
+      "V2b_unpricedBoardFloor": -3,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 3,
+      "V4_packageConsistent": 3
+     }
+    },
+    {
+     "fillersReceived": 2,
+     "fillerVaCredit": 1976,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Akheem Mesidor (DL, 1872; release 1872)",
+      "Austin Ekeler (RB, 1123, just acquired; release 1123)"
+     ],
+     "prodCharged": 2995,
+     "ordinal_prod": -3,
+     "v1Cuts": [
+      "Princely Umanmielen (DL, 270; release 270)",
+      "Cole Payton (QB, 1115; release 1115)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 2995,
+      "V1_cheapestRelease": 1385,
+      "V2a_unpricedExcluded": 2995,
+      "V2b_unpricedBoardFloor": 2995,
+      "V3a_cheapest_unpricedExcluded": 270,
+      "V3b_cheapest_unpricedBoardFloor": 497,
+      "V4_packageConsistent": 497
+     },
+     "ordinalByVariant": {
+      "PROD": -3,
+      "V1_cheapestRelease": 2,
+      "V2a_unpricedExcluded": -3,
+      "V2b_unpricedBoardFloor": -3,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 3,
+      "V4_packageConsistent": 3
+     }
+    },
+    {
+     "fillersReceived": 3,
+     "fillerVaCredit": 2752,
+     "ordinal_assetOnly": 3,
+     "prodCuts": [
+      "Akheem Mesidor (DL, 1872; release 1872)",
+      "Austin Ekeler (RB, 1123, just acquired; release 1123)",
+      "Azareye'h Thomas (DB, unpriced; release 2156)"
+     ],
+     "prodCharged": 5151,
+     "ordinal_prod": -3,
+     "v1Cuts": [
+      "Princely Umanmielen (DL, 270; release 270)",
+      "Cole Payton (QB, 1115; release 1115)",
+      "Austin Ekeler (RB, 1123, just acquired; release 1123)"
+     ],
+     "chargeByVariant": {
+      "PROD_recomputed": 5151,
+      "V1_cheapestRelease": 2508,
+      "V2a_unpricedExcluded": 2995,
+      "V2b_unpricedBoardFloor": 3222,
+      "V3a_cheapest_unpricedExcluded": 1385,
+      "V3b_cheapest_unpricedBoardFloor": 1612,
+      "V4_packageConsistent": 1030
+     },
+     "ordinalByVariant": {
+      "PROD": -3,
+      "V1_cheapestRelease": 0,
+      "V2a_unpricedExcluded": -1,
+      "V2b_unpricedBoardFloor": -2,
+      "V3a_cheapest_unpricedExcluded": 3,
+      "V3b_cheapest_unpricedBoardFloor": 3,
+      "V4_packageConsistent": 3
+     }
+    }
+   ]
+  }
+ ],
+ "localLimit": "Component B (roster-utility / lineup lens) needs the box-local projection snapshot and is NOT_ENOUGH_EVIDENCE locally; only Component A (VA gap minus forced release) is measured.  Fairness bands use the base the production lens took from the fairness-band owner for every variant (v1_legacy: the larger adjusted side).",
+ "elapsedSec": 41.4
+}

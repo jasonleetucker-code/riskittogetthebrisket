@@ -1,0 +1,15 @@
+[Unit]
+Description=Forecast Scorecard weekly schedule for __SERVICE_NAME__
+
+# WHEN: Wed 14:20 UTC, after the Forecast Calibration Ledger's Tue/Wed 13:40 firing and
+# after the 72 h stat-correction wait of a Sunday-Monday week has mostly passed.  The
+# degradation streak advances only when the eligible samples CHANGE, so extra firings are
+# no-ops.  Persistent=true catches up a box that was down.
+[Timer]
+OnCalendar=Wed *-*-* 14:20:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+Unit=__SERVICE_NAME__-forecast-scorecard.service
+
+[Install]
+WantedBy=timers.target

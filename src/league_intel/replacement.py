@@ -61,7 +61,7 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from src.ros.lineup import RosterPlayer, optimize_lineup, roster_players_from_rows
 
@@ -75,6 +75,7 @@ __all__ = [
     "ScarcityComponents",
     "normalize_base_position",
     "measure_endogenous_starters",
+    "waiver_levels",
     "compute_replacement_levels",
     "compute_scarcity",
 ]
@@ -338,6 +339,79 @@ def _banded_value(
     return statistics.fmean(window), r, min(window), max(window)
 
 
+def _base_position_of(row: Mapping[str, Any]) -> str:
+    """The default position key: the row's roster-slot family."""
+    return normalize_base_position(str(row.get("position") or ""))
+
+
+def waiver_levels(
+    free_agents: Iterable[Mapping[str, Any]],
+    *,
+    value_key: str,
+    position_of: Callable[[Mapping[str, Any]], str] = _base_position_of,
+    band: int = DEFAULT_BAND,
+) -> dict[str, ReplacementLevel]:
+    """The ``waiver`` tier per position: the ONE implementation of it.
+
+    The level is the mean of free-agent ranks ``1 .. 1 + band`` at each
+    position (ranks 1-3 at ``DEFAULT_BAND``), read through
+    ``_banded_value``.  ``compute_replacement_levels`` produces its
+    waiver tier by calling this function, so the two cannot drift.
+
+    **The caller owns the population and the unit.**  ``free_agents``
+    must already be the set of players who count as available — this
+    function decides no eligibility, health or rostered-ness.
+    ``value_key`` names the field to read and is required on purpose:
+    ``rosValue`` (0-100 ROS index) and ``rankDerivedValue`` (0-9999
+    dynasty board) are different units with no validated conversion,
+    so a level is only ever comparable with values read from the same
+    field.  The unit travels with the caller's choice, never with a
+    default.
+
+    ``position_of`` returns the key a row is grouped under; the default
+    collapses Sleeper positions onto their roster-slot family
+    (``normalize_base_position``).  A row whose key is empty is
+    skipped.
+
+    Missing is never zero: a row whose value is missing, zero or
+    negative carries no information about the level and is excluded
+    from its position's pool (it is never counted as a 0).  A position
+    with no positive value has NO level — the key is absent — rather
+    than a level of 0.  A pool of one or two uses what exists, and
+    ``sample_size`` says how many.
+
+    Pure computation: no I/O, no network.
+    """
+    if not isinstance(value_key, str) or not value_key:
+        raise ValueError("waiver_levels: value_key must name a value field")
+    pools: dict[str, list[float]] = {}
+    for row in free_agents:
+        pos = position_of(row)
+        if not pos:
+            continue
+        raw = row.get(value_key)
+        if not raw:
+            continue  # missing or zero: no information about the level
+        value = float(raw)
+        if value > 0:
+            pools.setdefault(pos, []).append(value)
+
+    out: dict[str, ReplacementLevel] = {}
+    for pos, pool in pools.items():
+        pool.sort(reverse=True)
+        value, rank, lo, hi = _banded_value(pool, 1, band)
+        out[pos] = ReplacementLevel(
+            position=pos,
+            tier="waiver",
+            value=value,
+            threshold_rank=rank,
+            band_low=lo,
+            band_high=hi,
+            sample_size=len(pool),
+        )
+    return out
+
+
 def compute_replacement_levels(
     teams: Sequence[Mapping[str, Any]],
     starter_slots: Sequence[str],
@@ -378,16 +452,11 @@ def compute_replacement_levels(
     for values in rostered.values():
         values.sort(reverse=True)
 
-    fa: dict[str, list[float]] = {}
-    for p in free_agents:
-        base = normalize_base_position(str(p.get("position") or ""))
-        if not base:
-            continue
-        value = float(p.get("rosValue") or 0.0)
-        if value > 0:
-            fa.setdefault(base, []).append(value)
-    for values in fa.values():
-        values.sort(reverse=True)
+    # The waiver tier is the one shared algorithm (``waiver_levels``),
+    # called here in this function's own unit.  Positions with a free
+    # agent but no priced rostered pool are computed and then dropped by
+    # the loop below, exactly as before the extraction.
+    waiver = waiver_levels(free_agents, value_key="rosValue", band=band)
 
     out: dict[str, PositionReplacement] = {}
     for pos, pool in rostered.items():
@@ -437,19 +506,10 @@ def compute_replacement_levels(
             sample_size=len(pool),
         )
 
-        # waiver — the best unrostered player at this position.
-        fa_pool = fa.get(pos, [])
-        if fa_pool:
-            value, rank, lo, hi = _banded_value(fa_pool, 1, band)
-            levels["waiver"] = ReplacementLevel(
-                position=pos,
-                tier="waiver",
-                value=value,
-                threshold_rank=rank,
-                band_low=lo,
-                band_high=hi,
-                sample_size=len(fa_pool),
-            )
+        # waiver — the best unrostered players at this position (the
+        # mean of free-agent ranks 1..1+band).
+        if pos in waiver:
+            levels["waiver"] = waiver[pos]
 
         out[pos] = PositionReplacement(
             position=pos,

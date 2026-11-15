@@ -1,6 +1,6 @@
 "use client";
 
-import { Panel } from "@/components/ds";
+import { Panel, SegmentedControl } from "@/components/ds";
 
 /**
  * PositionalTable — main comparison grid.
@@ -11,6 +11,13 @@ import { Panel } from "@/components/ds";
  */
 const POSITIONS = ["QB", "RB", "WR", "TE"];
 
+// Same exclusive method choice as SummaryCards — the ds SegmentedControl
+// rather than two unstyled `btn btn-secondary` buttons (CQ-30).
+const POSITIONAL_METHOD_OPTIONS = [
+  { value: "improved", label: "Improved" },
+  { value: "legacy", label: "Legacy" },
+];
+
 export default function PositionalTable({ data, method, setMethod }) {
   const positions = data?.positions || {};
 
@@ -18,24 +25,12 @@ export default function PositionalTable({ data, method, setMethod }) {
     <Panel>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
         <h2 className="section-title" style={{ margin: 0 }}>Positional Comparison</h2>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button
-            type="button"
-            className={`btn btn-secondary ${method === "improved" ? "active" : ""}`}
-            onClick={() => setMethod("improved")}
-            style={method === "improved" ? { borderColor: "var(--cyan)", color: "var(--cyan)" } : {}}
-          >
-            Improved
-          </button>
-          <button
-            type="button"
-            className={`btn btn-secondary ${method === "legacy" ? "active" : ""}`}
-            onClick={() => setMethod("legacy")}
-            style={method === "legacy" ? { borderColor: "var(--cyan)", color: "var(--cyan)" } : {}}
-          >
-            Legacy
-          </button>
-        </div>
+        <SegmentedControl
+          label="Method"
+          value={method}
+          onChange={setMethod}
+          options={POSITIONAL_METHOD_OPTIONS}
+        />
       </div>
 
       <div className="table-wrap" style={{ marginTop: "var(--space-sm)" }}>

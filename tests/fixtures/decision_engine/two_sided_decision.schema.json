@@ -1,0 +1,110 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "two_sided_decision_v1",
+  "title": "TwoSidedDecision (decision_engine_v3_shadow) camelCase payload",
+  "description": "Produced by src/trade/decision_engine/serialize.py::to_payload. Verdicts are codes; no headline text, no probability, no aggregate utility.",
+  "type": "object",
+  "required": ["schemaVersion", "engineVersion", "paramSetId", "shape", "teams", "recommendationOnly", "executes"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {"const": "two_sided_decision_v1"},
+    "engineVersion": {"const": "decision_engine_v3_shadow"},
+    "paramSetId": {"type": "string"},
+    "shape": {"enum": ["good_for_both", "good_for_one", "bad_for_both", "insufficient"]},
+    "teams": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/definitions/team"}},
+    "recommendationOnly": {"const": true},
+    "executes": {"const": false}
+  },
+  "definitions": {
+    "level": {"enum": ["high", "medium", "low"]},
+    "team": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "teamId", "verdictCode", "neutralTag", "strategy", "strategySource", "policyRow",
+        "predictiveProbability", "confidence", "confidenceBottleneck", "confidenceAxes",
+        "isProbability", "reasons", "keyNumbers", "whatWouldChange", "missingEvidence",
+        "layersUsed", "doubleCountGuard", "receipt"
+      ],
+      "properties": {
+        "teamId": {"type": "string"},
+        "verdictCode": {"enum": ["YES", "NO", "INSUFFICIENT_EVIDENCE"]},
+        "neutralTag": {"type": "boolean"},
+        "strategy": {"enum": ["WIN_NOW", "BALANCED", "LONG_TERM", "UNKNOWN"]},
+        "strategySource": {"enum": ["user", "posture", "none"]},
+        "policyRow": {"type": "string"},
+        "predictiveProbability": {"type": "null"},
+        "confidence": {"$ref": "#/definitions/level"},
+        "confidenceBottleneck": {"type": "string"},
+        "confidenceAxes": {"type": "object", "additionalProperties": {"$ref": "#/definitions/level"}},
+        "isProbability": {"const": false},
+        "reasons": {"type": "array", "maxItems": 3, "items": {"$ref": "#/definitions/reason"}},
+        "keyNumbers": {"$ref": "#/definitions/keyNumbers"},
+        "whatWouldChange": {"type": "array", "items": {"type": "object", "required": ["kind"]}},
+        "missingEvidence": {
+          "type": "array",
+          "items": {"type": "object", "required": ["code", "layer"], "properties": {"code": {"type": "string"}, "layer": {"type": "string"}}}
+        },
+        "layersUsed": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/definitions/term"}},
+        "doubleCountGuard": {"type": "object", "required": ["lineageVerdict", "votingTerms"]},
+        "receipt": {
+          "type": "object",
+          "required": ["engineVersion", "paramSetId", "inputHashes", "packageModel", "promotedFamilies", "lineageVerdict", "knownChampionBiases", "isProbability", "predictiveProbability", "policyRow"],
+          "properties": {
+            "isProbability": {"const": false},
+            "predictiveProbability": {"type": "null"},
+            "promotedFamilies": {"type": "array", "items": {"type": "string"}}
+          }
+        }
+      }
+    },
+    "reason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "family", "stance", "textKey", "magnitude"],
+      "properties": {
+        "code": {"type": "string"},
+        "family": {"type": "string"},
+        "stance": {"enum": ["for", "against", "context"]},
+        "textKey": {"type": "string"},
+        "magnitude": {"type": ["number", "null"]}
+      }
+    },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "term", "lineageMember", "state", "countedAsVote", "direction", "magnitudeClass", "value",
+        "unit", "band", "mcStandardError", "predictiveSd", "predictiveBasis", "precisionOk", "reason"
+      ],
+      "properties": {
+        "term": {"enum": ["A", "C", "D1", "D2"]},
+        "lineageMember": {"type": "string"},
+        "state": {"enum": ["available", "partial", "stale", "unavailable"]},
+        "countedAsVote": {"type": "boolean"},
+        "direction": {"enum": ["favours", "opposes", "neutral", null]},
+        "magnitudeClass": {"enum": ["modest", "large", null]},
+        "value": {"type": ["number", "null"]},
+        "unit": {"type": "string"},
+        "band": {"type": ["number", "null"]},
+        "mcStandardError": {"type": ["number", "null"]},
+        "predictiveSd": {"type": ["number", "null"]},
+        "predictiveBasis": {"type": "string"},
+        "precisionOk": {"type": ["boolean", "null"]},
+        "reason": {"type": ["string", "null"]}
+      }
+    },
+    "keyNumber": {
+      "anyOf": [
+        {"type": "object", "required": ["before", "after", "unit"], "properties": {"before": {"type": "number"}, "after": {"type": "number"}, "unit": {"type": "string"}}},
+        {"type": "object", "required": ["value", "unit"], "properties": {"value": {"type": "number"}, "unit": {"type": "string"}}},
+        {"type": "object", "required": ["state", "reason"], "properties": {"state": {"type": "string"}, "reason": {"type": "string"}}}
+      ]
+    },
+    "keyNumbers": {
+      "type": "object",
+      "required": ["market", "vaGap", "lineupPpg", "depth", "riskDownsideQ10", "championshipDelta", "multiYear"],
+      "additionalProperties": {"$ref": "#/definitions/keyNumber"}
+    }
+  }
+}

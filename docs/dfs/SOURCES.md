@@ -94,7 +94,7 @@ the DFS platforms; that is recorded as `corporateParent`, not as a data dependen
 
 | Data type | Connected today | Researched, not connected (why) | PIT usefulness |
 |---|---|---|---|
-| Salaries / roster eligibility | **Automatic (NFL DK+FD):** Daily Fantasy Fuel week pools via `src/dfs/auto` (DFS-AUTO-03); official DK/FD salary CSVs (owner upload, *Advanced*) | SportsDataIO DFS slates (paid; key not provisioned; flag OFF) — the only path to platform player ids | High — recorded with the page's own publish stamp |
+| Salaries / roster eligibility | **Automatic (NFL, NBA, NHL × DK+FD):** Daily Fantasy Fuel pages via `src/dfs/auto` (DFS-AUTO-03/19); official DK/FD salary CSVs (owner upload, *Advanced*) | SportsDataIO DFS slates (paid; key not provisioned; flag OFF) — the only path to platform player ids | High — recorded with the page's own publish stamp |
 | Projections | Owner CSV import; **Daily Fantasy Fuel** (`src/dfs/sources_dff.py`, NFL/NBA/NHL, DK/FD) | Free/freemium pages (CeeGeeDFS, Fantasy Team Advice CSV, DraftEdge, RotoBaller…), paid (RotoGrinders, FantasyLabs, Stokastic, SaberSim, ETR…) — not yet adapted | Only as fetched: recorded at fetch time |
 | Ownership (projected) | Owner CSV import | CeeGeeDFS (free), Fantasy Team Advice (freemium CSV), paid ownership (RotoGrinders pOWN, FantasyLabs, Stokastic, SaberSim) | Critical input; realized ownership comes from standings |
 | Betting lines / game environment | **Daily Fantasy Fuel** page context (spread, over/under, implied team total) | Licensed odds APIs (The Odds API, OpticOdds/OddsJam, SportsDataIO) — paid, owner approval; books' own sites barred by terms | High for ownership features; recorded at fetch time |
@@ -126,7 +126,11 @@ endpoints bar it).
 |---|---|---|---|---|
 | NFL schedule, kickoff, lock | nflverse (`nfl_data.ingest`) | ALREADY AVAILABLE | yes | per-season file 404s, the combined `games.csv` rung answers (pre-existing `url_stale` warning) |
 | NFL DK/FD pool, salary, position | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | yes | week pool; slate windows derived; no platform ids |
-| NBA/NHL DK/FD pool, salary | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | not yet (DFS-AUTO-19) | pages parse; per-sport schedule needed |
+| NBA/NHL DK/FD pool, salary, position(s) | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | built (DFS-AUTO-19); waits on the schedule-source decision | the one dated slate each page lists; robots re-checked 2026-10-07 (`/lineup/*` only) |
+| NBA/NHL schedule, start time, lock | ESPN public scoreboard (`src/dfs/auto/league_schedule.py`) | PENDING OWNER DECISION (possible expansion of the owner-attested ESPN integration; ADR-DFS-025, `config/dfs/auto_sources.json`) | built, gated off | no key; 30-min cache; preseason / postponed / invalid-time events dropped |
+| NHL projected lines (EV / PP), goalie starter flag | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | evidence only | carried on the athlete; not yet a stack constraint or correlation input |
+| NBA/NHL player directory (cross-provider identity) | — | UNKNOWN | no | athletes are provider-scoped (`athlete:<sport>:dailyfantasyfuel:<id>`, DFS-§9-03) |
+| NBA/NHL second projection family | — | UNKNOWN / PAID | no | DFF is the only family; no ensemble |
 | MMA pool, salary | — | UNKNOWN | no (DFS-AUTO-20) | no permitted source found |
 | DK/FD platform player ids, official slate lists | SportsDataIO DFS slates | PAID | no (DFS-AUTO-18) | adapter built, flag OFF |
 | DK/FD platform player ids, slate lists | DraftKings / FanDuel lobbies or private JSON | NOT PERMITTED | never | owner constraint |

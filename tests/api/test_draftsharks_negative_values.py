@@ -23,7 +23,7 @@ receives credit for DS coverage end to end.
 
 from __future__ import annotations
 
-import json
+import copy
 import unittest
 
 import pytest
@@ -32,12 +32,17 @@ from pathlib import Path
 from src.api.data_contract import (
     _DS_COMBINED_RANK_KEYS,
     _RANKING_SOURCES,
-    build_api_data_contract,
 )
 
 REPO = Path(__file__).resolve().parents[2]
-DS_IDP_CSV = REPO / "CSVs" / "site_raw" / "draftSharksIdp.csv"
-DS_SF_CSV = REPO / "CSVs" / "site_raw" / "draftSharksSf.csv"
+
+
+def _pinned_csv(name: str) -> Path:
+    """A DraftSharks CSV from the PINNED board's tree (the same refresh the
+    contract under test was built from), never today's ``CSVs/site_raw``."""
+    from tests.archive_fixtures import pinned_board_root
+
+    return pinned_board_root() / "CSVs" / "site_raw" / name
 
 
 def _load_live_contract() -> dict | None:
@@ -47,13 +52,12 @@ def _load_live_contract() -> dict | None:
     live contract self-skip in that case so CI still runs against the
     registry-shape assertions.
     """
-    export_dir = REPO / "exports" / "latest"
-    files = sorted(export_dir.glob("dynasty_data_*.json"), reverse=True)
-    if not files:
-        return None
-    with files[0].open("r", encoding="utf-8") as f:
-        raw = json.load(f)
-    return build_api_data_contract(raw)
+    # The PINNED real board (``tests.archive_fixtures``): payload, CSVs and
+    # scrape state from one refresh, so the DraftSharks rows under test are a
+    # fixed fact rather than whatever the latest refresh scraped.
+    from tests.archive_fixtures import pinned_board_contract
+
+    return copy.deepcopy(pinned_board_contract()[0])
 
 
 class DraftSharksNegativeValueTests(unittest.TestCase):
@@ -82,7 +86,7 @@ class DraftSharksNegativeValueTests(unittest.TestCase):
         """Guard against CSV-format regressions that would make these
         tests vacuous — DS SHOULD carry negative-valued rows past the
         rank-200 crossover."""
-        for csv_path in (DS_IDP_CSV, DS_SF_CSV):
+        for csv_path in (_pinned_csv("draftSharksIdp.csv"), _pinned_csv("draftSharksSf.csv")):
             if not csv_path.exists():
                 self.skipTest(f"CSV missing: {csv_path}")
             text = csv_path.read_text(encoding="utf-8")
@@ -115,7 +119,7 @@ class DraftSharksNegativeValueTests(unittest.TestCase):
         DS-IDP row — the carve-out invariant is "every negative-valued
         DS row gets full coverage", independent of which specific
         player happens to be in the tail this week."""
-        if not DS_IDP_CSV.exists():
+        if not _pinned_csv("draftSharksIdp.csv").exists():
             self.skipTest("DraftSharks IDP CSV missing")
         if self.contract is None:
             self.skipTest("No exported raw payload to build contract from")
@@ -201,7 +205,10 @@ class DraftSharksNegativeValueTests(unittest.TestCase):
         ``sourceRanks`` → ``sourcePresence`` end to end, and it passed
         throughout the outage.  Nothing about the regression this file
         exists for became advisory."""
-        if not DS_IDP_CSV.exists() or not DS_SF_CSV.exists():
+        if (
+            not _pinned_csv("draftSharksIdp.csv").exists()
+            or not _pinned_csv("draftSharksSf.csv").exists()
+        ):
             self.skipTest("DraftSharks CSVs missing")
         if self.contract is None:
             self.skipTest("No exported raw payload to build contract from")

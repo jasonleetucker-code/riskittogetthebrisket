@@ -88,6 +88,7 @@ policy.  Pinned against the registry by
 | `signalsIdpDb` | position_idp (DB) | 1.0 | 150 | `rank_signal`, `private_box_local`, **held from voting** (Signals IDP DB board) |
 | `dlfRookieSf` | overall_offense | 1.0 | 50 | `rank_signal` |
 | `dlfSf` | overall_offense | 1.0 | 280 | `rank_signal` |
+| `dlfValuesSfTep` | overall_offense | 1.0 | 320 | `tep_premium`, `rank_signal` (rank from the published value order; offense-only member of the DLF family, sharing its one cap — owner decision D4) |
 | `draftSharks` | overall_offense | 1.0 | 500 | `tep_premium` |
 | `dynastyDaddySf` | overall_offense | 1.0 | 320 | `rank_signal` |
 | `dynastyNerdsSfTep` | overall_offense | 1.0 | 300 | `tep_premium`, `rank_signal` |

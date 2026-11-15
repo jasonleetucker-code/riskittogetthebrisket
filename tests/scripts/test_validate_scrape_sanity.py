@@ -221,6 +221,10 @@ class AuditSidecarTests(unittest.TestCase):
         # Source census: indexes site_raw CSV NAMES inside export-archive zips
         # (presence dates only); never parses a value.
         "src/sources/source_census.py",
+        # V2.1 VID recorder: reads only the vendor-id / name / position / team
+        # columns of CSVs that carry a vendor-id column, into the identity
+        # owner's append-only id map; never a value, never a vote.
+        "src/identity/vendor_ids.py",
     }
 
     def test_no_src_module_loads_site_raw_by_enumeration(self) -> None:

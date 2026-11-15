@@ -116,7 +116,11 @@ def _coverage_result(status: dict):
     freshness = _read_freshness()
     thresholds = load_thresholds()
     return evaluate_coverage_map(
-        cov_int, freshness, thresholds, seasonally_inactive=_served_seasonal_inactive(status)
+        cov_int,
+        freshness,
+        thresholds,
+        seasonally_inactive=_served_seasonal_inactive(status),
+        absent_by_design=_served_private_absent_by_design(status),
     )
 
 
@@ -133,6 +137,23 @@ def _served_seasonal_inactive(status: dict) -> set[str]:
     excuses nothing (fail closed).
     """
     raw = status.get("served_seasonal_inactive")
+    if not isinstance(raw, list):
+        return set()
+    return {k for k in raw if isinstance(k, str) and k}
+
+
+def _served_private_absent_by_design(status: dict) -> set[str]:
+    """Private sources the SERVED board declares it carries no vote from.
+
+    From ``/api/status``'s ``served_private_absent_by_design`` — the served
+    generation's own ``privateSourceAvailability`` stamp (not provisioned,
+    rolled back, or held from the vote, e.g. Signals IDP in shadow).  A
+    collected-but-shadowed board is "fresh" in the checkout and, by design,
+    on no served row; judging it by freshness alone failed the 2026-10-05
+    hotfix deploy and rolled production back onto a crashing build.  A
+    missing or malformed field excuses nothing (fail closed).
+    """
+    raw = status.get("served_private_absent_by_design")
     if not isinstance(raw, list):
         return set()
     return {k for k in raw if isinstance(k, str) and k}

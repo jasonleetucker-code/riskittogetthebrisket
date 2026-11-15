@@ -1,0 +1,184 @@
+{
+  "schemaVersion": "research-sim-points-v3",
+  "kind": "RESEARCH_CANDIDATE_NOT_SERVED",
+  "promotes": false,
+  "evaluatedWeek": 6,
+  "model": {
+    "source": "research-v3-challenger",
+    "meanByFamily": {
+      "DB": {
+        "a": 6.632759,
+        "b": 3.337872,
+        "mode": "ols",
+        "n": 461
+      },
+      "DL": {
+        "a": 6.457362,
+        "b": 2.930749,
+        "mode": "ols",
+        "n": 356
+      },
+      "K": {
+        "a": 7.720528,
+        "b": 1.674472,
+        "mode": "ols",
+        "n": 98
+      },
+      "LB": {
+        "a": 9.054859,
+        "b": 2.875904,
+        "mode": "ols",
+        "n": 427
+      },
+      "QB": {
+        "a": 12.277119,
+        "b": 6.595351,
+        "mode": "ols",
+        "n": 166
+      },
+      "RB": {
+        "a": 3.499562,
+        "b": 7.190494,
+        "mode": "ols",
+        "n": 362
+      },
+      "TE": {
+        "a": 3.278537,
+        "b": 4.278436,
+        "mode": "ols",
+        "n": 261
+      },
+      "WR": {
+        "a": 4.153613,
+        "b": 6.024035,
+        "mode": "ols",
+        "n": 533
+      }
+    },
+    "pooledMean": {
+      "a": 0.0,
+      "b": 10.643191,
+      "n": 2664
+    },
+    "reAnchored": false,
+    "cvByFamily": {
+      "DB": 0.89,
+      "DL": 1.2,
+      "K": 1.2,
+      "LB": 0.755,
+      "QB": 0.805,
+      "RB": 1.015,
+      "TE": 1.2,
+      "WR": 1.105
+    },
+    "pooledCv": 1.07,
+    "rawFamily": {},
+    "tauL2": 0.000778,
+    "tauR2": 0.008724
+  },
+  "fit": {
+    "fitWeeks": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "fitPlayerWeeks": 2664,
+    "prequentialPlayerWeeks": 2108,
+    "prequentialWeeks": [
+      2,
+      3,
+      4,
+      5
+    ],
+    "cv": {
+      "LB": {
+        "cv": 0.755,
+        "n": 341,
+        "measured": true,
+        "meanLogScore": -3.50932
+      },
+      "DB": {
+        "cv": 0.89,
+        "n": 370,
+        "measured": true,
+        "meanLogScore": -3.38478
+      },
+      "WR": {
+        "cv": 1.105,
+        "n": 411,
+        "measured": true,
+        "meanLogScore": -3.36703
+      },
+      "QB": {
+        "cv": 0.805,
+        "n": 134,
+        "measured": true,
+        "meanLogScore": -3.84961
+      },
+      "TE": {
+        "cv": 1.2,
+        "n": 202,
+        "measured": true,
+        "meanLogScore": -3.19489
+      },
+      "RB": {
+        "cv": 1.015,
+        "n": 286,
+        "measured": true,
+        "meanLogScore": -3.43005
+      },
+      "DL": {
+        "cv": 1.2,
+        "n": 285,
+        "measured": true,
+        "meanLogScore": -3.49467
+      },
+      "K": {
+        "cv": 1.2,
+        "n": 79,
+        "measured": true,
+        "meanLogScore": -4.09524
+      }
+    },
+    "pooledCv": {
+      "cv": 1.07,
+      "n": 2108,
+      "meanLogScore": -3.4853491527519433
+    },
+    "shocks": {
+      "tauL2": 0.0007776190314087884,
+      "tauR2": 0.008723775002972946,
+      "tauL2Raw": 0.0007776190314087884,
+      "tauW2Raw": 0.009501394034381735,
+      "pairsCross": true,
+      "residualPlayerWeeks": 2108
+    },
+    "cIdioByFamily": {
+      "DB": 0.8846,
+      "DL": 1.196,
+      "K": 1.196,
+      "LB": 0.7487,
+      "QB": 0.7991,
+      "RB": 1.0103,
+      "TE": 1.196,
+      "WR": 1.1007
+    }
+  },
+  "note": "Family anchors are inputs of the evaluated week (mean as-of rosValue over its pool, \u00a73.1) and are attached at evaluation time; they are not part of this file.",
+  "study": {
+    "promotes": false,
+    "status": "RESEARCH_CANDIDATE_NOT_SERVED",
+    "cardFingerprint": "sf1:9e51824690d091f9",
+    "codeSha": "75c6206790da8bf171566e8c8cb9448f8f127cf1",
+    "studyCodeDirty": false,
+    "scriptSha256": "b55b29d7cef0dbbbd41e24d7134052526e823cd637b58b3667fb6b6ee876e278",
+    "preregistration": {
+      "path": "docs/league-intelligence/SIM_CALIBRATION_V3_PREREGISTRATION_2026-10-27.md",
+      "commit": "c52ff4d7f0b41e27a6422f25ad4b661d8d145f1f",
+      "committedAt": "2026-10-27T05:10:03-04:00",
+      "isAncestorOfCodeSha": true
+    }
+  }
+}

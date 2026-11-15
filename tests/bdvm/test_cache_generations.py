@@ -63,11 +63,11 @@ def test_actuals_reload_after_same_day_input_refresh():
 def test_actuals_reload_after_pbp_supplement_refresh():
     path = pbp_weekly.pbp_weekly_path(2026)
     path.parent.mkdir(parents=True)
-    path.write_text("generation one")
+    path.write_text("generation one", encoding="utf-8")
     with mock.patch.object(actuals, "fetch_current_season_actuals", return_value=(2, {})) as run:
         api._actuals_for(_contract())
         api._actuals_for(_contract())
-        path.write_text("generation two, changed")
+        path.write_text("generation two, changed", encoding="utf-8")
         api._actuals_for(_contract())
     assert run.call_count == 2
 
@@ -88,10 +88,10 @@ def test_context_missing_then_created_then_replaced_is_reloaded():
         assert api._context_for(2026) == {}
         assert api._context_for(2026) == {}
         path.parent.mkdir(parents=True)
-        path.write_text("first generation")
+        path.write_text("first generation", encoding="utf-8")
         load.return_value = {"player": "first"}
         assert api._context_for(2026) == {"player": "first"}
-        path.write_text("second, changed generation")
+        path.write_text("second, changed generation", encoding="utf-8")
         load.return_value = {"player": "second"}
         assert api._context_for(2026) == {"player": "second"}
         assert load.call_count == 3
@@ -113,15 +113,15 @@ def test_schedule_reloads_when_local_artifact_changes():
 @pytest.mark.parametrize("changed", ["context", "schedule", "weekly", "pbp", "projection"])
 def test_values_invalidate_when_auxiliary_artifact_changes(tmp_path, changed):
     projection = tmp_path / "projection.json"
-    projection.write_text("projection")
+    projection.write_text("projection", encoding="utf-8")
     context = context_store.snapshot_path(2026)
     context.parent.mkdir(parents=True)
-    context.write_text("generation one")
+    context.write_text("generation one", encoding="utf-8")
     cache.put(ingest.cache_key("schedules", [2026]), [{"week": 1}])
     cache.put(ingest.cache_key("weekly_stats", [2026]), [{"week": 1}])
     pbp = pbp_weekly.pbp_weekly_path(2026)
     pbp.parent.mkdir(parents=True)
-    pbp.write_text("PBP generation one")
+    pbp.write_text("PBP generation one", encoding="utf-8")
     contract = _contract()
     with (
         mock.patch.object(api, "latest_snapshot_path", return_value=projection),
@@ -135,7 +135,7 @@ def test_values_invalidate_when_auxiliary_artifact_changes(tmp_path, changed):
         assert run.call_count == 1
         if changed in ("context", "pbp", "projection"):
             {"context": context, "pbp": pbp, "projection": projection}[changed].write_text(
-                "generation two is new"
+                "generation two is new", encoding="utf-8"
             )
         else:
             feed = "schedules" if changed == "schedule" else "weekly_stats"
@@ -161,7 +161,7 @@ def test_auxiliary_caches_are_bounded():
 
 def test_failed_actuals_read_is_retried_and_report_uses_season_not_week(tmp_path):
     projection = tmp_path / "projection.json"
-    projection.write_text("projection")
+    projection.write_text("projection", encoding="utf-8")
     contract = _contract()
     with (
         mock.patch.object(api, "latest_snapshot_path", return_value=projection),

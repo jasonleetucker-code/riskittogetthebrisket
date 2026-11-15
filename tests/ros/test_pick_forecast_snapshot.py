@@ -12,6 +12,7 @@ quality; and that a capture run changes nothing served.
 from __future__ import annotations
 
 import ast
+import copy
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,9 +69,15 @@ def _pick_detail(season: int, rnd: int, origin: int, owner: int) -> dict:
 
 def _full_inputs(**overrides) -> snap.SnapshotInputs:
     overlay = [
-        {"roster_id": 1, "name": "A", "pickDetails": [_pick_detail(2027, 1, 1, 1)]},
+        {
+            "roster_id": 1,
+            "ownerId": "u1",
+            "name": "A",
+            "pickDetails": [_pick_detail(2027, 1, 1, 1)],
+        },
         {
             "roster_id": 2,
+            "ownerId": "u2",
             "name": "B",
             "pickDetails": [_pick_detail(2027, 1, 2, 2), _pick_detail(2027, 2, 1, 2)],
         },
@@ -140,7 +147,18 @@ def _full_inputs(**overrides) -> snap.SnapshotInputs:
         last_final_week=4,
         provenance={"payloadSha256": "f" * 64},
     )
-    base["forecast"] = build_pick_projections(overlay, strength, current_season=2026)
+    # The season simulation under the canonical draft-order rule: roster 1
+    # (owner u1) finishes worst in most simulated seasons.
+    season_sim = {
+        "season": 2026,
+        "draftOrderRule": "reverse_record_lower_pf",
+        "regularSeasonProgress": {"weeksFinal": 4, "weeksTotal": 14},
+        "playoffOdds": [
+            {"ownerId": "u1", "draftSlotDistribution": [0.8, 0.2]},
+            {"ownerId": "u2", "draftSlotDistribution": [0.2, 0.8]},
+        ],
+    }
+    base["forecast"] = build_pick_projections(overlay, season_sim, current_season=2026)
     base.update(overrides)
     return snap.SnapshotInputs(**base)
 
@@ -185,8 +203,10 @@ def test_full_record_carries_every_owner_field_with_no_missing_reasons() -> None
         f"pick:{LEAGUE}:2027:r1:o2",
         f"pick:{LEAGUE}:2027:r2:o1",
     ]
-    # The only league-level "missing" is the unowned draft-order rule.
-    assert set(record["missing"]) == {"draftOrderRule"}
+    # dynasty_main has a recorded draft-order rule (canonical owner since
+    # 2026-10-04), so nothing at league level is missing.
+    assert record["rules"]["draftOrderRule"] == "reverse_record_lower_pf"
+    assert set(record["missing"]) == set()
 
 
 def test_forecast_carries_model_identity_and_canonical_pick_ids() -> None:
@@ -194,18 +214,23 @@ def test_forecast_carries_model_identity_and_canonical_pick_ids() -> None:
     forecast = record["forecast"]
     model = forecast["model"]
     assert model["module"] == "src.ros.pick_projection"
-    assert model["modelVersion"] is None and model["modelVersionMissingReason"]
+    assert model["modelVersion"] == "pick_projector_v2_draft_order_rule"
     assert len(model["codeSha256"]) == 64
-    assert model["orderRuleAssumed"] == "reverse_final_standings"
+    assert model["orderRuleOwner"] == "src.public_league.draft_order"
+    assert model["slotInput"] == "season_simulation"
     ids = {p["assetId"] for p in forecast["picks"]}
     assert ids == {
         f"pick:{LEAGUE}:2027:r1:o1",
         f"pick:{LEAGUE}:2027:r1:o2",
         f"pick:{LEAGUE}:2027:r2:o1",
     }
-    # Weakest team (roster 1, strength 40) projects to slot 1.
+    # Roster 1 finishes worst under the rule in most simulations -> slot 1,
+    # and the capture keeps the slot distribution it was forecast from.
     slot = {p["assetId"]: p["projectedSlot"] for p in forecast["picks"]}
     assert slot[f"pick:{LEAGUE}:2027:r1:o1"] == 1
+    dist = {p["assetId"]: p["slotDistribution"] for p in forecast["picks"]}
+    assert dist[f"pick:{LEAGUE}:2027:r1:o1"] == [0.8, 0.2]
+    assert forecast["meta"]["regularSeasonProgress"] == {"weeksFinal": 4, "weeksTotal": 14}
 
 
 # ── missing is never zero ────────────────────────────────────────────
@@ -544,6 +569,20 @@ def _patch_owners(monkeypatch, strength_calls: list) -> None:
     monkeypatch.setattr(
         "src.api.draft_class_evidence.active_seasons_for_league",
         lambda _lid, seasons: list(seasons),
+    )
+    # The season simulation under the league's rule, pinned (never the
+    # checkout's cache file, whose freshness is its mtime).
+    monkeypatch.setattr(
+        "src.ros.playoff_sim._load_cached_payload",
+        lambda key=None: {
+            "season": datetime.now(timezone.utc).year,
+            "draftOrderRule": "reverse_record_lower_pf",
+            "regularSeasonProgress": {"weeksFinal": 4, "weeksTotal": 14},
+            "playoffOdds": [
+                {"ownerId": "u1", "draftSlotDistribution": [0.9, 0.1]},
+                {"ownerId": "u2", "draftSlotDistribution": [0.1, 0.9]},
+            ],
+        },
     )
 
 
@@ -896,6 +935,18 @@ def realistic(monkeypatch, tmp_path):
         lambda _lid, seasons: list(seasons),
     )
     state["strength_dir"] = tmp_path / "ros" / "team_strength"
+    # The league's season simulation is pinned, never read from whatever
+    # cache file the checkout happens to carry (its freshness is file mtime).
+    state["sim"] = {
+        "season": datetime.now(timezone.utc).year,
+        "draftOrderRule": "reverse_record_lower_pf",
+        "regularSeasonProgress": {"weeksFinal": 4, "weeksTotal": 14},
+        "playoffOdds": [
+            {"ownerId": o, "draftSlotDistribution": [1.0 if i == j else 0.0 for j in range(4)]}
+            for i, o in enumerate(_OWNERS)
+        ],
+    }
+    monkeypatch.setattr("src.ros.playoff_sim._load_cached_payload", lambda key=None: state["sim"])
     return state
 
 
@@ -994,3 +1045,54 @@ def test_persist_false_writes_no_served_team_strength_file(realistic) -> None:
         LEAGUE, snapshot=realistic["snapshot"], persist=True
     )
     assert list(strength_dir.iterdir())
+
+
+def test_a_missing_or_stale_simulation_refuses_the_write_not_a_slotless_forecast(
+    realistic,
+) -> None:
+    """dynasty_main has a recorded rule, so a missing/stale season simulation
+    is TRANSIENT: writing a slot-less forecast now would occupy the week's
+    top tier and the real capture (the calibration input) would be lost."""
+    realistic["sim"] = None
+    inputs = _gather_realistic()
+    assert inputs.forecast is None
+    assert inputs.forecast_reason == "season_simulation_unavailable"
+    record = snap.assemble_snapshot(inputs, recorded_at="2026-10-06T12:20:00+00:00")
+    assert "forecast" in record["transientMissing"]
+    assert record["tier"] != snap.TOP_TIER
+
+
+def test_the_capture_records_the_rule_slots_it_was_forecast_from(realistic) -> None:
+    record = snap.assemble_snapshot(_gather_realistic(), recorded_at="2026-10-06T12:20:00+00:00")
+    forecast = record["forecast"]
+    assert forecast["meta"]["draftOrderRule"] == "reverse_record_lower_pf"
+    slotted = [p for p in forecast["picks"] if p["projectedSlot"] is not None]
+    assert slotted and all(p["slotDistribution"] for p in slotted)
+
+
+def test_a_simulation_that_cannot_be_joined_is_transient_not_a_slotless_capture(
+    realistic,
+) -> None:
+    """A rule league whose fresh simulation cannot be joined to the rosters
+    (an ownerId the overlay does not carry) is a simulation gap the next run
+    closes — the write is refused, not locked in as a slot-less top tier."""
+    sim = copy.deepcopy(realistic["sim"])
+    sim["playoffOdds"][0]["ownerId"] = "owner-not-in-the-league"
+    realistic["sim"] = sim
+    inputs = _gather_realistic()
+    assert inputs.forecast is None
+    assert inputs.forecast_reason == (
+        "season_simulation_unavailable:simulation_owner_join_incomplete"
+    )
+    record = snap.assemble_snapshot(inputs, recorded_at="2026-10-06T12:20:00+00:00")
+    assert "forecast" in record["transientMissing"]
+    assert record["tier"] != snap.TOP_TIER
+
+
+def test_transient_slot_reasons_are_the_projector_constants() -> None:
+    from src.ros import pick_projection as pp
+
+    assert snap._TRANSIENT_SLOT_REASONS == {
+        pp.SIMULATION_JOIN_INCOMPLETE,
+        pp.NO_SLOT_DISTRIBUTION,
+    }

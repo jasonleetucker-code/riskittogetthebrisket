@@ -231,7 +231,11 @@ class TestSimulateTradeImpact:
             lambda *a, **k: (base, {o: 0.0 for o in owners}),
         )
         monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
-        monkeypatch.setattr(playoff_sim, "_current_record", lambda s: {})
+        monkeypatch.setattr(
+            playoff_sim,
+            "_current_standings",
+            lambda s: ({}, {"medianGame": False, "state": "not_applicable"}),
+        )
         # Round-robin-ish schedule so wins actually differentiate.
         names = sorted(owners)
         sched = [
@@ -292,6 +296,9 @@ class TestSimulateTradeImpact:
             n_simulations=2000,
             playoff_seeds=4,
             bye_seeds=2,
+            # A no-snapshot hypothetical states its own bracket rule, just as
+            # it states its seeds (C5-PLAY-01 review B2).
+            reseed=True,
         )
         assert out["championship"], "championship deltas must be present"
         champ_total = sum(r["after"] for r in out["championship"])

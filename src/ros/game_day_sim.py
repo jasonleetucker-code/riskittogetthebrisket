@@ -400,6 +400,15 @@ def _threshold(scores: Sequence[float], semantics: str = THRESHOLD_SEMANTICS) ->
     raise GameDaySimError(f"unknown threshold semantics {semantics!r}")
 
 
+def median_threshold(scores: Sequence[float]) -> float:
+    """THE league-median threshold under the canonical, host-verified
+    semantics (``THRESHOLD_SEMANTICS``).  Public accessor so realized
+    consumers (player impact, C5-WAR-01) decide a median game exactly the
+    way this simulation does, without a second definition or a private
+    import."""
+    return _threshold(scores, THRESHOLD_SEMANTICS)
+
+
 def _pct(count: int, draws: int) -> float:
     return round(100.0 * count / draws, 2) if draws else 0.0
 
