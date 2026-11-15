@@ -1,0 +1,23 @@
+{
+  "generated_image": {
+    "file": "public/media/football-editorial.webp",
+    "origin": "OpenAI image generation in this owner-authorized prototype session; fictional athlete, not a player portrait",
+    "sha256": "be0a476c95dfc3bedc38c15c9181da19698af9e8656b51f817140d68a9aa6851"
+  },
+  "fonts": [
+    {
+      "file": "public/fonts/barlow-bold.woff2",
+      "source": "https://github.com/google/fonts/tree/main/ofl/barlowcondensed",
+      "license": "SIL Open Font License 1.1; license files adjacent",
+      "processing": "Latin and application-symbol subset, woff2 via fontTools; internal family names unchanged",
+      "sha256": "240d4a61816bb28bdd809d72217ba4906843551144ec74504cd6b21463460615"
+    },
+    {
+      "file": "public/fonts/plex-sans.woff2",
+      "source": "https://github.com/google/fonts/tree/main/ofl/ibmplexsans",
+      "license": "SIL Open Font License 1.1; license files adjacent",
+      "processing": "Latin and application-symbol subset, woff2 via fontTools; internal family names unchanged",
+      "sha256": "568a14bfaa8220864e312bbc43dcb8be8a5e7ad08759a75dceb7d8e5e0e42334"
+    }
+  ]
+}

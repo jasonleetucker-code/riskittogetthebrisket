@@ -1,0 +1,158 @@
+{
+  "status": "LOCAL_PROTOTYPE_VERIFIED_OWNER_REVIEW_PENDING",
+  "verified_at_utc": "2026-11-07T19:58:06.843979+00:00",
+  "runtime_source_commit": "00516eca1f1d1eb318b215502ecacd71017b8548",
+  "implementation_commit": "e114e1915632994ab1d8e17c7472165672ea337c",
+  "reconciled_main": "d2b42cb68688693fd04524216a96df3a4ba8b1cb",
+  "agent_os_receipt": "741230def70b1c94b9924192ee784bb7241b91a6",
+  "environment": {
+    "node": "20.20.2 via npx node@20",
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "browser": "Playwright Chromium",
+    "target": "http://127.0.0.1:3100",
+    "data": "64 fictional players, 24 synthetic reports; fixed 2026-11-07 18:00 UTC"
+  },
+  "checks": [
+    {
+      "command": "npx --yes --package=node@20 node node_modules/next/dist/bin/next build --webpack",
+      "result": "PASS"
+    },
+    {
+      "command": "npx --yes --package=node@20 node node_modules/vitest/vitest.mjs run",
+      "result": "11/11 PASS"
+    },
+    {
+      "command": "npx --yes --package=node@20 node node_modules/@playwright/test/cli.js test",
+      "result": "16/16 PASS; nine viewport/axe/request-isolation cases included"
+    },
+    {
+      "command": "python scripts/check_planning_integrity.py",
+      "result": "PASS after main documentation reconciliation"
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS after removing upstream license-line trailing spaces; license wording unchanged"
+    }
+  ],
+  "visual_evidence": {
+    "viewports": [
+      1440,
+      768,
+      390
+    ],
+    "screens": [
+      "rankings",
+      "player",
+      "news"
+    ],
+    "initial": "initial-contact-sheet.jpg",
+    "final": "review-contact-sheet.jpg",
+    "manual_review": "All nine initial and revised compositions inspected; individual 390 Rankings and 1440 News viewed; lower-page excerpts inspected. REVIEW.md records at least five issues per screen."
+  },
+  "independent_review": {
+    "result": "All six original findings and two follow-up findings corrected; no remaining material defect found in bounded re-review",
+    "unit_tests": "11/11 independently passed",
+    "runtime_probe": "demo64 hero and current chart both unavailable; no external requests observed on three routes"
+  },
+  "performance": {
+    "conditions": "Local production preview; unthrottled desktop Chromium; sampled after load/fonts and before screenshot/axe instrumentation; not field Web Vitals or production INP",
+    "samples": [
+      {
+        "surface": "news-1440",
+        "lcpMs": 212,
+        "cls": 0.004769311101466049,
+        "domContentLoadedMs": 153.60000000149012
+      },
+      {
+        "surface": "news-390",
+        "lcpMs": 192,
+        "cls": 0.004538091622006814,
+        "domContentLoadedMs": 163.60000000149012
+      },
+      {
+        "surface": "news-768",
+        "lcpMs": 200,
+        "cls": 0.003987008544921875,
+        "domContentLoadedMs": 38.79999999701977
+      },
+      {
+        "surface": "player-1440",
+        "lcpMs": 288,
+        "cls": 0.0012322528754340277,
+        "domContentLoadedMs": 47.80000000074506
+      },
+      {
+        "surface": "player-390",
+        "lcpMs": 164,
+        "cls": 0.0008442789026670791,
+        "domContentLoadedMs": 133.90000000223517
+      },
+      {
+        "surface": "player-768",
+        "lcpMs": 200,
+        "cls": 0.00125401611328125,
+        "domContentLoadedMs": 158
+      },
+      {
+        "surface": "rankings-1440",
+        "lcpMs": 176,
+        "cls": 0.0036313375063295713,
+        "domContentLoadedMs": 145.10000000149012
+      },
+      {
+        "surface": "rankings-390",
+        "lcpMs": 180,
+        "cls": 0.0023372425979723485,
+        "domContentLoadedMs": 167.69999999925494
+      },
+      {
+        "surface": "rankings-768",
+        "lcpMs": 184,
+        "cls": 0.002652533650716146,
+        "domContentLoadedMs": 170.30000000074506
+      }
+    ],
+    "interaction": {
+      "inputToSecondFrameMs": 27.699999999254942,
+      "note": "Local Chromium, warm production build, no CPU/network throttling; not production INP."
+    },
+    "mobile_rankings_initial_cls": 0.14571736337628988
+  },
+  "scope": {
+    "production_paths_modified": false,
+    "production_requests_observed": 0,
+    "merge": false,
+    "deploy": false,
+    "production_verified": false,
+    "owner_design_approved": false
+  },
+  "runtime_git_blob_ids": {
+    "prototypes/sports-network/app/layout.jsx": "f1036bd260ca3b26adee6cbce52abc89aaef47af",
+    "prototypes/sports-network/app/news/page.jsx": "95cfee76a6daad60eb0e171d0d5e0a7da3e7d051",
+    "prototypes/sports-network/app/page.jsx": "573d9c19d9ae7d2c75846bf709b54cc87695ed51",
+    "prototypes/sports-network/app/players/[playerId]/page.jsx": "f1177a7f2637d13c0339bbfb6389c8f342adb937",
+    "prototypes/sports-network/app/rankings/page.jsx": "aee626ff363c9650a1a8c5582ec9fa9293830e5b",
+    "prototypes/sports-network/app/styles.css": "109f9f5e8a882b4c248438961a4596013a79e808",
+    "prototypes/sports-network/components/Experience.jsx": "9006ab8d4dc9405eed9815437405b9dbbb612771",
+    "prototypes/sports-network/fixtures/news.json": "42b793c9e981f75d5883e1a8588e9657fcb3314c",
+    "prototypes/sports-network/fixtures/players.json": "957343ce6d87b833f8d93b7c202f4eb58e9ab554",
+    "prototypes/sports-network/lib/model.js": "49e664c83ed5d2df5d17b15b49862ff218d0bae8",
+    "prototypes/sports-network/lib/model.test.js": "cdfcb3c4c86e77a11a6845c2deee1738e4c9580f",
+    "prototypes/sports-network/next.config.mjs": "3eba98c3336a1adc0dd34f14bd475f4719d1ac71",
+    "prototypes/sports-network/package-lock.json": "27d039a22dfd55170c86a34be951014c61d8b233",
+    "prototypes/sports-network/package.json": "e5da7519f469162a940881d368063cc33b577609",
+    "prototypes/sports-network/playwright.config.js": "af2709d3568e5b707c4a568a1fa73764ceff7f8e",
+    "prototypes/sports-network/public/asset-provenance.json": "7e949d7bfa3a30e8ad0a65bd234e8ff30320059c",
+    "prototypes/sports-network/public/fonts/barlow-bold.woff2": "30afa2ebf1225333ac6a26653ac998ed0af25f68",
+    "prototypes/sports-network/public/fonts/plex-sans.woff2": "6d29424b7ba01e0054ea77d616b1e7f9b1459c04",
+    "prototypes/sports-network/public/media/football-editorial.webp": "d1768a56e6f3d8b655f81d06c2a8be7271339433",
+    "prototypes/sports-network/tests/experience.spec.js": "2a455c3628e5900e72f5266b596ef47511ac2c2c",
+    "prototypes/sports-network/vitest.config.mjs": "a3de6b68a6bb3ff50b9e10cd444ffba8056a21ae"
+  },
+  "unresolved": [
+    "Owner visual approval",
+    "Production migration and verification deferred by authority",
+    "Open/unmerged #2112 charter review pointer to be carried by Integration; current intake and UI ledger link this package"
+  ]
+}
