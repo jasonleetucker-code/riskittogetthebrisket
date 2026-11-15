@@ -95,4 +95,5 @@ def test_analyze_and_monte_carlo_agree_on_reason_and_study():
     mc_vu = _symmetric()["valueUncertainty"]
     assert vu["reason"] == mc_vu["reason"] == mc.UNCERTAINTY_UNAVAILABLE_REASON
     assert vu["evidence"] == mc_vu["evidence"] == _STUDY
-    assert "not an acceptance probability" in vu["notes"]
+    assert "not the chance a manager agrees" in vu["notes"]
+    assert not re.search(r"acceptance\s+prob", vu["notes"])
