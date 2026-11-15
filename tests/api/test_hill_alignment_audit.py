@@ -281,7 +281,8 @@ def test_a_lower_floor_can_only_exclude_more(raw, base):
 
 
 def test_scale_population_decomposition_is_an_identity(base):
-    obs = audit.scale_population_observations(base, audit.vendor_player_values())
+    site_raw = dc._default_input_root() / "CSVs" / "site_raw"  # the pinned tree, as for base
+    obs = audit.scale_population_observations(base, audit.vendor_player_values(site_raw))
     offense = [o for o in obs if o["assetClass"] == "offense" and o.get("ratioPop")]
     assert offense
     for o in offense:
@@ -354,7 +355,7 @@ def test_c3_vote_is_never_below_hill_at_the_live_rank(raw):
 
 
 def test_dlf_join_probe_stamps_dlf_values_without_moving_the_board(raw, base):
-    if not (audit.REPO_ROOT / audit.DLF_VALUES_CSV_REL).exists():
+    if not (dc._default_input_root() / audit.DLF_VALUES_CSV_REL).exists():
         pytest.skip("no DLF Values CSV")
     before = dict(dc._SOURCE_CSV_PATHS)
     probe = vr.build(raw, audit.dlf_join_probe_spec())
