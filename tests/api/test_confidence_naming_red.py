@@ -147,8 +147,7 @@ def _slotted_rows() -> list[dict[str, Any]]:
 
 def _rows() -> list[dict[str, Any]]:
     contract = _load_contract()
-    if contract is None:
-        pytest.skip("no complete archived scrape to build a contract from")
+    assert contract is not None, "the pinned board always builds a contract"
     return contract.get("playersArray") or []
 
 

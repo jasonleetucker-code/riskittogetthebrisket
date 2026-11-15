@@ -72,8 +72,7 @@ class TestAnchorEndToEnd(unittest.TestCase):
         assert has_published_slot_class(raw), "the pinned board carries no slotted class"
         self.contract = contract
         self.year = _slotted_year(contract["playersArray"])
-        if self.year is None:
-            self.skipTest("No slot picks on the board -- between drafts (C1-U6-D2)")
+        assert self.year is not None, "the pinned board has a slotted class but no slot picks"
         self.prefix = f"{self.year} Pick "
         self.slot_picks = [
             r
@@ -95,8 +94,7 @@ class TestAnchorEndToEnd(unittest.TestCase):
             ],
             key=lambda r: -int(r["rankDerivedValue"]),
         )
-        if not rookies:
-            self.skipTest("No rookies in contract")
+        assert rookies, "the pinned board carries priced rookies"
 
         pick_101 = next(
             (r for r in rows if r.get("canonicalName") == f"{self.year} Pick 1.01"),
@@ -157,8 +155,7 @@ class TestAnchorEndToEnd(unittest.TestCase):
         rookies that fell off the Phase 4 cap.
         """
         picks = self.slot_picks
-        if len(picks) < 72:
-            self.skipTest(f"Only {len(picks)} {self.year} slot picks in contract")
+        assert len(picks) >= 72, f"the pinned board carries a full slot class, got {len(picks)}"
         untethered = [p.get("canonicalName") for p in picks if not p.get("pickRookieAnchor")]
         self.assertEqual(
             untethered,

@@ -6,7 +6,7 @@ Fresh adjudication of 17 findings the 2026-11-06 recount could not adjudicate
 Everything here is offline and deterministic:
 
 * the board is built by the real ``build_api_data_contract`` from the PINNED, git-tracked archive
-  ``exports/archive/dynasty_export_20261106_194518.zip`` (never ``exports/latest`` and never a live
+  the committed 2026-11-06 board ``tests/fixtures/audit_board_20261106.zip`` (pseudonymized payload) (never ``exports/latest`` and never a live
   board, so the 2-hourly refresh cannot move any assertion);
 * scoring / league-identity checks use the committed audit fixtures under
   ``docs/master-site-audit/evidence/``;
@@ -27,24 +27,24 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 REPO = Path(__file__).resolve().parents[2]
-ARCHIVE = REPO / "exports" / "archive" / "dynasty_export_20261106_194518.zip"
 EVIDENCE = REPO / "docs" / "master-site-audit" / "evidence"
 IDP = {"DL", "LB", "DB", "DE", "DT", "CB", "S", "SS", "FS", "EDGE"}
+AUDIT_BOARD = REPO / "tests" / "fixtures" / "audit_board_20261106.zip"
 _cache: dict = {}
 
 
 def _board() -> dict:
     if "board" not in _cache:
-        if not ARCHIVE.is_file():
-            pytest.skip("pinned archive bundle absent")
         from src.api.data_contract import build_api_data_contract
 
-        with zipfile.ZipFile(ARCHIVE) as zf:
-            name = next(
-                n for n in zf.namelist() if n.startswith("dynasty_data_") and n.endswith(".json")
-            )
-            raw = json.loads(zf.read(name))
+        # The 2026-11-06 board (this module's assertions were measured on it),
+        # from a committed, pseudonymized fixture -- never exports/archive,
+        # which retention prunes.  Built with the pinned CSVs and state.
+        with zipfile.ZipFile(AUDIT_BOARD) as zf:
+            raw = json.loads(zf.read("payload.json"))
         _cache["board"] = build_api_data_contract(raw)
     return _cache["board"]
 

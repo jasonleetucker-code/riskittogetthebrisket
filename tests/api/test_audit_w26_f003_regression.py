@@ -18,14 +18,14 @@ from __future__ import annotations
 
 import json
 import re
-import zipfile
 from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 REPO = Path(__file__).resolve().parents[2]
 PAGE = REPO / "frontend" / "app" / "draft" / "page.jsx"
-ARCHIVE = REPO / "exports" / "archive" / "dynasty_export_20261106_194518.zip"
 
 
 def _page() -> str:
@@ -41,16 +41,11 @@ def test_no_draft_read_of_api_data_bypasses_the_compact_view_url():
 
 
 def test_compact_view_is_a_fraction_of_the_full_contract():
-    if not ARCHIVE.is_file():
-        pytest.skip("pinned archive bundle absent")
     from src.api.compact_view import compact_contract
     from src.api.data_contract import build_api_data_contract
+    from tests.archive_fixtures import pinned_board_payload
 
-    with zipfile.ZipFile(ARCHIVE) as zf:
-        name = next(
-            n for n in zf.namelist() if n.startswith("dynasty_data_") and n.endswith(".json")
-        )
-        raw = json.loads(zf.read(name))
+    raw, _label = pinned_board_payload()
     full = build_api_data_contract(raw)
     full_bytes = len(json.dumps(full))
     compact_bytes = len(json.dumps(compact_contract(full)))
