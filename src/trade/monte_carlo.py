@@ -77,6 +77,42 @@ BAND_SOURCE_UNKNOWN = "unknown"  # caller did not say
 _BAND_SOURCES = frozenset({BAND_SOURCE_STAMPED, BAND_SOURCE_SYNTHETIC, BAND_SOURCE_UNKNOWN})
 
 
+#: Owner directive 2026-11-08 (Priority 12): without an empirically
+#: credible interval the response says so explicitly, and never presents
+#: a simulation frequency as an empirical acceptance probability.  The
+#: study (``TRADE_UNCERTAINTY_STUDY_2026-11-08.md`` section 7) found no
+#: empirically calibrated band.  This state flips only through a
+#: preregistered, owner-approved promotion.
+UNCERTAINTY_UNAVAILABLE_REASON = "no_empirically_calibrated_band"
+UNCERTAINTY_STUDY_PATH = "docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md"
+
+
+def value_uncertainty_unavailable(band_sources: dict[str, int] | None = None) -> dict[str, Any]:
+    """The explicit uncertainty-unavailable contract (additive field)."""
+    sources = band_sources or {}
+    if sources.get(BAND_SOURCE_SYNTHETIC, 0):
+        basis = "assumed_flat_15pct"
+    elif sources.get(BAND_SOURCE_STAMPED, 0):
+        basis = "stamped_value_band_uncalibrated"
+    else:
+        basis = "unknown"
+    return {
+        "state": "unavailable",
+        "reason": UNCERTAINTY_UNAVAILABLE_REASON,
+        "bandBasis": basis,
+        "horizonDays": None,
+        "calibratedIntervals": None,
+        "replayCheckOfAssumedBand": {
+            "nominalCoverage": 0.8,
+            "observedCoverage7d": 0.992,
+            "observedCoverage14d": 0.976,
+            "coverageIsUpperBound": True,
+            "basis": "board_self_consistency_replay_2026-04-16_to_2026-11-08",
+        },
+        "evidence": UNCERTAINTY_STUDY_PATH,
+    }
+
+
 @dataclass(frozen=True)
 class TradePlayer:
     """Minimal player shape the simulator needs."""
@@ -148,6 +184,7 @@ class SimResult:
                 else ""
             ),
             "bandSources": sources,
+            "valueUncertainty": value_uncertainty_unavailable(sources),
             "vaAdjustment": self.va_adjustment
             or {"side": 0, "value": 0, "effectiveValue": 0, "applied": False},
         }

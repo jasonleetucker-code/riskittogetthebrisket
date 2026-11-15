@@ -54,6 +54,12 @@ CITATION_ONLY: dict[tuple[str, str], str] = {
         "src/model_registry/training_manifest.py",
         "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md",
     ): "interpolated into NOT_HILL_BOARDS reason strings",
+    ("src/trade/analyze_trade.py", "docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md"): (
+        "cited as the evidence reference in the valueUncertainty unavailable dimension"
+    ),
+    ("src/trade/monte_carlo.py", "docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md"): (
+        "cited as the evidence reference in the valueUncertainty contract"
+    ),
 }
 
 #: Directories whose ONLY reader accepts a fixed set of suffixes, so the probe

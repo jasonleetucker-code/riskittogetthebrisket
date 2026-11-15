@@ -84,6 +84,7 @@ def _average_results(ab: _mc.SimResult, ba: _mc.SimResult) -> dict[str, Any]:
             ab_payload["disclaimer"] + "  Direction-symmetrized to eliminate ordering bias."
         ),
         "bandSources": ab_payload["bandSources"],
+        "valueUncertainty": ab_payload["valueUncertainty"],
         "symmetryCheck": {
             "winProbA_AB": round(winA_ab, 4),
             "winProbA_BA_flipped": round(winA_ba_flipped, 4),
