@@ -16482,7 +16482,21 @@ class PublicSnapshotUnavailable(RuntimeError):
 # cheap file reads in the common case, and caching them by snapshot
 # identity would hide fresh results the ROS publisher writes between
 # snapshot refreshes.  They read their artifact fresh on every request.
-_HEAVY_SECTION_KEYS = frozenset({"archives", "awards"})
+#
+# ``records``, ``franchise`` and ``weekly`` joined on 2026-11-15.  They were
+# rebuilt on every request (census 2026-11-15: first hits 4.99 / 3.28 / 1.74 s,
+# 1.80 / 1.49 s right after a publish while ``awards``, memoized, took 0.58 s).
+# Their compute is small (records 66 ms, franchise 183 ms cold on a 3-season
+# snapshot locally); the spikes come from running it while the background
+# snapshot rebuild and the post-publish warm hold the GIL.  Each reads the
+# snapshot plus the same week-finality rule ``awards`` reads
+# (``metrics.final_weeks`` over the cache-only nflverse schedule), so the
+# snapshot key bounds their freshness exactly as it bounds ``awards``.  None
+# reads ``activity_valuation``.  ``franchise`` is built by
+# ``_build_heavy_section``, which reuses the exact-key ``awards`` body as the
+# route always did; its ``?owner=`` detail is attached to a copy of the
+# memoized payload, never to the cached instance.
+_HEAVY_SECTION_KEYS = frozenset({"archives", "awards", "franchise", "records", "weekly"})
 # section -> (cache key, payload, build start on the monotonic clock).  Stores
 # come from the event loop AND background refresh threads, so they go
 # through ``_remember_heavy_section`` (newer build wins) under this lock.
@@ -16531,6 +16545,19 @@ def _exact_memoized_awards_body(snapshot):
     return body if isinstance(body, dict) else None
 
 
+def _build_heavy_section(snapshot, section, activity_valuation=None):
+    """The ONE build of a heavy section, used by the route's miss path, the
+    stale-while-revalidate job and the post-publish warm.  ``franchise`` reuses
+    the exact-key memoized ``awards`` body (an exact hit only, so its bytes are
+    a fresh build's); any other section ignores it."""
+    return build_section_payload(
+        snapshot,
+        section,
+        activity_valuation=activity_valuation,
+        awards_section=_exact_memoized_awards_body(snapshot) if section == "franchise" else None,
+    )
+
+
 def _remember_heavy_section(section: str, cache_key, payload, started_at: float) -> None:
     with _heavy_section_lock:
         current = _heavy_section_cache.get(section)
@@ -16546,7 +16573,7 @@ def _kick_heavy_section_refresh(snapshot, section, activity_valuation) -> bool:
     def _build():
         cache_key = _heavy_section_cache_key(snapshot)
         started_at = time.monotonic()
-        payload = build_section_payload(snapshot, section, activity_valuation=activity_valuation)
+        payload = _build_heavy_section(snapshot, section, activity_valuation)
         _remember_heavy_section(section, cache_key, payload, started_at)
 
     return _kick_public_memo_refresh(f"heavy:{section}", _build)
@@ -16603,10 +16630,7 @@ async def _get_heavy_section_payload(
             return hit
         started_at = time.monotonic()
         payload = await run_in_threadpool(
-            build_section_payload,
-            snapshot,
-            section,
-            activity_valuation=activity_valuation,
+            _build_heavy_section, snapshot, section, activity_valuation
         )
         _remember_heavy_section(section, cache_key, payload, started_at)
         return payload
@@ -17853,7 +17877,7 @@ _public_sections_warm_state = {"running": False, "pending": False, "wait": False
 
 
 def _warm_public_sections_once() -> list[str]:
-    """Warm awards, archives and the canonical forecast for the CURRENT snapshot.
+    """Warm every heavy section and the canonical forecast for the CURRENT snapshot.
 
     Returns the names warmed.  Each step is isolated, so one failure never
     skips the next; the caller swallows anything that escapes."""
@@ -17874,9 +17898,10 @@ def _warm_public_sections_once() -> list[str]:
             if cached is not None and cached[0] == cache_key:
                 continue
             started_at = time.monotonic()
-            # ``awards`` / ``archives`` never read ``activity_valuation`` (see
-            # the heavy-section notes), so None is the route's own build.
-            payload = build_section_payload(snapshot, section)
+            # No heavy section reads ``activity_valuation`` (see the
+            # heavy-section notes), so None is the route's own build.  Sorted
+            # order puts ``awards`` before ``franchise``, which reuses it.
+            payload = _build_heavy_section(snapshot, section)
             _remember_heavy_section(section, cache_key, payload, started_at)
             warmed.append(section)
         except Exception as exc:  # noqa: BLE001 -- the request path builds on demand
@@ -18212,10 +18237,9 @@ async def get_public_league_section_csv(
             # a 200 and nothing saying a qualifier had been ignored.  A
             # qualified request drops to the uncached branch below, which
             # honours it; that is the rarer path, and correctness beats the
-            # memo there.  ``owner`` is included for the same reason even
-            # though no heavy section reads it today — the predicate should
-            # match the stated rule, or the next section added here
-            # reintroduces the bug.
+            # memo there.  ``owner`` is included for the same reason:
+            # ``franchise.csv?owner=`` narrows the export to one manager, and
+            # this branch would otherwise return every manager's rows.
             payload = await _get_heavy_section_payload(
                 snapshot, section, bypass_cache=_authorized_force_refresh(request, refresh)
             )
@@ -18326,15 +18350,23 @@ async def get_public_league_section(
             _get_public_snapshot, force_refresh=_authorized_force_refresh(request, refresh)
         )
         if section in _HEAVY_SECTION_KEYS:
-            # archives / awards: single-flight + memoize, coordinated on the loop
-            # so concurrent waiters don't occupy threadpool workers.  Heavy
-            # sections are never ``franchise``, so no owner-detail step.
+            # Single-flight + memoize, coordinated on the loop so concurrent
+            # waiters don't occupy threadpool workers.
             payload = await _get_heavy_section_payload(
                 snapshot,
                 section,
                 activity_valuation=_build_public_activity_valuation(),
                 bypass_cache=_authorized_force_refresh(request, refresh),
             )
+            if section == "franchise" and owner:
+                # A NEW dict around the memoized payload: the cached instance
+                # is shared by every request and must never carry one owner's
+                # detail.  Same field, same position, same projection as the
+                # per-request build this replaced.
+                detail_map = (payload.get("data") or {}).get("detail") or {}
+                payload = public_payload(
+                    {**payload, "franchiseDetail": detail_map.get(str(owner).strip())}
+                )
         elif section == "overview":
             payload = await _get_public_overview_payload(
                 snapshot, bypass_cache=_authorized_force_refresh(request, refresh)
@@ -18359,13 +18391,7 @@ async def get_public_league_section(
                     section,
                     activity_valuation=_build_public_activity_valuation(),
                     team_assignment_contract=latest_contract_data,
-                    awards_section=(
-                        _exact_memoized_awards_body(snapshot) if section == "franchise" else None
-                    ),
                 )
-                if section == "franchise" and owner:
-                    detail_map = payload.get("data", {}).get("detail") or {}
-                    payload["franchiseDetail"] = detail_map.get(str(owner).strip())
                 if section == "rosPower" and lens:
                     # build_section_payload above already ran canonical.
                     # Recompute only when the caller explicitly requested a
@@ -18375,7 +18401,7 @@ async def get_public_league_section(
 
                     if lens != power_v2.LENS_CANONICAL:
                         payload["data"] = power_v2.build_section(snapshot, lens=lens)
-                # ``franchiseDetail`` / the lens recompute were attached AFTER
+                # The lens recompute was attached AFTER
                 # ``build_section_payload`` projected the payload, so the
                 # whole response goes through the serving projection again.
                 return public_payload(payload)
