@@ -1,10 +1,10 @@
 {
-  "computedAt": "2026-11-15T02:14:15.327382+00:00",
-  "forecastSha256": "4b7bce35b434ef8095530b4ef982e95457004a8aff94bc4a00a1c868f1ea2757",
+  "computedAt": "2026-11-15T10:01:39.998915+00:00",
+  "forecastSha256": "f4339a1e592b81e58c656641bcb08f87db5e89d093d2cdc151f59d537c116929",
   "inputs": {
     "contractGeneration": null,
-    "inputsSha256": "35ec3816683b6887abc331f8366427271dcdc59088b1794b30daf72af0c85741",
-    "leagueSnapshotGeneratedAt": "2026-11-15T02:14:15+00:00",
+    "inputsSha256": "4a6547fd8921525b9ce621355ee3b11e754d4c808abac8dd1e86af6c17f4841f",
+    "leagueSnapshotGeneratedAt": "2026-11-15T10:01:39+00:00",
     "leagueSnapshotScope": [
       "season",
       "league_id",
@@ -14,12 +14,12 @@
       "winners_bracket",
       "losers_bracket"
     ],
-    "leagueSnapshotSha256": "261d4f6341bc539a78e1426fe9e76a8b612adc573e17d18ac3474e5b366ec53e",
+    "leagueSnapshotSha256": "a4eb206cfa9d154eea0d87aa7942aa54e3d9e71212ba4ee846a52986bd5a50cd",
     "pointsModelFallbackSha256": "67ee9153fce3166a2b8568add3a0af51479077d117b210fd90fa1bd03dc98f96",
     "pointsModelFileSha256": null,
     "pointsModelSource": "fallback-constants",
-    "rosAggregateSha256": "fd2c01a1305d91f976702f3a104522aed85de4537f73d7ac1635697b6829b2f7",
-    "rosAggregatedAt": "2026-11-15T02:14:07.312680+00:00",
+    "rosAggregateSha256": "afc99199a82ea5be3b2cd7be9c1ee7f51e432d0ee00f8922020e9ea2bbccb011",
+    "rosAggregatedAt": "2026-11-15T10:01:33.722011+00:00",
     "teamStrengthFileFresh": true,
     "teamStrengthFileSha256": "d52e15496c8ede5aef4e3e8ab14d0d84a4c169131b9ce70d9c29e82045490864"
   },
@@ -27,8 +27,8 @@
   "lastScoredWeek": 9,
   "leagueKey": "dynasty_new",
   "model": {
-    "codeSha": "97a0b5033057cf0b861610112bbde2ed2f7343e2",
-    "codeShaCapturedAt": "2026-11-15T02:14:04.560677+00:00",
+    "codeSha": "0b065361526c4cbad1f69a45cd3eeac5ab3d8b67",
+    "codeShaCapturedAt": "2026-11-15T10:01:32.220139+00:00",
     "codeShaSource": "refs/heads/main",
     "simParams": {
       "bestBall": false,
