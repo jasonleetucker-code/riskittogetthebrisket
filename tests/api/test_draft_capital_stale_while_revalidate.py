@@ -229,7 +229,12 @@ def test_publish_clears_then_rebuilds():
     """The generation clear in the publish path is followed by the rebuild."""
     server = pytest.importorskip("server")
     src = inspect.getsource(server)
-    clear_then_kick = "_DRAFT_CAPITAL_CACHE.clear()\n    _kick_draft_capital_publish_rebuild()"
+    # Under the store lock, so no build can file between its generation check
+    # and the clear.
+    clear_then_kick = (
+        "with _DRAFT_CAPITAL_STORE_LOCK:\n        _DRAFT_CAPITAL_CACHE.clear()\n"
+        "    _kick_draft_capital_publish_rebuild()"
+    )
     assert clear_then_kick in src.replace("\r\n", "\n")
 
 

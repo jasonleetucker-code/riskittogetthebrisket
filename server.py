@@ -24,6 +24,7 @@ import os
 import sys
 import signal
 import subprocess
+import itertools
 import threading
 import time
 import logging
@@ -3366,7 +3367,8 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         _OVERRIDES_RESPONSE_CACHE.clear()
         # Draft-capital results price picks off the live contract on the
         # non-default-league path — drop them with the old generation.
-        _DRAFT_CAPITAL_CACHE.clear()
+        with _DRAFT_CAPITAL_STORE_LOCK:
+            _DRAFT_CAPITAL_CACHE.clear()
 
     if not data:
         _swap_to_empty()
@@ -3653,7 +3655,8 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     latest_compact_data_etag = compact_etag
     # Old-generation memoized responses go with the old etag.
     _OVERRIDES_RESPONSE_CACHE.clear()
-    _DRAFT_CAPITAL_CACHE.clear()
+    with _DRAFT_CAPITAL_STORE_LOCK:
+        _DRAFT_CAPITAL_CACHE.clear()
     _kick_draft_capital_publish_rebuild()
     # A new board generation moves the heavy-section key (``latest_data_etag``);
     # rebuild those entries off the request path.  Never blocks, never raises.
@@ -15230,8 +15233,11 @@ def _compute_draft_capital(league_cfg, is_default_league: bool):
 _DRAFT_CAPITAL_SWR_SEC = 600.0
 _DRAFT_CAPITAL_WARM_ENABLED = _env_bool("DRAFT_CAPITAL_WARM_ENABLED", True)
 _DRAFT_CAPITAL_STORE_LOCK = threading.Lock()
-#: league key -> start time (``time.time()``) of the build whose board is filed.
-_DRAFT_CAPITAL_FILED_STARTED: dict[str, float] = {}
+#: league key -> start sequence of the build whose board is filed.  A counter,
+#: not the wall clock: no ties at a coarse timer tick, and a clock step cannot
+#: stall filing.
+_DRAFT_CAPITAL_FILED_STARTED: dict[str, int] = {}
+_DRAFT_CAPITAL_BUILD_SEQ = itertools.count(1)
 _DRAFT_CAPITAL_ANY_GENERATION = object()
 
 
@@ -15239,7 +15245,7 @@ def _store_draft_capital_result(
     league_key: str,
     result,
     *,
-    started_at: float | None = None,
+    started_at: int | None = None,
     generation=_DRAFT_CAPITAL_ANY_GENERATION,
 ):
     """File one build's result as the route always did; returns what to serve
@@ -15302,7 +15308,7 @@ def _kick_draft_capital_refresh(league_cfg, is_default_league: bool) -> bool:
         # on the new generation.
         for _attempt in range(2):
             generation = latest_data_etag
-            started_at = time.time()
+            started_at = next(_DRAFT_CAPITAL_BUILD_SEQ)
             result = _compute_draft_capital(league_cfg, is_default_league)
             if generation == latest_data_etag:
                 _store_draft_capital_result(
@@ -15483,7 +15489,7 @@ async def get_draft_capital(request: Request, refresh: str = ""):
                 result = cache_slot[1]
             else:
                 generation = latest_data_etag
-                started_at = time.time()
+                started_at = next(_DRAFT_CAPITAL_BUILD_SEQ)
                 result = _store_draft_capital_result(
                     league_cfg.key,
                     await run_in_threadpool(_compute),
