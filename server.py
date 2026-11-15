@@ -15188,6 +15188,13 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     # anonymous request can never strip the fields from the cached object
     # that the authenticated /draft page reads next.
     viewer_is_authed = _is_authenticated(request)
+    if refresh and not viewer_is_authed:
+        # An anonymous ``?refresh=<anything>`` used to skip the cache and run
+        # a full ~3-4 s build (Sleeper round-trips, dollar generation) per
+        # request, so any caller could keep the worker busy.  Same posture as
+        # ``_authorized_force_refresh`` on the public-league routes: IGNORED,
+        # not refused -- the public tab keeps working and reads the cache.
+        refresh = ""
     cache_slot = _DRAFT_CAPITAL_CACHE.get(league_cfg.key)
     if not refresh and cache_slot and (now - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC:
         cached = cache_slot[1]
@@ -16502,6 +16509,23 @@ def _heavy_section_cache_key(snapshot):
         # a new contract generation must invalidate it (owner 2026-10-17).
         latest_data_etag,
     )
+
+
+def _exact_memoized_awards_body(snapshot):
+    """The memoized ``awards`` section BODY for exactly this snapshot and
+    board generation, else ``None``.
+
+    ``franchise`` lists each manager's awards and used to recompute the whole
+    awards section on every request (the full-contract path already passes
+    the one it built).  Only an EXACT-key hit qualifies -- never a stale-
+    while-revalidate entry -- so the franchise bytes are those a fresh build
+    would produce; any miss falls back to the standalone build."""
+    cached = _heavy_section_cache.get("awards")
+    if cached is None or cached[0] != _heavy_section_cache_key(snapshot):
+        return None
+    payload = cached[1]
+    body = payload.get("data") if isinstance(payload, dict) else None
+    return body if isinstance(body, dict) else None
 
 
 def _remember_heavy_section(section: str, cache_key, payload, started_at: float) -> None:
@@ -18217,6 +18241,9 @@ async def get_public_league_section(
                     section,
                     activity_valuation=_build_public_activity_valuation(),
                     team_assignment_contract=latest_contract_data,
+                    awards_section=(
+                        _exact_memoized_awards_body(snapshot) if section == "franchise" else None
+                    ),
                 )
                 if section == "franchise" and owner:
                     detail_map = payload.get("data", {}).get("detail") or {}
