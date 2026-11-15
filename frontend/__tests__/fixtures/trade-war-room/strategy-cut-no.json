@@ -1525,6 +1525,97 @@
    "WR Buf Star enters the optimal lineup in 88% of simulated weeks"
   ],
   "recommendation": "LEAN_MAKE",
+  "statusQuo": {
+   "actionSupported": false,
+   "baseline": {
+    "definition": "Declining moves no asset, adds no roster cut and leaves the lineup unchanged, so both decision components read exactly 0 against it.",
+    "forcedReleaseCost": 0,
+    "objectiveValue": 0,
+    "rosterBenefitPpg": 0
+   },
+   "decisionVersion": "trade_decision_v2",
+   "derivedFrom": {
+    "deciding": "strategy",
+    "headline": "NO"
+   },
+   "evidence": {
+    "forcedRelease": {
+     "basis": "Declining adds no roster cut. A release owed before the trade is owed either way, so it is charged to neither option.",
+     "chargedToStatusQuo": 0,
+     "chargedToTrade": 3000,
+     "forcedDrops": [
+      "RB Bench One"
+     ],
+     "state": "cut_required"
+    },
+    "missingEvidence": [],
+    "objectiveValue": {
+     "bandLevel": "unfair",
+     "direction": "opposes",
+     "evaluated": true,
+     "forcedReleaseCost": 3000,
+     "magnitude": "large",
+     "netGap": -1426,
+     "vaAdjustedGap": 1574
+    },
+    "posture": {
+     "postureLabel": "PUSH",
+     "reason": null,
+     "role": "selects_strategy_never_votes",
+     "state": "evaluated",
+     "strategySource": "user",
+     "strategyUsed": "LONG_TERM",
+     "windowFit": 0.0
+    },
+    "rosterBenefit": {
+     "direction": "favors",
+     "evaluated": true,
+     "magnitude": "large",
+     "neutralBandPpg": 1.17,
+     "ppg": 6.88
+    }
+   },
+   "margin": {
+    "basis": "Distance past each component's own neutral band (the fairness band; the roster lens's neutral band), in that component's units.",
+    "crossComponent": null,
+    "crossComponentReason": "components_are_never_combined",
+    "deciding": "strategy",
+    "objectiveValue": {
+     "direction": "opposes",
+     "insideBand": false,
+     "neutralBandHalfWidth": 335.1,
+     "statusQuoClearance": 1090.9,
+     "tradeClearance": -1761.1,
+     "unit": "canonical value points (adjusted package)",
+     "value": -1426.0
+    },
+    "rosterBenefit": {
+     "direction": "favors",
+     "insideBand": false,
+     "neutralBandHalfWidth": 1.17,
+     "statusQuoClearance": -8.05,
+     "tradeClearance": 5.71,
+     "unit": "best-ball ppg",
+     "value": 6.88
+    }
+   },
+   "opportunityCost": {
+    "comparedAlternatives": [
+     "NO_TRANSACTION"
+    ],
+    "coverageExclusionReason": "not_wired",
+    "reason": "no_owner_approved_alternative_ranking",
+    "state": "unavailable",
+    "text": "Whether a different trade would serve this team better is not evaluated; the only alternative compared is keeping the current roster."
+   },
+   "option": "NO_TRANSACTION",
+   "preferred": true,
+   "preferredOption": "NO_TRANSACTION",
+   "reason": "strategy_declines",
+   "state": "status_quo_preferred",
+   "text": "Keeping your current roster is preferred: part of this trade is a gain, but the team's strategy does not count that gain as enough.",
+   "version": "status_quo_v1"
+  },
   "teamContext": {
    "applied": true,
    "mode": "team"
