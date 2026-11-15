@@ -1,0 +1,17 @@
+[Unit]
+Description=Forecast Calibration Ledger weekly schedule for __SERVICE_NAME__
+
+# WHEN: Tue and Wed 13:40 UTC.  Monday Night Football ends well before Tuesday
+# 06:00 UTC and Sleeper rolls its week on Tuesday; the Wednesday firing covers a
+# Tuesday on which Sleeper had not yet awarded the week's best-ball lineups
+# (display_week not yet moved) or a failed Tuesday run.  The runner refuses unless Sleeper's
+# state shows the week FINAL and records a per-week marker, so extra firings are
+# no-ops.  Persistent=true catches up a box that was down.
+[Timer]
+OnCalendar=Tue,Wed *-*-* 13:40:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+Unit=__SERVICE_NAME__-forecast-calibration-ledger.service
+
+[Install]
+WantedBy=timers.target

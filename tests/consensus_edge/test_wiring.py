@@ -32,7 +32,10 @@ from fastapi.testclient import TestClient
 
 import server
 from src.api import feature_flags
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+import pytest
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 REPO = Path(__file__).resolve().parents[2]
 ARCHIVE = REPO / "exports" / "archive"
@@ -52,7 +55,7 @@ def _load_contract() -> dict | None:
     blocking gate with `'offense' not found in set()` — a provider
     outage reported as a code regression. See `tests/archive_fixtures`.
     """
-    raw, _archive = newest_complete_raw_payload()
+    raw, _archive = pinned_board_payload()
     if raw is None:
         return None
     from src.api.data_contract import build_api_data_contract
@@ -570,7 +573,9 @@ class TestPlayerContextUnlocksASecondComponent(unittest.TestCase):
         """
         from src.consensus_edge import service as svc
 
-        board = svc.build_board(_CONTRACT, hours_stale=svc.resolve_hours_stale(_CONTRACT))
+        # This assertion isolates the weighted-component ceiling. The tracked
+        # archive keeps aging, so wall-clock freshness must not decide it.
+        board = svc.build_board(_CONTRACT, hours_stale=0.0)
         live = sum(1 for v in board["componentAvailability"].values() if v["available"])
         self.assertEqual(live, 1, "expected only mispricing live with no inputs supplied")
         self.assertTrue(board["strongLabelsReachable"])
@@ -662,7 +667,7 @@ class TestServiceSignature(unittest.TestCase):
     def test_no_vestigial_raw_payload_lookup(self):
         # Checks for the LOOKUP, not the string: the comment explaining
         # why the lookup was removed legitimately names the key.
-        source = (REPO / "src" / "consensus_edge" / "service.py").read_text()
+        source = (REPO / "src" / "consensus_edge" / "service.py").read_text(encoding="utf-8")
         self.assertNotIn(
             'get("_rawPayload")',
             source,

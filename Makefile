@@ -3,7 +3,7 @@
 #
 # The CI pipeline and local dev MUST use the same install path so a
 # "works on my machine" gap is impossible.  Every target here shells
-# out to the same manifests (requirements.txt + requirements-dev.txt)
+# out to the same committed lock (requirements-dev.lock.txt)
 # GitHub Actions installs from.
 #
 # Quick start on a clean checkout:
@@ -23,7 +23,7 @@ VENV_PIP := $(VENV_DIR)/bin/pip
 .DEFAULT_GOAL := help
 
 .PHONY: help setup install check test lint syntax clean \
-        install-playwright freeze
+        install-playwright lock-refresh
 
 help:  ## Show this help.
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "  \033[1m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -34,7 +34,8 @@ setup:  ## Create venv + install runtime & dev deps + run preflight check.
 install:  ## Re-install deps into an existing venv (idempotent).
 	@test -x "$(VENV_PY)" || { echo "No venv at $(VENV_DIR); run 'make setup' first."; exit 1; }
 	$(VENV_PY) -m pip install --upgrade pip
-	$(VENV_PIP) install -r requirements-dev.txt
+	$(VENV_PY) scripts/python_lock.py check
+	$(VENV_PIP) install --require-hashes -r requirements-dev.lock.txt
 	$(VENV_PIP) check
 
 check:  ## Preflight: pip check + env import validation.
@@ -57,10 +58,8 @@ install-playwright:  ## Install the Playwright Chromium browser.
 	@test -x "$(VENV_PY)" || { echo "No venv at $(VENV_DIR); run 'make setup' first."; exit 1; }
 	$(VENV_PY) -m playwright install chromium
 
-freeze:  ## Write a reproducible lockfile of the current env.
-	@test -x "$(VENV_PY)" || { echo "No venv at $(VENV_DIR); run 'make setup' first."; exit 1; }
-	$(VENV_PIP) freeze > requirements.lock.txt
-	@echo "Wrote requirements.lock.txt ($$(wc -l < requirements.lock.txt) lines)"
+lock-refresh:  ## Regenerate both exact locks (requires uv 0.9.26).
+	$(PYTHON) scripts/python_lock.py refresh
 
 clean:  ## Remove the virtualenv.
 	rm -rf "$(VENV_DIR)"

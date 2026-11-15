@@ -9,11 +9,11 @@
  *   - player popup opens and closes
  *   - bottom navigation is visible and actually navigates
  *
- * Runs only on the mobile-chromium project (chromium with a 390x844
- * viewport — see playwright.config.js).  The webkit device projects
- * (mobile-390/mobile-430) also match this file if explicitly run,
- * but the spec skips there so a missing webkit install can't fail
- * the suite.
+ * Runs on every phone project (see ``mobileOnly`` in helpers/journey.js):
+ * mobile-chromium (chromium with a 390x844 viewport) in the E2E Safety Net,
+ * and the WebKit iPhone device projects mobile-390 / mobile-430 wherever
+ * they are selected explicitly.  It used to skip on the WebKit projects, so
+ * the phone smoke never ran on the engine iPhones use.
  *
  * Auth: test-only session fixture (skips when E2E_TEST_SECRET unset).
  */

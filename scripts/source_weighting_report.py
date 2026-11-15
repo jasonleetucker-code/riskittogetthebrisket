@@ -119,13 +119,15 @@ def state_only_rows(state_dir: Path, as_of: datetime) -> list[dict]:
     """Source x subset rows straight from dataset state — no contract build."""
     from scripts.record_source_datasets import recorded_sources  # noqa: PLC0415
     from src.api.data_contract import _RANKING_SOURCES  # noqa: PLC0415
-    from src.sources.freshness import load_source_weightings  # noqa: PLC0415
+    from src.sources.freshness import active_schedule, load_source_weightings  # noqa: PLC0415
 
     base = {str(s.get("key") or ""): float(s.get("weight", 1.0)) for s in _RANKING_SOURCES}
     keys = [key for key, _, _ in recorded_sources()]
     fetched = _fetch_stamps(state_dir)
     rows: list[dict] = []
-    for key, sw in load_source_weightings(keys, state_dir=state_dir, as_of=as_of).items():
+    for key, sw in load_source_weightings(
+        keys, state_dir=state_dir, as_of=as_of, schedule=active_schedule()
+    ).items():
         role = "model_input" if key in base else "benchmark"
         subsets = sw.subsets or {"-": None}
         for name, sub in subsets.items():
@@ -193,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         rows = state_only_rows(args.state_dir, as_of)
         print_state_only(rows, as_of, feature_flags.is_enabled("source_freshness_weighting"))
         if args.json:
-            args.json.write_text(json.dumps(rows, indent=1))
+            args.json.write_text(json.dumps(rows, indent=1), encoding="utf-8")
         return 0
 
     from src.api.data_contract import build_api_data_contract  # noqa: PLC0415
@@ -217,7 +219,9 @@ def main(argv: list[str] | None = None) -> int:
         explained.append(ex)
         print_player(ex)
     if args.json:
-        args.json.write_text(json.dumps({"table": table, "players": explained}, indent=1))
+        args.json.write_text(
+            json.dumps({"table": table, "players": explained}, indent=1), encoding="utf-8"
+        )
     return 0
 
 

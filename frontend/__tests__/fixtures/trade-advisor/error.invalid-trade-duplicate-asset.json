@@ -1,0 +1,8 @@
+{
+  "error": "invalid_trade",
+  "message": "An asset can only appear once in a trade.",
+  "reason": "duplicate_asset",
+  "assetIds": [
+    "p:103"
+  ]
+}

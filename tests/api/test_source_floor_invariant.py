@@ -70,7 +70,7 @@ def _module_int_const(rel_path: str, const_name: str) -> int | None:
         path = _REPO / rel_path
     if not path.exists():
         return None
-    tree = ast.parse(path.read_text())
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         # Plain ``X = 400``.
         if isinstance(node, ast.Assign):
@@ -102,7 +102,7 @@ def _dlf_board_min_rows(board_key: str) -> int | None:
     path = _SCRIPTS / "fetch_dlf.py"
     if not path.exists():
         return None
-    src = path.read_text()
+    src = path.read_text(encoding="utf-8")
     # Find the board's block, then the first min_rows int after it.
     m = re.search(rf'"{re.escape(board_key)}"\s*:\s*\{{(.*?)\}}', src, re.S)
     if not m:
@@ -156,7 +156,20 @@ _SCRAPER_FLOOR_RESOLVERS = {
     "ktcCrowdSfTep": lambda: KTC_SOURCE_MIN_PRICED[KTC_CROWD],
     "ktcTradesSfTep": lambda: KTC_SOURCE_MIN_PRICED[KTC_TRADES],
     "ktcCrowdTradesSfTep": lambda: KTC_SOURCE_MIN_PRICED[KTC_CROWD_TRADES],
+    # Signals authenticated values (2026-10-03): the collector quarantines a
+    # release below ``MIN_BOARD_ROWS`` and keeps the last good board.
+    "signalsSf": lambda: _signals_min_rows("signalsSf"),
+    "signalsIdpDl": lambda: _signals_min_rows("signalsIdpDl"),
+    "signalsIdpLb": lambda: _signals_min_rows("signalsIdpLb"),
+    "signalsIdpDb": lambda: _signals_min_rows("signalsIdpDb"),
 }
+
+
+def _signals_min_rows(key: str) -> int:
+    from src.sources.signals import MIN_BOARD_ROWS  # noqa: PLC0415
+
+    return MIN_BOARD_ROWS[key]
+
 
 # Sources whose scraper has NO aligned internal floor yet.  Each entry:
 # one-line rationale + the follow-up PR that will add the guard and

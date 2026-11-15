@@ -36,27 +36,40 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/angle",
   "/draft",
   "/waivers",
+  "/waiver-advisor",
   "/rosters",
   "/phases",
   "/edge",
   "/bdvm",
   "/market/sharp-tracker",
   "/market/sharp-roster-percentage",
+  "/market/trade-database",
+  "/market/sharp-people",
   "/idptc-rookies",
   "/league",
   "/league/activity",
   "/league/insider-trading",
   "/league-comparison",
+  "/dfs",
   "/players/compare",
   "/settings",
   "/more",
   "/admin",
+  "/admin/model-lab",
   "/tools/source-health",
   "/tools/ros-data-health",
   "/tools/trade-coverage",
 ];
 
-const allTargets = paletteTargets();
+// Admin view with EVERY gated capability available, derived from the model
+// so a newly gated destination is covered without editing this file:
+// reachability covers the admin-only Ops surfaces and every gated entry.
+const ALL_CAPABILITIES_ON = Object.fromEntries(
+  flattenNav(NAV_MODEL)
+    .filter((i) => i.capability)
+    .map((i) => [i.capability, { available: true }]),
+);
+const allTargets = paletteTargets({ isAdmin: true, capabilities: ALL_CAPABILITIES_ON });
 
 describe("IA coverage", () => {
   it("every route is reachable from the palette targets (nav + system + extras)", () => {
@@ -69,6 +82,7 @@ describe("IA coverage", () => {
     const hrefs = SYSTEM_MODEL.items.map((i) => i.href);
     for (const orphan of [
       "/admin",
+      "/admin/model-lab",
       "/tools/source-health",
       "/tools/ros-data-health",
       "/tools/trade-coverage",
@@ -211,6 +225,7 @@ describe("system menu", () => {
     expect(hrefs).toContain("/more");
     for (const ops of [
       "/admin",
+      "/admin/model-lab",
       "/tools/source-health",
       "/tools/ros-data-health",
       "/tools/trade-coverage",
@@ -224,6 +239,18 @@ describe("system menu", () => {
     for (const item of SYSTEM_MODEL.items) {
       expect(hrefs).toContain(item.href);
     }
+  });
+
+  it("the command palette hides operator surfaces from non-admins, and by default", () => {
+    const ops = SYSTEM_MODEL.items.filter((i) => i.adminOnly).map((i) => i.href);
+    expect(ops).toContain("/admin/model-lab");
+    for (const targets of [paletteTargets(), paletteTargets({ isAdmin: false })]) {
+      const hrefs = targets.map((t) => t.href);
+      for (const href of ops) expect(hrefs, href).not.toContain(href);
+      expect(hrefs).toContain("/settings");
+    }
+    const adminHrefs = paletteTargets({ isAdmin: true }).map((t) => t.href);
+    for (const href of ops) expect(adminHrefs, href).toContain(href);
   });
 
   it("defaults to the non-admin view when the flag is absent", () => {
@@ -259,7 +286,7 @@ describe("active matching", () => {
 describe("pageTitleFor", () => {
   it("derives titles from the model (no hand-maintained map)", () => {
     expect(pageTitleFor("/rankings")).toBe("Rankings");
-    expect(pageTitleFor("/arbitrage")).toBe("Arbitrage");
+    expect(pageTitleFor("/arbitrage")).toBe("Market Disagreement");
     expect(pageTitleFor("/tools/source-health")).toBe("Source Health");
     expect(pageTitleFor("/")).toBe("Home");
   });

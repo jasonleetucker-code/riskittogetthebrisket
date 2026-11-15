@@ -17,7 +17,12 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
-import { createDraftCapitalLoader, draftTeamsFromContract } from "@/lib/draft-feed";
+import { useTeam } from "@/components/useTeam";
+import {
+  createDraftCapitalLoader,
+  draftContractUrl,
+  draftTeamsFromContract,
+} from "@/lib/draft-feed";
 
 import {
   buildTeamIndexLookup,
@@ -44,13 +49,13 @@ import {
   computeHistorySeries,
   computeRosterBreakdown,
   createDefaultWorkspace,
+  isWorkspaceReady,
   cycleTag,
   draftReviewToCsv,
   hydrateWorkspace,
   mergeDraftCapitalTeams,
   moveInParSheet,
   moveTargetInBoard,
-  nextBestTargets,
   nominationCandidates,
   playerRecommendation,
   playerSlug,
@@ -74,10 +79,12 @@ import {
 import { classifyPos } from "@/lib/dynasty-data";
 import { useBdvmEndpoint } from "@/components/useBdvm";
 import {
+  BDVM_PICK_MID_OUTCOME_INFO,
   buildBdvmIndex,
   buildBdvmPickRows,
   bdvmEntryForRow,
   bdvmSignalEdgeCss,
+  bdvmSignalLabel,
   formatBdvmGap,
   formatBdvmValue,
 } from "@/lib/bdvm";
@@ -96,6 +103,7 @@ import {
   StatTile,
   ValueBasisNote,
 } from "@/components/ds";
+import { draftCapitalBudgetRows } from "@/lib/draft-capital-budgets";
 import styles from "./draft.module.css";
 
 // Code-split so the Perfect Draft panel and its optimizer stay OUT of the
@@ -142,7 +150,7 @@ const DRAFT_PAGE_DESCRIPTION =
 
 // Short labels + CSS classes for the recommendation chip on each row.
 // Kept in one place so the color language is consistent between the
-// board, the Next Best Target sidebar, and the draft modal.
+// board, the sidebars, and the draft modal.
 const REC_CHIP = {
   lock: { text: "LOCK", cls: "draft-rec-lock" },
   steal: { text: "STEAL", cls: "draft-rec-steal" },
@@ -483,12 +491,14 @@ function TeamPanel({
                 <input
                   type="radio"
                   name="myTeam"
+                  aria-label={`My team: ${workspace.teams[t.idx]?.name || `Team ${t.idx + 1}`}`}
                   checked={t.isMine}
                   onChange={() => onSettings({ myTeamIdx: t.idx })}
                 />
               </label>
               <input
                 className="draft-inline-input"
+                aria-label={`Team ${t.idx + 1} name`}
                 value={workspace.teams[t.idx]?.name ?? ""}
                 onChange={(e) => onTeam(t.idx, { name: e.target.value })}
                 placeholder={`Team ${t.idx + 1}`}
@@ -497,6 +507,7 @@ function TeamPanel({
                 className="draft-inline-input draft-money-input"
                 type="number"
                 min="0"
+                aria-label={`${workspace.teams[t.idx]?.name || `Team ${t.idx + 1}`} starting budget`}
                 value={workspace.teams[t.idx]?.initialBudget ?? 0}
                 onChange={(e) =>
                   onTeam(t.idx, {
@@ -805,6 +816,14 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
             const myCeiling = Number.isFinite(player.myWinningBid)
               ? player.myWinningBid
               : player.myMaxBid;
+            if (amt > 0 && isMine && amt > stats.myRemaining) {
+              return (
+                <div className="draft-modal-warn">
+                  <strong>Unaffordable.</strong> ${amt} is ${amt - stats.myRemaining}{" "}
+                  more than your remaining budget (${stats.myRemaining}).
+                </div>
+              );
+            }
             if (amt > 0 && isMine && amt > myCeiling) {
               const diff = amt - myCeiling;
               return (
@@ -1125,6 +1144,67 @@ function QuickRecordRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+/**
+ * The "Fundamental pick values (BDVM)" table.  Display-only: every number
+ * is a backend BDVM value (buildBdvmPickRows only reshapes).  Exported for
+ * tests, same pattern as RookieBoard.
+ */
+export function BdvmPickValuesTable({ rows }) {
+  return (
+    <div className="draft-table-wrap">
+      <table className="draft-table">
+        <thead>
+          <tr>
+            <th style={{ textAlign: "left" }}>Pick</th>
+            <th style={{ width: 90, textAlign: "right" }}>EV</th>
+            <th
+              style={{ width: 80, textAlign: "right" }}
+              title="Assumed share of picks at this slot that return a startable player, from a placeholder prior table by slot (not fitted to historical drafts)"
+            >
+              Hit % (prior)
+            </th>
+            {/* API field `median` is the prior table's "mid"
+                outcome bucket, not a distribution median. */}
+            <th style={{ width: 90, textAlign: "right" }}>
+              Mid outcome
+              <InfoTip label="Mid outcome">
+                {BDVM_PICK_MID_OUTCOME_INFO}
+              </InfoTip>
+            </th>
+            <th style={{ width: 90, textAlign: "right" }}>Ceiling</th>
+            <th style={{ width: 100, textAlign: "right" }}>Market</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name}>
+              <td>{row.name}</td>
+              <td className="draft-money">{formatBdvmValue(row.ev)}</td>
+              <td className="draft-money">
+                {row.pHit == null
+                  ? "—"
+                  : `${Math.round(row.pHit * 100)}%`}
+              </td>
+              <td className="draft-money">
+                {formatBdvmValue(row.median)}
+              </td>
+              <td className="draft-money">
+                {formatBdvmValue(row.ceiling)}
+              </td>
+              <td
+                className="draft-money"
+                title={row.marketSource || undefined}
+              >
+                {formatBdvmValue(row.marketValue)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -1470,6 +1550,7 @@ export function RookieBoard({
                         type="number"
                         className="draft-inline-input draft-money-input"
                         min="0"
+                        aria-label={`${p.name} PreDraft price`}
                         value={p.preDraft}
                         onChange={(e) =>
                           onEditPreDraft(p.id, Number(e.target.value) || 0)
@@ -1541,7 +1622,7 @@ export function RookieBoard({
                           }
                           const css = bdvmSignalEdgeCss(entry.signal);
                           const title =
-                            `${entry.signal}: ${entry.signalReason} — fundamental ` +
+                            `${bdvmSignalLabel(entry.signal)}: ${entry.signalReason} — fundamental ` +
                             `${formatBdvmValue(entry.fundamental)} vs market ` +
                             `${formatBdvmValue(entry.marketValue)}`;
                           return css ? (
@@ -1561,7 +1642,11 @@ export function RookieBoard({
                     <td
                       className="draft-money draft-money-win"
                       title={
-                        capped
+                        p.budgetCapped
+                          ? `Capped by your remaining budget (${fmt$(
+                              stats.myRemaining,
+                            )}). Theoretical max was ${fmt$(p.theoreticalMaxBid)}.`
+                          : capped
                           ? `Capped by top rival ceiling (${fmt$(
                               stats.topCompetitorMax,
                             )} + $1). Theoretical max was ${fmt$(
@@ -1706,14 +1791,6 @@ export function RookieBoard({
   );
 }
 
-/* ── Next Best Target sidebar ─────────────────────────────────────── */
-
-/**
- * Top-N EV-ranked undrafted targets, always visible.  Answers "what
- * should I focus on right now?" without the user having to scroll
- * or re-sort.  Clicking a row opens the draft modal pre-loaded with
- * that player; clicking the star cycles the tag.
- */
 /* ── Inflation sparkline ──────────────────────────────────────────── */
 
 /**
@@ -2026,6 +2103,7 @@ function ParSheet({
                     <input
                       type="number"
                       className="input draft-money-input"
+                      aria-label={`${row.name} fair value`}
                       autoFocus
                       value={editingValue}
                       min="0"
@@ -2468,7 +2546,7 @@ function TargetBoard({
 /**
  * "Good to nominate" list.  Players I don't want (or am happy
  * without) whose expected clearing price is high enough to drain
- * rival budgets.  Companion to ``NextBestTargets``; both live just
+ * rival budgets.  Lives just
  * above the rookie board so decisions are in peripheral vision.
  */
 function NominationCandidates({ stats, onDraft, onCycleTag }) {
@@ -2696,94 +2774,6 @@ function BestValueOnBoard({ stats, onDraft, onCycleTag }) {
             </div>
           ),
         )}
-      </div>
-    </Panel>
-  );
-}
-
-function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
-  const top = useMemo(() => nextBestTargets(stats, { limit: 5 }), [stats]);
-
-  if (top.length === 0) {
-    return (
-      <Panel className="draft-nbt">
-        <h3 style={{ margin: "0 0 4px" }}>Next Best Targets</h3>
-        <div className="muted" style={{ fontSize: "0.72rem" }}>
-          Nothing to flag yet — tag a few players as <strong>★ target</strong>{" "}
-          to seed EV ranking.
-        </div>
-      </Panel>
-    );
-  }
-
-  return (
-    <Panel className="draft-nbt">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "baseline",
-        }}
-      >
-        <h3 style={{ margin: 0 }}>Next Best Targets</h3>
-        <span className="muted" style={{ fontSize: "0.68rem" }}>
-          EV = (fair − winBid) × tag weight + scarcity boost
-        </span>
-      </div>
-      <div className="draft-nbt-list">
-        {top.map(({ player, ev, rec }, i) => {
-          const recInfo = rec ? REC_CHIP[rec.level] : null;
-          return (
-            <div
-              key={player.id}
-              className={`draft-nbt-row${player.userTag === TAG_TARGET ? " draft-nbt-target" : ""}`}
-              title={rec?.rationale || rec?.label || ""}
-            >
-              <span className="draft-nbt-rank">#{i + 1}</span>
-              <button
-                type="button"
-                className={`draft-tag-chip${
-                  player.userTag ? ` draft-tag-${player.userTag}` : ""
-                }`}
-                onClick={() => onCycleTag(player.id)}
-                title="Cycle tag"
-              >
-                {player.userTag === TAG_TARGET
-                  ? "★"
-                  : player.userTag === TAG_AVOID
-                    ? "⊘"
-                    : "+"}
-              </button>
-              <span
-                className={`draft-tier-chip draft-tier-${player.tier}`}
-                title={`${TIER_LABELS[player.tier] || player.tier} tier`}
-              >
-                {player.tier}
-              </span>
-              <button
-                type="button"
-                className="draft-nbt-name"
-                onClick={() => onDraft(player)}
-              >
-                {player.name}
-              </button>
-              <span className="draft-money draft-money-win">
-                {fmt$(player.myWinningBid)}
-              </span>
-              <span className="muted" style={{ fontSize: "0.68rem" }}>
-                fair {fmt$(player.inflatedFair)}
-              </span>
-              {recInfo && (
-                <span className={`draft-rec-chip ${recInfo.cls}`}>
-                  {recInfo.text}
-                </span>
-              )}
-              <span className="muted" style={{ fontSize: "0.66rem" }}>
-                EV {ev.toFixed(0)}
-              </span>
-            </div>
-          );
-        })}
       </div>
     </Panel>
   );
@@ -3131,7 +3121,9 @@ function DraftGlossary() {
               </li>
               <li>
                 <strong>Tag</strong> — click to cycle: neutral → ★ target → ⊘
-                avoid → neutral. Drives the recommendation engine.
+                avoid → neutral. Tags filter the board and steer the Good to
+                Nominate, Best Value and Rec columns; Perfect Draft does not
+                read them.
               </li>
               <li>
                 <strong>Rec</strong> — LOCK / STEAL / PUSH / BUY / SPEND / AVOID
@@ -3348,12 +3340,14 @@ function DraftGlossary() {
             </ul>
           </Section>
 
-          <Section title="Next Best Targets + Good to Nominate sidebars">
+          <Section title="Perfect Draft + Good to Nominate sidebars">
             <ul>
               <li>
-                <strong>Next Best Targets</strong> — top 5 undrafted rookies by
-                EV = max(0, Fair − Win-at) × tag weight + tier scarcity boost.
-                Targets get a 1.5× tag weight; Avoid players are excluded.
+                <strong>Perfect Draft</strong> — the single recommendation
+                panel: the best combination of undrafted rookies for your
+                remaining budget and open roster spots. The old per-player
+                &quot;Next Best Targets&quot; list was retired because it
+                scored zero for any player you would have to outbid.
               </li>
               <li>
                 <strong>Good to Nominate</strong> — top 5 drain candidates.
@@ -3457,7 +3451,13 @@ export default function DraftDashboardPage() {
   // leagues mid-draft doesn't destroy the prior league's board.
   // Falls back to the legacy unsuffixed key when no league is
   // resolved yet (cold boot) so pre-migration state still hydrates.
-  const { selectedLeagueKey } = useLeague();
+  const { selectedLeagueKey, loading: leagueLoading } = useLeague();
+  // The team picked in the header ("Pick your team"), offered to the
+  // draft-capital merge as the default "my team" on a first visit (a ref so
+  // the load callback always reads the latest without re-creating it).
+  const { selectedName: preferredTeamName, selectedOwnerId: preferredOwnerId } = useTeam();
+  const preferredTeamRef = useRef({ name: preferredTeamName, ownerId: preferredOwnerId });
+  preferredTeamRef.current = { name: preferredTeamName, ownerId: preferredOwnerId };
   // Every /api/draft-capital read goes through ONE league-scoped loader
   // (``lib/draft-feed``): concurrent consumers share a request, and no
   // call site can omit ``leagueKey`` and silently read the default
@@ -3486,6 +3486,12 @@ export default function DraftDashboardPage() {
     idp: new Map(),
   });
   const [hydrated, setHydrated] = useState(false);
+  // WHICH storage key the current `workspace` was hydrated from.  `hydrated`
+  // alone cannot say whether the workspace belongs to the ACTIVE league: it is
+  // already true when the league resolves, and for one render the workspace is
+  // still the previous (placeholder) one.  Consumers that must not act on the
+  // placeholder compare this to `draftStorageKey` — see `workspaceReady`.
+  const [hydratedKey, setHydratedKey] = useState("");
   const [modalPlayer, setModalPlayer] = useState(null);
   const [showDrafted, setShowDrafted] = useState(false);
   const [query, setQuery] = useState("");
@@ -3605,7 +3611,17 @@ export default function DraftDashboardPage() {
       /* ignore */
     }
     setHydrated(true);
+    setHydratedKey(draftStorageKey);
   }, [draftStorageKey]);
+  // The workspace in state is the ACTIVE league's own: its league is resolved
+  // and it was hydrated from that league's storage key.  Before this, the
+  // workspace is `createDefaultWorkspace()` (first team "Russini Panini").
+  const workspaceReady = isWorkspaceReady({
+    selectedLeagueKey,
+    hydratedKey,
+    draftStorageKey,
+    leagueResolved: !leagueLoading,
+  });
 
   // Persist on every change.
   useEffect(() => {
@@ -3917,12 +3933,9 @@ export default function DraftDashboardPage() {
         // when the requested league's data isn't loaded.
         const data = await capitalLoaderRef.current(selectedLeagueKey);
         if (activeLeagueRef.current !== selectedLeagueKey) return;
-        const teamTotals = Array.isArray(data?.teamTotals)
-          ? data.teamTotals
-          : [];
-        if (teamTotals.length === 0) {
-          throw new Error("Draft capital feed had no team totals.");
-        }
+        // MISSING IS NEVER ZERO: unavailable budgets throw (the error banner
+        // names why) and leave the workspace untouched — never $0 budgets.
+        const teamTotals = draftCapitalBudgetRows(data);
         // Raw picks array — retained for callers; no longer used to
         // derive a per-team rookie cap (there isn't one).  Per-team slot
         // counts (how many rookie picks each team currently owns).
@@ -3939,16 +3952,23 @@ export default function DraftDashboardPage() {
             workspace: next,
             matched,
             added,
+            unavailable: unavailableTeams = [],
           } = mergeDraftCapitalTeams(ws, teamTotals, {
             picks: picksArray,
             mode: force ? "force" : "sync",
+            preferredTeamName: preferredTeamRef.current.name,
+            preferredOwnerId: preferredTeamRef.current.ownerId,
           });
           if (!quiet) {
             setCapitalStatus((s) => ({
               ...s,
               info: `Loaded ${matched} team budgets${
                 added > 0 ? ` (${added} new)` : ""
-              }${picksArray.length > 0 ? ` · ${picksArray.length} picks tracked` : ""}.`,
+              }${picksArray.length > 0 ? ` · ${picksArray.length} picks tracked` : ""}.${
+                unavailableTeams.length > 0
+                  ? ` Budget unavailable (not loaded, not $0): ${unavailableTeams.join(", ")}.`
+                  : ""
+              }`,
             }));
           }
           return next;
@@ -4005,10 +4025,11 @@ export default function DraftDashboardPage() {
     // them.
     setSleeperTeams(null);
     let cancelled = false;
-    const url = selectedLeagueKey
-      ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-      : "/api/data";
-    fetch(url, { cache: "no-store" })
+    const url = draftContractUrl(selectedLeagueKey);
+    // ``no-cache`` (not ``no-store``): the browser always revalidates with
+    // the backend's ETag, so an unchanged contract is a 304 instead of a
+    // re-download, and a changed one is never served stale (W26-F003).
+    fetch(url, { cache: "no-cache" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
@@ -4278,16 +4299,15 @@ export default function DraftDashboardPage() {
       // Pass leagueKey so the backend serves the right league's
       // sleeper block and 503s cleanly when the requested league
       // isn't loaded yet.
-      const url = selectedLeagueKey
-        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-        : "/api/data";
+      const url = draftContractUrl(selectedLeagueKey);
       // Fetch /api/data and /api/draft-capital in parallel — the
       // draft-capital response carries per-slot dollar values from
       // the workbook, which we use as each rookie's preDraft (the
       // consensus 1.01 rookie inherits pick 1.01's dollar value, etc.)
       // instead of rescaling raw blended values across the top 72.
       const [res, capitalData] = await Promise.all([
-        fetch(url, { cache: "no-store" }),
+        // Always revalidated (ETag / 304), never served stale (W26-F003).
+        fetch(url, { cache: "no-cache" }),
         // Same league as the /api/data read above; a failed capital
         // request is null and falls back to the rescale path so sync
         // still works when the workbook isn't available.
@@ -4597,10 +4617,12 @@ export default function DraftDashboardPage() {
     // playersArray fetch side-effect.  Defer to the user's
     // currently selected team identity by NAME.
     try {
-      const url = selectedLeagueKey
-        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-        : "/api/data";
-      fetch(url, { cache: "force-cache" })
+      const url = draftContractUrl(selectedLeagueKey);
+      // ``no-cache``, not ``force-cache``: this result is written into
+      // sleeperTeams (the live-sync team map), so a stale cached copy must
+      // never win.  Revalidation is a cheap 304 when nothing changed, and the
+      // other two reads keep the cache entry current (W26-F003).
+      fetch(url, { cache: "no-cache" })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           // Pending / other-league / not-ready stays pending (see the
@@ -4768,7 +4790,7 @@ export default function DraftDashboardPage() {
 
   if (checking || authenticated == null) {
     return (
-      <main className={`main-shell ${styles.page}`}>
+      <div className={`main-shell ${styles.page}`}>
         {/* Same three constants as the settled header below — they are
             constants, not data, so rendering them here is the honest
             value rather than a placeholder.  Omitting the description
@@ -4797,7 +4819,7 @@ export default function DraftDashboardPage() {
         <Panel>
           <SkeletonTable rows={10} columns={5} />
         </Panel>
-      </main>
+      </div>
     );
   }
   if (authenticated === false) {
@@ -4812,7 +4834,7 @@ export default function DraftDashboardPage() {
     : null;
 
   return (
-    <main className={`main-shell ${styles.page} draft-page`}>
+    <div className={`main-shell ${styles.page} draft-page`}>
       <PageHeader
         eyebrow={DRAFT_PAGE_EYEBROW}
         title={DRAFT_PAGE_TITLE}
@@ -5019,12 +5041,6 @@ export default function DraftDashboardPage() {
       />
 
       <div className={styles.sidebarGrid}>
-        <NextBestTargets
-          stats={stats}
-          onDraft={(p) => setModalPlayer(p)}
-          onCycleTag={onCycleTag}
-          workspace={workspace}
-        />
         <NominationCandidates
           stats={stats}
           onDraft={(p) => setModalPlayer(p)}
@@ -5038,7 +5054,11 @@ export default function DraftDashboardPage() {
       </div>
 
       <Suspense fallback={null}>
-        <PerfectDraftPanel stats={stats} workspace={workspace} />
+        <PerfectDraftPanel
+          stats={stats}
+          workspace={workspace}
+          workspaceReady={workspaceReady}
+        />
       </Suspense>
 
       <RookieBoard
@@ -5070,53 +5090,10 @@ export default function DraftDashboardPage() {
       {bdvmPickRows.length > 0 && (
         <CollapsiblePanel
           title="Fundamental pick values (BDVM)"
-          subtitle="Rookie-pick EV in the balanced strategy currency — hit rate and outcome spread from the fundamental model, market anchor beside it"
+          subtitle="Rookie-pick EV in the balanced strategy currency — assumed hit rate and outcome spread from a prior table, market anchor beside it"
           defaultCollapsed
         >
-          <div className="draft-table-wrap">
-            <table className="draft-table">
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left" }}>Pick</th>
-                  <th style={{ width: 90, textAlign: "right" }}>EV</th>
-                  <th
-                    style={{ width: 80, textAlign: "right" }}
-                    title="Probability the pick returns a startable player"
-                  >
-                    Hit %
-                  </th>
-                  <th style={{ width: 90, textAlign: "right" }}>Median</th>
-                  <th style={{ width: 90, textAlign: "right" }}>Ceiling</th>
-                  <th style={{ width: 100, textAlign: "right" }}>Market</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bdvmPickRows.map((row) => (
-                  <tr key={row.name}>
-                    <td>{row.name}</td>
-                    <td className="draft-money">{formatBdvmValue(row.ev)}</td>
-                    <td className="draft-money">
-                      {row.pHit == null
-                        ? "—"
-                        : `${Math.round(row.pHit * 100)}%`}
-                    </td>
-                    <td className="draft-money">
-                      {formatBdvmValue(row.median)}
-                    </td>
-                    <td className="draft-money">
-                      {formatBdvmValue(row.ceiling)}
-                    </td>
-                    <td
-                      className="draft-money"
-                      title={row.marketSource || undefined}
-                    >
-                      {formatBdvmValue(row.marketValue)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <BdvmPickValuesTable rows={bdvmPickRows} />
           <p
             className="muted"
             style={{
@@ -5306,6 +5283,6 @@ export default function DraftDashboardPage() {
           </div>
         </Modal>
       )}
-    </main>
+    </div>
   );
 }

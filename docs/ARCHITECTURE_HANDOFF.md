@@ -1,5 +1,16 @@
 # Architecture Handoff
 
+> **STATUS LINE 2026-11-15 (docs convergence, MD-115).** This file is a B-series-era (2026-08) architecture snapshot and
+> is NOT current state. For what is current: authorization = `docs/EXECUTION_PLAN.md`; canonical owners and their
+> evidence = `docs/C_SERIES_SCOPE_MANIFEST.md` and the technical runbook `CLAUDE.md`; the 2026-11-06 remediation
+> campaign = `docs/audits/remediation_2026-11-06/BACKEND_CAMPAIGN_LEDGER_2026-11-08.md`; document classification =
+> `docs/PLANNING_DOCUMENT_STATUS.md`. Owners created after this snapshot (for example `src/roster_intel/`,
+> `src/trade/constraints.py`, `src/trade/roster_capacity.py`, `src/trade/analyze_service.py`, `src/acquisition/`,
+> `src/auction/`) are not described below. The calculator completion dashboard
+> (`docs/completion/CALCULATOR_COMPLETION_DASHBOARD.md`) was last regenerated 2026-10-18 and is likewise stale. History below
+> is preserved unchanged.
+
+
 > **PHASE STATUS IS STALE — CORRECTED 2026-08-14.** Any statement in this file that Phase B has not started, or
 > that pins HEAD at B3, is wrong. **B4–B11 are merged and the B-Series Completion Audit passed** (#837,
 > `79f47ff`, 20/20 executable checks). Per this repository's own precedence rule, `docs/EXECUTION_PLAN.md`
@@ -438,7 +449,7 @@ the value chain.
 | Prod-only data | `data/rank_history.jsonl` accrual, board-snapshot timer, sharp platform ledger, `data/bdvm/`, `data/intel/` — invisible from this container. 9 findings stay BLOCKED, never "passed". |
 | C01–C43 / U01–U06 trackers | Live and CI-enforced (`scripts/audit_status.py`), still unmapped to W-ids. |
 | Multi-team trade E2E coverage | **No E2E spec exercises a 3+-team trade** — `journey-trade.spec.js` and the mobile specs are two-team only, which is why the crash above survived. Closing it is E2E-track work, not a hotfix. |
-| Mobile/WebKit verification | WebKit is not installable here (`/opt/pw-browsers` is Chromium-only; `mobile-390`/`mobile-430` are local-only projects CI never runs). The trade crash was verified RED→GREEN in Chromium at the mobile viewport; the owner's exact browser path stays **unverified, not claimed**. |
+| Mobile/WebKit verification | WebKit was not installed here (`/opt/pw-browsers` is Chromium-only) and `mobile-390`/`mobile-430` were local-only projects CI never ran.  *(Updated 2026-10-28: WebKit installs and launches in this container with `npx playwright install webkit` plus `install-deps webkit`; E2E Safety Net now runs `mobile-390`.  This W08 row's trade-crash verification was not re-done on WebKit.)* The trade crash was verified RED→GREEN in Chromium at the mobile viewport; the owner's exact browser path stays **unverified, not claimed**. |
 | Refit snapshot pinning | `RISKIT_FIT_SNAPSHOT` unset in `.github/workflows/refit-hill-curves.yml`. One-line fix, deliberately not made — the execution order stopped at evidence. |
 | Model registry provenance | 6 of ≥10 inputs pinned; one scope scored while four are promoted; `measuredAt` null everywhere; `appliedAt` null on an applied champion. |
 

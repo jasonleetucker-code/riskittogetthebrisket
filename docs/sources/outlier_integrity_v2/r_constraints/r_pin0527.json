@@ -1,0 +1,6040 @@
+{
+ "boards": {
+  "A": {
+   "config": "incumbent",
+   "d4On": false,
+   "dlfIdpHeld": true
+  },
+  "B": {
+   "config": "incumbent",
+   "d4On": false,
+   "dlfIdpHeld": false
+  },
+  "B'": {
+   "config": "incumbent",
+   "d4On": true,
+   "dlfIdpHeld": true
+  },
+  "B''": {
+   "config": "incumbent",
+   "d4On": true,
+   "dlfIdpHeld": false
+  },
+  "B'nf": {
+   "config": "none",
+   "d4On": true,
+   "dlfIdpHeld": true
+  },
+  "Bnf": {
+   "config": "none",
+   "d4On": false,
+   "dlfIdpHeld": false
+  },
+  "C": {
+   "config": "v2",
+   "d4On": false,
+   "dlfIdpHeld": false
+  },
+  "C'": {
+   "config": "v2",
+   "d4On": true,
+   "dlfIdpHeld": true
+  },
+  "C''": {
+   "config": "v2",
+   "d4On": true,
+   "dlfIdpHeld": false
+  },
+  "D": {
+   "config": "v2",
+   "d4On": false,
+   "dlfIdpHeld": true
+  }
+ },
+ "d4": {
+  "count": 20,
+  "pairs": [
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8063,
+     "vote": 6983
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 8147,
+     "vote": 6983
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8026,
+     "vote": 6983
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 8026,
+     "vote": 6983
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 8026,
+     "vote": 6983
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Ashton Jeanty",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7467,
+     "vote": 6439
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 7461,
+     "vote": 6439
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7474,
+     "vote": 6439
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 7474,
+     "vote": 6439
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 7474,
+     "vote": 6439
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Brock Purdy",
+    "source": "idpTradeCalc"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7467,
+     "vote": 8561
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 7461,
+     "vote": 8561
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7474,
+     "vote": 8561
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7474,
+     "vote": 8561
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7474,
+     "vote": 8561
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Brock Purdy",
+    "source": "yahooBoone"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8406,
+     "vote": 7343
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 8473,
+     "vote": 7343
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8266,
+     "vote": 7343
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 8266,
+     "vote": 7343
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 8266,
+     "vote": 7343
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "CeeDee Lamb",
+    "source": "idpTradeCalc"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 6666,
+     "vote": 7804
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 6614,
+     "vote": 7804
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 6674,
+     "vote": 7804
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 6674,
+     "vote": 7804
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 6674,
+     "vote": 7804
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Colston Loveland",
+    "source": "flockFantasySf"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2411,
+     "vote": 3429
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2353,
+     "vote": 3429
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2382,
+     "vote": 3429
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2382,
+     "vote": 3429
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2382,
+     "vote": 3429
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Courtland Sutton",
+    "source": "draftSharks"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2791,
+     "vote": 3733
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2721,
+     "vote": 3733
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2788,
+     "vote": 3733
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2789,
+     "vote": 3733
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2789,
+     "vote": 3733
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Dalton Schultz",
+    "source": "draftSharks"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2181,
+     "vote": 3109
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2095,
+     "vote": 3109
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2141,
+     "vote": 3109
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2141,
+     "vote": 3109
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2141,
+     "vote": 3109
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Evan Engram",
+    "source": "draftSharks"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 5374,
+     "vote": 4441
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 5433,
+     "vote": 4441
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 5376,
+     "vote": 4441
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 5376,
+     "vote": 4441
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 5376,
+     "vote": 4441
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Harold Fannin",
+    "source": "yahooBoone"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2705,
+     "vote": 3671
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2644,
+     "vote": 3671
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2705,
+     "vote": 3671
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2705,
+     "vote": 3671
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2705,
+     "vote": 3671
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Hunter Henry",
+    "source": "draftSharks"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8008,
+     "vote": 9486
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 8065,
+     "vote": 9486
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8007,
+     "vote": 9486
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 8007,
+     "vote": 9486
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 8007,
+     "vote": 9486
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Joe Burrow",
+    "source": "draftSharks"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8008,
+     "vote": 9345
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 8065,
+     "vote": 9345
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8007,
+     "vote": 9345
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 8007,
+     "vote": 9345
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 8007,
+     "vote": 9345
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Joe Burrow",
+    "source": "fantasyProsSf"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8008,
+     "vote": 7080
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 8065,
+     "vote": 7080
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8007,
+     "vote": 7080
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 8007,
+     "vote": 7080
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 8007,
+     "vote": 7080
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Joe Burrow",
+    "source": "idpTradeCalc"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8008,
+     "vote": 6793
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 8065,
+     "vote": 6793
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 8007,
+     "vote": 6793
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 8007,
+     "vote": 6793
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 8007,
+     "vote": 6793
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Joe Burrow",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7409,
+     "vote": 8561
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 7403,
+     "vote": 8561
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7610,
+     "vote": 8561
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7610,
+     "vote": 8561
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7610,
+     "vote": 8561
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Kenneth Walker",
+    "source": "otcffbSf"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7548,
+     "vote": 8687
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 7587,
+     "vote": 8687
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7543,
+     "vote": 8687
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 7543,
+     "vote": 8687
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 7543,
+     "vote": 8687
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Patrick Mahomes",
+    "source": "fantasyProsFitzmaurice"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7548,
+     "vote": 6402
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 7587,
+     "vote": 6402
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7543,
+     "vote": 6402
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 7543,
+     "vote": 6402
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 7543,
+     "vote": 6402
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Patrick Mahomes",
+    "source": "idpTradeCalc"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7548,
+     "vote": 6357
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 7587,
+     "vote": 6357
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7543,
+     "vote": 6357
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7543,
+     "vote": 6357
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7543,
+     "vote": 6357
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Patrick Mahomes",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7548,
+     "vote": 8561
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 7587,
+     "vote": 8561
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7543,
+     "vote": 8561
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7543,
+     "vote": 8561
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7543,
+     "vote": 8561
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Patrick Mahomes",
+    "source": "yahooBoone"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7277,
+     "vote": 8711
+    },
+    "B'": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 7230,
+     "vote": 8711
+    },
+    "B'nf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 7290,
+     "vote": 8711
+    },
+    "C'": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7290,
+     "vote": 8711
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 7290,
+     "vote": 8711
+    },
+    "retainedCp": true,
+    "retainedCpp": true,
+    "row": "Trevor Lawrence",
+    "source": "draftSharks"
+   }
+  ],
+  "retainedInCp": 20,
+  "retainedInCpp": 20,
+  "rows": 13,
+  "rule": "On pin2015 (and reported on the newest I_INDEPENDENT board): build A' = release defaults (dlf_values_rank_hill_vote OFF, DLF IDP held) and B' = the same with dlf_values_rank_hill_vote ON, incumbent filter. The D4 regression set is every (offense row, source) pair dropped by the incumbent in B' and not in A', excluding DLF Values' own vote. Membership is computed by this rule at Stage 3 and committed before the V_HELDOUT run; it is not edited afterwards.",
+  "theoJohnsonDraftSharksInSet": false
+ },
+ "determinism": {
+  "C_digest_run1": "512b23d571eb34b370be442463a3e1d210b30e05cc39a4e6ca1a459ac0b01d5e",
+  "C_digest_run2": "512b23d571eb34b370be442463a3e1d210b30e05cc39a4e6ca1a459ac0b01d5e",
+  "C_playersArray_sha_run1": "8a2dbf30727f180012bdc5a258e8ba49942a8f5e26bb6e117d246cf0add84f21",
+  "C_playersArray_sha_run2": "8a2dbf30727f180012bdc5a258e8ba49942a8f5e26bb6e117d246cf0add84f21",
+  "identical": true
+ },
+ "digests": {
+  "A": "5f4b89796616b6775ac756cbf3a8b834cb5c47a9f41782ceb842b2f17d851a33",
+  "B": "968bb51503fd8fa2d1b656e5979f63565e011fb91587d3877fe599eed4120a22",
+  "B'": "722ec559ca3c2d29ff61c3fa717cfdcda2bead5bf0ca43428946c65a1cba691d",
+  "B''": "7d3bfb9974bc601c02a297ecdc578a4ca3ad7e66bd25c007341cd22644cc1967",
+  "B'nf": "1e52c3971350941a38f5109c36fb03502191c98802b7335ac5ada159cbe8ee1e",
+  "Bnf": "18edaf68b2412731d3384ac15dd76613f36ad0234aaa3e17b4bef54c7d7fc7ae",
+  "C": "512b23d571eb34b370be442463a3e1d210b30e05cc39a4e6ca1a459ac0b01d5e",
+  "C'": "67eeb1d259ff04e8d4f44b9a941bdf18d256f4df2516406bd39c7acca7f6dcb9",
+  "C''": "1c7930eaba604010262b733883f03bd79bc41087db1e6b6633f775a13025b28d",
+  "D": "041fcd19da5c697b084d37a8dcb0b683fc6566085c9709c186c23f5bd7c7800c"
+ },
+ "drops": {
+  "A": {
+   "idp": {},
+   "offense": {
+    "dlfSf": 10,
+    "draftSharks": 52,
+    "dynastyNerdsSfTep": 4,
+    "fantasyCalc": 1,
+    "fantasyProsFitzmaurice": 8,
+    "fantasyProsSf": 2,
+    "flockFantasySf": 3,
+    "idpTradeCalc": 2,
+    "ktcCrowdSfTep": 5,
+    "ktcTradesSfTep": 1,
+    "otcffbSf": 1,
+    "pfkDynasty": 2,
+    "yahooBoone": 7
+   }
+  },
+  "B": {
+   "idp": {
+    "dlfIdp": 1,
+    "draftSharksIdp": 18,
+    "fantasyProsIdp": 10,
+    "idpTradeCalc": 3
+   },
+   "offense": {
+    "dlfSf": 10,
+    "draftSharks": 52,
+    "dynastyNerdsSfTep": 4,
+    "fantasyCalc": 1,
+    "fantasyProsFitzmaurice": 8,
+    "fantasyProsSf": 2,
+    "flockFantasySf": 3,
+    "idpTradeCalc": 2,
+    "ktcCrowdSfTep": 5,
+    "ktcTradesSfTep": 1,
+    "otcffbSf": 1,
+    "pfkDynasty": 2,
+    "yahooBoone": 7
+   }
+  },
+  "B'": {
+   "idp": {},
+   "offense": {
+    "dlfSf": 7,
+    "dlfValuesSfTep": 1,
+    "draftSharks": 56,
+    "dynastyNerdsSfTep": 2,
+    "fantasyCalc": 1,
+    "fantasyProsFitzmaurice": 6,
+    "fantasyProsSf": 3,
+    "flockFantasySf": 4,
+    "idpTradeCalc": 6,
+    "ktcCrowdSfTep": 8,
+    "ktcTradesSfTep": 1,
+    "otcffbSf": 1,
+    "pfkDynasty": 2,
+    "yahooBoone": 9
+   }
+  },
+  "B''": {
+   "idp": {
+    "dlfIdp": 1,
+    "draftSharksIdp": 18,
+    "fantasyProsIdp": 10,
+    "idpTradeCalc": 3
+   },
+   "offense": {
+    "dlfSf": 7,
+    "dlfValuesSfTep": 1,
+    "draftSharks": 56,
+    "dynastyNerdsSfTep": 2,
+    "fantasyCalc": 1,
+    "fantasyProsFitzmaurice": 6,
+    "fantasyProsSf": 3,
+    "flockFantasySf": 4,
+    "idpTradeCalc": 6,
+    "ktcCrowdSfTep": 8,
+    "ktcTradesSfTep": 1,
+    "otcffbSf": 1,
+    "pfkDynasty": 2,
+    "yahooBoone": 9
+   }
+  },
+  "B'nf": {
+   "idp": {},
+   "offense": {}
+  },
+  "Bnf": {
+   "idp": {},
+   "offense": {}
+  },
+  "C": {
+   "idp": {},
+   "offense": {}
+  },
+  "C'": {
+   "idp": {},
+   "offense": {}
+  },
+  "C''": {
+   "idp": {},
+   "offense": {}
+  },
+  "D": {
+   "idp": {},
+   "offense": {}
+  }
+ },
+ "focus": {
+  "Aidan Hutchinson": {
+   "A": {
+    "confidence": "low",
+    "value": 4802,
+    "votes": {
+     "draftSharksIdp": [
+      3181,
+      null
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "medium",
+    "value": 6422,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      3181,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 4802,
+    "votes": {
+     "draftSharksIdp": [
+      3181,
+      null
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "medium",
+    "value": 6422,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      3181,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 4802,
+    "votes": {
+     "draftSharksIdp": [
+      3181,
+      null
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 4802,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      3181,
+      null
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 4802,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      3181,
+      null
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 4802,
+    "votes": {
+     "draftSharksIdp": [
+      3181,
+      null
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 4802,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      3181,
+      null
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 4802,
+    "votes": {
+     "draftSharksIdp": [
+      3181,
+      null
+     ],
+     "fantasyProsIdp": [
+      6227,
+      null
+     ],
+     "idpShowCombined": [
+      4592,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      6444,
+      null
+     ]
+    }
+   }
+  },
+  "CJ Allen": {
+   "A": {
+    "confidence": "low",
+    "value": 3918,
+    "votes": {
+     "draftSharksIdp": [
+      5741,
+      null
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "medium",
+    "value": 2172,
+    "votes": {
+     "dlfIdp": [
+      2645,
+      null
+     ],
+     "dlfRookieIdp": [
+      2568,
+      null
+     ],
+     "draftSharksIdp": [
+      5741,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 3918,
+    "votes": {
+     "draftSharksIdp": [
+      5741,
+      null
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "medium",
+    "value": 2172,
+    "votes": {
+     "dlfIdp": [
+      2645,
+      null
+     ],
+     "dlfRookieIdp": [
+      2568,
+      null
+     ],
+     "draftSharksIdp": [
+      5741,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 3918,
+    "votes": {
+     "draftSharksIdp": [
+      5741,
+      null
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 3964,
+    "votes": {
+     "dlfIdp": [
+      2645,
+      null
+     ],
+     "dlfRookieIdp": [
+      2568,
+      null
+     ],
+     "draftSharksIdp": [
+      5741,
+      null
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 3964,
+    "votes": {
+     "dlfIdp": [
+      2645,
+      null
+     ],
+     "dlfRookieIdp": [
+      2568,
+      null
+     ],
+     "draftSharksIdp": [
+      5741,
+      null
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 3918,
+    "votes": {
+     "draftSharksIdp": [
+      5741,
+      null
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 3964,
+    "votes": {
+     "dlfIdp": [
+      2645,
+      null
+     ],
+     "dlfRookieIdp": [
+      2568,
+      null
+     ],
+     "draftSharksIdp": [
+      5741,
+      null
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 3918,
+    "votes": {
+     "draftSharksIdp": [
+      5741,
+      null
+     ],
+     "fantasyProsIdp": [
+      2095,
+      null
+     ],
+     "idpShowCombined": [
+      3383,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2129,
+      null
+     ]
+    }
+   }
+  },
+  "Danielle Hunter": {
+   "A": {
+    "confidence": "low",
+    "value": 2352,
+    "votes": {
+     "draftSharksIdp": [
+      1643,
+      null
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "medium",
+    "value": 3035,
+    "votes": {
+     "dlfIdp": [
+      2702,
+      null
+     ],
+     "draftSharksIdp": [
+      1643,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 2352,
+    "votes": {
+     "draftSharksIdp": [
+      1643,
+      null
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "medium",
+    "value": 3035,
+    "votes": {
+     "dlfIdp": [
+      2702,
+      null
+     ],
+     "draftSharksIdp": [
+      1643,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 2352,
+    "votes": {
+     "draftSharksIdp": [
+      1643,
+      null
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 2328,
+    "votes": {
+     "dlfIdp": [
+      2702,
+      null
+     ],
+     "draftSharksIdp": [
+      1643,
+      null
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 2328,
+    "votes": {
+     "dlfIdp": [
+      2702,
+      null
+     ],
+     "draftSharksIdp": [
+      1643,
+      null
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 2352,
+    "votes": {
+     "draftSharksIdp": [
+      1643,
+      null
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 2328,
+    "votes": {
+     "dlfIdp": [
+      2702,
+      null
+     ],
+     "draftSharksIdp": [
+      1643,
+      null
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 2352,
+    "votes": {
+     "draftSharksIdp": [
+      1643,
+      null
+     ],
+     "fantasyProsIdp": [
+      2982,
+      null
+     ],
+     "idpShowCombined": [
+      2755,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3068,
+      null
+     ]
+    }
+   }
+  },
+  "Jared Verse": {
+   "A": {
+    "confidence": "medium",
+    "value": 2672,
+    "votes": {
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "medium",
+    "value": 2672,
+    "votes": {
+     "dlfIdp": [
+      4671,
+      "filter_dropped"
+     ],
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "medium",
+    "value": 2672,
+    "votes": {
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "medium",
+    "value": 2672,
+    "votes": {
+     "dlfIdp": [
+      4671,
+      "filter_dropped"
+     ],
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "medium",
+    "value": 2672,
+    "votes": {
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 2835,
+    "votes": {
+     "dlfIdp": [
+      4671,
+      null
+     ],
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 2835,
+    "votes": {
+     "dlfIdp": [
+      4671,
+      null
+     ],
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "medium",
+    "value": 2672,
+    "votes": {
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 2835,
+    "votes": {
+     "dlfIdp": [
+      4671,
+      null
+     ],
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "medium",
+    "value": 2672,
+    "votes": {
+     "draftSharksIdp": [
+      2419,
+      null
+     ],
+     "fantasyProsIdp": [
+      2762,
+      null
+     ],
+     "idpShowCombined": [
+      3844,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2963,
+      null
+     ]
+    }
+   }
+  },
+  "Josiah Trotter": {
+   "A": {
+    "confidence": "low",
+    "value": 2390,
+    "votes": {
+     "draftSharksIdp": [
+      1677,
+      null
+     ],
+     "fantasyProsIdp": [
+      1868,
+      null
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "low",
+    "value": 3379,
+    "votes": {
+     "dlfIdp": [
+      3171,
+      null
+     ],
+     "dlfRookieIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1677,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      1868,
+      "filter_dropped"
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 2390,
+    "votes": {
+     "draftSharksIdp": [
+      1677,
+      null
+     ],
+     "fantasyProsIdp": [
+      1868,
+      null
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "low",
+    "value": 3379,
+    "votes": {
+     "dlfIdp": [
+      3171,
+      null
+     ],
+     "dlfRookieIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1677,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      1868,
+      "filter_dropped"
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 2390,
+    "votes": {
+     "draftSharksIdp": [
+      1677,
+      null
+     ],
+     "fantasyProsIdp": [
+      1868,
+      null
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 2514,
+    "votes": {
+     "dlfIdp": [
+      3171,
+      null
+     ],
+     "dlfRookieIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1677,
+      null
+     ],
+     "fantasyProsIdp": [
+      1868,
+      null
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 2514,
+    "votes": {
+     "dlfIdp": [
+      3171,
+      null
+     ],
+     "dlfRookieIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1677,
+      null
+     ],
+     "fantasyProsIdp": [
+      1868,
+      null
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 2390,
+    "votes": {
+     "draftSharksIdp": [
+      1677,
+      null
+     ],
+     "fantasyProsIdp": [
+      1868,
+      null
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 2514,
+    "votes": {
+     "dlfIdp": [
+      3171,
+      null
+     ],
+     "dlfRookieIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1677,
+      null
+     ],
+     "fantasyProsIdp": [
+      1868,
+      null
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 2390,
+    "votes": {
+     "draftSharksIdp": [
+      1677,
+      null
+     ],
+     "fantasyProsIdp": [
+      1868,
+      null
+     ],
+     "idpShowCombined": [
+      2840,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3396,
+      null
+     ]
+    }
+   }
+  },
+  "Myles Garrett": {
+   "A": {
+    "confidence": "low",
+    "value": 3597,
+    "votes": {
+     "draftSharksIdp": [
+      1905,
+      null
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "medium",
+    "value": 5246,
+    "votes": {
+     "dlfIdp": [
+      3721,
+      null
+     ],
+     "draftSharksIdp": [
+      1905,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 3597,
+    "votes": {
+     "draftSharksIdp": [
+      1905,
+      null
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "medium",
+    "value": 5246,
+    "votes": {
+     "dlfIdp": [
+      3721,
+      null
+     ],
+     "draftSharksIdp": [
+      1905,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 3597,
+    "votes": {
+     "draftSharksIdp": [
+      1905,
+      null
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 3512,
+    "votes": {
+     "dlfIdp": [
+      3721,
+      null
+     ],
+     "draftSharksIdp": [
+      1905,
+      null
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 3512,
+    "votes": {
+     "dlfIdp": [
+      3721,
+      null
+     ],
+     "draftSharksIdp": [
+      1905,
+      null
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 3597,
+    "votes": {
+     "draftSharksIdp": [
+      1905,
+      null
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 3512,
+    "votes": {
+     "dlfIdp": [
+      3721,
+      null
+     ],
+     "draftSharksIdp": [
+      1905,
+      null
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 3597,
+    "votes": {
+     "draftSharksIdp": [
+      1905,
+      null
+     ],
+     "fantasyProsIdp": [
+      4726,
+      null
+     ],
+     "idpShowCombined": [
+      4184,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5399,
+      null
+     ]
+    }
+   }
+  },
+  "T.J. Watt": {
+   "A": {
+    "confidence": "low",
+    "value": 2418,
+    "votes": {
+     "draftSharksIdp": [
+      1450,
+      null
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "medium",
+    "value": 3436,
+    "votes": {
+     "dlfIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1450,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 2418,
+    "votes": {
+     "draftSharksIdp": [
+      1450,
+      null
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "medium",
+    "value": 3436,
+    "votes": {
+     "dlfIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1450,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 2418,
+    "votes": {
+     "draftSharksIdp": [
+      1450,
+      null
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 2440,
+    "votes": {
+     "dlfIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1450,
+      null
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 2440,
+    "votes": {
+     "dlfIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1450,
+      null
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 2418,
+    "votes": {
+     "draftSharksIdp": [
+      1450,
+      null
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 2440,
+    "votes": {
+     "dlfIdp": [
+      3283,
+      null
+     ],
+     "draftSharksIdp": [
+      1450,
+      null
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 2418,
+    "votes": {
+     "draftSharksIdp": [
+      1450,
+      null
+     ],
+     "fantasyProsIdp": [
+      3033,
+      null
+     ],
+     "idpShowCombined": [
+      2982,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3458,
+      null
+     ]
+    }
+   }
+  },
+  "Theo Johnson": {
+   "A": {
+    "confidence": "low",
+    "value": 2164,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1733,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "low",
+    "value": 2164,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1733,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 2053,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "dlfValuesSfTep": [
+      1597,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1733,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "low",
+    "value": 2053,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "dlfValuesSfTep": [
+      1597,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1733,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 2053,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "dlfValuesSfTep": [
+      1597,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1733,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 2164,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1733,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 2165,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1737,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 2054,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "dlfValuesSfTep": [
+      1597,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1737,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 2054,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "dlfValuesSfTep": [
+      1597,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1737,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 2165,
+    "votes": {
+     "dlfSf": [
+      2278,
+      null
+     ],
+     "draftSharks": [
+      3009,
+      null
+     ],
+     "dynastyDaddySf": [
+      1722,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      1730,
+      null
+     ],
+     "fantasyCalc": [
+      1865,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2323,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsSf": [
+      2250,
+      null
+     ],
+     "flockFantasySf": [
+      2286,
+      null
+     ],
+     "idpShowCombined": [
+      2714,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      2458,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2399,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2721,
+      null
+     ],
+     "otcffbSf": [
+      1737,
+      null
+     ],
+     "pfkDynasty": [
+      1737,
+      null
+     ],
+     "yahooBoone": [
+      1661,
+      null
+     ]
+    }
+   }
+  },
+  "Travis Hunter": {
+   "A": {
+    "confidence": "low",
+    "value": 3599,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1735,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      "filter_dropped"
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "low",
+    "value": 3493,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1735,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      "filter_dropped"
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 3599,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "dlfValuesSfTep": [
+      2132,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1735,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      "filter_dropped"
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "low",
+    "value": 3493,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "dlfValuesSfTep": [
+      2132,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1735,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      "filter_dropped"
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 3599,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "dlfValuesSfTep": [
+      2132,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1735,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 3493,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1735,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 3493,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1742,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 3599,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "dlfValuesSfTep": [
+      2132,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1742,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 3493,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "dlfValuesSfTep": [
+      2132,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1742,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 3599,
+    "votes": {
+     "dlfSf": [
+      2659,
+      null
+     ],
+     "draftSharks": [
+      2901,
+      null
+     ],
+     "dynastyNerdsSfTep": [
+      2207,
+      null
+     ],
+     "fantasyCalc": [
+      2324,
+      null
+     ],
+     "fantasyNavigatorSf": [
+      2337,
+      "freshness_or_health_zero_weight"
+     ],
+     "fantasyProsFitzmaurice": [
+      1742,
+      null
+     ],
+     "fantasyProsSf": [
+      2121,
+      null
+     ],
+     "flockFantasySf": [
+      2881,
+      null
+     ],
+     "idpShowCombined": [
+      3828,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      3599,
+      null
+     ],
+     "ktcCrowdSfTep": [
+      2166,
+      null
+     ],
+     "ktcTradesSfTep": [
+      2603,
+      null
+     ],
+     "pfkDynasty": [
+      2121,
+      null
+     ],
+     "yahooBoone": [
+      1872,
+      null
+     ]
+    }
+   }
+  },
+  "Trevin Wallace": {
+   "A": {
+    "confidence": "low",
+    "value": 1916,
+    "votes": {
+     "draftSharksIdp": [
+      2886,
+      null
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "low",
+    "value": 884,
+    "votes": {
+     "dlfIdp": [
+      1517,
+      null
+     ],
+     "draftSharksIdp": [
+      2886,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 1916,
+    "votes": {
+     "draftSharksIdp": [
+      2886,
+      null
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "low",
+    "value": 884,
+    "votes": {
+     "dlfIdp": [
+      1517,
+      null
+     ],
+     "draftSharksIdp": [
+      2886,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 1916,
+    "votes": {
+     "draftSharksIdp": [
+      2886,
+      null
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 1913,
+    "votes": {
+     "dlfIdp": [
+      1517,
+      null
+     ],
+     "draftSharksIdp": [
+      2886,
+      null
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 1913,
+    "votes": {
+     "dlfIdp": [
+      1517,
+      null
+     ],
+     "draftSharksIdp": [
+      2886,
+      null
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 1916,
+    "votes": {
+     "draftSharksIdp": [
+      2886,
+      null
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 1913,
+    "votes": {
+     "dlfIdp": [
+      1517,
+      null
+     ],
+     "draftSharksIdp": [
+      2886,
+      null
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 1916,
+    "votes": {
+     "draftSharksIdp": [
+      2886,
+      null
+     ],
+     "fantasyProsIdp": [
+      1558,
+      null
+     ],
+     "idpShowCombined": [
+      1842,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      814,
+      null
+     ]
+    }
+   }
+  },
+  "Will Anderson": {
+   "A": {
+    "confidence": "low",
+    "value": 4395,
+    "votes": {
+     "draftSharksIdp": [
+      2878,
+      null
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   },
+   "B": {
+    "confidence": "medium",
+    "value": 5980,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      2878,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   },
+   "B'": {
+    "confidence": "low",
+    "value": 4395,
+    "votes": {
+     "draftSharksIdp": [
+      2878,
+      null
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   },
+   "B''": {
+    "confidence": "medium",
+    "value": 5980,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      2878,
+      "filter_dropped"
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   },
+   "B'nf": {
+    "confidence": "low",
+    "value": 4395,
+    "votes": {
+     "draftSharksIdp": [
+      2878,
+      null
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   },
+   "Bnf": {
+    "confidence": "low",
+    "value": 4449,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      2878,
+      null
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   },
+   "C": {
+    "confidence": "low",
+    "value": 4449,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      2878,
+      null
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   },
+   "C'": {
+    "confidence": "low",
+    "value": 4395,
+    "votes": {
+     "draftSharksIdp": [
+      2878,
+      null
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   },
+   "C''": {
+    "confidence": "low",
+    "value": 4449,
+    "votes": {
+     "dlfIdp": [
+      6227,
+      null
+     ],
+     "draftSharksIdp": [
+      2878,
+      null
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   },
+   "D": {
+    "confidence": "low",
+    "value": 4395,
+    "votes": {
+     "draftSharksIdp": [
+      2878,
+      null
+     ],
+     "fantasyProsIdp": [
+      5603,
+      null
+     ],
+     "idpShowCombined": [
+      4225,
+      "freshness_or_health_zero_weight"
+     ],
+     "idpTradeCalc": [
+      5963,
+      null
+     ]
+    }
+   }
+  }
+ },
+ "idpRestore": {
+  "droppedInB": 31,
+  "pairs": [
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4802,
+     "vote": 3181
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 6422,
+     "vote": 3181
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4802,
+     "vote": 3181
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 4802,
+     "vote": 3181
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 4802,
+     "vote": 3181
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Aidan Hutchinson",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 1953,
+     "vote": 3283
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 1821,
+     "vote": 3283
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 1841,
+     "vote": 3283
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 1841,
+     "vote": 3283
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 1841,
+     "vote": 3283
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Alex Singleton",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2662,
+     "vote": 1794
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2788,
+     "vote": 1794
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2779,
+     "vote": 1794
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2779,
+     "vote": 1794
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2779,
+     "vote": 1794
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Anthony Hill",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2864,
+     "vote": 3721
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2047,
+     "vote": 3721
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2873,
+     "vote": 3721
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2873,
+     "vote": 3721
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2873,
+     "vote": 3721
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Barrett Carter",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3918,
+     "vote": 5741
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2172,
+     "vote": 5741
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3964,
+     "vote": 5741
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 3964,
+     "vote": 5741
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 3964,
+     "vote": 5741
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "CJ Allen",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 6246,
+     "vote": 7032
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 5584,
+     "vote": 7032
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 6276,
+     "vote": 7032
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 6276,
+     "vote": 7032
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 6276,
+     "vote": 7032
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Carson Schwesinger",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2547,
+     "vote": 3200
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2118,
+     "vote": 3200
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2546,
+     "vote": 3200
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2546,
+     "vote": 3200
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2546,
+     "vote": 3200
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Chase Young",
+    "source": "idpTradeCalc"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2352,
+     "vote": 1643
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3035,
+     "vote": 1643
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2328,
+     "vote": 1643
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2328,
+     "vote": 1643
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2328,
+     "vote": 1643
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Danielle Hunter",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3556,
+     "vote": 2051
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3705,
+     "vote": 2051
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3690,
+     "vote": 2051
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 3690,
+     "vote": 2051
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 3690,
+     "vote": 2051
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "David Bailey",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2752,
+     "vote": 3371
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2041,
+     "vote": 3371
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2697,
+     "vote": 3371
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2697,
+     "vote": 3371
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2697,
+     "vote": 3371
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "DeMarvion Overshown",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3666,
+     "vote": 4331
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3204,
+     "vote": 4331
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3734,
+     "vote": 4331
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 3734,
+     "vote": 4331
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 3734,
+     "vote": 4331
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Dillon Thieneman",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3957,
+     "vote": 4618
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3293,
+     "vote": 4618
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3953,
+     "vote": 4618
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 3953,
+     "vote": 4618
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 3953,
+     "vote": 4618
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Edgerrin Cooper",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4617,
+     "vote": 1578
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 4954,
+     "vote": 1578
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4924,
+     "vote": 1578
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 4924,
+     "vote": 1578
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 4924,
+     "vote": 1578
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Jacob Rodriguez",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4168,
+     "vote": 4932
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3547,
+     "vote": 4932
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4206,
+     "vote": 4932
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 4206,
+     "vote": 4932
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 4206,
+     "vote": 4932
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Jihaad Campbell",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3910,
+     "vote": 5096
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3731,
+     "vote": 5096
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3758,
+     "vote": 5096
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 3758,
+     "vote": 5096
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 3758,
+     "vote": 5096
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Jordyn Brooks",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2390,
+     "vote": 1868
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3379,
+     "vote": 1868
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2514,
+     "vote": 1868
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2514,
+     "vote": 1868
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2514,
+     "vote": 1868
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Josiah Trotter",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2390,
+     "vote": 1677
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3379,
+     "vote": 1677
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2514,
+     "vote": 1677
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2514,
+     "vote": 1677
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2514,
+     "vote": 1677
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Josiah Trotter",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3597,
+     "vote": 1905
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 5246,
+     "vote": 1905
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3512,
+     "vote": 1905
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 3512,
+     "vote": 1905
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 3512,
+     "vote": 1905
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Myles Garrett",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4167,
+     "vote": 4783
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3588,
+     "vote": 4783
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4170,
+     "vote": 4783
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 4170,
+     "vote": 4783
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 4170,
+     "vote": 4783
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Nick Bolton",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3973,
+     "vote": 4445
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3544,
+     "vote": 4445
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3962,
+     "vote": 4445
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 3962,
+     "vote": 4445
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 3962,
+     "vote": 4445
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Nick Emmanwori",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2137,
+     "vote": 2999
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 1554,
+     "vote": 2999
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2156,
+     "vote": 2999
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2156,
+     "vote": 2999
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2156,
+     "vote": 2999
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Nick Herbig",
+    "source": "idpTradeCalc"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2597,
+     "vote": 3241
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 1975,
+     "vote": 3241
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2604,
+     "vote": 3241
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2604,
+     "vote": 3241
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 2604,
+     "vote": 3241
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Patrick Queen",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3874,
+     "vote": 4592
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3100,
+     "vote": 4592
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3835,
+     "vote": 4592
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 3835,
+     "vote": 4592
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 3835,
+     "vote": 4592
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Quay Walker",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2179,
+     "vote": 3171
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2060,
+     "vote": 3171
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2078,
+     "vote": 3171
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2078,
+     "vote": 3171
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2078,
+     "vote": 3171
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Quincy Williams",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2182,
+     "vote": 3294
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 2049,
+     "vote": 3294
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2068,
+     "vote": 3294
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2068,
+     "vote": 3294
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2068,
+     "vote": 3294
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Robert Spillane",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3337,
+     "vote": 5165
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3158,
+     "vote": 5165
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 3184,
+     "vote": 5165
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 3184,
+     "vote": 5165
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 3184,
+     "vote": 5165
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Roquan Smith",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4978,
+     "vote": 2901
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 5185,
+     "vote": 2901
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 5166,
+     "vote": 2901
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 5166,
+     "vote": 2901
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 5166,
+     "vote": 2901
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Sonny Styles",
+    "source": "fantasyProsIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2418,
+     "vote": 1450
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 3436,
+     "vote": 1450
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2440,
+     "vote": 1450
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 2440,
+     "vote": 1450
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 2440,
+     "vote": 1450
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "T.J. Watt",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 1916,
+     "vote": 2886
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 884,
+     "vote": 2886
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 1913,
+     "vote": 2886
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 1913,
+     "vote": 2886
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting_name_only_identity",
+     "rowValue": 1913,
+     "vote": 2886
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Trevin Wallace",
+    "source": "draftSharksIdp"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2104,
+     "vote": 2927
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 1514,
+     "vote": 2927
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 2101,
+     "vote": 2927
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2101,
+     "vote": 2927
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "voting",
+     "rowValue": 2101,
+     "vote": 2927
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Trey Hendrickson",
+    "source": "idpTradeCalc"
+   },
+   {
+    "A": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4395,
+     "vote": 2878
+    },
+    "B": {
+     "excluded": "filter_dropped",
+     "integrity": null,
+     "rowValue": 5980,
+     "vote": 2878
+    },
+    "Bnf": {
+     "excluded": null,
+     "integrity": null,
+     "rowValue": 4449,
+     "vote": 2878
+    },
+    "C": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 4449,
+     "vote": 2878
+    },
+    "C''": {
+     "excluded": null,
+     "integrity": "kept_dissent",
+     "rowValue": 4449,
+     "vote": 2878
+    },
+    "droppedB": true,
+    "retainedC": true,
+    "retainedCpp": true,
+    "row": "Will Anderson",
+    "source": "draftSharksIdp"
+   }
+  ],
+  "retainedInC": 31,
+  "retainedInCpp": 31,
+  "total": 31
+ },
+ "integrity": {
+  "C": {
+   "rankingPasses": 1,
+   "segmentQuarantines": {},
+   "sourceQuarantines": {},
+   "voteExclusions": {}
+  },
+  "C'": {
+   "rankingPasses": 1,
+   "segmentQuarantines": {},
+   "sourceQuarantines": {},
+   "voteExclusions": {}
+  },
+  "C''": {
+   "rankingPasses": 1,
+   "segmentQuarantines": {},
+   "sourceQuarantines": {},
+   "voteExclusions": {}
+  },
+  "D": {
+   "rankingPasses": 1,
+   "segmentQuarantines": {},
+   "sourceQuarantines": {},
+   "voteExclusions": {}
+  }
+ },
+ "payloadSha256": "b639608f68176b9a395527e6e9ea992e324baa75d997b8ea289e587e61eae11c",
+ "pin": "pin0527",
+ "schema": "oiv2-r-constraints/v1",
+ "status": "pre_freeze_constraint_check_provisional_thresholds_no_history",
+ "thresholds": {
+  "epsilonB2": 0.05,
+  "kC": 8.0,
+  "nMin": 20,
+  "rhoMin": 0.0,
+  "status": "provisional_stage1",
+  "tauAge": 2,
+  "tauBoardCells": 0,
+  "tauCLayerC": 1.791759,
+  "tauCSources": 0,
+  "tauGross": 1.386294
+ },
+ "valueChanges": {
+  "B_vs_A": {
+   "max": 0.5386,
+   "median": 0.019,
+   "p90": 0.1389,
+   "rowsAtLeast10pct": [
+    {
+     "assetClass": "idp",
+     "change": -0.5386,
+     "from": 1916.0,
+     "row": "Trevin Wallace",
+     "to": 884.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.4584,
+     "from": 3597.0,
+     "row": "Myles Garrett",
+     "to": 5246.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.4456,
+     "from": 3918.0,
+     "row": "CJ Allen",
+     "to": 2172.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.421,
+     "from": 2418.0,
+     "row": "T.J. Watt",
+     "to": 3436.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.4138,
+     "from": 2390.0,
+     "row": "Josiah Trotter",
+     "to": 3379.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.3606,
+     "from": 4395.0,
+     "row": "Will Anderson",
+     "to": 5980.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.3374,
+     "from": 4802.0,
+     "row": "Aidan Hutchinson",
+     "to": 6422.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.2904,
+     "from": 2352.0,
+     "row": "Danielle Hunter",
+     "to": 3035.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.2853,
+     "from": 2864.0,
+     "row": "Barrett Carter",
+     "to": 2047.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.2804,
+     "from": 2104.0,
+     "row": "Trey Hendrickson",
+     "to": 1514.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.2728,
+     "from": 2137.0,
+     "row": "Nick Herbig",
+     "to": 1554.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.2584,
+     "from": 2752.0,
+     "row": "DeMarvion Overshown",
+     "to": 2041.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.2395,
+     "from": 2597.0,
+     "row": "Patrick Queen",
+     "to": 1975.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.1998,
+     "from": 3874.0,
+     "row": "Quay Walker",
+     "to": 3100.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.1684,
+     "from": 2547.0,
+     "row": "Chase Young",
+     "to": 2118.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.1678,
+     "from": 3957.0,
+     "row": "Edgerrin Cooper",
+     "to": 3293.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.149,
+     "from": 4168.0,
+     "row": "Jihaad Campbell",
+     "to": 3547.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.1389,
+     "from": 4167.0,
+     "row": "Nick Bolton",
+     "to": 3588.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.126,
+     "from": 3666.0,
+     "row": "Dillon Thieneman",
+     "to": 3204.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.108,
+     "from": 3973.0,
+     "row": "Nick Emmanwori",
+     "to": 3544.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.106,
+     "from": 6246.0,
+     "row": "Carson Schwesinger",
+     "to": 5584.0
+    }
+   ],
+   "rowsChanged": 180
+  },
+  "Bp_vs_A": {
+   "max": 0.0513,
+   "median": 0.0028,
+   "p90": 0.0161,
+   "rowsAtLeast10pct": [],
+   "rowsChanged": 301
+  },
+  "C_vs_A": {
+   "max": 0.3564,
+   "median": 0.0033,
+   "p90": 0.0295,
+   "rowsAtLeast10pct": [
+    {
+     "assetClass": "offense",
+     "change": 0.3564,
+     "from": 651.0,
+     "row": "LaJohntay Wester",
+     "to": 883.0
+    }
+   ],
+   "rowsChanged": 420
+  },
+  "C_vs_B": {
+   "max": 1.164,
+   "median": 0.0016,
+   "p90": 0.0389,
+   "rowsAtLeast10pct": [
+    {
+     "assetClass": "idp",
+     "change": 1.164,
+     "from": 884.0,
+     "row": "Trevin Wallace",
+     "to": 1913.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.825,
+     "from": 2172.0,
+     "row": "CJ Allen",
+     "to": 3964.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.4035,
+     "from": 2047.0,
+     "row": "Barrett Carter",
+     "to": 2873.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.3877,
+     "from": 1514.0,
+     "row": "Trey Hendrickson",
+     "to": 2101.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.3874,
+     "from": 1554.0,
+     "row": "Nick Herbig",
+     "to": 2156.0
+    },
+    {
+     "assetClass": "offense",
+     "change": 0.3564,
+     "from": 651.0,
+     "row": "LaJohntay Wester",
+     "to": 883.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.3305,
+     "from": 5246.0,
+     "row": "Myles Garrett",
+     "to": 3512.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.3214,
+     "from": 2041.0,
+     "row": "DeMarvion Overshown",
+     "to": 2697.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.3185,
+     "from": 1975.0,
+     "row": "Patrick Queen",
+     "to": 2604.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.2899,
+     "from": 3436.0,
+     "row": "T.J. Watt",
+     "to": 2440.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.256,
+     "from": 5980.0,
+     "row": "Will Anderson",
+     "to": 4449.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.256,
+     "from": 3379.0,
+     "row": "Josiah Trotter",
+     "to": 2514.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.2523,
+     "from": 6422.0,
+     "row": "Aidan Hutchinson",
+     "to": 4802.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.2371,
+     "from": 3100.0,
+     "row": "Quay Walker",
+     "to": 3835.0
+    },
+    {
+     "assetClass": "idp",
+     "change": -0.2329,
+     "from": 3035.0,
+     "row": "Danielle Hunter",
+     "to": 2328.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.2021,
+     "from": 2118.0,
+     "row": "Chase Young",
+     "to": 2546.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.2004,
+     "from": 3293.0,
+     "row": "Edgerrin Cooper",
+     "to": 3953.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.1858,
+     "from": 3547.0,
+     "row": "Jihaad Campbell",
+     "to": 4206.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.1654,
+     "from": 3204.0,
+     "row": "Dillon Thieneman",
+     "to": 3734.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.1622,
+     "from": 3588.0,
+     "row": "Nick Bolton",
+     "to": 4170.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.1239,
+     "from": 5584.0,
+     "row": "Carson Schwesinger",
+     "to": 6276.0
+    },
+    {
+     "assetClass": "idp",
+     "change": 0.1179,
+     "from": 3544.0,
+     "row": "Nick Emmanwori",
+     "to": 3962.0
+    }
+   ],
+   "rowsChanged": 271
+  },
+  "Cp_vs_A": {
+   "max": 0.3564,
+   "median": 0.0024,
+   "p90": 0.0181,
+   "rowsAtLeast10pct": [
+    {
+     "assetClass": "offense",
+     "change": 0.3564,
+     "from": 651.0,
+     "row": "LaJohntay Wester",
+     "to": 883.0
+    }
+   ],
+   "rowsChanged": 394
+  },
+  "Cpp_vs_A": {
+   "max": 0.3564,
+   "median": 0.004,
+   "p90": 0.0275,
+   "rowsAtLeast10pct": [
+    {
+     "assetClass": "offense",
+     "change": 0.3564,
+     "from": 651.0,
+     "row": "LaJohntay Wester",
+     "to": 883.0
+    }
+   ],
+   "rowsChanged": 574
+  },
+  "D_vs_A": {
+   "max": 0.3564,
+   "median": 0.0012,
+   "p90": 0.0203,
+   "rowsAtLeast10pct": [
+    {
+     "assetClass": "offense",
+     "change": 0.3564,
+     "from": 651.0,
+     "row": "LaJohntay Wester",
+     "to": 883.0
+    }
+   ],
+   "rowsChanged": 240
+  }
+ }
+}

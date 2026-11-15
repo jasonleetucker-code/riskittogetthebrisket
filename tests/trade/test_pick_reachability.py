@@ -1,4 +1,16 @@
-"""The arbitrage finder cannot currently trade a draft pick, and that is recorded.
+"""The arbitrage finder trades a draft pick ONLY through posture-aware generation.
+
+**Wave B update (C7-PICKGEN-01, owner decision 2026-10-03).**  Owned picks now
+reach the finder through ``finder._owned_pick_assets`` (the canonical
+``pickDetails`` fold + ``identity.picks.market_resolution``; the label-grammar
+break below is still NOT repaired with a finder regex) and only when the route
+supplies canonical postures for a complementary pair — see
+``tests/trade/test_posture_aware_picks.py``.  ``_resolve_roster`` still reads
+players only, and WITHOUT postures every assertion below still holds: that is
+the invariant these tests now pin.  The history that follows is kept as the
+record of why.
+
+Original note — the arbitrage finder could not trade a draft pick.
 
 Measured on the 2026-08-18 board across all twelve ``dynasty_main`` rosters:
 **480 returned trades, 0 containing a pick**, shapes only ``(1,1)`` and
@@ -38,6 +50,9 @@ import inspect
 from pathlib import Path
 
 from src.trade import finder
+import pytest
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _finder_source() -> str:
@@ -87,7 +102,7 @@ def test_an_owned_pick_never_reaches_a_returned_trade():
     and its per-market top-150 filter are calibrated for the live scale, and a
     hand-built pool either fails them or has to be tuned until it passes, at
     which point it is testing the tuning.  So this runs the finder over the
-    newest COMPLETE archived scrape (``tests/archive_fixtures``) — deterministic,
+    PINNED complete archived scrape (``tests/archive_fixtures``) — deterministic,
     tracked, and it SKIPS rather than passing vacuously when no complete bundle
     exists.
 
@@ -99,9 +114,9 @@ def test_an_owned_pick_never_reaches_a_returned_trade():
     import pytest
 
     from src.api.data_contract import build_api_data_contract
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    raw, label = newest_complete_raw_payload()
+    raw, label = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available")
 

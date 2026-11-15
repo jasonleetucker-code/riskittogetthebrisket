@@ -60,7 +60,7 @@ def _all_events(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
             opp_pts = metrics.matchup_points(foe)
             if my_pts <= 0 and opp_pts <= 0:
                 continue
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if not owner_id:
                 continue
             if my_pts > opp_pts:

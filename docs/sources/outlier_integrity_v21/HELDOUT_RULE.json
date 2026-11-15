@@ -1,0 +1,33 @@
+{
+ "schema": "oiv21-heldout-rule/v1",
+ "registeredBy": "docs/sources/OUTLIER_INTEGRITY_V21_PREREGISTRATION.md section 5.3",
+ "T0": "the committer timestamp of the commit that adds docs/sources/OUTLIER_INTEGRITY_V21_PREREGISTRATION.md to branch claude/outlier-integrity-v2",
+ "eligibility": [
+  "the archive exports/archive/dynasty_export_*.zip was ADDED to origin/main by the automated data refresh (commit subject 'chore: automated data refresh ...')",
+  "its add-commit committer timestamp is strictly after T0",
+  "its payload scrapeTimestamp is strictly after T0",
+  "it is not listed in docs/sources/outlier_integrity_v21/manifests/POPULATIONS.json"
+ ],
+ "completeness": "tests.archive_fixtures._degraded_critical_sources(payload) is empty (the rule V2 used); an incomplete board is never scored, and its non-degraded sources may feed the history lane only",
+ "windows": {
+  "H_BUFFER": "eligible boards added after T0 and before WINDOW_START; history-lane input only, never scored",
+  "WINDOW_START": "2026-10-21T00:00:00Z, or the first UTC midnight after T0 if T0 is later (every date below then shifts by the same whole number of days)",
+  "H_ORIGIN": "complete eligible boards added in [WINDOW_START, WINDOW_END); WINDOW_END = WINDOW_START + 28 days = 2026-11-18T00:00:00Z",
+  "H_TARGET": "complete eligible boards added in [WINDOW_END, WINDOW_END + 7 days) = [2026-11-18, 2026-11-25); M1 horizon targets only, never origins, never gate boards",
+  "G1": "the first complete H_ORIGIN board whose add-commit timestamp is at or after WINDOW_START + 14 days = 2026-11-04T00:00:00Z",
+  "G2": "the last complete H_ORIGIN board (add-commit timestamp before WINDOW_END)",
+  "G1_PRIOR / G2_PRIOR": "the complete eligible board immediately before G1 / G2"
+ },
+ "minimumSample": {
+  "completeOriginBoards": 56,
+  "distinctOriginUtcDays": 20,
+  "completeOriginBoardsPerWeekBlock": 7,
+  "weekBlocks": "four consecutive 7-day blocks from WINDOW_START"
+ },
+ "extension": "if the minimum sample is not met at WINDOW_END, WINDOW_END moves forward one whole UTC day at a time (G2 and H_TARGET move with it, G1 does not) until it is met, at most 14 days (latest WINDOW_END 2026-12-02T00:00:00Z); still unmet -> the held-out evaluation is INSUFFICIENT and the verdict is MORE RESEARCH REQUIRED",
+ "identityPrerequisite": "the wrong-player gate is evaluable only if G1 and G2 both carry the U2, U2b and U3 scraper evidence stamps and the VID vendor-id mapping was live in the producing refresh (preregistration section 3.7); otherwise the wrong-player gate is BLOCKED (dependency) and the verdict is BLOCKED",
+ "earliestReady": "2026-11-25T00:00:00Z (all H_ORIGIN and H_TARGET boards exist), if no extension is needed and T0 < 2026-10-21T00:00:00Z",
+ "seal": "no V2.1 or incumbent build, no score, no descriptive scan and no gate injection may read an H_BUFFER, H_ORIGIN or H_TARGET board before the Stage 4 run commit, except the manifest builder reading add-commit, hashes, scrapeTimestamp and the completeness field; every board is then evaluated once, at one code SHA",
+ "gateSeed": 2034,
+ "selectionSeed": 20261021
+}

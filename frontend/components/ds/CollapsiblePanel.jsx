@@ -40,11 +40,19 @@
  *
  * Requires a `title`, same as Panel's disclosure: a control with no
  * label is unusable, so it no-ops into a plain Panel without one.
+ *
+ * Hydration gate: the disclosure is server-rendered, but its onClick
+ * only exists once React hydrates.  Until then the button renders
+ * `disabled` + `aria-busy="true"` through Panel's `disclosurePending`, so
+ * an early click meets a control that is visibly not ready instead of one
+ * that silently swallows it.  Rationale and mechanism:
+ * ./useHydrated.js.
  */
 "use client";
 
 import React, { useCallback, useId, useState } from "react";
 import { Panel } from "./Panel";
+import { useHydrated } from "./useHydrated";
 
 export function CollapsiblePanel({
   defaultCollapsed = false,
@@ -54,6 +62,7 @@ export function CollapsiblePanel({
 }) {
   const [collapsed, setCollapsed] = useState(Boolean(defaultCollapsed));
   const bodyId = useId();
+  const hydrated = useHydrated();
   const toggle = useCallback(() => setCollapsed((v) => !v), []);
   // Latch: once opened, keep the children mounted so folding the panel
   // shut does not throw away their state or re-run their effects.
@@ -68,6 +77,7 @@ export function CollapsiblePanel({
       collapsible
       collapsed={collapsed}
       onToggleCollapsed={toggle}
+      disclosurePending={!hydrated}
       bodyId={bodyId}
     >
       {showChildren ? children : null}

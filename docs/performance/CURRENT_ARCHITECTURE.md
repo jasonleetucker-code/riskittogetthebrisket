@@ -461,3 +461,165 @@ three new workflow steps were missing required release-gate classifications;
 independent review proved the existing presence test would fail. Three explicit
 `blocking` entries repair that integration prerequisite without changing the
 workflow, its permissions or operations. This is relevant to CI metadata only.
+
+### September 28 — Claude takeover: fresh post-#1503 baseline, first-useful-state owners, #1510
+
+Main movement since #1503 (`8a32eed68`): two correctness/product commits (#1504 Game Day
+collector host-read repair; #1509 BALLDONTLIE shadow adapter, default OFF) confined to the
+Game Day collector, live-state adapters, one flag and their tests — no Rankings/Trade,
+`/api/data`, runner or serving dependency — plus 42 automated data refreshes. Neither
+invalidates this unit's measurements.
+
+**Fresh baseline, current main, corrected observer** — run 36479010660 (verification source
+`12835ae3a`; `visible-locator-fixed-poll-v1`; diagnostics off; 60 s context pacing;
+40/40 useful, 0 missing; a post-deploy Sharp bootstrap job was running on the host):
+
+| Series | Cold p50 / p95 ms | Warm p50 / p95 ms |
+| --- | ---: | ---: |
+| Rankings desktop | 2879 / 4741 | 1249 / 1849 |
+| Rankings mobile | 2574 / 3079 | 709 / 876 |
+| Trade desktop | 2399 / 2518 | 690 / 1283 |
+| Trade mobile | 2396 / 2427 | 445 / 581 |
+
+Five observations per cell; not field percentiles. Fails cold <=3 s (Rankings desktop,
+marginally mobile) and warm <=1 s (Rankings desktop, Trade desktop).
+
+**Owner attribution** (paced diagnostic run 36331359050 re-read per attempt, plus local
+production-build profiling): the board request starts ~960-1,080 ms into a cold load (after
+every chunk downloads and React hydrates) although the HTML arrives at ~290 ms; body transfer
+is ~450-550 ms cold; `JSON.parse` of the 7.2 MB compact board is ~18 ms and `buildRows`
+2-7 ms locally (~90 ms combined on the runner) — the payload's parse/materialize cost is NOT
+the owner. After the data arrives, desktop Rankings spends ~500-600 ms (runner, warm) building
+and laying out the 200-row first commit: a local A/B at 2x CPU measured warm 1127 ms at 200
+initial rows vs 669/645 ms at 60/40 rows. Rows are lean (~30 nodes, 10 cells); the cost is auto
+table layout, which the column-width freeze needs — 40-row and 200-row frozen widths differ by
+up to 36 px, so rendering fewer rows first would shift columns after paint.
+
+**#1510 (merge `5273395b7`)**: (1) the board request starts during HTML parse on /rankings and
+/trade (`lib/early-contract.js`, adopted at most once by the fetch layer, arrival-stamped
+freshness, in-flight adoption at any age); (2) windowed row geometry is read in the frame drain
+instead of inside React's commit (the armed first-board read, which shares the freeze's forced
+layout, is kept). Local A/B under 100 ms emulated latency: cold median 3538 -> 3020 ms desktop
+1x, 4446 -> 3744 desktop 4x, 4526 -> 3888 mobile 4x; warm 2189 -> 1994 ms at 4x. Independent
+review approved; three should-fixes applied.
+
+**Evidenced candidates not yet changed** (each with its own measurement):
+* Public `/api/public/league/overview` rebuilds on every request (no memo): production TTFB
+  2.0-7.9 s vs 0.37 s health; local 0.38-0.65 s per request.
+* Every CSV-only data refresh (10-12/day) runs a forced `npm ci` + `next build` (~2 min CPU)
+  on the production host, restarts both services and rebuilds the temporal ledger (~2 min).
+* Backend event-loop starvation under concurrent CPU-bound work (GIL), measured locally with a
+  loop-lag watchdog; the deploy-validation timing test
+  `test_event_loop_stays_responsive_during_each_fetch_main` flaked on it (run 36487258010).
+* `/api/news` was ruled OUT: its per-request digest costs 0.2-0.6 ms.
+
+**#1510 production remeasurement** — run 36495127028 (deployed `5273395b7`, same observer,
+pacing and route set, 40/40 useful):
+
+| Series | Cold p50 / p95 ms | Warm p50 / p95 ms |
+| --- | ---: | ---: |
+| Rankings desktop | 2598 / 2796 | 959 / 2032 |
+| Rankings mobile | 2218 / 2377 | 911 / 2008 |
+| Trade desktop | 2088 / 2269 | 551 / 935 |
+| Trade mobile | 1953 / 2058 | 569 / 1812 |
+
+Every cold cell now meets <=3 s. What still fails is a single ~1.8-2.0 s warm outlier per
+cell against p50s of 0.55-0.96 s: bimodal, not a slow distribution.
+
+### September 29 — encoded overlay response: stale-while-revalidate
+
+**Owner of the warm outliers.** Rankings and Trade read `/api/dynasty-data?view=compact`,
+which splices the live Sleeper roster overlay onto the precomputed board and memoizes the
+encoded bytes per (league, view) slot under version
+`(overlayFetchedAt, payloadETag, canonicalETag, rosterRulesDigest)`. The overlay owner
+refreshes every 15 min, so every refresh made the NEXT request re-run the lineup solve, the
+multi-MB `json.dumps` (C encoder, GIL held throughout) and gzip on the request path. Locally
+`/api/data` measured p50 10 ms against p90 896 ms and max 4.7 s over the same interval —
+the same bimodal shape as production.
+
+**Change** (`server.py::_serialize_overlaid_response`, `_kick_overlay_reencode`;
+`sleeper_overlay.overlay_observation_servable`): when ONLY the overlay observation differs
+and the cached generation's observation is inside the overlay owner's own 30-min
+stale-serve ceiling (`_STALE_SERVE_MAX_SEC`), the previous encoded generation is served with
+`Cache-Control: private, no-cache` and `X-Overlay-Encode: stale-while-revalidate`, and ONE
+background task re-encodes under the same per-key lock. A new board, new canonical rows,
+new roster rules, or an observation past the window still encodes on the request exactly as
+before; missing/unparseable/zone-less/future stamps fail closed. The background result is
+stored only while the slot still holds the generation it was started to replace, so it can
+never overwrite a newer one. Nothing is served that the overlay owner itself would not
+serve; the body carries its own `overlayFetchedAt`.
+
+**Known limit, stated rather than hidden.** The background encode still holds the GIL for
+the length of `json.dumps`, so requests arriving during that window can stall; the change
+removes the encode from the triggering request, not from the process. Production
+remeasurement decides whether the outliers are gone; a chunked or out-of-process encode is
+the next candidate if they are not. Independent review: request-changes, four findings
+(test clock, older-generation overwrite, cache lifetime of superseded bytes, cancelled-task
+bookkeeping), all applied and sabotage-verified.
+
+### September 29 — the scraper's run phase moved off the event loop
+
+**Measured defect.** Production probes of `/api/health` (healthy round trip ~0.4 s) timed
+out with no response at **20 s** (21:46:47 UTC) and **40 s** (22:52:49, three minutes after a
+restart) on 2026-09-28. Scrape telemetry places the cause: `Dynasty Scraper.py::run` is
+`async def`, but between its `health_report` and `build_payload` phases it runs ~3,000 lines
+(3649-6712) of synchronous merge/normalization with no `await` — **~68 s** in the telemetry
+of 2026-09-24 (`health_report` 11:12:56 -> `build_payload` 11:14:05). `run_scraper` awaited it
+on the server's single event-loop thread, so every request went unserved for that span, on
+every scheduled scrape (~2 h) and every restart. Same defect class as the import phase fixed
+2026-09-16 (`_import_scraper_module`, 144 s), one phase later.
+
+**Change** (`server.py::_run_scraper_off_loop`): `scraper.run()` executes on its own event
+loop in a dedicated `scraper-run` thread (not the shared default executor). Progress payloads
+are marshalled back with `call_soon_threadsafe` (FIFO, applied before the worker's completion
+is delivered), so `scrape_status` stays single-threaded and ordered. The run timeout is
+applied inside the worker loop as before. Cancelling the scrape -- any number of times, as
+shutdown does (lifespan, then the server runner) -- cancels the scraper task in its loop and
+does not return until the worker has unwound, so `scrape_run_lock` and the Chromium reaper in
+`_finalize_scrape_run` never act under a live scrape. Independent review found the first
+version returned early on a second cancel (reproduced); fixed and pinned by a double-cancel
+test.
+
+**What it does not remove.** The synchronous span still competes for the GIL, so requests
+during a scrape can be slower, and any single long C-level call inside it holds the GIL for
+its own duration. Full process isolation is the next step
+if production remeasurement shows residual stalls. New concurrency this introduces, checked:
+the one request-time reader of scraper output files
+(`_latest_cached_contract_from_disk`, cold start only) already skips unreadable files to the
+next-older export; all other readers run at startup or after the scrape returns.
+
+### September 29 — #1512 production remeasurement; the overlay ETag owner
+
+**#1512 remeasured** (deployed `204a16848`): baseline 36524497676 (plain) and diagnostic
+36527088254, same observer, pacing and route set. Mobile improved (Trade warm 524-629 ms, p95
+629; Rankings warm p95 2008 -> 1164 in the plain run, 776 in the diagnostic run). Desktop
+Rankings still missed: warm attempts [2357, 900, 1004, 2279, 1100] (plain) and
+[884, 1644, 992, 853, 827] (diagnostic); desktop Trade one 1364 ms warm outlier. The page itself
+loads in ~300-400 ms in every attempt, fast or slow: the extra time is after the load event.
+
+**Attribution.** In the diagnostic outlier (1644 ms) the board request took 488 ms to headers
+(normally 130-200) and 613 ms for body + parse (normally 90-150): a FULL re-download on a warm
+load that normally revalidates to a zero-body 304. The response's ETag had changed. Every
+15-min overlay refresh restamps `overlayFetchedAt` and the trade-window edge
+(`tradeWindowStart` / `tradeWindowCutoffMs`, "now minus 365 days") even when no roster, trade or
+setting changed, and the encoded response was versioned by fetch time, so each refresh minted
+new bytes and every client re-downloaded the whole board to learn nothing. The outlier rate
+fits: ~2-3 per ~25-min baseline, about one per overlay refresh. The client reads none of those
+three fields; `cache: "no-cache"` stays (it is the logout-replay guard, documented at the call
+site).
+
+**Change** (`server.py::_overlay_content_identity`): the encoded response is versioned by the
+overlay's CONTENT (everything except the three per-fetch stamps), memoized per observation
+(2.7 ms once per refresh per league on a real 317 KB overlay; a hit is ~3 us). Unchanged content
+keeps its bytes and ETag -> warm loads revalidate to a 304. The served `overlayFetchedAt` is then
+the observation at the slot's last encode (a board publish, roster-rule change, eviction or
+restart re-encodes), which understates freshness and never overstates it. The scoring-profile
+label stamped into `meta` joined the version, since fetch time no longer refreshes it implicitly
+(independent review, approve with should-fixes applied). The
+#1512 stale-serve bound now measures from the content's LAST confirmation
+(`_OVERLAY_FP_LAST_SEEN`), not its first sighting.
+
+**Still open for desktop Rankings warm**: with the data in hand at ~450-520 ms, useful state
+lands at ~830-1000 ms -- the 200-row first render (~400-500 ms) keeps desktop Rankings warm at
+the 1 s budget edge even without outliers.
+

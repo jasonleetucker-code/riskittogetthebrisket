@@ -1,0 +1,217 @@
+"use client";
+
+/**
+ * AutoSlates — the primary way a slate reaches /dfs (DFS-AUTO): nothing to
+ * download or upload.  Lists the automatically populated slates for the
+ * selected sport + platform with their freshness, opens Main (or the next
+ * slate to lock) by default, and says plainly what an automatic slate cannot
+ * do yet (upload files: no permitted source publishes platform player IDs).
+ *
+ * Display only: slates, freshness and every number come from /api/dfs/auto/*.
+ */
+
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Banner, Button, StatusIndicator } from "@/components/ds";
+import { PLATFORMS, errorMessage, formatAge, formatLockEt, freshnessCopy, pickDefaultAutoSlate } from "@/lib/dfs";
+import styles from "./dfs-workspace.module.css";
+
+async function api(path, init) {
+  const res = await fetch(`/api/dfs${path}`, {
+    credentials: "same-origin",
+    cache: "no-store",
+    ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+  });
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+  return { ok: res.ok, status: res.status, body };
+}
+
+const POLL_MS = 15000;
+const MAX_POLLS = 8;
+
+// Words for the backend's degraded-slate reasons.  Display only: the markers
+// come from /api/dfs/auto/slates and are never interpreted beyond wording.
+const LOCK_EARLY_REASONS = {
+  untimed_listed_rows: "some listed players could not be placed on a scheduled game, and any of them may play first",
+};
+
+/** One degraded marker → the words shown on the slate. */
+export function degradedMarkerText(marker) {
+  const text = String(marker ?? "");
+  const lockEarly = "lock_may_be_early:";
+  if (text.startsWith(lockEarly)) {
+    const reason = text.slice(lockEarly.length);
+    return `Lock may be earlier than shown: ${LOCK_EARLY_REASONS[reason] || reason.replace(/_/g, " ")}`;
+  }
+  return text;
+}
+
+// Exactly one row is "In use": the slate this component opened when it still
+// carries the loaded content, else the first slate whose content matches it.
+export function activeAutoSlateId(slates, selectedHash, selectedAutoId) {
+  if (!selectedHash) return null;
+  const own = slates.find((s) => s.autoSlateId === selectedAutoId);
+  if (own && own.contentHash === selectedHash) return own.autoSlateId;
+  return slates.find((s) => s.contentHash === selectedHash)?.autoSlateId ?? null;
+}
+
+export default function AutoSlates({ sport, platform, selectedHash, onSelected, onAvailability }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  // The slate THIS component opened. Two live slates can carry identical content
+  // (a "Main" and a "Full week" built from the same games), so the content hash
+  // alone cannot say which row is in use.
+  const [selectedAutoId, setSelectedAutoId] = useState(null);
+  const autoOpened = useRef(false);
+  const polls = useRef(0);
+  const hasSelection = useRef(Boolean(selectedHash));
+  hasSelection.current = Boolean(selectedHash);
+
+  // The parent's callback is read through a ref so `select` keeps one identity.
+  // It used to depend on `onSelected`, and the load effect depends on `select`:
+  // a parent passing a fresh function each render (an inline arrow) made every
+  // selection re-run the effect, blank the list and refetch every slate.
+  const onSelectedRef = useRef(onSelected);
+  onSelectedRef.current = onSelected;
+  const select = useCallback(async (autoSlateId) => {
+    setBusyId(autoSlateId);
+    setError(null);
+    const r = await api("/auto/slates/select", { method: "POST", body: JSON.stringify({ autoSlateId }) });
+    setBusyId(null);
+    if (!r.ok) {
+      setError(errorMessage(r.body, "That slate could not be opened."));
+      return;
+    }
+    setSelectedAutoId(autoSlateId);
+    onSelectedRef.current(r.body);
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    let timer = null;
+    autoOpened.current = false;
+    polls.current = 0;
+    setData(null);
+    setError(null);
+    const load = async () => {
+      const q = new URLSearchParams({ sport, platform });
+      const r = await api(`/auto/slates?${q}`);
+      if (!live) return;
+      if (!r.ok) {
+        setError(errorMessage(r.body, "Automatic slates are unavailable."));
+        onAvailability?.(false);
+        return;
+      }
+      setData(r.body);
+      const first = pickDefaultAutoSlate(r.body.slates, platform);
+      // "Unavailable" only when nothing is coming: a queued refresh is not a dead end.
+      onAvailability?.(Boolean(first) || Boolean(r.body.refreshQueued && !r.body.slates?.length));
+      if (first && !autoOpened.current && !hasSelection.current) {
+        autoOpened.current = true;
+        select(first.autoSlateId);
+      }
+      // Nothing built yet but a refresh is running: look again shortly.
+      if (!r.body.slates?.length && r.body.refreshQueued && polls.current < MAX_POLLS) {
+        polls.current += 1;
+        timer = setTimeout(load, POLL_MS);
+      }
+    };
+    load();
+    return () => {
+      live = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [sport, platform, select]);
+
+  const platformLabel = PLATFORMS.find((p) => p.value === platform)?.label || platform;
+  if (error) {
+    return (
+      <Banner tone="warning" title="Automatic slates unavailable">
+        {error} The platform&apos;s salary file still works under Advanced.
+      </Banner>
+    );
+  }
+  if (!data) {
+    return (
+      <p className={styles.note} aria-live="polite">
+        Loading automatic slates…
+      </p>
+    );
+  }
+  const slates = (data.slates || []).filter((s) => s.platform === platform);
+  const activeId = activeAutoSlateId(slates, selectedHash, selectedAutoId);
+  if (!slates.length && data.state === "SOURCE_ERROR") {
+    // A failed source (including listed rows that matched no scheduled game) is
+    // an error, never presented as "an off day".
+    return (
+      <Banner tone="warning" title="Automatic slates: source error">
+        {data.reason}
+      </Banner>
+    );
+  }
+  if (!slates.length && data.state === "AWAITING_APPROVAL") {
+    return (
+      <Banner tone="info" title="Awaiting owner approval of the schedule source">
+        {data.reason}
+      </Banner>
+    );
+  }
+  if (!slates.length) {
+    const waiting = `Fetching ${platformLabel} slates now — this takes under a minute.`;
+    return (
+      <p className={styles.note} role="status">
+        {data.reason || (data.refreshQueued ? waiting : `No automatic ${platformLabel} slates right now.`)}
+      </p>
+    );
+  }
+  return (
+    <div>
+      <ul className={styles.autoList} aria-label={`${platformLabel} slates`}>
+        {slates.map((s) => {
+          const f = freshnessCopy(s.freshness?.state);
+          const active = activeId !== null && s.autoSlateId === activeId;
+          const degraded = s.freshness?.degraded?.length
+            ? ` · ${s.freshness.degraded.map(degradedMarkerText).join(", ")}`
+            : "";
+          return (
+            <li key={s.autoSlateId} className={active ? styles.autoActive : undefined}>
+              <div className={styles.autoHead}>
+                <strong>{s.label}</strong>
+                <StatusIndicator status={f.status}>{f.label}</StatusIndicator>
+                {s.freshness?.locked ? <StatusIndicator status="neutral">Locked</StatusIndicator> : null}
+              </div>
+              <span className={styles.meta}>
+                Locks {formatLockEt(s.lockAt)} · {s.summary?.games} games · {s.summary?.players} players ·{" "}
+                {s.summary?.projected} projected · checked {formatAge(s.freshness?.ageMinutes)}
+                {degraded}
+              </span>
+              <div>
+                <Button
+                  size="sm"
+                  className={styles.wrapBtn}
+                  variant={active ? "primary" : "secondary"}
+                  onClick={() => select(s.autoSlateId)}
+                  loading={busyId === s.autoSlateId}
+                  disabled={Boolean(busyId) || Boolean(s.freshness?.locked) || active}
+                >
+                  {active ? "In use" : "Use this slate"}
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className={styles.note} role="note">
+        {data.derivationNote} Salaries, status and projections refresh automatically. Upload files need the
+        platform&apos;s own player IDs, which no permitted free source publishes — load the platform file under Advanced
+        for an upload-ready slate.
+      </p>
+    </div>
+  );
+}

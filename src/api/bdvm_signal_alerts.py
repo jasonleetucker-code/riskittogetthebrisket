@@ -113,23 +113,19 @@ def _load_state(
     return {}, False
 
 
-def _persist_state(
-    username: str,
+def _store_state(
     user_state: dict[str, Any],
     league_key: str | None,
     new_state: dict[str, Any],
-    *,
-    path: Any = None,
 ) -> None:
+    """Write one league's bucket into ``user_state`` in place, leaving every
+    other league's bucket as it is NOW (same shape rationale as
+    signalAlertStateByLeague)."""
     key = str(league_key or "").strip()
     existing_by_league = user_state.get(_STATE_FIELD) or {}
     if not isinstance(existing_by_league, dict):
         existing_by_league = {}
-    # merge_user_state is a shallow top-level merge; nesting one extra
-    # level keeps each league's bucket atomic (same shape rationale as
-    # signalAlertStateByLeague).
-    next_by_league = {**existing_by_league, key: new_state}
-    _user_kv.merge_user_state(username, {_STATE_FIELD: next_by_league}, path=path)
+    user_state[_STATE_FIELD] = {**existing_by_league, key: new_state}
 
 
 def detect_bdvm_transitions(
@@ -152,7 +148,27 @@ def detect_bdvm_transitions(
     if not username or not entries:
         return [], "no_entries"
 
-    user_state = _user_kv.get_user_state(username, path=path)
+    result: list[tuple[list[dict[str, Any]], str]] = []
+
+    # Evaluate on the CURRENT state inside the user_kv write lock: reading
+    # first and rewriting the whole field later discarded another league's
+    # concurrent sweep.
+    def _evaluate(user_state: dict[str, Any]) -> None:
+        result.clear()
+        transitions, mode, new_state = _evaluate_bdvm(user_state, entries, league_key)
+        _store_state(user_state, league_key, new_state)
+        result.append((transitions, mode))
+
+    _user_kv.mutate_user_state(username, _evaluate, path=path)
+    return result[0]
+
+
+def _evaluate_bdvm(
+    user_state: dict[str, Any],
+    entries: list[dict[str, Any]],
+    league_key: str | None,
+) -> tuple[list[dict[str, Any]], str, dict[str, Any]]:
+    """Pure: ``(transitions, mode, next league bucket)``."""
     alert_state, existed = _load_state(user_state, league_key)
 
     if not existed:
@@ -163,8 +179,7 @@ def detect_bdvm_transitions(
             and e.get("playerId")
             and str(e.get("signal") or "") in ACTIONABLE_BDVM_SIGNALS
         }
-        _persist_state(username, user_state, league_key, seeded, path=path)
-        return [], "baseline_seeded"
+        return [], "baseline_seeded", seeded
 
     now = _utc_now_ms()
     min_interval_ms = int(_MIN_NOTIFY_INTERVAL_HOURS * 3600 * 1000)
@@ -208,9 +223,8 @@ def detect_bdvm_transitions(
         )
         new_state[state_key] = {"signal": signal, "notifiedAt": now}
 
-    # Persist even when nothing fired — last-seen must stay current.
-    _persist_state(username, user_state, league_key, new_state, path=path)
-    return transitions, "ok"
+    # Persisted even when nothing fired — last-seen must stay current.
+    return transitions, "ok", new_state
 
 
 def _fmt_value(v: Any) -> str:
@@ -271,17 +285,83 @@ def process_user_bdvm_alerts(
     delivery: Callable[[str, str, str], bool] | None = None,
     path: Any = None,
     league_key: str | None = None,
+    terminal_notified: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """End-to-end: detect + deliver.  Mirrors
     ``signal_alerts.process_user_alerts`` — reasons:
     ``baseline_seeded | no_entries | no_transitions | no_email |
     no_delivery_configured | delivery_error:* | ok |
-    delivery_returned_false``."""
+    delivery_returned_false | suppressed_by_terminal``.
+
+    ``terminal_notified`` (W12-F006, owner decision 2026-11-07) maps canonical
+    Sleeper player id -> the terminal signal of every player the Terminal
+    detector's email to THIS user in THIS sweep (this league call) actually
+    delivered (``process_user_alerts()["notifiedPlayerSignals"]``).  Terminal
+    takes precedence: a BDVM transition for such a player is NOT emailed.
+    Detection and state recording run unchanged (cooldowns / baselines /
+    last-seen are unaffected), and each suppressed transition is reported under
+    ``suppressed`` with ``suppressedBy: "terminal"`` and both detectors'
+    signals (``directionConflict`` when they point opposite ways).  Nothing is
+    suppressed when Terminal did not deliver (cooldown, failed send, no email)
+    or when the player has no canonical id, so the BDVM alert still goes out.
+    Missing / empty mapping -> existing behaviour exactly.
+    """
     transitions, mode = detect_bdvm_transitions(username, entries, path=path, league_key=league_key)
     if mode != "ok":
         return {"transitions": 0, "delivered": False, "reason": mode}
     if not transitions:
         return {"transitions": 0, "delivered": False, "reason": "no_transitions"}
+    suppressed: list[dict[str, Any]] = []
+    if terminal_notified:
+        kept: list[dict[str, Any]] = []
+        for t in transitions:
+            pid = str(t.get("playerId") or "").strip()
+            terminal_signal = terminal_notified.get(pid) if pid else None
+            if terminal_signal is None:
+                kept.append(t)
+                continue
+            suppressed.append(
+                {
+                    "playerId": pid,
+                    "name": t.get("name"),
+                    "suppressedBy": "terminal",
+                    "terminalSignal": terminal_signal,
+                    "bdvmSignal": t["signal"],
+                    "directionConflict": _directions_conflict(terminal_signal, t["signal"]),
+                }
+            )
+        transitions = kept
+    if suppressed and not transitions:
+        return {
+            "transitions": 0,
+            "delivered": False,
+            "reason": "suppressed_by_terminal",
+            "suppressed": suppressed,
+        }
+    result = _deliver_bdvm(username, transitions, display_name, email, delivery)
+    if suppressed:
+        result["suppressed"] = suppressed
+    return result
+
+
+# Direction of each detector's vocabulary, for diagnostics only.
+_TERMINAL_DIRECTION = {"BUY": 1, "SELL": -1, "RISK": -1}
+_BDVM_DIRECTION = {"STRONG_BUY": 1, "BUY": 1, "SELL": -1, "STRONG_SELL": -1}
+
+
+def _directions_conflict(terminal_signal: str, bdvm_signal: str) -> bool:
+    t = _TERMINAL_DIRECTION.get(str(terminal_signal).upper(), 0)
+    b = _BDVM_DIRECTION.get(str(bdvm_signal).upper(), 0)
+    return bool(t and b and t != b)
+
+
+def _deliver_bdvm(
+    username: str,
+    transitions: list[dict[str, Any]],
+    display_name: str | None,
+    email: str | None,
+    delivery: Callable[[str, str, str], bool] | None,
+) -> dict[str, Any]:
     if not email:
         return {"transitions": len(transitions), "delivered": False, "reason": "no_email"}
     if delivery is None:

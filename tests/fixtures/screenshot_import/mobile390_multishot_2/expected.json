@@ -1,0 +1,32 @@
+{
+  "anchorSlots": [
+    1
+  ],
+  "forbiddenWarnings": [
+    "trade_region_not_detected"
+  ],
+  "layoutKind": "single",
+  "multishot": {
+    "group": "owner_dart_achane",
+    "order": 1
+  },
+  "mustBeIgnored": [
+    "Bryce Young",
+    "Omarion Hampton"
+  ],
+  "requiredWarnings": [
+    "missing_side"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "De'Von Achane",
+          "text": "De'Von Achane"
+        }
+      ],
+      "label": "Team 2 gets"
+    }
+  ],
+  "unassigned": []
+}

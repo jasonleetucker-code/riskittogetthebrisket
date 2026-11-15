@@ -48,10 +48,12 @@ export const CANON = {
   "/news": "News",
   "/trade": "Trade Calculator",
   "/angle": "Package Builder",
-  "/arbitrage": "Arbitrage",
+  "/arbitrage": "Market Disagreement",
   "/trades": "Trade History",
   "/rosters": "Team Strength",
+  "/roster-construction": "Roster Construction",
   "/waivers": "Waivers",
+  "/waiver-advisor": "Waiver Advisor",
   "/draft": "Draft Board",
   "/phases": "Win-now vs Rebuild",
   "/edge": "Source Disagreement",
@@ -63,10 +65,13 @@ export const CANON = {
   // (ownership) rather than repeating "Sharp Tracker" with a suffix,
   // which would make the two read as one feature split in half.
   "/market/sharp-roster-percentage": "Sharp Roster Percentage",
+  "/market/trade-database": "Trade Database",
+  "/managers": "Manager Intelligence",
   "/league/insider-trading": "Insider Trading",
   "/league": "Hub",
   "/league/activity": "Activity",
   "/league-comparison": "Scoring Comparison",
+  "/dfs": "DFS Workspace",
 };
 
 /**

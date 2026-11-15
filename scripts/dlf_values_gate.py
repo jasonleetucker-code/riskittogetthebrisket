@@ -42,6 +42,7 @@ RANK_CSV = REPO / "CSVs/site_raw/dlfSf.csv"
 P_GRID = (0.0, 0.01, 0.02, 0.05, 0.10, 0.20, 0.30, 0.50, 0.70, 0.90)
 
 from src.canonical import player_valuation as pv  # noqa: E402
+from src.model_registry.training_manifest import MissingColumnError  # noqa: E402
 from src.utils.name_clean import normalize_player_name as norm  # noqa: E402
 
 spec = importlib.util.spec_from_file_location(
@@ -229,7 +230,7 @@ def standalone(report):
     for name, (rel, col) in boards.items():
         try:
             bv = fitter._load_values(REPO / rel, col)[: ho.FIT_TOP_N]
-        except OSError:
+        except (OSError, MissingColumnError):  # a renamed column in a context-only board
             continue
         if len(bv) >= 50:
             ctx[name] = round(ho._rmse(fitter._percentile_pairs(bv), C_OFF, S_OFF), 1)

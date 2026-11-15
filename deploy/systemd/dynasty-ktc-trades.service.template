@@ -1,0 +1,68 @@
+[Unit]
+Description=Dynasty Trade Calculator KTC Trade Database accumulation (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Appends KeepTradeCut's public Trade Database page (the most recent 200
+# completed dynasty trades, every format) into the box-local APPEND-ONLY raw
+# archive data/market_trades/archive.sqlite (owner: src/sources/ktc_trades.py
+# + src/trade/market_trade_archive.py).  Authorization: owner decision
+# 2026-09-30 (#1555) — KTC permission covers all KTC data; request hygiene
+# still applies.  Raw trades never move a canonical value; the ledger built
+# from them is evidence for comps/liquidity/evaluation only.
+#
+# WHY A TIMER: the page is a ROLLING WINDOW.  Measured 2026-10-01 (in season)
+# 31 new trades appeared in ~22 minutes, i.e. the 200-row window turns over in
+# roughly 2-2.5 hours at midday — a row that enters and leaves between two
+# runs is lost.  Every-30-minutes leaves ~4-5x headroom at that rate; each run
+# reports `turnoverSuspected` when it shares no row with the archive, which is
+# the signal to tighten the cadence.
+#
+# WHY PROD-SIDE AND NOT CI: GitHub Actions output is public and the repo is
+# public.  data/ is gitignored and nothing force-adds data/market_trades/, so
+# vendor rows (and the host league ids inside them) never leave the box.
+#
+# Politeness is enforced by the script: one GET per run, gzip, conditional
+# headers once content exists, no redirect following, Retry-After honoured on
+# 429, and a 401/403/anti-bot page PERSISTS a stop that later runs obey until
+# an operator runs `scripts/fetch_ktc_trades.py --clear-stop` (`--force` skips
+# only the min interval, never a stop); 3 consecutive quarantined (schema-drift)
+# fetches persist the same kind of stop.  The site's
+# JSON endpoint (POST /dynasty/trade-database/trades) answered 403 and is NOT
+# used.
+#
+# Exit codes (scripts/fetch_ktc_trades.py):
+#   0 - archived / not modified / skipped (min interval)
+#   1 - fetch failed, quarantined (schema drift) or stopped
+#   2 - rate limited
+# On 1/2 the archive is untouched; nothing downstream is user-facing.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+# No EnvironmentFile: this process parses untrusted HTML and needs no secret.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+# The parent, not data/market_trades itself: ReadWritePaths= fails namespace
+# setup when the path does not exist yet, and the script creates the store
+# directory on its first run.  Same posture as the curated-sharps unit.
+ReadWritePaths=__APP_DIR__/data
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/fetch_ktc_trades.py --min-interval-minutes 25
+# The DERIVED ledger rebuild is NOT chained here any more: it has its own
+# daily unit (dynasty-market-trade-ledger) so it cannot eat this capture's
+# timeout or memory, and the fetch alone keeps the rolling-window cadence.
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+# One page parsed per run (BodyTooLarge caps the read at 8 MB); 512M is a hard
+# ceiling against a parser regression, not a working-set estimate.
+MemoryMax=512M
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

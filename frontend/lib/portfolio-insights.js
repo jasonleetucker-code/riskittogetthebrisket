@@ -6,17 +6,9 @@ import {
   computeVolatility,
   buildHistoryLookup,
 } from "@/lib/value-history";
-import { buildPickLookupCandidates } from "@/lib/trade-logic";
+import { resolvePickRow } from "@/lib/trade-logic";
 import { fillLineup, lineupPosition } from "@/lib/starter-slots";
-
-/** First contract row matching any candidate key, or null. */
-function resolveByCandidates(byName, candidates) {
-  for (const key of candidates || []) {
-    const row = byName.get(key);
-    if (row) return row;
-  }
-  return null;
-}
+import { pickOwnershipUnavailableReason } from "@/lib/pick-ownership";
 
 /**
  * portfolio-insights — FALLBACK ROSTER AGGREGATES.
@@ -164,8 +156,12 @@ function splitStartersBench({ rosterValues, optimalLineup }) {
  */
 export function computePortfolio({ rows, selectedTeam, rawData, history, rosterSettings }) {
   const hasPlayers = !!selectedTeam?.players?.length;
-  const hasPicks = !!selectedTeam?.picks?.length;
-  if ((!hasPlayers && !hasPicks) || !Array.isArray(rows)) {
+  // Pick ownership UNKNOWN (failed /traded_picks — see lib/pick-ownership.js)
+  // makes ``hasPicks`` unknown (null), never false: the team may well hold
+  // picks we cannot see.
+  const pickOwnershipUnavailable = pickOwnershipUnavailableReason(selectedTeam);
+  const hasPicks = pickOwnershipUnavailable ? null : !!selectedTeam?.picks?.length;
+  if ((!hasPlayers && hasPicks !== true) || !Array.isArray(rows)) {
     return null;
   }
 
@@ -243,9 +239,11 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
     // permanent "N unresolved" badge at 45-84% coverage while
     // `pickCount` stayed 0 and the "Picks $X · N" legend never drew.
     //
-    // `buildPickLookupCandidates` already solves this and
-    // `lib/league-analysis.js` already uses it; this module simply
-    // never imported it. With it, 216 of 288 resolve.
+    // The label format is handled by the shared resolver below
+    // (`resolvePickRow`, which expands candidates via
+    // `buildPickLookupCandidates`), the same one `lib/league-analysis.js`
+    // and /trade use. When this module first adopted the candidate
+    // expansion, 216 of 288 resolved.
     //
     // The remaining 72 were every 2029 pick, which the board did not
     // price at the time this comment was written. C1-U6 CLOSED that:
@@ -260,7 +258,11 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
     // no value to show. It stays in `unresolved`; nothing is invented.
     // That was the failure mode of the deleted flat 7000/4000/2000/1200
     // table, and it is still the rule.
-    const row = resolveByCandidates(byName, buildPickLookupCandidates(name));
+    // W20-F005: the canonical pick resolver — follows the contract's
+    // ``pickAliases`` (current class: generic "2027 Mid 1st" is a suppressed,
+    // value-less row redirected to its slot row) and skips suppressed rows.
+    // Do NOT walk candidates here: that stops on the suppressed row.
+    const row = resolvePickRow(name, byName, rawData?.pickAliases);
     if (!row) {
       unresolved.push(name);
       continue;
@@ -374,8 +376,13 @@ export function computePortfolio({ rows, selectedTeam, rawData, history, rosterS
     totalValue,
     ...starterSplit,
     picks,
-    pickCount: picks.length,
-    pickValue,
+    // null = ownership unknown, never "0 picks / $0 of picks".
+    pickCount: pickOwnershipUnavailable ? null : picks.length,
+    pickValue: pickOwnershipUnavailable ? null : pickValue,
+    hasPicks,
+    pickOwnershipUnavailable,
+    // totalValue excludes the team's picks when their ownership is unknown.
+    totalIsPartial: !!pickOwnershipUnavailable,
     byPosition,
     byAge,
     medianAge,

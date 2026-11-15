@@ -51,7 +51,7 @@ def _challenger(tmp_path: Path, **overrides: float) -> Path:
     params.update(overrides)
     tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "challenger.json"
-    path.write_text(json.dumps(params, indent=2))
+    path.write_text(json.dumps(params, indent=2), encoding="utf-8")
     return path
 
 
@@ -98,14 +98,14 @@ class TestTheGateCanComeOutRed:
 class TestItRefusesToGuess:
     def test_a_malformed_challenger_is_an_error(self, tmp_path):
         path = tmp_path / "bad.json"
-        path.write_text("{not json")
+        path.write_text("{not json", encoding="utf-8")
         r = _run("--challenger-json", str(path), "--dry-run")
         assert r.returncode == EXIT_ERROR
         assert "ERROR" in r.stderr
 
     def test_an_incomplete_challenger_is_an_error(self, tmp_path):
         path = tmp_path / "partial.json"
-        path.write_text(json.dumps({"HILL_PERCENTILE_C": 0.1}))
+        path.write_text(json.dumps({"HILL_PERCENTILE_C": 0.1}), encoding="utf-8")
         r = _run("--challenger-json", str(path), "--dry-run")
         assert r.returncode == EXIT_ERROR
         assert "missing" in r.stderr
@@ -157,14 +157,17 @@ class TestReportingHonesty:
         r = _run("--challenger-json", str(path), "--dry-run")
         assert "champion v" in r.stdout
         assert "challenger" in r.stdout
-        for board in ("FantasyCalc", "OTCFFB", "PFKDynasty", "FantasyNavigator"):
+        for board in ("FantasyCalc", "OTCFFB", "PFKDynasty"):
             assert board in r.stdout
+        # KTC-derived (ktcCrowd family) while KTC trains: never an independent
+        # holdout (Batch 3 Unit D, H5).
+        assert "FantasyNavigator" not in r.stdout
 
     def test_no_drift_short_circuits_before_the_gate(self, tmp_path):
         """An identical challenger is not worth scoring."""
         params = dict(read_committed_constants())
         path = tmp_path / "same.json"
-        path.write_text(json.dumps(params))
+        path.write_text(json.dumps(params), encoding="utf-8")
         r = _run("--challenger-json", str(path), "--dry-run")
         assert r.returncode == EXIT_CHAMPION_STANDS
         assert "No drift beyond threshold" in r.stdout
@@ -173,7 +176,7 @@ class TestReportingHonesty:
     def test_force_scores_even_without_drift(self, tmp_path):
         params = dict(read_committed_constants())
         path = tmp_path / "same.json"
-        path.write_text(json.dumps(params))
+        path.write_text(json.dumps(params), encoding="utf-8")
         r = _run("--challenger-json", str(path), "--dry-run", "--force")
         assert r.returncode == EXIT_CHAMPION_STANDS
         assert "Held-out validation" in r.stdout

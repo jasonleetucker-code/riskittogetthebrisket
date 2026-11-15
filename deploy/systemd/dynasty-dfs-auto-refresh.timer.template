@@ -1,0 +1,13 @@
+[Unit]
+Description=DFS automatic slate refresh (every 10 min; the tick decides if due) for __SERVICE_NAME__
+# FIRES EVERY 10 MINUTES; THE SCRIPT DECIDES WHICH FIRING IS DUE.  The cadence
+# depends on how close the nearest unlocked slate is to lock, which a calendar
+# cannot express (src/dfs/auto/refresh.py::cadence).
+[Timer]
+OnCalendar=*-*-* *:00/10:00 UTC
+RandomizedDelaySec=60
+Persistent=false
+Unit=__SERVICE_NAME__-dfs-auto-refresh.service
+
+[Install]
+WantedBy=timers.target

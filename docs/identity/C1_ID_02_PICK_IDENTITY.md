@@ -121,8 +121,9 @@ crosswalk inputs.
   (`per_tier = size // 3`); frontend hardcodes 12-team thirds (`slot<=4` early).
   A 10-team league's slot-4 pick is "Mid" to the backend and "early" to the frontend.
 - **Unknown slot:** backend labels it tier "Mid"; frontend lookup fabricates
-  tier-centre slot `.06`; `pick_projection` (correctly) projects it from team
-  strength; S4 stores `None`.
+  tier-centre slot `.06`; `pick_projection` projects it from the season
+  simulation under the draft-order rule (team strength until 2026-10-04); S4
+  stores `None`.
 - **Season type:** S1/S4/S5 strings, S2 ints — `(season, round, origin)` joins
   fail across representations without coercion.
 - **Origin id-space:** S2/S4 roster ids, S5 user ids, L3/L4 display names.

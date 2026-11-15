@@ -20,6 +20,8 @@ FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 PUBLIC_URL="${PUBLIC_URL:-}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-true}"
+RELEASE_ARCHIVE="${RELEASE_ARCHIVE:-}"
+RELEASE_ARCHIVE_SHA256="${RELEASE_ARCHIVE_SHA256:-}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 ALLOW_DIRTY_DEPLOY="${ALLOW_DIRTY_DEPLOY:-false}"
 # Where next build stages its output before the atomic swap.  Relative
@@ -191,7 +193,7 @@ is_full_commit_sha() {
 }
 
 canonical_requirements_file() {
-  printf '%s\n' "requirements.txt"
+  printf '%s\n' "requirements.lock.txt"
 }
 
 ensure_venv_site_packages_writable() {
@@ -235,17 +237,90 @@ prepare_python_runtime() {
   log "Python dependency manifest detected: ${req_file}"
 
   require_command python3
+  python3 scripts/python_lock.py check
   if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
     log "Creating virtualenv at ${VENV_DIR}"
     python3 -m venv "${VENV_DIR}"
   fi
 
   ensure_venv_site_packages_writable "${VENV_DIR}/bin/python"
-  "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-  "${VENV_DIR}/bin/pip" install -r "${req_file}"
+  local release_schema=""
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    release_schema="$(tar -xOf "${RELEASE_ARCHIVE}" release-manifest.json | \
+      python3 -c 'import json,sys; print(json.load(sys.stdin)["schema_version"])')"
+  fi
+  if [[ "${release_schema}" == "calculator-release/v2" ]]; then
+    log "Installing exact CI backend wheels offline from the verified release archive."
+    python3 -m scripts.stage_backend_artifact \
+      --release-archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${TARGET_REV}" \
+      --venv-python "${VENV_DIR}/bin/python" \
+      --receipt "${APP_DIR}/.backend-artifact-receipt.json"
+  elif [[ -z "${release_schema}" || "${release_schema}" == "calculator-release/v1" ]]; then
+    "${VENV_DIR}/bin/python" -m pip install --upgrade pip
+    "${VENV_DIR}/bin/pip" install --require-hashes -r "${req_file}"
+    rm -f "${APP_DIR}/.backend-artifact-receipt.json"
+  else
+    error "Unsupported release artifact schema: ${release_schema}"
+    exit 1
+  fi
+}
+
+# Install stamp: the SHA-256 of the package-lock.json a successful `npm ci`
+# installed, written INSIDE node_modules. `npm ci` deletes node_modules before
+# installing, so any later install by any script version erases the stamp; a
+# present stamp can only describe the tree that is actually on disk. deploy.sh
+# and rollback.sh both write it; rollback.sh reads it to decide whether a saved
+# artifact needs its packages reinstalled.
+FRONTEND_INSTALL_STAMP=".calculator-package-lock.sha256"
+
+frontend_lock_digest() {
+  sha256sum "$1" | cut -d ' ' -f1
 }
 
 maybe_build_frontend() {
+  if [[ -n "${RELEASE_ARCHIVE}" || -n "${RELEASE_ARCHIVE_SHA256}" ]]; then
+    [[ -n "${RELEASE_ARCHIVE}" && -n "${RELEASE_ARCHIVE_SHA256}" ]] || {
+      error "Both RELEASE_ARCHIVE and RELEASE_ARCHIVE_SHA256 are required."
+      exit 1
+    }
+    [[ -f "${APP_DIR}/frontend/package-lock.json" ]] || {
+      error "Frontend lock is required for artifact deployment."
+      exit 1
+    }
+    resolve_node_toolchain || { error "Node and npm are required for artifact deployment."; exit 1; }
+    log "Installing exact frontend dependencies for tested release artifact."
+    npm ci --prefix "${APP_DIR}/frontend"
+    frontend_lock_digest "${APP_DIR}/frontend/package-lock.json" \
+      > "${APP_DIR}/frontend/node_modules/${FRONTEND_INSTALL_STAMP}" ||
+      warn "Could not record the frontend install stamp; a rollback will reinstall."
+    log "Verifying and staging CI release artifact: ${RELEASE_ARCHIVE}"
+    python3 -m scripts.stage_release_artifact \
+      --archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --checkout "${APP_DIR}" \
+      --commit "${TARGET_REV}" \
+      --staging "${APP_DIR}/frontend/${FRONTEND_STAGING_DIR_NAME}" \
+      --node-version "$(node --version)" \
+      --receipt "${STATE_DIR}/staged_release_manifest.json"
+    mkdir -p "${STATE_DIR}/releases"
+    # Refuses only an incomplete, corrupt or non-regular saved triplet for this
+    # revision. A different artifact ID of the same revision (a redeploy or a
+    # dispatched rollback rebuilds Next with a new random BUILD_ID) is accepted
+    # here and replaces the saved one in record_success_state.
+    python3 -m scripts.save_release_archive \
+      --archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --manifest "${STATE_DIR}/staged_release_manifest.json" \
+      --release-dir "${STATE_DIR}/releases" \
+      --commit "${TARGET_REV}" \
+      --check-only
+    verify_frontend_build_manifest "${APP_DIR}/frontend/${FRONTEND_STAGING_DIR_NAME}"
+    return 0
+  fi
+
   # RUN_FRONTEND_BUILD used to be an opt-out via env var, but the
   # production server had it set to a non-true value in its login
   # environment, which silently short-circuited every frontend rebuild
@@ -433,6 +508,14 @@ deploy_frontend_atomic() {
     exit 1
   fi
 
+  # Pre-start byte-exact guarantee (#1707), first half: refuse a staging dir
+  # that carries a runtime route cache BEFORE stopping anything, so a refusal
+  # leaves the old frontend serving.  Re-checked on the live dir after the swap.
+  if [[ -e "${staging_dir}/server/route-cache" || -L "${staging_dir}/server/route-cache" ]]; then
+    error "Frontend staging build carries a runtime route cache: ${staging_dir}/server/route-cache"
+    exit 1
+  fi
+
   log "Stopping frontend service for atomic swap: ${frontend_name}"
   sudo -n "${SYSTEMCTL_BIN}" stop "${frontend_name}" || true
 
@@ -456,6 +539,15 @@ deploy_frontend_atomic() {
   fi
   mv "${staging_dir}" "${live_dir}"
   log "Frontend build swapped into place: ${live_dir}"
+
+  # Pre-start byte-exact guarantee (#1707), second half: the release digest tolerates
+  # Next's runtime response cache because a SERVING tree grows one.  Before
+  # Next starts, the tree must have none -- so the live tree is exactly the
+  # verified build at the moment it begins serving.
+  if [[ -e "${live_dir}/server/route-cache" || -L "${live_dir}/server/route-cache" ]]; then
+    error "Frontend build already carries a runtime route cache before start: ${live_dir}/server/route-cache"
+    exit 1
+  fi
 
   log "Starting frontend service after swap: ${frontend_name}"
   sudo -n "${SYSTEMCTL_BIN}" start "${frontend_name}"
@@ -632,7 +724,7 @@ PY
     # with the square brackets preserved on disk — without --globoff,
     # curl errors out with "bad range in URL" for every such asset.
     while (( attempts < FRONTEND_PROBE_MAX_ATTEMPTS )); do
-      code="$(curl --silent --show-error --globoff --output /dev/null --write-out '%{http_code}' --max-time 10 "${url}" || echo 000)"
+      code="$(curl --silent --show-error --globoff --output /dev/null --write-out '%{http_code}' --max-time 10 "${url}")" || code=000
       if [[ "${code}" == "200" ]]; then
         log "Frontend _next probe OK: ${asset}"
         break
@@ -943,6 +1035,155 @@ build_temporal_ledger() {
   fi
 }
 
+# Idempotent post-deploy capture of the playoff / title forecasts this deploy
+# shipped (AL-P6, src/ros/forecast_archive.py).  The refresh runner that
+# produces them is ephemeral, so the deployed commit's
+# data/ros/sims/<stem>.json + <stem>.identity.json are joined here into the
+# private, gitignored data/forecast_archive/.  --git-history also recovers
+# forecasts from refreshes whose deploy was skipped, cancelled or stalled: it
+# walks back until it meets a forecast already archived (500-commit safety
+# cap, ~41 days at the 2h cadence, logged if reached).  Capture only: it never
+# changes a served file.  Non-fatal and bounded (timeout 300) — a failure
+# loses nothing that the next deploy's history walk cannot still recover.
+#
+# Runs AFTER record_success_state, unlike build_temporal_ledger: the ledger is
+# a serving dependency (rankChange reads it), so it must exist before
+# verify_deploy judges the deploy; this archive serves nothing, so it must
+# neither delay verification nor sit inside the window where a failure would
+# trip the ERR trap's auto-rollback.  The `if` keeps a non-zero exit (including
+# timeout's 124) from reaching `set -e` or the trap.
+archive_ros_forecasts() {
+  local script="${APP_DIR}/scripts/archive_ros_forecasts.py"
+  local output=""
+  if [[ ! -f "${script}" ]]; then
+    log "[forecast-archive] script not present; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[forecast-archive] virtualenv missing; skipping"
+    return 0
+  fi
+  log "[forecast-archive] archiving published playoff/title forecasts (idempotent)"
+  if output="$(timeout 300 "${VENV_DIR}/bin/python" "${script}" --git-history 2>&1)"; then
+    log "[forecast-archive] forecast archive completed"
+  else
+    warn "[forecast-archive] forecast archive exited non-zero (124 = timed out) — non-fatal"
+  fi
+  # `if`, not `[[ ]] &&`: a false test as the loop's last command would make
+  # the loop return 1 and trip `set -e` / the ERR trap.
+  local line
+  while IFS= read -r line; do
+    if [[ -n "${line}" ]]; then
+      log "[forecast-archive] ${line}"
+    fi
+  done <<< "${output}"
+  return 0
+}
+
+# Idempotent post-deploy recording of Hill model-registry learning receipts
+# (Adaptive Learning AL-1a step 4, src/model_registry/producer_receipts.py §4).
+# The Hill refit runs on a CI runner with no persistent data/learning/ and
+# commits evidence, never receipts: config/model_registry/ (registry entries,
+# training-run artifacts, the Autopilot run log) arrives here by deploy, and
+# scripts/hill_learning_receipts.py reads it into the box-local
+# data/learning/receipts.sqlite (MODEL / CHALLENGER / FEATURES / OBSERVATION;
+# no retrospective holdout EVALUATION). Re-running over unchanged evidence
+# stores only duplicates. RISKIT_RECEIPTS_ENABLED=1 is set here, and only here:
+# the script writes nothing anywhere else (fail closed, like the source-quality
+# evaluator). It never promotes, applies or writes config/.
+#
+# Runs AFTER record_success_state, beside archive_ros_forecasts and for the
+# same reasons: it serves nothing, so it must neither delay verification nor
+# sit inside the auto-rollback window. Non-fatal and bounded (timeout 300) —
+# a failure is a WARNING, and the next deploy re-reads the same committed
+# evidence, so nothing is lost. The `if` keeps a non-zero exit (including
+# timeout's 124) away from `set -e`.
+#
+# Which user writes the store: deploy.sh has no "run as another user"
+# convention — APP_USER defaults to the invoking user (`id -un`) and every
+# command here runs as the deploy user. The shadow timers that share
+# data/learning/receipts.sqlite run as User=__APP_USER__, so this ASSUMES
+# DEPLOY_USER == APP_USER. A mismatch, or a store owned by someone else, is a
+# WARNING before the run (the write would then fail and be reported, never fatal).
+record_hill_learning_receipts() {
+  local script="${APP_DIR}/scripts/hill_learning_receipts.py"
+  local store="${APP_DIR}/data/learning/receipts.sqlite"
+  local output=""
+  local me=""
+  local owner=""
+  if [[ ! -f "${script}" ]]; then
+    log "[hill-receipts] script not present; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[hill-receipts] virtualenv missing; skipping"
+    return 0
+  fi
+  me="$(id -un 2>/dev/null || true)"
+  if [[ -n "${APP_USER:-}" && "${me}" != "${APP_USER}" ]]; then
+    warn "[hill-receipts] WARNING: deploy user '${me}' is not APP_USER '${APP_USER}'; the receipt store is shared with app-user timers"
+  fi
+  if [[ -e "${store}" ]]; then
+    owner="$(stat -c %U "${store}" 2>/dev/null || true)"
+    if [[ -n "${owner}" && "${owner}" != "${me}" ]]; then
+      warn "[hill-receipts] WARNING: ${store} is owned by '${owner}', not the deploy user '${me}'; the write may be refused"
+    fi
+  fi
+  log "[hill-receipts] recording Hill registry learning receipts (idempotent)"
+  if output="$(RISKIT_RECEIPTS_ENABLED=1 timeout 300 "${VENV_DIR}/bin/python" "${script}" 2>&1)"; then
+    log "[hill-receipts] learning receipts recorded"
+  else
+    warn "[hill-receipts] WARNING: learning receipts exited non-zero (1 = partial, 2 = refused input, 124 = timed out) — non-fatal"
+  fi
+  local line
+  while IFS= read -r line; do
+    if [[ -n "${line}" ]]; then
+      log "[hill-receipts] ${line}"
+    fi
+  done <<< "${output}"
+  return 0
+}
+
+# Idempotent post-deploy recording of AL-P5 DECISION receipts for served Best
+# Offers runs (src/model_registry/producer_receipts.py §5). The run log
+# (data/trade/best_offers/runs-YYYY-MM.jsonl) is written at serve time by the
+# backend; scripts/trade_decision_receipts.py reads it into the same box-local
+# data/learning/receipts.sqlite the Hill step writes. Reading after the fact
+# keeps the serving path and its response byte-identical (AL-P5 acceptance);
+# each receipt's cutoff is still the run's own serve-time recordedAt.
+#
+# Same posture as record_hill_learning_receipts, for the same reasons: after
+# record_success_state, outside the rollback window, RISKIT_RECEIPTS_ENABLED=1
+# set here and only here, bounded (timeout 300), non-fatal. A failure is a
+# WARNING and the next deploy re-reads the same append-only log, so nothing is
+# lost. Same DEPLOY_USER == APP_USER assumption: the backend (User=APP_USER)
+# writes the run log this step reads.
+record_trade_decision_receipts() {
+  local script="${APP_DIR}/scripts/trade_decision_receipts.py"
+  local output=""
+  if [[ ! -f "${script}" ]]; then
+    log "[trade-receipts] script not present; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[trade-receipts] virtualenv missing; skipping"
+    return 0
+  fi
+  log "[trade-receipts] recording Best Offers decision receipts (idempotent)"
+  if output="$(RISKIT_RECEIPTS_ENABLED=1 timeout 300 "${VENV_DIR}/bin/python" "${script}" 2>&1)"; then
+    log "[trade-receipts] decision receipts recorded"
+  else
+    warn "[trade-receipts] WARNING: decision receipts exited non-zero (1 = partial, 124 = timed out) — non-fatal"
+  fi
+  local line
+  while IFS= read -r line; do
+    if [[ -n "${line}" ]]; then
+      log "[trade-receipts] ${line}"
+    fi
+  done <<< "${output}"
+  return 0
+}
+
 verify_deploy() {
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then
     log "Running deploy verification script."
@@ -967,11 +1208,35 @@ verify_deploy() {
 
 record_success_state() {
   mkdir -p "${STATE_DIR}"
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    local release_dir="${STATE_DIR}/releases"
+    local saved_manifest=""
+    mkdir -p "${release_dir}"
+    saved_manifest="$(python3 -m scripts.save_release_archive \
+      --archive "${RELEASE_ARCHIVE}" \
+      --archive-sha256 "${RELEASE_ARCHIVE_SHA256}" \
+      --manifest "${STATE_DIR}/staged_release_manifest.json" \
+      --release-dir "${release_dir}" \
+      --commit "${TARGET_REV}")"
+    [[ -n "${saved_manifest}" ]] || { error "Saved release manifest was not returned."; return 1; }
+    cp "${saved_manifest}" "${STATE_DIR}/last_successful_release_manifest.json"
+  fi
   printf '%s\n' "${TARGET_REV}" > "${STATE_DIR}/last_successful_rev"
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${STATE_DIR}/last_successful_at_utc"
   if [[ -n "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" ]]; then
     mkdir -p "$(dirname "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}")"
     printf '%s\n' "${TARGET_REV}" > "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
+  fi
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    # Keep a bounded rollback window. This is after success is recorded;
+    # retention failure cannot roll back a healthy running deployment.
+    if ! python3 scripts/release_retention.py \
+      --release-dir "${STATE_DIR}/releases" \
+      --current "${TARGET_REV}" \
+      --previous "${PRE_DEPLOY_REV}" \
+      --keep 8; then
+      warn "Saved release archive retention failed; inspect ${STATE_DIR}/releases"
+    fi
   fi
 }
 
@@ -1020,12 +1285,56 @@ attempt_auto_rollback() {
 on_error() {
   local exit_code="$?"
   local line_no="${1:-unknown}"
+  # `set -E` makes this trap fire inside $(...) command substitutions too. A
+  # rollback there would run with its output captured into the variable and,
+  # because ROLLBACK_ATTEMPTED cannot propagate out of a subshell, the parent
+  # would then roll back a second time. In a subshell, only propagate the
+  # failure; the parent's assignment fails and its own ERR trap does the one
+  # rollback, with its log visible. error() writes to stderr, so the failing
+  # line still reaches the log rather than the captured variable.
+  if [[ "${BASHPID}" != "$$" ]]; then
+    error "Command substitution failed at line ${line_no} (exit code ${exit_code})."
+    exit "${exit_code}"
+  fi
   error "Deployment failed at line ${line_no} (exit code ${exit_code})."
   attempt_auto_rollback || true
   exit "${exit_code}"
 }
 
+# The workflow transfers each tested archive (~175 MB) to
+# <state>/incoming/<sha>-<run id>.tar. record_success_state copies it into
+# releases/, the bounded rollback window; the transferred copy is never read
+# again on success or failure, so it must not accumulate on the production disk.
+# This runs on EVERY exit, after on_error's auto-rollback has finished, and also
+# prunes archives that earlier interrupted runs left behind (the workflow
+# serializes deploys, so anything not newer than this run's archive is stale).
+# Only workflow-shaped names inside a real directory named "incoming" are
+# touched. Cleanup never changes the deploy's exit status.
+_INCOMING_ARCHIVE_NAME='^[0-9a-f]{40}-[0-9]+\.tar$'
+
+cleanup_incoming_release_archives() {
+  trap - ERR
+  [[ -n "${RELEASE_ARCHIVE}" ]] || return 0
+  local incoming_dir stale
+  incoming_dir="$(dirname -- "${RELEASE_ARCHIVE}")"
+  if [[ "$(basename -- "${incoming_dir}")" != "incoming" || ! -d "${incoming_dir}" ||
+        -L "${incoming_dir}" ]] ||
+     ! [[ "$(basename -- "${RELEASE_ARCHIVE}")" =~ ${_INCOMING_ARCHIVE_NAME} ]]; then
+    return 0
+  fi
+  if [[ -f "${RELEASE_ARCHIVE}" ]]; then
+    while IFS= read -r -d '' stale; do
+      [[ "$(basename -- "${stale}")" =~ ${_INCOMING_ARCHIVE_NAME} ]] || continue
+      rm -f -- "${stale}" || warn "Could not remove stale incoming release archive ${stale}"
+    done < <(find "${incoming_dir}" -maxdepth 1 -type f -name '*.tar' \
+      ! -newer "${RELEASE_ARCHIVE}" -print0 2>/dev/null || true)
+  fi
+  rm -f -- "${RELEASE_ARCHIVE}" || warn "Could not remove transferred release archive ${RELEASE_ARCHIVE}"
+  return 0
+}
+
 trap 'on_error $LINENO' ERR
+trap cleanup_incoming_release_archives EXIT
 
 main() {
   AUTO_ROLLBACK="$(lower "${AUTO_ROLLBACK}")"
@@ -1136,7 +1445,26 @@ main() {
     exit 1
   fi
 
+  # A full SHA can be absent from the box's last branch/tag fetch; ask for it
+  # by id before deciding it is missing.
+  if [[ "${fetch_ok}" == "true" ]] && is_full_commit_sha "${DEPLOY_REF}" \
+    && ! git rev-parse --verify --quiet "${DEPLOY_REF}^{commit}" >/dev/null; then
+    git fetch origin "${DEPLOY_REF}" || warn "fetch of commit ${DEPLOY_REF} by id failed."
+  fi
+
   if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_REF}")"; then
+    # A full commit SHA is an exact, validated target (the workflow resolves
+    # every deploy to one). Shipping DEPLOY_BRANCH instead would deploy a tree
+    # nothing validated or guarded and report success -- refuse.
+    if is_full_commit_sha "${DEPLOY_REF}"; then
+      if [[ "${fetch_ok}" == "true" ]]; then
+        error "Commit ${DEPLOY_REF} is not available on this host even after fetching it by id."
+      else
+        error "Commit ${DEPLOY_REF} is not available locally and 'git fetch' failed (see the .git/objects warning above)."
+      fi
+      error "Refusing to fall back to DEPLOY_BRANCH='${DEPLOY_BRANCH}': the requested commit is exact."
+      exit 1
+    fi
     # Don't fall back to DEPLOY_BRANCH when fetch failed: the local
     # branch ref is potentially stale (the requested SHA may simply be
     # missing from the local repo), and a silent fallback would deploy
@@ -1174,12 +1502,31 @@ main() {
   ensure_systemd_service
   reconcile_runtime_state
   deploy_frontend_atomic
+  if [[ -n "${RELEASE_ARCHIVE}" ]]; then
+    python3 -m scripts.release_artifact verify \
+      --root "${APP_DIR}" \
+      --manifest "${STATE_DIR}/staged_release_manifest.json" \
+      --commit "${TARGET_REV}"
+    cp "${STATE_DIR}/staged_release_manifest.json" "${APP_DIR}/.release-manifest.json.tmp"
+    mv -f "${APP_DIR}/.release-manifest.json.tmp" "${APP_DIR}/.release-manifest.json"
+  else
+    rm -f "${APP_DIR}/.release-manifest.json"
+  fi
   restart_service
   verify_runtime_state
   reconcile_source_history
   build_temporal_ledger
   verify_deploy
   record_success_state
+  # The target is now recorded as last-successful. Rolling back past this point
+  # would revert a deploy the state files already call good, so the
+  # auto-rollback ERR trap is disarmed: every step below serves nothing, guards
+  # its own exit with `if`, and an unguarded failure here ends the run (set -e)
+  # without touching the deployed revision.
+  trap - ERR
+  archive_ros_forecasts
+  record_hill_learning_receipts
+  record_trade_decision_receipts
 
   log "Deployment succeeded at revision ${TARGET_REV}."
 }

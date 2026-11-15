@@ -1,0 +1,243 @@
+{
+  "_comment": "Synthetic board for the screenshot-import fixtures and tests. Identities only; values are deliberately absent.",
+  "currentDraftYear": 2026,
+  "pickClassLifecycle": {
+    "retiredYears": [
+      2025
+    ]
+  },
+  "playersArray": [
+    {
+      "displayName": "Patrick Mahomes",
+      "canonicalName": "Patrick Mahomes",
+      "playerId": "4046",
+      "position": "QB",
+      "team": "KC",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Quay Walker",
+      "canonicalName": "Quay Walker",
+      "playerId": "8266",
+      "position": "LB",
+      "team": "LV",
+      "assetClass": "idp"
+    },
+    {
+      "displayName": "Bijan Robinson",
+      "canonicalName": "Bijan Robinson",
+      "playerId": "9509",
+      "position": "RB",
+      "team": "ATL",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Jaxon Smith-Njigba",
+      "canonicalName": "Jaxon Smith-Njigba",
+      "playerId": "9488",
+      "position": "WR",
+      "team": "SEA",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Chris Jones",
+      "canonicalName": "Chris Jones",
+      "playerId": "3558",
+      "position": "DL",
+      "team": "KC",
+      "assetClass": "idp"
+    },
+    {
+      "displayName": "Josh Allen",
+      "canonicalName": "Josh Allen",
+      "playerId": "4984",
+      "position": "QB",
+      "team": "BUF",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Travis Hunter",
+      "canonicalName": "Travis Hunter",
+      "playerId": "12530",
+      "position": "WR",
+      "team": "JAX",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Jordan Davis",
+      "canonicalName": "Jordan Davis",
+      "playerId": "8269",
+      "position": "DL",
+      "team": "PHI",
+      "assetClass": "idp"
+    },
+    {
+      "displayName": "Marvin Harrison Jr.",
+      "canonicalName": "Marvin Harrison Jr.",
+      "playerId": "11628",
+      "position": "WR",
+      "team": "ARI",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Brian Thomas Jr.",
+      "canonicalName": "Brian Thomas Jr.",
+      "playerId": "11631",
+      "position": "WR",
+      "team": "JAX",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Byron Young",
+      "canonicalName": "Byron Young",
+      "playerId": "10917",
+      "position": "LB",
+      "team": "LAR",
+      "assetClass": "idp"
+    },
+    {
+      "displayName": "Byron Young",
+      "canonicalName": "Byron Young",
+      "playerId": "10925",
+      "position": "DL",
+      "team": "PHI",
+      "assetClass": "idp"
+    },
+    {
+      "displayName": "Josh Hines-Allen",
+      "canonicalName": "Josh Hines-Allen",
+      "playerId": "5840",
+      "position": "DL",
+      "team": "JAX",
+      "assetClass": "idp"
+    },
+    {
+      "displayName": "Kenneth Walker III",
+      "canonicalName": "Kenneth Walker III",
+      "playerId": "8151",
+      "position": "RB",
+      "team": "KC",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "2026 Pick 1.05",
+      "canonicalName": "2026 Pick 1.05",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2026 Early 1st",
+      "canonicalName": "2026 Early 1st",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2027 Round 1",
+      "canonicalName": "2027 Round 1",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2027 Round 2",
+      "canonicalName": "2027 Round 2",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2027 Early 1st",
+      "canonicalName": "2027 Early 1st",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2027 Mid 1st",
+      "canonicalName": "2027 Mid 1st",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2027 Late 1st",
+      "canonicalName": "2027 Late 1st",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2028 Round 1",
+      "canonicalName": "2028 Round 1",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2028 Round 2",
+      "canonicalName": "2028 Round 2",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2028 Early 2nd",
+      "canonicalName": "2028 Early 2nd",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "2029 Round 3",
+      "canonicalName": "2029 Round 3",
+      "playerId": null,
+      "position": "PICK",
+      "team": null,
+      "assetClass": "pick"
+    },
+    {
+      "displayName": "Jaxson Dart",
+      "canonicalName": "Jaxson Dart",
+      "playerId": "12508",
+      "position": "QB",
+      "team": "NYG",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "De'Von Achane",
+      "canonicalName": "De'Von Achane",
+      "playerId": "9226",
+      "position": "RB",
+      "team": "MIA",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Bryce Young",
+      "canonicalName": "Bryce Young",
+      "playerId": "9228",
+      "position": "QB",
+      "team": "CAR",
+      "assetClass": "offense"
+    },
+    {
+      "displayName": "Omarion Hampton",
+      "canonicalName": "Omarion Hampton",
+      "playerId": "12507",
+      "position": "RB",
+      "team": "LAC",
+      "assetClass": "offense"
+    }
+  ]
+}

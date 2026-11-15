@@ -1,0 +1,13 @@
+[Unit]
+Description=Hourly verified backup of the rookie auction store for __SERVICE_NAME__
+
+[Timer]
+# Hourly at :17 — clear of the :42 scheduled data refresh.
+OnCalendar=*-*-* *:17:00 UTC
+RandomizedDelaySec=120
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-auction-backup.service
+
+[Install]
+WantedBy=timers.target

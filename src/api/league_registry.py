@@ -91,6 +91,12 @@ class LeagueConfig:
     # optimizer can credit best-ball depth as well as starting
     # strength; dynasty rankings + trade calculator are unaffected.
     best_ball: bool = False
+    # Which OPTIONAL facts the entry actually stated (``"bestBall"``,
+    # ``"idpEnabled"``).  ``best_ball`` / ``idp_enabled`` default when absent,
+    # and a default is not a fact: a consumer that must not turn an unstated
+    # default into evidence (the Market Trade Ledger's format comparison)
+    # reads this.  Every existing consumer keeps reading the plain fields.
+    stated_fields: frozenset[str] = field(default_factory=frozenset)
 
     def public_dict(self) -> dict[str, Any]:
         """Safe payload for /api/leagues — no Sleeper ID leakage.
@@ -186,6 +192,7 @@ def _parse_league_entry(entry: dict[str, Any]) -> LeagueConfig:
         active=active,
         aliases=aliases,
         best_ball=best_ball,
+        stated_fields=frozenset(k for k in ("bestBall", "idpEnabled") if k in entry),
     )
 
 
@@ -215,6 +222,9 @@ def _synthesise_from_env() -> tuple[dict[str, LeagueConfig], str | None]:
         default_team_map={},
         active=True,
         aliases=("main",),
+        stated_fields=frozenset(
+            {"idpEnabled"} if os.getenv("SLEEPER_LEAGUE_IDP_ENABLED", "").strip() else ()
+        ),
     )
     return {"default": entry}, "default"
 
@@ -229,8 +239,9 @@ def _env_bool(name: str, default: bool) -> bool:
 def _load_from_file(path: Path) -> tuple[dict[str, LeagueConfig], str | None]:
     """Parse the registry JSON and return ``({key: cfg}, default_key)``.
 
-    ``default_key`` honours ``defaultLeagueKey`` in the file; if absent,
-    uses the first active league; if still none, returns None.  The
+    ``default_key`` honours ``defaultLeagueKey`` in the file when that league
+    is active; if absent or inactive, uses the first active league; if still
+    none, the first listed league (or None for an empty registry).  The
     file format is documented in ``config/leagues/README.md``.
     """
     try:
@@ -266,9 +277,24 @@ def _load_from_file(path: Path) -> tuple[dict[str, LeagueConfig], str | None]:
 
     default_key_raw = str(raw.get("defaultLeagueKey") or "").strip()
     default_key: str | None = None
-    if default_key_raw and default_key_raw in registry:
+    # ``defaultLeagueKey`` is honoured only when that league is ACTIVE, the
+    # rule an explicit request for an inactive league already gets
+    # (``inactive_league``, 400): a retired league must not keep answering
+    # every implicit request as the home league (LI1842-DEFECT-10).
+    if default_key_raw and default_key_raw in registry and registry[default_key_raw].active:
         default_key = default_key_raw
     else:
+        if default_key_raw and default_key_raw in registry:
+            # An operator who named a default and then retired that league
+            # would otherwise see every implicit request quietly move to a
+            # different league.  The fallback below is the right behaviour;
+            # doing it silently is not.
+            log.warning(
+                "league registry %s: defaultLeagueKey %r is inactive, so it is "
+                "not served implicitly; falling back to the first active league",
+                path,
+                default_key_raw,
+            )
         # Fall back to first active league; if nothing's active, first
         # listed.  Keeps the "default league" concept well-defined
         # even when operators forget to set it explicitly.

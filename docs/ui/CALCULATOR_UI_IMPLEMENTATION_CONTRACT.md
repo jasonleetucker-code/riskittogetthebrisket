@@ -213,10 +213,12 @@ even, fairness/verdict, balance suggestions, real-trade comps, before/after rost
 position impact, uncertainty/risk, market/source context and shareable state. Do not
 scatter the evidence for one proposed trade across unrelated pages.
 
-Asset selection distinguishes player, unique owned pick, generic pick and repeated
+Asset selection distinguishes player, owned pick, generic pick and repeated
 asset. Two distinct owned picks may both say Mid 2027 1st; both remain selectable.
-Generic assets may repeat, but the same unique owned pick cannot accidentally count
-twice. Do not use display label or asset type as unique identity. Removing one generic
+**Owner decision 2026-10-03 supersedes the former "same unique owned pick cannot
+accidentally count twice" rule:** every asset — players and owned picks included —
+may repeat without limit, and every grouped line carries the − N + control.
+Trade Calculator assets are hypothetical quantities, not inventory-enforced unique objects; real uniqueness remains in ownership records, transaction history, pick identity and roster-aware recommendations. Do not use display label or asset type as unique identity. Removing one generic
 copy leaves the other; share/persistence/equalizer integration preserves every valid
 quantity/identity. Quantity UX cannot hide ownership. Canonical math counts copies;
 the UI must not introduce a replacement valuation or serialization owner.

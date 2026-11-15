@@ -1,0 +1,80 @@
+"""Master-site-audit W26-F003 regression (CW-40 P1 re-adjudication, 2026-11-06) -- PARTIAL.
+
+Claim: /draft downloaded the full /api/data contract (11.95 MB) to read 46.8 KB of team
+names, from three call sites, two with ``cache: "no-store"``.
+
+Closed by #2079 and pinned here (offline): every /draft read of ``/api/data`` goes through
+``draftContractUrl`` (``view=compact``); no bare ``/api/data`` fetch remains; the compact
+view is well under the full contract's size on the pinned tracked archive board.
+
+The two ``cache: "no-store"`` call sites now use ``cache: "no-cache"`` (2026-11-07): the
+browser revalidates with the backend ETag every time, so an unchanged contract is a 304
+and a changed one is never served stale.  Still open: the mount-time read needs only
+``sleeper.teams`` but still pulls the whole compact view (measured ~39% of the full
+contract, not ~0.4%).
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
+REPO = Path(__file__).resolve().parents[2]
+PAGE = REPO / "frontend" / "app" / "draft" / "page.jsx"
+
+
+def _page() -> str:
+    return PAGE.read_text(encoding="utf-8")
+
+
+def test_no_draft_read_of_api_data_bypasses_the_compact_view_url():
+    src = _page()
+    assert "draftContractUrl" in src
+    # No literal /api/data (or /api/dynasty-data) fetch target in the page.
+    assert not re.search(r"fetch\(\s*[`\"']/api/(data|dynasty-data)", src)
+    assert not re.search(r"[`\"']/api/data\?(?!view=compact)", src)
+
+
+def test_compact_view_is_a_fraction_of_the_full_contract():
+    from src.api.compact_view import compact_contract
+    from src.api.data_contract import build_api_data_contract
+    from tests.archive_fixtures import pinned_board_payload
+
+    raw, _label = pinned_board_payload()
+    full = build_api_data_contract(raw)
+    full_bytes = len(json.dumps(full))
+    compact_bytes = len(json.dumps(compact_contract(full)))
+    assert compact_bytes < 0.5 * full_bytes  # measured 0.39 on this board
+
+
+def _no_store_contract_reads(src: str) -> int:
+    count = 0
+    for m in re.finditer(r"draftContractUrl\([^)]*\)", src):
+        # the fetch that consumes it follows within a short comment block
+        window = src[m.end() : m.end() + 1000]
+        fetch = re.search(r"fetch\(\s*url\s*,\s*\{([^}]*)\}", window)
+        if fetch and "no-store" in fetch.group(1):
+            count += 1
+    return count
+
+
+def test_draft_contract_reads_use_the_http_cache():
+    assert _no_store_contract_reads(_page()) == 0
+
+
+def test_draft_contract_reads_always_revalidate():
+    """The reads must still never be served stale: ``no-cache`` (revalidate every
+    time via ETag) is the intended mode, not a ``force-cache``/default heuristic."""
+    src = _page()
+    modes = []
+    for m in re.finditer(r"draftContractUrl\([^)]*\)", src):
+        window = src[m.end() : m.end() + 1000]
+        fetch = re.search(r"fetch\(\s*url\s*,\s*\{([^}]*)\}", window)
+        assert fetch, "every draftContractUrl read passes explicit fetch options"
+        modes.append(re.search(r'cache:\s*"([^"]+)"', fetch.group(1)).group(1))
+    assert modes and set(modes) == {"no-cache"}

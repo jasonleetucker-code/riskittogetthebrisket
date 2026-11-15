@@ -85,7 +85,7 @@ import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from src.utils.config_loader import load_json, repo_root
 
@@ -98,6 +98,8 @@ __all__ = [
     "PlayerInput",
     "Anchors",
     "load_faab_config",
+    "validate_faab_config",
+    "FaabConfigError",
     "resolve_anchors",
     "surplus_over_replacement",
     "objective_ceiling",
@@ -139,25 +141,223 @@ def current_nfl_week(today: date | None = None) -> tuple[int | None, bool]:
     return int(week), True
 
 
+def league_playoff_week_start(contract: Mapping[str, Any] | None) -> tuple[int, str]:
+    """``(week, source)``: the league's first playoff week, and where it came from.
+
+    Read from the contract's own league settings
+    (``sleeper.leagueSettings.playoff_week_start``, Sleeper's field).  When the
+    contract does not state it the engine's default applies and ``source`` is
+    ``"default"``, so a caller can say so instead of presenting the default as
+    the league's setting.
+    """
+    sleeper = (contract or {}).get("sleeper") if isinstance(contract, Mapping) else None
+    settings = sleeper.get("leagueSettings") if isinstance(sleeper, Mapping) else None
+    value = settings.get("playoff_week_start") if isinstance(settings, Mapping) else None
+    if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 18:
+        return int(value), "league_settings"
+    return int(LeagueContext.playoff_week_start), "default"
+
+
 # ── Config ─────────────────────────────────────────────────────────
 
 _CONFIG_PATH = repo_root() / "config" / "trade" / "faab.json"
 _CONFIG_CACHE: dict[str, Any] | None = None
 
 
+class FaabConfigError(ValueError):
+    """``config/trade/faab.json`` is missing, unreadable or incomplete.
+
+    Raised at the LOAD boundary (AMATH-S27).  A recommendation computed
+    from a silently-defaulted config is a different model presented as
+    the shipped one, so the engine refuses instead; callers that must
+    stay up (the waiver page) catch this one named error and say the
+    engine is unavailable rather than quoting a bid.  The message always
+    names every offending ``section.key``.
+    """
+
+
+#: The one schema version this engine understands.  ``schemaVersion`` is
+#: read by no formula; it is kept as a NAMED INVARIANT so a future shape
+#: change cannot be loaded by an engine that predates it.
+CONFIG_SCHEMA_VERSION = 1
+
+# (section, key, kind).  kinds: ``num`` finite number (bool refused),
+# ``pos`` finite number > 0, ``unit`` finite number in [0, 1],
+# ``bool``, ``str``, ``strlist``, ``numpair`` (two numbers, lo <= hi),
+# ``numdict:a|b|c`` (an object that must carry these numeric entries).
+# ``tests/trade/test_faab_config_integrity.py`` fails if this table and the
+# keys the code actually reads ever diverge, in either direction.
+_REQUIRED_CONFIG: tuple[tuple[str, str, str], ...] = (
+    ("anchors", "allinSlotMultiple", "pos"),
+    ("anchors", "replacementSlotMultiple", "pos"),
+    ("anchors", "replacementLivePoolRank", "pos"),
+    ("anchors", "replacementLivePoolWeight", "unit"),
+    ("anchors", "minBandWidth", "pos"),
+    ("anchors", "excludedPositions", "strlist"),
+    ("anchors", "fallbackAllinValue", "pos"),
+    ("anchors", "fallbackReplacementValue", "num"),
+    ("ceilingCurve", "toeExponent", "pos"),
+    ("ceilingCurve", "aboveAllinSlope", "num"),
+    ("ceilingCurve", "rawCeilingCap", "pos"),
+    ("dropCost", "dropSurplusWeight", "num"),
+    ("dropCost", "openRosterSpotCost", "num"),
+    ("seasonPhase", "optionValueEarly", "unit"),
+    ("seasonPhase", "optionValueLate", "unit"),
+    ("seasonPhase", "optionValueExponent", "pos"),
+    ("seasonPhase", "eliminatedOptionValue", "unit"),
+    ("seasonPhase", "offseasonOptionValue", "unit"),
+    ("seasonPhase", "carryoverRetention", "unit"),
+    ("competitiveStatus", "contender", "num"),
+    ("competitiveStatus", "bubble", "num"),
+    ("competitiveStatus", "rebuilder", "num"),
+    ("competitiveStatus", "eliminated", "num"),
+    ("positionalNeed", "starterHole", "num"),
+    ("positionalNeed", "need", "num"),
+    ("positionalNeed", "neutral", "num"),
+    ("positionalNeed", "surplus", "num"),
+    ("positionalNeed", "needSpareThreshold", "num"),
+    ("positionalNeed", "surplusSpareThreshold", "num"),
+    ("market", "engagementBaseRate", "unit"),
+    ("market", "engagementMaxRate", "unit"),
+    ("market", "engagementExponent", "pos"),
+    ("market", "rivalBaseSharePct", "num"),
+    ("market", "rivalMaxSharePct", "num"),
+    ("market", "rivalShareExponent", "pos"),
+    ("market", "rivalDisciplineFactor", "num"),
+    ("market", "rivalSigma", "pos"),
+    ("market", "demandSaturationBudgets", "pos"),
+    ("market", "rivalNeedEngagementMultiplier", "numdict:starterHole|need|neutral|surplus"),
+    ("market", "aggressionClamp", "numpair"),
+    ("market", "minWinningBidsForAggression", "num"),
+    ("market", "tieBreakWinProbability", "unit"),
+    ("market", "crowdBlendWeight", "unit"),
+    ("market", "crowdEngagementLift", "num"),
+    ("market", "crowdWinningBidToRivalMedian", "num"),
+    ("market", "trendingEngagementLift", "num"),
+    ("market", "trendingSaturationCount", "pos"),
+    ("bidPolicy", "conservativeWinTarget", "unit"),
+    ("bidPolicy", "aggressiveWinTarget", "unit"),
+    ("bidPolicy", "minEdge", "unit"),
+    ("bidPolicy", "riskPosture", "numdict:conservative|balanced|aggressive"),
+    ("bidPolicy", "defaultRiskPosture", "str"),
+    ("bidPolicy", "searchGridPoints", "pos"),
+    ("leagueRules", "defaultBudget", "pos"),
+    ("leagueRules", "minBid", "num"),
+    ("leagueRules", "bidIncrement", "pos"),
+    ("leagueRules", "zeroBidAllowed", "bool"),
+    ("confidence", "highThreshold", "unit"),
+    ("confidence", "mediumThreshold", "unit"),
+    ("opportunity", "retentionFlat", "num"),
+    ("opportunity", "depthRankSaturation", "num"),
+    ("opportunity", "eventMuSaturation", "num"),
+    ("opportunity", "availabilityGamesDeltaFloor", "num"),
+    ("opportunity", "shortTermSurplusScale", "num"),
+    ("crowdComparability", "allowMultiCopyLeagues", "bool"),
+    ("crowdComparability", "minOriginalBudget", "num"),
+    ("crowdComparability", "teamCountTolerance", "num"),
+    ("crowdComparability", "tepSeverityGap", "num"),
+    ("crowdComparability", "maxFileAgeDays", "pos"),
+    ("crowdComparability", "minClaimsForTier", "num"),
+)
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _config_problem(value: Any, kind: str) -> str | None:
+    """``None`` when ``value`` satisfies ``kind``, else a short reason."""
+    if value is None:
+        return "missing"
+    if kind in ("num", "pos", "unit"):
+        if not _is_number(value):
+            return "not a finite number"
+        if kind == "pos" and value <= 0:
+            return "must be > 0"
+        if kind == "unit" and not 0 <= value <= 1:
+            return "must be within [0, 1]"
+        return None
+    if kind == "bool":
+        return None if isinstance(value, bool) else "not a boolean"
+    if kind == "str":
+        return None if isinstance(value, str) and value else "not a non-empty string"
+    if kind == "strlist":
+        ok = isinstance(value, list) and all(isinstance(v, str) for v in value)
+        return None if ok else "not a list of strings"
+    if kind == "numpair":
+        ok = isinstance(value, list) and len(value) == 2 and all(_is_number(v) for v in value)
+        if not ok:
+            return "not a two-number list"
+        return None if value[0] <= value[1] else "lower bound above upper bound"
+    if kind.startswith("numdict:"):
+        if not isinstance(value, dict):
+            return "not an object"
+        wanted = kind.split(":", 1)[1].split("|")
+        absent = [k for k in wanted if not _is_number(value.get(k))]
+        return f"missing or non-numeric entries: {', '.join(absent)}" if absent else None
+    return f"unknown kind {kind!r}"
+
+
+def validate_faab_config(raw: Any, *, source: str = "faab.json") -> None:
+    """Refuse a config that is not exactly the model the engine documents.
+
+    Raises ``FaabConfigError`` naming EVERY problem at once.  Never
+    substitutes anything: a missing key is a refusal, not a default.
+    """
+    if not isinstance(raw, dict):
+        raise FaabConfigError(f"{source}: top level must be a JSON object")
+    problems: list[str] = []
+    if raw.get("schemaVersion") != CONFIG_SCHEMA_VERSION:
+        problems.append(
+            f"schemaVersion: expected {CONFIG_SCHEMA_VERSION}, found {raw.get('schemaVersion')!r}"
+        )
+    for section, key, kind in _REQUIRED_CONFIG:
+        block = raw.get(section)
+        if not isinstance(block, dict):
+            problems.append(f"{section}: section missing")
+            continue
+        problem = _config_problem(block.get(key), kind)
+        if problem:
+            problems.append(f"{section}.{key}: {problem}")
+    if not problems:
+        market = raw["market"]
+        if market["engagementBaseRate"] > market["engagementMaxRate"]:
+            problems.append("market.engagementBaseRate: above engagementMaxRate")
+        if raw["bidPolicy"]["defaultRiskPosture"] not in raw["bidPolicy"]["riskPosture"]:
+            problems.append("bidPolicy.defaultRiskPosture: not a key of riskPosture")
+    if problems:
+        raise FaabConfigError(f"{source} refused ({len(problems)}): " + "; ".join(problems))
+
+
 def load_faab_config(path: Path | None = None, *, refresh: bool = False) -> dict[str, Any]:
-    """Load ``config/trade/faab.json``.
+    """Load and VALIDATE ``config/trade/faab.json`` (fail closed, AMATH-S27).
 
     Cached per process (the file is static config, and the engine is
     called once per waiver row).  ``refresh=True`` re-reads it, which
     is what the calibration tests use when sweeping parameters.
+
+    A missing file, unparseable JSON, a missing or mistyped key all raise
+    ``FaabConfigError``; nothing falls back to an in-code default.  A
+    config that is present and valid loads byte-for-byte as before, so
+    every recommendation is unchanged.
     """
     global _CONFIG_CACHE
     if path is not None:
-        return load_json(path, default={}) or {}
+        return _read_validated(path)
     if _CONFIG_CACHE is None or refresh:
-        _CONFIG_CACHE = load_json(_CONFIG_PATH, default={}) or {}
+        _CONFIG_CACHE = _read_validated(_CONFIG_PATH)
     return _CONFIG_CACHE
+
+
+def _read_validated(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise FaabConfigError(f"{path.name}: file not found at {path}")
+    try:
+        raw = load_json(path)
+    except (OSError, ValueError) as exc:
+        raise FaabConfigError(f"{path.name}: unreadable or not valid JSON ({exc})") from exc
+    validate_faab_config(raw, source=path.name)
+    return raw
 
 
 class FaabConfig:
@@ -167,15 +367,18 @@ class FaabConfig:
     scattered through the math, and so a missing key resolves at the
     boundary instead of silently becoming ``None`` inside a formula.
 
-    ``num`` SUBSTITUTES a caller-supplied default rather than raising.
-    That is deliberate — a corrupt or partial ``faab.json`` degrades to
-    documented behaviour instead of taking the waiver page down — but
-    it means the in-code defaults are a second, silent source of truth.
-    They are kept equal to the shipped config values, and
-    ``tests/trade/test_faab_config_parity.py`` fails if they drift.
+    The config is validated when it is loaded (``validate_faab_config``,
+    AMATH-S27): a missing or mistyped key raises ``FaabConfigError``
+    before any bid is computed.  The caller-supplied defaults on ``num`` /
+    ``get`` are therefore unreachable for every validated key; they
+    remain only as call-site documentation of the shipped value, and
+    ``tests/trade/test_faab_config_parity.py`` fails if they drift from
+    the config.
     """
 
     def __init__(self, raw: dict[str, Any] | None = None):
+        if raw is not None:
+            validate_faab_config(raw, source="explicit FAAB config")
         self.raw = raw if raw is not None else load_faab_config()
 
     def section(self, name: str) -> dict[str, Any]:
@@ -678,10 +881,15 @@ def team_ceiling(
     team_pct = net_pct * need_mult * option_factor
     team_raw = net_raw * need_mult * option_factor
 
-    remaining = team.faab_remaining if team.faab_remaining is not None else budget
-    remaining = max(0, int(remaining))
+    # MISSING IS NEVER THE FULL BUDGET: an unknown balance (``None``) is an explicit
+    # unknown state, not ``budget``.  A known 0 stays 0.  The value side (what he is worth)
+    # does not read the balance; only the balance-capped ceiling is withheld.
+    balance_known = team.faab_remaining is not None
+    remaining: int | None = max(0, int(team.faab_remaining)) if balance_known else None
 
-    ceiling_dollars = min(float(remaining), team_pct * budget)
+    ceiling_dollars = (
+        min(float(remaining), team_pct * budget) if remaining is not None else team_pct * budget
+    )
     # Deliberately NOT capped at ``remaining``.  This is "what he is
     # worth to us", which can exceed what we are able to pay, and it
     # is the numerator of the expected-surplus objective.  Capping it
@@ -702,9 +910,10 @@ def team_ceiling(
         "needMultiplier": need_mult,
         "optionValueFactor": option_factor,
         "optionValueReason": option_reason,
-        "teamCeilingDollars": max(0.0, ceiling_dollars),
+        "teamCeilingDollars": max(0.0, ceiling_dollars) if balance_known else None,
         "teamRawCeilingDollars": max(0.0, raw_dollars),
         "remaining": remaining,
+        "balanceKnown": balance_known,
         "budget": budget,
     }
 
@@ -1012,7 +1221,7 @@ def optimal_bid(
     rivals: Sequence[RivalTeam],
     *,
     raw_ceiling_dollars: float,
-    display_ceiling_dollars: float,
+    display_ceiling_dollars: float | None,
     demand_signal: float,
     league: LeagueContext,
     team: TeamContext,
@@ -1032,15 +1241,23 @@ def optimal_bid(
     different targets, so all four numbers stay mutually consistent
     rather than being independent multiples of each other.
     """
-    remaining = team.faab_remaining if team.faab_remaining is not None else league.original_budget
-    remaining = max(0, int(remaining))
+    # The expected clearing price is a statement about the MARKET, not about us, so it is
+    # scanned over the full budget and does not need our balance.  A bid does: with an
+    # unknown balance there is no cap to optimise against, so every balance-capped bid is
+    # withheld (``None``) rather than quoted against the league budget.
+    balance_known = team.faab_remaining is not None
+    remaining = max(0, int(team.faab_remaining)) if balance_known else 0
     # The ceiling that BOUNDS a bid is the RAW one.  The displayed
     # ceiling is capped at 100% of the original budget because that is
     # the honest way to report "what is he worth"; using it as the
     # search bound would make every player above the all-in line share
     # one cap and collapse the ladder — a 9999 player and a 2341
     # player would draw the same bid.
-    hard_cap = int(min(remaining, math.floor(max(raw_ceiling_dollars, display_ceiling_dollars))))
+    # ``display_ceiling_dollars`` is ``None`` when the team's own ceiling is UNKNOWN (balance
+    # unknown); that is never 0.  The raw ceiling (>= the displayed one by construction) is the
+    # bound that matters, so an absent displayed figure simply does not participate.
+    ceiling_bound = max(c for c in (raw_ceiling_dollars, display_ceiling_dollars) if c is not None)
+    hard_cap = int(min(remaining, math.floor(ceiling_bound)))
 
     # The expected clearing price is a statement about the MARKET, not
     # about us, so it is scanned over the full budget rather than over
@@ -1056,6 +1273,19 @@ def optimal_bid(
         crowd_share=crowd_share,
         trending_share=trending_share,
     )
+
+    if not balance_known:
+        return {
+            "recommended": None,
+            "conservative": None,
+            "aggressive": None,
+            "maxRational": None,
+            "clearing": market_clearing["p50"],
+            "clearingLow": market_clearing["p25"],
+            "clearingHigh": market_clearing["p75"],
+            "winProbability": None,
+            "curve": [],
+        }
 
     if hard_cap <= 0:
         return {
@@ -1285,9 +1515,9 @@ def recommend(
     )
 
     remaining = ceil["remaining"]
-    if remaining <= 0:
+    if remaining is not None and remaining <= 0:
         warnings.append("This team has no FAAB left — no bid is possible.")
-    if ceil["objectiveDollars"] > remaining and remaining > 0:
+    if remaining is not None and ceil["objectiveDollars"] > remaining and remaining > 0:
         warnings.append(
             f"This player is worth more (${ceil['objectiveDollars']:.0f}) than this team "
             f"has left (${remaining}) — the bid is capped by the balance, not by value."
@@ -1331,9 +1561,15 @@ def recommend(
             "clearingLow": bids["clearingLow"],
             "clearingHigh": bids["clearingHigh"],
         },
-        "pctOfOriginalBudget": round(100.0 * bids["recommended"] / budget, 1),
+        "pctOfOriginalBudget": (
+            round(100.0 * bids["recommended"] / budget, 1)
+            if bids["recommended"] is not None
+            else None
+        ),
         "pctOfRemaining": (
-            round(100.0 * bids["recommended"] / remaining, 1) if remaining > 0 else None
+            round(100.0 * bids["recommended"] / remaining, 1)
+            if remaining is not None and remaining > 0
+            else None
         ),
         "winProbability": bids["winProbability"],
         "confidence": _confidence(factors, cfg),
@@ -1341,7 +1577,16 @@ def recommend(
         "warnings": warnings,
         "explanation": explanation,
         "anchors": anchors.to_dict(),
-        "teamCeilingDollars": int(round(ceil["teamCeilingDollars"])),
+        "teamCeilingDollars": (
+            int(round(ceil["teamCeilingDollars"]))
+            if ceil["teamCeilingDollars"] is not None
+            else None
+        ),
+        "balance": {
+            "state": "known" if ceil["balanceKnown"] else "unknown",
+            "remaining": remaining,
+            "bidsWithheldReason": None if ceil["balanceKnown"] else "team_faab_balance_unknown",
+        },
         "optionValueFactor": round(ceil["optionValueFactor"], 3),
         "needMultiplier": ceil["needMultiplier"],
         "riskPosture": team.risk_posture,
@@ -1362,6 +1607,11 @@ def _explain(
     recommendation — not a restatement of the number."""
     rec = bids["recommended"]
     obj = ceil["objectiveDollars"]
+    if rec is None:
+        return (
+            "No bid quoted: this team's FAAB balance is unknown.  The objective worth and "
+            "the expected clearing band are still shown."
+        )
 
     crowd_pct = (crowd or {}).get("medianPct")
     has_crowd = isinstance(crowd_pct, (int, float))

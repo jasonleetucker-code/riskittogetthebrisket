@@ -1,0 +1,423 @@
+{
+  "engineVersion": "decision_engine_v3_shadow",
+  "executes": false,
+  "paramSetId": "de1-8c5dcc9c42f711cd",
+  "recommendationOnly": true,
+  "schemaVersion": "two_sided_decision_v1",
+  "shape": "insufficient",
+  "teams": [
+    {
+      "confidence": "low",
+      "confidenceAxes": {
+        "coverage": "low"
+      },
+      "confidenceBottleneck": "coverage",
+      "doubleCountGuard": {
+        "agreementNeverCorroborates": false,
+        "lineageVerdict": {
+          "agreementCap": null,
+          "partialOverlaps": [],
+          "registryVersion": "evidence_lineage_v1",
+          "votingGroups": [
+            "canonical_market"
+          ],
+          "votingMembers": [
+            "rank_derived_value"
+          ]
+        },
+        "vaRelation": null,
+        "votingTerms": [
+          "A"
+        ]
+      },
+      "isProbability": false,
+      "keyNumbers": {
+        "championshipDelta": {
+          "reason": "basis_mismatch",
+          "state": "unavailable"
+        },
+        "depth": {
+          "after": 3.0,
+          "before": 3.2,
+          "unit": "depth ppg"
+        },
+        "lineupPpg": {
+          "after": 142.0,
+          "before": 140.0,
+          "unit": "lineup ppg"
+        },
+        "market": {
+          "after": 4700.0,
+          "before": 5000.0,
+          "unit": "canonical value (raw sum)"
+        },
+        "multiYear": {
+          "reason": "not_built",
+          "state": "unavailable"
+        },
+        "riskDownsideQ10": {
+          "reason": "no_predictive_uncertainty",
+          "state": "unavailable"
+        },
+        "vaGap": {
+          "unit": "canonical value (adjusted package)",
+          "value": -300.0
+        }
+      },
+      "layersUsed": [
+        {
+          "band": 250.0,
+          "countedAsVote": true,
+          "direction": "opposes",
+          "lineageMember": "rank_derived_value",
+          "magnitudeClass": "modest",
+          "mcStandardError": null,
+          "precisionOk": null,
+          "predictiveBasis": "not_applicable",
+          "predictiveSd": null,
+          "reason": null,
+          "state": "available",
+          "term": "A",
+          "unit": "canonical value points (adjusted package, net of added forced releases)",
+          "value": -300.0
+        },
+        {
+          "band": null,
+          "countedAsVote": false,
+          "direction": null,
+          "lineageMember": "bestball_lineup_delta",
+          "magnitudeClass": null,
+          "mcStandardError": null,
+          "precisionOk": null,
+          "predictiveBasis": "unavailable",
+          "predictiveSd": null,
+          "reason": "partial_projection_coverage",
+          "state": "partial",
+          "term": "C",
+          "unit": "expected best-ball lineup points per week",
+          "value": null
+        },
+        {
+          "band": null,
+          "countedAsVote": false,
+          "direction": null,
+          "lineageMember": "playoff_presim",
+          "magnitudeClass": null,
+          "mcStandardError": null,
+          "precisionOk": null,
+          "predictiveBasis": "unavailable",
+          "predictiveSd": null,
+          "reason": "basis_mismatch",
+          "state": "unavailable",
+          "term": "D1",
+          "unit": "title probability (absolute)",
+          "value": null
+        },
+        {
+          "band": null,
+          "countedAsVote": false,
+          "direction": null,
+          "lineageMember": "bestball_horizon",
+          "magnitudeClass": null,
+          "mcStandardError": null,
+          "precisionOk": null,
+          "predictiveBasis": "unavailable",
+          "predictiveSd": null,
+          "reason": "not_built",
+          "state": "unavailable",
+          "term": "D2",
+          "unit": "multi-season lineup ppg (mean over horizon seasons)",
+          "value": null
+        }
+      ],
+      "missingEvidence": [
+        {
+          "code": "roster_term_partial",
+          "layer": "C",
+          "reason": "partial_projection_coverage"
+        }
+      ],
+      "neutralTag": false,
+      "policyRow": "insufficient",
+      "predictiveProbability": null,
+      "reasons": [],
+      "receipt": {
+        "engineVersion": "decision_engine_v3_shadow",
+        "fairnessBands": {
+          "absoluteMinimum": 250.0,
+          "basis": "larger_package_utility",
+          "fairTradeLevels": [
+            "fair"
+          ],
+          "lopsidedPct": 18.0,
+          "postLaunchValidation": "OD-F4",
+          "slightPct": 3.5,
+          "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+          "unfairPct": 9.0,
+          "version": "fairness_bands_v2"
+        },
+        "inputHashes": {
+          "asset": "5232b7a44efa4629",
+          "horizon": "ebdf02560b9d1183",
+          "lineup": "20ddf6d762ae2b87",
+          "strategy": "a1b84e425c8f4f4a",
+          "title": "2e4bd6c0e5c844e4"
+        },
+        "isProbability": false,
+        "knownChampionBiases": [
+          {
+            "code": "worsens_overage_no_release_charge",
+            "detail": "trade_decision._objective_value charges the forced release only when overLimitBefore == 0, so a trade that worsens an existing overage is charged nothing; this engine reads the marginal roster_capacity.forced_drop_cost."
+          },
+          {
+            "code": "roster_band_grows_with_standard_error",
+            "detail": "the champion's roster band is max(materialityPpg, 2 x SE): imprecision widens the band instead of being reported as low precision."
+          },
+          {
+            "code": "agreement_counted_as_corroboration",
+            "detail": "the champion rates market + roster agreement HIGH although both share current-season production (evidence_lineage partial overlap)."
+          }
+        ],
+        "lineageRegistryVersion": "evidence_lineage_v1",
+        "lineageVerdict": {
+          "agreementCap": null,
+          "partialOverlaps": [],
+          "registryVersion": "evidence_lineage_v1",
+          "votingGroups": [
+            "canonical_market"
+          ],
+          "votingMembers": [
+            "rank_derived_value"
+          ]
+        },
+        "packageModel": {
+          "configState": "ACTIVE",
+          "id": "geom_q078_v1"
+        },
+        "paramSetId": "de1-8c5dcc9c42f711cd",
+        "policyRow": "insufficient",
+        "predictiveProbability": null,
+        "promotedFamilies": []
+      },
+      "strategy": "WIN_NOW",
+      "strategySource": "user",
+      "teamId": "team-a",
+      "verdictCode": "INSUFFICIENT_EVIDENCE",
+      "whatWouldChange": [
+        {
+          "flipsTo": null,
+          "kind": "availability",
+          "requires": [
+            "roster_term_partial"
+          ]
+        }
+      ]
+    },
+    {
+      "confidence": "low",
+      "confidenceAxes": {
+        "coverage": "low"
+      },
+      "confidenceBottleneck": "coverage",
+      "doubleCountGuard": {
+        "agreementNeverCorroborates": false,
+        "lineageVerdict": {
+          "agreementCap": null,
+          "partialOverlaps": [],
+          "registryVersion": "evidence_lineage_v1",
+          "votingGroups": [
+            "league_scored_projection"
+          ],
+          "votingMembers": [
+            "bestball_lineup_delta"
+          ]
+        },
+        "vaRelation": null,
+        "votingTerms": [
+          "C"
+        ]
+      },
+      "isProbability": false,
+      "keyNumbers": {
+        "championshipDelta": {
+          "reason": "basis_mismatch",
+          "state": "unavailable"
+        },
+        "depth": {
+          "after": 3.0,
+          "before": 3.2,
+          "unit": "depth ppg"
+        },
+        "lineupPpg": {
+          "after": 139.0,
+          "before": 140.0,
+          "unit": "lineup ppg"
+        },
+        "market": {
+          "after": 5000.0,
+          "before": 4700.0,
+          "unit": "canonical value (raw sum)"
+        },
+        "multiYear": {
+          "reason": "not_built",
+          "state": "unavailable"
+        },
+        "riskDownsideQ10": {
+          "reason": "no_predictive_uncertainty",
+          "state": "unavailable"
+        },
+        "vaGap": {
+          "reason": "gated:unpriced_assets",
+          "state": "unavailable"
+        }
+      },
+      "layersUsed": [
+        {
+          "band": null,
+          "countedAsVote": false,
+          "direction": null,
+          "lineageMember": "rank_derived_value",
+          "magnitudeClass": null,
+          "mcStandardError": null,
+          "precisionOk": null,
+          "predictiveBasis": "not_applicable",
+          "predictiveSd": null,
+          "reason": "gated:unpriced_assets",
+          "state": "partial",
+          "term": "A",
+          "unit": "canonical value points (adjusted package, net of added forced releases)",
+          "value": null
+        },
+        {
+          "band": 1.0,
+          "countedAsVote": true,
+          "direction": "opposes",
+          "lineageMember": "bestball_lineup_delta",
+          "magnitudeClass": "modest",
+          "mcStandardError": 0.1,
+          "precisionOk": true,
+          "predictiveBasis": "unavailable",
+          "predictiveSd": null,
+          "reason": null,
+          "state": "available",
+          "term": "C",
+          "unit": "expected best-ball lineup points per week",
+          "value": -1.0
+        },
+        {
+          "band": null,
+          "countedAsVote": false,
+          "direction": null,
+          "lineageMember": "playoff_presim",
+          "magnitudeClass": null,
+          "mcStandardError": null,
+          "precisionOk": null,
+          "predictiveBasis": "unavailable",
+          "predictiveSd": null,
+          "reason": "basis_mismatch",
+          "state": "unavailable",
+          "term": "D1",
+          "unit": "title probability (absolute)",
+          "value": null
+        },
+        {
+          "band": null,
+          "countedAsVote": false,
+          "direction": null,
+          "lineageMember": "bestball_horizon",
+          "magnitudeClass": null,
+          "mcStandardError": null,
+          "precisionOk": null,
+          "predictiveBasis": "unavailable",
+          "predictiveSd": null,
+          "reason": "not_built",
+          "state": "unavailable",
+          "term": "D2",
+          "unit": "multi-season lineup ppg (mean over horizon seasons)",
+          "value": null
+        }
+      ],
+      "missingEvidence": [
+        {
+          "code": "unpriced_assets",
+          "layer": "A"
+        }
+      ],
+      "neutralTag": false,
+      "policyRow": "insufficient",
+      "predictiveProbability": null,
+      "reasons": [],
+      "receipt": {
+        "engineVersion": "decision_engine_v3_shadow",
+        "fairnessBands": {
+          "absoluteMinimum": 250.0,
+          "basis": "larger_package_utility",
+          "fairTradeLevels": [
+            "fair"
+          ],
+          "lopsidedPct": 18.0,
+          "postLaunchValidation": "OD-F4",
+          "slightPct": 3.5,
+          "status": "PRIOR_OWNER_APPROVED_2026-10-20",
+          "unfairPct": 9.0,
+          "version": "fairness_bands_v2"
+        },
+        "inputHashes": {
+          "asset": "b9f0907e6c7c5658",
+          "horizon": "ebdf02560b9d1183",
+          "lineup": "0b963c1a8c635b4e",
+          "strategy": "51677fe96881282a",
+          "title": "2e4bd6c0e5c844e4"
+        },
+        "isProbability": false,
+        "knownChampionBiases": [
+          {
+            "code": "worsens_overage_no_release_charge",
+            "detail": "trade_decision._objective_value charges the forced release only when overLimitBefore == 0, so a trade that worsens an existing overage is charged nothing; this engine reads the marginal roster_capacity.forced_drop_cost."
+          },
+          {
+            "code": "roster_band_grows_with_standard_error",
+            "detail": "the champion's roster band is max(materialityPpg, 2 x SE): imprecision widens the band instead of being reported as low precision."
+          },
+          {
+            "code": "agreement_counted_as_corroboration",
+            "detail": "the champion rates market + roster agreement HIGH although both share current-season production (evidence_lineage partial overlap)."
+          }
+        ],
+        "lineageRegistryVersion": "evidence_lineage_v1",
+        "lineageVerdict": {
+          "agreementCap": null,
+          "partialOverlaps": [],
+          "registryVersion": "evidence_lineage_v1",
+          "votingGroups": [
+            "league_scored_projection"
+          ],
+          "votingMembers": [
+            "bestball_lineup_delta"
+          ]
+        },
+        "packageModel": {
+          "configState": "ACTIVE",
+          "id": "geom_q078_v1"
+        },
+        "paramSetId": "de1-8c5dcc9c42f711cd",
+        "policyRow": "insufficient",
+        "predictiveProbability": null,
+        "promotedFamilies": []
+      },
+      "strategy": "LONG_TERM",
+      "strategySource": "user",
+      "teamId": "team-b",
+      "verdictCode": "INSUFFICIENT_EVIDENCE",
+      "whatWouldChange": [
+        {
+          "flipsTo": null,
+          "kind": "availability",
+          "requires": [
+            "unpriced_assets"
+          ]
+        }
+      ]
+    }
+  ]
+}

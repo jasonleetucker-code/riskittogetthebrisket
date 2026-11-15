@@ -1,0 +1,1459 @@
+{
+ "ablations": {
+  "all_plus_oracle": {
+   "config": {
+    "hindsight": true,
+    "horizon": 1,
+    "masked": false,
+    "materiality": 0.0,
+    "max_swaps": 6,
+    "open_spots": 5,
+    "projection": "oracle",
+    "release_above_line": true,
+    "release_unpriced": true,
+    "release_unprojected": true,
+    "work_limit": 100000
+   },
+   "description": "all_point_in_time with week-w realized points as the projection",
+   "factor": "all relaxations + HINDSIGHT projection",
+   "hindsight": true,
+   "league": "not_run: HINDSIGHT bound, manager B only (cost)",
+   "managerB": {
+    "ci95": [
+     92.025,
+     125.669
+    ],
+    "mean": 108.157,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 648.942,
+    "verdict": "gains"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     -99.093,
+     -77.446
+    ],
+    "mean": -88.269,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": -529.616,
+    "verdict": "loses"
+   },
+   "managerBAdds": 36,
+   "managerBContestedAdds": true,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 17534.0,
+    "acquiredUnvalued": 18,
+    "acquiredValued": 18,
+    "releasedSum": 7060.0,
+    "releasedUnvalued": 1,
+    "releasedValued": 5
+   },
+   "managerBMeanDefenders": 44.167,
+   "managerBPureAdds": 30,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 36,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 363.2
+   }
+  },
+  "all_point_in_time": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": false,
+    "materiality": 0.0,
+    "max_swaps": 6,
+    "open_spots": 5,
+    "projection": "provider",
+    "release_above_line": true,
+    "release_unpriced": true,
+    "release_unprojected": true,
+    "work_limit": 100000
+   },
+   "description": "unmasked + protection off + unpriced + injury + capacity +5 + S = 6 + materiality 0 (provider projection)",
+   "factor": "all point-in-time relaxations together",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     3.657,
+     7.83
+    ],
+    "mean": 5.622,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 404.817,
+    "verdict": "gains"
+   },
+   "leagueAddsPerTeamWeek": 0.972,
+   "leagueSolverStats": {
+    "bounded": 43,
+    "decisions": 72,
+    "moves": 70,
+    "noDroppable": 0,
+    "optimal": 29,
+    "solverSeconds": 344.0
+   },
+   "managerB": {
+    "ci95": [
+     0.265,
+     9.096
+    ],
+    "mean": 3.708,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 22.248,
+    "verdict": "gains"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     9.742,
+     23.601
+    ],
+    "mean": 16.18,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 97.079,
+    "verdict": "gains"
+   },
+   "managerBAdds": 4,
+   "managerBContestedAdds": true,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 2516.0,
+    "acquiredUnvalued": 2,
+    "acquiredValued": 2,
+    "releasedSum": 0.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 0
+   },
+   "managerBMeanDefenders": 29.167,
+   "managerBPureAdds": 4,
+   "solverStats": {
+    "bounded": 4,
+    "decisions": 6,
+    "moves": 4,
+    "noDroppable": 0,
+    "optimal": 2,
+    "solverSeconds": 41.2
+   }
+  },
+  "base": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 1.0,
+    "max_swaps": 3,
+    "open_spots": 0,
+    "projection": "provider",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": null
+   },
+   "description": "baseline 7 as preregistered: masked pool, S = 3, budget 0",
+   "factor": "reference",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -1.948,
+     4.237
+    ],
+    "mean": 0.892,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 64.244,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 0.639,
+   "leagueSolverStats": {
+    "bounded": 0,
+    "decisions": 72,
+    "moves": 46,
+    "noDroppable": 0,
+    "optimal": 72,
+    "solverSeconds": 70.9
+   },
+   "managerB": {
+    "ci95": [
+     0.0,
+     1.195
+    ],
+    "mean": 0.398,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 2.39,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.088,
+     29.241
+    ],
+    "mean": 19.489,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 116.937,
+    "verdict": "gains"
+   },
+   "managerBAdds": 1,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 0.0,
+    "acquiredUnvalued": 1,
+    "acquiredValued": 0,
+    "releasedSum": 951.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 1
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 1,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 4.3
+   }
+  },
+  "conservative": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 3.0,
+    "max_swaps": 1,
+    "open_spots": 0,
+    "projection": "provider",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "stricter than baseline 7: one swap a week and a 3-point materiality bar",
+   "factor": "conservative scenario",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -1.905,
+     0.717
+    ],
+    "mean": -0.632,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": -45.519,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 0.236,
+   "leagueSolverStats": {
+    "bounded": 0,
+    "decisions": 72,
+    "moves": 17,
+    "noDroppable": 0,
+    "optimal": 72,
+    "solverSeconds": 22.8
+   },
+   "managerB": {
+    "ci95": [
+     0.0,
+     1.195
+    ],
+    "mean": 0.398,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 2.39,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.088,
+     29.241
+    ],
+    "mean": 19.489,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 116.937,
+    "verdict": "gains"
+   },
+   "managerBAdds": 1,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 0.0,
+    "acquiredUnvalued": 1,
+    "acquiredValued": 0,
+    "releasedSum": 1365.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 1
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 1,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 2.0
+   }
+  },
+  "dynasty_protection_off": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 1.0,
+    "max_swaps": 3,
+    "open_spots": 0,
+    "projection": "provider",
+    "release_above_line": true,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "a priced defender above his group's replacement line is releasable at no charge (what a dynasty-loss budget > 0 buys)",
+   "factor": "dynasty protection",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -3.025,
+     1.084
+    ],
+    "mean": -0.908,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": -65.373,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 0.722,
+   "leagueSolverStats": {
+    "bounded": 32,
+    "decisions": 72,
+    "moves": 52,
+    "noDroppable": 0,
+    "optimal": 40,
+    "solverSeconds": 344.2
+   },
+   "managerB": {
+    "ci95": [
+     0.0,
+     1.195
+    ],
+    "mean": 0.398,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 2.39,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.088,
+     29.241
+    ],
+    "mean": 19.489,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 116.937,
+    "verdict": "gains"
+   },
+   "managerBAdds": 1,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 0.0,
+    "acquiredUnvalued": 1,
+    "acquiredValued": 0,
+    "releasedSum": 1365.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 1
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 3,
+    "decisions": 6,
+    "moves": 1,
+    "noDroppable": 0,
+    "optimal": 3,
+    "solverSeconds": 26.0
+   }
+  },
+  "horizon_3wk": {
+   "config": {
+    "hindsight": false,
+    "horizon": 3,
+    "masked": true,
+    "materiality": 1.0,
+    "max_swaps": 3,
+    "open_spots": 0,
+    "projection": "provider",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "plans on weeks w..w+2 projections, equal weights",
+   "factor": "single- vs multi-week horizon",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -2.33,
+     7.386
+    ],
+    "mean": 2.016,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 145.161,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 0.847,
+   "leagueSolverStats": {
+    "bounded": 28,
+    "decisions": 72,
+    "moves": 61,
+    "noDroppable": 1,
+    "optimal": 43,
+    "solverSeconds": 226.8
+   },
+   "managerB": {
+    "ci95": [
+     0.0,
+     2.247
+    ],
+    "mean": 1.015,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 6.088,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.088,
+     28.506
+    ],
+    "mean": 18.873,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 113.239,
+    "verdict": "gains"
+   },
+   "managerBAdds": 2,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 1917.0,
+    "acquiredUnvalued": 1,
+    "acquiredValued": 1,
+    "releasedSum": 2212.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 2
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 5,
+    "decisions": 6,
+    "moves": 2,
+    "noDroppable": 0,
+    "optimal": 1,
+    "solverSeconds": 53.0
+   }
+  },
+  "injury_replacement": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 1.0,
+    "max_swaps": 3,
+    "open_spots": 0,
+    "projection": "provider",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": true,
+    "work_limit": 100000
+   },
+   "description": "a rostered defender with no week-w projection, or a projection <= 0 (out / inactive at the cutoff), is releasable",
+   "factor": "injuries / inactive",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -2.158,
+     3.874
+    ],
+    "mean": 0.589,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 42.376,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 0.667,
+   "leagueSolverStats": {
+    "bounded": 3,
+    "decisions": 72,
+    "moves": 48,
+    "noDroppable": 0,
+    "optimal": 69,
+    "solverSeconds": 123.7
+   },
+   "managerB": {
+    "ci95": [
+     0.0,
+     1.195
+    ],
+    "mean": 0.398,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 2.39,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.088,
+     29.241
+    ],
+    "mean": 19.489,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 116.937,
+    "verdict": "gains"
+   },
+   "managerBAdds": 1,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 0.0,
+    "acquiredUnvalued": 1,
+    "acquiredValued": 0,
+    "releasedSum": 951.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 1
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 1,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 15.9
+   }
+  },
+  "materiality_0": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 0.0,
+    "max_swaps": 3,
+    "open_spots": 0,
+    "projection": "provider",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "a move is recommended for any positive projected gain (materiality 0 instead of 1.0 point)",
+   "factor": "bench / replacement threshold",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -1.468,
+     4.606
+    ],
+    "mean": 1.516,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 109.151,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 0.847,
+   "leagueSolverStats": {
+    "bounded": 0,
+    "decisions": 72,
+    "moves": 61,
+    "noDroppable": 0,
+    "optimal": 72,
+    "solverSeconds": 55.9
+   },
+   "managerB": {
+    "ci95": [
+     0.0,
+     2.247
+    ],
+    "mean": 1.015,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 6.088,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.088,
+     28.506
+    ],
+    "mean": 18.873,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 113.239,
+    "verdict": "gains"
+   },
+   "managerBAdds": 2,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 1288.0,
+    "acquiredUnvalued": 1,
+    "acquiredValued": 1,
+    "releasedSum": 2178.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 2
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 2,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 6.3
+   }
+  },
+  "pool_unmasked": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": false,
+    "materiality": 1.0,
+    "max_swaps": 3,
+    "open_spots": 0,
+    "projection": "provider",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "unmasked pool: players another team claimed in week w are offered (would need winning claims; FAAB cost unknown, never $0)",
+   "factor": "pool eligibility / waiver availability / FAAB",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -1.322,
+     3.444
+    ],
+    "mean": 0.921,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 66.294,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 0.764,
+   "leagueSolverStats": {
+    "bounded": 3,
+    "decisions": 72,
+    "moves": 55,
+    "noDroppable": 1,
+    "optimal": 68,
+    "solverSeconds": 127.0
+   },
+   "managerB": {
+    "ci95": [
+     -0.66,
+     8.745
+    ],
+    "mean": 2.783,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 16.7,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.358,
+     25.347
+    ],
+    "mean": 17.104,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 102.627,
+    "verdict": "gains"
+   },
+   "managerBAdds": 3,
+   "managerBContestedAdds": true,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 1229.0,
+    "acquiredUnvalued": 2,
+    "acquiredValued": 1,
+    "releasedSum": 3441.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 3
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 3,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 4.0
+   }
+  },
+  "projection_oracle": {
+   "config": {
+    "hindsight": true,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 1.0,
+    "max_swaps": 3,
+    "open_spots": 0,
+    "projection": "oracle",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "replace the projection with the week-w REALIZED points -- uses information unavailable at the cutoff; an upper bound, never a policy",
+   "factor": "predicted production (HINDSIGHT bound)",
+   "hindsight": true,
+   "league": "not_run: HINDSIGHT bound, manager B only (cost)",
+   "managerB": {
+    "ci95": [
+     39.101,
+     66.28
+    ],
+    "mean": 52.716,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 316.297,
+    "verdict": "gains"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     -53.434,
+     -13.36
+    ],
+    "mean": -32.828,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": -196.97,
+    "verdict": "loses"
+   },
+   "managerBAdds": 11,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 1235.0,
+    "acquiredUnvalued": 10,
+    "acquiredValued": 1,
+    "releasedSum": 13213.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 11
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 11,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 405.9
+   }
+  },
+  "projection_rolling": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 1.0,
+    "max_swaps": 3,
+    "open_spots": 0,
+    "projection": "rolling",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "replace the provider projection with the player's recent realized average (weeks < w only)",
+   "factor": "predicted production (point-in-time alternative)",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -2.996,
+     4.673
+    ],
+    "mean": 0.784,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 56.48,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 1.833,
+   "leagueSolverStats": {
+    "bounded": 0,
+    "decisions": 72,
+    "moves": 132,
+    "noDroppable": 0,
+    "optimal": 72,
+    "solverSeconds": 72.7
+   },
+   "managerB": {
+    "ci95": [
+     -12.047,
+     3.986
+    ],
+    "mean": -3.884,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": -23.304,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     9.848,
+     39.597
+    ],
+    "mean": 23.772,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 142.631,
+    "verdict": "gains"
+   },
+   "managerBAdds": 10,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 2901.0,
+    "acquiredUnvalued": 7,
+    "acquiredValued": 3,
+    "releasedSum": 11971.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 10
+   },
+   "managerBMeanDefenders": 26.667,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 10,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 8.3
+   }
+  },
+  "roster_capacity_plus5": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 1.0,
+    "max_swaps": 3,
+    "open_spots": 5,
+    "projection": "provider",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "up to 5 defender adds per week need no release (manager B carried ~5 more defenders than hold in 2026)",
+   "factor": "roster capacity",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     2.148,
+     6.829
+    ],
+    "mean": 4.18,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 300.984,
+    "verdict": "gains"
+   },
+   "leagueAddsPerTeamWeek": 0.625,
+   "leagueSolverStats": {
+    "bounded": 0,
+    "decisions": 72,
+    "moves": 45,
+    "noDroppable": 0,
+    "optimal": 72,
+    "solverSeconds": 19.2
+   },
+   "managerB": {
+    "ci95": [
+     0.0,
+     1.195
+    ],
+    "mean": 0.398,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 2.39,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.088,
+     29.241
+    ],
+    "mean": 19.489,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 116.937,
+    "verdict": "gains"
+   },
+   "managerBAdds": 1,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 0.0,
+    "acquiredUnvalued": 1,
+    "acquiredValued": 0,
+    "releasedSum": 0.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 0
+   },
+   "managerBMeanDefenders": 27.667,
+   "managerBPureAdds": 1,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 1,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 2.4
+   }
+  },
+  "swaps_S6": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 1.0,
+    "max_swaps": 6,
+    "open_spots": 0,
+    "projection": "provider",
+    "release_above_line": false,
+    "release_unpriced": false,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "up to 6 swaps per week",
+   "factor": "search limits (swap cap)",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -2.035,
+     3.05
+    ],
+    "mean": 0.466,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 33.57,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 0.625,
+   "leagueSolverStats": {
+    "bounded": 41,
+    "decisions": 72,
+    "moves": 45,
+    "noDroppable": 0,
+    "optimal": 31,
+    "solverSeconds": 367.7
+   },
+   "managerB": {
+    "ci95": [
+     0.0,
+     1.195
+    ],
+    "mean": 0.398,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 2.39,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.088,
+     29.241
+    ],
+    "mean": 19.489,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 116.937,
+    "verdict": "gains"
+   },
+   "managerBAdds": 1,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 0.0,
+    "acquiredUnvalued": 1,
+    "acquiredValued": 0,
+    "releasedSum": 951.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 1
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 2,
+    "decisions": 6,
+    "moves": 1,
+    "noDroppable": 0,
+    "optimal": 4,
+    "solverSeconds": 27.2
+   }
+  },
+  "unpriced_releasable": {
+   "config": {
+    "hindsight": false,
+    "horizon": 1,
+    "masked": true,
+    "materiality": 1.0,
+    "max_swaps": 3,
+    "open_spots": 0,
+    "projection": "provider",
+    "release_above_line": false,
+    "release_unpriced": true,
+    "release_unprojected": false,
+    "work_limit": 100000
+   },
+   "description": "a defender with NO known dynasty value is releasable (diagnostic only: the shipped rule never releases an unpriced player)",
+   "factor": "unpriced players",
+   "hindsight": false,
+   "league": {
+    "ci95": [
+     -0.85,
+     4.166
+    ],
+    "mean": 1.405,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 101.143,
+    "verdict": "no_detectable_effect"
+   },
+   "leagueAddsPerTeamWeek": 0.736,
+   "leagueSolverStats": {
+    "bounded": 4,
+    "decisions": 72,
+    "moves": 53,
+    "noDroppable": 0,
+    "optimal": 68,
+    "solverSeconds": 120.2
+   },
+   "managerB": {
+    "ci95": [
+     0.0,
+     1.195
+    ],
+    "mean": 0.398,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 2.39,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBActualMinusAblation": {
+    "ci95": [
+     10.088,
+     29.241
+    ],
+    "mean": 19.489,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": 116.937,
+    "verdict": "gains"
+   },
+   "managerBAdds": 1,
+   "managerBContestedAdds": false,
+   "managerBDynastyValueFlow": {
+    "acquiredSum": 0.0,
+    "acquiredUnvalued": 1,
+    "acquiredValued": 0,
+    "releasedSum": 951.0,
+    "releasedUnvalued": 0,
+    "releasedValued": 1
+   },
+   "managerBMeanDefenders": 27.0,
+   "managerBPureAdds": 0,
+   "solverStats": {
+    "bounded": 0,
+    "decisions": 6,
+    "moves": 1,
+    "noDroppable": 0,
+    "optimal": 6,
+    "solverSeconds": 6.5
+   }
+  }
+ },
+ "actualMinusHold": {
+  "league": {
+   "ci95": [
+    0.728,
+    8.568
+   ],
+   "mean": 4.626,
+   "minimum": 6,
+   "n": 72,
+   "nClusters": 12,
+   "total": 333.056,
+   "verdict": "gains"
+  },
+  "managerB": {
+   "ci95": [
+    10.088,
+    30.158
+   ],
+   "mean": 19.888,
+   "minimum": 6,
+   "n": 6,
+   "nClusters": null,
+   "total": 119.327,
+   "verdict": "gains"
+  }
+ },
+ "actualMoveProfile": {
+  "managerB": {
+   "adds": {
+    "inMaskedPool": {
+     "count": 34,
+     "of": 37,
+     "share": 0.919
+    },
+    "inMaskedPoolAndProjected": {
+     "count": 32,
+     "of": 37,
+     "share": 0.865
+    },
+    "inUnmaskedPool": {
+     "count": 34,
+     "of": 37,
+     "share": 0.919
+    },
+    "madeLineup": {
+     "count": 10,
+     "of": 37,
+     "share": 0.27
+    },
+    "n": 37,
+    "paidClaims": 0,
+    "projected": {
+     "count": 35,
+     "of": 37,
+     "share": 0.946
+    },
+    "valued": {
+     "count": 21,
+     "of": 37,
+     "share": 0.568
+    }
+   },
+   "addsRealizedWeekMean": 9.638,
+   "drops": {
+    "aboveLine": {
+     "count": 4,
+     "of": 29,
+     "share": 0.138
+    },
+    "droppableUnderRule7": {
+     "count": 13,
+     "of": 29,
+     "share": 0.448
+    },
+    "n": 29,
+    "notProjectedOrNonPositive": {
+     "count": 10,
+     "of": 29,
+     "share": 0.345
+    },
+    "playedWeek": {
+     "count": 21,
+     "of": 29,
+     "share": 0.724
+    },
+    "projected": {
+     "count": 19,
+     "of": 29,
+     "share": 0.655
+    },
+    "realizedWeekMean": 4.393,
+    "unpriced": {
+     "count": 12,
+     "of": 29,
+     "share": 0.414
+    },
+    "valued": {
+     "count": 17,
+     "of": 29,
+     "share": 0.586
+    }
+   }
+  }
+ },
+ "decisionWeeks": [
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "decomposition": {
+  "actualMinusHoldMean": 19.888,
+  "baseMinusHoldMean": 0.398,
+  "gap": 19.489,
+  "rows": [
+   {
+    "ablation": "conservative",
+    "gainOverBase": 0.0,
+    "hindsight": false,
+    "shareOfGapClosed": 0.0
+   },
+   {
+    "ablation": "pool_unmasked",
+    "gainOverBase": 2.385,
+    "hindsight": false,
+    "shareOfGapClosed": 0.122
+   },
+   {
+    "ablation": "dynasty_protection_off",
+    "gainOverBase": 0.0,
+    "hindsight": false,
+    "shareOfGapClosed": 0.0
+   },
+   {
+    "ablation": "unpriced_releasable",
+    "gainOverBase": 0.0,
+    "hindsight": false,
+    "shareOfGapClosed": 0.0
+   },
+   {
+    "ablation": "injury_replacement",
+    "gainOverBase": 0.0,
+    "hindsight": false,
+    "shareOfGapClosed": 0.0
+   },
+   {
+    "ablation": "roster_capacity_plus5",
+    "gainOverBase": 0.0,
+    "hindsight": false,
+    "shareOfGapClosed": 0.0
+   },
+   {
+    "ablation": "swaps_S6",
+    "gainOverBase": 0.0,
+    "hindsight": false,
+    "shareOfGapClosed": 0.0
+   },
+   {
+    "ablation": "materiality_0",
+    "gainOverBase": 0.616,
+    "hindsight": false,
+    "shareOfGapClosed": 0.032
+   },
+   {
+    "ablation": "horizon_3wk",
+    "gainOverBase": 0.616,
+    "hindsight": false,
+    "shareOfGapClosed": 0.032
+   },
+   {
+    "ablation": "projection_rolling",
+    "gainOverBase": -4.282,
+    "hindsight": false,
+    "shareOfGapClosed": -0.22
+   },
+   {
+    "ablation": "projection_oracle",
+    "gainOverBase": 52.318,
+    "hindsight": true,
+    "shareOfGapClosed": 2.684
+   },
+   {
+    "ablation": "all_point_in_time",
+    "gainOverBase": 3.31,
+    "hindsight": false,
+    "shareOfGapClosed": 0.17
+   },
+   {
+    "ablation": "all_plus_oracle",
+    "gainOverBase": 107.759,
+    "hindsight": true,
+    "shareOfGapClosed": 5.529
+   }
+  ]
+ },
+ "dynastyValueSource": "source_value:idpTradeCalc (vendor value, NOT canonical)",
+ "generatedAt": "2026-11-01T16:11:11+00:00",
+ "leagueMeanIdpAdds": 16.667,
+ "managerBIdpAdds": 51,
+ "managerRule": "heaviest_idp_streamer (most complete waiver / free-agent defender adds)",
+ "models": {
+  "1_no_move_hold": {
+   "managerB": {
+    "mean": 0.0,
+    "note": "reference"
+   }
+  },
+  "2_previous_week_points": {
+   "league": {
+    "ci95": [
+     -5.809,
+     2.59
+    ],
+    "mean": -1.578,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": -113.602,
+    "verdict": "no_detectable_effect"
+   },
+   "managerB": {
+    "ci95": [
+     -21.841,
+     2.221
+    ],
+    "mean": -8.838,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": -53.029,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBAdds": 18
+  },
+  "3_rolling_recent_production": {
+   "league": {
+    "ci95": [
+     -1.589,
+     7.822
+    ],
+    "mean": 3.141,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": 226.179,
+    "verdict": "no_detectable_effect"
+   },
+   "managerB": {
+    "ci95": [
+     -16.941,
+     7.535
+    ],
+    "mean": -2.638,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": -15.826,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBAdds": 15
+  },
+  "4_single_projection_provider": {
+   "league": {
+    "ci95": [
+     -8.25,
+     0.798
+    ],
+    "mean": -3.634,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": -261.62,
+    "verdict": "no_detectable_effect"
+   },
+   "managerB": {
+    "ci95": [
+     -13.289,
+     6.956
+    ],
+    "mean": -3.284,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": -19.707,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBAdds": 18
+  },
+  "6_release_lowest_dynasty_value": {
+   "league": {
+    "ci95": [
+     -8.722,
+     2.938
+    ],
+    "mean": -3.084,
+    "minimum": 6,
+    "n": 72,
+    "nClusters": 12,
+    "total": -222.036,
+    "verdict": "no_detectable_effect"
+   },
+   "managerB": {
+    "ci95": [
+     -18.769,
+     0.415
+    ],
+    "mean": -9.221,
+    "minimum": 6,
+    "n": 6,
+    "nClusters": null,
+    "total": -55.327,
+    "verdict": "no_detectable_effect"
+   },
+   "managerBAdds": 18
+  }
+ },
+ "note": "Diagnostics only. One-at-a-time ablations relax ONE constraint of baseline 7; they do not add up. hindsight=True rows use week-w realized points and bound, never recommend.",
+ "projectionPointInTimeVerified": false,
+ "projectionSource": "sleeper_weekly_projections(rotowire)",
+ "schema": "idp_streaming_gap_attribution_v1",
+ "scope": "managerB for every ablation; league cells for every non-HINDSIGHT ablation and model",
+ "scoredWeeks": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7
+ ],
+ "season": 2026
+}

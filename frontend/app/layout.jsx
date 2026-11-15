@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import AppShellWrapper from "./AppShellWrapper";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
 import PullToRefresh from "@/components/PullToRefresh";
+import { EARLY_CONTRACT_SCRIPT } from "@/lib/early-contract";
 
 // Redesign R0: actually load the fonts the token layer names. The audit
 // found Inter + JetBrains Mono referenced in CSS but never loaded — every
@@ -69,6 +70,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <head>
+        {/* Starts the Rankings/Trade board request during HTML parse, so it
+            overlaps the chunk download and hydration instead of waiting for
+            them; the fetch layer adopts it (lib/early-contract.js). Inert on
+            every other route. */}
+        <script dangerouslySetInnerHTML={{ __html: EARLY_CONTRACT_SCRIPT }} />
         {/* Player headshots + team logos come from sleepercdn.com —
             the one third-party origin.  Warming the connection saves
             a DNS+TLS round-trip before the first avatar paints. */}

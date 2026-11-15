@@ -162,7 +162,7 @@ Applies to values, history, scoring, roster/team assignment, projections, market
 
 ## 7.5 Player MVP eligibility
 
-**Owner decision 2026-09-26 (supersedes the earlier no-gate entry):** League MVP requires playoff-field membership + a record above .500 (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6). OPOY/DPOY/ROY/positional awards do not inherit it. MOTY may use separately validated team-success eligibility.
+**Owner decision 2026-09-26 (supersedes the earlier no-gate entry):** League MVP requires playoff-field membership + a .500-or-better record (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6) *(record half corrected 2026-09-29: .500 or better — exactly .500 counts)*. OPOY/DPOY/ROY/positional awards do not inherit it. ~~MOTY may use separately validated team-success eligibility.~~ *Superseded: unified Manager of the Year has no playoff or record gate.*
 
 ## 7.6 Trade concepts remain separate
 

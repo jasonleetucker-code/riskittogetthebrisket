@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
@@ -9,17 +9,19 @@ import { InfoTip, PlayerNameButton } from "@/components/ds";
 import { ValueBasisNote } from "@/components/ds";
 import {
   POS_GROUPS,
-  OFFENSE_GROUPS,
   POS_GROUP_COLORS,
   POS_GROUP_LABELS,
   buildPlayerMetaMap,
   buildAllTeamSummaries,
-  computeGroupAverages,
   findWaiverWireGems,
   buildLeagueEdgeMap,
   ordinal,
 } from "@/lib/league-analysis";
 import { readableTextOn, textSafe } from "@/lib/contrast";
+import {
+  PICK_OWNERSHIP_UNAVAILABLE_LABEL,
+  describePickOwnershipReason,
+} from "@/lib/pick-ownership";
 
 // The surface these labels sit on.  `--card` / `--bg-soft` (#131519),
 // NOT the page `--bg` (#0b0d10): the labels live inside panels, and
@@ -44,9 +46,17 @@ const POS_TEXT_COLORS = Object.fromEntries(
 const FONT_2XS = "var(--font-size-2xs, 0.6875rem)";
 import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
 import TeamStrengthCard from "@/components/TeamStrengthCard";
+import TradeTargetsCard from "@/components/TradeTargetsCard";
 import { useRosterIntelligence } from "@/components/useRosterIntelligence";
 import { ownerIdForTeamName } from "@/lib/roster-intelligence";
 import "./rosters.css";
+
+// Code-split so the Team Gameplan section stays out of the initial /rosters
+// chunk (check-bundle-sizes.mjs budget).  React.lazy, NOT next/dynamic: the
+// latter pulls Next's loadable runtime into the shared graph (see /draft's
+// PerfectDraftPanel note and CLAUDE.md).  The section is collapsed by default
+// and fetches nothing until expanded, so no fallback is rendered.
+const TeamGameplanSection = lazy(() => import("@/components/TeamGameplanSection"));
 
 /**
  * WHICH ASSETS to count in a team total — NOT which valuation to use.
@@ -110,6 +120,10 @@ export default function RostersPage() {
   const starterSlotsUnavailable =
     assetScope === "starters" && teams.some((t) => t.starterSlotsUnavailable);
 
+  // Same posture for picks: unknown ownership (failed /traded_picks) is
+  // said out loud, not rendered as teams holding no draft capital.
+  const pickOwnershipUnavailable = teams.some((t) => t.totalIsPartial);
+
   // Sort by active group totals
   const sortedTeams = useMemo(() => {
     return teams
@@ -124,8 +138,6 @@ export default function RostersPage() {
   }, [teams, activeGroups]);
 
   const maxActiveTotal = sortedTeams[0]?.activeTotal || 1;
-
-  const groupAvg = useMemo(() => computeGroupAverages(teams), [teams]);
 
   const waiverGems = useMemo(
     () => findWaiverWireGems(rows, sleeperTeams),
@@ -267,6 +279,13 @@ export default function RostersPage() {
             Picks&rdquo; for a complete comparison.
           </p>
         )}
+        {pickOwnershipUnavailable && (
+          <p className="ds-value-basis-note pick-ownership-unavailable" role="note">
+            <strong>{PICK_OWNERSHIP_UNAVAILABLE_LABEL}.</strong>{" "}
+            {describePickOwnershipReason(teams.find((t) => t.totalIsPartial)?.pickOwnershipUnavailable)}{" "}
+            Portfolio values below exclude draft picks until it can be read again.
+          </p>
+        )}
 
         {/* Position filter — toggle chips.  The previous 13x13 native
             checkbox + 11px label was impossible to tap on mobile.
@@ -374,7 +393,12 @@ export default function RostersPage() {
                     <td style={{ fontWeight: 700, ...(isMe ? { color: "var(--cyan)" } : {}) }}>
                       {team.name}
                       <div style={{ fontSize: FONT_2XS, color: "var(--subtext)", fontWeight: 400 }}>
-                        {team.playerCount} players{team.pickCount ? `, ${team.pickCount} picks` : ""}
+                        {team.playerCount} players
+                        {team.pickCount == null && team.pickOwnershipUnavailable
+                          ? ", picks unavailable"
+                          : team.pickCount
+                            ? `, ${team.pickCount} picks`
+                            : ""}
                       </div>
                     </td>
                     <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontWeight: 600 }}>
@@ -468,14 +492,31 @@ export default function RostersPage() {
         );
       })()}
 
-      {/* Trade Targets */}
+      {/* Trade Targets — need positions are the canonical weakness
+          (src/roster_intel/weakness.py) from the SAME roster-intelligence
+          response as the Team Strength card; the card lists players, it
+          does not decide which positions are needs (C2-WEAK-01). */}
       {myTeam && (
         <TradeTargetsCard
           myTeam={myTeam}
+          myOwnerId={myOwnerId}
           teams={sortedTeams}
-          groupAvg={groupAvg}
+          sleeperTeams={sleeperTeams}
+          intelligence={{
+            loading: strengthLoading,
+            data: strengthData,
+            failure: strengthFailure,
+          }}
           onPlayerClick={openPlayerPopup}
         />
+      )}
+
+      {/* Team Gameplan — on-demand, selected team only (owner decision
+          2026-11-07, W20-F001).  Fetches nothing until expanded. */}
+      {myTeam && (
+        <Suspense fallback={null}>
+          <TeamGameplanSection ownerId={myOwnerId} teamName={myTeam} />
+        </Suspense>
       )}
 
       {/* Waiver Wire Gems */}
@@ -483,146 +524,6 @@ export default function RostersPage() {
         <WaiverWireCard gems={waiverGems} onPlayerClick={openPlayerPopup} />
       )}
     </section>
-  );
-}
-
-function TradeTargetsCard({ myTeam, teams, groupAvg, onPlayerClick }) {
-  const myTeamData = teams.find((t) => t.name === myTeam);
-  if (!myTeamData) return null;
-
-  const myStrengths = {};
-  OFFENSE_GROUPS.forEach((g) => {
-    myStrengths[g] = groupAvg[g] > 0 ? (myTeamData.byGroup[g] || 0) / groupAvg[g] : 1;
-  });
-
-  const weakest = OFFENSE_GROUPS.slice().sort((a, b) => myStrengths[a] - myStrengths[b]);
-  const strongest = OFFENSE_GROUPS.slice().sort((a, b) => myStrengths[b] - myStrengths[a]);
-
-  // Find trade targets at weakest positions
-  const needPositions = weakest.slice(0, 2);
-  const targetSections = needPositions.map((needPos) => {
-    const pctOfAvg = (myStrengths[needPos] * 100).toFixed(0);
-    const targets = [];
-
-    for (const otherTeam of teams) {
-      if (otherTeam.name === myTeam) continue;
-      const otherStrength = groupAvg[needPos] > 0 ? (otherTeam.byGroup[needPos] || 0) / groupAvg[needPos] : 0;
-      if (otherStrength < 1.0) continue;
-
-      for (const p of otherTeam.players) {
-        if (p.group !== needPos || p.meta < 1200 || p.meta > 8000) continue;
-
-        // Find what the other team needs
-        let theirNeed = "";
-        let worstRatio = Infinity;
-        for (const g of OFFENSE_GROUPS) {
-          const ratio = groupAvg[g] > 0 ? (otherTeam.byGroup[g] || 0) / groupAvg[g] : 1;
-          if (ratio < worstRatio) { worstRatio = ratio; theirNeed = g; }
-        }
-
-        targets.push({
-          ...p,
-          teamName: otherTeam.name,
-          theirNeed: worstRatio < 1.0 ? theirNeed : "",
-        });
-      }
-    }
-
-    targets.sort((a, b) => b.meta - a.meta);
-    return { needPos, pctOfAvg, targets: targets.slice(0, 8) };
-  });
-
-  // Surplus players from strongest positions
-  const surplus = (myTeamData.players || [])
-    .filter((p) => strongest.slice(0, 2).includes(p.group) && p.meta >= 1500)
-    .sort((a, b) => b.meta - a.meta)
-    .slice(0, 6);
-
-  return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>Trade Targets</div>
-
-      {/* Strength summary */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-        <span className="badge" style={{ background: "var(--green-soft)", color: POS_TEXT_COLORS[strongest[0]] }}>
-          Strongest: {strongest[0]} ({(myStrengths[strongest[0]] * 100).toFixed(0)}%)
-        </span>
-        <span className="badge" style={{ background: "var(--red-soft, rgba(220,50,50,0.1))", color: POS_TEXT_COLORS[weakest[0]] }}>
-          Weakest: {weakest[0]} ({(myStrengths[weakest[0]] * 100).toFixed(0)}%)
-        </span>
-      </div>
-
-      {/* Need positions */}
-      {targetSections.map(({ needPos, pctOfAvg, targets }) => (
-        <div key={needPos} style={{ marginBottom: 14 }}>
-          <h4 style={{ fontSize: "0.78rem", margin: "0 0 6px" }}>
-            Need: {needPos}{" "}
-            <span style={{ fontWeight: 400, fontSize: "0.7rem", color: "var(--subtext)" }}>
-              (you&apos;re at {pctOfAvg}% of league avg)
-            </span>
-          </h4>
-          {targets.length === 0 ? (
-            <div style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
-              No clear trade targets — other teams are also thin here.
-            </div>
-          ) : (
-            targets.map((t, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: "0.72rem" }}>
-                <PlayerImage
-                  playerId={t.playerId}
-                  team={t.team}
-                  position={t.pos}
-                  name={t.name}
-                  size={22}
-                />
-                <span style={{ color: POS_TEXT_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: FONT_2XS }}>
-                  {t.pos}
-                </span>
-                <PlayerNameButton
-                  name={t.name}
-                  onOpen={onPlayerClick}
-                  style={{ flex: 1, fontWeight: 600 }}
-                />
-                <span style={{ fontFamily: "var(--mono)", width: 60, textAlign: "right" }}>{t.meta.toLocaleString()}</span>
-                <span style={{ fontSize: "0.64rem", color: "var(--subtext)", minWidth: 100 }}>
-                  {t.teamName}
-                  {t.theirNeed && <span style={{ color: "var(--amber)" }}> (need {t.theirNeed})</span>}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      ))}
-
-      {/* Surplus */}
-      {surplus.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <h4 style={{ fontSize: "0.78rem", margin: "0 0 6px", color: "var(--green)" }}>
-            Your Trade Chips{" "}
-            <span style={{ fontWeight: 400, fontSize: "0.7rem", color: "var(--subtext)" }}>
-              (surplus from strong positions)
-            </span>
-          </h4>
-          {surplus.map((p, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: "0.72rem" }}>
-              <PlayerImage
-                playerId={p.playerId}
-                team={p.team}
-                position={p.pos}
-                name={p.name}
-                size={22}
-              />
-              <span style={{ color: POS_TEXT_COLORS[p.group], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: FONT_2XS }}>
-                {p.pos}
-              </span>
-              <span style={{ flex: 1, fontWeight: 600 }}>{p.name}</span>
-              <span style={{ fontFamily: "var(--mono)", width: 60, textAlign: "right" }}>{p.meta.toLocaleString()}</span>
-              <span style={{ fontSize: "0.64rem", color: "var(--green)", minWidth: 100 }}>your roster</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -636,9 +537,9 @@ function LeagueEdgeCard({ edges }) {
         <InfoTip label="the league edge map">
           <p>Market price vs. our model, per team.</p>
           <p>
-            <strong>Sell</strong> means the market overvalues their players —
+            <strong>Sell</strong> means the market prices their players above our model —
             they are who you sell to. <strong>Buy</strong> means the market
-            undervalues them.
+            prices them below our model. A gap is not proof the market is wrong.
           </p>
         </InfoTip>
       </div>
@@ -668,7 +569,7 @@ function LeagueEdgeCard({ edges }) {
                     borderRadius: 2,
                     minWidth: t.sellEdge > 0 ? 2 : 0,
                   }}
-                  title={`Market overvalues ${t.sellCount} of their players`}
+                  title={`Market prices ${t.sellCount} of their players above our model`}
                 />
                 <span style={{ fontSize: FONT_2XS, color: "var(--red)", fontFamily: "var(--mono)", minWidth: 40 }}>
                   {t.sellCount} sell
@@ -681,7 +582,7 @@ function LeagueEdgeCard({ edges }) {
                     borderRadius: 2,
                     minWidth: t.buyEdge > 0 ? 2 : 0,
                   }}
-                  title={`Market undervalues ${t.buyCount} of their players`}
+                  title={`Market prices ${t.buyCount} of their players below our model`}
                 />
                 <span style={{ fontSize: FONT_2XS, color: "var(--green)", fontFamily: "var(--mono)" }}>
                   {t.buyCount} buy
@@ -692,13 +593,13 @@ function LeagueEdgeCard({ edges }) {
               <div style={{ fontSize: FONT_2XS, color: "var(--subtext)", paddingLeft: 100 }}>
                 {t.topSells.length > 0 && (
                   <span style={{ color: "var(--red)" }}>
-                    Overvalued: {t.topSells.map((p) => `${p.name} +${p.pct}%`).join(", ")}
+                    Priced above our model: {t.topSells.map((p) => `${p.name} +${p.pct}%`).join(", ")}
                   </span>
                 )}
                 {t.topSells.length > 0 && t.topBuys.length > 0 && " \u00B7 "}
                 {t.topBuys.length > 0 && (
                   <span style={{ color: "var(--green)" }}>
-                    Undervalued: {t.topBuys.map((p) => `${p.name} -${p.pct}%`).join(", ")}
+                    Priced below our model: {t.topBuys.map((p) => `${p.name} -${p.pct}%`).join(", ")}
                   </span>
                 )}
               </div>

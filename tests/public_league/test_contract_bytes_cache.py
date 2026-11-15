@@ -11,11 +11,13 @@ memoizes the encoded response bytes keyed
 Pinned here:
     1. Two requests for the same generation build the contract ONCE
        and return identical bytes.
-    2. ``?refresh=1`` bypasses the memo read (fresh build) but
-       repopulates it.
+    2. An authorized ``?refresh=1`` bypasses the memo read (fresh build)
+       but repopulates it; an anonymous one reads the memo (B8).
     3. A new snapshot generation (new ``generated_at``) misses.
     4. A new PRIVATE contract generation (``latest_data_etag``) misses
-       — the activity trade grades derive from the private board.
+       — the activity trade grades derive from the private board — and is
+       answered from the previous generation while ONE background build
+       refreshes it (stale-while-revalidate).
     5. The memoized response is byte-identical to an uncached build.
 """
 
@@ -23,6 +25,11 @@ from __future__ import annotations
 
 import os
 import unittest
+
+from tests.public_league.fixtures import (
+    reset_public_memo_refresh_state,
+    wait_for_public_memo_refreshes,
+)
 
 try:
     from fastapi.testclient import TestClient
@@ -55,6 +62,7 @@ class PublicContractBytesCacheTests(unittest.TestCase):
         cls.client = TestClient(server.app)
 
     def setUp(self) -> None:
+        reset_public_memo_refresh_state(self.server)
         with self.server._PUBLIC_CONTRACT_BYTES_LOCK:
             self.server._PUBLIC_CONTRACT_BYTES_CACHE.clear()
 
@@ -87,13 +95,33 @@ class PublicContractBytesCacheTests(unittest.TestCase):
         self.assertEqual(r1.status_code, 200)
         calls, counting = self._count_builds()
         real = self.server.build_public_contract
+        real_auth = self.server._authorized_force_refresh
         self.server.build_public_contract = counting
+        # An AUTHORIZED refresh (B8: a session) bypasses the memo read.
+        self.server._authorized_force_refresh = lambda request, refresh: bool(refresh)
         try:
             r2 = self.client.get("/api/public/league?refresh=1")
         finally:
             self.server.build_public_contract = real
+            self.server._authorized_force_refresh = real_auth
         self.assertEqual(r2.status_code, 200)
         self.assertEqual(calls["n"], 1, "?refresh=1 must rebuild")
+
+    def test_anonymous_refresh_reads_the_memo(self) -> None:
+        """B8: an anonymous ``?refresh`` is ignored, so it cannot drive a
+        full contract build per request."""
+        r1 = self.client.get("/api/public/league")
+        self.assertEqual(r1.status_code, 200)
+        calls, counting = self._count_builds()
+        real = self.server.build_public_contract
+        self.server.build_public_contract = counting
+        try:
+            for flag in ("1", "0", "yes"):
+                r = self.client.get(f"/api/public/league?refresh={flag}")
+                self.assertEqual(r.status_code, 200)
+        finally:
+            self.server.build_public_contract = real
+        self.assertEqual(calls["n"], 0)
 
     def test_private_contract_generation_is_part_of_the_key(self) -> None:
         r1 = self.client.get("/api/public/league")
@@ -105,11 +133,18 @@ class PublicContractBytesCacheTests(unittest.TestCase):
         self.server.latest_data_etag = "new-private-generation"
         try:
             r2 = self.client.get("/api/public/league")
+            # Answered from the previous generation, rebuilt in the background.
+            wait_for_public_memo_refreshes(self.server)
+            fresh = self.server._cached_public_contract_bytes(
+                self.server._public_league_cache["snapshot"]
+            )
         finally:
             self.server.build_public_contract = real
             self.server.latest_data_etag = old_etag
         self.assertEqual(r2.status_code, 200)
+        self.assertEqual(r2.content, r1.content)
         self.assertEqual(calls["n"], 1, "a new private-contract generation must rebuild (grades)")
+        self.assertIsNotNone(fresh, "the background rebuild must file the new generation")
 
     def test_vorp_calc_version_is_part_of_the_key(self) -> None:
         """A deploy that changes the VORP formula/week-gate must bust the

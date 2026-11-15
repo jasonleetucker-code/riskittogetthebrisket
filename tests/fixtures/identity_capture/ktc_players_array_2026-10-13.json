@@ -1,0 +1,87 @@
+{
+ "_comment": "Replay fixture for outlier-integrity V2.1 U2/U3 tests. playerName/playerID/position/team/age are VERBATIM from tests/fixtures/ktc/trade_calculator_2026-10-13.html (a trimmed real KTC capture). superflexValues blocks are SYNTHETIC: the trimmed capture carries no values. The pick row (RDP) carries none, as on KTC's identity embed.",
+ "playersArray": [
+  {
+   "playerName": "Jahmyr Gibbs",
+   "playerID": 1415,
+   "position": "RB",
+   "team": "DET",
+   "age": 24.6,
+   "superflexValues": {
+    "value": 9000,
+    "rank": 1,
+    "tepp": {
+     "value": 9100,
+     "rank": 1
+    }
+   }
+  },
+  {
+   "playerName": "Jeremiyah Love",
+   "playerID": 1934,
+   "position": "RB",
+   "team": "ARI",
+   "age": 21.4,
+   "superflexValues": {
+    "value": 8500,
+    "rank": 2,
+    "tepp": {
+     "value": 8600,
+     "rank": 2
+    }
+   }
+  },
+  {
+   "playerName": "Jameson Williams",
+   "playerID": 1273,
+   "position": "WR",
+   "team": "DET",
+   "age": 25.6,
+   "superflexValues": {
+    "value": 8000,
+    "rank": 3,
+    "tepp": {
+     "value": 8100,
+     "rank": 3
+    }
+   }
+  },
+  {
+   "playerName": "Wan'Dale Robinson",
+   "playerID": 1274,
+   "position": "WR",
+   "team": "TEN",
+   "age": 25.8,
+   "superflexValues": {
+    "value": 7500,
+    "rank": 4,
+    "tepp": {
+     "value": 7600,
+     "rank": 4
+    }
+   }
+  },
+  {
+   "playerName": "J.J. McCarthy",
+   "playerID": 1555,
+   "position": "QB",
+   "team": "NYG",
+   "age": 23.7,
+   "superflexValues": {
+    "value": 7000,
+    "rank": 5,
+    "tepp": {
+     "value": 7100,
+     "rank": 5
+    }
+   }
+  },
+  {
+   "playerName": "2027 Mid 4th",
+   "playerID": 1712,
+   "position": "RDP",
+   "team": "FA",
+   "age": 0.0
+  }
+ ]
+}

@@ -1,0 +1,152 @@
+{
+  "scope": "LOCAL read-only check against the PUBLIC Sleeper API",
+  "league": {
+    "leagueKey": "dynasty_main",
+    "season": "2026",
+    "cardRates": {
+      "rec": 0.1,
+      "bonus_rec_wr": 0.02,
+      "bonus_rec_rb": 0.0,
+      "bonus_rec_te": 0.0
+    }
+  },
+  "weeks": [
+    1,
+    2,
+    3
+  ],
+  "inputs": {
+    "league.json": "17d0fb3c8a5548c725b680db71043cf87dc46fbaefcfd2e3eb0c265afd32c1ee",
+    "matchups_wk1.json": "9f4d2663ac8a4960d6299ec97199dccba070828e19e0ff0e15b875314b2221b2",
+    "matchups_wk2.json": "ac8be4fffb6c0dc35df103295539a6d4843b75195596b77d7ade21a617e3df02",
+    "matchups_wk3.json": "142ca76bb94e966dad28f699362bb7fd8d6ea71f658c06f82e958807ac1218e0",
+    "stats_wk1.json": "0e2453cc8cbb5315001d5f990f7f5a8e934d675ee0d809a9dde5d491f1d2d5ff",
+    "stats_wk2.json": "616ce95a9f34e975e12ab2ecba380c525e27bb104e84160c7a748c2e11f5bea1",
+    "stats_wk3.json": "0751f66881eb96631e85b60d952f10d4a5b15f78fc193e828828673eddff215b",
+    "weekly.json.gz": "a43ce196190b966d4c1132394624ad6f9855085ba89d70bf9a5341b50fc8deda"
+  },
+  "tolerance": 0.011,
+  "hostRule": {
+    "FB": {
+      "playerWeeks": 3,
+      "matchWithBonus": 3,
+      "matchWithoutBonus": 3
+    },
+    "QB": {
+      "playerWeeks": 156,
+      "matchWithBonus": 156,
+      "matchWithoutBonus": 156
+    },
+    "RB": {
+      "playerWeeks": 263,
+      "matchWithBonus": 263,
+      "matchWithoutBonus": 263
+    },
+    "TE": {
+      "playerWeeks": 179,
+      "matchWithBonus": 179,
+      "matchWithoutBonus": 179
+    },
+    "WR": {
+      "playerWeeks": 401,
+      "matchWithBonus": 401,
+      "matchWithoutBonus": 108,
+      "withReceptions": 293
+    },
+    "other": {
+      "playerWeeks": 909,
+      "matchWithBonus": 909,
+      "matchWithoutBonus": 909
+    }
+  },
+  "statIdentity": {
+    "RB:bonus_rec_rb:eq_rec": 167,
+    "TE:bonus_rec_te:eq_rec": 181,
+    "WR:bonus_rec_wr:eq_rec": 331
+  },
+  "fbReceptionLines": [
+    {
+      "week": 2,
+      "sleeperId": "8025",
+      "fantasyPositions": [
+        "RB"
+      ],
+      "rec": 1.0,
+      "rec_fd": null,
+      "bonus_rec_rb": null,
+      "bonus_fd_rb": null
+    },
+    {
+      "week": 2,
+      "sleeperId": "1379",
+      "fantasyPositions": [
+        "RB"
+      ],
+      "rec": 2.0,
+      "rec_fd": 1.0,
+      "bonus_rec_rb": null,
+      "bonus_fd_rb": null
+    },
+    {
+      "week": 3,
+      "sleeperId": "6109",
+      "fantasyPositions": [
+        "RB"
+      ],
+      "rec": 3.0,
+      "rec_fd": 1.0,
+      "bonus_rec_rb": null,
+      "bonus_fd_rb": null
+    }
+  ],
+  "engine": {
+    "wrWeeksWithReceptions": 293,
+    "joined": 291,
+    "receptionsEqual": 291,
+    "engineMatchesHostBonus": 291,
+    "unjoined": 2,
+    "maxAbsDelta": 0.0033
+  },
+  "examples": [
+    {
+      "week": 1,
+      "sleeperId": "11635",
+      "rec": 5.0,
+      "hostPoints": 22.55,
+      "rescoredWithBonus": 22.55,
+      "rescoredWithoutBonus": 22.45
+    },
+    {
+      "week": 1,
+      "sleeperId": "12514",
+      "rec": 5.0,
+      "hostPoints": 13.65,
+      "rescoredWithBonus": 13.65,
+      "rescoredWithoutBonus": 13.55
+    },
+    {
+      "week": 1,
+      "sleeperId": "11632",
+      "rec": 6.0,
+      "hostPoints": 14.37,
+      "rescoredWithBonus": 14.37,
+      "rescoredWithoutBonus": 14.25
+    },
+    {
+      "week": 1,
+      "sleeperId": "6794",
+      "rec": 8.0,
+      "hostPoints": 31.66,
+      "rescoredWithBonus": 31.66,
+      "rescoredWithoutBonus": 31.5
+    },
+    {
+      "week": 1,
+      "sleeperId": "11646",
+      "rec": 8.0,
+      "hostPoints": 37.26,
+      "rescoredWithBonus": 37.26,
+      "rescoredWithoutBonus": 37.1
+    }
+  ]
+}

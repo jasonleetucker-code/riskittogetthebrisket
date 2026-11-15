@@ -1,0 +1,37 @@
+{
+ "agreeWithinTwoPercent": 229,
+ "byVendorDerivationMethod": {
+  "anchored_from_individual": {
+   "agree": 47,
+   "checked": 81
+  },
+  "direct_combined": {
+   "agree": 182,
+   "checked": 185
+  }
+ },
+ "fantasyProsVotesChecked": 266,
+ "notJoinedByName": 1,
+ "worst": [
+  {
+   "name": "D.J. Reed",
+   "relDiff": 0.3706
+  },
+  {
+   "name": "Christian Benford",
+   "relDiff": 0.3671
+  },
+  {
+   "name": "Coby Bryant",
+   "relDiff": 0.3569
+  },
+  {
+   "name": "Evan Williams",
+   "relDiff": 0.3501
+  },
+  {
+   "name": "Craig Woodson",
+   "relDiff": 0.3423
+  }
+ ]
+}

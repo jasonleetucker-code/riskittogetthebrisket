@@ -1,0 +1,2 @@
+# Byte-exact pre-U3 boards (CRLF, as the scraper wrote them). Never normalise line endings.
+*.csv -text

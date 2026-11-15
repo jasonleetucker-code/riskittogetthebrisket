@@ -1,0 +1,24 @@
+[Unit]
+Description=Weekly pick-forecast / team-strength snapshot (Tue 12:20 UTC + Wed/Thu catch-ups) for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= already binds it, and a
+# Requires= here would start the service on every boot and let a service
+# failure stop the timer. Persistent=true is the catch-up.
+
+[Timer]
+# Tuesday, after Monday night's games have settled and clear of the other
+# Tuesday jobs (playerctx 05:40, bdvm 06:10). Wednesday and Thursday are
+# CATCH-UPS: the recorder writes only when it beats the tier the window already
+# holds, so once Tuesday filed a settled + complete record they are no-ops;
+# they exist so a failed or degraded Tuesday is retried before the next week's
+# games (Thursday 12:20 UTC is before Thursday Night Football). A catch-up
+# record states its own recordedAt, so WHEN it was taken is never hidden.
+OnCalendar=Tue *-*-* 12:20:00 UTC
+OnCalendar=Wed *-*-* 12:20:00 UTC
+OnCalendar=Thu *-*-* 12:20:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-pick-forecast-snapshot.service
+
+[Install]
+WantedBy=timers.target

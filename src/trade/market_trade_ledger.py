@@ -1,5 +1,17 @@
 """The Market Trade Ledger — C4-MTL-01, own-league lane.
 
+FAMILY MAP (Batch 3 Unit I, 2026-10-01): this module remains the own-league
+lane.  The broad-market lanes it anticipated now exist beside it and consume
+its output rather than re-reading acquisition:
+``src/sources/ktc_trades.py`` (KTC Trade Database capture, owner-authorized
+2026-09-30) -> ``market_trade_archive`` (append-only raw observations) ->
+``market_trade_normalize`` (canonical identities, every lane in one shape) ->
+``market_trade_groups`` (§19 underlying-trade dedupe) ->
+``market_trade_format`` (format fingerprint + target dispositions) ->
+``market_trade_eval`` (topology + residual harness).  None of them writes a
+canonical value.  The "C4-MTL-02 is gated" notes below predate that owner
+decision and are kept as history.
+
 WHAT THIS IS, AND WHAT IT DELIBERATELY IS NOT YET
 ───────────────────────────────────────────────────
 ``docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md`` describes a ledger of
@@ -57,7 +69,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from src.acquisition.store import read_events
+from src.acquisition.store import read_events, read_first_recorded
 from src.trade.faab_comparability import TargetFormat
 from src.trade.ledger_sort import oldest_first_key
 
@@ -107,27 +119,50 @@ def market_trades(league_key: str, *, path: Path | None = None) -> list[dict[str
 
     trades: list[dict[str, Any]] = []
     for source_ref, group in groups.items():
-        teams: dict[int, dict[str, list[dict[str, Any]]]] = {}
+        teams: dict[int, dict[str, Any]] = {}
+        # Which Sleeper USER held each roster in this trade, as the events
+        # recorded it.  A roster id means nothing outside one season's league
+        # (Sleeper re-mints league ids yearly), so a cross-season consumer
+        # such as Manager Scout needs the human, not the roster.
+        users_by_rid: dict[int, set[str]] = {}
 
-        def _side(rid: Any) -> dict[str, list[dict[str, Any]]]:
+        def _side(rid: Any) -> dict[str, Any]:
             if rid is None:
                 return {}
             return teams.setdefault(int(rid), {"received": [], "sent": []})
+
+        def _note_user(rid: Any, user_id: Any) -> None:
+            if rid is not None and user_id:
+                users_by_rid.setdefault(int(rid), set()).add(str(user_id))
 
         for e in group:
             asset = _asset_ref(e)
             recv = _side(e["after_owner_rid"])
             if recv:
                 recv["received"].append(asset)
+                _note_user(e["after_owner_rid"], e.get("after_owner_user_id"))
             sent = _side(e["before_owner_rid"])
             if sent:
                 sent["sent"].append(asset)
+                _note_user(e["before_owner_rid"], e.get("before_owner_user_id"))
+
+        for rid, side in teams.items():
+            found = users_by_rid.get(rid) or set()
+            # Exactly one recorded user, or UNATTRIBUTED (None).  Two
+            # different users for one roster inside one transaction is a
+            # contradiction in the evidence, and picking one would be a guess.
+            side["ownerUserId"] = next(iter(found)) if len(found) == 1 else None
 
         primary = group[0]
         trades.append(
             {
                 "leagueKey": league_key,
                 "sourceRef": source_ref,
+                # The HOST league id the transaction was recorded under —
+                # with ``sourceRef`` it is the Sleeper (league, transaction)
+                # identity the cross-source dedupe confirms on.  ``None`` when
+                # the event predates the column: unknown, not guessed.
+                "sleeperLeagueId": primary.get("sleeper_league_id"),
                 "season": primary["season"],
                 "week": primary["week"],
                 "occurredAtMs": primary["occurred_at_ms"],
@@ -143,6 +178,35 @@ def market_trades(league_key: str, *, path: Path | None = None) -> list[dict[str
 
     trades.sort(key=lambda t: oldest_first_key(t["occurredAtMs"], t["sourceRef"]))
     return trades
+
+
+def trade_collection_times(
+    league_key: str, *, path: Path | None = None
+) -> dict[str, dict[str, str]]:
+    """``{sourceRef: {"first": iso, "complete": iso}}`` -- when the acquisition
+    ledger first recorded any / every event of each trade.  Evidence for the
+    completed-trade ledger's point-in-time ``collectedAt`` (chaseTradeMarket
+    P2); deliberately NOT added to :func:`market_trades` rows, which
+    ``/api/market/trades`` serves verbatim."""
+    return {
+        ref: {"first": first, "complete": last}
+        for ref, (first, last) in read_first_recorded(league_key, path=path).items()
+    }
+
+
+def acquisition_store_present(path: Path | None = None) -> bool:
+    """Whether the canonical acquisition ledger exists on this host.
+
+    Asked BEFORE reading, because ``src.acquisition.store.connect`` creates
+    an empty database on first touch — and an empty ledger reads as "this
+    league never traded", which is a claim, where "no ledger on this host"
+    is an absence.  Consumers outside the authorized acquisition readers
+    (``tests/acquisition/test_board_inertness.py``) ask here rather than
+    importing the store themselves.
+    """
+    from src.acquisition import store as _acquisition_store  # noqa: PLC0415
+
+    return Path(path or _acquisition_store.DB_PATH).exists()
 
 
 def market_ledger_summary(league_key: str, *, path: Path | None = None) -> dict[str, Any]:

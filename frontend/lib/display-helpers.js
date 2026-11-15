@@ -27,16 +27,22 @@ export function posBadgeClass(row) {
 export function confBadgeClass(bucket) {
   if (bucket === "high") return "badge badge-green";
   if (bucket === "medium") return "badge badge-amber";
-  return "badge badge-red";
+  if (bucket === "low") return "badge badge-red";
+  // "none" (or a missing bucket) means there was no evidence to grade —
+  // a neutral badge, not the red of a LOW grade (MISSING IS NEVER ZERO;
+  // src/api/confidence.py CONFIDENCE_LEVELS / C1-U5 confidenceBasis).
+  return "badge";
 }
 
 /**
- * Return a short human label for a confidence bucket.
+ * Return a short human label for a confidence bucket. "none" / missing
+ * reads "None" — it used to read "Low", which graded an ungraded asset.
  */
 export function confBadgeLabel(bucket) {
   if (bucket === "high") return "High";
   if (bucket === "medium") return "Med";
-  return "Low";
+  if (bucket === "low") return "Low";
+  return "None";
 }
 
 // ── Eligibility filters ─────────────────────────────────────────────────────
@@ -300,6 +306,30 @@ export function marketAction(row) {
       edge.title ||
       "Insufficient coverage to compare our model against KTC Market.",
   };
+}
+
+/**
+ * marketActionDisclosed(row) — `marketAction` plus an explicit coverage
+ * state for IDP rows (audit W27-F001).  The Edge column compares our model
+ * with KTC Market, which prices no defenders, so an IDP row can never carry
+ * a buy/sell here.  Rather than a silent dash, say so and point at /edge,
+ * which labels IDP via its own (IDPTC-anchored) detector.  Display only:
+ * `marketAction` / `marketGapDirection` semantics are unchanged, and every
+ * non-IDP row (and any IDP row that DID get a verdict) is returned as-is.
+ */
+export const IDP_EDGE_DISCLOSURE_TITLE =
+  "Offense only: the Edge column compares our value with KTC Market, which does not price defenders, so IDP players carry no buy/sell here. See /edge for the IDP market view (IDP Trade Calculator vs IDP-expert consensus).";
+export function marketActionDisclosed(row) {
+  const action = marketAction(row);
+  if (row?.assetClass === "idp" && action.label === "\u2014") {
+    return {
+      ...action,
+      label: "offense only",
+      title: IDP_EDGE_DISCLOSURE_TITLE,
+      idpDisclosure: true,
+    };
+  }
+  return action;
 }
 
 /**

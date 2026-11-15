@@ -639,13 +639,25 @@ def get_bdvm_trades(
     *,
     team: str | None = None,
     params: ParamSet | None = None,
+    constraints: Any | None = None,
+    constrained_owner_id: str | None = None,
 ) -> dict[str, Any]:
-    """Double-positive trade scan over the league's rosters."""
+    """Double-positive trade scan over the league's rosters.
+
+    ``constraints`` / ``constrained_owner_id`` carry the requester's
+    persistent trade protections into the scan (C3-CON-01).
+    """
     params = params or load_param_set()
     analysis = get_bdvm_roster(contract, league_key, params=params)
     if analysis.get("status") != "ok":
         return {"status": analysis.get("status"), "trades": [], "message": analysis.get("message")}
-    scan = scan_double_positive_trades(analysis, params, team=team)
+    scan = scan_double_positive_trades(
+        analysis,
+        params,
+        team=team,
+        constraints=constraints,
+        constrained_owner_id=constrained_owner_id,
+    )
     scan["status"] = "ok" if "error" not in scan else "error"
     return scan
 

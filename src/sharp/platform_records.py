@@ -41,9 +41,15 @@ class EvidenceStatus:
         }
 
 
-def _row_reasons(row: Any) -> list[str]:
+def _row_reasons(row: Any, *, identity_type: Any) -> list[str]:
+    """Exclusion reasons for one ``manager_seasons`` row.
+
+    ``identity_type`` is passed separately (the manager-level identity
+    resolved in the query, not the row's own column) so the caller can hand
+    over the sqlite row as it came off the cursor, without copying it.
+    """
     reasons: list[str] = []
-    identity_type = str(row["source_identity_type"] or "")
+    identity_type = str(identity_type or "")
     if identity_type != IDENTITY_GLOBAL_VERIFIED:
         reasons.append(
             "league_scoped_identity"
@@ -69,6 +75,44 @@ def _row_reasons(row: Any) -> list[str]:
     return list(dict.fromkeys(reasons))
 
 
+@dataclass(slots=True)
+class _SeasonTotals:
+    """Running totals over one manager's eligible season rows.
+
+    ``build_manager_records`` folds each eligible row into one of these as
+    the cursor yields it, so no row object is kept.  What remains per row is
+    one pointer to a shared league-key string (distinct leagues are counted
+    once the scan ends) and the finish percentile, which is part of the
+    output anyway.
+    """
+
+    seasons: int = 0
+    league_keys: list[str] = field(default_factory=list)
+    wins: int = 0
+    losses: int = 0
+    ties: int = 0
+    playoff_appearances: int = 0
+    championships: int = 0
+    finish_percentiles: list[float] = field(default_factory=list)
+
+    def add(self, row: Any, league_pool: dict[str, str]) -> None:
+        self.seasons += 1
+        league = str(row["league_key"] or row["league_id"])
+        # One string per league, shared by every manager in it (a league
+        # holds about 12), instead of a fresh copy per row.
+        self.league_keys.append(league_pool.setdefault(league, league))
+        self.wins += int(row["wins"])
+        self.losses += int(row["losses"])
+        self.ties += int(row["ties"])
+        self.playoff_appearances += int(row["made_playoffs"])
+        self.championships += int(row["is_champion"])
+        team_count = int(row["team_count"])
+        if team_count > 1:
+            self.finish_percentiles.append(
+                (team_count - int(row["finish_rank"])) / float(team_count - 1)
+            )
+
+
 def build_manager_records(
     *,
     ledger_path: Path | None = None,
@@ -80,18 +124,30 @@ def build_manager_records(
     required result fields enter automated Sharp Score v2. Unknown values
     stay unknown and are recorded as exclusion reasons; they are never
     converted to zero.
+
+    The season rows are STREAMED off the cursor and folded into per-manager
+    totals; no row is kept. The former ``fetchall()`` held every row (and
+    every column value) at once: the WA-17 peak census of 2026-11-12 counted
+    1,138,004 live ``sqlite3.Row`` objects in a burst of about 19 million
+    Python objects. Measured on a production-shaped ledger, the traced peak
+    fell from about 940 to about 100 bytes per row. Records and evidence are
+    unchanged, in the same order (``tests/sharp/test_platform_records_streaming.py``).
+    One difference: with ``min_season_rows > 1`` a non-numeric result value
+    on a manager below the threshold now raises instead of being skipped
+    (every production caller uses the default of 1).
     """
+    evidence: dict[str, EvidenceStatus] = {}
+    totals_by_manager: dict[str, _SeasonTotals] = {}
+    league_pool: dict[str, str] = {}
     conn = platform_ledger.ensure_platform_schema(ledger_path)
     try:
-        rows = conn.execute(
-            """
-            SELECT ms.*, COALESCE(pm.platform, ms.platform, 'sleeper') AS source_platform,
-                   COALESCE(pm.source_identity_type, ms.source_identity_type,
-                            'global_verified') AS resolved_identity_type
-              FROM manager_seasons ms
-              LEFT JOIN platform_managers pm ON pm.manager_key=ms.manager_key
-            """
-        ).fetchall()
+        # One read transaction for the three reads: in WAL mode they then see
+        # one snapshot, so a write landing between them cannot pair new
+        # season rows with older activity (or the reverse).
+        if not conn.in_transaction:
+            conn.execute("BEGIN")
+        # The two small per-manager aggregates come first: the row loop
+        # below needs ``last_seen`` for the FFPC recent-activity rule.
         activity = {
             str(r["manager_key"]): int(r["n"] or 0)
             for r in conn.execute(
@@ -115,59 +171,59 @@ def build_manager_records(
             ).fetchall()
             if r["ts"] is not None
         }
+        cursor = conn.execute(
+            """
+            SELECT ms.*, COALESCE(pm.platform, ms.platform, 'sleeper') AS source_platform,
+                   COALESCE(pm.source_identity_type, ms.source_identity_type,
+                            'global_verified') AS resolved_identity_type
+              FROM manager_seasons ms
+              LEFT JOIN platform_managers pm ON pm.manager_key=ms.manager_key
+            """
+        )
+        for row in cursor:
+            key = str(row["manager_key"] or "")
+            if not key:
+                continue
+            platform = str(row["source_platform"] or key.split(":", 1)[0])
+            status = evidence.get(key)
+            if status is None:
+                status = evidence[key] = EvidenceStatus(key, platform)
+            status.total_rows += 1
+            # The resolved (manager-level) identity decides, not the row's own.
+            reasons = _row_reasons(row, identity_type=row["resolved_identity_type"])
+            if platform == "ffpc" and key not in last_seen:
+                reasons.append("missing_recent_activity")
+            if reasons:
+                status.reasons.update(reasons)
+                continue
+            status.automated_eligible_rows += 1
+            totals = totals_by_manager.get(key)
+            if totals is None:
+                totals = totals_by_manager[key] = _SeasonTotals()
+            totals.add(row, league_pool)
     finally:
-        conn.close()
-
-    evidence: dict[str, EvidenceStatus] = {}
-    eligible_by_manager: dict[str, list[Any]] = {}
-    for row in rows:
-        key = str(row["manager_key"] or "")
-        if not key:
-            continue
-        platform = str(row["source_platform"] or key.split(":", 1)[0])
-        status = evidence.setdefault(key, EvidenceStatus(key, platform))
-        status.total_rows += 1
-        # Alias the resolved identity into the row reason evaluation.
-        data = dict(row)
-        data["source_identity_type"] = row["resolved_identity_type"]
-        reasons = _row_reasons(data)
-        if platform == "ffpc" and key not in last_seen:
-            reasons.append("missing_recent_activity")
-        reasons = list(dict.fromkeys(reasons))
-        if reasons:
-            status.reasons.update(reasons)
-            continue
-        status.automated_eligible_rows += 1
-        eligible_by_manager.setdefault(key, []).append(row)
+        conn.close()  # ends the read transaction (nothing was written)
 
     now_ms = int(time.time() * 1000)
     records: list[sharp_score.ManagerRecord] = []
-    for manager_key, seasons in eligible_by_manager.items():
-        if len(seasons) < min_season_rows:
+    for manager_key, totals in totals_by_manager.items():
+        if totals.seasons < min_season_rows:
             continue
-        leagues = {str(s["league_key"] or s["league_id"]) for s in seasons}
-        wins = sum(int(s["wins"]) for s in seasons)
-        losses = sum(int(s["losses"]) for s in seasons)
-        ties = sum(int(s["ties"]) for s in seasons)
-        finishes = [
-            (int(s["team_count"]) - int(s["finish_rank"])) / float(int(s["team_count"]) - 1)
-            for s in seasons
-            if int(s["team_count"]) > 1
-        ]
+        leagues = len(set(totals.league_keys))
         last_ts = last_seen.get(manager_key)
         records.append(
             sharp_score.ManagerRecord(
                 user_id=manager_key,
-                completed_seasons=len(seasons),
-                observed_leagues=len(leagues),
-                dynasty_leagues=len(leagues),
-                completed_games=wins + losses + ties,
-                wins=wins,
-                losses=losses,
-                ties=ties,
-                playoff_appearances=sum(int(s["made_playoffs"]) for s in seasons),
-                championships=sum(int(s["is_champion"]) for s in seasons),
-                finish_percentiles=finishes,
+                completed_seasons=totals.seasons,
+                observed_leagues=leagues,
+                dynasty_leagues=leagues,
+                completed_games=totals.wins + totals.losses + totals.ties,
+                wins=totals.wins,
+                losses=totals.losses,
+                ties=totals.ties,
+                playoff_appearances=totals.playoff_appearances,
+                championships=totals.championships,
+                finish_percentiles=totals.finish_percentiles,
                 trades_completed=activity.get(manager_key, 0),
                 days_since_last_activity=(
                     int((now_ms - last_ts) / 86_400_000) if last_ts else None

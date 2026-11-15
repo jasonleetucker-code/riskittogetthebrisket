@@ -20,8 +20,12 @@ Output shape
 ────────────
 ``seasonsCovered``  — passthrough.
 ``weeks``           — list of per-week recap dicts, ordered newest first.
-``byKey``           — flat ``{"<season>:<week>": recap}`` map for
-                      O(1) lookup from the dynamic route.
+``latest``          — the newest entry of ``weeks``.
+
+There is deliberately NO ``byKey`` map: it was an exact duplicate of
+``weeks`` (~246 KB on the live payload).  Consumers derive the
+``"<season>:<week>"`` lookup from ``weeks`` via
+``frontend/lib/weekly-recap.js::indexWeeklyRecaps``.
 """
 
 from __future__ import annotations
@@ -34,15 +38,19 @@ from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
 def _side_entry(
-    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, entry: dict[str, Any]
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    entry: dict[str, Any],
+    week: int | None = None,
 ) -> dict[str, Any]:
+    """One side of a ``week`` matchup, attributed to that week's manager."""
     rid = metrics.roster_id_of(entry)
-    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
     return {
         "ownerId": owner_id,
         "rosterId": rid,
         "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
-        "teamName": metrics.team_name(snapshot, season.league_id, rid),
+        "teamName": metrics.team_name(snapshot, season.league_id, rid, week),
         "points": round(metrics.matchup_points(entry), 2),
     }
 
@@ -71,7 +79,7 @@ def _weekly_trades_for(
         roster_ids = tx.get("roster_ids") or []
         parties = []
         for rid in roster_ids:
-            oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            oid = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if oid:
                 parties.append(
                     {
@@ -543,8 +551,8 @@ def _build_week_recap(
         seed = week
 
     for i, (a, b) in enumerate(scored_pairs):
-        home = _side_entry(snapshot, season, a)
-        away = _side_entry(snapshot, season, b)
+        home = _side_entry(snapshot, season, a, week)
+        away = _side_entry(snapshot, season, b, week)
         if home["points"] == 0 and away["points"] == 0:
             continue
         margin = round(abs(home["points"] - away["points"]), 2)
@@ -634,7 +642,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     seasons_sorted = sorted(snapshot.seasons, key=lambda s: _season_sort_key(s.season))
 
     weeks_out: list[dict[str, Any]] = []
-    by_key: dict[str, dict[str, Any]] = {}
 
     for season in seasons_sorted:
         # Only FINISHED weeks are recapped: the module's contract is "every
@@ -651,7 +658,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             if avg is not None:
                 prior_side_averages.append(avg)
             weeks_out.append(recap)
-            by_key[f"{season.season}:{wk}"] = recap
 
     weeks_out.sort(
         key=lambda r: (_season_sort_key(r["season"]), r["week"]),
@@ -661,6 +667,5 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     return {
         "seasonsCovered": [s.season for s in snapshot.seasons],
         "weeks": weeks_out,
-        "byKey": by_key,
         "latest": weeks_out[0] if weeks_out else None,
     }

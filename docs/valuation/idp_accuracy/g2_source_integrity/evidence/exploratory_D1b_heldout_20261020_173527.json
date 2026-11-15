@@ -1,0 +1,442 @@
+{
+ "board": "dynasty_export_20261020_173527.zip",
+ "evaluatorCommit": "3841169ab1bff19748f645df9fe77fc6e185ef2c",
+ "role": "heldout",
+ "schema": "g2-idp-source-integrity/v1#exploratory-D1",
+ "vendorJoinCoverage": {
+  "dlfIdp": {
+   "bands": {},
+   "evaluable": false,
+   "orderBasis": "file_order",
+   "positionFiltered": false,
+   "rankColumn": "rank",
+   "rankColumnMonotoneInFileOrder": true,
+   "vendorRowsConsidered": 175
+  },
+  "dlfRookieIdp": {
+   "bands": {},
+   "evaluable": false,
+   "orderBasis": "file_order",
+   "positionFiltered": false,
+   "rankColumn": "rank",
+   "rankColumnMonotoneInFileOrder": true,
+   "vendorRowsConsidered": 29
+  },
+  "draftSharksIdp": {
+   "bands": {
+    "1-50": {
+     "absent": [],
+     "absentCount": 0,
+     "absentInIdpTradeCalc": [],
+     "examples": [],
+     "onBoardOtherName": [],
+     "rows": 50,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    },
+    "151-300": {
+     "absent": [
+      "Shavon Revel Jr.",
+      "Michael Jackson",
+      "Tommy Togiai",
+      "Moro Ojomo",
+      "Max Melton",
+      "Quincy Riley",
+      "Karl Brooks",
+      "Logan Hall",
+      "Isaiah Pola-Mao",
+      "Byron Murphy",
+      "Cor'Dale Flott",
+      "Brandon Stephens",
+      "Jartavius Martin",
+      "Charvarius Ward",
+      "Renardo Green",
+      "JT Tuimoloau",
+      "Tariq Woolen",
+      "T.J. Sanders",
+      "Denzel Ward",
+      "Vita Vea",
+      "Harrison Phillips",
+      "Montaric Brown",
+      "Jamel Dean",
+      "Adam Butler"
+     ],
+     "absentCount": 24,
+     "absentInIdpTradeCalc": [
+      "Byron Murphy",
+      "JT Tuimoloau"
+     ],
+     "examples": [
+      "Shavon Revel Jr.",
+      "Michael Jackson",
+      "Tommy Togiai",
+      "Moro Ojomo",
+      "Max Melton",
+      "Quincy Riley",
+      "Karl Brooks",
+      "Logan Hall"
+     ],
+     "onBoardOtherName": [],
+     "rows": 150,
+     "unjoined": 24,
+     "unjoinedShare": 0.16
+    },
+    "301-end": {
+     "absent": [
+      "Carlton Davis",
+      "Javon Kinlaw",
+      "Sam Okuayinonu",
+      "BJ Ojulari",
+      "Grover Stewart",
+      "Wesley Williams",
+      "Trey Amos",
+      "Kenny Clark",
+      "Jaylon Johnson",
+      "Poona Ford",
+      "Jarvis Brownlee Jr.",
+      "A.J. Terrell",
+      "Alfred Collins",
+      "Isaiah Rodgers",
+      "Grady Jarrett",
+      "Teair Tart",
+      "Emmanuel Forbes",
+      "Ruke Orhorhoro",
+      "Davon Hamilton",
+      "Jaylinn Hawkins",
+      "Arik Armstead",
+      "Garrett Williams",
+      "Trey Moore",
+      "DeWayne Carter",
+      "Davon Godchaux",
+      "Kenny Moore",
+      "Jarran Reed",
+      "Nick Scott",
+      "Jourdan Lewis",
+      "Javon Hargrave",
+      "Malik Harrison",
+      "Cam Hart",
+      "Eric Stokes",
+      "Julian Blackmon",
+      "Anthony Nelson",
+      "Felix Anudike-Uzomah",
+      "Justin Eboigbe",
+      "Eric Murray",
+      "Justin Jefferson",
+      "Denzel Perryman",
+      "Malik Hooker",
+      "Donte Jackson",
+      "Charles Omenihu",
+      "Dalvin Tomlinson",
+      "D.J. Jones",
+      "Levi Onwuzurike",
+      "Da'Shawn Hand",
+      "Shemar Turner",
+      "Chidobe Awuzie",
+      "Joshua Williams",
+      "Jeremiah Owusu-Koramoah",
+      "JD Bertrand",
+      "Mike Hughes",
+      "Marcus Epps",
+      "Carrington Valentine",
+      "Tony Adams",
+      "Darien Porter",
+      "Reddy Steward",
+      "Kristian Fulton",
+      "Martin Emerson",
+      "Darrell Baker Jr.",
+      "Ennis Rakestraw Jr."
+     ],
+     "absentCount": 62,
+     "absentInIdpTradeCalc": [
+      "Justin Jefferson"
+     ],
+     "examples": [
+      "Carlton Davis",
+      "Javon Kinlaw",
+      "Sam Okuayinonu",
+      "BJ Ojulari",
+      "Grover Stewart",
+      "Wesley Williams",
+      "Trey Amos",
+      "Kenny Clark"
+     ],
+     "onBoardOtherName": [],
+     "rows": 109,
+     "unjoined": 62,
+     "unjoinedShare": 0.5688
+    },
+    "51-150": {
+     "absent": [
+      "Maxwell Hairston",
+      "D'Angelo Ponds",
+      "Benjamin Morrison"
+     ],
+     "absentCount": 3,
+     "absentInIdpTradeCalc": [],
+     "examples": [
+      "Maxwell Hairston",
+      "D'Angelo Ponds",
+      "Benjamin Morrison"
+     ],
+     "onBoardOtherName": [],
+     "rows": 100,
+     "unjoined": 3,
+     "unjoinedShare": 0.03
+    }
+   },
+   "evaluable": true,
+   "orderBasis": "file_order",
+   "positionFiltered": true,
+   "rankColumn": "Rank",
+   "rankColumnMonotoneInFileOrder": true,
+   "vendorRowsConsidered": 409
+  },
+  "fantasyProsIdp": {
+   "bands": {
+    "1-50": {
+     "absent": [],
+     "absentCount": 0,
+     "absentInIdpTradeCalc": [],
+     "examples": [],
+     "onBoardOtherName": [],
+     "rows": 50,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    },
+    "151-300": {
+     "absent": [
+      "D'Angelo Ponds",
+      "Malcolm Rodriguez",
+      "Jaylinn Hawkins",
+      "Mike Jackson Sr.",
+      "Kenny Moore II",
+      "Jamel Dean",
+      "Byron Murphy Jr.",
+      "A.J. Terrell Jr.",
+      "Nahshon Wright",
+      "Trey Amos",
+      "Isaiah Rodgers Sr.",
+      "Carlton Davis III",
+      "Darien Porter",
+      "Nick Scott",
+      "Brandon Stephens",
+      "Garrett Williams",
+      "Eric Murray",
+      "Jaylen Watson",
+      "Renardo Green",
+      "Marcus Epps",
+      "Mike Hughes",
+      "Cameron Jordan",
+      "Calais Campbell",
+      "Al-Quadin Muhammad",
+      "Michael Hoecht",
+      "A'Shawn Robinson",
+      "Tommy Togiai"
+     ],
+     "absentCount": 27,
+     "absentInIdpTradeCalc": [
+      "Byron Murphy Jr."
+     ],
+     "examples": [
+      "D'Angelo Ponds",
+      "Malcolm Rodriguez",
+      "Jaylinn Hawkins",
+      "Mike Jackson Sr.",
+      "Kenny Moore II",
+      "Jamel Dean",
+      "Byron Murphy Jr.",
+      "A.J. Terrell Jr."
+     ],
+     "onBoardOtherName": [
+      "Emmanuel McNeil-Warren",
+      "Akheem Mesidor",
+      "Kayden McDonald",
+      "Zion Young",
+      "Keldric Faulk",
+      "Malachi Lawrence"
+     ],
+     "rows": 149,
+     "unjoined": 33,
+     "unjoinedShare": 0.2215
+    },
+    "51-150": {
+     "absent": [
+      "Germaine Pratt",
+      "Denzel Perryman"
+     ],
+     "absentCount": 2,
+     "absentInIdpTradeCalc": [],
+     "examples": [
+      "Germaine Pratt",
+      "Denzel Perryman"
+     ],
+     "onBoardOtherName": [],
+     "rows": 100,
+     "unjoined": 2,
+     "unjoinedShare": 0.02
+    }
+   },
+   "evaluable": true,
+   "orderBasis": "file_order",
+   "positionFiltered": true,
+   "rankColumn": "originalRank",
+   "rankColumnMonotoneInFileOrder": false,
+   "vendorRowsConsidered": 299
+  },
+  "idpShow": {
+   "bands": {},
+   "evaluable": false,
+   "orderBasis": "file_order",
+   "positionFiltered": true,
+   "rankColumn": "rank",
+   "rankColumnMonotoneInFileOrder": true,
+   "vendorRowsConsidered": 350
+  },
+  "idpShowCombined": {
+   "bands": {
+    "1-50": {
+     "absent": [],
+     "absentCount": 0,
+     "absentInIdpTradeCalc": [],
+     "examples": [],
+     "onBoardOtherName": [],
+     "rows": 50,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    },
+    "151-300": {
+     "absent": [
+      "JT Tuimoloau"
+     ],
+     "absentCount": 1,
+     "absentInIdpTradeCalc": [
+      "JT Tuimoloau"
+     ],
+     "examples": [
+      "JT Tuimoloau"
+     ],
+     "onBoardOtherName": [],
+     "rows": 150,
+     "unjoined": 1,
+     "unjoinedShare": 0.0067
+    },
+    "301-end": {
+     "absent": [
+      "Jourdan Lewis"
+     ],
+     "absentCount": 1,
+     "absentInIdpTradeCalc": [],
+     "examples": [
+      "Jourdan Lewis"
+     ],
+     "onBoardOtherName": [],
+     "rows": 8,
+     "unjoined": 1,
+     "unjoinedShare": 0.125
+    },
+    "51-150": {
+     "absent": [],
+     "absentCount": 0,
+     "absentInIdpTradeCalc": [],
+     "examples": [],
+     "onBoardOtherName": [],
+     "rows": 100,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    }
+   },
+   "evaluable": true,
+   "orderBasis": "file_order",
+   "positionFiltered": true,
+   "rankColumn": "rank",
+   "rankColumnMonotoneInFileOrder": true,
+   "vendorRowsConsidered": 308
+  },
+  "idpTradeCalc": {
+   "bands": {
+    "1-50": {
+     "absent": [
+      "Bam Knight"
+     ],
+     "absentCount": 1,
+     "absentInIdpTradeCalc": [
+      "Bam Knight"
+     ],
+     "examples": [
+      "Bam Knight"
+     ],
+     "onBoardOtherName": [],
+     "rows": 50,
+     "unjoined": 1,
+     "unjoinedShare": 0.02
+    },
+    "151-300": {
+     "absent": [
+      "DeMario Douglas",
+      "Grant Calcaterra"
+     ],
+     "absentCount": 2,
+     "absentInIdpTradeCalc": [
+      "DeMario Douglas",
+      "Grant Calcaterra"
+     ],
+     "examples": [
+      "DeMario Douglas",
+      "Dru Phillips",
+      "Grant Calcaterra"
+     ],
+     "onBoardOtherName": [
+      "Dru Phillips"
+     ],
+     "rows": 150,
+     "unjoined": 3,
+     "unjoinedShare": 0.02
+    },
+    "301-end": {
+     "absent": [
+      "Joe Flacco",
+      "JT Tuimoloau",
+      "Matthew Hibner",
+      "Pat Jones",
+      "Thomas Fidone"
+     ],
+     "absentCount": 5,
+     "absentInIdpTradeCalc": [
+      "JT Tuimoloau",
+      "Joe Flacco",
+      "Matthew Hibner",
+      "Pat Jones",
+      "Thomas Fidone"
+     ],
+     "examples": [
+      "Joe Flacco",
+      "JT Tuimoloau",
+      "Matthew Hibner",
+      "Pat Jones",
+      "Thomas Fidone"
+     ],
+     "onBoardOtherName": [],
+     "rows": 516,
+     "unjoined": 5,
+     "unjoinedShare": 0.0097
+    },
+    "51-150": {
+     "absent": [],
+     "absentCount": 0,
+     "absentInIdpTradeCalc": [],
+     "examples": [],
+     "onBoardOtherName": [],
+     "rows": 100,
+     "unjoined": 0,
+     "unjoinedShare": 0.0
+    }
+   },
+   "evaluable": true,
+   "orderBasis": "file_order",
+   "positionFiltered": false,
+   "rankColumn": null,
+   "rankColumnMonotoneInFileOrder": null,
+   "vendorRowsConsidered": 816
+  }
+ }
+}

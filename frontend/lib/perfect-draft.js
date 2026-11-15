@@ -748,9 +748,11 @@ export function priceBand(price, sigma, z = 0.674) {
   const p = Math.max(0, Number(price) || 0);
   const s = Math.max(0, Number(sigma) || 0);
   return {
-    low: Math.max(1, Math.round(p * Math.exp(-z * s))),
+    // $0 is a legal price in this league (owner rule 2026-09-29): a $0
+    // expectation has a $0 band, never an invented $1 floor.
+    low: Math.max(0, Math.round(p * Math.exp(-z * s))),
     expected: Math.round(p),
-    high: Math.max(1, Math.round(p * Math.exp(z * s))),
+    high: Math.max(0, Math.round(p * Math.exp(z * s))),
   };
 }
 
@@ -1416,8 +1418,42 @@ export function realizedResults({
  * for two players "at position FLEX" would invent a need nobody can fill, so
  * flex slots are excluded from the per-position requirement and reported
  * separately as spare capacity.
+ *
+ * MIRROR of the backend slot vocabulary, not a second owner: every canonical
+ * flex slot of `src/ros/lineup.py::_FLEX_SLOT_ELIGIBILITY` plus every
+ * spelling `normalize_slot` folds into one (`_SLOT_ALIASES`) — a registry
+ * `starters` block may carry either (dynasty_new writes `WRRB_FLEX`, the
+ * lineup ladder emits `WR_RB_FLEX`). Held in lockstep, both directions, by
+ * `tests/lineup/test_single_owner.py::
+ * test_perfect_draft_flex_slots_are_held_in_lockstep_with_python`; a slot
+ * missing here is counted as a position nobody can fill (LI1842-DEFECT-11).
  */
-const FLEX_SLOTS = new Set(["FLEX", "SUPER_FLEX", "SFLEX", "IDP_FLEX", "REC_FLEX", "WRT"]);
+const FLEX_SLOTS = new Set([
+  "FLEX",
+  "WRT",
+  "WRRBTE",
+  "SUPER_FLEX",
+  "SUPERFLEX",
+  "SFLEX",
+  "OP",
+  "Q_FLEX",
+  "QB_RB_WR_TE",
+  "WR_RB_FLEX",
+  "WRRB_FLEX",
+  "RB_WR_FLEX",
+  "RBWR_FLEX",
+  "FLEX_WRRB",
+  "REC_FLEX",
+  "WR_TE_FLEX",
+  "WRTE_FLEX",
+  "IDP_FLEX",
+  "IDP_FL",
+  "IDPFLX",
+  "DEF_FLEX",
+  "DL_LB",
+  "DB_LB",
+  "DL_DB",
+]);
 
 /**
  * Positions where this roster cannot fill its own starting lineup.
@@ -1510,6 +1546,7 @@ export function contestedPrice(rookie, basis = "fair") {
   if (raw === null || raw === undefined || raw === "") return fair;
   const rival = Number(raw);
   if (!Number.isFinite(rival) || rival < 0) return fair;
-  // One dollar beats the field; never below $1, which is the auction minimum.
-  return Math.max(1, Math.min(fair, Math.floor(rival) + 1));
+  // One dollar beats the field.  There is no $1 auction minimum — $0 bids and
+  // $0 wins are legal — so a $0 fair price stays $0.
+  return Math.max(0, Math.min(fair, Math.floor(rival) + 1));
 }

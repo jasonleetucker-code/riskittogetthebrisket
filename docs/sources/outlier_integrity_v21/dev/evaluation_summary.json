@@ -1,0 +1,6712 @@
+{
+ "attribution": {
+  "boards": 44,
+  "movers": 598,
+  "unattributed": 8,
+  "unattributedRows": [
+   {
+    "board": "dynasty_export_20260821_230238.zip",
+    "changes": [],
+    "class": "pick",
+    "from": 2950.0,
+    "row": "2026 Pick 2.11",
+    "to": 2632.0
+   },
+   {
+    "board": "dynasty_export_20260822_230108.zip",
+    "changes": [],
+    "class": "pick",
+    "from": 2965.0,
+    "row": "2026 Pick 2.11",
+    "to": 2621.0
+   },
+   {
+    "board": "dynasty_export_20260823_230044.zip",
+    "changes": [],
+    "class": "pick",
+    "from": 2949.0,
+    "row": "2026 Pick 2.11",
+    "to": 2626.0
+   },
+   {
+    "board": "dynasty_export_20260825_230528.zip",
+    "changes": [],
+    "class": "pick",
+    "from": 2944.0,
+    "row": "2026 Pick 2.11",
+    "to": 2601.0
+   },
+   {
+    "board": "dynasty_export_20260826_211658.zip",
+    "changes": [],
+    "class": "pick",
+    "from": 2919.0,
+    "row": "2026 Pick 2.11",
+    "to": 2597.0
+   },
+   {
+    "board": "dynasty_export_20260827_153424.zip",
+    "changes": [],
+    "class": "pick",
+    "from": 2900.0,
+    "row": "2026 Pick 2.11",
+    "to": 2592.0
+   },
+   {
+    "board": "dynasty_export_20260828_234428.zip",
+    "changes": [],
+    "class": "pick",
+    "from": 2944.0,
+    "row": "2026 Pick 2.11",
+    "to": 2639.0
+   },
+   {
+    "board": "dynasty_export_20260923_215107.zip",
+    "changes": [],
+    "class": "pick",
+    "from": 4032.0,
+    "row": "2026 Pick 1.10",
+    "to": 4466.0
+   }
+  ]
+ },
+ "boards": {
+  "dynasty_export_20260909_211525_ARRIVING": {
+   "comparisons": {
+    "B vs A: DLF IDP restored, incumbent": {
+     "confidenceChanges": {
+      "low->medium": 16,
+      "medium->high": 39,
+      "medium->low": 14
+     },
+     "exclusionChanges": {
+      "observation_absent -> voting": 196,
+      "voting -> filter_dropped": 14
+     },
+     "pair": "B vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 81,
+       "offense": 1,
+       "pick": 7
+      },
+      "ge10pct": 6,
+      "ge1pct": 89
+     }
+    },
+    "B' vs A': D4 on, incumbent": {
+     "confidenceChanges": {},
+     "exclusionChanges": {},
+     "pair": "Bp vs A",
+     "valueMoves": {
+      "byClass": {},
+      "ge10pct": 0,
+      "ge1pct": 0
+     }
+    },
+    "B'' vs A: DLF IDP + D4, incumbent": {
+     "confidenceChanges": {
+      "low->medium": 16,
+      "medium->high": 39,
+      "medium->low": 14
+     },
+     "exclusionChanges": {
+      "observation_absent -> voting": 196,
+      "voting -> filter_dropped": 14
+     },
+     "pair": "Bpp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 81,
+       "offense": 1,
+       "pick": 7
+      },
+      "ge10pct": 6,
+      "ge1pct": 89
+     }
+    },
+    "C vs A: DLF IDP restored + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 13,
+      "medium->high": 44,
+      "medium->low": 28
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "observation_absent -> voting": 196,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "C vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 91,
+       "offense": 50,
+       "pick": 13
+      },
+      "ge10pct": 18,
+      "ge1pct": 154
+     }
+    },
+    "C vs B": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->high": 5,
+      "medium->low": 19
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 128,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "C vs B",
+     "valueMoves": {
+      "byClass": {
+       "idp": 35,
+       "offense": 49,
+       "pick": 10
+      },
+      "ge10pct": 24,
+      "ge1pct": 94
+     }
+    },
+    "C' vs A': D4 on + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->low": 8
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "Cp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 26,
+       "offense": 49,
+       "pick": 11
+      },
+      "ge10pct": 18,
+      "ge1pct": 86
+     }
+    },
+    "C' vs B'": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->low": 8
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "Cp vs Bp",
+     "valueMoves": {
+      "byClass": {
+       "idp": 26,
+       "offense": 49,
+       "pick": 11
+      },
+      "ge10pct": 18,
+      "ge1pct": 86
+     }
+    },
+    "C'' vs A: DLF IDP + D4 + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 13,
+      "medium->high": 44,
+      "medium->low": 28
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "observation_absent -> voting": 196,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "Cpp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 91,
+       "offense": 50,
+       "pick": 13
+      },
+      "ge10pct": 18,
+      "ge1pct": 154
+     }
+    },
+    "C'' vs B''": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->high": 5,
+      "medium->low": 19
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 128,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "Cpp vs Bpp",
+     "valueMoves": {
+      "byClass": {
+       "idp": 35,
+       "offense": 49,
+       "pick": 10
+      },
+      "ge10pct": 24,
+      "ge1pct": 94
+     }
+    },
+    "D vs A: V2.1, DLF held (filter change alone) = D' vs A'": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->low": 8
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "D vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 26,
+       "offense": 49,
+       "pick": 11
+      },
+      "ge10pct": 18,
+      "ge1pct": 86
+     }
+    }
+   },
+   "restorePairs": {
+    "both": {
+     "newlyDroppedByIncumbent": 14,
+     "retained": {
+      "Cpp": 14
+     }
+    },
+    "d4": {
+     "newlyDroppedByIncumbent": 0,
+     "retained": {
+      "Cp": 0
+     }
+    },
+    "dlfIdp": {
+     "newlyDroppedByIncumbent": 14,
+     "retained": {
+      "C": 14
+     }
+    }
+   }
+  },
+  "dynasty_export_20260909_211525_NOHIST": {
+   "comparisons": {
+    "B vs A: DLF IDP restored, incumbent": {
+     "confidenceChanges": {
+      "low->medium": 16,
+      "medium->high": 39,
+      "medium->low": 14
+     },
+     "exclusionChanges": {
+      "observation_absent -> voting": 196,
+      "voting -> filter_dropped": 14
+     },
+     "pair": "B vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 81,
+       "offense": 1,
+       "pick": 7
+      },
+      "ge10pct": 6,
+      "ge1pct": 89
+     }
+    },
+    "B' vs A': D4 on, incumbent": {
+     "confidenceChanges": {},
+     "exclusionChanges": {},
+     "pair": "Bp vs A",
+     "valueMoves": {
+      "byClass": {},
+      "ge10pct": 0,
+      "ge1pct": 0
+     }
+    },
+    "B'' vs A: DLF IDP + D4, incumbent": {
+     "confidenceChanges": {
+      "low->medium": 16,
+      "medium->high": 39,
+      "medium->low": 14
+     },
+     "exclusionChanges": {
+      "observation_absent -> voting": 196,
+      "voting -> filter_dropped": 14
+     },
+     "pair": "Bpp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 81,
+       "offense": 1,
+       "pick": 7
+      },
+      "ge10pct": 6,
+      "ge1pct": 89
+     }
+    },
+    "C vs A: DLF IDP restored + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 13,
+      "medium->high": 44,
+      "medium->low": 28
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "observation_absent -> voting": 196,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "C vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 91,
+       "offense": 50,
+       "pick": 13
+      },
+      "ge10pct": 18,
+      "ge1pct": 154
+     }
+    },
+    "C vs B": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->high": 5,
+      "medium->low": 19
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 128,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "C vs B",
+     "valueMoves": {
+      "byClass": {
+       "idp": 35,
+       "offense": 49,
+       "pick": 10
+      },
+      "ge10pct": 24,
+      "ge1pct": 94
+     }
+    },
+    "C' vs A': D4 on + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->low": 8
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "Cp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 26,
+       "offense": 49,
+       "pick": 11
+      },
+      "ge10pct": 18,
+      "ge1pct": 86
+     }
+    },
+    "C' vs B'": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->low": 8
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "Cp vs Bp",
+     "valueMoves": {
+      "byClass": {
+       "idp": 26,
+       "offense": 49,
+       "pick": 11
+      },
+      "ge10pct": 18,
+      "ge1pct": 86
+     }
+    },
+    "C'' vs A: DLF IDP + D4 + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 13,
+      "medium->high": 44,
+      "medium->low": 28
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "observation_absent -> voting": 196,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "Cpp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 91,
+       "offense": 50,
+       "pick": 13
+      },
+      "ge10pct": 18,
+      "ge1pct": 154
+     }
+    },
+    "C'' vs B''": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->high": 5,
+      "medium->low": 19
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 128,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "Cpp vs Bpp",
+     "valueMoves": {
+      "byClass": {
+       "idp": 35,
+       "offense": 49,
+       "pick": 10
+      },
+      "ge10pct": 24,
+      "ge1pct": 94
+     }
+    },
+    "D vs A: V2.1, DLF held (filter change alone) = D' vs A'": {
+     "confidenceChanges": {
+      "high->medium": 4,
+      "low->medium": 2,
+      "medium->low": 8
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 114,
+      "observation_absent -> identity_contradicted:age": 1,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> identity_unresolved:ambiguous_in_source": 1,
+      "voting -> identity_contradicted:age": 3,
+      "voting -> identity_contradicted:sleeper_id": 5,
+      "voting -> identity_unresolved:ambiguous_in_source": 2
+     },
+     "pair": "D vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 26,
+       "offense": 49,
+       "pick": 11
+      },
+      "ge10pct": 18,
+      "ge1pct": 86
+     }
+    }
+   },
+   "restorePairs": {
+    "both": {
+     "newlyDroppedByIncumbent": 14,
+     "retained": {
+      "Cpp": 14
+     }
+    },
+    "d4": {
+     "newlyDroppedByIncumbent": 0,
+     "retained": {
+      "Cp": 0
+     }
+    },
+    "dlfIdp": {
+     "newlyDroppedByIncumbent": 14,
+     "retained": {
+      "C": 14
+     }
+    }
+   }
+  },
+  "dynasty_export_20260930_130404_ARRIVING": {
+   "comparisons": {
+    "B vs A: DLF IDP restored, incumbent": {
+     "confidenceChanges": {
+      "low->medium": 17,
+      "medium->high": 43,
+      "medium->low": 13
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 2,
+      "observation_absent -> filter_dropped": 1,
+      "observation_absent -> voting": 195,
+      "voting -> filter_dropped": 14
+     },
+     "pair": "B vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 84,
+       "offense": 1,
+       "pick": 14
+      },
+      "ge10pct": 10,
+      "ge1pct": 99
+     }
+    },
+    "B' vs A': D4 on, incumbent": {
+     "confidenceChanges": {
+      "high->medium": 2,
+      "low->medium": 8,
+      "medium->high": 5,
+      "medium->low": 3
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 11,
+      "observation_absent -> voting": 323,
+      "voting -> filter_dropped": 18
+     },
+     "pair": "Bp vs A",
+     "valueMoves": {
+      "byClass": {
+       "offense": 53,
+       "pick": 1
+      },
+      "ge10pct": 0,
+      "ge1pct": 54
+     }
+    },
+    "B'' vs A: DLF IDP + D4, incumbent": {
+     "confidenceChanges": {
+      "high->medium": 2,
+      "low->medium": 25,
+      "medium->high": 48,
+      "medium->low": 16
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 13,
+      "observation_absent -> filter_dropped": 1,
+      "observation_absent -> voting": 518,
+      "voting -> filter_dropped": 32
+     },
+     "pair": "Bpp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 84,
+       "offense": 54,
+       "pick": 12
+      },
+      "ge10pct": 10,
+      "ge1pct": 150
+     }
+    },
+    "C vs A: DLF IDP restored + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "low->medium": 10,
+      "medium->high": 49,
+      "medium->low": 28
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 146,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> voting": 196,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "C vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 95,
+       "offense": 57,
+       "pick": 10
+      },
+      "ge10pct": 18,
+      "ge1pct": 162
+     }
+    },
+    "C vs B": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "medium->high": 6,
+      "medium->low": 22
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 159,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "C vs B",
+     "valueMoves": {
+      "byClass": {
+       "idp": 34,
+       "offense": 56,
+       "pick": 21
+      },
+      "ge10pct": 24,
+      "ge1pct": 111
+     }
+    },
+    "C' vs A': D4 on + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "low->medium": 8,
+      "medium->high": 4,
+      "medium->low": 15
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 146,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> voting": 323,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "Cp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 27,
+       "offense": 95,
+       "pick": 13
+      },
+      "ge10pct": 18,
+      "ge1pct": 135
+     }
+    },
+    "C' vs B'": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "medium->high": 1,
+      "medium->low": 12
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 153,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "Cp vs Bp",
+     "valueMoves": {
+      "byClass": {
+       "idp": 27,
+       "offense": 59,
+       "pick": 14
+      },
+      "ge10pct": 18,
+      "ge1pct": 100
+     }
+    },
+    "C'' vs A: DLF IDP + D4 + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "low->medium": 18,
+      "medium->high": 52,
+      "medium->low": 30
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 146,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> voting": 519,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "Cpp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 95,
+       "offense": 96,
+       "pick": 11
+      },
+      "ge10pct": 18,
+      "ge1pct": 202
+     }
+    },
+    "C'' vs B''": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "medium->high": 6,
+      "medium->low": 21
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 166,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "Cpp vs Bpp",
+     "valueMoves": {
+      "byClass": {
+       "idp": 34,
+       "offense": 59,
+       "pick": 18
+      },
+      "ge10pct": 24,
+      "ge1pct": 111
+     }
+    },
+    "D vs A: V2.1, DLF held (filter change alone) = D' vs A'": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "medium->high": 1,
+      "medium->low": 13
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 146,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "D vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 27,
+       "offense": 56,
+       "pick": 12
+      },
+      "ge10pct": 18,
+      "ge1pct": 95
+     }
+    }
+   },
+   "restorePairs": {
+    "both": {
+     "newlyDroppedByIncumbent": 32,
+     "retained": {
+      "Cpp": 32
+     }
+    },
+    "d4": {
+     "newlyDroppedByIncumbent": 18,
+     "retained": {
+      "Cp": 18
+     }
+    },
+    "dlfIdp": {
+     "newlyDroppedByIncumbent": 14,
+     "retained": {
+      "C": 14
+     }
+    }
+   }
+  },
+  "dynasty_export_20260930_130404_NOHIST": {
+   "comparisons": {
+    "B vs A: DLF IDP restored, incumbent": {
+     "confidenceChanges": {
+      "low->medium": 17,
+      "medium->high": 43,
+      "medium->low": 13
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 2,
+      "observation_absent -> filter_dropped": 1,
+      "observation_absent -> voting": 195,
+      "voting -> filter_dropped": 14
+     },
+     "pair": "B vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 84,
+       "offense": 1,
+       "pick": 14
+      },
+      "ge10pct": 10,
+      "ge1pct": 99
+     }
+    },
+    "B' vs A': D4 on, incumbent": {
+     "confidenceChanges": {
+      "high->medium": 2,
+      "low->medium": 8,
+      "medium->high": 5,
+      "medium->low": 3
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 11,
+      "observation_absent -> voting": 323,
+      "voting -> filter_dropped": 18
+     },
+     "pair": "Bp vs A",
+     "valueMoves": {
+      "byClass": {
+       "offense": 53,
+       "pick": 1
+      },
+      "ge10pct": 0,
+      "ge1pct": 54
+     }
+    },
+    "B'' vs A: DLF IDP + D4, incumbent": {
+     "confidenceChanges": {
+      "high->medium": 2,
+      "low->medium": 25,
+      "medium->high": 48,
+      "medium->low": 16
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 13,
+      "observation_absent -> filter_dropped": 1,
+      "observation_absent -> voting": 518,
+      "voting -> filter_dropped": 32
+     },
+     "pair": "Bpp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 84,
+       "offense": 54,
+       "pick": 12
+      },
+      "ge10pct": 10,
+      "ge1pct": 150
+     }
+    },
+    "C vs A: DLF IDP restored + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "low->medium": 10,
+      "medium->high": 49,
+      "medium->low": 28
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 146,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> voting": 196,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "C vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 95,
+       "offense": 57,
+       "pick": 10
+      },
+      "ge10pct": 18,
+      "ge1pct": 162
+     }
+    },
+    "C vs B": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "medium->high": 6,
+      "medium->low": 22
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 159,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "C vs B",
+     "valueMoves": {
+      "byClass": {
+       "idp": 34,
+       "offense": 56,
+       "pick": 21
+      },
+      "ge10pct": 24,
+      "ge1pct": 111
+     }
+    },
+    "C' vs A': D4 on + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "low->medium": 8,
+      "medium->high": 4,
+      "medium->low": 15
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 146,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> voting": 323,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "Cp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 27,
+       "offense": 95,
+       "pick": 13
+      },
+      "ge10pct": 18,
+      "ge1pct": 135
+     }
+    },
+    "C' vs B'": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "medium->high": 1,
+      "medium->low": 12
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 153,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "Cp vs Bp",
+     "valueMoves": {
+      "byClass": {
+       "idp": 27,
+       "offense": 59,
+       "pick": 14
+      },
+      "ge10pct": 18,
+      "ge1pct": 100
+     }
+    },
+    "C'' vs A: DLF IDP + D4 + V2.1": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "low->medium": 18,
+      "medium->high": 52,
+      "medium->low": 30
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 146,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "observation_absent -> voting": 519,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "Cpp vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 95,
+       "offense": 96,
+       "pick": 11
+      },
+      "ge10pct": 18,
+      "ge1pct": 202
+     }
+    },
+    "C'' vs B''": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "medium->high": 6,
+      "medium->low": 21
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 166,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "Cpp vs Bpp",
+     "valueMoves": {
+      "byClass": {
+       "idp": 34,
+       "offense": 59,
+       "pick": 18
+      },
+      "ge10pct": 24,
+      "ge1pct": 111
+     }
+    },
+    "D vs A: V2.1, DLF held (filter change alone) = D' vs A'": {
+     "confidenceChanges": {
+      "high->medium": 10,
+      "medium->high": 1,
+      "medium->low": 13
+     },
+     "exclusionChanges": {
+      "filter_dropped -> voting": 146,
+      "observation_absent -> identity_contradicted:position_family": 1,
+      "voting -> identity_contradicted:age": 2,
+      "voting -> identity_contradicted:sleeper_id": 4,
+      "voting -> identity_unresolved:ambiguous_in_source": 3
+     },
+     "pair": "D vs A",
+     "valueMoves": {
+      "byClass": {
+       "idp": 27,
+       "offense": 56,
+       "pick": 12
+      },
+      "ge10pct": 18,
+      "ge1pct": 95
+     }
+    }
+   },
+   "restorePairs": {
+    "both": {
+     "newlyDroppedByIncumbent": 32,
+     "retained": {
+      "Cpp": 32
+     }
+    },
+    "d4": {
+     "newlyDroppedByIncumbent": 18,
+     "retained": {
+      "Cp": 18
+     }
+    },
+    "dlfIdp": {
+     "newlyDroppedByIncumbent": 14,
+     "retained": {
+      "C": 14
+     }
+    }
+   }
+  }
+ },
+ "cleanBoardFalseExclusions": {
+  "rpc": {
+   "boardLevelFalsePositives": [],
+   "boards": 22,
+   "boardsAbove0.5pct": [],
+   "byLayer": {
+    "held:held_pending_confirmation:observation_discontinuity": 9,
+    "refused:identity_contradicted:age": 60,
+    "refused:identity_contradicted:position_family": 22,
+    "refused:identity_contradicted:sleeper_id": 95,
+    "refused:identity_unresolved:ambiguous_in_source": 66,
+    "rejected_tail:extreme_uncorroborated_tail": 18
+   },
+   "maxRate": 0.002311,
+   "totalExcluded": 270,
+   "totalObservations": 157241
+  },
+  "v2": {
+   "boardLevelFalsePositives": [
+    [
+     "dynasty_export_20260915_214858.zip",
+     [
+      {
+       "assetClass": null,
+       "pos": null,
+       "reason": "source_format_error:vendor_rank_value_inconsistent",
+       "scope": "source",
+       "source": "ktcCrowdSfTep"
+      }
+     ]
+    ],
+    [
+     "dynasty_export_20260921_234150.zip",
+     [
+      {
+       "assetClass": null,
+       "pos": null,
+       "reason": "source_format_error:vendor_rank_value_inconsistent",
+       "scope": "source",
+       "source": "ktcCrowdSfTep"
+      }
+     ]
+    ]
+   ],
+   "boards": 22,
+   "boardsAbove0.5pct": [
+    [
+     "dynasty_export_20260915_214858.zip",
+     0.076012,
+     526,
+     6920
+    ],
+    [
+     "dynasty_export_20260921_234150.zip",
+     0.079306,
+     576,
+     7263
+    ]
+   ],
+   "byLayer": {
+    "held:held_pending_confirmation:observation_discontinuity": 10,
+    "quarantined:source_format_error:vendor_rank_value_inconsistent": 876,
+    "refused:identity_contradicted:age": 103,
+    "refused:identity_contradicted:position_group": 22,
+    "refused:identity_unresolved:ambiguous_in_source": 66,
+    "rejected_tail:extreme_uncorroborated_tail": 6,
+    "withheld:normalization_dependency_unavailable": 206
+   },
+   "maxRate": 0.079306,
+   "totalExcluded": 1289,
+   "totalObservations": 157238
+  },
+  "v21": {
+   "boardLevelFalsePositives": [],
+   "boards": 22,
+   "boardsAbove0.5pct": [],
+   "byLayer": {
+    "held:held_pending_confirmation:observation_discontinuity": 9,
+    "refused:identity_contradicted:age": 60,
+    "refused:identity_contradicted:position_family": 22,
+    "refused:identity_contradicted:sleeper_id": 95,
+    "refused:identity_unresolved:ambiguous_in_source": 66,
+    "rejected_tail:extreme_uncorroborated_tail": 1
+   },
+   "maxRate": 0.002021,
+   "totalExcluded": 253,
+   "totalObservations": 157241
+  },
+  "v21nh": {
+   "boardLevelFalsePositives": [],
+   "boards": 22,
+   "boardsAbove0.5pct": [],
+   "byLayer": {
+    "refused:identity_contradicted:age": 60,
+    "refused:identity_contradicted:position_family": 22,
+    "refused:identity_contradicted:sleeper_id": 95,
+    "refused:identity_unresolved:ambiguous_in_source": 66,
+    "rejected_tail:extreme_uncorroborated_tail": 1
+   },
+   "maxRate": 0.001887,
+   "totalExcluded": 244,
+   "totalObservations": 157241
+  }
+ },
+ "coldStart": {
+  "L4": {
+   "boardRowsOnly": {
+    "boards": 18,
+    "byLayer": {
+     "refused:identity_contradicted:age": 9,
+     "refused:identity_contradicted:position_family": 18,
+     "refused:identity_unresolved:ambiguous_in_source": 53,
+     "rejected_tail:extreme_uncorroborated_tail": 1,
+     "withheld:normalization_untranslated": 505
+    },
+    "bySource": {
+     "dlfRookieSf": 213,
+     "draftSharks": 9,
+     "draftSharksIdp": 18,
+     "flockFantasySf": 18,
+     "flockFantasySfRookies": 292,
+     "idpShowCombined": 24,
+     "ktcCrowdSfTep": 1,
+     "otcffbSf": 11
+    },
+    "dropped": 586,
+    "drops": [
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Adam Randall",
+      "source": "dlfRookieSf",
+      "value": 6149.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Adam Randall",
+      "source": "flockFantasySfRookies",
+      "value": 6375.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Antonio Williams",
+      "source": "dlfRookieSf",
+      "value": 7859.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Antonio Williams",
+      "source": "flockFantasySfRookies",
+      "value": 7970.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Barion Brown",
+      "source": "flockFantasySfRookies",
+      "value": 4532.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Brenen Thompson",
+      "source": "dlfRookieSf",
+      "value": 6006.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Brenen Thompson",
+      "source": "flockFantasySfRookies",
+      "value": 5673.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Bryce Lance",
+      "source": "dlfRookieSf",
+      "value": 6454.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Bryce Lance",
+      "source": "flockFantasySfRookies",
+      "value": 5937.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Cade Klubnik",
+      "source": "dlfRookieSf",
+      "value": 5937.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Cade Klubnik",
+      "source": "flockFantasySfRookies",
+      "value": 6006.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Caleb Douglas",
+      "source": "dlfRookieSf",
+      "value": 6077.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Caleb Douglas",
+      "source": "flockFantasySfRookies",
+      "value": 6077.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Carnell Tate",
+      "source": "dlfRookieSf",
+      "value": 9617.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Carnell Tate",
+      "source": "flockFantasySfRookies",
+      "value": 9883.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Carson Beck",
+      "source": "dlfRookieSf",
+      "value": 7751.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Carson Beck",
+      "source": "flockFantasySfRookies",
+      "value": 7751.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Chris Bell",
+      "source": "dlfRookieSf",
+      "value": 8438.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Chris Bell",
+      "source": "flockFantasySfRookies",
+      "value": 7859.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Chris Brazzell",
+      "source": "dlfRookieSf",
+      "value": 7242.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Chris Brazzell",
+      "source": "flockFantasySfRookies",
+      "value": 6699.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Colbie Young",
+      "source": "dlfRookieSf",
+      "value": 5150.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Colbie Young",
+      "source": "flockFantasySfRookies",
+      "value": 4408.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Cole Payton",
+      "source": "dlfRookieSf",
+      "value": 5610.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "temporarily_held_by_policy",
+      "identity": null,
+      "layer": "refused:identity_unresolved:ambiguous_in_source",
+      "position": "QB",
+      "row": "Cole Payton",
+      "source": "flockFantasySf",
+      "value": 1413.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Cole Payton",
+      "source": "flockFantasySfRookies",
+      "value": 5737.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Cyrus Allen",
+      "source": "dlfRookieSf",
+      "value": 5737.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Cyrus Allen",
+      "source": "flockFantasySfRookies",
+      "value": 5045.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "De'Zhaun Stribling",
+      "source": "dlfRookieSf",
+      "value": 8318.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "De'Zhaun Stribling",
+      "source": "flockFantasySfRookies",
+      "value": 7751.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Demond Claiborne",
+      "source": "dlfRookieSf",
+      "value": 6616.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Demond Claiborne",
+      "source": "flockFantasySfRookies",
+      "value": 6454.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Denzel Boston",
+      "source": "dlfRookieSf",
+      "value": 8814.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Denzel Boston",
+      "source": "flockFantasySfRookies",
+      "value": 8561.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Desmond Reid",
+      "source": "flockFantasySfRookies",
+      "value": 4618.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Drew Allar",
+      "source": "dlfRookieSf",
+      "value": 6454.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Drew Allar",
+      "source": "flockFantasySfRookies",
+      "value": 7146.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Eli Heidenreich",
+      "source": "dlfRookieSf",
+      "value": 5869.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Eli Heidenreich",
+      "source": "flockFantasySfRookies",
+      "value": 5869.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "TE",
+      "row": "Eli Raridon",
+      "source": "dlfRookieSf",
+      "value": 8418.0
+     }
+    ],
+    "invalidCategoryLabels": 0,
+    "votes": 113473
+   },
+   "withDirectory": {
+    "boards": 18,
+    "byLayer": {
+     "refused:identity_contradicted:age": 57,
+     "refused:identity_contradicted:position_family": 18,
+     "refused:identity_contradicted:sleeper_id": 82,
+     "refused:identity_unresolved:ambiguous_in_source": 53,
+     "rejected_tail:extreme_uncorroborated_tail": 1,
+     "withheld:normalization_untranslated": 505
+    },
+    "bySource": {
+     "dlfRookieSf": 213,
+     "draftSharks": 44,
+     "draftSharksIdp": 31,
+     "dynastyNerdsSfTep": 75,
+     "flockFantasySf": 18,
+     "flockFantasySfRookies": 292,
+     "idpShowCombined": 24,
+     "ktcCrowdSfTep": 1,
+     "otcffbSf": 11,
+     "pfkDynasty": 7
+    },
+    "dropped": 716,
+    "drops": [
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Adam Randall",
+      "source": "dlfRookieSf",
+      "value": 6149.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Adam Randall",
+      "source": "flockFantasySfRookies",
+      "value": 6375.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Antonio Williams",
+      "source": "dlfRookieSf",
+      "value": 7859.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Antonio Williams",
+      "source": "flockFantasySfRookies",
+      "value": 7970.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Barion Brown",
+      "source": "flockFantasySfRookies",
+      "value": 4532.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Brenen Thompson",
+      "source": "dlfRookieSf",
+      "value": 6006.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Brenen Thompson",
+      "source": "flockFantasySfRookies",
+      "value": 5673.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Bryce Lance",
+      "source": "dlfRookieSf",
+      "value": 6454.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Bryce Lance",
+      "source": "flockFantasySfRookies",
+      "value": 5937.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Cade Klubnik",
+      "source": "dlfRookieSf",
+      "value": 5937.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Cade Klubnik",
+      "source": "flockFantasySfRookies",
+      "value": 6006.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Caleb Douglas",
+      "source": "dlfRookieSf",
+      "value": 6077.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Caleb Douglas",
+      "source": "flockFantasySfRookies",
+      "value": 6077.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Carnell Tate",
+      "source": "dlfRookieSf",
+      "value": 9617.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Carnell Tate",
+      "source": "flockFantasySfRookies",
+      "value": 9883.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Carson Beck",
+      "source": "dlfRookieSf",
+      "value": 7751.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Carson Beck",
+      "source": "flockFantasySfRookies",
+      "value": 7751.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Chris Bell",
+      "source": "dlfRookieSf",
+      "value": 8438.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Chris Bell",
+      "source": "flockFantasySfRookies",
+      "value": 7859.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Chris Brazzell",
+      "source": "dlfRookieSf",
+      "value": 7242.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Chris Brazzell",
+      "source": "flockFantasySfRookies",
+      "value": 6699.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "invalid_player_identity",
+      "identity": null,
+      "layer": "refused:identity_contradicted:age",
+      "position": "RB",
+      "row": "Chris Rodriguez",
+      "source": "draftSharks",
+      "value": 2776.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Colbie Young",
+      "source": "dlfRookieSf",
+      "value": 5150.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Colbie Young",
+      "source": "flockFantasySfRookies",
+      "value": 4408.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Cole Payton",
+      "source": "dlfRookieSf",
+      "value": 5610.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "temporarily_held_by_policy",
+      "identity": null,
+      "layer": "refused:identity_unresolved:ambiguous_in_source",
+      "position": "QB",
+      "row": "Cole Payton",
+      "source": "flockFantasySf",
+      "value": 1413.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Cole Payton",
+      "source": "flockFantasySfRookies",
+      "value": 5737.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Cyrus Allen",
+      "source": "dlfRookieSf",
+      "value": 5737.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Cyrus Allen",
+      "source": "flockFantasySfRookies",
+      "value": 5045.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "De'Zhaun Stribling",
+      "source": "dlfRookieSf",
+      "value": 8318.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "De'Zhaun Stribling",
+      "source": "flockFantasySfRookies",
+      "value": 7751.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Demond Claiborne",
+      "source": "dlfRookieSf",
+      "value": 6616.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Demond Claiborne",
+      "source": "flockFantasySfRookies",
+      "value": 6454.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Denzel Boston",
+      "source": "dlfRookieSf",
+      "value": 8814.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "WR",
+      "row": "Denzel Boston",
+      "source": "flockFantasySfRookies",
+      "value": 8561.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Desmond Reid",
+      "source": "flockFantasySfRookies",
+      "value": 4618.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Drew Allar",
+      "source": "dlfRookieSf",
+      "value": 6454.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "QB",
+      "row": "Drew Allar",
+      "source": "flockFantasySfRookies",
+      "value": 7146.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Eli Heidenreich",
+      "source": "dlfRookieSf",
+      "value": 5869.0
+     },
+     {
+      "board": "dynasty_export_20260803_235610.zip",
+      "category": "normalization_scale_error",
+      "identity": null,
+      "layer": "withheld:normalization_untranslated",
+      "position": "RB",
+      "row": "Eli Heidenreich",
+      "source": "flockFantasySfRookies",
+      "value": 5869.0
+     }
+    ],
+    "invalidCategoryLabels": 0,
+    "votes": 113480
+   }
+  },
+  "N4N6": {
+   "N4violations": 1,
+   "N6hardQuarantines": 0,
+   "boards": 79
+  }
+ },
+ "dlfRestorePairs": {
+  "notRetainedCount": 0,
+  "totals": {
+   "both:Cpp_retained": 744,
+   "both:Cppnh_retained": 744,
+   "both:pairs": 744,
+   "d4:Cp_retained": 92,
+   "d4:Cpnh_retained": 92,
+   "d4:pairs": 92,
+   "dlfIdp:C_retained": 652,
+   "dlfIdp:Cnh_retained": 652,
+   "dlfIdp:pairs": 652
+  }
+ },
+ "gates": {
+  "dynasty_export_20260909_211525_ARRIVING": {
+   "AD2_ID": {
+    "cases": 680,
+    "constructed": 664,
+    "inc": {
+     "byKind": {
+      "name_only": {
+       "n": 69,
+       "passRate": 0.3913
+      },
+      "with_identity_fields": {
+       "n": 64,
+       "passRate": 0.4688
+      }
+     },
+     "exclusionReasons": {
+      "filter_dropped": 55,
+      "not_excluded": 78
+     },
+     "passRate": 0.4286,
+     "passed": 57
+    },
+    "rpc": {
+     "byKind": {
+      "name_only": {
+       "n": 69,
+       "passRate": 0.4783
+      },
+      "with_identity_fields": {
+       "n": 64,
+       "passRate": 0.9062
+      }
+     },
+     "exclusionReasons": {
+      "held_pending_confirmation:observation_discontinuity": 41,
+      "identity_contradicted:age": 26,
+      "identity_contradicted:position_family": 21,
+      "identity_contradicted:sleeper_id": 2,
+      "identity_unresolved:team_only_mismatch": 1,
+      "not_excluded": 42
+     },
+     "passRate": 0.6842,
+     "passed": 91
+    },
+    "scored": 133,
+    "unconstructed": {
+     "other_csv_rows=0": 5,
+     "other_csv_rows=2": 3,
+     "target_csv_rows=0": 2,
+     "target_csv_rows=2": 6
+    },
+    "v2": {
+     "byKind": {
+      "name_only": {
+       "n": 69,
+       "passRate": 0.4783
+      },
+      "with_identity_fields": {
+       "n": 64,
+       "passRate": 0.9062
+      }
+     },
+     "exclusionReasons": {
+      "held_pending_confirmation:observation_discontinuity": 43,
+      "identity_contradicted:age": 30,
+      "identity_contradicted:position_group": 12,
+      "identity_contradicted:sleeper_id": 2,
+      "identity_unresolved:team_only_mismatch": 4,
+      "not_excluded": 42
+     },
+     "passRate": 0.6842,
+     "passed": 91
+    },
+    "v21": {
+     "byKind": {
+      "name_only": {
+       "n": 69,
+       "passRate": 0.4783
+      },
+      "with_identity_fields": {
+       "n": 64,
+       "passRate": 0.9062
+      }
+     },
+     "exclusionReasons": {
+      "held_pending_confirmation:observation_discontinuity": 41,
+      "identity_contradicted:age": 26,
+      "identity_contradicted:position_family": 21,
+      "identity_contradicted:sleeper_id": 2,
+      "identity_unresolved:team_only_mismatch": 1,
+      "not_excluded": 42
+     },
+     "passRate": 0.6842,
+     "passed": 91
+    }
+   },
+   "AD2_N": {
+    "cases": 40,
+    "constructed": 40,
+    "inc": {
+     "byKind": {
+      "name_only": {
+       "n": 10,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 30,
+       "passRate": 0.0
+      }
+     },
+     "exclusionReasons": {
+      "not_excluded": 40
+     },
+     "passRate": 0.0,
+     "passed": 0
+    },
+    "rpc": {
+     "byKind": {
+      "name_only": {
+       "n": 10,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 30,
+       "passRate": 0.3333
+      }
+     },
+     "exclusionReasons": {
+      "identity_contradicted:position_family": 5,
+      "identity_unresolved:ambiguous_in_source": 4,
+      "identity_unresolved:team_only_mismatch": 1,
+      "not_excluded": 30
+     },
+     "passRate": 0.25,
+     "passed": 10
+    },
+    "scored": 40,
+    "unconstructed": {},
+    "v2": {
+     "byKind": {
+      "name_only": {
+       "n": 10,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 30,
+       "passRate": 0.2667
+      }
+     },
+     "exclusionReasons": {
+      "identity_unresolved:ambiguous_in_source": 4,
+      "identity_unresolved:team_only_mismatch": 4,
+      "not_excluded": 32
+     },
+     "passRate": 0.2,
+     "passed": 8
+    },
+    "v21": {
+     "byKind": {
+      "name_only": {
+       "n": 10,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 30,
+       "passRate": 0.3333
+      }
+     },
+     "exclusionReasons": {
+      "identity_contradicted:position_family": 5,
+      "identity_unresolved:ambiguous_in_source": 4,
+      "identity_unresolved:team_only_mismatch": 1,
+      "not_excluded": 30
+     },
+     "passRate": 0.25,
+     "passed": 10
+    }
+   },
+   "AD2_SUR": {
+    "control_true_value_faithful": {
+     "rpc": {
+      "of": 665,
+      "refused": 665
+     },
+     "v21": {
+      "of": 665,
+      "refused": 665
+     }
+    },
+    "faithful": {
+     "cases": 665,
+     "constructed": 665,
+     "inc": {
+      "byKind": {
+       "name_only": {
+        "n": 230,
+        "passRate": 0.3652
+       }
+      },
+      "exclusionReasons": {
+       "filter_dropped": 82,
+       "not_excluded": 148
+      },
+      "passRate": 0.3652,
+      "passed": 84
+     },
+     "rpc": {
+      "byKind": {
+       "name_only": {
+        "n": 230,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_unresolved:low_evidence_rung": 230
+      },
+      "passRate": 1.0,
+      "passed": 230
+     },
+     "scored": 230,
+     "unconstructed": {},
+     "v2": {
+      "byKind": {
+       "name_only": {
+        "n": 230,
+        "passRate": 0.4043
+       }
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 1,
+       "held_pending_confirmation:observation_discontinuity": 91,
+       "not_excluded": 138
+      },
+      "passRate": 0.4043,
+      "passed": 93
+     },
+     "v21": {
+      "byKind": {
+       "name_only": {
+        "n": 230,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_unresolved:low_evidence_rung": 230
+      },
+      "passRate": 1.0,
+      "passed": 230
+     }
+    },
+    "position": {
+     "cases": 665,
+     "constructed": 665,
+     "inc": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 230,
+        "passRate": 0.3652
+       }
+      },
+      "exclusionReasons": {
+       "filter_dropped": 82,
+       "not_excluded": 148
+      },
+      "passRate": 0.3652,
+      "passed": 84
+     },
+     "rpc": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 230,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_contradicted:join_inconsistent": 1,
+       "identity_contradicted:position_family": 148,
+       "identity_unresolved:low_evidence_rung": 81
+      },
+      "passRate": 1.0,
+      "passed": 230
+     },
+     "scored": 230,
+     "unconstructed": {},
+     "v2": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 230,
+        "passRate": 0.4043
+       }
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 1,
+       "held_pending_confirmation:observation_discontinuity": 91,
+       "not_excluded": 138
+      },
+      "passRate": 0.4043,
+      "passed": 93
+     },
+     "v21": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 230,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_contradicted:join_inconsistent": 1,
+       "identity_contradicted:position_family": 148,
+       "identity_unresolved:low_evidence_rung": 81
+      },
+      "passRate": 1.0,
+      "passed": 230
+     }
+    }
+   },
+   "AD3": {
+    "registered": {
+     "v2": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     },
+     "v21": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     }
+    },
+    "v2_priced": {
+     "v2": {
+      "boards": 16,
+      "flagged": 14,
+      "passes16of16": false
+     },
+     "v21": {
+      "boards": 16,
+      "flagged": 9,
+      "passes16of16": false
+     }
+    }
+   },
+   "H2_SYN": {
+    "groupShifts": {
+     "DB": 0.18,
+     "DL": 0.18,
+     "LB": 0.18,
+     "QB": -0.15,
+     "RB": 0.17,
+     "TE": 0.21,
+     "WR": 0.19
+    },
+    "healthyTwinProof": {
+     "boardProof": false,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.0,
+       "rows": 123,
+       "signShare": 0.0
+      },
+      "DL": {
+       "medianLogRatio": 0.0,
+       "rows": 143,
+       "signShare": 0.0
+      },
+      "LB": {
+       "medianLogRatio": 0.0,
+       "rows": 110,
+       "signShare": 0.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.0,
+       "rows": 24,
+       "signShare": 0.0
+      },
+      "PICK": {
+       "medianLogRatio": 0.0,
+       "rows": 84,
+       "signShare": 0.0
+      },
+      "QB": {
+       "medianLogRatio": 0.0,
+       "rows": 63,
+       "signShare": 0.0
+      },
+      "RB": {
+       "medianLogRatio": 0.0,
+       "rows": 113,
+       "signShare": 0.0
+      },
+      "TE": {
+       "medianLogRatio": 0.0,
+       "rows": 68,
+       "signShare": 0.0
+      },
+      "WR": {
+       "medianLogRatio": 0.0,
+       "rows": 168,
+       "signShare": 0.0
+      }
+     },
+     "provenGroups": [],
+     "replacedByCsv": 0,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 896,
+      "payloadRows": 898
+     },
+     "withheldNoCsv": 0
+    },
+    "proof": {
+     "boardProof": true,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.179989,
+       "rows": 123,
+       "signShare": 1.0
+      },
+      "DL": {
+       "medianLogRatio": 0.180005,
+       "rows": 143,
+       "signShare": 1.0
+      },
+      "LB": {
+       "medianLogRatio": 0.179985,
+       "rows": 110,
+       "signShare": 1.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.189935,
+       "rows": 24,
+       "signShare": 0.8261
+      },
+      "PICK": {
+       "medianLogRatio": 0.0,
+       "rows": 84,
+       "signShare": 0.0
+      },
+      "QB": {
+       "medianLogRatio": -0.150032,
+       "rows": 63,
+       "signShare": 1.0
+      },
+      "RB": {
+       "medianLogRatio": 0.169966,
+       "rows": 113,
+       "signShare": 1.0
+      },
+      "TE": {
+       "medianLogRatio": 0.209986,
+       "rows": 68,
+       "signShare": 1.0
+      },
+      "WR": {
+       "medianLogRatio": 0.189971,
+       "rows": 168,
+       "signShare": 1.0
+      }
+     },
+     "provenGroups": [
+      "DB",
+      "DL",
+      "LB",
+      "OTHER",
+      "QB",
+      "RB",
+      "TE",
+      "WR"
+     ],
+     "replacedByCsv": 767,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 896,
+      "payloadRows": 898
+     },
+     "withheldNoCsv": 2
+    },
+    "rowsShifted": 768
+   },
+   "INJ_DUP": {
+    "cases": 644,
+    "holds": true,
+    "propertyA_noProviderMerged": true,
+    "propertyA_violations": [],
+    "propertyB_noBandNarrows": true,
+    "propertyB_violations": [],
+    "rowsNewlyDroppedWithoutPriorReference": 0
+   },
+   "INJ_H1": {
+    "injected": {
+     "other": 0,
+     "voting": 0,
+     "withheld": 102
+    },
+    "unmodified": {
+     "other": 0,
+     "voting": 102,
+     "withheld": 0
+    }
+   },
+   "INJ_SEG": {
+    "groupShifts": {
+     "DB": 0.1368,
+     "DL": -0.2079,
+     "LB": -0.112,
+     "OTHER": -0.1731,
+     "QB": -0.1349,
+     "RB": -0.1916,
+     "T": -0.1477,
+     "TE": 0.2065,
+     "WR": 0.2925
+    },
+    "provenance": {
+     "boardProof": true,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.136627,
+       "rows": 123,
+       "signShare": 1.0
+      },
+      "DL": {
+       "medianLogRatio": -0.207765,
+       "rows": 143,
+       "signShare": 1.0
+      },
+      "LB": {
+       "medianLogRatio": -0.111923,
+       "rows": 110,
+       "signShare": 1.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.206695,
+       "rows": 24,
+       "signShare": 0.7143
+      },
+      "PICK": {
+       "medianLogRatio": -0.172992,
+       "rows": 84,
+       "signShare": 1.0
+      },
+      "QB": {
+       "medianLogRatio": -0.134882,
+       "rows": 63,
+       "signShare": 1.0
+      },
+      "RB": {
+       "medianLogRatio": -0.191538,
+       "rows": 113,
+       "signShare": 1.0
+      },
+      "TE": {
+       "medianLogRatio": 0.206458,
+       "rows": 68,
+       "signShare": 1.0
+      },
+      "WR": {
+       "medianLogRatio": 0.292497,
+       "rows": 168,
+       "signShare": 1.0
+      }
+     },
+     "provenGroups": [
+      "DB",
+      "DL",
+      "LB",
+      "PICK",
+      "QB",
+      "RB",
+      "TE",
+      "WR"
+     ],
+     "replacedByCsv": 633,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 896,
+      "payloadRows": 898
+     },
+     "withheldNoCsv": 2
+    },
+    "rowsShifted": 634
+   },
+   "seed": 2034,
+   "thresholds": {
+    "epsilonB2": 0.01,
+    "kC": 4.0,
+    "nMin": 20,
+    "rhoMin": 0.0,
+    "status": "oiv21_dev_exploratory_not_frozen",
+    "tauAge": 1.0,
+    "tauBoardCells": 22,
+    "tauCLayerC": 1.791759,
+    "tauCSources": 19,
+    "tauGross": 1.386294
+   },
+   "valueGates": {
+    "AD1a": {
+     "bar": 0.9,
+     "cases": 715,
+     "inc": {
+      "byBand": {
+       "3": 0.0253,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 248,
+       "not_excluded": 78
+      },
+      "meetsBar": false,
+      "passRate": 0.7638,
+      "passed": 249
+     },
+     "material": 326,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9956,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 20,
+       "held_pending_confirmation:observation_discontinuity": 305,
+       "not_excluded": 1
+      },
+      "meetsBar": true,
+      "passRate": 0.9969,
+      "passed": 325
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.8481,
+       "4-5": 0.9563,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 304,
+       "not_excluded": 22
+      },
+      "meetsBar": true,
+      "passRate": 0.9325,
+      "passed": 304
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.9873,
+       "4-5": 0.9869,
+       ">=6": 0.9444
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 18,
+       "held_pending_confirmation:observation_discontinuity": 303,
+       "not_excluded": 5
+      },
+      "meetsBar": true,
+      "passRate": 0.9847,
+      "passed": 321
+     },
+     "v21": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9607,
+       ">=6": 0.7778
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 8,
+       "held_pending_confirmation:observation_discontinuity": 305,
+       "not_excluded": 13
+      },
+      "meetsBar": true,
+      "passRate": 0.9601,
+      "passed": 313
+     }
+    },
+    "AD1b": {
+     "bar": 0.9,
+     "cases": 715,
+     "inc": {
+      "byBand": {
+       "3": 0.0274,
+       "4-5": 0.6805,
+       ">=6": 0.3333
+      },
+      "exclusionReasons": {
+       "filter_dropped": 118,
+       "not_excluded": 127
+      },
+      "meetsBar": false,
+      "passRate": 0.4816,
+      "passed": 118
+     },
+     "material": 245,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9822,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 8,
+       "held_pending_confirmation:observation_discontinuity": 234,
+       "not_excluded": 3
+      },
+      "meetsBar": true,
+      "passRate": 0.9878,
+      "passed": 242
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.6027,
+       "4-5": 0.6982,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 162,
+       "not_excluded": 83
+      },
+      "meetsBar": false,
+      "passRate": 0.6612,
+      "passed": 162
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.9863,
+       "4-5": 0.9645,
+       ">=6": 0.6667
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 3,
+       "held_pending_confirmation:observation_discontinuity": 234,
+       "not_excluded": 8
+      },
+      "meetsBar": true,
+      "passRate": 0.9673,
+      "passed": 237
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.9863,
+       "4-5": 0.9467,
+       ">=6": 0.6667
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 234,
+       "not_excluded": 11
+      },
+      "meetsBar": true,
+      "passRate": 0.9551,
+      "passed": 234
+     }
+    },
+    "AD1c": {
+     "bar": 0.95,
+     "cases": 715,
+     "inc": {
+      "byBand": {
+       "3": 0.0253,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 271,
+       "not_excluded": 78
+      },
+      "meetsBar": false,
+      "passRate": 0.7794,
+      "passed": 272
+     },
+     "material": 349,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 25,
+       "held_pending_confirmation:observation_discontinuity": 324
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 349
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.9873,
+       "4-5": 0.9956,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 347,
+       "not_excluded": 2
+      },
+      "meetsBar": true,
+      "passRate": 0.9943,
+      "passed": 347
+     },
+     "v2": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9956,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 24,
+       "held_pending_confirmation:observation_discontinuity": 324,
+       "not_excluded": 1
+      },
+      "meetsBar": true,
+      "passRate": 0.9971,
+      "passed": 348
+     },
+     "v21": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9956,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 24,
+       "held_pending_confirmation:observation_discontinuity": 324,
+       "not_excluded": 1
+      },
+      "meetsBar": true,
+      "passRate": 0.9971,
+      "passed": 348
+     }
+    },
+    "AD1d": {
+     "bar": 0.95,
+     "cases": 715,
+     "inc": {
+      "byBand": {
+       "3": 0.0,
+       "4-5": 0.8506,
+       ">=6": 0.6667
+      },
+      "exclusionReasons": {
+       "filter_dropped": 150,
+       "not_excluded": 102
+      },
+      "meetsBar": false,
+      "passRate": 0.5952,
+      "passed": 150
+     },
+     "material": 252,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 5,
+       "held_pending_confirmation:observation_discontinuity": 247
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 252
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.9467,
+       "4-5": 0.977,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 244,
+       "not_excluded": 8
+      },
+      "meetsBar": true,
+      "passRate": 0.9683,
+      "passed": 244
+     },
+     "v2": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 5,
+       "held_pending_confirmation:observation_discontinuity": 247
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 252
+     },
+     "v21": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 5,
+       "held_pending_confirmation:observation_discontinuity": 247
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 252
+     }
+    },
+    "AD2": {
+     "bar": 0.9,
+     "cases": 680,
+     "inc": {
+      "byBand": {
+       "3": 0.0,
+       "4-5": 0.5729,
+       ">=6": 0.8571
+      },
+      "exclusionReasons": {
+       "filter_dropped": 59,
+       "not_excluded": 82
+      },
+      "meetsBar": false,
+      "passRate": 0.4326,
+      "passed": 61
+     },
+     "material": 141,
+     "rpc": {
+      "byBand": {
+       "3": 0.5,
+       "4-5": 0.5208,
+       ">=6": 0.8571
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 75,
+       "not_excluded": 66
+      },
+      "meetsBar": false,
+      "passRate": 0.5319,
+      "passed": 75
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.2632,
+       "4-5": 0.1354,
+       ">=6": 0.7143
+      },
+      "exclusionReasons": {
+       "filter_dropped": 28,
+       "not_excluded": 113
+      },
+      "meetsBar": false,
+      "passRate": 0.1986,
+      "passed": 28
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.5,
+       "4-5": 0.5312,
+       ">=6": 0.8571
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 76,
+       "not_excluded": 65
+      },
+      "meetsBar": false,
+      "passRate": 0.539,
+      "passed": 76
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.5,
+       "4-5": 0.5208,
+       ">=6": 0.8571
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 75,
+       "not_excluded": 66
+      },
+      "meetsBar": false,
+      "passRate": 0.5319,
+      "passed": 75
+     }
+    },
+    "AD4": {
+     "bar": 0.95,
+     "cases": 235,
+     "inc": {
+      "byBand": {
+       "3": 0.0833,
+       "4-5": 0.9884,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 90,
+       "not_excluded": 12
+      },
+      "meetsBar": false,
+      "passRate": 0.8824,
+      "passed": 90
+     },
+     "material": 102,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 102
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 102
+     },
+     "v1": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 102
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 102
+     },
+     "v2": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 102
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 102
+     },
+     "v21": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 102
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 102
+     }
+    }
+   },
+   "variant": "ARRIVING",
+   "wallSeconds": 2592.7
+  },
+  "dynasty_export_20260909_211525_NOHIST": {
+   "AD2_ID": {
+    "cases": 680,
+    "constructed": 664,
+    "inc": {
+     "byKind": {
+      "name_only": {
+       "n": 69,
+       "passRate": 0.3913
+      },
+      "with_identity_fields": {
+       "n": 64,
+       "passRate": 0.4688
+      }
+     },
+     "exclusionReasons": {
+      "filter_dropped": 55,
+      "not_excluded": 78
+     },
+     "passRate": 0.4286,
+     "passed": 57
+    },
+    "rpc": {
+     "byKind": {
+      "name_only": {
+       "n": 69,
+       "passRate": 0.0725
+      },
+      "with_identity_fields": {
+       "n": 64,
+       "passRate": 0.7969
+      }
+     },
+     "exclusionReasons": {
+      "extreme_uncorroborated_tail": 7,
+      "identity_contradicted:age": 26,
+      "identity_contradicted:position_family": 21,
+      "identity_contradicted:sleeper_id": 2,
+      "not_excluded": 77
+     },
+     "passRate": 0.4211,
+     "passed": 56
+    },
+    "scored": 133,
+    "unconstructed": {
+     "other_csv_rows=0": 5,
+     "other_csv_rows=2": 3,
+     "target_csv_rows=0": 2,
+     "target_csv_rows=2": 6
+    },
+    "v2": {
+     "byKind": {
+      "name_only": {
+       "n": 69,
+       "passRate": 0.087
+      },
+      "with_identity_fields": {
+       "n": 64,
+       "passRate": 0.75
+      }
+     },
+     "exclusionReasons": {
+      "extreme_uncorroborated_tail": 6,
+      "identity_contradicted:age": 30,
+      "identity_contradicted:position_group": 12,
+      "identity_contradicted:sleeper_id": 2,
+      "identity_unresolved:team_only_mismatch": 4,
+      "not_excluded": 79
+     },
+     "passRate": 0.406,
+     "passed": 54
+    },
+    "v21": {
+     "byKind": {
+      "name_only": {
+       "n": 69,
+       "passRate": 0.058
+      },
+      "with_identity_fields": {
+       "n": 64,
+       "passRate": 0.7656
+      }
+     },
+     "exclusionReasons": {
+      "extreme_uncorroborated_tail": 4,
+      "identity_contradicted:age": 26,
+      "identity_contradicted:position_family": 21,
+      "identity_contradicted:sleeper_id": 2,
+      "not_excluded": 80
+     },
+     "passRate": 0.3985,
+     "passed": 53
+    }
+   },
+   "AD2_N": {
+    "cases": 40,
+    "constructed": 40,
+    "inc": {
+     "byKind": {
+      "name_only": {
+       "n": 10,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 30,
+       "passRate": 0.0
+      }
+     },
+     "exclusionReasons": {
+      "not_excluded": 40
+     },
+     "passRate": 0.0,
+     "passed": 0
+    },
+    "rpc": {
+     "byKind": {
+      "name_only": {
+       "n": 10,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 30,
+       "passRate": 0.3
+      }
+     },
+     "exclusionReasons": {
+      "identity_contradicted:position_family": 5,
+      "identity_unresolved:ambiguous_in_source": 4,
+      "not_excluded": 31
+     },
+     "passRate": 0.225,
+     "passed": 9
+    },
+    "scored": 40,
+    "unconstructed": {},
+    "v2": {
+     "byKind": {
+      "name_only": {
+       "n": 10,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 30,
+       "passRate": 0.2667
+      }
+     },
+     "exclusionReasons": {
+      "identity_unresolved:ambiguous_in_source": 4,
+      "identity_unresolved:team_only_mismatch": 4,
+      "not_excluded": 32
+     },
+     "passRate": 0.2,
+     "passed": 8
+    },
+    "v21": {
+     "byKind": {
+      "name_only": {
+       "n": 10,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 30,
+       "passRate": 0.3
+      }
+     },
+     "exclusionReasons": {
+      "identity_contradicted:position_family": 5,
+      "identity_unresolved:ambiguous_in_source": 4,
+      "not_excluded": 31
+     },
+     "passRate": 0.225,
+     "passed": 9
+    }
+   },
+   "AD2_SUR": {
+    "control_true_value_faithful": {
+     "rpc": {
+      "of": 665,
+      "refused": 665
+     },
+     "v21": {
+      "of": 665,
+      "refused": 665
+     }
+    },
+    "faithful": {
+     "cases": 665,
+     "constructed": 665,
+     "inc": {
+      "byKind": {
+       "name_only": {
+        "n": 230,
+        "passRate": 0.3652
+       }
+      },
+      "exclusionReasons": {
+       "filter_dropped": 82,
+       "not_excluded": 148
+      },
+      "passRate": 0.3652,
+      "passed": 84
+     },
+     "rpc": {
+      "byKind": {
+       "name_only": {
+        "n": 230,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_unresolved:low_evidence_rung": 230
+      },
+      "passRate": 1.0,
+      "passed": 230
+     },
+     "scored": 230,
+     "unconstructed": {},
+     "v2": {
+      "byKind": {
+       "name_only": {
+        "n": 230,
+        "passRate": 0.1043
+       }
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 23,
+       "not_excluded": 207
+      },
+      "passRate": 0.1043,
+      "passed": 24
+     },
+     "v21": {
+      "byKind": {
+       "name_only": {
+        "n": 230,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_unresolved:low_evidence_rung": 230
+      },
+      "passRate": 1.0,
+      "passed": 230
+     }
+    },
+    "position": {
+     "cases": 665,
+     "constructed": 665,
+     "inc": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 230,
+        "passRate": 0.3652
+       }
+      },
+      "exclusionReasons": {
+       "filter_dropped": 82,
+       "not_excluded": 148
+      },
+      "passRate": 0.3652,
+      "passed": 84
+     },
+     "rpc": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 230,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_contradicted:join_inconsistent": 1,
+       "identity_contradicted:position_family": 148,
+       "identity_unresolved:low_evidence_rung": 81
+      },
+      "passRate": 1.0,
+      "passed": 230
+     },
+     "scored": 230,
+     "unconstructed": {},
+     "v2": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 230,
+        "passRate": 0.1043
+       }
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 23,
+       "not_excluded": 207
+      },
+      "passRate": 0.1043,
+      "passed": 24
+     },
+     "v21": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 230,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_contradicted:join_inconsistent": 1,
+       "identity_contradicted:position_family": 148,
+       "identity_unresolved:low_evidence_rung": 81
+      },
+      "passRate": 1.0,
+      "passed": 230
+     }
+    }
+   },
+   "AD3": {
+    "registered": {
+     "v2": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     },
+     "v21": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     }
+    },
+    "v2_priced": {
+     "v2": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     },
+     "v21": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     }
+    }
+   },
+   "H2_SYN": {
+    "groupShifts": {
+     "DB": 0.18,
+     "DL": 0.18,
+     "LB": 0.18,
+     "QB": -0.15,
+     "RB": 0.17,
+     "TE": 0.21,
+     "WR": 0.19
+    },
+    "healthyTwinProof": {
+     "boardProof": false,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.0,
+       "rows": 123,
+       "signShare": 0.0
+      },
+      "DL": {
+       "medianLogRatio": 0.0,
+       "rows": 143,
+       "signShare": 0.0
+      },
+      "LB": {
+       "medianLogRatio": 0.0,
+       "rows": 110,
+       "signShare": 0.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.0,
+       "rows": 24,
+       "signShare": 0.0
+      },
+      "PICK": {
+       "medianLogRatio": 0.0,
+       "rows": 84,
+       "signShare": 0.0
+      },
+      "QB": {
+       "medianLogRatio": 0.0,
+       "rows": 63,
+       "signShare": 0.0
+      },
+      "RB": {
+       "medianLogRatio": 0.0,
+       "rows": 113,
+       "signShare": 0.0
+      },
+      "TE": {
+       "medianLogRatio": 0.0,
+       "rows": 68,
+       "signShare": 0.0
+      },
+      "WR": {
+       "medianLogRatio": 0.0,
+       "rows": 168,
+       "signShare": 0.0
+      }
+     },
+     "provenGroups": [],
+     "replacedByCsv": 0,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 896,
+      "payloadRows": 898
+     },
+     "withheldNoCsv": 0
+    },
+    "proof": {
+     "boardProof": true,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.179989,
+       "rows": 123,
+       "signShare": 1.0
+      },
+      "DL": {
+       "medianLogRatio": 0.180005,
+       "rows": 143,
+       "signShare": 1.0
+      },
+      "LB": {
+       "medianLogRatio": 0.179985,
+       "rows": 110,
+       "signShare": 1.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.189935,
+       "rows": 24,
+       "signShare": 0.8261
+      },
+      "PICK": {
+       "medianLogRatio": 0.0,
+       "rows": 84,
+       "signShare": 0.0
+      },
+      "QB": {
+       "medianLogRatio": -0.150032,
+       "rows": 63,
+       "signShare": 1.0
+      },
+      "RB": {
+       "medianLogRatio": 0.169966,
+       "rows": 113,
+       "signShare": 1.0
+      },
+      "TE": {
+       "medianLogRatio": 0.209986,
+       "rows": 68,
+       "signShare": 1.0
+      },
+      "WR": {
+       "medianLogRatio": 0.189971,
+       "rows": 168,
+       "signShare": 1.0
+      }
+     },
+     "provenGroups": [
+      "DB",
+      "DL",
+      "LB",
+      "OTHER",
+      "QB",
+      "RB",
+      "TE",
+      "WR"
+     ],
+     "replacedByCsv": 767,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 896,
+      "payloadRows": 898
+     },
+     "withheldNoCsv": 2
+    },
+    "rowsShifted": 768
+   },
+   "INJ_DUP": {
+    "cases": 644,
+    "holds": true,
+    "propertyA_noProviderMerged": true,
+    "propertyA_violations": [],
+    "propertyB_noBandNarrows": true,
+    "propertyB_violations": [],
+    "rowsNewlyDroppedWithoutPriorReference": 0
+   },
+   "INJ_H1": {
+    "injected": {
+     "other": 0,
+     "voting": 0,
+     "withheld": 102
+    },
+    "unmodified": {
+     "other": 0,
+     "voting": 102,
+     "withheld": 0
+    }
+   },
+   "INJ_SEG": {
+    "groupShifts": {
+     "DB": 0.1368,
+     "DL": -0.2079,
+     "LB": -0.112,
+     "OTHER": -0.1731,
+     "QB": -0.1349,
+     "RB": -0.1916,
+     "T": -0.1477,
+     "TE": 0.2065,
+     "WR": 0.2925
+    },
+    "provenance": {
+     "boardProof": true,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.136627,
+       "rows": 123,
+       "signShare": 1.0
+      },
+      "DL": {
+       "medianLogRatio": -0.207765,
+       "rows": 143,
+       "signShare": 1.0
+      },
+      "LB": {
+       "medianLogRatio": -0.111923,
+       "rows": 110,
+       "signShare": 1.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.206695,
+       "rows": 24,
+       "signShare": 0.7143
+      },
+      "PICK": {
+       "medianLogRatio": -0.172992,
+       "rows": 84,
+       "signShare": 1.0
+      },
+      "QB": {
+       "medianLogRatio": -0.134882,
+       "rows": 63,
+       "signShare": 1.0
+      },
+      "RB": {
+       "medianLogRatio": -0.191538,
+       "rows": 113,
+       "signShare": 1.0
+      },
+      "TE": {
+       "medianLogRatio": 0.206458,
+       "rows": 68,
+       "signShare": 1.0
+      },
+      "WR": {
+       "medianLogRatio": 0.292497,
+       "rows": 168,
+       "signShare": 1.0
+      }
+     },
+     "provenGroups": [
+      "DB",
+      "DL",
+      "LB",
+      "PICK",
+      "QB",
+      "RB",
+      "TE",
+      "WR"
+     ],
+     "replacedByCsv": 633,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 896,
+      "payloadRows": 898
+     },
+     "withheldNoCsv": 2
+    },
+    "rowsShifted": 634
+   },
+   "seed": 2034,
+   "thresholds": {
+    "epsilonB2": 0.01,
+    "kC": 4.0,
+    "nMin": 20,
+    "rhoMin": 0.0,
+    "status": "oiv21_dev_exploratory_not_frozen",
+    "tauAge": 1.0,
+    "tauBoardCells": 22,
+    "tauCLayerC": 1.791759,
+    "tauCSources": 19,
+    "tauGross": 1.386294
+   },
+   "valueGates": {
+    "AD1a": {
+     "bar": 0.9,
+     "cases": 715,
+     "inc": {
+      "byBand": {
+       "3": 0.0253,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 248,
+       "not_excluded": 78
+      },
+      "meetsBar": false,
+      "passRate": 0.7638,
+      "passed": 249
+     },
+     "material": 326,
+     "rpc": {
+      "byBand": {
+       "3": 0.8354,
+       "4-5": 0.8734,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 284,
+       "not_excluded": 42
+      },
+      "meetsBar": false,
+      "passRate": 0.8712,
+      "passed": 284
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.8481,
+       "4-5": 0.9563,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 304,
+       "not_excluded": 22
+      },
+      "meetsBar": true,
+      "passRate": 0.9325,
+      "passed": 304
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.7089,
+       "4-5": 0.9301,
+       ">=6": 0.7778
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 283,
+       "not_excluded": 43
+      },
+      "meetsBar": false,
+      "passRate": 0.8681,
+      "passed": 283
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.5443,
+       "4-5": 0.7336,
+       ">=6": 0.3333
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 217,
+       "not_excluded": 109
+      },
+      "meetsBar": false,
+      "passRate": 0.6656,
+      "passed": 217
+     }
+    },
+    "AD1b": {
+     "bar": 0.9,
+     "cases": 715,
+     "inc": {
+      "byBand": {
+       "3": 0.0274,
+       "4-5": 0.6805,
+       ">=6": 0.3333
+      },
+      "exclusionReasons": {
+       "filter_dropped": 118,
+       "not_excluded": 127
+      },
+      "meetsBar": false,
+      "passRate": 0.4816,
+      "passed": 118
+     },
+     "material": 245,
+     "rpc": {
+      "byBand": {
+       "3": 0.6712,
+       "4-5": 0.5444,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 144,
+       "not_excluded": 101
+      },
+      "meetsBar": false,
+      "passRate": 0.5878,
+      "passed": 144
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.6027,
+       "4-5": 0.6982,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 162,
+       "not_excluded": 83
+      },
+      "meetsBar": false,
+      "passRate": 0.6612,
+      "passed": 162
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.411,
+       "4-5": 0.4497,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 105,
+       "not_excluded": 140
+      },
+      "meetsBar": false,
+      "passRate": 0.4327,
+      "passed": 106
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.1918,
+       "4-5": 0.1124,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 33,
+       "not_excluded": 212
+      },
+      "meetsBar": false,
+      "passRate": 0.1347,
+      "passed": 33
+     }
+    },
+    "AD1c": {
+     "bar": 0.95,
+     "cases": 715,
+     "inc": {
+      "byBand": {
+       "3": 0.0253,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 271,
+       "not_excluded": 78
+      },
+      "meetsBar": false,
+      "passRate": 0.7794,
+      "passed": 272
+     },
+     "material": 349,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9383,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 335,
+       "not_excluded": 14
+      },
+      "meetsBar": true,
+      "passRate": 0.9599,
+      "passed": 335
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.9873,
+       "4-5": 0.9956,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 347,
+       "not_excluded": 2
+      },
+      "meetsBar": true,
+      "passRate": 0.9943,
+      "passed": 347
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.9114,
+       "4-5": 0.978,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 337,
+       "not_excluded": 12
+      },
+      "meetsBar": true,
+      "passRate": 0.9656,
+      "passed": 337
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.9114,
+       "4-5": 0.9251,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 325,
+       "not_excluded": 24
+      },
+      "meetsBar": false,
+      "passRate": 0.9312,
+      "passed": 325
+     }
+    },
+    "AD1d": {
+     "bar": 0.95,
+     "cases": 715,
+     "inc": {
+      "byBand": {
+       "3": 0.0,
+       "4-5": 0.8506,
+       ">=6": 0.6667
+      },
+      "exclusionReasons": {
+       "filter_dropped": 150,
+       "not_excluded": 102
+      },
+      "meetsBar": false,
+      "passRate": 0.5952,
+      "passed": 150
+     },
+     "material": 252,
+     "rpc": {
+      "byBand": {
+       "3": 0.9733,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 250,
+       "not_excluded": 2
+      },
+      "meetsBar": true,
+      "passRate": 0.9921,
+      "passed": 250
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.9467,
+       "4-5": 0.977,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 244,
+       "not_excluded": 8
+      },
+      "meetsBar": true,
+      "passRate": 0.9683,
+      "passed": 244
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.8933,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 244,
+       "not_excluded": 8
+      },
+      "meetsBar": true,
+      "passRate": 0.9683,
+      "passed": 244
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.8933,
+       "4-5": 1.0,
+       ">=6": 0.6667
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 243,
+       "not_excluded": 9
+      },
+      "meetsBar": true,
+      "passRate": 0.9643,
+      "passed": 243
+     }
+    },
+    "AD2": {
+     "bar": 0.9,
+     "cases": 680,
+     "inc": {
+      "byBand": {
+       "3": 0.0,
+       "4-5": 0.5729,
+       ">=6": 0.8571
+      },
+      "exclusionReasons": {
+       "filter_dropped": 59,
+       "not_excluded": 82
+      },
+      "meetsBar": false,
+      "passRate": 0.4326,
+      "passed": 61
+     },
+     "material": 141,
+     "rpc": {
+      "byBand": {
+       "3": 0.1842,
+       "4-5": 0.125,
+       ">=6": 0.8571
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 25,
+       "not_excluded": 116
+      },
+      "meetsBar": false,
+      "passRate": 0.1773,
+      "passed": 25
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.2632,
+       "4-5": 0.1354,
+       ">=6": 0.7143
+      },
+      "exclusionReasons": {
+       "filter_dropped": 28,
+       "not_excluded": 113
+      },
+      "meetsBar": false,
+      "passRate": 0.1986,
+      "passed": 28
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.2105,
+       "4-5": 0.0521,
+       ">=6": 0.2857
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 15,
+       "not_excluded": 126
+      },
+      "meetsBar": false,
+      "passRate": 0.1064,
+      "passed": 15
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.0789,
+       "4-5": 0.0417,
+       ">=6": 0.2857
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 9,
+       "not_excluded": 132
+      },
+      "meetsBar": false,
+      "passRate": 0.0638,
+      "passed": 9
+     }
+    },
+    "AD4": {
+     "bar": 0.95,
+     "cases": 235,
+     "inc": {
+      "byBand": {
+       "3": 0.0833,
+       "4-5": 0.9884,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 90,
+       "not_excluded": 12
+      },
+      "meetsBar": false,
+      "passRate": 0.8824,
+      "passed": 90
+     },
+     "material": 102,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.7907,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 84,
+       "not_excluded": 18
+      },
+      "meetsBar": false,
+      "passRate": 0.8235,
+      "passed": 84
+     },
+     "v1": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 102
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 102
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.8333,
+       "4-5": 0.9419,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 95,
+       "not_excluded": 7
+      },
+      "meetsBar": false,
+      "passRate": 0.9314,
+      "passed": 95
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.8333,
+       "4-5": 0.686,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 73,
+       "not_excluded": 29
+      },
+      "meetsBar": false,
+      "passRate": 0.7157,
+      "passed": 73
+     }
+    }
+   },
+   "variant": "NOHIST",
+   "wallSeconds": 2392.1
+  },
+  "dynasty_export_20260909_211525_PERSISTENT": {
+   "summary": {
+    "AD1a": {
+     "bar": 0.9,
+     "caughtArrivingNotPersistent": 42,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 12,
+      "voting:persistent_gross_dissent": 30
+     },
+     "passRate": 0.1833
+    },
+    "AD1b": {
+     "bar": 0.9,
+     "caughtArrivingNotPersistent": 52,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 46,
+      "voting:persistent_gross_dissent": 6
+     },
+     "passRate": 0.0667
+    },
+    "AD1c": {
+     "bar": 0.95,
+     "caughtArrivingNotPersistent": 41,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 1,
+      "voting:persistent_gross_dissent": 40
+     },
+     "passRate": 0.3167
+    },
+    "AD1d": {
+     "bar": 0.95,
+     "caughtArrivingNotPersistent": 49,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 4,
+      "voting:persistent_gross_dissent": 45
+     },
+     "passRate": 0.1833
+    },
+    "AD2": {
+     "bar": 0.9,
+     "caughtArrivingNotPersistent": 31,
+     "material": 60,
+     "mechanism": {
+      "voting:accepted_baseline": 6,
+      "voting:kept_dissent": 20,
+      "voting:persistent_gross_dissent": 3,
+      "voting:voting_name_only_identity": 2
+     },
+     "passRate": 0.0167
+    },
+    "AD4": {
+     "bar": 0.95,
+     "caughtArrivingNotPersistent": 49,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 13,
+      "voting:persistent_gross_dissent": 36
+     },
+     "passRate": 0.1833
+    }
+   },
+   "wallSeconds": 1980.8,
+   "windows": {
+    "draftSharks": {
+     "datasets": 3,
+     "start": 53,
+     "startBoard": "dynasty_export_20260905_204615.zip"
+    },
+    "draftSharksIdp": {
+     "datasets": 3,
+     "start": 51,
+     "startBoard": "dynasty_export_20260903_225148.zip"
+    },
+    "dynastyDaddySf": {
+     "datasets": 3,
+     "start": 54,
+     "startBoard": "dynasty_export_20260906_205400.zip"
+    },
+    "dynastyNerdsSfTep": {
+     "datasets": 3,
+     "start": 14,
+     "startBoard": "dynasty_export_20260728_234257.zip"
+    },
+    "fantasyCalc": {
+     "datasets": 3,
+     "start": 54,
+     "startBoard": "dynasty_export_20260906_205400.zip"
+    },
+    "fantasyProsIdp": {
+     "datasets": 3,
+     "start": 38,
+     "startBoard": "dynasty_export_20260821_230238.zip"
+    },
+    "fantasyProsSf": {
+     "datasets": 3,
+     "start": 54,
+     "startBoard": "dynasty_export_20260906_205400.zip"
+    },
+    "flockFantasySf": {
+     "datasets": 3,
+     "start": 54,
+     "startBoard": "dynasty_export_20260906_205400.zip"
+    },
+    "idpShowCombined": {
+     "datasets": 1,
+     "start": 38,
+     "startBoard": "dynasty_export_20260821_230238.zip"
+    },
+    "idpTradeCalc": {
+     "datasets": 3,
+     "start": 53,
+     "startBoard": "dynasty_export_20260905_204615.zip"
+    },
+    "ktcCrowdSfTep": {
+     "datasets": 0,
+     "start": null,
+     "startBoard": null
+    },
+    "ktcTradesSfTep": {
+     "datasets": 0,
+     "start": null,
+     "startBoard": null
+    },
+    "otcffbSf": {
+     "datasets": 3,
+     "start": 54,
+     "startBoard": "dynasty_export_20260906_205400.zip"
+    },
+    "pfkDynasty": {
+     "datasets": 3,
+     "start": 52,
+     "startBoard": "dynasty_export_20260904_223450.zip"
+    },
+    "yahooBoone": {
+     "datasets": 3,
+     "start": 50,
+     "startBoard": "dynasty_export_20260902_212027.zip"
+    }
+   }
+  },
+  "dynasty_export_20260930_130404_ARRIVING": {
+   "AD2_ID": {
+    "cases": 669,
+    "constructed": 657,
+    "inc": {
+     "byKind": {
+      "name_only": {
+       "n": 83,
+       "passRate": 0.4096
+      },
+      "with_identity_fields": {
+       "n": 40,
+       "passRate": 0.45
+      }
+     },
+     "exclusionReasons": {
+      "filter_dropped": 51,
+      "not_excluded": 72
+     },
+     "passRate": 0.4228,
+     "passed": 52
+    },
+    "rpc": {
+     "byKind": {
+      "name_only": {
+       "n": 83,
+       "passRate": 0.4458
+      },
+      "with_identity_fields": {
+       "n": 40,
+       "passRate": 0.925
+      }
+     },
+     "exclusionReasons": {
+      "held_pending_confirmation:observation_discontinuity": 37,
+      "identity_contradicted:age": 20,
+      "identity_contradicted:position_family": 7,
+      "identity_contradicted:sleeper_id": 1,
+      "identity_unresolved:team_only_mismatch": 8,
+      "not_excluded": 50
+     },
+     "passRate": 0.6016,
+     "passed": 74
+    },
+    "scored": 123,
+    "unconstructed": {
+     "other_csv_rows=0": 5,
+     "other_csv_rows=2": 5,
+     "target_csv_rows=2": 2
+    },
+    "v2": {
+     "byKind": {
+      "name_only": {
+       "n": 83,
+       "passRate": 0.4458
+      },
+      "with_identity_fields": {
+       "n": 40,
+       "passRate": 0.9
+      }
+     },
+     "exclusionReasons": {
+      "held_pending_confirmation:observation_discontinuity": 39,
+      "identity_contradicted:age": 23,
+      "identity_contradicted:sleeper_id": 1,
+      "identity_unresolved:team_only_mismatch": 9,
+      "not_excluded": 51
+     },
+     "passRate": 0.5935,
+     "passed": 73
+    },
+    "v21": {
+     "byKind": {
+      "name_only": {
+       "n": 83,
+       "passRate": 0.4458
+      },
+      "with_identity_fields": {
+       "n": 40,
+       "passRate": 0.925
+      }
+     },
+     "exclusionReasons": {
+      "held_pending_confirmation:observation_discontinuity": 37,
+      "identity_contradicted:age": 20,
+      "identity_contradicted:position_family": 7,
+      "identity_contradicted:sleeper_id": 1,
+      "identity_unresolved:team_only_mismatch": 8,
+      "not_excluded": 50
+     },
+     "passRate": 0.6016,
+     "passed": 74
+    }
+   },
+   "AD2_N": {
+    "cases": 50,
+    "constructed": 50,
+    "inc": {
+     "byKind": {
+      "name_only": {
+       "n": 14,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 36,
+       "passRate": 0.0
+      }
+     },
+     "exclusionReasons": {
+      "filter_dropped": 2,
+      "not_excluded": 48
+     },
+     "passRate": 0.0,
+     "passed": 0
+    },
+    "rpc": {
+     "byKind": {
+      "name_only": {
+       "n": 14,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 36,
+       "passRate": 0.2778
+      }
+     },
+     "exclusionReasons": {
+      "identity_contradicted:position_family": 5,
+      "identity_unresolved:ambiguous_in_source": 4,
+      "identity_unresolved:team_only_mismatch": 1,
+      "not_excluded": 40
+     },
+     "passRate": 0.2,
+     "passed": 10
+    },
+    "scored": 50,
+    "unconstructed": {},
+    "v2": {
+     "byKind": {
+      "name_only": {
+       "n": 14,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 36,
+       "passRate": 0.2222
+      }
+     },
+     "exclusionReasons": {
+      "identity_unresolved:ambiguous_in_source": 4,
+      "identity_unresolved:team_only_mismatch": 4,
+      "not_excluded": 42
+     },
+     "passRate": 0.16,
+     "passed": 8
+    },
+    "v21": {
+     "byKind": {
+      "name_only": {
+       "n": 14,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 36,
+       "passRate": 0.2778
+      }
+     },
+     "exclusionReasons": {
+      "identity_contradicted:position_family": 5,
+      "identity_unresolved:ambiguous_in_source": 4,
+      "identity_unresolved:team_only_mismatch": 1,
+      "not_excluded": 40
+     },
+     "passRate": 0.2,
+     "passed": 10
+    }
+   },
+   "AD2_SUR": {
+    "control_true_value_faithful": {
+     "rpc": {
+      "of": 649,
+      "refused": 649
+     },
+     "v21": {
+      "of": 649,
+      "refused": 649
+     }
+    },
+    "faithful": {
+     "cases": 649,
+     "constructed": 649,
+     "inc": {
+      "byKind": {
+       "name_only": {
+        "n": 225,
+        "passRate": 0.4
+       }
+      },
+      "exclusionReasons": {
+       "filter_dropped": 89,
+       "not_excluded": 136
+      },
+      "passRate": 0.4,
+      "passed": 90
+     },
+     "rpc": {
+      "byKind": {
+       "name_only": {
+        "n": 225,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_unresolved:low_evidence_rung": 225
+      },
+      "passRate": 1.0,
+      "passed": 225
+     },
+     "scored": 225,
+     "unconstructed": {},
+     "v2": {
+      "byKind": {
+       "name_only": {
+        "n": 225,
+        "passRate": 0.4178
+       }
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 92,
+       "not_excluded": 133
+      },
+      "passRate": 0.4178,
+      "passed": 94
+     },
+     "v21": {
+      "byKind": {
+       "name_only": {
+        "n": 225,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_unresolved:low_evidence_rung": 225
+      },
+      "passRate": 1.0,
+      "passed": 225
+     }
+    },
+    "position": {
+     "cases": 649,
+     "constructed": 649,
+     "inc": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 225,
+        "passRate": 0.4
+       }
+      },
+      "exclusionReasons": {
+       "filter_dropped": 89,
+       "not_excluded": 136
+      },
+      "passRate": 0.4,
+      "passed": 90
+     },
+     "rpc": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 225,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_contradicted:join_inconsistent": 2,
+       "identity_contradicted:position_family": 150,
+       "identity_unresolved:low_evidence_rung": 73
+      },
+      "passRate": 1.0,
+      "passed": 225
+     },
+     "scored": 225,
+     "unconstructed": {},
+     "v2": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 225,
+        "passRate": 0.4178
+       }
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 92,
+       "not_excluded": 133
+      },
+      "passRate": 0.4178,
+      "passed": 94
+     },
+     "v21": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 225,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_contradicted:join_inconsistent": 2,
+       "identity_contradicted:position_family": 150,
+       "identity_unresolved:low_evidence_rung": 73
+      },
+      "passRate": 1.0,
+      "passed": 225
+     }
+    }
+   },
+   "AD3": {
+    "registered": {
+     "v2": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     },
+     "v21": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     }
+    },
+    "v2_priced": {
+     "v2": {
+      "boards": 16,
+      "flagged": 12,
+      "passes16of16": false
+     },
+     "v21": {
+      "boards": 16,
+      "flagged": 8,
+      "passes16of16": false
+     }
+    }
+   },
+   "H2_SYN": {
+    "groupShifts": {
+     "DB": 0.18,
+     "DL": 0.18,
+     "LB": 0.18,
+     "QB": -0.15,
+     "RB": 0.17,
+     "TE": 0.21,
+     "WR": 0.19
+    },
+    "healthyTwinProof": {
+     "boardProof": false,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.0,
+       "rows": 122,
+       "signShare": 0.0
+      },
+      "DL": {
+       "medianLogRatio": 0.0,
+       "rows": 145,
+       "signShare": 0.0
+      },
+      "LB": {
+       "medianLogRatio": 0.0,
+       "rows": 108,
+       "signShare": 0.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.0,
+       "rows": 5,
+       "signShare": 0.0
+      },
+      "PICK": {
+       "medianLogRatio": 0.0,
+       "rows": 84,
+       "signShare": 0.0
+      },
+      "QB": {
+       "medianLogRatio": 0.0,
+       "rows": 67,
+       "signShare": 0.0
+      },
+      "RB": {
+       "medianLogRatio": 0.0,
+       "rows": 117,
+       "signShare": 0.0
+      },
+      "TE": {
+       "medianLogRatio": 0.0,
+       "rows": 71,
+       "signShare": 0.0
+      },
+      "WR": {
+       "medianLogRatio": 0.0,
+       "rows": 176,
+       "signShare": 0.0
+      }
+     },
+     "provenGroups": [],
+     "replacedByCsv": 0,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 895,
+      "payloadRows": 899
+     },
+     "withheldNoCsv": 0
+    },
+    "proof": {
+     "boardProof": true,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.179964,
+       "rows": 122,
+       "signShare": 1.0
+      },
+      "DL": {
+       "medianLogRatio": 0.180005,
+       "rows": 145,
+       "signShare": 1.0
+      },
+      "LB": {
+       "medianLogRatio": 0.179988,
+       "rows": 108,
+       "signShare": 1.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.209688,
+       "rows": 5,
+       "signShare": 1.0
+      },
+      "PICK": {
+       "medianLogRatio": 0.0,
+       "rows": 84,
+       "signShare": 0.0
+      },
+      "QB": {
+       "medianLogRatio": -0.150032,
+       "rows": 67,
+       "signShare": 1.0
+      },
+      "RB": {
+       "medianLogRatio": 0.169966,
+       "rows": 117,
+       "signShare": 1.0
+      },
+      "TE": {
+       "medianLogRatio": 0.209986,
+       "rows": 71,
+       "signShare": 1.0
+      },
+      "WR": {
+       "medianLogRatio": 0.189971,
+       "rows": 176,
+       "signShare": 1.0
+      }
+     },
+     "provenGroups": [
+      "DB",
+      "DL",
+      "LB",
+      "QB",
+      "RB",
+      "TE",
+      "WR"
+     ],
+     "replacedByCsv": 766,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 895,
+      "payloadRows": 899
+     },
+     "withheldNoCsv": 4
+    },
+    "rowsShifted": 768
+   },
+   "INJ_DUP": {
+    "cases": 695,
+    "holds": true,
+    "propertyA_noProviderMerged": true,
+    "propertyA_violations": [],
+    "propertyB_noBandNarrows": true,
+    "propertyB_violations": [],
+    "rowsNewlyDroppedWithoutPriorReference": 0
+   },
+   "INJ_H1": {
+    "injected": {
+     "other": 0,
+     "voting": 0,
+     "withheld": 104
+    },
+    "unmodified": {
+     "other": 0,
+     "voting": 104,
+     "withheld": 0
+    }
+   },
+   "INJ_SEG": {
+    "groupShifts": {
+     "DB": -0.1916,
+     "DL": 0.2925,
+     "K": -0.1643,
+     "LB": -0.112,
+     "OTHER": -0.1731,
+     "QB": -0.2079,
+     "RB": -0.1349,
+     "T": -0.1814,
+     "TE": 0.1368,
+     "WR": 0.2065
+    },
+    "provenance": {
+     "boardProof": true,
+     "groups": {
+      "DB": {
+       "medianLogRatio": -0.191477,
+       "rows": 122,
+       "signShare": 1.0
+      },
+      "DL": {
+       "medianLogRatio": 0.292381,
+       "rows": 145,
+       "signShare": 1.0
+      },
+      "LB": {
+       "medianLogRatio": -0.111869,
+       "rows": 108,
+       "signShare": 1.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.0,
+       "rows": 5,
+       "signShare": 0.0
+      },
+      "PICK": {
+       "medianLogRatio": -0.172992,
+       "rows": 84,
+       "signShare": 1.0
+      },
+      "QB": {
+       "medianLogRatio": -0.207776,
+       "rows": 67,
+       "signShare": 1.0
+      },
+      "RB": {
+       "medianLogRatio": -0.134833,
+       "rows": 117,
+       "signShare": 1.0
+      },
+      "TE": {
+       "medianLogRatio": 0.136704,
+       "rows": 71,
+       "signShare": 1.0
+      },
+      "WR": {
+       "medianLogRatio": 0.206432,
+       "rows": 176,
+       "signShare": 1.0
+      }
+     },
+     "provenGroups": [
+      "DB",
+      "DL",
+      "LB",
+      "PICK",
+      "QB",
+      "RB",
+      "TE",
+      "WR"
+     ],
+     "replacedByCsv": 594,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 895,
+      "payloadRows": 899
+     },
+     "withheldNoCsv": 4
+    },
+    "rowsShifted": 597
+   },
+   "seed": 2034,
+   "thresholds": {
+    "epsilonB2": 0.01,
+    "kC": 4.0,
+    "nMin": 20,
+    "rhoMin": 0.0,
+    "status": "oiv21_dev_exploratory_not_frozen",
+    "tauAge": 1.0,
+    "tauBoardCells": 22,
+    "tauCLayerC": 1.791759,
+    "tauCSources": 19,
+    "tauGross": 1.386294
+   },
+   "valueGates": {
+    "AD1a": {
+     "bar": 0.9,
+     "cases": 756,
+     "inc": {
+      "byBand": {
+       "3": 0.1176,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 240,
+       "not_excluded": 60
+      },
+      "meetsBar": false,
+      "passRate": 0.8,
+      "passed": 240
+     },
+     "material": 300,
+     "rpc": {
+      "byBand": {
+       "3": 0.9412,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 3,
+       "held_pending_confirmation:observation_discontinuity": 293,
+       "not_excluded": 4
+      },
+      "meetsBar": true,
+      "passRate": 0.9867,
+      "passed": 296
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.8088,
+       "4-5": 0.9526,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 278,
+       "not_excluded": 22
+      },
+      "meetsBar": true,
+      "passRate": 0.9267,
+      "passed": 278
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.9265,
+       "4-5": 0.9947,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 1,
+       "held_pending_confirmation:observation_discontinuity": 293,
+       "not_excluded": 6
+      },
+      "meetsBar": true,
+      "passRate": 0.98,
+      "passed": 294
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.9265,
+       "4-5": 0.9947,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 1,
+       "held_pending_confirmation:observation_discontinuity": 293,
+       "not_excluded": 6
+      },
+      "meetsBar": true,
+      "passRate": 0.98,
+      "passed": 294
+     }
+    },
+    "AD1b": {
+     "bar": 0.9,
+     "cases": 756,
+     "inc": {
+      "byBand": {
+       "3": 0.0156,
+       "4-5": 0.7077,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 92,
+       "not_excluded": 103
+      },
+      "meetsBar": false,
+      "passRate": 0.4769,
+      "passed": 93
+     },
+     "material": 195,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9846,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 2,
+       "held_pending_confirmation:observation_discontinuity": 191,
+       "not_excluded": 2
+      },
+      "meetsBar": true,
+      "passRate": 0.9897,
+      "passed": 193
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.6562,
+       "4-5": 0.6462,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 126,
+       "not_excluded": 69
+      },
+      "meetsBar": false,
+      "passRate": 0.6462,
+      "passed": 126
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.9844,
+       "4-5": 0.9846,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 191,
+       "not_excluded": 4
+      },
+      "meetsBar": true,
+      "passRate": 0.9795,
+      "passed": 191
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.9844,
+       "4-5": 0.9846,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 191,
+       "not_excluded": 4
+      },
+      "meetsBar": true,
+      "passRate": 0.9795,
+      "passed": 191
+     }
+    },
+    "AD1c": {
+     "bar": 0.95,
+     "cases": 756,
+     "inc": {
+      "byBand": {
+       "3": 0.1013,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 268,
+       "not_excluded": 71
+      },
+      "meetsBar": false,
+      "passRate": 0.7906,
+      "passed": 268
+     },
+     "material": 339,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 3,
+       "held_pending_confirmation:observation_discontinuity": 336
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 339
+     },
+     "v1": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9948,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 338,
+       "not_excluded": 1
+      },
+      "meetsBar": true,
+      "passRate": 0.9971,
+      "passed": 338
+     },
+     "v2": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9948,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 2,
+       "held_pending_confirmation:observation_discontinuity": 335,
+       "identity_contradicted:age": 1,
+       "not_excluded": 1
+      },
+      "meetsBar": true,
+      "passRate": 0.9971,
+      "passed": 338
+     },
+     "v21": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9948,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 2,
+       "held_pending_confirmation:observation_discontinuity": 336,
+       "not_excluded": 1
+      },
+      "meetsBar": true,
+      "passRate": 0.9971,
+      "passed": 338
+     }
+    },
+    "AD1d": {
+     "bar": 0.95,
+     "cases": 756,
+     "inc": {
+      "byBand": {
+       "3": 0.0139,
+       "4-5": 0.8431,
+       ">=6": 0.5714
+      },
+      "exclusionReasons": {
+       "filter_dropped": 133,
+       "not_excluded": 99
+      },
+      "meetsBar": false,
+      "passRate": 0.5776,
+      "passed": 134
+     },
+     "material": 232,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 2,
+       "held_pending_confirmation:observation_discontinuity": 230
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 232
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.8056,
+       "4-5": 0.9216,
+       ">=6": 0.7143
+      },
+      "exclusionReasons": {
+       "filter_dropped": 204,
+       "not_excluded": 28
+      },
+      "meetsBar": false,
+      "passRate": 0.8793,
+      "passed": 204
+     },
+     "v2": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 2,
+       "held_pending_confirmation:observation_discontinuity": 230
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 232
+     },
+     "v21": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 2,
+       "held_pending_confirmation:observation_discontinuity": 230
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 232
+     }
+    },
+    "AD2": {
+     "bar": 0.9,
+     "cases": 669,
+     "inc": {
+      "byBand": {
+       "3": 0.0323,
+       "4-5": 0.5385,
+       ">=6": 0.75
+      },
+      "exclusionReasons": {
+       "filter_dropped": 55,
+       "not_excluded": 75
+      },
+      "meetsBar": false,
+      "passRate": 0.4308,
+      "passed": 56
+     },
+     "material": 130,
+     "rpc": {
+      "byBand": {
+       "3": 0.3871,
+       "4-5": 0.4725,
+       ">=6": 0.75
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 61,
+       "not_excluded": 69
+      },
+      "meetsBar": false,
+      "passRate": 0.4692,
+      "passed": 61
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.0645,
+       "4-5": 0.1209,
+       ">=6": 0.375
+      },
+      "exclusionReasons": {
+       "filter_dropped": 16,
+       "not_excluded": 114
+      },
+      "meetsBar": false,
+      "passRate": 0.1231,
+      "passed": 16
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.4194,
+       "4-5": 0.4725,
+       ">=6": 0.75
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 61,
+       "not_excluded": 69
+      },
+      "meetsBar": false,
+      "passRate": 0.4769,
+      "passed": 62
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.3871,
+       "4-5": 0.4725,
+       ">=6": 0.75
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 61,
+       "not_excluded": 69
+      },
+      "meetsBar": false,
+      "passRate": 0.4692,
+      "passed": 61
+     }
+    },
+    "AD4": {
+     "bar": 0.95,
+     "cases": 228,
+     "inc": {
+      "byBand": {
+       "3": 0.1111,
+       "4-5": 0.9833,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 64,
+       "not_excluded": 9
+      },
+      "meetsBar": false,
+      "passRate": 0.8767,
+      "passed": 64
+     },
+     "material": 73,
+     "rpc": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 73
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 73
+     },
+     "v1": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 73
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 73
+     },
+     "v2": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 73
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 73
+     },
+     "v21": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "held_pending_confirmation:observation_discontinuity": 73
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 73
+     }
+    }
+   },
+   "variant": "ARRIVING",
+   "wallSeconds": 2651.6
+  },
+  "dynasty_export_20260930_130404_NOHIST": {
+   "AD2_ID": {
+    "cases": 669,
+    "constructed": 657,
+    "inc": {
+     "byKind": {
+      "name_only": {
+       "n": 83,
+       "passRate": 0.4096
+      },
+      "with_identity_fields": {
+       "n": 40,
+       "passRate": 0.45
+      }
+     },
+     "exclusionReasons": {
+      "filter_dropped": 51,
+      "not_excluded": 72
+     },
+     "passRate": 0.4228,
+     "passed": 52
+    },
+    "rpc": {
+     "byKind": {
+      "name_only": {
+       "n": 83,
+       "passRate": 0.0964
+      },
+      "with_identity_fields": {
+       "n": 40,
+       "passRate": 0.75
+      }
+     },
+     "exclusionReasons": {
+      "extreme_uncorroborated_tail": 9,
+      "identity_contradicted:age": 20,
+      "identity_contradicted:position_family": 7,
+      "identity_contradicted:sleeper_id": 1,
+      "not_excluded": 86
+     },
+     "passRate": 0.3089,
+     "passed": 38
+    },
+    "scored": 123,
+    "unconstructed": {
+     "other_csv_rows=0": 5,
+     "other_csv_rows=2": 5,
+     "target_csv_rows=2": 2
+    },
+    "v2": {
+     "byKind": {
+      "name_only": {
+       "n": 83,
+       "passRate": 0.1446
+      },
+      "with_identity_fields": {
+       "n": 40,
+       "passRate": 0.825
+      }
+     },
+     "exclusionReasons": {
+      "extreme_uncorroborated_tail": 11,
+      "identity_contradicted:age": 23,
+      "identity_contradicted:sleeper_id": 1,
+      "identity_unresolved:team_only_mismatch": 9,
+      "not_excluded": 79
+     },
+     "passRate": 0.3659,
+     "passed": 45
+    },
+    "v21": {
+     "byKind": {
+      "name_only": {
+       "n": 83,
+       "passRate": 0.0482
+      },
+      "with_identity_fields": {
+       "n": 40,
+       "passRate": 0.7
+      }
+     },
+     "exclusionReasons": {
+      "extreme_uncorroborated_tail": 3,
+      "identity_contradicted:age": 20,
+      "identity_contradicted:position_family": 7,
+      "identity_contradicted:sleeper_id": 1,
+      "not_excluded": 92
+     },
+     "passRate": 0.2602,
+     "passed": 32
+    }
+   },
+   "AD2_N": {
+    "cases": 50,
+    "constructed": 50,
+    "inc": {
+     "byKind": {
+      "name_only": {
+       "n": 14,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 36,
+       "passRate": 0.0
+      }
+     },
+     "exclusionReasons": {
+      "filter_dropped": 2,
+      "not_excluded": 48
+     },
+     "passRate": 0.0,
+     "passed": 0
+    },
+    "rpc": {
+     "byKind": {
+      "name_only": {
+       "n": 14,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 36,
+       "passRate": 0.25
+      }
+     },
+     "exclusionReasons": {
+      "identity_contradicted:position_family": 5,
+      "identity_unresolved:ambiguous_in_source": 4,
+      "not_excluded": 41
+     },
+     "passRate": 0.18,
+     "passed": 9
+    },
+    "scored": 50,
+    "unconstructed": {},
+    "v2": {
+     "byKind": {
+      "name_only": {
+       "n": 14,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 36,
+       "passRate": 0.2222
+      }
+     },
+     "exclusionReasons": {
+      "identity_unresolved:ambiguous_in_source": 4,
+      "identity_unresolved:team_only_mismatch": 4,
+      "not_excluded": 42
+     },
+     "passRate": 0.16,
+     "passed": 8
+    },
+    "v21": {
+     "byKind": {
+      "name_only": {
+       "n": 14,
+       "passRate": 0.0
+      },
+      "with_identity_fields": {
+       "n": 36,
+       "passRate": 0.25
+      }
+     },
+     "exclusionReasons": {
+      "identity_contradicted:position_family": 5,
+      "identity_unresolved:ambiguous_in_source": 4,
+      "not_excluded": 41
+     },
+     "passRate": 0.18,
+     "passed": 9
+    }
+   },
+   "AD2_SUR": {
+    "control_true_value_faithful": {
+     "rpc": {
+      "of": 649,
+      "refused": 649
+     },
+     "v21": {
+      "of": 649,
+      "refused": 649
+     }
+    },
+    "faithful": {
+     "cases": 649,
+     "constructed": 649,
+     "inc": {
+      "byKind": {
+       "name_only": {
+        "n": 225,
+        "passRate": 0.4
+       }
+      },
+      "exclusionReasons": {
+       "filter_dropped": 89,
+       "not_excluded": 136
+      },
+      "passRate": 0.4,
+      "passed": 90
+     },
+     "rpc": {
+      "byKind": {
+       "name_only": {
+        "n": 225,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_unresolved:low_evidence_rung": 225
+      },
+      "passRate": 1.0,
+      "passed": 225
+     },
+     "scored": 225,
+     "unconstructed": {},
+     "v2": {
+      "byKind": {
+       "name_only": {
+        "n": 225,
+        "passRate": 0.0844
+       }
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 17,
+       "not_excluded": 208
+      },
+      "passRate": 0.0844,
+      "passed": 19
+     },
+     "v21": {
+      "byKind": {
+       "name_only": {
+        "n": 225,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_unresolved:low_evidence_rung": 225
+      },
+      "passRate": 1.0,
+      "passed": 225
+     }
+    },
+    "position": {
+     "cases": 649,
+     "constructed": 649,
+     "inc": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 225,
+        "passRate": 0.4
+       }
+      },
+      "exclusionReasons": {
+       "filter_dropped": 89,
+       "not_excluded": 136
+      },
+      "passRate": 0.4,
+      "passed": 90
+     },
+     "rpc": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 225,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_contradicted:join_inconsistent": 2,
+       "identity_contradicted:position_family": 150,
+       "identity_unresolved:low_evidence_rung": 73
+      },
+      "passRate": 1.0,
+      "passed": 225
+     },
+     "scored": 225,
+     "unconstructed": {},
+     "v2": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 225,
+        "passRate": 0.0844
+       }
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 17,
+       "not_excluded": 208
+      },
+      "passRate": 0.0844,
+      "passed": 19
+     },
+     "v21": {
+      "byKind": {
+       "with_identity_fields": {
+        "n": 225,
+        "passRate": 1.0
+       }
+      },
+      "exclusionReasons": {
+       "identity_contradicted:join_inconsistent": 2,
+       "identity_contradicted:position_family": 150,
+       "identity_unresolved:low_evidence_rung": 73
+      },
+      "passRate": 1.0,
+      "passed": 225
+     }
+    }
+   },
+   "AD3": {
+    "registered": {
+     "v2": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     },
+     "v21": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     }
+    },
+    "v2_priced": {
+     "v2": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     },
+     "v21": {
+      "boards": 16,
+      "flagged": 4,
+      "passes16of16": false
+     }
+    }
+   },
+   "H2_SYN": {
+    "groupShifts": {
+     "DB": 0.18,
+     "DL": 0.18,
+     "LB": 0.18,
+     "QB": -0.15,
+     "RB": 0.17,
+     "TE": 0.21,
+     "WR": 0.19
+    },
+    "healthyTwinProof": {
+     "boardProof": false,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.0,
+       "rows": 122,
+       "signShare": 0.0
+      },
+      "DL": {
+       "medianLogRatio": 0.0,
+       "rows": 145,
+       "signShare": 0.0
+      },
+      "LB": {
+       "medianLogRatio": 0.0,
+       "rows": 108,
+       "signShare": 0.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.0,
+       "rows": 5,
+       "signShare": 0.0
+      },
+      "PICK": {
+       "medianLogRatio": 0.0,
+       "rows": 84,
+       "signShare": 0.0
+      },
+      "QB": {
+       "medianLogRatio": 0.0,
+       "rows": 67,
+       "signShare": 0.0
+      },
+      "RB": {
+       "medianLogRatio": 0.0,
+       "rows": 117,
+       "signShare": 0.0
+      },
+      "TE": {
+       "medianLogRatio": 0.0,
+       "rows": 71,
+       "signShare": 0.0
+      },
+      "WR": {
+       "medianLogRatio": 0.0,
+       "rows": 176,
+       "signShare": 0.0
+      }
+     },
+     "provenGroups": [],
+     "replacedByCsv": 0,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 895,
+      "payloadRows": 899
+     },
+     "withheldNoCsv": 0
+    },
+    "proof": {
+     "boardProof": true,
+     "groups": {
+      "DB": {
+       "medianLogRatio": 0.179964,
+       "rows": 122,
+       "signShare": 1.0
+      },
+      "DL": {
+       "medianLogRatio": 0.180005,
+       "rows": 145,
+       "signShare": 1.0
+      },
+      "LB": {
+       "medianLogRatio": 0.179988,
+       "rows": 108,
+       "signShare": 1.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.209688,
+       "rows": 5,
+       "signShare": 1.0
+      },
+      "PICK": {
+       "medianLogRatio": 0.0,
+       "rows": 84,
+       "signShare": 0.0
+      },
+      "QB": {
+       "medianLogRatio": -0.150032,
+       "rows": 67,
+       "signShare": 1.0
+      },
+      "RB": {
+       "medianLogRatio": 0.169966,
+       "rows": 117,
+       "signShare": 1.0
+      },
+      "TE": {
+       "medianLogRatio": 0.209986,
+       "rows": 71,
+       "signShare": 1.0
+      },
+      "WR": {
+       "medianLogRatio": 0.189971,
+       "rows": 176,
+       "signShare": 1.0
+      }
+     },
+     "provenGroups": [
+      "DB",
+      "DL",
+      "LB",
+      "QB",
+      "RB",
+      "TE",
+      "WR"
+     ],
+     "replacedByCsv": 766,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 895,
+      "payloadRows": 899
+     },
+     "withheldNoCsv": 4
+    },
+    "rowsShifted": 768
+   },
+   "INJ_DUP": {
+    "cases": 695,
+    "holds": true,
+    "propertyA_noProviderMerged": true,
+    "propertyA_violations": [],
+    "propertyB_noBandNarrows": true,
+    "propertyB_violations": [],
+    "rowsNewlyDroppedWithoutPriorReference": 0
+   },
+   "INJ_H1": {
+    "injected": {
+     "other": 0,
+     "voting": 0,
+     "withheld": 104
+    },
+    "unmodified": {
+     "other": 0,
+     "voting": 104,
+     "withheld": 0
+    }
+   },
+   "INJ_SEG": {
+    "groupShifts": {
+     "DB": -0.1916,
+     "DL": 0.2925,
+     "K": -0.1643,
+     "LB": -0.112,
+     "OTHER": -0.1731,
+     "QB": -0.2079,
+     "RB": -0.1349,
+     "T": -0.1814,
+     "TE": 0.1368,
+     "WR": 0.2065
+    },
+    "provenance": {
+     "boardProof": true,
+     "groups": {
+      "DB": {
+       "medianLogRatio": -0.191477,
+       "rows": 122,
+       "signShare": 1.0
+      },
+      "DL": {
+       "medianLogRatio": 0.292381,
+       "rows": 145,
+       "signShare": 1.0
+      },
+      "LB": {
+       "medianLogRatio": -0.111869,
+       "rows": 108,
+       "signShare": 1.0
+      },
+      "OTHER": {
+       "medianLogRatio": 0.0,
+       "rows": 5,
+       "signShare": 0.0
+      },
+      "PICK": {
+       "medianLogRatio": -0.172992,
+       "rows": 84,
+       "signShare": 1.0
+      },
+      "QB": {
+       "medianLogRatio": -0.207776,
+       "rows": 67,
+       "signShare": 1.0
+      },
+      "RB": {
+       "medianLogRatio": -0.134833,
+       "rows": 117,
+       "signShare": 1.0
+      },
+      "TE": {
+       "medianLogRatio": 0.136704,
+       "rows": 71,
+       "signShare": 1.0
+      },
+      "WR": {
+       "medianLogRatio": 0.206432,
+       "rows": 176,
+       "signShare": 1.0
+      }
+     },
+     "provenGroups": [
+      "DB",
+      "DL",
+      "LB",
+      "PICK",
+      "QB",
+      "RB",
+      "TE",
+      "WR"
+     ],
+     "replacedByCsv": 594,
+     "rowProofs": 0,
+     "supporting": {
+      "overlappingRows": 895,
+      "payloadRows": 899
+     },
+     "withheldNoCsv": 4
+    },
+    "rowsShifted": 597
+   },
+   "seed": 2034,
+   "thresholds": {
+    "epsilonB2": 0.01,
+    "kC": 4.0,
+    "nMin": 20,
+    "rhoMin": 0.0,
+    "status": "oiv21_dev_exploratory_not_frozen",
+    "tauAge": 1.0,
+    "tauBoardCells": 22,
+    "tauCLayerC": 1.791759,
+    "tauCSources": 19,
+    "tauGross": 1.386294
+   },
+   "valueGates": {
+    "AD1a": {
+     "bar": 0.9,
+     "cases": 756,
+     "inc": {
+      "byBand": {
+       "3": 0.1176,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 240,
+       "not_excluded": 60
+      },
+      "meetsBar": false,
+      "passRate": 0.8,
+      "passed": 240
+     },
+     "material": 300,
+     "rpc": {
+      "byBand": {
+       "3": 0.8088,
+       "4-5": 0.8316,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 255,
+       "not_excluded": 45
+      },
+      "meetsBar": false,
+      "passRate": 0.85,
+      "passed": 255
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.8088,
+       "4-5": 0.9526,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 278,
+       "not_excluded": 22
+      },
+      "meetsBar": true,
+      "passRate": 0.9267,
+      "passed": 278
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.5588,
+       "4-5": 0.8842,
+       ">=6": 0.8095
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 240,
+       "not_excluded": 60
+      },
+      "meetsBar": false,
+      "passRate": 0.8,
+      "passed": 240
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.4559,
+       "4-5": 0.6421,
+       ">=6": 0.3095
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 166,
+       "not_excluded": 134
+      },
+      "meetsBar": false,
+      "passRate": 0.5533,
+      "passed": 166
+     }
+    },
+    "AD1b": {
+     "bar": 0.9,
+     "cases": 756,
+     "inc": {
+      "byBand": {
+       "3": 0.0156,
+       "4-5": 0.7077,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 92,
+       "not_excluded": 103
+      },
+      "meetsBar": false,
+      "passRate": 0.4769,
+      "passed": 93
+     },
+     "material": 195,
+     "rpc": {
+      "byBand": {
+       "3": 0.9219,
+       "4-5": 0.6846,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 149,
+       "not_excluded": 46
+      },
+      "meetsBar": false,
+      "passRate": 0.7641,
+      "passed": 149
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.6562,
+       "4-5": 0.6462,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 126,
+       "not_excluded": 69
+      },
+      "meetsBar": false,
+      "passRate": 0.6462,
+      "passed": 126
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.5469,
+       "4-5": 0.4308,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 91,
+       "not_excluded": 104
+      },
+      "meetsBar": false,
+      "passRate": 0.4667,
+      "passed": 91
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.2344,
+       "4-5": 0.0923,
+       ">=6": 0.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 27,
+       "not_excluded": 168
+      },
+      "meetsBar": false,
+      "passRate": 0.1385,
+      "passed": 27
+     }
+    },
+    "AD1c": {
+     "bar": 0.95,
+     "cases": 756,
+     "inc": {
+      "byBand": {
+       "3": 0.1013,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 268,
+       "not_excluded": 71
+      },
+      "meetsBar": false,
+      "passRate": 0.7906,
+      "passed": 268
+     },
+     "material": 339,
+     "rpc": {
+      "byBand": {
+       "3": 0.9747,
+       "4-5": 0.9223,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 322,
+       "not_excluded": 17
+      },
+      "meetsBar": false,
+      "passRate": 0.9499,
+      "passed": 322
+     },
+     "v1": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 0.9948,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 338,
+       "not_excluded": 1
+      },
+      "meetsBar": true,
+      "passRate": 0.9971,
+      "passed": 338
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.8228,
+       "4-5": 0.9896,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 322,
+       "identity_contradicted:age": 1,
+       "not_excluded": 16
+      },
+      "meetsBar": true,
+      "passRate": 0.9528,
+      "passed": 323
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.8228,
+       "4-5": 0.9378,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 313,
+       "not_excluded": 26
+      },
+      "meetsBar": false,
+      "passRate": 0.9233,
+      "passed": 313
+     }
+    },
+    "AD1d": {
+     "bar": 0.95,
+     "cases": 756,
+     "inc": {
+      "byBand": {
+       "3": 0.0139,
+       "4-5": 0.8431,
+       ">=6": 0.5714
+      },
+      "exclusionReasons": {
+       "filter_dropped": 133,
+       "not_excluded": 99
+      },
+      "meetsBar": false,
+      "passRate": 0.5776,
+      "passed": 134
+     },
+     "material": 232,
+     "rpc": {
+      "byBand": {
+       "3": 0.9444,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 228,
+       "not_excluded": 4
+      },
+      "meetsBar": true,
+      "passRate": 0.9828,
+      "passed": 228
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.8056,
+       "4-5": 0.9216,
+       ">=6": 0.7143
+      },
+      "exclusionReasons": {
+       "filter_dropped": 204,
+       "not_excluded": 28
+      },
+      "meetsBar": false,
+      "passRate": 0.8793,
+      "passed": 204
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.8472,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 221,
+       "not_excluded": 11
+      },
+      "meetsBar": true,
+      "passRate": 0.9526,
+      "passed": 221
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.8611,
+       "4-5": 0.9804,
+       ">=6": 0.7143
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 217,
+       "not_excluded": 15
+      },
+      "meetsBar": false,
+      "passRate": 0.9353,
+      "passed": 217
+     }
+    },
+    "AD2": {
+     "bar": 0.9,
+     "cases": 669,
+     "inc": {
+      "byBand": {
+       "3": 0.0323,
+       "4-5": 0.5385,
+       ">=6": 0.75
+      },
+      "exclusionReasons": {
+       "filter_dropped": 55,
+       "not_excluded": 75
+      },
+      "meetsBar": false,
+      "passRate": 0.4308,
+      "passed": 56
+     },
+     "material": 130,
+     "rpc": {
+      "byBand": {
+       "3": 0.129,
+       "4-5": 0.0769,
+       ">=6": 0.625
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 16,
+       "not_excluded": 114
+      },
+      "meetsBar": false,
+      "passRate": 0.1231,
+      "passed": 16
+     },
+     "v1": {
+      "byBand": {
+       "3": 0.0645,
+       "4-5": 0.1209,
+       ">=6": 0.375
+      },
+      "exclusionReasons": {
+       "filter_dropped": 16,
+       "not_excluded": 114
+      },
+      "meetsBar": false,
+      "passRate": 0.1231,
+      "passed": 16
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.0968,
+       "4-5": 0.0659,
+       ">=6": 0.375
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 11,
+       "not_excluded": 119
+      },
+      "meetsBar": false,
+      "passRate": 0.0923,
+      "passed": 12
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.0,
+       "4-5": 0.011,
+       ">=6": 0.375
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 4,
+       "not_excluded": 126
+      },
+      "meetsBar": false,
+      "passRate": 0.0308,
+      "passed": 4
+     }
+    },
+    "AD4": {
+     "bar": 0.95,
+     "cases": 228,
+     "inc": {
+      "byBand": {
+       "3": 0.1111,
+       "4-5": 0.9833,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 64,
+       "not_excluded": 9
+      },
+      "meetsBar": false,
+      "passRate": 0.8767,
+      "passed": 64
+     },
+     "material": 73,
+     "rpc": {
+      "byBand": {
+       "3": 0.8889,
+       "4-5": 0.7167,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 55,
+       "not_excluded": 18
+      },
+      "meetsBar": false,
+      "passRate": 0.7534,
+      "passed": 55
+     },
+     "v1": {
+      "byBand": {
+       "3": 1.0,
+       "4-5": 1.0,
+       ">=6": 1.0
+      },
+      "exclusionReasons": {
+       "filter_dropped": 73
+      },
+      "meetsBar": true,
+      "passRate": 1.0,
+      "passed": 73
+     },
+     "v2": {
+      "byBand": {
+       "3": 0.8889,
+       "4-5": 0.9833,
+       ">=6": 0.75
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 70,
+       "not_excluded": 3
+      },
+      "meetsBar": true,
+      "passRate": 0.9589,
+      "passed": 70
+     },
+     "v21": {
+      "byBand": {
+       "3": 0.8889,
+       "4-5": 0.7,
+       ">=6": 0.75
+      },
+      "exclusionReasons": {
+       "extreme_uncorroborated_tail": 53,
+       "not_excluded": 20
+      },
+      "meetsBar": false,
+      "passRate": 0.726,
+      "passed": 53
+     }
+    }
+   },
+   "variant": "NOHIST",
+   "wallSeconds": 2476.4
+  },
+  "dynasty_export_20260930_130404_PERSISTENT": {
+   "summary": {
+    "AD1a": {
+     "bar": 0.9,
+     "caughtArrivingNotPersistent": 38,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 27,
+      "voting:persistent_gross_dissent": 11
+     },
+     "passRate": 0.3667
+    },
+    "AD1b": {
+     "bar": 0.9,
+     "caughtArrivingNotPersistent": 53,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 53
+     },
+     "passRate": 0.0833
+    },
+    "AD1c": {
+     "bar": 0.95,
+     "caughtArrivingNotPersistent": 25,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 9,
+      "voting:persistent_gross_dissent": 16
+     },
+     "passRate": 0.5833
+    },
+    "AD1d": {
+     "bar": 0.95,
+     "caughtArrivingNotPersistent": 13,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 4,
+      "voting:persistent_gross_dissent": 9
+     },
+     "passRate": 0.7833
+    },
+    "AD2": {
+     "bar": 0.9,
+     "caughtArrivingNotPersistent": 25,
+     "material": 60,
+     "mechanism": {
+      "voting:accepted_baseline": 6,
+      "voting:kept_dissent": 19
+     },
+     "passRate": 0.0333
+    },
+    "AD4": {
+     "bar": 0.95,
+     "caughtArrivingNotPersistent": 27,
+     "material": 60,
+     "mechanism": {
+      "voting:kept_dissent": 17,
+      "voting:persistent_gross_dissent": 10
+     },
+     "passRate": 0.55
+    }
+   },
+   "wallSeconds": 1148.0,
+   "windows": {
+    "dlfSf": {
+     "datasets": 3,
+     "start": 72,
+     "startBoard": "dynasty_export_20260924_232149.zip"
+    },
+    "draftSharks": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "draftSharksIdp": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "dynastyDaddySf": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "dynastyNerdsSfTep": {
+     "datasets": 3,
+     "start": 17,
+     "startBoard": "dynasty_export_20260731_234435.zip"
+    },
+    "fantasyCalc": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "fantasyNavigatorSf": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "fantasyProsIdp": {
+     "datasets": 3,
+     "start": 71,
+     "startBoard": "dynasty_export_20260923_215107.zip"
+    },
+    "fantasyProsSf": {
+     "datasets": 3,
+     "start": 74,
+     "startBoard": "dynasty_export_20260926_164906.zip"
+    },
+    "flockFantasySf": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "idpShowCombined": {
+     "datasets": 3,
+     "start": 47,
+     "startBoard": "dynasty_export_20260830_213746.zip"
+    },
+    "idpTradeCalc": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "ktcCrowdSfTep": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "ktcTradesSfTep": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "otcffbSf": {
+     "datasets": 3,
+     "start": 74,
+     "startBoard": "dynasty_export_20260926_164906.zip"
+    },
+    "pfkDynasty": {
+     "datasets": 3,
+     "start": 75,
+     "startBoard": "dynasty_export_20260927_214140.zip"
+    },
+    "yahooBoone": {
+     "datasets": 3,
+     "start": 72,
+     "startBoard": "dynasty_export_20260924_232149.zip"
+    }
+   }
+  }
+ },
+ "invalidCategoryLabels": {
+  "v21": 0,
+  "v21nh": 0
+ },
+ "labelled": {
+  "arriving": {
+   "H1_boardsAllWithheld": 22,
+   "H1_firesOnUnlabelled": 4266,
+   "H1_labelledBoards": 22,
+   "H3H4": {
+    "dynasty_export_20260803_235610.zip": {
+     "H3": {
+      "exclusion": null,
+      "provenance": {
+       "idpTradeCalc": {
+        "csv": 7674,
+        "payload": 837.0,
+        "proof": "row",
+        "reason": "broken_feed:payload_provenance_conflict",
+        "selected": "csv"
+       }
+      },
+      "vote": 7674
+     },
+     "H4": {
+      "hardFindings": [],
+      "idptcV21Excluded": []
+     }
+    },
+    "dynasty_export_20260806_150742.zip": {
+     "H3": {
+      "exclusion": null,
+      "provenance": null,
+      "vote": 7674
+     },
+     "H4": {
+      "hardFindings": [],
+      "idptcV21Excluded": []
+     }
+    }
+   },
+   "N4": 3,
+   "N6hard": 0
+  },
+  "nohist": {
+   "H1_boardsAllWithheld": 22,
+   "H1_firesOnUnlabelled": 4266,
+   "H1_labelledBoards": 22,
+   "H3H4": {
+    "dynasty_export_20260803_235610.zip": {
+     "H3": {
+      "exclusion": null,
+      "provenance": {
+       "idpTradeCalc": {
+        "csv": 7674,
+        "payload": 837.0,
+        "proof": "row",
+        "reason": "broken_feed:payload_provenance_conflict",
+        "selected": "csv"
+       }
+      },
+      "vote": 7674
+     },
+     "H4": {
+      "hardFindings": [],
+      "idptcV21Excluded": []
+     }
+    },
+    "dynasty_export_20260806_150742.zip": {
+     "H3": {
+      "exclusion": null,
+      "provenance": null,
+      "vote": 7674
+     },
+     "H4": {
+      "hardFindings": [],
+      "idptcV21Excluded": []
+     }
+    }
+   },
+   "N4": 1,
+   "N6hard": 0
+  }
+ },
+ "pins": {
+  "codeSha": "ac6628b456c55ccb4b795f3c241d88c1ecfadc32",
+  "directory": {
+   "mtime": "2026-10-13T18:53:56Z",
+   "path": "/tmp/claude-0/-home-user-riskittogetthebrisket/0a0e9a9a-0eba-5e78-af8a-6e43d151bb9a/scratchpad/oiv21dev/dir/nfl_players.json",
+   "sha256": "ffd7d8d854fb4bdd196328c2d303585b8735dd2b5d68b63c4e6ba873960e7687"
+  },
+  "preregistration": "docs/sources/OUTLIER_INTEGRITY_V21_PREREGISTRATION.md",
+  "v21ThresholdsFileExists": false,
+  "v2ThresholdsFileSha256": "e0569bef74b3777a9f3a9c3e2eab0140f2b876c824b6edcfc5eeca501d0a382c",
+  "workingTreeDirty": false
+ },
+ "schema": "oiv21-dev-evaluation/v1",
+ "selection": {
+  "b3": null,
+  "b3Status": "FAILED_SELECTION",
+  "devContinuation": {
+   "note": "not a selection: FAILED_SELECTION",
+   "tau_C": "ln 6"
+  },
+  "epsilon_b2": 0.01,
+  "failedSelection": [
+   "b3",
+   "tau_C"
+  ],
+  "k_c": 4.0,
+  "tau_C": null
+ },
+ "status": "EXPLORATORY_DEV_NOT_GATE_OF_RECORD"
+}

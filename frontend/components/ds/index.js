@@ -13,6 +13,7 @@ export { Icon, ICON_NAMES } from "./Icon";
 export { Button } from "./Button";
 export { Field, Input } from "./Input";
 export { Select } from "./Select";
+export { Combobox } from "./Combobox";
 export { SegmentedControl } from "./SegmentedControl";
 export { Panel } from "./Panel";
 export { CollapsiblePanel } from "./CollapsiblePanel";
@@ -21,6 +22,7 @@ export { ValueBasisNote } from "./ValueBasisNote";
 export { StatTile } from "./StatTile";
 export { DataTable, sortRows } from "./DataTable";
 export { Tabs, tabId, tabPanelId } from "./Tabs";
+export { useHydrated } from "./useHydrated";
 export {
   Badge,
   StatusIndicator,
@@ -44,6 +46,7 @@ export {
   SkeletonStat,
 } from "./Skeleton";
 export { EmptyState } from "./EmptyState";
+export { FileDropzone } from "./FileDropzone";
 export { Banner } from "./Banner";
 export { FailureState } from "./FailureState";
 export { Sparkline, Meter } from "./Sparkline";

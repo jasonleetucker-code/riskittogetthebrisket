@@ -1,0 +1,530 @@
+{
+ "depthchart": [
+  {
+   "id": "15",
+   "name": "Base 3-4 D",
+   "positions": {
+    "lde": {
+     "position": {
+      "abbreviation": "LDE",
+      "name": "Left Defensive End"
+     },
+     "athletes": [
+      {
+       "id": "4684527",
+       "displayName": "T.J. Sanders"
+      },
+      {
+       "id": "4432715",
+       "displayName": "Landon Jackson"
+      }
+     ]
+    },
+    "nt": {
+     "position": {
+      "abbreviation": "NT",
+      "name": "Nose Tackle"
+     },
+     "athletes": [
+      {
+       "id": "4831989",
+       "displayName": "Deone Walker"
+      },
+      {
+       "id": "3127294",
+       "displayName": "Greg Gaines"
+      }
+     ]
+    },
+    "rde": {
+     "position": {
+      "abbreviation": "RDE",
+      "name": "Right Defensive End"
+     },
+     "athletes": [
+      {
+       "id": "4039303",
+       "displayName": "Ed Oliver"
+      },
+      {
+       "id": "4426883",
+       "displayName": "DeWayne Carter"
+      },
+      {
+       "id": "4685347",
+       "displayName": "Zane Durant"
+      }
+     ]
+    },
+    "wlb": {
+     "position": {
+      "abbreviation": "WLB",
+      "name": "Weakside Linebacker  "
+     },
+     "athletes": [
+      {
+       "id": "4362506",
+       "displayName": "Greg Rousseau"
+      },
+      {
+       "id": "4033234",
+       "displayName": "Michael Hoecht"
+      },
+      {
+       "id": "3915487",
+       "displayName": "Mike Danna"
+      }
+     ]
+    },
+    "lilb": {
+     "position": {
+      "abbreviation": "LILB",
+      "name": "Left Inside Linebacker  "
+     },
+     "athletes": [
+      {
+       "id": "4568624",
+       "displayName": "Dorian Williams"
+      },
+      {
+       "id": "4594321",
+       "displayName": "Kaleb Elarms-Orr"
+      }
+     ]
+    },
+    "rilb": {
+     "position": {
+      "abbreviation": "RILB",
+      "name": "Right Inside Linebacker"
+     },
+     "athletes": [
+      {
+       "id": "4259166",
+       "displayName": "Terrel Bernard"
+      },
+      {
+       "id": "4366349",
+       "displayName": "Joe Andreessen"
+      }
+     ]
+    },
+    "slb": {
+     "position": {
+      "abbreviation": "SLB",
+      "name": "Strongside Linebacker  "
+     },
+     "athletes": [
+      {
+       "id": "3116733",
+       "displayName": "Bradley Chubb"
+      },
+      {
+       "id": "4870886",
+       "displayName": "TJ Parker"
+      },
+      {
+       "id": "4428548",
+       "displayName": "Javon Solomon"
+      }
+     ]
+    },
+    "lcb": {
+     "position": {
+      "abbreviation": "LCB",
+      "name": "Left Cornerback"
+     },
+     "athletes": [
+      {
+       "id": "4379778",
+       "displayName": "Christian Benford"
+      },
+      {
+       "id": "4568703",
+       "displayName": "Dorian Strong"
+      }
+     ]
+    },
+    "ss": {
+     "position": {
+      "abbreviation": "SS",
+      "name": "Strong Safety"
+     },
+     "athletes": [
+      {
+       "id": "4676004",
+       "displayName": "Cole Bishop"
+      },
+      {
+       "id": "5076951",
+       "displayName": "Jalon Kilgore"
+      }
+     ]
+    },
+    "fs": {
+     "position": {
+      "abbreviation": "FS",
+      "name": "Free Safety"
+     },
+     "athletes": [
+      {
+       "id": "4034953",
+       "displayName": "C.J. Gardner-Johnson"
+      },
+      {
+       "id": "4036060",
+       "displayName": "Damar Hamlin"
+      },
+      {
+       "id": "4044133",
+       "displayName": "Sam Franklin Jr."
+      }
+     ]
+    },
+    "rcb": {
+     "position": {
+      "abbreviation": "RCB",
+      "name": "Right Cornerback"
+     },
+     "athletes": [
+      {
+       "id": "4832035",
+       "displayName": "Davison Igbinosun"
+      },
+      {
+       "id": "4688931",
+       "displayName": "Maxwell Hairston"
+      }
+     ]
+    },
+    "nb": {
+     "position": {
+      "abbreviation": "NB",
+      "name": "Nickel Back"
+     },
+     "athletes": [
+      {
+       "id": "4401823",
+       "displayName": "Dee Alford"
+      },
+      {
+       "id": "4596480",
+       "displayName": "Jordan Hancock"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "18",
+   "name": "Special Teams",
+   "positions": {
+    "pk": {
+     "position": {
+      "abbreviation": "PK",
+      "name": "Place kicker"
+     },
+     "athletes": [
+      {
+       "id": "3917232",
+       "displayName": "Tyler Bass"
+      }
+     ]
+    },
+    "p": {
+     "position": {
+      "abbreviation": "P",
+      "name": "Punter"
+     },
+     "athletes": [
+      {
+       "id": "4682758",
+       "displayName": "Tommy Doman Jr."
+      }
+     ]
+    },
+    "h": {
+     "position": {
+      "abbreviation": "H",
+      "name": "Holder"
+     },
+     "athletes": [
+      {
+       "id": "4682758",
+       "displayName": "Tommy Doman Jr."
+      }
+     ]
+    },
+    "pr": {
+     "position": {
+      "abbreviation": "PR",
+      "name": "Punt Returner"
+     },
+     "athletes": [
+      {
+       "id": "4037235",
+       "displayName": "Greg Dortch"
+      },
+      {
+       "id": "4401823",
+       "displayName": "Dee Alford"
+      },
+      {
+       "id": "4429501",
+       "displayName": "Ray Davis"
+      },
+      {
+       "id": "4373678",
+       "displayName": "Khalil Shakir"
+      }
+     ]
+    },
+    "kr": {
+     "position": {
+      "abbreviation": "KR",
+      "name": "Kick Returner"
+     },
+     "athletes": [
+      {
+       "id": "4037235",
+       "displayName": "Greg Dortch"
+      },
+      {
+       "id": "4429501",
+       "displayName": "Ray Davis"
+      },
+      {
+       "id": "4373678",
+       "displayName": "Khalil Shakir"
+      },
+      {
+       "id": "3915411",
+       "displayName": "Ty Johnson"
+      }
+     ]
+    },
+    "ls": {
+     "position": {
+      "abbreviation": "LS",
+      "name": "Long Snapper"
+     },
+     "athletes": [
+      {
+       "id": "2976549",
+       "displayName": "Reid Ferguson"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "21",
+   "name": "3WR 1TE",
+   "positions": {
+    "wr1": {
+     "position": {
+      "abbreviation": "WR",
+      "name": "Wide Receiver"
+     },
+     "athletes": [
+      {
+       "id": "3915416",
+       "displayName": "DJ Moore"
+      },
+      {
+       "id": "4242433",
+       "displayName": "Joshua Palmer"
+      },
+      {
+       "id": "4241476",
+       "displayName": "Tyrell Shavers"
+      }
+     ]
+    },
+    "wr2": {
+     "position": {
+      "abbreviation": "WR",
+      "name": "Wide Receiver"
+     },
+     "athletes": [
+      {
+       "id": "4373678",
+       "displayName": "Khalil Shakir"
+      },
+      {
+       "id": "4037235",
+       "displayName": "Greg Dortch"
+      }
+     ]
+    },
+    "wr3": {
+     "position": {
+      "abbreviation": "WR",
+      "name": "Wide Receiver"
+     },
+     "athletes": [
+      {
+       "id": "4635008",
+       "displayName": "Keon Coleman"
+      },
+      {
+       "id": "4683153",
+       "displayName": "Skyler Bell"
+      }
+     ]
+    },
+    "lt": {
+     "position": {
+      "abbreviation": "LT",
+      "name": "Left Tackle  "
+     },
+     "athletes": [
+      {
+       "id": "3051324",
+       "displayName": "Dion Dawkins"
+      },
+      {
+       "id": "4869533",
+       "displayName": "Jude Bowry"
+      }
+     ]
+    },
+    "lg": {
+     "position": {
+      "abbreviation": "LG",
+      "name": "Left Guard  "
+     },
+     "athletes": [
+      {
+       "id": "4367203",
+       "displayName": "Alec Anderson"
+      },
+      {
+       "id": "3056608",
+       "displayName": "Austin Corbett"
+      }
+     ]
+    },
+    "c": {
+     "position": {
+      "abbreviation": "C",
+      "name": "Center"
+     },
+     "athletes": [
+      {
+       "id": "4033748",
+       "displayName": "Connor McGovern"
+      },
+      {
+       "id": "4035448",
+       "displayName": "Lloyd Cushenberry III"
+      }
+     ]
+    },
+    "rg": {
+     "position": {
+      "abbreviation": "RG",
+      "name": "Right Guard"
+     },
+     "athletes": [
+      {
+       "id": "4428696",
+       "displayName": "O'Cyrus Torrence"
+      },
+      {
+       "id": "4606712",
+       "displayName": "Ar'maj Reed-Adams"
+      }
+     ]
+    },
+    "rt": {
+     "position": {
+      "abbreviation": "RT",
+      "name": "Right Tackle"
+     },
+     "athletes": [
+      {
+       "id": "4030899",
+       "displayName": "Spencer Brown"
+      },
+      {
+       "id": "4368828",
+       "displayName": "Tylan Grable"
+      }
+     ]
+    },
+    "qb": {
+     "position": {
+      "abbreviation": "QB",
+      "name": "Quarterback"
+     },
+     "athletes": [
+      {
+       "id": "3918298",
+       "displayName": "Josh Allen"
+      },
+      {
+       "id": "3115293",
+       "displayName": "Kyle Allen"
+      }
+     ]
+    },
+    "te": {
+     "position": {
+      "abbreviation": "TE",
+      "name": "Tight End"
+     },
+     "athletes": [
+      {
+       "id": "4385690",
+       "displayName": "Dalton Kincaid"
+      },
+      {
+       "id": "3930086",
+       "displayName": "Dawson Knox"
+      },
+      {
+       "id": "4573699",
+       "displayName": "Jackson Hawes"
+      },
+      {
+       "id": "4688552",
+       "displayName": "Keleki Latu"
+      }
+     ]
+    },
+    "rb": {
+     "position": {
+      "abbreviation": "RB",
+      "name": "Running Back"
+     },
+     "athletes": [
+      {
+       "id": "4379399",
+       "displayName": "James Cook III"
+      },
+      {
+       "id": "3915411",
+       "displayName": "Ty Johnson"
+      },
+      {
+       "id": "4429501",
+       "displayName": "Ray Davis"
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "season": {
+  "name": "Regular Season",
+  "type": 2,
+  "year": 2026
+ },
+ "status": "success",
+ "team": {
+  "abbreviation": "BUF",
+  "id": "2",
+  "displayName": "Buffalo Bills"
+ },
+ "timestamp": "2026-10-25T15:38:26Z"
+}

@@ -1,7 +1,9 @@
 """League MVP team-success gate (owner decision 2026-09-26).
 
 League MVP = elite player performance on a SUCCESSFUL fantasy team: the
-credited franchise must be in the championship playoff field AND above .500.
+credited franchise must be in the championship playoff field AND .500 or
+better (owner correction 2026-09-29: exactly .500 counts; see
+``test_league_mvp_record_500_inclusive.py`` for the boundary).
 Live seasons read the field off the canonical standings order and the
 league's own bracket size; finalized seasons read the ACTUAL bracket.
 OPOY / DPOY / ROY / positional awards do NOT inherit the gate.
@@ -174,12 +176,22 @@ def test_top_vorp_players_on_failing_teams_are_outside_the_race(pid, why):
     assert outside[pid] == why
 
 
-def test_a_500_team_inside_the_field_is_still_ineligible():
-    sec = build(playoff_teams=4)  # field = C, D, E, B — B is exactly .500
+def test_a_500_team_inside_the_field_is_eligible():
+    # Owner correction 2026-09-29: .500 OR BETTER. B is exactly .500 (2-2)
+    # and 4th with a 4-team field, so its star now races.
+    sec = build(playoff_teams=4)  # field = C, D, E, B
     r = race(sec, "league_mvp")
-    assert "rb2" not in pids(r["standings"])
+    assert "rb2" in pids(r["standings"])
     reasons = {o["playerId"]: o["reason"] for o in r["eligibility"]["outsideTheRace"]}
-    assert reasons.get("rb2") == "team_record_not_above_500"
+    assert "rb2" not in reasons
+
+
+def test_a_below_500_team_inside_the_field_is_ineligible():
+    sec = build(playoff_teams=5)  # field = C, D, E, B, A — A is 1-3
+    r = race(sec, "league_mvp")
+    assert "rb1" not in pids(r["standings"])
+    reasons = {o["playerId"]: o["reason"] for o in r["eligibility"]["outsideTheRace"]}
+    assert reasons.get("rb1") == "team_record_below_500"
 
 
 def test_a_winning_team_outside_the_field_is_ineligible():
@@ -207,14 +219,16 @@ def test_the_best_eligible_candidate_leads_and_wins():
 
 def test_finalized_season_uses_the_actual_bracket_not_the_standings_order():
     # D (3-1, 2nd in the standings) did NOT make the real bracket; B (.500)
-    # did. Final eligibility = actually qualified AND above .500 => C, E.
+    # did. Final eligibility = actually qualified AND .500 or better
+    # => C, E and B (exactly .500 counts; owner correction 2026-09-29).
     sec = build(status="complete", bracket_rids=[3, 5, 2])
     elig = award(sec, "league_mvp")["eligibility"]
     assert elig["basis"] == "final_bracket"
     finalists = race_or_finalists(sec)
     owners = {f["ownerId"] for f in finalists}
-    assert owners <= {"owner-C", "owner-E"}
-    assert "owner-D" not in owners and "owner-B" not in owners
+    assert owners <= {"owner-C", "owner-E", "owner-B"}
+    assert "owner-B" in owners
+    assert "owner-D" not in owners
 
 
 def race_or_finalists(sec):
@@ -224,8 +238,11 @@ def race_or_finalists(sec):
 def test_finalized_ineligible_top_vorp_player_does_not_win_the_next_eligible_does():
     sec = build(status="complete", bracket_rids=[3, 5, 2])
     win = award(sec, "league_mvp")
-    assert win["value"]["playerId"] not in {"rb1", "rb2", "rb4", "rb6", "dl6"}
-    assert win["ownerId"] in {"owner-C", "owner-E"}
+    # rb1 (1-3, no bracket) is out; rb2 is on B, which made the bracket at
+    # exactly .500 -- eligible under ".500 or better", and the best such VORP.
+    assert win["value"]["playerId"] not in {"rb1", "rb4", "rb6", "dl6"}
+    assert win["value"]["playerId"] == "rb2"
+    assert win["ownerId"] == "owner-B"
 
 
 def test_a_complete_season_without_a_bracket_is_unverified_not_open():
@@ -248,8 +265,9 @@ def test_unknown_playoff_field_is_unverified_never_everyone():
 
 
 def test_no_eligible_team_reports_no_eligible_candidate():
-    everyone_even = {i: (2, 2) for i in range(1, 7)}
-    sec = build(records=everyone_even)
+    # Everyone below .500 (an exactly-.500 league would now be eligible).
+    everyone_below = {i: (1, 3) for i in range(1, 7)}
+    sec = build(records=everyone_below)
     r = race(sec, "league_mvp")
     assert r["awaitingReason"] == "no_eligible_mvp_candidate"
     assert award(sec, "league_mvp")["awaitingReason"] == "no_eligible_mvp_candidate"
@@ -278,7 +296,7 @@ def test_no_other_award_or_race_reads_the_gate(monkeypatch):
     def open_gate(snapshot, season):
         teams = {o: {"eligible": True, "reason": None} for o in OWNERS}
         return {
-            "rule": "playoff_field_and_winning_record",
+            "rule": "playoff_field_and_record_500_or_better",
             "verified": True,
             "basis": "test_open",
             "playoffTeams": 6,

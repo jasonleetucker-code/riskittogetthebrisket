@@ -1,0 +1,402 @@
+{
+  "_comment": "Synthetic dynasty_main-shaped board (no real players). Generated once; edit deliberately.",
+  "currentDraftYear": 2026,
+  "playersArray": [
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 1,
+      "canonicalName": "Synthetic QB 0",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic QB 0",
+      "playerId": "5000",
+      "position": "QB",
+      "rankDerivedValue": 9400
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 2,
+      "canonicalName": "Synthetic QB 1",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic QB 1",
+      "playerId": "5001",
+      "position": "QB",
+      "rankDerivedValue": 8700
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 3,
+      "canonicalName": "Synthetic WR 2",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic WR 2",
+      "playerId": "5002",
+      "position": "WR",
+      "rankDerivedValue": 8300
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 4,
+      "canonicalName": "Synthetic RB 3",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic RB 3",
+      "playerId": "5003",
+      "position": "RB",
+      "rankDerivedValue": 7900
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 5,
+      "canonicalName": "Synthetic TE 4",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic TE 4",
+      "playerId": "5004",
+      "position": "TE",
+      "rankDerivedValue": 7400
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 6,
+      "canonicalName": "Synthetic WR 5",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic WR 5",
+      "playerId": "5005",
+      "position": "WR",
+      "rankDerivedValue": 6900
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 7,
+      "canonicalName": "Synthetic RB 6",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic RB 6",
+      "playerId": "5006",
+      "position": "RB",
+      "rankDerivedValue": 6400
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 8,
+      "canonicalName": "Synthetic QB 7",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic QB 7",
+      "playerId": "5007",
+      "position": "QB",
+      "rankDerivedValue": 5900
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 9,
+      "canonicalName": "Synthetic TE 8",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic TE 8",
+      "playerId": "5008",
+      "position": "TE",
+      "rankDerivedValue": 5300
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 10,
+      "canonicalName": "Synthetic WR 9",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic WR 9",
+      "playerId": "5009",
+      "position": "WR",
+      "rankDerivedValue": 4800
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 11,
+      "canonicalName": "Synthetic RB 10",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic RB 10",
+      "playerId": "5010",
+      "position": "RB",
+      "rankDerivedValue": 4200
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 12,
+      "canonicalName": "Synthetic WR 11",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic WR 11",
+      "playerId": "5011",
+      "position": "WR",
+      "rankDerivedValue": 3600
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 13,
+      "canonicalName": "Synthetic TE 12",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic TE 12",
+      "playerId": "5012",
+      "position": "TE",
+      "rankDerivedValue": 3100
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 14,
+      "canonicalName": "Synthetic RB 13",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic RB 13",
+      "playerId": "5013",
+      "position": "RB",
+      "rankDerivedValue": 2500
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 15,
+      "canonicalName": "Synthetic QB 14",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic QB 14",
+      "playerId": "5014",
+      "position": "QB",
+      "rankDerivedValue": 1900
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 16,
+      "canonicalName": "Synthetic WR 15",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic WR 15",
+      "playerId": "5015",
+      "position": "WR",
+      "rankDerivedValue": 1300
+    },
+    {
+      "assetClass": "idp",
+      "canonicalConsensusRank": 17,
+      "canonicalName": "Synthetic LB d0",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic LB d0",
+      "playerId": "6000",
+      "position": "LB",
+      "rankDerivedValue": 4600
+    },
+    {
+      "assetClass": "idp",
+      "canonicalConsensusRank": 18,
+      "canonicalName": "Synthetic DL d1",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic DL d1",
+      "playerId": "6001",
+      "position": "DL",
+      "rankDerivedValue": 4000
+    },
+    {
+      "assetClass": "idp",
+      "canonicalConsensusRank": 19,
+      "canonicalName": "Synthetic DB d2",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic DB d2",
+      "playerId": "6002",
+      "position": "DB",
+      "rankDerivedValue": 3300
+    },
+    {
+      "assetClass": "idp",
+      "canonicalConsensusRank": 20,
+      "canonicalName": "Synthetic LB d3",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic LB d3",
+      "playerId": "6003",
+      "position": "LB",
+      "rankDerivedValue": 2800
+    },
+    {
+      "assetClass": "idp",
+      "canonicalConsensusRank": 21,
+      "canonicalName": "Synthetic DL d4",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic DL d4",
+      "playerId": "6004",
+      "position": "DL",
+      "rankDerivedValue": 2200
+    },
+    {
+      "assetClass": "idp",
+      "canonicalConsensusRank": 22,
+      "canonicalName": "Synthetic DB d5",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic DB d5",
+      "playerId": "6005",
+      "position": "DB",
+      "rankDerivedValue": 1700
+    },
+    {
+      "assetClass": "pick",
+      "canonicalConsensusRank": 23,
+      "canonicalName": "2027 Early 1st",
+      "displayName": "2027 Early 1st",
+      "position": "PICK",
+      "rankDerivedValue": 5200
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 24,
+      "canonicalName": "Synthetic Kicker",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic Kicker",
+      "playerId": "7001",
+      "position": "K",
+      "rankDerivedValue": 1200
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 25,
+      "canonicalName": "Synthetic Quarantined",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic Quarantined",
+      "playerId": "7002",
+      "position": "WR",
+      "quarantined": true,
+      "rankDerivedValue": 3900
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 26,
+      "canonicalName": "Synthetic Haircut",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic Haircut",
+      "playerId": "7003",
+      "position": "RB",
+      "rankDerivedValue": 2100,
+      "singleSourceValuePenaltyApplied": true
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 27,
+      "canonicalName": "Synthetic TwoWay",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic TwoWay",
+      "playerId": "7004",
+      "position": "WR",
+      "rankDerivedValue": 3500,
+      "twoWayPlayerBoost": {
+        "altFamily": "DB",
+        "applied": true
+      }
+    },
+    {
+      "anomalyFlags": [
+        "blend_integrity_violation"
+      ],
+      "assetClass": "offense",
+      "blendIntegrityViolation": {
+        "max": 2,
+        "min": 1
+      },
+      "canonicalConsensusRank": 28,
+      "canonicalName": "Synthetic Blend",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic Blend",
+      "playerId": "7005",
+      "position": "TE",
+      "rankDerivedValue": 2000
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": null,
+      "canonicalName": "Synthetic OffCap",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic OffCap",
+      "offCapPlayerValue": true,
+      "playerId": "7006",
+      "position": "RB",
+      "rankDerivedValue": 400
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 29,
+      "canonicalName": "Synthetic Rookie",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic Rookie",
+      "playerId": "7007",
+      "position": "WR",
+      "rankDerivedValue": 1500
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 30,
+      "canonicalName": "Synthetic Proxy",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic Proxy",
+      "playerId": "7008",
+      "position": "RB",
+      "rankDerivedValue": 1450
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 31,
+      "canonicalName": "Synthetic Stale",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic Stale",
+      "playerId": "7009",
+      "position": "QB",
+      "rankDerivedValue": 1400
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 32,
+      "canonicalName": "Synthetic NoBalanced",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic NoBalanced",
+      "playerId": "7010",
+      "position": "TE",
+      "rankDerivedValue": 1350
+    },
+    {
+      "assetClass": "offense",
+      "canonicalConsensusRank": 33,
+      "canonicalName": "Synthetic NoVorg",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic NoVorg",
+      "playerId": "7011",
+      "position": "WR",
+      "rankDerivedValue": 1300
+    },
+    {
+      "assetClass": "idp",
+      "canonicalConsensusRank": null,
+      "canonicalName": "Synthetic NoMarket",
+      "canonicalTierId": 1,
+      "confidenceBucket": "high",
+      "displayName": "Synthetic NoMarket",
+      "playerId": "7012",
+      "position": "LB",
+      "rankDerivedValue": null
+    }
+  ]
+}

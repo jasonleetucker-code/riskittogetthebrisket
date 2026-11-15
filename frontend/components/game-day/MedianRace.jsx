@@ -21,6 +21,7 @@
  * the existing movement arrows carry the meaning.
  */
 
+import { Fragment } from "react";
 import { Movement } from "@/components/ds";
 import {
   MEDIAN_RESULT_WORDS,
@@ -83,11 +84,25 @@ function Summary({ race, final }) {
             <div className={styles.bubble}>
               <dt>On the bubble</dt>
               <dd>
+                {/* One element per team, so a name wider than its line (a
+                    real one-word Sleeper team name) is clipped with an
+                    ellipsis inside its own box — never split mid-word and
+                    never pushing a phone sideways — with the full name in
+                    the DOM and in `title`. */}
                 {race.bubble
                   .map((rid) => names.get(rid))
                   .filter(Boolean)
-                  .map((t) => `${teamLabel(t)} ${formatPct(t.beatMedianPct)}`)
-                  .join(" · ")}
+                  .map((t, i) => {
+                    const entry = `${teamLabel(t)} ${formatPct(t.beatMedianPct)}`;
+                    return (
+                      <Fragment key={t.rosterId}>
+                        {i > 0 ? " · " : null}
+                        <span className={styles.bubbleTeam} title={entry}>
+                          {entry}
+                        </span>
+                      </Fragment>
+                    );
+                  })}
               </dd>
             </div>
           ) : null}

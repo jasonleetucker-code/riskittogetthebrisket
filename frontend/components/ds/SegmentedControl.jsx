@@ -32,13 +32,20 @@
  * tab stop instead of becoming keyboard-unreachable. Wiring
  * `aria-checked` to `activeIndex` would look like a tidy-up and would
  * silently reintroduce a confident highlight on an unknown value.
+ *
+ * Hydration gate: until React has attached the click handlers, the
+ * options render `disabled` and the group carries `aria-busy="true"` —
+ * visibly not ready, rather than a click silently dropped.  Rationale and
+ * mechanism: ./useHydrated.js.
  */
 "use client";
 
 import React, { useRef } from "react";
+import { useHydrated } from "./useHydrated";
 
 export function SegmentedControl({ options, value, onChange, label, className = "" }) {
   const refs = useRef([]);
+  const hydrated = useHydrated();
   const checkedIndex = options.findIndex((o) => o.value === value);
   // Focus/arrow-key math still needs a landing spot when nothing is
   // checked, so the roving tabindex falls to the first option — the
@@ -65,6 +72,7 @@ export function SegmentedControl({ options, value, onChange, label, className = 
     <div
       role="radiogroup"
       aria-label={label}
+      aria-busy={hydrated ? undefined : true}
       className={`ds-segmented ${className}`.trim()}
       onKeyDown={onKeyDown}
     >
@@ -80,6 +88,7 @@ export function SegmentedControl({ options, value, onChange, label, className = 
             role="radio"
             aria-checked={checked}
             tabIndex={i === activeIndex ? 0 : -1}
+            disabled={!hydrated}
             className="ds-segmented__option"
             onClick={() => onChange?.(opt.value)}
           >

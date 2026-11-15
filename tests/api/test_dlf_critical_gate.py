@@ -37,6 +37,9 @@ from src.api.data_contract import (
 )
 
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
+
 def _healthy_payload() -> dict:
     """A synthetic scrape whose run summary reports a clean run."""
     return {

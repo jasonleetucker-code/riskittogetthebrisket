@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createDraftCapitalLoader, draftTeamsFromContract } from "@/lib/draft-feed";
+import { createDraftCapitalLoader, draftContractUrl, draftTeamsFromContract } from "@/lib/draft-feed";
 
 describe("draft-capital request sharing", () => {
   it("shares concurrent consumers, parses once, and refreshes on a later explicit call", async () => {
@@ -38,5 +38,12 @@ describe("draft contract readiness", () => {
     expect(draftTeamsFromContract({ meta: { sleeperDataReady: false }, sleeper: { teams } }, "A")).toBeNull();
     expect(draftTeamsFromContract({ sleeper: { teams: [] } }, "A")).toEqual([]);
     expect(draftTeamsFromContract({}, "A")).toBeNull();
+  });
+});
+
+describe("draft contract url", () => {
+  it("always asks for the lossless compact view, league-scoped when known", () => {
+    expect(draftContractUrl("")).toBe("/api/data?view=compact");
+    expect(draftContractUrl("dynasty main")).toBe("/api/data?view=compact&leagueKey=dynasty+main");
   });
 });

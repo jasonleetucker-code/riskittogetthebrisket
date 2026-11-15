@@ -2,7 +2,7 @@
 timestamp.
 
 Every ledger materializer under this package (``waiver_ledger``,
-``market_trade_ledger``, ``comparable_trades``) needs to sort rows that
+``market_trade_ledger``) needs to sort rows that
 may or may not carry a known ``occurredAtMs``. The obvious idiom —
 ``occurred_at_ms or 0`` as a sort-key fallback — is exactly the
 "missing resolves to a fabricated number" anti-pattern

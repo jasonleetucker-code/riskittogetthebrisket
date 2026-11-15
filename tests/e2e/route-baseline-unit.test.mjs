@@ -45,6 +45,14 @@ test("trade control chrome alone is insufficient; missing search result fails", 
   }};
   await assert.rejects(baselineUsefulState(page,"/trade",20),/no data/);
   assert.ok(queries.some(q=>q.includes("search-result:visible")));
+  // Phones (TC-D2): no inline search; the sheet's Add button must be clicked before the search is filled.
+  const steps=[];
+  const phone={waitForTimeout:async()=>{},locator:selector=>({first(){return this},
+    isVisible:async()=>{if(selector.includes("search-result"))throw Error("no data");return !selector.includes("search-input")||steps.includes("click")},
+    click:async()=>{assert.ok(selector.includes("Add to Side A"));steps.push("click")},
+    fill:async()=>{steps.push("fill")}})};
+  await assert.rejects(baselineUsefulState(phone,"/trade",20),/no data/);
+  assert.deepEqual(steps,["click","fill"]);
   assert.equal(await baselineUsefulState(page,"/unknown",20),"unsupported_predicate");
 });
 
@@ -356,6 +364,6 @@ test("fixed readiness polling preserves visibility, exact deadline and positive 
     clock=0;page.locator=()=>({first(){return this},isVisible:async()=>true});page.evaluate=async()=>{clock=100;return 1109};
     await assert.rejects(baselineUsefulState(page,"/rankings",100),/useful_timeout/);
     clock=0;const calls=[];page.locator=selector=>({first(){return this},isVisible:async()=>{calls.push(selector);return true},fill:async(q,options)=>{assert.equal(q,"a");assert.equal(options.timeout,100);clock=100}});
-    await assert.rejects(baselineUsefulState(page,"/trade",100),/useful_timeout/);assert.equal(calls.length,1);
+    await assert.rejects(baselineUsefulState(page,"/trade",100),/useful_timeout/);assert.deepEqual(calls,[".trade-controls",".trade-side-search-input:visible"]);
   } finally {Date.now=now;}
 });

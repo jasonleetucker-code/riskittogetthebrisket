@@ -3,8 +3,10 @@
  *
  * The collapsed race stays concise (top three); Expand reveals the backend's
  * `standings` (≤ 12) in the backend's order; Collapse restores the concise
- * card. The component computes nothing: player rows use the canonical
- * player-name primitive, manager rows the canonical franchise navigation,
+ * card. The component computes nothing: player rows link to the PUBLIC
+ * player journey (/league is public; the private Player File is not a
+ * destination a public page may send anyone to), manager rows the canonical
+ * franchise navigation,
  * NFL teams and events their own identity. Fewer than twelve means fewer
  * rows. A 2026 Waiver King row can be measured AND ineligible to win.
  */
@@ -206,12 +208,38 @@ describe("collapsed → expanded → collapsed", () => {
 });
 
 describe("entities", () => {
-  it("player rows use the canonical player-name primitive and name the rostering manager", async () => {
+  it("player rows name the rostering manager and link to the PUBLIC player journey", async () => {
     const { card } = show();
     await userEvent.click(toggle(card("top_qb")));
     const first = within(standingsList(card("top_qb"))).getAllByRole("listitem")[0];
     expect(first).toHaveTextContent("Quarterback 1");
     expect(first).toHaveTextContent("QB · BUF · rostered by Jason");
+    // #1337 public/private boundary: /league is public and /players/[id]
+    // is behind the login wall (lib/public-routes.js), so a public card
+    // links to /league/player/[id] — never into the private Player File.
+    const link = within(first).getByRole("link", { name: "Quarterback 1" });
+    expect(link).toHaveAttribute("href", "/league/player/p1");
+    for (const a of standingsList(card("top_qb")).querySelectorAll("a[href]")) {
+      expect(a.getAttribute("href")).not.toMatch(/^\/players\//);
+    }
+  });
+
+  it("a player row without an id is plain text, never a guessed link", async () => {
+    const noId = playerRow(1, 1);
+    delete noId.value.playerId;
+    const qbRace = races.find((r) => r.key === "top_qb");
+    const local = {
+      ...data,
+      awardRaces: races.map((r) => (r === qbRace ? { ...r, standings: [noId] } : r)),
+    };
+    const { container } = render(
+      <AwardsSection managers={managers} data={local} onNavigate={vi.fn()} />,
+    );
+    const qb = container.querySelector('[data-award-key="top_qb"]');
+    await userEvent.click(toggle(qb));
+    const row = within(standingsList(qb)).getAllByRole("listitem")[0];
+    expect(row).toHaveTextContent("Quarterback 1");
+    expect(row.querySelector("a")).toBeNull();
   });
 
   it("manager/team rows navigate to the canonical franchise view", async () => {

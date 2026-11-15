@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "recordedUtc": "2026-10-27T12:40:00+00:00",
+  "workstream": "H (performance), BUILD_ONLY_MAX_THROUGHPUT",
+  "status": "IMPLEMENTED_AND_TESTED; NOT_DEPLOYED",
+  "fixes": {
+    "canonical_forecast_presim": {
+      "file": "src/ros/playoff_sim.py",
+      "bottleneck": "best-ball presim re-derived slot eligibility on every one of ~1440 lineup solves; cProfile: 17.9 s of 23.3 s in _player_eligible_for_slot (2,020,710 calls)",
+      "productionReproduction": {
+        "method": "read-only curl of public endpoints from a Windows client (RTT floor ~0.35 s)",
+        "observed": "first rosPlayoffOdds / rosChampionship request after each ~5 min public snapshot refresh took 10.35 s, 11.52 s, 13.15 s, 11.18 s; same endpoints warm 0.36-0.43 s; payload forecastCached=false",
+        "why_live": "data/ros/sims/latest_playoff.json is fresh in git but production's copy is older than the 6 h mtime TTL: data-only refresh deploys are paths-ignored and the 08:29 UTC dispatch deploy failed its hard gate (tests/market_trades/test_own_league_census.py, tests/api/test_pick_refinement.py), so the live presim runs once per snapshot generation"
+      },
+      "functionLevel": {
+        "harness": "simulate_playoff_odds(snapshot, rng=random.Random(12345)) on a real dynasty_main snapshot (built 2026-10-27T11:11:59Z), 3 sequential runs",
+        "before_s": [
+          9.407,
+          5.047,
+          4.302
+        ],
+        "after_s": [
+          1.811,
+          0.892,
+          0.939
+        ],
+        "outputSha256Prefix": {
+          "before": "e27fe8109b7e7739",
+          "after": "e27fe8109b7e7739"
+        },
+        "identical": true
+      },
+      "serverLevel": {
+        "harness": "uvicorn server:app (local, E2E mode), sims files aged past TTL to force the live path; per run: restart, settle 25 s, GET overview, time first GET /api/public/league/rosPlayoffOdds",
+        "before_s": [
+          3.826,
+          4.906,
+          4.074
+        ],
+        "after_s": [
+          0.952,
+          1.289,
+          1.047
+        ],
+        "n": 3
+      }
+    },
+    "league_tab_switch": {
+      "file": "frontend/app/league/LeagueClient.jsx",
+      "bottleneck": "on a tab click the section chunk was requested only after its data landed, and the React.lazy boundary inside next/dynamic then suspended once and React throttled the reveal (~300 ms) even with data and code present",
+      "productionTrace": "Records click: data 12-458 ms, chunk 461-595 ms, content 791 ms (desktop, unthrottled, one trace)",
+      "localObserver": {
+        "harness": "in-page MutationObserver + ResourceTiming, local production build, tab click from Overview",
+        "before_content_ms": {
+          "records": 409,
+          "history": 358,
+          "luck": 412
+        },
+        "after_content_ms": {
+          "records": 110,
+          "history": 58,
+          "luck": 110
+        }
+      },
+      "localSpaHarness": {
+        "harness": "fresh context per run, /league?tab=overview then click 8 tabs, click -> panel text without 'Loading', CDP latency 150 ms",
+        "desktop_median_ms": {
+          "before": 425,
+          "after": 115,
+          "n": 40
+        },
+        "mobile_median_ms": {
+          "before": 400,
+          "after": 125,
+          "n": 24
+        },
+        "missing": 0
+      },
+      "bundle": {
+        "/league/page gzip KB": {
+          "before": 48.3,
+          "after": 49.0,
+          "budget": 50
+        }
+      }
+    }
+  },
+  "measuredOnly": {
+    "public_league_cold_load_prod": {
+      "harness": "frontend/scripts/measure-route-baselines.mjs --auth public --routes /league --runs 5 --viewport both --diagnostics true (PROD_ORIGIN=https://chaseupside.com)",
+      "desktop_p95_ms": {
+        "cold": 1315.8,
+        "warm": 389.9
+      },
+      "mobile_p95_ms": {
+        "cold": 1116.9,
+        "warm": 330.8
+      }
+    },
+    "one_off": "a single 57.76 s GET /api/public/league/overview at ~11:32 UTC did not recur in 30 polls over 11 minutes; cause not established",
+    "team_strength": "anonymous ?tab=rosTeamStrength reaches its terminal state in ~1.75 s cold (production); the section is session-gated (PRIVATE_INTELLIGENCE_SECTIONS) and shows 'ROS roster strength unavailable HTTP 401' to anonymous visitors. No indefinite loading reproduced (#1340).",
+    "trade_calculator_local": "measure-trade-interaction.mjs n=5: search p95 17.7/18.1 ms, immediate verdict p95 16.5/11.9 ms, Final Decision p95 805.6/806.6 ms (700 ms debounce + analyze), desktop/mobile",
+    "rankings_local": "route baseline cold p95 1008 ms desktop / 761 ms mobile; search p95 33.5 ms and position filter p95 50.2 ms at 1x CPU, 217/516 ms at 4x CPU (desktop); no dominant JS hotspot in a CDP profile",
+    "player_file_local": "row click -> profile dialog p50 80 ms (1x), 404 ms (4x)",
+    "waivers_local": "page renders in ~0.6 s; bid desk needs a selected team, not measured end to end"
+  },
+  "limitations": [
+    "local Windows machine, unthrottled Chromium unless stated; bounded samples, not tail percentiles",
+    "no authenticated production measurement (no sign-in); production impact is an expectation until deployed and re-measured with the same harnesses",
+    "the dev Next bridge for /api/public/league/[section] does not forward cookies, so private sections 401 locally even when signed in; production nginx routes /api directly"
+  ]
+}

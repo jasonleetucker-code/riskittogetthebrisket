@@ -183,7 +183,8 @@ def test_rounding_stable_across_dict_serialization():
 # ``idp_pass_def`` (not the canonical ``idp_pd`` this module was
 # written against — src/scoring/sleeper_ingest.KEY_ALIASES documents
 # the alias), and the nflverse-direct weekly file carries fumble
-# recoveries in ``fumble_recovery_own`` with no ``def_`` prefix.
+# recoveries in ``fumble_recovery_opp`` with no ``def_`` prefix (the
+# OPPONENT recovery — corrected 2026-10-01 from ``_own``).
 # Both used to score silently as 0.
 
 
@@ -238,7 +239,7 @@ def test_every_sleeper_alias_is_honoured_not_just_the_noticed_one():
         ("idp_pass_def", "idp_pd", "def_pass_defended", 3),
         ("idp_qb_hit", "idp_hit", "def_qb_hits", 4),
         ("idp_tfl", "idp_tkl_loss", "def_tackles_for_loss", 2),
-        ("idp_fr", "idp_fum_rec", "def_fumble_recovery_own", 1),
+        ("idp_fr", "idp_fum_rec", "def_fumble_recovery_opp", 1),
         ("idp_td", "idp_def_td", "def_tds", 1),
     ],
 )
@@ -255,7 +256,10 @@ def test_alias_scores_and_never_double_counts(alias, canonical, stat_col, stat_v
 
 
 def test_fumble_recovery_column_fallback_for_direct_rows():
-    stat = {"season": 2025, "week": 1, "position": "LB", "fumble_recovery_own": 1}
+    # The OPPONENT-recovery column (2026-10-01; it read ``_own``, which the
+    # host does not pay a defender for — see
+    # test_idp_fumble_recovery_host_golden.py).
+    stat = {"season": 2025, "week": 1, "position": "LB", "fumble_recovery_opp": 1}
     out = rp.compute_weekly_points(stat, {"idp_fum_rec": 3.19}, position="LB")
     assert out.fantasy_points == 3.19
 
@@ -265,8 +269,8 @@ def test_prefixed_fumble_recovery_column_still_wins():
         "season": 2025,
         "week": 1,
         "position": "LB",
-        "def_fumble_recovery_own": 2,
-        "fumble_recovery_own": 9,
+        "def_fumble_recovery_opp": 2,
+        "fumble_recovery_opp": 9,
     }
     out = rp.compute_weekly_points(stat, {"idp_fum_rec": 3.19}, position="LB")
     assert out.fantasy_points == 2 * 3.19
@@ -314,7 +318,9 @@ def _unified_idp_row():
         "def_interceptions": 1,
         "def_pass_defended": 2,
         "def_fumbles_forced": 1,
-        "def_fumble_recovery_own": 1,
+        # The OPPONENT recovery (not def_-prefixed in the unified release);
+        # ``fumble_recovery_own`` is not what the host pays a defender for.
+        "fumble_recovery_opp": 1,
         "def_tackles_for_loss": 1,
         # RENAMED from def_safety.
         "def_safeties": 1,

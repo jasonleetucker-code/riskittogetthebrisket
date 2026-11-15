@@ -4,6 +4,7 @@
 // Extracted from page.jsx to keep the tab file lean.
 
 import { Avatar, Card, EmptyCard, LinkButton, ManagerInline, Stat, fmtPoints, nameFor } from "../shared.jsx";
+import { PickOwnershipUnavailableNote, draftOwnershipUnavailableReason } from "../pick-chips.jsx";
 
 function streakTypeDescription(type, length) {
   switch (type) {
@@ -325,6 +326,14 @@ function OverviewSection({ managers, data, onNavigate }) {
       </div>
 
       <div className="row" style={{ marginTop: "var(--space-md)", gap: 14 }}>
+        {!draftLeader && draftOwnershipUnavailableReason(data.draftCapitalState) && (
+          <div className="card" style={{ flex: "1 1 280px" }}>
+            <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+              Best draft stockpile
+            </div>
+            <PickOwnershipUnavailableNote reason={draftOwnershipUnavailableReason(data.draftCapitalState)} />
+          </div>
+        )}
         {draftLeader && (
           <div className="card" style={{ flex: "1 1 280px" }}>
             <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em" }}>

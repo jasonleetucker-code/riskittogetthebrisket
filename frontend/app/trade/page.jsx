@@ -1,24 +1,38 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
-import { useDynastyData } from "@/components/useDynastyData";
 import {
-  VALUE_MODES,
+  Suspense,
+  lazy,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useDynastyData } from "@/components/useDynastyData";
+import { isFairGap } from "@/lib/fairness-bands";
+import {
+  ACTIVE_PACKAGE_MODEL_ID,
+  PACKAGE_MODELS,
+  TRADE_VALUE_MODE,
   STORAGE_KEY,
-  verdictFromGap,
+  meterVerdict,
   colorFromGap,
   verdictBarPosition,
   adjustedSideTotals,
   multiAdjustedSideTotals,
-  sideTotal,
+  simulationSignature,
+  tradeEvaluationState,
+  TRADE_EVAL_STATE,
+  applyImportedSides,
   defaultDestination,
-  effectiveValue,
   findBalancers,
   isTradeableBoardRow,
   parsePickToken,
+  reanchorSuppressedPickEntries,
   resolvePickRow,
-  searchTradeAssets,
+  searchCalculatorAssets,
   createSide,
   serializeWorkspaceMulti,
   tradeWorkspaceToCSV,
@@ -29,58 +43,81 @@ import {
   SIDE_LABELS,
   MAX_SIDES,
   MIN_SIDES,
+  computeStackAdjustments,
+  multiTeamNetSummary,
+  sideTotalsFairnessBase,
+  withheldAssetsBySide,
+  tradeSignature,
+  displayValue,
 } from "@/lib/trade-logic";
-import {
-  parsePickAsset,
-  pickAuctionDollars,
-  buildSlotDollarGrid,
-  buildLeagueStacks,
-  pickStackAnchorYear,
-} from "@/lib/pick-stack";
-import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
+import { valuationBasisLabel } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
-import { buildShareUrl, parseShareParam } from "@/lib/trade-share";
-import { tradeRequestForTeam } from "@/lib/trade-war-room";
 import {
-  availableTeamPickEntries,
+  buildShareUrl,
+  describeShareModelChange,
+  describeShareTruncation,
+  parseShareParam,
+  shareLinkLimits,
+} from "@/lib/trade-share";
+import {
+  resolveTeamSide,
+  tradeRequestForTeam,
+  warRoomValueSummaryFor,
+} from "@/lib/trade-war-room";
+import { historyOriginFor, sharePayloadOf } from "@/lib/trade-history-origin";
+import {
+  PICK_OWNERSHIP_UNAVAILABLE_LABEL,
+  describePickOwnershipReason,
+  pickOwnershipUnavailableReason,
+} from "@/lib/pick-ownership";
+import {
   canAddEntry,
   countEntries,
-  dedupeUniqueAcrossSides,
+  heldAssetKeysInTrade,
   removeOneEntry,
-  searchPickEntries,
   teamPickEntries,
+  teamPickLabels,
   tradeEntryKey,
-  uniqueKeysInTrade,
+  unusedTeamPickEntries,
 } from "@/lib/trade-assets";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
+import { effectiveBindings, probeMultiTeamAnalysis, teamOptions } from "@/lib/trade-team-binding";
 import { useTeam } from "@/components/useTeam";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
-import TradeWarRoom from "@/components/trade/TradeWarRoom";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
+import { TradeVerdictHelp } from "@/components/help/TradeHelp";
 import {
   Banner,
   Button,
   CollapsiblePanel,
-  InfoTip,
+  Icon,
   Panel,
   PageHeader,
-  SegmentedControl,
-  Select,
   SkeletonTable,
+  ValueBasisNote,
 } from "@/components/ds";
 import {
-  KtcImportPanel,
-  MobileQuickAddBar,
   PickTeamSelectors,
   ProactiveSuggestionsRail,
   SuggestionsRailPlaceholder,
   SideCard,
-  SimulationPanel,
-  SuggestionsDesk,
   SUGG_TYPES,
 } from "./trade-sections";
 import { withValuationMode } from "@/lib/valuation-mode";
+import { buildKtcNameIndex, resolveKtcEntries } from "@/lib/ktc-import";
+import ResilientSection from "@/components/ResilientSection";
+import { draftCapitalBudgetsUnavailableReason } from "@/lib/draft-capital-budgets";
+import {
+  DecisionSummary,
+  ImmediateResultTable,
+  MultiTeamSummaryBar,
+  SUMMARY_STATE_TEXT,
+  TradeIntelTabs,
+  TradeSectionNav,
+  TradeVerdictAnnouncer,
+  useNarrowViewport,
+} from "./trade-layout";
 import styles from "./trade.module.css";
 
 // ── /trade — the trading terminal ─────────────────────────────────────
@@ -95,6 +132,8 @@ import styles from "./trade.module.css";
 // responses — no trade math was moved, added, or reimplemented here.
 
 const ROSTER_KEY = "next_trade_roster_v1";
+// The balancer answer while the deferred search is catching up (TC-E).
+const NO_BALANCERS = Object.freeze({ list: [], teamName: null });
 const TEAM_KEY = "next_trade_team_v1";
 
 // TradeMeter + TradeSourceBreakdown live as shared components under
@@ -107,34 +146,258 @@ const TradeMeter = SharedTradeMeter;
 // `mountCollapsedChildren={false}` on that panel: `hidden` still MOUNTS
 // children, so without it these dynamic imports would fetch on page load
 // and the split would buy nothing.
-const dyn = (loader) => dynamic(loader, { ssr: false });
-const TradeSourceBreakdown = dyn(() => import("@/components/trade/TradeSourceBreakdown"));
-const RosTradeFitPanel = dyn(() => import("@/components/RosTradeFitPanel"));
-const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"));
-const TradeDeltaHistogram = dyn(() => import("@/components/graphs/TradeDeltaHistogram"));
-const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"));
+//
+// React.lazy, not next/dynamic — the same choice and the same measured
+// reason as the Perfect Draft panel on /draft (CLAUDE.md): next/dynamic
+// pulls Next's loadable runtime (~1.6 KB) into THIS page's chunk, and
+// /trade has no headroom for it.  These still mount client-side only,
+// when "Second opinions" is opened (the panel starts collapsed and does
+// not mount collapsed children, so SSR never reaches them), each inside
+// its OWN Suspense boundary with a null fallback — exactly next/dynamic's
+// per-component behaviour, so a panel that mounts later (e.g. the
+// multi-team flow when a third side is added) never blanks the others.
+//
+// Each section also gets its OWN error boundary.  Without one, a failed
+// chunk load falls through to app/error.jsx and replaces the whole page —
+// and the realistic failure is a deploy: deploy.sh swaps `.next` and
+// deletes the old build, so a /trade tab opened before it 404s on its old
+// chunk hashes the first time it opens one of these.  React.lazy caches the
+// rejected import, so a remount would re-throw; `recovery="reload"` offers a
+// page reload instead.
+// `loadingText` (TC-E): a panel that is the WHOLE content of a drilldown tab
+// says it is loading while its chunk arrives, instead of leaving the tab
+// blank.  Every other section keeps the null fallback (no layout shift), each
+// still inside its own boundary.
+const dyn = (loader, name, loadingText = null) => {
+  const LazyPanel = lazy(loader);
+  if (loadingText) {
+    return function OnDemandTabPanel(props) {
+      return (
+        <ResilientSection name={name} recovery="reload">
+          <Suspense
+            fallback={
+              <p className={styles.intelLead} aria-busy="true" data-testid="trade-panel-loading">
+                {loadingText}
+              </p>
+            }
+          >
+            <LazyPanel {...props} />
+          </Suspense>
+        </ResilientSection>
+      );
+    };
+  }
+  return function OnDemandSection(props) {
+    return (
+      <ResilientSection name={name} recovery="reload">
+        <Suspense fallback={null}>
+          <LazyPanel {...props} />
+        </Suspense>
+      </ResilientSection>
+    );
+  };
+};
+const TradeSourceBreakdown = dyn(
+  () => import("@/components/trade/TradeSourceBreakdown"),
+  "Per-source breakdown",
+);
+const RosTradeFitPanel = dyn(
+  () => import("@/components/RosTradeFitPanel"),
+  "Rest-of-season fit",
+  "Loading rest-of-season fit…",
+);
+const BdvmTradePanel = dyn(() => import("@/components/BdvmTradePanel"), "Fundamentals check");
+// TC-B2 / TCM-M01, M02, M04, M05: how each package is built (stacked value
+// bars, Quick Trade Facts, concentration) -- the Value tab's first panel.  It
+// supersedes the two-bar value split chart, which repeated the meter's totals
+// (UX audit §7.1 "removed or merged outright").
+const TradePackageBreakdown = dyn(
+  () => import("@/components/trade/TradePackageBreakdown"),
+  "Package breakdown",
+  "Loading the package breakdown…",
+);
+// TC-D2: the Reasoning tab -- the decision's own coverage record and "what
+// would change it", rendered only when that tab is open.
+const TradeDecisionReasoning = dyn(
+  () => import("@/components/trade/TradeDecisionReasoning"),
+  "Decision reasoning",
+  "Loading the decision reasoning…",
+);
+const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"), "Multi-team flow");
+// TC-07 / TC-10: recorded real trades that moved an asset on the calculator.
+// Reference evidence only — it never touches the totals or verdict.  Inside
+// its own collapsed panel, so the chunk and the request wait for the user.
+const RecentRealTrades = dyn(
+  () => import("@/components/trade/RecentRealTrades"),
+  "Recent real trades",
+  "Loading recorded real trades…",
+);
+// TC-B / TCM-K03: the immediate Second Opinions tally beside the meter.  On
+// screen whenever two sides hold assets, but lazy: the opinion machinery is
+// its own chunk, requested after first paint, never in the page's first load.
+const TradeOpinionTally = dyn(
+  () => import("@/components/trade/TradeOpinionTally"),
+  "Second opinions tally",
+);
+// TC-B / TCM-O11, O12, O13: next steps into the existing engines, partner
+// evidence and Save to Trade Desk.  Below the fold, so lazy too.
+const TradeNextActions = dyn(
+  () => import("@/components/trade/TradeNextActions"),
+  "Next steps",
+);
+
+// TC-D: the Trade War Room — the page's Final Decision — is its own chunk
+// (~20 KB, the largest single module the page carried).  It renders nothing
+// useful before its first `POST /api/trade/analyze` answers, which waits for a
+// 700 ms debounce after two filled sides, so the chunk is prefetched on mount
+// (next to the player-pool fetch the whole builder waits on) and is loaded long
+// before it has anything to show.
+const loadWarRoom = () => import("@/components/trade/TradeWarRoom");
+const TradeWarRoom = dyn(loadWarRoom, "Trade War Room");
+// The Value Adjustment comparison (dual-VA, #1826) renders INSIDE the War Room
+// (its `vaSlot`, right under the at-a-glance rows), so its chunk is prefetched
+// beside the War Room's: no waterfall from War Room chunk -> comparison chunk.
+// Accepted trade-off: a War Room chunk failure also hides the comparison
+// (both sit behind the War Room's resilient section).
+const loadVaComparison = () => import("@/components/trade/ValueAdjustmentComparison");
+// The multi-team War Room (owner directive 2026-10-20 §7): its own lazy chunk,
+// requested only for a 3+-team trade on a server whose private multi-team
+// analysis is switched on (`trade_multi_team_analysis`, default OFF).
+const MultiTeamWarRoom = dyn(
+  () => import("@/components/trade/MultiTeamWarRoom"),
+  "Multi-team Trade War Room",
+);
+const ValueAdjustmentComparison = dyn(loadVaComparison, "Value Adjustment comparison");
+
+// On-demand page sections — the same React.lazy + per-section Suspense
+// pattern, for code that cannot be on screen at first render:
+//
+// * SimulationPanel — renders only once "Simulate impact" has answered;
+//   its chunk is requested on the click, in parallel with the request.
+// * KtcImportPanel — renders only after "Import KTC" is pressed.
+// * SuggestionsDesk — the foot of the page, below the builder, the
+//   verdict and Second opinions.  Always rendered, so its chunk is
+//   requested on mount, in parallel with the player-pool fetch the whole
+//   builder waits on; by the time the page body renders it is loaded.
+//
+// Measured 2026-10-08: together ~18 KB out of the /trade page chunk,
+// which sat at 92.8 KB against a 93 KB budget.  Their modules must stay
+// out of ./trade-sections — a static import or re-export from there puts
+// them straight back into this page's chunk.
+const loadSimulationPanel = () => import("./trade-simulation-panel");
+const loadKtcImportPanel = () => import("./trade-ktc-import");
+// C3-IMPORT-IMAGE: the screenshot-import dialog renders only after the user
+// chooses Import trade -> From screenshot.
+const loadScreenshotImport = () => import("./trade-screenshot-import");
+const loadSuggestionsDesk = () => import("./trade-suggestions-desk");
+// TC-D2: the phone builder's bottom sheet -- rendered only after a tap.
+const loadAssetSheet = () => import("./trade-asset-sheet");
+// A prefetch failure is not handled here: the lazy render below retries
+// the import and surfaces any real failure the same way it always would.
+const prefetch = (loader) => {
+  loader().catch(() => {});
+};
+const SimulationPanel = dyn(
+  () => loadSimulationPanel().then((m) => ({ default: m.SimulationPanel })),
+  "Simulation result",
+);
+const KtcImportPanel = dyn(
+  () => loadKtcImportPanel().then((m) => ({ default: m.KtcImportPanel })),
+  "KTC import",
+);
+const SuggestionsDesk = dyn(
+  () => loadSuggestionsDesk().then((m) => ({ default: m.SuggestionsDesk })),
+  "Trade suggestions",
+);
+const TradeAssetSheet = dyn(
+  () => loadAssetSheet().then((m) => ({ default: m.TradeAssetSheet })),
+  "Add to side",
+);
+const ScreenshotImportDialog = dyn(
+  () =>
+    loadScreenshotImport().then((m) => ({ default: m.ScreenshotImportDialog })),
+  "Screenshot import",
+);
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
-  const {
-    settings,
-    hydrated: settingsHydrated,
-    update: updateSetting,
-  } = useSettings();
+  const { settings } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
-  const [valueMode, setValueMode] = useState("full");
+  // Trade math is canonical, always (TC-A P0-4): the retired "Raw" mode read
+  // the legacy scraper composite.  Kept as a name so every call site states
+  // the basis it computes on.
+  const valueMode = TRADE_VALUE_MODE;
 
   // Multi-team state: array of { id, label, assets }
   const [sides, setSides] = useState([createSide(0), createSide(1)]);
+  // The trade on screen, for request sequencing (TC-E): an async answer
+  // compares the trade it was asked about with this before it may land.
+  const sidesSignature = useMemo(() => tradeSignature(sides), [sides]);
+  const sidesSignatureRef = useRef(sidesSignature);
+  useEffect(() => {
+    sidesSignatureRef.current = sidesSignature;
+  }, [sidesSignature]);
+  const ktcImportSeqRef = useRef(0);
+  const ktcExportSeqRef = useRef(0);
   const [activeSide, setActiveSide] = useState(0); // index into sides
+  // TC-D2: the open Supporting-intelligence drilldown (only it is mounted).
+  const [intelTab, setIntelTab] = useState("value");
+  // TC-D2: phones build through one bottom sheet per side (null = closed).
+  const narrow = useNarrowViewport();
+  const [sheetSideIdx, setSheetSideIdx] = useState(null);
+  // TC-D2: CSV / JSON / Copy KTC URL live in the toolbar's "More" group.
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  // Toolbar disclosures (Import trade, More) return focus to their trigger
+  // when they close (Escape or a chosen action), so a keyboard user is never
+  // dropped onto <body> when the focused option unmounts (TC-E).
+  const moreMenuButtonRef = useRef(null);
+  const importMenuButtonRef = useRef(null);
+  const closeToolbarGroup = useCallback((setOpen, triggerRef) => {
+    setOpen(false);
+    // Rescue only focus the unmounting option dropped: onto <body>, or left on
+    // a node no longer in the document.  A control the user has moved to since
+    // (a side search box) keeps focus — pulling it back a frame later silently
+    // swallowed the keyboard add typed into that box.
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body && active.isConnected) return;
+      triggerRef.current?.focus?.({ preventScroll: true });
+    });
+  }, []);
+  // TC-D: the War Room's decision, reported up (onDecision) for the sticky
+  // desktop echo and the mobile verdict bar.  The War Room owns the request.
+  const [decisionSummary, setDecisionSummary] = useState({ status: "idle", decision: null });
   // Per-side inline search: each side renders its own search input, so
   // adding a player is one tap away — no overlay, no "+ Add" button.
   // ``sideQueries[i]`` holds side i's current input string;
   // ``focusedSideIdx`` controls which side's dropdown is visible.
   const [sideQueries, setSideQueries] = useState({});
   const [focusedSideIdx, setFocusedSideIdx] = useState(null);
+  // Pending blur timers, one per side.  Focusing a side's search again
+  // cancels its timer: without that, blurring and re-focusing inside the
+  // 120ms window let the stale timer close the dropdown of a focused input
+  // (Enter then added nothing).
+  const sideBlurTimersRef = useRef({});
+  useEffect(
+    () => () => {
+      Object.values(sideBlurTimersRef.current).forEach(clearTimeout);
+    },
+    [],
+  );
   const sideInputRefs = useRef({});
   const [hydrated, setHydrated] = useState(false);
+  // The suggestions desk is always rendered once the pool loads; fetch its
+  // chunk now, alongside the pool, so it never pops in late.
+  useEffect(() => {
+    prefetch(loadSuggestionsDesk);
+    prefetch(loadWarRoom);
+    prefetch(loadVaComparison);
+  }, []);
+
+  // The phone sheet belongs to the phone layout: it closes if the viewport widens.
+  useEffect(() => {
+    if (!narrow) setSheetSideIdx(null);
+  }, [narrow]);
 
   // Per-player value overrides for this trade only.
   // Keyed by player name → number (the final effective value to use in trade math).
@@ -172,10 +435,25 @@ export default function TradePage() {
   const [ktcImportBusy, setKtcImportBusy] = useState(false);
   const [ktcImportError, setKtcImportError] = useState("");
   const [ktcImportStatus, setKtcImportStatus] = useState("");
+  // "Import trade" control: a disclosure offering the KTC URL row and the
+  // screenshot dialog.  The screenshot feature's status is fetched on the
+  // FIRST open of the control — never on page load — and "From screenshot"
+  // is hidden unless the backend says the feature is enabled.
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const [screenshotStatus, setScreenshotStatus] = useState(null); // null | "loading" | object
+  const [screenshotImportOpen, setScreenshotImportOpen] = useState(false);
+  const [screenshotImportNote, setScreenshotImportNote] = useState("");
   const [exportStatus, setExportStatus] = useState("");
 
   // Share + simulator state.
-  const [shareStatus, setShareStatus] = useState("");
+  // ``{ text, tone }`` or null.  ``tone: "warning"`` whenever a share link
+  // lost anything — on load (decoder bounds) or on copy (encoder/decoder
+  // bounds) — so a truncated trade never reads as a clean success.
+  const [shareStatus, setShareStatus] = useState(null);
+  // TC-B2 / TCM-N03: a completed trade opened from Trade History.  The page
+  // stays in LIVE mode (no as-of replay exists) and says so until dismissed
+  // or the trade is cleared.  ``{ tradedAt }`` or null.
+  const [historyOrigin, setHistoryOrigin] = useState(null);
   const [shareHydrated, setShareHydrated] = useState(false);
   // Use Team Context (#842): default ON.  A share link can carry Asset-Only.
   const [useTeamContext, setUseTeamContext] = useState(true);
@@ -185,6 +463,7 @@ export default function TradePage() {
     loading: simLoading,
     error: simError,
     reset: resetSim,
+    signature: simResultSignature,
   } = useTradeSimulator();
   // useTeam is already league-aware: ``selectedTeam`` resolves
   // against the active league, ``idpEnabled`` comes from the
@@ -198,6 +477,7 @@ export default function TradePage() {
     idpEnabled,
     leagueMismatch,
     selectedLeagueKey,
+    leagueLoading,
     // ``useTeam`` resolves the team AFTER the contract lands, so
     // ``loading`` here outlives ``useDynastyData().loading``.  The
     // suggestions slot needs both: see the effect below.
@@ -215,6 +495,7 @@ export default function TradePage() {
     rows.forEach((r) => m.set(r.name, r));
     return m;
   }, [rows]);
+
 
   // Lowercased-name → row map for the Sleeper pick resolver; matches
   // the shape ``resolvePickRow`` expects.  Built alongside rowByName
@@ -244,7 +525,9 @@ export default function TradePage() {
         if (!p) continue;
         if (rowByName.has(p)) names.add(p);
       }
-      for (const pickLabel of team.picks || []) {
+      // Unknown pick ownership (null) contributes no pick names -- and is
+      // disclosed by the banner below, never read as "owns no picks".
+      for (const pickLabel of teamPickLabels(team) || []) {
         const row = resolvePickRow(pickLabel, rowByLowerName, pickAliases);
         if (row) names.add(row.name);
       }
@@ -291,7 +574,9 @@ export default function TradePage() {
   // Every team's picks as trade entries (lib/trade-assets): an owned pick
   // carries the canonical ``assetId`` the backend stamps on
   // ``pickDetails`` so two picks that both read "2027 Mid 1st" stay two
-  // assets, and the same one can never be counted twice (T-NEW-02).
+  // separate lines.  Ownership is displayed, not enforced: the calculator
+  // may carry any number of copies (owner decision 2026-10-03); only the
+  // equalizer reads these as real inventory (``unusedTeamPickEntries``).
   const pickEntriesByTeam = useMemo(() => {
     const m = new Map();
     const resolve = (label) => resolvePickRow(label, rowByLowerName, pickAliases);
@@ -311,17 +596,30 @@ export default function TradePage() {
     return m;
   }, [pickEntriesByTeam]);
 
-  // ── Stack-aware trade verdicts ───────────────────────────────────────
+  // ── Draft-capital stack effect (WITHDRAWN from the verdict) ─────────
   // A pick's worth depends on the receiving team's existing draft
   // capital.  We pull the league's draft-capital ($1200) board, value
   // every pick in the trade (tier picks = slot-average — see
-  // lib/pick-stack), recompute zero-sum effective auction power
-  // before/after the routed swap, and fold each team's change in
-  // premium into its side total.  Picks REQUIRE a resolved team on
-  // every side they touch; until then the verdict falls back to pure
-  // board value with a prompt.
+  // lib/pick-stack) and recompute zero-sum effective auction power
+  // before/after the routed swap.
+  //
+  // Owner decision 2026-09-29: the result is shown as a labelled,
+  // not-calibrated NOTE and is NOT folded into side totals, the verdict,
+  // side flows or balancer suggestions.  The #1527 audit measured it
+  // dominating whole packages (a side at -963; a 5,487 package to 317)
+  // through data seams -- 2027 picks counted twice, synthesized
+  // future-pick dollars, picks "sent" by teams that do not hold them --
+  // not through the trade.  It returns to the totals only through an
+  // owner-approved methodology meeting issue #1529's prerequisites.  Picks
+  // still need a resolved team on every side they touch for the note.
   const [draftCapital, setDraftCapital] = useState(null);
+  // A failed draft-capital read is stated, never a silently missing note (TC-E).
+  const [draftCapitalFailed, setDraftCapitalFailed] = useState(false);
   useEffect(() => {
+    // Wait for the league key to resolve: fetching while it is still ""
+    // and again once it lands requested /api/draft-capital twice on every
+    // load, the first time for the wrong (default) scope (TC-A).
+    if (leagueLoading) return undefined;
     let alive = true;
     // Scope to the page's own league so the stack math never mixes a
     // switched active league's teams/picks with another league's
@@ -331,23 +629,21 @@ export default function TradePage() {
       ? `?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
       : "";
     setDraftCapital(null);
+    setDraftCapitalFailed(false);
     fetch(`/api/draft-capital${qs}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (alive && d && Array.isArray(d.picks)) setDraftCapital(d);
+        if (!alive) return;
+        if (d && Array.isArray(d.picks)) setDraftCapital(d);
+        else setDraftCapitalFailed(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive) setDraftCapitalFailed(true);
+      });
     return () => {
       alive = false;
     };
-  }, [selectedLeagueKey]);
-
-  // The stack anchors on the UPCOMING draft (lifecycle-owned
-  // ``pickClassLifecycle.firstActiveClass``), not the horizon anchor.
-  const pickStackAnchor = useMemo(
-    () => pickStackAnchorYear(rawData, draftCapital),
-    [rawData, draftCapital],
-  );
+  }, [selectedLeagueKey, leagueLoading]);
 
   const boardValueByName = useCallback(
     (name) => Number(rowByName.get(name)?.values?.full) || 0,
@@ -361,6 +657,16 @@ export default function TradePage() {
   // preserved.  Choosing the blank option unlocks → back to auto.
   const [sideTeamNames, setSideTeamNames] = useState([]);
   const [sideTeamLocked, setSideTeamLocked] = useState([]);
+  // Multi-team analysis (owner directive 2026-10-20 §7): each side's league
+  // team, by rosterId.  ``undefined`` = follow the side's assets (the one team
+  // that holds them, by id), ``null`` = explicitly none, an int = chosen.
+  const [sideRosterIds, setSideRosterIds] = useState([]);
+  // Is POST /api/trade/analyze-multi switched on?  null until asked; asked
+  // only once a 3rd side exists, so a two-team session never probes.
+  const [multiAvailable, setMultiAvailable] = useState(null);
+  // The authoritative multi-team answer for the trade on screen (reported up
+  // by the War Room), so the preliminary meter and tray never speak over it.
+  const [multiFinal, setMultiFinal] = useState(null);
   useEffect(() => {
     setSideTeamNames((prev) =>
       sides.map((s, i) =>
@@ -370,6 +676,21 @@ export default function TradePage() {
       ),
     );
   }, [sides, inferTeamForSide, sideTeamLocked]);
+
+  // Teams in this trade's context whose pick ownership is UNKNOWN (a failed
+  // /traded_picks fetch): their owned picks cannot be listed, searched or
+  // suggested, and the page says so instead of rendering "no picks" (TC-A;
+  // the frontend's one reader is lib/pick-ownership.js).
+  const pickOwnershipUnknown = useMemo(() => {
+    const relevant = new Set([selectedTeam?.name, ...sideTeamNames].filter(Boolean));
+    const out = [];
+    for (const team of sleeperTeams || []) {
+      if (!relevant.has(team?.name)) continue;
+      const reason = pickOwnershipUnavailableReason(team);
+      if (reason) out.push({ name: team.name, reason });
+    }
+    return out;
+  }, [sleeperTeams, selectedTeam, sideTeamNames]);
 
   const tradeHasPicks = useMemo(
     () =>
@@ -486,9 +807,6 @@ export default function TradePage() {
         const parsed = JSON.parse(raw);
         const restored = deserializeWorkspaceMulti(parsed, rowByName);
         if (restored) {
-          const nextMode = String(restored.valueMode || "full");
-          if (VALUE_MODES.some((m) => m.key === nextMode))
-            setValueMode(nextMode);
           setActiveSide(restored.activeSide);
           setSides(restored.sides);
           setValueOverrides({});
@@ -500,6 +818,16 @@ export default function TradePage() {
       setHydrated(true);
     }
   }, [rows, hydrated, rowByName]);
+
+  // Re-anchor suppressed tier-pick aliases ("2027 Mid 1st" once 2027 is the
+  // current class) to the slot row the board prices them on.  One pass for
+  // every path that turns a name into a row — saved workspace, share link,
+  // KTC import, history import — and for a board refresh that rolls the
+  // class while the page is open.  ``reanchorSuppressedPickEntries``
+  // returns the same array when nothing changed, so this cannot loop.
+  useEffect(() => {
+    setSides((prev) => reanchorSuppressedPickEntries(prev, rowByLowerName, pickAliases));
+  }, [sides, rowByLowerName, pickAliases]);
 
   // Persist trade workspace to localStorage
   useEffect(() => {
@@ -525,6 +853,10 @@ export default function TradePage() {
       setShareHydrated(true);
       return;
     }
+    setHistoryOrigin(historyOriginFor(sharePayloadOf(window.location.search)));
+    // Per-asset degrade (TC-B2 / TCM-C04): a name the board cannot resolve is
+    // left out AND named, never silently dropped.
+    const unresolved = [];
     try {
       const neededSides = Math.max(2, state.sides.length);
       const ensureSides = (prev) => {
@@ -533,64 +865,106 @@ export default function TradePage() {
           next = [...next, createSide(next.length)];
         return next;
       };
+      // Resolved OUTSIDE the state updater (which React may run later, or
+      // twice), so the unresolved names are known before the status is set.
+      const resolvedDests = state.sides.map(() => []);
+      const resolvedBySide = state.sides.map((incoming, i) => {
+        if (!incoming) return [];
+        const resolved = [];
+        const ids = incoming.assetIds || [];
+        const dests = incoming.destinations || [];
+        (incoming.players || []).forEach((name, j) => {
+          // Direct rowByName lookup catches every player and any
+          // pick that happens to be in canonical form
+          // ("2026 Pick 1.04").
+          let row = rowByName.get(name);
+          if (!row) {
+            // Pick fallback: trade history items round-trip through
+            // share URLs using the SLEEPER format ("2026 1.04 (from
+            // Team X)" or "2027 Mid 1st (own)"), which doesn't
+            // match the canonical rowByName key.  Re-use the same
+            // ``resolvePickRow`` walker league-analysis uses so
+            // imported trades from /trades correctly hydrate picks.
+            if (parsePickToken(name)) {
+              row = resolvePickRow(name, rowByLowerName, pickAliases);
+            }
+          }
+          if (!row) {
+            if (!unresolved.includes(name)) unresolved.push(name);
+            return;
+          }
+          // An owned pick keeps its canonical id; everything else is
+          // the board row.  Repeated names are copies and ALL load, for
+          // every kind of asset (owner decision 2026-10-03).
+          const assetId = ids[j];
+          resolvedDests[i].push(dests[j] ?? null);
+          resolved.push(
+            assetId
+              ? {
+                  ...row,
+                  assetId,
+                  assetLabel: ownedPickLabelById.get(assetId) || row.name,
+                }
+              : row,
+          );
+        });
+        return resolved;
+      });
       setSides((prev) => {
         const base = ensureSides(prev);
-        const resolvedBySide = base.map((side, i) => {
-          const incoming = state.sides[i];
-          if (!incoming) return [];
-          const resolved = [];
-          const ids = incoming.assetIds || [];
-          (incoming.players || []).forEach((name, j) => {
-            // Direct rowByName lookup catches every player and any
-            // pick that happens to be in canonical form
-            // ("2026 Pick 1.04").
-            let row = rowByName.get(name);
-            if (!row) {
-              // Pick fallback: trade history items round-trip through
-              // share URLs using the SLEEPER format ("2026 1.04 (from
-              // Team X)" or "2027 Mid 1st (own)"), which doesn't
-              // match the canonical rowByName key.  Re-use the same
-              // ``resolvePickRow`` walker league-analysis uses so
-              // imported trades from /trades correctly hydrate picks.
-              if (parsePickToken(name)) {
-                row = resolvePickRow(name, rowByLowerName, pickAliases);
-              }
-            }
-            if (!row) return;
-            // An owned pick keeps its canonical id; everything else is
-            // the board row.  Repeated names are copies and all load —
-            // uniqueness is enforced below by IDENTITY, never by label.
-            const assetId = ids[j];
-            resolved.push(
-              assetId
-                ? {
-                    ...row,
-                    assetId,
-                    assetLabel: ownedPickLabelById.get(assetId) || row.name,
-                  }
-                : row,
-            );
-          });
-          return resolved;
-        });
-        const deduped = dedupeUniqueAcrossSides(resolvedBySide);
         return base.map((side, i) => {
           if (!state.sides[i]) return { ...side, assets: [], destinations: {} };
-          const resolved = deduped[i];
+          const resolved = resolvedBySide[i] || [];
           const nextDestinations = {};
           if (base.length > 2) {
-            for (const row of resolved) {
-              nextDestinations[tradeEntryKey(row)] = defaultDestination(i, base.length);
-            }
+            // The link's own routing when it carries one (TC-A); otherwise
+            // the default.  A destination off the trade, or onto the side
+            // itself, falls back to the default.
+            resolved.forEach((row, j) => {
+              const key = tradeEntryKey(row);
+              if (nextDestinations[key] != null) return;
+              const d = resolvedDests[i]?.[j];
+              nextDestinations[key] =
+                Number.isInteger(d) && d >= 0 && d < base.length && d !== i
+                  ? d
+                  : defaultDestination(i, base.length);
+            });
           }
           return { ...side, assets: resolved, destinations: nextDestinations };
         });
       });
       setValueOverrides({});
       if (state.teamContext === false) setUseTeamContext(false);
-      setShareStatus("Loaded shared trade from link.");
+      const modelNote = describeShareModelChange(
+        state.packageModel,
+        ACTIVE_PACKAGE_MODEL_ID,
+        PACKAGE_MODELS,
+      );
+      const notes = [
+        unresolved.length
+          ? `Not on today's board, so left out: ${unresolved.join(", ")}.`
+          : "",
+        modelNote || "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const lossy = state.truncated || unresolved.length > 0;
+      setShareStatus(
+        state.truncated
+          ? {
+              tone: "warning",
+              text: `Loaded only part of the shared trade: the link had ${describeShareTruncation(
+                state.truncationReasons,
+              )}, beyond what a share link may carry.${notes ? ` ${notes}` : ""}`,
+            }
+          : lossy
+            ? { tone: "warning", text: `Loaded part of the shared trade. ${notes}` }
+            : modelNote
+              ? { tone: "warning", text: `Loaded shared trade from link. ${modelNote}` }
+              : { tone: "positive", text: "Loaded shared trade from link." },
+      );
     } catch {
-      setShareStatus("Share link was malformed — ignored.");
+      setShareStatus({ tone: "warning", text: "Share link was malformed — ignored." });
     } finally {
       setShareHydrated(true);
     }
@@ -613,13 +987,64 @@ export default function TradePage() {
     }));
   }, [sides, valueOverrides]);
 
+  // STACK-NOTE-ONLY:BEGIN -- the informational stack model.  Nothing in
+  // this region may feed a total, the verdict, flows or balancers
+  // (owner directive 2026-09-29; __tests__/trade-stack-withdrawn.test.js).
   // League stacks + routed pick-$ moves for the effective-power lens.
   // null whenever the lens can't / shouldn't apply (no draft data, no
-  // picks, or the team gate is unmet) → verdict stays pure board value.
+  // picks, or the team gate is unmet) → no note is shown.  The verdict
+  // never reads this in any case.
+  // The stack model is loaded ON DEMAND -- only once a pick trade meets a
+  // loaded draft-capital board -- so this informational note costs the
+  // /trade first load nothing (Wave A grew the model past the page budget).
+  const [stackLib, setStackLib] = useState(null);
+  // A failed chunk load is a stated "unavailable", never a silently missing note.
+  const [stackLibFailed, setStackLibFailed] = useState(false);
+  const stackLibWanted = Boolean(draftCapital && tradeHasPicks);
+  useEffect(() => {
+    if (!stackLibWanted || stackLib || stackLibFailed) return undefined;
+    let alive = true;
+    import("@/lib/pick-stack")
+      .then((m) => {
+        if (alive) setStackLib(m);
+      })
+      .catch((err) => {
+        console.warn("[trade] draft-capital note model failed to load", err);
+        if (alive) setStackLibFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [stackLibWanted, stackLib, stackLibFailed]);
+  // The league's auction budgets (draft-capital ``teamTotals``) can be
+  // UNAVAILABLE; the stack note then stays off and says why — never stacks
+  // built from $0 budgets (MISSING IS NEVER ZERO).
+  const stackBudgetsUnavailable = useMemo(
+    () => draftCapitalBudgetsUnavailableReason(draftCapital),
+    [draftCapital],
+  );
   const stackContext = useMemo(() => {
-    if (!draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
+    if (
+      !stackLib ||
+      !draftCapital ||
+      !sleeperTeams ||
+      !tradeHasPicks ||
+      stackGateUnmet ||
+      stackBudgetsUnavailable
+    ) {
       return null;
     }
+    const {
+      buildLeagueStacks,
+      buildSlotDollarGrid,
+      ownedPickStackInventory,
+      pickAuctionDollars,
+      pickOwnerKeyByAssetId,
+      pickStackAnchorYear,
+      poolBoardPerDollar,
+      stackPickMoves,
+      teamStackKey,
+    } = stackLib;
     // Year-keyed slot-$ grid (handles the Sleeper-derived payload's two
     // seasons with colliding round/slot pairs — see buildSlotDollarGrid).
     const slotGrid = buildSlotDollarGrid(draftCapital);
@@ -627,84 +1052,77 @@ export default function TradePage() {
     const ctx = {
       slotGrid,
       teamsPerRound,
-      currentDraftYear: pickStackAnchor,
+      // THIS LEAGUE's upcoming draft -- the league-scoped ``upcomingDraftYear``
+      // on the draft-capital payload (Wave A) -- never the board's year.
+      currentDraftYear: pickStackAnchorYear(rawData, draftCapital),
       boardValueByName,
     };
-    // Future-year picks per team from Sleeper ownership.  Exclude every
-    // year the payload already accounts for in teamTotals so nothing is
-    // double-counted: the workbook path covers only the upcoming draft,
-    // but the Sleeper-derived (non-default-league) path covers BOTH the
-    // current and next season.  ``coveredPickYears`` states this
-    // explicitly; fall back to [the upcoming draft] if it's absent.
-    const coveredYears = new Set(
-      (Array.isArray(draftCapital.coveredPickYears) &&
-      draftCapital.coveredPickYears.length
-        ? draftCapital.coveredPickYears
-        : [pickStackAnchor]
-      )
-        .map(Number)
-        .filter((y) => Number.isFinite(y)),
+    // Every real pick the draft-capital totals do not already count, per
+    // STABLE team key, each exactly once (Wave A): a season in
+    // ``coveredPickYears`` or an assetId already on a draft-capital row is in
+    // teamTotals; a duplicate assetId is not counted twice.  Name-keyed joins
+    // split a team in two (Sleeper team name vs owner first name), and a
+    // missing ``coveredPickYears`` used to re-add the upcoming class.
+    const inventory = ownedPickStackInventory(sleeperTeams, draftCapital, (label) =>
+      resolvePickRow(label, rowByLowerName, pickAliases),
     );
-    const pickRowsByTeam = {};
-    for (const team of sleeperTeams) {
-      const out = [];
-      for (const label of team.picks || []) {
-        const row = resolvePickRow(label, rowByLowerName, pickAliases);
-        if (!row) continue;
-        const parsed = parsePickAsset(row.name);
-        if (!parsed) continue;
-        if (coveredYears.has(parsed.year)) continue;
-        out.push(row.name);
-      }
-      if (out.length) pickRowsByTeam[team.name] = out;
-    }
-    const leagueStacks = buildLeagueStacks(draftCapital, pickRowsByTeam, ctx);
+    const leagueStacks = buildLeagueStacks(draftCapital, inventory.byTeam, ctx);
 
+    // Side -> stable team key, and assetId -> the team that actually holds it.
+    const keyByName = new Map(sleeperTeams.map((t) => [t?.name, teamStackKey(t)]));
+    const sideTeamKeys = sideTeamNames.map((nm) => (nm == null ? null : (keyByName.get(nm) ?? null)));
     const n = sidesWithOverrides.length;
-    const moves = [];
-    sidesWithOverrides.forEach((s, i) => {
-      for (const a of s.assets || []) {
-        if (a.assetClass !== "pick") continue;
-        let to;
-        if (n === 2) {
-          to = 1 - i;
-        } else {
-          const dest = s.destinations?.[tradeEntryKey(a)];
-          to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
-        }
-        if (to == null || to === i || to < 0 || to >= n) continue;
-        moves.push({
-          from: i,
-          to,
-          dollars: pickAuctionDollars(a.name, ctx),
-          board: effectiveValue(a, valueMode, settings),
-        });
-      }
+    // Team-attributed: only an owned pick (assetId) its sending team holds
+    // moves a stack; a generic pick never debits real inventory, and a pick
+    // the side's team does not hold is reported, not moved.
+    const { moves, notOwned } = stackPickMoves(sidesWithOverrides, {
+      sideTeamKeys,
+      ownerKeyByAssetId: pickOwnerKeyByAssetId(sleeperTeams),
+      destinationOf: (i, a) => {
+        if (n === 2) return 1 - i;
+        const dest = sidesWithOverrides[i].destinations?.[tradeEntryKey(a)];
+        const to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
+        return to == null || to < 0 || to >= n ? null : to;
+      },
+      dollarsOf: (a) => pickAuctionDollars(a.name, ctx),
     });
-    if (moves.length === 0) return null;
-    return { sideTeams: sideTeamNames, leagueStacks, moves };
+    if (moves.length === 0) return notOwned.length ? { notOwned } : null;
+    const boardPerDollar = poolBoardPerDollar(draftCapital, boardValueByName, teamsPerRound);
+    return { sideTeams: sideTeamKeys, leagueStacks, moves, boardPerDollar, notOwned };
   }, [
+    stackLib,
+    rawData,
     draftCapital,
     sleeperTeams,
     tradeHasPicks,
     stackGateUnmet,
-    pickStackAnchor,
+    stackBudgetsUnavailable,
     boardValueByName,
     rowByLowerName,
     pickAliases,
     sidesWithOverrides,
     sideTeamNames,
-    valueMode,
-    settings,
   ]);
 
+  // The withdrawn stack effect, per side, for the labelled note only.
+  const stackNote = useMemo(
+    () =>
+      stackContext?.moves ? computeStackAdjustments(sidesWithOverrides.length, stackContext) : null,
+    [stackContext, sidesWithOverrides.length],
+  );
+  // Owned picks a side's team does not hold: named, never moved (Wave A).
+  const stackNotOwned = stackContext?.notOwned?.length ? stackContext.notOwned : null;
+  // STACK-NOTE-ONLY:END
+
   // ── Computed totals for all sides ────────────────────────────────────
-  // Both 2-team and N-team trades use the KTC-style Value Adjustment.
-  // For N ≥ 3, each side's VA is computed against the merged opposition
-  // (every other side's assets flattened) — see
-  // ``computeMultiSideAdjustments`` in trade-logic.js.  ``stackContext``
-  // (when present) additionally folds the draft-capital stack effect
-  // into each side's adjusted total.
+  // Both 2-team and N-team trades use the ACTIVE package Value Adjustment
+  // (packageAdjustPair — the geometric model, q = 0.78, since 2026-10-17).
+  // For N ≥ 3 each team is read in its OWN perspective — what it sends against
+  // what is routed to it (``perTeamPackageTotals`` in trade-logic.js) — and the
+  // result is PRELIMINARY: the final per-team answer is the multi-team War
+  // Room's (POST /api/trade/analyze-multi).  The draft-capital
+  // stack effect is deliberately NOT passed (withdrawn from the verdict,
+  // see above): every total here is raw + Value Adjustment.
   const sideTotals = useMemo(() => {
     if (sidesWithOverrides.length === 2) {
       const [a, b] = adjustedSideTotals(
@@ -712,32 +1130,25 @@ export default function TradePage() {
         sidesWithOverrides[1].assets,
         valueMode,
         settings,
-        stackContext,
       );
       return [a, b];
     }
-    if (sidesWithOverrides.length > 2) {
-      return multiAdjustedSideTotals(
-        sidesWithOverrides.map((s) => s.assets),
-        valueMode,
-        settings,
-        stackContext,
-      );
-    }
-    return sidesWithOverrides.map((s) => {
-      const raw = sideTotal(s.assets, valueMode, settings);
-      return { raw, adjustment: 0, stackAdjustment: 0, adjusted: raw };
-    });
-  }, [sidesWithOverrides, valueMode, settings, stackContext]);
+    // Any other side count (3+, or a transient 0 / 1): the package model's
+    // own totals, so every total carries its package `utility` (the fairness
+    // band's base, fairness_bands_v2) -- never a hand-built flat sum without
+    // one.  Per-team rule for 3+ (spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md
+    // §5.1): the routing decides what each team receives, so the side objects
+    // go in.
+    return multiAdjustedSideTotals(sidesWithOverrides, valueMode, settings);
+  }, [sidesWithOverrides, valueMode, settings]);
 
   // Per-side flow totals: given / received / net.  In 2-team trades
   // the destinations map is ignored (assets implicitly go to the other
   // side).  In 3+-team trades each asset's destination drives the NET
   // flow, which is what the multi-team fairness bar renders.
   const sideFlows = useMemo(
-    () =>
-      computeSideFlows(sidesWithOverrides, valueMode, settings, stackContext),
-    [sidesWithOverrides, valueMode, settings, stackContext],
+    () => computeSideFlows(sidesWithOverrides, valueMode, settings),
+    [sidesWithOverrides, valueMode, settings],
   );
 
   // Per-side incoming / outgoing asset lists.  This is the
@@ -747,6 +1158,60 @@ export default function TradePage() {
   // reverse-lookup destinations across three separate side cards.
   const sideFlowAssets = useMemo(() => computeSideFlowAssets(sides), [sides]);
 
+  // ── Multi-team analysis (3+ sides; owner directive 2026-10-20 §7) ─────
+  // Probed once, the first time a 3rd side appears: the route answers its
+  // flag before anything else, so the probe runs no analysis.  Flag off (or
+  // unreachable) keeps today's behaviour exactly: the static 3+-team panel.
+  const wantsMulti = sides.length > 2;
+  useEffect(() => {
+    if (!wantsMulti || multiAvailable !== null) return undefined;
+    let live = true;
+    probeMultiTeamAnalysis().then((on) => {
+      if (live) setMultiAvailable(on);
+    });
+    return () => {
+      live = false;
+    };
+  }, [wantsMulti, multiAvailable]);
+  const multiPath = wantsMulti && multiAvailable === true && Boolean(sleeperTeams);
+  const teamChoices = useMemo(() => teamOptions(sleeperTeams), [sleeperTeams]);
+  // Each side's league team, by id: an explicit choice, else the ONE team
+  // that holds every asset on the side (never a display-name guess).
+  const sideBindings = useMemo(
+    () => (multiPath ? effectiveBindings(sides, sideRosterIds, sleeperTeams) : null),
+    [multiPath, sides, sideRosterIds, sleeperTeams],
+  );
+  const boundTeamName = useCallback(
+    (idx) => {
+      const rid = sideBindings?.[idx]?.rosterId;
+      if (rid == null) return null;
+      return teamChoices.find((t) => t.rosterId === rid)?.name || null;
+    },
+    [sideBindings, teamChoices],
+  );
+  // "Side B · Ed" in destination menus and incoming rows once a side is bound.
+  const sideDisplayLabels = useMemo(
+    () =>
+      sides.map((s, i) => {
+        const name = multiPath ? boundTeamName(i) : null;
+        return name ? `Side ${s.label} · ${name}` : `Side ${s.label}`;
+      }),
+    [sides, multiPath, boundTeamName],
+  );
+  // A final answer belongs to the trade it was computed for only.
+  useEffect(() => {
+    if (!multiPath) setMultiFinal(null);
+  }, [multiPath]);
+  // One team per side on screen: with the multi-team path on, the side
+  // cards' team binding is also the draft-capital stack note's team (its own
+  // selector panel is hidden), so two selectors can never disagree.  Declared
+  // after the name-inference effect, so on the same commit this one wins.
+  useEffect(() => {
+    if (!sideBindings) return;
+    setSideTeamNames(sides.map((_, i) => boundTeamName(i)));
+    setSideTeamLocked(sides.map((_, i) => sideBindings[i]?.rosterId != null));
+  }, [sideBindings, sides, boundTeamName]);
+
   // Which side is the user's own roster?  Derived by counting how
   // many of each side's current assets match the user's selected
   // Sleeper team.  Falls back to ``-1`` when there's no team
@@ -755,8 +1220,24 @@ export default function TradePage() {
   // the user always knows which side is "I'm giving" vs. "I'm
   // receiving" — fixes the audit's U-2-style "team affordance
   // disappears once the tray scrolls" finding.
+  // The user's explicit "I'm Side A / B" answer, for trades whose roster
+  // evidence does not decide it (TC-A / UX audit P0-5).  null = not chosen.
+  const [explicitMySide, setExplicitMySide] = useState(null);
+  useEffect(() => {
+    setExplicitMySide(null);
+  }, [selectedTeam?.name, selectedLeagueKey]);
+  // ONE answer to "which side is the selected team's" for 2-side trades —
+  // the War Room, Simulate impact and the "You" badge all read it.
+  const teamSide = useMemo(
+    () =>
+      selectedTeam && sides.length === 2
+        ? resolveTeamSide(sides, teamRosterNames(selectedTeam), explicitMySide)
+        : { side: null, basis: "ambiguous" },
+    [sides, selectedTeam, teamRosterNames, explicitMySide],
+  );
   const mySideIdx = useMemo(() => {
     if (!selectedTeam) return -1;
+    if (sides.length === 2) return teamSide.side ?? -1;
     const myRoster = teamRosterNames(selectedTeam);
     if (!myRoster.size) return -1;
     let bestIdx = -1;
@@ -772,7 +1253,14 @@ export default function TradePage() {
       }
     });
     return bestHits > 0 ? bestIdx : -1;
-  }, [sides, selectedTeam, teamRosterNames]);
+  }, [sides, selectedTeam, teamRosterNames, teamSide]);
+
+  // Can the headline speak at all?  Empty → no verdict anywhere (P0-6).
+  const evalState = useMemo(() => tradeEvaluationState(sidesWithOverrides), [sidesWithOverrides]);
+  const tradeIsEmpty = evalState.state === TRADE_EVAL_STATE.EMPTY;
+  // An unpriced asset adds 0 to its side as an arithmetic neutral; no band,
+  // gap verdict or balancer is computed over that 0 (MISSING IS NEVER ZERO).
+  const tradeIsIncomplete = evalState.state === TRADE_EVAL_STATE.INCOMPLETE;
 
   // Legacy 2-team gap computations (for sticky tray + 2-team balancers)
   const pwTotalA = sideTotals[0]?.adjusted || 0;
@@ -780,10 +1268,47 @@ export default function TradePage() {
   const linTotalA = sideTotals[0]?.raw || 0;
   const linTotalB = sideTotals[1]?.raw || 0;
   const pwGap = pwTotalA - pwTotalB;
-  const pctGap =
-    Math.max(pwTotalA, pwTotalB) > 0
-      ? Math.round((Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB)) * 100)
-      : 0;
+  // The base the ONE fairness-band owner is relative to (fairness_bands_v2,
+  // OD-F2): the larger PACKAGE UTILITY, never the larger adjusted side.  Every
+  // 2-team band on this page (tray, balancers, the "add to balance" side)
+  // reads it.
+  const pwLarger = sideTotalsFairnessBase(sideTotals.slice(0, 2));
+  const pwGapIsFair = isFairGap(pwGap, pwLarger);
+  // The sticky tray's badge + percentage: one band reading (meterVerdict).
+  const trayVerdict = meterVerdict(pwGap, pwLarger);
+  // 3+-team: the multi-team meter's own reading (one helper, shared with the
+  // persistent summary bar) -- each team graded on its OWN gap against its
+  // OWN larger PACKAGE UTILITY (per-team rule, fairness_bands_v2 OD-F2:
+  // ``teamFairnessBase``), headlined by the worst team.
+  // A team whose part of the trade carries a WITHHELD value (quarantined /
+  // stale) has no preliminary gap or band (``withheldAssetsBySide``).
+  const multiWithheld = useMemo(
+    () => (sides.length > 2 ? withheldAssetsBySide(sidesWithOverrides) : null),
+    [sides.length, sidesWithOverrides],
+  );
+  const multiSummary = useMemo(
+    () => multiTeamNetSummary(sideFlows, multiWithheld),
+    [sideFlows, multiWithheld],
+  );
+  // The War Room's FINAL per-team answer, per side, while it answers the
+  // trade on screen (the War Room reports null the moment the trade changes).
+  // The preliminary meter and tray show these words instead of their own, so
+  // the browser's indicator never speaks over the authoritative result.
+  const multiFinalBySide = useMemo(() => {
+    const rids = multiFinal?.sideRosterIds;
+    if (!multiPath || !multiFinal?.payload || !Array.isArray(rids)) return null;
+    if (rids.length !== sides.length) return null;
+    return rids.map((rid) => {
+      const t = multiFinal.payload.teams.find((x) => x.rosterId === rid);
+      return t
+        ? {
+            fairness: t.fairness?.state || "UNABLE",
+            decision: t.analysis?.decision?.headlineText || null,
+            team: t.team?.name || null,
+          }
+        : null;
+    });
+  }, [multiPath, multiFinal, sides.length]);
 
   // Balancing suggestions (2-team mode only).
   //
@@ -795,15 +1320,18 @@ export default function TradePage() {
   // match is found (manual-entry workflows, mixed assets, no Sleeper
   // data).  Also emits the inferred team name so the UI can label
   // "Add from [team]:" instead of a generic "consider adding".
-  // Equalizer candidate pool for one side (T-NEW-02).  Uniqueness is by
-  // IDENTITY: a player or owned pick already in the trade is out, but a
-  // team's SECOND "2027 Mid 1st" stays a candidate after its first is in
-  // — and a copy the team does not hold is never offered
-  // (``availableTeamPickEntries``).  Without a team, board pick rows are
-  // repeatable market references and stay eligible.
+  // Equalizer candidate pool for one side.  This is a ROSTER-AWARE
+  // RECOMMENDATION, so it uses real ownership (``heldAssetKeysInTrade`` /
+  // ``unusedTeamPickEntries``): a player or owned pick already in the
+  // trade is not suggested again, a team's SECOND "2027 Mid 1st" stays a
+  // candidate after its first is in, and a copy the team does not hold is
+  // never offered — the equalizer must not claim a team owns four
+  // Jeffersons.  Manual construction is NOT gated by this (owner decision
+  // 2026-10-03: calculator quantities are unlimited).  Without a team,
+  // board pick rows are market references and stay eligible.
   const balancerPool = useCallback(
     (sideIdx, team) => {
-      const inTradeUnique = uniqueKeysInTrade(sides);
+      const inTradeUnique = heldAssetKeysInTrade(sides);
       const excluded = (r) => !isTradeableBoardRow(r);
       if (team) {
         const roster = teamRosterNames(team);
@@ -814,7 +1342,7 @@ export default function TradePage() {
             !inTradeUnique.has(tradeEntryKey(r)) &&
             !excluded(r),
         );
-        const picks = availableTeamPickEntries(
+        const picks = unusedTeamPickEntries(
           pickEntriesByTeam.get(team.name) || [],
           sides,
           sideIdx,
@@ -833,121 +1361,116 @@ export default function TradePage() {
     [sides, rows, teamRosterNames, pickEntriesByTeam],
   );
 
-  const balancers = useMemo(() => {
-    if (sides.length !== 2) return { list: [], teamName: null };
-    if (Math.abs(pwGap) < 350) return { list: [], teamName: null };
+  // TC-E — immediate math vs expensive analysis.  The meter, the tray and the
+  // sticky result are synchronous local math; the balancer search is not: it
+  // re-simulates the whole trade once per candidate (and once per pair), which
+  // measured 33 ms per run over a 120-asset roster pool and 76 ms over the
+  // full board (Node, warm; several times that on a phone).  It used to run in
+  // the SAME render as the verdict, so every edit paid for it before the new
+  // band could paint.  It now reads a deferred snapshot (useDeferredValue, the
+  // Perfect Draft pattern): the verdict commits first and the search follows
+  // at low priority.  Suggestions are shown only while the snapshot is the
+  // trade on screen -- a stale suggestion for the previous trade is never
+  // rendered under the new one (request-sequencing rule, applied to a
+  // deferred computation).
+  const balancerInput = useMemo(
+    () => ({
+      sides,
+      sidesWithOverrides,
+      sideFlows,
+      pwGap,
+      pwGapIsFair,
+      tradeIsIncomplete,
+      inferTeamForSide,
+      balancerPool,
+    }),
+    [
+      sides,
+      sidesWithOverrides,
+      sideFlows,
+      pwGap,
+      pwGapIsFair,
+      tradeIsIncomplete,
+      inferTeamForSide,
+      balancerPool,
+    ],
+  );
+  const deferredBalancerInput = useDeferredValue(balancerInput);
+  const balancersCurrent = deferredBalancerInput === balancerInput;
+
+  const deferredBalancers = useMemo(() => {
+    const b = deferredBalancerInput;
+    if (b.sides.length !== 2) return { list: [], teamName: null };
+    if (b.tradeIsIncomplete) return { list: [], teamName: null };
+    if (b.pwGapIsFair) return { list: [], teamName: null };
     // Behind side = the one whose total is LOWER.
-    const behindSideIdx = pwGap > 0 ? 1 : 0;
-    const behindSide = sides[behindSideIdx];
-    const behindTeam = inferTeamForSide(behindSide);
-    const { pool, teamName } = balancerPool(behindSideIdx, behindTeam);
+    const behindSideIdx = b.pwGap > 0 ? 1 : 0;
+    const behindSide = b.sides[behindSideIdx];
+    const behindTeam = b.inferTeamForSide(behindSide);
+    const { pool, teamName } = b.balancerPool(behindSideIdx, behindTeam);
     // The gap is NOT passed in.  ``findBalancers`` takes the trade and
     // measures the post-add gap through the same path the meter renders,
     // so a raw value can never be matched against an adjusted target
     // (defect #800).
-    const list = findBalancers(sidesWithOverrides, behindSideIdx, pool, valueMode, {
+    // combos: when no single asset lands inside the fair band, a pair from
+    // the same roster is tried too (TC-B / TCM-F03), simulated whole.
+    const list = findBalancers(b.sidesWithOverrides, behindSideIdx, pool, valueMode, {
       settings,
-      stackContext,
+      combos: true,
     });
     return { list, teamName };
-  }, [
-    pwGap,
-    sides,
-    sidesWithOverrides,
-    settings,
-    stackContext,
-    valueMode,
-    inferTeamForSide,
-    balancerPool,
-  ]);
+  }, [deferredBalancerInput, settings, valueMode]);
 
-  // For 3+ teams, find balancers for the team getting the best deal
-  // (they should add more to their give to even things out).  Uses
-  // the destination-aware NET flow (received − given) so the target
-  // is whoever profited most after each asset was routed to its
-  // chosen destination.  Falling back to the raw total index would
-  // pick whoever put the fewest pieces on the table — a different
-  // question entirely.
-  const multiBalancers = useMemo(() => {
-    if (sides.length <= 2) return null;
-    const nets = sideFlows.map((f) => f.net);
-    const worstIdx = nets.indexOf(Math.min(...nets)); // most negative = overpaying
-    const bestIdx = nets.indexOf(Math.max(...nets)); // most positive = getting a deal
-    const gap = nets[bestIdx] - nets[worstIdx];
-    if (gap < 350) return null;
-    // Panel renders on the side that needs to GIVE more (the one with
-    // the best deal right now).  Filter the suggestion pool to that
-    // side's Sleeper team so the "add more" list is players they
-    // actually own.  Same fallback to full pool when inference fails.
-    const underpayingSide = sides[bestIdx];
-    const underpayingTeam = inferTeamForSide(underpayingSide);
-    const { pool, teamName } = balancerPool(bestIdx, underpayingTeam);
-    const suggestions = findBalancers(sidesWithOverrides, bestIdx, pool, valueMode, {
-      settings,
-      stackContext,
-      toSideIdx: worstIdx,
-    });
-    return {
-      overpayingIdx: worstIdx,
-      underpayingIdx: bestIdx, // panel rendered on the side that needs to give more
-      gap,
-      suggestions,
-      teamName,
-    };
-  }, [
-    sides,
-    sidesWithOverrides,
-    sideFlows,
-    settings,
-    stackContext,
-    valueMode,
-    inferTeamForSide,
-    balancerPool,
-  ]);
+  // 3+ teams: no balancing suggestions (spec §5.1 R10d, SD-13).  Adding an
+  // asset from team b to team d moves only gap_b and gap_d, so a 3+-team
+  // balancing objective is an undecided methodology choice; ``findBalancers``
+  // itself returns nothing for 3+ sides, and the page says so under the meter.
 
-  // UNIQUE identities already in the trade (players, owned picks) — the
-  // only things search hides.  A repeatable market pick stays searchable
-  // after its first copy so a side can carry it more than once (T-NEW-02).
-  const uniqueTradeKeys = useMemo(() => uniqueKeysInTrade(sides), [sides]);
+  const balancersPending = !balancersCurrent;
+  const balancers = balancersCurrent ? deferredBalancers : NO_BALANCERS;
+  // "Is the 3+-team trade fair?" is immediate math (the same rule the deferred
+  // search starts from), so it never waits for the suggestions.
+  const multiGapIsFair = useMemo(() => {
+    if (sides.length <= 2 || tradeIsIncomplete) return true;
+    // Per-team rule: fair only when the WORST team's own gap is in the fair band.
+    return multiSummary.verdict?.level === "fair";
+  }, [sides.length, tradeIsIncomplete, multiSummary]);
 
-  // Inline search helper: returns up to 5 best matches for the given
-  // query, excluding anything already in the trade.  Sorted by
-  // consensus rank ascending so the top hits are the most relevant
-  // dynasty assets first — matches the KTC trade-calculator UX.
+  // Inline search helper.  Nothing already in the trade is hidden: every
+  // asset is repeatable in the calculator (owner decision 2026-10-03), so
+  // a search result is still offered after its first add.  Market
+  // references come FIRST and owned picks second, each group with its own
+  // limit (``searchCalculatorAssets``), so a team's own picks can never
+  // crowd the Early/Mid/Late references out of the visible rows; the
+  // dropdown renders the two groups with headings
+  // (``groupTradeSearchResults``).  Ownership is DISPLAYED, never a limit —
+  // an owned pick already in the trade stays addable.
   const searchAssets = useCallback(
     (query, sideIdx = null) => {
-      // The eligibility rule lives in ``lib/trade-logic`` so the four
-      // call sites on this page cannot drift apart again.  What it
-      // excludes is the suppressed generic-tier pick ALIASES (rows the
-      // backend cleared because a slot-specific sibling exists), not a
-      // hardcoded year: the old ``/^2026\b/`` also removed the 72 slot
-      // rows the current-year board is priced on, so searching "2026"
-      // returned nothing at all (W08-F004).
-      const board = searchTradeAssets(rows, query, uniqueTradeKeys, 5);
-      // The side's own team's picks lead, as OWNED entries: each carries
-      // its canonical id and ownership label, so two picks that both read
-      // "2027 Mid 1st" are both offered and each can be added once.
-      const team = Number.isInteger(sideIdx) ? sideTeamNames[sideIdx] : null;
-      if (!team) return board;
-      const owned = searchPickEntries(
-        availableTeamPickEntries(pickEntriesByTeam.get(team) || [], sides, sideIdx).filter(
-          (e) => e.assetId,
-        ),
-        query,
-        5,
-      );
-      return [...owned, ...board];
+      // The eligibility rule lives in ``lib/trade-logic`` so the call
+      // sites on this page cannot drift apart again.  What it excludes is
+      // the suppressed generic-tier pick ALIASES (rows the backend cleared
+      // because a slot-specific sibling exists), not a hardcoded year: the
+      // old ``/^2026/`` also removed the 72 slot rows the current-year
+      // board is priced on, so searching "2026" returned nothing at all
+      // (W08-F004).
+      // A side bound to a league team (multi-team analysis) offers THAT
+      // team's own picks — the league picks an authoritative analysis needs.
+      const team = Number.isInteger(sideIdx)
+        ? boundTeamName(sideIdx) || sideTeamNames[sideIdx]
+        : null;
+      const owned = team ? pickEntriesByTeam.get(team) || [] : [];
+      return searchCalculatorAssets(rows, query, owned);
     },
-    [rows, uniqueTradeKeys, sideTeamNames, pickEntriesByTeam, sides],
+    [rows, sideTeamNames, pickEntriesByTeam, boundTeamName],
   );
 
   // ── Side management ─────────────────────────────────────────────────
   function addToSide(row, sideIdx) {
     if (!row) return;
-    // Uniqueness is by IDENTITY (lib/trade-assets): a player or owned pick
-    // already on any side is refused; a repeatable market pick adds
-    // another copy.  Checked against ``prev`` so two quick taps cannot
-    // both pass a stale closure.
+    // Every asset is repeatable (lib/trade-assets, owner decision
+    // 2026-10-03): a second tap adds a second copy, on either side.
+    // ``canAddEntry`` only rejects an invalid row.
     setSides((prev) => {
       if (!canAddEntry(prev, row)) return prev;
       return prev.map((s, i) => {
@@ -989,12 +1512,24 @@ export default function TradePage() {
 
   // Inline-search add: drop the row onto the side, clear that side's
   // query so the dropdown collapses, and re-focus the input so the
-  // soft keyboard stays up for the next addition.
+  // soft keyboard stays up for the next addition.  The re-focus runs a
+  // frame later, so it only reclaims focus that is lost (the tapped option
+  // unmounted) or still inside this side's search: if the user has already
+  // moved on (say, into the other side's search) it never pulls them back.
   function addFromSearch(row, sideIdx) {
     addToSide(row, sideIdx);
     setSideQueries((prev) => ({ ...prev, [sideIdx]: "" }));
     requestAnimationFrame(() => {
-      sideInputRefs.current[sideIdx]?.focus({ preventScroll: true });
+      const input = sideInputRefs.current[sideIdx];
+      if (!input) return;
+      const current = typeof document !== "undefined" ? document.activeElement : null;
+      const movedOn =
+        current &&
+        current !== document.body &&
+        current !== input &&
+        !input.parentElement?.contains(current);
+      if (movedOn) return;
+      input.focus({ preventScroll: true });
     });
   }
 
@@ -1027,7 +1562,7 @@ export default function TradePage() {
   }
 
   // Removes ONE copy of the line ``entryKey`` (lib/trade-assets): with
-  // two generic "2027 Mid 1st" on a side, one remains.  The line's routing
+  // two copies of any asset on a side, one remains.  The line's routing
   // and value override go only when its last copy does.
   function removeFromSide(entryKey, sideIdx) {
     setSides((prev) =>
@@ -1047,14 +1582,36 @@ export default function TradePage() {
       prev.map((s) => ({ ...s, assets: [], destinations: {} })),
     );
     setValueOverrides({});
+    setExplicitMySide(null);
+    setHistoryOrigin(null);
+  }
+
+  // "New trade" in the multi-team War Room: an empty trade AND no team
+  // bindings, so the next trade starts from scratch.
+  function resetMultiTeamTrade() {
+    clearTrade();
+    setSideRosterIds([]);
+    setMultiFinal(null);
+  }
+
+  function setSideRosterId(idx, rosterId) {
+    setSideRosterIds((prev) => {
+      const next = [...prev];
+      while (next.length <= idx) next.push(undefined);
+      next[idx] = rosterId;
+      return next;
+    });
   }
 
   function swapSides() {
     if (sides.length === 2) {
+      // The user's side moves with its assets.
+      setExplicitMySide((s) => (s === 0 ? 1 : s === 1 ? 0 : null));
       setSides((prev) => [
         { ...prev[1], id: 0, label: "A" },
         { ...prev[0], id: 1, label: "B" },
       ]);
+      setSideRosterIds((prev) => [prev[1], prev[0]]);
       setActiveSide((s) => (s === 0 ? 1 : 0));
     } else {
       // Rotate: side i takes the previous side's assets.  Each asset
@@ -1081,6 +1638,11 @@ export default function TradePage() {
             destinations: nextDestinations,
           };
         });
+      });
+      // A side's team binding travels with its assets.
+      setSideRosterIds((prev) => {
+        const n = sides.length;
+        return Array.from({ length: n }, (_, i) => prev[(i + n - 1) % n]);
       });
     }
   }
@@ -1149,6 +1711,7 @@ export default function TradePage() {
     // can't slide onto the wrong side after a removal.
     setSideTeamNames((prev) => prev.filter((_, i) => i !== idx));
     setSideTeamLocked((prev) => prev.filter((_, i) => i !== idx));
+    setSideRosterIds((prev) => prev.filter((_, i) => i !== idx));
     // Fix activeSide if it's out of bounds
     setActiveSide((prev) => Math.min(prev, sides.length - 2));
   }
@@ -1172,6 +1735,12 @@ export default function TradePage() {
       return;
     }
 
+    // Request sequencing (TC-E): only the newest import may land, Cancel
+    // retires one in flight, and an import never replaces a trade the user
+    // edited while it was loading -- that would overwrite a newer trade with
+    // an older request's answer.
+    const seq = (ktcImportSeqRef.current += 1);
+    const startedOn = sidesSignatureRef.current;
     setKtcImportBusy(true);
     setKtcImportError("");
     setKtcImportStatus("");
@@ -1183,6 +1752,13 @@ export default function TradePage() {
         cache: "no-store",
       });
       const data = await res.json().catch(() => ({}));
+      if (seq !== ktcImportSeqRef.current) return;
+      if (sidesSignatureRef.current !== startedOn) {
+        setKtcImportError(
+          "The trade changed while the import was loading, so nothing was replaced. Load it again to replace sides A and B.",
+        );
+        return;
+      }
       if (!res.ok || data?.ok === false) {
         setKtcImportError(data?.error || `HTTP ${res.status}`);
         return;
@@ -1193,79 +1769,28 @@ export default function TradePage() {
       const unresolvedOne = data?.unresolved?.sideOne || [];
       const unresolvedTwo = data?.unresolved?.sideTwo || [];
 
-      // Resolve each KTC-returned name → our canonical row.  Our
-      // board and KTC share pick-name shapes ("2026 Early 1st") and
-      // most player names verbatim, so a direct rowByName hit
-      // covers the common case.  For near-matches we try a ladder
-      // of increasingly permissive lookups (case-insensitive,
-      // whitespace-normalized, suffix-stripped) before giving up —
-      // historically this silently dropped picks + "Jr./III"
-      // variants.  Residual misses are surfaced to the user.
-      const _normalize = (s) =>
-        String(s || "")
-          .toLowerCase()
-          .replace(/[.']/g, "")
-          .replace(/\s+/g, " ")
-          .replace(/\s+(jr|sr|ii|iii|iv|v)$/i, "")
-          .trim();
-      const lowerIndex = new Map();
-      const normIndex = new Map();
-      for (const r of rows) {
-        if (!r?.name) continue;
-        const low = r.name.toLowerCase();
-        if (!lowerIndex.has(low)) lowerIndex.set(low, r);
-        const norm = _normalize(r.name);
-        if (!normIndex.has(norm)) normIndex.set(norm, r);
-      }
-      const resolveBatch = (entries) => {
-        const found = [];
-        const missing = [];
-        for (const entry of entries) {
-          // 1. Exact case match — fast path, covers 99%.
-          let row = rowByName.get(entry.name);
-          // 2. Case-insensitive match.
-          if (!row)
-            row = lowerIndex.get(String(entry.name || "").toLowerCase());
-          // 3. Normalized (punctuation / whitespace / suffix-stripped).
-          if (!row) row = normIndex.get(_normalize(entry.name));
-          // 4. Pick token fallback — KTC's pick labels ("2026 1.09",
-          //    "2027 Mid 1st") use a different shape than our
-          //    canonical row names ("2026 Pick 1.09").  Walk the
-          //    same ``resolvePickRow`` resolver league-analysis +
-          //    the share-URL hydrator use so picks from KTC URLs
-          //    actually load instead of silently dropping.
-          if (!row && parsePickToken(entry.name)) {
-            row = resolvePickRow(entry.name, rowByLowerName, pickAliases);
-          }
-          if (row) found.push(row);
-          else missing.push(entry.name);
-        }
-        return { found, missing };
-      };
-      const one = resolveBatch(sideOneEntries);
-      const two = resolveBatch(sideTwoEntries);
+      // Resolve each KTC-returned name → our canonical row (exact →
+      // case-insensitive → normalized → pick label; same-name rows are
+      // split by KTC's stated position).  See lib/ktc-import.js.
+      // Residual misses and ambiguous names are surfaced to the user.
+      const nameIndex = buildKtcNameIndex(rows);
+      const resolvePick = (name) =>
+        parsePickToken(name)
+          ? resolvePickRow(name, rowByLowerName, pickAliases)
+          : null;
+      const one = resolveKtcEntries(sideOneEntries, nameIndex, { resolvePick });
+      const two = resolveKtcEntries(sideTwoEntries, nameIndex, { resolvePick });
 
-      // Replace sides A and B in place, applying the same identity rule
-      // ``addToSide`` does (lib/trade-assets): a player cannot land twice,
-      // but a pick KTC lists twice is two copies and both load.
-      const [cleanedOne, cleanedTwo] = dedupeUniqueAcrossSides([one.found, two.found]);
+      // Replace sides A and B in place.  Nothing is deduped: an asset KTC
+      // lists twice is two copies and both load, on either side (owner
+      // decision 2026-10-03 — calculator quantities are hypothetical).
+      const cleanedOne = one.found;
+      const cleanedTwo = two.found;
 
+      // Seeds default destinations in a 3+-team trade and drops stale
+      // routing — the shared bulk-load rule (lib/trade-logic).
       setSides((prev) =>
-        prev.map((s, i) => {
-          if (i !== 0 && i !== 1) return s; // leave 3rd+ sides alone
-          const replacement = i === 0 ? cleanedOne : cleanedTwo;
-          // Seed default destinations for the newly-loaded assets when
-          // we're in a 3+-team trade; 2-team trades ignore the map.
-          // Old destinations referencing assets that aren't in the new
-          // set are dropped so we don't accumulate stale routing.
-          const nextDestinations = {};
-          if (prev.length > 2) {
-            for (const asset of replacement) {
-              nextDestinations[tradeEntryKey(asset)] = defaultDestination(i, prev.length);
-            }
-          }
-          return { ...s, assets: replacement, destinations: nextDestinations };
-        }),
+        applyImportedSides(prev, [cleanedOne, cleanedTwo], "replace"),
       );
       setValueOverrides({});
 
@@ -1282,6 +1807,17 @@ export default function TradePage() {
         warnings.push(`no board match for: ${one.missing.join(", ")}`);
       if (two.missing.length)
         warnings.push(`no board match for: ${two.missing.join(", ")}`);
+      const ambiguousNames = [...one.ambiguous, ...two.ambiguous];
+      if (ambiguousNames.length)
+        warnings.push(
+          `more than one board player named ${ambiguousNames.join(", ")} — check the loaded player`,
+        );
+      if (data?.playerMap?.source === "last_good")
+        warnings.push(
+          `KTC unreachable — used a saved KTC player list from ${Math.round(
+            Number(data.playerMap.ageHours) || 0,
+          )}h ago`,
+        );
       const totalLoaded = cleanedOne.length + cleanedTwo.length;
       const totalExpected = sideOneEntries.length + sideTwoEntries.length;
       if (totalLoaded === 0) {
@@ -1300,11 +1836,50 @@ export default function TradePage() {
         setKtcImportOpen(false);
       }
     } catch (err) {
+      if (seq !== ktcImportSeqRef.current) return;
       setKtcImportError(err?.message || "Import failed");
     } finally {
-      setKtcImportBusy(false);
+      if (seq === ktcImportSeqRef.current) setKtcImportBusy(false);
     }
-  }, [ktcImportUrl, rowByName]);
+  }, [ktcImportUrl, rows, rowByLowerName, pickAliases]);
+
+  // ── Import trade control (KTC URL / screenshot) ───────────────────
+  const toggleImportMenu = useCallback(() => {
+    setImportMenuOpen((open) => !open);
+    prefetch(loadKtcImportPanel);
+    if (screenshotStatus !== null) return;
+    setScreenshotStatus("loading");
+    fetch("/api/trade/import-screenshot/status", { cache: "no-store" })
+      .then((r) => r.json().catch(() => ({})))
+      .then((d) => {
+        const status = d && typeof d === "object" ? d : {};
+        setScreenshotStatus(status);
+        if (status.enabled === true) prefetch(loadScreenshotImport);
+      })
+      // Unreachable status = the feature is not offered (fail closed).
+      .catch(() => setScreenshotStatus({ enabled: false, available: false }));
+  }, [screenshotStatus]);
+
+  const screenshotEntryVisible =
+    screenshotStatus === "loading" ||
+    (screenshotStatus !== null && screenshotStatus.enabled === true);
+
+  // Confirmed screenshot import: ONE sides update (lib/trade-logic
+  // applyImportedSides). Replace is a bulk load and resets value overrides
+  // like the KTC path; Add keeps the user's edits on the assets already in
+  // the trade.
+  const importScreenshotSides = useCallback((importedSides, mode) => {
+    const n =
+      (importedSides?.[0]?.length || 0) + (importedSides?.[1]?.length || 0);
+    setSides((prev) => applyImportedSides(prev, importedSides, mode));
+    if (mode !== "add") setValueOverrides({});
+    setScreenshotImportOpen(false);
+    setScreenshotImportNote(
+      `Imported ${n} ${n === 1 ? "asset" : "assets"} from screenshot${
+        mode === "add" ? " (added to the current trade)" : ""
+      }`,
+    );
+  }, []);
 
   const exportKtcUrl = useCallback(async () => {
     setExportStatus("");
@@ -1314,6 +1889,10 @@ export default function TradePage() {
       setExportStatus("Nothing to export.");
       return;
     }
+    // Sequenced like the import (TC-E): a link for an older trade is never
+    // copied after the trade changed, and only the newest request reports.
+    const seq = (ktcExportSeqRef.current += 1);
+    const startedOn = sidesSignatureRef.current;
     try {
       const res = await fetch("/api/trade/export-ktc", {
         method: "POST",
@@ -1321,7 +1900,12 @@ export default function TradePage() {
         body: JSON.stringify({ sideOne, sideTwo }),
         cache: "no-store",
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (seq !== ktcExportSeqRef.current) return;
+      if (sidesSignatureRef.current !== startedOn) {
+        setExportStatus("The trade changed before the KTC link was ready, so nothing was copied. Copy it again.");
+        return;
+      }
       if (!res.ok || !data.ok) {
         setExportStatus(data?.error || "KTC export failed.");
         return;
@@ -1340,6 +1924,7 @@ export default function TradePage() {
           (miss.length ? ` \u2014 unmatched: ${miss.join(", ")}` : ""),
       );
     } catch (e) {
+      if (seq !== ktcExportSeqRef.current) return;
       setExportStatus("KTC export failed: " + (e?.message || e));
     }
   }, [sides]);
@@ -1384,26 +1969,47 @@ export default function TradePage() {
     try {
       const payload = {
         // One name per COPY plus each owned pick's canonical id, so the
-        // link restores quantity and distinct identity (T-NEW-02).
+        // link restores quantity and distinct identity exactly
+        // (``encodeTrade`` run-length-groups the copies per line).
         sides: sides.map((s) => ({
           name: s.label ? `Side ${s.label}` : "",
           players: (s.assets || []).map((a) => a.name),
           assetIds: (s.assets || []).map((a) => a.assetId || null),
+          // 3+-team routing travels with the link (TC-A); a 2-team trade
+          // routes implicitly and carries none.
+          destinations:
+            sides.length > 2
+              ? (s.assets || []).map((a) => {
+                  const d = s.destinations?.[tradeEntryKey(a)];
+                  return Number.isInteger(d) ? d : null;
+                })
+              : [],
         })),
         // #842: the analysis mode travels with the link.
         teamContext: useTeamContext,
+        // TC-A: the package model these totals were computed under.
+        packageModel: ACTIVE_PACKAGE_MODEL_ID,
       };
       const url = buildShareUrl(payload);
+      // A link that cannot carry the whole trade is still offered, but the
+      // user is told what it drops instead of "copied".
+      const limits = shareLinkLimits(payload);
+      const lossNote = limits.complete
+        ? ""
+        : ` It will NOT reproduce this trade exactly: it has ${describeShareTruncation(
+            limits.reasons,
+          )}, beyond what a share link may carry.`;
+      const tone = limits.complete ? "positive" : "warning";
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        setShareStatus("Share link copied to clipboard.");
+        setShareStatus({ tone, text: `Share link copied to clipboard.${lossNote}` });
       } else if (typeof window !== "undefined") {
         // Surface the URL so the user can copy it manually.
         window.prompt("Copy this share link:", url);
-        setShareStatus("Share link ready.");
+        setShareStatus({ tone, text: `Share link ready.${lossNote}` });
       }
     } catch (err) {
-      setShareStatus(err?.message || "Could not copy share link.");
+      setShareStatus({ tone: "warning", text: err?.message || "Could not copy share link." });
     }
   }, [sides, useTeamContext]);
 
@@ -1417,28 +2023,90 @@ export default function TradePage() {
   const warRoomRequest = useMemo(
     () =>
       selectedTeam && sides.length === 2
-        ? tradeRequestForTeam(sides, teamRosterNames(selectedTeam), selectedTeam.name)
+        ? tradeRequestForTeam(
+            sides,
+            teamRosterNames(selectedTeam),
+            selectedTeam.name,
+            explicitMySide,
+          )
         : null,
-    [sides, selectedTeam, teamRosterNames],
+    [sides, selectedTeam, teamRosterNames, explicitMySide],
   );
+  // The War Room's immediate trade-value summary (owner directive 2026-10-19,
+  // Part 4): EXACTLY the calculator headline's totals for the selected team's
+  // side (overrides included), shown while the personalized analysis runs --
+  // never a YES / NO.  An asset with no board value and no override gets no
+  // total at all (MISSING IS NEVER ZERO); `warRoomValueSummaryFor` decides.
+  const warRoomValueSummary = useMemo(
+    () =>
+      sides.length === 2 && warRoomRequest
+        ? warRoomValueSummaryFor({
+            sideTotals,
+            mySide: warRoomRequest.mySide,
+            evaluation: evalState,
+            overrideCount: Object.keys(valueOverrides).length,
+          })
+        : null,
+    [sides.length, warRoomRequest, sideTotals, evalState, valueOverrides],
+  );
+  // The Value Adjustment comparison (#1826), defined once and mounted through
+  // the War Room's `vaSlot` in every War Room view.  Published values, like the
+  // War Room's analysis; the component renders nothing until two sides hold
+  // assets.
+  const vaComparison = (
+    <ValueAdjustmentComparison
+      sideValues={sides.map((s) => s.assets.map((r) => displayValue(r)))}
+      sideLabels={sides.map((s) => s.label)}
+      hasOverrides={Object.keys(valueOverrides).length > 0}
+    />
+  );
+  // Both sides hold assets but nothing says which one is the team's: ask.
+  const sideChoiceNeeded =
+    Boolean(selectedTeam) &&
+    sides.length === 2 &&
+    teamSide.side == null &&
+    sides.every((s) => (s.assets || []).length > 0);
+
+  // The question "Simulate impact" answered.  Any trade edit, Clear Trade,
+  // team or league change invalidates the shown result (TC-A / UX audit
+  // P0-2); the hook's request sequence drops a late answer for an old one.
+  const simSignature = useMemo(
+    () => simulationSignature(sides, selectedTeam?.name, selectedLeagueKey),
+    [sides, selectedTeam, selectedLeagueKey],
+  );
+  useEffect(() => {
+    resetSim();
+  }, [simSignature, resetSim]);
 
   const runSimulateTrade = useCallback(() => {
     if (sides.length !== 2) return;
     if (!selectedTeam) return;
+    prefetch(loadSimulationPanel);
     // The ONE side mapping (`lib/trade-war-room.js`), shared with the Trade
     // War Room so the two can never disagree about which way a trade points:
     // the side holding more of this team's players is the side it GIVES.
-    const request = tradeRequestForTeam(sides, teamRosterNames(selectedTeam), selectedTeam?.name);
+    const request = tradeRequestForTeam(
+      sides,
+      teamRosterNames(selectedTeam),
+      selectedTeam?.name,
+      explicitMySide,
+    );
     if (!request) return;
-    const { playersIn, playersOut, picksIn, picksOut } = request;
-    simulateTrade({
-      teamName: selectedTeam?.name,
-      playersIn,
-      playersOut,
-      picksIn,
-      picksOut,
-    });
-  }, [sides, selectedTeam, teamRosterNames, simulateTrade]);
+    const { playersIn, playersOut, picksIn, picksOut, pickAssetIdsIn, pickAssetIdsOut } =
+      request;
+    simulateTrade(
+      {
+        teamName: selectedTeam?.name,
+        playersIn,
+        playersOut,
+        picksIn,
+        picksOut,
+        pickAssetIdsIn,
+        pickAssetIdsOut,
+      },
+      { signature: simSignature },
+    );
+  }, [sides, selectedTeam, teamRosterNames, simulateTrade, simSignature, explicitMySide]);
 
   // ── Suggestions logic ─────────────────────────────────────────────
   const parseRoster = useCallback(() => {
@@ -1459,7 +2127,7 @@ export default function TradePage() {
     }
 
     const team = sleeperTeams[i];
-    const picks = (team.picks || []).map((p) => {
+    const picks = (teamPickLabels(team) || []).map((p) => {
       const m = p.match(/^(\d{4})\s+(\d)\./);
       if (m) {
         const round =
@@ -1519,6 +2187,8 @@ export default function TradePage() {
   // alone.  ``lastBody`` is reset on the precondition-fail branch so a
   // fresh timer arms when the user returns to a valid state.
   const proactiveFetchRef = useRef({ lastBody: null, timer: null });
+  const suggestionsSeqRef = useRef(0);
+  const suggestionsInFlightRef = useRef(false);
   useEffect(() => {
     const cancelPending = () => {
       if (proactiveFetchRef.current.timer) {
@@ -1526,6 +2196,12 @@ export default function TradePage() {
         proactiveFetchRef.current.timer = null;
       }
       proactiveFetchRef.current.lastBody = null;
+      // A fetch still in flight answers a state that no longer holds.
+      if (suggestionsInFlightRef.current) {
+        suggestionsSeqRef.current += 1;
+        suggestionsInFlightRef.current = false;
+        setSuggestionsLoading(false);
+      }
     };
     if (loading || teamLoading) {
       cancelPending();
@@ -1582,7 +2258,9 @@ export default function TradePage() {
     // while we fetch fresh ones.  Without this reset, a user who
     // switches teams via the topbar TeamSwitcher would see the
     // OLD team's "Recommended right now" cards until they manually
-    // hit "Get Suggestions."
+    // hit "Get Suggestions."  The bump retires any fetch still in flight for
+    // the previous roster (TC-E): it must not land during the debounce.
+    suggestionsSeqRef.current += 1;
     setSuggestions(null);
     setSuggestionsError(null);
     setSuggestionsPending(true);
@@ -1623,6 +2301,11 @@ export default function TradePage() {
   }, []);
 
   async function fetchSuggestions() {
+    // Request sequencing (TC-E): a team switch fires a fresh fetch while the
+    // previous team's may still be in flight; only the newest may publish, so
+    // a slow answer for the OLD roster can never replace the new one.
+    const seq = (suggestionsSeqRef.current += 1);
+    const current = () => seq === suggestionsSeqRef.current;
     const roster = parseRoster();
     if (roster.length < 3) {
       setSuggestionsError("Enter at least 3 player names to get suggestions.");
@@ -1630,6 +2313,7 @@ export default function TradePage() {
       return;
     }
     setSuggestionsLoading(true);
+    suggestionsInFlightRef.current = true;
     setSuggestionsError(null);
     setSuggestions(null);
     localStorage.setItem(ROSTER_KEY, rosterInput);
@@ -1654,17 +2338,22 @@ export default function TradePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(withValuationMode(body)),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!current()) return;
       if (!res.ok) {
         setSuggestionsError(data.error || `Server error (${res.status})`);
         return;
       }
       setSuggestions(data);
     } catch (err) {
+      if (!current()) return;
       setSuggestionsError("Could not reach suggestion service.");
     } finally {
-      setSuggestionsLoading(false);
-      setSuggestionsPending(false);
+      if (current()) {
+        suggestionsInFlightRef.current = false;
+        setSuggestionsLoading(false);
+        setSuggestionsPending(false);
+      }
     }
   }
 
@@ -1717,7 +2406,19 @@ export default function TradePage() {
   // renders.  Returns null when that side has no balancer suggestion.
   function balancersForSide(sideIdx) {
     const isUnderpaying =
-      sides.length === 2 ? (sideIdx === 0 ? pwGap < -350 : pwGap > 350) : false;
+      sides.length === 2 ? !pwGapIsFair && (sideIdx === 0 ? pwGap < 0 : pwGap > 0) : false;
+    // The deferred search has not answered THIS trade yet: say so on the
+    // side it will answer for, instead of removing the panel as if nothing
+    // narrows the gap (unknown is not false).
+    if (balancersPending && !tradeIsIncomplete) {
+      if (sides.length === 2 && isUnderpaying) {
+        return {
+          label: "Finding assets that narrow the gap…",
+          list: [],
+          pending: true,
+        };
+      }
+    }
     if (sides.length === 2 && isUnderpaying && balancers.list.length > 0) {
       return {
         label: balancers.teamName
@@ -1726,79 +2427,35 @@ export default function TradePage() {
         list: balancers.list,
       };
     }
-    if (
-      multiBalancers &&
-      sideIdx === multiBalancers.underpayingIdx &&
-      multiBalancers.suggestions.length > 0
-    ) {
-      const losing = `Side ${sides[multiBalancers.overpayingIdx]?.label} loses ${Math.round(
-        multiBalancers.gap,
-      ).toLocaleString()}`;
-      return {
-        label: multiBalancers.teamName
-          ? `Add from ${multiBalancers.teamName}'s roster (${losing})`
-          : `To balance (${losing})`,
-        list: multiBalancers.suggestions,
-      };
-    }
     return null;
   }
 
   const hasAssets = sides.some((s) => (s.assets || []).length > 0);
+  // The verdict bar's decision word: the War Room's own headline, only while
+  // it answers the trade on screen (an "updating" answer is for an older one).
+  const trayDecisionText =
+    sides.length === 2 && decisionSummary.status === "ok"
+      ? decisionSummary.decision?.headlineText || null
+      : null;
+  // Which side's card lists the balancing suggestions, for the Next steps
+  // pointer (TC-B / TCM-O11) -- read from the page's own balancer state.
+  const balancerSideLabel =
+    sides.length === 2 && balancers.list.length ? sides[pwGap > 0 ? 1 : 0]?.label || null : null;
 
   return (
-    <main className={`main-shell ${styles.page} trade-page psi-editorial`}>
+    <div className={`main-shell ${styles.page} trade-page psi-editorial`}>
       <PageHeader
         eyebrow="Trades"
         title="Trade Calculator"
         description="Multi-team trade calculator with live fairness visualization."
-        actions={
-          <SegmentedControl
-            label="Value basis"
-            // Unchecked until settings hydrate — see the matching note on
-            // /rankings. It matters more here: a trade verdict rendered
-            // under a basis label the user did not choose is the single
-            // most dangerous thing this page can show.
-            value={settingsHydrated ? settings.valuationMode || "market" : null}
-            onChange={(v) => updateSetting("valuationMode", v)}
-            options={[
-              { value: "market", label: "Market" },
-              { value: "leagueAdjusted", label: "My league" },
-            ]}
-          />
-        }
       />
 
-      {/* A trade verdict that silently changed basis is the most
-          dangerous thing this page can do. Say which board it is on.
-
-          Gated on the CONTRACT, not on `settings.valuationMode`. The
-          setting is what the user asked for; the contract is what they
-          got, and the two diverge whenever the overlay fetch fails, the
-          scrape-version pin refuses, or the server finds no roster
-          snapshot. Reading the setting would label a market board
-          "league-adjusted" in exactly those cases.
-
-          `valuationBasisOf` also covers the server-composed path
-          (custom weights + the lens), which carries no client-applied
-          overlay object of its own. */}
-      {valuationBasisOf(rawData) === "leagueAdjusted" ? (
-        <Banner tone="info" title="Valued on your league's board">
-          Picks stay at market value.
-          <InfoTip label="your league&apos;s board">
-            <p>
-              Values and ranks are adjusted for positional scarcity measured
-              from this league&apos;s rosters.
-            </p>
-            <p>
-              Draft picks carry no scarcity measurement, so they hold their
-              market value while players move around them — which means a
-              player-for-pick trade reads differently here than on the market
-              board.
-            </p>
-          </InfoTip>
-        </Banner>
-      ) : null}
+      {/* TC-D2 / TCM-D09: the "Market / My league" control is gone -- the
+          league-adjusted lens is withdrawn server-side (#822; CLAUDE.md
+          "valuation_mode: accepted, ignored"), so the control changed
+          nothing.  The note below is gated on the CONTRACT, never the
+          setting, and renders nothing on the market board. */}
+      <ValueBasisNote contract={rawData} />
 
       {loading ? (
         // 4 rows ~= 213px, the measured height of the suggestions rail
@@ -1828,358 +2485,754 @@ export default function TradePage() {
         </Banner>
       ) : null}
 
-      {/* Mobile-only quick-add: the FIRST interactive element a phone
-          user reaches, so populating a trade needs no scrolling. */}
-      {!loading && !error ? (
-        <MobileQuickAddBar
-          activeSide={activeSide}
-          sides={sides}
-          onAddToActiveSide={addToActiveSide}
-          searchAssets={(q) => searchAssets(q, activeSide)}
-          settings={settings}
-          onSetActiveSide={setActiveSide}
-        />
-      ) : null}
-
-      {/* Three-state slot, same pattern as the dashboard's
-          TopSignalsRail: RESERVE while the suggestions fetch is
-          pending, RENDER once it lands, COLLAPSE if it resolves empty.
-          The rail arrives ~500ms (debounce) + one round-trip after the
-          rest of the page renders, so absence-then-presence inserted
-          213px + a 16px stack gap ABOVE the trade controls and meter,
-          shoving them down 229px — 79% of /trade's 0.139 CLS. */}
-      {!loading && !error && !leagueMismatch && suggestions?.totalSuggestions > 0 ? (
-        <ProactiveSuggestionsRail
-          suggestions={suggestions}
-          onApply={(s) => {
-            applySuggestion(s);
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-        />
-      ) : !loading && !error && !leagueMismatch && suggestionsPending ? (
-        <SuggestionsRailPlaceholder />
-      ) : null}
-
       {!loading && !error ? (
         <>
-          <Panel dense className="trade-controls">
-            <div className={styles.controls}>
-              <Select
-                value={valueMode}
-                onChange={(e) => setValueMode(e.target.value)}
-                aria-label="Value mode"
-              >
-                {VALUE_MODES.map((m) => (
-                  <option key={m.key} value={m.key}>
-                    {m.label}
-                  </option>
-                ))}
-              </Select>
-              <Button onClick={swapSides}>
-                {sides.length === 2 ? "Swap Sides" : "Rotate Sides"}
-              </Button>
-              <Button onClick={clearTrade}>Clear Trade</Button>
-              <Button
-                onClick={() => setValueOverrides({})}
-                disabled={!Object.keys(valueOverrides).length}
-              >
-                Reset Values
-              </Button>
-              {sides.length < MAX_SIDES ? (
-                <Button onClick={addTeam}>Add Team</Button>
-              ) : null}
-              <Button
-                onClick={() => {
-                  setKtcImportOpen((v) => !v);
-                  setKtcImportError("");
-                }}
-                aria-expanded={ktcImportOpen}
-              >
-                Import KTC
-              </Button>
-              <Button onClick={copyShareLink} disabled={!hasAssets}>
-                Copy share link
-              </Button>
-              <Button
-                onClick={exportKtcUrl}
-                disabled={sides.length !== 2 || !hasAssets}
-              >
-                Copy KTC URL
-              </Button>
-              <Button onClick={exportCsv} disabled={!hasAssets}>
-                CSV
-              </Button>
-              <Button onClick={exportJson} disabled={!hasAssets}>
-                JSON
-              </Button>
-              {sides.length === 2 && selectedTeam ? (
-                <Button
-                  variant="primary"
-                  onClick={runSimulateTrade}
-                  disabled={simLoading || !hasAssets}
-                  loading={simLoading}
-                  title={`Apply this trade to ${selectedTeam.name} and see before/after roster value`}
-                >
-                  Simulate impact
-                </Button>
-              ) : null}
-              {exportStatus ? (
-                <span className={styles.controlsNote}>{exportStatus}</span>
-              ) : null}
-            </div>
-          </Panel>
-
-          {shareStatus ? (
-            <Banner tone="positive" onDismiss={() => setShareStatus("")}>
-              {shareStatus}
-            </Banner>
-          ) : null}
-
-          <SimulationPanel
-            simResult={simResult}
-            simError={simError}
-            selectedTeam={selectedTeam}
-            onReset={resetSim}
+          {/* ── TC-D WORKSPACE ────────────────────────────────────
+              Five layers in reading order (./trade-layout.jsx): Trade
+              Builder, Immediate Result, Final Decision, Supporting
+              Intelligence, Ideas & tools.  Desktop (>= 1024) puts the
+              result and the decision echo in a sticky right column; below
+              that it is one column with this section nav and the verdict
+              bar at the foot of the screen. */}
+          {/* TC-E: the one polite announcement of a final decision change.
+              Outside every responsive container, so it is never inside a
+              display:none column at any width. */}
+          <TradeVerdictAnnouncer
+            summary={sides.length === 2 ? decisionSummary : { status: "multi", decision: null }}
           />
+          <TradeSectionNav />
+          <div className={styles.workspace}>
+            {/* ── 1. TRADE BUILDER ─────────────────────────────── */}
+            <section
+              id="trade-builder"
+              className={`${styles.layer} ${styles.layerBuilder}`}
+              aria-labelledby="trade-builder-title"
+            >
+              <h2 id="trade-builder-title" className={styles.layerTitle}>
+                Trade builder
+              </h2>
+              <Panel dense className="trade-controls">
+                <div className={styles.controls}>
+                  <Button onClick={swapSides}>
+                    {sides.length === 2 ? "Swap Sides" : "Rotate Sides"}
+                  </Button>
+                  <Button onClick={clearTrade}>Clear Trade</Button>
+                  <Button
+                    onClick={() => setValueOverrides({})}
+                    disabled={!Object.keys(valueOverrides).length}
+                  >
+                    Reset Values
+                  </Button>
+                  {sides.length < MAX_SIDES ? (
+                    <Button onClick={addTeam}>Add Team</Button>
+                  ) : null}
+                  <Button
+                    ref={importMenuButtonRef}
+                    onClick={toggleImportMenu}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && importMenuOpen) closeToolbarGroup(setImportMenuOpen, importMenuButtonRef);
+                    }}
+                    aria-expanded={importMenuOpen}
+                    aria-controls="trade-import-options"
+                    icon={
+                      <Icon
+                        name={importMenuOpen ? "chevron-up" : "chevron-down"}
+                        size={12}
+                      />
+                    }
+                  >
+                    Import trade
+                  </Button>
+                  {importMenuOpen ? (
+                    <span
+                      id="trade-import-options"
+                      role="group"
+                      aria-label="Import trade from"
+                      className={styles.importOptions}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") closeToolbarGroup(setImportMenuOpen, importMenuButtonRef);
+                      }}
+                    >
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setImportMenuOpen(false);
+                          setKtcImportOpen(true);
+                          setKtcImportError("");
+                        }}
+                      >
+                        From KeepTradeCut URL
+                      </Button>
+                      {screenshotEntryVisible ? (
+                        <Button
+                          variant="ghost"
+                          loading={screenshotStatus === "loading"}
+                          onClick={() => {
+                            setImportMenuOpen(false);
+                            setScreenshotImportNote("");
+                            setScreenshotImportOpen(true);
+                          }}
+                        >
+                          From screenshot
+                        </Button>
+                      ) : null}
+                    </span>
+                  ) : null}
+                  <Button onClick={copyShareLink} disabled={!hasAssets}>
+                    Copy share link
+                  </Button>
+                  {/* TC-D2 (UX audit P2-8): the export actions sit in one
+                      "More" group instead of three primary toolbar buttons. */}
+                  <Button
+                    ref={moreMenuButtonRef}
+                    onClick={() => setMoreMenuOpen((open) => !open)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape" && moreMenuOpen) closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
+                    }}
+                    aria-expanded={moreMenuOpen}
+                    aria-controls="trade-more-options"
+                    icon={<Icon name={moreMenuOpen ? "chevron-up" : "chevron-down"} size={12} />}
+                  >
+                    More
+                  </Button>
+                  {moreMenuOpen ? (
+                    <span
+                      id="trade-more-options"
+                      role="group"
+                      aria-label="More trade actions"
+                      className={styles.importOptions}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
+                      }}
+                    >
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
+                          exportKtcUrl();
+                        }}
+                        disabled={sides.length !== 2 || !hasAssets}
+                      >
+                        Copy KTC URL
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
+                          exportCsv();
+                        }}
+                        disabled={!hasAssets}
+                      >
+                        Download CSV
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          closeToolbarGroup(setMoreMenuOpen, moreMenuButtonRef);
+                          exportJson();
+                        }}
+                        disabled={!hasAssets}
+                      >
+                        Download JSON
+                      </Button>
+                    </span>
+                  ) : null}
+                  {/* The answer to an action the user just took (copy / download),
+                      read out politely (TC-E). */}
+                  <span className={styles.controlsNote} role="status">
+                    {exportStatus}
+                  </span>
+                </div>
+              </Panel>
 
-          {ktcImportOpen ? (
-            <KtcImportPanel
-              url={ktcImportUrl}
-              onUrlChange={setKtcImportUrl}
-              busy={ktcImportBusy}
-              error={ktcImportError}
-              onSubmit={importKtcTradeUrl}
-              onCancel={() => {
-                setKtcImportOpen(false);
-                setKtcImportError("");
-                setKtcImportUrl("");
-              }}
-            />
-          ) : null}
+              {pickOwnershipUnknown.length ? (
+                <Banner tone="warning" title={PICK_OWNERSHIP_UNAVAILABLE_LABEL}>
+                  {describePickOwnershipReason(pickOwnershipUnknown[0].reason)} Owned picks for{" "}
+                  {pickOwnershipUnknown.map((t) => t.name).join(", ")} cannot be listed or
+                  suggested; market picks (e.g. a Mid 1st) can still be added.
+                </Banner>
+              ) : null}
 
-          {ktcImportStatus && !ktcImportOpen ? (
-            <Banner tone="info" onDismiss={() => setKtcImportStatus("")}>
-              KTC import: {ktcImportStatus}
-            </Banner>
-          ) : null}
+              {historyOrigin ? (
+                <Banner
+                  tone="warning"
+                  title="Opened from Trade History — today's view, not a replay"
+                  onDismiss={() => setHistoryOrigin(null)}
+                >
+                  <span data-testid="trade-history-origin">
+                    This completed trade{historyOrigin.tradedAt ? ` (made ${historyOrigin.tradedAt})` : ""}{" "}
+                    is valued with today&apos;s board, rosters and roster needs. It is not
+                    what the trade looked like when it was made: an as-of replay is not
+                    built yet.
+                  </span>
+                </Banner>
+              ) : null}
 
-          {tradeHasPicks && sleeperTeams ? (
-            <PickTeamSelectors
-              sides={sides}
-              sleeperTeams={sleeperTeams}
-              sideTeamNames={sideTeamNames}
-              stackGateUnmet={stackGateUnmet}
-              onSetTeam={(i, v) => {
-                setSideTeamNames((prev) => {
-                  const next = [...prev];
-                  next[i] = v;
-                  return next;
-                });
-                // Picking a team locks it (don't re-infer); the blank
-                // option unlocks → auto-infer resumes.
-                setSideTeamLocked((prev) => {
-                  const next = [...prev];
-                  next[i] = v != null;
-                  return next;
-                });
-              }}
-            />
-          ) : null}
+              {shareStatus ? (
+                <Banner tone={shareStatus.tone} onDismiss={() => setShareStatus(null)}>
+                  {shareStatus.text}
+                </Banner>
+              ) : null}
 
-          {/* ── BUILD ────────────────────────────────────────────
-              The side cards are where a trade is actually assembled,
-              and they used to sit BELOW the verdict and six analysis
-              panels — you scrolled past every answer to reach the
-              question.  They lead now; the verdict follows as you fill
-              them, and the sticky tray keeps it on screen while you
-              edit. */}
-          <div
-            className={styles.sidesGrid}
-            data-sides={String(Math.min(4, sides.length))}
-          >
-            {sides.map((side, sideIdx) => (
-              <SideCard
-                key={side.id}
-                side={side}
-                sideIdx={sideIdx}
-                sides={sides}
-                total={
-                  sideTotals[sideIdx] || { raw: 0, adjustment: 0, adjusted: 0 }
-                }
-                isMySide={sideIdx === mySideIdx}
-                selectedTeam={selectedTeam}
-                sideQuery={sideQueries[sideIdx]}
-                isFocused={focusedSideIdx === sideIdx}
-                searchResults={
-                  focusedSideIdx === sideIdx
-                    ? searchAssets(sideQueries[sideIdx] || "", sideIdx)
-                    : []
-                }
-                settings={settings}
-                valueMode={valueMode}
-                valueOverrides={valueOverrides}
-                incoming={sideFlowAssets[sideIdx]?.incoming || []}
-                balancers={balancersForSide(sideIdx)}
-                canRemoveTeam={sides.length > MIN_SIDES}
-                onSideQueryChange={(idx, v) =>
-                  setSideQueries((prev) => ({ ...prev, [idx]: v }))
-                }
-                onSideFocus={(idx) => {
-                  setFocusedSideIdx(idx);
-                  setActiveSide(idx);
-                }}
-                onSideBlur={(idx) => {
-                  // Delay so a tap on a result registers before the
-                  // dropdown unmounts (onMouseDown also pre-empts blur;
-                  // this is the belt-and-braces guard for touch).
-                  setTimeout(() => {
-                    setFocusedSideIdx((prev) => (prev === idx ? null : prev));
-                  }, 120);
-                }}
-                onAddFromSearch={addFromSearch}
-                onOpenPlayer={openPlayerPopup}
-                onSetValueOverride={setValueOverride}
-                onClearValueOverride={clearValueOverride}
-                onRemoveAsset={removeFromSide}
-                onSetDestination={setAssetDestination}
-                onRemoveTeam={removeTeam}
-                onAddBalancer={(b, idx) => {
-                  // The candidate ENTRY, so an owned pick keeps its id.
-                  const row = b?.entry || rowByName.get(b?.name);
-                  if (row) addToSide(row, idx);
-                }}
-                onAddCopy={(entry, idx) => addToSide(entry, idx)}
-                registerInputRef={(idx, el) => {
-                  sideInputRefs.current[idx] = el;
+              {ktcImportOpen ? (
+                <KtcImportPanel
+                  url={ktcImportUrl}
+                  onUrlChange={setKtcImportUrl}
+                  busy={ktcImportBusy}
+                  error={ktcImportError}
+                  onSubmit={importKtcTradeUrl}
+                  onCancel={() => {
+                    // Cancel retires an import still in flight (TC-E).
+                    ktcImportSeqRef.current += 1;
+                    setKtcImportBusy(false);
+                    setKtcImportOpen(false);
+                    setKtcImportError("");
+                    setKtcImportUrl("");
+                  }}
+                />
+              ) : null}
+
+              {ktcImportStatus && !ktcImportOpen ? (
+                <Banner tone="info" onDismiss={() => setKtcImportStatus("")}>
+                  KTC import: {ktcImportStatus}
+                </Banner>
+              ) : null}
+
+              {/* Gated here: rendering the lazy dialog is what requests its chunk. */}
+              {screenshotImportOpen ? (
+                <ScreenshotImportDialog
+                  onClose={() => setScreenshotImportOpen(false)}
+                  onImport={importScreenshotSides}
+                  hasExistingAssets={hasAssets}
+                  rows={rows}
+                  rowByName={rowByName}
+                  rowByLowerName={rowByLowerName}
+                  pickAliases={pickAliases}
+                  status={
+                    screenshotStatus && typeof screenshotStatus === "object"
+                      ? screenshotStatus
+                      : null
+                  }
+                />
+              ) : null}
+
+              {screenshotImportNote && !screenshotImportOpen ? (
+                <Banner
+                  tone="positive"
+                  onDismiss={() => setScreenshotImportNote("")}
+                >
+                  {screenshotImportNote}
+                </Banner>
+              ) : null}
+
+              {tradeHasPicks && sleeperTeams && !multiPath ? (
+                <PickTeamSelectors
+                  sides={sides}
+                  sleeperTeams={sleeperTeams}
+                  sideTeamNames={sideTeamNames}
+                  stackGateUnmet={stackGateUnmet}
+                  stackBudgetsUnavailable={stackBudgetsUnavailable}
+                  onSetTeam={(i, v) => {
+                    setSideTeamNames((prev) => {
+                      const next = [...prev];
+                      next[i] = v;
+                      return next;
+                    });
+                    // Picking a team locks it (don't re-infer); the blank
+                    // option unlocks → auto-infer resumes.
+                    setSideTeamLocked((prev) => {
+                      const next = [...prev];
+                      next[i] = v != null;
+                      return next;
+                    });
+                  }}
+                />
+              ) : null}
+
+              {/* ── BUILD ────────────────────────────────────────────
+                  The side cards are where a trade is actually assembled,
+                  and they used to sit BELOW the verdict and six analysis
+                  panels — you scrolled past every answer to reach the
+                  question.  They lead now; the verdict follows as you fill
+                  them, and the sticky tray keeps it on screen while you
+                  edit. */}
+              <div
+                className={styles.sidesGrid}
+                data-sides={String(Math.min(4, sides.length))}
+              >
+                {sides.map((side, sideIdx) => (
+                  <SideCard
+                    key={side.id}
+                    side={side}
+                    sideIdx={sideIdx}
+                    sides={sides}
+                    total={
+                      sideTotals[sideIdx] || { raw: 0, adjustment: 0, adjusted: 0 }
+                    }
+                    isMySide={sideIdx === mySideIdx}
+                    selectedTeam={selectedTeam}
+                    sideQuery={sideQueries[sideIdx]}
+                    isFocused={focusedSideIdx === sideIdx}
+                    searchResults={
+                      focusedSideIdx === sideIdx
+                        ? searchAssets(sideQueries[sideIdx] || "", sideIdx)
+                        : []
+                    }
+                    settings={settings}
+                    valueMode={valueMode}
+                    valueOverrides={valueOverrides}
+                    incoming={sideFlowAssets[sideIdx]?.incoming || []}
+                    sideLabels={sideDisplayLabels}
+                    teamBinding={
+                      multiPath
+                        ? {
+                            options: teamChoices,
+                            rosterId: sideBindings?.[sideIdx]?.rosterId ?? null,
+                            basis: sideBindings?.[sideIdx]?.basis || "none",
+                            onChange: (rid) => setSideRosterId(sideIdx, rid),
+                          }
+                        : null
+                    }
+                    balancers={balancersForSide(sideIdx)}
+                    canRemoveTeam={sides.length > MIN_SIDES}
+                    onSideQueryChange={(idx, v) =>
+                      setSideQueries((prev) => ({ ...prev, [idx]: v }))
+                    }
+                    onSideFocus={(idx) => {
+                      clearTimeout(sideBlurTimersRef.current[idx]);
+                      delete sideBlurTimersRef.current[idx];
+                      setFocusedSideIdx(idx);
+                      setActiveSide(idx);
+                    }}
+                    onSideBlur={(idx) => {
+                      // Delay so a tap on a result registers before the
+                      // dropdown unmounts (onMouseDown also pre-empts blur;
+                      // this is the belt-and-braces guard for touch).
+                      clearTimeout(sideBlurTimersRef.current[idx]);
+                      sideBlurTimersRef.current[idx] = setTimeout(() => {
+                        delete sideBlurTimersRef.current[idx];
+                        setFocusedSideIdx((prev) => (prev === idx ? null : prev));
+                      }, 120);
+                    }}
+                    onAddFromSearch={addFromSearch}
+                    onOpenPlayer={openPlayerPopup}
+                    onSetValueOverride={setValueOverride}
+                    onClearValueOverride={clearValueOverride}
+                    onRemoveAsset={removeFromSide}
+                    onSetDestination={setAssetDestination}
+                    onRemoveTeam={removeTeam}
+                    onAddBalancer={(b, idx) => {
+                      // The candidate ENTRY, so an owned pick keeps its id.  A
+                      // pair (TC-B / TCM-F03) adds both of its entries.
+                      if (b?.isCombo && Array.isArray(b.entries)) {
+                        for (const entry of b.entries) addToSide(entry, idx);
+                        return;
+                      }
+                      const row = b?.entry || rowByName.get(b?.name);
+                      if (row) addToSide(row, idx);
+                    }}
+                    onAddCopy={(entry, idx) => addToSide(entry, idx)}
+                    registerInputRef={(idx, el) => {
+                      sideInputRefs.current[idx] = el;
+                    }}
+                    sheetMode={narrow}
+                    onOpenSheet={(idx) => {
+                      setActiveSide(idx);
+                      setSheetSideIdx(idx);
+                    }}
+                  />
+                ))}
+              </div>
+              {/* Gated here: rendering the lazy sheet is what requests its chunk. */}
+              {narrow && sheetSideIdx != null && sides[sheetSideIdx] ? (
+                <TradeAssetSheet
+                  side={sides[sheetSideIdx]}
+                  sideIdx={sheetSideIdx}
+                  searchAssets={searchAssets}
+                  settings={settings}
+                  onAdd={addToSide}
+                  onClose={() => setSheetSideIdx(null)}
+                />
+              ) : null}
+            </section>
+
+            {/* ── 2. IMMEDIATE RESULT (+ the decision echo) ─────────
+                Sticky beside the builder on desktop. */}
+            <aside className={styles.layerAside} aria-label="Result and decision">
+              <section
+                id="trade-result"
+                className={styles.resultPanel}
+                aria-labelledby="trade-result-title"
+              >
+                <div className={styles.layerHead}>
+                  <h2 id="trade-result-title" className={styles.layerTitle}>
+                    Immediate result
+                  </h2>
+                  <TradeVerdictHelp />
+                </div>
+                {sides.length === 2 && !tradeIsEmpty && !tradeIsIncomplete ? (
+                  <ImmediateResultTable sides={sides} sideTotals={sideTotals} />
+                ) : null}
+                {/* The package comparison: fairness band + the explanations
+                    behind it.  `sidesSend`: every side lists what that team
+                    sends, so the meter names the bigger PACKAGE and the team
+                    that receives it. */}
+                {/* sidesWithOverrides, not sides: the Monte Carlo panel inside the
+                    meter simulates around the SAME per-asset values the meter's
+                    totals are built from (TC-A / UX audit P0-1). */}
+                <TradeMeter
+                  sides={sidesWithOverrides}
+                  sideTotals={sideTotals}
+                  flows={sideFlows}
+                  valueMode={valueMode}
+                  settings={settings}
+                  sidesSend
+                  finalBySide={multiFinalBySide}
+                />
+                {sides.length > 2 && !tradeIsEmpty && !tradeIsIncomplete && !multiGapIsFair ? (
+                  <p className={styles.controlsNote} data-testid="multi-balancers-unavailable">
+                    Balancing suggestions aren&apos;t available for trades with 3 or more teams.
+                  </p>
+                ) : null}
+
+                {/* STACK-NOTE-ONLY:BEGIN — withdrawn stack effect: shown, labelled, NOT in the totals. */}
+                {stackNote && stackNote.some((v) => Math.round(v) !== 0) ? (
+                  <p
+                    className={styles.controlsNote}
+                    title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. Experimental and not calibrated, so it is kept out of the package totals, the verdict and the balancing suggestions."
+                  >
+                    <strong>Experimental context</strong> — Draft-capital stack effect
+                    (experimental, not calibrated):{" "}
+                    {stackNote
+                      .map((raw, i) => {
+                        const v = Math.round(raw);
+                        return `Side ${sides[i]?.label ?? i + 1}: ${v > 0 ? "+" : ""}${v}`;
+                      })
+                      .join(" · ")}
+                    . Not included in the totals or verdict.
+                  </p>
+                ) : null}
+                {draftCapitalFailed && tradeHasPicks ? (
+                  <p className={styles.controlsNote} data-testid="draft-capital-unavailable">
+                    Draft-capital note unavailable: this league&apos;s draft-capital board could not
+                    be read. The totals and verdict never use it.
+                  </p>
+                ) : null}
+                {stackLibFailed && stackLibWanted ? (
+                  <p className={styles.controlsNote}>
+                    Draft-capital note unavailable: its model could not be loaded.
+                  </p>
+                ) : null}
+                {stackNotOwned ? (
+                  <p className={styles.controlsNote}>
+                    Draft-capital note skips{" "}
+                    {stackNotOwned.map((x) => x.label).join(", ")}: not held by the team on that side.
+                  </p>
+                ) : null}
+                {/* STACK-NOTE-ONLY:END */}
+              </section>
+              {/* Layer 3's echo: the War Room's own answer, reported up
+                  through onDecision (desktop only; below 1024 the War Room
+                  follows directly and the verdict bar carries the word). */}
+              <DecisionSummary
+                summary={sides.length === 2 ? decisionSummary : { status: "multi", decision: null }}
+              />
+              {/* The meter's plain-English reading and the independent tally
+                  follow the decision echo, so the decision stays on the
+                  first desktop screen (UX audit §7.2: today it starts at
+                  y=1,019 at 1366x900). */}
+              <div className={styles.resultNotes}>
+                {/* The plain-English reading of the meter above — it explains
+                    the verdict, so it belongs with it rather than folded away
+                    among the alternative-currency second opinions. */}
+                {tradeIsIncomplete ? null : (
+                  <TradeFairnessExplanation sides={sidesWithOverrides} sideTotals={sideTotals} />
+                )}
+
+                {/* The one-glance independent tally (TC-B / TCM-K03).  BARE sides,
+                    like the per-source table: an override changes the headline,
+                    never what a source sees.  Rendering it is what requests its
+                    chunk, so it waits for two filled sides. */}
+                {sides.filter((s) => (s.assets || []).length > 0).length >= 2 ? (
+                  <TradeOpinionTally sides={sides} />
+                ) : null}
+              </div>
+            </aside>
+
+            {/* ── 3. FINAL DECISION ────────────────────────────── */}
+            <section
+              id="trade-decision"
+              className={`${styles.layer} ${styles.layerDecision}`}
+              aria-label="Final decision"
+            >
+              {/* ── TRADE WAR ROOM (#792 / #1173 / #843 / #842) ────────
+                  What this trade does to the selected team's actual
+                  roster, in plain English (owner directive 2026-10-19):
+                  the ONE recommendation, then Trade value / Impact on your
+                  team / Does it fit your roster?  Every number is the
+                  backend's; while the analysis runs the War Room shows the
+                  calculator's own trade value (`valueSummary`), never a
+                  YES / NO. */}
+              {/* The Value Adjustment comparison (#1826) is defined ONCE and
+                  handed to every War Room view through `vaSlot` (two-team,
+                  3+-team and idle): exactly one mount in every state. */}
+              {sides.length === 2 ? (
+                <TradeWarRoom
+                  request={warRoomRequest}
+                  leagueKey={selectedLeagueKey || ""}
+                  useTeamContext={useTeamContext}
+                  onTeamContextChange={setUseTeamContext}
+                  overrideCount={Object.keys(valueOverrides).length}
+                  teamName={selectedTeam?.name || ""}
+                  sideChoiceNeeded={sideChoiceNeeded}
+                  chosenSide={teamSide.basis === "explicit" ? teamSide.side : null}
+                  onChooseSide={setExplicitMySide}
+                  onDecision={setDecisionSummary}
+                  valueSummary={warRoomValueSummary}
+                  vaSlot={vaComparison}
+                />
+              ) : multiPath ? (
+                // Owner directive 2026-10-20 §7: every team of a 3+-team trade
+                // gets its own final answer from POST /api/trade/analyze-multi.
+                <MultiTeamWarRoom
+                  sides={sides}
+                  teams={sleeperTeams}
+                  bindings={sideBindings}
+                  leagueKey={selectedLeagueKey || ""}
+                  useTeamContext={useTeamContext}
+                  onTeamContextChange={setUseTeamContext}
+                  perspectiveRosterId={
+                    selectedTeam ? Number(selectedTeam.roster_id ?? selectedTeam.rosterId) : null
+                  }
+                  overrideCount={Object.keys(valueOverrides).length}
+                  onReset={resetMultiTeamTrade}
+                  onFinal={setMultiFinal}
+                />
+              ) : (
+                // Multi-team analysis switched off (or not yet known): the
+                // existing static panel — no YES / NO for 3+ teams.
+                <TradeWarRoom sideCount={sides.length} vaSlot={vaComparison} />
+              )}
+            </section>
+
+            {/* ── 4. SUPPORTING INTELLIGENCE ───────────────────── */}
+            <section
+              id="trade-intelligence"
+              className={`${styles.layer} ${styles.layerIntel}`}
+              aria-labelledby="trade-intelligence-title"
+            >
+              <h2 id="trade-intelligence-title" className={styles.layerTitle}>
+                Supporting intelligence
+              </h2>
+              {/* TC-D2: one drilldown per question (UX audit §7.1 layer 4).
+                  Only the open tab is rendered, so each panel's chunk and
+                  request wait for the user -- the contract the folded panels
+                  had.  Nothing here computes a value, a band or a verdict. */}
+              <TradeIntelTabs
+                active={intelTab}
+                onChange={setIntelTab}
+                panels={{
+                  value: () => (
+                    <>
+                      <TradePackageBreakdown
+                        sides={sidesWithOverrides}
+                        sideTotals={sideTotals}
+                        valueMode={valueMode}
+                      />
+                      {/* Multi-team flow visual — 3+ sides only; the 2-team
+                          meter already makes flow obvious for a 1-on-1 deal. */}
+                      {sides.length >= 3 ? (
+                        <MultiTradeFlow
+                          sides={sides}
+                          sideFlowAssets={sideFlowAssets}
+                          valueMode={valueMode}
+                          settings={settings}
+                        />
+                      ) : null}
+                      {/* ── SECOND OPINIONS ──────────────────────────────
+                          Panels that each re-answer "is this fair?" in a
+                          different currency: the per-vendor breakdown and BDVM
+                          fundamentals.  Each is worth having and none is the
+                          verdict, so they stay folded until asked for. */}
+                      <CollapsiblePanel
+                        title="Second opinions"
+                        subtitle="Per-source breakdown and fundamentals"
+                        defaultCollapsed
+                        mountCollapsedChildren={false}
+                      >
+                        {/* No valueMode: Second Opinions owns its own comparison
+                            basis and must not inherit a display toggle. */}
+                        <TradeSourceBreakdown
+                          sides={sides}
+                          settings={settings}
+                          hasOverrides={Object.keys(valueOverrides).length > 0}
+                        />
+                        <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
+                      </CollapsiblePanel>
+                    </>
+                  ),
+                  // TCM-H13: the one roster-consequence surface beside the
+                  // decision -- Simulate impact lives here, not in the toolbar.
+                  roster: () => (
+                    <>
+                      {sides.length !== 2 ? (
+                        <p className={styles.intelLead}>
+                          Roster impact covers two-team trades; this {sides.length}-team trade
+                          has none.
+                        </p>
+                      ) : !selectedTeam ? (
+                        <p className={styles.intelLead}>
+                          Pick your team to see what this trade does to your roster.
+                        </p>
+                      ) : (
+                        <>
+                          <p className={styles.intelLead}>
+                            The roster answer that counts toward the decision is in the{" "}
+                            <a href="#trade-decision" className={styles.inlineLink}>
+                              Trade War Room
+                            </a>
+                            . Simulate impact applies this trade to your roster and shows the
+                            full before / after.
+                          </p>
+                          <span>
+                            <Button
+                              variant="primary"
+                              onClick={runSimulateTrade}
+                              disabled={simLoading || !hasAssets || !warRoomRequest}
+                              loading={simLoading}
+                              title="Apply this trade to your roster and see before/after roster value"
+                            >
+                              Simulate impact
+                            </Button>
+                          </span>
+                        </>
+                      )}
+                      {/* Gated here, not only inside the panel: rendering the
+                          lazy component is what requests its chunk.  Shown only
+                          for the trade, team and league it answered. */}
+                      {(simResult || simError) && simResultSignature === simSignature ? (
+                        <SimulationPanel
+                          id="trade-simulation"
+                          simResult={simResult}
+                          simError={simError}
+                          selectedTeam={selectedTeam}
+                          onReset={resetSim}
+                          onRetry={runSimulateTrade}
+                          overrideCount={Object.keys(valueOverrides).length}
+                        />
+                      ) : null}
+                    </>
+                  ),
+                  season: () => (
+                    <RosTradeFitPanel
+                      sides={sides}
+                      settings={settings}
+                      leagueKey={selectedLeagueKey || ""}
+                    />
+                  ),
+                  // Recorded real trades: mounted only while this tab is open,
+                  // so a closed tab never refetches on a trade edit.
+                  market: () => (
+                    <RecentRealTrades sides={sides} leagueKey={selectedLeagueKey || ""} />
+                  ),
+                  reasoning: () => (
+                    <TradeDecisionReasoning
+                      decision={
+                        sides.length === 2 && decisionSummary.status === "ok"
+                          ? decisionSummary.decision
+                          : null
+                      }
+                      emptyText={
+                        sides.length !== 2
+                          ? SUMMARY_STATE_TEXT.multi
+                          : SUMMARY_STATE_TEXT[
+                              decisionSummary.status === "updating"
+                                ? "loading"
+                                : decisionSummary.status
+                            ] || SUMMARY_STATE_TEXT.idle
+                      }
+                    />
+                  ),
                 }}
               />
-            ))}
+            </section>
+
+            {/* ── 5. IDEAS & TOOLS ─────────────────────────────── */}
+            <section
+              id="trade-tools"
+              className={`${styles.layer} ${styles.layerTools}`}
+              aria-labelledby="trade-tools-title"
+            >
+              <h2 id="trade-tools-title" className={styles.layerTitle}>
+                Ideas &amp; tools
+              </h2>
+              {hasAssets ? (
+                <TradeNextActions
+                  sides={sides}
+                  leagueKey={selectedLeagueKey || ""}
+                  myTeam={selectedTeam?.name || ""}
+                  mySideIdx={sides.length === 2 ? teamSide.side : null}
+                  sideTeamNames={sideTeamNames}
+                  evalState={evalState.state}
+                  isFair={sides.length === 2 ? pwGapIsFair : multiGapIsFair}
+                  balancerSideLabel={balancerSideLabel}
+                  balancersPending={balancersPending}
+                  decisionRunId={
+                    sides.length === 2 && decisionSummary.status === "ok"
+                      ? decisionSummary.runId || null
+                      : null
+                  }
+                />
+              ) : null}
+
+              {/* The proactive rail (one top idea per category) sits with
+                  the desk it summarises since TC-D — it used to precede the
+                  builder (UX audit §7.1, layer 5).  Three-state slot, same
+                  pattern as the dashboard's TopSignalsRail: RESERVE while the
+                  suggestions fetch is pending, RENDER once it lands, COLLAPSE
+                  if it resolves empty — absence-then-presence above the
+                  builder was 79% of /trade's 0.139 CLS. */}
+              {!loading && !error && !leagueMismatch && suggestions?.totalSuggestions > 0 ? (
+                <ProactiveSuggestionsRail
+                  suggestions={suggestions}
+                  onApply={(s) => {
+                    applySuggestion(s);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
+              ) : !loading && !error && !leagueMismatch && suggestionsPending ? (
+                <SuggestionsRailPlaceholder />
+              ) : null}
+
+              <SuggestionsDesk
+                sleeperTeams={sleeperTeams}
+                selectedTeamIdx={selectedTeamIdx}
+                onSelectTeam={selectTeam}
+                leagueRosters={leagueRosters}
+                rosterInput={rosterInput}
+                onRosterInputChange={(v) => {
+                  setRosterInput(v);
+                  setSelectedTeamIdx(-1);
+                  setLeagueRosters(null);
+                }}
+                onFetch={fetchSuggestions}
+                loading={suggestionsLoading}
+                error={suggestionsError}
+                suggestions={suggestions}
+                suggestionTab={suggestionTab}
+                onTabChange={setSuggestionTab}
+                suggestionCounts={suggestionCounts}
+                rosterCount={parseRoster().length}
+                onApply={applySuggestion}
+              />
+            </section>
           </div>
 
-
-          {/* ── TRADE WAR ROOM (#792 / #1173 / #843 / #842) ────────
-              What this trade does to the selected team's actual
-              roster: recommendation, then Market / Roster /
-              Feasibility as three separate answers.  Two-side trades
-              with a selected team; every number is the backend's. */}
-          {sides.length === 2 ? (
-            <TradeWarRoom
-              request={warRoomRequest}
-              leagueKey={selectedLeagueKey || ""}
-              useTeamContext={useTeamContext}
-              onTeamContextChange={setUseTeamContext}
-            />
-          ) : null}
-
-          {/* ── VERDICT ──────────────────────────────────────────
-              The answer, and the one number this page exists to
-              produce. */}
-          {/* Fairness verdict + the explanations behind it. */}
-          <TradeMeter
-            sides={sides}
-            sideTotals={sideTotals}
-            flows={sideFlows}
-            valueMode={valueMode}
-            settings={settings}
-          />
-
-          {/* Stack-effect transparency — never a silent verdict shift. */}
-          {stackContext &&
-          sideTotals.some((t) => Math.round(t?.stackAdjustment || 0) !== 0) ? (
-            <p
-              className={styles.controlsNote}
-              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. A stack that pulls clear of the field gains; an already-dominant stack saturates."
-            >
-              Draft-capital stack effect —{" "}
-              {sideTotals
-                .map((t, i) => {
-                  const v = Math.round(t?.stackAdjustment || 0);
-                  return `Side ${sides[i]?.label ?? i + 1}: ${v > 0 ? "+" : ""}${v}`;
-                })
-                .join(" · ")}
-            </p>
-          ) : null}
-
-
-          {/* The plain-English reading of the meter above — it explains
-              the verdict, so it belongs with it rather than folded away
-              among the alternative-currency second opinions. */}
-          <TradeFairnessExplanation sides={sides} sideTotals={sideTotals} />
-
-          {/* ── SECOND OPINIONS ──────────────────────────────────
-              Panels that each re-answer "is this fair?" in a different
-              currency: per-vendor breakdown, rest-of-season fit, BDVM
-              fundamentals, and the value-delta chart.  Each
-              is worth having and none is the verdict, so they fold
-              away by default instead of pushing the builder off
-              screen.  Collapsed state is per-panel, so opening the one
-              you rely on sticks for the session. */}
-          <CollapsiblePanel
-            title="Second opinions"
-            subtitle="Per-source breakdown, rest-of-season fit, fundamentals and the value split"
-            defaultCollapsed
-            mountCollapsedChildren={false}
-          >
-          {/* No valueMode: Second Opinions owns its own comparison
-              basis and must not inherit a display toggle. */}
-          <TradeSourceBreakdown sides={sides} settings={settings} />
-          <RosTradeFitPanel sides={sides} settings={settings} />
-          <BdvmTradePanel sides={sides} leagueKey={selectedLeagueKey} />
-
-          {sides.length === 2 ? (
-            <Panel>
-              <TradeDeltaHistogram
-                sides={[
-                  {
-                    label: `Side ${sides[0]?.label || "A"}`,
-                    total: sideTotals[0]?.adjusted || 0,
-                  },
-                  {
-                    label: `Side ${sides[1]?.label || "B"}`,
-                    total: sideTotals[1]?.adjusted || 0,
-                  },
-                ]}
-              />
-            </Panel>
-          ) : null}
-
-          {/* Multi-team flow visual — 3+ sides only; the 2-team meter
-              already makes flow obvious for a 1-on-1 deal. */}
-          {sides.length >= 3 ? (
-            <MultiTradeFlow
-              sides={sides}
-              sideFlowAssets={sideFlowAssets}
-              valueMode={valueMode}
-              settings={settings}
-            />
-          ) : null}
-
-          </CollapsiblePanel>
-
-          <SuggestionsDesk
-            sleeperTeams={sleeperTeams}
-            selectedTeamIdx={selectedTeamIdx}
-            onSelectTeam={selectTeam}
-            leagueRosters={leagueRosters}
-            rosterInput={rosterInput}
-            onRosterInputChange={(v) => {
-              setRosterInput(v);
-              setSelectedTeamIdx(-1);
-              setLeagueRosters(null);
-            }}
-            onFetch={fetchSuggestions}
-            loading={suggestionsLoading}
-            error={suggestionsError}
-            suggestions={suggestions}
-            suggestionTab={suggestionTab}
-            onTabChange={setSuggestionTab}
-            suggestionCounts={suggestionCounts}
-            rosterCount={parseRoster().length}
-            onApply={applySuggestion}
-          />
-
           {/* Sticky verdict tray — 2-team only, keeps the verdict in
-              view while the user scrolls the side ledgers. */}
+              view while the user scrolls the side ledgers.  TC-D: the
+              persistent verdict bar below 1024 px (the desktop workspace
+              keeps the result and decision in its sticky column instead);
+              it carries the War Room's decision word and links to it. */}
           {sides.length === 2 ? (
             <div className="trade-sticky-tray">
               <div className="trade-tray-main">
@@ -2189,33 +3242,66 @@ export default function TradePage() {
                     {Math.round(pwTotalA).toLocaleString()}
                   </div>
                 </div>
-                <div style={{ flex: 1, maxWidth: 220 }}>
+                <a
+                  href="#trade-decision"
+                  className={styles.trayDecisionLink}
+                  style={{ flex: 1, maxWidth: 220 }}
+                >
                   {/* Verdict bar: marker position is layout math from
                       verdictBarPosition(), the same helper the pre-R4
                       tray used. */}
-                  <div className={styles.verdictTrack} aria-hidden="true">
-                    <div className={styles.verdictField} />
-                    <div
-                      className={`${styles.verdictMarker} ${
-                        colorFromGap(pwGap) === "green"
-                          ? styles.verdictMarkerPositive
-                          : colorFromGap(pwGap) === "red"
-                            ? styles.verdictMarkerNegative
-                            : ""
-                      }`}
-                      style={{
-                        "--marker-pos": `${verdictBarPosition(pwGap)}%`,
-                      }}
-                    />
-                  </div>
-                  <div className={`verdict ${colorFromGap(pwGap)}`}>
-                    {verdictFromGap(pwGap)}
-                    {pctGap > 0 ? ` (${pctGap}%)` : ""}
-                  </div>
-                  <div className={styles.controlsNote}>
-                    Gap {Math.round(pwGap).toLocaleString()}
-                  </div>
-                </div>
+                  {tradeIsEmpty || tradeIsIncomplete ? null : (
+                    <div className={styles.verdictTrack} aria-hidden="true">
+                      <div className={styles.verdictField} />
+                      <div
+                        className={`${styles.verdictMarker} ${
+                          colorFromGap(pwGap, pwLarger) === "green"
+                            ? styles.verdictMarkerPositive
+                            : colorFromGap(pwGap, pwLarger) === "red"
+                              ? styles.verdictMarkerNegative
+                              : ""
+                        }`}
+                        style={{
+                          "--marker-pos": `${verdictBarPosition(pwGap)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* Same vocabulary as the meter's badge — one set of
+                      verdict words per page (meterVerdict, the ONE
+                      fairness-band owner, lib/fairness-bands.js).
+                      No band on an empty trade (UX audit P0-6). */}
+                  {tradeIsEmpty ? (
+                    <div className="verdict" data-trade-state={evalState.state}>
+                      Add assets to compare
+                    </div>
+                  ) : tradeIsIncomplete ? (
+                    <div className="verdict" data-trade-state={evalState.state}>
+                      Incomplete — {evalState.unpriced.length} unpriced, no verdict
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        className={`verdict ${colorFromGap(pwGap, pwLarger)}`}
+                        data-trade-gap={pwGap}
+                      >
+                        {trayVerdict.label}
+                        {/* The band's own percentage (relative to the larger
+                            package utility), so it can never sit below the
+                            badge's cut -- not the adjusted-side %. */}
+                        {trayVerdict.percentText && trayVerdict.percentText !== "0"
+                          ? ` (${trayVerdict.percentText}%)`
+                          : ""}
+                      </div>
+                      <div className={styles.controlsNote}>
+                        Gap {Math.round(pwGap).toLocaleString()}
+                        {trayDecisionText ? (
+                          <span data-testid="tray-decision"> · {trayDecisionText}</span>
+                        ) : null}
+                      </div>
+                    </>
+                  )}
+                </a>
                 <div>
                   <div className="label">Side B</div>
                   <div className="value">
@@ -2224,9 +3310,18 @@ export default function TradePage() {
                 </div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            // TC-D2: the persistent summary for a 3+-team trade (the multi-team
+            // meter's own net flows and band; no YES / NO exists for it).
+            <MultiTeamSummaryBar
+              sides={sides}
+              summary={multiSummary}
+              evalState={evalState}
+              finalBySide={multiFinalBySide}
+            />
+          )}
         </>
       ) : null}
-    </main>
+    </div>
   );
 }

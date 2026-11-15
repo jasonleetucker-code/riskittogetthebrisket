@@ -34,7 +34,6 @@ from src.canonical.idp_backbone import (
     TRANSLATION_DIRECT,
     TRANSLATION_EXACT,
     TRANSLATION_EXTRAPOLATED,
-    TRANSLATION_FALLBACK,
     TRANSLATION_INTERPOLATED,
 )
 from src.canonical.player_valuation import rank_to_value
@@ -659,11 +658,21 @@ class TestFEdgeCases(unittest.TestCase):
         self.assertNotIn("ktcRank", zv)
         self.assertNotIn("canonicalConsensusRank", zv)
 
-    def test_missing_backbone_forces_position_source_to_fallback(self):
-        """If there is no overall_idp backbone source producing a ladder,
-        any position_idp source falls back to pass-through and stamps
-        idpBackboneFallback=True on affected rows.
+    def test_missing_backbone_withholds_the_position_source_vote(self):
+        """If there is no overall_idp backbone source producing a ladder, a
+        position_idp source's vote is WITHHELD — never passed through.
+
+        This used to pin the opposite (pass-through, stamped
+        ``idpBackboneFallback``): a DL-only list's #1 was voted as IDP #1,
+        i.e. a within-family ordinal published as a cross-family price.
+        The Lane 8 rule already refuses exactly that for shared-market
+        specialists; the positional scope gained the same rule when Signals'
+        per-family IDP boards became its first real user (independent
+        review of #1627: "a DB #1 must not inherit the overall IDP #1
+        price").  The withheld vote is counted, not silent.
         """
+        import src.api.data_contract as dc
+
         saved = copy.deepcopy(_RANKING_SOURCES)
         # Remove the backbone (idpTradeCalc) and add a DL-only source.
         _RANKING_SOURCES.clear()
@@ -685,9 +694,11 @@ class TestFEdgeCases(unittest.TestCase):
                 _row("dl2", "DL", extra={"dlOnly": 90}),
             ]
             _compute_unified_rankings(rows, {})
-            dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
-            self.assertEqual(dl1["sourceRankMeta"]["dlOnly"]["method"], TRANSLATION_FALLBACK)
-            self.assertTrue(dl1["idpBackboneFallback"])
+            for row in rows:
+                self.assertNotIn("dlOnly", row.get("sourceRankMeta") or {})
+                self.assertNotIn("dlOnly", row.get("sourceRanks") or {})
+            summary = dc._LAST_CROSS_POSITION_BRIDGE_SUMMARY or {}
+            self.assertEqual((summary.get("withheldNoBridge") or {}).get("dlOnly"), 2)
         finally:
             _RANKING_SOURCES.clear()
             _RANKING_SOURCES.extend(saved)

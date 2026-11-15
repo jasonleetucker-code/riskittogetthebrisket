@@ -1,0 +1,209 @@
+name: Signals IDP Family Rollback
+
+# Narrow, reviewed production write for exactly ONE thing: turning Signals
+# IDP voting OFF for one family (or all IDP, or all Signals) and proving the
+# SERVED board stopped carrying it (plan PR-RB; owner directive 2026-10-19).
+# Without it the rollback for an activated family is "revert + deploy",
+# about 90 minutes.
+#
+# V1-49 style (v1-49-host-native-scoring-activation.yml):
+#   * the .env key is chosen from a HARD-CODED table inside
+#     deploy/diagnostics/signals_idp_family_rollback.sh by the closed
+#     `family` choice — no key, value or command is ever taken from input;
+#   * the rollback direction is always OFF; `restore` puts back exactly the
+#     raw .env state captured before a given rollback (it never activates
+#     anything new — activation is a reviewed _DEFAULTS flip in a train);
+#   * post-verification reads local GET /api/status: featureFlags[<gate>]
+#     disabled AND every withheld source in served_private_absent_by_design.
+#     A rollback that does not verify is left OFF (the safe direction) and
+#     the run fails for a human (exit 2).
+#
+# THIS REPOSITORY IS PUBLIC: the log carries flag names, states and source
+# keys only — never a player, a value or a credential.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "rollback = turn the family OFF and verify. restore = put back the state captured before a rollback."
+        required: true
+        type: choice
+        options:
+          - rollback
+          - restore
+      family:
+        description: "dl | lb | db = one family's vote flag; all-idp = the IDP master switch; all-signals = signals_active_source."
+        required: true
+        type: choice
+        options:
+          - dl
+          - lb
+          - db
+          - all-idp
+          - all-signals
+      confirm:
+        description: "Must be true. Guards against a fat-fingered dispatch."
+        required: false
+        default: false
+        type: boolean
+      expected_sha:
+        description: "Exact commit SHA production must currently be running (rollback). Ignored for restore."
+        required: true
+        type: string
+      rollback_id:
+        description: "For restore: the rollback id (Actions run id) to restore. Empty = the latest for this family."
+        required: false
+        type: string
+      reason:
+        description: "Audit note: why this is being run."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Shares deploy.yml's group deliberately (as V1-49 does): a deploy and a
+  # flag write must never race on the same box.
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Signals IDP family rollback
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Validate inputs
+        shell: bash
+        env:
+          ACTION: ${{ inputs.action }}
+          CONFIRM: ${{ inputs.confirm }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          ROLLBACK_ID: ${{ inputs.rollback_id }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "::error::dispatch from main only (got ${GITHUB_REF})."
+            exit 1
+          fi
+          if [[ "${CONFIRM}" != "true" ]]; then
+            echo "::error::confirm=true is required. Refusing to proceed."
+            exit 1
+          fi
+          if [[ "${ACTION}" == "rollback" && ! "${EXPECTED_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::expected_sha must be a full 40-hex commit SHA for rollback."
+            exit 1
+          fi
+          if [[ -n "${ROLLBACK_ID}" && ! "${ROLLBACK_ID}" =~ ^[0-9]+$ ]]; then
+            echo "::error::rollback_id must be an Actions run id (digits)."
+            exit 1
+          fi
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Roll back and verify the served board
+        id: rollback
+        if: ${{ inputs.action == 'rollback' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '' }}
+          # Inputs reach the shell through env only, never by interpolation.
+          FAMILY_IN: ${{ inputs.family }}
+          EXPECTED_SHA_IN: ${{ inputs.expected_sha }}
+          ROLLBACK_ID_IN: ${{ inputs.rollback_id }}
+          REASON_IN: ${{ inputs.reason }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rc=0
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "ACTION=rollback FAMILY=$(printf %q "$FAMILY_IN") APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") EXPECTED_SHA=$(printf %q "$EXPECTED_SHA_IN") ROLLBACK_ID=$(printf %q "$GITHUB_RUN_ID") REASON=$(printf %q "$REASON_IN") bash -s" \
+            < deploy/diagnostics/signals_idp_family_rollback.sh 2>&1 | tee rollback.txt || rc=$?
+          echo "Rollback exit code: ${rc}"
+          exit "${rc}"
+
+      - name: Restore the captured pre-rollback state
+        id: restore
+        if: ${{ inputs.action == 'restore' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PYTHON_BIN: ${{ vars.PROD_PYTHON_BIN || '' }}
+          # Inputs reach the shell through env only, never by interpolation.
+          FAMILY_IN: ${{ inputs.family }}
+          EXPECTED_SHA_IN: ${{ inputs.expected_sha }}
+          ROLLBACK_ID_IN: ${{ inputs.rollback_id }}
+          REASON_IN: ${{ inputs.reason }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rc=0
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "ACTION=restore FAMILY=$(printf %q "$FAMILY_IN") APP_DIR=$(printf %q "$APP_DIR") PYTHON_BIN=$(printf %q "$PYTHON_BIN") ROLLBACK_ID=$(printf %q "$ROLLBACK_ID_IN") REASON=$(printf %q "$REASON_IN") bash -s" \
+            < deploy/diagnostics/signals_idp_family_rollback.sh 2>&1 | tee restore.txt || rc=$?
+          echo "Restore exit code: ${rc}"
+          exit "${rc}"
+
+      - name: Job summary
+        if: always()
+        shell: bash
+        env:
+          ACTION: ${{ inputs.action }}
+          FAMILY_IN: ${{ inputs.family }}
+        run: |
+          {
+            echo "## Signals IDP family rollback — ${ACTION} / ${FAMILY_IN}"
+            echo ""
+            echo "- Run id (rollback id): ${{ github.run_id }}"
+            echo "- Rollback step: ${{ steps.rollback.outcome }}"
+            echo "- Restore step: ${{ steps.restore.outcome }}"
+            echo ""
+            for f in rollback.txt restore.txt; do
+              if [[ -s "${f}" ]]; then
+                echo '```'
+                tail -c 20000 "${f}"
+                echo '```'
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: signals-idp-family-rollback-report
+          path: |
+            rollback.txt
+            restore.txt
+          if-no-files-found: ignore
+          retention-days: 90

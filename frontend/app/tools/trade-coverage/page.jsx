@@ -8,8 +8,9 @@ import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
 /**
  * Trade Coverage Audit — internal diagnostic view.
  *
- * For every Sleeper team in the live contract, hit /api/terminal
- * with their ownerId and surface:
+ * For every Sleeper team in the live contract — ownerless rosters
+ * included — hit /api/terminal (by ownerId, else by team name) and
+ * surface:
  *
  *   - The raw ``delta{7,30,90,180}dDetail`` block per team, showing
  *     ``rosterAware`` / ``tradesSeen`` / ``tradesApplied`` / ``reason``
@@ -26,9 +27,32 @@ import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
  * when the first fetch comes back ``authenticated: false``.
  */
 
-async function fetchTerminalFor(ownerId, windowDays = 180) {
+/**
+ * One audit target per contract team, keyed UNIQUELY.
+ *
+ * ``ownerId`` is not an identity on its own: Sleeper publishes
+ * ``owner_id: null`` for a roster whose manager left, and the contract then
+ * carries it as ``ownerId: ""`` named ``"Team <roster_id>"``.  Filtering on
+ * ownerId dropped that team from the audit (11 rows for a 12-team league,
+ * 2026-10-20).  The orphan is keyed by its roster id and queried by the
+ * contract name — ``/api/terminal`` resolves ``teamName`` when no ownerId
+ * is given (``src/api/terminal.py::resolve_team``).
+ */
+function auditTargets(teams) {
+  return (teams || []).map((team, index) => {
+    const ownerId = String(team?.ownerId || "").trim();
+    const rosterId = team?.roster_id ?? team?.rosterId;
+    // Roster id first: unique per league even when ownerId is empty or
+    // shared.  Position is the last resort, unique by construction.
+    const key = rosterId != null ? `roster:${rosterId}` : ownerId || `index:${index}`;
+    const query = ownerId ? { team: ownerId } : { teamName: String(team?.name || "") };
+    return { key, ownerId, team, query };
+  });
+}
+
+async function fetchTerminalFor(query, windowDays = 180) {
   const params = new URLSearchParams();
-  params.set("team", ownerId);
+  for (const [k, v] of Object.entries(query)) params.set(k, v);
   params.set("windowDays", String(windowDays));
   const res = await fetch(`/api/terminal?${params.toString()}`, {
     credentials: "same-origin",
@@ -56,32 +80,30 @@ export default function TradeCoveragePage() {
       setProgress({ done: 0, total: availableTeams.length });
       // Bounded-concurrency pool (was a fully sequential await loop:
       // 12 teams × ~3s of /api/terminal each = ~40s to settle).
-      // Per-team state is keyed by ownerId, so completion order is
-      // irrelevant; 4 in flight keeps the single-process backend
-      // responsive for other requests.
-      const queue = availableTeams
-        .map((team) => ({ team, ownerId: String(team.ownerId || "") }))
-        .filter((entry) => entry.ownerId);
+      // Per-team state is keyed by a unique team key (ownerId, else
+      // roster id), so completion order is irrelevant; 4 in flight
+      // keeps the single-process backend responsive for other requests.
+      const queue = auditTargets(availableTeams);
       const CONCURRENCY = 4;
       async function worker() {
         while (queue.length > 0) {
           if (cancelled) return;
-          const { team, ownerId } = queue.shift();
+          const { team, key, ownerId, query } = queue.shift();
           try {
-            const payload = await fetchTerminalFor(ownerId, 180);
+            const payload = await fetchTerminalFor(query, 180);
             if (payload?.authenticated === false) {
               setAuthOk(false);
             }
             if (cancelled) return;
             setPerTeam((prev) => ({
               ...prev,
-              [ownerId]: { team, payload, error: null },
+              [key]: { team, ownerId, payload, error: null },
             }));
           } catch (err) {
             if (cancelled) return;
             setPerTeam((prev) => ({
               ...prev,
-              [ownerId]: { team, payload: null, error: err?.message || "fetch_failed" },
+              [key]: { team, ownerId, payload: null, error: err?.message || "fetch_failed" },
             }));
           }
           setProgress((p) => ({ ...p, done: p.done + 1 }));
@@ -98,10 +120,11 @@ export default function TradeCoveragePage() {
   }, [availableTeams, appLoading, teamLoading]);
 
   const rows = useMemo(() => {
-    return Object.values(perTeam).map(({ team, payload, error }) => {
+    return Object.entries(perTeam).map(([key, { team, ownerId, payload, error }]) => {
       const aggs = payload?.teamAggregates || {};
       return {
-        ownerId: String(team?.ownerId || ""),
+        key,
+        ownerId,
         name: team?.name || "(unnamed)",
         playerCount: Array.isArray(team?.players) ? team.players.length : 0,
         totalValue: aggs.totalValue ?? null,
@@ -198,10 +221,10 @@ export default function TradeCoveragePage() {
           </div>
           <ul className="trade-coverage-body">
             {rows.map((r) => (
-              <li key={r.ownerId} className="trade-coverage-row">
+              <li key={r.key} className="trade-coverage-row">
                 <span className="trade-coverage-cell trade-coverage-cell--name">
                   <span className="trade-coverage-team-name">{r.name}</span>
-                  <span className="trade-coverage-team-owner muted">{r.ownerId}</span>
+                  <span className="trade-coverage-team-owner muted">{r.ownerId || "no owner"}</span>
                 </span>
                 <span className="trade-coverage-cell">
                   {r.totalValue != null ? r.totalValue.toLocaleString() : "—"}

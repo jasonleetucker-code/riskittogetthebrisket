@@ -114,7 +114,11 @@ function publicTradeToEvent(trade) {
   const playerNames = [];
   for (const side of sides) {
     for (const asset of side?.receivedAssets || []) {
-      const name = asset?.name || asset?.label;
+      // The public payload names a player ``playerName`` and a pick
+      // ``label`` (src/public_league/activity.py).  Reading ``name``
+      // alone dropped every player from the detail line.  ``name`` stays
+      // last as a tolerated legacy spelling.
+      const name = asset?.playerName || asset?.label || asset?.name;
       if (typeof name === "string" && name.trim()) playerNames.push(name);
     }
   }

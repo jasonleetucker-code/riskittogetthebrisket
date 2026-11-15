@@ -1,0 +1,37 @@
+[Unit]
+Description=Forecast Calibration Ledger: AL-4a + AL-3b scorecards after a week is final (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Runs the two existing report-only scorecards (AMATH-S01 / CW-15):
+#   AL-4a  scripts/game_day_calibration_scorecard.py
+#   AL-3b  scripts/projection_scorecard.py  (each active league)
+# via scripts/run_forecast_calibration_ledger.py, which refuses unless Sleeper's own
+# week state shows a finalized week and which records a per-week marker, so a repeat
+# firing within the same week does nothing.
+#
+# Outputs are PRIVATE and box-local: data/learning/scorecards/ (gitignored).  Never
+# docs/, never data/ros/.  The run changes no served value, probability or label and
+# promotes nothing.
+#
+# Exit codes (scripts/run_forecast_calibration_ledger.py):
+#   0 - scored, or refused/skipped for a stated reason (no final week, already scored)
+#   1 - a scorecard failed or the host week state was unreadable (marker not advanced)
+#
+# ROLLBACK: `systemctl disable --now __SERVICE_NAME__-forecast-calibration-ledger.timer`.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/run_forecast_calibration_ledger.py
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=900
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

@@ -475,11 +475,24 @@ class TestPackageGeneration:
             assert len(t.receive) in (1, 2)
 
     def test_never_emits_a_shape_this_engine_does_not_offer(self):
-        """No 2-for-2, no 3-for-anything — the shape plan is explicit."""
+        """The shape plan is explicit and obeys C3-TOPO-01.
+
+        Wave B (owner directive 2026-10-03) added the top-of-roster 2-for-2 /
+        3-for-2 / 2-for-3 search; the owner topology rule
+        (``abs(players_A - players_B) <= 1``) still forbids 3-for-1, 1-for-3
+        and anything larger.  This used to pin {1v1, 2v1, 1v2}, the retired
+        shape plan.
+        """
+        from src.packages.construction import topology_is_allowed
+
         my = [_make_asset(f"M{i}", 3000 + i * 100, 3500 + i * 100) for i in range(4)]
         opp = [_make_asset(f"T{i}", 3000 + i * 100, 3400 + i * 100) for i in range(4)]
         trades, _report = _generate_packages(my, opp, UNCONSTRAINED_OUTGOING)
-        assert set(_shapes(trades)) <= {(1, 1), (2, 1), (1, 2)}
+        offered = {(1, 1), (2, 1), (1, 2), (2, 2), (3, 2), (2, 3)}
+        assert set(_shapes(trades)) <= offered
+        for give, receive in _shapes(trades):
+            assert abs(give - receive) <= 1
+        assert all(topology_is_allowed(t.give, t.receive) for t in trades)
 
     def test_an_asset_never_appears_on_both_sides(self):
         shared = _make_asset("Shared", 4000, 4200)

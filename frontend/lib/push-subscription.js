@@ -18,7 +18,7 @@
  * to /api/push/unsubscribe so we don't keep a dead record around.
  */
 
-function urlBase64ToUint8Array(base64) {
+export function urlBase64ToUint8Array(base64) {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
   const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = atob(b64);
@@ -44,7 +44,7 @@ async function fetchPublicKey() {
   return json.publicKey;
 }
 
-async function ensureRegistration() {
+export async function ensureRegistration() {
   if (!("serviceWorker" in navigator)) {
     throw new Error("service_worker_unsupported");
   }

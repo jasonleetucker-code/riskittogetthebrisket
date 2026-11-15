@@ -22,6 +22,7 @@ on someone remembering.
 from __future__ import annotations
 
 import ast
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -202,6 +203,10 @@ class TestThePrivacyBoundaryHolds:
             "authorized contract, not an import."
         )
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="POSIX permission bits: Windows reports 0o666 and uses ACLs instead",
+    )
     def test_the_database_is_created_private(self, db):
         """``store`` chmods 0600; nothing tested that it took effect."""
         import stat

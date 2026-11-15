@@ -33,7 +33,16 @@ test.describe("V1-123 Phase 2: /draft-capital (production)", () => {
 
     const populated = await populatedSignal.isVisible().catch(() => false);
     if (populated) {
-      await expect(page.getByText(/draft ·.*teams ·.*rounds ·.*total budget/i)).toBeVisible({
+      // The summary line: scope · N teams · N rounds · budget.  Since the
+      // owner's 2026-10-18 per-class budget decision the default (All Years)
+      // scope reads "2027–2029 picks · 12 teams · 6 rounds · $3600 = 3 classes
+      // × $1200"; a single class reads "<year> draft …" / "<year> picks …".
+      // Every variant states real team and round counts and a budget figure,
+      // or says the budget is unknown (budgetText → "an unknown") — never a
+      // silent blank.
+      await expect(
+        page.getByText(/\b\d{4}(?:–\d{4})? (?:draft|picks) · \d+ teams · \d+ rounds · (?:\$[\d,]+|an unknown)/),
+      ).toBeVisible({
         timeout: 30_000,
       });
       annotate(testInfo, "states-observed", "draft-capital: populated");

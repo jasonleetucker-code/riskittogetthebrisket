@@ -106,8 +106,8 @@ if ticks.exists():
             for k, v in (t.get("leagues") or {}).items()
         }
         print(
-            t.get("startedAt"), "->", t.get("finishedAt"), t.get("outcome"),
-            "exit", t.get("exitCode"), "phase", (t.get("cadence") or {}).get("phase"),
+            t.get("started_at"), "->", t.get("finished_at"), t.get("outcome"),
+            "exit", t.get("exit_code"), "phase", (t.get("cadence") or {}).get("phase"),
             "req", len(t.get("requests") or []), "err", t.get("error"), leagues,
         )
 else:
@@ -140,4 +140,36 @@ for key_dir in sorted(p for p in live.iterdir() if p.is_dir() and not p.name.sta
                 for r in rows[-8:]:
                     print("    ", r[:300])
 PYEOF
+
+section "pregame projection archive (AL-P8)"
+# The pregame weekly-projection archive (src/ros/game_day_live.py
+# ensure_pregame_archive -> PREGAME_ARCHIVE_NAME / PREGAME_ARCHIVE_FAILURE_NAME)
+# is written only when a week's raw observations/ are about to be pruned, so the
+# FIRST build is the moment to observe.  Lists every archive (or its
+# .retained.json failure record) per NFL week, plus which weeks still hold raw
+# observations/ (the evidence the archive is built from).  Read-only: ls/stat.
+shopt -s nullglob
+PREGAME=( "${LIVE}"/_nfl/*/week_*/pregame_projections* )
+if (( ${#PREGAME[@]} == 0 )); then
+  echo "pregame_projections*: NONE on this host (no prune has built an archive yet)"
+else
+  for f in "${PREGAME[@]}"; do
+    stat -c '%y  %10s bytes  %n' "${f}" 2>/dev/null || ls -l "${f}"
+  done
+fi
+OBS=( "${LIVE}"/_nfl/*/week_*/observations )
+echo "weeks still holding raw observations/: ${#OBS[@]}"
+for d in "${OBS[@]}"; do
+  echo "  ${d#"${LIVE}/"} ($(find "${d}" -type f 2>/dev/null | wc -l | tr -d ' ') files)"
+done
+shopt -u nullglob
+
+section "BALLDONTLIE shadow (newest week with a shadow log)"
+SHADOW="$(ls -1t "${LIVE}"/_nfl/*/week_*/shadow_balldontlie.jsonl 2>/dev/null | head -n 1 || true)"
+if [ -n "${SHADOW}" ] && [ -f "${APP_DIR}/scripts/balldontlie_shadow_report.py" ]; then
+  echo "log: ${SHADOW}"
+  (cd "${APP_DIR}" && "${PY}" scripts/balldontlie_shadow_report.py --season 0 --week 0 --path "${SHADOW}") || true
+else
+  echo "no shadow log (flag off, key absent, or not yet deployed)"
+fi
 exit 0

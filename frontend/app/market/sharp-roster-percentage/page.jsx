@@ -18,10 +18,19 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Banner, DataTable, Panel, PageHeader, Select, StatTile } from "@/components/ds";
+import {
+  Banner,
+  DataTable,
+  Panel,
+  PageHeader,
+  PlayerNameButton,
+  Select,
+  StatTile,
+} from "@/components/ds";
 import { LoadingState } from "@/components/ui";
 import { apiErrorMessage } from "@/lib/api-error";
 import {
+  sharpAssetPlayerId,
   buildExclusionRows,
   buildTransparencyTiles,
   classifyEmptyState,
@@ -226,6 +235,9 @@ export default function SharpRosterPercentagePage() {
         key: "displayName",
         header: "Player",
         accessor: (row) => row.displayName,
+        render: (row) => (
+          <PlayerNameButton name={row.displayName} playerId={sharpAssetPlayerId(row)} />
+        ),
       },
       { key: "position", header: "Pos", accessor: (row) => row.position || "—" },
       { key: "nflTeam", header: "Team", accessor: (row) => row.nflTeam || "—" },
@@ -339,7 +351,7 @@ export default function SharpRosterPercentagePage() {
   const empty = classifyEmptyState(payload);
 
   return (
-    <main className="page">
+    <div className="page">
       <PageHeader
         title={PAGE_TITLE}
         description="Which players our verified sharp managers actually roster, across every league we can observe."
@@ -446,6 +458,6 @@ export default function SharpRosterPercentagePage() {
           </ul>
         </Panel>
       ) : null}
-    </main>
+    </div>
   );
 }

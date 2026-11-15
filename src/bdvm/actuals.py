@@ -168,11 +168,13 @@ def weekly_points_from_rows(
             samples.pop(key, None)
     if unscored_rules:
         # Loud, because the number this returns feeds the in-season
-        # posterior blend and is a LOWER BOUND whenever this fires.
+        # posterior blend and is PARTIAL whenever this fires (not a lower
+        # bound: ``pass_int_td`` is in the play-by-play set and is a penalty).
         _LOGGER.warning(
             "bdvm actuals: season %s scored WITHOUT %s — at least one week "
             "had no play-by-play evidence for these rules (no artifact, or a "
-            "week it marks unfinished), so weekly points are understated. "
+            "week it marks unfinished), so weekly points are partial (the "
+            "omitted rules may be bonuses or penalties). "
             "Build or extend it with scripts/build_pbp_weekly.py --seasons %s.",
             season,
             ", ".join(sorted(unscored_rules)),

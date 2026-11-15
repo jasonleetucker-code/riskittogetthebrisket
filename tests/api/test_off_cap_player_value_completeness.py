@@ -51,7 +51,9 @@ from src.api.data_contract import (
     build_api_data_contract,
 )
 from src.canonical.player_valuation import DISPLAY_SCALE_MIN
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 # ── Synthetic board ────────────────────────────────────────────────────
 #
@@ -482,7 +484,7 @@ class TestTreyLance:
     @staticmethod
     @lru_cache(maxsize=1)
     def _real_board() -> tuple[dict | None, str | None]:
-        payload, archive = newest_complete_raw_payload()
+        payload, archive = pinned_board_payload()
         if payload is None:
             return None, None
         with contextlib.redirect_stdout(io.StringIO()):

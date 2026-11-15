@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "comment": "Hand/Decimal-derived oracle for the FAAB objective ceiling, independent of src/trade/faab_engine.py. Anchors V_repl=1000, V_allin=2000, band=1000; toeExponent=2.2, aboveAllinSlope=0.5, rawCeilingCap=6.0 (docs/faab-model.md Stage C).",
+  "anchors": {
+    "vRepl": 1000,
+    "vAllIn": 2000,
+    "band": 1000
+  },
+  "cases": [
+    {
+      "id": "target_x_0.1",
+      "value": 1351.119173421513,
+      "expectedDisplayed": 0.00856,
+      "expectedRaw": 0.00856,
+      "derivation": "choose s=x^(1/2.2) so s^2.2=x=0.1 exactly; smootherstep(0.1)=x^3(6x^2-15x+10)=0.00856"
+    },
+    {
+      "id": "target_x_0.25",
+      "value": 1532.5205447199814,
+      "expectedDisplayed": 0.103515625,
+      "expectedRaw": 0.103515625,
+      "derivation": "choose s=x^(1/2.2) so s^2.2=x=0.25 exactly; smootherstep(0.25)=x^3(6x^2-15x+10)=0.1035156250"
+    },
+    {
+      "id": "target_x_0.5",
+      "value": 1729.7400528407231,
+      "expectedDisplayed": 0.5,
+      "expectedRaw": 0.5,
+      "derivation": "choose s=x^(1/2.2) so s^2.2=x=0.5 exactly; smootherstep(0.5)=x^3(6x^2-15x+10)=0.50000"
+    },
+    {
+      "id": "target_x_0.75",
+      "value": 1877.4243147253665,
+      "expectedDisplayed": 0.896484375,
+      "expectedRaw": 0.896484375,
+      "derivation": "choose s=x^(1/2.2) so s^2.2=x=0.75 exactly; smootherstep(0.75)=x^3(6x^2-15x+10)=0.8964843750"
+    },
+    {
+      "id": "target_x_0.9",
+      "value": 1953.2375475512688,
+      "expectedDisplayed": 0.99144,
+      "expectedRaw": 0.99144,
+      "derivation": "choose s=x^(1/2.2) so s^2.2=x=0.9 exactly; smootherstep(0.9)=x^3(6x^2-15x+10)=0.99144"
+    },
+    {
+      "id": "s_0.3",
+      "value": 1300.0,
+      "expectedDisplayed": 0.003174976226122113,
+      "expectedRaw": 0.003174976226122113,
+      "derivation": "s=0.3; x=s^2.2=0.07074027770369605029; smootherstep(x)=x^3(6x^2-15x+10)=0.00317497622612211310 (50-digit Decimal)"
+    },
+    {
+      "id": "s_0.5",
+      "value": 1500.0,
+      "expectedDisplayed": 0.07236297091007861,
+      "expectedRaw": 0.07236297091007861,
+      "derivation": "s=0.5; x=s^2.2=0.21763764082403103478; smootherstep(x)=x^3(6x^2-15x+10)=0.07236297091007860405 (50-digit Decimal)"
+    },
+    {
+      "id": "s_0.8",
+      "value": 1800.0,
+      "expectedDisplayed": 0.7031920597782354,
+      "expectedRaw": 0.7031920597782354,
+      "derivation": "s=0.8; x=s^2.2=0.61206559986562367086; smootherstep(x)=x^3(6x^2-15x+10)=0.70319205977823537779 (50-digit Decimal)"
+    },
+    {
+      "id": "s_0.95",
+      "value": 1950.0,
+      "expectedDisplayed": 0.9897105493396442,
+      "expectedRaw": 0.9897105493396442,
+      "derivation": "s=0.95; x=s^2.2=0.89328888797250712507; smootherstep(x)=x^3(6x^2-15x+10)=0.98971054933964419263 (50-digit Decimal)"
+    },
+    {
+      "id": "at_or_below_repl_1000",
+      "value": 1000,
+      "expectedDisplayed": 0.0,
+      "expectedRaw": 0.0,
+      "derivation": "surplus=max(0,V-1000)=0 -> ceiling 0"
+    },
+    {
+      "id": "at_or_below_repl_500",
+      "value": 500,
+      "expectedDisplayed": 0.0,
+      "expectedRaw": 0.0,
+      "derivation": "surplus=max(0,V-1000)=0 -> ceiling 0"
+    },
+    {
+      "id": "at_or_below_repl_0",
+      "value": 0,
+      "expectedDisplayed": 0.0,
+      "expectedRaw": 0.0,
+      "derivation": "surplus=max(0,V-1000)=0 -> ceiling 0"
+    },
+    {
+      "id": "all_in_line",
+      "value": 2000,
+      "expectedDisplayed": 1.0,
+      "expectedRaw": 1.0,
+      "derivation": "s=1, x=1, smootherstep(1)=6-15+10=1"
+    },
+    {
+      "id": "above_allin_2400",
+      "value": 2400,
+      "expectedDisplayed": 1.0,
+      "expectedRaw": 1.2,
+      "derivation": "s=1.4; raw=min(6, 1+(s-1)*0.5)=1.20; displayed capped at 1"
+    },
+    {
+      "id": "above_allin_5000",
+      "value": 5000,
+      "expectedDisplayed": 1.0,
+      "expectedRaw": 2.5,
+      "derivation": "s=4; raw=min(6, 1+(s-1)*0.5)=2.5; displayed capped at 1"
+    },
+    {
+      "id": "above_allin_9999",
+      "value": 9999,
+      "expectedDisplayed": 1.0,
+      "expectedRaw": 4.9995,
+      "derivation": "s=8.999; raw=min(6, 1+(s-1)*0.5)=4.9995; displayed capped at 1"
+    },
+    {
+      "id": "above_allin_12000",
+      "value": 12000,
+      "expectedDisplayed": 1.0,
+      "expectedRaw": 6.0,
+      "derivation": "s=11; raw=min(6, 1+(s-1)*0.5)=6; displayed capped at 1"
+    },
+    {
+      "id": "above_allin_20000",
+      "value": 20000,
+      "expectedDisplayed": 1.0,
+      "expectedRaw": 6.0,
+      "derivation": "s=19; raw=min(6, 1+(s-1)*0.5)=6; displayed capped at 1"
+    }
+  ]
+}

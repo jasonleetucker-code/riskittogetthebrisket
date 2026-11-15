@@ -1,0 +1,17 @@
+{
+  "version": "freshness_schedule_v2",
+  "decision": "Owner directive 2026-10-19 'Universal Source Voting and Freshness Policy' section 2 (docs/sources/UNIVERSAL_FRESHNESS_SCHEDULE_2026-10-19.md). When active it supersedes the cadence-relative curve of config/sources/freshness_v1.json for every dynasty ranking source. Percentages owner-approved; ACTIVATION HELD (owner decision 2026-10-20 on PR #1831, Option B, docs/owner/PR1831_OPTION_B_DECISION_2026-10-20.md): flag source_freshness_schedule_v2 defaults OFF and the v1 curve is in force. One owner reads this file: src/sources/freshness.py.",
+  "description": "Voting power as a step function of WHOLE DAYS since the source's last GENUINE publisher update. It multiplies the approved base weight: effective = base x freshness x health x coverage. The clock is a vendor-stated publication time where the source's fetcher records one (data/scrape_state/<key>_upstream.json -> dataset state upstream.publishedAt), never later than the last content change we observed; otherwise the last observed content change (src/sources/dataset_state.py). A successful re-download of unchanged content moves no clock. An update time we cannot establish for a source we are tracking (only the first-observation baseline, a fetch time, is known) is never fresh: it votes at unknownUpdateTimeFreshness (0) and is reported as unknown. A board that predates every observation we hold for a source (a replay older than its tracking), or a source with no recorded state, has no freshness measurement at all and keeps the long-standing unmeasured posture (base weight, clockBasis not_tracked_at_board_time), exactly as a board with no dataset-state directory does.",
+  "dayBoundary": "days = floor((boardAsOf - clock) / 86400 seconds), measured between two UTC instants, so the result does not depend on any time zone or calendar date. A source updated 7 days 23 hours ago is in day 7 (100%); at exactly 8 x 24 hours it is in day 8 (75%). A clock later than the board's own time counts as day 0.",
+  "schedule": [
+    {"maxDays": 7, "freshness": 1.0, "label": "Active - 100%"},
+    {"maxDays": 14, "freshness": 0.75, "label": "Active - 75%"},
+    {"maxDays": 21, "freshness": 0.5, "label": "Active - 50%"},
+    {"maxDays": 30, "freshness": 0.25, "label": "Active - 25%"}
+  ],
+  "beyondMaxFreshness": 0.0,
+  "unknownUpdateTimeFreshness": 0.0,
+  "exemptKeys": {
+    "ktcCrowdTradesSfTep": "KTC Market is the benchmark our model is compared against and never casts a vote, so it is not a dynasty ranking voter; its freshness only qualifies the market comparison and stays on the v1 curve."
+  }
+}

@@ -39,7 +39,9 @@ from src.api.confidence import (
     unassessed_defaults,
 )
 from src.api.data_contract import build_api_data_contract, validate_api_data_contract
-from tests.archive_fixtures import has_published_slot_class, newest_complete_raw_payload
+from tests.archive_fixtures import has_published_slot_class, pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _REPO = Path(__file__).resolve().parents[2]
 
@@ -47,7 +49,7 @@ _contract_cache: dict[str, Any] | None = None
 
 
 def _load_contract() -> dict[str, Any] | None:
-    """Build from the newest COMPLETE archive, never simply the newest board.
+    """Build from the PINNED complete archive, never the newest board.
 
     ``exports/latest`` is whatever the last scrape produced, so reading it
     would make every assertion below a function of that scrape's health —
@@ -58,7 +60,7 @@ def _load_contract() -> dict[str, Any] | None:
     global _contract_cache
     if _contract_cache is not None:
         return _contract_cache
-    raw, _archive = newest_complete_raw_payload()
+    raw, _archive = pinned_board_payload()
     if raw is None:
         return None
     _contract_cache = build_api_data_contract(raw)
@@ -69,7 +71,7 @@ _slotted_cache: dict[str, Any] | None = None
 
 
 def _slotted_rows() -> list[dict[str, Any]]:
-    """Rows from the newest complete scrape that HAS a published slot class.
+    """Rows from the pinned board, which HAS a published slot class.
 
     The rookie tether exists only in that phase (C1-U6-D2): after the draft,
     until the next order is published, nothing is tethered and the property
@@ -77,9 +79,10 @@ def _slotted_rows() -> list[dict[str, Any]]:
     """
     global _slotted_cache
     if _slotted_cache is None:
-        raw, _archive = newest_complete_raw_payload(require=has_published_slot_class)
-        if raw is None:
-            pytest.skip("no complete archived scrape with a published slot class")
+        raw, _archive = pinned_board_payload()
+        # The pinned board is in the slotted phase; if a refresh of the pin
+        # ever is not, this must fail rather than test nothing.
+        assert has_published_slot_class(raw), "the pinned board carries no slotted class"
         _slotted_cache = build_api_data_contract(raw)
     return _slotted_cache.get("playersArray") or []
 

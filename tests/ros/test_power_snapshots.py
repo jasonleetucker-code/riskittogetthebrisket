@@ -55,7 +55,7 @@ def test_first_week_has_no_fabricated_movement(tmp_path, monkeypatch):
         finalized_at="2026-09-08T00:00:00+00:00",
     )
     assert created
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     assert all(row["rankDelta"] is None for row in payload["ranking"])
 
 
@@ -73,7 +73,7 @@ def test_week_two_movement_uses_previous_official_rank_math(tmp_path, monkeypatc
         scoring_fingerprint="abc",
         finalized_at="2026-09-15T00:00:00+00:00",
     )
-    rows = {row["ownerId"]: row for row in json.loads(path.read_text())["ranking"]}
+    rows = {row["ownerId"]: row for row in json.loads(path.read_text(encoding="utf-8"))["ranking"]}
     assert rows["a"]["rankDelta"] == 2  # 3 -> 1 means up two
     assert rows["b"]["rankDelta"] == -1
     assert rows["c"]["rankDelta"] == -1
@@ -88,7 +88,7 @@ def test_recalculation_cannot_rewrite_an_official_week(tmp_path, monkeypatch):
         scoring_fingerprint="abc",
         finalized_at="2026-09-15T00:00:00+00:00",
     )
-    before = path.read_text()
+    before = path.read_text(encoding="utf-8")
 
     changed = _section(week=2, ranks={"a": 2, "b": 1})
     same_path, created_again = power_snapshots.record_snapshot(
@@ -99,7 +99,7 @@ def test_recalculation_cannot_rewrite_an_official_week(tmp_path, monkeypatch):
     )
     assert same_path == path
     assert not created_again
-    assert path.read_text() == before
+    assert path.read_text(encoding="utf-8") == before
 
 
 def test_movement_never_skips_a_missing_week(tmp_path, monkeypatch):
@@ -186,7 +186,7 @@ def test_atomic_publication_leaves_no_visible_temp_file(tmp_path, monkeypatch):
         scoring_fingerprint="abc",
     )
     assert created
-    assert json.loads(path.read_text())["week"] == 1
+    assert json.loads(path.read_text(encoding="utf-8"))["week"] == 1
     assert not list(path.parent.glob(f".{path.name}.*.tmp"))
 
 
@@ -288,7 +288,7 @@ def test_preseason_week_zero_is_publishable(tmp_path, monkeypatch):
     )
     assert created
     assert path.name == "week_00.json"
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["week"] == 0
     # Self-describing: a consumer never has to infer "preseason" from the number.
     assert payload["preseason"] is True
@@ -311,7 +311,7 @@ def test_week_one_movement_is_measured_against_the_published_week_zero(tmp_path,
         scoring_fingerprint="abc",
         finalized_at="2026-09-09T00:00:00+00:00",
     )
-    rows = {row["ownerId"]: row for row in json.loads(path.read_text())["ranking"]}
+    rows = {row["ownerId"]: row for row in json.loads(path.read_text(encoding="utf-8"))["ranking"]}
     assert {oid: rows[oid]["rankDelta"] for oid in _EXPECTED_MOVEMENT} == _EXPECTED_MOVEMENT
     # And the baseline each arrow was measured against is published with it,
     # so the number is auditable rather than merely asserted.
@@ -351,7 +351,7 @@ def test_week_one_movement_never_reflects_the_results_only_reconstruction(tmp_pa
         scoring_fingerprint="abc",
         finalized_at="2026-09-09T00:00:00+00:00",
     )
-    rows = {row["ownerId"]: row for row in json.loads(path.read_text())["ranking"]}
+    rows = {row["ownerId"]: row for row in json.loads(path.read_text(encoding="utf-8"))["ranking"]}
     # Eric is the sharpest discriminator: +2 against the published Week 0,
     # but +8 if the results-only series had been the baseline.
     assert rows["eric"]["rankDelta"] == 2
@@ -376,7 +376,7 @@ def test_movement_never_crosses_a_season_boundary(tmp_path, monkeypatch):
         scoring_fingerprint="abc",
         finalized_at="2026-09-01T00:00:00+00:00",
     )
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["season"] == "2026"
     assert all(row["rankDelta"] is None for row in payload["ranking"])
 
@@ -463,7 +463,7 @@ def test_a_new_methodology_publication_leaves_the_previous_week_byte_identical(
         league_key="dynasty_main", section=week3, scoring_fingerprint="abc"
     )
     assert path2.read_bytes() == frozen
-    rows = {r["ownerId"]: r for r in json.loads(path3.read_text())["ranking"]}
+    rows = {r["ownerId"]: r for r in json.loads(path3.read_text(encoding="utf-8"))["ranking"]}
     assert rows["a"]["priorRank"] == 1 and rows["a"]["rankDelta"] == -1
     assert rows["b"]["priorRank"] == 2 and rows["b"]["rankDelta"] == 1
     assert rows["c"]["rankDelta"] == 0

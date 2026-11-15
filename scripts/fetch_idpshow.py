@@ -140,18 +140,22 @@ def _rel(path: Path) -> str:
 # different QUANTITY from the IDP-only board above — a cross-market ordering
 # that ranks Bijan Robinson against Patrick Queen — not a re-cut of it.
 #
-# Acquired and preserved; it votes NOTHING.  Two reasons, both load-bearing:
+# Since the 2026-08-20 owner decision THIS combined board is the provider
+# family's SOLE voting source (``idpShowCombined`` in
+# ``src/api/data_contract.py::_RANKING_SOURCES``); the IDP-only board above is
+# still fetched for diagnostics but is unregistered and cannot vote.  Never
+# register both: they are the same PROVIDER, so admitting both as independent
+# votes would manufacture agreement out of one opinion — the KTC
+# Off/TE+/TE++/TE+++ defect family CLAUDE.md names explicitly
+# (``tests/api/test_idpshow_combined_source.py::TestExactlyOneVotingIdpShowKey``).
 #
-#   * It is the same PROVIDER, so admitting both as independent votes would
-#     manufacture agreement out of one opinion — the KTC Off/TE+/TE++/TE+++
-#     defect family CLAUDE.md names explicitly.
-#   * Measured 2026-08-20, the swap is not a free upgrade: the combined board
-#     carries 250 players (170 offense / 80 IDP) against the IDP board's 350,
-#     and only 79 of our current IDP players appear on it.  Switching wholesale
-#     would strip an IDP Show vote from 278 defenders to gain 170 offense rows.
-#
-# Which board should VOTE is an owner decision with a measured cost, not a URL
-# swap.  This fetcher's job is to make the evidence available either way.
+# History, kept because it explains the widest-chart selection below: the
+# first measurement (2026-08-20) read the post's 250-row EXCERPT chart
+# (170 offense / 80 IDP) and concluded the combined board could not replace
+# the 350-row IDP board.  The full board in the same post carries 665 rows
+# (357 offense / 303 IDP on 2026-10-01), which is why the fetcher now picks
+# the post's widest Datawrapper chart.  (This comment described the combined board
+# as non-voting until the Batch 3 Unit G integrity sweep, 2026-10-01.)
 COMBINED_ARTICLE_URL = (
     "https://www.theidpshow.com/p/combined-idp-offense-dynasty-rankings-fantasy-football"
 )
@@ -175,7 +179,7 @@ def _load_cookies() -> list[dict]:
     if not SESSION_PATH.exists():
         return []
     try:
-        data = json.loads(SESSION_PATH.read_text())
+        data = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
     except Exception:
         return []
     out: list[dict] = []
@@ -341,6 +345,15 @@ def _resolve_latest_version(session, chart_id: str) -> str | None:
 #: for ``src/sources/freshness.py`` (EXPLICIT_UPSTREAM_TIMESTAMP style).
 COMBINED_UPSTREAM_PATH = REPO / "data" / "scrape_state" / "idpShowCombined_upstream.json"
 
+#: The same vendor metadata for the IDP-only board (2026-10-28).  EVIDENCE
+#: ONLY: ``idpShow`` is unregistered, nothing reads this file, and it changes
+#: no weight.  It exists because the vendor republished the IDP-only dynasty
+#: board on 2026-10-08 while the voting combined chart stays at its
+#: 2026-08-19 version, and any owner decision about which IDP Show board
+#: votes needs the IDP-only board's own vendor-stated clock — a clock that is
+#: not recoverable later from our side (``docs/sources/IDP_SOURCE_AUTHORITY_2026-10-28.md``).
+PLAIN_UPSTREAM_PATH = REPO / "data" / "scrape_state" / "idpShow_upstream.json"
+
 
 def _chart_metadata(session, chart_id: str, version: str) -> dict:
     """Datawrapper's own timestamps for one published chart version.
@@ -376,11 +389,21 @@ def _chart_metadata(session, chart_id: str, version: str) -> dict:
     return out
 
 
-def _persist_upstream(meta: dict) -> None:
-    COMBINED_UPSTREAM_PATH.parent.mkdir(parents=True, exist_ok=True)
-    COMBINED_UPSTREAM_PATH.write_text(
-        json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+def _persist_upstream(meta: dict, path: Path | None = None) -> None:
+    """Write one board's vendor metadata.  ``path`` defaults to the combined
+    (voting) board's file, resolved at call time so tests can redirect it."""
+    target = COMBINED_UPSTREAM_PATH if path is None else path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _persist_plain_upstream_best_effort(meta: dict) -> None:
+    """Evidence-only write for the non-voting IDP-only board: a write error is
+    logged and swallowed so it can never block recording the acquisition."""
+    try:
+        _persist_upstream(meta, PLAIN_UPSTREAM_PATH)
+    except OSError as exc:
+        print(f"[idpshow] WARNING: upstream metadata not written: {exc}", file=sys.stderr)
 
 
 def _looks_paywalled(html: str) -> bool:
@@ -795,6 +818,10 @@ def main(argv: list[str] | None = None) -> int:
 
     count = _write_csv(out_path, rows)
     print(f"[idpshow] wrote {count} rows → {_rel(out_path)}")
+    # Evidence only (see PLAIN_UPSTREAM_PATH): best-effort, never blocks the board.
+    meta = _chart_metadata(session, chart_id, version)
+    print(f"[idpshow] chart metadata: {meta}")
+    _persist_plain_upstream_best_effort(meta)
     return _persist_outcome(
         AcquisitionOutcome(
             source_key=source_key,

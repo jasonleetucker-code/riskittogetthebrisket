@@ -781,6 +781,8 @@ Bench/non-counted output is zero for lineup-realized award value. Negative value
 ### Eligibility
 
 MVP and MOTY: current/final playoff field + >.500 requirement. GMOTY and OPOY do not inherit that eligibility rule by default.
+*(Historical 2026-08-13 record. Superseded: League MVP's record half is .500 or better since 2026-09-29; unified
+Manager of the Year has no playoff or record gate; see `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`.)*
 
 MOTY and GMOTY must remain conceptually distinct: weekly/season management and competitive overperformance versus roster-building/acquisition/transaction quality.
 

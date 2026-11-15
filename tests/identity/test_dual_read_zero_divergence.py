@@ -15,9 +15,6 @@ load-bearing half.
 
 from __future__ import annotations
 
-import contextlib
-import io
-import json
 import re
 import unittest
 from pathlib import Path
@@ -30,14 +27,11 @@ CONTRACT_PATH = REPO / "src" / "api" / "data_contract.py"
 class TestContractJoinIsOwnedByTheEngine(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        boards = sorted((REPO / "exports" / "latest").glob("dynasty_data_*.json"), reverse=True)
-        if not boards:
-            raise unittest.SkipTest("no committed live board to build from")
-        from src.api.data_contract import build_api_data_contract
+        # The PINNED real board (``tests.archive_fixtures``), never today's
+        # export: the join owner is a property of our code.
+        from tests.archive_fixtures import pinned_board_contract
 
-        raw = json.loads(boards[0].read_bytes())
-        with contextlib.redirect_stdout(io.StringIO()):
-            cls.contract = build_api_data_contract(raw)
+        cls.contract = pinned_board_contract()[0]
 
     def test_contract_stamps_the_owner_that_decided_its_joins(self):
         summary = self.contract.get("identityJoin")

@@ -144,8 +144,14 @@ _FIELD_MAP: dict[str, str] = {
     "idp_int": "def_interceptions",
     "idp_int_ret_yd": "def_interception_yards",
     "idp_ff": "def_fumbles_forced",
-    "idp_fum_rec": "def_fumble_recovery_own",
-    "idp_fum_ret_yd": "def_fumble_recovery_yards_own",
+    # The OPPONENT-recovery columns (2026-10-01; they were ``_own``, which
+    # the host does not pay a defender for).  The host's own key is also
+    # kept on the row by ``_translate_stats``, and realized_points takes
+    # that count as-is: it is special-teams-exclusive by the host's
+    # definition, so the play-by-play special-teams count is never
+    # subtracted from it a second time.
+    "idp_fum_rec": "def_fumble_recovery_opp",
+    "idp_fum_ret_yd": "def_fumble_recovery_yards_opp",
     "idp_def_td": "def_tds",
     "idp_safe": "def_safety",
 }

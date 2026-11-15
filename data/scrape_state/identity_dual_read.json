@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-09-28T09:00:42.107665+00:00",
+ "generatedAt": "2026-11-15T17:27:46.935504+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2066,
+ "calls": 2013,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2043,
- "v2WouldChange": 23,
+ "v2Same": 1992,
+ "v2WouldChange": 21,
  "v2Examples": [
   {
    "name": "Andru Phillips",
@@ -53,28 +53,12 @@
    "v2Reason": "ambiguous"
   },
   {
-   "name": "Devin Neal",
+   "name": "Jaylon Jones",
    "pos": "",
-   "served": "12476",
+   "served": "8702",
    "engineV2": null,
    "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
-  },
-  {
-   "name": "J.T. Tuimoloau",
-   "pos": "",
-   "served": "12594",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
-  },
-  {
-   "name": "JT Tuimoloau",
-   "pos": "",
-   "served": "12594",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
   },
   {
    "name": "Johnny Newton",
@@ -93,14 +77,6 @@
    "v2Reason": null
   },
   {
-   "name": "Marcus Harris",
-   "pos": "DB",
-   "served": "12712",
-   "engineV2": null,
-   "v2Method": "exact_clean:name_pos",
-   "v2Reason": "ambiguous"
-  },
-  {
    "name": "Matt Judon",
    "pos": "",
    "served": "3303",
@@ -117,14 +93,6 @@
    "v2Reason": "no_candidate"
   },
   {
-   "name": "Michael Carter",
-   "pos": "",
-   "served": "7607",
-   "engineV2": null,
-   "v2Method": "exact_clean:name",
-   "v2Reason": "ambiguous"
-  },
-  {
    "name": "Michael Hall",
    "pos": "",
    "served": "11692",
@@ -136,6 +104,30 @@
    "name": "Nikolas Martin",
    "pos": "",
    "served": "12630",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Pat Jones",
+   "pos": "",
+   "served": "7674",
+   "engineV2": null,
+   "v2Method": "none",
+   "v2Reason": "no_candidate"
+  },
+  {
+   "name": "Tyler Johnson",
+   "pos": "",
+   "served": "6960",
+   "engineV2": null,
+   "v2Method": "exact_clean:name",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Bam Knight",
+   "pos": "",
+   "served": "6050",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
@@ -165,20 +157,12 @@
    "v2Reason": "ambiguous"
   },
   {
-   "name": "Marcus Harris",
-   "pos": "DB",
-   "served": "12712",
-   "engineV2": null,
-   "v2Method": "exact_clean:name_pos",
-   "v2Reason": "ambiguous"
-  },
-  {
-   "name": "Jamarion Miller",
-   "pos": "",
-   "served": "12103",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
+   "name": "D.J. Moore",
+   "pos": "DL",
+   "served": "4983",
+   "engineV2": "4961",
+   "v2Method": "exact_lookup:name_pos",
+   "v2Reason": null
   },
   {
    "name": "Whit Weeks",

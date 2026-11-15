@@ -5,6 +5,27 @@
 > Its C-Series phase placement and completion evidence live in
 > `docs/C_SERIES_SCOPE_MANIFEST.md`.
 
+> **OWNER DECISION — 2026-10-17 (sitewide trade Value Adjustment package).** The owner's
+> package (`SITEWIDE_TRADE_ADJUSTMENT_AND_HISTORY_INTEGRATION_SPEC_2026-10-17`, recorded in
+> `docs/OWNER_REQUESTED_TODO.md`) is the "later owner-approved canonical methodology" §8 waits
+> for, and it authorizes this item now:
+>
+> * Current Grade, At-the-Time Grade and How It Aged all use the ONE active versioned package
+>   model (`src/valuation_math/package_model.py` / `packageAdjustPair`; incumbent
+>   `ktc_2026_04`, challenger `geom_q078_v1` shadow-only until separately promoted).
+> * **How It Aged = change in the side's ADJUSTED net** (raw + package adjustment), today minus
+>   at-the-time, same model, same assets.  The ±200 band is KEPT as a labelled **PRIOR** until
+>   §9's calibration exists (`AGING_STABLE_BAND_PRIOR`).
+> * At-the-Time on private /trades reads the canonical ledger (`src/history`) through the SAME
+>   resolver and grading function as the public /league grade (`POST /api/trades/asof-grades`,
+>   `src/api/trade_history_asof.py`); picks at their generic season/round grade, as public.
+>   `trade-retro-value.js` (rank-history by name, picks refused, raw nets) is retired.
+> * Public /league adds a current-grade band (band + label only, no numbers).
+> * Winners & Losers "Net value" = Σ per-trade adjusted nets; the alpha index survives only as an
+>   opt-in "legacy concentration index".
+> * §5 coverage gate as implemented: any asset without at-the-time evidence, or unpriced today,
+>   makes aging **unavailable** (fail-closed, all-or-nothing); a graded partial-coverage tier is
+>   not built.
 
 **Status:** CANONICAL DETAILED PRODUCT/METHODOLOGY SPEC SUPPLEMENT  
 **Owner direction captured:** 2026-08-12  
@@ -207,6 +228,10 @@ Do not compare:
 
 KTC Value Adjustment remains an advisory parity lens unless a later owner-approved canonical methodology says otherwise. Historical Trade Aging must not silently promote it into the site's canonical trade conclusion.
 
+> **Superseded 2026-10-17 by owner decision** (see the amendment at the top): the active package
+> model IS the canonical trade-equity methodology for all three questions, applied identically at
+> both timestamps.
+
 ---
 
 ## 9. Replace the fixed ±200 aging threshold
@@ -233,6 +258,8 @@ At minimum:
 - do not choose thresholds merely because the labels look balanced.
 
 **Method status:** label thresholds require historical validation before final production activation.
+**Owner decision 2026-10-17:** ±200 on the ADJUSTED-net change ships as a labelled PRIOR
+(`AGING_STABLE_BAND_PRIOR`, tooltip says "provisional"); calibration remains required.
 
 ---
 

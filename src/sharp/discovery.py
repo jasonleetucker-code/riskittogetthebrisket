@@ -81,6 +81,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 from src.intel import league_filter, ledger
+from src.sharp import pass_coverage
 
 log = logging.getLogger(__name__)
 
@@ -164,6 +165,26 @@ class DiscoveryResult:
     frontier_users: list[str] = field(default_factory=list)
     frontier_leagues: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    # Leagues whose host-format capture (for the Market Trade Ledger) failed.
+    # Counted here, not debug-logged only: a silent rise means discovery rows
+    # are losing the format facts the ledger must never infer.
+    market_format_capture_failures: int = 0
+    # Outcomes of the dated format capture (``league_format_capture``):
+    # ``new`` / ``unchanged`` / ``incomplete``.
+    market_format_captures: dict[str, int] = field(default_factory=dict)
+    # ── per-run COVERAGE (reporting only; see ``src/sharp/pass_coverage.py``) ──
+    # Graph nodes whose fetch this run actually issued, split by outcome, and
+    # the expandable nodes still queued when it ended.  ``users_expanded`` /
+    # ``leagues_expanded`` above are not these: they are counted when a node is
+    # popped, which includes one the maxLeaguesPerRun cap stopped before any
+    # fetch, and a queued node can sit on the frontier many times over.
+    nodes_attempted: int = 0
+    nodes_failed: int = 0
+    nodes_remaining: int = 0
+    # Set when a configured size cap ended the walk before its queue was empty.
+    capped: bool = False
+    stopped_reason: str = ""
+    pass_coverage: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -181,6 +202,10 @@ class DiscoveryResult:
             "excludedFromSharp": self.excluded_from_sharp,
             "frontierUsers": len(self.frontier_users),
             "frontierLeagues": len(self.frontier_leagues),
+            "marketFormatCaptureFailures": self.market_format_capture_failures,
+            "marketFormatCaptures": dict(self.market_format_captures),
+            "stoppedReason": self.stopped_reason or None,
+            "passCoverage": self.pass_coverage,
             "errors": self.errors,
         }
 
@@ -199,6 +224,47 @@ def _league_roster_count_ok(league: dict[str, Any], cfg: dict[str, Any]) -> bool
     lo = int(cfg.get("minLeagueRosters", 6))
     hi = int(cfg.get("maxLeagueRosters", 32))
     return lo <= n <= hi
+
+
+def _record_market_formats(
+    observed: list[tuple[dict[str, Any], int]], conn: Any, result: DiscoveryResult
+) -> None:
+    """Append dated host-format captures for the trade ledger
+    (``src/sharp/league_format_capture.py``) from league objects this run
+    ALREADY fetched.  A capture problem can never break discovery itself: each
+    failure is COUNTED in :class:`DiscoveryResult`, never only debug-logged —
+    a silent rise would mean the ledger is losing format facts it must never
+    infer."""
+    if not observed:
+        return
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    for league, captured_ms in observed:
+        try:
+            outcome = lfc.record_capture(
+                conn, league, captured_ms=captured_ms, source=lfc.SOURCE_DISCOVERY
+            )
+        except Exception:  # noqa: BLE001
+            log.debug("market format capture failed for a league", exc_info=True)
+            result.market_format_capture_failures += 1
+            continue
+        result.market_format_captures[outcome] = result.market_format_captures.get(outcome, 0) + 1
+
+
+def _ensure_format_capture_schema(conn: Any) -> bool:
+    """Create the capture tables and run the one-shot legacy-snapshot
+    migration BEFORE ``upsert_leagues`` runs: that upsert replaces
+    ``settings_json`` wholesale, so migrating afterwards would lose every
+    earlier-dated ``marketFormat`` snapshot a re-discovered league carried."""
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    try:
+        lfc.ensure_schema(conn)
+        conn.commit()
+        return True
+    except Exception:  # noqa: BLE001
+        log.warning("league format capture schema unavailable", exc_info=True)
+        return False
 
 
 def discover(
@@ -222,12 +288,18 @@ def discover(
     limits = seeds.get("limits") or {}
     http = http_get or _default_http_get
 
+    call_budget = budget if budget is not None else int(trav.get("callBudgetPerRun", 2500))
     b = _Budget(
-        budget if budget is not None else int(trav.get("callBudgetPerRun", 2500)),
+        call_budget,
         float(trav.get("sleepSecondsBetweenCalls", 0.12)),
         http,
         sleep_fn=sleep_fn,
     )
+    # Reporting only: the default fetch rides the shared ``sleeper_api`` circuit
+    # breaker, whose refusals come back as instant ``None``s that this loop
+    # cannot tell from a real failure.  The breaker's own fast-fail counter,
+    # read before and after, is the only honest witness.
+    breaker_fast_fails_before = pass_coverage.sleeper_breaker_fast_fails()
     max_gen = max_generations if max_generations is not None else int(trav.get("maxGenerations", 4))
     seasons = [str(s) for s in (trav.get("seasons") or ["2026"])]
     per_user_cap = int(trav.get("perUserLeagueCap", 40))
@@ -267,6 +339,8 @@ def discover(
     users_batch: list[dict[str, Any]] = []
     leagues_batch: list[dict[str, Any]] = []
     memberships: list[tuple[str, str, str | None]] = []
+    # (league object, fetch ms) for the dated format capture.
+    format_observed: list[tuple[dict[str, Any], int]] = []
     deepest = 0
 
     while (league_q or user_q) and b.can_call():
@@ -280,11 +354,14 @@ def discover(
             deepest = max(deepest, gen)
             if len(known_leagues) > max_leagues:
                 result.errors.append(f"maxLeaguesPerRun ({max_leagues}) reached — traversal capped")
+                result.capped = True
                 break
 
             members = b.get(f"{SLEEPER_BASE}/league/{lid}/users")
+            result.nodes_attempted += 1
             if not isinstance(members, list):
                 result.errors.append(f"league_users_fetch_failed:{lid}")
+                result.nodes_failed += 1
                 continue
 
             for m in members:
@@ -313,6 +390,8 @@ def discover(
             continue
         seen_users.add(uid)
         deepest = max(deepest, gen)
+        result.nodes_attempted += 1
+        user_fetch_failed = False
 
         for season in seasons:
             if not b.can_call():
@@ -320,6 +399,7 @@ def discover(
             raw = b.get(f"{SLEEPER_BASE}/user/{uid}/leagues/nfl/{season}")
             if not isinstance(raw, list):
                 result.errors.append(f"user_leagues_fetch_failed:{uid}:{season}")
+                user_fetch_failed = True
                 continue
             for lg in raw[:per_user_cap]:
                 if not isinstance(lg, dict):
@@ -380,6 +460,13 @@ def discover(
                     )
 
                 settings = lg.get("settings") if isinstance(lg.get("settings"), dict) else {}
+                # The league's REAL format rides in the object this call
+                # already returned — no extra request.  Recorded as a DATED,
+                # append-only capture at persistence time (never as an
+                # overwrite inside settings_json), so the Market Trade Ledger
+                # can pick the format in force at each trade's timestamp and
+                # never infers it from the manager who led us here.
+                format_observed.append((lg, int(time.time() * 1000)))
                 leagues_batch.append(
                     {
                         "league_id": lid,
@@ -394,11 +481,20 @@ def discover(
                                 "signalEligible": signal_ok,
                                 "sharpEligible": sharp_ok,
                                 "ageSeasons": league_filter.league_age_seasons(lg),
+                                # How the league entered the sample (spec
+                                # §19.1 provenance), not who is a sharp.
+                                # FIRST-seen route; ``_keep_first_seen_
+                                # discovery`` preserves it across re-runs and
+                                # records this run's route as ``lastSeen``.
+                                "discovery": {"generation": gen, "viaUserId": uid},
                             }
                         ),
                     }
                 )
                 league_q.append((lid, gen + 1))
+
+        if user_fetch_failed:
+            result.nodes_failed += 1
 
     result.calls_used = b.used
     result.budget_exhausted = not b.can_call() and bool(league_q or user_q)
@@ -409,22 +505,160 @@ def discover(
     result.leagues_expanded = len(seen_leagues)
     result.frontier_users = [u for u, _ in user_q]
     result.frontier_leagues = [lg for lg, _ in league_q]
+    # DISTINCT nodes the walk could still expand.  The raw frontier lists above
+    # hold a node once per referrer and keep nodes past ``maxGenerations`` that
+    # the walk will pop and skip; neither is work this run left undone.
+    result.nodes_remaining = len(
+        {u for u, g in user_q if u not in seen_users and g <= max_gen}
+    ) + len({lg for lg, g in league_q if lg not in seen_leagues and g <= max_gen})
 
     # Persist. Every write upserts on a primary key, so a re-run adds
     # nothing rather than duplicating.
     conn = ledger.connect(ledger_path)
     try:
+        capture_schema_ok = _ensure_format_capture_schema(conn)
         if users_batch:
             ledger.upsert_users(users_batch, conn=conn)
         if leagues_batch:
+            _keep_first_seen_discovery(leagues_batch, conn)
             ledger.upsert_leagues(leagues_batch, conn=conn)
         if memberships:
             ledger.upsert_memberships(memberships, conn=conn)
+        if capture_schema_ok:
+            _record_market_formats(format_observed, conn, result)
+        else:
+            result.market_format_capture_failures += len(format_observed)
+        conn.commit()
+        oldest_seen_ms = _oldest_league_seen_ms(conn)
     finally:
         conn.close()
 
+    try:
+        _attach_pass_coverage(
+            result,
+            call_budget=call_budget,
+            budget_spent=not b.can_call(),
+            breaker_fast_fails_before=breaker_fast_fails_before,
+            oldest_seen_ms=oldest_seen_ms,
+        )
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        # The walk and its writes are done; a coverage fault must not turn them
+        # into a failed run.  The coverage fields stay unset (``null``).
+        log.warning("sharp.discovery: could not build pass coverage", exc_info=True)
+        result.stopped_reason = ""
+        result.pass_coverage = None
     log.info("sharp.discovery: %s", result.to_dict())
+    if result.pass_coverage is not None:
+        pass_coverage.log_pass_summary(log, result.pass_coverage)
     return result
+
+
+def _oldest_league_seen_ms(conn: Any) -> int | None:
+    """When discovery last SAW its stalest league (``None`` if the table is empty
+    or unreadable).  ``leagues.last_crawled_ms`` is stamped whenever discovery
+    observes the league -- NOT when the walk last expanded it, which the ledger
+    does not record -- so this is a lower bound on how stale expansion is."""
+    try:
+        row = conn.execute("SELECT MIN(last_crawled_ms) AS oldest FROM leagues").fetchone()
+        if row is None or row["oldest"] is None:
+            return None
+        return int(row["oldest"])
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        log.warning("could not read the oldest discovery observation", exc_info=True)
+        return None
+
+
+def _attach_pass_coverage(
+    result: DiscoveryResult,
+    *,
+    call_budget: int,
+    budget_spent: bool,
+    breaker_fast_fails_before: int | None,
+    oldest_seen_ms: int | None,
+) -> None:
+    """Fill ``result.stopped_reason`` / ``result.pass_coverage`` from what the
+    loop observed.  Reporting only: nothing here feeds back into the walk."""
+    refused = pass_coverage.breaker_refusals(
+        breaker_fast_fails_before, pass_coverage.sleeper_breaker_fast_fails()
+    )
+    result.stopped_reason = pass_coverage.classify_stop(
+        # The cap ends the loop by ``break`` while budget remains, so a spent
+        # budget alongside it is coincidence, not the cause.
+        budget_stopped=budget_spent and not result.capped,
+        work_remains=result.nodes_remaining > 0,
+        breaker_blocked=refused is not None and refused > 0,
+        capped=result.capped,
+    )
+    result.pass_coverage = pass_coverage.build_pass_coverage(
+        pass_name=pass_coverage.PASS_DISCOVERY,
+        unit="graph_nodes",
+        attempted=result.nodes_attempted,
+        succeeded=result.nodes_attempted - result.nodes_failed,
+        failed=result.nodes_failed,
+        # Sleeper has no directory, so the walk only knows the nodes it has
+        # found: this is a floor on the population, never the population.
+        eligible_total=result.nodes_attempted + result.nodes_remaining,
+        remaining_unvisited=result.nodes_remaining,
+        stopped_reason=result.stopped_reason,
+        calls_used=result.calls_used,
+        call_budget=call_budget,
+        oldest_crawl_ms=oldest_seen_ms,
+        oldest_basis="leagues.last_crawled_ms: when discovery last SAW a league, not when it "
+        "last expanded it",
+        extra={
+            "eligibleTotalIsLowerBound": True,
+            "breakerRefusedCalls": refused,
+        },
+    )
+
+
+def _keep_first_seen_discovery(leagues_batch: list[dict[str, Any]], conn: Any) -> None:
+    """Preserve each league's FIRST-seen discovery route.
+
+    ``upsert_leagues`` replaces ``settings_json`` wholesale, so without this a
+    league re-reached through a different manager would have its §19.1 sample
+    provenance rewritten on every run.  The first-seen ``generation`` /
+    ``viaUserId`` stay at the top of ``discovery`` (what the ledger reads); the
+    current run's route is kept separately as ``lastSeen``.
+    """
+    ids = [str(row["league_id"]) for row in leagues_batch if row.get("league_id")]
+    existing: dict[str, dict[str, Any]] = {}
+    for k in range(0, len(ids), 500):
+        chunk = ids[k : k + 500]
+        marks = ",".join("?" for _ in chunk)
+        try:
+            rows = conn.execute(
+                f"SELECT league_id, settings_json FROM leagues WHERE league_id IN ({marks})",
+                chunk,
+            ).fetchall()
+        except Exception:  # noqa: BLE001 - provenance must never break discovery
+            log.debug("could not read prior discovery provenance", exc_info=True)
+            return
+        for lid, raw in rows:
+            try:
+                prior = json.loads(raw) if raw else {}
+            except (TypeError, ValueError):
+                continue
+            disc = prior.get("discovery") if isinstance(prior, dict) else None
+            if isinstance(disc, dict) and disc.get("viaUserId"):
+                existing[str(lid)] = disc
+    for row in leagues_batch:
+        try:
+            settings = json.loads(row.get("settings_json") or "{}")
+        except (TypeError, ValueError):
+            continue
+        current = settings.get("discovery")
+        if not isinstance(current, dict):
+            continue
+        last = {"generation": current.get("generation"), "viaUserId": current.get("viaUserId")}
+        prior = existing.get(str(row.get("league_id")))
+        first = (
+            {"generation": prior.get("generation"), "viaUserId": prior.get("viaUserId")}
+            if prior
+            else last
+        )
+        settings["discovery"] = {**first, "lastSeen": last}
+        row["settings_json"] = json.dumps(settings)
 
 
 def signal_eligible_league_ids(

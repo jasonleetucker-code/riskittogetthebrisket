@@ -1,0 +1,3638 @@
+{
+ "generatedFrom": "repository records + github_snapshot.json (2026-11-06T12:45Z)",
+ "population": {
+  "DIRECTIVE-2026-11-06": 44,
+  "DISCOVERED-2026-11-06": 7,
+  "MASTER-AUDIT-P1-OPEN": 7,
+  "AMATH": 63,
+  "RPA-ITEM": 125,
+  "RPA-FINDING": 39,
+  "INTAKE": 64,
+  "ISSUE": 68,
+  "PR": 19
+ },
+ "canonicalWorkItems": [
+  {
+   "id": "CW-01",
+   "wave": "A",
+   "priority": "P0",
+   "title": "Deploy blocker: DLF-hold confidence invariant (Sonny Styles)",
+   "owner": "tests/api/test_dlf_offense_only_vote.py",
+   "state": "PRODUCTION_VERIFIED",
+   "evidence": "#2061 merged inside release train #2072 (91b0965c); Deploy Production run 3734 succeeded 2026-11-06T18:48Z; live /api/status build.commit 91b0965c",
+   "next": "none (closed)",
+   "sourceRowCount": 2
+  },
+  {
+   "id": "CW-02",
+   "wave": "A",
+   "priority": "P0",
+   "title": "Production scraper browser-launch outage + truthful health",
+   "owner": "Dynasty Scraper.py launch, server.py reaper/status",
+   "state": "MERGED",
+   "evidence": "production recovered by the 3734 deploy restart: scrape success 2026-11-06T18:48:38Z (263 s), /api/health 200 (was 503); PR #2062 (pre/post cgroup-scoped reaper + public-safe box diagnostics) merged a9244b0a after one rerun of a load-sensitive timing test (DD-16)",
+   "next": "after its deploy: read live /api/status box_resources and confirm scrapes keep succeeding",
+   "sourceRowCount": 7
+  },
+  {
+   "id": "CW-03",
+   "wave": "A",
+   "priority": "P0",
+   "title": "Pre-kickoff forecast capture: Week 10 freeze receipts, Week 9 scoring",
+   "owner": "projection weekly archive + ROS / six-model receipts",
+   "state": "MERGED",
+   "evidence": "Week 10 receipts merged #2065; prospective evaluation runner merged #2077",
+   "next": "box check of w9/w10 archive timestamps; run the Week 9 evaluation once final",
+   "sourceRowCount": 3
+  },
+  {
+   "id": "CW-04",
+   "wave": "A",
+   "priority": "P0",
+   "title": "2027 rookie-auction first-valid pre-auction snapshot",
+   "owner": "scripts/backtest_perfect_draft.py --record-snapshot",
+   "state": "MERGED",
+   "evidence": "PR #2063 merged (640193f8): first-valid-wins pre-auction snapshot timer",
+   "next": "deploy, then confirm the timer on the box; nit: import the 6 h budget from its owner",
+   "sourceRowCount": 3
+  },
+  {
+   "id": "CW-05",
+   "wave": "A",
+   "priority": "P0",
+   "title": "Backup coverage, restore verification, truthful backup health",
+   "owner": "backup health + state backup writer",
+   "state": "HUMAN_ACTION_REQUIRED",
+   "evidence": "PR #2064 merged (bdc0cd5f); live backup_health still stateBackup unverifiable/permission_denied until the operator re-runs the installer",
+   "next": "box operator: bash deploy/backup/install_state_backup.sh, then scripts/verify_state_backup_restore.py",
+   "sourceRowCount": 4
+  },
+  {
+   "id": "CW-06",
+   "wave": "A",
+   "priority": "P1",
+   "title": "Production network/security posture verification",
+   "owner": "deploy/ nginx + bind configuration",
+   "state": "EVIDENCE_PENDING",
+   "evidence": "MD-27 headers verified 2026-11-01; re-verified live 2026-11-06 (HSTS, CSP frame-ancestors, XFO, nosniff, Referrer, Permissions; no version banner; /openapi.json 404)",
+   "next": "direct :8000 exposure (MD-24) needs box-operator confirmation",
+   "sourceRowCount": 6
+  },
+  {
+   "id": "CW-07",
+   "wave": "B",
+   "priority": "P1",
+   "title": "Auth/security defect family (redirect, XFF trust, login throttling, draft-capital boundary)",
+   "owner": "frontend middleware/login + server.py auth/rate limiter",
+   "state": "MERGED",
+   "evidence": "#2075 merged (login next sanitizer, missing budget is unavailable not $0); #2087 merged: POST /api/ros/refresh admin gate admitted any signed-in user (truthy JSONResponse refusal) -- fixed, 6 private routes regression-tested, AST guard against the pattern; security review APPROVE",
+   "next": "confirm deploy; owner policy question only: sharp audit routes are any-signed-in, not admin-only (documented, consistent with siblings)",
+   "sourceRowCount": 5
+  },
+  {
+   "id": "CW-08",
+   "wave": "B",
+   "priority": "P1",
+   "title": "Canonical scoring parity census + league-config propagation",
+   "owner": "canonical league scorer + league-config resolver",
+   "state": "MERGED",
+   "evidence": "PR #2069 merged (280514bc): host-truth parity census",
+   "next": "#1938 recommendation stays owner-reserved (DD-11)",
+   "sourceRowCount": 34
+  },
+  {
+   "id": "CW-09",
+   "wave": "B",
+   "priority": "P1",
+   "title": "Trade engine identity + mathematical correctness",
+   "owner": "trade_decision / packages / pick identity",
+   "state": "NOT_STARTED",
+   "evidence": "W08-F003/F005/F007, #1415, #800, #841-#843",
+   "next": "controlled-fixture monotonicity + pick-origin round-trip tests",
+   "sourceRowCount": 7
+  },
+  {
+   "id": "CW-10",
+   "wave": "B",
+   "priority": "P1",
+   "title": "FAAB correctness and recommendation integrity",
+   "owner": "src/trade/faab_engine.py",
+   "state": "MERGED",
+   "evidence": "PR #2071 merged (cd555327): FAAB integrity fixtures + fail-closed config; #2091 merged (598f0780): /api/waiver/advisor + /api/waiver/streaming refuse 503 faab_config_invalid on an unreadable config (same helper)",
+   "next": "post-deploy probe of the refusal shape; FAAB ceiling-curve independent oracle (CW-49)",
+   "sourceRowCount": 7
+  },
+  {
+   "id": "CW-11",
+   "wave": "C",
+   "priority": "P1",
+   "title": "Source freshness/integrity monitoring (no false green)",
+   "owner": "config/source_staleness.json + source health",
+   "state": "MERGED",
+   "evidence": "PR #2070 merged (4d374cf3): overdue rehabilitation plans re-reviewed",
+   "next": "CW-26 note: the public snapshot layer itself has no staleness bound (memo layer bounded at 6 h by #2084)",
+   "sourceRowCount": 20
+  },
+  {
+   "id": "CW-12",
+   "wave": "C",
+   "priority": "P1",
+   "title": "Source independence/lineage + proprietary-identifier hygiene",
+   "owner": "config/sources/source_lineage.json",
+   "state": "NOT_STARTED",
+   "evidence": "MD-21 IDPTC-IDP Show lineage; MD-23 Datawrapper ids; #804",
+   "next": "record verified lineage; leave-one-family-out sensitivity",
+   "sourceRowCount": 5
+  },
+  {
+   "id": "CW-13",
+   "wave": "C",
+   "priority": "P2",
+   "title": "Unified source-methodology comparison (DLF IDP hold, freshness v2, outlier V2, #1938, Signals IDP)",
+   "owner": "data_contract voting pipeline (research only)",
+   "state": "RESEARCH_ONLY",
+   "evidence": "#1884, #1938, MD-5; AMATH-S36",
+   "next": "one board-diff + holdout comparison; incumbent kept unless gates pass",
+   "sourceRowCount": 32
+  },
+  {
+   "id": "CW-14",
+   "wave": "C",
+   "priority": "P2",
+   "title": "Historical source archives (KTC trade DB, variants, point-in-time injury/news)",
+   "owner": "temporal ledger + collectors",
+   "state": "NOT_STARTED",
+   "evidence": "directive §5 W0-C historical capture extensions",
+   "next": "inventory what is already archived before adding collectors",
+   "sourceRowCount": 1
+  },
+  {
+   "id": "CW-15",
+   "wave": "C",
+   "priority": "P0",
+   "title": "Forecast Calibration Ledger + size-controlled gates",
+   "owner": "AL-3b scorecard / AL-4a Game Day calibration",
+   "state": "MERGED",
+   "evidence": "PR #2076 merged (d3f1fcc8): AL-3b/AL-4a weekly ledger timer + research-layer size-controlled gates; installer conflict with #2063 resolved keeping both timers",
+   "next": "first post-deploy firing (Tue/Wed 13:40 UTC after a final week) on the box; calibrationState descriptor needs owner/UI authorization",
+   "sourceRowCount": 1
+  },
+  {
+   "id": "CW-16",
+   "wave": "C",
+   "priority": "P1",
+   "title": "Weekly IDP six-model prospective comparison",
+   "owner": "MD-30 prereg + frozen fits",
+   "state": "MERGED",
+   "evidence": "PR #2077 merged (58c89c08): prospective evaluation runner",
+   "next": "run Week 9 once final",
+   "sourceRowCount": 7
+  },
+  {
+   "id": "CW-17",
+   "wave": "C",
+   "priority": "P1",
+   "title": "Game Day / ROS calibration (shared latent factors, measured marginals)",
+   "owner": "Game Day sim + ROS engine",
+   "state": "RESEARCH_ONLY",
+   "evidence": "AMATH-S03, S04, S30, S47; MD-4; master-audit W17-F001 residual (no preseason guard on ROS season selection) routed here by CW-40 / PR #2082",
+   "next": "shadow challengers after CW-15; preseason guard for ROS season selection",
+   "sourceRowCount": 8
+  },
+  {
+   "id": "CW-18",
+   "wave": "D",
+   "priority": "P1",
+   "title": "Streaming recommendation quality + dynasty protection settings",
+   "owner": "src/waivers/streaming*.py",
+   "state": "RESEARCH_ONLY",
+   "evidence": "MD-8, #2045; AMATH-S06 S09 S26",
+   "next": "forecast-limited per #2045; budget 0, NO TRANSACTION, bounded-search disclosure",
+   "sourceRowCount": 8
+  },
+  {
+   "id": "CW-19",
+   "wave": "D",
+   "priority": "P1",
+   "title": "Analyze Trade unification + honest Monte Carlo framing",
+   "owner": "trade_decision.decide()",
+   "state": "MERGED",
+   "evidence": "PR #2067 merged (bab2f59f): synthetic Monte Carlo win rate hidden behind 'Illustrative sensitivity only'; nav invariant test follows the owner rename (DD-15)",
+   "next": "production check of the Monte Carlo panel copy after deploy",
+   "sourceRowCount": 5
+  },
+  {
+   "id": "CW-20",
+   "wave": "D",
+   "priority": "P2",
+   "title": "Multi-team War Room validation (private)",
+   "owner": "trade_ledger + analyze_trade_n",
+   "state": "EVIDENCE_PENDING",
+   "evidence": "flag trade_multi_team_analysis OFF in production",
+   "next": "existing release criteria; private only",
+   "sourceRowCount": 1
+  },
+  {
+   "id": "CW-21",
+   "wave": "D",
+   "priority": "P2",
+   "title": "Trade Finder / Best Offers + calculator UI fixes",
+   "owner": "finder.py / suggestions.py / trade page",
+   "state": "MERGED",
+   "evidence": "PR #2067 merged (bab2f59f): arbitrage copy renamed Market Disagreement (URL, API, fields unchanged)",
+   "next": "production check of /arbitrage labels after deploy",
+   "sourceRowCount": 20
+  },
+  {
+   "id": "CW-22",
+   "wave": "D",
+   "priority": "P2",
+   "title": "Fairness bands OD-F4 protocol + market clearing evidence",
+   "owner": "fairness_bands_v2 (research)",
+   "state": "RESEARCH_ONLY",
+   "evidence": "AMATH-S08, S14; #1873",
+   "next": "executable protocol; no rewrite of fairness_bands_v2",
+   "sourceRowCount": 3
+  },
+  {
+   "id": "CW-23",
+   "wave": "D",
+   "priority": "P2",
+   "title": "Roster Construction integration + free-agent startability history",
+   "owner": "src/roster_intel/construction.py",
+   "state": "NOT_STARTED",
+   "evidence": "V1 PRODUCTION_VERIFIED (MD-37); integrations outstanding",
+   "next": "consume in Trade Desk / Waiver Advisor without touching rankDerivedValue",
+   "sourceRowCount": 5
+  },
+  {
+   "id": "CW-24",
+   "wave": "D",
+   "priority": "P2",
+   "title": "Universal Player File + global selected-team context",
+   "owner": "canonical identity + profile route",
+   "state": "NOT_STARTED",
+   "evidence": "#1337, #1334",
+   "next": "one profile destination for every player link",
+   "sourceRowCount": 2
+  },
+  {
+   "id": "CW-25",
+   "wave": "D",
+   "priority": "P1",
+   "title": "Perfect Waivers optimality-claim disclosure audit",
+   "owner": "src/trade/perfect_waivers.py + PerfectWaiversPanel",
+   "state": "NOT_STARTED",
+   "evidence": "MD-36",
+   "next": "state objective, horizon, constraints and search scope",
+   "sourceRowCount": 2
+  },
+  {
+   "id": "CW-26",
+   "wave": "D",
+   "priority": "P1",
+   "title": "Performance defects (draft contract size, BDVM latency, Team Strength, roster %, public league cold load, Activity)",
+   "owner": "per-route",
+   "state": "MERGED",
+   "evidence": "#2079 /draft compact view (-60% raw, -56% gzip), #2081 Team Strength sign-in state, #2084 public-league stale-while-revalidate (bounded 6 h, one abandoned job max, B8 refresh honoured; adversarial review APPROVE) all merged",
+   "next": "baseline after deploy 3747 (3b3b0eee, carries #2084), 2026-11-06 ~20:43Z, 5 anonymous GETs /api/public/league/overview: 8.32 s (first after deploy), then 0.72 / 0.53 / 1.28 / 0.82 s, all 200, 14,485 B; keep sampling; snapshot-layer staleness bound (CW-11 note)",
+   "sourceRowCount": 4
+  },
+  {
+   "id": "CW-27",
+   "wave": "D",
+   "priority": "P2",
+   "title": "Navigation / IA / accessibility remaining proposals",
+   "owner": "frontend/lib/nav-model.js + shell",
+   "state": "NOT_STARTED",
+   "evidence": "UX audit #2051 merged; UX-P01-P10, UX-D07/08/09/11, A11Y-01/03 open",
+   "next": "apply directive §12.2 decisions with stable URLs",
+   "sourceRowCount": 5
+  },
+  {
+   "id": "CW-28",
+   "wave": "D",
+   "priority": "P2",
+   "title": "Game Day UX overhaul",
+   "owner": "Game Day page",
+   "state": "NOT_STARTED",
+   "evidence": "#1335, #789",
+   "next": "first screen answers opponent / score / what matters",
+   "sourceRowCount": 2
+  },
+  {
+   "id": "CW-29",
+   "wave": "E",
+   "priority": "P0",
+   "title": "Missing-as-zero defects + property-based invariant suite",
+   "owner": "test-only + archetype owner",
+   "state": "MERGED",
+   "evidence": "PR #2068 merged (622ad85d): archetype missing feature is unknown, not 0; #2093 merged (3ae682bb): compute_profile_features / infer_scoring_tags treat missing inputs as unknown (no served caller); #2094 merged (2bbda400): W20-F005 Terminal portfolio prices picks via the canonical resolvePickRow + pickAliases (unpriceable pick stays unresolved, never 0)",
+   "next": "property-based missing-is-not-zero suite over the canonical owners",
+   "sourceRowCount": 3
+  },
+  {
+   "id": "CW-30",
+   "wave": "E",
+   "priority": "P1",
+   "title": "Single-source x0.30 haircut challenger (shadow)",
+   "owner": "data_contract single-source haircut",
+   "state": "RESEARCH_ONLY",
+   "evidence": "AMATH-S02 POC-A",
+   "next": "preregistered outcome test; incumbent kept unless it passes",
+   "sourceRowCount": 1
+  },
+  {
+   "id": "CW-31",
+   "wave": "E",
+   "priority": "P1",
+   "title": "FAAB market refit (point-in-time, winner-censored) + budget shadow price",
+   "owner": "faab_engine market layer (research)",
+   "state": "RESEARCH_ONLY",
+   "evidence": "AMATH-S05, S46",
+   "next": "point-in-time refit; out-of-sample bid utility",
+   "sourceRowCount": 2
+  },
+  {
+   "id": "CW-32",
+   "wave": "E",
+   "priority": "P1",
+   "title": "Value uncertainty band, disagreement map, agreement self-inclusion, uncertainty grammar",
+   "owner": "confidence owner + display grammar",
+   "state": "RESEARCH_ONLY",
+   "evidence": "AMATH-S07, S18, S22, S28, S29, S49",
+   "next": "named alternate concept only; never a calibrated interval claim",
+   "sourceRowCount": 8
+  },
+  {
+   "id": "CW-33",
+   "wave": "E",
+   "priority": "P2",
+   "title": "Roster risk / team strength / posture models",
+   "owner": "roster_intel + window",
+   "state": "RESEARCH_ONLY",
+   "evidence": "AMATH-S11, S32, S33, S37, S41, S43; master-audit W17-F002 residual (classify_team ignores strength for the label) routed here by PR #2082",
+   "next": "shadow metrics on the exact lineup engine",
+   "sourceRowCount": 6
+  },
+  {
+   "id": "CW-34",
+   "wave": "E",
+   "priority": "P2",
+   "title": "Draft/rookie priors, pick-slot forecasts, year-step test, BDVM credibility/hazards",
+   "owner": "BDVM + pick_market",
+   "state": "RESEARCH_ONLY",
+   "evidence": "AMATH-S19, S20, S24, S31, S39",
+   "next": "hierarchical priors with knowledge cutoffs",
+   "sourceRowCount": 6
+  },
+  {
+   "id": "CW-35",
+   "wave": "E",
+   "priority": "P2",
+   "title": "Market / manager evidence: pooling, offer ledger, gates in band units, q identification, title-equity timing, regret layer",
+   "owner": "sharp / market ledger / trade research",
+   "state": "RESEARCH_ONLY",
+   "evidence": "AMATH-S17, S23, S35, S44, S45, S48; #1852",
+   "next": "partial pooling + sample-size disclosure",
+   "sourceRowCount": 7
+  },
+  {
+   "id": "CW-36",
+   "wave": "E",
+   "priority": "P2",
+   "title": "Board constants, Hill validation target, drift forecast, TE++ uplift, record linkage",
+   "owner": "canonical board constants (research)",
+   "state": "RESEARCH_ONLY",
+   "evidence": "AMATH-S21, S34, S40, S42, S50, S56; #898, #1322; master-audit W12-F002 residual (TE SELL skew 0.742 vs target 0.137 in the top 250) routed here by PR #2082",
+   "next": "independent validation target (S50) before any promotion; measure the TE++ uplift's role in the TE SELL skew",
+   "sourceRowCount": 11
+  },
+  {
+   "id": "CW-37",
+   "wave": "F",
+   "priority": "P1",
+   "title": "Dependencies / toolchain / security advisories",
+   "owner": "requirements*.txt, frontend/package.json, workflows",
+   "state": "IMPLEMENTING",
+   "evidence": "#1467 Node 22; 13 dependabot PRs; #1485 scraper runtime; #2055 merged (6abab792): next 16.4.2 -> 16.4.3 (lockfile-only for next/@next/*; Validate PR + production-start journeys green; review APPROVE); default-branch Dependabot alert #149 (low) open",
+   "next": "advisory census incl. alert #149; remaining dependabot PRs #2056 (jsdom major), #2034 (actions), #2033 (e2e harness), one focused batch per runtime",
+   "sourceRowCount": 16
+  },
+  {
+   "id": "CW-38",
+   "wave": "F",
+   "priority": "P2",
+   "title": "Draft / auction 2027 readiness",
+   "owner": "draft capital + auction room",
+   "state": "MERGED",
+   "evidence": "PR #2074 merged (5dea846f): MaxBid capped by remaining budget; audit C01 closed",
+   "next": "board-level class-retirement gate (#1414)",
+   "sourceRowCount": 15
+  },
+  {
+   "id": "CW-39",
+   "wave": "F",
+   "priority": "P3",
+   "title": "Product backlog reconciliation (schedule intel, league hub, reports, feeds, portfolio)",
+   "owner": "per feature contract",
+   "state": "NOT_STARTED",
+   "evidence": "#1530 #985 #829 #782-#785 #801 #803 #838-#840 #899 #854",
+   "next": "dependency-ready units only; no competing systems",
+   "sourceRowCount": 14
+  },
+  {
+   "id": "CW-40",
+   "wave": "F",
+   "priority": "P3",
+   "title": "Governance / process / UI-lane records",
+   "owner": "coordinator",
+   "state": "IMPLEMENTING",
+   "evidence": "PR #2082 merged (57611231): 7 unresolved P0 master-audit findings adjudicated on current main -- CLOSED_VERIFIED W03-F001, W07-F001, W08-F001, W10-F002; PARTIAL W12-F002 (-> CW-36), W17-F001 (-> CW-17), W17-F002 (-> CW-33); offline regression tests, adversarial review APPROVE. Recount-open P1s: W20-F005 FIXED (#2094 merged); W06-F001 PARTIAL -> fix #2096 (must-have guarantee reuses the unique identified verified-rookie variant; 1105 -> 1103 rows, 0 value/rank/tier/confidence changes; first review REQUEST_CHANGES (veteran absorption), verified-rookie gate added, delta review APPROVE); W10-F003 PARTIAL and W27-F001 OPEN: honest disclosure merged (#2097: offense-only edge label, explained empty Next Best Targets), methodology repair gated; W13-F003 OPEN and W30-F002 PARTIAL: adjudicated in #2095 (strict-xfail regression tests, review APPROVE). Merged: #2095 (1b046250), #2096 (de95ad22; deployed: production build 405bc35a contains it, but the served rows are not verifiable without a signed-in session). 12 unadjudicated P1s: #2100 merged (29c645ff) -- CLOSED_VERIFIED W10-F001, W11-F006, W15-F009, W19-F004, W20-F007; PARTIAL W12-F003, W20-F008, W26-F003, W27-F005; OPEN W12-F006, W20-F001, W25-F003 (verdicts at adjudication). Follow-ups #2103 merged (83780faa): W25-F003 doc half CLOSED (CLAUDE.md corrected; display half still open: unpriced rows get a # ordinal, it.fails pinned); W20-F008 /phases empty state explained incl. unmeasured pairings (strict-below-median rule unchanged, so still PARTIAL)",
+   "next": "W26-F003 /draft no-store only after a live-draft freshness check; W12-F006 cross-detector email dedupe needs the owner merge rule; W20-F001 gameplan consumer is a product decision; then the 59 P1 findings still unadjudicated per the 2026-11-06 recount (41 rotted repros, 18 unsafe; not re-measured since) -- separate from the open/partial adjudicated items routed above",
+   "sourceRowCount": 34
+  },
+  {
+   "id": "CW-41",
+   "wave": "F",
+   "priority": "P2",
+   "title": "Production verification harness defects",
+   "owner": "verify-deploy / authenticated verifier",
+   "state": "NOT_STARTED",
+   "evidence": "#1473 #1362 #1368 #1152 #1153 #1166 #1727",
+   "next": "recheck each against current production",
+   "sourceRowCount": 26
+  },
+  {
+   "id": "CW-42",
+   "wave": "-",
+   "priority": "-",
+   "title": "Owner-paused programs (League Tycoon, DFS, paid analyst feed)",
+   "owner": "owner",
+   "state": "OWNER_PAUSED",
+   "evidence": "MD-12; #1755; #788 cost-gated",
+   "next": "none until a new owner decision",
+   "sourceRowCount": 3
+  },
+  {
+   "id": "CW-43",
+   "wave": "F",
+   "priority": "P3",
+   "title": "Awards / reporting validation (Manager of the Year)",
+   "owner": "public_league awards",
+   "state": "RESEARCH_ONLY",
+   "evidence": "#1513 PARTIAL / NOT PROMOTED",
+   "next": "verified formulas before promotion",
+   "sourceRowCount": 1
+  },
+  {
+   "id": "CW-44",
+   "wave": "-",
+   "priority": "-",
+   "title": "Rejected / blocked research (evidence-backed)",
+   "owner": "-",
+   "state": "REJECTED",
+   "evidence": "AMATH-S51..S53 BLOCKED, S59..S63 REJECT",
+   "next": "reconsider only on new evidence",
+   "sourceRowCount": 8
+  },
+  {
+   "id": "CW-45",
+   "wave": "-",
+   "priority": "-",
+   "title": "Preserve (KEEP) — exact solvers, Game Day state machine, host scorer, Hill family, rookie curve",
+   "owner": "-",
+   "state": "PRODUCTION_VERIFIED",
+   "evidence": "AMATH-S54..S58",
+   "next": "regression-protect; no rewrite",
+   "sourceRowCount": 5
+  },
+  {
+   "id": "CW-46",
+   "wave": "C",
+   "priority": "P2",
+   "title": "Collector operations (scheduled refresh units, box timers)",
+   "owner": "scheduled-refresh.yml + deploy/systemd timers",
+   "state": "NOT_STARTED",
+   "evidence": "research-readiness COL/OPS items",
+   "next": "map each collector to a health stamp (CW-11)",
+   "sourceRowCount": 50
+  },
+  {
+   "id": "CW-47",
+   "wave": "A",
+   "priority": "P0",
+   "title": "Confidence owner: withholding a source can CURE Hampel rejections and raise confidence (second deploy blocker)",
+   "owner": "src/api/data_contract.py::_lost_evidence_seats + _family_evidence_for_row",
+   "state": "PRODUCTION_VERIFIED",
+   "evidence": "release train #2072 merged (91b0965c) and deployed (run 3734, 2026-11-06T18:48Z); live featureFlags confidence_cured_rejection_guard enabled/LIVE",
+   "next": "none (closed); rollback RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0",
+   "sourceRowCount": 2
+  },
+  {
+   "id": "CW-48",
+   "wave": "Q",
+   "priority": "P1",
+   "title": "Feature-intent census: requirement -> code -> test -> evidence matrix and per-feature verification states",
+   "owner": "docs/audits/remediation_2026-11-06/ (census tooling) + docs/OWNER_FEATURE_INVENTORY.md (intent)",
+   "state": "MERGED",
+   "evidence": "standard merged #2080; feature census merged #2085 (scripts/feature_census.py; 229 routes, 61 pages, 87 bridge routes, 67 flags, 52 jobs; 38 ranked gaps; review: 0 false negatives / 0 false positives on a 13-item check)",
+   "next": "join each surface to its controlling owner requirement and record VERIFIED / PARTIAL / UNVERIFIED with evidence",
+   "sourceRowCount": 2
+  },
+  {
+   "id": "CW-49",
+   "wave": "Q",
+   "priority": "P1",
+   "title": "Independent mathematical oracles + invariants for consequential calculations; correctness kept separate from predictive skill",
+   "owner": "the canonical owner of each calculation (confidence, blend, package model, lineup, FAAB, ROS, BDVM)",
+   "state": "MERGED",
+   "evidence": "PR #2089 merged (389a46d8): independent oracles for the package model (14 hand cases + exact-rational sweep, shared by Python and JS) and the weighted count-aware blend median (spec reference, n=1..9); production agrees. #2092 merged (6ace92f2): spec-derived oracle for the B11 confidence gate axes (600-case seeded differential sweep + boundaries + properties). #2101 merged (8b0d54a4): FAAB objective-ceiling oracle (18 hand/Decimal cases; mutations of the toe exponent, slope and smootherstep each fail 7-33 cases); engine agrees within 1e-12",
+   "next": "FAAB anchor derivation (V_repl / V_allin) and the market layer; ROS / BDVM oracles; lineup solver vs host truth already pinned (C2-U1, 10/10 Sleeper lineups)",
+   "sourceRowCount": 2
+  },
+  {
+   "id": "CW-50",
+   "wave": "Q",
+   "priority": "P1",
+   "title": "Permanent regression + end-to-end critical journeys (source -> API -> frontend -> action) across league / flag states",
+   "owner": "tests/ + frontend/__tests__ + the Playwright regression suite (existing frameworks only)",
+   "state": "MERGED",
+   "evidence": "#2086 timer/service unit integrity over every deploy timer (264 cases; commented-out installer lines no longer count); #2087 private-route auth regressions; #2082 audit regression tests; #2098 merged (54b4cef6): device-profile test no longer order/Node-version dependent (Node >= 21 getter-only navigator)",
+   "next": "critical user journeys from the census; weak-only census items next",
+   "sourceRowCount": 1
+  },
+  {
+   "id": "CW-51",
+   "wave": "Q",
+   "priority": "P2",
+   "title": "Bounded stress / resilience harness with retained baselines (non-production; explicit ceilings)",
+   "owner": "docs/GLOBAL_PERFORMANCE_STANDARD.md budgets + a local / CI harness",
+   "state": "NOT_STARTED",
+   "evidence": "production read-only latency baseline perf_baseline_2026-11-06.json (CW-26)",
+   "next": "isolated-backend concurrency + slow-upstream scenarios with stored baselines; never load production",
+   "sourceRowCount": 1
+  },
+  {
+   "id": "CW-52",
+   "wave": "Q",
+   "priority": "P3",
+   "title": "Evidence-classified dead code / duplicate logic (PROVEN_UNUSED / FLAGGED_OFF_RETAIN / SHADOW_RESEARCH / SUPERSEDED / UNKNOWN_CONSUMER)",
+   "owner": "standard section 6; removal only in small reversible PRs inside file claims",
+   "state": "NOT_STARTED",
+   "evidence": "-",
+   "next": "static + entrypoint + flag + job + dynamic-import census; remove PROVEN_UNUSED only",
+   "sourceRowCount": 1
+  },
+  {
+   "id": "CW-53",
+   "wave": "Q",
+   "priority": "P1",
+   "title": "Mechanized verification feedback loop: PR verification receipt, test selection, retained fixtures, cost-conscious scheduled checks",
+   "owner": ".github/pull_request_template.md + scripts/ci_change_scope.py + docs/AGENT_OPERATING_SYSTEM.md section 3",
+   "state": "IMPLEMENTING",
+   "evidence": "standard + Agent OS section merged #2080; PR template verification receipt added with the intake reconciliation; #2102 merged (405bc35a): validate-job wall 120 -> 180 min in PR Validation / Deploy / Release Candidate (full Validate PR jobs took 107-114 min on 2026-11-06/07; one run was cancelled at exactly 120 min) -- runner headroom only, no check weakened",
+   "next": "suite duration (~105-114 min of a 180-min wall): shared-state audit of the slowest files, then pytest-xdist --dist loadfile; assess scheduled deeper checks (drift, security scan, targeted mutation) within the existing scheduling framework",
+   "sourceRowCount": 2
+  }
+ ],
+ "rows": [
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-01",
+   "title": "Deploy blocked by test_no_confidence_rise_from_the_held_familys_silence (Sonny Styles)",
+   "cw": "CW-01"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-02",
+   "title": "Production Playwright launch failures; KTC/IDPTC/ktcSfTep source failures; served data 33-60h stale",
+   "cw": "CW-02"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-03",
+   "title": "/api/health 503 + watchdog failure (#2060)",
+   "cw": "CW-02"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-04",
+   "title": "Week 10 pre-kickoff forecast capture + Week 9 scoring",
+   "cw": "CW-03"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-05",
+   "title": "2027 rookie-auction pre-auction snapshot",
+   "cw": "CW-04"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-06",
+   "title": "Perishable evidence: KTC trade DB, unselected KTC variants, point-in-time injury/news, freeze receipts",
+   "cw": "CW-14"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-07",
+   "title": "Backup root uncertainty, stale writer fallback, restore unproven",
+   "cw": "CW-05"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-08",
+   "title": "Security posture re-validation (loopback bind, ports, headers, banners)",
+   "cw": "CW-06"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-09",
+   "title": "W22-F001 open redirect via backslash in /login?next=",
+   "cw": "CW-07"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-10",
+   "title": "W22-F002 rate limiter trusts X-Forwarded-For",
+   "cw": "CW-07"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-11",
+   "title": "W22-F003 login lacks throttling/lockout",
+   "cw": "CW-07"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-12",
+   "title": "W00-F001 /api/draft-capital unauthenticated and slow",
+   "cw": "CW-07"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-13",
+   "title": "W18-F003 host vs realized scoring discrepancies (~36% player-weeks, July figure)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-14",
+   "title": "W13-F001 BDVM missing reception-yardage bands",
+   "cw": "CW-08"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-15",
+   "title": "RPA-F-002 cross-league configuration propagation",
+   "cw": "CW-08"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-16",
+   "title": "RPA-F-003 stale league-scoring snapshot",
+   "cw": "CW-08"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-17",
+   "title": "RPA-F-008 nflverse/IDP scoring defects",
+   "cw": "CW-08"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-18",
+   "title": "IDP defensive-touchdown mapping (idp_def_td)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-19",
+   "title": "W08-F003 non-monotonic trade verdict",
+   "cw": "CW-09"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-20",
+   "title": "W08-F005 lost origin ownership on 53/216 picks",
+   "cw": "CW-09"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-21",
+   "title": "W08-F007 raw asset-mode incomparability",
+   "cw": "CW-09"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-22",
+   "title": "W10-F001 bids ignore remaining budget (the /draft auction MaxBid, not FAAB; DD-13)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-23",
+   "title": "W11-F003 FAAB saturation",
+   "cw": "CW-10"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-24",
+   "title": "W11-F004 FAAB non-monotonic outputs",
+   "cw": "CW-10"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-25",
+   "title": "W11-F005 FAAB bids depend on UI/filter state",
+   "cw": "CW-10"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-26",
+   "title": "W11-F007 inconsistent FAAB dollar figures",
+   "cw": "CW-10"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-27",
+   "title": "Expired IDP Show combined acknowledgment + seven overdue rehabilitation reviews",
+   "cw": "CW-11"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-28",
+   "title": "IDPTC pick board frozen ~27 days; stale FantasyPros IDP",
+   "cw": "CW-11"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-29",
+   "title": "ESPN injury parsing returns empty; Sharp transaction breaker",
+   "cw": "CW-11"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-30",
+   "title": "IDP Show-IDPTC source lineage (not independent)",
+   "cw": "CW-12"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-31",
+   "title": "Datawrapper/source identifiers in public artifacts",
+   "cw": "CW-12"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-32",
+   "title": "DLF IDP hold / freshness v2 / Outlier V2 / #1938 / #2006 / Signals IDP comparison",
+   "cw": "CW-13"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-33",
+   "title": "Trade Monte Carlo synthetic +/-15% win rate (0/1093 real valueBand)",
+   "cw": "CW-19"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-34",
+   "title": "Finder 'arbitrage' label without convergence evidence",
+   "cw": "CW-21"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-35",
+   "title": "Perfect Waivers 'Proven optimal' wording scope",
+   "cw": "CW-25"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-36",
+   "title": "/draft ~11.95 MB contract; BDVM ~48 s; Team Strength stuck; roster % timeouts; public league ~44 s cold; Activity payload",
+   "cw": "CW-26"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-37",
+   "title": "UX-P01..P10, UX-D07/D08/D09/D11, A11Y-01/A11Y-03",
+   "cw": "CW-27"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-38",
+   "title": "Security advisories (Oct: 111 alerts / 12 critical) — recount",
+   "cw": "CW-37"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-39",
+   "title": "Draft-order historical median-game rule",
+   "cw": "CW-38"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-40",
+   "title": "Rookie Auction Room security / money-correctness findings",
+   "cw": "CW-38"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-41",
+   "title": "Free-agent startability history source",
+   "cw": "CW-23"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-42",
+   "title": "Streaming gap (dynasty-safe +0.4 vs hindsight) and dynasty protection settings",
+   "cw": "CW-18"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-43",
+   "title": "Multi-team War Room remaining validation",
+   "cw": "CW-20"
+  },
+  {
+   "source": "DIRECTIVE-2026-11-06",
+   "id": "DIR-44",
+   "title": "Public Trade Advisor launch gate (stays OFF)",
+   "cw": "CW-06"
+  },
+  {
+   "source": "DISCOVERED-2026-11-06",
+   "id": "NEW-01",
+   "title": "Confidence rises when a withheld vote cures other Hampel rejections (Mahomes)",
+   "cw": "CW-47"
+  },
+  {
+   "source": "DISCOVERED-2026-11-06",
+   "id": "NEW-02",
+   "title": "verify_closure.py 'open' never compares repro output to expected; 37% of repros rotted (fixtures/scripts gone)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "DISCOVERED-2026-11-06",
+   "id": "NEW-03",
+   "title": "#2063 unit lacked SuccessExitStatus for the terminal skip (daily failed-unit alerts)",
+   "cw": "CW-04"
+  },
+  {
+   "source": "DISCOVERED-2026-11-06",
+   "id": "NEW-04",
+   "title": "#2062 service-cgroup sweep would match CI runner cgroups and the Playwright test runner; /proc probe on the event loop",
+   "cw": "CW-02"
+  },
+  {
+   "source": "DISCOVERED-2026-11-06",
+   "id": "NEW-05",
+   "title": "data/analyst_ledger.sqlite (INSERT-only) was not in the state backup set",
+   "cw": "CW-05"
+  },
+  {
+   "source": "DISCOVERED-2026-11-06",
+   "id": "NEW-06",
+   "title": "Week 9 six-model prereg states first kickoff 'Thu 2026-11-05 ~00:15Z' (likely 01:15Z Nov 6); scorer uses per-player kickoff so unaffected",
+   "cw": "CW-16"
+  },
+  {
+   "source": "DISCOVERED-2026-11-06",
+   "id": "NEW-07",
+   "title": "No prospective-IDP evaluation runner exists yet (freeze/receipt/predict only)",
+   "cw": "CW-16"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W06-F001",
+   "title": "Split-identity ghost rows: one player on a resolved row and an unresolved ghost",
+   "cw": "CW-36"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W10-F003",
+   "title": "Rookie recommender panel empty at budget advantage 1.0-3.0 (per-player EV 0)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W13-F003",
+   "title": "BDVM signal layer saturates at STRONG_SELL (570 of 699 at recount)",
+   "cw": "CW-34"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W20-F005",
+   "title": "Terminal portfolio prices current-year draft picks at zero",
+   "cw": "CW-29"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W27-F001",
+   "title": "/rankings Edge column carries no IDP signal while /edge labels the same players",
+   "cw": "CW-32"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W30-F002",
+   "title": "Playoff odds publish 100%/0% with zero games played",
+   "cw": "CW-17"
+  },
+  {
+   "source": "MASTER-AUDIT-P1-OPEN",
+   "id": "W30-F008",
+   "title": "Hill fit percentile denominator 400 vs serve 500 (same rank up to +25%)",
+   "cw": "CW-36"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S01",
+   "title": "Forecast Calibration Ledger: schedule AL-3b/AL-4a, size-controlled gates, calibration-state on every published probability/interval, and outcome reliability of confidence buckets",
+   "category": "N",
+   "horizon": "P0",
+   "cw": "CW-15"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S02",
+   "title": "Replace the single-source x0.30 value haircut with value-kept + uncertainty-carried, tested against outcomes",
+   "category": "R",
+   "horizon": "P0",
+   "cw": "CW-30"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S03",
+   "title": "Shared latent factors in simulation draws: season-level team-strength uncertainty (playoff/title) and game/team correlation (Game Day, BBLI, playoff)",
+   "category": "E",
+   "horizon": "P1",
+   "cw": "CW-17"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S04",
+   "title": "Measured weekly predictive marginals: replace fallback CVs, SD-proportional-to-remaining in-progress scaling and the truncated Gaussian with PIT-measured, position-pooled (empirical-Bayes) dispersion, sqrt(f) remainder scaling and a hurdle/skewed shape",
+   "category": "R",
+   "horizon": "P0",
+   "cw": "CW-17"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S05",
+   "title": "Point-in-time FAAB market refit with winner-censored (order-statistic) likelihood",
+   "category": "E",
+   "horizon": "P1",
+   "cw": "CW-31"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S06",
+   "title": "Uncertainty-derived no-action threshold for streaming",
+   "category": "R",
+   "horizon": "P1",
+   "cw": "CW-18"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S07",
+   "title": "Dynasty value uncertainty band: family-bootstrap band now (named alternate concept) and a stratified, outcome-calibrated revision-risk interval later",
+   "category": "N",
+   "horizon": "P1",
+   "cw": "CW-32"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S08",
+   "title": "Market Clearing Percentile plus board-noise decomposition of accepted-trade residuals",
+   "category": "N",
+   "horizon": "P1",
+   "cw": "CW-22"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S09",
+   "title": "Drop-Regret Curve: empirical value-transition kernel replacing protection PRIORs",
+   "category": "R",
+   "horizon": "P1",
+   "cw": "CW-18"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S10",
+   "title": "Validate or relabel the Finder/Angle 'arbitrage' edge (convergence test)",
+   "category": "R",
+   "horizon": "P1",
+   "cw": "CW-21"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S11",
+   "title": "Roster Fragility Index and Hidden Weakness (expected points at risk per slot) from one exact-lineup scenario engine",
+   "category": "N",
+   "horizon": "P2",
+   "cw": "CW-33"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S12",
+   "title": "Hide or relabel the live trade Monte Carlo 'win rate' built on a synthetic flat +/-15% band; replace only once real per-asset bands exist",
+   "category": "REMOVE",
+   "horizon": "P0",
+   "cw": "CW-19"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S13",
+   "title": "Record pre-auction board + roster snapshot before the 2027 rookie auction",
+   "category": "E",
+   "horizon": "P0",
+   "cw": "CW-04"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S14",
+   "title": "Executable OD-F4 validation protocol for fairness_bands_v2",
+   "category": "E",
+   "horizon": "P1",
+   "cw": "CW-22"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S15",
+   "title": "Hypothesis property-based invariant suite (test-only)",
+   "category": "E",
+   "horizon": "P1",
+   "cw": "CW-29"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S16",
+   "title": "Projection Blind-Spot Map (provider non-coverage as a selection process)",
+   "category": "N",
+   "horizon": "P1",
+   "cw": "CW-17"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S17",
+   "title": "Empirical-Bayes partial pooling for small-sample manager tendencies, archetypes and Sharp Score win%",
+   "category": "R",
+   "horizon": "P1",
+   "cw": "CW-35"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S18",
+   "title": "Uncertainty Grammar: fact / estimate / recommendation / unavailable",
+   "category": "E",
+   "horizon": "P1",
+   "cw": "CW-32"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S19",
+   "title": "Empirical-Bayes credibility for BDVM n_prior",
+   "category": "E",
+   "horizon": "P1",
+   "cw": "CW-34"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S20",
+   "title": "Hierarchical monotone rookie hit-rate priors (BDVM pick outcomes)",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-34"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S21",
+   "title": "One predictive selection target for board constants chosen on stability (alpha = 0.10 shrinkage, freshness curve C4, Hampel floor), including re-selection of alpha",
+   "category": "R",
+   "horizon": "P1",
+   "cw": "CW-36"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S22",
+   "title": "Exact leave-one-family-out evidence explainer and one Disagreement Map ('who is mispriced')",
+   "category": "N",
+   "horizon": "P1",
+   "cw": "CW-32"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S23",
+   "title": "Regret and No-Action layer (private shadow): No-Action Advantage, regret/CVaR versus hold, and regret cards with NO ACTION always shown",
+   "category": "N",
+   "horizon": "P2",
+   "cw": "CW-35"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S24",
+   "title": "Pick-slot forecasts: fix simulator overconfidence upstream, score by RPS, then fit pick-market c with log score, reliability and cross-season pooling",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-34"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S25",
+   "title": "Role Change Radar (offense; shared surface with IDP S2)",
+   "category": "N",
+   "horizon": "P1",
+   "cw": "CW-17"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S26",
+   "title": "Exceedance Board: rank streaming adds by P(X > marginal starter)",
+   "category": "N",
+   "horizon": "P1",
+   "cw": "CW-18"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S27",
+   "title": "Fail-closed FAAB config loading and removal of inert keys",
+   "category": "E",
+   "horizon": "P0",
+   "cw": "CW-10"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S28",
+   "title": "Remove self-inclusion bias from the agreement axis (compare each family to the leave-that-family-out value)",
+   "category": "E",
+   "horizon": "P1",
+   "cw": "CW-32"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S29",
+   "title": "Trade Robustness Stamp (verdict under resampled / leave-one-family-out boards)",
+   "category": "N",
+   "horizon": "P2",
+   "cw": "CW-32"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S30",
+   "title": "ROS aggregate: rank censoring instead of missing-at-random skip",
+   "category": "E",
+   "horizon": "P1",
+   "cw": "CW-17"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S31",
+   "title": "Natural-experiment test of the PRIOR pick year-step (derivedYearModel) when vendors first publish the next far class",
+   "category": "E",
+   "horizon": "P1",
+   "cw": "CW-34"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S32",
+   "title": "Stochastic replacement levels (lineup-entry probability)",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-33"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S33",
+   "title": "Points-unit team strength and forward-scored power rankings",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-33"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S34",
+   "title": "Board drift forecast from stale votes (original): predict how the canonical value will move as lagging sources update",
+   "category": "N",
+   "horizon": "P2",
+   "cw": "CW-36"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S35",
+   "title": "Trade-window timing: Title-Equity Exchange Rate",
+   "category": "N",
+   "horizon": "P2",
+   "cw": "CW-35"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S36",
+   "title": "Add a 'no outlier filter + count-aware weighted trimmed median' arm as the strong simple baseline for outlier-integrity V2",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-13"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S37",
+   "title": "Calibrated championship impact of waiver/FAAB/streaming decisions",
+   "category": "N",
+   "horizon": "P2",
+   "cw": "CW-33"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S38",
+   "title": "Evidence check for hand-threshold archetypes; fix missing-feature-to-0",
+   "category": "E",
+   "horizon": "P0",
+   "cw": "CW-29"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S39",
+   "title": "BDVM hazards and aging curves: position-pooled discrete-time survival with dropout/selection correction",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-34"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S40",
+   "title": "Version, refresh and attribute the KTC TE++ uplift curve as a KTC-lineage component on non-TEP TE votes",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-36"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S41",
+   "title": "Competitive Posture validation: shadow behavioural check first, posterior-based HOLD later",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-33"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S42",
+   "title": "Probabilistic record-linkage (Fellegi-Sunter) challenger as an abstention and reviewer-queue ranker, not a served matcher",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-36"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S43",
+   "title": "Future Roster Paths (multi-season window simulation)",
+   "category": "N",
+   "horizon": "P3",
+   "cw": "CW-33"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S44",
+   "title": "Private Offer Ledger (decision-data capture for acceptance and regret)",
+   "category": "N",
+   "horizon": "P2",
+   "cw": "CW-35"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S45",
+   "title": "Re-express legacy Suggestions/Finder gates in band/percent units",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-35"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S46",
+   "title": "Budget shadow price (approximate DP) for FAAB option value",
+   "category": "E",
+   "horizon": "P3",
+   "cw": "CW-31"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S47",
+   "title": "Evaluate / simplify hardcoded ROS format and freshness multipliers",
+   "category": "R",
+   "horizon": "P2",
+   "cw": "CW-17"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S48",
+   "title": "Partial identification of package q (and level c) by moment inequalities",
+   "category": "E",
+   "horizon": "P3",
+   "cw": "CW-35"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S49",
+   "title": "Lineage-aware family disagreement as uncertainty",
+   "category": "E",
+   "horizon": "P2",
+   "cw": "CW-32"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S50",
+   "title": "Preregister a genuinely independent validation target for Hill gate 7 (format-qualified non-KTC completed trades)",
+   "category": "N",
+   "horizon": "BLOCKED",
+   "cw": "CW-36"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S51",
+   "title": "Defer Wasserstein DRO / CVaR streaming until forecasts have PIT skill (value-of-information gate)",
+   "category": "REJECT",
+   "horizon": "BLOCKED",
+   "cw": "CW-44"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S52",
+   "title": "Availability odds: probability layer over the four-state owner",
+   "category": "N",
+   "horizon": "BLOCKED",
+   "cw": "CW-44"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S53",
+   "title": "Live usage nowcast (in-game Bayesian rate update)",
+   "category": "N",
+   "horizon": "BLOCKED",
+   "cw": "CW-44"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S54",
+   "title": "Keep exact solvers: canonical lineup, streaming solver, Perfect Draft knapsack",
+   "category": "KEEP",
+   "horizon": "KEEP",
+   "cw": "CW-45"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S55",
+   "title": "Game Day player-state machine (no double-counting of completed scoring)",
+   "category": "KEEP",
+   "horizon": "KEEP",
+   "cw": "CW-45"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S56",
+   "title": "Keep the 2-parameter percentile Hill (log-logistic) curve family; fix only its validation target and a stale docstring",
+   "category": "KEEP",
+   "horizon": "P3",
+   "cw": "CW-45"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S57",
+   "title": "Host-native scorer and realized-points delegation",
+   "category": "KEEP",
+   "horizon": "KEEP",
+   "cw": "CW-45"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S58",
+   "title": "Keep owner-protected rookie-auction curve, Batch D promotion and draft-order rule",
+   "category": "KEEP",
+   "horizon": "KEEP",
+   "cw": "CW-45"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S59",
+   "title": "A new learned source-reliability weighting system (already built and failed its gate)",
+   "category": "REJECT",
+   "horizon": "REJECT",
+   "cw": "CW-44"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S60",
+   "title": "Consensus-vs-KTC 'market inefficiency' buy/sell map",
+   "category": "REJECT",
+   "horizon": "REJECT",
+   "cw": "CW-44"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S61",
+   "title": "REJECT: extreme value theory for IDP splash games, FAAB tails and title-odds tails",
+   "category": "REJECT",
+   "horizon": "REJECT",
+   "cw": "CW-44"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S62",
+   "title": "REJECT: causal DML/TMLE/SCM claims (manager skill, advisor effect, opponent/matchup effects, streaming benefit)",
+   "category": "REJECT",
+   "horizon": "REJECT",
+   "cw": "CW-44"
+  },
+  {
+   "source": "AMATH",
+   "id": "AMATH-S63",
+   "title": "Rejected: TDA archetypes, SMT for legality, vine copulas/flows, EVT, DML on advice uptake, differential geometry",
+   "category": "REJECT",
+   "horizon": "REJECT",
+   "cw": "CW-44"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-001",
+   "title": "Scheduled data refresh workflow and in-process box scrape loop",
+   "statusAtSource": "COLLECTING_STALE / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-02"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-002",
+   "title": "Hill refit challenger loop and autopilot run ledger",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-003",
+   "title": "Joint robust-filter shadow ledger",
+   "statusAtSource": "SHADOW_RUNNING / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-004",
+   "title": "Sparse-evidence estimator shadow ledger",
+   "statusAtSource": "SHADOW_RUNNING / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-005",
+   "title": "Consensus Edge daily snapshot and outcome labelling",
+   "statusAtSource": "SHADOW_RUNNING / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-006",
+   "title": "Consensus Edge weekly revalidation",
+   "statusAtSource": "COLLECTING_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-007",
+   "title": "Rank-form curve drift weekly audit",
+   "statusAtSource": "COLLECTING_ACTIVE / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-008",
+   "title": "Hampel dropped-source weekly audit",
+   "statusAtSource": "COLLECTING_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-009",
+   "title": "Identity dual-read measurement and identity match audit",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-010",
+   "title": "IDP identity capture U2/U2b/U3/VID (collect-only provenance)",
+   "statusAtSource": "COLLECTING_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-011",
+   "title": "Signals Fantasy collectors (auth-renew, public fetch, authenticated values)",
+   "statusAtSource": "COLLECTING_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-012",
+   "title": "DLF and IDP Show box fetch with commit-back",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-013",
+   "title": "Multi-format KTC source archive (TE+/TE++ variants, C1-U9)",
+   "statusAtSource": "COLLECTING_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-014",
+   "title": "KTC Trade Database accumulation",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-015",
+   "title": "Completed-trade market ledger rebuild",
+   "statusAtSource": "COLLECTING_ACTIVE / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-016",
+   "title": "Sharp cohort crawl chain (discovery, records, rosters, activity, cohort snapshot, FFPC) and production population verification",
+   "statusAtSource": "COLLECTING_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-017",
+   "title": "Sharp transaction crawl, and Sharp/own-league format-at-trade-time capture",
+   "statusAtSource": "COLLECTING_BROKEN / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-018",
+   "title": "ESPN depth-chart refresh",
+   "statusAtSource": "COLLECTING_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-019",
+   "title": "ESPN injury feed refresh",
+   "statusAtSource": "COLLECTING_BROKEN / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-020",
+   "title": "Game Day live collector and Sleeper weekly projection archive (AL-P8 / G1)",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-021",
+   "title": "Game Day pregame prediction capture",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-022",
+   "title": "Playoff/title forecast archive (AL-P6) and as-known news metadata archive (G4)",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-023",
+   "title": "Pick forecast / team strength weekly snapshot (AL-P4)",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-024",
+   "title": "Learning receipts store",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-025",
+   "title": "AL-P5 served trade decision receipts log",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-026",
+   "title": "Temporal ledger, board history and daily board snapshot (C1-U4)",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-027",
+   "title": "BDVM weekly projection refresh and news-to-events ingestion",
+   "statusAtSource": "COLLECTING_ACTIVE / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-028",
+   "title": "Own-league FAAB bid history",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-029",
+   "title": "KTC crowd FAAB market accumulation",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-030",
+   "title": "Player-context collectors: trending history, playerctx, reception depth, PBP weekly",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-031",
+   "title": "ROS rankings aggregate and ROS source collectors",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-032",
+   "title": "Retention backups, restore proofs and auction backup",
+   "statusAtSource": "COLLECTING_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-033",
+   "title": "DFS auto-refresh tick (owner-paused area)",
+   "statusAtSource": "COLLECTING_ACTIVE / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-034",
+   "title": "Production smoke and E2E monitors",
+   "statusAtSource": "COLLECTING_BROKEN / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-035",
+   "title": "V1 failure classifier (report-only)",
+   "statusAtSource": "SHADOW_RUNNING / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-036",
+   "title": "Sharp production smoke",
+   "statusAtSource": "COLLECTING_BROKEN / BLOCKED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-037",
+   "title": "Weekly narratives generation (export mode)",
+   "statusAtSource": "COLLECTING_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-COL-038",
+   "title": "Codex 'Brisket Orchestrator' cron automation",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-DRF-001",
+   "title": "Rookie-draft order: median-game question (time-sensitive)",
+   "statusAtSource": "WAITING_ON_OWNER / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-DRF-002",
+   "title": "Draft valuation Batch D guarded promotion (dry_run) and the class state machine (#1807)",
+   "statusAtSource": "SHADOW_RUNNING / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-DRF-003",
+   "title": "Rookie Auction Room official launch and Phase 2 (#1533)",
+   "statusAtSource": "IMPLEMENTATION_ACTIVE / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-DRF-004",
+   "title": "Perfect Draft backtest: blocked, needs a pre-draft snapshot captured before the 2027 auction (perishable)",
+   "statusAtSource": "NOT_STARTED / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-DRF-005",
+   "title": "Pick forecast market confidence 'c' calibration (provisional) and AL-P4 snapshot acceptance",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-DRF-006",
+   "title": "Rookie/college prospect projections (C5-FIT-01 college translation, #803)",
+   "statusAtSource": "NOT_STARTED / BLOCKED (2026-10-25)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-GOV-001",
+   "title": "Coordination records: stale WORK_CLAIMS rows and the 14-day RIT reconciliation (#1924)",
+   "statusAtSource": "LIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-GOV-002",
+   "title": "Live development tracker PR #1838 (undisposed) and owner-intent recovery #1336",
+   "statusAtSource": "WAITING_ON_OWNER / READY_FOR_DECISION (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-GOV-003",
+   "title": "Status-record freshness: completion ledger/dashboard, family files, COMPLETION_QUEUE, HANDOFF.md, and stale owner-register rows",
+   "statusAtSource": "COLLECTING_STALE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-GOV-004",
+   "title": "Scope candidates without disposition: sixth slot (R40/R44), OD-06, OD-07, RIT-088 realignment",
+   "statusAtSource": "WAITING_ON_OWNER / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-GOV-005",
+   "title": "Deferred/not-authorized successors: Market Edge Lab, dynamic_source_weights, R14 private-offer capture, draft-capital stack rebuild (#1529), C1-U5 confidence naming, C1A unit 6",
+   "statusAtSource": "NOT_STARTED / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-GOV-006",
+   "title": "OWNER_PAUSED: DFS and League Tycoon (deployed DFS preserved)",
+   "statusAtSource": "WAITING_ON_OWNER / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-GOV-007",
+   "title": "Agent infrastructure: Steward runtime, agent-eval harness, and the Codex 'Brisket Orchestrator' cron pointed at OneDrive",
+   "statusAtSource": "DORMANT_IMPLEMENTED / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-GOV-008",
+   "title": "Workspace hygiene: stranded branches, stale worktrees, and uncommitted leftovers",
+   "statusAtSource": "NOT_STARTED / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-001",
+   "title": "Live Sleeper scoring/rules parity audit (#1842/#1843, Stage A)",
+   "statusAtSource": "IMPLEMENTATION_ACTIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-002",
+   "title": "Keyed weekly projection providers (Fantasy Nerds / SportsDataIO): blocked on license/spend",
+   "statusAtSource": "WAITING_ON_OWNER / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-003",
+   "title": "Multi-source projection ensemble (#854, C5-PROJ-A..F)",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-004",
+   "title": "Game Day calibration scorecard (AL-4a) and projection scorecard (AL-3b), plus AL-3c/3d challengers",
+   "statusAtSource": "SHADOW_NOT_RUNNING / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-005",
+   "title": "Host-native scoring (V1-49): live through an env override that diverges from the registry default",
+   "statusAtSource": "WAITING_ON_OWNER / READY_FOR_DECISION (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-006",
+   "title": "Playoff/title odds: ROS double count (D11) and season-end calibration (AL-5a/5b/5c)",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / NEEDS_METHODOLOGY_REVISION (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-007",
+   "title": "Best-ball true marginal utility library (Stage C, offline, no consumer)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-008",
+   "title": "Best-ball sim points-model calibration (LI-8) and League Twin: validation not inspected",
+   "statusAtSource": "SHADOW_NOT_RUNNING / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-009",
+   "title": "Schedule Intelligence remainders: the B league-valid calendar, C, D, and E MVP win-impact (#1530)",
+   "statusAtSource": "NOT_STARTED / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-010",
+   "title": "Team Strength / Power Rankings v2: team VORP missing, WAR/WAB (C5-WAR-01) absent",
+   "statusAtSource": "NOT_STARTED / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-011",
+   "title": "Unified Manager of the Year validation track (#1513)",
+   "statusAtSource": "WAITING_ON_OWNER / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-012",
+   "title": "Roster 12 manager hand-off: open owner items",
+   "statusAtSource": "WAITING_ON_OWNER / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-013",
+   "title": "Live Waiver Opportunity FAAB shadow: flag ON but zero shadow comparisons recorded",
+   "statusAtSource": "SHADOW_NOT_RUNNING / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-014",
+   "title": "FAAB engine re-evaluation (AL-8 loop) and market extension with Sleeper heat and Sharp bids (#830)",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-015",
+   "title": "Game Day live-state provider trial (BALLDONTLIE shadow, SportsDataIO fallback) and CFBD key",
+   "statusAtSource": "WAITING_ON_OWNER / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-016",
+   "title": "Injury/availability: injury feed reports zero active injuries (suspected silent-empty) and the availability backtest",
+   "statusAtSource": "COLLECTING_BROKEN / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-017",
+   "title": "Waiver lineup-legality and Perfect Waivers validation (C2-DROP-01, C7-WAIV-01, #899)",
+   "statusAtSource": "IMPLEMENTATION_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-018",
+   "title": "Public waiver-compare page: public/private boundary review",
+   "statusAtSource": "COLLECTING_STALE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-LGI-019",
+   "title": "Knowledge-cutoff replay and the missing as-of roster store (team-context replay deferred)",
+   "statusAtSource": "NOT_STARTED / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-001",
+   "title": "Box unit repairs (#1926): depth charts, market-trade ledger timeout, game-day capture false refusal",
+   "statusAtSource": "LIVE / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-002",
+   "title": "Public /league latency and Production E2E Smoke failures (unclaimed)",
+   "statusAtSource": "NOT_STARTED / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-003",
+   "title": "E2E Safety Net repair (#1918 / #1923)",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-004",
+   "title": "Deploy restart decoupling: D-1 data-only release (declined), D-2 conditional startup scrape (#1929), D-3 paths-ignore (#1925)",
+   "statusAtSource": "IMPLEMENTATION_ACTIVE / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-005",
+   "title": "Backend memory policy canary (MemoryMax=3584M, no MemoryHigh) and memory-pressure diagnostics",
+   "statusAtSource": "WAITING_ON_OWNER / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-006",
+   "title": "KTC/IDPTC scrape outage 2026-10-22/23: root cause (aged-process/throttle hypothesis), including the unverified IDPTC ~979-row partial incident",
+   "statusAtSource": "NOT_STARTED / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-007",
+   "title": "Feature-flag registry vs production state, and held-flag lock coverage gaps",
+   "statusAtSource": "LIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-008",
+   "title": "Dead/decorative flags cleanup: value_confidence_intervals, positional_tiers, unified_id_mapper, usage_signals (and dynamic_source_weights)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-009",
+   "title": "Sharp production gate cannot measure: no credential (#1727/#951)",
+   "statusAtSource": "WAITING_ON_OWNER / BLOCKED (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-010",
+   "title": "Dependency and vulnerability backlog (16 open dependabot PRs, 111 alerts)",
+   "statusAtSource": "NOT_STARTED / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-011",
+   "title": "Performance follow-ups (#1622) and abandoned Codex performance worktrees",
+   "statusAtSource": "NOT_STARTED / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-OPS-012",
+   "title": "Learning receipts coverage (AL-P5 beyond Best Offers), Sharp trade retention before the 400-day prune (AL-P7), and the Adaptive Learning / Model Lab umbrella",
+   "statusAtSource": "COLLECTING_ACTIVE / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-001",
+   "title": "Universal freshness step schedule v2 (merged dormant, owner-held activation)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-002",
+   "title": "FantasyPros IDP upstream clock (D5) remainder: dual-family duplicate-identity analysis",
+   "statusAtSource": "LIVE / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-003",
+   "title": "Signals Fantasy IDP voting: per-family DL/LB/DB and the Candidate F crosswalk (held)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-004",
+   "title": "IDP source rehabilitation (IDP Show, IDPTC, FantasyPros IDP; D2 gate superseded)",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-005",
+   "title": "Source content staleness vs fetch freshness: withheld IDP Show/FantasyNavigator votes and stale vendor content",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-006",
+   "title": "KTC/IDPTC last_success freshness stamps come from the GH-runner scrape, not the box scrape that serves data",
+   "statusAtSource": "COLLECTING_STALE / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-007",
+   "title": "CANONICAL_V2 identity policy activation (unauthorized; v2WouldChange growing)",
+   "statusAtSource": "SHADOW_RUNNING / NEEDS_METHODOLOGY_REVISION (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-008",
+   "title": "Chase Upside Trade Market shadow source (chaseTradeMarket P1-P6a) and reserve decision Q2",
+   "statusAtSource": "WAITING_ON_OWNER / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-009",
+   "title": "Per-source rank digest retention: #804 capture lane, authorized but not implemented (perishable)",
+   "statusAtSource": "WAITING_ON_OWNER / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-010",
+   "title": "Unpreserved DLF structural diagnostic work (uncommitted worktree touching the production fetcher)",
+   "statusAtSource": "WAITING_ON_OWNER / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-SRC-011",
+   "title": "Credentialed-source authorization posture (OD-01): IDPTC, DLF, Draft Sharks, IDP Show and Flock permissions",
+   "statusAtSource": "WAITING_ON_OWNER / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-001",
+   "title": "Package model geom_q078_v1: market-ledger prospective evaluation (#1873), with Phase 1-3 research and the fairness_v2 re-measure",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-002",
+   "title": "fairness_bands_v2 post-launch validation (OD-F4), history-vs-public alignment (OD-F6), and the +/-200 How-It-Aged prior",
+   "statusAtSource": "NOT_STARTED / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-003",
+   "title": "Unvalidated trade-decision priors: discovery 'Most Impactful', Second Opinions 'even within 1%', KTC-era finder/angle priors, competitive posture_v1_prior",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-004",
+   "title": "Forced-drop cheapest-legal fix V5-R: activation decision (dormant, flag OFF)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NEEDS_METHODOLOGY_REVISION (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-005",
+   "title": "Low-value depth disclosure V4 shadow counters (LVA-P4): owner G3 shadow-window decision",
+   "statusAtSource": "SHADOW_NOT_RUNNING / OWNER_APPROVAL_REQUIRED (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-006",
+   "title": "Low-value asset program umbrella (recommendation R-C: informational disclosure only)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-007",
+   "title": "Multi-team private analysis enablement: Lane E QA and D-net loopback bind (claimed, never started)",
+   "statusAtSource": "IMPLEMENTATION_ACTIVE / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-008",
+   "title": "Public Brisket Trade Advisor launch gate (owner-reserved)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / BLOCKED (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-009",
+   "title": "Trade decision engine v3 shadow challenger (League Intelligence Stage E) and evidence-lineage registry",
+   "statusAtSource": "SHADOW_NOT_RUNNING / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-010",
+   "title": "Analyze Trade v3 branch: stranded, no PR (#792 Batch 4)",
+   "statusAtSource": "SUPERSEDED / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-011",
+   "title": "Adaptive Learning trade loop: translator readiness (AL-2b0), preregistered translator (AL-2b), latent price (AL-2c)",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / ENGINEERING_NOT_READY (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-012",
+   "title": "Monte Carlo trade simulator audit TODOs and band-width re-audit (#790)",
+   "statusAtSource": "IMPLEMENTATION_ACTIVE / INSUFFICIENT_EVIDENCE (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-TRD-013",
+   "title": "/trade pick-ownership unknown-state reader (named non-parity follow-up)",
+   "statusAtSource": "SUPERSEDED / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-001",
+   "title": "Outlier integrity V2 / V2.1: layered source validation (gates the DLF IDP, D4 and freshness-v2 restorations)",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / NEEDS_METHODOLOGY_REVISION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-002",
+   "title": "DLF IDP / DLF Rookie IDP vote restoration (owner-held, dlf_offense_only_vote ON)",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / BLOCKED (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-003",
+   "title": "D4 DLF Values rank->Hill offense vote (owner-held, flag OFF)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NEEDS_MORE_DATA (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-004",
+   "title": "IDP deep-tail native-value challenger (PROMOTION-ELIGIBLE but blocked)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / READY_FOR_DECISION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-005",
+   "title": "Closed/rejected outlier challengers: rank-space Hampel (whole and per-vote), IDP n=3 Hampel, outlier_disagreement_policy V1 (dormant code paths)",
+   "statusAtSource": "RETIRED / EVIDENCE_SUPPORTS_REJECTION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-006",
+   "title": "Joint robust-filter (outlier+sparse) shadow challenger, Batch 3 Unit F",
+   "statusAtSource": "SHADOW_RUNNING / READY_FOR_DECISION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-007",
+   "title": "Sparse-evidence estimator challenger (Batch 3 Unit E) and the single-source haircut collapse",
+   "statusAtSource": "SHADOW_RUNNING / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-008",
+   "title": "Hill Autopilot OFFENSE challenger: gate 7 independent-validation target is empty, so promotion is structurally impossible",
+   "statusAtSource": "COLLECTING_ACTIVE / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-009",
+   "title": "Hill D2 rerun, source alignment, and lineage-dependence policy v1 instrument extensions (MD-3b), including correlated-source anomaly protection",
+   "statusAtSource": "WAITING_ON_DEPENDENCY / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-010",
+   "title": "Source-quality evaluator and weight challengers (B3-B/C, AL-1b..d) plus dynamic_source_weights",
+   "statusAtSource": "SHADOW_NOT_RUNNING / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-011",
+   "title": "Rank-form curve drift: stale reconstruction Hill constants (#898)",
+   "statusAtSource": "NOT_STARTED / EVIDENCE_SUPPORTS_ADVANCEMENT (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-012",
+   "title": "Multi-bridge IDP ladder (Lane 8 PR-B, Draft Sharks beside IDPTC)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-013",
+   "title": "IDP valuation accuracy program (2026-10-25 directive, shadow only), including Investigation B IDP replacement/scoring research",
+   "statusAtSource": "IMPLEMENTATION_ACTIVE / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-014",
+   "title": "LI-5 replacement-level consolidation (C2-REPL-01, LVA-P3)",
+   "statusAtSource": "IMPLEMENTATION_ACTIVE / EVIDENCE_SUPPORTS_ADVANCEMENT (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-015",
+   "title": "League-aware fair value v1 shadow challenger (successor to the withdrawn league-adjusted lens)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-016",
+   "title": "Consensus Edge buy/sell board (flag OFF; ship gate 'do not ship'; outcomes accumulating)",
+   "statusAtSource": "COLLECTING_ACTIVE / EVIDENCE_SUPPORTS_REJECTION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-017",
+   "title": "TE premium target basis is a constant, not league TE demand (2-TE calibration audit #785)",
+   "statusAtSource": "NOT_STARTED / NEEDS_PREREGISTRATION (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-ITEM",
+   "id": "RPA-VAL-018",
+   "title": "Scoring-fit flags ON for a withdrawn lens (idp_scoring_fit, reception_scoring_fit) and player-specific scoring fit (#803)",
+   "statusAtSource": "DORMANT_IMPLEMENTED / NOT_A_PROMOTION_CANDIDATE (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-001",
+   "title": "Scheduled data refresh reports success while its browser fetchers produce nothing",
+   "severity": "high",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-02"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-002",
+   "title": "Thirteen league-config propagation defects, including cross-league leakage and a manual multiplier that moves canonical values",
+   "severity": "high",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-003",
+   "title": "The committed league-rules snapshot is 21 scoring keys behind the live Sleeper card; the dynasty_new roster size also disagrees",
+   "severity": "high",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-004",
+   "title": "The ESPN injury feed parses 0 of 800 entries and reports it as 'no active injuries'",
+   "severity": "high",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-005",
+   "title": "The Sharp transaction crawl fetches zero leagues in 13 of 28 runs because 404 leagues trip the shared Sleeper breaker",
+   "severity": "high",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-006",
+   "title": "Independent-audit security and money fixes for the Rookie Auction Room are not on main while the room is live in mock mode",
+   "severity": "high",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-007",
+   "title": "111 open Dependabot alerts, 12 of them critical, and the three PRs that would clear 100 of them cannot go green",
+   "severity": "high",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-008",
+   "title": "Four nflverse scorer defects bias the live BDVM in-season fundamentals, mostly for IDP",
+   "severity": "high",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-009",
+   "title": "Backup coverage of the irreplaceable 2.25 GB temporal ledger cannot be confirmed, and the health stamp reads the wrong directory",
+   "severity": "high",
+   "statusAtSource": "UNRESOLVED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-010",
+   "title": "The 2026-10-22/23 production degradation (about 24 hours) has no established root cause and the evidence is gone",
+   "severity": "high",
+   "statusAtSource": "UNRESOLVED (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-011",
+   "title": "Public /league has a 44-second cold path and the production smoke monitor fails intermittently on it",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-012",
+   "title": "The nightly E2E Safety Net was red four nights running on deterministic specs",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-013",
+   "title": "IDP vote evidence is thinning: four of five IDP vendor feeds have static content, and IDPTC is the only anchor with no rehabilitation entry",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-014",
+   "title": "Fetch-success stamps for KTC, IDPTC and DraftSharks have a single writer (the GitHub runner) and feed the confidence freshness axis",
+   "severity": "medium",
+   "statusAtSource": "SUSPECTED (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-015",
+   "title": "Rank-form reconstruction constants have drifted 3x to 8x past budget, and the Terminal team-value chart always uses them",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-016",
+   "title": "BDVM's IDP Show projection feed has never produced a record, and the weekly unit still reports success",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-017",
+   "title": "/api/health reports the DLF session as 96.6 days old with 0.0 days remaining; it reads a dead July copy",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-018",
+   "title": "The DLF fetcher exited clean after a fetch timeout, and DLF's Value column is unavailable, so DLF votes as rank only",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-019",
+   "title": "The Sharp production gate has never measured anything, and its green runs read as verification",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-020",
+   "title": "Settings still offers 'Value basis: My league' and says it is the only setting that changes the numbers; the lens was withdrawn",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-021",
+   "title": "Every production best-ball simulation runs on fallback points-model constants because the calibrated artifact was never built",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-022",
+   "title": "The incumbent cut ladder breaks ties alphabetically by asset name, which changes forced-drop charges and Perfect Draft cut order",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-21"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-023",
+   "title": "Owner-facing decision and status records state facts that production or code contradicts",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-024",
+   "title": "Nine owner-reserved flags (and three closed-challenger flags) are default OFF but not protected by the deploy-time hold",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-41"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-025",
+   "title": "The main branch ruleset has no required status checks or reviews",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-026",
+   "title": "Work that exists only in local worktrees or unpushed branches could be lost",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-027",
+   "title": "The ROS aggregate counts a 12-day-old unchanged body as 'ok', and an orphan source file sits beside it",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-028",
+   "title": "retention-health has been red on 26 of its last 40 daily runs, including a 22-day streak nobody examined",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-029",
+   "title": "Several shadow recorders and scorecards run (or are merged) with no evaluator, so their status panels read as monitoring",
+   "severity": "medium",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-030",
+   "title": "The market-trade ledger grows about 27 MiB a day toward a 2 GiB memory ceiling, and no alert fires on a missed report day",
+   "severity": "medium",
+   "statusAtSource": "SUSPECTED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-031",
+   "title": "docs/lane4/LANE4_804_CAPTURE_CADENCE_DECISION.md says the capture unit shipped in #921; #921 was closed unmerged",
+   "severity": "low",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-032",
+   "title": "The forecast archive never established two identity fields, and 10.9% of news mentions have no Sleeper id",
+   "severity": "low",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-033",
+   "title": "The Week 6 narrative recaps were never exported and nothing retries a failed Tuesday run",
+   "severity": "low",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-034",
+   "title": "A Codex 'Brisket Orchestrator' automation is ACTIVE daily and points at the archived OneDrive copy",
+   "severity": "low",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-035",
+   "title": "Waiver-compare settings labels show mojibake ('Dynasty Â· Crowd+Trades')",
+   "severity": "low",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-036",
+   "title": "Justin Madubuike is unresolved by the served identity policy while CANONICAL_V2 resolves him to 6818",
+   "severity": "low",
+   "statusAtSource": "SUSPECTED (2026-10-25)",
+   "cw": "CW-11"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-037",
+   "title": "The KTC crowd-FAAB freshness gate keys on fetch time, so a frozen feed would stay 'fresh' for seven days",
+   "severity": "low",
+   "statusAtSource": "SUSPECTED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-038",
+   "title": "Four of 32 Hill refit runs lost their evidence to a push race, and bot commits add churn to main",
+   "severity": "low",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-46"
+  },
+  {
+   "source": "RPA-FINDING",
+   "id": "RPA-F-039",
+   "title": "Two feature-flag comments describe the opposite of the live state",
+   "severity": "low",
+   "statusAtSource": "CONFIRMED (2026-10-25)",
+   "cw": "CW-08"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-38",
+   "title": "Delegated authority. Ordinary engineering, product, UX and evidence-based methodology decisions are delegated to the agent, chosen by correctness, predictive ac",
+   "statusAtSource": "DECIDED — owner, 2026-11-06",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-39",
+   "title": "Current truth first; zero-loss reconciliation. Rebuild the baseline from live main / production / CI; recognise superseded work (Roster Construction V1 activate",
+   "statusAtSource": "IN PROGRESS — inventory built (404 + 7 discovered rows → CW-01…CW-47)",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-40",
+   "title": "W0-A deploy blocker. Reproduce and correctly fix `test_no_confidence_rise_from_the_held_familys_silence` (Sonny Styles) without skipping or weakening; full hard",
+   "statusAtSource": "DONE — #2061 merged in release train #2072 (91b0965c); Deploy Production 3734 succeeded 2026-11-06T18:48Z",
+   "cw": "CW-01"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-41",
+   "title": "W0-B production scraper outage + health (#2060). Root-cause browser launch failures, restore collection, truthful freshness and `/api/health`, diagnostics witho",
+   "statusAtSource": "PRODUCTION RECOVERED — deploy restart: scrape success 2026-11-06T18:48:38Z, /api/health 200; #2062 (reaper + diagnostics) merged a9244b0a",
+   "cw": "CW-02"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-42",
+   "title": "W0-C time-critical evidence. Week 10 pre-kickoff capture with freeze receipts (kickoff 2026-11-12); Week 9 scoring; automatic first-valid 2027 pre-auction snaps",
+   "statusAtSource": "IN PROGRESS — receipts #2065, auction capture #2063 and evaluation runner #2077 merged; Week 9 evaluation once final",
+   "cw": "CW-03"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-43",
+   "title": "W0-D backups, security posture, observability. Prove backup coverage and a restore path; verify loopback / ports / headers / banners / auth boundaries without r",
+   "statusAtSource": "HUMAN_ACTION_REQUIRED — #2064 merged; box operator re-runs install_state_backup.sh + restore verifier; headers verified live 2026-11-06",
+   "cw": "CW-05"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-44",
+   "title": "Waves B–F (security/auth, scoring parity, trade identity/math, FAAB; source freshness/independence/methodology comparison; calibration ledger and IDP / Game Day",
+   "statusAtSource": "AUTHORIZED — dependency order per inventory",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-45",
+   "title": "Deliverables A–J (baseline, finding registry, ranked portfolio, code/PRs, production recovery, research, product completion, delegated-decision register, closur",
+   "statusAtSource": "IN PROGRESS",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-46",
+   "title": "Discovered 2026-11-06: confidence-owner gap (second deploy blocker). `test_idptc_cutoff_readiness::test_5` (Patrick Mahomes): withholding a source cures other H",
+   "statusAtSource": "DONE — CW-47 merged in #2072 and deployed; guard flag LIVE in production",
+   "cw": "CW-47"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-47",
+   "title": "Permanent cross-model continuous verification standard (Phases 0, 8). Every material feature, fix and refactor is verified against the latest authorized owner b",
+   "statusAtSource": "DECIDED — owner, 2026-11-06; standard merged #2080 (`4e3193a6`); reconciled here",
+   "cw": "CW-53"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-48",
+   "title": "Feature-intent census (Phase 1). Inventory every material feature and execution surface; per feature: original request, latest controlling requirement, intended",
+   "statusAtSource": "IN PROGRESS — CW-48 census merged #2085; requirement joins next",
+   "cw": "CW-48"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-49",
+   "title": "Independent mathematical verification (Phase 2). Every consequential calculation checked for validity, intended methodology, independent oracles (never the func",
+   "statusAtSource": "IN PROGRESS — CW-49 oracles #2089 (package model, blend median) reviewed",
+   "cw": "CW-49"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-50",
+   "title": "Permanent regression and end-to-end coverage (Phases 3–4). Tests from intended behavior; a reproducing test per verified defect; detection of silent numeric cha",
+   "statusAtSource": "IN PROGRESS — #2086 timer integrity, #2087 private-route auth regressions (fixed a live admin-gate defect), #2082 audit regressions merged",
+   "cw": "CW-50"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-51",
+   "title": "Bounded stress, performance and resilience program (Phase 5). Repeatable scenarios (concurrency, deep leagues and histories, expensive calculations, slow / part",
+   "statusAtSource": "AUTHORIZED — CW-51 (baseline: `perf_baseline_2026-11-06.json`, CW-26)",
+   "cw": "CW-51"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-52",
+   "title": "Security, reliability and data-integrity verification (Phase 6). Authentication, authorization, private exposure, validation, injection, cross-user / cross-leag",
+   "statusAtSource": "AUTHORIZED — CW-07 (with CW-05, CW-11, CW-37)",
+   "cw": "CW-07"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-53",
+   "title": "Evidence-classified dead-code and duplicate-logic cleanup (Phase 7). Distinguish disabled features, fallbacks, jobs, dynamic imports, experiments and shadow res",
+   "statusAtSource": "AUTHORIZED — CW-52",
+   "cw": "CW-52"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-54",
+   "title": "Mechanized feedback loop (Phase 8). The ten-step loop (intent → verification plan → canonical implementation → focused tests → regression → integration → qualit",
+   "statusAtSource": "IN PROGRESS — CW-53 (PR template verification receipt)",
+   "cw": "CW-53"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-55",
+   "title": "One integrated verification view, reporting and priority order (Phases 9–10). Per-feature verification states with evidence inside the existing inventories; met",
+   "statusAtSource": "IN PROGRESS — CW-48",
+   "cw": "CW-48"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-56",
+   "title": "W12-F006 alert precedence (Decision A). Terminal beats BDVM for one player in one sweep: at most one user-facing notification per canonical player, user and swe",
+   "statusAtSource": "DECIDED — owner, 2026-11-07 (`ODR-W12F006-TERMINAL-PRECEDENCE`); IN PROGRESS",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-57",
+   "title": "W20-F001 Team Gameplan on `/rosters` (Decision B). On-demand panel for the selected team over the existing `/api/gameplan`; auth and league access; posture, str",
+   "statusAtSource": "DECIDED — owner, 2026-11-07 (`ODR-W20F001-ROSTERS-GAMEPLAN`); IN PROGRESS",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-58",
+   "title": "W10-F003 retire the legacy Next Best Targets panel (Decision C). Inventory unique functionality, migrate only verified-correct useful parts into Perfect Draft, ",
+   "statusAtSource": "DECIDED — owner, 2026-11-07 (`ODR-W10F003-RETIRE-NBT`); IN PROGRESS",
+   "cw": "CW-38"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-59",
+   "title": "Valuation methodology investigations (no activation). W13-F003 BDVM saturation, W27-F001 IDP edge benchmark, W27-F005 TE skew, W30-F008 Hill denominator: eviden",
+   "statusAtSource": "AUTHORIZED (research / proposals only)",
+   "cw": "CW-36"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-60",
+   "title": "PR #1938 promotion preparation. Rebase, independent case review, parity reconciliation, BDVM before/after on identical snapshot inputs, consumer impact, review ",
+   "statusAtSource": "DECIDED — owner, 2026-11-07 (`ODR-1938-PROMOTION-PREP`); prep AUTHORIZED, merge RESERVED",
+   "cw": "CW-13"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-61",
+   "title": "CW-40 fresh adjudication of the 59 outstanding P1 findings (41 rotted, 18 unsafe) with the five statuses, independent repros, routine repairs, regression tests ",
+   "statusAtSource": "IN PROGRESS — CW-40",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-62",
+   "title": "Dependency-ready verification work: CW-49 oracles (FAAB anchors, market layer, ROS/BDVM), CW-53 suite performance (no coverage loss), CW-48 requirement joins, C",
+   "statusAtSource": "AUTHORIZED",
+   "cw": "CW-49"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-63",
+   "title": "Backup / restore verification (box operator). Install, generate, group visibility, health observability, isolated SQLite restore + integrity checks, archive rea",
+   "statusAtSource": "HUMAN_ACTION_REQUIRED (`ODR-DFS-TIMER-KEEP` DECIDED)",
+   "cw": "CW-05"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-64",
+   "title": "Reporting and handoff. Checkpoint reports (work, PRs, evidence, defects, findings, production / value changes, blockers, owner decisions, next work); compact fa",
+   "statusAtSource": "IN PROGRESS",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-1",
+   "title": "Roster Construction private activation (decision 1). Purpose: let a manager see where points actually come from vs where dynasty value sits. Owner: `src/roster_",
+   "statusAtSource": "DECIDED — owner, 2026-11-01; activation EVIDENCE-GATED (supersedes RCV-7)",
+   "cw": "CW-23"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-2",
+   "title": "2025 lineup configuration (decision 2). Never infer the 2025 starters for production (league object says 17, matchups seat 22). 2026 first; 2025 from authoritat",
+   "statusAtSource": "DECIDED — owner, 2026-11-01",
+   "cw": "CW-23"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-3",
+   "title": "Restore the deep-tail rookie vote rule, PR #2006 (decision 3). Owner: `src/api/data_contract.py` source registry. Keep `excludes_rookies=False` for FantasyPros ",
+   "statusAtSource": "DECIDED — owner, 2026-11-01 (supersedes NC-E hold)",
+   "cw": "CW-13"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-4",
+   "title": "ROS calibration (decision 4). Diagnosis accepted; CR preferred challenger; Week 8 frozen confirmation (#2035), prospective weeks with a pre-kickoff freeze, a pr",
+   "statusAtSource": "DECIDED — research/shadow AUTHORIZED; promotion EVIDENCE-GATED",
+   "cw": "CW-17"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-5",
+   "title": "IDP source authority (decision 5). DLF IDP held; `source_freshness_schedule_v2` OFF; IDP Show combined board keeps voting. Read-only comparison on identical inp",
+   "statusAtSource": "DECIDED — no promotion; comparison AUTHORIZED",
+   "cw": "CW-13"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-6",
+   "title": "Trade Advisor (decision 6). `config/trade/public_advisor.json` `responseFloorMs` 300 (provisional). Admission 2/2, deadlines 5 s / 30 s, all rate buckets and si",
+   "statusAtSource": "DECIDED — floor; launch OWNER-GATED",
+   "cw": "CW-06"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-7",
+   "title": "Waiver Advisor / Weekly IDP Streaming (decision 7). Keep the authenticated deployment; default dynasty-loss budget 0 with disclosed opt-in; canonical marginal r",
+   "statusAtSource": "DECIDED — owner, 2026-11-01",
+   "cw": "CW-18"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-8",
+   "title": "Streaming accuracy (Workstream C). Decompose the +0.4 (dynasty-safe optimizer) vs +19.9 (actual manager) points-per-decision-week gap (pool, projections, injuri",
+   "statusAtSource": "AUTHORIZED — research first",
+   "cw": "CW-18"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-9",
+   "title": "PR #2031 site-owner sign-in clarity on iPhone Home Screen (decision 8): login / owner bridge / member auth stay separate; auction flags untouched",
+   "statusAtSource": "AUTHORIZED — ordinary gates",
+   "cw": "CW-27"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-10",
+   "title": "PR #2032 authenticated Weekly IDP Streaming discoverability under My Team (decision 8): capability-gated, fails closed on desktop, mobile drawer and command pal",
+   "statusAtSource": "AUTHORIZED — ordinary gates",
+   "cw": "CW-27"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-11",
+   "title": "Probability wording (decision 9): \"Experimental projection — not yet calibrated against this league's historical outcomes.\" on uncalibrated playoff / championsh",
+   "statusAtSource": "DECIDED — owner, 2026-11-01",
+   "cw": "CW-32"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-12",
+   "title": "Protected programs (decision 10): no League Tycoon, Sim V3 promotion, unapproved value change, Sleeper writes, paid APIs, TE++ change, `dynasty_new` taxi-cap ch",
+   "statusAtSource": "DECIDED — reaffirmed",
+   "cw": "CW-42"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-13",
+   "title": "Production security (Workstream F2): escalate or resolve missing nginx headers (P-1, `deploy/apply_hardening.sh`), direct app-port exposure (`server.py` `HOST=\"",
+   "statusAtSource": "AUTHORIZED — audit; box-operator changes OWNER-GATED",
+   "cw": "CW-06"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-14",
+   "title": "Valuation preservation (Part 6 F): prove no unauthorized change to dynasty values, TE++, package model, source weights or held calculations; isolate #2006's eff",
+   "statusAtSource": "AUTHORIZED",
+   "cw": "CW-13"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-15",
+   "title": "Roadmap traceability (Part 3): every idea, model proposal, bug, research outcome and deferred item from this cycle lands in the existing hierarchy with purpose,",
+   "statusAtSource": "AUTHORIZED — standing intake policy",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-17",
+   "title": "Issue #2039 incorporated (owner, 2026-11-01): IDP Show 2026 evidence audit as an expansion of MD-5 and MD-8, not a new workstream. Weekly, ROS and dynasty evide",
+   "statusAtSource": "AUTHORIZED — research/shadow; traceability below",
+   "cw": "CW-16"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-18",
+   "title": "IDP Show library audit (#2039 §A). 161 posts dated 2026, ~79 data tables. Findings: (a) the vendor itself states that IDP Show rankings feed IDPTC (the lineage ",
+   "statusAtSource": "DONE — #2042 merged (802c68273)",
+   "cw": "CW-16"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-19",
+   "title": "Streaming gap decomposition (#2039 §D, MD-8). On the same frozen input the strict optimizer reproduces +0.40 pts/decision-week vs +19.9 actual. Relaxing any sin",
+   "statusAtSource": "PR #2045 — state in `docs/agent-operating-system/SESSION_HANDOFF.md`",
+   "cw": "CW-18"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-20",
+   "title": "Weekly IDP opportunity shadow challengers (#2039 §B/§D). CB (personnel/targets; PFF alignment UNAVAILABLE), LB/S (tackle opportunity, snap share, role change), ",
+   "statusAtSource": "PR #2043 — shadow only, promotes nothing",
+   "cw": "CW-16"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-21",
+   "title": "Source-lineage correction: `config/sources/source_lineage.json` `idptc-idpshow-suspected-ancestry` → vendor-stated (three dated vendor posts, #2042). Add a test",
+   "statusAtSource": "AUTHORIZED — sources lane follow-up",
+   "cw": "CW-12"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-22",
+   "title": "Pre-kickoff forecast capture (prerequisite for MD-4 and MD-20). On the box, run the weekly projection capture (flag `weekly_projection_capture`, SCRIPT_ONLY) an",
+   "statusAtSource": "AUTHORIZED — ops; time-critical",
+   "cw": "CW-03"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-23",
+   "title": "IDP Show proprietary data hygiene. Any automated capture of IDP Show paid tables needs separately verified permission (and PFF licensing for PFF-derived tables)",
+   "statusAtSource": "OWNER-GATED (permission); redaction AUTHORIZED",
+   "cw": "CW-12"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-24",
+   "title": "Production network exposure (MD-13). S-1 HIGH: `:8000` (uvicorn, incl. `/docs` / `/openapi.json`) and `:3000` (Next) answer plain HTTP from the internet (`HOST=",
+   "statusAtSource": "OWNER-GATED — box operator; blocks public advisor launch",
+   "cw": "CW-06"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-25",
+   "title": "Test reliability: `tests/api/test_run_scraper_nonblocking.py::test_event_loop_stays_responsive_during_each_fetch_main[scripts.fetch_fantasypros_offense]` flaked",
+   "statusAtSource": "AUTHORIZED — reliability follow-up",
+   "cw": "CW-41"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-26",
+   "title": "Second 2026-11-01 directive recorded (`docs/owner/CHASE_UPSIDE_NEXT_MASTER_DIRECTIVE_2026-11-01.md`, verbatim). It expands the first directive: P0 security, P1 ",
+   "statusAtSource": "DECIDED — owner, 2026-11-01",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-27",
+   "title": "P0 production security. Audit finding 2026-11-01 (details kept out of the public repo): the application ports were not restricted to loopback, the declared ngin",
+   "statusAtSource": "**Headers: DONE — PRODUCTION VERIFIED 2026-11-01.** Owner applied `deploy/nginx_live_harden.sh` (live-preserving; listeners, certificates, housing site and Tail",
+   "cw": "CW-06"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-28",
+   "title": "P1 Roster Construction completion: #2040 (readiness: parity 84/84, attribution fixes, 2025/2024 unavailable, ops alert, WebKit fix) → #2041 (flag default ON onl",
+   "statusAtSource": "AUTHORIZED — decision 1 gates",
+   "cw": "CW-23"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-29",
+   "title": "P2 IDP Show integration: reconcile #2042 / #2039 findings into the weekly, ROS, dynasty and source-integrity lanes (MD-17…MD-23). Prioritize independently repro",
+   "statusAtSource": "AUTHORIZED — research/shadow",
+   "cw": "CW-13"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-30",
+   "title": "P3 prospective IDP accuracy. Production archive verified: `data/projections/weekly_archive/2026/w9–w11` Sleeper captures from 2026-10-31 and 2026-11-01; the tim",
+   "statusAtSource": "AUTHORIZED — shadow; time-critical",
+   "cw": "CW-16"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-31",
+   "title": "P4 frontend UX / IA / navigation / accessibility audit (directive §4.1–§4.12, verbatim in `docs/owner/CHASE_UPSIDE_NEXT_MASTER_DIRECTIVE_2026-11-01.md`). Every ",
+   "statusAtSource": "AUTHORIZED — owner `frontend/lib/nav-model.js` + shell; consequential redesigns listed for the owner",
+   "cw": "CW-27"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-32",
+   "title": "P5 math research continues under existing evidence gates: weekly/ROS projections, dynasty valuation, replacement level, lineup, trades, waivers, source independ",
+   "statusAtSource": "AUTHORIZED — research",
+   "cw": "CW-36"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-33",
+   "title": "Prior-session premise correction (2026-11-01): `dynasty_main` starts DL×3, LB×3, DB×3 with no IDP_FLEX (owner + live Sleeper). The \"DL DL IDP_FLEX\" layout is th",
+   "statusAtSource": "RECORDED",
+   "cw": "CW-18"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-34",
+   "title": "P6 roadmap reconciliation: this section, EXECUTION_PLAN 2026-11-01 (second), MASTER_PRODUCT_PLAN, OWNER_FEATURE_INVENTORY, OWNER_PRODUCT_BACKLOG_SPEC, BRISKET_I",
+   "statusAtSource": "AUTHORIZED",
+   "cw": "CW-40"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-35",
+   "title": "Production defect (owner report 2026-11-03): stale nav capability map. Signed in on desktop Chrome, `/waivers` showed neither My Team → Waivers & FAAB \"Waiver A",
+   "statusAtSource": "FIXED — #2057 merged `1015eb05d`, deployed (live build `1015eb05d`); owner confirmed both items appear after a hard reload; stale-tab auto-refresh not yet owner",
+   "cw": "CW-27"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-36",
+   "title": "REVIEW: Perfect Waivers \"Proven optimal\" claim and multiple-TE recommendations. Verify that the UI clearly discloses: the optimization objective; the lineup con",
+   "statusAtSource": "AUTHORIZED — review/disclosure audit only",
+   "cw": "CW-25"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-37",
+   "title": "Production defect (owner report 2026-11-03): Roster Construction showed \"2026 (unavailable)\". #2044 (nav entry + activation) deployed, but the page withheld the",
+   "statusAtSource": "FIXED + DEPLOYED + VERIFIED — owner confirmed 2026-11-03, signed in on desktop and mobile, that My Team → Roster shows Roster Construction and the page shows th",
+   "cw": "CW-23"
+  },
+  {
+   "source": "INTAKE",
+   "id": "MD-16",
+   "title": "Final handoff A–J (release inventory, production functionality, Roster Construction, streaming, mathematical evidence, valuation preservation, security, traceab",
+   "statusAtSource": "AUTHORIZED",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#2060",
+   "title": "Production health check failing",
+   "cw": "CW-02"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#2039",
+   "title": "IDP Show 2026 evidence audit",
+   "cw": "CW-16"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1842",
+   "title": "League-specific intelligence: live scoring/config propagation audit",
+   "cw": "CW-08"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1807",
+   "title": "Draft valuation state transitions",
+   "cw": "CW-38"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1727",
+   "title": "Sharp production gate cannot measure: /api/sharp/* has no credential",
+   "cw": "CW-41"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1628",
+   "title": "Research: reconcile AI-agent ecosystem map with Calculator architecture",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1622",
+   "title": "Activity section: serve a prepared, trimmed payload",
+   "cw": "CW-26"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1555",
+   "title": "Owner direction: valuation advancement — Coker, freshness, Signals, independent BDVM, trade-derived prices",
+   "cw": "CW-13"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1530",
+   "title": "Schedule Intelligence",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1529",
+   "title": "Draft-capital stack effect rebuild (LATER, NOT AUTHORIZED)",
+   "cw": "CW-38"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1485",
+   "title": "Scraper-runtime dependency bumps need box-side verification (playwright, curl-cffi)",
+   "cw": "CW-37"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1473",
+   "title": "V1 Authenticated Production Verification fires inside post-deploy startup window",
+   "cw": "CW-41"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1467",
+   "title": "Node 22 migration (CI + production)",
+   "cw": "CW-37"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1428",
+   "title": "OWNER UI DECISION — categorical chart contrast on PSI surfaces",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1423",
+   "title": "24/7 adaptive staggered data-freshness orchestration",
+   "cw": "CW-11"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1422",
+   "title": "/design faithful PSI implementation reference",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1421",
+   "title": "Permanent parallel Premium UI lane / PSI contract",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1418",
+   "title": "Brisket Ideas unified completion-portfolio front door",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1415",
+   "title": "Trade Calculator duplicate generic assets and pick quantities",
+   "cw": "CW-09"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1414",
+   "title": "Retire completed rookie-draft pick classes from active surfaces",
+   "cw": "CW-38"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1412",
+   "title": "Brisket Ideas front door + orderly parallel-work intake",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1409",
+   "title": "Failing dynasty-* refresh units: diagnoses and handoff",
+   "cw": "CW-46"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1368",
+   "title": "W1-28: missing player metadata vs known teamless stash",
+   "cw": "CW-41"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1362",
+   "title": "W1-28 FINAL verifier: Game Day state assertion excludes FINAL",
+   "cw": "CW-41"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1340",
+   "title": "Team Strength page stuck on Loading league data",
+   "cw": "CW-26"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1337",
+   "title": "Universal Player Profile / Player File for every player name",
+   "cw": "CW-24"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1336",
+   "title": "Owner-intent zero-loss recovery of chat-derived TODOs",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1335",
+   "title": "Game Day UX overhaul",
+   "cw": "CW-28"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1334",
+   "title": "Global selected-team context + Game Day matchup filtering",
+   "cw": "CW-24"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1322",
+   "title": "Hill Autopilot: board-impact gate is blocking promotion",
+   "cw": "CW-36"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1214",
+   "title": "V1-125: rebase W30 census truth before duplicate-owner retirement",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1173",
+   "title": "Roster-conditional best-ball utility in Analyze Trade",
+   "cw": "CW-19"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1166",
+   "title": "Public /league SSR missing OpenGraph title/description",
+   "cw": "CW-41"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1157",
+   "title": "V1-61: roster-percentage production timeout",
+   "cw": "CW-26"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1153",
+   "title": "V1-131: mobile drawer fails after #1150",
+   "cw": "CW-41"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1152",
+   "title": "V1-45: remaining truthful production states",
+   "cw": "CW-41"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1065",
+   "title": "IDPTradeCalc vendor content stale",
+   "cw": "CW-11"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#1005",
+   "title": "Advisory DLF/bridge integrity drift",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#985",
+   "title": "DynastyStats audit — league hub, asset map, transaction intelligence",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#967",
+   "title": "Dispatch registry missing lanes 8 and 9-13",
+   "cw": "CW-40"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#899",
+   "title": "FLEX starters assigned before Team Strength reserve depth",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#898",
+   "title": "Rank-form curve drift: reconstruction constants stale",
+   "cw": "CW-36"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#854",
+   "title": "Multi-source projection ensemble — weekly/ROS/season, offense+IDP",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#843",
+   "title": "Canonical Roster Capacity + Forced-Drop Impact for Trade Analysis",
+   "cw": "CW-09"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#842",
+   "title": "Use Team Context toggle, default ON",
+   "cw": "CW-09"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#841",
+   "title": "Trade Finder posture-aware draft-pick generation",
+   "cw": "CW-21"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#840",
+   "title": "Canonical Competitive Posture Engine",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#839",
+   "title": "Meaningful roster value = ceil(1.5x starter demand)",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#838",
+   "title": "Roster Age-Value Portfolio + Young Core Index",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#830",
+   "title": "FAAB market layer: Sleeper heat + Sharp-league bids",
+   "cw": "CW-10"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#829",
+   "title": "Manual-external-AI Weekly Report Studio",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#804",
+   "title": "Correlated-source / shared-lineage anomaly protection",
+   "cw": "CW-12"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#803",
+   "title": "Player-specific league scoring fit + college-to-league translation",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#802",
+   "title": "Individual special-teams scoring",
+   "cw": "CW-08"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#801",
+   "title": "Establish The Run dynasty rankings as a source",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#800",
+   "title": "Trade equalizer must account for Value Adjustment",
+   "cw": "CW-09"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#792",
+   "title": "Canonical Analyze Trade recommendation without double counting",
+   "cw": "CW-19"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#791",
+   "title": "Second Opinions winner tally",
+   "cw": "CW-21"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#790",
+   "title": "Re-audit Monte Carlo trade math",
+   "cw": "CW-19"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#789",
+   "title": "Game Day Command Center: best-ball projections + live win probability",
+   "cw": "CW-28"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#788",
+   "title": "Cost-gated Dynasty Analyst X feed",
+   "cw": "CW-42"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#786",
+   "title": "Value-weighted NFL team exposure before/after",
+   "cw": "CW-21"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#785",
+   "title": "2-TE tight-end-premium valuation calibration",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#784",
+   "title": "Homepage Consensus Edge stock ticker",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#783",
+   "title": "Unified player-profile intelligence feed (podcasts/YouTube/news)",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#782",
+   "title": "YouTube dynasty-intelligence ingestion",
+   "cw": "CW-39"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#781",
+   "title": "Trade Calculator overrides visually silent + reset semantics",
+   "cw": "CW-21"
+  },
+  {
+   "source": "ISSUE",
+   "id": "#738",
+   "title": "FAAB redesign: remaining prod action + four follow-ups",
+   "cw": "CW-10"
+  },
+  {
+   "source": "PR",
+   "id": "#2056",
+   "title": "jsdom 25 -> 30.1.3",
+   "cw": "CW-37",
+   "disposition": "needs Node 22 (#1467); rebase + full frontend gates"
+  },
+  {
+   "source": "PR",
+   "id": "#2055",
+   "title": "next 16.4.2 -> 16.4.3",
+   "cw": "CW-37",
+   "disposition": "patch bump; rebase + frontend gates"
+  },
+  {
+   "source": "PR",
+   "id": "#2034",
+   "title": "GitHub Actions group (4 updates)",
+   "cw": "CW-37",
+   "disposition": "actions bump; review pinned SHAs"
+  },
+  {
+   "source": "PR",
+   "id": "#2033",
+   "title": "e2e-harness group (3 updates)",
+   "cw": "CW-37",
+   "disposition": "e2e harness bump; E2E gates"
+  },
+  {
+   "source": "PR",
+   "id": "#1938",
+   "title": "IDP scorer defects 01/02/03 on nflverse path — CHANGES BDVM in-season values (draft)",
+   "cw": "CW-13",
+   "disposition": "value-changing (BDVM in-season); evidence + blast-radius gates before any merge"
+  },
+  {
+   "source": "PR",
+   "id": "#1920",
+   "title": "setuptools 84.0.0 -> 84.1.0",
+   "cw": "CW-37",
+   "disposition": "setuptools bump; trivial after rebase"
+  },
+  {
+   "source": "PR",
+   "id": "#1884",
+   "title": "Outlier integrity V2 (default OFF) — MORE RESEARCH REQUIRED",
+   "cw": "CW-13",
+   "disposition": "research; default OFF; part of the unified comparison"
+  },
+  {
+   "source": "PR",
+   "id": "#1873",
+   "title": "Package-model market-ledger evaluation on-box job",
+   "cw": "CW-22",
+   "disposition": "read-only on-box evaluation job; stacked on #1833"
+  },
+  {
+   "source": "PR",
+   "id": "#1852",
+   "title": "Chase Trade Market P1+P3 league maturity",
+   "cw": "CW-35",
+   "disposition": "Chase Trade Market maturity; re-review against current main"
+  },
+  {
+   "source": "PR",
+   "id": "#1755",
+   "title": "docs: park League Tycoon transition features",
+   "cw": "CW-42",
+   "disposition": "League Tycoon parking docs; research already rescued to docs/owner/LEAGUE_TYCOON_DEFERRED_IDEAS_PRESERVED_2026-10-16.md — close as superseded once heading collisions are checked"
+  },
+  {
+   "source": "PR",
+   "id": "#1688",
+   "title": "sharp 0.35.4 -> 0.35.5",
+   "cw": "CW-37",
+   "disposition": "sharp bump"
+  },
+  {
+   "source": "PR",
+   "id": "#1687",
+   "title": "source-map-js 1.2.1 -> 1.2.2",
+   "cw": "CW-37",
+   "disposition": "source-map-js bump"
+  },
+  {
+   "source": "PR",
+   "id": "#1663",
+   "title": "fastapi ~=0.141.1 -> ~=0.142.2",
+   "cw": "CW-37",
+   "disposition": "fastapi bump; backend gates"
+  },
+  {
+   "source": "PR",
+   "id": "#1662",
+   "title": "anthropic ~=1.8.0 -> ~=1.11.0",
+   "cw": "CW-37",
+   "disposition": "anthropic SDK bump; check call sites"
+  },
+  {
+   "source": "PR",
+   "id": "#1661",
+   "title": "numpy ~=2.0 -> ~=2.5",
+   "cw": "CW-37",
+   "disposition": "numpy 2.5; numeric regression risk — board diff required"
+  },
+  {
+   "source": "PR",
+   "id": "#1660",
+   "title": "vitest 4.1.12 -> 5.0.5",
+   "cw": "CW-37",
+   "disposition": "vitest 5; frontend gates"
+  },
+  {
+   "source": "PR",
+   "id": "#1513",
+   "title": "Unified Manager of the Year — VALIDATION TRACK, NOT PROMOTED",
+   "cw": "CW-43",
+   "disposition": "validation track, not promoted"
+  },
+  {
+   "source": "PR",
+   "id": "#1508",
+   "title": "uvicorn ~=0.53 -> ~=0.54",
+   "cw": "CW-37",
+   "disposition": "uvicorn bump; server smoke"
+  },
+  {
+   "source": "PR",
+   "id": "#1506",
+   "title": "tzdata ~=2026.1 -> ~=2026.4",
+   "cw": "CW-37",
+   "disposition": "tzdata bump"
+  }
+ ],
+ "masterSiteAudit": {
+  "ledgerGeneratedAt": "2026-08-11T01:02:26+00:00",
+  "byClosureAtLedgerDate": {
+   "open": 268,
+   "open-unsafe-to-rerun": 77,
+   "claimed-unverified": 86
+  },
+  "note": "stale ledger; live recount recorded in INVENTORY.md section 3"
+ }
+}

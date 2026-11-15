@@ -1,0 +1,748 @@
+{
+ "meta": {
+  "what": "Freshness schedule v2 (source_freshness_schedule_v2) turned ON vs current main (= flag OFF). RECORDED ONLY - the flag is held OFF (owner decision 2026-10-20 on PR #1831, Option B).",
+  "interpretation": "A row moves because the set or weight of sources voting on it changed (a source's step-schedule freshness differs from its v1 curve factor) and, on some rows, because the incumbent per-player outlier filter (_hampel_filter_per_player) re-decides which votes to drop over the changed voting population. A changed outlier verdict is the mechanism outlier-integrity-v2 examines; it is NOT evidence that any source's data is corrupt - differing source opinions are legitimate disagreement.",
+  "input": {
+   "export": "exports/latest/dynasty_data_2026-10-20.json",
+   "sha256": "67f6d56ee023a9b065686f44ea9834c451f645bb44b92c7ad07e47fbec1d31ce",
+   "csvsAndScrapeState": "tracked at origin/main ab9ebd02ce (identical on both trees)"
+  },
+  "trees": {
+   "before": "origin/main ab9ebd02ce",
+   "after": "claude/universal-freshness-schedule merge b651b7f453 with RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2=1 in-process"
+  },
+  "boardAsOf": "2026-10-20T12:16:19.868171+00:00",
+  "generatedAt": "2026-10-20T12:39:51Z",
+  "consumer": "outlier-integrity-v2 regression/integration tests (wired on the V2 branch, claude/outlier-integrity-v2)",
+  "fixtureScope": "LaJohntay Wester, every newly unpriced / newly priced row, and every row whose outlier-filter verdict changed. The full affected-row list (every value change) is the PR evidence file; summary counts below cover all rows."
+ },
+ "summary": {
+  "valueChanges": 895,
+  "pricedBefore": 1003,
+  "pricedAfter": 1002,
+  "newlyUnpriced": [
+   {
+    "player": "Dee Alford",
+    "position": "DB",
+    "class": "idp",
+    "before": 430,
+    "votesStopped": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcludedAfter": [
+     "fantasyProsIdp"
+    ]
+   },
+   {
+    "player": "James Pierre",
+    "position": "DB",
+    "class": "idp",
+    "before": 440,
+    "votesStopped": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcludedAfter": [
+     "fantasyProsIdp"
+    ]
+   },
+   {
+    "player": "Kyle Dugger",
+    "position": "DB",
+    "class": "idp",
+    "before": 476,
+    "votesStopped": [
+     "fantasyProsIdp"
+    ],
+    "freshnessExcludedAfter": [
+     "fantasyProsIdp"
+    ]
+   }
+  ],
+  "newlyPriced": [
+   {
+    "player": "Chris Moore",
+    "position": "WR",
+    "class": "offense",
+    "after": 269,
+    "votesStarted": [
+     "fantasyNavigatorSf"
+    ]
+   },
+   {
+    "player": "Jawhar Jordan",
+    "position": "RB",
+    "class": "offense",
+    "after": 285,
+    "votesStarted": [
+     "fantasyNavigatorSf"
+    ]
+   }
+  ],
+  "outlierExclusionChangedRows": 26,
+  "rowsChangedWithoutValueChange": 12,
+  "rowScope": "every row whose value, voting-source set or outlier-filter verdict differs",
+  "idpCoverage": {
+   "pricedIdpBefore": 397,
+   "pricedIdpAfter": 394
+  },
+  "valueChangesByClass": {
+   "idp": 324,
+   "offense": 390,
+   "pick": 113,
+   "rookie": 68
+  },
+  "sourceParticipationChanges": {
+   "dlfSf": {
+    "started": 1,
+    "stopped": 0,
+    "outlierNewlyExcluded": 0,
+    "outlierNoLongerExcluded": 1
+   },
+   "draftSharks": {
+    "started": 8,
+    "stopped": 3,
+    "outlierNewlyExcluded": 3,
+    "outlierNoLongerExcluded": 8
+   },
+   "dynastyNerdsSfTep": {
+    "started": 1,
+    "stopped": 0,
+    "outlierNewlyExcluded": 0,
+    "outlierNoLongerExcluded": 1
+   },
+   "fantasyCalc": {
+    "started": 1,
+    "stopped": 1,
+    "outlierNewlyExcluded": 1,
+    "outlierNoLongerExcluded": 1
+   },
+   "fantasyNavigatorSf": {
+    "started": 444,
+    "stopped": 0,
+    "outlierNewlyExcluded": 3,
+    "outlierNoLongerExcluded": 0
+   },
+   "fantasyProsIdp": {
+    "started": 0,
+    "stopped": 249,
+    "outlierNewlyExcluded": 0,
+    "outlierNoLongerExcluded": 0
+   },
+   "flockFantasySf": {
+    "started": 1,
+    "stopped": 0,
+    "outlierNewlyExcluded": 0,
+    "outlierNoLongerExcluded": 1
+   },
+   "idpTradeCalc": {
+    "started": 0,
+    "stopped": 2,
+    "outlierNewlyExcluded": 2,
+    "outlierNoLongerExcluded": 0
+   },
+   "ktcCrowdSfTep": {
+    "started": 0,
+    "stopped": 2,
+    "outlierNewlyExcluded": 2,
+    "outlierNoLongerExcluded": 0
+   },
+   "otcffbSf": {
+    "started": 2,
+    "stopped": 0,
+    "outlierNewlyExcluded": 0,
+    "outlierNoLongerExcluded": 2
+   },
+   "pfkDynasty": {
+    "started": 1,
+    "stopped": 0,
+    "outlierNewlyExcluded": 0,
+    "outlierNoLongerExcluded": 1
+   },
+   "yahooBoone": {
+    "started": 1,
+    "stopped": 1,
+    "outlierNewlyExcluded": 1,
+    "outlierNoLongerExcluded": 1
+   }
+  }
+ },
+ "rows": [
+  {
+   "player": "Chris Moore",
+   "position": "WR",
+   "class": "offense",
+   "before": null,
+   "after": 269,
+   "deltaPct": null,
+   "pricing": "newly_priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Dee Alford",
+   "position": "DB",
+   "class": "idp",
+   "before": 430,
+   "after": null,
+   "deltaPct": null,
+   "pricing": "newly_unpriced",
+   "votesStarted": [],
+   "votesStopped": [
+    "fantasyProsIdp"
+   ],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "James Pierre",
+   "position": "DB",
+   "class": "idp",
+   "before": 440,
+   "after": null,
+   "deltaPct": null,
+   "pricing": "newly_unpriced",
+   "votesStarted": [],
+   "votesStopped": [
+    "fantasyProsIdp"
+   ],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Jawhar Jordan",
+   "position": "RB",
+   "class": "offense",
+   "before": null,
+   "after": 285,
+   "deltaPct": null,
+   "pricing": "newly_priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Kyle Dugger",
+   "position": "DB",
+   "class": "idp",
+   "before": 476,
+   "after": null,
+   "deltaPct": null,
+   "pricing": "newly_unpriced",
+   "votesStarted": [],
+   "votesStopped": [
+    "fantasyProsIdp"
+   ],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "LaJohntay Wester",
+   "position": "WR",
+   "class": "offense",
+   "before": 648,
+   "after": 910,
+   "deltaPct": 40.43,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf",
+    "flockFantasySf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "flockFantasySf"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Josh Cameron",
+   "position": "WR",
+   "class": "rookie",
+   "before": 1633,
+   "after": 1466,
+   "deltaPct": -10.23,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [
+    "draftSharks"
+   ],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": [
+    "draftSharks"
+   ]
+  },
+  {
+   "player": "Kenneth Walker",
+   "position": "RB",
+   "class": "offense",
+   "before": 7371,
+   "after": 7645,
+   "deltaPct": 3.72,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyCalc",
+    "fantasyNavigatorSf",
+    "otcffbSf",
+    "pfkDynasty"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "fantasyCalc",
+    "otcffbSf",
+    "pfkDynasty"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Isaiah Likely",
+   "position": "TE",
+   "class": "offense",
+   "before": 4832,
+   "after": 4653,
+   "deltaPct": -3.7,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [
+    "ktcCrowdSfTep"
+   ],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": [
+    "ktcCrowdSfTep"
+   ]
+  },
+  {
+   "player": "Jeremiyah Love",
+   "position": "RB",
+   "class": "rookie",
+   "before": 7232,
+   "after": 7473,
+   "deltaPct": 3.33,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf",
+    "otcffbSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "flockFantasySf",
+    "otcffbSf"
+   ],
+   "outlierExcludedAfter": [
+    "flockFantasySf"
+   ]
+  },
+  {
+   "player": "Kyler Murray",
+   "position": "QB",
+   "class": "offense",
+   "before": 3673,
+   "after": 3785,
+   "deltaPct": 3.05,
+   "pricing": "priced",
+   "votesStarted": [
+    "draftSharks",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Justin Herbert",
+   "position": "QB",
+   "class": "offense",
+   "before": 5852,
+   "after": 6030,
+   "deltaPct": 3.04,
+   "pricing": "priced",
+   "votesStarted": [
+    "draftSharks",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Gunnar Helm",
+   "position": "TE",
+   "class": "offense",
+   "before": 2375,
+   "after": 2444,
+   "deltaPct": 2.91,
+   "pricing": "priced",
+   "votesStarted": [
+    "draftSharks",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "George Pickens",
+   "position": "WR",
+   "class": "offense",
+   "before": 6072,
+   "after": 6245,
+   "deltaPct": 2.85,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [
+    "draftSharks"
+   ],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": [
+    "draftSharks"
+   ]
+  },
+  {
+   "player": "Matthew Golden",
+   "position": "WR",
+   "class": "offense",
+   "before": 4406,
+   "after": 4283,
+   "deltaPct": -2.79,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [
+    "fantasyCalc"
+   ],
+   "outlierExcludedBefore": [
+    "ktcCrowdSfTep"
+   ],
+   "outlierExcludedAfter": [
+    "fantasyCalc",
+    "ktcCrowdSfTep"
+   ]
+  },
+  {
+   "player": "Greg Dulcich",
+   "position": "TE",
+   "class": "offense",
+   "before": 2205,
+   "after": 2266,
+   "deltaPct": 2.77,
+   "pricing": "priced",
+   "votesStarted": [
+    "draftSharks",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Javonte Williams",
+   "position": "RB",
+   "class": "offense",
+   "before": 5110,
+   "after": 4970,
+   "deltaPct": -2.74,
+   "pricing": "priced",
+   "votesStarted": [
+    "dlfSf",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "dlfSf",
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": [
+    "draftSharks"
+   ]
+  },
+  {
+   "player": "Dalton Schultz",
+   "position": "TE",
+   "class": "offense",
+   "before": 2724,
+   "after": 2786,
+   "deltaPct": 2.28,
+   "pricing": "priced",
+   "votesStarted": [
+    "draftSharks",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Deshaun Watson",
+   "position": "QB",
+   "class": "offense",
+   "before": 2456,
+   "after": 2512,
+   "deltaPct": 2.28,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf",
+    "yahooBoone"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "yahooBoone"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Denzel Boston",
+   "position": "WR",
+   "class": "rookie",
+   "before": 4179,
+   "after": 4103,
+   "deltaPct": -1.82,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [
+    "ktcCrowdSfTep"
+   ],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": [
+    "ktcCrowdSfTep"
+   ]
+  },
+  {
+   "player": "Bryce Young",
+   "position": "QB",
+   "class": "offense",
+   "before": 5497,
+   "after": 5402,
+   "deltaPct": -1.73,
+   "pricing": "priced",
+   "votesStarted": [
+    "dynastyNerdsSfTep",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "dynastyNerdsSfTep",
+    "fantasyProsFitzmaurice",
+    "yahooBoone"
+   ],
+   "outlierExcludedAfter": [
+    "fantasyProsFitzmaurice",
+    "yahooBoone"
+   ]
+  },
+  {
+   "player": "Cade Otton",
+   "position": "TE",
+   "class": "offense",
+   "before": 2485,
+   "after": 2527,
+   "deltaPct": 1.69,
+   "pricing": "priced",
+   "votesStarted": [
+    "draftSharks",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Bhayshul Tuten",
+   "position": "RB",
+   "class": "offense",
+   "before": 4568,
+   "after": 4495,
+   "deltaPct": -1.6,
+   "pricing": "priced",
+   "votesStarted": [
+    "draftSharks",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Chris Olave",
+   "position": "WR",
+   "class": "offense",
+   "before": 6792,
+   "after": 6861,
+   "deltaPct": 1.02,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [
+    "draftSharks"
+   ],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": [
+    "draftSharks"
+   ]
+  },
+  {
+   "player": "Puka Nacua",
+   "position": "WR",
+   "class": "offense",
+   "before": 9085,
+   "after": 9170,
+   "deltaPct": 0.94,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [
+    "idpTradeCalc"
+   ],
+   "outlierExcludedBefore": [
+    "draftSharks",
+    "fantasyProsFitzmaurice"
+   ],
+   "outlierExcludedAfter": [
+    "draftSharks",
+    "fantasyProsFitzmaurice",
+    "idpTradeCalc"
+   ]
+  },
+  {
+   "player": "Tyler Warren",
+   "position": "TE",
+   "class": "offense",
+   "before": 6971,
+   "after": 6912,
+   "deltaPct": -0.85,
+   "pricing": "priced",
+   "votesStarted": [
+    "draftSharks",
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": []
+  },
+  {
+   "player": "Brock Purdy",
+   "position": "QB",
+   "class": "offense",
+   "before": 7471,
+   "after": 7408,
+   "deltaPct": -0.84,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [
+    "yahooBoone"
+   ],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": [
+    "yahooBoone"
+   ]
+  },
+  {
+   "player": "CeeDee Lamb",
+   "position": "WR",
+   "class": "offense",
+   "before": 8392,
+   "after": 8459,
+   "deltaPct": 0.8,
+   "pricing": "priced",
+   "votesStarted": [
+    "fantasyNavigatorSf"
+   ],
+   "votesStopped": [
+    "idpTradeCalc"
+   ],
+   "outlierExcludedBefore": [
+    "draftSharks",
+    "ktcCrowdSfTep"
+   ],
+   "outlierExcludedAfter": [
+    "draftSharks",
+    "idpTradeCalc",
+    "ktcCrowdSfTep"
+   ]
+  },
+  {
+   "player": "Jonathan Taylor",
+   "position": "RB",
+   "class": "offense",
+   "before": 6816,
+   "after": 6831,
+   "deltaPct": 0.22,
+   "pricing": "priced",
+   "votesStarted": [],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "otcffbSf"
+   ],
+   "outlierExcludedAfter": [
+    "fantasyNavigatorSf",
+    "otcffbSf"
+   ]
+  },
+  {
+   "player": "Justin Jefferson",
+   "position": "WR",
+   "class": "offense",
+   "before": 7889,
+   "after": 7890,
+   "deltaPct": 0.01,
+   "pricing": "priced",
+   "votesStarted": [],
+   "votesStopped": [],
+   "outlierExcludedBefore": [
+    "draftSharks"
+   ],
+   "outlierExcludedAfter": [
+    "draftSharks",
+    "fantasyNavigatorSf"
+   ]
+  },
+  {
+   "player": "Travis Homer",
+   "position": "RB",
+   "class": "offense",
+   "before": 562,
+   "after": 562,
+   "deltaPct": 0.0,
+   "pricing": "priced",
+   "votesStarted": [],
+   "votesStopped": [],
+   "outlierExcludedBefore": [],
+   "outlierExcludedAfter": [
+    "fantasyNavigatorSf"
+   ]
+  }
+ ]
+}

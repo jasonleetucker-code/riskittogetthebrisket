@@ -88,23 +88,23 @@ function boardRows() {
 
 describe("trade asset eligibility", () => {
   it("offers current-year slot picks — the defect's exact query", () => {
-    const hits = searchTradeAssets(boardRows(), "2026", new Set());
+    const hits = searchTradeAssets(boardRows(), "2026");
     expect(hits.map((r) => r.name)).toEqual(["2026 Pick 1.01", "2026 Pick 1.06"]);
   });
 
   it("offers a specific current-year slot pick by name", () => {
-    const hits = searchTradeAssets(boardRows(), "2026 Pick 1.0", new Set());
+    const hits = searchTradeAssets(boardRows(), "2026 Pick 1.0");
     expect(hits.length).toBeGreaterThan(0);
   });
 
   it("still hides the suppressed generic aliases — they duplicate a priced row", () => {
-    const hits = searchTradeAssets(boardRows(), "2026", new Set());
+    const hits = searchTradeAssets(boardRows(), "2026");
     expect(hits.map((r) => r.name)).not.toContain("2026 Early 1st");
     expect(hits.map((r) => r.name)).not.toContain("2026 Mid 1st");
   });
 
   it("keeps offering future-year picks, which already worked", () => {
-    const hits = searchTradeAssets(boardRows(), "2027 Mid 1st", new Set());
+    const hits = searchTradeAssets(boardRows(), "2027 Mid 1st");
     expect(hits.map((r) => r.name)).toEqual(["2027 Mid 1st"]);
   });
 
@@ -121,18 +121,21 @@ describe("trade asset eligibility", () => {
         blendedSourceRank: 20,
       },
     ];
-    expect(searchTradeAssets(rows, "2027 Pick", new Set()).map((r) => r.name)).toEqual([
+    expect(searchTradeAssets(rows, "2027 Pick").map((r) => r.name)).toEqual([
       "2027 Pick 1.01",
     ]);
   });
 
-  it("excludes anything already in the trade", () => {
-    const hits = searchTradeAssets(boardRows(), "2026", new Set(["2026 Pick 1.01"]));
-    expect(hits.map((r) => r.name)).toEqual(["2026 Pick 1.06"]);
+  it("hides nothing for being in the trade — there is no exclusion seam (owner decision 2026-10-03)", () => {
+    // Every calculator asset is repeatable, so the search takes no
+    // "already in the trade" set at all: a third argument is the limit.
+    expect(searchTradeAssets.length).toBe(2);
+    const hits = searchTradeAssets(boardRows(), "2026", 1);
+    expect(hits.map((r) => r.name)).toEqual(["2026 Pick 1.01"]);
   });
 
   it("sorts by blended source rank", () => {
-    const hits = searchTradeAssets(boardRows(), "2026 Pick", new Set());
+    const hits = searchTradeAssets(boardRows(), "2026 Pick");
     expect(hits[0].name).toBe("2026 Pick 1.01");
   });
 
@@ -162,7 +165,7 @@ describe("unpriced assets stay offerable but identifiable", () => {
   it("still returns the unpriced row from a search", () => {
     // Hiding it would be a bigger lie than showing it: 260 of 1,072
     // live rows are unpriced, including 48 of 216 roster picks.
-    const hits = searchTradeAssets(boardRows(), "2028 Mid 6th", new Set());
+    const hits = searchTradeAssets(boardRows(), "2028 Mid 6th");
     expect(hits.map((r) => r.name)).toEqual(["2028 Mid 6th"]);
   });
 });

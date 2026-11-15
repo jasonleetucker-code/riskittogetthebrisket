@@ -1,0 +1,479 @@
+{
+ "preregistration": "idp_accuracy_G_v1",
+ "promotes": false,
+ "w0Board": {
+  "board": "W0 champion-rebuilt board",
+  "before": {
+   "offenseN": 411,
+   "idpN": 304,
+   "offenseMean": 3053.737,
+   "idpMean": 1922.319,
+   "offenseTop12Mean": 9084.083,
+   "idpTop12Mean": 4687.917,
+   "levelRatioOffenseOverIdpTop12": 1.9378,
+   "idpInTop36": 1
+  },
+  "orders": {
+   "D_expected_lineup_points": {
+    "shipped": {
+     "kMax": 0.25,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": false,
+      "IDP": true
+     },
+     "rowsMoved": 410,
+     "after": {
+      "offenseN": 411,
+      "idpN": 304,
+      "offenseMean": 2996.39,
+      "idpMean": 1922.319,
+      "offenseTop12Mean": 8750.0,
+      "idpTop12Mean": 4687.917,
+      "levelRatioOffenseOverIdpTop12": 1.8665,
+      "idpInTop36": 1
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(0.4421>0.05); DL:fans_out(1.2039>0.05); LB:fans_out(0.5308>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": 0.0,
+      "IDP": 0.0
+     }
+    },
+    "k1_full_quality": {
+     "kMax": 1.0,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "rowsMoved": 410,
+     "after": {
+      "offenseN": 411,
+      "idpN": 304,
+      "offenseMean": 3053.737,
+      "idpMean": 1922.319,
+      "offenseTop12Mean": 9084.083,
+      "idpTop12Mean": 4687.917,
+      "levelRatioOffenseOverIdpTop12": 1.9378,
+      "idpInTop36": 1
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(0.4421>0.05); DL:fans_out(1.2039>0.05); LB:fans_out(0.5308>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": 0.0,
+      "IDP": 0.0
+     }
+    },
+    "bareQuantileMatchK1": {
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "after": {
+      "offenseN": 411,
+      "idpN": 304,
+      "offenseMean": 3053.737,
+      "idpMean": 1922.319,
+      "offenseTop12Mean": 9084.083,
+      "idpTop12Mean": 4687.917,
+      "levelRatioOffenseOverIdpTop12": 1.9378,
+      "idpInTop36": 1
+     }
+    }
+   },
+   "random_permutation": {
+    "shipped": {
+     "kMax": 0.25,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": false,
+      "IDP": true
+     },
+     "rowsMoved": 410,
+     "after": {
+      "offenseN": 411,
+      "idpN": 304,
+      "offenseMean": 2873.522,
+      "idpMean": 1922.319,
+      "offenseTop12Mean": 6965.785,
+      "idpTop12Mean": 4687.917,
+      "levelRatioOffenseOverIdpTop12": 1.4859,
+      "idpInTop36": 2
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(0.7624>0.05); DL:fans_out(0.9351>0.05); LB:fans_out(1.9859>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": 0.0,
+      "IDP": 0.0
+     }
+    },
+    "k1_full_quality": {
+     "kMax": 1.0,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "rowsMoved": 410,
+     "after": {
+      "offenseN": 411,
+      "idpN": 304,
+      "offenseMean": 3053.737,
+      "idpMean": 1922.319,
+      "offenseTop12Mean": 9084.083,
+      "idpTop12Mean": 4687.917,
+      "levelRatioOffenseOverIdpTop12": 1.9378,
+      "idpInTop36": 1
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(0.7624>0.05); DL:fans_out(0.9351>0.05); LB:fans_out(1.9859>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": 0.0,
+      "IDP": 0.0
+     }
+    },
+    "bareQuantileMatchK1": {
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "after": {
+      "offenseN": 411,
+      "idpN": 304,
+      "offenseMean": 3053.737,
+      "idpMean": 1922.319,
+      "offenseTop12Mean": 9084.083,
+      "idpTop12Mean": 4687.917,
+      "levelRatioOffenseOverIdpTop12": 1.9378,
+      "idpInTop36": 1
+     }
+    }
+   },
+   "reversed_market": {
+    "shipped": {
+     "kMax": 0.25,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": false,
+      "IDP": true
+     },
+     "rowsMoved": 410,
+     "after": {
+      "offenseN": 411,
+      "idpN": 304,
+      "offenseMean": 2719.663,
+      "idpMean": 1922.319,
+      "offenseTop12Mean": 5242.448,
+      "idpTop12Mean": 4687.917,
+      "levelRatioOffenseOverIdpTop12": 1.1183,
+      "idpInTop36": 10
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(1.0035>0.05); DL:fans_out(3.9985>0.05); LB:fans_out(2.0972>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": -0.0,
+      "IDP": 0.0
+     }
+    },
+    "k1_full_quality": {
+     "kMax": 1.0,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "rowsMoved": 410,
+     "after": {
+      "offenseN": 411,
+      "idpN": 304,
+      "offenseMean": 3053.737,
+      "idpMean": 1922.319,
+      "offenseTop12Mean": 9084.083,
+      "idpTop12Mean": 4687.917,
+      "levelRatioOffenseOverIdpTop12": 1.9378,
+      "idpInTop36": 1
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(1.0035>0.05); DL:fans_out(3.9985>0.05); LB:fans_out(2.0972>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": 0.0,
+      "IDP": 0.0
+     }
+    },
+    "bareQuantileMatchK1": {
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "after": {
+      "offenseN": 411,
+      "idpN": 304,
+      "offenseMean": 3053.737,
+      "idpMean": 1922.319,
+      "offenseTop12Mean": 9084.083,
+      "idpTop12Mean": 4687.917,
+      "levelRatioOffenseOverIdpTop12": 1.9378,
+      "idpInTop36": 1
+     }
+    }
+   }
+  },
+  "hypotheticalLevelErrors": {
+   "idp_priced_25pct_too_high": {
+    "before": {
+     "offenseN": 411,
+     "idpN": 304,
+     "offenseMean": 3053.737,
+     "idpMean": 2402.899,
+     "offenseTop12Mean": 9084.083,
+     "idpTop12Mean": 5859.896,
+     "levelRatioOffenseOverIdpTop12": 1.5502,
+     "idpInTop36": 4
+    },
+    "afterBareQuantileMatchK1": {
+     "offenseN": 411,
+     "idpN": 304,
+     "offenseMean": 3053.737,
+     "idpMean": 2402.899,
+     "offenseTop12Mean": 9084.083,
+     "idpTop12Mean": 5859.896,
+     "levelRatioOffenseOverIdpTop12": 1.5502,
+     "idpInTop36": 4
+    }
+   },
+   "idp_priced_20pct_too_low": {
+    "before": {
+     "offenseN": 411,
+     "idpN": 304,
+     "offenseMean": 3053.737,
+     "idpMean": 1537.855,
+     "offenseTop12Mean": 9084.083,
+     "idpTop12Mean": 3750.333,
+     "levelRatioOffenseOverIdpTop12": 2.4222,
+     "idpInTop36": 0
+    },
+    "afterBareQuantileMatchK1": {
+     "offenseN": 411,
+     "idpN": 304,
+     "offenseMean": 3053.737,
+     "idpMean": 1537.855,
+     "offenseTop12Mean": 9084.083,
+     "idpTop12Mean": 3750.333,
+     "levelRatioOffenseOverIdpTop12": 2.4222,
+     "idpInTop36": 0
+    }
+   }
+  },
+  "conclusion": "Per scope, the challenger returns a rearrangement of that scope's own market values (exact at k=1; a bounded interpolation between two members of the same scope at k<1). Any statistic of a scope's value multiset, and so any offense-versus-IDP level statistic, is therefore unchanged by construction, whatever utility order it is shown."
+ },
+ "laneAPinnedBoard": {
+  "board": "Lane A pinned board (2026-10-25)",
+  "before": {
+   "offenseN": 412,
+   "idpN": 303,
+   "offenseMean": 3033.524,
+   "idpMean": 1930.637,
+   "offenseTop12Mean": 8830.25,
+   "idpTop12Mean": 4805.083,
+   "levelRatioOffenseOverIdpTop12": 1.8377,
+   "idpInTop36": 1
+  },
+  "orders": {
+   "random_permutation": {
+    "shipped": {
+     "kMax": 0.25,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": false,
+      "IDP": true
+     },
+     "rowsMoved": 412,
+     "after": {
+      "offenseN": 412,
+      "idpN": 303,
+      "offenseMean": 2859.19,
+      "idpMean": 1930.637,
+      "offenseTop12Mean": 6808.52,
+      "idpTop12Mean": 4805.083,
+      "levelRatioOffenseOverIdpTop12": 1.4169,
+      "idpInTop36": 4
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(1.1164>0.05); DL:fans_out(1.4725>0.05); LB:fans_out(1.3918>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": 0.0,
+      "IDP": 0.0
+     }
+    },
+    "k1_full_quality": {
+     "kMax": 1.0,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "rowsMoved": 412,
+     "after": {
+      "offenseN": 412,
+      "idpN": 303,
+      "offenseMean": 3033.524,
+      "idpMean": 1930.637,
+      "offenseTop12Mean": 8830.25,
+      "idpTop12Mean": 4805.083,
+      "levelRatioOffenseOverIdpTop12": 1.8377,
+      "idpInTop36": 1
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(1.1164>0.05); DL:fans_out(1.4725>0.05); LB:fans_out(1.3918>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": 0.0,
+      "IDP": 0.0
+     }
+    },
+    "bareQuantileMatchK1": {
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "after": {
+      "offenseN": 412,
+      "idpN": 303,
+      "offenseMean": 3033.524,
+      "idpMean": 1930.637,
+      "offenseTop12Mean": 8830.25,
+      "idpTop12Mean": 4805.083,
+      "levelRatioOffenseOverIdpTop12": 1.8377,
+      "idpInTop36": 1
+     }
+    }
+   },
+   "reversed_market": {
+    "shipped": {
+     "kMax": 0.25,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": false,
+      "IDP": true
+     },
+     "rowsMoved": 412,
+     "after": {
+      "offenseN": 412,
+      "idpN": 303,
+      "offenseMean": 2726.259,
+      "idpMean": 1930.637,
+      "offenseTop12Mean": 5187.849,
+      "idpTop12Mean": 4805.083,
+      "levelRatioOffenseOverIdpTop12": 1.0797,
+      "idpInTop36": 8
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(0.5335>0.05); DL:fans_out(3.8519>0.05); LB:fans_out(1.9923>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": 0.0,
+      "IDP": 0.0
+     }
+    },
+    "k1_full_quality": {
+     "kMax": 1.0,
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "rowsMoved": 412,
+     "after": {
+      "offenseN": 412,
+      "idpN": 303,
+      "offenseMean": 3033.524,
+      "idpMean": 1930.637,
+      "offenseTop12Mean": 8830.25,
+      "idpTop12Mean": 4805.083,
+      "levelRatioOffenseOverIdpTop12": 1.8377,
+      "idpInTop36": 1
+     },
+     "idpFanOutGate": {
+      "stable": false,
+      "kForced": "k_zero:idp_fanout_unstable (DB:fans_out(0.5335>0.05); DL:fans_out(3.8519>0.05); LB:fans_out(1.9923>0.05))"
+     },
+     "logDriftSum": {
+      "OFFENSE": 0.0,
+      "IDP": 0.0
+     }
+    },
+    "bareQuantileMatchK1": {
+     "scopeValueMultisetUnchanged": {
+      "OFFENSE": true,
+      "IDP": true
+     },
+     "after": {
+      "offenseN": 412,
+      "idpN": 303,
+      "offenseMean": 3033.524,
+      "idpMean": 1930.637,
+      "offenseTop12Mean": 8830.25,
+      "idpTop12Mean": 4805.083,
+      "levelRatioOffenseOverIdpTop12": 1.8377,
+      "idpInTop36": 1
+     }
+    }
+   }
+  },
+  "hypotheticalLevelErrors": {
+   "idp_priced_25pct_too_high": {
+    "before": {
+     "offenseN": 412,
+     "idpN": 303,
+     "offenseMean": 3033.524,
+     "idpMean": 2413.296,
+     "offenseTop12Mean": 8830.25,
+     "idpTop12Mean": 6006.354,
+     "levelRatioOffenseOverIdpTop12": 1.4702,
+     "idpInTop36": 5
+    },
+    "afterBareQuantileMatchK1": {
+     "offenseN": 412,
+     "idpN": 303,
+     "offenseMean": 3033.524,
+     "idpMean": 2413.296,
+     "offenseTop12Mean": 8830.25,
+     "idpTop12Mean": 6006.354,
+     "levelRatioOffenseOverIdpTop12": 1.4702,
+     "idpInTop36": 5
+    }
+   },
+   "idp_priced_20pct_too_low": {
+    "before": {
+     "offenseN": 412,
+     "idpN": 303,
+     "offenseMean": 3033.524,
+     "idpMean": 1544.51,
+     "offenseTop12Mean": 8830.25,
+     "idpTop12Mean": 3844.067,
+     "levelRatioOffenseOverIdpTop12": 2.2971,
+     "idpInTop36": 0
+    },
+    "afterBareQuantileMatchK1": {
+     "offenseN": 412,
+     "idpN": 303,
+     "offenseMean": 3033.524,
+     "idpMean": 1544.51,
+     "offenseTop12Mean": 8830.25,
+     "idpTop12Mean": 3844.067,
+     "levelRatioOffenseOverIdpTop12": 2.2971,
+     "idpInTop36": 0
+    }
+   }
+  },
+  "conclusion": "Per scope, the challenger returns a rearrangement of that scope's own market values (exact at k=1; a bounded interpolation between two members of the same scope at k<1). Any statistic of a scope's value multiset, and so any offense-versus-IDP level statistic, is therefore unchanged by construction, whatever utility order it is shown.",
+  "archiveSha256": "50fb251a79bc79abac54bcbcfc98c3018fc6b105115eb6dbd7928e3b6c8dc8f6"
+ }
+}

@@ -306,7 +306,7 @@ def main() -> int:
         print(f"payload not found: {args.payload}", file=sys.stderr)
         return 2
 
-    payload = json.loads(args.payload.read_text())
+    payload = json.loads(args.payload.read_text(encoding="utf-8"))
 
     from src.api.data_contract import build_api_data_contract  # noqa: PLC0415
 

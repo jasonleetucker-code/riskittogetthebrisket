@@ -41,7 +41,7 @@ import math
 from collections import defaultdict
 from typing import Any
 
-from . import award_eligibility, metrics
+from . import award_eligibility, metrics, ownership
 from .draft import _pick_ownership_map, pick_weight
 from .playoff_structure import resolve_playoff_structure
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
@@ -55,7 +55,7 @@ AWARD_DESCRIPTIONS: dict[str, str] = {
     "manager_of_the_year": "The league's best manager this season.",
     "league_mvp": (
         "The league's Most Valuable Player — elite production for a team in "
-        "playoff position with a winning record."
+        "playoff position with a .500-or-better record."
     ),
     "off_mvp": "The best offensive player of the season.",
     "def_mvp": "The best defensive player of the season.",
@@ -483,7 +483,7 @@ def _attach_canonical_standings(
 
     def _team_week_row(tw: tuple[float, int, int]) -> dict[str, Any]:
         pts, rid, week = tw
-        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid) or ""
+        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week) or ""
         return {"ownerId": owner_id, "points": round(pts, 2), "week": week}
 
     lists: dict[str, dict[str, Any]] = {
@@ -574,7 +574,9 @@ def _trader_of_the_year_scores(
             continue
 
         for rid in roster_ids:
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            owner_id = metrics.resolve_owner(
+                snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+            )
             if not owner_id:
                 continue
             received = [pid for pid, r in adds.items() if int(r) == rid]
@@ -713,7 +715,9 @@ def _waiver_king_scores(
                 rid_int = int(rid)
             except (TypeError, ValueError):
                 continue
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid_int)
+            owner_id = metrics.resolve_owner(
+                snapshot.managers, season.league_id, rid_int, leg_int or None
+            )
             if not owner_id:
                 continue
             rec = _ensure(owner_id)
@@ -789,8 +793,12 @@ def _silent_assassin_scores(
             if pa <= 0 and pb <= 0:
                 continue
             margin = abs(pa - pb)
-            owner_a = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"))
-            owner_b = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"))
+            owner_a = metrics.resolve_owner(
+                snapshot.managers, season.league_id, a.get("roster_id"), week
+            )
+            owner_b = metrics.resolve_owner(
+                snapshot.managers, season.league_id, b.get("roster_id"), week
+            )
             if not owner_a or not owner_b:
                 continue
             for owner in (owner_a, owner_b):
@@ -864,7 +872,7 @@ def _weekly_hammer_scores(
             continue
         top_pts = max(pts for _, pts in scored)
         for rid, pts in scored:
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if not owner_id:
                 continue
             rec = _ensure(owner_id)
@@ -917,8 +925,12 @@ def _bad_beat_scores(
             pb = metrics.matchup_points(b)
             if pa <= 0 and pb <= 0:
                 continue
-            owner_a = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"))
-            owner_b = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"))
+            owner_a = metrics.resolve_owner(
+                snapshot.managers, season.league_id, a.get("roster_id"), week
+            )
+            owner_b = metrics.resolve_owner(
+                snapshot.managers, season.league_id, b.get("roster_id"), week
+            )
             if not owner_a or not owner_b:
                 continue
             if pa < pb:
@@ -946,8 +958,12 @@ def _bad_beat_scores(
     return rows
 
 
-def _pick_hoarder_scores(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
+def _pick_hoarder_scores(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]] | None:
+    """Weighted current stockpile per owner; ``None`` when pick ownership is
+    unknown (never a board of zeros)."""
     ownership = _pick_ownership_map(snapshot)
+    if ownership is None:
+        return None
     rows = []
     for owner_id, picks in ownership.items():
         weight = sum(pick_weight(p["round"]) for p in picks)
@@ -1000,9 +1016,11 @@ def _best_rebuild_scores(
     cur_record, cur_points, cur_rookies = _rank_lookup(current)
     prev_record, prev_points, prev_rookies = _rank_lookup(previous)
 
-    current_weighted = {
-        row["ownerId"]: row["weightedScore"] for row in _pick_hoarder_scores(snapshot)
-    }
+    hoarders = _pick_hoarder_scores(snapshot)
+    # Unknown pick ownership drops the stockpile term instead of scoring it 0.
+    current_weighted = (
+        {row["ownerId"]: row["weightedScore"] for row in hoarders} if hoarders is not None else None
+    )
 
     rows = []
     for owner_id in snapshot.managers.by_owner_id:
@@ -1010,13 +1028,13 @@ def _best_rebuild_scores(
             continue
         record_delta = prev_record[owner_id] - cur_record[owner_id]
         points_delta = prev_points[owner_id] - cur_points[owner_id]
-        stockpile = current_weighted.get(owner_id, 0)
+        stockpile = current_weighted.get(owner_id, 0) if current_weighted is not None else None
         rookies_delta = cur_rookies.get(owner_id, 0) - prev_rookies.get(owner_id, 0)
 
         composite = (
             0.40 * points_delta
             + 0.30 * record_delta
-            + 0.20 * (stockpile / 4.0)
+            + (0.20 * (stockpile / 4.0) if stockpile is not None else 0.0)
             + 0.10 * rookies_delta
         )
         rows.append(
@@ -1066,7 +1084,7 @@ def _starter_scoring_walk(
             rid = metrics.roster_id_of(entry)
             if rid is None:
                 continue
-            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
             if not owner_id:
                 continue
             pp = entry.get("players_points")
@@ -1493,7 +1511,7 @@ _FLEX_RBWR_POOL = 84  # top 84 RB+WR by starter points (TEs excluded)
 #: Bumped whenever the VORP formula or its week-eligibility gating
 #: changes, so a stale cached payload (see server.py's public-contract
 #: byte cache) can never silently outlive a correctness fix.
-_VORP_CALC_VERSION = "2026-09-26-league-mvp-team-success-gate"
+_VORP_CALC_VERSION = "2026-09-29-league-mvp-record-500-or-better"
 
 
 def _dynamic_starter_slots(season: SeasonSnapshot) -> dict[str, int]:
@@ -1723,7 +1741,14 @@ def _vorp_rows(
 # ``_season_row_sets``) pass it in instead of recomputing it per award.
 #: Why a franchise's players are outside the League MVP race.
 MVP_OUTSIDE_PLAYOFF_FIELD = "team_outside_playoff_field"
-MVP_RECORD_NOT_ABOVE_500 = "team_record_not_above_500"
+#: Owner correction 2026-09-29: the record half is ".500 OR BETTER", so the
+#: only record failure is BELOW .500 (the old "not above .500" code and
+#: wording are retired: a .500 team is eligible on record).
+MVP_RECORD_BELOW_500 = "team_record_below_500"
+#: A franchise with no decided games has no record yet: it is not below
+#: .500 and must not be called so. It is outside the race (a fabricated
+#: .500 never qualifies), with a truthful reason.
+MVP_RECORD_UNAVAILABLE = "team_record_unavailable"
 
 
 def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dict[str, Any]:
@@ -1732,7 +1757,13 @@ def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
     Owner decision 2026-09-26 (supersedes the 2026-08-13/14 "no hard gate"
     rule; ``docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`` §3–§5): League MVP is
     elite performance on a SUCCESSFUL fantasy team. A franchise is eligible
-    only when it is BOTH in the championship playoff field AND above .500.
+    only when it is BOTH in the championship playoff field AND .500 or
+    better (owner correction 2026-09-29, superseding "above .500": exactly
+    .500 counts). The record test is exact integer arithmetic over the
+    host's own W/L/T -- ``2*wins + ties >= games`` is ``winPct >= .500``
+    with a tie as half a win, the canonical standings semantics -- and
+    requires ``games > 0``, so a franchise with no decisions never qualifies
+    from a fabricated .500.
 
     * live season — the field is the first ``playoff_teams`` of the
       canonical standings order (``metrics.season_standings``: the host's
@@ -1750,7 +1781,7 @@ def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
     """
     standings = metrics.season_standings(season, snapshot.managers)
     gate: dict[str, Any] = {
-        "rule": "playoff_field_and_winning_record",
+        "rule": "playoff_field_and_record_500_or_better",
         "verified": False,
         "basis": None,
         "playoffTeams": None,
@@ -1767,7 +1798,9 @@ def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
         qualified = {r["ownerId"] for r in standings if r["rosterId"] in bracket_rids}
         gate.update(basis="final_bracket", playoffTeams=len(bracket_rids))
     else:
-        structure = resolve_playoff_structure(season)
+        from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+        structure = resolve_playoff_structure(season, resolve_snapshot_league_key(snapshot))
         if not structure.known:
             gate["reason"] = structure.reason or "playoff_field_unknown"
             return gate
@@ -1775,12 +1808,13 @@ def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
         gate.update(basis="current_standings", playoffTeams=structure.teams)
     for r in standings:
         in_field = r["ownerId"] in qualified
-        winning = r["games"] > 0 and r["winPct"] > 0.5
         reason = None
         if not in_field:
             reason = MVP_OUTSIDE_PLAYOFF_FIELD
-        elif not winning:
-            reason = MVP_RECORD_NOT_ABOVE_500
+        elif r["games"] <= 0:
+            reason = MVP_RECORD_UNAVAILABLE
+        elif 2 * r["wins"] + r["ties"] < r["games"]:
+            reason = MVP_RECORD_BELOW_500
         gate["teams"][r["ownerId"]] = {
             "eligible": reason is None,
             "reason": reason,
@@ -1938,7 +1972,9 @@ def _mr_consistent_scores(
     if not qualifiers:
         return []
 
-    weekly: dict[int, list[float]] = defaultdict(list)
+    # Keyed by the OWNER of each team-week, not the roster: a roster that
+    # changed hands mid-season is two managers' weeks, never one series.
+    weekly: dict[str, list[float]] = defaultdict(list)
     final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
         if week >= season.playoff_week_start or week not in final_weeks:
@@ -1950,10 +1986,12 @@ def _mr_consistent_scores(
             pts = metrics.matchup_points(entry)
             if pts <= 0:
                 continue
-            weekly[rid].append(pts)
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
+            if owner_id:
+                weekly[owner_id].append(pts)
 
     rows: list[dict[str, Any]] = []
-    for rid, scores in weekly.items():
+    for owner_id, scores in weekly.items():
         if len(scores) < min_weeks:
             continue
         mean = sum(scores) / len(scores)
@@ -1961,9 +1999,6 @@ def _mr_consistent_scores(
             continue
         var = sum((x - mean) ** 2 for x in scores) / len(scores)
         cv = (var**0.5) / mean
-        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
-        if not owner_id:
-            continue
         rows.append(
             {
                 "ownerId": owner_id,
@@ -2111,8 +2146,12 @@ def _rivalry_of_the_year(
             pb = metrics.matchup_points(b)
             if pa <= 0 and pb <= 0:
                 continue
-            oa = metrics.resolve_owner(snapshot.managers, season.league_id, a.get("roster_id"))
-            ob = metrics.resolve_owner(snapshot.managers, season.league_id, b.get("roster_id"))
+            oa = metrics.resolve_owner(
+                snapshot.managers, season.league_id, a.get("roster_id"), week
+            )
+            ob = metrics.resolve_owner(
+                snapshot.managers, season.league_id, b.get("roster_id"), week
+            )
             if not oa or not ob or oa == ob:
                 continue
             rec = _ensure(oa, ob)
@@ -2256,14 +2295,13 @@ def _award_from_row(
         return _awaiting_award(key, label)
     winner = pool[0]
     owner_id = winner["ownerId"]
-    rid = _roster_id_for_owner(season, owner_id)
     return {
         "key": key,
         "label": label,
         "description": AWARD_DESCRIPTIONS.get(key, ""),
         "ownerId": owner_id,
         "displayName": winner.get("displayName") or metrics.display_name_for(snapshot, owner_id),
-        "teamName": (metrics.team_name(snapshot, season.league_id, rid) if rid is not None else ""),
+        "teamName": _award_team_name(snapshot, season, owner_id),
         "value": value_builder(winner),
     }
 
@@ -2276,6 +2314,25 @@ def _roster_id_for_owner(season: SeasonSnapshot, owner_id: str) -> int | None:
             except (TypeError, ValueError):
                 return None
     return None
+
+
+def _award_team_name(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot, owner_id: str) -> str:
+    """Team name ``owner_id`` held in ``season``, or ``""``.
+
+    Sleeper's rosters name only CURRENT owners, so a manager who handed a
+    roster off mid-season (``ownership.handed_off_roster``) is looked up there,
+    and the name is that manager's own alias for the league-season
+    (``metrics.team_name_for_owner``) rather than the successor's.  For a
+    current owner this is exactly ``metrics.team_name`` with no week.
+    """
+    if not owner_id:
+        return ""
+    rid = _roster_id_for_owner(season, owner_id)
+    if rid is None:
+        rid = ownership.handed_off_roster(season.league_id, owner_id)
+    if rid is None:
+        return ""
+    return metrics.team_name_for_owner(snapshot, season.league_id, rid, owner_id)
 
 
 # ── shared per-season row sets ────────────────────────────────────────────
@@ -2363,7 +2420,6 @@ def _activity_awards_for_season(
         _add(_awaiting_award("best_trade_of_the_year", "Best Trade of the Year"))
     elif best_trade is not None:
         gain, owner_id, payload, best_tx = best_trade
-        rid = _roster_id_for_owner(season, owner_id)
         # Reuse the activity-section trade normalizer so the public
         # payload carries the full sides/assets the UI already renders.
         from .activity import _normalize_trade
@@ -2376,9 +2432,7 @@ def _activity_awards_for_season(
                 "description": AWARD_DESCRIPTIONS["best_trade_of_the_year"],
                 "ownerId": owner_id,
                 "displayName": metrics.display_name_for(snapshot, owner_id),
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
-                if rid is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, owner_id),
                 "value": {
                     "pointsGained": payload["pointsGained"],
                     "week": payload["week"],
@@ -2438,7 +2492,6 @@ def _activity_awards_for_season(
         _add(_awaiting_award("playoff_mvp", "Playoff MVP"))
     elif playoff_mvp_rows:
         winner = playoff_mvp_rows[0]
-        rid = _roster_id_for_owner(season, winner["ownerId"])
         awards.append(
             {
                 "key": "playoff_mvp",
@@ -2446,9 +2499,7 @@ def _activity_awards_for_season(
                 "description": AWARD_DESCRIPTIONS["playoff_mvp"],
                 "ownerId": winner["ownerId"],
                 "displayName": winner["displayName"],
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
-                if rid is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, winner["ownerId"]),
                 "value": {
                     "playerId": winner["playerId"],
                     "playerName": winner["playerName"],
@@ -2546,7 +2597,6 @@ def _activity_awards_for_season(
         winner = pos_rows[0]
         if winner["starterPoints"] <= 0:
             continue
-        rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
         awards.append(
             {
                 "key": _PLAYER_AWARD_KEY_BY_POS[pos],
@@ -2554,9 +2604,7 @@ def _activity_awards_for_season(
                 "description": AWARD_DESCRIPTIONS[_PLAYER_AWARD_KEY_BY_POS[pos]],
                 "ownerId": winner["ownerId"],
                 "displayName": winner["displayName"],
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
-                if rid is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, winner["ownerId"]),
                 "value": {
                     "playerId": winner["playerId"],
                     "playerName": winner["playerName"],
@@ -2577,7 +2625,6 @@ def _activity_awards_for_season(
             awards.append(pending)
     if mvp_rows:
         winner = mvp_rows[0]
-        rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
         awards.append(
             {
                 "key": "league_mvp",
@@ -2586,9 +2633,7 @@ def _activity_awards_for_season(
                 "eligibility": rows["mvp_eligibility"],
                 "ownerId": winner["ownerId"],
                 "displayName": winner["displayName"],
-                "teamName": metrics.team_name(snapshot, season.league_id, rid)
-                if rid is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, winner["ownerId"]),
                 "value": {
                     "playerId": winner["playerId"],
                     "playerName": winner["playerName"],
@@ -2613,7 +2658,6 @@ def _activity_awards_for_season(
         # floored at 0); only skip when nobody actually started/scored.
         if (w.get("starterPoints") or 0) <= 0:
             return
-        r_id = _roster_id_for_owner(season, w["ownerId"]) if w["ownerId"] else None
         awards.append(
             {
                 "key": key,
@@ -2621,9 +2665,7 @@ def _activity_awards_for_season(
                 "description": AWARD_DESCRIPTIONS[key],
                 "ownerId": w["ownerId"],
                 "displayName": w["displayName"],
-                "teamName": metrics.team_name(snapshot, season.league_id, r_id)
-                if r_id is not None
-                else "",
+                "teamName": _award_team_name(snapshot, season, w["ownerId"]),
                 "value": {
                     "playerId": w["playerId"],
                     "playerName": w["playerName"],
@@ -2793,10 +2835,7 @@ def _standings(
         else:
             entry.update(barred.to_payload())
         if entity in ("manager", "team", "event") and owner_id:
-            rid = _roster_id_for_owner(season, owner_id)
-            entry["teamName"] = (
-                metrics.team_name(snapshot, season.league_id, rid) if rid is not None else ""
-            )
+            entry["teamName"] = _award_team_name(snapshot, season, owner_id)
         if detail is not None:
             entry["detail"] = detail(row)
         out.append(entry)

@@ -1,0 +1,624 @@
+{
+ "challengerMappingInSample": {
+  "C1_conservative_reliability": {
+   "familiesMoved": 11,
+   "finalWeightsInSampleDeltaMALE": 0.001475,
+   "maxAbsWeightMove": 0.2212,
+   "oppositeDirectionToPooledOracle": [
+    "dlf",
+    "dynastyNerdsSfTep",
+    "fantasyPros",
+    "yahooBoone"
+   ],
+   "sameDirectionAsPooledOracle": [
+    "draftSharks",
+    "dynastyDaddySf",
+    "fantasyCalc",
+    "flockFantasy",
+    "idpTradeCalc",
+    "otcffbSf",
+    "pfkDynasty"
+   ],
+   "shareOfMateriality": 0.686
+  },
+  "C2_asset_class_reliability": {
+   "familiesMoved": 11,
+   "finalWeightsInSampleDeltaMALE": 0.001927,
+   "maxAbsWeightMove": 0.2212,
+   "oppositeDirectionToPooledOracle": [
+    "dlf",
+    "dynastyNerdsSfTep",
+    "fantasyPros",
+    "yahooBoone"
+   ],
+   "sameDirectionAsPooledOracle": [
+    "draftSharks",
+    "dynastyDaddySf",
+    "fantasyCalc",
+    "flockFantasy",
+    "idpTradeCalc",
+    "otcffbSf",
+    "pfkDynasty"
+   ],
+   "shareOfMateriality": 0.896
+  },
+  "C3_lead_lag_authority": {
+   "familiesMoved": 11,
+   "finalWeightsInSampleDeltaMALE": 0.000796,
+   "maxAbsWeightMove": 0.1399,
+   "oppositeDirectionToPooledOracle": [
+    "dlf",
+    "pfkDynasty",
+    "yahooBoone"
+   ],
+   "sameDirectionAsPooledOracle": [
+    "draftSharks",
+    "dynastyDaddySf",
+    "dynastyNerdsSfTep",
+    "fantasyCalc",
+    "fantasyPros",
+    "flockFantasy",
+    "idpTradeCalc",
+    "otcffbSf"
+   ],
+   "shareOfMateriality": 0.37
+  }
+ },
+ "dataThrough": "2026-09-30",
+ "g1MaterialityBar": 0.00215,
+ "generatedAt": "2026-10-01T14:30:20.498178+00:00",
+ "kind": "POST-HOC reachability diagnostic (not preregistered; changes no gate, metric, target, candidate, disposition or recorded result)",
+ "method": "harness cells rebuilt exactly as walk_forward (ALL stratum, allTargets, primary horizon); weights chosen IN SAMPLE on those same test cells to maximise delta MALE (multi-start L-BFGS-B; numerical optimum, not certified global). An oracle: an upper bound for any learner restricted to the same weight box (per fold: for fold-varying weights). The challenger mapping w = 1 + clip(0.10*B*z, +-0.25) can only reach a subset of the box.",
+ "oracle": {
+  "perUniverse_global": {
+   "atBound": [
+    "IDP:dlf",
+    "IDP:draftSharks",
+    "IDP:fantasyPros",
+    "IDP:idpTradeCalc",
+    "OFFENSE:dlf",
+    "OFFENSE:draftSharks",
+    "OFFENSE:dynastyDaddySf",
+    "OFFENSE:dynastyNerdsSfTep",
+    "OFFENSE:fantasyCalc",
+    "OFFENSE:idpTradeCalc",
+    "OFFENSE:ktcCrowd",
+    "OFFENSE:otcffbSf",
+    "OFFENSE:pfkDynasty"
+   ],
+   "attainsG1Materiality": true,
+   "cells": 522206,
+   "deltaMALE": 0.004846,
+   "shareOfMateriality": 2.254,
+   "weights": {
+    "IDP": {
+     "dlf": 1.25,
+     "draftSharks": 0.75,
+     "dynastyDaddySf": 0.7992,
+     "dynastyNerdsSfTep": 1.1781,
+     "fantasyCalc": 0.9436,
+     "fantasyPros": 0.75,
+     "flockFantasy": 1.017,
+     "idpTradeCalc": 1.25,
+     "ktcCrowd": 1.2319,
+     "ktcTrades": 1.0556,
+     "otcffbSf": 0.7975,
+     "pfkDynasty": 1.0872,
+     "yahooBoone": 0.9963
+    },
+    "OFFENSE": {
+     "dlf": 0.75,
+     "draftSharks": 0.75,
+     "dynastyDaddySf": 1.25,
+     "dynastyNerdsSfTep": 0.75,
+     "fantasyCalc": 1.25,
+     "fantasyPros": 1.0653,
+     "flockFantasy": 1.0579,
+     "idpTradeCalc": 1.25,
+     "ktcCrowd": 0.75,
+     "ktcTrades": 1.1092,
+     "otcffbSf": 1.25,
+     "pfkDynasty": 1.25,
+     "yahooBoone": 0.8218
+    }
+   }
+  },
+  "perUniverse_global_pickMarketFamiliesFixed": {
+   "atBound": [
+    "IDP:dlf",
+    "IDP:draftSharks",
+    "IDP:fantasyPros",
+    "OFFENSE:dlf",
+    "OFFENSE:draftSharks",
+    "OFFENSE:dynastyDaddySf",
+    "OFFENSE:dynastyNerdsSfTep",
+    "OFFENSE:fantasyCalc",
+    "OFFENSE:otcffbSf",
+    "OFFENSE:pfkDynasty"
+   ],
+   "attainsG1Materiality": true,
+   "cells": 522206,
+   "deltaMALE": 0.00406,
+   "shareOfMateriality": 1.888,
+   "weights": {
+    "IDP": {
+     "dlf": 1.25,
+     "draftSharks": 0.75,
+     "dynastyDaddySf": 0.7992,
+     "dynastyNerdsSfTep": 1.1781,
+     "fantasyCalc": 0.9436,
+     "fantasyPros": 0.75,
+     "flockFantasy": 1.017,
+     "idpTradeCalc": 1.0,
+     "ktcCrowd": 1.0,
+     "ktcTrades": 1.0,
+     "otcffbSf": 0.7975,
+     "pfkDynasty": 1.0872,
+     "yahooBoone": 0.9963
+    },
+    "OFFENSE": {
+     "dlf": 0.75,
+     "draftSharks": 0.75,
+     "dynastyDaddySf": 1.25,
+     "dynastyNerdsSfTep": 0.75,
+     "fantasyCalc": 1.25,
+     "fantasyPros": 1.0716,
+     "flockFantasy": 1.0475,
+     "idpTradeCalc": 1.0,
+     "ktcCrowd": 1.0,
+     "ktcTrades": 1.0,
+     "otcffbSf": 1.25,
+     "pfkDynasty": 1.25,
+     "yahooBoone": 0.8164
+    }
+   }
+  },
+  "perUniverse_perFold": {
+   "attainsG1Materiality": true,
+   "cells": 522206,
+   "deltaMALE": 0.004985,
+   "folds": [
+    {
+     "cells": 59448,
+     "deltaMALE": 0.004845,
+     "foldStart": "2026-06-01"
+    },
+    {
+     "cells": 59262,
+     "deltaMALE": 0.005098,
+     "foldStart": "2026-06-15"
+    },
+    {
+     "cells": 68047,
+     "deltaMALE": 0.005588,
+     "foldStart": "2026-06-29"
+    },
+    {
+     "cells": 75211,
+     "deltaMALE": 0.005621,
+     "foldStart": "2026-07-13"
+    },
+    {
+     "cells": 78754,
+     "deltaMALE": 0.003944,
+     "foldStart": "2026-07-27"
+    },
+    {
+     "cells": 80152,
+     "deltaMALE": 0.004604,
+     "foldStart": "2026-08-10"
+    },
+    {
+     "cells": 83240,
+     "deltaMALE": 0.005312,
+     "foldStart": "2026-08-24"
+    },
+    {
+     "cells": 18092,
+     "deltaMALE": 0.004875,
+     "foldStart": "2026-09-07"
+    }
+   ],
+   "shareOfMateriality": 2.319
+  },
+  "pooled_global": {
+   "atBound": [
+    "dlf",
+    "draftSharks",
+    "dynastyDaddySf",
+    "dynastyNerdsSfTep",
+    "fantasyCalc",
+    "fantasyPros",
+    "idpTradeCalc",
+    "ktcCrowd",
+    "otcffbSf",
+    "pfkDynasty"
+   ],
+   "attainsG1Materiality": true,
+   "cells": 522206,
+   "deltaMALE": 0.004058,
+   "shareOfMateriality": 1.887,
+   "weights": {
+    "dlf": 1.25,
+    "draftSharks": 0.75,
+    "dynastyDaddySf": 1.25,
+    "dynastyNerdsSfTep": 0.75,
+    "fantasyCalc": 1.25,
+    "fantasyPros": 0.75,
+    "flockFantasy": 1.1518,
+    "idpTradeCalc": 1.25,
+    "ktcCrowd": 0.75,
+    "ktcTrades": 1.1878,
+    "otcffbSf": 1.25,
+    "pfkDynasty": 1.25,
+    "yahooBoone": 1.0054
+   }
+  },
+  "pooled_global_pickMarketFamiliesFixed": {
+   "atBound": [
+    "dlf",
+    "draftSharks",
+    "dynastyDaddySf",
+    "dynastyNerdsSfTep",
+    "fantasyCalc",
+    "fantasyPros",
+    "otcffbSf",
+    "pfkDynasty"
+   ],
+   "attainsG1Materiality": true,
+   "cells": 522206,
+   "deltaMALE": 0.003238,
+   "shareOfMateriality": 1.506,
+   "weights": {
+    "dlf": 1.25,
+    "draftSharks": 0.75,
+    "dynastyDaddySf": 1.25,
+    "dynastyNerdsSfTep": 0.75,
+    "fantasyCalc": 1.25,
+    "fantasyPros": 0.75,
+    "flockFantasy": 1.1381,
+    "idpTradeCalc": 1.0,
+    "ktcCrowd": 1.0,
+    "ktcTrades": 1.0,
+    "otcffbSf": 1.25,
+    "pfkDynasty": 1.25,
+    "yahooBoone": 0.9993
+   }
+  },
+  "pooled_global_uncapped_context": {
+   "atBound": [],
+   "attainsG1Materiality": true,
+   "cells": 522206,
+   "deltaMALE": 0.008229,
+   "shareOfMateriality": 3.827,
+   "weights": {
+    "dlf": 5.4407,
+    "draftSharks": 0.9712,
+    "dynastyDaddySf": 9.3066,
+    "dynastyNerdsSfTep": 1.6121,
+    "fantasyCalc": 19.9937,
+    "fantasyPros": 1.1673,
+    "flockFantasy": 5.3601,
+    "idpTradeCalc": 4.7184,
+    "ktcCrowd": 0.5045,
+    "ktcTrades": 14.4259,
+    "otcffbSf": 6.7278,
+    "pfkDynasty": 10.7239,
+    "yahooBoone": 5.3857
+   }
+  },
+  "pooled_perFold": {
+   "attainsG1Materiality": true,
+   "cells": 522206,
+   "deltaMALE": 0.004172,
+   "folds": [
+    {
+     "cells": 59448,
+     "deltaMALE": 0.00392,
+     "foldStart": "2026-06-01"
+    },
+    {
+     "cells": 59262,
+     "deltaMALE": 0.004171,
+     "foldStart": "2026-06-15"
+    },
+    {
+     "cells": 68047,
+     "deltaMALE": 0.004465,
+     "foldStart": "2026-06-29"
+    },
+    {
+     "cells": 75211,
+     "deltaMALE": 0.004513,
+     "foldStart": "2026-07-13"
+    },
+    {
+     "cells": 78754,
+     "deltaMALE": 0.003257,
+     "foldStart": "2026-07-27"
+    },
+    {
+     "cells": 80152,
+     "deltaMALE": 0.004023,
+     "foldStart": "2026-08-10"
+    },
+    {
+     "cells": 83240,
+     "deltaMALE": 0.004765,
+     "foldStart": "2026-08-24"
+    },
+    {
+     "cells": 18092,
+     "deltaMALE": 0.004404,
+     "foldStart": "2026-09-07"
+    }
+   ],
+   "shareOfMateriality": 1.94
+  }
+ },
+ "panelDigest": "833cbf22af7963c15676e6e9d70cbb040639cfdfe1a4bab256ecb50f663ca476",
+ "picks": {
+  "candidatesWithoutPickMarketFamilies": {
+   "C1_conservative_reliability": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "C2_asset_class_reliability": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "C3_lead_lag_authority": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   }
+  },
+  "familiesWhoseWeightMovesMarketPricedPicks": [
+   "idpTradeCalc",
+   "ktcCrowd",
+   "ktcTrades"
+  ],
+  "singleFamily": {
+   "dlf@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "dlf@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "draftSharks@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "draftSharks@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "dynastyDaddySf@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "dynastyDaddySf@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "dynastyNerdsSfTep@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "dynastyNerdsSfTep@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "fantasyCalc@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "fantasyCalc@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "fantasyPros@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "fantasyPros@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "flockFantasy@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "flockFantasy@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "idpTradeCalc@0.75": {
+    "changed": 29,
+    "changedByProvenance": {
+     "derived_round_step": 6,
+     "derived_uniform_tier_ev": 7,
+     "direct_market_blend": 16
+    },
+    "maxAbs": 4,
+    "medianAbsChanged": 2.0,
+    "rows": 72
+   },
+   "idpTradeCalc@1.25": {
+    "changed": 39,
+    "changedByProvenance": {
+     "derived_round_step": 10,
+     "derived_uniform_tier_ev": 11,
+     "direct_market_blend": 18
+    },
+    "maxAbs": 3,
+    "medianAbsChanged": 2.0,
+    "rows": 72
+   },
+   "ktcCrowd@0.75": {
+    "changed": 72,
+    "changedByProvenance": {
+     "derived_round_step": 18,
+     "derived_uniform_tier_ev": 18,
+     "direct_market_blend": 36
+    },
+    "maxAbs": 110,
+    "medianAbsChanged": 20.0,
+    "rows": 72
+   },
+   "ktcCrowd@1.25": {
+    "changed": 72,
+    "changedByProvenance": {
+     "derived_round_step": 18,
+     "derived_uniform_tier_ev": 18,
+     "direct_market_blend": 36
+    },
+    "maxAbs": 86,
+    "medianAbsChanged": 16.0,
+    "rows": 72
+   },
+   "ktcTrades@0.75": {
+    "changed": 72,
+    "changedByProvenance": {
+     "derived_round_step": 18,
+     "derived_uniform_tier_ev": 18,
+     "direct_market_blend": 36
+    },
+    "maxAbs": 113,
+    "medianAbsChanged": 21.5,
+    "rows": 72
+   },
+   "ktcTrades@1.25": {
+    "changed": 72,
+    "changedByProvenance": {
+     "derived_round_step": 18,
+     "derived_uniform_tier_ev": 18,
+     "direct_market_blend": 36
+    },
+    "maxAbs": 90,
+    "medianAbsChanged": 16.0,
+    "rows": 72
+   },
+   "otcffbSf@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "otcffbSf@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "pfkDynasty@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "pfkDynasty@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "yahooBoone@0.75": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   },
+   "yahooBoone@1.25": {
+    "changed": 0,
+    "changedByProvenance": {},
+    "maxAbs": 0,
+    "medianAbsChanged": 0,
+    "rows": 72
+   }
+  }
+ },
+ "reproduction": {
+  "candidateDeltaMALE": {
+   "C1_conservative_reliability": {
+    "rebuiltFromRecordedFoldWeights": 0.00078,
+    "recorded": 0.00078
+   },
+   "C2_asset_class_reliability": {
+    "rebuiltFromRecordedFoldWeights": 0.00127,
+    "recorded": 0.00127
+   },
+   "C3_lead_lag_authority": {
+    "rebuiltFromRecordedFoldWeights": 0.00043,
+    "recorded": 0.00043
+   }
+  },
+  "cells": {
+   "rebuilt": 522206,
+   "recorded": 522206
+  },
+  "championMALE": {
+   "rebuilt": 0.18876,
+   "recorded": 0.18876
+  }
+ },
+ "results": "docs/valuation/evidence/source-quality-2026-10-01/results_2026-09-30.json",
+ "resultsSha256": "28a5e65cf3192920ec52d16ec409d606f67dfe3337c89d6b5f37494b473d47b0"
+}

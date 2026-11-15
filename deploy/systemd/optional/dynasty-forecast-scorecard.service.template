@@ -1,0 +1,38 @@
+[Unit]
+Description=Forecast Scorecard: standing prediction scorecard + degradation review (__SERVICE_NAME__)
+After=network-online.target
+
+# TEMPLATE ONLY (MD-104), kept under deploy/systemd/optional/ so no installer or deploy
+# glob picks it up.  Installing it is the operator's decision: nothing in
+# deploy/ installs or enables this unit.
+#
+# Runs scripts/forecast_scorecard.py: joins the archived forecasts to realized outcomes,
+# scores the served model against a simple named baseline, and evaluates the
+# pre-declared rule config/forecast_scorecard/degradation_rule_v1.json.  Writes ONE
+# private box-local file, data/learning/scorecards/forecast_scorecard.json (gitignored).
+# The production alert sweep (/api/signal-alerts/run) reads its degradationReviews and
+# sends them through the existing ops_alerts path.  Changes no forecast, value, flag or
+# served response, and promotes / demotes nothing.
+#
+# Season families need a season-outcomes file (--season-outcomes); without one they
+# report "unavailable", never zero.
+#
+# Exit codes: 0 scored (possibly all families unavailable); 2 bad config.
+#
+# ROLLBACK: `systemctl disable --now __SERVICE_NAME__-forecast-scorecard.timer`.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/forecast_scorecard.py
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=900
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

@@ -11,6 +11,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { useDynastyData } from "@/components/useDynastyData";
+import { boardFirstActivePickYear, isRetiredPickClassRow } from "@/lib/pick-class-lifecycle";
 import {
   resolvedRank,
   RANKING_SOURCES,
@@ -44,7 +45,7 @@ import {
   confBadgeClass as confidenceBadgeClass,
   confBadgeLabel as confidenceBadgeLabel,
   marketEdge,
-  marketAction,
+  marketActionDisclosed,
   isEligibleForBoard,
 } from "@/lib/display-helpers";
 import {
@@ -59,6 +60,7 @@ import {
   buildBdvmIndex,
   bdvmEntryForRow,
   bdvmSignalEdgeCss,
+  bdvmSignalLabel,
   formatBdvmGap,
   formatBdvmValue,
 } from "@/lib/bdvm";
@@ -71,7 +73,6 @@ import {
   DataTable,
   EmptyState,
   FailureState,
-  HelpModal,
   Icon,
   InfoTip,
   Input,
@@ -89,6 +90,13 @@ import { useNews } from "@/components/useNews";
 import { lookupPlayerNews } from "@/lib/player-name-match";
 import { buildPlayerMetaIndex } from "@/lib/news-filters";
 import { formatSourceCell, exportSourceCells } from "./board-utils";
+import {
+  VALUE_EXPLAINERS,
+  boardClocks,
+  confidenceDisplay,
+  formatAgo,
+} from "@/lib/value-explainers";
+import { BoardClocks, ExplainTip, ValueExplainHelp } from "@/components/ValueExplain";
 import {
   MethodologySection,
   TopMoversRail,
@@ -159,6 +167,20 @@ const CONFIDENCE_FILTERS = [
   { key: "low", label: "Low" },
 ];
 
+// Display label for an NFL team code from ``teamOptions``.  The code is
+// the canonical value (and what ``rowMatches`` compares); "FA" is the
+// materialized free-agent sentinel, which reads better spelled out.
+function nflTeamLabel(code) {
+  return code === "FA" ? "Free agent (NFL)" : code;
+}
+
+// Wording for the result line's ``aria-live`` suffix.  A bare " · MIN" is
+// read out with no hint of what it filters; name the dimension.  The "FA"
+// sentinel reads as words, not "NFL team Free agent (NFL)".
+function nflTeamAnnouncement(code) {
+  return code === "FA" ? "NFL free agents" : `NFL team ${code}`;
+}
+
 function posMatchesFilter(pos, assetClass, filter, row) {
   if (filter === "all") return true;
   if (filter === "offense") return assetClass === "offense";
@@ -171,18 +193,12 @@ function posMatchesFilter(pos, assetClass, filter, row) {
 }
 
 // Explicit confidence explanation — shared by the Confidence cell and
-// the expanded audit panel.
+// the expanded audit panel. The backend label already names the binding
+// check ("Low — limited by freshness"); the old fallback described the
+// RETIRED spread rule ("2+ sources, tight agreement (spread ≤30)"), so it
+// now comes from the one explanation owner, lib/value-explainers.js.
 function confidenceExplain(row) {
-  return (
-    row.confidenceLabel ||
-    (row.confidenceBucket === "high"
-      ? "2+ sources, tight agreement (spread ≤30)"
-      : row.confidenceBucket === "medium"
-        ? "2+ sources, moderate spread (30-80)"
-        : row.confidenceBucket === "low"
-          ? "Single source or wide disagreement (spread >80)"
-          : "Unranked")
-  );
+  return confidenceDisplay(row).label;
 }
 
 // ── Custom Mix badge ─────────────────────────────────────────────────
@@ -274,7 +290,7 @@ function CustomMixBadge({ rankingsOverride }) {
 // ── Main component ───────────────────────────────────────────────────
 
 export default function RankingsPage() {
-  const { loading, error, failure, rows, rawData, retry } = useDynastyData();
+  const { loading, error, failure, overrideFailure, rows, rawData, retry } = useDynastyData();
   const {
     settings,
     update: updateSetting,
@@ -313,6 +329,18 @@ export default function RankingsPage() {
       updateSiteWeight(key, "include", included);
     },
     [updateSiteWeight],
+  );
+  // Only the source clocks feed the per-source cell provenance (as-of /
+  // freshness state); memoised so the column set does not rebuild on every
+  // unrelated contract field.
+  const sourceWeightingStamp = rawData?.sourceWeighting;
+  const privateSourceStamp = rawData?.privateSourceAvailability;
+  const sourceClockData = useMemo(
+    () => ({
+      sourceWeighting: sourceWeightingStamp,
+      privateSourceAvailability: privateSourceStamp,
+    }),
+    [sourceWeightingStamp, privateSourceStamp],
   );
   const hiddenSiteCols = settings.hiddenSiteCols || {};
   const visibleSources = useMemo(
@@ -408,7 +436,28 @@ export default function RankingsPage() {
       return next;
     });
   }, []);
+  // Clears every ``adv`` field INCLUDING the NFL team.  This is the
+  // reset-all path ("Reset filters" on the empty state).
   const clearAdv = useCallback(() => setAdv({}), []);
+  // Clears only the controls that live inside the Filters rail.  The NFL
+  // team select sits in the main control bar (it is ``adv.nflTeam`` — the
+  // same single piece of state, just rendered beside the position and
+  // confidence filters), and it has its own clear affordance, so the
+  // rail's "Clear" must not silently reset a control that is outside it.
+  const clearRailAdv = useCallback(
+    () => setAdv((prev) => (prev.nflTeam ? { nflTeam: prev.nflTeam } : {})),
+    [],
+  );
+  // The "Clear team" button unmounts the moment the filter clears, which
+  // would drop focus to <body>.  Clearing hands focus to the team select
+  // (the control the button belongs to) through this ref; the DS ``Select``
+  // spreads ``...rest`` onto its native <select>, and on React 19 ``ref`` is
+  // an ordinary prop, so it lands on the real element — no DOM walking.
+  const nflTeamSelectRef = useRef(null);
+  const clearNflTeam = useCallback(() => {
+    setAdvField("nflTeam", "");
+    nflTeamSelectRef.current?.focus();
+  }, [setAdvField]);
 
   // If the user is viewing an IDP-only filter and then switches to
   // a league that disables IDP, snap back to "all" so the board
@@ -483,30 +532,36 @@ export default function RankingsPage() {
 
   // ── Base eligible list ──────────────────────────────────────────
   const eligible = useMemo(() => {
-    // 2026 rookie draft has passed — hide current-year slot picks from
-    // the board.  Rows stay in buildRows so value resolution still
-    // works for trade history; we filter only at display time.
+    // Completed rookie-draft classes leave the board (owner #1414).  The
+    // rule is the backend's ``pickClassLifecycle`` stamp, read here — never
+    // a hard-coded year.  Rows stay in buildRows so value resolution still
+    // works for trade history; we filter only at display time.  No stamp
+    // retires nothing.
+    const firstActivePickYear = boardFirstActivePickYear(rawData);
     let filtered = rows
       .filter(isEligibleForBoard)
-      .filter((r) => !(r.assetClass === "pick" && /^2026\b/.test(r.name)));
+      .filter((r) => !isRetiredPickClassRow(r, firstActivePickYear));
     if (!idpEnabled) {
       return filtered.filter((r) => r?.assetClass !== "idp");
     }
     return filtered;
-  }, [rows, idpEnabled]);
+  }, [rows, rawData, idpEnabled]);
 
   // ── Trust summary stats (single pass) ───────────────────────────
   const trustStats = useMemo(() => {
     let high = 0;
     let medium = 0;
     let low = 0;
+    let none = 0;
     let quarantined = 0;
     let multiSource = 0;
     for (const r of eligible) {
       const bucket = r.confidenceBucket;
       if (bucket === "high") high++;
       else if (bucket === "medium") medium++;
-      else if (bucket === "low" || bucket === "none") low++;
+      else if (bucket === "low") low++;
+      // No evidence to grade is not a low grade (C1-U5 confidenceBasis).
+      else none++;
       if (r.quarantined) quarantined++;
       if ((r.sourceCount || 0) >= 2) multiSource++;
     }
@@ -515,6 +570,7 @@ export default function RankingsPage() {
       high,
       medium,
       low,
+      none,
       quarantined,
       multiSource,
     };
@@ -565,6 +621,12 @@ export default function RankingsPage() {
     return c;
   }, [adv, watchlistLower]);
   const advActiveCount = Object.keys(advCriteria).length;
+  // The "Filters (N)" badge counts what is set INSIDE the rail.  The NFL
+  // team is a criterion like any other (it feeds ``advCriteria`` and so
+  // the one ``rowMatches`` pass), but its control is in the main bar with
+  // its own clear affordance — counting it here would label a rail that
+  // contains nothing active.
+  const railActiveCount = advActiveCount - (advCriteria.nflTeam ? 1 : 0);
 
   // ── Filtered + sorted list (unchanged pipeline) ─────────────────
   const ranked = useMemo(() => {
@@ -749,7 +811,7 @@ export default function RankingsPage() {
   // The ref guard keeps this from firing on mount, where it would clash
   // with the `?pos=` / `?screen=` URL seeding that runs in its own
   // effect and legitimately arrives with a filter already set.
-  const filterSignature = `${query}|${posFilter}|${confFilter}|${advActiveCount}`;
+  const filterSignature = `${query}|${posFilter}|${confFilter}|${advActiveCount}|${adv.nflTeam ?? ""}`;
   const lastFilterSignature = useRef(filterSignature);
   useEffect(() => {
     if (lastFilterSignature.current === filterSignature) return;
@@ -785,6 +847,9 @@ export default function RankingsPage() {
       (a, b) => (a?.rank ?? Infinity) - (b?.rank ?? Infinity),
     );
     for (const row of sorted) {
+      // Unpriced rows (no backend rank and no value) get no positional
+      // rank -- there is no board position to be Nth at (W07-F004).
+      if (row?.rank == null && !Number.isFinite(Number(row?.rankDerivedValue ?? NaN))) continue;
       const pos = String(row?.pos || "").toUpperCase();
       if (!pos || !row?.name) continue;
       const next = (counts.get(pos) || 0) + 1;
@@ -896,24 +961,18 @@ export default function RankingsPage() {
   }
 
   // ── Freshness timestamp ─────────────────────────────────────────
-  const freshness = rawData?.dataFreshness;
-  const timestamp = freshness?.generatedAt || rawData?.date || null;
-  const relativeUpdated = useMemo(() => {
-    if (!timestamp) return null;
-    try {
-      const then = new Date(timestamp);
-      const now = new Date();
-      const secs = Math.round((now.getTime() - then.getTime()) / 1000);
-      if (!Number.isFinite(secs)) return null;
-      if (secs < 60) return `${secs}s ago`;
-      if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
-      if (secs < 86_400) return `${Math.round(secs / 3600)}h ago`;
-      const days = Math.round(secs / 86_400);
-      return `${days}d ago`;
-    } catch {
-      return null;
-    }
-  }, [timestamp]);
+  // The hero used to read "Updated {generatedAt}". generatedAt is when the
+  // BOARD was assembled — a restart rebuilds it from an old scrape and the
+  // header then claimed a fresh update. Name the clock that is shown: the
+  // scrape the board was built from when published, else the build time,
+  // labelled as such (the same two clocks BoardClocks shows below).
+  const { builtAt, scrapedAt } = boardClocks(rawData);
+  const headerClock = useMemo(() => {
+    const scraped = formatAgo(scrapedAt);
+    if (scraped) return `Scraped ${scraped}`;
+    const built = formatAgo(builtAt || rawData?.date || null);
+    return built ? `Board built ${built}` : null;
+  }, [scrapedAt, builtAt, rawData?.date]);
 
   // ── Tier separator logic ────────────────────────────────────────
   const tierGroupingActive =
@@ -1094,14 +1153,22 @@ export default function RankingsPage() {
         sortable: true,
         numeric: true,
         width: 88,
+        // A diagnostic, not the rank — hidden below md so the phone
+        // board keeps rank, player, position and VALUE on screen; the
+        // number stays in the expanded row's audit summary.
+        hideBelow: "md",
+        // The old copy said a Consensus/# gap meant "the blend penalized
+        // source disagreement" — the λ·MAD penalty that was retired
+        // 2026-04-20. The gap comes from the blend working in value
+        // space with per-source weights.
         headerInfo:
-          "Consensus: decimal mean of each source's effective rank. Orthogonal to #. When Consensus and # disagree, the blend penalized source disagreement. Lower = better.",
+          "Consensus: the mean of each source's effective rank — a diagnostic, lower is better. The # rank comes from the blended value instead, which weighs sources by freshness and family, so the two can differ.",
         render: (row) => (
           <span
             className={styles.consensusCell}
             title={
               row.blendedSourceRank != null
-                ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is ${row.rank ? `#${row.rank}` : "— (unranked)"}. Gap = blend penalty/bonus for source disagreement.`
+                ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is ${row.rank ? `#${row.rank}` : "— (unranked)"}, set by the blended value.`
                 : "No sources ranked this player"
             }
           >
@@ -1116,6 +1183,8 @@ export default function RankingsPage() {
         header: "Value",
         sortable: true,
         numeric: true,
+        headerInfo: VALUE_EXPLAINERS.value.short,
+        headerInfoLabel: "Value",
         render: (row) => {
           const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
           const band = valueBand(val);
@@ -1156,7 +1225,7 @@ export default function RankingsPage() {
               : "linear rescale of this source's native trade value"
           }) with its effective rank on the shared board in parentheses.`,
           render: (row) => {
-            const cell = formatSourceCell(row, src);
+            const cell = formatSourceCell(row, src, sourceClockData);
             return (
               <span className={styles.srcCell} title={cell.title}>
                 {cell.hasVal ? (
@@ -1165,7 +1234,7 @@ export default function RankingsPage() {
                     <span className={styles.srcRank}> ({cell.rankLabel})</span>
                   </>
                 ) : (
-                  <span className={styles.muted}>—</span>
+                  <span className={styles.muted}>{cell.mutedText || "—"}</span>
                 )}
               </span>
             );
@@ -1213,8 +1282,7 @@ export default function RankingsPage() {
         firstDirection: "desc",
         hideBelow: "md",
         align: "center",
-        headerInfo:
-          "High / Medium / Low confidence based on how many sources matched and how tightly they agree.",
+        headerInfo: `${VALUE_EXPLAINERS.confidence.short} ${VALUE_EXPLAINERS.missingConfidence.short}`,
         render: (row) => (
           <span
             className={confidenceBadgeClass(row.confidenceBucket)}
@@ -1233,7 +1301,7 @@ export default function RankingsPage() {
         headerInfo:
           "Market edge: retail (KTC) vs expert consensus. Always rendered with an explicit state — never an ambiguous dash.",
         render: (row) => {
-          const action_ = marketAction(row);
+          const action_ = marketActionDisclosed(row);
           return (
             <span className={`edge-label ${action_.css}`} title={action_.title}>
               {action_.label}
@@ -1255,6 +1323,7 @@ export default function RankingsPage() {
         hideBelow: "md",
         width: 110,
         headerInfo:
+          "Fundamental value (BDVM) · provisional priors — not the market board. " +
           "BDVM fundamental value (balanced) minus market anchor — " +
           "positive means the market underprices the player. " +
           "A trailing * marks a proxy-backed fundamental: no real " +
@@ -1286,7 +1355,7 @@ export default function RankingsPage() {
               "gap partly reflects information the market has and it does not"
             : "";
           const title =
-            `${entry.signal}: ${entry.signalReason} — fundamental ` +
+            `${bdvmSignalLabel(entry.signal)}: ${entry.signalReason} — fundamental ` +
             `${formatBdvmValue(entry.fundamental)} vs market ` +
             `${formatBdvmValue(entry.marketValue)}${proxyNote}`;
           const shown = entry.anyProxy
@@ -1350,6 +1419,8 @@ export default function RankingsPage() {
     openPlayerPopup,
     toggleWatchlist,
     bdvmIndex,
+    // Source-column provenance (Signals' as-of) reads the source clocks.
+    sourceClockData,
   ]);
 
   const totalCols = columns.length;
@@ -1360,8 +1431,8 @@ export default function RankingsPage() {
       <PageHeader
         className={styles.hero}
         eyebrow={
-          relativeUpdated
-            ? `Chase Upside Consensus / Updated ${relativeUpdated}`
+          headerClock
+            ? `Chase Upside Consensus / ${headerClock}`
             : "Chase Upside Consensus"
         }
         title="Rankings"
@@ -1398,11 +1469,22 @@ export default function RankingsPage() {
             {/* The nine-step prose lives in a modal now; this toggle
                 owns only the two charts, which are genuinely
                 page-sized and worth a deliberate reveal. */}
-            <HelpModal title="How rankings work" label="How rankings work">
-              {/* Formula + confidence rule come from the contract, not
-                  from a duplicated constant — see MethodologySection. */}
-              <MethodologySection methodology={rawData?.methodology} />
-            </HelpModal>
+            {/* One explanation owner (lib/value-explainers.js) for what
+                a value, rank, confidence and freshness MEAN — shared with
+                the Player File — followed by the pipeline steps, whose
+                formula, rank limit and confidence checks come from the
+                contract rather than a duplicated constant. */}
+            <ValueExplainHelp
+              title="How rankings work"
+              label="How rankings work"
+              methodology={rawData?.methodology}
+            >
+              <h3>Pipeline steps</h3>
+              <MethodologySection
+                methodology={rawData?.methodology}
+                sourceWeighting={rawData?.sourceWeighting}
+              />
+            </ValueExplainHelp>
             <Button
               size="sm"
               variant={showMethodology ? "secondary" : "ghost"}
@@ -1565,13 +1647,27 @@ export default function RankingsPage() {
       {!loading && !error && rows.length > 0 && (
         <div className={styles.trustStrip}>
           <StatTile label="Players" value={trustStats.total.toLocaleString()} />
+          {/* "2+ src, tight" described the retired spread rule. The tip
+              carries the current definition from the one explanation
+              owner (players: weakest of five checks; picks: market
+              agreement) instead of a one-line caption that fits neither. */}
           <StatTile
-            label="High conf"
+            label={
+              <>
+                High conf
+                <ExplainTip topic="confidence" label="confidence" />
+              </>
+            }
             value={trustStats.high.toLocaleString()}
-            meta={<Badge tone="positive">2+ src, tight</Badge>}
           />
           <StatTile label="Medium" value={trustStats.medium.toLocaleString()} />
-          <StatTile label="Low" value={trustStats.low.toLocaleString()} />
+          {/* MISSING IS NEVER ZERO: an asset with no evidence to grade
+              ("none") is not a Low grade, so it is counted apart. */}
+          <StatTile
+            label="Low"
+            value={trustStats.low.toLocaleString()}
+            meta={trustStats.none > 0 ? `+${trustStats.none.toLocaleString()} ungraded` : undefined}
+          />
           <StatTile
             label="Multi-source"
             value={trustStats.multiSource.toLocaleString()}
@@ -1585,14 +1681,12 @@ export default function RankingsPage() {
               ) : undefined
             }
           />
-          {timestamp && (
-            <span
-              className={styles.trustFootnote}
-              title={`Data generated at ${timestamp}`}
-            >
-              Last scraped {relativeUpdated || timestamp}
-            </span>
-          )}
+          {/* Was "Last scraped {generatedAt}". generatedAt is when the
+              BOARD was built, not when sources were scraped — measured
+              locally as "7m ago" while the scrape it was built from
+              (scrapeTimestamp; /api/health data_age_hours) was 6.2h old.
+              Both clocks are shown, named for what they are. */}
+          <BoardClocks rawData={rawData} className={styles.trustFootnote} />
         </div>
       )}
 
@@ -1673,6 +1767,18 @@ export default function RankingsPage() {
           read like a fault.  `failure.kind` decides tone, title and
           whether a retry is even offered; a 403 gets no retry button
           because retrying cannot change the answer. */}
+      {!failure && overrideFailure ? (
+        // The board below is the DEFAULT mix: say so, rather than passing it
+        // off as the custom source/TE settings the user asked for.
+        <FailureState
+          failure={{
+            ...overrideFailure,
+            message: `Your custom source mix could not be applied, so this is the default board. ${overrideFailure.message || ""}`.trim(),
+          }}
+          onRetry={retry}
+          context="custom source mix"
+        />
+      ) : null}
       {failure ? (
         <FailureState failure={failure} onRetry={retry} context="rankings" />
       ) : null}
@@ -1764,6 +1870,52 @@ export default function RankingsPage() {
                   </optgroup>
                 </Select>
               </span>
+              {/* NFL team — bound to ``adv.nflTeam``, the same single
+                  piece of state the advanced rail used to render it
+                  from, so it still flows through the one ``rowMatches``
+                  pass and cannot disagree with another control.  Options
+                  come from ``nflTeamOptions`` (``teamOptions(eligible)``
+                  — the board's own team codes), never a second list.
+                  Filtering hides rows; ranks and values stay backend
+                  stamps. */}
+              <span className={styles.controlsTeam}>
+                <Select
+                  ref={nflTeamSelectRef}
+                  value={adv.nflTeam ?? ""}
+                  onChange={(e) => setAdvField("nflTeam", e.target.value)}
+                  aria-label="NFL team filter"
+                >
+                  <option value="">All NFL Teams</option>
+                  {nflTeamOptions.map((t) => (
+                    <option key={t} value={t}>
+                      {nflTeamLabel(t)}
+                    </option>
+                  ))}
+                  {/* A selected code that has left ``nflTeamOptions`` (data
+                      refresh, IDP toggle) is still the ACTIVE filter.  A
+                      controlled <select> whose value matches no <option>
+                      falls back to showing "All NFL Teams" over a board the
+                      filter is still narrowing, so keep the code visible and
+                      selected.  This is the one stale value, not a second
+                      list — it vanishes when the filter is cleared. */}
+                  {adv.nflTeam && !nflTeamOptions.includes(adv.nflTeam) ? (
+                    <option key={adv.nflTeam} value={adv.nflTeam}>
+                      {nflTeamLabel(adv.nflTeam)}
+                    </option>
+                  ) : null}
+                </Select>
+                {adv.nflTeam ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={clearNflTeam}
+                    aria-label={`Clear team (${nflTeamLabel(adv.nflTeam)})`}
+                    title="Show all NFL teams"
+                  >
+                    Clear team
+                  </Button>
+                ) : null}
+              </span>
               <span className={styles.controlsSelect}>
                 <Select
                   value={confFilter}
@@ -1788,12 +1940,12 @@ export default function RankingsPage() {
               </Button>
               <Button
                 size="sm"
-                variant={advActiveCount > 0 ? "secondary" : "ghost"}
+                variant={railActiveCount > 0 ? "secondary" : "ghost"}
                 onClick={() => setAdvOpen((v) => !v)}
-                title="Advanced filters: age, experience, NFL team, owner, rank/value range, edge, watchlist"
+                title="Advanced filters: age, experience, owner, rank/value range, edge, watchlist"
                 aria-expanded={advOpen}
               >
-                Filters{advActiveCount > 0 ? ` (${advActiveCount})` : ""}
+                Filters{railActiveCount > 0 ? ` (${railActiveCount})` : ""}
               </Button>
             </div>
 
@@ -1837,18 +1989,6 @@ export default function RankingsPage() {
                   {EXPERIENCE_BUCKETS.map((b) => (
                     <option key={b.key} value={b.key}>
                       {b.label}
-                    </option>
-                  ))}
-                </Select>
-                <Select
-                  value={adv.nflTeam ?? ""}
-                  onChange={(e) => setAdvField("nflTeam", e.target.value)}
-                  aria-label="NFL team"
-                >
-                  <option value="">Any NFL team</option>
-                  {nflTeamOptions.map((t) => (
-                    <option key={t} value={t}>
-                      {t === "FA" ? "Free agent (NFL)" : t}
                     </option>
                   ))}
                 </Select>
@@ -1910,11 +2050,12 @@ export default function RankingsPage() {
                 <Select
                   value={adv.edge ?? ""}
                   onChange={(e) => setAdvField("edge", e.target.value)}
-                  aria-label="Market edge direction"
+                  aria-label="Market edge direction (offense only; IDP is not covered, see /edge)"
+                  title="Edge filters cover offense only: KTC Market prices no IDP players. See /edge for IDP."
                 >
                   <option value="">Any edge</option>
-                  <option value="buy">Buy edge</option>
-                  <option value="sell">Sell edge</option>
+                  <option value="buy">Buy edge (offense only)</option>
+                  <option value="sell">Sell edge (offense only)</option>
                 </Select>
                 <label className={styles.advCheck}>
                   <input
@@ -1936,11 +2077,11 @@ export default function RankingsPage() {
                   />
                   Watchlist
                 </label>
-                {advActiveCount > 0 && (
+                {railActiveCount > 0 && (
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={clearAdv}
+                    onClick={clearRailAdv}
                     title="Clear advanced filters"
                   >
                     Clear
@@ -1963,6 +2104,7 @@ export default function RankingsPage() {
               {hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
               {activeLens !== "consensus" && ` · ${currentLens.label} lens`}
               {confFilter !== "all" && ` · ${confFilter} confidence`}
+              {adv.nflTeam && ` · ${nflTeamAnnouncement(adv.nflTeam)}`}
               {tierGroupingActive && " · grouped by tier"}
               {rowsPending && " · filtering…"}
             </p>
@@ -2021,7 +2163,7 @@ export default function RankingsPage() {
                   title="No players match these filters"
                   description={
                     advActiveCount > 0 || query
-                      ? "Clear the search or advanced filters to widen the board."
+                      ? "Clear the search, NFL team or advanced filters to widen the board."
                       : "Try a different lens, position, or confidence filter."
                   }
                   action={
@@ -2049,6 +2191,10 @@ export default function RankingsPage() {
               onRowClick={(row) =>
                 setExpandedRow(expandedRow === row.name ? null : row.name)
               }
+              // Disclosure semantics: each row's keyboard stop announces
+              // collapsed / expanded (CQ-30 DataTable aria-expanded).
+              isRowExpanded={(row) => expandedRow === row.name}
+              rowExpandLabel={(row) => `Source breakdown for ${row.name}`}
               rowClassName={(row) =>
                 [
                   "rankings-row-clickable",
@@ -2084,21 +2230,22 @@ export default function RankingsPage() {
                       <td colSpan={totalCols}>
                         <MobileSourceStrip
                           row={row}
-                          formatSourceCell={formatSourceCell}
+                          formatSourceCell={(r, s) => formatSourceCell(r, s, rawData)}
                         />
                       </td>
                     </tr>
-                    {/* rankings-audit-row carries the panel's
-                        padding:0 + dark inset from globals.css — the
-                        expansion reads as an inset drawer, not another
-                        table row. */}
-                    <tr className="rankings-audit-row">
+                    {/* rankings-audit-row keeps the padding:0 reset from
+                        globals.css (and is the test hook); styles.auditRow
+                        repaints it on the editorial surface instead of the
+                        legacy dark inset. */}
+                    <tr className={`rankings-audit-row ${styles.auditRow}`}>
                       <td colSpan={totalCols}>
                         <SourceAuditPanel
                           row={row}
+                          rawData={rawData}
                           val={val}
                           edge={marketEdge(row)}
-                          confExplain={confidenceExplain(row)}
+                          confidence={confidenceDisplay(row)}
                         />
                       </td>
                     </tr>

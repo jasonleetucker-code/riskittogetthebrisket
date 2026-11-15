@@ -872,6 +872,16 @@ def _fmt_delta(v: int | float | None) -> str:
     return f"+{int(v)}" if v > 0 else f"{int(v)}"
 
 
+def _fmt_mad(mad: Any) -> str:
+    """Volatility (MAD) for reason copy; an unmeasured MAD reads "n/a", never 0.0."""
+    if mad is None:
+        return "n/a"
+    try:
+        return f"{float(mad):.1f}"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
 def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
     fired: list[dict[str, Any]] = []
     trend7 = ctx.get("trend7")
@@ -906,7 +916,7 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
             95,
             "RISK",
             "high_vol_drop",
-            f"High volatility (MAD {float(mad or 0):.1f}) with a steep 7d drop of {_fmt_delta(trend7)}.",
+            f"High volatility (MAD {_fmt_mad(mad)}) with a steep 7d drop of {_fmt_delta(trend7)}.",
         )
     if (trend7 is not None and trend7 <= -3) and (trend30 is not None and trend30 <= 0):
         add(
@@ -920,7 +930,7 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
             78,
             "SELL",
             "neg_news_high_vol",
-            f"Negative news with high volatility (MAD {float(mad or 0):.1f}).",
+            f"Negative news with high volatility (MAD {_fmt_mad(mad)}).",
         )
     if alert > 0:
         add(
@@ -930,7 +940,7 @@ def _evaluate_signal(ctx: dict[str, Any]) -> dict[str, Any]:
             f"{alert} alert-severity headline{'' if alert == 1 else 's'} — watch for follow-up.",
         )
     if vol_label == "high":
-        add(62, "MONITOR", "high_vol", f"High volatility (MAD {float(mad or 0):.1f}).")
+        add(62, "MONITOR", "high_vol", f"High volatility (MAD {_fmt_mad(mad)}).")
     # RETIRED 2026-07-30: ``low_conf_unstable`` (MONITOR, priority 60).
     #
     # The rule tested ``confidence < 0.35``, but the metric it read cannot
@@ -1038,6 +1048,30 @@ def _signal_alias_key(sleeper_id: str, tag: str) -> str:
 # ── PORTFOLIO INSIGHTS ──────────────────────────────────────────────────
 
 
+def _team_equity_block(
+    contract: dict[str, Any],
+    resolved_team: dict[str, Any],
+    player_value: int | None,
+    player_coverage: float | None,
+) -> dict[str, Any]:
+    """Player / pick / total decomposition for the resolved team (additive).
+
+    ``totalValue`` stays players-only for existing consumers; this block is the
+    honest total, with unknown picks reported rather than valued at 0.
+    """
+    from src.api.pick_value_resolution import pick_rows_by_name  # noqa: PLC0415
+    from src.roster_intel.team_equity import decompose_team_equity  # noqa: PLC0415
+
+    year = contract.get("currentDraftYear")
+    return decompose_team_equity(
+        player_value=player_value,
+        player_coverage=player_coverage,
+        team=resolved_team,
+        pick_rows_by_name=pick_rows_by_name(contract),
+        current_draft_year=year if isinstance(year, int) and not isinstance(year, bool) else None,
+    )
+
+
 def _compute_portfolio_insights(
     resolved_team: dict[str, Any],
     roster_rows: list[dict[str, Any]],
@@ -1089,7 +1123,7 @@ def _compute_portfolio_insights(
         t = max(tier1, key=lambda p: p["value"])
         risk = {
             "player": t,
-            "reason": f"High volatility (MAD {float((t['volatility'] or {}).get('mad') or 0):.1f}) and 7d trend of {_fmt_delta(t['trend7'])}.",
+            "reason": f"High volatility (MAD {_fmt_mad((t['volatility'] or {}).get('mad'))}) and 7d trend of {_fmt_delta(t['trend7'])}.",
             "metric": "vol_plus_drop",
         }
     if not risk:
@@ -1158,7 +1192,8 @@ def _compute_portfolio_insights(
                 "value": int(_row_value(best_cand)),
                 "rank": _row_rank(best_cand),
             },
-            "reason": f"Dropped {abs(int(_row_rank_change(best_cand) or 0))} ranks on the last scrape but still inside the top {_row_rank(best_cand)}.",
+            # best_cand is only chosen when its rank change is a measured value <= -3.
+            "reason": f"Dropped {abs(int(best_score))} ranks on the last scrape but still inside the top {_row_rank(best_cand)}.",
             "metric": "short_drop_long_steady",
         }
 
@@ -1298,13 +1333,31 @@ def _compute_portfolio_insights(
 # ── NEWS GATHERING ──────────────────────────────────────────────────────
 
 
+def roster_player_names(resolved_team: dict[str, Any] | None) -> list[str] | None:
+    """Player names on a resolved ``sleeper.teams`` entry, or ``None`` if unknown."""
+    if not isinstance(resolved_team, dict):
+        return None
+    players = resolved_team.get("players")
+    if not isinstance(players, list):
+        return None
+    names = [str(p).strip() for p in players if isinstance(p, str) and p.strip()]
+    return names or None
+
+
 def gather_news_items(
     news_service_factory: Callable[[], Any],
     live_names: list[str] | None,
     team_name: str | None,
     player_meta: dict[str, Any] | None = None,
+    roster_player_names: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Pull raw news items through the existing NewsService aggregator.
+
+    ``team_name`` is the FANTASY team's label and is NOT a news filter
+    (W21-F003: ``NewsService`` matches ``team_names`` against PLAYER mention
+    names, so a fantasy team name emptied the feed).  The roster filter is
+    ``roster_player_names`` -- the names of the players on that team's
+    roster.  ``None``/empty keeps the unfiltered path.
 
     Failure is non-fatal — the terminal payload still renders without
     news.  Service lookup is lazy so tests can pass a factory that
@@ -1316,7 +1369,7 @@ def gather_news_items(
         svc = news_service_factory()
         aggregated = svc.aggregate(
             player_names=live_names or [],
-            team_names=[team_name] if team_name else None,
+            team_names=list(roster_player_names) if roster_player_names else None,
             player_meta=player_meta,
         )
     except Exception:
@@ -1422,6 +1475,12 @@ def build_terminal_payload(
     # Defaults we populate further below.
     teamAggregates = {
         "totalValue": None,
+        # ``totalValue`` is the sum of PRICED PLAYERS only -- picks are not in
+        # it (documented known difference vs the client).  ``valueScope`` names
+        # that so the field cannot read as total asset equity; ``equity`` is the
+        # canonical player/pick/total decomposition (team_equity owner).
+        "valueScope": "players_only",
+        "equity": None,
         "delta7d": None,
         "delta30d": None,
         "delta90d": None,
@@ -1492,6 +1551,11 @@ def build_terminal_payload(
             resolved += 1
         coverage = resolved / max(1, len(current_players))
         teamAggregates["totalValue"] = total if resolved else None
+        # Unresolved roster (nothing priced) is UNKNOWN player value, not 0; and
+        # coverage < 1 (unpriced rostered players) makes any total a lower bound.
+        teamAggregates["equity"] = _team_equity_block(
+            contract, resolved_team, total if resolved else None, coverage
+        )
         teamAggregates["tiers"] = tiers if resolved else None
         teamAggregates["rosterCount"] = len(current_players)
         teamAggregates["coverage"] = round(coverage, 3)
@@ -1639,6 +1703,10 @@ def build_terminal_payload(
         import time as _time_mod
 
         now_ms = int(_time_mod.time() * 1000)
+        # W21-F001: two board rows sharing one name make news attribution unprovable.
+        from collections import Counter as _Counter
+
+        _name_counts = _Counter(_row_name(x).strip().lower() for x in rows)
         for r in roster_rows:
             points = _normalize_points(history_for(_row_name(r)))
             player_news = news_by_player.get(_row_name(r).lower(), [])
@@ -1663,6 +1731,7 @@ def build_terminal_payload(
                 row=r,
                 news_for_player=player_news,
                 now_ms=now_ms,
+                name_collision=_name_counts.get(_row_name(r).strip().lower(), 0) > 1,
             )
             entry = {
                 **ctx,
@@ -1699,6 +1768,9 @@ def build_terminal_payload(
             rows=rows,
             roster_set=roster_set,
         )
+        if portfolio_block is not None:
+            portfolio_block["valueScope"] = "players_only"
+            portfolio_block["equity"] = teamAggregates.get("equity")
 
     # Watchlist is user-wide, not team-specific.
     watch_names: list[str] = []
@@ -1790,6 +1862,8 @@ def build_terminal_payload(
         payload["watchlist"] = []
         payload["teamAggregates"] = {
             "totalValue": None,
+            "valueScope": "players_only",
+            "equity": None,
             "delta7d": None,
             "delta30d": None,
             "delta90d": None,

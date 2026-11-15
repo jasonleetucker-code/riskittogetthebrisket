@@ -1,0 +1,224 @@
+{
+ "_comment": [
+  "TC-A #15 -- cross-surface package-equity parity (Trade Calculator completion,",
+  "docs/trade/TRADE_CALCULATOR_COMPLETION_WORKSTREAM.md TC-A).  ONE fixture, asserted",
+  "in BOTH languages, through every surface that publishes an adjusted package gap:",
+  "  JS:     trade-logic.js tradeGapAdjusted / tradeImbalance / packageAdjustPair (the",
+  "          /trade headline), second-opinions.js evaluateOpinion +",
+  "          valueAdjustmentFromSideArrays (Second Opinions VA path),",
+  "          league-analysis.js gradeTradeSides (trade-history grade)",
+  "          -> frontend/__tests__/trade-package-equity-parity.test.js",
+  "  Python: analyze_trade.equity_verdict (Analyze Trade market lens),",
+  "          suggestions._va_gap (suggestions scorer + equalizer),",
+  "          finder_value_adjustment.score_with_value_adjustment (finder scorer),",
+  "          public_league.trade_grading.grade_trade_sides (public trade-history grade),",
+  "          monte_carlo._apply_consolidation_adjustment + symmetrize adjustedDelta",
+  "          -> tests/trade/test_package_equity_parity.py",
+  "Every expectation is derived in closed form from the ACTIVE model, NOT captured",
+  "from either implementation:",
+  "    U(side)     = sum_i q**i * v_i over positive values sorted descending, q = 0.78",
+  "    depth(side) = sum(side) - U(side)",
+  "    vaValue     = js_round(|depth(A) - depth(B)|)  (floor(x + 0.5)); 0 -> no adjustment",
+  "    vaRecipient = the side that discarded LESS depth",
+  "    adjustedGap = (sum(A) + vaA) - (sum(B) + vaB)    (A minus B; == U(A) - U(B) up to rounding)",
+  "Sign conventions per surface (each test states its own mapping):",
+  "  sideA is what the 'selected team' SENDS, sideB what it RECEIVES, so",
+  "  equity_verdict.vaAdjustedGap == -adjustedGap and a history grade's netAdjusted",
+  "  for the side that gave A == -adjustedGap.",
+  "Regenerate only when the active model deliberately changes (owner approval)."
+ ],
+ "model": "geom_q078_v1",
+ "q": 0.78,
+ "intentionalDifferences": [
+  {
+   "surface": "finder (src/trade/finder.py)",
+   "difference": "prices assets on the RETAIL market value (KTC Market for offense + picks, IDPTradeCalc for IDP), not on rankDerivedValue; and applies NO package adjustment unless every asset in the pairing has a market price (finder_value_adjustment._adjustment_for).",
+   "why": "the finder is an arbitrage engine between our board and the market; the market number is load-bearing (CLAUDE.md Trade Engines). Same math for the same numbers -- asserted here."
+  },
+  {
+   "surface": "Second Opinions (frontend/lib/second-opinions.js)",
+   "difference": "feeds each VENDOR's own values, not canonical ones, through the same active-model adjustment.",
+   "why": "it answers 'this source's prices plus our adjustment'. Same math for the same numbers -- asserted here."
+  },
+  {
+   "surface": "Analyze Trade market lens (src/trade/analyze_trade.py)",
+   "difference": "leaves unpriced assets (value None/<=0) and owned picks the sender is proven not to hold OUT of the package math; the /trade meter refuses a verdict on an unpriced asset and counts a not-held pick (hypothetical calculator, owner decision 2026-10-03).",
+   "why": "MISSING IS NEVER ZERO / the calculator is hypothetical. Not exercised by these fully priced, pick-ownership-free cases."
+  },
+  {
+   "surface": "3+-team trades",
+   "difference": "only the JS calculator models them (computeSideFlows / tradeImbalance nets); no Python surface prices a 3+-team pairing.",
+   "why": "the War Room and engines are 2-side only (TC-B scope). These cases are 2-side."
+  },
+  {
+   "surface": "rounding",
+   "difference": "equity_verdict and _va_gap round the gap to an integer; the JS headline keeps the raw float sum plus the integer adjustment.",
+   "why": "with integer inputs (every canonical value is an integer) the two are identical; the fixture uses integer values."
+  },
+  {
+   "surface": "external calculators (src/league_intel/cross_market.py)",
+   "difference": "price external calculators with the KTC model by design.",
+   "why": "'what KTC says' is a KTC question; not a canonical-equity surface, so not in this fixture."
+  }
+ ],
+ "cases": [
+  {
+   "id": "one_for_one",
+   "sideA": [
+    7200
+   ],
+   "sideB": [
+    6000
+   ],
+   "expected": {
+    "rawGap": 1200,
+    "vaValue": 0,
+    "vaRecipient": null,
+    "adjustedGap": 1200,
+    "adjustedA": 7200,
+    "adjustedB": 6000
+   }
+  },
+  {
+   "id": "stud_for_two",
+   "sideA": [
+    8200
+   ],
+   "sideB": [
+    5500,
+    4900
+   ],
+   "expected": {
+    "rawGap": -2200,
+    "vaValue": 1078,
+    "vaRecipient": "A",
+    "adjustedGap": -1122,
+    "adjustedA": 9278,
+    "adjustedB": 10400
+   }
+  },
+  {
+   "id": "stud_for_pile",
+   "sideA": [
+    9000
+   ],
+   "sideB": [
+    2000,
+    2000,
+    2000,
+    2000
+   ],
+   "expected": {
+    "rawGap": 1000,
+    "vaValue": 2274,
+    "vaRecipient": "A",
+    "adjustedGap": 3274,
+    "adjustedA": 11274,
+    "adjustedB": 8000
+   }
+  },
+  {
+   "id": "two_for_three_offense",
+   "sideA": [
+    6500,
+    3100
+   ],
+   "sideB": [
+    4200,
+    3900,
+    2600
+   ],
+   "expected": {
+    "rawGap": -1100,
+    "vaValue": 1194,
+    "vaRecipient": "A",
+    "adjustedGap": 94,
+    "adjustedA": 10794,
+    "adjustedB": 10700
+   }
+  },
+  {
+   "id": "idp_consolidation",
+   "sideA": [
+    4100
+   ],
+   "sideB": [
+    2300,
+    1900,
+    900
+   ],
+   "expected": {
+    "rawGap": -1000,
+    "vaValue": 770,
+    "vaRecipient": "A",
+    "adjustedGap": -230,
+    "adjustedA": 4870,
+    "adjustedB": 5100
+   }
+  },
+  {
+   "id": "picks_and_player",
+   "sideA": [
+    5200,
+    3400
+   ],
+   "sideB": [
+    4800,
+    2700,
+    1500
+   ],
+   "expected": {
+    "rawGap": -400,
+    "vaValue": 433,
+    "vaRecipient": "A",
+    "adjustedGap": 33,
+    "adjustedA": 9033,
+    "adjustedB": 9000
+   }
+  },
+  {
+   "id": "large_packages_5v6",
+   "sideA": [
+    3000,
+    2800,
+    2500,
+    2100,
+    1800
+   ],
+   "sideB": [
+    3300,
+    2600,
+    2400,
+    2000,
+    1500,
+    1200
+   ],
+   "expected": {
+    "rawGap": -800,
+    "vaValue": 529,
+    "vaRecipient": "A",
+    "adjustedGap": -271,
+    "adjustedA": 12729,
+    "adjustedB": 13000
+   }
+  },
+  {
+   "id": "near_even_2v1",
+   "sideA": [
+    6000,
+    300
+   ],
+   "sideB": [
+    6100
+   ],
+   "expected": {
+    "rawGap": 200,
+    "vaValue": 66,
+    "vaRecipient": "B",
+    "adjustedGap": 134,
+    "adjustedA": 6300,
+    "adjustedB": 6166
+   }
+  }
+ ]
+}

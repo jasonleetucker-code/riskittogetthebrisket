@@ -77,8 +77,8 @@ By C completion, **every valid ACTIVE league-supported draft-pick asset through 
 
 **Owner decision 2026-09-26 (binding; supersedes the 2026-08-13/14 "no hard gate" wording that stood here):**
 League MVP **requires meaningful team success** — the credited franchise must be in the championship playoff
-field **and** above .500 (live: current standings position under the league's real qualification rules;
-finalized: actual qualification + winning final record). Canonical rule: `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`
+field **and** .500 or better (live: current standings position under the league's real qualification rules;
+finalized: actual qualification + a .500-or-better final record). *(record half corrected 2026-09-29: .500 or better — exactly .500 counts)*. Canonical rule: `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`
 §3–§6.
 
 Offensive / Defensive Player of the Year, the Rookie of the Year awards and the positional awards do **not**

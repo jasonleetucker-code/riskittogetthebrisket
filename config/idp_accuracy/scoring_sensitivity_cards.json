@@ -1,0 +1,319 @@
+{
+  "version": "scoring_sensitivity_cards_v1",
+  "status": "RESEARCH_ONLY_NOT_FOR_PROMOTION",
+  "authority": "docs/owner/IDP_VALUATION_ACCURACY_DIRECTIVE_2026-10-25.md section 10 (scoring sensitivity) and section 13 (production safety)",
+  "productionScoringChanged": false,
+  "note": "Pre-registration. This file fixes the perturbation grid, the reference cards, the pools, the metrics, the bootstrap design and the contrast families BEFORE any result was computed. The git history of this PR carries the pre-registration commit; any later change to this file is a disclosed deviation in docs/valuation/idp_accuracy/E_SCORING_SENSITIVITY.md.",
+  "league": {
+    "leagueKey": "dynasty_main",
+    "sleeperLeagueId": "1312006700437352448",
+    "season": 2026,
+    "weeks": [1, 2, 3, 4, 5, 6],
+    "pinnedScoringFingerprint": "sf1:9e51824690d091f9"
+  },
+  "studyKeys": {
+    "solo": "idp_tkl_solo",
+    "assist": "idp_tkl_ast",
+    "tfl": "idp_tkl_loss",
+    "sack": "idp_sack",
+    "sack_yd": "idp_sack_yd",
+    "qb_hit": "idp_qb_hit",
+    "pd": "idp_pass_def",
+    "int": "idp_int",
+    "ff": "idp_ff",
+    "fr": "idp_fum_rec",
+    "def_td": "idp_def_td"
+  },
+  "idpCardKeys": [
+    "idp_tkl_solo",
+    "idp_tkl_ast",
+    "idp_tkl",
+    "idp_tkl_loss",
+    "idp_sack",
+    "idp_sack_yd",
+    "idp_qb_hit",
+    "idp_pass_def",
+    "idp_int",
+    "idp_int_ret_yd",
+    "idp_ff",
+    "idp_fum_rec",
+    "idp_fum_ret_yd",
+    "idp_def_td",
+    "idp_safe",
+    "idp_blk_kick"
+  ],
+  "expectedActualIdpBlock": {
+    "idp_tkl_solo": 1.33,
+    "idp_tkl_ast": 0.8,
+    "idp_tkl": 0.0,
+    "idp_tkl_loss": 4.24,
+    "idp_sack": 2.92,
+    "idp_sack_yd": 0.1111111111111111,
+    "idp_qb_hit": 2.12,
+    "idp_pass_def": 5.3,
+    "idp_int": 5.3,
+    "idp_int_ret_yd": 0.1111111111111111,
+    "idp_ff": 4.24,
+    "idp_fum_rec": 3.19,
+    "idp_fum_ret_yd": 0.1111111111111111,
+    "idp_def_td": 6.36,
+    "idp_safe": 5.3,
+    "idp_blk_kick": 5.3
+  },
+  "stacking": {
+    "rule": "Sleeper pays every card key independently on the stat counts of the stat line. A sack play carries idp_sack, idp_tkl_loss and idp_qb_hit counts and pays all three; it also carries idp_sack_yd. The combined idp_tkl key is priced 0 on the card, so solo + assist are never double-paid. This study rescores by the same dot product (stat counts times card rate), so stacking is reproduced exactly and never modelled.",
+    "evidence": "Lane A (PR claude/idp-a-scoring-manifest): 251 of 251 sack plays with a TFL or QB hit are awarded the stacked total and 0 of 251 the un-stacked alternative. This study re-derives that check through its own linear path and records it in the evidence file."
+  },
+  "oneAtATime": {
+    "multipliers": [0.0, 0.5, 1.5, 2.0],
+    "keys": ["solo", "assist", "tfl", "sack", "sack_yd", "qb_hit", "pd", "int", "ff", "fr", "def_td"],
+    "rationale": "Each of the eleven directive keys is multiplied alone by 0, 0.5, 1.5 and 2.0 around the actual 2026 card; every other key keeps its actual rate. 0 isolates a key's whole contribution; 0.5 and 1.5 are a local perturbation; 2.0 bounds the response. Return yards, safeties and blocked kicks are not varied (they are not directive keys; measured on 2026 weeks 1-6 interception return yards appear on about 1.2 percent of defensive player-weeks, fumble return yards on 0.3 percent, blocked kicks on 0.2 percent and safeties on none). Because a card key is a rate on a stat count, multiplying the rate by m moves a player's points by (m - 1) times that key's actual points, so one-at-a-time responses are exact and additive across keys; joint cards below add no cross terms except through the ranking, which is the point of running them."
+  },
+  "joint": [
+    {
+      "id": "no_enhancements",
+      "multipliers": {"tfl": 0.0, "pd": 0.0},
+      "rationale": "Removes the two scoring enhancements directive section 3 says were added to balance IDP against offense and to favor interior linemen (TFL) and cornerbacks (PD). Everything else stays at the actual rate. Question served: what do TFL and PD buy together?"
+    },
+    {
+      "id": "double_enhancements",
+      "multipliers": {"tfl": 2.0, "pd": 2.0},
+      "rationale": "Doubles both enhancements. Brackets the response of the two designed levers from above."
+    },
+    {
+      "id": "tackles_up",
+      "multipliers": {"solo": 1.5, "assist": 1.5},
+      "rationale": "Raises the stable, volume component (solo and assisted tackles) by half. Question served: does the linebacker case rest on tackle volume?"
+    },
+    {
+      "id": "tackles_down",
+      "multipliers": {"solo": 0.5, "assist": 0.5},
+      "rationale": "Halves tackle volume points. The mirror of tackles_up."
+    },
+    {
+      "id": "bigplay_up",
+      "multipliers": {"sack": 1.5, "qb_hit": 1.5, "int": 1.5, "ff": 1.5, "fr": 1.5, "def_td": 1.5},
+      "rationale": "Raises the six rare, spiky events (sack, QB hit, interception, forced fumble, fumble recovery, defensive touchdown) by half. TFL and PD are deliberately excluded: they are mid-frequency playmaking counts, not rare events, and have their own cards. Question served: does best ball reward volatility more when big plays pay more?"
+    },
+    {
+      "id": "bigplay_down",
+      "multipliers": {"sack": 0.5, "qb_hit": 0.5, "int": 0.5, "ff": 0.5, "fr": 0.5, "def_td": 0.5},
+      "rationale": "Halves the six big-play events. Mirror of bigplay_up."
+    },
+    {
+      "id": "tackles_only",
+      "multipliers": {"tfl": 0.0, "sack": 0.0, "sack_yd": 0.0, "qb_hit": 0.0, "pd": 0.0, "int": 0.0, "ff": 0.0, "fr": 0.0, "def_td": 0.0},
+      "zeroCardKeys": ["idp_int_ret_yd", "idp_fum_ret_yd", "idp_safe", "idp_blk_kick"],
+      "rationale": "Decomposition card, not a proposal: only solo and assisted tackles are paid among the IDP keys, at the actual rates. It is the stable-volume component of the actual card on its own. Special-teams points that Sleeper pays to defenders (st_tkl_solo and similar) stay in the fixed, unperturbed part of every card."
+    },
+    {
+      "id": "playmaking_only",
+      "multipliers": {"solo": 0.0, "assist": 0.0},
+      "rationale": "Decomposition card, not a proposal: the actual card with tackle volume removed, leaving TFL, sacks, QB hits, PD, turnovers and touchdowns. It is the event component of the actual card on its own."
+    }
+  ],
+  "reference": [
+    {
+      "id": "league_2025_actual",
+      "kind": "historical_actual",
+      "source": "Sleeper league 1180092661344120832 (the 2025 season of this league's own chain, previous_league_id of the 2026 league), scoring_settings fetched from the public Sleeper read API on 2026-10-26. That league had 10 teams and a smaller IDP lineup (2 DL, 2 LB, 2 DB); only its IDP scoring block is used here, never its roster format.",
+      "idpBlock": {
+        "idp_tkl_solo": 1.38,
+        "idp_tkl_ast": 0.83,
+        "idp_tkl": 0.0,
+        "idp_tkl_loss": 4.4,
+        "idp_sack": 3.03,
+        "idp_sack_yd": 0.1111111111111111,
+        "idp_qb_hit": 2.2,
+        "idp_pass_def": 4.4,
+        "idp_int": 6.6,
+        "idp_int_ret_yd": 0.1111111111111111,
+        "idp_ff": 4.4,
+        "idp_fum_rec": 3.3,
+        "idp_fum_ret_yd": 0.1111111111111111,
+        "idp_def_td": 6.6,
+        "idp_safe": 5.5,
+        "idp_blk_kick": 5.5
+      },
+      "rationale": "A real card this league actually played under. Its TFL and PD are close to the 2026 values; it pays interceptions more. A neighbouring point on the league's own scoring trajectory, not an external benchmark."
+    },
+    {
+      "id": "league_2024_actual",
+      "kind": "historical_actual",
+      "source": "Sleeper league 1090320428817592320 (the 2024 season, previous_league_id of the 2025 league), scoring_settings fetched from the public Sleeper read API on 2026-10-26. 10 teams, one DL / one LB / one DB / one IDP_FLEX; only its IDP scoring block is used.",
+      "idpBlock": {
+        "idp_tkl_solo": 1.5,
+        "idp_tkl_ast": 0.75,
+        "idp_tkl": 0.0,
+        "idp_tkl_loss": 5.0,
+        "idp_sack": 4.0,
+        "idp_sack_yd": 0.1,
+        "idp_qb_hit": 2.0,
+        "idp_pass_def": 6.0,
+        "idp_int": 12.0,
+        "idp_int_ret_yd": 0.1,
+        "idp_ff": 5.0,
+        "idp_fum_rec": 4.0,
+        "idp_fum_ret_yd": 0.1,
+        "idp_def_td": 6.0,
+        "idp_safe": 10.0,
+        "idp_blk_kick": 6.0
+      },
+      "rationale": "The earliest card in the league's chain: heavier on turnovers (interception 12), TFL 5, PD 6. The far end of the league's own history, a big-play-leaning reference with real provenance."
+    },
+    {
+      "id": "tackle_heavy_balanced",
+      "kind": "constructed",
+      "source": "Constructed by this study. NOT any platform's default and not claimed to match one.",
+      "idpBlock": {
+        "idp_tkl_solo": 1.5,
+        "idp_tkl_ast": 0.75,
+        "idp_tkl": 0.0,
+        "idp_tkl_loss": 1.5,
+        "idp_sack": 3.0,
+        "idp_sack_yd": 0.0,
+        "idp_qb_hit": 1.0,
+        "idp_pass_def": 2.0,
+        "idp_int": 4.0,
+        "idp_int_ret_yd": 0.0,
+        "idp_ff": 3.0,
+        "idp_fum_rec": 2.0,
+        "idp_fum_ret_yd": 0.0,
+        "idp_def_td": 6.0,
+        "idp_safe": 2.0,
+        "idp_blk_kick": 2.0
+      },
+      "rationale": "A tackle-volume-centred balanced card: a tackle is worth about as much as the actual card's, but TFL and PD are close to a solo tackle and the rare events pay moderately. It is the opposite pole from the actual card on the question the directive asks (do enhanced TFL and PD matter?) and is built so tackles carry the card."
+    },
+    {
+      "id": "big_play",
+      "kind": "constructed",
+      "source": "Constructed by this study. NOT any platform's default and not claimed to match one.",
+      "idpBlock": {
+        "idp_tkl_solo": 0.5,
+        "idp_tkl_ast": 0.25,
+        "idp_tkl": 0.0,
+        "idp_tkl_loss": 2.0,
+        "idp_sack": 6.0,
+        "idp_sack_yd": 0.1,
+        "idp_qb_hit": 3.0,
+        "idp_pass_def": 4.0,
+        "idp_int": 9.0,
+        "idp_int_ret_yd": 0.1,
+        "idp_ff": 7.0,
+        "idp_fum_rec": 5.0,
+        "idp_fum_ret_yd": 0.1,
+        "idp_def_td": 9.0,
+        "idp_safe": 8.0,
+        "idp_blk_kick": 8.0
+      },
+      "rationale": "A big-play card: tackles are cheap and sacks, turnovers and touchdowns pay a multiple of the actual card. It is the volatile pole used for the best-ball question."
+    }
+  ],
+  "analysis": {
+    "seed": 20261026,
+    "pool": {
+      "grouping": "src.ros.lineup.lineup_position of the Sleeper directory position (DL, LB, DB; QB, RB, WR, TE offense). A DL/LB hybrid belongs to his listed position group; Sleeper eligibility only decides which slots he may fill.",
+      "minPlayedGames2026": 4,
+      "minPlayedGamesSensitivity": [3, 5],
+      "playedDefinition": "the host line shows a game played (gp > 0), any defensive or offensive snap, or non-zero points under the actual card; a team's bye is excluded, a team game without the player is a DNP (best ball pays 0.0) and is not a played week",
+      "archetypes": "EDGE (nflverse DE, or an OLB the host also lists at DL), DT (DT/NT), ILB (ILB/MLB), OLB (other outside backers), CB, S. Provenance fields only, never performance. Vendored from Lane D (PR #1941); unresolved fine positions are reported and never merged into a fine archetype."
+    },
+    "tiers": {
+      "elite": [1, 12],
+      "upperStarter": [13, 24],
+      "averageStarter": [25, 36],
+      "firstBench": [37, 48],
+      "starters": [1, 36],
+      "rankBy": "points per played game under the configuration; ties by player id"
+    },
+    "metrics": {
+      "production": "mean points per played game of the elite, upper-starter, average-starter, first-bench tiers and of all 36 starters; group share of IDP starter points",
+      "eliteSeparation": "elite tier mean minus average-starter tier mean, in points per game, and their ratio",
+      "starterReplacementGap": {
+        "rankBased": "starter-tier mean minus first-bench mean (a pure scoring-shape quantity)",
+        "freeAgentBased": "starter-tier mean minus the median conditional ppg of the top five production-qualified free agents (unrostered, healthy by host status, at least two appearances and one in weeks 4-6). Hindsight-selected and therefore an upward-biased replacement level (Lane B measured about half of the free-agent level surviving out of sample), so the gap is a lower bound",
+        "relative": "gap divided by the starter-tier mean"
+      },
+      "predictability": {
+        "splitHalf": "all ten balanced 3|3 partitions of the six weeks, Spearman correlation of the two halves' per-player conditional ppg across the pool (players with at least 2 played games in each half), Spearman-Brown corrected, averaged over partitions",
+        "outOfSampleSeparation": "rank on one half, measure the other: mean ppg in the held-out half of the half-A elite tier minus that of the half-A average-starter tier, averaged over the ten partitions and both directions (labelled within-2026 split-half, not forward)",
+        "yearOverYear": "2024 to 2025 Spearman correlation of conditional ppg (players with at least 8 played games in each season) with both seasons RESCORED under the configuration; 2025 to 2026-weeks-1-6 as a secondary row (at least 8 and at least 4 games). Labelled a rescored shape reference: neither season was paid under these cards",
+        "eventStability": "the same split-half and year-over-year correlations for each priced event count per game (config-free)"
+      },
+      "weeklyVariance": "median within-player weekly standard deviation and coefficient of variation (SD / mean) of the 36 starters; one-way ICC (between-player share of weekly variance) over the pool",
+      "bestBall": {
+        "population": "realized 2026 weeks 1-6 on the 12 current rosters of the league, aggregated only (no team, manager or per-roster number is published)",
+        "solver": "exact vectorized best-ball lineup solver (Lane D, pinned here to src.ros.lineup.solve_optimal_assignment)",
+        "marginal": "points per week of the optimal lineup with the player minus the lineup with a replacement: the median-scoring roster among the rank 1-5 qualified free agents for each slot family the player can fill, own roster only",
+        "deterministic": "the same marginal in a world where every player scores his expected points per week (unconditional mean, DNP weeks counted as zero) every week",
+        "premium": "best-ball marginal minus deterministic marginal, in points per week: the value of the format over a season-long ppg lineup"
+      },
+      "crossPosition": "elite-tier ppg and best-ball marginal of IDP DL/LB/DB under each configuration beside offense QB/RB/WR/TE under the actual card, same procedure. Raw fantasy-point utility only: NOT a dynasty value and NOT a market price"
+    },
+    "bootstrap": {
+      "levels": "scheme W: every player's played weeks are resampled with replacement and the whole configuration is re-scored and re-ranked; deviations about the player's own mean are inflated by sqrt(n/(n-1)) so a six-week sample is not under-dispersed. 500 replicates, paired across configurations (the same resampled weeks for all of them), so a contrast between two configurations is a paired contrast.",
+      "reliability": "scheme P: players are resampled with replacement within the group, 500 replicates, same resamples for all configurations.",
+      "bestBall": "scheme B: the six weeks are resampled as blocks (all players share the resampled weeks, preserving cross-player correlation) and the whole best-ball procedure is re-run, 200 replicates, key configurations only.",
+      "interval": "basic (reverse-percentile) 95 percent interval, 2 theta-hat minus the quantiles of the replicates; this corrects the first-order upward bias that re-ranking adds to elite-tier means. Contrast intervals are basic intervals of the paired difference. Families of contrasts are reported with a Bonferroni-adjusted interval (level 1 - 0.05 / m).",
+      "replicates": {"W": 500, "P": 500, "B": 200}
+    },
+    "keyConfigs": [
+      "actual",
+      "oat:tfl:x0",
+      "oat:tfl:x2",
+      "oat:pd:x0",
+      "oat:pd:x2",
+      "joint:no_enhancements",
+      "joint:double_enhancements",
+      "joint:tackles_up",
+      "joint:tackles_down",
+      "joint:bigplay_up",
+      "joint:bigplay_down",
+      "ref:tackle_heavy_balanced",
+      "ref:big_play"
+    ],
+    "contrasts": {
+      "Q1": {
+        "question": "TFL: does a higher TFL reward help interior defensive linemen (DT) or elite edge rushers (EDGE)?",
+        "design": "TFL multiplied by 2 versus by 0, all else actual; archetype pools with at least 4 played games.",
+        "items": [
+          {"id": "Q1.1", "definition": "(elite-tier ppg gain of DT) minus (elite-tier ppg gain of EDGE), TFL x2 minus TFL x0", "scheme": "W"},
+          {"id": "Q1.2", "definition": "(average-starter-tier ppg gain of DT) minus (that of EDGE), TFL x2 minus TFL x0", "scheme": "W"},
+          {"id": "Q1.3", "definition": "change in the number of DT among the 36 best DL (by DL-group ppg), TFL x2 minus TFL x0", "scheme": "W"}
+        ]
+      },
+      "Q2": {
+        "question": "PD: does enhanced PD scoring create elite cornerbacks or only a deeper pool?",
+        "design": "PD multiplied by 2 versus by 0, all else actual; CB and S archetype pools.",
+        "items": [
+          {"id": "Q2.1", "definition": "(CB elite-tier ppg gain) minus (CB first-bench ppg gain), PD x2 minus PD x0; positive means the elite gain more than the pool", "scheme": "W"},
+          {"id": "Q2.2", "definition": "change in CB elite separation (elite minus average-starter tier), PD x2 minus PD x0", "scheme": "W"},
+          {"id": "Q2.3", "definition": "change in CB out-of-sample elite separation (split-half), PD x2 minus PD x0", "scheme": "P"},
+          {"id": "Q2.4", "definition": "change in CB split-half reliability (Spearman-Brown), PD x2 minus PD x0", "scheme": "P"},
+          {"id": "Q2.5", "definition": "change in (CB elite ppg minus S elite ppg), PD x2 minus PD x0", "scheme": "W"}
+        ]
+      },
+      "Q3": {
+        "question": "LB: does positional scarcity outweigh lower explosiveness?",
+        "design": "Actual card. LB minus DL and LB minus DB on each metric.",
+        "items": [
+          {"id": "Q3.1", "definition": "relative free-agent-based starter-replacement gap, LB minus DL and LB minus DB", "scheme": "W"},
+          {"id": "Q3.2", "definition": "relative rank-based starter-replacement gap, LB minus DL and LB minus DB", "scheme": "W"},
+          {"id": "Q3.3", "definition": "median weekly coefficient of variation of the 36 starters, LB minus DL and LB minus DB", "scheme": "W"},
+          {"id": "Q3.4", "definition": "mean best-ball marginal per week of the 36 starters (rostered), LB minus DL and LB minus DB", "scheme": "B"}
+        ]
+      },
+      "Q4": {
+        "question": "Best ball: does the format change the ranking of volatile versus stable defenders?",
+        "design": "Actual card, plus the big-play and tackle-heavy reference cards for the dose response.",
+        "items": [
+          {"id": "Q4.1", "definition": "slope of the best-ball premium (best-ball minus deterministic marginal, points per week) on weekly CV, controlling for ppg and group, rostered IDP pool", "scheme": "P"},
+          {"id": "Q4.2", "definition": "the same slope with CV and ppg measured on one half of the weeks and the premium on the other half, averaged over the ten partitions and both directions (ex ante)", "scheme": "P"},
+          {"id": "Q4.3", "definition": "Spearman rank correlation of the deterministic and best-ball marginals across the rostered IDP pool", "scheme": "P"},
+          {"id": "Q4.4", "definition": "Q4.1 slope under the big-play card minus under the tackle-heavy balanced card", "scheme": "P"}
+        ]
+      }
+    }
+  }
+}

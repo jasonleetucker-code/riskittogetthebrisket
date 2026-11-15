@@ -460,11 +460,15 @@ def percentile_to_value(
     """Final Framework step 2→3: convert a percentile to a display value.
 
     Input:
-        percentile = (rank − 1) / (N − 1), clamped to [0, 1].  In the
+        percentile = (rank − 1) / (N − 1), bounded by the tail policy
+        (``src/canonical/tail_policy.py::clamp_percentile``).  In the
         LIVE pipeline N is the fixed 500-rank combined-pool reference
-        (``data_contract._PERCENTILE_REFERENCE_N``) for every source —
-        ranks past 500 clamp to p=1.0 and share the curve's tail
-        value.  (The per-source-native-pool design this docstring
+        (``data_contract._PERCENTILE_REFERENCE_N``) for every source.
+        500 is the coordinate unit, not the tail: ranks past 500 keep
+        resolving (p > 1) and only ranks past ``TAIL_SATURATION_RANK``
+        share the curve's tail value (W30-F023; this docstring used to
+        say ranks past 500 clamp to p=1.0, which was the pre-B4
+        behaviour).  (The per-source-native-pool design this docstring
         previously described was retired with the 2026-04-21 ladder
         translations; offline fit tooling may still pass native-pool
         percentiles.)
@@ -474,8 +478,8 @@ def percentile_to_value(
 
     Properties:
         - percentile=0 (source's rank 1) always returns 9999.
-        - percentile=1 (source's last-ranked) decays to the curve's
-          long tail.  Exact floor depends on (midpoint, slope).
+        - larger percentiles decay toward the curve's long tail, up to
+          the tail-policy bound.  Exact floor depends on (midpoint, slope).
         - Source pool size is absorbed into the percentile — a 100-
           deep source and a 500-deep source both map their rank-1
           to p=0 → V=9999, and their rank-50 to different p values

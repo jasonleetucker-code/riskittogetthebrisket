@@ -8,6 +8,8 @@
 import { useEffect, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { Card } from "../shared-server.jsx";
+import OddsExperimentalNote from "@/components/league/OddsExperimentalNote";
+import { fmtSimulatedShare } from "@/lib/odds-disclosure";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
@@ -51,7 +53,16 @@ const LABEL_COLORS = {
   "Insufficient evidence": "var(--subtext)",
 };
 
+// Simulated odds: whole percents, "<1%" / ">99%" at the extremes (the
+// season simulator's output is an estimate until the outcome is final).
 function fmtPct(v) {
+  if (v == null || !Number.isFinite(Number(v))) return "—";
+  return fmtSimulatedShare(Number(v));
+}
+
+// The Strength column is a DETERMINISTIC team-strength percentile, not a
+// simulated probability: it keeps its own exact one-decimal form.
+function fmtPercentile(v) {
   if (v == null || !Number.isFinite(Number(v))) return "—";
   return `${(Number(v) * 100).toFixed(1)}%`;
 }
@@ -98,6 +109,7 @@ export default function RosTradeDeadlineSection() {
 
   return (
     <Card title="Trade Deadline Dashboard">
+      <OddsExperimentalNote />
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
         Read-only Buyer/Seller direction per team based on ROS playoff +
         championship odds + team strength + roster age. Informational only —
@@ -130,7 +142,7 @@ export default function RosTradeDeadlineSection() {
                 {fmtPct(row.playoffOdds)}
               </td>
               <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>
-                {fmtPct(row.rosStrengthPercentile)}
+                {fmtPercentile(row.rosStrengthPercentile)}
               </td>
               <td>
                 <div

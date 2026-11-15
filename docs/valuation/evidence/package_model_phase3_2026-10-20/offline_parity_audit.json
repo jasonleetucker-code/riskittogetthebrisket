@@ -1,0 +1,2386 @@
+{
+ "purpose": "Offline-parity audit of the guarded production ledger evaluation (research only)",
+ "window": [
+  "2026-07-14",
+  "2026-10-18"
+ ],
+ "variants": {
+  "fallback": {
+   "roster_count": 12,
+   "bonus_rec_te": 0.0,
+   "fetched_from_sleeper": false
+  },
+  "live": {
+   "roster_count": 12,
+   "bonus_rec_te": 0.0,
+   "fetched_from_sleeper": true
+  },
+  "ctx2025": {
+   "roster_count": 10,
+   "bonus_rec_te": 0.35,
+   "fetched_from_sleeper": true
+  }
+ },
+ "fallbackVsLive": {
+  "boards": 138,
+  "boardsWithAnyChange": 0,
+  "rowsCompared": 136558,
+  "rowsChanged": 0,
+  "maxAbsDelta": 0.0
+ },
+ "fallbackVsCtx2025Sensitivity": {
+  "boards": 138,
+  "boardsWithAnyChange": 135,
+  "rowsCompared": 136558,
+  "rowsChanged": 8370,
+  "maxAbsDelta": 721.0
+ },
+ "perBoard": [
+  {
+   "boardDate": "2026-07-14",
+   "fallback_vs_live": {
+    "rows": 971,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 971,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 717.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-15",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 686.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-16",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 685.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-17",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 665.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-18",
+   "fallback_vs_live": {
+    "rows": 974,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 974,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 674.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-19",
+   "fallback_vs_live": {
+    "rows": 974,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 974,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 671.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-20",
+   "fallback_vs_live": {
+    "rows": 974,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 974,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 682.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-21",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 640.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-22",
+   "fallback_vs_live": {
+    "rows": 974,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 974,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 644.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-23",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 644.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-24",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 645.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-25",
+   "fallback_vs_live": {
+    "rows": 975,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 975,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 646.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-26",
+   "fallback_vs_live": {
+    "rows": 989,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 989,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 683.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-27",
+   "fallback_vs_live": {
+    "rows": 992,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 992,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 639.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-28",
+   "fallback_vs_live": {
+    "rows": 991,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 991,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 639.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-29",
+   "fallback_vs_live": {
+    "rows": 991,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 991,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 639.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-30",
+   "fallback_vs_live": {
+    "rows": 990,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 990,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 638.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-07-31",
+   "fallback_vs_live": {
+    "rows": 988,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 988,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 634.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-01",
+   "fallback_vs_live": {
+    "rows": 989,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 989,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 636.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-02",
+   "fallback_vs_live": {
+    "rows": 984,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 984,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 655.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-03",
+   "fallback_vs_live": {
+    "rows": 874,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 874,
+    "changed": 62,
+    "onlyInOne": 10,
+    "maxAbsDelta": 408.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-04",
+   "fallback_vs_live": {
+    "rows": 984,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 984,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 684.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-05",
+   "fallback_vs_live": {
+    "rows": 984,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 984,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 655.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-06",
+   "fallback_vs_live": {
+    "rows": 875,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 875,
+    "changed": 62,
+    "onlyInOne": 10,
+    "maxAbsDelta": 434.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-07",
+   "fallback_vs_live": {
+    "rows": 984,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 984,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 638.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-08",
+   "fallback_vs_live": {
+    "rows": 984,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 984,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 640.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-09",
+   "fallback_vs_live": {
+    "rows": 985,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 985,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 641.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-10",
+   "fallback_vs_live": {
+    "rows": 985,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 985,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 639.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-11",
+   "fallback_vs_live": {
+    "rows": 984,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 984,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 639.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-12",
+   "fallback_vs_live": {
+    "rows": 984,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 984,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 639.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-13",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 707.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-14",
+   "fallback_vs_live": {
+    "rows": 973,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 973,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 709.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-15",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 713.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-16",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 716.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-17",
+   "fallback_vs_live": {
+    "rows": 972,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 972,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 721.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-18",
+   "fallback_vs_live": {
+    "rows": 982,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 982,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 635.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-19",
+   "fallback_vs_live": {
+    "rows": 982,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 982,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 631.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-20",
+   "fallback_vs_live": {
+    "rows": 985,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 985,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 651.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-21",
+   "fallback_vs_live": {
+    "rows": 986,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 986,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 658.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-22",
+   "fallback_vs_live": {
+    "rows": 986,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 986,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 664.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-23",
+   "fallback_vs_live": {
+    "rows": 987,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 987,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 651.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-24",
+   "fallback_vs_live": {
+    "rows": 986,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 986,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 655.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-25",
+   "fallback_vs_live": {
+    "rows": 985,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 985,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 655.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-26",
+   "fallback_vs_live": {
+    "rows": 983,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 983,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 646.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-27",
+   "fallback_vs_live": {
+    "rows": 983,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 983,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 646.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-28",
+   "fallback_vs_live": {
+    "rows": 994,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 994,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 650.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-29",
+   "fallback_vs_live": {
+    "rows": 994,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 994,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 650.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-30",
+   "fallback_vs_live": {
+    "rows": 994,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 994,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 646.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-08-31",
+   "fallback_vs_live": {
+    "rows": 994,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 994,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 645.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-01",
+   "fallback_vs_live": {
+    "rows": 997,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 997,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 645.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-02",
+   "fallback_vs_live": {
+    "rows": 995,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 995,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 640.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-03",
+   "fallback_vs_live": {
+    "rows": 996,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 996,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 636.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-04",
+   "fallback_vs_live": {
+    "rows": 996,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 996,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 635.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-05",
+   "fallback_vs_live": {
+    "rows": 994,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 994,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 633.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-06",
+   "fallback_vs_live": {
+    "rows": 958,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 958,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 611.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-07",
+   "fallback_vs_live": {
+    "rows": 958,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 958,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 613.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-08",
+   "fallback_vs_live": {
+    "rows": 958,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 958,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 622.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-09",
+   "fallback_vs_live": {
+    "rows": 957,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 957,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 618.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-10",
+   "fallback_vs_live": {
+    "rows": 959,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 959,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 621.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-11",
+   "fallback_vs_live": {
+    "rows": 960,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 960,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 624.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-12",
+   "fallback_vs_live": {
+    "rows": 960,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 960,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 599.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-13",
+   "fallback_vs_live": {
+    "rows": 963,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 963,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 603.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-14",
+   "fallback_vs_live": {
+    "rows": 963,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 963,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 600.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-15",
+   "fallback_vs_live": {
+    "rows": 962,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 962,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 597.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-16",
+   "fallback_vs_live": {
+    "rows": 962,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 962,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 594.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-17",
+   "fallback_vs_live": {
+    "rows": 967,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 967,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 592.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-18",
+   "fallback_vs_live": {
+    "rows": 966,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 966,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 591.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-19",
+   "fallback_vs_live": {
+    "rows": 970,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 970,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 587.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-20",
+   "fallback_vs_live": {
+    "rows": 968,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 968,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 585.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-21",
+   "fallback_vs_live": {
+    "rows": 1020,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1020,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 592.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-22",
+   "fallback_vs_live": {
+    "rows": 1019,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1019,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 583.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-23",
+   "fallback_vs_live": {
+    "rows": 1019,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1019,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 583.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-24",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 581.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-25",
+   "fallback_vs_live": {
+    "rows": 1019,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1019,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 575.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-26",
+   "fallback_vs_live": {
+    "rows": 1019,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1019,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 574.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-27",
+   "fallback_vs_live": {
+    "rows": 1019,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1019,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 572.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-28",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 571.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-29",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 570.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-09-30",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 569.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-02",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 569.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-03",
+   "fallback_vs_live": {
+    "rows": 1019,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1019,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 568.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-04",
+   "fallback_vs_live": {
+    "rows": 1020,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1020,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 568.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-05",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 565.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-06",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 564.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-06",
+   "fallback_vs_live": {
+    "rows": 1017,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1017,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 563.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-06",
+   "fallback_vs_live": {
+    "rows": 1016,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1016,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 562.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-07",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 562.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-07",
+   "fallback_vs_live": {
+    "rows": 850,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 850,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   }
+  },
+  {
+   "boardDate": "2026-10-07",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 573.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-07",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 584.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-08",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-08",
+   "fallback_vs_live": {
+    "rows": 849,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 849,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   }
+  },
+  {
+   "boardDate": "2026-10-08",
+   "fallback_vs_live": {
+    "rows": 1017,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1017,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-09",
+   "fallback_vs_live": {
+    "rows": 1018,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1018,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 570.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-09",
+   "fallback_vs_live": {
+    "rows": 1017,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1017,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 555.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-09",
+   "fallback_vs_live": {
+    "rows": 1016,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1016,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 555.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-09",
+   "fallback_vs_live": {
+    "rows": 1017,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1017,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 562.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-10",
+   "fallback_vs_live": {
+    "rows": 1015,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1015,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 570.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-10",
+   "fallback_vs_live": {
+    "rows": 1016,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1016,
+    "changed": 62,
+    "onlyInOne": 12,
+    "maxAbsDelta": 313.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-10",
+   "fallback_vs_live": {
+    "rows": 1015,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1015,
+    "changed": 62,
+    "onlyInOne": 12,
+    "maxAbsDelta": 313.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-10",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 12,
+    "maxAbsDelta": 327.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-10",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 569.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-11",
+   "fallback_vs_live": {
+    "rows": 1004,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1004,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 572.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-11",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 594.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-11",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 586.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-12",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 584.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-12",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 585.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-12",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 587.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-12",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 591.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-13",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 598.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-13",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 607.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-13",
+   "fallback_vs_live": {
+    "rows": 1004,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1004,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 604.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-14",
+   "fallback_vs_live": {
+    "rows": 1004,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1004,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 605.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-14",
+   "fallback_vs_live": {
+    "rows": 1004,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1004,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 603.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-14",
+   "fallback_vs_live": {
+    "rows": 1004,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1004,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 607.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-14",
+   "fallback_vs_live": {
+    "rows": 1003,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1003,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 607.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-14",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-15",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-15",
+   "fallback_vs_live": {
+    "rows": 1007,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1007,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-15",
+   "fallback_vs_live": {
+    "rows": 1007,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1007,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-15",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 610.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-16",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 615.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-16",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 627.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-16",
+   "fallback_vs_live": {
+    "rows": 846,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 846,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   }
+  },
+  {
+   "boardDate": "2026-10-16",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 609.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-16",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 609.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-17",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 609.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-17",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 609.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-17",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 607.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-17",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 605.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-17",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 603.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-17",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 602.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-18",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 607.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-18",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-18",
+   "fallback_vs_live": {
+    "rows": 1005,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1005,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-18",
+   "fallback_vs_live": {
+    "rows": 1006,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1006,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-18",
+   "fallback_vs_live": {
+    "rows": 1004,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1004,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 608.0,
+    "changedPicks": 62
+   }
+  },
+  {
+   "boardDate": "2026-10-18",
+   "fallback_vs_live": {
+    "rows": 1003,
+    "changed": 0,
+    "onlyInOne": 0,
+    "maxAbsDelta": 0.0,
+    "changedPicks": 0
+   },
+   "fallback_vs_ctx2025": {
+    "rows": 1003,
+    "changed": 62,
+    "onlyInOne": 4,
+    "maxAbsDelta": 582.0,
+    "changedPicks": 62
+   }
+  }
+ ]
+}

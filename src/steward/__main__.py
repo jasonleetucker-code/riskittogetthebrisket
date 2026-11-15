@@ -7,9 +7,10 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import subprocess
+import time
 
 from .planner import plan, satisfy
-from .receipts import run_receipt
+from .receipts import execution_span, run_receipt
 from .repository import inventory, phase_tasks, github_disposition, context, reconcile, work_units
 from .routing import recommend
 from .store import StewardStore
@@ -186,6 +187,10 @@ def main(argv=None):
         "--save", action="store_true", help="persist observations and append a run receipt"
     )
     brief.add_argument("--available-model", action="append", default=[])
+    # Structured attribution of the saved evidence. Supply only what is actually known;
+    # omitted fields stay absent and the record reads as unattributed.
+    for field in ("session-id", "provider", "model"):
+        brief.add_argument(f"--producer-{field}")
     route = sub.add_parser("route")
     route.add_argument("task", type=Path)
     route.add_argument("--owner", type=Path)
@@ -243,6 +248,10 @@ def main(argv=None):
             or movement["classification"] in {"UNKNOWN_REQUIRES_INSPECTION", "RELEVANT_BASE_MOVE"}
             else 0
         )
+    if args.command == "brief" and not args.save:
+        producer_flags = (args.producer_session_id, args.producer_provider, args.producer_model)
+        if any(flag is not None for flag in producer_flags):
+            parser.error("--producer-* attribution is recorded only with --save")
     if args.command == "context":
         print(json.dumps(context(repo, args.paths, max_chars=args.max_chars), indent=2))
         return 0
@@ -262,8 +271,36 @@ def main(argv=None):
     try:
         if args.command == "brief":
             started = datetime.now(timezone.utc).isoformat()
-            remote = github_snapshot() if args.github else None
+            observations = []
+            if args.github:
+                step_started = datetime.now(timezone.utc).isoformat()
+                step_ns = time.perf_counter_ns()
+                remote = github_snapshot()
+                observations.append(
+                    (
+                        "tool",
+                        "github_snapshot",
+                        step_started,
+                        datetime.now(timezone.utc).isoformat(),
+                        (time.perf_counter_ns() - step_ns) / 1_000_000,
+                        ["github:main", "github:open-work"],
+                    )
+                )
+            else:
+                remote = None
+            step_started = datetime.now(timezone.utc).isoformat()
+            step_ns = time.perf_counter_ns()
             result = build_brief(repo, store, args.available_model, remote)
+            observations.append(
+                (
+                    "plan",
+                    "build_brief",
+                    step_started,
+                    datetime.now(timezone.utc).isoformat(),
+                    (time.perf_counter_ns() - step_ns) / 1_000_000,
+                    ["repository:HEAD", "steward:campaign-state"],
+                )
+            )
             if args.save:
                 knowledge_revision, _ = store.read("knowledge_revision")
                 knowledge = store.retrieve("campaign")
@@ -281,6 +318,29 @@ def main(argv=None):
                     routes=result["routing"],
                     started_at=started,
                 )
+                producer = {
+                    key: value
+                    for key, value in (
+                        ("session_id", args.producer_session_id),
+                        ("provider", args.producer_provider),
+                        ("model", args.producer_model),
+                    )
+                    if value is not None
+                }
+                receipt["execution_spans"] = [
+                    execution_span(
+                        receipt,
+                        phase=phase,
+                        action=action,
+                        started_at=step_started,
+                        ended_at=step_ended,
+                        duration_ms=duration_ms,
+                        status="DONE",
+                        evidence_refs=refs,
+                        producer=producer,
+                    )
+                    for phase, action, step_started, step_ended, duration_ms, refs in observations
+                ]
                 raw = {
                     "source": "steward brief",
                     "at": started,
@@ -288,6 +348,8 @@ def main(argv=None):
                     "content": {"receipt": receipt, "report": result, "github": remote},
                     "complete": True,
                 }
+                if producer:
+                    raw["producer"] = producer
                 prior_revision, prior = store.read("campaign")
                 if prior_revision != result["state_revision"]:
                     raise ValueError("campaign changed during report; rerun before saving")

@@ -1,0 +1,38 @@
+{
+  "layoutKind": "two_column",
+  "mustBeIgnored": [],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Patrick Mahomes",
+          "text": "Patrick Mahomes"
+        },
+        {
+          "boardName": "2029 Round 3",
+          "text": "2029 3rd"
+        },
+        {
+          "boardName": null,
+          "status": "needs_confirmation",
+          "text": "Byron Young"
+        }
+      ],
+      "label": "Side A"
+    },
+    {
+      "assets": [
+        {
+          "boardName": "Bijan Robinson",
+          "text": "Bijan Robinson"
+        },
+        {
+          "boardName": "2027 Mid 1st",
+          "text": "2027 Mid 1st"
+        }
+      ],
+      "label": "Side B"
+    }
+  ],
+  "strict": false
+}

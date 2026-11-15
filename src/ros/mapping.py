@@ -21,7 +21,6 @@ from __future__ import annotations
 import difflib
 import json
 from dataclasses import dataclass
-from typing import Iterable
 
 from src.ros import ROS_DATA_DIR
 from src.utils.name_clean import (
@@ -63,18 +62,13 @@ def _load_overrides() -> dict[str, str]:
     if not path.exists():
         return {}
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return {}
     raw = data.get("overrides")
     if not isinstance(raw, dict):
         return {}
     return {str(k): str(v) for k, v in raw.items() if v}
-
-
-def _candidate_pool(canonical_universe: Iterable[str]) -> set[str]:
-    """Index the canonical universe for fuzzy matching."""
-    return {_normalize(name) for name in canonical_universe if name}
 
 
 def resolve_player(

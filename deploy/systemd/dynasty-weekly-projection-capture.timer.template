@@ -1,0 +1,29 @@
+[Unit]
+Description=Weekly projection pool capture schedule for __SERVICE_NAME__
+
+# WHEN, AND WHY THESE FOUR MOMENTS:
+#   Tue 14:10 UTC  the week's first full projections ahead of the Wednesday
+#                  waiver run — the baseline a FAAB / streaming decision is
+#                  made on.  NOTE: until Sleeper rolls its week, the
+#                  "current week" of a Tuesday run can be the week just
+#                  played (Monday night included) — those rows are POST-game;
+#   Thu 14:10 UTC  after the first practice reports, before Thursday Night;
+#   Sat 14:10 UTC  after Friday's final injury designations;
+#   Sun 14:10 UTC  Sunday morning US time, before the 17:00/18:00 UTC
+#                  kickoffs — but AFTER an international (London / Europe)
+#                  09:30 ET game has started.
+# So a capture is NOT guaranteed pre-kickoff for every game in it.  Every
+# capture records its real fetchedAt; a backtest must keep, per player, only
+# captures fetched before THAT player's kickoff (the same rule as
+# sleeper_weekly_projections.lock_baseline_at_kickoff), never "the week's
+# capture".  Each run also captures the next three weeks; unchanged content
+# is not re-written, so extra firings cost one polite request per source and
+# nothing on disk.  A Wednesday season opener is covered by the Tuesday run.
+[Timer]
+OnCalendar=Tue,Thu,Sat,Sun *-*-* 14:10:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+Unit=__SERVICE_NAME__-weekly-projection-capture.service
+
+[Install]
+WantedBy=timers.target
