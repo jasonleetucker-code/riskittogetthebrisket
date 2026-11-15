@@ -240,9 +240,14 @@ def test_corrected_patch_keeps_idptc_value_direct_and_ktc_on_its_own_rank(raw, b
 
 def test_identity_csv_override_and_incumbent_threshold_change_nothing(raw, base, tmp_path):
     paths = {}
+    # Copy from the tree this build actually reads (the pinned board under
+    # ``pinned_board_inputs``), never ``audit.CSV_DIR`` -- that is today's
+    # CSVs/site_raw, so the "identity" override silently swapped in the latest
+    # KTC refresh and failed Deploy Production on 2026-11-15.
+    site_raw = dc._default_input_root() / "CSVs" / "site_raw"
     for key in audit.KTC_KEYS:
         dst = tmp_path / f"{key}.csv"
-        audit.write_mapped_csv(audit.CSV_DIR / f"{key}.csv", dst, lambda v: v)
+        audit.write_mapped_csv(site_raw / f"{key}.csv", dst, lambda v: v)
         paths[key] = dst
     before = (dict(dc._SOURCE_CSV_PATHS), dc._hampel_filter_per_player)
     same_csv = vr.build(raw, vr.csv_override_spec(paths))
