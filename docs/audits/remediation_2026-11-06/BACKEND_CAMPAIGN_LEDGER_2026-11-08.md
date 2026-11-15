@@ -79,3 +79,17 @@ independently reviewed and passed exact-head PR Validation.
 | 12 | MD-107 Monte Carlo `valueUncertainty: unavailable` | MERGED, DEPLOYED (`4fc4b2ac5`) | #2210 `4fc4b2ac5` | route needs sign-in; output not observed in production |
 | 5 | MD-112 / Part 9A NO TRANSACTION status-quo record | MERGED, deploy pending | #2211 `bfdc3c0b1` | best-alternative opportunity cost needs an owner ranking rule |
 | — | Records | MERGED | #2204 `bf25b3f4d` | |
+
+## Checkpoint 2026-11-15 (night): deploy of `4b93f334c`
+
+Deploy Production run 43765683235 passed (8 hard-gate shards, deploy) and production serves `4b93f334c` from
+2026-11-15 22:16Z, health ok, board published 22:15:49Z. This deploy carries #2211 to #2216; the two failed deploys
+before it are cleared. Both PRs below were independently reviewed and passed exact-head PR Validation.
+
+| P | Work item | State | PR / SHA | Notes |
+|---|---|---|---|---|
+| 4 | Guard: no hard-gate test reads today's refresh-written inputs by path; 17 modules repointed | MERGED | #2214 `c345a4962` | test-only, so no deploy of its own |
+| 17, 18 | MD-114 public sections warmed after a publish or snapshot refresh | MERGED, DEPLOYED | #2216 `4b93f334c` | first `playoffOdds` hit 9.6 s on `4fc4b2ac5`; 0.41 s on `4b93f334c` just after the publish; 0.42 s at 22:23Z, past the 300 s snapshot TTL (whether the snapshot changed in that window was not observed) |
+| 5 | MD-112 / Part 9A status-quo record | MERGED, DEPLOYED (`4b93f334c`) | #2211 `bfdc3c0b1` | trade routes answer 401 without sign-in, so the field is not observed in production |
+| 12 | MD-107 `valueUncertainty: unavailable` | MERGED, DEPLOYED | #2210 `4fc4b2ac5` | same sign-in limit |
+| 4 | Hill identity CSV copy from the pinned root | MERGED, DEPLOYED | #2212 `aa0b3a711`, #2213 `b547e4b7b` | the gate that froze the two earlier deploys |

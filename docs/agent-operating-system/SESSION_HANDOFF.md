@@ -3,7 +3,7 @@
 Read this instead of re-reading history. Overwrite it at each checkpoint. Verify every line against GitHub before
 acting: a previous session's workers are NOT running in a new session.
 
-**As of 2026-11-15 ~21:00Z.** Agent-OS-Receipt `aa55ed12`.
+**As of 2026-11-15 ~22:30Z.** Agent-OS-Receipt `aa55ed12`.
 
 ## Mode
 - **Owner execution directive 2026-11-15 (MD-118)** restates the 2026-11-08 unified directive
@@ -14,25 +14,23 @@ acting: a previous session's workers are NOT running in a new session.
 - At most 4 editing workers, including the coordinator. Standing permission to merge reviewed, exact-head-green PRs.
 
 ## Production
-- Serving `4fc4b2ac5` (deployed 2026-11-15 17:38Z): health ok; backup health v4 live with `restoreProof: proven`.
-- `main` is `b547e4b7b`. The deploys of `f51d7ea2f` and `bfdc3c0b1` failed only on
-  `tests/api/test_hill_alignment_audit.py` (live CSVs read inside a pinned module), fixed by #2213. #2213 is
-  test-only, so the next data refresh triggers the deploy that carries #2211 (status quo) and #2212.
-  **Next unit:** confirm that deploy passes and production moves past `4fc4b2ac5`.
-
-## Open campaign PRs
-| PR | What | State |
-|---|---|---|
-| #2214 | guard: no hard-gate test reads today's inputs by path; 17 modules repointed | TESTED_IN_PR; remove the #2213 allow-list entry after merging main, then review |
-| (pending) | public sections warmed after publish (playoffOdds cold 7.7–18.5 s) | worker in progress |
+- Serving `4b93f334c` (deployed 2026-11-15 22:16Z, run 43765683235): health ok. Carries every campaign PR through
+  #2216. No campaign PR is open.
+- Trade routes (`statusQuo`, `valueUncertainty`) need sign-in; their production output has not been observed.
 
 ## Owner decisions (briefs: `docs/owner/DECISION_BRIEFS_2026-11-08.md`)
 - Apply the required-check ruleset; approve running team-points study two (first possible run about 2026-12-22);
   #1938; division payout tiebreaker; median games in draft order; Hill validation target; TE basis; BDVM signal
   policy; source-vote holds; package model and one read-only box run (#2202); owner-id pseudonymization (#2207, D1–D6);
-  best-alternative ranking rule for trade opportunity cost (#2211); credential rotation; off-box backup.
+  best-alternative ranking rule for trade opportunity cost (#2211); credential rotation; off-box backup; operator
+  re-run of the backup installer (`irreplaceableLedgers.coverage: unverifiable`).
 - Data licensing (#2174): several live inputs may conflict with published terms; needs owner or counsel.
 - Dependency bumps need a lock refresh with `uv` 0.9.26, which this machine lacks; Dependabot PRs cannot merge as-is.
+
+## Next dependency-ready units
+1. `records` / `franchise` first-hit cost is not explained by cache keys (#2216 receipt); measure on the box.
+2. `/api/draft-capital` is not warmed (separate 300 s cache with Sleeper calls).
+3. Everything else in the matrix waits on an owner decision above or on data that does not exist yet.
 
 ## Hazards
 - Board-dependent tests are the recurring deploy-freeze cause. Use `tests/archive_fixtures` pinned helpers;
