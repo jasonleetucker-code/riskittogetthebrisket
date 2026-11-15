@@ -15,7 +15,8 @@ acting: a previous session's workers are NOT running in a new session.
 
 ## Production
 - Serving `4b93f334c` (deployed 2026-11-15 22:16Z, run 43765683235): health ok. Carries every campaign PR through
-  #2216. No campaign PR is open.
+  #2216. No campaign PR is open. Older `claude/*` PRs still open are owner-gated or parked: #1938 (owner
+  decision), #1884 (more research required), #1873 (tied to #2202), #1852, #1513 (validation track).
 - Trade routes (`statusQuo`, `valueUncertainty`) need sign-in; their production output has not been observed.
 
 ## Owner decisions (briefs: `docs/owner/DECISION_BRIEFS_2026-11-08.md`)
