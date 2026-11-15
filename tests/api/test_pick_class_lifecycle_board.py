@@ -24,6 +24,9 @@ from src.api.pick_value_resolution import resolve_pick_value
 from src.identity.pick_lifecycle import evidence_from_sleeper
 from src.identity.picks import MarketPickRef, is_pick_name, pick_year_from_name
 
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = REPO / "tests" / "fixtures" / "golden" / "input_export.json.gz"
 
