@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-from src.api.data_contract import build_api_data_contract
+from tests.archive_fixtures import build_pinned_contract
 
 
 def _latest_payload() -> dict:
-    candidates = sorted(Path("exports/latest").glob("dynasty_data_*.json"))
-    if not candidates:
-        raise AssertionError("tracked latest dynasty payload is required")
-    with candidates[-1].open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    """The PINNED real board's payload (``tests.archive_fixtures``), never
+    today's export: built with its own CSVs and scrape state, the row under
+    test is a fixed fact rather than a function of the latest refresh."""
+    from tests.archive_fixtures import pinned_board_payload
+
+    return pinned_board_payload()[0]
 
 
 def _late_first_row(contract: dict) -> dict:
@@ -22,9 +22,9 @@ def _late_first_row(contract: dict) -> dict:
 
 
 def test_2027_late_first_does_not_false_trip_blend_integrity() -> None:
-    contract = build_api_data_contract(
+    contract = build_pinned_contract(
         _latest_payload(),
-        data_source={"type": "test_file", "path": "exports/latest"},
+        data_source={"type": "test_file", "path": "tests/fixtures/pinned_board"},
     )
     row = _late_first_row(contract)
     violation = row.get("blendIntegrityViolation")

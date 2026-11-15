@@ -11,6 +11,10 @@ from __future__ import annotations
 import unittest
 
 from src.api.data_contract import build_api_data_contract
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _payload_with_ages():

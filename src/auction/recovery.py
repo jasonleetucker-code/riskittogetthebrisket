@@ -93,7 +93,7 @@ def issue_reset(
             " VALUES (?,?,NULL,?,'account','Password reset link issued',"
             "'Your commissioner issued a one-time password reset link for your account. If you did not ask for it, tell them.',"
             "'/auction','{}',?,?,0)",
-            (room_id, member_user_id, f"reset:{int(now)}", now, now),
+            (room_id, member_user_id, f"reset:{secrets.token_hex(8)}", now, now),
         )
     return token
 
@@ -172,6 +172,32 @@ def remove_member(
             action="member_removed",
             detail={"member": member_user_id, "seat": m["seat_id"], "reason": reason[:300]},
         )
+        # The person removed is told in their own inbox (they can no longer
+        # open the room, so a room event alone would never reach them).
+        conn.execute(
+            "INSERT INTO notif_inbox (room_id, user_id, seat_id, logical_key, type, title, body, url, data_json, room_now, created_at, is_mock)"
+            " VALUES (?,?,NULL,?,'account','Removed from an auction room',"
+            "'Your commissioner removed you from this auction room. Your seat, money, bids and players stay with the seat. If this is unexpected, contact them.',"
+            "'/auction','{}',?,?,0)",
+            (room_id, member_user_id, f"removed:{secrets.token_hex(8)}", now, now),
+        )
+    # Everyone in the room sees that the seat changed hands (no reason, no
+    # identity beyond the seat).  A separate committed command so it lands in
+    # the replayable log; the removal above stands even if this fails.
+    try:
+        store.execute(
+            room_id,
+            {
+                "kind": "note_member_change",
+                "seat": m["seat_id"],
+                "change": "removed",
+                "actor": {"role": "commissioner", "user": commissioner_id, "seat": None},
+            },
+            user_id=commissioner_id,
+            now_real=now,
+        )
+    except AuctionError:
+        pass
     return {"seat": m["seat_id"]}
 
 
@@ -213,6 +239,28 @@ def preflight(store: Store, room_id: str, now_real: float) -> dict:
         if missing
         else f"Budgets set — total ${total} ({prov.get('source', 'manual')}{', season ' + str(prov.get('season')) if prov.get('season') else ''})",
     )
+    # LI1842-DEFECT-13: whose dollars these are.  Rooms created since the fix
+    # refuse a mismatch outright; an older room's receipt can still carry one,
+    # or predate the league stamp entirely.
+    budget_league = prov.get("leagueKey")
+    room_league = state.get("league_key")
+    if prov.get("leagueMismatch") or (
+        budget_league and room_league and str(budget_league) != str(room_league)
+    ):
+        add(
+            "budget_league",
+            "fail",
+            f"Budgets are league {budget_league!r}'s dollars but the seats are league "
+            f"{room_league!r}'s — recreate the room",
+        )
+    elif room_league and str(prov.get("source") or "").startswith("/api/draft-capital"):
+        if not budget_league:
+            add(
+                "budget_league",
+                "warn",
+                "This room's budget receipt does not name the league of its dollars "
+                "(created before the receipt recorded it) — confirm they are this league's",
+            )
     if prov.get("totalBudget") and total != prov.get("totalBudget"):
         add(
             "pool_total",
@@ -276,7 +324,9 @@ def preflight(store: Store, room_id: str, now_real: float) -> dict:
         if any(i["status"] == "warn" for i in items)
         else "ok"
     )
-    return {"status": worst, "items": items, "checkedAt": now_real}
+    from src.auction import feedback
+
+    return {"status": worst, "items": items, "checkedAt": now_real, "codeSha": feedback.code_sha()}
 
 
 def points_for_preview(league_id: str) -> dict:

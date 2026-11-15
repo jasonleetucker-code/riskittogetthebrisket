@@ -100,7 +100,9 @@ export function tierForPreDraft(preDraft) {
 }
 
 // ── Player tags (TARGET / AVOID / neutral) ──────────────────────────────
-// Tags drive the recommendation engine.  A player defaults to neutral
+// Tags steer the nomination list, best-value list, board filter and the
+// per-player recommendation chip (Perfect Draft does not read them).  A
+// player defaults to neutral
 // (no entry in ``workspace.tags``); the UI cycles TARGET → AVOID →
 // neutral via clickable chips.  Stored in a separate map keyed by
 // player id so it survives player renames + is trivially JSON-
@@ -178,8 +180,8 @@ export const DEFAULT_TEAMS = [
   { name: "Eric", initialBudget: 71 },
   { name: "Collin", initialBudget: 71 },
   { name: "Roy", initialBudget: 71 },
-  { name: "Blaine", initialBudget: 71 },
-  { name: "Joel", initialBudget: 73 },
+  { name: "schoeppeya", initialBudget: 71 },
+  { name: "John", initialBudget: 73 },
 ];
 
 // ── Seed rookie pool ────────────────────────────────────────────────────
@@ -298,6 +300,48 @@ export function playerSlug(name) {
  * Build a pristine default workspace.  Called on first visit and when
  * the user clicks "Reset".
  */
+/**
+ * Is the workspace in state the ACTIVE league's own, hydrated one?
+ *
+ * Before it is, the workspace is `createDefaultWorkspace()` — a placeholder
+ * whose first team ("Russini Panini") is not in any league — and anything that
+ * sends a team name to the backend would ask for a team that does not exist
+ * (`unknown_team` 400).  Needs BOTH a resolved league (`useLeague()` reports
+ * none until /api/leagues answers) AND that the hydration that ran was for the
+ * current storage key: `hydrated` alone is already true when the league
+ * resolves, while the workspace is still the previous one for a render.
+ */
+export function isWorkspaceReady({
+  selectedLeagueKey,
+  hydratedKey,
+  draftStorageKey,
+  leagueResolved = false,
+}) {
+  if (!draftStorageKey || hydratedKey !== draftStorageKey) return false;
+  // Normally the league is known.  When league resolution FINISHED without one
+  // (/api/leagues failed or listed none) the page works on its unsuffixed
+  // workspace, exactly as before this gate existed — never wait forever.
+  return Boolean(selectedLeagueKey) || Boolean(leagueResolved);
+}
+
+/**
+ * True when ``team`` is still the ``createDefaultWorkspace()`` seed row: name
+ * AND initial budget match ``DEFAULT_TEAMS`` (the same test the draft-capital
+ * merge uses to drop placeholder rows).  A seed name alone is not enough —
+ * most seed names are real managers.  A request keyed by a seed row asks the
+ * backend for a team it may not have (``unknown_team``); callers should let
+ * the backend infer the session's own team instead.
+ */
+export function isDefaultPlaceholderTeam(team) {
+  if (!team || typeof team !== "object") return false;
+  const name = String(team.name || "").toLowerCase();
+  return DEFAULT_TEAMS.some(
+    (t) =>
+      String(t.name || "").toLowerCase() === name &&
+      Number(t.initialBudget) === Number(team.initialBudget),
+  );
+}
+
 export function createDefaultWorkspace() {
   return {
     version: 1,
@@ -726,9 +770,13 @@ export function computeDraftStats(workspace) {
     // (everyone bankrupt), winning bid collapses to 1.
     const competitorCeiling = Math.max(0, topCompetitorMax);
     const winByCompetitor = Math.max(1, competitorCeiling + 1);
+    // W10-F001: nothing may be advertised above what this team can
+    // actually pay.  ``myRemaining`` caps every surfaced ceiling below;
+    // ``theoreticalMaxBid`` keeps the uncapped figure (for the "capped
+    // by ..." tooltips) and ``budgetCapped`` says when the cap bit.
     const myWinningBid = Math.max(
       0,
-      Math.min(theoreticalMaxBid, winByCompetitor),
+      Math.min(theoreticalMaxBid, winByCompetitor, myRemaining),
     );
     // Bayesian competitor ceiling: reweight each rival's effective
     // budget by their tierInterest for THIS player's tier.  Less
@@ -749,9 +797,13 @@ export function computeDraftStats(workspace) {
     }
     const bayesianWinningBid = Math.max(
       0,
-      Math.min(theoreticalMaxBid, Math.max(1, Math.floor(bayesianTopCompetitor) + 1)),
+      Math.min(
+        theoreticalMaxBid,
+        Math.max(1, Math.floor(bayesianTopCompetitor) + 1),
+        myRemaining,
+      ),
     );
-    const enforceUpTo = Math.floor(inflatedFair * enforcePct);
+    const enforceUpTo = Math.min(Math.floor(inflatedFair * enforcePct), myRemaining);
     const drafted = !!pick;
     const mine = drafted && pick.teamIdx === myTeamIdx;
     const valueVsFair =
@@ -769,8 +821,9 @@ export function computeDraftStats(workspace) {
       mine,
       userTag,
       inflatedFair: Math.max(0, inflatedFair),
-      myMaxBid: Math.max(0, theoreticalMaxBid),
+      myMaxBid: Math.max(0, Math.min(theoreticalMaxBid, myRemaining)),
       theoreticalMaxBid: Math.max(0, theoreticalMaxBid),
+      budgetCapped: theoreticalMaxBid > myRemaining,
       myWinningBid,
       bayesianTopCompetitor: Math.max(0, Math.floor(bayesianTopCompetitor)),
       bayesianWinningBid,
@@ -985,7 +1038,7 @@ export function computeDraftStats(workspace) {
 
   // ── Nominations summary ────────────────────────────────────────────
   // Surface the raw nominations plus a per-tier count so the UI can
-  // show "Joel has logged 3 S-tier noms" as a quick-read signal.
+  // show "John has logged 3 S-tier noms" as a quick-read signal.
   const nominationsEnriched = nominations.map((n) => ({
     ...n,
     player: enrichedPlayerById.get(n.playerId) || null,
@@ -1354,13 +1407,25 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   // so existing callers keep working, and is deliberately unused.
 
   // Build a case-insensitive lookup from the feed.
+  // MISSING IS NEVER ZERO: a team whose ``auctionDollars`` is not a finite
+  // number is UNAVAILABLE — it is never written as a $0 budget, never
+  // appended, and an existing row for it is left exactly as it was (not
+  // zeroed).  Names are reported in ``unavailable`` for the caller to show.
   const feedByKey = new Map();
+  const unavailableKeys = new Set();
+  const unavailable = [];
   for (const entry of feed) {
     const name = String(entry?.team || "").trim();
     if (!name) continue;
+    const raw = entry?.auctionDollars;
+    if (raw === null || raw === undefined || raw === "" || !Number.isFinite(Number(raw))) {
+      unavailableKeys.add(name.toLowerCase());
+      unavailable.push(name);
+      continue;
+    }
     feedByKey.set(name.toLowerCase(), {
       name,
-      auctionDollars: Math.max(0, Number(entry?.auctionDollars) || 0),
+      auctionDollars: Math.max(0, Number(raw)),
     });
   }
 
@@ -1369,7 +1434,7 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   // surfaced this as an error to the user; compute-side we just
   // act as a no-op so nothing gets lost.
   if (feedByKey.size === 0) {
-    return { workspace: ws, matched: 0, added: 0, missing: [], zeroed: [] };
+    return { workspace: ws, matched: 0, added: 0, missing: [], zeroed: [], unavailable };
   }
 
   const myTeamIdx = Number.isInteger(ws.settings?.myTeamIdx)
@@ -1431,6 +1496,11 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
       merged.push(buildTeam(nameOut, hit.auctionDollars, t));
       continue;
     }
+    // Budget unavailable in the feed: keep the row untouched (never $0).
+    if (unavailableKeys.has(key)) {
+      merged.push(t);
+      continue;
+    }
     // Drop unmatched default placeholders; zero out unmatched user-
     // customized rows.
     if (
@@ -1457,6 +1527,32 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   let nextMyIdx = merged.findIndex(
     (t) => String(t.name || "").toLowerCase() === myTeamNameBefore.toLowerCase(),
   );
+  // First load over the seed workspace: "my team" is still a
+  // createDefaultWorkspace() row, which this merge drops, so the index would
+  // fall back to row 0 — another manager's team (website audit, 2026-11-12).
+  // Prefer the team the user picked in the header when the feed has it.
+  // ONLY on that first load: the workspace must still be the untouched seed
+  // with the default selection.  A row's name + budget alone cannot say
+  // "seed" — a real feed team can be {Ed, $71} too — so a team the user chose
+  // after any merge is never overridden (independent review).
+  // Matched by Sleeper OWNER id first: the feed names teams by their Sleeper
+  // team name ("Medical Murrayjuana") while the header knows the manager
+  // ("Jason"), so a name alone rarely matches.  Name is the fallback.
+  const preferredOwner = String(opts.preferredOwnerId || "");
+  const ownerRow = preferredOwner
+    ? (Array.isArray(teamTotals) ? teamTotals : []).find(
+        (entry) => String(entry?.ownerId || "") === preferredOwner,
+      )
+    : null;
+  const preferred = String(
+    (ownerRow && String(ownerRow.team || "").trim()) || opts.preferredTeamName || "",
+  ).toLowerCase();
+  if (preferred && myTeamIdx === 0 && workspaceIsPristine(ws)) {
+    const preferredIdx = merged.findIndex(
+      (t) => String(t.name || "").toLowerCase() === preferred,
+    );
+    if (preferredIdx >= 0) nextMyIdx = preferredIdx;
+  }
   if (nextMyIdx < 0) nextMyIdx = myTeamIdx >= 0 && myTeamIdx < merged.length ? myTeamIdx : 0;
 
   return {
@@ -1469,6 +1565,7 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
     added: missing.length,
     missing,
     zeroed,
+    unavailable,
   };
 }
 
@@ -1933,61 +2030,6 @@ export function playerRecommendation(enrichedPlayer, stats) {
     label: "Neutral",
     rationale: null,
   };
-}
-
-/**
- * Rank undrafted players by expected value and return the top N.
- *
- * EV model (per player p):
- *
- *   surplus(p) = max(0, inflatedFair − myWinningBid)
- *   tagWeight(p) = 1.5 (target)  1.0 (neutral)  0 (avoid)
- *   ev(p) = surplus × tagWeight + tierScarcityBoost(p, stats)
- *
- * Where ``tierScarcityBoost`` adds a small bump when the player
- * sits in a drying-up tier, nudging those to the front.  Avoid-
- * tagged players are forced to 0 so they never surface as
- * recommendations.  Ties are broken by tier (S > A > B > C > D)
- * then by ``preDraft`` descending.
- *
- * Returns an array of ``{ player, ev, rec }`` objects, sorted
- * descending by ev, capped at ``limit`` entries (default 5).
- */
-export function nextBestTargets(stats, { limit = 5 } = {}) {
-  if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
-  const tierOrder = { S: 5, A: 4, B: 3, C: 2, D: 1 };
-  const candidates = [];
-  for (const p of stats.enrichedPlayers) {
-    if (p.drafted) continue;
-    if (p.userTag === TAG_AVOID) continue;
-
-    const surplus = Math.max(0, p.inflatedFair - p.myWinningBid);
-    const tagWeight = p.userTag === TAG_TARGET ? 1.5 : 1.0;
-    const tierInfo = stats.tierStats?.[p.tier];
-    const scarcityBoost =
-      tierInfo && tierInfo.remainingRatio < TIER_SCARCITY_URGENT
-        ? Math.max(0, 10 * (TIER_SCARCITY_URGENT - tierInfo.remainingRatio))
-        : 0;
-
-    const ev = surplus * tagWeight + scarcityBoost;
-    if (ev <= 0 && p.userTag !== TAG_TARGET) continue;
-
-    candidates.push({
-      player: p,
-      ev,
-      rec: playerRecommendation(p, stats),
-    });
-  }
-
-  candidates.sort((a, b) => {
-    if (b.ev !== a.ev) return b.ev - a.ev;
-    const at = tierOrder[a.player.tier] || 0;
-    const bt = tierOrder[b.player.tier] || 0;
-    if (bt !== at) return bt - at;
-    return b.player.preDraft - a.player.preDraft;
-  });
-
-  return candidates.slice(0, limit);
 }
 
 // ── Nomination optimizer ───────────────────────────────────────────────

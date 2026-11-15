@@ -31,6 +31,7 @@ dependent component reports itself unavailable rather than neutral.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 # Days of board history the momentum-risk axis considers. Matches the
@@ -196,7 +197,11 @@ def sharp_movements() -> tuple[dict[str, Any] | None, str | None]:
             # rather than as "no ledger", which would be a different
             # (and wrong) explanation for the same blank panel.
             return None, sharp_flow.STATUS_NO_COHORT
-        with ledger.connect(path) as conn:
+        # ``closing``: a sqlite3 connection's ``with`` block commits or rolls
+        # back but never closes, and CPython 3.12's statement cache keeps the
+        # connection in a reference cycle, so it stayed open until the next
+        # cyclic GC (an open fd everywhere; a locked file on Windows).
+        with contextlib.closing(ledger.connect(path)) as conn:
             rows = _ledger_movement_rows(conn)
     except Exception:  # noqa: BLE001 — a dark component must never 500 the board
         return None, "ledger_unreadable"

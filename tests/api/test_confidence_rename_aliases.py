@@ -23,7 +23,7 @@ carries EXACTLY its replacement's value, on every row. A dual-write whose
 two halves disagree is worse than no rename — it is two answers under one
 concept, which is the defect class this whole series is about.
 
-NOT ``livedata``-marked: builds from the newest COMPLETE bundle in the
+NOT ``livedata``-marked: builds from the PINNED complete bundle in the
 tracked archive and asserts invariants, never absolute counts.
 """
 
@@ -38,7 +38,9 @@ from src.api.data_contract import (
     DEPRECATED_FIELD_ALIASES,
     build_api_data_contract,
 )
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 #: Direction 3. Changing this is how an alias is deliberately retired.
 FROZEN_ALIASES: dict[str, str] = {
@@ -54,7 +56,7 @@ def _contract() -> dict[str, Any]:
     """See ``test_confidence_naming._load_contract`` — same rule, same reason."""
     global _contract_cache
     if _contract_cache is None:
-        raw, _archive = newest_complete_raw_payload()
+        raw, _archive = pinned_board_payload()
         if raw is None:
             pytest.skip("no complete archived scrape to build a contract from")
         _contract_cache = build_api_data_contract(raw)

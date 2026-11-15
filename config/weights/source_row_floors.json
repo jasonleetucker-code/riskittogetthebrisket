@@ -1,11 +1,31 @@
 {
-  "description": "Per-source minimum row count floors used by validate_api_data_contract. Floors are set at roughly 80% of the current live baseline so a scrape regression that drops a source below its floor will trip a warning (or error if the count hits zero). Tunable without a code change.",
+  "description": "Per-source minimum row count floors used by validate_api_data_contract. Floors are set at roughly 80% of the current live baseline so a scrape regression that drops a source below its floor will trip a warning (or error if the count hits zero). Tunable without a code change. Floors for the nine sources added 2026-11-08 (W05-F004) are derived from git-tracked CSV history by scripts/derive_source_row_floors.py; rule and evidence in docs/sources/SOURCE_ROW_FLOORS.md. 'ceilings' are report-only (source_above_expected), never a refusal.",
   "floors": {
     "ktc": 400,
     "idpTradeCalc": 700,
     "dlfIdp": 150,
     "dlfSf": 240,
     "dynastyNerdsSfTep": 230,
-    "fantasyProsIdp": 75
+    "fantasyProsIdp": 75,
+    "dlfRookieIdp": 14,
+    "dlfRookieSf": 27,
+    "dlfValuesSfTep": 255,
+    "fantasyCalc": 308,
+    "fantasyNavigatorSf": 351,
+    "fantasyProsSf": 209,
+    "flockFantasySfRookies": 23,
+    "otcffbSf": 271,
+    "pfkDynasty": 320
+  },
+  "ceilings": {
+    "dlfRookieIdp": 62,
+    "dlfRookieSf": 124,
+    "dlfValuesSfTep": 646,
+    "fantasyCalc": 798,
+    "fantasyNavigatorSf": 1540,
+    "fantasyProsSf": 1114,
+    "flockFantasySfRookies": 206,
+    "otcffbSf": 948,
+    "pfkDynasty": 1120
   }
 }

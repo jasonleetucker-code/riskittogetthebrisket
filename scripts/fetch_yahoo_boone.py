@@ -126,16 +126,23 @@ _VALUE_COLUMN: dict[str, str] = {
     "TE": "TE Prem.",
 }
 
-# Row-count floor for total (QB+RB+WR+TE combined).  A healthy scrape
-# is ~450 rows (QB~80, RB~130, WR~150, TE~90).  Aligned with the
-# downstream contract guard ``_DEFAULT_SOURCE_ROW_FLOORS["yahooBoone"]``
-# (400) so the scraper fails loudly and PRESERVES the last-good CSV
-# rather than overwriting it with a board that would later fail the
-# contract-coverage test.  The old 225 floor (~60% of a stale ~380
-# estimate) was far too lenient: a scrape that silently lost the
-# entire TE article still totalled ~360 and sailed past 225, shipping
-# a TE-less board from a TEP-native source with no alarm.
-_YB_ROW_COUNT_FLOOR: int = 400
+# Row-count floor for total (QB+RB+WR+TE combined).  Kept at or above
+# the downstream contract guard ``_DEFAULT_SOURCE_ROW_FLOORS["yahooBoone"]``
+# (pinned by tests/api/test_source_floor_invariant.py) so the scraper
+# fails loudly and PRESERVES the last-good CSV rather than overwriting it
+# with a board the contract would flag.  The old 225 floor (~60% of a
+# stale ~380 estimate) was far too lenient: a scrape that silently lost
+# the entire TE article still totalled ~360 and sailed past 225.
+#
+# Re-pinned 400 -> 320 (2026-10-13).  Boone's 2026-10-09 update shrank
+# the charts (QB 80, RB 100, WR 120 was 150, TE 66 was 80 = 366 rows,
+# each a single complete table — verified against the live articles),
+# so the 400 floor rejected every run and the board kept voting
+# Boone's September content as if current while the fetch stamp went
+# stale.  320 is ~87% of the new 366 and still fails the failure it
+# exists for: losing any whole position leaves at most 366 - 66 = 300.
+# The per-position floor below catches the same thing independently.
+_YB_ROW_COUNT_FLOOR: int = 320
 
 # Per-position presence floor.  The real-world failure mode is one
 # position's article fetch/parse silently failing (Yahoo redirect

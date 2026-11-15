@@ -55,7 +55,7 @@ const SCAN = ["app", "components"];
  */
 const BASELINE = {
   "app/trending/page.jsx": 1,
-  "app/league/activity/page.jsx": 1,
+  "app/league/activity/ActivityClient.jsx": 1,
   "components/terminal/PlayerMarketMovement.jsx": 2,
   "components/terminal/TeamNewsFeed.jsx": 1,
 };

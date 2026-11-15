@@ -1,0 +1,28 @@
+{
+  "id": "discovery_impact_prior_v1",
+  "status": "PRIOR_UNVALIDATED",
+  "owner": "src/trade/discovery.py",
+  "decided": "2026-10-18 — owner directive (Trade Finder meaningful discovery): the default ordering on every /arbitrage discovery view is Most Impactful, a transparent combination of existing canonical components, documented as a DECLARED PRIOR until validated. Evaluation on representative dynasty_main trades: docs/trade/DISCOVERY_IMPACT_EVALUATION_2026-10-18.md.",
+  "note": "These weights ORDER candidates that already passed every engine's own hard rules (Golden Upgrades' six criteria, the finder's plausibility and market gates, Best Offers' qualification). They never qualify or disqualify a trade, never change a canonical value and never change the package Value Adjustment. Each factor is in [0, 1] (rosterFit in [-1, 1]); forcedDropCost is a COST and is subtracted. A factor that cannot be computed is published as null; inside one ranked set an unknown benefit is imputed as min(worst known, 0) and an unknown cost as the worst known cost — never as free.",
+  "independence": "Each body of evidence is counted ONCE. incomingImportance reads the best incoming PLAYER's canonical value only (canonical rank is the same evidence — the value is the Hill curve of the rank — so rank is NOT a second term, and filler pieces cannot raise it). edge is ONE factor, the geometric mean of the absolute and the percentage VA-adjusted canonical gain, because the two are correlated readings of the same gain. rosterFit is the canonical lineup solver's rest-of-season delta when it is available and otherwise the Team Weakness need share — never both, because filling a rated need and improving the starting lineup are the same evidence. counterpartyPlausibility is the engine's OWN acceptance reading (Golden Upgrades' market inversion with its exploit decay; the finder's opponent market appeal through the Best Offers comfort plateau; Best Offers' externalComfort) normalized to [0, 1]. evidenceMultiplier reads the canonical B11 confidenceBucket of the best incoming player (src/api/confidence.py) — no second confidence model.",
+  "weights": {
+    "incomingImportance": 0.35,
+    "edge": 0.3,
+    "rosterFit": 0.2,
+    "counterpartyPlausibility": 0.15,
+    "forcedDropCost": 0.15
+  },
+  "scales": {
+    "valueScaleMax": 9999,
+    "gainSaturation": 1500,
+    "gainPctSaturation": 25.0,
+    "lineupDeltaScale": 10.0,
+    "comfortSaturationPct": 10.0
+  },
+  "evidenceMultipliers": {
+    "high": 1.0,
+    "medium": 0.9,
+    "low": 0.8,
+    "none": 0.7
+  }
+}

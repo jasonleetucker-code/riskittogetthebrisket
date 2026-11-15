@@ -25,6 +25,11 @@
  *   ``a`` (optional, aligned with ``p``) carries an owned league pick's
  *   canonical id from ``src/identity/picks.py``; it is absent on every
  *   link written before T-NEW-02 and on any side without an owned pick.
+ *   ``d`` (optional, aligned with ``p``, TC-A) is a 3+-team trade's routing:
+ *   the side index each line goes to, or null for the default.  Absent on
+ *   2-team links and on every link written before it; a decoder that
+ *   predates it falls back to default routing exactly as before.
+ *     pm: "geom_q078_v1",           // optional package model id (TC-A)
  *     t: "2026-04-23T14:00:00Z",    // optional creation timestamp
  *     c: "Testing a buy-low play",  // optional free-text note
  *   }))
@@ -82,6 +87,7 @@ export const SHARE_TRUNCATION = Object.freeze({
  */
 function groupShareLines(side) {
   const ids = Array.isArray(side?.assetIds) ? side.assetIds : [];
+  const dests = Array.isArray(side?.destinations) ? side.destinations : [];
   const lines = [];
   const byKey = new Map();
   (Array.isArray(side?.players) ? side.players : []).forEach((x, i) => {
@@ -95,7 +101,9 @@ function groupShareLines(side) {
       existing.count += 1;
       return;
     }
-    const line = { name, id, count: 1 };
+    const rawDest = dests[i];
+    const dest = Number.isInteger(rawDest) && rawDest >= 0 && rawDest < SHARE_MAX_SIDES ? rawDest : null;
+    const line = { name, id, count: 1, dest };
     byKey.set(key, line);
     lines.push(line);
   });
@@ -161,9 +169,17 @@ export function encodeTrade(trade) {
       if (kept.some((l) => l.id)) out.a = kept.map((l) => l.id);
       // ``q`` is ADDITIVE the same way: omitted unless some line repeats.
       if (kept.some((l) => l.count > 1)) out.q = kept.map((l) => l.count);
+      // ``d`` is ADDITIVE too: a 3+-team trade's routing (TC-A).  Omitted
+      // unless some line carries an explicit destination.
+      if (kept.some((l) => l.dest != null)) out.d = kept.map((l) => l.dest);
       return out;
     }),
   };
+  // The package model the sender's numbers were computed under (TC-A), so a
+  // recipient can be told when today's model differs.  Additive.
+  if (typeof trade.packageModel === "string" && trade.packageModel.trim()) {
+    payload.pm = trade.packageModel.trim().slice(0, 40);
+  }
   if (trade.note) {
     payload.c = String(trade.note).slice(0, 200);
   }
@@ -210,6 +226,7 @@ export function decodeTrade(encoded) {
   return {
     sides: sides.map((s) => {
       const rawIds = Array.isArray(s?.a) ? s.a : [];
+      const rawDests = Array.isArray(s?.d) ? s.d : [];
       const rawCounts = Array.isArray(s?.q) ? s.q : [];
       const rawNames = Array.isArray(s?.p) ? s.p : [];
       if (rawNames.length > SHARE_MAX_LINES_PER_SIDE) reasons.add(SHARE_TRUNCATION.TOO_MANY_LINES);
@@ -223,7 +240,7 @@ export function decodeTrade(encoded) {
         const copies = Math.min(wanted, budget);
         if (copies < wanted) reasons.add(SHARE_TRUNCATION.COPY_BUDGET);
         budget -= copies;
-        for (let k = 0; k < copies; k += 1) pairs.push([x, rawIds[i]]);
+        for (let k = 0; k < copies; k += 1) pairs.push([x, rawIds[i], rawDests[i]]);
       });
       return {
         name: String(s?.n || ""),
@@ -231,6 +248,11 @@ export function decodeTrade(encoded) {
         // Aligned with ``players``; null where the link carries no owned
         // pick identity (every link written before T-NEW-02).
         assetIds: pairs.map(([, id]) => (typeof id === "string" && id.trim() ? id.trim() : null)),
+        // Aligned with ``players``; null where the link carries no routing
+        // (every 2-team link, and every link written before TC-A).
+        destinations: pairs.map(([, , d]) =>
+          Number.isInteger(d) && d >= 0 && d < SHARE_MAX_SIDES ? d : null,
+        ),
       };
     }),
     truncated: reasons.size > 0,
@@ -238,6 +260,8 @@ export function decodeTrade(encoded) {
     note: String(parsed.c || "") || null,
     // Absent (every link before #842, and every Team-context link) is ON.
     teamContext: parsed.m !== "asset",
+    // The sender's package model id, or null (every link before TC-A).
+    packageModel: typeof parsed.pm === "string" && parsed.pm.trim() ? parsed.pm.trim() : null,
     createdAt: parsed.t ? String(parsed.t) : null,
   };
 }
@@ -276,6 +300,18 @@ export function describeShareTruncation(reasons) {
       parts.push(`more than ${SHARE_MAX_TOTAL_COPIES.toLocaleString("en-US")} copies in total`);
   }
   return parts.join(", ");
+}
+
+/**
+ * When a link was made under a different package model than the one now
+ * active, the sentence that says so (TC-A); otherwise null.  ``models`` is the
+ * id -> {label} registry (lib/trade-logic ``PACKAGE_MODELS``), passed in so
+ * this module stays free of the trade-math import graph.
+ */
+export function describeShareModelChange(sharedModelId, activeModelId, models = {}) {
+  if (!sharedModelId || !activeModelId || sharedModelId === activeModelId) return null;
+  const label = (id) => models?.[id]?.label || id;
+  return `This link was made under ${label(sharedModelId)}; totals now use ${label(activeModelId)}, so they can differ from what the sender saw.`;
 }
 
 /**

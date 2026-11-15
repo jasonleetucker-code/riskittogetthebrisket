@@ -57,11 +57,11 @@ const TABS = [
 ];
 
 const SIGNAL_LABELS = {
-  STRONG_BUY: "Strong buy",
+  STRONG_BUY: "Buy · large gap",
   BUY: "Buy",
   HOLD: "Hold",
   SELL: "Sell",
-  STRONG_SELL: "Strong sell",
+  STRONG_SELL: "Sell · large gap",
   NO_MARKET: "No market",
 };
 
@@ -582,6 +582,8 @@ function RostersTab({ active }) {
         onRowClick={(r) =>
           setExpandedKey((k) => (k === r.key ? "" : r.key))
         }
+        isRowExpanded={(r) => r.key === expandedKey}
+        rowExpandLabel={(r) => `Top assets for ${r.name || r.key}`}
         renderAfterRow={(r) =>
           r.key === expandedKey ? (
             <tr>

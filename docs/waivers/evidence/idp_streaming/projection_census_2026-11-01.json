@@ -1,0 +1,928 @@
+{
+ "generatedAt": "2026-11-01T16:10:15+00:00",
+ "note": "Read-only. Every locally available provider row was fetched after its week's kickoff, so every error here is a POST-KICKOFF (hindsight-exposed) error, not a historical forecast error. Seasons are never pooled.",
+ "schema": "weekly_idp_projection_census_v1",
+ "seasons": {
+  "2025": {
+   "lineupQuantity": "optimal_lineup_POTENTIAL_points",
+   "rotowireViaSleeper": {
+    "byGroup": {
+     "DB": {
+      "bias": -0.511,
+      "calibration": {
+       "bins": [
+        {
+         "meanProjected": 0.885,
+         "meanRealized": 2.211,
+         "n": 604
+        },
+        {
+         "meanProjected": 3.048,
+         "meanRealized": 3.879,
+         "n": 604
+        },
+        {
+         "meanProjected": 6.295,
+         "meanRealized": 7.193,
+         "n": 604
+        },
+        {
+         "meanProjected": 9.184,
+         "meanRealized": 9.489,
+         "n": 604
+        },
+        {
+         "meanProjected": 11.841,
+         "meanRealized": 11.036,
+         "n": 605
+        }
+       ],
+       "n": 3021,
+       "slope": 0.824
+      },
+      "coverageOfPlayedPlayerWeeks": 0.546,
+      "lateInactives": 12,
+      "mae": 4.343,
+      "n": 3021,
+      "playedPlayerWeeks": 5533,
+      "rmse": 6.209
+     },
+     "DL": {
+      "bias": -1.074,
+      "calibration": {
+       "bins": [
+        {
+         "meanProjected": 0.676,
+         "meanRealized": 3.353,
+         "n": 564
+        },
+        {
+         "meanProjected": 1.98,
+         "meanRealized": 3.754,
+         "n": 564
+        },
+        {
+         "meanProjected": 4.35,
+         "meanRealized": 4.823,
+         "n": 565
+        },
+        {
+         "meanProjected": 6.836,
+         "meanRealized": 6.802,
+         "n": 564
+        },
+        {
+         "meanProjected": 11.165,
+         "meanRealized": 11.645,
+         "n": 565
+        }
+       ],
+       "n": 2822,
+       "slope": 0.815
+      },
+      "coverageOfPlayedPlayerWeeks": 0.605,
+      "lateInactives": 14,
+      "mae": 4.739,
+      "n": 2822,
+      "playedPlayerWeeks": 4666,
+      "rmse": 7.031
+     },
+     "LB": {
+      "bias": -0.489,
+      "calibration": {
+       "bins": [
+        {
+         "meanProjected": 1.228,
+         "meanRealized": 2.215,
+         "n": 408
+        },
+        {
+         "meanProjected": 3.157,
+         "meanRealized": 3.185,
+         "n": 409
+        },
+        {
+         "meanProjected": 6.621,
+         "meanRealized": 7.526,
+         "n": 409
+        },
+        {
+         "meanProjected": 10.222,
+         "meanRealized": 11.155,
+         "n": 409
+        },
+        {
+         "meanProjected": 14.376,
+         "meanRealized": 13.967,
+         "n": 409
+        }
+       ],
+       "n": 2044,
+       "slope": 0.934
+      },
+      "coverageOfPlayedPlayerWeeks": 0.625,
+      "lateInactives": 2,
+      "mae": 4.747,
+      "n": 2044,
+      "playedPlayerWeeks": 3271,
+      "rmse": 6.853
+     }
+    },
+    "byTimestampClass": {
+     "post_kickoff": {
+      "DB": {
+       "bias": -0.511,
+       "mae": 4.343,
+       "n": 3021,
+       "rmse": 6.209
+      },
+      "DL": {
+       "bias": -1.074,
+       "mae": 4.739,
+       "n": 2822,
+       "rmse": 7.031
+      },
+      "LB": {
+       "bias": -0.489,
+       "mae": 4.747,
+       "n": 2044,
+       "rmse": 6.853
+      }
+     },
+     "pre_kickoff": {
+      "DB": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "DL": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "LB": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      }
+     },
+     "unstamped": {
+      "DB": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "DL": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "LB": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      }
+     }
+    },
+    "subgroups": {
+     "DB": {
+      "afterBye": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "firstAppearance": {
+       "bias": -0.145,
+       "mae": 4.728,
+       "n": 188,
+       "rmse": 6.061
+      },
+      "lateInactiveHostRule": {
+       "bias": 3.157,
+       "mae": 3.157,
+       "n": 12,
+       "note": "projected > 0, no stat line; the host scores 0, so the error is the projection",
+       "rmse": 4.731
+      },
+      "notAfterBye": {
+       "bias": -0.69,
+       "mae": 4.418,
+       "n": 2604,
+       "rmse": 6.365
+      },
+      "returningPlayer": {
+       "bias": -0.535,
+       "mae": 4.318,
+       "n": 2833,
+       "rmse": 6.219
+      },
+      "rookie": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "veteran": {
+       "bias": -0.511,
+       "mae": 4.343,
+       "n": 3021,
+       "rmse": 6.209
+      }
+     },
+     "DL": {
+      "afterBye": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "firstAppearance": {
+       "bias": -0.409,
+       "mae": 5.109,
+       "n": 189,
+       "rmse": 6.992
+      },
+      "lateInactiveHostRule": {
+       "bias": 1.311,
+       "mae": 1.311,
+       "n": 14,
+       "note": "projected > 0, no stat line; the host scores 0, so the error is the projection",
+       "rmse": 1.843
+      },
+      "notAfterBye": {
+       "bias": -1.186,
+       "mae": 4.885,
+       "n": 2421,
+       "rmse": 7.201
+      },
+      "returningPlayer": {
+       "bias": -1.122,
+       "mae": 4.713,
+       "n": 2633,
+       "rmse": 7.034
+      },
+      "rookie": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "veteran": {
+       "bias": -1.074,
+       "mae": 4.739,
+       "n": 2822,
+       "rmse": 7.031
+      }
+     },
+     "LB": {
+      "afterBye": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "firstAppearance": {
+       "bias": -1.17,
+       "mae": 5.924,
+       "n": 114,
+       "rmse": 7.604
+      },
+      "lateInactiveHostRule": {
+       "bias": 0.74,
+       "mae": 0.74,
+       "n": 2,
+       "note": "projected > 0, no stat line; the host scores 0, so the error is the projection",
+       "rmse": 0.74
+      },
+      "notAfterBye": {
+       "bias": -0.541,
+       "mae": 4.876,
+       "n": 1710,
+       "rmse": 7.027
+      },
+      "returningPlayer": {
+       "bias": -0.448,
+       "mae": 4.678,
+       "n": 1930,
+       "rmse": 6.806
+      },
+      "rookie": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "veteran": {
+       "bias": -0.489,
+       "mae": 4.747,
+       "n": 2044,
+       "rmse": 6.853
+      }
+     }
+    },
+    "timestampClassCounts": {
+     "post_kickoff": 7915,
+     "pre_kickoff": 0,
+     "unstamped": 0
+    }
+   },
+   "w1ArchiveAudit": {
+    "archiveRoot": "C:\\Users\\jason\\code\\riskittogetthebrisket\\.claude\\worktrees\\agent-ad57d8861c015581d\\data\\projections\\weekly_archive",
+    "present": false,
+    "weeks": {
+     "1": {},
+     "10": {},
+     "11": {},
+     "12": {},
+     "13": {},
+     "2": {},
+     "3": {},
+     "4": {},
+     "5": {},
+     "6": {},
+     "7": {},
+     "8": {},
+     "9": {}
+    }
+   },
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+   ]
+  },
+  "2026": {
+   "fptrack": {
+    "byGroup": {
+     "DB": {
+      "fillInWhereRotowireSilent": {
+       "bias": -0.128,
+       "mae": 4.418,
+       "n": 166,
+       "rmse": 6.182
+      },
+      "fptrack": {
+       "bias": -1.089,
+       "mae": 4.938,
+       "n": 1598,
+       "rmse": 7.082
+      },
+      "overlapWithRotowire": {
+       "correlationOfErrors": 0.946,
+       "fptrack": {
+        "bias": -1.2,
+        "mae": 4.998,
+        "n": 1432,
+        "rmse": 7.179
+       },
+       "meanOfBoth_DIAGNOSTIC_shared_lineage": {
+        "bias": -1.505,
+        "mae": 4.844,
+        "n": 1432,
+        "rmse": 7.1
+       },
+       "rotowire": {
+        "bias": -1.811,
+        "mae": 4.87,
+        "n": 1432,
+        "rmse": 7.221
+       }
+      }
+     },
+     "DL": {
+      "fillInWhereRotowireSilent": {
+       "bias": -1.004,
+       "mae": 3.156,
+       "n": 84,
+       "rmse": 4.513
+      },
+      "fptrack": {
+       "bias": -2.777,
+       "mae": 4.48,
+       "n": 1459,
+       "rmse": 7.044
+      },
+      "overlapWithRotowire": {
+       "correlationOfErrors": 0.947,
+       "fptrack": {
+        "bias": -2.886,
+        "mae": 4.561,
+        "n": 1375,
+        "rmse": 7.17
+       },
+       "meanOfBoth_DIAGNOSTIC_shared_lineage": {
+        "bias": -2.049,
+        "mae": 4.567,
+        "n": 1375,
+        "rmse": 6.854
+       },
+       "rotowire": {
+        "bias": -1.212,
+        "mae": 4.744,
+        "n": 1375,
+        "rmse": 6.803
+       }
+      }
+     },
+     "LB": {
+      "fillInWhereRotowireSilent": {
+       "bias": 0.602,
+       "mae": 3.028,
+       "n": 69,
+       "rmse": 4.196
+      },
+      "fptrack": {
+       "bias": -2.347,
+       "mae": 5.027,
+       "n": 1077,
+       "rmse": 7.804
+      },
+      "overlapWithRotowire": {
+       "correlationOfErrors": 0.969,
+       "fptrack": {
+        "bias": -2.549,
+        "mae": 5.164,
+        "n": 1008,
+        "rmse": 7.992
+       },
+       "meanOfBoth_DIAGNOSTIC_shared_lineage": {
+        "bias": -2.084,
+        "mae": 5.017,
+        "n": 1008,
+        "rmse": 7.681
+       },
+       "rotowire": {
+        "bias": -1.619,
+        "mae": 4.97,
+        "n": 1008,
+        "rmse": 7.505
+       }
+      }
+     }
+    },
+    "identityIndex": "cached_players_nfl_dump",
+    "weeks": {
+     "1": {
+      "observations": 1087,
+      "observedAt": "2026-11-01T16:10:19.901599+00:00",
+      "refused": {
+       "no_team": 1,
+       "placeholder_all_zero": 42,
+       "team_unit": 32,
+       "unresolved_identity": 35
+      },
+      "status": "ok",
+      "timestampClass": "post_kickoff",
+      "unresolved": 35
+     },
+     "2": {
+      "observations": 1069,
+      "observedAt": "2026-11-01T16:10:22.944785+00:00",
+      "refused": {
+       "no_team": 11,
+       "placeholder_all_zero": 15,
+       "team_unit": 32,
+       "unresolved_identity": 38
+      },
+      "status": "ok",
+      "timestampClass": "post_kickoff",
+      "unresolved": 38
+     },
+     "3": {
+      "observations": 1214,
+      "observedAt": "2026-11-01T16:10:25.983734+00:00",
+      "refused": {
+       "no_team": 15,
+       "placeholder_all_zero": 21,
+       "team_unit": 32,
+       "unresolved_identity": 42
+      },
+      "status": "ok",
+      "timestampClass": "post_kickoff",
+      "unresolved": 42
+     },
+     "4": {
+      "observations": 1204,
+      "observedAt": "2026-11-01T16:10:29.058457+00:00",
+      "refused": {
+       "no_team": 8,
+       "placeholder_all_zero": 22,
+       "team_unit": 32,
+       "unresolved_identity": 39
+      },
+      "status": "ok",
+      "timestampClass": "post_kickoff",
+      "unresolved": 39
+     },
+     "5": {
+      "observations": 1143,
+      "observedAt": "2026-11-01T16:10:31.985122+00:00",
+      "refused": {
+       "no_team": 4,
+       "placeholder_all_zero": 21,
+       "team_unit": 30,
+       "unresolved_identity": 32
+      },
+      "status": "ok",
+      "timestampClass": "post_kickoff",
+      "unresolved": 32
+     },
+     "6": {
+      "observations": 971,
+      "observedAt": "2026-11-01T16:10:34.967487+00:00",
+      "refused": {
+       "no_team": 6,
+       "placeholder_all_zero": 8,
+       "team_unit": 28,
+       "unresolved_identity": 15
+      },
+      "status": "ok",
+      "timestampClass": "post_kickoff",
+      "unresolved": 15
+     },
+     "7": {
+      "observations": 940,
+      "observedAt": "2026-11-01T16:10:36.844939+00:00",
+      "refused": {
+       "no_team": 7,
+       "placeholder_all_zero": 10,
+       "team_unit": 28,
+       "unresolved_identity": 6
+      },
+      "status": "ok",
+      "timestampClass": "post_kickoff",
+      "unresolved": 6
+     }
+    }
+   },
+   "lineupQuantity": "host_awarded_best_ball_points",
+   "rotowireViaSleeper": {
+    "byGroup": {
+     "DB": {
+      "bias": -1.573,
+      "calibration": {
+       "bins": [
+        {
+         "meanProjected": 0.884,
+         "meanRealized": 2.312,
+         "n": 321
+        },
+        {
+         "meanProjected": 2.718,
+         "meanRealized": 4.935,
+         "n": 322
+        },
+        {
+         "meanProjected": 5.873,
+         "meanRealized": 7.869,
+         "n": 322
+        },
+        {
+         "meanProjected": 7.987,
+         "meanRealized": 9.73,
+         "n": 322
+        },
+        {
+         "meanProjected": 10.282,
+         "meanRealized": 10.761,
+         "n": 322
+        }
+       ],
+       "n": 1609,
+       "slope": 0.885
+      },
+      "coverageOfPlayedPlayerWeeks": 0.558,
+      "lateInactives": 8,
+      "mae": 4.649,
+      "n": 1609,
+      "playedPlayerWeeks": 2884,
+      "rmse": 7.006
+     },
+     "DL": {
+      "bias": -1.093,
+      "calibration": {
+       "bins": [
+        {
+         "meanProjected": 0.729,
+         "meanRealized": 3.262,
+         "n": 315
+        },
+        {
+         "meanProjected": 1.791,
+         "meanRealized": 4.022,
+         "n": 315
+        },
+        {
+         "meanProjected": 4.076,
+         "meanRealized": 4.906,
+         "n": 315
+        },
+        {
+         "meanProjected": 6.305,
+         "meanRealized": 5.87,
+         "n": 315
+        },
+        {
+         "meanProjected": 10.206,
+         "meanRealized": 10.513,
+         "n": 315
+        }
+       ],
+       "n": 1575,
+       "slope": 0.717
+      },
+      "coverageOfPlayedPlayerWeeks": 0.579,
+      "lateInactives": 19,
+      "mae": 4.472,
+      "n": 1575,
+      "playedPlayerWeeks": 2722,
+      "rmse": 6.551
+     },
+     "LB": {
+      "bias": -1.346,
+      "calibration": {
+       "bins": [
+        {
+         "meanProjected": 1.328,
+         "meanRealized": 3.05,
+         "n": 219
+        },
+        {
+         "meanProjected": 2.529,
+         "meanRealized": 2.374,
+         "n": 219
+        },
+        {
+         "meanProjected": 5.871,
+         "meanRealized": 7.268,
+         "n": 219
+        },
+        {
+         "meanProjected": 9.086,
+         "meanRealized": 10.714,
+         "n": 219
+        },
+        {
+         "meanProjected": 12.308,
+         "meanRealized": 14.443,
+         "n": 220
+        }
+       ],
+       "n": 1096,
+       "slope": 1.11
+      },
+      "coverageOfPlayedPlayerWeeks": 0.619,
+      "lateInactives": 8,
+      "mae": 4.839,
+      "n": 1096,
+      "playedPlayerWeeks": 1771,
+      "rmse": 7.306
+     }
+    },
+    "byTimestampClass": {
+     "post_kickoff": {
+      "DB": {
+       "bias": -1.573,
+       "mae": 4.649,
+       "n": 1609,
+       "rmse": 7.006
+      },
+      "DL": {
+       "bias": -1.093,
+       "mae": 4.472,
+       "n": 1575,
+       "rmse": 6.551
+      },
+      "LB": {
+       "bias": -1.346,
+       "mae": 4.839,
+       "n": 1096,
+       "rmse": 7.306
+      }
+     },
+     "pre_kickoff": {
+      "DB": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "DL": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "LB": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      }
+     },
+     "unstamped": {
+      "DB": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "DL": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      },
+      "LB": {
+       "bias": null,
+       "mae": null,
+       "n": 0,
+       "rmse": null
+      }
+     }
+    },
+    "subgroups": {
+     "DB": {
+      "afterBye": {
+       "bias": 0.046,
+       "mae": 4.354,
+       "n": 24,
+       "rmse": 5.227
+      },
+      "firstAppearance": {
+       "bias": -0.666,
+       "mae": 4.604,
+       "n": 195,
+       "rmse": 6.36
+      },
+      "lateInactiveHostRule": {
+       "bias": 3.684,
+       "mae": 3.684,
+       "n": 8,
+       "note": "projected > 0, no stat line; the host scores 0, so the error is the projection",
+       "rmse": 5.497
+      },
+      "notAfterBye": {
+       "bias": -1.707,
+       "mae": 4.64,
+       "n": 1405,
+       "rmse": 7.097
+      },
+      "returningPlayer": {
+       "bias": -1.698,
+       "mae": 4.655,
+       "n": 1414,
+       "rmse": 7.091
+      },
+      "rookie": {
+       "bias": -2.027,
+       "mae": 4.716,
+       "n": 214,
+       "rmse": 7.104
+      },
+      "veteran": {
+       "bias": -1.503,
+       "mae": 4.638,
+       "n": 1395,
+       "rmse": 6.991
+      }
+     },
+     "DL": {
+      "afterBye": {
+       "bias": -1.931,
+       "mae": 4.689,
+       "n": 26,
+       "rmse": 7.306
+      },
+      "firstAppearance": {
+       "bias": -0.031,
+       "mae": 4.535,
+       "n": 181,
+       "rmse": 6.365
+      },
+      "lateInactiveHostRule": {
+       "bias": 2.5,
+       "mae": 2.5,
+       "n": 19,
+       "note": "projected > 0, no stat line; the host scores 0, so the error is the projection",
+       "rmse": 3.03
+      },
+      "notAfterBye": {
+       "bias": -1.202,
+       "mae": 4.428,
+       "n": 1390,
+       "rmse": 6.522
+      },
+      "returningPlayer": {
+       "bias": -1.231,
+       "mae": 4.464,
+       "n": 1394,
+       "rmse": 6.574
+      },
+      "rookie": {
+       "bias": -0.77,
+       "mae": 3.306,
+       "n": 204,
+       "rmse": 5.312
+      },
+      "veteran": {
+       "bias": -1.142,
+       "mae": 4.646,
+       "n": 1371,
+       "rmse": 6.715
+      }
+     },
+     "LB": {
+      "afterBye": {
+       "bias": -0.479,
+       "mae": 3.744,
+       "n": 14,
+       "rmse": 4.858
+      },
+      "firstAppearance": {
+       "bias": -1.627,
+       "mae": 6.005,
+       "n": 120,
+       "rmse": 8.647
+      },
+      "lateInactiveHostRule": {
+       "bias": 3.613,
+       "mae": 3.613,
+       "n": 8,
+       "note": "projected > 0, no stat line; the host scores 0, so the error is the projection",
+       "rmse": 3.693
+      },
+      "notAfterBye": {
+       "bias": -1.283,
+       "mae": 4.7,
+       "n": 970,
+       "rmse": 7.134
+      },
+      "returningPlayer": {
+       "bias": -1.311,
+       "mae": 4.695,
+       "n": 976,
+       "rmse": 7.124
+      },
+      "rookie": {
+       "bias": -2.173,
+       "mae": 4.95,
+       "n": 147,
+       "rmse": 8.171
+      },
+      "veteran": {
+       "bias": -1.218,
+       "mae": 4.821,
+       "n": 949,
+       "rmse": 7.163
+      }
+     }
+    },
+    "timestampClassCounts": {
+     "post_kickoff": 4315,
+     "pre_kickoff": 0,
+     "unstamped": 0
+    }
+   },
+   "w1ArchiveAudit": {
+    "archiveRoot": "C:\\Users\\jason\\code\\riskittogetthebrisket\\.claude\\worktrees\\agent-ad57d8861c015581d\\data\\projections\\weekly_archive",
+    "present": false,
+    "weeks": {
+     "1": {},
+     "2": {},
+     "3": {},
+     "4": {},
+     "5": {},
+     "6": {},
+     "7": {}
+    }
+   },
+   "weeks": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  }
+ }
+}

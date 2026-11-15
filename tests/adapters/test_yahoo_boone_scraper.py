@@ -350,7 +350,7 @@ class TestPartialScrapeGuards:
     def test_position_below_per_position_floor_exits_3_and_preserves_csv(
         self, yb_module, tmp_path, monkeypatch
     ):
-        # Total 480 clears _YB_ROW_COUNT_FLOOR (400) so the per-position
+        # Total 480 clears _YB_ROW_COUNT_FLOOR (320) so the per-position
         # guard is what must catch TE vanishing (TE=0 < 30).
         board = self._board(yb_module, {"QB": 80, "RB": 200, "WR": 200, "TE": 0})
         monkeypatch.setattr(
@@ -368,7 +368,38 @@ class TestPartialScrapeGuards:
         assert dest.read_text(encoding="utf-8") == sentinel
 
     def test_total_below_floor_exits_2_and_preserves_csv(self, yb_module, tmp_path, monkeypatch):
-        board = self._board(yb_module, {"QB": 80, "RB": 80, "WR": 80, "TE": 80})  # 320 < 400
+        board = self._board(yb_module, {"QB": 80, "RB": 80, "WR": 70, "TE": 70})  # 300 < 320
+        monkeypatch.setattr(yb_module, "fetch_all", lambda *a, **k: (board, []))
+        dest = tmp_path / "yahooBoone.csv"
+        sentinel = "name,pos,rank,boone_value\nPrior Good,QB,1,141\n"
+        dest.write_text(sentinel, encoding="utf-8")
+
+        rc = yb_module.main(["--dest", str(dest)])
+
+        assert rc == 2
+        assert dest.read_text(encoding="utf-8") == sentinel
+
+    def test_the_2026_10_09_vendor_board_is_accepted(self, yb_module, tmp_path, monkeypatch):
+        """Boone's 2026-10-09 update published smaller charts (WR 150->120,
+        TE 80->66).  The old 400 floor rejected that real, complete board on
+        every run, so the source served September content while looking
+        merely 'not refreshed'."""
+        board = self._board(yb_module, {"QB": 80, "RB": 100, "WR": 120, "TE": 66})  # 366
+        monkeypatch.setattr(yb_module, "fetch_all", lambda *a, **k: (board, []))
+        dest = tmp_path / "yahooBoone.csv"
+
+        rc = yb_module.main(["--dest", str(dest)])
+
+        assert rc == 0
+        with dest.open() as f:
+            assert len(list(csv.DictReader(f))) == 366
+
+    def test_losing_a_whole_position_of_the_new_board_still_fails(
+        self, yb_module, tmp_path, monkeypatch
+    ):
+        """The floor exists for one failure: a position's article vanishing.
+        Losing even the smallest position (TE, 66) must stay below it."""
+        board = self._board(yb_module, {"QB": 80, "RB": 100, "WR": 120})  # 300, TE gone
         monkeypatch.setattr(yb_module, "fetch_all", lambda *a, **k: (board, []))
         dest = tmp_path / "yahooBoone.csv"
         sentinel = "name,pos,rank,boone_value\nPrior Good,QB,1,141\n"

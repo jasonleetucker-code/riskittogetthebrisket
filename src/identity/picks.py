@@ -333,6 +333,8 @@ PICK_OWNERSHIP_REASON_FIELD = "pickOwnershipReason"
 PICK_OWNERSHIP_OBSERVED = "observed"
 PICK_OWNERSHIP_UNAVAILABLE = "unavailable"
 PICK_OWNERSHIP_REASON_TRADED_PICKS_FETCH_FAILED = "traded_picks_fetch_failed"
+# Nothing states what is owned (a payload predating the state field).
+PICK_OWNERSHIP_REASON_UNSTATED = "pick_ownership_unstated"
 # The board/endpoint-level error code when a whole surface is refused because
 # ownership is unknown (``/api/draft-capital`` fallback, ``/api/ros/pick-projections``).
 PICK_OWNERSHIP_UNAVAILABLE_ERROR = "pick_ownership_unavailable"
@@ -372,12 +374,12 @@ def team_pick_ownership_unavailable_reason(team: Mapping[str, Any]) -> str | Non
       field that carries lists) → ``None``.
     """
     if not isinstance(team, Mapping):
-        return "pick_ownership_unstated"
+        return PICK_OWNERSHIP_REASON_UNSTATED
     state = team.get(PICK_OWNERSHIP_STATE_FIELD)
     if state == PICK_OWNERSHIP_UNAVAILABLE:
         return str(team.get(PICK_OWNERSHIP_REASON_FIELD) or PICK_OWNERSHIP_UNAVAILABLE)
     if state is None and team.get("pickDetails") is None and team.get("picks") is None:
-        return "pick_ownership_unstated"
+        return PICK_OWNERSHIP_REASON_UNSTATED
     return None
 
 
@@ -833,6 +835,28 @@ def format_trade_pick_label(
         base_label = f"{season_txt} Round {round_txt}".strip()
 
     return f"{base_label} (from {from_team})" if from_team else base_label
+
+
+def relabel_pick_origin(label: Any, renames: Mapping[str, str]) -> Any:
+    """Rewrite a label's trailing "(from X)" when ``X`` is a renamed team.
+
+    Team display names change (a renamed owner, a mid-season hand-off), and
+    labels minted before the change carry the old one.  Only the annotation
+    is touched, only on an exact ``X`` match, and anything that is not a
+    string comes back unchanged — the base label is identity, never edited.
+    """
+    if not isinstance(label, str) or not renames:
+        return label
+    ann = _LABEL_ANNOTATION_RE.search(label)
+    if not ann:
+        return label
+    text = ann.group("ann").strip()
+    if not text.lower().startswith("from "):
+        return label
+    new = renames.get(text[5:].strip())
+    if not new:
+        return label
+    return f"{label[: ann.start()].rstrip()} (from {new})"
 
 
 # ── Intel-ledger legacy grade ─────────────────────────────────────────

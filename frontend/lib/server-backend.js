@@ -100,6 +100,25 @@ export function backendOrigin() {
  * @returns {Promise<any|null>} parsed JSON, or null on any failure
  */
 export async function fetchBackendJson(path, opts = {}) {
+  const result = await fetchBackendResult(path, opts);
+  return result.ok ? result.data : null;
+}
+
+/**
+ * Same bounded read as ``fetchBackendJson``, but it also reports the HTTP
+ * status, for the one caller that must tell a deliberate refusal from
+ * silence: the League Hub decides whether the Brisket Trade Advisor tab
+ * exists from ``/api/public/league/trade-advisor/teams``, where a 503
+ * ``advisor_unavailable/disabled`` (feature flag off) or a 404 means "fall
+ * back to Overview", while a timeout means "unknown, let the client ask".
+ *
+ * Never throws.  ``status`` is 0 when no response arrived (refused,
+ * timed out); ``data`` is the parsed JSON body (error bodies included) or
+ * null when the body was not JSON.
+ *
+ * @returns {Promise<{ok: boolean, status: number, data: any}>}
+ */
+export async function fetchBackendResult(path, opts = {}) {
   const { revalidate, timeoutMs } = opts;
   const url = `${backendOrigin()}${path}`;
   const budget = timeoutMs ?? defaultTimeoutMs();
@@ -113,19 +132,24 @@ export async function fetchBackendJson(path, opts = {}) {
   // not on the presence of a signal.  Verified against next@16.2.12
   // rather than assumed — a helper that silently disabled caching would
   // trade a hang for a 2 MB re-fetch on every render.
+  let res;
   try {
-    const res = await fetch(url, init);
-    if (!res.ok) {
-      console.warn(`[server-backend] ${path} -> HTTP ${res.status}`);
-      return null;
-    }
-    return await res.json();
+    res = await fetch(url, init);
   } catch (err) {
     // TimeoutError is the case this helper exists for; name it, because
     // "the backend is slow" and "the backend is gone" want different
     // operator responses even though the page renders identically.
     const kind = err?.name === "TimeoutError" ? `no response in ${budget}ms` : err?.name || "error";
     console.warn(`[server-backend] ${path} -> ${kind}`);
-    return null;
+    return { ok: false, status: 0, data: null };
   }
+  if (!res.ok) console.warn(`[server-backend] ${path} -> HTTP ${res.status}`);
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (err) {
+    console.warn(`[server-backend] ${path} -> ${err?.name || "error"}`);
+    return { ok: false, status: res.status, data: null };
+  }
+  return { ok: res.ok, status: res.status, data };
 }

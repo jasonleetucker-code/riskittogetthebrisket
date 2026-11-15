@@ -186,7 +186,7 @@ def derived_training_run(source: ModelVersion, params: dict[str, float]) -> dict
 
 def cmd_register(args: argparse.Namespace) -> int:
     reg = _load_or_seed()
-    params = json.loads(Path(args.params).read_text())
+    params = json.loads(Path(args.params).read_text(encoding="utf-8"))
     params = {str(k): float(v) for k, v in params.items()}
     missing = [n for n in CONSTANT_NAMES if n not in params]
     if missing:

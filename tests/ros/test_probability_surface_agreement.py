@@ -98,8 +98,16 @@ def _run_ros(fn):
 
 
 def _run_public():
-    with patch.object(public_odds, "_season_weekly_scores", return_value=({}, [])):
-        return public_odds.compute_playoff_odds(_snapshot(), num_sims=_REQUESTED_SIMS)
+    # C5-PLAY-01: the public section has no simulator of its own any more —
+    # it is the canonical forecast in its historical shape — so it is driven
+    # through the same patched canonical engine as the two ROS surfaces.
+    with (
+        patch.object(playoff_sim, "_build_team_distributions", return_value=({}, {})),
+        patch.object(playoff_sim, "_load_ros_strength_map", return_value={"alice": 50.0}),
+        patch.object(playoff_sim, "_league_best_ball", return_value=False),
+    ):
+        forecast = playoff_sim.simulate_playoff_odds(_snapshot(), n_simulations=_REQUESTED_SIMS)
+        return public_odds.compute_playoff_odds(_snapshot(), forecast=forecast)
 
 
 class Surface:

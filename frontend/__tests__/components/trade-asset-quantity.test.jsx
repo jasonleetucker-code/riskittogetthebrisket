@@ -270,9 +270,13 @@ describe("/trade KTC import", () => {
         return { ok: false, status: 404, json: async () => ({}) };
       }),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Import KTC" }));
+    // The KTC row now sits behind the "Import trade" control (C3-IMPORT-IMAGE).
+    await userEvent.click(screen.getByRole("button", { name: "Import trade" }));
+    await userEvent.click(screen.getByRole("button", { name: "From KeepTradeCut URL" }));
+    // The import row is loaded on demand (React.lazy), so it lands a tick
+    // after the click.
     await userEvent.type(
-      screen.getByLabelText("KeepTradeCut trade-calculator URL"),
+      await screen.findByLabelText("KeepTradeCut trade-calculator URL"),
       "https://keeptradecut.com/trade-calculator?teamOne=1&teamTwo=2",
     );
     await userEvent.click(screen.getByRole("button", { name: "Load trade" }));

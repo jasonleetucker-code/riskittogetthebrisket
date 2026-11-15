@@ -123,7 +123,14 @@ def parse_board(key: str, text: str) -> Board:
     name_col = next((lowered[c] for c in _NAME_COLUMNS if c in lowered), None)
     board.rank_col = next((lowered[c] for c in _RANK_COLUMNS if c in lowered), None)
     board.value_col = next((lowered[c] for c in _VALUE_COLUMNS if c in lowered), None)
-    pos_col = next((lowered[c] for c in _POSITION_COLUMNS if c in lowered), None)
+    # Columns U3 appended (outlier-integrity V2.1) are ignored so this sweep reads
+    # every board exactly as it did before U3.
+    from src.identity.capture_evidence import u3_added_columns  # noqa: PLC0415
+
+    u3_cols = u3_added_columns(key)
+    pos_col = next(
+        (lowered[c] for c in _POSITION_COLUMNS if c in lowered and c not in u3_cols), None
+    )
     for index, row in enumerate(reader):
         board.rows += 1
         raw_name = str(row.get(name_col) or "").strip() if name_col else ""

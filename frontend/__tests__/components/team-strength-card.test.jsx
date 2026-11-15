@@ -214,3 +214,18 @@ describe("TeamStrengthCard — failure states", () => {
     expect(screen.getByText(/No Team Strength for this league/)).toBeInTheDocument();
   });
 });
+
+describe("TeamStrengthCard — unlinked team (team_required)", () => {
+  const DEV_MESSAGE =
+    "Pass ?team=<ownerId>. It could not be inferred: this session carries no Sleeper user id and the league has no default team mapping for it.";
+
+  it("never renders the backend developer message, and says how to choose a team", () => {
+    renderCard({ failure: { kind: "team_required", message: DEV_MESSAGE } });
+    expect(screen.getByText(/Choose a team/)).toBeInTheDocument();
+    expect(screen.queryByText(/Pass \?team=/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ownerId/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sleeper user id/)).not.toBeInTheDocument();
+    expect(screen.getByText(/My team/)).toBeInTheDocument();
+    expect(screen.getByText(/Pick your team/)).toBeInTheDocument();
+  });
+});

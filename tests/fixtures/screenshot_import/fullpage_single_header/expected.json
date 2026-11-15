@@ -1,0 +1,32 @@
+{
+  "layoutKind": "single",
+  "mustBeIgnored": [],
+  "requiredWarnings": [
+    "missing_side"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Patrick Mahomes",
+          "text": "Patrick Mahomes"
+        },
+        {
+          "boardName": "2027 Round 1",
+          "text": "2027 1st"
+        }
+      ],
+      "label": "You give"
+    }
+  ],
+  "unassigned": [
+    {
+      "boardName": "Bijan Robinson",
+      "text": "Bijan Robinson"
+    },
+    {
+      "boardName": "Brian Thomas Jr.",
+      "text": "Brian Thomas Jr."
+    }
+  ]
+}

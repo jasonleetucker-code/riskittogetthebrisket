@@ -82,9 +82,19 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
         "D-1",
         "frontend/lib/draft-logic.js",
         "Math.min(theoreticalMaxBid, winByCompetitor)",
-        OPEN,
-        "Read the clamp: it caps against the richest RIVAL only. Neither "
-        "myRemaining nor mySlotsRemaining appears in either figure.",
+        CLOSED,
+        "CLOSED 2026-11-06 by PR #2074 (re-verified W10-F001). Read "
+        "computeDraftStats: myWinningBid is now "
+        "Math.min(theoreticalMaxBid, winByCompetitor, myRemaining), and "
+        "myMaxBid, bayesianWinningBid and enforceUpTo are capped by "
+        "myRemaining too; theoreticalMaxBid stays uncapped, is shown only "
+        "as the labelled 'Theoretical max', and budgetCapped says when the "
+        "cap bit. bidStatus reads the capped bid, so an unaffordable lot is "
+        "Pass. Pinned by frontend/__tests__/draft-bid-budget-invariant.test.js. "
+        "The roster-SLOTS half is retired by design: the rookie draft has no "
+        "per-team slot limit (CLAUDE.md, Perfect Draft; mySlotsRemaining and "
+        "slotPressure were deleted). The needle is the old two-argument "
+        "clamp, so it reappearing means the budget cap was removed.",
     ),
     "C02": (
         "D-2",
@@ -134,10 +144,15 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     "C05": (
         "T-1",
         "frontend/lib/trade-logic.js",
-        "result[i].given += value",
+        "given: t.sendAdj,",
         OPEN,
         "The GIVE convention is live at :1393 while the verdict names the "
-        "bigger pile the winner. Both conventions still present.",
+        "bigger pile the winner. Both conventions still present. "
+        "Re-pointed 2026-10-20 (PR #1883): computeSideFlows now reads each "
+        "team from perTeamPackageTotals, and the GIVE convention lives on as "
+        "`given: t.sendAdj` (what the side SENDS); the old "
+        "`result[i].given += value` accumulator is gone, not the convention. "
+        "Status unchanged — nothing here decided the direction question.",
     ),
     "C06": (
         "W-1",
@@ -444,21 +459,20 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
         "T-9",
         "src/trade/suggestions.py",
         "analyze_roster(roster_names, pool",
-        OPEN,
-        "Still called with a name list the pool can only partly resolve.\n\n"
-        "SIGNATURE RESPELLED 2026-08-19 (C3-CON-01), STATUS DELIBERATELY "
-        "UNCHANGED. The call site gained a `constraints=` keyword when the "
-        "recommendation-constraint owner was wired in, so the old needle "
-        "`analyze_roster(roster_names, pool, starter_needs)` stopped matching "
-        "and the probe flipped to signature_absent. That is the case this "
-        "module's own docstring warns about: an absent signature means the "
-        "cited MECHANISM changed, not that the defect is fixed. It is not "
-        "fixed — C3-CON-01 decides which resolved assets may be OFFERED and "
-        "does nothing whatever about resolution, which is what T-9 is about. "
-        "The needle is respelled to the part that IS the defect (the name "
-        "list reaching `analyze_roster`) rather than to the full argument "
-        "list, so a further keyword cannot flip it again and invite a second "
-        "close-on-a-respelling.",
+        CLOSED,
+        "CLOSED 2026-10-14 (trade-discovery Batch 1, claude/trade-constraints-lock-exclude). "
+        "The roster is now analysed against the WHOLE priced board "
+        "(`analysis_pool = roster_pool`, built with `ktc_top_n=0` by the route), not the "
+        "top-150 quality pool that only gates what may be proposed. Measured on the "
+        "2026-10-14 archive board: roster visibility 86-97% per team (was 3-36% against "
+        "the top-150 pool); teams with zero suggestions 10 -> 4 of 12, each with a named "
+        "`noResultReason`. The remaining 3-14% are players with no board price at all "
+        "and are published by name in `metadata.rosterUnpriced` rather than dropped. "
+        "Tripwire: the needle is the retired call shape — passing the top-N `pool` to "
+        "`analyze_roster` again would re-open T-9.\n\n"
+        "History: respelled 2026-08-19 (C3-CON-01) while still open; the C3-CON-01 "
+        "constraints keyword decided what may be OFFERED and did nothing about "
+        "resolution.",
     ),
     "C27": (
         "T-10",

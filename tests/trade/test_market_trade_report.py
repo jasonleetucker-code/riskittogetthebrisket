@@ -216,6 +216,35 @@ def test_killed_runs_temp_files_are_removed_and_a_failed_build_leaves_none(env, 
     assert (root / R.LEDGER_FILENAME).read_bytes() == before
 
 
+def test_a_killed_runs_sqlite_companion_files_are_removed_too(tmp_path):
+    # Observed on the box 2026-10-25: a timed-out build's ``.tmp`` was cleaned
+    # by the next run but its ``.tmp-journal`` survived, because only ``*.tmp``
+    # was matched.
+    import os
+    import time
+
+    old = time.time() - R.STALE_TEMP_AGE_SECONDS - 60
+    stale = [
+        tmp_path / f".{R.LEDGER_FILENAME}.556238.tmp-journal",
+        tmp_path / f".{R.LEDGER_FILENAME}.556238.tmp-wal",
+        tmp_path / f".{R.LEDGER_FILENAME}.556238.tmp-shm",
+    ]
+    for p in stale:
+        p.write_bytes(b"j")
+        os.utime(p, (old, old))
+    young = tmp_path / f".{R.LEDGER_FILENAME}.77777.tmp-journal"
+    young.write_bytes(b"j")
+    unrelated = tmp_path / f".{R.LEDGER_FILENAME}.556238.tmpfoo"
+    unrelated.write_bytes(b"u")
+    os.utime(unrelated, (old, old))
+
+    removed = R.remove_stale_temp_files(tmp_path)
+
+    assert sorted(removed) == sorted(p.name for p in stale)
+    assert young.exists(), "a young journal may belong to a concurrent manual build"
+    assert unrelated.exists(), "only the temp database and its SQLite companions"
+
+
 def test_repeat_build_is_deterministic(env):
     _seed(env)
     a = [g["underlyingTradeId"] for g in _build(env)["grouping"].groups]

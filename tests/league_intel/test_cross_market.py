@@ -404,7 +404,7 @@ class TestRealBoardCoverage:
         path = Path(__file__).resolve().parents[2] / "audit" / "baseline" / "api_data.json"
         if not path.exists():
             pytest.skip("baseline contract snapshot not present")
-        return json.loads(path.read_text())["playersArray"]
+        return json.loads(path.read_text(encoding="utf-8"))["playersArray"]
 
     @staticmethod
     def _ktc_value(sites):
@@ -512,6 +512,9 @@ def test_the_documented_importer_census_is_the_real_one():
         "src/api/gameplan.py",
         "src/roster_intel/packages.py",
         "src/trade/angle.py",
+        "src/trade/best_offers.py",
+        "src/trade/golden_upgrades.py",
+        "src/trade/package_builder.py",
     }
     pattern = re.compile(r"^\s*from\s+src\.league_intel\.cross_market\s+import", re.M)
     root = _repo_root()

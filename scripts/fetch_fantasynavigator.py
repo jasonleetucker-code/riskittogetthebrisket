@@ -128,7 +128,7 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
     """
     if not isinstance(data, list):
         raise FantasyNavigatorSchemaError(f"Expected JSON array, got {type(data).__name__}")
-    candidates: list[tuple[str, str, float]] = []
+    candidates: list[tuple[str, str, float, str, str]] = []
     for entry in data:
         if not isinstance(entry, dict):
             continue
@@ -150,15 +150,18 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
         if value_f <= 0:
             continue
         insert_date = str(entry.get("_insert_date") or "")
-        candidates.append((name.strip(), insert_date, round(value_f, 2)))
+        # V2.1 U3: the position / team this row publishes (trailing CSV
+        # columns; nothing that ranks or values reads them).
+        team = str(entry.get("team") or "").strip().upper()
+        candidates.append((name.strip(), insert_date, round(value_f, 2), pos, team))
     if not candidates:
         return []
-    newest_date = max(d for _, d, _ in candidates)
+    newest_date = max(c[1] for c in candidates)
     best: dict[str, dict[str, Any]] = {}
-    for name, insert_date, value_f in candidates:
+    for name, insert_date, value_f, pos, team in candidates:
         if insert_date != newest_date:
             continue
-        row = {"name": name, "value": value_f}
+        row = {"name": name, "value": value_f, "position": pos, "team": team}
         prev = best.get(name)
         if prev is None or row["value"] > prev["value"]:
             best[name] = row
@@ -181,7 +184,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     # based on feed ordering (same convention as fetch_otcffb.py —
     # see PR #530).  ``rows`` arrive value-sorted descending.
     path.parent.mkdir(parents=True, exist_ok=True)
-    fields = ["name", "value", "rank"]
+    fields = ["name", "value", "rank", "position", "team"]
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
@@ -191,7 +194,15 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
             if row["value"] != prev_value:
                 rank = idx
                 prev_value = row["value"]
-            writer.writerow({"name": row["name"], "value": row["value"], "rank": rank})
+            writer.writerow(
+                {
+                    "name": row["name"],
+                    "value": row["value"],
+                    "rank": rank,
+                    "position": row.get("position", ""),
+                    "team": row.get("team", ""),
+                }
+            )
 
 
 def main(argv: list[str] | None = None) -> int:

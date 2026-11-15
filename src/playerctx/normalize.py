@@ -43,7 +43,12 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from src.identity.unified_mapper import _load_overrides, resolve_player
-from src.utils.name_clean import normalize_player_name, normalize_position
+from src.utils.name_clean import (
+    POSITION_GROUP_OTHER,
+    canonical_position_group,
+    normalize_player_name,
+    normalize_position,
+)
 
 log = logging.getLogger(__name__)
 
@@ -554,6 +559,15 @@ def compute_depth_ranks(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 _RELEVANT_FAMILIES: frozenset[str] = frozenset({"QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"})
 
 
+def _same_position_group(source_position: str, pool_position: str) -> bool:
+    """True when a source row and a pool player sit in the same canonical
+    position group (offense / IDP / kicker).  ``OTHER`` never matches: it is
+    every group the fantasy pool does not carry (OL, LS, FB), so a row there
+    has no same-group player to find."""
+    group = canonical_position_group(source_position)
+    return group != POSITION_GROUP_OTHER and group == canonical_position_group(pool_position)
+
+
 def build_sleeper_pool(players_dump: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Filter Sleeper's full ``/v1/players/nfl`` dump to the fantasy-
     relevant pool and canonicalize positions to family level so the
@@ -682,6 +696,25 @@ def build_player_context(
             return cands[0], False
         return None, True
 
+    cross_group_refused: set[tuple[str, str, str]] = set()
+
+    def _refuse_cross_group(
+        hit: dict[str, Any] | None, position: str, key: tuple[str, str, str]
+    ) -> dict[str, Any] | None:
+        """The position-blind rungs (unique name, fuzzy) may not cross a
+        position GROUP the source row states.  OTC lists offensive linemen,
+        and a "Brian Allen, C" or "Josh Allen, ED" row whose real player is
+        not in the pool used to land on the one same-named fantasy player
+        at another group — and overwrite that player's own contract.
+        Within a group (QB→TE, DL↔LB) they still match: those are real
+        players whose listed position drifted.  A source with NO position
+        can contradict nothing and keeps the old behaviour.  The operator
+        alias rung is not gated — a pinned mapping is a decision."""
+        if hit is None or not position or _same_position_group(position, hit["position"]):
+            return hit
+        cross_group_refused.add(key)
+        return None
+
     def _resolve_by_name(name: str, team: str, position: str) -> dict[str, Any] | None:
         fam = normalize_position(position)
         team_u = (team or "").upper()
@@ -710,6 +743,7 @@ def build_player_context(
             hit, ambiguous = _sole(by_name_pos.get((norm_name, fam)))
         if hit is None and not ambiguous:
             hit, ambiguous = _sole(by_name.get(norm_name))
+            hit = _refuse_cross_group(hit, position, key)
         if hit is None and norm_name in alias_by_name:
             # Manual override (id_overrides.json) — an operator-pinned
             # source-name → sleeper_id mapping settles ambiguity and
@@ -742,7 +776,7 @@ def build_player_context(
                     position=fam or None,
                     min_confidence=min_confidence,
                 )
-                hit = scope.get(got.sleeper_id) if got else None
+                hit = _refuse_cross_group(scope.get(got.sleeper_id) if got else None, position, key)
         resolve_cache[key] = hit
         return hit
 
@@ -829,5 +863,8 @@ def build_player_context(
             "team": c["team"],
         }
 
+    # Distinct source rows (name, team, family) a position-blind rung
+    # refused for crossing a position group — dropped, never attached.
+    stats["crossGroupRefused"] = len(cross_group_refused)
     stats["players"] = len(records)
     return records, stats

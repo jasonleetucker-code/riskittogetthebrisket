@@ -60,7 +60,7 @@ def test_an_attested_week_carries_an_order_and_no_power_score():
         methodology_version="canonical-power-2026.09-v1",
     )
     assert created
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
 
     assert payload["rankSource"] == power_snapshots.RANK_SOURCE_ATTESTED
     assert payload["preseason"] is True
@@ -143,7 +143,7 @@ def test_an_attested_week_cannot_overwrite_a_publication():
     )
     assert created is False
     # The engine's week survives untouched.
-    assert json.loads(path.read_text())["ranking"][0]["ownerId"] == "a"
+    assert json.loads(path.read_text(encoding="utf-8"))["ranking"][0]["ownerId"] == "a"
 
 
 def test_restating_fills_in_the_movement_week_one_could_not_know():
@@ -167,7 +167,7 @@ def test_restating_fills_in_the_movement_week_one_could_not_know():
     )
     assert restated
 
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     rows = {row["ownerId"]: row for row in payload["ranking"]}
     assert (rows["a"]["priorRank"], rows["a"]["rankDelta"]) == (2, 1)
     assert (rows["b"]["priorRank"], rows["b"]["rankDelta"]) == (1, -1)
@@ -193,13 +193,15 @@ def test_restating_is_idempotent():
         attestation=ATTESTATION,
     )
     power_snapshots.restate_movement(league_key="main", season="2026", week=1, reason="first")
-    before = json.loads(power_snapshots.snapshot_path("main", "2026", 1).read_text())
+    before = json.loads(
+        power_snapshots.snapshot_path("main", "2026", 1).read_text(encoding="utf-8")
+    )
 
     _, restated = power_snapshots.restate_movement(
         league_key="main", season="2026", week=1, reason="second"
     )
     assert restated is False
-    after = json.loads(power_snapshots.snapshot_path("main", "2026", 1).read_text())
+    after = json.loads(power_snapshots.snapshot_path("main", "2026", 1).read_text(encoding="utf-8"))
     assert after == before, "a no-op restatement must not even append an audit row"
 
 
@@ -217,10 +219,10 @@ def test_restating_refuses_to_rewrite_movement_that_was_already_published():
 
     # Now corrupt week 1 so a recomputation would produce a DIFFERENT arrow.
     path = power_snapshots.snapshot_path("main", "2026", 1)
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     for row in payload["ranking"]:
         row["rank"] = 1 if row["ownerId"] == "b" else 2
-    path.write_text(json.dumps(payload))
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="refusing to rewrite published movement"):
         power_snapshots.restate_movement(
@@ -239,10 +241,10 @@ def test_restating_refuses_when_anything_but_movement_would_change():
     )
     # A row shape the restatement cannot reproduce: drop a key the writer emits.
     path = power_snapshots.snapshot_path("main", "2026", 1)
-    payload = json.loads(path.read_text())
+    payload = json.loads(path.read_text(encoding="utf-8"))
     for row in payload["ranking"]:
         row.pop("powerScoreDelta")
-    path.write_text(json.dumps(payload))
+    path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(ValueError, match="row shape"):
         power_snapshots.restate_movement(

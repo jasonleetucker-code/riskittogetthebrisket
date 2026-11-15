@@ -143,7 +143,10 @@ _NO_LEDGER_SENTINELS = frozenset({"/dev/null", "nul", "none", ""})
 
 
 def _is_explicit_opt_out(path: Path | None) -> bool:
-    return path is None or str(path).strip().lower() in _NO_LEDGER_SENTINELS
+    # ``as_posix``: on Windows ``str(Path("/dev/null"))`` is ``\dev\null``,
+    # which silently disabled the documented ``/dev/null`` opt-out there.
+    # On POSIX ``as_posix()`` equals ``str()``, so nothing changes.
+    return path is None or path.as_posix().strip().lower() in _NO_LEDGER_SENTINELS
 
 
 def load_required_claim_ledger(path: Path | None) -> dict[str, str]:

@@ -195,7 +195,7 @@ _LIVE_CARDS = Path(__file__).resolve().parent / "fixtures" / "live_scoring_cards
 
 
 def _live_cards() -> dict:
-    return json.loads(_LIVE_CARDS.read_text())
+    return json.loads(_LIVE_CARDS.read_text(encoding="utf-8"))
 
 
 def test_the_live_league_cards_have_no_gaps():

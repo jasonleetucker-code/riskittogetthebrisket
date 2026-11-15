@@ -252,6 +252,187 @@ def rostered_name_set(sleeper_teams: list[dict[str, Any]] | None) -> set[str]:
     return rostered
 
 
+def waiver_positions(include_kicker_def: bool = False) -> set[str]:
+    """The positions the waiver add pool offers."""
+    positions = set(_BASE_POSITIONS)
+    if include_kicker_def:
+        positions.update({"K", "DEF"})
+    return positions
+
+
+def waiver_starter_slots(
+    contract: dict[str, Any] | None, starters: dict[str, Any] | None
+) -> tuple[list[str], str | None]:
+    """The league lineup the add pool is checked against, or ``([], None)``.
+
+    Delegates to THE truth ladder (``src.ros.lineup.resolve_starter_slots``):
+    the contract's live ``sleeper.rosterPositions`` first, then the registry
+    ``starters`` the route resolved for this league, else a refusal.  The
+    routes that call :func:`find_waiver_targets` have already proven the
+    loaded contract belongs to the requested league (``require_loaded_contract``),
+    so the live block is that league's own.
+    """
+    from src.ros.lineup import resolve_starter_slots  # noqa: PLC0415
+
+    sleeper = (contract or {}).get("sleeper") if isinstance(contract, dict) else None
+    roster_positions = sleeper.get("rosterPositions") if isinstance(sleeper, dict) else None
+    return resolve_starter_slots(
+        roster_positions=roster_positions if isinstance(roster_positions, list) else None,
+        roster_settings={"starters": starters} if isinstance(starters, dict) else None,
+    )
+
+
+def _waiver_slot_eligibility(contract: dict[str, Any] | None) -> dict[str, tuple[str, ...]] | None:
+    """The league's CONFIGURED flex rule, or ``None`` (declared table applies)."""
+    try:
+        from src.api.data_contract import contract_slot_eligibility  # noqa: PLC0415
+
+        return contract_slot_eligibility(contract or {}) or None
+    except Exception:  # noqa: BLE001 — an optional rule must not fail the pool
+        return None
+
+
+def waiver_candidate_exclusion(
+    row: dict[str, Any],
+    *,
+    positions: set[str],
+    min_value: int = MIN_WAIVER_VALUE,
+    rookies_eligible: bool,
+    starter_slots: list[str] | None = None,
+    slot_eligibility: dict[str, Any] | None = None,
+) -> str | None:
+    """Why the waiver add pool refuses this (unrostered) row, or ``None``.
+
+    THE add-pool filter.  ``find_waiver_targets`` applies it to choose
+    candidates; Perfect Waivers applies it to REPORT who was filtered and
+    why, so a player outside the pool is counted rather than invisible.
+    One definition, so the two cannot disagree about who was eligible.
+
+    ``starter_slots`` (CW-50, 2026-11-07): when the league's lineup is known,
+    a player who can fill none of its slots is refused as
+    ``position_not_started`` — a defender is not a pickup in a league with no
+    defensive slot (the /waivers page already gated IDP on the league's
+    ``idpEnabled``; this is the server half).  Decided by the lineup owner's
+    own predicate (``lineup.player_fills_any_slot``).  ``None`` / empty means
+    the lineup is UNKNOWN and nothing is refused for position — unknown is
+    not "offense only".
+    """
+    pos = str(row.get("position") or "").upper()
+    if pos not in positions:
+        return "kicker_def_excluded" if pos in {"K", "DEF"} else "position_not_offered"
+    if starter_slots:
+        from src.ros.lineup import player_fills_any_slot, roster_player_from_row  # noqa: PLC0415
+
+        if not player_fills_any_slot(
+            roster_player_from_row(row), starter_slots, slot_eligibility=slot_eligibility
+        ):
+            return "position_not_started"
+    consensus = row.get("rankDerivedValue")
+    if not isinstance(consensus, (int, float)):
+        return "unpriced"
+    if consensus < min_value:
+        return "below_min_value"
+    # Two-source minimum.  A player backed by a single ranking
+    # source has no corroboration — these produced the "weird"
+    # waiver suggestions whose value rested on one list.  Never
+    # surface them as a pickup regardless of position.  ``sourceCount``
+    # is the matched-source count stamped by the canonical pipeline.
+    try:
+        source_count = int(row.get("sourceCount") or 0)
+    except (TypeError, ValueError):
+        source_count = 0
+    if source_count < 2:
+        return "single_source"
+    is_rookie = bool(row.get("rookie") or row.get("_formatFitRookie"))
+    if is_rookie and not rookies_eligible:
+        return "rookie_gate"
+    return None
+
+
+def waiver_pool_exclusion_census(
+    rows: list[dict[str, Any]],
+    *,
+    min_value: int = MIN_WAIVER_VALUE,
+    include_kicker_def: bool = False,
+    starter_slots: list[str] | None = None,
+    slot_eligibility: dict[str, Any] | None = None,
+) -> dict[str, int]:
+    """Counts, by reason, of the given unrostered rows the add pool refuses."""
+    positions = waiver_positions(include_kicker_def)
+    rookies_eligible = _rookies_eligible_today()
+    out: dict[str, int] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        reason = waiver_candidate_exclusion(
+            row,
+            positions=positions,
+            min_value=min_value,
+            rookies_eligible=rookies_eligible,
+            starter_slots=starter_slots,
+            slot_eligibility=slot_eligibility,
+        )
+        if reason is not None:
+            out[reason] = out.get(reason, 0) + 1
+    return out
+
+
+def observed_faab_balance(observed: Any) -> int | None:
+    """The roster row's ``faabRemaining`` when it is a real integer, else ``None``."""
+    return int(observed) if isinstance(observed, int) and not isinstance(observed, bool) else None
+
+
+def resolve_faab_balance(
+    requested_balance: int | None, observed_balance: int | None
+) -> tuple[int | None, str | None]:
+    """``(spendable balance, source)`` from the two possible observations.
+
+    When both are stated the LOWER one caps -- a stale client figure must never
+    lift a bid above what the live roster says the team has (CW-50, #2136).
+    A negative balance (an over-spent roster) is a KNOWN balance with nothing to
+    spend, never an unknown one.  ``(None, None)`` is UNKNOWN, never $0 and
+    never the league budget.
+    """
+    if requested_balance is not None and observed_balance is not None:
+        known = min(requested_balance, observed_balance)
+        source: str | None = "roster" if observed_balance <= requested_balance else "request"
+    elif observed_balance is not None:
+        known, source = observed_balance, "roster"
+    elif requested_balance is not None:
+        known, source = requested_balance, "request"
+    else:
+        return None, None
+    return max(0, known), source
+
+
+def faab_budget_block(
+    *,
+    known_balance: int | None,
+    original_budget: int,
+    withheld: bool,
+    source: str | None,
+    requested_balance: int | None,
+    observed_balance: int | None,
+) -> dict[str, Any]:
+    """THE published ``faabBudget`` field -- one vocabulary on every waiver surface.
+
+    ``/api/waiver/suggestions`` and the bid desk ``/api/waiver/faab-recommend``
+    both build it here.  ``balance`` is the SPENDABLE balance every bid is capped
+    at (``None`` when unknown, never $0 or the league budget); ``source`` names
+    which observation bound it; the raw observations stay beside it.
+    """
+    return {
+        "state": "known" if known_balance is not None else "unknown",
+        "balance": known_balance,
+        "originalBudget": original_budget,
+        "bidsWithheld": bool(withheld),
+        "reason": "faab_balance_unknown" if withheld else None,
+        "source": source,
+        "requestedBalance": requested_balance,
+        "observedBalance": observed_balance,
+    }
+
+
 def find_waiver_targets(
     contract: dict[str, Any],
     sleeper_teams: list[dict[str, Any]] | None,
@@ -267,8 +448,34 @@ def find_waiver_targets(
     starters: dict[str, Any] | None = None,
     roster_size: int | None = 0,
     market_priors: Any = None,
+    today: Any = None,
+    withhold_bids_when_balance_unknown: bool = False,
 ) -> dict[str, Any]:
     """Return waiver-wire suggestions grouped by position.
+
+    ``faabBudget`` on the result states whether the requesting team's FAAB
+    balance is KNOWN (the lower of the request balance and the roster row's
+    ``faabRemaining`` when both are stated, else whichever is; ``source``
+    names which observation bound it) or UNKNOWN.  An unknown balance used to fall back to
+    ``cap = league budget`` and publish bids as if they were capped to a
+    known $100 (MISSING IS NEVER ZERO).  With
+    ``withhold_bids_when_balance_unknown`` the three balance-capped bids and
+    ``maxRational`` are published as ``null`` instead; the objective ceiling
+    and the market clearing band do not depend on our balance and stay.  Left
+    False for callers that carry their own explicit balance state
+    (``/api/waiver/perfect``, the advisor) so their plans are unchanged.
+
+    Season phase (IST-7, owner directive 2026-10-29): the engine's
+    ``LeagueContext`` carries the CURRENT NFL week and in-season state from
+    ``faab_engine.current_nfl_week(today)``, and the league's first playoff week
+    from its own settings (``faab_engine.league_playoff_week_start``; the
+    engine default, stamped ``"default"``, when the contract does not state it)
+    -- the same context the per-pair bid desk (``/api/waiver/faab-recommend``)
+    builds.  Before this the
+    list bids ran with no week, so the engine priced every one of them with the
+    OFFSEASON option value all season long.  ``seasonPhase`` on the response
+    says which week the bids ran under.  ``today`` exists so tests are
+    deterministic; production passes nothing.
 
     ``league_budget`` is the league's ORIGINAL full-season FAAB
     allowance and sets the scale every bid is expressed against.
@@ -294,16 +501,44 @@ def find_waiver_targets(
     estimate (no way to know which roster is "mine" to separate from
     rivals), stamped as such rather than presented as market-aware.
     """
+    from src.trade import faab_engine as _engine  # noqa: PLC0415
+
+    current_week, in_season = _engine.current_nfl_week(today)
+    playoff_week_start, playoff_source = _engine.league_playoff_week_start(contract)
+    season_phase = {
+        "owner": "src/trade/faab_engine.py::current_nfl_week",
+        "currentWeek": current_week,
+        "inSeason": bool(in_season),
+        "playoffWeekStart": playoff_week_start,
+        "playoffWeekStartSource": playoff_source,
+    }
     arr = contract.get("playersArray") or []
     if not isinstance(arr, list):
-        return {"by_position": {}, "by_family": {}, "total": 0, "rookies_excluded": False}
+        return {
+            "by_position": {},
+            "by_family": {},
+            "total": 0,
+            "rookies_excluded": False,
+            "seasonPhase": season_phase,
+        }
 
-    rostered = rostered_name_set(sleeper_teams)
+    # Ownership is decided by playerId first (the roster's ``playerIds``),
+    # name as the fallback — ONE "which team holds this player" owner, shared
+    # with the bid desk (``/api/waiver/faab-recommend``), so a free agent who
+    # shares a display name with a rostered player is treated identically on
+    # both surfaces.
+    from src.draft.context import league_holder_index  # noqa: PLC0415
+
+    holder_index = league_holder_index({"sleeper": {"teams": sleeper_teams or []}})
 
     rookies_eligible = _rookies_eligible_today()
-    positions = set(_BASE_POSITIONS)
-    if include_kicker_def:
-        positions.update({"K", "DEF"})
+    positions = waiver_positions(include_kicker_def)
+    # CW-50: only positions this league can START are pickups.  The lineup
+    # comes from the slot owner's truth ladder; an unresolved lineup refuses
+    # nothing for position and says so (``positionEligibility``).
+    starter_slots, slot_source = waiver_starter_slots(contract, starters)
+    slot_eligibility = _waiver_slot_eligibility(contract) if starter_slots else None
+    not_started = 0
 
     candidates_by_position: dict[str, list[WaiverCandidate]] = {}
 
@@ -315,29 +550,26 @@ def find_waiver_targets(
             continue
 
         name = str(row.get("displayName") or row.get("canonicalName") or "")
-        if not name or _normalize_name(name) in rostered:
+        if not name:
+            continue
+        if holder_index.holder(row.get("playerId"), name)[0] is not None:
+            continue
+
+        reason = waiver_candidate_exclusion(
+            row,
+            positions=positions,
+            min_value=min_value,
+            rookies_eligible=rookies_eligible,
+            starter_slots=starter_slots,
+            slot_eligibility=slot_eligibility,
+        )
+        if reason is not None:
+            if reason == "position_not_started":
+                not_started += 1
             continue
 
         consensus = row.get("rankDerivedValue")
-        if not isinstance(consensus, (int, float)) or consensus < min_value:
-            continue
-
-        # Two-source minimum.  A player backed by a single ranking
-        # source has no corroboration — these produced the "weird"
-        # waiver suggestions whose value rested on one list.  Never
-        # surface them as a pickup regardless of position.  ``sourceCount``
-        # is the matched-source count stamped by the canonical pipeline.
-        try:
-            source_count = int(row.get("sourceCount") or 0)
-        except (TypeError, ValueError):
-            source_count = 0
-        if source_count < 2:
-            continue
-
         is_rookie = bool(row.get("rookie") or row.get("_formatFitRookie"))
-        if is_rookie and not rookies_eligible:
-            continue
-
         cand = WaiverCandidate(
             name=name,
             position=pos,
@@ -354,8 +586,6 @@ def find_waiver_targets(
     # manager had already spent — the same player was worth $21 in
     # week 1 and $4 in week 10 with no change in the player.  The
     # remaining balance is a CAP applied afterwards, not the scale.
-    from src.trade import faab_engine as _engine  # noqa: PLC0415
-
     budget = int(league_budget or 0)
     if budget <= 0:
         budget = _engine.FaabConfig().num("leagueRules", "defaultBudget", 100)
@@ -365,6 +595,9 @@ def find_waiver_targets(
         original_budget=budget,
         team_count=int(team_count or 12),
         starters_per_team=int(starters_per_team or 20),
+        current_week=current_week,
+        in_season=bool(in_season),
+        playoff_week_start=playoff_week_start,
     )
     board_values = [
         row.get("rankDerivedValue")
@@ -401,12 +634,27 @@ def find_waiver_targets(
                 break
 
     bid_methodology = "ceiling_only_estimate"
-    cap = user_faab_remaining if user_faab_remaining is not None else budget
-    if own_team_row is not None:
-        remaining = own_team_row.get("faabRemaining")
-        if user_faab_remaining is None and isinstance(remaining, int):
-            cap = remaining
-    cap = max(0, int(cap))
+    # Two possible observations of the balance: the caller's (the client
+    # sends the one its own contract carries) and the resolved roster's (the
+    # live teams overlay, the only roster source that carries balances).  When
+    # both are stated the LOWER one caps — a stale client figure must never
+    # lift a bid above what the live roster says the team has (CW-50, #2136:
+    # measured, a $50 request against a $10 roster quoted a $49 bid).  A
+    # negative balance (an over-spent roster) is a KNOWN balance with nothing
+    # to spend, never an unknown one; the raw observations are published
+    # beside it in ``faabBudget``.
+    observed = own_team_row.get("faabRemaining") if own_team_row is not None else None
+    observed_balance = observed_faab_balance(observed)
+    requested_balance: int | None = (
+        int(user_faab_remaining) if user_faab_remaining is not None else None
+    )
+    known_balance, balance_source = resolve_faab_balance(requested_balance, observed_balance)
+    balance_known = known_balance is not None
+    # An unknown balance still needs a number for the engine's team layer
+    # (objective/clearing do not depend on it); it is the league budget and is
+    # NEVER published as a balance — see ``faabBudget`` / withholding below.
+    cap = max(0, int(known_balance if known_balance is not None else budget))
+    withhold = withhold_bids_when_balance_unknown and not balance_known
 
     if own_team_row is not None:
         bid_methodology = "market_aware"
@@ -487,7 +735,7 @@ def find_waiver_targets(
                     c.clearing_low = int(bids["clearingLow"])
                 if isinstance(bids.get("clearingHigh"), (int, float)):
                     c.clearing_high = int(bids["clearingHigh"])
-                c.max_rational = int(bids["maxRational"])
+                c.max_rational = None if withhold else int(bids["maxRational"])
                 c.objective_dollars = int(rec["objective"]["dollars"])
                 c.confidence = rec.get("confidence")
     else:
@@ -503,6 +751,12 @@ def find_waiver_targets(
                 c.bid_aggressive = min(agg, cap)
                 c.bid_reasonable = min(reas, cap)
                 c.bid_lowball = min(low, cap)
+
+    if withhold:
+        for cs in candidates_by_position.values():
+            for c in cs:
+                c.bid_aggressive = c.bid_reasonable = c.bid_lowball = None
+                c.max_rational = None
 
     out_by_position: dict[str, list[dict[str, Any]]] = {}
     total = 0
@@ -542,4 +796,29 @@ def find_waiver_targets(
         "total": total,
         "rookies_excluded": not rookies_eligible,
         "bidMethodology": bid_methodology,
+        "seasonPhase": season_phase,
+        "faabBudget": faab_budget_block(
+            known_balance=known_balance,
+            original_budget=budget,
+            withheld=withhold,
+            source=balance_source,
+            requested_balance=requested_balance,
+            observed_balance=observed_balance,
+        ),
+        "positionEligibility": (
+            {
+                "state": "league_slots",
+                "owner": "src/ros/lineup.py::player_fills_any_slot",
+                "slotSource": slot_source,
+                "excluded": not_started,
+            }
+            if starter_slots
+            else {
+                "state": "unverified",
+                "owner": "src/ros/lineup.py::resolve_starter_slots",
+                "reason": "league_starter_slots_unknown",
+                "slotSource": None,
+                "excluded": 0,
+            }
+        ),
     }

@@ -542,7 +542,7 @@ print('All seasons loaded and validated against the current schema:', seasons)
   log "Probing GET /api/league-comparison?refresh=1 (uncontrolled in-season observation — see header notes)."
   local lc_http_code lc_body_file="${state_dir}/league_comparison_response.json"
   lc_http_code="$(curl -sS --max-time 30 -o "${lc_body_file}" -w '%{http_code}' \
-    "http://${APP_HOST}:${APP_PORT}/api/league-comparison?refresh=1" || echo "curl_error")"
+    "http://${APP_HOST}:${APP_PORT}/api/league-comparison?refresh=1")" || lc_http_code="curl_error"
   log "league-comparison probe HTTP status: ${lc_http_code}"
 
   # 11. Write the final structured report and mark success.

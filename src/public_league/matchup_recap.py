@@ -87,11 +87,12 @@ def _side_block(
     season: SeasonSnapshot,
     entry: dict[str, Any],
     pre_standings_lookup: dict[str, dict[str, Any]],
+    week: int | None = None,
 ) -> dict[str, Any] | None:
     rid = metrics.roster_id_of(entry)
     if rid is None:
         return None
-    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+    owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid, week)
 
     # An unresolved owner USED TO return None here, which killed the whole
     # recap — `build_matchup_recap` bails when either side is None, so
@@ -123,10 +124,13 @@ def _side_block(
     # render as the winner.  It also cannot collide with a Sleeper user id,
     # which is numeric.  `ownerResolved: false` is what the UI gates on —
     # it must not link to /league/franchise/<synthetic>, which does not
-    # exist.
+    # exist.  Keyed by SEASON LABEL, not the Sleeper league id: this id is
+    # served publicly, and raw Sleeper ids never are
+    # (`public_contract.RAW_SLEEPER_ID_FIELDS`).  One season is one league,
+    # so (season, roster) is exactly as unique.
     owner_resolved = bool(owner_id)
     if not owner_resolved:
-        owner_id = f"retired:{season.league_id}:{rid}"
+        owner_id = f"retired:{season.season}:{rid}"
 
     starters = _starter_scores(entry, snapshot)
     bench = _bench_scores(entry, snapshot)
@@ -138,12 +142,12 @@ def _side_block(
         "ownerResolved": owner_resolved,
         "rosterId": rid,
         # display_name_for() returns the id itself when no manager matches,
-        # which for the synthetic id would print "retired:12345:9" on the
+        # which for the synthetic id would print "retired:2025:9" on the
         # card.  team_name() already degrades correctly to "Team <rid>".
         "displayName": (
             metrics.display_name_for(snapshot, owner_id) if owner_resolved else "Former manager"
         ),
-        "teamName": metrics.team_name(snapshot, season.league_id, rid),
+        "teamName": metrics.team_name(snapshot, season.league_id, rid, week),
         "points": round(metrics.matchup_points(entry), 2),
         "starters": starters,
         "bench": bench,
@@ -190,8 +194,8 @@ def build_matchup_recap(
     pre_lookup = {r["ownerId"]: r for r in pre_standings}
 
     pair_sorted = sorted(pair, key=lambda e: int(e.get("roster_id") or 0))
-    home = _side_block(snapshot, season, pair_sorted[0], pre_lookup)
-    away = _side_block(snapshot, season, pair_sorted[1], pre_lookup)
+    home = _side_block(snapshot, season, pair_sorted[0], pre_lookup, week)
+    away = _side_block(snapshot, season, pair_sorted[1], pre_lookup, week)
     if home is None or away is None:
         return None
 

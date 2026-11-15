@@ -1,0 +1,729 @@
+{
+ "schema": "draft_valuation_published_allocation_v1",
+ "leagueKey": "dynasty_main",
+ "draftYear": 2027,
+ "formulaVersion": "draft_data_workbook_v1",
+ "effectiveAt": "2026-10-17T00:00:00+00:00",
+ "totalDollars": 1200,
+ "referenceDollars": [
+  {
+   "pick": "1.01",
+   "dollars": "134.5"
+  },
+  {
+   "pick": "1.02",
+   "dollars": "100.5"
+  },
+  {
+   "pick": "1.03",
+   "dollars": "93"
+  },
+  {
+   "pick": "1.04",
+   "dollars": "80.5"
+  },
+  {
+   "pick": "1.05",
+   "dollars": "75.5"
+  },
+  {
+   "pick": "1.06",
+   "dollars": "68.5"
+  },
+  {
+   "pick": "1.07",
+   "dollars": "54.5"
+  },
+  {
+   "pick": "1.08",
+   "dollars": "53.5"
+  },
+  {
+   "pick": "1.09",
+   "dollars": "46"
+  },
+  {
+   "pick": "1.10",
+   "dollars": "44.5"
+  },
+  {
+   "pick": "1.11",
+   "dollars": "41"
+  },
+  {
+   "pick": "1.12",
+   "dollars": "35.5"
+  },
+  {
+   "pick": "2.01",
+   "dollars": "29.5"
+  },
+  {
+   "pick": "2.02",
+   "dollars": "28.5"
+  },
+  {
+   "pick": "2.03",
+   "dollars": "26.5"
+  },
+  {
+   "pick": "2.04",
+   "dollars": "24"
+  },
+  {
+   "pick": "2.05",
+   "dollars": "21.5"
+  },
+  {
+   "pick": "2.06",
+   "dollars": "19"
+  },
+  {
+   "pick": "2.07",
+   "dollars": "17.5"
+  },
+  {
+   "pick": "2.08",
+   "dollars": "16"
+  },
+  {
+   "pick": "2.09",
+   "dollars": "14"
+  },
+  {
+   "pick": "2.10",
+   "dollars": "13.5"
+  },
+  {
+   "pick": "2.11",
+   "dollars": "11"
+  },
+  {
+   "pick": "2.12",
+   "dollars": "10"
+  },
+  {
+   "pick": "3.01",
+   "dollars": "9.5"
+  },
+  {
+   "pick": "3.02",
+   "dollars": "9"
+  },
+  {
+   "pick": "3.03",
+   "dollars": "7"
+  },
+  {
+   "pick": "3.04",
+   "dollars": "7"
+  },
+  {
+   "pick": "3.05",
+   "dollars": "6.5"
+  },
+  {
+   "pick": "3.06",
+   "dollars": "6.5"
+  },
+  {
+   "pick": "3.07",
+   "dollars": "5.5"
+  },
+  {
+   "pick": "3.08",
+   "dollars": "5.5"
+  },
+  {
+   "pick": "3.09",
+   "dollars": "4.5"
+  },
+  {
+   "pick": "3.10",
+   "dollars": "4.5"
+  },
+  {
+   "pick": "3.11",
+   "dollars": "4.5"
+  },
+  {
+   "pick": "3.12",
+   "dollars": "4"
+  },
+  {
+   "pick": "4.01",
+   "dollars": "3.5"
+  },
+  {
+   "pick": "4.02",
+   "dollars": "3.5"
+  },
+  {
+   "pick": "4.03",
+   "dollars": "3"
+  },
+  {
+   "pick": "4.04",
+   "dollars": "3"
+  },
+  {
+   "pick": "4.05",
+   "dollars": "3"
+  },
+  {
+   "pick": "4.06",
+   "dollars": "2.5"
+  },
+  {
+   "pick": "4.07",
+   "dollars": "2.5"
+  },
+  {
+   "pick": "4.08",
+   "dollars": "2.5"
+  },
+  {
+   "pick": "4.09",
+   "dollars": "2"
+  },
+  {
+   "pick": "4.10",
+   "dollars": "2"
+  },
+  {
+   "pick": "4.11",
+   "dollars": "2"
+  },
+  {
+   "pick": "4.12",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.01",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.02",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.03",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.04",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.05",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.06",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.07",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.08",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.09",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.10",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.11",
+   "dollars": "2"
+  },
+  {
+   "pick": "5.12",
+   "dollars": "2"
+  },
+  {
+   "pick": "6.01",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.02",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.03",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.04",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.05",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.06",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.07",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.08",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.09",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.10",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.11",
+   "dollars": "1"
+  },
+  {
+   "pick": "6.12",
+   "dollars": "1"
+  }
+ ],
+ "finalWholeDollars": [
+  {
+   "pick": "1.01",
+   "dollars": 135
+  },
+  {
+   "pick": "1.02",
+   "dollars": 101
+  },
+  {
+   "pick": "1.03",
+   "dollars": 93
+  },
+  {
+   "pick": "1.04",
+   "dollars": 81
+  },
+  {
+   "pick": "1.05",
+   "dollars": 76
+  },
+  {
+   "pick": "1.06",
+   "dollars": 69
+  },
+  {
+   "pick": "1.07",
+   "dollars": 55
+  },
+  {
+   "pick": "1.08",
+   "dollars": 54
+  },
+  {
+   "pick": "1.09",
+   "dollars": 46
+  },
+  {
+   "pick": "1.10",
+   "dollars": 45
+  },
+  {
+   "pick": "1.11",
+   "dollars": 41
+  },
+  {
+   "pick": "1.12",
+   "dollars": 36
+  },
+  {
+   "pick": "2.01",
+   "dollars": 30
+  },
+  {
+   "pick": "2.02",
+   "dollars": 29
+  },
+  {
+   "pick": "2.03",
+   "dollars": 27
+  },
+  {
+   "pick": "2.04",
+   "dollars": 24
+  },
+  {
+   "pick": "2.05",
+   "dollars": 22
+  },
+  {
+   "pick": "2.06",
+   "dollars": 19
+  },
+  {
+   "pick": "2.07",
+   "dollars": 18
+  },
+  {
+   "pick": "2.08",
+   "dollars": 16
+  },
+  {
+   "pick": "2.09",
+   "dollars": 14
+  },
+  {
+   "pick": "2.10",
+   "dollars": 13
+  },
+  {
+   "pick": "2.11",
+   "dollars": 11
+  },
+  {
+   "pick": "2.12",
+   "dollars": 10
+  },
+  {
+   "pick": "3.01",
+   "dollars": 9
+  },
+  {
+   "pick": "3.02",
+   "dollars": 9
+  },
+  {
+   "pick": "3.03",
+   "dollars": 7
+  },
+  {
+   "pick": "3.04",
+   "dollars": 7
+  },
+  {
+   "pick": "3.05",
+   "dollars": 6
+  },
+  {
+   "pick": "3.06",
+   "dollars": 6
+  },
+  {
+   "pick": "3.07",
+   "dollars": 5
+  },
+  {
+   "pick": "3.08",
+   "dollars": 5
+  },
+  {
+   "pick": "3.09",
+   "dollars": 4
+  },
+  {
+   "pick": "3.10",
+   "dollars": 4
+  },
+  {
+   "pick": "3.11",
+   "dollars": 4
+  },
+  {
+   "pick": "3.12",
+   "dollars": 4
+  },
+  {
+   "pick": "4.01",
+   "dollars": 3
+  },
+  {
+   "pick": "4.02",
+   "dollars": 3
+  },
+  {
+   "pick": "4.03",
+   "dollars": 3
+  },
+  {
+   "pick": "4.04",
+   "dollars": 3
+  },
+  {
+   "pick": "4.05",
+   "dollars": 3
+  },
+  {
+   "pick": "4.06",
+   "dollars": 2
+  },
+  {
+   "pick": "4.07",
+   "dollars": 2
+  },
+  {
+   "pick": "4.08",
+   "dollars": 2
+  },
+  {
+   "pick": "4.09",
+   "dollars": 2
+  },
+  {
+   "pick": "4.10",
+   "dollars": 2
+  },
+  {
+   "pick": "4.11",
+   "dollars": 2
+  },
+  {
+   "pick": "4.12",
+   "dollars": 2
+  },
+  {
+   "pick": "5.01",
+   "dollars": 2
+  },
+  {
+   "pick": "5.02",
+   "dollars": 2
+  },
+  {
+   "pick": "5.03",
+   "dollars": 2
+  },
+  {
+   "pick": "5.04",
+   "dollars": 2
+  },
+  {
+   "pick": "5.05",
+   "dollars": 2
+  },
+  {
+   "pick": "5.06",
+   "dollars": 2
+  },
+  {
+   "pick": "5.07",
+   "dollars": 2
+  },
+  {
+   "pick": "5.08",
+   "dollars": 2
+  },
+  {
+   "pick": "5.09",
+   "dollars": 2
+  },
+  {
+   "pick": "5.10",
+   "dollars": 2
+  },
+  {
+   "pick": "5.11",
+   "dollars": 2
+  },
+  {
+   "pick": "5.12",
+   "dollars": 2
+  },
+  {
+   "pick": "6.01",
+   "dollars": 1
+  },
+  {
+   "pick": "6.02",
+   "dollars": 1
+  },
+  {
+   "pick": "6.03",
+   "dollars": 1
+  },
+  {
+   "pick": "6.04",
+   "dollars": 1
+  },
+  {
+   "pick": "6.05",
+   "dollars": 1
+  },
+  {
+   "pick": "6.06",
+   "dollars": 1
+  },
+  {
+   "pick": "6.07",
+   "dollars": 1
+  },
+  {
+   "pick": "6.08",
+   "dollars": 1
+  },
+  {
+   "pick": "6.09",
+   "dollars": 1
+  },
+  {
+   "pick": "6.10",
+   "dollars": 1
+  },
+  {
+   "pick": "6.11",
+   "dollars": 1
+  },
+  {
+   "pick": "6.12",
+   "dollars": 1
+  }
+ ],
+ "provenance": {
+  "source": "Draft Data workbook (owner Google Sheet export) — the frozen 2026 provisional rookie inputs with the 2024/2025/2026 spine; workbook-derived allocation for the 2027 class",
+  "workbookSha256": "50d130e5a34d0bb4c2b7ae02cf8dc2bc5a03081263e17a869ba8f8c2eb1dce88",
+  "inputsSnapshotSha256": "7fd4e8aa90d1e85a9953d7c7a4c30e2edcdea82e5073588a5e996ec9a1069b66",
+  "inputsMode": "frozen_fallback",
+  "actualInputClassYear": 2026,
+  "frozenInputsChecksum": "57b466af0412f853e3ba81e0c6d131dcd4fc0eb05145b2a13e3220561423981b",
+  "spineYears": [
+   2024,
+   2025,
+   2026
+  ],
+  "spineChecksums": {
+   "2024": "9c6df8ecc73aba3de859125c64255860d98dcadf2ae9701cb723c466ef190468",
+   "2025": "7ac980517796a6d2a4d652b505cff70d82af01df14a70738e71a4dc238d50ef2",
+   "2026": "c09600a634ef8d1e7a596609c2f3b265670acafb346f84077a9e2c4fad731563"
+  }
+ },
+ "validation": {
+  "apportionment": {
+   "method": "largest_remainder",
+   "objective": "minimise sum_i |d_i - r_i| subject to integer d, sum d = total, floor_i <= d_i <= cap_i, d_i >= d_(i+1); ties: lexicographically largest d (earlier picks first)",
+   "objectiveValue": "14",
+   "maxDeviation": "1/2",
+   "total": 1200,
+   "flooredSum": 1186,
+   "residual": 14,
+   "plusOne": [
+    "1.01",
+    "1.02",
+    "1.04",
+    "1.05",
+    "1.06",
+    "1.07",
+    "1.08",
+    "1.10",
+    "1.12",
+    "2.01",
+    "2.02",
+    "2.03",
+    "2.05",
+    "2.07"
+   ],
+   "stepAViolations": [],
+   "repairs": [],
+   "bindingConstraints": [],
+   "finalWholeDollars": [
+    135,
+    101,
+    93,
+    81,
+    76,
+    69,
+    55,
+    54,
+    46,
+    45,
+    41,
+    36,
+    30,
+    29,
+    27,
+    24,
+    22,
+    19,
+    18,
+    16,
+    14,
+    13,
+    11,
+    10,
+    9,
+    9,
+    7,
+    7,
+    6,
+    6,
+    5,
+    5,
+    4,
+    4,
+    4,
+    4,
+    3,
+    3,
+    3,
+    3,
+    3,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  "verifier": {
+   "verifier": "forward_scalarised_dp_v1",
+   "result": "pass",
+   "failures": [],
+   "deviation": "14",
+   "optimum": "14",
+   "checks": [
+    "integers",
+    "total",
+    "non_increasing",
+    "floors",
+    "caps",
+    "optimal_lexmax"
+   ]
+  }
+ },
+ "checksum": {
+  "algorithm": "sha256",
+  "value": "6da3147efff615db4d4c60e9571daef352a0831a42528d4d2a709195502d7690"
+ }
+}

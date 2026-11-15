@@ -1,0 +1,1706 @@
+{
+  "schema": "route-inventory/v1",
+  "generated": "2026-11-01",
+  "source": "docs/ui/UX_NAVIGATION_AUDIT_2026-11-01.md",
+  "authority": "Hand-authored audit judgements. Mechanical facts are DERIVED, not stored: nav placement, palette/drawer/tab/quick-action presence and capability come from frontend/lib/nav-model.js; access class from frontend/lib/public-routes.js. frontend/__tests__/route-inventory.test.js fails if a page route is missing here, if an access class disagrees with public-routes, or if a contextualFrom file does not actually link the route.",
+  "accessClasses": {
+    "public": "isPublicPath true; no session needed",
+    "private": "middleware 307 to /login without a session",
+    "self_authed": "isSelfAuthedPagePath: the page runs its own (auction) sign-in",
+    "unlisted": "isUnlistedPagePath: reachable by exact link only, linked from nowhere",
+    "redirect": "legacy path whose page only redirects",
+    "dev": "developer reference, linked from no navigation"
+  },
+  "statuses": {
+    "working": "live and offered in nav or contextually",
+    "share_target": "live; entered from share links / sitemap / OG cards, its content also renders inline in the app",
+    "disabled_by_flag": "page exists, its flag/capability is off, so it is not offered",
+    "intentionally_hidden": "live but deliberately absent from nav (owner-gated or token-link entry)",
+    "redirect": "legacy path that only redirects",
+    "dev_reference": "developer reference"
+  },
+  "routes": [
+    {
+      "route": "/",
+      "name": "Home",
+      "purpose": "Signed-in: the market terminal dashboard (portfolio, movers, signals, quick actions). Signed-out: the public landing with League and Sign in.",
+      "audience": "everyone",
+      "access": "public",
+      "task": "my team",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "Installed PWA opened signed-out is sent to /auction (owner choice, HomeClient.jsx).",
+      "file": "app/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": true,
+        "mobileTabSignedOut": true,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/admin",
+      "name": "Admin",
+      "purpose": "Operator flags, guest passes and actions.",
+      "audience": "admin",
+      "access": "private",
+      "task": "settings",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "Admin-only in nav (systemItemsFor); server enforces 403.",
+      "file": "app/admin/page.jsx",
+      "nav": {
+        "menuGroup": "System",
+        "menuLabels": [
+          "Admin"
+        ],
+        "section": "Ops",
+        "capability": null,
+        "adminOnly": true,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/admin/model-lab",
+      "name": "Model Lab",
+      "purpose": "Read-only champion vs challenger evidence for every model family.",
+      "audience": "admin",
+      "access": "private",
+      "task": "settings",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "Admin-only twice (nav + 403).",
+      "file": "app/admin/model-lab/page.jsx",
+      "nav": {
+        "menuGroup": "System",
+        "menuLabels": [
+          "Model Lab"
+        ],
+        "section": "Ops",
+        "capability": null,
+        "adminOnly": true,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/admin/sharp-identities",
+      "name": "Sharp Identity Review",
+      "purpose": "Approve corroborated public platform identities for the curated Sharp universe.",
+      "audience": "admin",
+      "access": "private",
+      "task": "settings",
+      "status": "working",
+      "contextualFrom": [
+        "app/market/sharp-people/page.jsx"
+      ],
+      "notes": "Reached only from Sharp People. Not in the admin Ops menu: listed as owner proposal UX-P07.",
+      "file": "app/admin/sharp-identities/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/angle",
+      "name": "Package Builder",
+      "purpose": "Build return packages a counterparty might accept.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "trades",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "",
+      "file": "app/angle/page.jsx",
+      "nav": {
+        "menuGroup": "Trades",
+        "menuLabels": [
+          "Package Builder"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/arbitrage",
+      "name": "Arbitrage",
+      "purpose": "Board-vs-market arbitrage finder.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "trades",
+      "status": "working",
+      "contextualFrom": [
+        "lib/arbitrage-links.js",
+        "lib/manager-trade-tools.js"
+      ],
+      "notes": "Overlaps conceptually with Source Disagreement / Consensus Edge (all answer 'who is mispriced').",
+      "file": "app/arbitrage/page.jsx",
+      "nav": {
+        "menuGroup": "Trades",
+        "menuLabels": [
+          "Market Disagreement"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/auction",
+      "name": "Auction room",
+      "purpose": "Rookie auction room lobby (mock rooms only until owner launch approval).",
+      "audience": "league-mates (own auction sign-in)",
+      "access": "self_authed",
+      "task": "drafts/auctions",
+      "status": "intentionally_hidden",
+      "contextualFrom": [
+        "app/auction/notifications/page.jsx",
+        "app/auction/[roomId]/page.jsx"
+      ],
+      "notes": "Not in nav by design: official rooms are owner-gated. Installed PWA signed-out lands here.",
+      "file": "app/auction/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/auction/[roomId]",
+      "name": "Auction room",
+      "purpose": "One auction room.",
+      "audience": "league-mates (own auction sign-in)",
+      "access": "self_authed",
+      "task": "drafts/auctions",
+      "status": "intentionally_hidden",
+      "contextualFrom": [
+        "app/auction/page.jsx"
+      ],
+      "notes": "",
+      "file": "app/auction/[roomId]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/auction/join",
+      "name": "Join the auction room",
+      "purpose": "Claim a commissioner-issued seat invitation (token link).",
+      "audience": "invitees",
+      "access": "self_authed",
+      "task": "drafts/auctions",
+      "status": "intentionally_hidden",
+      "contextualFrom": [],
+      "notes": "Reached only by an emailed/issued token link.",
+      "file": "app/auction/join/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "direct_url_only"
+    },
+    {
+      "route": "/auction/notifications",
+      "name": "Phone alerts",
+      "purpose": "Web Push setup for the auction room.",
+      "audience": "league-mates (own auction sign-in)",
+      "access": "self_authed",
+      "task": "drafts/auctions",
+      "status": "intentionally_hidden",
+      "contextualFrom": [
+        "app/auction/page.jsx",
+        "app/auction/[roomId]/page.jsx"
+      ],
+      "notes": "",
+      "file": "app/auction/notifications/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/auction/reset",
+      "name": "Set a new password",
+      "purpose": "One-time auction password reset link.",
+      "audience": "auction users",
+      "access": "self_authed",
+      "task": "drafts/auctions",
+      "status": "intentionally_hidden",
+      "contextualFrom": [],
+      "notes": "Reached only by a reset token link.",
+      "file": "app/auction/reset/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "direct_url_only"
+    },
+    {
+      "route": "/bdvm",
+      "name": "Fundamental Values",
+      "purpose": "Projection-driven fundamental values vs the market price.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "dynasty values",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "BDVM flag default ON.",
+      "file": "app/bdvm/page.jsx",
+      "nav": {
+        "menuGroup": "Rankings",
+        "menuLabels": [
+          "Fundamental Values"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/consensus-edge",
+      "name": "Consensus Edge",
+      "purpose": "Anchor-free fair value vs the market.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "dynasty values",
+      "status": "disabled_by_flag",
+      "contextualFrom": [],
+      "notes": "Capability consensusEdge; flag default OFF so not offered.",
+      "file": "app/consensus-edge/page.jsx",
+      "nav": {
+        "menuGroup": "Market",
+        "menuLabels": [
+          "Consensus Edge"
+        ],
+        "section": null,
+        "capability": "consensusEdge",
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/design",
+      "name": "Design System",
+      "purpose": "Living PSI / Direction A reference.",
+      "audience": "developers",
+      "access": "dev",
+      "task": "settings",
+      "status": "dev_reference",
+      "contextualFrom": [],
+      "notes": "Deliberately linked from no navigation; noindexed.",
+      "file": "app/design/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "direct_url_only"
+    },
+    {
+      "route": "/dfs",
+      "name": "DFS Workspace",
+      "purpose": "Daily fantasy lineup workspace.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "game day",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "Owner-paused workstream; nav entry pre-existing, unchanged.",
+      "file": "app/dfs/page.jsx",
+      "nav": {
+        "menuGroup": "DFS",
+        "menuLabels": [
+          "DFS Workspace"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/draft",
+      "name": "Draft Board",
+      "purpose": "Rookie and auction draft prep with Perfect Draft optimizer.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "drafts/auctions",
+      "status": "working",
+      "contextualFrom": [
+        "app/idptc-rookies/page.jsx"
+      ],
+      "notes": "h1 comes from DRAFT_PAGE_TITLE (canon-pinned). Linked from Rookie Board (NAV-08).",
+      "file": "app/draft/page.jsx",
+      "nav": {
+        "menuGroup": "My Team",
+        "menuLabels": [
+          "Draft Board"
+        ],
+        "section": "Draft & strategy",
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/edge",
+      "name": "Source Disagreement",
+      "purpose": "Where ranking sources agree, disagree and flag issues.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "dynasty values",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "",
+      "file": "app/edge/page.jsx",
+      "nav": {
+        "menuGroup": "Market",
+        "menuLabels": [
+          "Source Disagreement"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/finder",
+      "name": "(redirect)",
+      "purpose": "Legacy screener; merged into /rankings.",
+      "audience": "legacy bookmarks",
+      "access": "redirect",
+      "task": "dynasty values",
+      "status": "redirect",
+      "contextualFrom": [],
+      "notes": "Redirects to /rankings.",
+      "file": "app/finder/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "direct_url_only"
+    },
+    {
+      "route": "/game-day",
+      "name": "Game Day",
+      "purpose": "This week's matchup: projected score, win chance, expected lineups.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "game day",
+      "status": "working",
+      "contextualFrom": [
+        "components/terminal/QuickActions.jsx"
+      ],
+      "notes": "Nav label 'Game Day' is the PageHeader eyebrow; the h1 reads \"This week's matchup\" (UX-D09).",
+      "file": "app/game-day/page.jsx",
+      "nav": {
+        "menuGroup": "My Team",
+        "menuLabels": [
+          "Game Day"
+        ],
+        "section": "This week",
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": true,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/idptc-rookies",
+      "name": "Rookie Board",
+      "purpose": "Rookies only, with blurbs and export.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "drafts/auctions",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "Sits in Rankings; a draft-prep user looks under My Team > Draft (UX-P03).",
+      "file": "app/idptc-rookies/page.jsx",
+      "nav": {
+        "menuGroup": "Rankings",
+        "menuLabels": [
+          "Rookie Board"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/intel",
+      "name": "(redirect)",
+      "purpose": "Legacy path; redirects to Insider Trading.",
+      "audience": "legacy bookmarks",
+      "access": "redirect",
+      "task": "league intelligence",
+      "status": "redirect",
+      "contextualFrom": [],
+      "notes": "",
+      "file": "app/intel/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "direct_url_only"
+    },
+    {
+      "route": "/league",
+      "name": "Hub",
+      "purpose": "Public league hub: standings, power, playoff/championship odds, records, history, draft capital, recaps (22+ tabs).",
+      "audience": "everyone",
+      "access": "public",
+      "task": "league intelligence",
+      "status": "working",
+      "contextualFrom": [
+        "app/HomeClient.jsx"
+      ],
+      "notes": "h1 is the league name (data-derived). Tab strip is long on mobile (UX-D07).",
+      "file": "app/league/page.jsx",
+      "nav": {
+        "menuGroup": "League",
+        "menuLabels": [
+          "Hub"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": true,
+        "homeQuickAction": false,
+        "signedOutMenu": true
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/league-comparison",
+      "name": "Scoring Comparison",
+      "purpose": "Your league's scoring vs a standard baseline.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "league intelligence",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "Private despite the /league prefix-like name (exact prefix rule).",
+      "file": "app/league-comparison/page.jsx",
+      "nav": {
+        "menuGroup": "League",
+        "menuLabels": [
+          "Scoring Comparison"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/league/activity",
+      "name": "Activity",
+      "purpose": "League trades and news in one feed.",
+      "audience": "everyone",
+      "access": "public",
+      "task": "league intelligence",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "",
+      "file": "app/league/activity/page.jsx",
+      "nav": {
+        "menuGroup": "League",
+        "menuLabels": [
+          "Activity"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": true
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/league/articles/[season]/[week]",
+      "name": "Articles",
+      "purpose": "Weekly league articles index.",
+      "audience": "everyone",
+      "access": "public",
+      "task": "history/reports",
+      "status": "working",
+      "contextualFrom": [
+        "app/league/sections/articles.jsx"
+      ],
+      "notes": "",
+      "file": "app/league/articles/[season]/[week]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/league/articles/[season]/[week]/[matchupId]/[mode]",
+      "name": "Articles",
+      "purpose": "One matchup article (preview/recap).",
+      "audience": "everyone",
+      "access": "public",
+      "task": "history/reports",
+      "status": "working",
+      "contextualFrom": [
+        "app/league/articles/[season]/[week]/page.jsx",
+        "app/league/sections/articles.jsx"
+      ],
+      "notes": "",
+      "file": "app/league/articles/[season]/[week]/[matchupId]/[mode]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/league/franchise/[owner]",
+      "name": "Franchise",
+      "purpose": "One franchise's public history.",
+      "audience": "everyone",
+      "access": "public",
+      "task": "history/reports",
+      "status": "working",
+      "contextualFrom": [
+        "components/PlayerPopup.jsx",
+        "components/TeamPhasePanel.jsx"
+      ],
+      "notes": "",
+      "file": "app/league/franchise/[owner]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/league/insider-trading",
+      "name": "Insider Trading",
+      "purpose": "Trade leads from league-mates' activity elsewhere.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "league intelligence",
+      "status": "working",
+      "contextualFrom": [
+        "app/intel/page.jsx"
+      ],
+      "notes": "Private exception inside public /league prefix; filtered from signed-out nav.",
+      "file": "app/league/insider-trading/page.jsx",
+      "nav": {
+        "menuGroup": "League",
+        "menuLabels": [
+          "Insider Trading"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/league/player/[playerId]",
+      "name": "Player",
+      "purpose": "Public league history for one player.",
+      "audience": "everyone",
+      "access": "public",
+      "task": "player research",
+      "status": "working",
+      "contextualFrom": [
+        "app/league/sections/archives.jsx",
+        "app/league/sections/award-standings.jsx"
+      ],
+      "notes": "",
+      "file": "app/league/player/[playerId]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/league/rivalry/[pair]",
+      "name": "Rivalry",
+      "purpose": "Shareable head-to-head rivalry page (the same detail renders inline in the Rivalries tab).",
+      "audience": "everyone",
+      "access": "public",
+      "task": "history/reports",
+      "status": "share_target",
+      "contextualFrom": [
+        "app/sitemap.js"
+      ],
+      "notes": "Reached from the sitemap and share links; the Rivalries tab renders inline (UX-D10).",
+      "file": "app/league/rivalry/[pair]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/league/week/[season]/[week]",
+      "name": "Week Recap",
+      "purpose": "Shareable long-form weekly recap (OG/share target).",
+      "audience": "everyone",
+      "access": "public",
+      "task": "history/reports",
+      "status": "share_target",
+      "contextualFrom": [
+        "app/sitemap.js"
+      ],
+      "notes": "No in-app link; reached from sitemap/share/OG (UX-D10).",
+      "file": "app/league/week/[season]/[week]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/league/weekly/[season]/[week]/[matchup]",
+      "name": "Matchup",
+      "purpose": "One weekly matchup's detail.",
+      "audience": "everyone",
+      "access": "public",
+      "task": "history/reports",
+      "status": "working",
+      "contextualFrom": [
+        "app/league/sections/weekly.jsx"
+      ],
+      "notes": "",
+      "file": "app/league/weekly/[season]/[week]/[matchup]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/login",
+      "name": "Sign in",
+      "purpose": "Sign in to the private app.",
+      "audience": "signed-out",
+      "access": "public",
+      "task": "settings",
+      "status": "working",
+      "contextualFrom": [
+        "app/HomeClient.jsx",
+        "components/shell/TopBar.jsx"
+      ],
+      "notes": "Mobile signed-out tab bar carries Sign in.",
+      "file": "app/login/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": true,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/managers",
+      "name": "Manager Intelligence",
+      "purpose": "Any Sleeper manager's dynasty portfolio across leagues.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "league intelligence",
+      "status": "working",
+      "contextualFrom": [
+        "lib/trade-next-actions.js"
+      ],
+      "notes": "Capability managerIntelligence.",
+      "file": "app/managers/page.jsx",
+      "nav": {
+        "menuGroup": "Market",
+        "menuLabels": [
+          "Manager Intelligence"
+        ],
+        "section": null,
+        "capability": "managerIntelligence",
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/managers/compare",
+      "name": "Compare managers",
+      "purpose": "Two managers side by side.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "league intelligence",
+      "status": "working",
+      "contextualFrom": [
+        "lib/manager-intel.js"
+      ],
+      "notes": "Contextual from Manager Intelligence.",
+      "file": "app/managers/compare/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/managers/leaderboards",
+      "name": "Manager leaderboards",
+      "purpose": "Scoped leaderboards (saved managers or one league).",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "league intelligence",
+      "status": "working",
+      "contextualFrom": [
+        "lib/manager-saved.js"
+      ],
+      "notes": "Contextual from Saved managers.",
+      "file": "app/managers/leaderboards/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/managers/league/[leagueId]",
+      "name": "League scouting",
+      "purpose": "Every team in one Sleeper league.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "league intelligence",
+      "status": "working",
+      "contextualFrom": [
+        "lib/manager-intel.js"
+      ],
+      "notes": "Contextual from a manager's league list.",
+      "file": "app/managers/league/[leagueId]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/market/sharp-people",
+      "name": "Sharp People",
+      "purpose": "The researched sharp managers and analysts behind the cohort.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "player research",
+      "status": "working",
+      "contextualFrom": [
+        "app/market/sharp-tracker/page.jsx",
+        "app/market/sharp-people/[personId]/page.jsx"
+      ],
+      "notes": "Was orphaned (only the admin page linked it). Now: palette + contextual from Sharp Tracker (NAV-01).",
+      "file": "app/market/sharp-people/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/market/sharp-people/[personId]",
+      "name": "Sharp profile",
+      "purpose": "One researched sharp's profile.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "player research",
+      "status": "working",
+      "contextualFrom": [
+        "app/market/sharp-people/page.jsx"
+      ],
+      "notes": "",
+      "file": "app/market/sharp-people/[personId]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/market/sharp-roster-percentage",
+      "name": "Sharp Roster Percentage",
+      "purpose": "Which players the sharp cohort actually rosters.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "dynasty values",
+      "status": "working",
+      "contextualFrom": [
+        "app/market/sharp-tracker/page.jsx"
+      ],
+      "notes": "",
+      "file": "app/market/sharp-roster-percentage/page.jsx",
+      "nav": {
+        "menuGroup": "Market",
+        "menuLabels": [
+          "Sharp Roster Percentage"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/market/sharp-tracker",
+      "name": "Sharp Tracker",
+      "purpose": "What qualified dynasty managers are buying and selling.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "dynasty values",
+      "status": "working",
+      "contextualFrom": [
+        "app/market/sharp-people/page.jsx"
+      ],
+      "notes": "",
+      "file": "app/market/sharp-tracker/page.jsx",
+      "nav": {
+        "menuGroup": "Market",
+        "menuLabels": [
+          "Sharp Tracker"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/market/trade-database",
+      "name": "Trade Database",
+      "purpose": "Recorded real dynasty trades by asset, date and format.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "trades",
+      "status": "working",
+      "contextualFrom": [
+        "lib/trade-next-actions.js"
+      ],
+      "notes": "Sits in Market; a trade evaluator looks under Trades (UX-P04).",
+      "file": "app/market/trade-database/page.jsx",
+      "nav": {
+        "menuGroup": "Market",
+        "menuLabels": [
+          "Trade Database"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/more",
+      "name": "All destinations",
+      "purpose": "Site map derived from the nav model.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "settings",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "",
+      "file": "app/more/page.jsx",
+      "nav": {
+        "menuGroup": "System",
+        "menuLabels": [
+          "All destinations"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/news",
+      "name": "News",
+      "purpose": "Player news and digests across sources.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "player research",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "",
+      "file": "app/news/page.jsx",
+      "nav": {
+        "menuGroup": "News",
+        "menuLabels": [
+          "News"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": true,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/phases",
+      "name": "Win-now vs Rebuild",
+      "purpose": "Which teams are contending and who to trade with.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "league intelligence",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "League-wide view placed under My Team (UX-P05).",
+      "file": "app/phases/page.jsx",
+      "nav": {
+        "menuGroup": "My Team",
+        "menuLabels": [
+          "Win-now vs Rebuild"
+        ],
+        "section": "Draft & strategy",
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/players/[playerId]",
+      "name": "Player File",
+      "purpose": "Full private profile for one player.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "player research",
+      "status": "working",
+      "contextualFrom": [
+        "components/ds/PlayerNameButton.jsx",
+        "components/PlayerPopup.jsx"
+      ],
+      "notes": "Reached by clicking any player name and from search; no nav entry by design.",
+      "file": "app/players/[playerId]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "contextual"
+    },
+    {
+      "route": "/players/compare",
+      "name": "Compare Players",
+      "purpose": "Two players side by side.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "player research",
+      "status": "working",
+      "contextualFrom": [
+        "app/players/[playerId]/page.jsx",
+        "components/PlayerPopup.jsx"
+      ],
+      "notes": "",
+      "file": "app/players/compare/page.jsx",
+      "nav": {
+        "menuGroup": "Rankings",
+        "menuLabels": [
+          "Compare Players"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/rankings",
+      "name": "Rankings",
+      "purpose": "The blended dynasty value board with screens and source columns.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "dynasty values",
+      "status": "working",
+      "contextualFrom": [
+        "components/terminal/QuickActions.jsx"
+      ],
+      "notes": "",
+      "file": "app/rankings/page.jsx",
+      "nav": {
+        "menuGroup": "Rankings",
+        "menuLabels": [
+          "Rankings"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": true,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": true,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/rankings/[position]",
+      "name": "(redirect)",
+      "purpose": "Position shortcut: /rankings/lb -> /rankings?pos=LB.",
+      "audience": "direct URL",
+      "access": "redirect",
+      "task": "player research",
+      "status": "redirect",
+      "contextualFrom": [],
+      "notes": "Client-side redirect.",
+      "file": "app/rankings/[position]/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "direct_url_only"
+    },
+    {
+      "route": "/roster-construction",
+      "name": "Roster Construction",
+      "purpose": "Positional production vs dynasty value for any team.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "improve roster",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "Flag roster_construction default ON since #2041 (private, signed-in; owner decision D1 2026-11-01). Nav entry under My Team > Roster beside Team Strength, capability-gated on rosterConstruction (PR #2044, held until owner production verification).",
+      "file": "app/roster-construction/page.jsx",
+      "nav": {
+        "menuGroup": "My Team",
+        "menuLabels": [
+          "Roster Construction"
+        ],
+        "section": "Roster",
+        "capability": "rosterConstruction",
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/rosters",
+      "name": "Team Strength",
+      "purpose": "Every team ranked, with position breakdowns.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "my team",
+      "status": "working",
+      "contextualFrom": [
+        "components/TeamPhasePanel.jsx",
+        "components/TeamStrengthCard.jsx",
+        "components/terminal/QuickActions.jsx"
+      ],
+      "notes": "My Team's primary destination is league-wide (UX-P01).",
+      "file": "app/rosters/page.jsx",
+      "nav": {
+        "menuGroup": "My Team",
+        "menuLabels": [
+          "Team Strength"
+        ],
+        "section": "Roster",
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": true,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/settings",
+      "name": "Settings",
+      "purpose": "Source weights, alerts, watchlist, trade protections.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "settings",
+      "status": "working",
+      "contextualFrom": [
+        "components/StaleDataBanner.jsx"
+      ],
+      "notes": "League/team change lives in the top-bar switchers, not here (UX-D08).",
+      "file": "app/settings/page.jsx",
+      "nav": {
+        "menuGroup": "System",
+        "menuLabels": [
+          "Settings"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/tools/ros-data-health",
+      "name": "ROS Data Health",
+      "purpose": "Rest-of-season pipeline health.",
+      "audience": "admin",
+      "access": "private",
+      "task": "settings",
+      "status": "working",
+      "contextualFrom": [
+        "app/settings/page.jsx"
+      ],
+      "notes": "",
+      "file": "app/tools/ros-data-health/page.jsx",
+      "nav": {
+        "menuGroup": "System",
+        "menuLabels": [
+          "ROS Data Health"
+        ],
+        "section": "Ops",
+        "capability": null,
+        "adminOnly": true,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/tools/source-health",
+      "name": "Source Health",
+      "purpose": "Scraper and source voting diagnostics.",
+      "audience": "admin",
+      "access": "private",
+      "task": "settings",
+      "status": "working",
+      "contextualFrom": [
+        "app/settings/page.jsx"
+      ],
+      "notes": "",
+      "file": "app/tools/source-health/page.jsx",
+      "nav": {
+        "menuGroup": "System",
+        "menuLabels": [
+          "Source Health"
+        ],
+        "section": "Ops",
+        "capability": null,
+        "adminOnly": true,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/tools/trade-coverage",
+      "name": "Trade Coverage",
+      "purpose": "Per-team trade coverage audit.",
+      "audience": "admin",
+      "access": "private",
+      "task": "settings",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "h1 reads 'Trade Coverage Audit' (UX-D11, admin-only).",
+      "file": "app/tools/trade-coverage/page.jsx",
+      "nav": {
+        "menuGroup": "System",
+        "menuLabels": [
+          "Trade Coverage"
+        ],
+        "section": "Ops",
+        "capability": null,
+        "adminOnly": true,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/trade",
+      "name": "Trade Calculator",
+      "purpose": "Build and grade a specific trade (War Room).",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "trades",
+      "status": "working",
+      "contextualFrom": [
+        "components/terminal/QuickActions.jsx",
+        "app/trades/page.jsx"
+      ],
+      "notes": "",
+      "file": "app/trade/page.jsx",
+      "nav": {
+        "menuGroup": "Trades",
+        "menuLabels": [
+          "Trade Calculator"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": true,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": true,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/trades",
+      "name": "Trade History",
+      "purpose": "Analyzed history of every league trade.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "trades",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "",
+      "file": "app/trades/page.jsx",
+      "nav": {
+        "menuGroup": "Trades",
+        "menuLabels": [
+          "Trade History"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/trending",
+      "name": "Trending",
+      "purpose": "Biggest value movers over 1d/7d/30d.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "dynasty values",
+      "status": "working",
+      "contextualFrom": [],
+      "notes": "",
+      "file": "app/trending/page.jsx",
+      "nav": {
+        "menuGroup": "Rankings",
+        "menuLabels": [
+          "Trending"
+        ],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/waiver-advisor",
+      "name": "Waiver Advisor",
+      "purpose": "Best available adds, the drop each costs, and what to bid; Weekly IDP Streaming mode.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "waivers/free agents",
+      "status": "working",
+      "contextualFrom": [
+        "app/waivers/page.jsx"
+      ],
+      "notes": "Capabilities waiverAdvisor + idpStreaming (mode).",
+      "file": "app/waiver-advisor/page.jsx",
+      "nav": {
+        "menuGroup": "My Team",
+        "menuLabels": [
+          "Waiver Advisor",
+          "Weekly IDP Streaming"
+        ],
+        "section": "Waivers & FAAB",
+        "capability": "waiverAdvisor + idpStreaming",
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    },
+    {
+      "route": "/waiver-wire/r7k4q9m2",
+      "name": "Waiver Wire Comparison",
+      "purpose": "Unlisted owner-shared comparison tool.",
+      "audience": "anyone with the link",
+      "access": "unlisted",
+      "task": "waivers/free agents",
+      "status": "intentionally_hidden",
+      "contextualFrom": [],
+      "notes": "Unlisted by owner request; linked from nowhere.",
+      "file": "app/waiver-wire/r7k4q9m2/page.jsx",
+      "nav": {
+        "menuGroup": null,
+        "menuLabels": [],
+        "section": null,
+        "capability": null,
+        "adminOnly": false,
+        "palette": false,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": false,
+        "signedOutMenu": false
+      },
+      "reachable": "direct_url_only"
+    },
+    {
+      "route": "/waivers",
+      "name": "Waivers",
+      "purpose": "Every unrostered player measured against your roster; add/drop and FAAB.",
+      "audience": "signed-in",
+      "access": "private",
+      "task": "waivers/free agents",
+      "status": "working",
+      "contextualFrom": [
+        "components/terminal/QuickActions.jsx",
+        "app/waiver-advisor/page.jsx"
+      ],
+      "notes": "Overlaps Waiver Advisor (UX-P02).",
+      "file": "app/waivers/page.jsx",
+      "nav": {
+        "menuGroup": "My Team",
+        "menuLabels": [
+          "Waivers"
+        ],
+        "section": "Waivers & FAAB",
+        "capability": null,
+        "adminOnly": false,
+        "palette": true,
+        "mobileTabSignedIn": false,
+        "mobileTabSignedOut": false,
+        "homeQuickAction": true,
+        "signedOutMenu": false
+      },
+      "reachable": "nav"
+    }
+  ]
+}

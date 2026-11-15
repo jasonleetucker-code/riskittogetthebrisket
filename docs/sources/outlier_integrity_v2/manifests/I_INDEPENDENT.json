@@ -1,0 +1,126 @@
+{
+ "boards": [
+  {
+   "addCommit": "b3cb912791c54735e73b4a74cc5e2187666d8300",
+   "board": "dynasty_export_20261018_161125.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": false,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "67c56abe4fec7c350463bd297fced4a7833184da26ca10badd7d779f41840ef4",
+   "population": "I_INDEPENDENT",
+   "reason": "added after the frozen V1 manifest; no V2 design contact",
+   "roles": [],
+   "scrapeTimestamp": "2026-10-18T16:11:25.038109+00:00",
+   "zipSha256": "344bb5286ee565272a39a962b8d6e637685975b5d5a5e0f85948da01110313e5"
+  },
+  {
+   "addCommit": "cd75401237ccc0c5402e7865938ce3a0e7bfa4e7",
+   "board": "dynasty_export_20261018_185952.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": false,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "1d26baef13551028a76736bb5a3e4de7f67aecd6bd3556c0ca2e2dade1d1d216",
+   "population": "I_INDEPENDENT",
+   "reason": "added after the frozen V1 manifest; no V2 design contact",
+   "roles": [],
+   "scrapeTimestamp": "2026-10-18T18:59:52.660472+00:00",
+   "zipSha256": "f1c6e7403563bbbcef190b4ba8838de6645b8e52b4a783b60c4b17a0965e0443"
+  },
+  {
+   "addCommit": "554f0785865b48dcc1d10624cbf7ba3eaf475ba3",
+   "board": "dynasty_export_20261018_223931.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": false,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "f88da40cd4f280e01882d220f7ef4f872aa6b66ed5ae2a3d8a03da788e711d42",
+   "population": "I_INDEPENDENT",
+   "reason": "added after the frozen V1 manifest; no V2 design contact",
+   "roles": [],
+   "scrapeTimestamp": "2026-10-18T22:39:31.902294+00:00",
+   "zipSha256": "2fcf90c75044b7c04ddf0315d4c0508e26accee48f8e7b6ae9c6652e09f6e027"
+  },
+  {
+   "addCommit": "e1d6f333bae0e7b2b1c5f9b7ebd367ffd21ac955",
+   "board": "dynasty_export_20261019_003315.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": false,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "72c8da4b717aef332f050ab8cb9f1dc8cd377ff697db12a9e9a711490e077b1e",
+   "population": "I_INDEPENDENT",
+   "reason": "added after the frozen V1 manifest; no V2 design contact",
+   "roles": [],
+   "scrapeTimestamp": "2026-10-19T00:33:15.363109+00:00",
+   "zipSha256": "e66e8dc0e8acd4f5d06750d18cc8b725bbaa10b6052fb94784d13d2b74944efd"
+  },
+  {
+   "addCommit": "5b83c02d06fdd9a6db72bcd8b3a3d938ef11fa5d",
+   "board": "dynasty_export_20261019_140049.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": false,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "428d5b78c6cd7f847dcdb5f5b66523026691f26b9d5c5e47b747f2a31c1e8274",
+   "population": "I_INDEPENDENT",
+   "reason": "added after the frozen V1 manifest; no V2 design contact",
+   "roles": [],
+   "scrapeTimestamp": "2026-10-19T14:00:49.486234+00:00",
+   "zipSha256": "8668e3f9aafbe722b0fe10328e97152444ef8c61d86abaee330f5c6e383d02c8"
+  },
+  {
+   "addCommit": "ae1fb9936b25215b24fd0ca89373c3523e4774af",
+   "board": "dynasty_export_20261019_235843.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": false,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "a8839a659d76e94366a7aa1dcf15168502b42a763845c08d0ada2bf8e3f0b1ae",
+   "population": "I_INDEPENDENT",
+   "reason": "added after the frozen V1 manifest; no V2 design contact",
+   "roles": [],
+   "scrapeTimestamp": "2026-10-19T23:58:43.560137+00:00",
+   "zipSha256": "ef433dfcad3ec6934f6ee9393ae35f6f4aad5d627db093e3ee2beaefab96c4ff"
+  },
+  {
+   "addCommit": "d9c3a70209285c95fba645f8fa6e74aa22521e8f",
+   "board": "dynasty_export_20261020_052241.zip",
+   "complete": true,
+   "degraded": [],
+   "inFrozenV1Manifest": false,
+   "inWorkingTree": true,
+   "labelledCases": [
+    "N3"
+   ],
+   "payloadSha256": "8e9b826a3a148bbb17636aec79b46eefe3e9138940976959c4342dc4774b198a",
+   "population": "I_INDEPENDENT",
+   "reason": "added after the frozen V1 manifest; no V2 design contact",
+   "roles": [],
+   "scrapeTimestamp": "2026-10-20T05:22:41.050102+00:00",
+   "zipSha256": "f660098f3c68eee3be24790d7674bd263616d4c97d330e92c24ed77d5dd6078e"
+  }
+ ],
+ "count": 7,
+ "population": "I_INDEPENDENT",
+ "schema": "oiv2-population-manifest/v1"
+}

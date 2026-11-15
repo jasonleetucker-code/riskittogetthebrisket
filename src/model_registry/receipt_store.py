@@ -409,6 +409,37 @@ def _chain_head(start: str, edges: dict[str, str]) -> str:
     return cur
 
 
+def receipt_counts(path: Path | None = None) -> dict[str, Any] | None:
+    """Stored-receipt counts grouped by ``(model_family, kind)``. Read-only.
+
+    ``None`` when the store does not exist (absent is not "zero receipts").
+    Counts are over STORED receipts, superseded revisions included — the
+    correction count is returned beside them so a reader can tell; use
+    :func:`iter_receipts` with ``live_only`` for chain heads. ``latestCutoff``
+    is the newest stored ``cutoff`` string per group (receipts stamp ISO-8601
+    UTC through ``learning_receipt.iso``, so the string maximum is the newest
+    instant)."""
+    target = _check_path(path or DEFAULT_STORE_PATH)
+    if not target.exists():
+        return None
+    conn = sqlite3.connect(f"file:{target.as_posix()}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            "SELECT model_family, kind, COUNT(*), MAX(cutoff) FROM receipts "
+            "GROUP BY model_family, kind ORDER BY model_family, kind"
+        ).fetchall()
+        corrections = conn.execute("SELECT COUNT(*) FROM corrections").fetchone()[0]
+    finally:
+        conn.close()
+    return {
+        "groups": [
+            {"modelFamily": fam, "kind": kind, "count": int(n), "latestCutoff": latest}
+            for fam, kind, n, latest in rows
+        ],
+        "corrections": int(corrections),
+    }
+
+
 def iter_receipts(
     path: Path | None = None, *, kind: str | None = None, live_only: bool = False
 ) -> Iterator[dict[str, Any]]:

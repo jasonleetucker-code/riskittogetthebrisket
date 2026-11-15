@@ -8,6 +8,8 @@
 import { useEffect, useState } from "react";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { Card } from "../shared-server.jsx";
+import OddsExperimentalNote from "@/components/league/OddsExperimentalNote";
+import { fmtSimulatedShare } from "@/lib/odds-disclosure";
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
@@ -36,9 +38,11 @@ async function _fetchOnce(url, cache) {
   return promise;
 }
 
+// Simulated odds: whole percents, "<1%" / ">99%" at the extremes (the
+// season simulator's output is an estimate until the outcome is final).
 function fmtPct(v) {
   if (v == null || !Number.isFinite(Number(v))) return "—";
-  return `${(Number(v) * 100).toFixed(1)}%`;
+  return fmtSimulatedShare(Number(v));
 }
 
 const TIER_COLORS = {
@@ -113,13 +117,38 @@ export default function RosChampionshipSection() {
 
   return (
     <Card title="ROS Championship Odds">
+      <OddsExperimentalNote />
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
         {data.n_simulations?.toLocaleString() || "—"} Monte Carlo runs ·{" "}
         {data.playoffSeeds || 6} playoff seeds · {data.byeSeeds || 2} byes ·{" "}
         {data.rosStrengthAvailable
           ? "ROS roster strength blended into weekly score distributions"
           : "Empirical-only mode (no ROS roster snapshot)"}
+        {data.standingsRule?.state === "counted"
+          ? " · records count the weekly league-median game, as the host does"
+          : ""}
       </div>
+      {/* The engine could not play the bracket as the host plays it, so the
+          title / finals / semifinal columns are withheld, not 0% — say why
+          (#1699 review F3), in the backend's own words. */}
+      {data.championshipUnavailable ? (
+        <div
+          role="note"
+          style={{ fontSize: "0.74rem", color: "var(--amber)", marginBottom: 10 }}
+        >
+          Title odds withheld:{" "}
+          {data.championshipUnavailable.detail || data.championshipUnavailable.reason}
+        </div>
+      ) : null}
+      {data.standingsRule?.state === "unverified" ? (
+        <div
+          role="note"
+          style={{ fontSize: "0.74rem", color: "var(--amber)", marginBottom: 10 }}
+        >
+          Standings rule unverified:{" "}
+          {data.standingsRule.detail || data.standingsRule.reason}
+        </div>
+      ) : null}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
         <thead>
           <tr

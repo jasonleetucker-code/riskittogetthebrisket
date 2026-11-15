@@ -52,6 +52,23 @@ def _entry_paths(cache_dir: Path, key: str) -> tuple[Path, Path]:
     return cache_dir / f"{h}.json", cache_dir / f"{h}.meta.json"
 
 
+def entry_fetched_at(key: str, *, cache_dir: Path | None = None) -> float | None:
+    """Epoch seconds at which ``key`` was fetched, or None when absent/unreadable.
+
+    The same ``fetched_at`` stamp :func:`entry_age_seconds` reads, returned
+    as-is so a capture can record WHEN the bytes it holds were fetched (a
+    cache hit is not a new fetch) without the float noise of ``now - age``.
+    """
+    cache_dir = cache_dir or _default_cache_dir()
+    _, meta_path = _entry_paths(cache_dir, key)
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        fetched_at = float(meta.get("fetched_at") or 0.0)
+    except Exception:  # noqa: BLE001
+        return None
+    return fetched_at if fetched_at > 0.0 else None
+
+
 def entry_age_seconds(key: str, *, cache_dir: Path | None = None) -> float | None:
     """Seconds since ``key`` was fetched, or None when it is absent.
 

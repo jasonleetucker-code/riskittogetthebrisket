@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   NON_VOTING_SOURCE_KEYS,
+  SOURCE_FRESHNESS_STATE_LABELS,
   VALUE_EXPLAINERS,
   VALUE_EXPLAINER_ORDER,
   boardClocks,
@@ -259,5 +260,25 @@ describe("board clocks and small formatters", () => {
     expect(a.stateLabel).toBe("Severely degraded");
     expect(a.retained).toBeCloseTo(0.5321);
     expect(a.dominantLabel).toBeTruthy();
+  });
+});
+
+describe("source freshness state labels", () => {
+  it("labels every state the backend freshness owner can emit", () => {
+    // Read from src/sources/freshness.py so a new backend state cannot
+    // render as a raw enum string.
+    const py = readFileSync(join(REPO, "src", "sources", "freshness.py"), "utf8");
+    const states = [...py.matchAll(/^STATE_[A-Z_]+ = "([A-Z_]+)"$/gm)].map((m) => m[1]);
+    expect(states).toContain("UNMEASURED");
+    for (const st of states) {
+      expect(SOURCE_FRESHNESS_STATE_LABELS[st], st).toBeTruthy();
+    }
+  });
+
+  it("UNMEASURED says it was not measured — never that it is fresh", () => {
+    // A first observation can prove staleness but never freshness (D1).
+    const label = SOURCE_FRESHNESS_STATE_LABELS.UNMEASURED;
+    expect(label).toBe("Not yet measured");
+    expect(label.toLowerCase()).not.toMatch(/fresh|on schedule|current/);
   });
 });

@@ -1,0 +1,121 @@
+/* Value Adjustment comparison (owner directive 2026-10-19) — PSI Direction A.
+   Tokens only (tokens.css; the /trade root carries .psi-editorial). No raw
+   colours, radii, shadows or new breakpoints.
+   Hierarchy from type, rules and alignment — no cards, pills or badges beyond
+   one text marker for a genuine disagreement. */
+
+/* ── War Room / decision area: the compact entry point ── */
+.vac {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.label {
+  margin: 0;
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-semibold);
+}
+.summary {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+.note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.toggle {
+  align-self: flex-start;
+}
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* A table wider than a phone scrolls inside its own named region. */
+.tableWrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.tableWrap:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+/* Override the legacy global `th` (uppercase, sticky, pointer): this is a
+   two-column comparison, not a sortable board. Row labels wrap on a phone so
+   both method columns stay on screen. */
+.table th,
+.table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  white-space: nowrap;
+  background: transparent;
+  position: static;
+  cursor: auto;
+  user-select: auto;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.table thead th {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-semibold);
+  white-space: normal;
+  vertical-align: bottom;
+}
+.table tbody th {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  color: var(--text-secondary);
+  white-space: normal;
+}
+.table .num {
+  text-align: right;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.notes {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* ── Second Opinions: the "Compare adjustments" line ── */
+/* One terse line under each source name, at every width (see
+   TradeSourceBreakdown): the table already fills its column, so an extra
+   column would sit off-screen.  It must never widen the table: inline-size
+   containment takes it out of the column's intrinsic width, and it wraps
+   inside whatever width the column already has. */
+.compareLine {
+  display: block;
+  contain: inline-size;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--text-secondary);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* Text marker, never colour alone: the words carry the meaning. */
+.differs {
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent);
+}

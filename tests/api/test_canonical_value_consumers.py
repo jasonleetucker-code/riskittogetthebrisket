@@ -12,6 +12,10 @@ from src.api.data_contract import build_api_data_contract
 from src.league_intel.values import build_player_values
 from src.sources.ktc_market import KTC_MARKET_KEY, ktc_market_for_row, market_raw_value
 from src.trade.finder import board_values_from_contract
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _payload() -> dict:

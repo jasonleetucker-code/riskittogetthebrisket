@@ -210,25 +210,17 @@ class TestNoFrontendOverride(unittest.TestCase):
 
 
 class TestCoherenceOnRealData(unittest.TestCase):
-    """Integration test: build the full contract from live data and
+    """Integration test: build the full contract from a REAL board and
     verify coherence end-to-end."""
 
     def test_live_data_coherence(self):
-        """Build the contract from the latest dynasty_data JSON and
-        verify the full board passes all coherence checks."""
-        import json
-        from pathlib import Path
+        """The PINNED real board (``tests.archive_fixtures``: one complete
+        scrape's payload, CSVs and scrape state) passes every coherence check.
+        Not today's export: coherence is a property of our code, and a check
+        over the latest refresh froze deploys on data alone."""
+        from tests.archive_fixtures import pinned_board_contract
 
-        data_path = Path(__file__).resolve().parents[2] / "exports" / "latest"
-        json_files = sorted(data_path.glob("dynasty_data_*.json"), reverse=True)
-        if not json_files:
-            self.skipTest("No dynasty_data JSON found in exports/latest/")
-        with json_files[0].open() as f:
-            raw = json.load(f)
-
-        from src.api.data_contract import build_api_data_contract
-
-        contract = build_api_data_contract(raw)
+        contract, _label = pinned_board_contract()
         pa = contract.get("playersArray", [])
         ranked = [r for r in pa if r.get("canonicalConsensusRank")]
         ranked.sort(key=lambda r: r["canonicalConsensusRank"])

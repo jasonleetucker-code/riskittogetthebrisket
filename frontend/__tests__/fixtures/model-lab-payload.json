@@ -1,0 +1,2626 @@
+{
+ "schema": "model-lab/v1",
+ "generatedAt": "2026-10-08T07:47:11.318609+00:00",
+ "private": true,
+ "readOnly": true,
+ "labStates": [
+  "CHAMPION",
+  "SHADOW",
+  "HELD",
+  "REJECTED",
+  "INSUFFICIENT_EVIDENCE",
+  "RETIRED"
+ ],
+ "fieldVocabulary": {
+  "unobserved": "the evidence exists in principle but could not be observed here",
+  "not_applicable": "the field does not apply to this family",
+  "unmeasured": "no monitor measures this; it is not the same as 'none'"
+ },
+ "receiptStore": {
+  "state": "unobserved",
+  "reason": "learning-receipt store data/learning/receipts.sqlite is absent on this host"
+ },
+ "families": [
+  {
+   "family": "hill_scope_masters",
+   "name": "Hill scope masters (percentile to value curves)",
+   "domain": "dynasty valuation — canonical value scale",
+   "owners": [
+    "src/model_registry/versioning.py",
+    "src/model_registry/autopilot.py",
+    "src/model_registry/independent_validation.py"
+   ],
+   "artifacts": [
+    {
+     "path": "config/model_registry/hill_scope_masters.json",
+     "role": "version registry + champion pointer",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:45:44.848759+00:00"
+    },
+    {
+     "path": "config/model_registry/hill_autopilot_runs.jsonl",
+     "role": "Hill Autopilot adjudication log",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:45:44.845758+00:00"
+    },
+    {
+     "path": "config/model_registry/hill_autopilot_policy.json",
+     "role": "Hill Autopilot policy",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:45:44.838760+00:00"
+    },
+    {
+     "path": "src/canonical/player_valuation.py",
+     "role": "served constants (production)",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:37.771042+00:00"
+    }
+   ],
+   "champion": {
+    "version": 2,
+    "createdAt": "2026-07-28T09:08:00.219336+00:00",
+    "trainedAt": "2026-07-28T09:08:00.219336+00:00",
+    "dataThrough": {
+     "state": "unobserved",
+     "reason": "v2 predates the pinned training-run substrate; its record carries input fingerprints but no training cutoff"
+    },
+    "featureDictionary": {
+     "dictionaryVersion": 1,
+     "featureManifestHash": "c7517160d7a0aa768099747e6f030cd180ad53bfa9aec966a0804197350216e9",
+     "features": [
+      {
+       "name": "canonical_training_percentile",
+       "version": 1
+      },
+      {
+       "name": "provider_family",
+       "version": 1
+      },
+      {
+       "name": "source_board_native_value",
+       "version": 1
+      }
+     ]
+    },
+    "trainingWindow": {
+     "design": "one point-in-time board snapshot per fit",
+     "cutoff": {
+      "state": "unobserved",
+      "reason": "v2 predates the pinned training-run substrate; its record carries input fingerprints but no training cutoff"
+     },
+     "trainingSources": [
+      "DraftSharks",
+      "DynastyDaddy",
+      "DynastyNerds",
+      "Fitzmaurice",
+      "KTC",
+      "YahooBoone"
+     ],
+     "inputFingerprints": {
+      "DraftSharks": "sha256:d474c81d2f6ce808",
+      "DynastyDaddy": "sha256:4d2cd2d87560557f",
+      "DynastyNerds": "sha256:d8d10d6fddfbabd7",
+      "Fitzmaurice": "sha256:caf3ef4823ffcaf8",
+      "KTC": "sha256:e4ffc49a86dd22c1",
+      "YahooBoone": "sha256:8687353a0fcbb9ee"
+     }
+    },
+    "validationWindows": [
+     {
+      "design": "source_family holdout: boards from families the fit never read",
+      "measuredAt": {
+       "state": "unobserved",
+       "reason": "this holdout predates the measuredAt stamp"
+      },
+      "boards": [
+       "FantasyCalc",
+       "FantasyNavigator",
+       "OTCFFB",
+       "PFKDynasty"
+      ]
+     },
+     {
+      "design": "paired re-score of the champion on the current holdout boards (latest Hill Autopilot run)",
+      "measuredAt": "2026-10-08T06:53:11.377237+00:00",
+      "boards": [
+       "FantasyCalc",
+       "OTCFFB",
+       "PFKDynasty"
+      ]
+     }
+    ],
+    "target": {
+     "criterion": "mean_per_source_rmse",
+     "units": "points on the 0-9999 value scale (lower is better)",
+     "semantics": {
+      "measures": "generalization across dynasty markets — whether a curve fitted to the training boards also describes boards it never saw",
+      "doesNotMeasure": "accuracy against reality; every holdout board is another consensus market correlated with the training boards, and no ground truth for dynasty value exists"
+     }
+    },
+    "targetLineage": {
+     "holdoutBoards": [
+      "FantasyCalc",
+      "FantasyNavigator",
+      "OTCFFB",
+      "PFKDynasty"
+     ],
+     "lineageDependence": {
+      "FantasyCalc": {
+       "draftSharks": "UNKNOWN",
+       "dynastyDaddySf": "MEASURED_DEPENDENCE",
+       "dynastyNerdsSfTep": "UNKNOWN",
+       "fantasyPros": "UNKNOWN",
+       "ktcCrowd": "UNKNOWN",
+       "yahooBoone": "UNKNOWN"
+      },
+      "OTCFFB": {
+       "draftSharks": "INDEPENDENT_NO_EVIDENCE",
+       "dynastyDaddySf": "MEASURED_DEPENDENCE",
+       "dynastyNerdsSfTep": "SUSPECTED_DEPENDENCE",
+       "fantasyPros": "SUSPECTED_DEPENDENCE",
+       "ktcCrowd": "MEASURED_DEPENDENCE",
+       "yahooBoone": "MEASURED_DEPENDENCE"
+      },
+      "PFKDynasty": {
+       "draftSharks": "UNKNOWN",
+       "dynastyDaddySf": "UNKNOWN",
+       "dynastyNerdsSfTep": "UNKNOWN",
+       "fantasyPros": "UNKNOWN",
+       "ktcCrowd": "MEASURED_DEPENDENCE",
+       "yahooBoone": "UNKNOWN"
+      }
+     },
+     "independentHoldout": "no_independent_holdout",
+     "independentValidation": "no_independent_validation_target"
+    },
+    "sampleSize": {
+     "rowsPerHoldoutBoard": {
+      "FantasyCalc": 399,
+      "FantasyNavigator": 400,
+      "OTCFFB": 400,
+      "PFKDynasty": 400
+     },
+     "rowsPerBoardLatestRescore": {
+      "FantasyCalc": 396,
+      "OTCFFB": 373,
+      "PFKDynasty": 400
+     }
+    },
+    "metrics": {
+     "registryHoldout": [
+      {
+       "name": "mean_per_source_rmse",
+       "point": 787.8416,
+       "interval": null,
+       "intervalReason": "the holdout records a point estimate; no interval",
+       "units": "points on the 0-9999 value scale (lower is better)",
+       "lowerIsBetter": true,
+       "measuredAt": {
+        "state": "unobserved",
+        "reason": "this holdout predates the measuredAt stamp (versioning._require_measurement_time)"
+       }
+      },
+      {
+       "name": "rmse[FantasyCalc]",
+       "point": 767.4625,
+       "interval": null,
+       "intervalReason": "per-board point estimate",
+       "units": "points on the 0-9999 value scale (lower is better)",
+       "lowerIsBetter": true,
+       "rows": 399
+      },
+      {
+       "name": "rmse[FantasyNavigator]",
+       "point": 1148.5308,
+       "interval": null,
+       "intervalReason": "per-board point estimate",
+       "units": "points on the 0-9999 value scale (lower is better)",
+       "lowerIsBetter": true,
+       "rows": 400
+      },
+      {
+       "name": "rmse[OTCFFB]",
+       "point": 991.6813,
+       "interval": null,
+       "intervalReason": "per-board point estimate",
+       "units": "points on the 0-9999 value scale (lower is better)",
+       "lowerIsBetter": true,
+       "rows": 400
+      },
+      {
+       "name": "rmse[PFKDynasty]",
+       "point": 243.692,
+       "interval": null,
+       "intervalReason": "per-board point estimate",
+       "units": "points on the 0-9999 value scale (lower is better)",
+       "lowerIsBetter": true,
+       "rows": 400
+      }
+     ],
+     "latestPairedRescore": {
+      "name": "mean_per_source_rmse",
+      "point": 1099.9298,
+      "perBoard": {
+       "FantasyCalc": 1366.7403,
+       "OTCFFB": 1433.3045,
+       "PFKDynasty": 499.7446
+      },
+      "interval": null,
+      "intervalReason": "the Autopilot run records a point re-score",
+      "measuredAt": "2026-10-08T06:53:11.377237+00:00"
+     }
+    }
+   },
+   "challengers": [
+    {
+     "version": 1,
+     "state": "RETIRED",
+     "nativeStatus": "retired",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 819.7335,
+      "measuredAt": {
+       "state": "unobserved",
+       "reason": "no measuredAt stamp"
+      }
+     },
+     "reason": "holdout re-scored 2026-07-29 against that day's boards (849.8 -> 819.7). The prior figure was measured 2026-07-26 and was NOT comparable to challenger v2's 2026-07-28 score: promotion.py requires a PAIRED comparison because the criterion's absolute level drifts ~68 points week to week, so comparing across snapshot dates reads market drift as model quality."
+    },
+    {
+     "version": 2,
+     "state": "CHAMPION",
+     "nativeStatus": "champion",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-07-28T09:08:00.219336+00:00",
+     "metrics": {
+      "criterion": 787.8416,
+      "measuredAt": {
+       "state": "unobserved",
+       "reason": "no measuredAt stamp"
+      }
+     },
+     "reason": "promoted: held-out win: +38.5 paired on 2026-07-29 boards (819.7 -> 781.2), improving all four holdout sources with no sign flips; downstream contract diff over 1093 rows shows top-100 median 2.4% / max 4.4% and max top-150 rank displacement 46 slots"
+    },
+    {
+     "version": 3,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-08-04T09:11:58.945109+00:00",
+     "metrics": {
+      "criterion": 775.0471,
+      "measuredAt": {
+       "state": "unobserved",
+       "reason": "no measuredAt stamp"
+      }
+     },
+     "reason": "rejected: improvement +22.4 does not clear the 25-point margin; within criterion noise, so the incumbent keeps the tie"
+    },
+    {
+     "version": 4,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-08-11T07:40:45.845708+00:00",
+     "metrics": {
+      "criterion": 758.1873,
+      "measuredAt": "2026-08-11T07:40:45.846276+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 5,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-08-18T07:07:56.705722+00:00",
+     "metrics": {
+      "criterion": 683.0952,
+      "measuredAt": "2026-08-18T07:07:56.708808+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 6,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-08-25T07:11:24.665791+00:00",
+     "metrics": {
+      "criterion": 640.4714,
+      "measuredAt": "2026-08-25T07:11:24.668341+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 7,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-01T11:44:45.885865+00:00",
+     "metrics": {
+      "criterion": 634.6574,
+      "measuredAt": "2026-09-01T11:44:45.889077+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 8,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-08T11:25:44.088412+00:00",
+     "metrics": {
+      "criterion": 640.8767,
+      "measuredAt": "2026-09-08T11:25:44.091702+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 9,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-09T21:20:09.349978+00:00",
+     "metrics": {
+      "criterion": 630.6192,
+      "measuredAt": "2026-09-09T21:20:09.353173+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 10,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 611.7776,
+      "measuredAt": "2026-09-09T21:20:09.822784+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 11,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-10T00:45:18.701743+00:00",
+     "metrics": {
+      "criterion": 623.3158,
+      "measuredAt": "2026-09-10T00:45:18.704955+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 12,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 611.7791,
+      "measuredAt": "2026-09-10T00:45:19.202806+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 13,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-10T05:26:50.253780+00:00",
+     "metrics": {
+      "criterion": 624.6422,
+      "measuredAt": "2026-09-10T05:26:50.256655+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 14,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 613.115,
+      "measuredAt": "2026-09-10T05:26:50.794112+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 15,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-10T11:58:15.435007+00:00",
+     "metrics": {
+      "criterion": 622.1165,
+      "measuredAt": "2026-09-10T11:58:15.438025+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 16,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 610.3974,
+      "measuredAt": "2026-09-10T11:58:15.941518+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 17,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-10T16:48:59.830838+00:00",
+     "metrics": {
+      "criterion": 623.1721,
+      "measuredAt": "2026-09-10T16:48:59.833824+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 18,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 611.4122,
+      "measuredAt": "2026-09-10T16:49:00.290186+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 19,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-10T19:31:17.456758+00:00",
+     "metrics": {
+      "criterion": 626.4823,
+      "measuredAt": "2026-09-10T19:31:17.459761+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 20,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 614.7607,
+      "measuredAt": "2026-09-10T19:31:18.000275+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 21,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-10T22:54:10.047371+00:00",
+     "metrics": {
+      "criterion": 633.6638,
+      "measuredAt": "2026-09-10T22:54:10.049877+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 22,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 614.6894,
+      "measuredAt": "2026-09-10T22:54:10.462445+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 23,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-11T05:24:33.315604+00:00",
+     "metrics": {
+      "criterion": 629.2626,
+      "measuredAt": "2026-09-11T05:24:33.318395+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 24,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 617.6372,
+      "measuredAt": "2026-09-11T05:24:33.802324+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 25,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-11T11:56:48.735721+00:00",
+     "metrics": {
+      "criterion": 628.6959,
+      "measuredAt": "2026-09-11T11:56:48.738886+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 26,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 617.05,
+      "measuredAt": "2026-09-11T11:56:49.331021+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 27,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-11T16:54:14.614234+00:00",
+     "metrics": {
+      "criterion": 629.1564,
+      "measuredAt": "2026-09-11T16:54:14.617221+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 28,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 617.5675,
+      "measuredAt": "2026-09-11T16:54:15.125151+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 29,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-11T21:26:38.618874+00:00",
+     "metrics": {
+      "criterion": 628.8516,
+      "measuredAt": "2026-09-11T21:26:38.621932+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 30,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 617.2762,
+      "measuredAt": "2026-09-11T21:26:39.219776+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 31,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-12T00:47:06.731313+00:00",
+     "metrics": {
+      "criterion": 628.9553,
+      "measuredAt": "2026-09-12T00:47:06.734455+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 32,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 617.3486,
+      "measuredAt": "2026-09-12T00:47:07.371599+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 33,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-12T05:14:42.635989+00:00",
+     "metrics": {
+      "criterion": 623.499,
+      "measuredAt": "2026-09-12T05:14:42.639082+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 34,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 611.8302,
+      "measuredAt": "2026-09-12T05:14:43.266328+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 35,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-12T11:23:55.203743+00:00",
+     "metrics": {
+      "criterion": 622.5902,
+      "measuredAt": "2026-09-12T11:23:55.206804+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 36,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 610.8831,
+      "measuredAt": "2026-09-12T11:23:55.836560+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 37,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-12T15:58:11.905380+00:00",
+     "metrics": {
+      "criterion": 617.5088,
+      "measuredAt": "2026-09-12T15:58:11.908410+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 38,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 605.6785,
+      "measuredAt": "2026-09-12T15:58:12.546750+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 39,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-12T18:54:19.211201+00:00",
+     "metrics": {
+      "criterion": 617.3667,
+      "measuredAt": "2026-09-12T18:54:19.214241+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 40,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 605.5303,
+      "measuredAt": "2026-09-12T18:54:19.856499+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 41,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-12T22:41:22.651953+00:00",
+     "metrics": {
+      "criterion": 616.122,
+      "measuredAt": "2026-09-12T22:41:22.653936+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 42,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 604.3513,
+      "measuredAt": "2026-09-12T22:41:23.043608+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 43,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-13T00:35:53.321445+00:00",
+     "metrics": {
+      "criterion": 616.122,
+      "measuredAt": "2026-09-13T00:35:53.324346+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 44,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 604.3513,
+      "measuredAt": "2026-09-13T00:35:53.971696+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 45,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-13T05:31:32.976301+00:00",
+     "metrics": {
+      "criterion": 615.102,
+      "measuredAt": "2026-09-13T05:31:32.979328+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 46,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 603.3402,
+      "measuredAt": "2026-09-13T05:31:33.655702+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 47,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-13T12:25:23.754979+00:00",
+     "metrics": {
+      "criterion": 614.6666,
+      "measuredAt": "2026-09-13T12:25:23.758082+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 48,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 602.7728,
+      "measuredAt": "2026-09-13T12:25:24.442166+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 49,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-13T16:45:07.367406+00:00",
+     "metrics": {
+      "criterion": 617.6272,
+      "measuredAt": "2026-09-13T16:45:07.370449+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 50,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 605.873,
+      "measuredAt": "2026-09-13T16:45:08.081031+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 51,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-13T19:05:09.807618+00:00",
+     "metrics": {
+      "criterion": 616.2519,
+      "measuredAt": "2026-09-13T19:05:09.810672+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 52,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 604.5196,
+      "measuredAt": "2026-09-13T19:05:10.523875+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 53,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-13T22:44:32.840091+00:00",
+     "metrics": {
+      "criterion": 617.6421,
+      "measuredAt": "2026-09-13T22:44:32.843169+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 54,
+     "state": "REJECTED",
+     "nativeStatus": "rejected",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "fit time unrecorded: recorded as 'unknown', not a provable instant"
+     },
+     "metrics": {
+      "criterion": 605.9228,
+      "measuredAt": "2026-09-13T22:44:33.556141+00:00"
+     },
+     "reason": "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+    },
+    {
+     "version": 55,
+     "state": "INSUFFICIENT_EVIDENCE",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-09-14T00:35:14.958535+00:00",
+     "metrics": {
+      "criterion": 617.6421,
+      "measuredAt": "2026-09-14T00:35:14.961337+00:00"
+     },
+     "reason": "legacy_substrate: no reproducible pinned training run, so it cannot be re-derived from its own record and may not compete (training_run.tournament_exclusion_reason)"
+    },
+    {
+     "version": 189,
+     "state": "HELD",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-10-07T02:00:36.678609+00:00",
+     "metrics": {
+      "criterion": 552.6692,
+      "measuredAt": "2026-10-07T02:00:36.677860+00:00"
+     },
+     "reason": "excluded from the latest tournament: stale_code_or_manifest"
+    },
+    {
+     "version": 190,
+     "state": "HELD",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-10-07T09:35:30.041523+00:00",
+     "metrics": {
+      "criterion": 554.4651,
+      "measuredAt": "2026-10-07T09:35:30.040564+00:00"
+     },
+     "reason": "excluded from the latest tournament: stale_code_or_manifest"
+    },
+    {
+     "version": 191,
+     "state": "HELD",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-10-07T17:45:31.854504+00:00",
+     "metrics": {
+      "criterion": 555.7861,
+      "measuredAt": "2026-10-07T17:45:31.853564+00:00"
+     },
+     "reason": "excluded from the latest tournament: stale_code_or_manifest"
+    },
+    {
+     "version": 192,
+     "state": "HELD",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-10-07T23:31:27.064278+00:00",
+     "metrics": {
+      "criterion": 547.3098,
+      "measuredAt": "2026-10-07T23:31:27.063266+00:00"
+     },
+     "reason": "excluded from the latest tournament: stale_code_or_manifest"
+    },
+    {
+     "version": 193,
+     "state": "HELD",
+     "nativeStatus": "challenger",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": "2026-10-08T06:52:30.442837+00:00",
+     "metrics": {
+      "criterion": 543.5191,
+      "measuredAt": "2026-10-08T06:52:30.441861+00:00"
+     },
+     "reason": "latest tournament winner; Hill Autopilot HOLD: blocked by: parameter_stability, forward_persistence"
+    }
+   ],
+   "challengerStates": {
+    "CHAMPION": 1,
+    "SHADOW": 0,
+    "HELD": 5,
+    "REJECTED": 24,
+    "INSUFFICIENT_EVIDENCE": 29,
+    "RETIRED": 1
+   },
+   "drift": {
+    "state": "unmeasured",
+    "reason": "no drift monitor exists for this family (the refit's scope RMSE comparison is a fit diagnostic, not a monitored drift receipt); unmeasured is not 'no drift'"
+   },
+   "calibration": {
+    "state": "not_applicable",
+    "reason": "a deterministic curve scored by RMSE against market boards; it emits no probability to calibrate"
+   },
+   "lastEvaluation": {
+    "at": "2026-10-08T06:53:11.377237+00:00",
+    "by": "Hill Autopilot (scripts/hill_autopilot.py)",
+    "outcome": "HOLD",
+    "winnerVersion": 193,
+    "championVersion": 2,
+    "triggerSha": "2b117958dbd0ed7b0b65e1fafe1d2d0bbcb9b526"
+   },
+   "gate": {
+    "result": "HOLD",
+    "ready": false,
+    "reason": "blocked by: parameter_stability, forward_persistence",
+    "gates": {
+     "cross_market_bootstrap": true,
+     "current_margin": true,
+     "forward_persistence": false,
+     "independent_validation": false,
+     "leave_one_market_out": true,
+     "parameter_stability": false,
+     "per_source": true,
+     "row_health": true,
+     "winner": true
+    },
+    "independentValidation": {
+     "assessments": [],
+     "challengerVersion": 193,
+     "eligibleTargets": [],
+     "error": null,
+     "gatesPromotion": true,
+     "passed": false,
+     "reason": "no_independent_validation_target",
+     "registrySize": 0,
+     "trainingFamilies": [
+      "draftSharks",
+      "dynastyDaddySf",
+      "dynastyNerdsSfTep",
+      "fantasyPros",
+      "ktcCrowd",
+      "yahooBoone"
+     ]
+    },
+    "requiredImprovement": 54.9965,
+    "currentImprovement": 556.4107,
+    "forward": {
+     "days": 0,
+     "winRate": 0.0,
+     "medianImprovement": null
+    }
+   },
+   "promotionAuthority": {
+    "mechanism": "Hill Autopilot (docs/valuation/HILL_AUTOPILOT_V2.md); the raw fitter never writes production",
+    "automaticScope": [
+     "OFFENSE"
+    ],
+    "carriedFromIncumbent": "GLOBAL, IDP and ROOKIE are carried from the champion until they have their own promotable evidence (autopilot.compose_offense_only)",
+    "independentTargetRequired": true,
+    "independentTargetBasis": "owner methodology decision 2026-10-01: board-holdout gates are necessary, not sufficient (src/model_registry/independent_validation.py)",
+    "manual": "scripts/model_registry.py promote + apply, run by a human (ADR-008, docs/roster-trade-intelligence/DECISIONS.md)"
+   },
+   "productionState": {
+    "served": "the champion's eight constants in src/canonical/player_valuation.py",
+    "championVersion": 2,
+    "championPromotedAt": "2026-07-29T23:35:35.519297+00:00",
+    "championAppliedAt": {
+     "state": "unobserved",
+     "reason": "the registry records no apply time for this champion"
+    },
+    "liveConstants": {
+     "HILL_GLOBAL_PERCENTILE_C": 0.112,
+     "HILL_GLOBAL_PERCENTILE_S": 0.725,
+     "HILL_PERCENTILE_C": 0.11,
+     "HILL_PERCENTILE_S": 1.11,
+     "IDP_HILL_PERCENTILE_C": 0.083,
+     "IDP_HILL_PERCENTILE_S": 1.11,
+     "HILL_ROOKIE_PERCENTILE_C": 0.153,
+     "HILL_ROOKIE_PERCENTILE_S": 0.885
+    },
+    "liveConstantsMatchChampion": true
+   },
+   "rollback": {
+    "version": 1,
+    "retiredAt": "2026-07-29T23:35:35.519297+00:00",
+    "mechanism": "ModelRegistry.rollback reinstates this version (ModelRegistry.rollback_target); apply then writes its constants",
+    "command": "python scripts/model_registry.py rollback --reason WHY ; then python scripts/model_registry.py apply"
+   },
+   "decisionReason": "champion v2 retained; latest Hill Autopilot run 2026-10-08T06:53:11.377237+00:00: HOLD — blocked by: parameter_stability, forward_persistence",
+   "dataQuality": {
+    "rowHealth": {
+     "FantasyCalc": {
+      "current": 396,
+      "minimumAllowed": 335.75,
+      "pass": true,
+      "recentMedian": 395.0
+     },
+     "OTCFFB": {
+      "current": 373,
+      "minimumAllowed": 317.9,
+      "pass": true,
+      "recentMedian": 374.0
+     },
+     "PFKDynasty": {
+      "current": 400,
+      "minimumAllowed": 340.0,
+      "pass": true,
+      "recentMedian": 400.0
+     }
+    },
+    "holdoutIndependence": "no_independent_holdout",
+    "legacySubstrateChallengers": 101,
+    "autopilotLog": "all lines parsed",
+    "registry": "parsed"
+   },
+   "receipts": {
+    "state": "unobserved",
+    "reason": "learning-receipt store data/learning/receipts.sqlite is absent on this host"
+   }
+  },
+  {
+   "family": "source_quality_weights",
+   "name": "Source-quality authority weights",
+   "domain": "dynasty valuation — source weighting",
+   "owners": [
+    "src/source_quality/evaluate.py",
+    "scripts/source_quality_eval.py"
+   ],
+   "artifacts": [
+    {
+     "path": "data/source_quality/evaluations.jsonl",
+     "role": "evaluation archive (production host)",
+     "present": false
+    },
+    {
+     "path": "docs/valuation/evidence/source-quality-2026-10-01/evaluations.jsonl",
+     "role": "committed evaluation",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:34.750888+00:00"
+    },
+    {
+     "path": "docs/valuation/evidence/source-quality-2026-10-01/PREREGISTRATION.md",
+     "role": "preregistration",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:34.745390+00:00"
+    }
+   ],
+   "champion": {
+    "version": "mv:source_quality_weights:equal_family_c0",
+    "createdAt": {
+     "state": "not_applicable",
+     "reason": "equal family weights are a rule, not a fit"
+    },
+    "trainedAt": {
+     "state": "not_applicable",
+     "reason": "equal family weights are a rule, not a fit"
+    },
+    "dataThrough": "2026-09-30",
+    "featureDictionary": {
+     "dictionaryVersion": 1,
+     "featureManifestHash": "cec24133d87d02e1f0211c8f9ce09fa056119675e34392b01eed64707a55234b",
+     "features": [
+      {
+       "name": "family_evidence_age_days",
+       "version": 1
+      },
+      {
+       "name": "provider_family",
+       "version": 1
+      },
+      {
+       "name": "source_universe_log_rank",
+       "version": 1
+      }
+     ]
+    },
+    "trainingWindow": {
+     "state": "not_applicable",
+     "reason": "the champion is not fitted"
+    },
+    "validationWindows": [
+     {
+      "design": "walk-forward over the point-in-time panel (chronological)",
+      "dataWindow": [
+       "2026-04-16",
+       "2026-09-30"
+      ],
+      "horizonDays": 21,
+      "panelDigest": "833cbf22af7963c15676e6e9d70cbb040639cfdfe1a4bab256ecb50f663ca476"
+     }
+    ],
+    "target": "leave-the-evaluated-family-out future market movement; MALE = mean absolute log error (learning_adapters.source_quality_receipts)",
+    "targetLineage": {
+     "preregistrationSha256": "e7c33457bd0f3c65bc97ba578a3671b658c21046dbd22af8ad8fbdfc980187d9",
+     "note": "the evaluated family is left out of its own target"
+    },
+    "sampleSize": {
+     "bootstrapBlocks": 8
+    },
+    "metrics": [
+     {
+      "name": "championMALE",
+      "point": 0.18876,
+      "interval": [
+       0.18564,
+       0.19273
+      ],
+      "level": 0.9,
+      "method": "seeded date-block bootstrap (8 blocks x 400 draws)",
+      "se": 0.00215,
+      "higherIsBetter": false
+     }
+    ]
+   },
+   "challengers": [
+    {
+     "version": "mv:source_quality_weights:equal_family_c0",
+     "state": "CHAMPION",
+     "nativeStatus": "champion (served equal family weights)",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "not_applicable",
+      "reason": "a rule, not a fit"
+     },
+     "metrics": [
+      {
+       "name": "championMALE",
+       "point": 0.18876,
+       "interval": [
+        0.18564,
+        0.19273
+       ],
+       "level": 0.9,
+       "method": "seeded date-block bootstrap (8 blocks x 400 draws)",
+       "se": 0.00215,
+       "higherIsBetter": false
+      }
+     ],
+     "reason": "equal-family champion retained (plan section 30, #1589)"
+    },
+    {
+     "version": "C1_conservative_reliability",
+     "state": "REJECTED",
+     "nativeStatus": "DOES_NOT_MEET_PREREGISTERED_GATE",
+     "al0Verdict": "champion_retained",
+     "createdAt": "2026-10-01T14:09:22.109417+00:00",
+     "metrics": [
+      {
+       "name": "deltaMALE",
+       "point": 0.00078,
+       "interval": [
+        0.00049,
+        0.00103
+       ],
+       "level": 0.9,
+       "method": "seeded date-block bootstrap (8 blocks x 400 draws)",
+       "se": 0.00017,
+       "higherIsBetter": true
+      },
+      {
+       "name": "championMALE",
+       "point": 0.18876,
+       "interval": [
+        0.18564,
+        0.19273
+       ],
+       "level": 0.9,
+       "method": "seeded date-block bootstrap (8 blocks x 400 draws)",
+       "se": 0.00215,
+       "higherIsBetter": false
+      }
+     ],
+     "reason": "G1: delta 0.00078 (90% CI [0.00049, 0.00103]) vs materiality 0.00215 (champion MALE SE); G2[PICK]: pick markets are not evaluable and the candidate changes market-priced pick rows on the latest board"
+    },
+    {
+     "version": "C2_asset_class_reliability",
+     "state": "REJECTED",
+     "nativeStatus": "DOES_NOT_MEET_PREREGISTERED_GATE",
+     "al0Verdict": "champion_retained",
+     "createdAt": "2026-10-01T14:09:22.109417+00:00",
+     "metrics": [
+      {
+       "name": "deltaMALE",
+       "point": 0.00127,
+       "interval": [
+        0.00084,
+        0.00161
+       ],
+       "level": 0.9,
+       "method": "seeded date-block bootstrap (8 blocks x 400 draws)",
+       "se": 0.00025,
+       "higherIsBetter": true
+      },
+      {
+       "name": "championMALE",
+       "point": 0.18876,
+       "interval": [
+        0.18564,
+        0.19273
+       ],
+       "level": 0.9,
+       "method": "seeded date-block bootstrap (8 blocks x 400 draws)",
+       "se": 0.00215,
+       "higherIsBetter": false
+      }
+     ],
+     "reason": "G1: delta 0.00127 (90% CI [0.00084, 0.00161]) vs materiality 0.00215 (champion MALE SE); G2[PICK]: pick markets are not evaluable and the candidate changes market-priced pick rows on the latest board"
+    },
+    {
+     "version": "C3_lead_lag_authority",
+     "state": "REJECTED",
+     "nativeStatus": "DOES_NOT_MEET_PREREGISTERED_GATE",
+     "al0Verdict": "champion_retained",
+     "createdAt": "2026-10-01T14:09:22.109417+00:00",
+     "metrics": [
+      {
+       "name": "deltaMALE",
+       "point": 0.00043,
+       "interval": [
+        0.00025,
+        0.00058
+       ],
+       "level": 0.9,
+       "method": "seeded date-block bootstrap (8 blocks x 400 draws)",
+       "se": 0.0001,
+       "higherIsBetter": true
+      },
+      {
+       "name": "championMALE",
+       "point": 0.18876,
+       "interval": [
+        0.18564,
+        0.19273
+       ],
+       "level": 0.9,
+       "method": "seeded date-block bootstrap (8 blocks x 400 draws)",
+       "se": 0.00215,
+       "higherIsBetter": false
+      }
+     ],
+     "reason": "G1: delta 0.00043 (90% CI [0.00025, 0.00058]) vs materiality 0.00215 (champion MALE SE); G2[PICK]: pick markets are not evaluable and the candidate changes market-priced pick rows on the latest board"
+    }
+   ],
+   "challengerStates": {
+    "CHAMPION": 1,
+    "SHADOW": 0,
+    "HELD": 0,
+    "REJECTED": 3,
+    "INSUFFICIENT_EVIDENCE": 0,
+    "RETIRED": 0
+   },
+   "drift": {
+    "state": "unmeasured",
+    "reason": "no drift monitor exists for this family (AL-0 defines DRIFT receipts, but no producer emits one); unmeasured is not 'no drift'"
+   },
+   "calibration": {
+    "state": "not_applicable",
+    "reason": "weights, not probabilities"
+   },
+   "lastEvaluation": {
+    "at": "2026-10-01T14:09:22.109417+00:00",
+    "by": "scripts/source_quality_eval.py",
+    "codeRevision": "7d4b32f9e28b70ccf5195234f6f3f71e881e07a0",
+    "evidenceOrigin": "docs/valuation/evidence/source-quality-2026-10-01/evaluations.jsonl",
+    "status": "SHADOW"
+   },
+   "gate": {
+    "result": {
+     "C1_conservative_reliability": "DOES_NOT_MEET_PREREGISTERED_GATE",
+     "C2_asset_class_reliability": "DOES_NOT_MEET_PREREGISTERED_GATE",
+     "C3_lead_lag_authority": "DOES_NOT_MEET_PREREGISTERED_GATE"
+    },
+    "preregistration": "docs/valuation/evidence/source-quality-2026-10-01/PREREGISTRATION.md",
+    "preregistrationSha256": "e7c33457bd0f3c65bc97ba578a3671b658c21046dbd22af8ad8fbdfc980187d9"
+   },
+   "promotionAuthority": {
+    "mechanism": "Batch 3 section N (docs/EXECUTION_PLAN.md section 0, Valuation Trust Program): a preregistered gate, independent fresh-context review, then explicit owner approval to flip the flag",
+    "automatic": false,
+    "note": "every receipt this family emits carries promotes: false; nothing here flips a flag"
+   },
+   "productionState": {
+    "served": "equal family weights (the champion); candidates are evaluated, never served",
+    "evaluatorStatus": "SHADOW"
+   },
+   "rollback": {
+    "state": "not_applicable",
+    "reason": "the champion has never been replaced; nothing to roll back"
+   },
+   "decisionReason": "equal-family champion retained: C1_conservative_reliability: DOES_NOT_MEET_PREREGISTERED_GATE; C2_asset_class_reliability: DOES_NOT_MEET_PREREGISTERED_GATE; C3_lead_lag_authority: DOES_NOT_MEET_PREREGISTERED_GATE",
+   "dataQuality": {
+    "missingEvidence": [
+     "G2[PICK]: pick markets are not evaluable and the candidate changes market-priced pick rows on the latest board"
+    ],
+    "evidenceOrigin": "docs/valuation/evidence/source-quality-2026-10-01/evaluations.jsonl",
+    "archive": "all lines parsed"
+   },
+   "receipts": {
+    "state": "unobserved",
+    "reason": "learning-receipt store data/learning/receipts.sqlite is absent on this host"
+   }
+  },
+  {
+   "family": "sparse_evidence_estimator",
+   "name": "Sparse-evidence estimator (single-family rows)",
+   "domain": "dynasty valuation — single-source haircut",
+   "owners": [
+    "src/api/sparse_evidence.py",
+    "src/api/sparse_evidence_shadow.py"
+   ],
+   "artifacts": [
+    {
+     "path": "data/sparse_evidence_shadow",
+     "role": "shadow ledger (production host)",
+     "present": false
+    },
+    {
+     "path": "docs/valuation/evidence/sparse-evidence-2026-10-01/results.json",
+     "role": "committed evaluation",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:34.767398+00:00"
+    },
+    {
+     "path": "docs/valuation/evidence/sparse-evidence-2026-10-01/PREREGISTRATION.md",
+     "role": "preregistration",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:34.757398+00:00"
+    }
+   ],
+   "champion": {
+    "version": {
+     "state": "unobserved",
+     "reason": "the served incumbent's version token is minted per shadow record (producer_receipts.sparse_model_ids); no shadow record on this host"
+    },
+    "createdAt": {
+     "state": "not_applicable",
+     "reason": "the incumbent 0.30 single-source retention is a rule, not a fit"
+    },
+    "trainedAt": {
+     "state": "not_applicable",
+     "reason": "not fitted"
+    },
+    "dataThrough": "2026-09-30T13:04:04.598312+00:00",
+    "featureDictionary": {
+     "dictionaryVersion": 1,
+     "featureManifestHash": "86a4ae1dc826ec048d0ec257d804150774fbe5b4006bd265ac06a716aa5b6163",
+     "features": [
+      {
+       "name": "censored_family_bound",
+       "version": 1
+      },
+      {
+       "name": "provider_family",
+       "version": 2
+      },
+      {
+       "name": "single_family_observation",
+       "version": 1
+      },
+      {
+       "name": "sparse_evidence_state",
+       "version": 1
+      }
+     ]
+    },
+    "trainingWindow": {
+     "state": "not_applicable",
+     "reason": "deterministic estimator; nothing is trained"
+    },
+    "validationWindows": [
+     {
+      "design": "one pinned board, preregistered structural gates G1-G6",
+      "board": "2026-09-30T13:04:04.598312+00:00",
+      "evidence": "docs/valuation/evidence/sparse-evidence-2026-10-01/results.json"
+     }
+    ],
+    "target": "preregistered structural gates on one board (PREREGISTRATION.md); the evaluation settles no outcome",
+    "targetLineage": {
+     "state": "not_applicable",
+     "reason": "structural gates, no outcome target"
+    },
+    "sampleSize": {
+     "boardRows": 1041
+    },
+    "metrics": {
+     "state": "not_applicable",
+     "reason": "the incumbent is the reference the gates compare against"
+    }
+   },
+   "challengers": [
+    {
+     "version": "served incumbent",
+     "state": "CHAMPION",
+     "nativeStatus": "SERVED_AT_RECORD (flag OFF)",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "not_applicable",
+      "reason": "a rule, not a fit"
+     },
+     "metrics": {
+      "state": "not_applicable",
+      "reason": "reference side of the comparison"
+     },
+     "reason": "served while the sparse_evidence_estimator flag is OFF"
+    },
+    {
+     "version": "sparse-censor-v1",
+     "state": "REJECTED",
+     "nativeStatus": "does not meet gate",
+     "al0Verdict": "champion_retained",
+     "createdAt": {
+      "state": "not_applicable",
+      "reason": "a deterministic estimator version"
+     },
+     "metrics": {
+      "G1_trap": {
+       "pass": true,
+       "incumbent": 1380,
+       "challenger": 4600
+      },
+      "G2a_no_H_entry_top200": {
+       "pass": true,
+       "entries": []
+      },
+      "G2b_no_H_entry_top400": {
+       "pass": true,
+       "entries": []
+      },
+      "G2c_median_C_over_I_le_2": {
+       "pass": false,
+       "median": 3.335
+      },
+      "G3_bounded_influence": {
+       "pass": true,
+       "violations": []
+      },
+      "G4_scope": {
+       "pass": true,
+       "nonPickRowsOutsideHChanged": [],
+       "pickChanges": 0
+      },
+      "G5_off_identical": {
+       "pass": true
+      },
+      "G6_semantics_tests": {
+       "pass": true,
+       "exitCode": 0,
+       "summary": "26 passed in 2.05s"
+      }
+     },
+     "reason": "preregistered verdict: does not meet gate (failed: G2c_median_C_over_I_le_2); flag stays OFF; the shadow ledger keeps collecting outcome evidence"
+    }
+   ],
+   "challengerStates": {
+    "CHAMPION": 1,
+    "SHADOW": 0,
+    "HELD": 0,
+    "REJECTED": 1,
+    "INSUFFICIENT_EVIDENCE": 0,
+    "RETIRED": 0
+   },
+   "drift": {
+    "state": "unmeasured",
+    "reason": "no drift monitor exists for this family (AL-0 defines DRIFT receipts, but no producer emits one); unmeasured is not 'no drift'"
+   },
+   "calibration": {
+    "state": "unobserved",
+    "reason": "the challenger's intervals are documented as uncalibrated (intervalLabel); no calibration evaluation exists"
+   },
+   "lastEvaluation": {
+    "at": {
+     "state": "unobserved",
+     "reason": "results.json records no evaluation instant"
+    },
+    "by": "preregistered one-board evaluation",
+    "verdict": "does not meet gate",
+    "codeRevision": "83b680668773157719face938ca94265b3e0225a",
+    "evidenceOrigin": "docs/valuation/evidence/sparse-evidence-2026-10-01/results.json"
+   },
+   "gate": {
+    "result": "does not meet gate",
+    "gates": {
+     "G1_trap": {
+      "pass": true,
+      "incumbent": 1380,
+      "challenger": 4600
+     },
+     "G2a_no_H_entry_top200": {
+      "pass": true,
+      "entries": []
+     },
+     "G2b_no_H_entry_top400": {
+      "pass": true,
+      "entries": []
+     },
+     "G2c_median_C_over_I_le_2": {
+      "pass": false,
+      "median": 3.335
+     },
+     "G3_bounded_influence": {
+      "pass": true,
+      "violations": []
+     },
+     "G4_scope": {
+      "pass": true,
+      "nonPickRowsOutsideHChanged": [],
+      "pickChanges": 0
+     },
+     "G5_off_identical": {
+      "pass": true
+     },
+     "G6_semantics_tests": {
+      "pass": true,
+      "exitCode": 0,
+      "summary": "26 passed in 2.05s"
+     }
+    },
+    "preregistration": {
+     "path": "docs/valuation/evidence/sparse-evidence-2026-10-01/PREREGISTRATION.md",
+     "commit": "211f91533a29d4c3980bcc8911628b711bb73802",
+     "sha256OfCommittedBlob": "45fb7b1dadca1219999ef8f2b55c8d6c989abfe506d0497b7358217c0dbd8b6d"
+    }
+   },
+   "promotionAuthority": {
+    "mechanism": "Batch 3 section N (docs/EXECUTION_PLAN.md section 0, Valuation Trust Program): a preregistered gate, independent fresh-context review, then explicit owner approval to flip the flag",
+    "automatic": false,
+    "note": "every receipt this family emits carries promotes: false; nothing here flips a flag"
+   },
+   "productionState": {
+    "flag": "sparse_evidence_estimator",
+    "enabled": false,
+    "gateStatus": "LIVE",
+    "rollback": "RISKIT_FEATURE_SPARSE_EVIDENCE_ESTIMATOR=0 + restart",
+    "shadowLedger": {
+     "state": "unobserved",
+     "reason": "data/sparse_evidence_shadow/ is absent on this host (production-only)"
+    },
+    "latestShadowRecordAt": {
+     "state": "unobserved",
+     "reason": "no shadow record on this host"
+    }
+   },
+   "rollback": {
+    "served": "the incumbent is served; nothing to roll back",
+    "ifEnabled": "RISKIT_FEATURE_SPARSE_EVIDENCE_ESTIMATOR=0 + restart"
+   },
+   "decisionReason": "flag OFF; candidate C preregistered verdict: does not meet gate",
+   "dataQuality": {
+    "latestBoardAgeHours": {
+     "state": "unobserved",
+     "reason": "no shadow record on this host"
+    },
+    "latestCounts": {
+     "state": "unobserved",
+     "reason": "no shadow record on this host"
+    }
+   },
+   "receipts": {
+    "state": "unobserved",
+    "reason": "learning-receipt store data/learning/receipts.sqlite is absent on this host"
+   }
+  },
+  {
+   "family": "joint_robust_filter",
+   "name": "Joint robust outlier filter",
+   "domain": "dynasty valuation — per-player outlier filter",
+   "owners": [
+    "src/api/joint_robust_filter.py",
+    "src/robust_filter_shadow/"
+   ],
+   "artifacts": [
+    {
+     "path": "data/robust_filter_shadow/ledger.jsonl",
+     "role": "shadow ledger (production host)",
+     "present": false
+    },
+    {
+     "path": "data/robust_filter_shadow/evaluation_live_shadow.json",
+     "role": "live evaluation (host)",
+     "present": false
+    },
+    {
+     "path": "docs/valuation/evidence/joint-filter-shadow-2026-10-01/evaluation_historical_replay.json",
+     "role": "committed replay evaluation",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:34.743393+00:00"
+    },
+    {
+     "path": "docs/valuation/evidence/joint-filter-shadow-2026-10-01/PREREGISTRATION.md",
+     "role": "preregistration",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:34.735595+00:00"
+    }
+   ],
+   "champion": {
+    "version": {
+     "state": "unobserved",
+     "reason": "the served Hampel incumbent's version token is minted per shadow record (producer_receipts.robust_model_ids); no shadow record on this host"
+    },
+    "createdAt": {
+     "state": "not_applicable",
+     "reason": "the Hampel incumbent is a rule, not a fit"
+    },
+    "trainedAt": {
+     "state": "not_applicable",
+     "reason": "not fitted"
+    },
+    "dataThrough": "2026-09-30",
+    "featureDictionary": {
+     "dictionaryVersion": 1,
+     "featureManifestHash": "37e40b1927cc4e3bf3e56e74b0d00e2a0665aa6440953f8f2bb713a0bd21140e",
+     "features": [
+      {
+       "name": "precap_evidence_weight",
+       "version": 1
+      },
+      {
+       "name": "provider_family",
+       "version": 2
+      },
+      {
+       "name": "source_board_scale_vote",
+       "version": 1
+      }
+     ]
+    },
+    "trainingWindow": {
+     "state": "not_applicable",
+     "reason": "deterministic filter; nothing is trained"
+    },
+    "validationWindows": [
+     {
+      "design": "date-block bootstrap over origin days (chronological)",
+      "mode": "historical_replay",
+      "span": [
+       "2026-08-18",
+       "2026-09-30"
+      ],
+      "originDays": 44,
+      "boards": 98
+     }
+    ],
+    "target": "future lead share of the rescued / rejected / agreed sides (PREREGISTRATION.md, src/robust_filter_shadow/outcomes.py)",
+    "targetLineage": {
+     "preregistration": "docs/valuation/evidence/joint-filter-shadow-2026-10-01/PREREGISTRATION.md"
+    },
+    "sampleSize": {
+     "blocks": 6,
+     "met": true,
+     "originDays": 37,
+     "rejectedObs": 701,
+     "rescuedObs": 380
+    },
+    "metrics": {
+     "state": "not_applicable",
+     "reason": "the incumbent is the reference the deltas compare against"
+    }
+   },
+   "challengers": [
+    {
+     "version": "served Hampel incumbent",
+     "state": "CHAMPION",
+     "nativeStatus": "SERVED_AT_RECORD (flags OFF)",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "not_applicable",
+      "reason": "a rule, not a fit"
+     },
+     "metrics": {
+      "state": "not_applicable",
+      "reason": "reference side of the comparison"
+     },
+     "reason": "served while joint_outlier_sparse_challenger is OFF"
+    },
+    {
+     "version": "joint-robust-v2",
+     "state": "SHADOW",
+     "nativeStatus": "INCONCLUSIVE",
+     "al0Verdict": "inconclusive",
+     "createdAt": {
+      "state": "not_applicable",
+      "reason": "a deterministic filter version"
+     },
+     "metrics": [
+      {
+       "name": "delta[3d]",
+       "point": 0.0066,
+       "interval": [
+        -0.0054,
+        0.0191
+       ],
+       "level": 0.95,
+       "method": "date-block bootstrap (6 blocks, 4000 resamples)",
+       "higherIsBetter": true
+      },
+      {
+       "name": "delta[7d]",
+       "point": 0.0044,
+       "interval": [
+        -0.0091,
+        0.0133
+       ],
+       "level": 0.95,
+       "method": "date-block bootstrap (6 blocks, 4000 resamples)",
+       "higherIsBetter": true
+      },
+      {
+       "name": "delta[14d]",
+       "point": 0.0015,
+       "interval": [
+        -0.0256,
+        0.0304
+       ],
+       "level": 0.95,
+       "method": "date-block bootstrap (5 blocks, 4000 resamples)",
+       "higherIsBetter": true
+      },
+      {
+       "name": "delta[21d]",
+       "point": 0.0424,
+       "interval": [
+        0.0182,
+        0.0926
+       ],
+       "level": 0.95,
+       "method": "date-block bootstrap (4 blocks, 4000 resamples)",
+       "higherIsBetter": true
+      }
+     ],
+     "reason": "no detectable advantage; near-ties keep the incumbent"
+    }
+   ],
+   "challengerStates": {
+    "CHAMPION": 1,
+    "SHADOW": 1,
+    "HELD": 0,
+    "REJECTED": 0,
+    "INSUFFICIENT_EVIDENCE": 0,
+    "RETIRED": 0
+   },
+   "drift": {
+    "state": "unmeasured",
+    "reason": "no drift monitor exists for this family (AL-0 defines DRIFT receipts, but no producer emits one); unmeasured is not 'no drift'"
+   },
+   "calibration": {
+    "state": "not_applicable",
+    "reason": "a filter; it emits no probability"
+   },
+   "lastEvaluation": {
+    "at": "2026-10-01T14:17:33Z",
+    "by": "scripts/joint_filter_shadow.py evaluate",
+    "mode": "historical_replay",
+    "verdict": "INCONCLUSIVE",
+    "evidenceOrigin": "docs/valuation/evidence/joint-filter-shadow-2026-10-01/evaluation_historical_replay.json",
+    "caveat": "historical_replay: archived inputs rebuilt through today's code — NOT what production served; hindsight evidence only"
+   },
+   "gate": {
+    "result": "INCONCLUSIVE",
+    "reasons": [
+     "no detectable advantage; near-ties keep the incumbent"
+    ],
+    "minimumSample": {
+     "blocks": 6,
+     "met": true,
+     "originDays": 37,
+     "rejectedObs": 701,
+     "rescuedObs": 380
+    },
+    "preregistration": "docs/valuation/evidence/joint-filter-shadow-2026-10-01/PREREGISTRATION.md"
+   },
+   "promotionAuthority": {
+    "mechanism": "Batch 3 section N (docs/EXECUTION_PLAN.md section 0, Valuation Trust Program): a preregistered gate, independent fresh-context review, then explicit owner approval to flip the flag",
+    "automatic": false,
+    "note": "PROMOTION_ELIGIBLE_PENDING_INDEPENDENT_REVIEW still requires independent review and owner approval; promotes: false on every receipt"
+   },
+   "productionState": {
+    "flags": [
+     {
+      "flag": "joint_outlier_sparse_challenger",
+      "enabled": false,
+      "gateStatus": "LIVE",
+      "rollback": "RISKIT_FEATURE_JOINT_OUTLIER_SPARSE_CHALLENGER=0 + restart"
+     },
+     {
+      "flag": "joint_sparse_limited_evidence",
+      "enabled": false,
+      "gateStatus": "LIVE",
+      "rollback": "RISKIT_FEATURE_JOINT_SPARSE_LIMITED_EVIDENCE=0 + restart"
+     }
+    ],
+    "shadowLedgerPresent": false,
+    "latestShadowRecordAt": {
+     "state": "unobserved",
+     "reason": "no shadow record on this host"
+    },
+    "latestShadowMode": {
+     "state": "unobserved",
+     "reason": "no shadow record on this host"
+    }
+   },
+   "rollback": {
+    "served": "the Hampel incumbent is served; nothing to roll back",
+    "ifEnabled": "RISKIT_FEATURE_JOINT_OUTLIER_SPARSE_CHALLENGER=0 + restart"
+   },
+   "decisionReason": "flags OFF; preregistered verdict INCONCLUSIVE (historical_replay: archived inputs rebuilt through today's code — NOT what production served; hindsight evidence only)",
+   "dataQuality": {
+    "evidenceMode": "historical_replay",
+    "latestBoardCompleteness": {
+     "state": "unobserved",
+     "reason": "no shadow record on this host"
+    },
+    "accumulation": {
+     "currentBlocks": 6,
+     "currentHalfWidth": 0.0112,
+     "minimumEffectOfInterest": 0.1,
+     "note": "projection assuming SE ∝ 1/sqrt(blocks); not a promise",
+     "projectedAdditionalWeeks": 0,
+     "projectedBlocksForHalfWidth": 1
+    }
+   },
+   "receipts": {
+    "state": "unobserved",
+    "reason": "learning-receipt store data/learning/receipts.sqlite is absent on this host"
+   }
+  },
+  {
+   "family": "signals_idp_shared_market",
+   "name": "Signals IDP shared-market crosswalk",
+   "domain": "dynasty valuation — IDP source vote",
+   "owners": [
+    "src/api/data_contract.py (PRIVATE_SOURCE_VOTE_HOLDS)",
+    "scripts/verify_signals_onbox.py"
+   ],
+   "artifacts": [
+    {
+     "path": "docs/sources/SIGNALS_FANTASY_INTEGRATION.md",
+     "role": "preregistration (section 10)",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:27.017554+00:00"
+    },
+    {
+     "path": "data/sources/signals/reports",
+     "role": "private on-box reports (production host)",
+     "present": false
+    }
+   ],
+   "champion": {
+    "version": "no Signals IDP vote (hold)",
+    "createdAt": {
+     "state": "not_applicable",
+     "reason": "a source-vote hold, not a fit"
+    },
+    "trainedAt": {
+     "state": "not_applicable",
+     "reason": "Candidate A fits no parameter (section 10.7)"
+    },
+    "dataThrough": {
+     "state": "unobserved",
+     "reason": "data/sources/signals/reports/ holds no on-box report on this host (production-only)"
+    },
+    "featureDictionary": {
+     "state": "not_applicable",
+     "reason": "this family declares no feature manifest in the feature dictionary"
+    },
+    "trainingWindow": {
+     "state": "not_applicable",
+     "reason": "Candidate A fits no parameter"
+    },
+    "validationWindows": {
+     "state": "unobserved",
+     "reason": "the preregistered gate's per-criterion results (section 10.8) have not been recorded; the on-box report carries measurements, not an adjudicated verdict"
+    },
+    "target": "preregistered promotion gate, criteria 1-9 (docs/sources/SIGNALS_FANTASY_INTEGRATION.md section 10.6)",
+    "targetLineage": "criterion 9: completed-trade evidence (section 10.7); recorded INSUFFICIENT below 30 covered trades",
+    "sampleSize": {
+     "state": "unobserved",
+     "reason": "the preregistered gate's per-criterion results (section 10.8) have not been recorded; the on-box report carries measurements, not an adjudicated verdict"
+    },
+    "metrics": {
+     "state": "unobserved",
+     "reason": "the preregistered gate's per-criterion results (section 10.8) have not been recorded; the on-box report carries measurements, not an adjudicated verdict"
+    }
+   },
+   "challengers": [
+    {
+     "version": "no Signals IDP vote (hold)",
+     "state": "CHAMPION",
+     "nativeStatus": {
+      "heldSources": [
+       "signalsIdpDb",
+       "signalsIdpDl",
+       "signalsIdpLb"
+      ],
+      "holdReasons": [
+       "shared_market_crosswalk_in_shadow_pending_promotion"
+      ]
+     },
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "not_applicable",
+      "reason": "a hold"
+     },
+     "metrics": {
+      "state": "not_applicable",
+      "reason": "reference side"
+     },
+     "reason": "the incumbent board with no Signals IDP vote (section 10.3)"
+    },
+    {
+     "version": "Candidate A: family rank to shared-market family ladder to GLOBAL curve",
+     "state": "SHADOW",
+     "nativeStatus": "voteState shadow",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "not_applicable",
+      "reason": "preregistered rule, fits no parameter"
+     },
+     "metrics": {
+      "state": "unobserved",
+      "reason": "the preregistered gate's per-criterion results (section 10.8) have not been recorded; the on-box report carries measurements, not an adjudicated verdict"
+     },
+     "reason": "the preregistered gate's per-criterion results (section 10.8) have not been recorded; the on-box report carries measurements, not an adjudicated verdict"
+    }
+   ],
+   "challengerStates": {
+    "CHAMPION": 1,
+    "SHADOW": 1,
+    "HELD": 0,
+    "REJECTED": 0,
+    "INSUFFICIENT_EVIDENCE": 0,
+    "RETIRED": 0
+   },
+   "drift": {
+    "state": "unmeasured",
+    "reason": "no drift monitor exists for this family (AL-0 defines DRIFT receipts, but no producer emits one); unmeasured is not 'no drift'"
+   },
+   "calibration": {
+    "state": "not_applicable",
+    "reason": "a source crosswalk; it emits no probability"
+   },
+   "lastEvaluation": {
+    "state": "unobserved",
+    "reason": "data/sources/signals/reports/ holds no on-box report on this host (production-only)"
+   },
+   "gate": {
+    "result": {
+     "state": "unobserved",
+     "reason": "the preregistered gate's per-criterion results (section 10.8) have not been recorded; the on-box report carries measurements, not an adjudicated verdict"
+    },
+    "preregistration": "docs/sources/SIGNALS_FANTASY_INTEGRATION.md",
+    "preregistrationSha256": "d254ccf5cdea5002e83ce95bf9ab0c0be46ac1fa2b35227ef97aa83fecabe5c7",
+    "criteria": "section 10.6 criteria 1-9 (7: independent fresh-context review)"
+   },
+   "promotionAuthority": {
+    "mechanism": "all of section 10.6 criteria 1-8 hold on the production board, independent review approves, then the owner flips signals_idp_shared_market",
+    "automatic": false
+   },
+   "productionState": {
+    "flag": "signals_idp_shared_market",
+    "enabled": false,
+    "gateStatus": "LIVE",
+    "rollback": "RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart"
+   },
+   "rollback": {
+    "served": "the hold is served",
+    "command": "RISKIT_FEATURE_SIGNALS_IDP_SHARED_MARKET=0 + restart"
+   },
+   "decisionReason": "flag OFF; the preregistered gate's per-criterion results (section 10.8) have not been recorded; the on-box report carries measurements, not an adjudicated verdict",
+   "dataQuality": {
+    "onboxReports": 0,
+    "latestReport": {
+     "state": "unobserved",
+     "reason": "data/sources/signals/reports/ holds no on-box report on this host (production-only)"
+    }
+   },
+   "receipts": {
+    "state": "unobserved",
+    "reason": "learning-receipt store data/learning/receipts.sqlite is absent on this host"
+   }
+  },
+  {
+   "family": "consensus_edge",
+   "name": "Consensus Edge (buy / sell calls)",
+   "domain": "market edge — private decision intelligence",
+   "owners": [
+    "src/consensus_edge/",
+    "scripts/validate_consensus_edge_board.py"
+   ],
+   "artifacts": [
+    {
+     "path": "config/consensus_edge/params_v1.json",
+     "role": "parameter set",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:45:44.820232+00:00"
+    },
+    {
+     "path": "docs/measurements/consensus-edge-board-validation-2026-08-04-h14.json",
+     "role": "board validation",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:26.477994+00:00"
+    },
+    {
+     "path": "docs/measurements/consensus-edge-board-validation-2026-08-04-h7.json",
+     "role": "board validation",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:46:26.479997+00:00"
+    }
+   ],
+   "champion": {
+    "state": "not_applicable",
+    "reason": "no Consensus Edge model is served: the flag is OFF, so the incumbent is 'no Consensus Edge call' (ADR-023)"
+   },
+   "challengers": [
+    {
+     "version": "ce.2026-08-04.v0-shadow / params b90ef7db61a10905",
+     "state": "REJECTED",
+     "nativeStatus": "do not ship yet",
+     "al0Verdict": "champion_retained",
+     "createdAt": {
+      "state": "not_applicable",
+      "reason": "a model version constant, not a fit time"
+     },
+     "metrics": [
+      {
+       "name": "medianExcessTop20[7d]",
+       "point": -0.005547900767773905,
+       "interval": null,
+       "intervalReason": "the validation reports a median and fold counts, no interval",
+       "foldsBeatRandom": 0,
+       "foldsUsable": 12,
+       "higherIsBetter": true
+      },
+      {
+       "name": "medianExcessTop20[14d]",
+       "point": -0.010111744488608203,
+       "interval": null,
+       "intervalReason": "the validation reports a median and fold counts, no interval",
+       "foldsBeatRandom": 0,
+       "foldsUsable": 6,
+       "higherIsBetter": true
+      }
+     ],
+     "reason": "top-20 buys returned a median -1.01% cohort-excess across 6 folds and beat a random-20 draw in 0/6. Asset classes with a positive measured edge: none (of offense measured). Bar was: positive mean AND beat random in a majority of folds AND the edge is not confined to a single asset class.; top-20 buys returned a median -0.55% cohort-excess across 12 folds and beat a random-20 draw in 0/12. Asset classes with a positive measured edge: none (of offense measured). Bar was: positive mean AND beat random in a majority of folds AND the edge is not confined to a single asset class."
+    }
+   ],
+   "challengerStates": {
+    "CHAMPION": 0,
+    "SHADOW": 0,
+    "HELD": 0,
+    "REJECTED": 1,
+    "INSUFFICIENT_EVIDENCE": 0,
+    "RETIRED": 0
+   },
+   "drift": {
+    "state": "unmeasured",
+    "reason": "no drift monitor exists for this family (AL-0 defines DRIFT receipts, but no producer emits one); unmeasured is not 'no drift'"
+   },
+   "calibration": {
+    "state": "unobserved",
+    "reason": "the ship gate measures cohort excess return; no calibration evaluation exists"
+   },
+   "lastEvaluation": {
+    "at": "2026-08-04T11:24:28.487338+00:00",
+    "by": "scripts/validate_consensus_edge_board.py",
+    "recommendation": "do not ship yet",
+    "measuredParamSetIds": [
+     "b90ef7db61a10905"
+    ],
+    "measuredModelVersions": [
+     "ce.2026-08-04.v0-shadow"
+    ]
+   },
+   "gate": {
+    "result": "do not ship yet",
+    "bar": "top-20 buys returned a median -1.01% cohort-excess across 6 folds and beat a random-20 draw in 0/6. Asset classes with a positive measured edge: none (of offense measured). Bar was: positive mean AND beat random in a majority of folds AND the edge is not confined to a single asset class.",
+    "measuredCurrentModel": true
+   },
+   "promotionAuthority": {
+    "mechanism": "the preregistered ship gate in scripts/validate_consensus_edge_board.py must pass on a re-run before the default flips (ADR-023); not a judgement call",
+    "automatic": false
+   },
+   "productionState": {
+    "flag": "consensus_edge",
+    "enabled": false,
+    "gateStatus": "LIVE",
+    "rollback": "RISKIT_FEATURE_CONSENSUS_EDGE=0 + restart",
+    "modelVersion": "ce.2026-08-04.v0-shadow",
+    "paramSetId": "b90ef7db61a10905"
+   },
+   "rollback": {
+    "command": "RISKIT_FEATURE_CONSENSUS_EDGE=0 + restart"
+   },
+   "decisionReason": "flag OFF; latest ship gate: do not ship yet",
+   "dataQuality": {
+    "validationMeasuredCurrentParams": true,
+    "foldsTruncated": {
+     "14": false,
+     "7": false
+    },
+    "caveats": [
+     "Scores the SHIPPED artifact — service.build_board and service.top_movers — not a reimplementation of the composite.",
+     "Every board is built with csv_root threaded, the scoring fit held inert, and hoursStale pinned. Omitting any one silently invalidates the result rather than erroring.",
+     "The panel is entirely OFFSEASON (2026-04-16 onward; the 2025 season ended January 2026 and the repo's first commit is 2026-03-09). Offseason price moves are driven by different forces than in-season ones; re-run once in-season dates accrue.",
+     "The panel is not homogeneous: CSVs/site_raw holds 9 files at the start of the window and 24 from 2026-06-01. Per-fold source counts are reported so a reader can judge whether the edge is confined to the well-sourced era.",
+     "Measures market movement, not fantasy production.",
+     "Folds are non-overlapping; the fold count is the honest sample size, not the row count.",
+     "Scores the SHIPPED artifact — service.build_board and service.top_movers — not a reimplementation of the composite.",
+     "Every board is built with csv_root threaded, the scoring fit held inert, and hoursStale pinned. Omitting any one silently invalidates the result rather than erroring.",
+     "The panel is entirely OFFSEASON (2026-04-16 onward; the 2025 season ended January 2026 and the repo's first commit is 2026-03-09). Offseason price moves are driven by different forces than in-season ones; re-run once in-season dates accrue.",
+     "The panel is not homogeneous: CSVs/site_raw holds 9 files at the start of the window and 24 from 2026-06-01. Per-fold source counts are reported so a reader can judge whether the edge is confined to the well-sourced era.",
+     "Measures market movement, not fantasy production.",
+     "Folds are non-overlapping; the fold count is the honest sample size, not the row count."
+    ]
+   },
+   "receipts": {
+    "state": "unobserved",
+    "reason": "learning-receipt store data/learning/receipts.sqlite is absent on this host"
+   }
+  },
+  {
+   "family": "bdvm_params",
+   "name": "BDVM fundamental valuation parameters",
+   "domain": "fundamental dynasty value (BDVM)",
+   "owners": [
+    "src/bdvm/params.py"
+   ],
+   "artifacts": [
+    {
+     "path": "config/bdvm/params_v1.json",
+     "role": "parameter set",
+     "present": true,
+     "modifiedAt": "2026-10-08T07:45:44.813705+00:00"
+    }
+   ],
+   "champion": {
+    "version": "params_v1:01af672b2aff",
+    "createdAt": {
+     "state": "unobserved",
+     "reason": "the parameter file records no creation instant"
+    },
+    "trainedAt": {
+     "state": "not_applicable",
+     "reason": "starting priors, not fitted"
+    },
+    "dataThrough": {
+     "state": "not_applicable",
+     "reason": "priors carry no data window"
+    },
+    "featureDictionary": {
+     "state": "not_applicable",
+     "reason": "this family declares no feature manifest in the feature dictionary"
+    },
+    "trainingWindow": {
+     "state": "not_applicable",
+     "reason": "not fitted"
+    },
+    "validationWindows": {
+     "state": "unobserved",
+     "reason": "no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4"
+    },
+    "target": {
+     "state": "unobserved",
+     "reason": "no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4"
+    },
+    "targetLineage": {
+     "state": "unobserved",
+     "reason": "no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4"
+    },
+    "sampleSize": {
+     "state": "unobserved",
+     "reason": "no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4"
+    },
+    "metrics": {
+     "state": "unobserved",
+     "reason": "no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4"
+    }
+   },
+   "challengers": [
+    {
+     "version": "params_v1:01af672b2aff",
+     "state": "CHAMPION",
+     "nativeStatus": "served",
+     "al0Verdict": {
+      "state": "not_applicable",
+      "reason": "no AL-0 verdict applies: this state comes from the family's own status (registry disposition or served incumbent)"
+     },
+     "createdAt": {
+      "state": "unobserved",
+      "reason": "the parameter file records no creation instant"
+     },
+     "metrics": {
+      "state": "unobserved",
+      "reason": "no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4"
+     },
+     "reason": "selected by BDVM_PARAM_SET / default (params_v1)"
+    }
+   ],
+   "challengerStates": {
+    "CHAMPION": 1,
+    "SHADOW": 0,
+    "HELD": 0,
+    "REJECTED": 0,
+    "INSUFFICIENT_EVIDENCE": 0,
+    "RETIRED": 0
+   },
+   "drift": {
+    "state": "unmeasured",
+    "reason": "no drift monitor exists for this family (AL-0 defines DRIFT receipts, but no producer emits one); unmeasured is not 'no drift'"
+   },
+   "calibration": {
+    "state": "unobserved",
+    "reason": "no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4"
+   },
+   "lastEvaluation": {
+    "state": "unobserved",
+    "reason": "no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4"
+   },
+   "gate": {
+    "state": "not_applicable",
+    "reason": "no promotion gate exists; a parameter change is an explicit edit"
+   },
+   "promotionAuthority": {
+    "mechanism": "explicit owner-approved edit of config/bdvm/ (P6 / model-registry acceptance for learned methodology changes)",
+    "automatic": false
+   },
+   "productionState": {
+    "flag": "bdvm_engine",
+    "enabled": true,
+    "gateStatus": "LIVE",
+    "rollback": "RISKIT_FEATURE_BDVM_ENGINE=0 + restart",
+    "servedParamSet": "params_v1",
+    "meta": {
+     "paramSetId": "params_v1:01af672b2aff",
+     "label": "bdvm-v1-priors",
+     "modelVersion": "1.0.0"
+    }
+   },
+   "rollback": {
+    "command": "BDVM_PARAM_SET=<previous stem> + restart, or RISKIT_FEATURE_BDVM_ENGINE=0 + restart"
+   },
+   "decisionReason": "served params_v1; no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4",
+   "dataQuality": {
+    "state": "unobserved",
+    "reason": "no BDVM evaluator exists: the parameters are declared starting priors, not backtested truth (config/bdvm/params_v1.json _comment); projection scorecards are unit IC-4"
+   },
+   "receipts": {
+    "state": "unobserved",
+    "reason": "learning-receipt store data/learning/receipts.sqlite is absent on this host"
+   }
+  }
+ ],
+ "notCovered": [
+  {
+   "domain": "Game Day / weekly projections / playoff forecasts",
+   "reason": "capture only — src/ros/game_day_archive.py, src/ros/forecast_archive.py; no evaluator or calibration scorer exists yet (AL-3 / IC-4)"
+  }
+ ],
+ "builderErrors": {},
+ "_fixture": {
+  "source": "src/model_registry/model_lab.build_model_lab() on main 0f54667eb (2026-10-08), unmodified except: hill_scope_masters challengers trimmed to versions 1-55 + the last 5 HELD (challengerStates recounted the backend's way)",
+  "schema": "model-lab/v1"
+ }
+}

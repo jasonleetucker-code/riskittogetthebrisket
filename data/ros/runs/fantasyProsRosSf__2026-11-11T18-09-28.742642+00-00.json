@@ -1,0 +1,58 @@
+{
+  "source_key": "fantasyProsRosSf",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-11-11T18:09:28.575473+00:00",
+  "completed_at": "2026-11-11T18:09:28.742642+00:00",
+  "player_count": 540,
+  "diagnostics": {},
+  "source_id": "fantasyProsRosSf",
+  "source_name": "FantasyPros Dynasty SF (ROS proxy)",
+  "source_url": "https://www.fantasypros.com/nfl/rankings/dynasty-superflex.php",
+  "source_type": "dynasty_proxy",
+  "scoring_format": "ppr",
+  "is_superflex": true,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": false,
+  "is_dynasty": true,
+  "is_projection_source": false,
+  "stale_after_hours": 168,
+  "kept_previous": null,
+  "kept_previous_rows": null,
+  "content_hash": "9bb9468b06e5de677cea790de64f00a3602190f4913aac8490f73956e1fa2dbf",
+  "content_state": "unchanged",
+  "content_first_observed_at": "2026-10-26T21:17:53.892751+00:00",
+  "last_content_change": "2026-11-11T09:57:12.608591+00:00",
+  "rank_basis": {
+    "basisDeclared": false,
+    "bases": [
+      {
+        "basis": "total_ranked:541",
+        "rows": 540,
+        "totalRanked": [
+          541
+        ],
+        "groups": {
+          "OFFENSE": 540
+        }
+      }
+    ],
+    "groupCoverage": {
+      "OFFENSE": 540
+    },
+    "groupBases": {
+      "OFFENSE": [
+        "total_ranked:541"
+      ]
+    },
+    "mixedRankBasis": false,
+    "groupsSplitAcrossBases": [],
+    "issues": [],
+    "transitionIssues": [],
+    "adapterIssues": [],
+    "baseline": false
+  },
+  "source_mode": null
+}

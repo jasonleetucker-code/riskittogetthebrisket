@@ -113,7 +113,7 @@ function HistorySection({ managers, data, onNavigate }) {
 
       {seasons.map((s) => (
         <Card
-          key={s.leagueId}
+          key={s.season}
           title={`${s.season} season`}
           subtitle={[
             s.champion ? `Champion: ${s.champion.displayName}` : null,

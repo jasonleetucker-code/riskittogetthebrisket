@@ -36,16 +36,30 @@ from src.api.data_contract import (
     build_api_data_contract,
 )
 from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_OFFENSE
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DN_CSV = REPO_ROOT / "CSVs" / "site_raw" / "dynastyNerdsSfTep.csv"
+
+
+def _live_dn_csv() -> Path:
+    """TODAY's scraped CSV -- only the ``livedata`` shape class reads it."""
+    return REPO_ROOT / "CSVs" / "site_raw" / "dynastyNerdsSfTep.csv"
+
+
+def _read_rows(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8-sig") as f:
+        return list(csv.DictReader(f))
 
 
 def _dn_csv_rows() -> list[dict[str, str]]:
-    if not DN_CSV.exists():
-        return []
-    with DN_CSV.open("r", encoding="utf-8-sig") as f:
-        return list(csv.DictReader(f))
+    """Rows of the PINNED board's CSV, the tree the hard-gate build reads (a
+    data refresh cannot change a hard-gate result)."""
+    from tests.archive_fixtures import pinned_board_root
+
+    return _read_rows(pinned_board_root() / "CSVs" / "site_raw" / "dynastyNerdsSfTep.csv")
 
 
 class TestDynastyNerdsRegistry(unittest.TestCase):
@@ -86,21 +100,24 @@ class TestDynastyNerdsRegistry(unittest.TestCase):
         self.assertEqual(cfg.get("signal"), "rank")
 
 
+# A claim about today's scraped file (exists, has rows, ranks monotonic): the advisory
+# lane, like the FantasyPros CSV-shape class.  A scraper outage must not block a deploy.
+@pytest.mark.livedata
 class TestDynastyNerdsCsvShape(unittest.TestCase):
     """Shape of the scraped CSV file on disk."""
 
     def test_csv_exists(self):
-        self.assertTrue(DN_CSV.exists(), f"{DN_CSV} missing")
+        self.assertTrue(_live_dn_csv().exists(), f"{_live_dn_csv()} missing")
 
     def test_csv_has_rank_column(self):
-        rows = _dn_csv_rows()
+        rows = _read_rows(_live_dn_csv())
         self.assertTrue(rows, "DN CSV had no data rows")
         first = rows[0]
         for col in ("Name", "Rank", "Value", "SleeperId"):
             self.assertIn(col, first, f"Missing column {col}")
 
     def test_csv_ranks_start_at_1_and_are_monotonic(self):
-        rows = _dn_csv_rows()
+        rows = _read_rows(_live_dn_csv())
         self.assertTrue(rows, "DN CSV had no data rows")
         ranks = [int(r["Rank"]) for r in rows if r["Rank"]]
         self.assertEqual(ranks[0], 1)
@@ -109,20 +126,20 @@ class TestDynastyNerdsCsvShape(unittest.TestCase):
 
     def test_csv_skips_zero_value_rows(self):
         """Rows with value==0 in the raw payload must not appear."""
-        rows = _dn_csv_rows()
+        rows = _read_rows(_live_dn_csv())
         for r in rows:
             val = int(float(r["Value"]))
             self.assertGreater(val, 0)
 
     def test_csv_covers_offense_positions_only(self):
-        rows = _dn_csv_rows()
+        rows = _read_rows(_live_dn_csv())
         positions = {r.get("Pos", "").strip() for r in rows}
         positions.discard("")
         self.assertTrue(positions.issubset({"QB", "RB", "WR", "TE"}))
 
     def test_csv_all_rows_carry_sleeper_id(self):
         """Dynasty Nerds always provides sleeperId in the payload."""
-        rows = _dn_csv_rows()
+        rows = _read_rows(_live_dn_csv())
         with_sid = sum(1 for r in rows if (r.get("SleeperId") or "").strip())
         # The occasional Sleeper-less manual entry is tolerated, but we
         # expect at least 95% coverage given the payload shape.
@@ -165,7 +182,12 @@ class TestDynastyNerdsEnrichment(unittest.TestCase):
             "maxValues": {"ktcCrowdTradesSfTep": 9999},
             "sleeper": {"positions": positions},
         }
-        cls.contract = build_api_data_contract(payload)
+        # No csv_root: the build would read today's scrape state.  This module also holds
+        # a livedata class, so the pin is per call, not the module-wide fixture.
+        from tests.archive_fixtures import pinned_build_environment
+
+        with pinned_build_environment(freeze_clock=False):
+            cls.contract = build_api_data_contract(payload)
 
     def test_contract_rows_receive_dn_values(self):
         if self.contract is None:

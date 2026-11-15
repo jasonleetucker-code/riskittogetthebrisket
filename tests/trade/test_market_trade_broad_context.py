@@ -699,10 +699,39 @@ def test_only_the_owner_and_the_report_reference_the_broad_context_disposition()
     }
 
 
-def test_comparable_trades_does_not_consume_ledger_dispositions():
-    # ``comparable_trades`` has its own own-league comps tiers (one of them is
-    # named BROAD_MARKET_CONTEXT) and must not read the ledger's disposition as
-    # price authority.
+def test_comparable_trades_never_reads_disposition_as_price_authority():
+    # ``comparable_trades`` (TC-09) ORDERS reference trades and reads the
+    # ledger's disposition only through ``project_trade``'s ``formatMatch``,
+    # as a relevance component.  It must never read price authority or the
+    # format owner directly.  (Until 2026-10-14 it kept its own own-league
+    # format tiers and read no disposition at all; that second
+    # format-comparability owner was retired.)
     src = (REPO / "src/trade/comparable_trades.py").read_text(encoding="utf-8")
     assert "market_trade_format" not in src
-    assert '"disposition"' not in src and "targetPriceAuthority" not in src
+    assert "targetPriceAuthority" not in src
+    # It consumes BROAD_CONTEXT through config keys, which the AST scan above
+    # cannot see — so the consumer is named here, and its use is bounded: a
+    # BROAD_CONTEXT trade may never rank above one whose comparability is
+    # simply unknown, and only relevance ordering reads it.
+    import json
+
+    cfg = json.loads((REPO / "config/trade/comparable_trades.json").read_text(encoding="utf-8"))
+    assert cfg["formatScores"]["BROAD_CONTEXT"] <= cfg["unknownFormatScore"]
+    referencing = {
+        p.relative_to(REPO).as_posix()
+        for p in (REPO / "config").rglob("*.json")
+        if "BROAD_CONTEXT" in p.read_text(encoding="utf-8")
+    }
+    # Reviewed 2026-10-19 (CTM P5): the feature dictionary DEFINES the
+    # disposition feature (its value vocabulary, owned by market_trade_format)
+    # and reads nothing; consumers reach it only through that owner.
+    assert referencing <= {
+        "config/trade/comparable_trades.json",
+        "config/model_registry/feature_dictionary.json",
+    }
+    feats = json.loads(
+        (REPO / "config/model_registry/feature_dictionary.json").read_text(encoding="utf-8")
+    )
+    for feat in feats.get("features", []):
+        if "BROAD_CONTEXT" in json.dumps(feat):
+            assert feat["definitionOwner"].startswith("src.trade.market_trade_format"), feat

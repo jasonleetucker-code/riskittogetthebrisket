@@ -1,0 +1,63 @@
+{
+  "status": "success",
+  "leagueKey": "main",
+  "generation": "925cb8176237c9eb",
+  "fairnessVersion": "fairness_bands_v2",
+  "snapshotChanged": null,
+  "rosters": {
+    "state": "current",
+    "asOf": "2026-10-20"
+  },
+  "teamCount": 3,
+  "perspectiveRosterId": 1,
+  "overall": {
+    "result": "FAIR",
+    "label": "FAIR TRADE",
+    "reasonCode": "all_teams_fair",
+    "reasonText": "The trade is within our fairness threshold for every team.",
+    "note": "A trade with more than two teams is fair only when it is fair for every team."
+  },
+  "teams": [
+    {
+      "rosterId": 1,
+      "result": "FAIR",
+      "label": "FAIR FOR THIS TEAM",
+      "reasonCode": "within_fairness_threshold",
+      "reasonText": "This trade is within our fairness threshold for this team.",
+      "unavailableAssetIds": []
+    },
+    {
+      "rosterId": 3,
+      "result": "FAIR",
+      "label": "FAIR FOR THIS TEAM",
+      "reasonCode": "within_fairness_threshold",
+      "reasonText": "This trade is within our fairness threshold for this team.",
+      "unavailableAssetIds": []
+    },
+    {
+      "rosterId": 4,
+      "result": "FAIR",
+      "label": "FAIR FOR THIS TEAM",
+      "reasonCode": "within_fairness_threshold",
+      "reasonText": "This trade is within our fairness threshold for this team.",
+      "unavailableAssetIds": []
+    }
+  ],
+  "trade": [
+    {
+      "id": "p:105",
+      "from": 1,
+      "to": 3
+    },
+    {
+      "id": "p:303",
+      "from": 3,
+      "to": 4
+    },
+    {
+      "id": "p:403",
+      "from": 4,
+      "to": 1
+    }
+  ]
+}

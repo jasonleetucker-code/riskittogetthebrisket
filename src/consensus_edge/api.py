@@ -143,6 +143,18 @@ def _board(contract: dict[str, Any]) -> dict[str, Any]:
     return board
 
 
+def board_for_contract(contract: dict[str, Any]) -> dict[str, Any]:
+    """The cached board for ``contract`` — the one public read of it.
+
+    For in-process consumers (the C6-SIG-01 signal reconciler,
+    ``src/signals/collect.py``) so they share this cache and its
+    invalidation key instead of calling ``service.build_board`` with a
+    different set of inputs and serving a second, divergent board.  The
+    caller is responsible for honouring the ``consensus_edge`` flag.
+    """
+    return _board(contract)
+
+
 def _snapshot_coverage() -> dict[str, Any]:
     """What the daily snapshot timer has actually managed to store.
 

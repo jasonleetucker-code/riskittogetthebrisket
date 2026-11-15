@@ -160,6 +160,76 @@
       ],
       "description": "Which correlation family a source belongs to: v1's definition, extended to the AL-1a shadow families as consumers (allowedConsumers is part of a definition, so this is a new version).",
       "definitionHash": "efaf2397de9c17d112c1b9ee6366db284dd528ad6d9b2142c5740992c494d869"
+    },
+    {
+      "name": "trade_observation_lane",
+      "version": 1,
+      "definitionOwner": "src.trade.market_trade_normalize:PROVENANCE_BY_SOURCE",
+      "unit": "categorical acquisition lane of one observation: ktc_trade_database | sleeper_sharp_discovery | own_league_sleeper (spec section 19.7 provenance KTC_MARKET / SHARP_DISCOVERY / OWN_LEAGUE)",
+      "knownAtRule": "fixed when the observation is normalized from its lane's store; a fold may use an observation only if it was collected at or before the fold cutoff (collectedAt <= T, design section 5)",
+      "missingSemantics": "an observation without a lane is refused, never defaulted to a Sleeper lane; a deduplicated trade seen through several lanes carries every lane and contributes ONE event, and Sleeper-observed versus KTC-database evidence is never merged into one undifferentiated count",
+      "lineage": "market-trade ledger observation (src/trade/market_trade_normalize.py); KTC-database observations share population lineage with the KTC Trades family and are never independent evidence for it",
+      "allowedConsumers": [
+        "chase_trade_market"
+      ],
+      "description": "Which acquisition lane observed a completed trade, so Sleeper-observed and KTC-database evidence stay separately counted and their overlap can be measured.",
+      "definitionHash": "64fa383e9965e90b12399ef3bbd4ef99051547719f0d7d70120a6cf0b164d26e"
+    },
+    {
+      "name": "trade_dedupe_state",
+      "version": 1,
+      "definitionOwner": "src.trade.market_trade_groups:group_observations",
+      "unit": "categorical section 19 dedupe state of the underlying trade: CONFIRMED_UNIQUE | CONFIRMED_DUPLICATE | PROBABLE_DUPLICATE | POSSIBLE_OVERLAP | UNRESOLVED",
+      "knownAtRule": "recomputed per fold from observations collected at or before the fold cutoff; a group formed with a later observation is never used for an earlier fold",
+      "missingSemantics": "UNRESOLVED is its own state, never read as CONFIRMED_UNIQUE; volume-sensitive use excludes POSSIBLE_OVERLAP and UNRESOLVED (market_trade_eval.fit_suitability) rather than counting one event twice",
+      "lineage": "market-trade ledger groups over all lanes",
+      "allowedConsumers": [
+        "chase_trade_market"
+      ],
+      "description": "Whether an observed trade is a proven-unique underlying event, so one trade seen on Sleeper and KTC is counted once.",
+      "definitionHash": "ad29d3be986ad6352a236162759cf86b4702d5e52b607abf1262a27501757a28"
+    },
+    {
+      "name": "trade_format_disposition",
+      "version": 1,
+      "definitionOwner": "src.trade.market_trade_format:disposition",
+      "unit": "categorical target-pricing disposition: NATIVE_COMPARABLE | VALIDATED_TRANSFORMABLE | BROAD_CONTEXT | TARGET_UNSUPPORTED, with every axis attached",
+      "knownAtRule": "from the format capture in force at the trade (formatEvidence, timing-capped by format_timing_cap) and only captures collected at or before the fold cutoff",
+      "missingSemantics": "an unknown axis is UNKNOWN and caps the disposition at BROAD_CONTEXT format_unknown; it never becomes MATCH, and an unverified dynasty state is a hard exclusion",
+      "lineage": "format fingerprint tmf1 from Sleeper league captures or KTC vendor settings",
+      "allowedConsumers": [
+        "chase_trade_market"
+      ],
+      "description": "How comparable the trade's league format is to the declared reference or target format; unknown format stays unknown.",
+      "definitionHash": "f24a9fa69d071c4f7d748f7386c24f3db8cffa59fb8fae6bcecf5b4f647fc2f1"
+    },
+    {
+      "name": "trade_topology",
+      "version": 1,
+      "definitionOwner": "src.trade.market_trade_eval:classify_topology",
+      "unit": "categorical package topology (1-for-1, two-team multi-asset, one-sided, multi-team, empty) plus flags (unresolved, faab, startup pick, pick beyond round 6)",
+      "knownAtRule": "a function of the trade's own normalized sides, fixed at normalization",
+      "missingSemantics": "an unresolved asset is flagged includes_unresolved, never dropped from its side; a dropped asset would turn an n-for-1 into a false 1-for-1",
+      "lineage": "market-trade ledger normalized sides",
+      "allowedConsumers": [
+        "chase_trade_market"
+      ],
+      "description": "The shape of the package, so consolidation effects are modelled rather than read as equal raw sums.",
+      "definitionHash": "e0d194057741c3dd80f753fb95c6d5071d636549222f4a86e33d415219ce0e77"
+    },
+    {
+      "name": "trade_fit_suitability",
+      "version": 1,
+      "definitionOwner": "src.trade.market_trade_eval:fit_suitability",
+      "unit": "categorical clean_1_for_1 | package_va_required | unsuitable, with exclusion reasons",
+      "knownAtRule": "a function of topology, dedupe state and format at the fold cutoff",
+      "missingSemantics": "unsuitable carries every reason (three_or_more_teams, includes_unresolved, includes_faab, dedupe_state, dynasty_state_unverified, qb_format_unknown); an exclusion is reported and counted per reason, never silent",
+      "lineage": "derived from trade_topology, trade_dedupe_state and the market format",
+      "allowedConsumers": [
+        "chase_trade_market"
+      ],
+      "description": "Whether a trade can enter the latent-price fit and, if not, why; package trades require a package model, never an equality of sums.",
+      "definitionHash": "44414b14dc1310f0bcef23dabfc5268b476909392025f793c035da58b4afcc36"
     }
   ]
 }

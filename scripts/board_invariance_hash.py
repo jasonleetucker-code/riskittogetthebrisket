@@ -108,8 +108,8 @@ def _fingerprint(payload_path: Path, full: bool) -> dict[str, Any]:
 
 
 def _compare(before_path: Path, after_path: Path) -> int:
-    before = json.loads(before_path.read_text())
-    after = json.loads(after_path.read_text())
+    before = json.loads(before_path.read_text(encoding="utf-8"))
+    after = json.loads(after_path.read_text(encoding="utf-8"))
 
     if before["payloadMd5"] != after["payloadMd5"]:
         print(
@@ -182,7 +182,7 @@ def main() -> int:
     print(f"rows     {fp['rowCount']}  mode {fp['mode']}")
     print(f"board    {fp['boardHash']}")
     if args.out:
-        Path(args.out).write_text(json.dumps(fp, indent=2, default=str))
+        Path(args.out).write_text(json.dumps(fp, indent=2, default=str), encoding="utf-8")
         print(f"wrote    {args.out}")
     return 0
 

@@ -1,0 +1,289 @@
+{
+ "artifact": "idp_opportunity_prospective_frozen_params",
+ "card": {
+  "fingerprint": "sf1:9e51824690d091f9",
+  "settingsSha256": "3e428edba6be8f263ef5929d223902ba0f4e49e416b4e8f549aee0909017ea16",
+  "source": "file:scoring_1312006700437352448.json"
+ },
+ "codeDirty": false,
+ "codeSha": "46b80dfbc8e610c1ac1b5e3596db546249cf321f",
+ "evidenceType": "weekly_opportunity",
+ "excluded": {
+  "injuryReplacementTerm": "dropped (hurt in the retrospective study)",
+  "week8": "not final at freeze time"
+ },
+ "firstEvaluationWeek": 9,
+ "fit": {
+  "fitMae": {
+   "HYB": 4.9964548441925345,
+   "OPP": 5.001752325106178,
+   "ROLE": 5.015590608135051,
+   "S0": 5.261187282830549,
+   "SNAP": 5.020859837966161
+  },
+  "fitRows": 3273,
+  "fitWeeks": [
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "grids": {
+   "alpha": [
+    0.0,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+   ],
+   "gamma": [
+    0.0,
+    0.25,
+    0.5,
+    0.75,
+    1.0
+   ],
+   "kappaGames": [
+    0.0,
+    0.5,
+    1.0,
+    2.0,
+    4.0,
+    8.0
+   ],
+   "kappaOpp": [
+    50.0,
+    200.0,
+    800.0
+   ],
+   "kappaVolSplash": [
+    0.0,
+    25.0,
+    50.0,
+    100.0,
+    200.0,
+    400.0,
+    800.0,
+    1600.0
+   ]
+  },
+  "residualQuantiles80": {
+   "HYB": {
+    "DB": [
+     -7.24659627879285,
+     10.198995527526915
+    ],
+    "DL": [
+     -5.851796310089839,
+     8.458627751779375
+    ],
+    "LB": [
+     -7.759030988175944,
+     9.701506195828781
+    ]
+   },
+   "OPP": {
+    "DB": [
+     -7.269074879968237,
+     10.238421853399242
+    ],
+    "DL": [
+     -5.850803375742513,
+     8.349163044989625
+    ],
+    "LB": [
+     -7.883011681837073,
+     9.693830501093611
+    ]
+   },
+   "ROLE": {
+    "DB": [
+     -7.227434560690534,
+     10.208734999570536
+    ],
+    "DL": [
+     -6.022137820738335,
+     8.59206336833861
+    ],
+    "LB": [
+     -7.565502774765609,
+     9.776144464823505
+    ]
+   },
+   "S0": {
+    "DB": [
+     -6.84824628508943,
+     10.164954726629075
+    ],
+    "DL": [
+     -5.88093379377895,
+     8.862430611785879
+    ],
+    "LB": [
+     -7.091452970031918,
+     10.921244219721029
+    ]
+   },
+   "SNAP": {
+    "DB": [
+     -7.356032317234163,
+     10.218450643836357
+    ],
+    "DL": [
+     -5.935158073126458,
+     8.527553578491556
+    ],
+    "LB": [
+     -7.614982812179161,
+     9.684986553017893
+    ]
+   }
+  }
+ },
+ "frozenAtUtc": "2026-11-01T18:13:31+00:00",
+ "inputs": {
+  "identityCensus": {
+   "disagreeByPair": {
+    "CB->LB": 1,
+    "CB->S": 10,
+    "DT->EDGE": 95,
+    "DT->LB": 1,
+    "EDGE->DT": 6,
+    "EDGE->LB": 218,
+    "EDGE->S": 1,
+    "LB->S": 2,
+    "S->CB": 41,
+    "S->LB": 5
+   },
+   "gsisCollisions": 8,
+   "idpPlayers": 5508,
+   "noGsis": 2836,
+   "pffVsOtherDisagree": 380,
+   "subgroupFromPff": 2173,
+   "subgroupUnknown": 652
+  },
+  "nflverse_games": "316870c6500299d84dc2a387da5b804ae9aa75af8c3b0f30198efe2613e77e4a",
+  "nflverse_players": "4b1e03631bbbd4341088efd2618a89916a9486623f4b022b8c0b077a1d451c02",
+  "roster": "b634177ae776fecfdaefc499e5a3a77cd3ae86c25d04179ae62995ca37e1e684",
+  "sleeperStats": {
+   "hashes": {
+    "1": "1641657808b09593dbb00df392482e86de5b6422d48d3775a0fe2a2e6d92a625",
+    "2": "ae3041997081ea0a26aa8dac5cee91f7f47f4d3c88d0b5da9b28430a75fe0a25",
+    "3": "a75987a8b46cef694e7331c9476bea173109b6e1df2c0120e864943e437ab7dd",
+    "4": "caf6bcda8e33c969cb5dc70c69085816dda6af63e35cf511916615d27a38d06a",
+    "5": "3aaba0dbb1d234cab8cf5eb6f8036d39cf7aae7a0e24d99583a9135b249b8ba3",
+    "6": "d0aa16931860f0adc4279f5665aeeee551f8505de822943a0ddd3d4e9ff389e6",
+    "7": "601a81420ec72cc08c2bd1dcfc2e9e546b2a53f41d263f0e866c78a7749b113d"
+   },
+   "missing": {}
+  },
+  "sleeperTeamStats": {
+   "hashes": {
+    "1": "131db2c4037f8b4e3bd1ff6b19bad6ced5b71d6f3bda59996ab0f83f911aeb9a",
+    "2": "daa16c2be465ac693007cd453ff04efd9f653fa174e5f0ea5aad6a6a6cc66790",
+    "3": "98aaf49698b129aeee7a3724cb776e7936eee9527aee3931c4e4951e19c85cc9",
+    "4": "b5defece06828b6e0c092f4e3c6f44805c90645ec16fdd720a1834665432ac1b",
+    "5": "1735e41d3c3e4e8c72224cfeebdecc135862dc8556978acc31c3b22f16ea3390",
+    "6": "59fee52bca1debf704fbded2af3de7ea5909e513079bd98cfac642b344fae03a",
+    "7": "be422c6e0f2dbe5ac4324669b7bb8e81e41f05d6bf702836d526c8f85c055897"
+   },
+   "missing": {}
+  },
+  "sleeper_players": "cc578a8bac7b235211ec45f20be48e4081e9a2893fba07aaabfb94c11598dcd0",
+  "stats_player_week": "501eb74105287596fdf138f3bdc7d0786af71dccc386f811563359ffff203b97"
+ },
+ "lineupDemand": {
+  "dedicated": {
+   "DB": 3.0,
+   "DL": 3.0,
+   "LB": 3.0
+  },
+  "deviationFamilies": [
+   "DL"
+  ],
+  "leagueSha256": "8bcf670dca50180b463d7cdf370b0d66de0dedd5dea82108fb4d6647777a4699",
+  "preregisteredTopN": {
+   "DB": 36,
+   "DL": 24,
+   "LB": 36
+  },
+  "slots": [
+   "QB",
+   "RB",
+   "RB",
+   "WR",
+   "WR",
+   "WR",
+   "TE",
+   "TE",
+   "FLEX",
+   "FLEX",
+   "SUPER_FLEX",
+   "K",
+   "DL",
+   "DL",
+   "DL",
+   "LB",
+   "LB",
+   "LB",
+   "DB",
+   "DB",
+   "DB"
+  ],
+  "source": "sleeper_roster_positions",
+  "teamCount": 12,
+  "topN": {
+   "DB": 36,
+   "DL": 36,
+   "LB": 36
+  }
+ },
+ "models": [
+  "S0",
+  "SNAP",
+  "OPP",
+  "ROLE",
+  "HYB"
+ ],
+ "params": {
+  "HYB": {
+   "alpha": 0.75,
+   "beta": {},
+   "gamma": 0.25,
+   "kappaOpp": 50.0,
+   "kappaSplash": 1600.0,
+   "kappaVol": 400.0
+  },
+  "OPP": {
+   "alpha": 0.75,
+   "beta": {},
+   "kappaOpp": 50.0,
+   "kappaSplash": 1600.0,
+   "kappaVol": 400.0
+  },
+  "ROLE": {
+   "alpha": 0.5,
+   "beta": {},
+   "gamma": 0.25,
+   "kappaOpp": 200.0,
+   "kappaSplash": 1600.0,
+   "kappaVol": 400.0
+  },
+  "S0": {
+   "kappaGames": 2.0
+  },
+  "SNAP": {
+   "alpha": 0.5,
+   "beta": {},
+   "kappaOpp": 200.0,
+   "kappaSplash": 1600.0,
+   "kappaVol": 400.0
+  }
+ },
+ "preregistration": "docs/projections/IDP_OPPORTUNITY_PROSPECTIVE_PREREGISTRATION_2026-11-01.md",
+ "providerChampion": "Sleeper/RotoWire, scored from the pre-kickoff archive by the evaluation runner (not fitted, not in this artifact)",
+ "season": 2026,
+ "shadowOnly": true
+}

@@ -375,3 +375,23 @@ def test_payload_without_a_time_gets_no_seasonal_exclusions(tmp_path):
     assert dc._load_source_weighting(None, tmp_path) == {}
     got = dc._seasonally_inactive_sources(datetime(2026, 10, 3, tzinfo=timezone.utc), tmp_path)
     assert set(got) == {KEY}
+
+
+def test_seasonal_source_is_not_reported_as_severely_stale_content():
+    """SEASONALLY INACTIVE != BROKEN in the advisory content-freshness report
+    (stabilization audit D7).  A verified seasonally inactive source casts no
+    vote, so "its blend weight is reduced accordingly" would be false; the row
+    stays in the report, tagged, and leaves the warning list.  A voting source
+    in the same state still warns."""
+    from scripts.check_source_health import severe_content_freshness
+
+    rows = [
+        {"source": "flockFantasySfRookies", "subset": "players", "state": "SEVERELY_STALE"},
+        {"source": "dlfSf", "subset": "players", "state": "SEVERELY_STALE"},
+        {"source": "ktcSfTep", "subset": "players", "state": "ON_SCHEDULE"},
+    ]
+    severe = severe_content_freshness(rows, {"flockFantasySfRookies": {}})
+
+    assert [r["source"] for r in severe] == ["dlfSf"]
+    assert rows[0]["seasonallyInactive"] is True
+    assert len(rows) == 3, "the seasonal row is tagged, never dropped from the report"

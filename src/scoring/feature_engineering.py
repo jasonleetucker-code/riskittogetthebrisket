@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Dict
 
 
@@ -46,21 +47,47 @@ _TE_PREMIUM_DEPENDENCY_TAG = (_RECEPTION_YARD_EQUIVALENT * 0.12) / (
 )
 
 
-def _f(v, default=0.0):
+def _obs(s, key):
+    """Observed finite float for ``key`` or ``None`` (absent / None / non-numeric /
+    non-finite).  MISSING IS NEVER ZERO: an observed 0.0 stays 0.0."""
+    v = s.get(key)
+    if v is None or isinstance(v, bool):
+        return None
     try:
-        return float(v)
-    except Exception:
-        return default
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    return x if math.isfinite(x) else None
 
 
-def _production_share(component_yards: float, other_yards: float) -> float:
+def _sum_obs(s, keys):
+    """Sum of the observed components; ``None`` when NONE of them is observed.
+
+    A stat dict is sparse (a back has no ``pass_yd``), so one absent
+    component contributes nothing; but a feature none of whose inputs were
+    observed is unknown, not 0.
+    """
+    vals = [v for v in (_obs(s, k) for k in keys) if v is not None]
+    return sum(vals) if vals else None
+
+
+def _production_share(component_yards, other_yards):
     """Fraction of yard-equivalent production contributed by
-    ``component_yards``.  Zero production is 0.0, not a divide-by-zero
-    and not an invented floor."""
+    ``component_yards``.  ``None`` (unknown) when either input is unknown
+    or there was no production at all (a share of nothing is undefined,
+    not 0.0)."""
+    if component_yards is None or other_yards is None:
+        return None
     total = component_yards + other_yards
     if total <= 0:
-        return 0.0
+        return None
     return component_yards / total
+
+
+def _ratio(num, den, floor):
+    if num is None or den is None:
+        return None
+    return num / max(den, floor)
 
 
 def compute_profile_features(
@@ -72,117 +99,125 @@ def compute_profile_features(
     depth_factor: float,
     role_change: bool,
 ) -> Dict[str, float]:
+    """Profile features.  A feature whose inputs were not observed is OMITTED
+    from the result (unknown), never emitted as 0.0; consumers
+    (``infer_archetype`` / ``infer_scoring_tags``) already treat an absent
+    feature as unknown."""
     s = stats_per_game or {}
     p = str(bucket or "").upper()
 
-    pass_yd = _f(s.get("pass_yd"))
-    pass_td = _f(s.get("pass_td"))
-    pass_int = _f(s.get("pass_int"))
-    rush_yd = _f(s.get("rush_yd"))
-    rush_td = _f(s.get("rush_td"))
-    rec = _f(s.get("rec"))
-    rec_yd = _f(s.get("rec_yd"))
-    rec_td = _f(s.get("rec_td"))
-    rush_fd = _f(s.get("rush_fd"))
-    rec_fd = _f(s.get("rec_fd"))
+    rush_yd = _obs(s, "rush_yd")
+    rec = _obs(s, "rec")
+    rec_yd = _obs(s, "rec_yd")
 
-    total_td = pass_td + rush_td + rec_td
-    total_yd = pass_yd + rush_yd + rec_yd
-    explosive_proxy = (
-        _f(s.get("bonus_pass_td_50+"))
-        + _f(s.get("bonus_rush_td_40+"))
-        + _f(s.get("bonus_rec_td_40+"))
-    )
+    total_td = _sum_obs(s, ("pass_td", "rush_td", "rec_td"))
+    total_yd = _sum_obs(s, ("pass_yd", "rush_yd", "rec_yd"))
+    first_downs = _sum_obs(s, ("rush_fd", "rec_fd", "pass_fd"))
+    explosive_proxy = _sum_obs(s, ("bonus_pass_td_50+", "bonus_rush_td_40+", "bonus_rec_td_40+"))
+    turnovers = _sum_obs(s, ("pass_int", "fum_lost"))
+    if turnovers is not None:
+        # abs() per component, as before
+        turnovers = sum(abs(v) for v in (_obs(s, "pass_int"), _obs(s, "fum_lost")) if v is not None)
 
-    f = {
+    f: Dict[str, float | None] = {
         "games_played": float(max(0, total_games)),
         "recent_games": float(max(0, recent_games)),
         "role_stability": max(0.0, min(1.0, float(depth_factor) * (0.8 if role_change else 1.0))),
-        "first_down_dependency": max(0.0, rush_fd + rec_fd + _f(s.get("pass_fd"))),
-        "td_dependency": _production_share(total_td * _TD_YARD_EQUIVALENT, total_yd),
+        "first_down_dependency": None if first_downs is None else max(0.0, first_downs),
+        "td_dependency": _production_share(
+            None if total_td is None else total_td * _TD_YARD_EQUIVALENT, total_yd
+        ),
         "yardage_bonus_sensitivity": explosive_proxy,
-        "turnover_sensitivity": abs(pass_int) + abs(_f(s.get("fum_lost"))),
+        "turnover_sensitivity": turnovers,
     }
 
-    # Share of yard-equivalent production that comes from the catch
-    # itself.  Defined identically for RB / WR / TE because ONE
-    # threshold is applied to all three (``reception_sensitive``).
-    # The RB used to measure a touch fraction — rec ÷ (rec + carries) —
-    # which is degenerate for a WR (≈1.0, every touch is a catch), and
-    # WR/TE used receptions-per-yard, which is not a fraction at all
-    # and sat an order of magnitude below the shared threshold.
-    reception_share = _production_share(rec * _RECEPTION_YARD_EQUIVALENT, rush_yd + rec_yd)
+    # Share of yard-equivalent production that comes from the catch itself;
+    # same definition for RB / WR / TE (one threshold).
+    reception_share = _production_share(
+        None if rec is None else rec * _RECEPTION_YARD_EQUIVALENT,
+        _sum_obs(s, ("rush_yd", "rec_yd")),
+    )
 
     if p == "QB":
+        both = _sum_obs(s, ("pass_yd", "rush_yd"))
         f.update(
             {
-                "qb_rush_contribution": rush_yd / max(pass_yd + rush_yd, 1.0),
-                "passing_td_dependency": pass_td / max(total_td, 1.0),
-                # ``rush_yd`` is already per game (it comes out of
-                # ``stats_per_game``); dividing by ``total_games`` a
-                # second time turned 30 yd/g into 1.9 over a full season.
+                "qb_rush_contribution": (
+                    None if rush_yd is None or both is None else rush_yd / max(both, 1.0)
+                ),
+                "passing_td_dependency": _ratio(_obs(s, "pass_td"), total_td, 1.0),
+                # ``rush_yd`` is already per game.
                 "scramble_floor_proxy": rush_yd,
             }
         )
     elif p == "RB":
         f.update(
             {
-                "carry_dependency": rush_yd / max(rush_yd + rec_yd, 1.0),
+                "carry_dependency": _ratio(rush_yd, _sum_obs(s, ("rush_yd", "rec_yd")), 1.0),
                 "reception_dependency": reception_share,
-                "goal_line_proxy": rush_td / max(total_td, 1.0),
+                "goal_line_proxy": _ratio(_obs(s, "rush_td"), total_td, 1.0),
             }
         )
     elif p == "WR":
         f.update(
             {
                 "reception_dependency": reception_share,
-                "field_stretcher_proxy": rec_yd / max(rec, 1.0),
-                "red_zone_proxy": rec_td / max(total_td, 1.0),
+                "field_stretcher_proxy": _ratio(rec_yd, rec, 1.0),
+                "red_zone_proxy": _ratio(_obs(s, "rec_td"), total_td, 1.0),
             }
         )
     elif p == "TE":
         f.update(
             {
-                # The TE branch never emitted ``reception_dependency``
-                # at all, so the {RB, WR, TE} tag read a missing key as
-                # 0.0 and could not fire for a tight end.
                 "reception_dependency": reception_share,
-                # The TE premium is a bonus paid PER RECEPTION, so a
-                # TE's exposure to it is exactly their reception share.
-                # Same number, read at a stricter cut — see
-                # ``_TE_PREMIUM_DEPENDENCY_TAG``.
                 "te_premium_dependency": reception_share,
-                "chain_mover_proxy": rec_fd / max(rec, 1.0),
-                "red_zone_proxy": rec_td / max(total_td, 1.0),
+                "chain_mover_proxy": _ratio(_obs(s, "rec_fd"), rec, 1.0),
+                "red_zone_proxy": _ratio(_obs(s, "rec_td"), total_td, 1.0),
             }
         )
     elif p in {"DL", "LB", "DB"}:
         f.update(
             {
-                "tackle_dependency": (_f(s.get("idp_tkl_solo")) + _f(s.get("idp_tkl_ast"))),
-                "splash_dependency": (
-                    _f(s.get("idp_sack"))
-                    + _f(s.get("idp_int"))
-                    + _f(s.get("idp_ff"))
-                    + _f(s.get("idp_fum_rec"))
-                ),
+                "tackle_dependency": _sum_obs(s, ("idp_tkl_solo", "idp_tkl_ast")),
+                "splash_dependency": _sum_obs(s, ("idp_sack", "idp_int", "idp_ff", "idp_fum_rec")),
             }
         )
-    return {k: round(float(v), 6) for k, v in f.items()}
+    return {k: round(float(v), 6) for k, v in f.items() if v is not None}
+
+
+def _tag_rules(p: str):
+    """(tag, feature key, cut) rules that apply to bucket ``p``."""
+    rules = [
+        ("td_dependent", "td_dependency", _TD_DEPENDENCY_TAG),
+        ("first_down_heavy", "first_down_dependency", 4.0),
+    ]
+    if p in {"RB", "WR", "TE"}:
+        rules.append(("reception_sensitive", "reception_dependency", RECEPTION_DEPENDENCY_TAG))
+    if p == "TE":
+        rules.append(("te_premium_sensitive", "te_premium_dependency", _TE_PREMIUM_DEPENDENCY_TAG))
+    if p in {"DL", "LB", "DB"}:
+        rules.append(("idp_splash", "splash_dependency", 1.0))
+    return rules
 
 
 def infer_scoring_tags(bucket: str, features: Dict[str, float]) -> list[str]:
-    tags: list[str] = []
+    """Tags whose deciding feature is observed and clears its cut.  An
+    unobserved feature never decides a tag; see
+    :func:`scoring_tags_undecidable` for which tags were not decidable."""
     p = str(bucket or "").upper()
     f = features or {}
-    if f.get("td_dependency", 0.0) >= _TD_DEPENDENCY_TAG:
-        tags.append("td_dependent")
-    if f.get("first_down_dependency", 0.0) >= 4.0:
-        tags.append("first_down_heavy")
-    if p in {"RB", "WR", "TE"} and f.get("reception_dependency", 0.0) >= RECEPTION_DEPENDENCY_TAG:
-        tags.append("reception_sensitive")
-    if p == "TE" and f.get("te_premium_dependency", 0.0) >= _TE_PREMIUM_DEPENDENCY_TAG:
-        tags.append("te_premium_sensitive")
-    if p in {"DL", "LB", "DB"} and f.get("splash_dependency", 0.0) >= 1.0:
-        tags.append("idp_splash")
+    tags: list[str] = []
+    for tag, key, cut in _tag_rules(p):
+        v = _obs(f, key)
+        if v is not None and v >= cut:
+            tags.append(tag)
     return tags
+
+
+def scoring_tags_undecidable(bucket: str, features: Dict[str, float]) -> list[str]:
+    """Tags that could not be decided because their feature was unobserved
+    (absence from ``infer_scoring_tags`` means "lacks" only for tags NOT
+    listed here)."""
+    p = str(bucket or "").upper()
+    f = features or {}
+    return [tag for tag, key, _ in _tag_rules(p) if _obs(f, key) is None]

@@ -1,0 +1,1814 @@
+{
+ "actionableShare": {
+  "C0": 0.8979,
+  "C1": 0.7101,
+  "C2": 0.6672,
+  "C3": 0.6391,
+  "C4": 0.5,
+  "C5": 0.2219
+ },
+ "activationStatus": "NOT ACTIVATED (research only)",
+ "alertTransitionsAtSwitch": {
+  "C1": 314,
+  "C2": 216,
+  "C3": 208,
+  "C4": 260,
+  "C5": 139
+ },
+ "diagnostics": {
+  "board": {
+   "alphaMedianIncumbent": -1178.7,
+   "gapMedian": -1228.8,
+   "gapQuantiles": {
+    "p10": -2796.6,
+    "p25": -1964.6,
+    "p50": -1228.8,
+    "p75": -708.6,
+    "p90": -184.4
+   },
+   "marketMedian": 1914.5,
+   "marketMin": 474.0,
+   "marketQuantiles": {
+    "p10": 798.5,
+    "p25": 1225.8,
+    "p50": 1914.5,
+    "p75": 3036.5,
+    "p90": 4969.0
+   },
+   "n": 676,
+   "rowsDvZero": 17,
+   "rowsTvBelow100": 125,
+   "shareGapNegative": 0.926,
+   "spearmanIncumbentAlphaMarket": -0.7482,
+   "spearmanTvMarket": 0.5911,
+   "tvMedian": 511.6,
+   "tvQuantiles": {
+    "p10": 47.9,
+    "p25": 150.3,
+    "p50": 511.6,
+    "p75": 1271.6,
+    "p90": 2470.9
+   }
+  },
+  "decomposition": {
+   "covShapeRank": -240698.5,
+   "rankMedian": -49.5,
+   "shapeMedian": -1315.8,
+   "shapeShareNegative": 1.0,
+   "signalsIfShapeOnly": {
+    "BUY": 0,
+    "HOLD": 1,
+    "SELL": 0,
+    "STRONG_BUY": 0,
+    "STRONG_SELL": 675
+   },
+   "varGap": 1355999.0,
+   "varRank": 1552849.8,
+   "varShape": 284546.1
+  },
+  "liquidity": {
+   "quantiles": {
+    "p0": 0.6,
+    "p10": 0.9,
+    "p100": 1.0,
+    "p50": 1.0,
+    "p90": 1.0
+   },
+   "signalsWithLiquidityForcedTo1": {
+    "C0": {
+     "BUY": 17,
+     "HOLD": 64,
+     "SELL": 14,
+     "STRONG_BUY": 10,
+     "STRONG_SELL": 571
+    },
+    "C2": {
+     "BUY": 77,
+     "HOLD": 214,
+     "SELL": 20,
+     "STRONG_BUY": 133,
+     "STRONG_SELL": 232
+    }
+   },
+   "unmeasuredRows": 0
+  },
+  "marketDeciles": [
+   {
+    "c2StrongSellShare": 0.4478,
+    "decile": 1,
+    "gapMedian": -3047.5,
+    "incumbentStrongSellShare": 0.9104,
+    "marketMax": 9999.0,
+    "marketMin": 4985.0,
+    "ratioTvToMarketMedian": 0.5101,
+    "tvMedian": 3395.2
+   },
+   {
+    "c2StrongSellShare": 0.4559,
+    "decile": 2,
+    "gapMedian": -2406.4,
+    "incumbentStrongSellShare": 0.9412,
+    "marketMax": 4975.0,
+    "marketMin": 3401.0,
+    "ratioTvToMarketMedian": 0.4024,
+    "tvMedian": 1665.3
+   },
+   {
+    "c2StrongSellShare": 0.5373,
+    "decile": 3,
+    "gapMedian": -2312.5,
+    "incumbentStrongSellShare": 0.9254,
+    "marketMax": 3396.0,
+    "marketMin": 2768.0,
+    "ratioTvToMarketMedian": 0.2592,
+    "tvMedian": 810.6
+   },
+   {
+    "c2StrongSellShare": 0.5588,
+    "decile": 4,
+    "gapMedian": -1899.6,
+    "incumbentStrongSellShare": 0.9265,
+    "marketMax": 2755.0,
+    "marketMin": 2063.0,
+    "ratioTvToMarketMedian": 0.2114,
+    "tvMedian": 540.3
+   },
+   {
+    "c2StrongSellShare": 0.4412,
+    "decile": 5,
+    "gapMedian": -1553.0,
+    "incumbentStrongSellShare": 0.8676,
+    "marketMax": 2058.0,
+    "marketMin": 1915.0,
+    "ratioTvToMarketMedian": 0.2204,
+    "tvMedian": 428.8
+   },
+   {
+    "c2StrongSellShare": 0.5522,
+    "decile": 6,
+    "gapMedian": -1452.7,
+    "incumbentStrongSellShare": 0.8657,
+    "marketMax": 1914.0,
+    "marketMin": 1410.0,
+    "ratioTvToMarketMedian": 0.0945,
+    "tvMedian": 149.3
+   },
+   {
+    "c2StrongSellShare": 0.2206,
+    "decile": 7,
+    "gapMedian": -1015.3,
+    "incumbentStrongSellShare": 0.7941,
+    "marketMax": 1406.0,
+    "marketMin": 1236.0,
+    "ratioTvToMarketMedian": 0.2018,
+    "tvMedian": 252.9
+   },
+   {
+    "c2StrongSellShare": 0.0896,
+    "decile": 8,
+    "gapMedian": -931.3,
+    "incumbentStrongSellShare": 0.791,
+    "marketMax": 1235.0,
+    "marketMin": 1070.0,
+    "ratioTvToMarketMedian": 0.2306,
+    "tvMedian": 283.2
+   },
+   {
+    "c2StrongSellShare": 0.0147,
+    "decile": 9,
+    "gapMedian": -735.0,
+    "incumbentStrongSellShare": 0.7206,
+    "marketMax": 1064.0,
+    "marketMin": 799.0,
+    "ratioTvToMarketMedian": 0.1823,
+    "tvMedian": 167.3
+   },
+   {
+    "c2StrongSellShare": 0.0,
+    "decile": 10,
+    "gapMedian": -488.4,
+    "incumbentStrongSellShare": 0.6912,
+    "marketMax": 798.0,
+    "marketMin": 474.0,
+    "ratioTvToMarketMedian": 0.2418,
+    "tvMedian": 189.3
+   }
+  ],
+  "missingDataSensitivity": {
+   "adequateSample": {
+    "n": 561,
+    "signals": {
+     "C0": {
+      "BUY": 10,
+      "HOLD": 50,
+      "SELL": 12,
+      "STRONG_BUY": 4,
+      "STRONG_SELL": 485
+     },
+     "C2": {
+      "BUY": 67,
+      "HOLD": 192,
+      "SELL": 15,
+      "STRONG_BUY": 93,
+      "STRONG_SELL": 194
+     },
+     "C5": {
+      "BUY": 67,
+      "HOLD": 431,
+      "SELL": 63,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    }
+   },
+   "proxyRows": 676,
+   "smallNflSample": {
+    "n": 115,
+    "signals": {
+     "C0": {
+      "BUY": 4,
+      "HOLD": 19,
+      "SELL": 1,
+      "STRONG_BUY": 6,
+      "STRONG_SELL": 85
+     },
+     "C2": {
+      "BUY": 11,
+      "HOLD": 33,
+      "SELL": 3,
+      "STRONG_BUY": 38,
+      "STRONG_SELL": 30
+     },
+     "C5": {
+      "BUY": 16,
+      "HOLD": 95,
+      "SELL": 4,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    }
+   }
+  },
+  "perGroup": {
+   "DB": {
+    "gapMedian": -607.6,
+    "market": "idpTradeCalc",
+    "marketMedian": 1226.0,
+    "n": 102,
+    "shareGapNegative": 0.8333,
+    "signals": {
+     "C0": {
+      "BUY": 3,
+      "HOLD": 30,
+      "SELL": 3,
+      "STRONG_BUY": 4,
+      "STRONG_SELL": 62
+     },
+     "C1": {
+      "BUY": 20,
+      "HOLD": 13,
+      "SELL": 0,
+      "STRONG_BUY": 66,
+      "STRONG_SELL": 3
+     },
+     "C2": {
+      "BUY": 21,
+      "HOLD": 31,
+      "SELL": 0,
+      "STRONG_BUY": 44,
+      "STRONG_SELL": 6
+     },
+     "C3": {
+      "BUY": 22,
+      "HOLD": 38,
+      "SELL": 0,
+      "STRONG_BUY": 32,
+      "STRONG_SELL": 10
+     },
+     "C4": {
+      "BUY": 28,
+      "HOLD": 42,
+      "SELL": 3,
+      "STRONG_BUY": 29,
+      "STRONG_SELL": 0
+     },
+     "C5": {
+      "BUY": 30,
+      "HOLD": 71,
+      "SELL": 1,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    },
+    "spearmanTvMarket": 0.3477,
+    "tvMedian": 642.1
+   },
+   "DL": {
+    "gapMedian": -709.2,
+    "market": "idpTradeCalc",
+    "marketMedian": 1288.0,
+    "n": 79,
+    "shareGapNegative": 0.8734,
+    "signals": {
+     "C0": {
+      "BUY": 5,
+      "HOLD": 13,
+      "SELL": 6,
+      "STRONG_BUY": 2,
+      "STRONG_SELL": 53
+     },
+     "C1": {
+      "BUY": 12,
+      "HOLD": 11,
+      "SELL": 0,
+      "STRONG_BUY": 52,
+      "STRONG_SELL": 4
+     },
+     "C2": {
+      "BUY": 23,
+      "HOLD": 18,
+      "SELL": 1,
+      "STRONG_BUY": 29,
+      "STRONG_SELL": 8
+     },
+     "C3": {
+      "BUY": 19,
+      "HOLD": 28,
+      "SELL": 3,
+      "STRONG_BUY": 16,
+      "STRONG_SELL": 13
+     },
+     "C4": {
+      "BUY": 26,
+      "HOLD": 38,
+      "SELL": 1,
+      "STRONG_BUY": 11,
+      "STRONG_SELL": 3
+     },
+     "C5": {
+      "BUY": 20,
+      "HOLD": 57,
+      "SELL": 2,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    },
+    "spearmanTvMarket": 0.5479,
+    "tvMedian": 623.4
+   },
+   "LB": {
+    "gapMedian": -1227.0,
+    "market": "idpTradeCalc",
+    "marketMedian": 1425.0,
+    "n": 127,
+    "shareGapNegative": 0.9843,
+    "signals": {
+     "C0": {
+      "BUY": 0,
+      "HOLD": 5,
+      "SELL": 1,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 121
+     },
+     "C1": {
+      "BUY": 14,
+      "HOLD": 49,
+      "SELL": 1,
+      "STRONG_BUY": 21,
+      "STRONG_SELL": 42
+     },
+     "C2": {
+      "BUY": 8,
+      "HOLD": 52,
+      "SELL": 4,
+      "STRONG_BUY": 9,
+      "STRONG_SELL": 54
+     },
+     "C3": {
+      "BUY": 7,
+      "HOLD": 47,
+      "SELL": 1,
+      "STRONG_BUY": 3,
+      "STRONG_SELL": 69
+     },
+     "C4": {
+      "BUY": 6,
+      "HOLD": 85,
+      "SELL": 17,
+      "STRONG_BUY": 3,
+      "STRONG_SELL": 16
+     },
+     "C5": {
+      "BUY": 2,
+      "HOLD": 103,
+      "SELL": 22,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    },
+    "spearmanTvMarket": 0.6569,
+    "tvMedian": 183.6
+   },
+   "QB": {
+    "gapMedian": -759.7,
+    "market": "ktcSfTep",
+    "marketMedian": 2675.0,
+    "n": 56,
+    "shareGapNegative": 0.6786,
+    "signals": {
+     "C0": {
+      "BUY": 6,
+      "HOLD": 14,
+      "SELL": 1,
+      "STRONG_BUY": 3,
+      "STRONG_SELL": 32
+     },
+     "C1": {
+      "BUY": 7,
+      "HOLD": 6,
+      "SELL": 0,
+      "STRONG_BUY": 36,
+      "STRONG_SELL": 7
+     },
+     "C2": {
+      "BUY": 8,
+      "HOLD": 7,
+      "SELL": 1,
+      "STRONG_BUY": 30,
+      "STRONG_SELL": 10
+     },
+     "C3": {
+      "BUY": 7,
+      "HOLD": 6,
+      "SELL": 0,
+      "STRONG_BUY": 34,
+      "STRONG_SELL": 9
+     },
+     "C4": {
+      "BUY": 9,
+      "HOLD": 14,
+      "SELL": 5,
+      "STRONG_BUY": 20,
+      "STRONG_SELL": 8
+     },
+     "C5": {
+      "BUY": 13,
+      "HOLD": 43,
+      "SELL": 0,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    },
+    "spearmanTvMarket": 0.6998,
+    "tvMedian": 2027.2
+   },
+   "RB": {
+    "gapMedian": -1627.6,
+    "market": "ktcSfTep",
+    "marketMedian": 2267.0,
+    "n": 103,
+    "shareGapNegative": 0.9903,
+    "signals": {
+     "C0": {
+      "BUY": 0,
+      "HOLD": 5,
+      "SELL": 0,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 98
+     },
+     "C1": {
+      "BUY": 22,
+      "HOLD": 35,
+      "SELL": 0,
+      "STRONG_BUY": 19,
+      "STRONG_SELL": 27
+     },
+     "C2": {
+      "BUY": 10,
+      "HOLD": 37,
+      "SELL": 3,
+      "STRONG_BUY": 11,
+      "STRONG_SELL": 42
+     },
+     "C3": {
+      "BUY": 22,
+      "HOLD": 38,
+      "SELL": 1,
+      "STRONG_BUY": 12,
+      "STRONG_SELL": 30
+     },
+     "C4": {
+      "BUY": 14,
+      "HOLD": 53,
+      "SELL": 25,
+      "STRONG_BUY": 3,
+      "STRONG_SELL": 8
+     },
+     "C5": {
+      "BUY": 10,
+      "HOLD": 83,
+      "SELL": 10,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    },
+    "spearmanTvMarket": 0.8031,
+    "tvMedian": 522.7
+   },
+   "TE": {
+    "gapMedian": -1970.6,
+    "market": "ktcSfTep",
+    "marketMedian": 2819.0,
+    "n": 61,
+    "shareGapNegative": 0.9672,
+    "signals": {
+     "C0": {
+      "BUY": 0,
+      "HOLD": 2,
+      "SELL": 1,
+      "STRONG_BUY": 1,
+      "STRONG_SELL": 57
+     },
+     "C1": {
+      "BUY": 7,
+      "HOLD": 23,
+      "SELL": 2,
+      "STRONG_BUY": 7,
+      "STRONG_SELL": 22
+     },
+     "C2": {
+      "BUY": 1,
+      "HOLD": 16,
+      "SELL": 7,
+      "STRONG_BUY": 6,
+      "STRONG_SELL": 31
+     },
+     "C3": {
+      "BUY": 3,
+      "HOLD": 24,
+      "SELL": 1,
+      "STRONG_BUY": 6,
+      "STRONG_SELL": 27
+     },
+     "C4": {
+      "BUY": 4,
+      "HOLD": 30,
+      "SELL": 18,
+      "STRONG_BUY": 2,
+      "STRONG_SELL": 7
+     },
+     "C5": {
+      "BUY": 1,
+      "HOLD": 49,
+      "SELL": 11,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    },
+    "spearmanTvMarket": 0.7748,
+    "tvMedian": 573.6
+   },
+   "WR": {
+    "gapMedian": -1682.4,
+    "market": "ktcSfTep",
+    "marketMedian": 2081.0,
+    "n": 148,
+    "shareGapNegative": 1.0,
+    "signals": {
+     "C0": {
+      "BUY": 0,
+      "HOLD": 0,
+      "SELL": 1,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 147
+     },
+     "C1": {
+      "BUY": 23,
+      "HOLD": 59,
+      "SELL": 6,
+      "STRONG_BUY": 10,
+      "STRONG_SELL": 50
+     },
+     "C2": {
+      "BUY": 7,
+      "HOLD": 64,
+      "SELL": 2,
+      "STRONG_BUY": 2,
+      "STRONG_SELL": 73
+     },
+     "C3": {
+      "BUY": 19,
+      "HOLD": 63,
+      "SELL": 5,
+      "STRONG_BUY": 6,
+      "STRONG_SELL": 55
+     },
+     "C4": {
+      "BUY": 14,
+      "HOLD": 76,
+      "SELL": 32,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 26
+     },
+     "C5": {
+      "BUY": 7,
+      "HOLD": 120,
+      "SELL": 21,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    },
+    "spearmanTvMarket": 0.8292,
+    "tvMedian": 291.0
+   }
+  },
+  "perMarket": {
+   "idpTradeCalc": {
+    "n": 308,
+    "signals": {
+     "C0": {
+      "BUY": 8,
+      "HOLD": 48,
+      "SELL": 10,
+      "STRONG_BUY": 6,
+      "STRONG_SELL": 236
+     },
+     "C1": {
+      "BUY": 46,
+      "HOLD": 73,
+      "SELL": 1,
+      "STRONG_BUY": 139,
+      "STRONG_SELL": 49
+     },
+     "C2": {
+      "BUY": 52,
+      "HOLD": 101,
+      "SELL": 5,
+      "STRONG_BUY": 82,
+      "STRONG_SELL": 68
+     },
+     "C3": {
+      "BUY": 48,
+      "HOLD": 113,
+      "SELL": 4,
+      "STRONG_BUY": 51,
+      "STRONG_SELL": 92
+     },
+     "C4": {
+      "BUY": 60,
+      "HOLD": 165,
+      "SELL": 21,
+      "STRONG_BUY": 43,
+      "STRONG_SELL": 19
+     },
+     "C5": {
+      "BUY": 52,
+      "HOLD": 231,
+      "SELL": 25,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    },
+    "spearmanTvMarket": 0.3923
+   },
+   "ktcSfTep": {
+    "n": 368,
+    "signals": {
+     "C0": {
+      "BUY": 6,
+      "HOLD": 21,
+      "SELL": 3,
+      "STRONG_BUY": 4,
+      "STRONG_SELL": 334
+     },
+     "C1": {
+      "BUY": 59,
+      "HOLD": 123,
+      "SELL": 8,
+      "STRONG_BUY": 72,
+      "STRONG_SELL": 106
+     },
+     "C2": {
+      "BUY": 26,
+      "HOLD": 124,
+      "SELL": 13,
+      "STRONG_BUY": 49,
+      "STRONG_SELL": 156
+     },
+     "C3": {
+      "BUY": 51,
+      "HOLD": 131,
+      "SELL": 7,
+      "STRONG_BUY": 58,
+      "STRONG_SELL": 121
+     },
+     "C4": {
+      "BUY": 41,
+      "HOLD": 173,
+      "SELL": 80,
+      "STRONG_BUY": 25,
+      "STRONG_SELL": 49
+     },
+     "C5": {
+      "BUY": 31,
+      "HOLD": 295,
+      "SELL": 42,
+      "STRONG_BUY": 0,
+      "STRONG_SELL": 0
+     }
+    },
+    "spearmanTvMarket": 0.7455
+   }
+  },
+  "thresholdSensitivity": {
+   "C0": {
+    "0.5": {
+     "BUY": 14,
+     "HOLD": 35,
+     "SELL": 7,
+     "STRONG_BUY": 22,
+     "STRONG_SELL": 598
+    },
+    "1.0": {
+     "BUY": 14,
+     "HOLD": 69,
+     "SELL": 13,
+     "STRONG_BUY": 10,
+     "STRONG_SELL": 570
+    },
+    "1.5": {
+     "BUY": 12,
+     "HOLD": 130,
+     "SELL": 27,
+     "STRONG_BUY": 5,
+     "STRONG_SELL": 502
+    },
+    "2.0": {
+     "BUY": 8,
+     "HOLD": 209,
+     "SELL": 38,
+     "STRONG_BUY": 4,
+     "STRONG_SELL": 417
+    },
+    "3.0": {
+     "BUY": 5,
+     "HOLD": 340,
+     "SELL": 61,
+     "STRONG_BUY": 1,
+     "STRONG_SELL": 269
+    }
+   },
+   "C2": {
+    "0.5": {
+     "BUY": 48,
+     "HOLD": 141,
+     "SELL": 13,
+     "STRONG_BUY": 199,
+     "STRONG_SELL": 275
+    },
+    "1.0": {
+     "BUY": 78,
+     "HOLD": 225,
+     "SELL": 18,
+     "STRONG_BUY": 131,
+     "STRONG_SELL": 224
+    },
+    "1.5": {
+     "BUY": 102,
+     "HOLD": 310,
+     "SELL": 14,
+     "STRONG_BUY": 77,
+     "STRONG_SELL": 173
+    },
+    "2.0": {
+     "BUY": 92,
+     "HOLD": 396,
+     "SELL": 21,
+     "STRONG_BUY": 50,
+     "STRONG_SELL": 117
+    },
+    "3.0": {
+     "BUY": 84,
+     "HOLD": 503,
+     "SELL": 19,
+     "STRONG_BUY": 11,
+     "STRONG_SELL": 59
+    }
+   }
+  },
+  "topSpacing": {
+   "dvRatioTop10": [
+    1.0,
+    0.763,
+    0.753,
+    0.749,
+    0.729,
+    0.715,
+    0.714,
+    0.688,
+    0.678,
+    0.666
+   ],
+   "gammaFitByTopK": {
+    "100": 0.6307,
+    "30": 0.5452,
+    "50": 0.605,
+    "676": 0.5954
+   },
+   "gammaPrior": 1.2,
+   "marketRatioTop10": [
+    1.0,
+    0.999,
+    0.998,
+    0.998,
+    0.992,
+    0.925,
+    0.92,
+    0.893,
+    0.888,
+    0.794
+   ],
+   "servedTvRatioTop10": [
+    1.0,
+    0.723,
+    0.711,
+    0.706,
+    0.684,
+    0.669,
+    0.667,
+    0.638,
+    0.627,
+    0.614
+   ]
+  }
+ },
+ "evaluation": {
+  "30": {
+   "archive": "dynasty_export_20260903_225148.zip",
+   "available": true,
+   "baselines": {
+    "negMarketValue": -0.2195,
+    "servedTvAlone": 0.1381
+   },
+   "bootstrapVsIncumbent": {
+    "partialC0CI95": [
+     -0.1373,
+     0.0005
+    ],
+    "partialC2CI95": [
+     -0.1037,
+     0.0406
+    ],
+    "partialC5CI95": [
+     -0.0708,
+     0.0962
+    ],
+    "partialDiffC2MinusC0CI95": [
+     0.006,
+     0.0665
+    ],
+    "partialDiffC5MinusC0CI95": [
+     -0.0051,
+     0.1631
+    ],
+    "resamples": 2000,
+    "seed": 20261137,
+    "spearmanC0CI95": [
+     -0.2818,
+     -0.1377
+    ],
+    "spearmanC2CI95": [
+     -0.196,
+     -0.0525
+    ],
+    "spearmanC5CI95": [
+     -0.1476,
+     0.0117
+    ],
+    "spearmanDiffC2MinusC0CI95": [
+     0.0462,
+     0.125
+    ],
+    "spearmanDiffC5MinusC0CI95": [
+     0.0617,
+     0.2147
+    ]
+   },
+   "candidates": {
+    "C0": {
+     "actionable": 607,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0579,
+       "n": 14
+      },
+      "HOLD": {
+       "meanRelChange": -0.0129,
+       "n": 69
+      },
+      "SELL": {
+       "meanRelChange": -0.0052,
+       "n": 13
+      },
+      "STRONG_BUY": {
+       "meanRelChange": 0.0063,
+       "n": 10
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0243,
+       "n": 570
+      }
+     },
+     "hitRate": 0.4761,
+     "longShortSpread": -0.0072,
+     "partialSpearmanGivenMarketRank": -0.0673,
+     "spearman": -0.2078,
+     "spearmanIdp": 0.0281,
+     "spearmanOffense": -0.3502
+    },
+    "C1": {
+     "actionable": 480,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0061,
+       "n": 105
+      },
+      "HOLD": {
+       "meanRelChange": -0.0275,
+       "n": 196
+      },
+      "SELL": {
+       "meanRelChange": 0.0197,
+       "n": 9
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0263,
+       "n": 211
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0269,
+       "n": 155
+      }
+     },
+     "hitRate": 0.45,
+     "longShortSpread": 0.0048,
+     "partialSpearmanGivenMarketRank": -0.0304,
+     "spearman": -0.0949,
+     "spearmanIdp": 0.0764,
+     "spearmanOffense": -0.1836
+    },
+    "C2": {
+     "actionable": 451,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0325,
+       "n": 78
+      },
+      "HOLD": {
+       "meanRelChange": -0.034,
+       "n": 225
+      },
+      "SELL": {
+       "meanRelChange": 0.0231,
+       "n": 18
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0201,
+       "n": 131
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0142,
+       "n": 224
+      }
+     },
+     "hitRate": 0.4257,
+     "longShortSpread": -0.0133,
+     "partialSpearmanGivenMarketRank": -0.031,
+     "spearman": -0.1219,
+     "spearmanIdp": 0.0738,
+     "spearmanOffense": -0.2419
+    },
+    "C3": {
+     "actionable": 432,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0065,
+       "n": 99
+      },
+      "HOLD": {
+       "meanRelChange": -0.0276,
+       "n": 244
+      },
+      "SELL": {
+       "meanRelChange": 0.0013,
+       "n": 11
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0334,
+       "n": 109
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0215,
+       "n": 213
+      }
+     },
+     "hitRate": 0.4236,
+     "longShortSpread": -0.0002,
+     "partialSpearmanGivenMarketRank": -0.0392,
+     "spearman": -0.1189,
+     "spearmanIdp": 0.0506,
+     "spearmanOffense": -0.2224
+    },
+    "C4": {
+     "actionable": 338,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0563,
+       "n": 101
+      },
+      "HOLD": {
+       "meanRelChange": -0.0173,
+       "n": 338
+      },
+      "SELL": {
+       "meanRelChange": -0.0355,
+       "n": 101
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0229,
+       "n": 68
+      },
+      "STRONG_SELL": {
+       "meanRelChange": 0.0161,
+       "n": 68
+      }
+     },
+     "hitRate": 0.3787,
+     "longShortSpread": -0.0281,
+     "partialSpearmanGivenMarketRank": -0.0673,
+     "spearman": -0.2078,
+     "spearmanIdp": 0.0281,
+     "spearmanOffense": -0.3502
+    },
+    "C5": {
+     "actionable": 150,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0378,
+       "n": 83
+      },
+      "HOLD": {
+       "meanRelChange": -0.0225,
+       "n": 526
+      },
+      "SELL": {
+       "meanRelChange": -0.0092,
+       "n": 67
+      },
+      "STRONG_BUY": {
+       "meanRelChange": null,
+       "n": 0
+      },
+      "STRONG_SELL": {
+       "meanRelChange": null,
+       "n": 0
+      }
+     },
+     "hitRate": 0.4,
+     "longShortSpread": -0.0286,
+     "partialSpearmanGivenMarketRank": 0.0131,
+     "spearman": -0.0695,
+     "spearmanIdp": 0.0425,
+     "spearmanOffense": -0.1529
+    }
+   },
+   "censored": 22,
+   "completeCase": {
+    "C0": {
+     "n": 654,
+     "partialSpearmanGivenMarketRank": -0.073,
+     "spearman": -0.1807
+    },
+    "C1": {
+     "n": 654,
+     "partialSpearmanGivenMarketRank": -0.0322,
+     "spearman": -0.0842
+    },
+    "C2": {
+     "n": 654,
+     "partialSpearmanGivenMarketRank": -0.0311,
+     "spearman": -0.103
+    },
+    "C3": {
+     "n": 654,
+     "partialSpearmanGivenMarketRank": -0.0308,
+     "spearman": -0.0932
+    },
+    "C4": {
+     "n": 654,
+     "partialSpearmanGivenMarketRank": -0.073,
+     "spearman": -0.1807
+    },
+    "C5": {
+     "n": 654,
+     "partialSpearmanGivenMarketRank": 0.0448,
+     "spearman": -0.0176
+    }
+   },
+   "drift": {
+    "idpTradeCalc": -0.001,
+    "ktcSfTep": -0.0291
+   }
+  },
+  "60": {
+   "archive": "dynasty_export_20261003_214933.zip",
+   "available": true,
+   "baselines": {
+    "negMarketValue": -0.1445,
+    "servedTvAlone": 0.0634
+   },
+   "bootstrapVsIncumbent": {
+    "partialC0CI95": [
+     -0.1492,
+     -0.0033
+    ],
+    "partialC2CI95": [
+     -0.1138,
+     0.0297
+    ],
+    "partialC5CI95": [
+     -0.0751,
+     0.08
+    ],
+    "partialDiffC2MinusC0CI95": [
+     0.0022,
+     0.0669
+    ],
+    "partialDiffC5MinusC0CI95": [
+     0.0001,
+     0.1592
+    ],
+    "resamples": 2000,
+    "seed": 20261167,
+    "spearmanC0CI95": [
+     -0.2273,
+     -0.0839
+    ],
+    "spearmanC2CI95": [
+     -0.1721,
+     -0.0274
+    ],
+    "spearmanC5CI95": [
+     -0.1217,
+     0.0241
+    ],
+    "spearmanDiffC2MinusC0CI95": [
+     0.0192,
+     0.0983
+    ],
+    "spearmanDiffC5MinusC0CI95": [
+     0.0311,
+     0.1822
+    ]
+   },
+   "candidates": {
+    "C0": {
+     "actionable": 607,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0972,
+       "n": 14
+      },
+      "HOLD": {
+       "meanRelChange": 0.0003,
+       "n": 69
+      },
+      "SELL": {
+       "meanRelChange": 0.0107,
+       "n": 13
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0142,
+       "n": 10
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.014,
+       "n": 570
+      }
+     },
+     "hitRate": 0.4745,
+     "longShortSpread": -0.0491,
+     "partialSpearmanGivenMarketRank": -0.0766,
+     "spearman": -0.1584,
+     "spearmanIdp": 0.0215,
+     "spearmanOffense": -0.2276
+    },
+    "C1": {
+     "actionable": 480,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0068,
+       "n": 105
+      },
+      "HOLD": {
+       "meanRelChange": -0.0228,
+       "n": 196
+      },
+      "SELL": {
+       "meanRelChange": 0.0508,
+       "n": 9
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0134,
+       "n": 211
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0117,
+       "n": 155
+      }
+     },
+     "hitRate": 0.4604,
+     "longShortSpread": -0.0029,
+     "partialSpearmanGivenMarketRank": -0.0378,
+     "spearman": -0.0795,
+     "spearmanIdp": 0.0727,
+     "spearmanOffense": -0.1167
+    },
+    "C2": {
+     "actionable": 451,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0135,
+       "n": 78
+      },
+      "HOLD": {
+       "meanRelChange": -0.0321,
+       "n": 225
+      },
+      "SELL": {
+       "meanRelChange": 0.0717,
+       "n": 18
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0125,
+       "n": 131
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0033,
+       "n": 224
+      }
+     },
+     "hitRate": 0.4213,
+     "longShortSpread": -0.0151,
+     "partialSpearmanGivenMarketRank": -0.0429,
+     "spearman": -0.1005,
+     "spearmanIdp": 0.0613,
+     "spearmanOffense": -0.153
+    },
+    "C3": {
+     "actionable": 432,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": 0.0174,
+       "n": 99
+      },
+      "HOLD": {
+       "meanRelChange": -0.0204,
+       "n": 244
+      },
+      "SELL": {
+       "meanRelChange": -0.0394,
+       "n": 11
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0243,
+       "n": 109
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0141,
+       "n": 213
+      }
+     },
+     "hitRate": 0.4306,
+     "longShortSpread": 0.0109,
+     "partialSpearmanGivenMarketRank": -0.0374,
+     "spearman": -0.0892,
+     "spearmanIdp": 0.0407,
+     "spearmanOffense": -0.1391
+    },
+    "C4": {
+     "actionable": 338,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0364,
+       "n": 101
+      },
+      "HOLD": {
+       "meanRelChange": -0.0122,
+       "n": 338
+      },
+      "SELL": {
+       "meanRelChange": -0.0101,
+       "n": 101
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.025,
+       "n": 68
+      },
+      "STRONG_SELL": {
+       "meanRelChange": 0.0174,
+       "n": 68
+      }
+     },
+     "hitRate": 0.3876,
+     "longShortSpread": -0.0328,
+     "partialSpearmanGivenMarketRank": -0.0766,
+     "spearman": -0.1584,
+     "spearmanIdp": 0.0215,
+     "spearmanOffense": -0.2276
+    },
+    "C5": {
+     "actionable": 150,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0103,
+       "n": 83
+      },
+      "HOLD": {
+       "meanRelChange": -0.0161,
+       "n": 526
+      },
+      "SELL": {
+       "meanRelChange": -0.0004,
+       "n": 67
+      },
+      "STRONG_BUY": {
+       "meanRelChange": null,
+       "n": 0
+      },
+      "STRONG_SELL": {
+       "meanRelChange": null,
+       "n": 0
+      }
+     },
+     "hitRate": 0.44,
+     "longShortSpread": -0.0098,
+     "partialSpearmanGivenMarketRank": 0.0019,
+     "spearman": -0.0518,
+     "spearmanIdp": 0.0594,
+     "spearmanOffense": -0.1101
+    }
+   },
+   "censored": 25,
+   "completeCase": {
+    "C0": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": -0.0807,
+     "spearman": -0.1323
+    },
+    "C1": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": -0.0412,
+     "spearman": -0.0711
+    },
+    "C2": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": -0.0465,
+     "spearman": -0.0866
+    },
+    "C3": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": -0.0286,
+     "spearman": -0.0649
+    },
+    "C4": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": -0.0807,
+     "spearman": -0.1323
+    },
+    "C5": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": 0.0209,
+     "spearman": -0.0154
+    }
+   },
+   "drift": {
+    "idpTradeCalc": -0.0008,
+    "ktcSfTep": -0.0623
+   }
+  },
+  "90": {
+   "archive": "dynasty_export_20261102_015256.zip",
+   "available": true,
+   "baselines": {
+    "negMarketValue": -0.0437,
+    "servedTvAlone": 0.0281
+   },
+   "bootstrapVsIncumbent": {
+    "partialC0CI95": [
+     -0.0869,
+     0.0563
+    ],
+    "partialC2CI95": [
+     -0.0646,
+     0.0851
+    ],
+    "partialC5CI95": [
+     -0.0436,
+     0.1033
+    ],
+    "partialDiffC2MinusC0CI95": [
+     -0.003,
+     0.0562
+    ],
+    "partialDiffC5MinusC0CI95": [
+     -0.0286,
+     0.1233
+    ],
+    "resamples": 2000,
+    "seed": 20261197,
+    "spearmanC0CI95": [
+     -0.1189,
+     0.0303
+    ],
+    "spearmanC2CI95": [
+     -0.0837,
+     0.0656
+    ],
+    "spearmanC5CI95": [
+     -0.0604,
+     0.0854
+    ],
+    "spearmanDiffC2MinusC0CI95": [
+     -0.0049,
+     0.0706
+    ],
+    "spearmanDiffC5MinusC0CI95": [
+     -0.0128,
+     0.1247
+    ]
+   },
+   "candidates": {
+    "C0": {
+     "actionable": 607,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0177,
+       "n": 14
+      },
+      "HOLD": {
+       "meanRelChange": 0.0121,
+       "n": 69
+      },
+      "SELL": {
+       "meanRelChange": -0.0574,
+       "n": 13
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0151,
+       "n": 10
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0116,
+       "n": 570
+      }
+     },
+     "hitRate": 0.4893,
+     "longShortSpread": -0.004,
+     "partialSpearmanGivenMarketRank": -0.0189,
+     "spearman": -0.0452,
+     "spearmanIdp": 0.0782,
+     "spearmanOffense": -0.0838
+    },
+    "C1": {
+     "actionable": 480,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": 0.0302,
+       "n": 105
+      },
+      "HOLD": {
+       "meanRelChange": -0.0301,
+       "n": 196
+      },
+      "SELL": {
+       "meanRelChange": 0.0852,
+       "n": 9
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0101,
+       "n": 211
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0182,
+       "n": 155
+      }
+     },
+     "hitRate": 0.4958,
+     "longShortSpread": 0.0158,
+     "partialSpearmanGivenMarketRank": -0.0006,
+     "spearman": -0.0139,
+     "spearmanIdp": 0.0641,
+     "spearmanOffense": -0.0118
+    },
+    "C2": {
+     "actionable": 451,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.0183,
+       "n": 78
+      },
+      "HOLD": {
+       "meanRelChange": -0.0073,
+       "n": 225
+      },
+      "SELL": {
+       "meanRelChange": 0.0273,
+       "n": 18
+      },
+      "STRONG_BUY": {
+       "meanRelChange": 0.0034,
+       "n": 131
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0214,
+       "n": 224
+      }
+     },
+     "hitRate": 0.4922,
+     "longShortSpread": 0.0131,
+     "partialSpearmanGivenMarketRank": 0.0076,
+     "spearman": -0.012,
+     "spearmanIdp": 0.074,
+     "spearmanOffense": -0.0232
+    },
+    "C3": {
+     "actionable": 432,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": 0.0485,
+       "n": 99
+      },
+      "HOLD": {
+       "meanRelChange": -0.0213,
+       "n": 244
+      },
+      "SELL": {
+       "meanRelChange": -0.0403,
+       "n": 11
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0029,
+       "n": 109
+      },
+      "STRONG_SELL": {
+       "meanRelChange": -0.0271,
+       "n": 213
+      }
+     },
+     "hitRate": 0.5093,
+     "longShortSpread": 0.0493,
+     "partialSpearmanGivenMarketRank": 0.0409,
+     "spearman": 0.0212,
+     "spearmanIdp": 0.1045,
+     "spearmanOffense": -0.014
+    },
+    "C4": {
+     "actionable": 338,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": -0.009,
+       "n": 101
+      },
+      "HOLD": {
+       "meanRelChange": -0.0138,
+       "n": 338
+      },
+      "SELL": {
+       "meanRelChange": -0.0209,
+       "n": 101
+      },
+      "STRONG_BUY": {
+       "meanRelChange": -0.0032,
+       "n": 68
+      },
+      "STRONG_SELL": {
+       "meanRelChange": 0.0145,
+       "n": 68
+      }
+     },
+     "hitRate": 0.4704,
+     "longShortSpread": -0.0,
+     "partialSpearmanGivenMarketRank": -0.0189,
+     "spearman": -0.0452,
+     "spearmanIdp": 0.0782,
+     "spearmanOffense": -0.0838
+    },
+    "C5": {
+     "actionable": 150,
+     "byLabel": {
+      "BUY": {
+       "meanRelChange": 0.0326,
+       "n": 83
+      },
+      "HOLD": {
+       "meanRelChange": -0.0152,
+       "n": 526
+      },
+      "SELL": {
+       "meanRelChange": -0.0243,
+       "n": 67
+      },
+      "STRONG_BUY": {
+       "meanRelChange": null,
+       "n": 0
+      },
+      "STRONG_SELL": {
+       "meanRelChange": null,
+       "n": 0
+      }
+     },
+     "hitRate": 0.48,
+     "longShortSpread": 0.0569,
+     "partialSpearmanGivenMarketRank": 0.0299,
+     "spearman": 0.0115,
+     "spearmanIdp": 0.0594,
+     "spearmanOffense": -0.0067
+    }
+   },
+   "censored": 25,
+   "completeCase": {
+    "C0": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": -0.0217,
+     "spearman": -0.0222
+    },
+    "C1": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": -0.004,
+     "spearman": -0.007
+    },
+    "C2": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": 0.0057,
+     "spearman": 0.0008
+    },
+    "C3": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": 0.0489,
+     "spearman": 0.0418
+    },
+    "C4": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": -0.0217,
+     "spearman": -0.0222
+    },
+    "C5": {
+     "n": 651,
+     "partialSpearmanGivenMarketRank": 0.0356,
+     "spearman": 0.03
+    }
+   },
+   "drift": {
+    "idpTradeCalc": -0.0024,
+    "ktcSfTep": -0.0851
+   }
+  }
+ },
+ "gammaStarTop30": 0.5452,
+ "inputs": {
+  "evidence": {
+   "path": "docs/master-site-audit/evidence/W13/engine-live-run.json",
+   "sha256": "820e3cdc0232bf34b0fdd622756bc4431df3575c76fa0b8af53af49bfb9f4a3e"
+  },
+  "outcomeArchives": {
+   "dynasty_export_20260903_225148.zip": "b99386d3ece0028e45c38fb63ee7f101818639d0517634934be4586d7a22bf03",
+   "dynasty_export_20261003_214933.zip": "11247102544c26ae7148fe55caeb83213786b357fbc30f20ef5f122115d6af9e",
+   "dynasty_export_20261102_015256.zip": "207c5b3da9e080127e14917f3cdbeaf3fdde810b49f57731f68461c453d9d22b"
+  },
+  "params": {
+   "path": "config/bdvm/params_v1.json",
+   "sha256": "df89c0c4d9b38e69d9165bb90d9c095eb35ef094cf80b67fd22998b2426d5600"
+  }
+ },
+ "params": {
+  "buy_alpha": 400.0,
+  "liquidity_clip_lo": 0.2,
+  "sell_alpha": -400.0,
+  "strong_buy_alpha": 900.0,
+  "strong_buy_min_liquidity": 0.5,
+  "strong_sell_alpha": -900.0,
+  "stud_gamma": 1.2,
+  "target_top_value": 9800.0
+ },
+ "recordedSignalCounts": {
+  "BUY": 14,
+  "HOLD": 69,
+  "SELL": 13,
+  "STRONG_BUY": 10,
+  "STRONG_SELL": 570
+ },
+ "run": {
+  "asOf": "2026-08-04T22:18:22.342080+00:00",
+  "contractGeneratedAt": "2026-08-04T20:12:02.015705+00:00",
+  "dvMaxAllPriced": 712.3259,
+  "marketAnchoredRows": 676,
+  "noMarketRows": 23,
+  "paramSetId": "params_v1:01af672b2aff",
+  "pricedPlayers": 699,
+  "projectionSources": [
+   "reconstructedBaseline"
+  ]
+ },
+ "signalCounts": {
+  "C0": {
+   "BUY": 14,
+   "HOLD": 69,
+   "SELL": 13,
+   "STRONG_BUY": 10,
+   "STRONG_SELL": 570
+  },
+  "C1": {
+   "BUY": 105,
+   "HOLD": 196,
+   "SELL": 9,
+   "STRONG_BUY": 211,
+   "STRONG_SELL": 155
+  },
+  "C2": {
+   "BUY": 78,
+   "HOLD": 225,
+   "SELL": 18,
+   "STRONG_BUY": 131,
+   "STRONG_SELL": 224
+  },
+  "C3": {
+   "BUY": 99,
+   "HOLD": 244,
+   "SELL": 11,
+   "STRONG_BUY": 109,
+   "STRONG_SELL": 213
+  },
+  "C4": {
+   "BUY": 101,
+   "HOLD": 338,
+   "SELL": 101,
+   "STRONG_BUY": 68,
+   "STRONG_SELL": 68
+  },
+  "C5": {
+   "BUY": 83,
+   "HOLD": 526,
+   "SELL": 67,
+   "STRONG_BUY": 0,
+   "STRONG_SELL": 0
+  }
+ },
+ "signalDate": "20260804",
+ "strongSellShare": {
+  "C0": 0.8432,
+  "C1": 0.2293,
+  "C2": 0.3314,
+  "C3": 0.3151,
+  "C4": 0.1006,
+  "C5": 0.0
+ },
+ "study": "W13-F003 BDVM signal saturation",
+ "transitionIncumbentToC2": {
+  "BUY": {
+   "BUY": 1,
+   "HOLD": 0,
+   "SELL": 0,
+   "STRONG_BUY": 13,
+   "STRONG_SELL": 0
+  },
+  "HOLD": {
+   "BUY": 1,
+   "HOLD": 0,
+   "SELL": 0,
+   "STRONG_BUY": 68,
+   "STRONG_SELL": 0
+  },
+  "SELL": {
+   "BUY": 1,
+   "HOLD": 0,
+   "SELL": 0,
+   "STRONG_BUY": 12,
+   "STRONG_SELL": 0
+  },
+  "STRONG_BUY": {
+   "BUY": 0,
+   "HOLD": 0,
+   "SELL": 0,
+   "STRONG_BUY": 10,
+   "STRONG_SELL": 0
+  },
+  "STRONG_SELL": {
+   "BUY": 75,
+   "HOLD": 225,
+   "SELL": 18,
+   "STRONG_BUY": 28,
+   "STRONG_SELL": 224
+  }
+ }
+}

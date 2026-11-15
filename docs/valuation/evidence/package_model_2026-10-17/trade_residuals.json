@@ -1,0 +1,182 @@
+{
+  "purpose": "Diagnostic of disagreement with accepted trades. Not accuracy, not a promotion.",
+  "generatedBy": "scripts/package_model_trade_residuals.py",
+  "models": {
+    "ktc_2026_04": {
+      "id": "ktc_2026_04",
+      "family": "ktc",
+      "version": "2026-04",
+      "label": "KTC Value Adjustment (port of keeptradecut.com adjustPackage, April 2026)",
+      "classification": "INCUMBENT"
+    },
+    "geom_q078_v1": {
+      "id": "geom_q078_v1",
+      "family": "geom",
+      "version": "1",
+      "label": "Sorted package utility, q = 0.78 (shadow challenger)",
+      "classification": "PRIOR"
+    }
+  },
+  "maxBoardLagDays": 7.0,
+  "archiveRange": [
+    "dynasty_export_20260714_233659.zip",
+    "dynasty_export_20261017_071509.zip"
+  ],
+  "census": {
+    "trades": 106,
+    "notTwoTeam": 3,
+    "noArchiveBefore": 66,
+    "boardTooOld": 0
+  },
+  "bySource": {
+    "ktcSfTep": {
+      "graded": 15,
+      "excludedUnpricedAsset": 22,
+      "sourceAbsentFromArchive": 0,
+      "residualAll": {
+        "raw": {
+          "n": 15,
+          "meanAbs": 0.158,
+          "medianAbs": 0.0384,
+          "p90Abs": 0.4199,
+          "beyond10pct": 7,
+          "beyond20pct": 6
+        },
+        "ktc_2026_04": {
+          "n": 15,
+          "meanAbs": 0.0727,
+          "medianAbs": 0.0384,
+          "p90Abs": 0.2531,
+          "beyond10pct": 4,
+          "beyond20pct": 2
+        },
+        "geom_q078_v1": {
+          "n": 15,
+          "meanAbs": 0.0866,
+          "medianAbs": 0.0384,
+          "p90Abs": 0.2531,
+          "beyond10pct": 4,
+          "beyond20pct": 3
+        }
+      },
+      "residualUnequalShapes": {
+        "raw": {
+          "n": 5,
+          "meanAbs": 0.3698,
+          "medianAbs": 0.327,
+          "p90Abs": 0.5785,
+          "beyond10pct": 5,
+          "beyond20pct": 5
+        },
+        "ktc_2026_04": {
+          "n": 5,
+          "meanAbs": 0.1115,
+          "medianAbs": 0.0705,
+          "p90Abs": 0.2735,
+          "beyond10pct": 2,
+          "beyond20pct": 1
+        },
+        "geom_q078_v1": {
+          "n": 5,
+          "meanAbs": 0.1661,
+          "medianAbs": 0.1915,
+          "p90Abs": 0.3052,
+          "beyond10pct": 3,
+          "beyond20pct": 2
+        }
+      },
+      "challengerCloserToEvenThanIncumbent": {
+        "geom_q078_v1": 3
+      },
+      "shapes": {
+        "1v1": 6,
+        "2v1": 1,
+        "2v2": 3,
+        "2v4": 1,
+        "3v1": 1,
+        "3v3": 1,
+        "3v4": 1,
+        "4v2": 1
+      }
+    },
+    "idpTradeCalc": {
+      "graded": 21,
+      "excludedUnpricedAsset": 16,
+      "sourceAbsentFromArchive": 0,
+      "residualAll": {
+        "raw": {
+          "n": 21,
+          "meanAbs": 0.1398,
+          "medianAbs": 0.0755,
+          "p90Abs": 0.3555,
+          "beyond10pct": 10,
+          "beyond20pct": 5
+        },
+        "ktc_2026_04": {
+          "n": 21,
+          "meanAbs": 0.1375,
+          "medianAbs": 0.109,
+          "p90Abs": 0.2606,
+          "beyond10pct": 11,
+          "beyond20pct": 4
+        },
+        "geom_q078_v1": {
+          "n": 21,
+          "meanAbs": 0.0944,
+          "medianAbs": 0.0646,
+          "p90Abs": 0.175,
+          "beyond10pct": 9,
+          "beyond20pct": 2
+        }
+      },
+      "residualUnequalShapes": {
+        "raw": {
+          "n": 9,
+          "meanAbs": 0.2044,
+          "medianAbs": 0.1284,
+          "p90Abs": 0.369,
+          "beyond10pct": 6,
+          "beyond20pct": 4
+        },
+        "ktc_2026_04": {
+          "n": 9,
+          "meanAbs": 0.1681,
+          "medianAbs": 0.1289,
+          "p90Abs": 0.4402,
+          "beyond10pct": 6,
+          "beyond20pct": 2
+        },
+        "geom_q078_v1": {
+          "n": 9,
+          "meanAbs": 0.1112,
+          "medianAbs": 0.1203,
+          "p90Abs": 0.207,
+          "beyond10pct": 5,
+          "beyond20pct": 1
+        }
+      },
+      "challengerCloserToEvenThanIncumbent": {
+        "geom_q078_v1": 12
+      },
+      "shapes": {
+        "1v1": 6,
+        "1v2": 1,
+        "2v1": 1,
+        "2v2": 4,
+        "2v3": 2,
+        "2v4": 1,
+        "3v1": 1,
+        "3v3": 2,
+        "3v4": 2,
+        "4v2": 1
+      }
+    }
+  },
+  "limitations": [
+    "Own leagues only (dynasty_main trade window); a few dozen trades, not a market sample.",
+    "Completed trades are a selected sample: rejected offers are unobserved, so this cannot measure acceptance.",
+    "One vendor's prices per run; managers may have priced with other sources or roster context.",
+    "Residual zero is not 'correct': a trade can be accepted while lopsided.",
+    "market_trade_eval's Sharp/KTC trade archive (data/intel) is box-local and was not available."
+  ]
+}

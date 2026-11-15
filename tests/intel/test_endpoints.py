@@ -797,6 +797,62 @@ class TestLeads:
             )
         assert r.status_code == 400
 
+    # ── league scoping (LI1842-DEFECT-01) ───────────────────────────────
+
+    @staticmethod
+    def _main_contract() -> dict:
+        return {
+            "meta": {"leagueKey": "dynasty_main"},
+            "sleeper": {"teams": [{"ownerId": "MAIN", "playerIds": ["4046"]}]},
+            "playersArray": [{"playerId": "4046", "position": "QB", "rankDerivedValue": 9000}],
+        }
+
+    def test_a_league_the_loaded_contract_was_not_built_for_is_a_503(
+        self, intel_data_dir, authed, monkeypatch
+    ):
+        """The roster-fit and value terms read the loaded contract, which is
+        ONE league's.  A request for another league is the ``/api/trade/*``
+        503, never that league's owners and values served as this one's."""
+
+        def _cfg(key: str) -> SimpleNamespace:
+            return SimpleNamespace(
+                key=key, sleeper_league_id="999", active=True, roster_settings={}
+            )
+
+        cfgs = {"dynasty_main": _cfg("dynasty_main"), "dynasty_new": _cfg("dynasty_new")}
+        monkeypatch.setattr(server._league_registry, "get_league_by_key", cfgs.get)
+        monkeypatch.setattr(server, "latest_contract_data", self._main_contract())
+        # Snapshots exist for BOTH, so the 503 below can only be the contract gate.
+        _seed_snapshot(league_key="dynasty_main")
+        _seed_snapshot(league_key="dynasty_new")
+        # No ``with``: the lifespan would replace the pinned contract with the
+        # checked-out export before the request runs.
+        c = TestClient(server.app, raise_server_exceptions=True)
+        other = c.post("/api/intel/leads", json={"assetId": "tr1234", "leagueKey": "dynasty_new"})
+        own = c.post("/api/intel/leads", json={"assetId": "tr1234", "leagueKey": "dynasty_main"})
+        assert other.status_code == 503
+        assert other.json()["error"] == "data_not_ready"
+        assert "dynasty_new" in other.json()["message"]
+        assert "leads" not in other.json()
+        assert own.status_code == 200
+        assert own.json()["leagueKey"] == "dynasty_main"
+
+    def test_the_contract_context_abstains_for_another_leagues_contract(self, monkeypatch):
+        """Second line behind the route's 503: the helper itself never hands
+        back a different league's rosters, positions or values."""
+        monkeypatch.setattr(server, "latest_contract_data", self._main_contract())
+        own = server._intel_contract_context("dynasty_main")
+        assert own["values"] == {"4046": 9000.0}
+        assert own["positions"] == {"4046": "QB"}
+        assert [t["ownerId"] for t in own["teams"]] == ["MAIN"]
+        assert server._intel_contract_context("dynasty_new") == {
+            "teams": [],
+            "positions": {},
+            "values": {},
+        }
+        # No league named: the pre-existing behaviour, unchanged.
+        assert server._intel_contract_context()["values"] == {"4046": 9000.0}
+
 
 class TestSyncRefreshLock:
     def test_concurrent_sync_refresh_rejected(self, intel_data_dir, monkeypatch):

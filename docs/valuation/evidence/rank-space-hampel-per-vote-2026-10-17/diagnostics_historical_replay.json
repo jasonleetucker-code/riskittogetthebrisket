@@ -1,0 +1,3883 @@
+{
+ "D6_coordinate_census": {
+  "completeBoards": {
+   "byFamily": {
+    "GLOBAL": {
+     "droppedChallenger": 12238,
+     "droppedIncumbent": 5636,
+     "shareDroppedChallenger": 0.1239,
+     "shareDroppedIncumbent": 0.0571,
+     "votes": 98773
+    },
+    "GLOBAL+te": {
+     "droppedChallenger": 1753,
+     "droppedIncumbent": 1505,
+     "shareDroppedChallenger": 0.1487,
+     "shareDroppedIncumbent": 0.1277,
+     "votes": 11787
+    },
+    "GLOBAL+te+value_direct": {
+     "droppedChallenger": 1495,
+     "droppedIncumbent": 34,
+     "shareDroppedChallenger": 0.2031,
+     "shareDroppedIncumbent": 0.0046,
+     "votes": 7360
+    },
+    "GLOBAL+value_direct": {
+     "droppedChallenger": 11136,
+     "droppedIncumbent": 532,
+     "shareDroppedChallenger": 0.2213,
+     "shareDroppedIncumbent": 0.0106,
+     "votes": 50314
+    },
+    "OFFENSE": {
+     "droppedChallenger": 6043,
+     "droppedIncumbent": 5842,
+     "shareDroppedChallenger": 0.0178,
+     "shareDroppedIncumbent": 0.0172,
+     "votes": 340440
+    },
+    "OFFENSE+te": {
+     "droppedChallenger": 1180,
+     "droppedIncumbent": 1293,
+     "shareDroppedChallenger": 0.0169,
+     "shareDroppedIncumbent": 0.0185,
+     "votes": 69726
+    },
+    "OFFENSE+value_direct": {
+     "droppedChallenger": 1578,
+     "droppedIncumbent": 658,
+     "shareDroppedChallenger": 0.0216,
+     "shareDroppedIncumbent": 0.009,
+     "votes": 73006
+    }
+   },
+   "rows": {
+    "filterRows": 61376,
+    "mixedCurveRows": 43941,
+    "shareMixedCurve": 0.7159
+   }
+  },
+  "newestCompleteBoard": {
+   "byFamily": {
+    "GLOBAL": {
+     "droppedChallenger": 65,
+     "droppedIncumbent": 38,
+     "shareDroppedChallenger": 0.2249,
+     "shareDroppedIncumbent": 0.1315,
+     "votes": 289
+    },
+    "GLOBAL+te": {
+     "droppedChallenger": 2,
+     "droppedIncumbent": 10,
+     "shareDroppedChallenger": 0.0286,
+     "shareDroppedIncumbent": 0.1429,
+     "votes": 70
+    },
+    "GLOBAL+te+value_direct": {
+     "droppedChallenger": 20,
+     "droppedIncumbent": 0,
+     "shareDroppedChallenger": 0.2597,
+     "shareDroppedIncumbent": 0.0,
+     "votes": 77
+    },
+    "GLOBAL+value_direct": {
+     "droppedChallenger": 116,
+     "droppedIncumbent": 5,
+     "shareDroppedChallenger": 0.3258,
+     "shareDroppedIncumbent": 0.014,
+     "votes": 356
+    },
+    "OFFENSE": {
+     "droppedChallenger": 33,
+     "droppedIncumbent": 31,
+     "shareDroppedChallenger": 0.0094,
+     "shareDroppedIncumbent": 0.0089,
+     "votes": 3499
+    },
+    "OFFENSE+te": {
+     "droppedChallenger": 4,
+     "droppedIncumbent": 6,
+     "shareDroppedChallenger": 0.0056,
+     "shareDroppedIncumbent": 0.0084,
+     "votes": 715
+    },
+    "OFFENSE+value_direct": {
+     "droppedChallenger": 27,
+     "droppedIncumbent": 8,
+     "shareDroppedChallenger": 0.0295,
+     "shareDroppedIncumbent": 0.0087,
+     "votes": 916
+    }
+   },
+   "rows": {
+    "filterRows": 466,
+    "mixedCurveRows": 440,
+    "shareMixedCurve": 0.9442
+   }
+  }
+ },
+ "allBoards": {
+  "D1_market_rejection_share": {
+   "1-24": {
+    "challenger": {
+     "rejected": 725,
+     "share": 0.1014,
+     "voting": 7152
+    },
+    "champion": {
+     "rejected": 538,
+     "share": 0.0752,
+     "voting": 7152
+    }
+   },
+   "1-800": {
+    "challenger": {
+     "rejected": 13267,
+     "share": 0.0848,
+     "voting": 156490
+    },
+    "champion": {
+     "rejected": 1323,
+     "share": 0.0085,
+     "voting": 156490
+    }
+   },
+   "101-200": {
+    "challenger": {
+     "rejected": 157,
+     "share": 0.0073,
+     "voting": 21430
+    },
+    "champion": {
+     "rejected": 198,
+     "share": 0.0092,
+     "voting": 21430
+    }
+   },
+   "201-400": {
+    "challenger": {
+     "rejected": 1708,
+     "share": 0.0401,
+     "voting": 42609
+    },
+    "champion": {
+     "rejected": 207,
+     "share": 0.0049,
+     "voting": 42609
+    }
+   },
+   "25-50": {
+    "challenger": {
+     "rejected": 204,
+     "share": 0.0287,
+     "voting": 7097
+    },
+    "champion": {
+     "rejected": 106,
+     "share": 0.0149,
+     "voting": 7097
+    }
+   },
+   "401-800": {
+    "challenger": {
+     "rejected": 10028,
+     "share": 0.1521,
+     "voting": 65921
+    },
+    "champion": {
+     "rejected": 98,
+     "share": 0.0015,
+     "voting": 65921
+    }
+   },
+   "51-100": {
+    "challenger": {
+     "rejected": 445,
+     "share": 0.0362,
+     "voting": 12281
+    },
+    "champion": {
+     "rejected": 176,
+     "share": 0.0143,
+     "voting": 12281
+    }
+   }
+  },
+  "D2_rows_with_market_rejected": {
+   "1-24": {
+    "challenger": 585,
+    "champion": 396,
+    "rows": 3312
+   },
+   "101-200": {
+    "challenger": 156,
+    "champion": 183,
+    "rows": 12617
+   },
+   "201-400": {
+    "challenger": 1708,
+    "champion": 196,
+    "rows": 25870
+   },
+   "25-50": {
+    "challenger": 201,
+    "champion": 106,
+    "rows": 3401
+   },
+   "401-800": {
+    "challenger": 9971,
+    "champion": 98,
+    "rows": 46049
+   },
+   "51-100": {
+    "challenger": 354,
+    "champion": 174,
+    "rows": 6289
+   }
+  },
+  "D3_value_movement": {
+   "idp": {
+    "maxRel": 1.62724,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.17827,
+    "p90RelAll": 0.0,
+    "p90RelMoved": 0.45062,
+    "rows": 53206,
+    "rowsMoved": 2772,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 75,
+      "in": 191,
+      "out": 26
+     },
+     "200": {
+      "boardsChanged": 83,
+      "in": 286,
+      "out": 64
+     },
+     "24": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     }
+    }
+   },
+   "offense": {
+    "maxRel": 1.03333,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.00979,
+    "p90RelAll": 0.02111,
+    "p90RelMoved": 0.03595,
+    "rows": 64753,
+    "rowsMoved": 27529,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 88,
+      "in": 37,
+      "out": 177
+     },
+     "200": {
+      "boardsChanged": 90,
+      "in": 26,
+      "out": 228
+     },
+     "24": {
+      "boardsChanged": 59,
+      "in": 65,
+      "out": 65
+     }
+    }
+   }
+  },
+  "D4_family_wiped": {
+   "familiesWiped": {
+    "challenger": {
+     "dlf": 2006,
+     "draftSharks": 8346,
+     "dynastyDaddySf": 146,
+     "dynastyNerdsSfTep": 674,
+     "fantasyCalc": 125,
+     "fantasyPros": 895,
+     "flockFantasy": 379,
+     "idpShow": 5449,
+     "idpTradeCalc": 15241,
+     "ktcCrowd": 154,
+     "ktcTrades": 616,
+     "otcffbSf": 85,
+     "pfkDynasty": 563,
+     "yahooBoone": 1499
+    },
+    "champion": {
+     "dlf": 1825,
+     "draftSharks": 6930,
+     "dynastyDaddySf": 121,
+     "dynastyNerdsSfTep": 672,
+     "fantasyCalc": 160,
+     "fantasyPros": 737,
+     "flockFantasy": 529,
+     "idpShow": 544,
+     "idpTradeCalc": 665,
+     "ktcCrowd": 61,
+     "ktcTrades": 157,
+     "otcffbSf": 100,
+     "pfkDynasty": 582,
+     "yahooBoone": 1380
+    }
+   },
+   "rowsByBand": {
+    "1-24": {
+     "challenger": 2148,
+     "champion": 2150,
+     "filterRows": 3312
+    },
+    "101-200": {
+     "challenger": 3276,
+     "champion": 2370,
+     "filterRows": 10244
+    },
+    "201-400": {
+     "challenger": 5380,
+     "champion": 1696,
+     "filterRows": 19574
+    },
+    "25-50": {
+     "challenger": 1840,
+     "champion": 1811,
+     "filterRows": 3283
+    },
+    "401-800": {
+     "challenger": 11931,
+     "champion": 2258,
+     "filterRows": 27911
+    },
+    "51-100": {
+     "challenger": 2596,
+     "champion": 1977,
+     "filterRows": 5764
+    },
+    "all": {
+     "challenger": 30616,
+     "champion": 12397,
+     "filterRows": 75106
+    }
+   }
+  },
+  "D5_model_vs_ktc_market_median": {
+   "1-24": {
+    "challenger": 0.0741,
+    "champion": 0.0691,
+    "rows": 1944
+   },
+   "101-200": {
+    "challenger": -0.0614,
+    "champion": -0.0631,
+    "rows": 5196
+   },
+   "201-400": {
+    "challenger": -0.1241,
+    "champion": -0.1276,
+    "rows": 9820
+   },
+   "25-50": {
+    "challenger": 0.0229,
+    "champion": 0.0207,
+    "rows": 1954
+   },
+   "401-800": {
+    "challenger": -0.1172,
+    "champion": -0.1168,
+    "rows": 12808
+   },
+   "51-100": {
+    "challenger": -0.0329,
+    "champion": -0.0374,
+    "rows": 3419
+   }
+  },
+  "boards": 138,
+  "notes": [
+   "bands by the incumbent's canonicalConsensusRank for both filters",
+   "D1/D2/D4 exclude pick rows (the filter never runs on picks)",
+   "D5 is model/ktcMarket.normalizedValue - 1 over ranked rows carrying the benchmark; a DIAGNOSTIC, never a target"
+  ]
+ },
+ "codeRevisions": [
+  "de33727a91891076ae9fad991f7670a098748a1e"
+ ],
+ "completeBoards": {
+  "D1_market_rejection_share": {
+   "1-24": {
+    "challenger": {
+     "rejected": 724,
+     "share": 0.1147,
+     "voting": 6312
+    },
+    "champion": {
+     "rejected": 516,
+     "share": 0.0817,
+     "voting": 6312
+    }
+   },
+   "1-800": {
+    "challenger": {
+     "rejected": 10690,
+     "share": 0.0801,
+     "voting": 133402
+    },
+    "champion": {
+     "rejected": 1224,
+     "share": 0.0092,
+     "voting": 133402
+    }
+   },
+   "101-200": {
+    "challenger": {
+     "rejected": 149,
+     "share": 0.0082,
+     "voting": 18266
+    },
+    "champion": {
+     "rejected": 181,
+     "share": 0.0099,
+     "voting": 18266
+    }
+   },
+   "201-400": {
+    "challenger": {
+     "rejected": 1372,
+     "share": 0.038,
+     "voting": 36142
+    },
+    "champion": {
+     "rejected": 203,
+     "share": 0.0056,
+     "voting": 36142
+    }
+   },
+   "25-50": {
+    "challenger": {
+     "rejected": 166,
+     "share": 0.0266,
+     "voting": 6247
+    },
+    "champion": {
+     "rejected": 66,
+     "share": 0.0106,
+     "voting": 6247
+    }
+   },
+   "401-800": {
+    "challenger": {
+     "rejected": 7835,
+     "share": 0.1406,
+     "voting": 55734
+    },
+    "champion": {
+     "rejected": 98,
+     "share": 0.0018,
+     "voting": 55734
+    }
+   },
+   "51-100": {
+    "challenger": {
+     "rejected": 444,
+     "share": 0.0415,
+     "voting": 10701
+    },
+    "champion": {
+     "rejected": 160,
+     "share": 0.015,
+     "voting": 10701
+    }
+   }
+  },
+  "D2_rows_with_market_rejected": {
+   "1-24": {
+    "challenger": 584,
+    "champion": 374,
+    "rows": 2472
+   },
+   "101-200": {
+    "challenger": 148,
+    "champion": 166,
+    "rows": 9419
+   },
+   "201-400": {
+    "challenger": 1372,
+    "champion": 192,
+    "rows": 19252
+   },
+   "25-50": {
+    "challenger": 163,
+    "champion": 66,
+    "rows": 2551
+   },
+   "401-800": {
+    "challenger": 7778,
+    "champion": 98,
+    "rows": 34513
+   },
+   "51-100": {
+    "challenger": 353,
+    "champion": 158,
+    "rows": 4679
+   }
+  },
+  "D3_value_movement": {
+   "idp": {
+    "maxRel": 1.62724,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.17827,
+    "p90RelAll": 0.0,
+    "p90RelMoved": 0.45062,
+    "rows": 40225,
+    "rowsMoved": 2772,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 74,
+      "in": 190,
+      "out": 26
+     },
+     "200": {
+      "boardsChanged": 81,
+      "in": 286,
+      "out": 61
+     },
+     "24": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     }
+    }
+   },
+   "offense": {
+    "maxRel": 0.81992,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.00987,
+    "p90RelAll": 0.02241,
+    "p90RelMoved": 0.03522,
+    "rows": 49366,
+    "rowsMoved": 23089,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 81,
+      "in": 31,
+      "out": 170
+     },
+     "200": {
+      "boardsChanged": 82,
+      "in": 16,
+      "out": 221
+     },
+     "24": {
+      "boardsChanged": 36,
+      "in": 42,
+      "out": 42
+     }
+    }
+   }
+  },
+  "D4_family_wiped": {
+   "familiesWiped": {
+    "challenger": {
+     "dlf": 891,
+     "draftSharks": 7798,
+     "dynastyDaddySf": 146,
+     "dynastyNerdsSfTep": 528,
+     "fantasyCalc": 117,
+     "fantasyPros": 814,
+     "flockFantasy": 180,
+     "idpShow": 5449,
+     "idpTradeCalc": 12631,
+     "ktcCrowd": 134,
+     "ktcTrades": 616,
+     "otcffbSf": 77,
+     "pfkDynasty": 541,
+     "yahooBoone": 1162
+    },
+    "champion": {
+     "dlf": 728,
+     "draftSharks": 6019,
+     "dynastyDaddySf": 116,
+     "dynastyNerdsSfTep": 512,
+     "fantasyCalc": 151,
+     "fantasyPros": 674,
+     "flockFantasy": 235,
+     "idpShow": 544,
+     "idpTradeCalc": 566,
+     "ktcCrowd": 33,
+     "ktcTrades": 157,
+     "otcffbSf": 92,
+     "pfkDynasty": 577,
+     "yahooBoone": 1056
+    }
+   },
+   "rowsByBand": {
+    "1-24": {
+     "challenger": 1789,
+     "champion": 1762,
+     "filterRows": 2472
+    },
+    "101-200": {
+     "challenger": 3054,
+     "champion": 2188,
+     "filterRows": 8444
+    },
+    "201-400": {
+     "challenger": 4693,
+     "champion": 1250,
+     "filterRows": 16040
+    },
+    "25-50": {
+     "challenger": 1481,
+     "champion": 1467,
+     "filterRows": 2515
+    },
+    "401-800": {
+     "challenger": 9617,
+     "champion": 1366,
+     "filterRows": 22576
+    },
+    "51-100": {
+     "challenger": 2212,
+     "champion": 1606,
+     "filterRows": 4429
+    },
+    "all": {
+     "challenger": 26258,
+     "champion": 9771,
+     "filterRows": 61376
+    }
+   }
+  },
+  "D5_model_vs_ktc_market_median": {
+   "1-24": {
+    "challenger": 0.0741,
+    "champion": 0.0691,
+    "rows": 1944
+   },
+   "101-200": {
+    "challenger": -0.0614,
+    "champion": -0.0631,
+    "rows": 5196
+   },
+   "201-400": {
+    "challenger": -0.1241,
+    "champion": -0.1276,
+    "rows": 9820
+   },
+   "25-50": {
+    "challenger": 0.0229,
+    "champion": 0.0207,
+    "rows": 1954
+   },
+   "401-800": {
+    "challenger": -0.1172,
+    "champion": -0.1168,
+    "rows": 12808
+   },
+   "51-100": {
+    "challenger": -0.0329,
+    "champion": -0.0374,
+    "rows": 3419
+   }
+  },
+  "boards": 103,
+  "notes": [
+   "bands by the incumbent's canonicalConsensusRank for both filters",
+   "D1/D2/D4 exclude pick rows (the filter never runs on picks)",
+   "D5 is model/ktcMarket.normalizedValue - 1 over ranked rows carrying the benchmark; a DIAGNOSTIC, never a target"
+  ]
+ },
+ "diagnosticPlayers": {
+  "Puka Nacua": {
+   "newestCompleteBoard": {
+    "challengerStats": {
+     "centre": 0.012022,
+     "scale": 0.00405
+    },
+    "incumbentStats": {
+     "centre": 9210.0,
+     "scale": 396.0,
+     "threshold": 1089.0
+    },
+    "ktcMarketNormalized": 8142.9,
+    "position": "WR",
+    "rankChallenger": 8,
+    "rankIncumbent": 8,
+    "valueChallenger": 9200.0,
+    "valueIncumbent": 9110.0,
+    "votes": [
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "dlfSf",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.01002,
+      "value": 9345.0
+     },
+     {
+      "challenger": "drop",
+      "curve": "GLOBAL",
+      "incumbent": "drop",
+      "source": "draftSharks",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.012089,
+      "u": 0.042073,
+      "value": 6703.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "dynastyDaddySf",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.01002,
+      "value": 9345.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "dynastyNerdsSfTep",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.012022,
+      "value": 9210.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "fantasyCalc",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.01002,
+      "value": 9345.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "fantasyNavigatorSf",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.006015,
+      "value": 9617.0
+     },
+     {
+      "challenger": "drop",
+      "curve": "OFFENSE",
+      "incumbent": "drop",
+      "source": "fantasyProsFitzmaurice",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.034074,
+      "value": 7859.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "fantasyProsSf",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.018043,
+      "value": 8814.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "flockFantasySf",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.01002,
+      "value": 9345.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "GLOBAL+value_direct",
+      "incumbent": "drop",
+      "source": "idpTradeCalc",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.012089,
+      "u": 0.016071,
+      "value": 8033.0
+     },
+     {
+      "challenger": "drop",
+      "curve": "OFFENSE+value_direct",
+      "incumbent": "keep",
+      "source": "ktcCrowdSfTep",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.028856,
+      "value": 8153.0
+     },
+     {
+      "challenger": "drop",
+      "curve": "OFFENSE+value_direct",
+      "incumbent": "keep",
+      "source": "ktcTradesSfTep",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.028701,
+      "value": 8162.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "otcffbSf",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.01002,
+      "value": 9345.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "pfkDynasty",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.012022,
+      "value": 9210.0
+     },
+     {
+      "challenger": "keep",
+      "curve": "OFFENSE",
+      "incumbent": "keep",
+      "source": "yahooBoone",
+      "teTransform": [
+       null,
+       null
+      ],
+      "threshold": 0.015034,
+      "u": 0.026047,
+      "value": 8318.0
+     }
+    ]
+   },
+   "note": "diagnostic only; no parameter is tuned toward any player's valuation",
+   "seriesCompleteBoards": [
+    {
+     "board": "dynasty_export_20260818_230211.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9159.0,
+     "valueIncumbent": 9159.0
+    },
+    {
+     "board": "dynasty_export_20260819_230341.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9156.0,
+     "valueIncumbent": 9156.0
+    },
+    {
+     "board": "dynasty_export_20260820_230504.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9155.0,
+     "valueIncumbent": 9155.0
+    },
+    {
+     "board": "dynasty_export_20260821_230238.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9107.0,
+     "valueIncumbent": 9107.0
+    },
+    {
+     "board": "dynasty_export_20260822_230108.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9103.0,
+     "valueIncumbent": 9103.0
+    },
+    {
+     "board": "dynasty_export_20260823_230044.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9121.0,
+     "valueIncumbent": 9121.0
+    },
+    {
+     "board": "dynasty_export_20260824_230400.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9105.0,
+     "valueIncumbent": 9105.0
+    },
+    {
+     "board": "dynasty_export_20260825_230528.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9129.0,
+     "valueIncumbent": 9129.0
+    },
+    {
+     "board": "dynasty_export_20260826_211658.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9122.0,
+     "valueIncumbent": 9122.0
+    },
+    {
+     "board": "dynasty_export_20260827_153424.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9120.0,
+     "valueIncumbent": 9120.0
+    },
+    {
+     "board": "dynasty_export_20260828_234428.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9079.0,
+     "valueIncumbent": 9079.0
+    },
+    {
+     "board": "dynasty_export_20260829_211720.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9113.0,
+     "valueIncumbent": 9113.0
+    },
+    {
+     "board": "dynasty_export_20260830_213746.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9117.0,
+     "valueIncumbent": 9117.0
+    },
+    {
+     "board": "dynasty_export_20260831_230447.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9121.0,
+     "valueIncumbent": 9121.0
+    },
+    {
+     "board": "dynasty_export_20260901_212308.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9121.0,
+     "valueIncumbent": 9121.0
+    },
+    {
+     "board": "dynasty_export_20260902_212027.zip",
+     "droppedChallenger": [
+      "draftSharks"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9117.0,
+     "valueIncumbent": 9117.0
+    },
+    {
+     "board": "dynasty_export_20260903_225148.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9170.0,
+     "valueIncumbent": 9126.0
+    },
+    {
+     "board": "dynasty_export_20260904_223450.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9176.0,
+     "valueIncumbent": 9176.0
+    },
+    {
+     "board": "dynasty_export_20260905_204615.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9163.0,
+     "valueIncumbent": 9119.0
+    },
+    {
+     "board": "dynasty_export_20260906_205400.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9163.0,
+     "valueIncumbent": 9119.0
+    },
+    {
+     "board": "dynasty_export_20260907_230241.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9172.0,
+     "valueIncumbent": 9125.0
+    },
+    {
+     "board": "dynasty_export_20260908_212819.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9163.0,
+     "valueIncumbent": 9116.0
+    },
+    {
+     "board": "dynasty_export_20260909_211525.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9112.0,
+     "valueIncumbent": 9044.0
+    },
+    {
+     "board": "dynasty_export_20260910_224947.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9120.0,
+     "valueIncumbent": 9046.0
+    },
+    {
+     "board": "dynasty_export_20260911_212200.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9100.0,
+     "valueIncumbent": 9025.0
+    },
+    {
+     "board": "dynasty_export_20260912_223716.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9085.0,
+     "valueIncumbent": 9009.0
+    },
+    {
+     "board": "dynasty_export_20260913_223956.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9070.0,
+     "valueIncumbent": 9003.0
+    },
+    {
+     "board": "dynasty_export_20260914_233241.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9075.0,
+     "valueIncumbent": 9008.0
+    },
+    {
+     "board": "dynasty_export_20260915_214858.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9134.0,
+     "valueIncumbent": 9049.0
+    },
+    {
+     "board": "dynasty_export_20260916_214700.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9103.0,
+     "valueIncumbent": 9038.0
+    },
+    {
+     "board": "dynasty_export_20260917_214927.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9229.0,
+     "valueIncumbent": 9094.0
+    },
+    {
+     "board": "dynasty_export_20260918_211845.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9237.0,
+     "valueIncumbent": 9144.0
+    },
+    {
+     "board": "dynasty_export_20260919_223220.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9162.0,
+     "valueIncumbent": 9112.0
+    },
+    {
+     "board": "dynasty_export_20260920_224450.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 9,
+     "valueChallenger": 9285.0,
+     "valueIncumbent": 9114.0
+    },
+    {
+     "board": "dynasty_export_20260921_234150.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 9,
+     "valueChallenger": 9297.0,
+     "valueIncumbent": 9197.0
+    },
+    {
+     "board": "dynasty_export_20260922_214329.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 9,
+     "valueChallenger": 9257.0,
+     "valueIncumbent": 9051.0
+    },
+    {
+     "board": "dynasty_export_20260923_215107.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 9,
+     "valueChallenger": 9246.0,
+     "valueIncumbent": 9044.0
+    },
+    {
+     "board": "dynasty_export_20260924_232149.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9148.0,
+     "valueIncumbent": 9064.0
+    },
+    {
+     "board": "dynasty_export_20260925_233646.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9089.0,
+     "valueIncumbent": 9089.0
+    },
+    {
+     "board": "dynasty_export_20260926_164906.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9083.0,
+     "valueIncumbent": 9083.0
+    },
+    {
+     "board": "dynasty_export_20260927_214140.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 9,
+     "rankIncumbent": 9,
+     "valueChallenger": 9083.0,
+     "valueIncumbent": 9083.0
+    },
+    {
+     "board": "dynasty_export_20260928_233322.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9155.0,
+     "valueIncumbent": 9155.0
+    },
+    {
+     "board": "dynasty_export_20260929_194208.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9184.0,
+     "valueIncumbent": 9141.0
+    },
+    {
+     "board": "dynasty_export_20260930_130404.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "ktcCrowdSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9173.0,
+     "valueIncumbent": 9097.0
+    },
+    {
+     "board": "dynasty_export_20261002_193506.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9058.0,
+     "valueIncumbent": 9004.0
+    },
+    {
+     "board": "dynasty_export_20261003_164652.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9141.0,
+     "valueIncumbent": 9126.0
+    },
+    {
+     "board": "dynasty_export_20261003_214933.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9141.0,
+     "valueIncumbent": 9127.0
+    },
+    {
+     "board": "dynasty_export_20261004_020307.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9141.0,
+     "valueIncumbent": 9123.0
+    },
+    {
+     "board": "dynasty_export_20261004_085141.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9141.0,
+     "valueIncumbent": 9123.0
+    },
+    {
+     "board": "dynasty_export_20261004_153351.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9146.0,
+     "valueIncumbent": 9128.0
+    },
+    {
+     "board": "dynasty_export_20261004_195148.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9139.0,
+     "valueIncumbent": 9121.0
+    },
+    {
+     "board": "dynasty_export_20261004_233916.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9065.0,
+     "valueIncumbent": 9047.0
+    },
+    {
+     "board": "dynasty_export_20261005_061740.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9140.0,
+     "valueIncumbent": 9122.0
+    },
+    {
+     "board": "dynasty_export_20261005_152048.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9104.0,
+     "valueIncumbent": 9088.0
+    },
+    {
+     "board": "dynasty_export_20261005_225803.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9136.0,
+     "valueIncumbent": 9045.0
+    },
+    {
+     "board": "dynasty_export_20261006_065546.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9137.0,
+     "valueIncumbent": 9047.0
+    },
+    {
+     "board": "dynasty_export_20261006_153039.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9138.0,
+     "valueIncumbent": 9048.0
+    },
+    {
+     "board": "dynasty_export_20261006_211735.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9136.0,
+     "valueIncumbent": 9047.0
+    },
+    {
+     "board": "dynasty_export_20261007_015227.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9143.0,
+     "valueIncumbent": 9125.0
+    },
+    {
+     "board": "dynasty_export_20261007_092552.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9301.0,
+     "valueIncumbent": 9132.0
+    },
+    {
+     "board": "dynasty_export_20261007_173609.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9144.0,
+     "valueIncumbent": 9127.0
+    },
+    {
+     "board": "dynasty_export_20261007_232213.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9144.0,
+     "valueIncumbent": 9127.0
+    },
+    {
+     "board": "dynasty_export_20261008_064316.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9145.0,
+     "valueIncumbent": 9127.0
+    },
+    {
+     "board": "dynasty_export_20261008_141213.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9144.0,
+     "valueIncumbent": 9126.0
+    },
+    {
+     "board": "dynasty_export_20261008_201231.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9092.0,
+     "valueIncumbent": 9076.0
+    },
+    {
+     "board": "dynasty_export_20261009_004358.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9092.0,
+     "valueIncumbent": 9010.0
+    },
+    {
+     "board": "dynasty_export_20261009_065001.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9092.0,
+     "valueIncumbent": 9076.0
+    },
+    {
+     "board": "dynasty_export_20261009_153734.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9303.0,
+     "valueIncumbent": 9133.0
+    },
+    {
+     "board": "dynasty_export_20261009_212133.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9307.0,
+     "valueIncumbent": 9162.0
+    },
+    {
+     "board": "dynasty_export_20261010_015826.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9250.0,
+     "valueIncumbent": 9144.0
+    },
+    {
+     "board": "dynasty_export_20261010_090501.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9299.0,
+     "valueIncumbent": 9162.0
+    },
+    {
+     "board": "dynasty_export_20261010_160048.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9295.0,
+     "valueIncumbent": 9160.0
+    },
+    {
+     "board": "dynasty_export_20261010_202220.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9163.0,
+     "valueIncumbent": 9113.0
+    },
+    {
+     "board": "dynasty_export_20261010_235341.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9162.0,
+     "valueIncumbent": 9112.0
+    },
+    {
+     "board": "dynasty_export_20261011_063103.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9162.0,
+     "valueIncumbent": 9112.0
+    },
+    {
+     "board": "dynasty_export_20261011_133520.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9161.0,
+     "valueIncumbent": 9112.0
+    },
+    {
+     "board": "dynasty_export_20261011_191416.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9250.0,
+     "valueIncumbent": 9252.0
+    },
+    {
+     "board": "dynasty_export_20261012_000240.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9261.0,
+     "valueIncumbent": 9172.0
+    },
+    {
+     "board": "dynasty_export_20261012_063618.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9255.0,
+     "valueIncumbent": 9170.0
+    },
+    {
+     "board": "dynasty_export_20261012_161108.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9257.0,
+     "valueIncumbent": 9307.0
+    },
+    {
+     "board": "dynasty_export_20261012_231649.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9250.0,
+     "valueIncumbent": 9302.0
+    },
+    {
+     "board": "dynasty_export_20261013_071003.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9304.0,
+     "valueIncumbent": 9323.0
+    },
+    {
+     "board": "dynasty_export_20261013_163029.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9302.0,
+     "valueIncumbent": 9323.0
+    },
+    {
+     "board": "dynasty_export_20261013_213606.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "yahooBoone"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9301.0,
+     "valueIncumbent": 9302.0
+    },
+    {
+     "board": "dynasty_export_20261014_012731.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9299.0,
+     "valueIncumbent": 9321.0
+    },
+    {
+     "board": "dynasty_export_20261014_080442.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9298.0,
+     "valueIncumbent": 9320.0
+    },
+    {
+     "board": "dynasty_export_20261014_140605.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep",
+      "yahooBoone"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9311.0,
+     "valueIncumbent": 9332.0
+    },
+    {
+     "board": "dynasty_export_20261014_185726.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9254.0,
+     "valueIncumbent": 9313.0
+    },
+    {
+     "board": "dynasty_export_20261014_233024.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9245.0,
+     "valueIncumbent": 9303.0
+    },
+    {
+     "board": "dynasty_export_20261015_051650.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9245.0,
+     "valueIncumbent": 9302.0
+    },
+    {
+     "board": "dynasty_export_20261015_121138.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9244.0,
+     "valueIncumbent": 9302.0
+    },
+    {
+     "board": "dynasty_export_20261015_172516.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9236.0,
+     "valueIncumbent": 9237.0
+    },
+    {
+     "board": "dynasty_export_20261015_215027.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9236.0,
+     "valueIncumbent": 9237.0
+    },
+    {
+     "board": "dynasty_export_20261016_004906.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9236.0,
+     "valueIncumbent": 9236.0
+    },
+    {
+     "board": "dynasty_export_20261016_073446.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9235.0,
+     "valueIncumbent": 9236.0
+    },
+    {
+     "board": "dynasty_export_20261016_134010.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9235.0,
+     "valueIncumbent": 9236.0
+    },
+    {
+     "board": "dynasty_export_20261016_182508.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9236.0,
+     "valueIncumbent": 9236.0
+    },
+    {
+     "board": "dynasty_export_20261016_214642.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9236.0,
+     "valueIncumbent": 9236.0
+    },
+    {
+     "board": "dynasty_export_20261017_004948.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc",
+      "ktcCrowdSfTep"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9236.0,
+     "valueIncumbent": 9236.0
+    },
+    {
+     "board": "dynasty_export_20261017_071509.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9236.0,
+     "valueIncumbent": 9188.0
+    },
+    {
+     "board": "dynasty_export_20261017_122823.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9236.0,
+     "valueIncumbent": 9186.0
+    },
+    {
+     "board": "dynasty_export_20261017_160007.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9236.0,
+     "valueIncumbent": 9186.0
+    },
+    {
+     "board": "dynasty_export_20261017_185402.zip",
+     "droppedChallenger": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "ktcCrowdSfTep",
+      "ktcTradesSfTep"
+     ],
+     "droppedIncumbent": [
+      "draftSharks",
+      "fantasyProsFitzmaurice",
+      "idpTradeCalc"
+     ],
+     "rankChallenger": 8,
+     "rankIncumbent": 8,
+     "valueChallenger": 9200.0,
+     "valueIncumbent": 9110.0
+    }
+   ]
+  }
+ },
+ "label": "archived inputs rebuilt through today's pipeline code -- NOT what production served that day",
+ "mode": "historical_replay",
+ "newestCompleteBoard": {
+  "D1_market_rejection_share": {
+   "1-24": {
+    "challenger": {
+     "rejected": 15,
+     "share": 0.2083,
+     "voting": 72
+    },
+    "champion": {
+     "rejected": 10,
+     "share": 0.1389,
+     "voting": 72
+    }
+   },
+   "1-800": {
+    "challenger": {
+     "rejected": 116,
+     "share": 0.0789,
+     "voting": 1470
+    },
+    "champion": {
+     "rejected": 13,
+     "share": 0.0088,
+     "voting": 1470
+    }
+   },
+   "101-200": {
+    "challenger": {
+     "rejected": 2,
+     "share": 0.0096,
+     "voting": 209
+    },
+    "champion": {
+     "rejected": 1,
+     "share": 0.0048,
+     "voting": 209
+    }
+   },
+   "201-400": {
+    "challenger": {
+     "rejected": 15,
+     "share": 0.0386,
+     "voting": 389
+    },
+    "champion": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 389
+    }
+   },
+   "25-50": {
+    "challenger": {
+     "rejected": 2,
+     "share": 0.0263,
+     "voting": 76
+    },
+    "champion": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 76
+    }
+   },
+   "401-800": {
+    "challenger": {
+     "rejected": 78,
+     "share": 0.1287,
+     "voting": 606
+    },
+    "champion": {
+     "rejected": 0,
+     "share": 0.0,
+     "voting": 606
+    }
+   },
+   "51-100": {
+    "challenger": {
+     "rejected": 4,
+     "share": 0.0339,
+     "voting": 118
+    },
+    "champion": {
+     "rejected": 2,
+     "share": 0.0169,
+     "voting": 118
+    }
+   }
+  },
+  "D2_rows_with_market_rejected": {
+   "1-24": {
+    "challenger": 11,
+    "champion": 7,
+    "rows": 24
+   },
+   "101-200": {
+    "challenger": 2,
+    "champion": 1,
+    "rows": 91
+   },
+   "201-400": {
+    "challenger": 15,
+    "champion": 0,
+    "rows": 187
+   },
+   "25-50": {
+    "challenger": 2,
+    "champion": 0,
+    "rows": 26
+   },
+   "401-800": {
+    "challenger": 78,
+    "champion": 0,
+    "rows": 331
+   },
+   "51-100": {
+    "challenger": 3,
+    "champion": 2,
+    "rows": 46
+   }
+  },
+  "D3_value_movement": {
+   "idp": {
+    "maxRel": 0.0,
+    "medianRelAll": 0.0,
+    "medianRelMoved": null,
+    "p90RelAll": 0.0,
+    "p90RelMoved": null,
+    "rows": 396,
+    "rowsMoved": 0,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     },
+     "200": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     },
+     "24": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     }
+    }
+   },
+   "offense": {
+    "maxRel": 0.14576,
+    "medianRelAll": 0.0,
+    "medianRelMoved": 0.01602,
+    "p90RelAll": 0.02929,
+    "p90RelMoved": 0.0419,
+    "rows": 490,
+    "rowsMoved": 224,
+    "topMembership": {
+     "100": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     },
+     "200": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     },
+     "24": {
+      "boardsChanged": 0,
+      "in": 0,
+      "out": 0
+     }
+    }
+   }
+  },
+  "D4_family_wiped": {
+   "familiesWiped": {
+    "challenger": {
+     "dlf": 9,
+     "draftSharks": 67,
+     "dynastyDaddySf": 1,
+     "dynastyNerdsSfTep": 5,
+     "fantasyCalc": 1,
+     "flockFantasy": 2,
+     "idpTradeCalc": 136,
+     "ktcCrowd": 1,
+     "ktcTrades": 9,
+     "otcffbSf": 1,
+     "pfkDynasty": 1,
+     "yahooBoone": 3
+    },
+    "champion": {
+     "dlf": 7,
+     "draftSharks": 48,
+     "dynastyNerdsSfTep": 4,
+     "flockFantasy": 2,
+     "idpTradeCalc": 5,
+     "ktcCrowd": 1,
+     "ktcTrades": 1,
+     "otcffbSf": 1,
+     "pfkDynasty": 1,
+     "yahooBoone": 7
+    }
+   },
+   "rowsByBand": {
+    "1-24": {
+     "challenger": 18,
+     "champion": 18,
+     "filterRows": 24
+    },
+    "101-200": {
+     "challenger": 13,
+     "champion": 5,
+     "filterRows": 59
+    },
+    "201-400": {
+     "challenger": 26,
+     "champion": 6,
+     "filterRows": 103
+    },
+    "25-50": {
+     "challenger": 11,
+     "champion": 15,
+     "filterRows": 25
+    },
+    "401-800": {
+     "challenger": 82,
+     "champion": 9,
+     "filterRows": 153
+    },
+    "51-100": {
+     "challenger": 12,
+     "champion": 12,
+     "filterRows": 36
+    },
+    "all": {
+     "challenger": 205,
+     "champion": 66,
+     "filterRows": 466
+    }
+   }
+  },
+  "D5_model_vs_ktc_market_median": {
+   "1-24": {
+    "challenger": 0.0938,
+    "champion": 0.0929,
+    "rows": 24
+   },
+   "101-200": {
+    "challenger": -0.0486,
+    "champion": -0.0504,
+    "rows": 68
+   },
+   "201-400": {
+    "challenger": -0.1163,
+    "champion": -0.1205,
+    "rows": 115
+   },
+   "25-50": {
+    "challenger": 0.0374,
+    "champion": 0.0391,
+    "rows": 25
+   },
+   "401-800": {
+    "challenger": -0.105,
+    "champion": -0.1057,
+    "rows": 157
+   },
+   "51-100": {
+    "challenger": -0.0233,
+    "champion": -0.0285,
+    "rows": 40
+   }
+  },
+  "board": "dynasty_export_20261017_185402.zip",
+  "boards": 1,
+  "notes": [
+   "bands by the incumbent's canonicalConsensusRank for both filters",
+   "D1/D2/D4 exclude pick rows (the filter never runs on picks)",
+   "D5 is model/ktcMarket.normalizedValue - 1 over ranked rows carrying the benchmark; a DIAGNOSTIC, never a target"
+  ]
+ },
+ "playerLevel": {
+  "largestValueMovesCompleteBoards": [
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261007_015227.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 227,
+    "rankIncumbent": null,
+    "relMove": 1.62724,
+    "valueChallenger": 2643.0,
+    "valueIncumbent": 1006.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261007_173609.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 228,
+    "rankIncumbent": null,
+    "relMove": 1.62687,
+    "valueChallenger": 2640.0,
+    "valueIncumbent": 1005.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261006_211735.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 227,
+    "rankIncumbent": null,
+    "relMove": 1.61867,
+    "valueChallenger": 2637.0,
+    "valueIncumbent": 1007.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261006_153039.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 227,
+    "rankIncumbent": null,
+    "relMove": 1.61172,
+    "valueChallenger": 2630.0,
+    "valueIncumbent": 1007.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261007_232213.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 234,
+    "rankIncumbent": null,
+    "relMove": 1.60597,
+    "valueChallenger": 2619.0,
+    "valueIncumbent": 1005.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261007_092552.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 232,
+    "rankIncumbent": 753,
+    "relMove": 1.60274,
+    "valueChallenger": 2660.0,
+    "valueIncumbent": 1022.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261006_065546.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 229,
+    "rankIncumbent": null,
+    "relMove": 1.60218,
+    "valueChallenger": 2623.0,
+    "valueIncumbent": 1008.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261008_064316.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 235,
+    "rankIncumbent": null,
+    "relMove": 1.59363,
+    "valueChallenger": 2604.0,
+    "valueIncumbent": 1004.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261005_225803.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 228,
+    "rankIncumbent": null,
+    "relMove": 1.59267,
+    "valueChallenger": 2616.0,
+    "valueIncumbent": 1009.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261005_152048.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 227,
+    "rankIncumbent": null,
+    "relMove": 1.56709,
+    "valueChallenger": 2621.0,
+    "valueIncumbent": 1021.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261002_193506.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 225,
+    "rankIncumbent": null,
+    "relMove": 1.56458,
+    "valueChallenger": 2621.0,
+    "valueIncumbent": 1022.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261004_195148.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 225,
+    "rankIncumbent": null,
+    "relMove": 1.56415,
+    "valueChallenger": 2618.0,
+    "valueIncumbent": 1021.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261003_214933.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 227,
+    "rankIncumbent": null,
+    "relMove": 1.5636,
+    "valueChallenger": 2620.0,
+    "valueIncumbent": 1022.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261003_164652.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 227,
+    "rankIncumbent": null,
+    "relMove": 1.56262,
+    "valueChallenger": 2619.0,
+    "valueIncumbent": 1022.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261004_085141.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 225,
+    "rankIncumbent": null,
+    "relMove": 1.56219,
+    "valueChallenger": 2616.0,
+    "valueIncumbent": 1021.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261004_020307.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 225,
+    "rankIncumbent": null,
+    "relMove": 1.56121,
+    "valueChallenger": 2615.0,
+    "valueIncumbent": 1021.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261004_153351.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 227,
+    "rankIncumbent": null,
+    "relMove": 1.56121,
+    "valueChallenger": 2615.0,
+    "valueIncumbent": 1021.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261005_061740.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 226,
+    "rankIncumbent": null,
+    "relMove": 1.55926,
+    "valueChallenger": 2613.0,
+    "valueIncumbent": 1021.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261004_233916.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 226,
+    "rankIncumbent": null,
+    "relMove": 1.55828,
+    "valueChallenger": 2612.0,
+    "valueIncumbent": 1021.0
+   },
+   {
+    "assetClass": "idp",
+    "board": "dynasty_export_20261008_141213.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharksIdp"
+    ],
+    "name": "Kool-Aid McKinstry",
+    "position": "DB",
+    "rankChallenger": 241,
+    "rankIncumbent": 737,
+    "relMove": 1.5501,
+    "valueChallenger": 2596.0,
+    "valueIncumbent": 1018.0
+   }
+  ],
+  "largestValueMovesNewestBoard": [
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Adam Trautman",
+    "position": "TE",
+    "rankChallenger": 643,
+    "rankIncumbent": null,
+    "relMove": 0.14576,
+    "valueChallenger": 1352.0,
+    "valueIncumbent": 1180.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "ktcCrowdSfTep"
+    ],
+    "droppedIncumbent": [],
+    "name": "Damien Martinez",
+    "position": "RB",
+    "rankChallenger": 727,
+    "rankIncumbent": null,
+    "relMove": 0.12465,
+    "valueChallenger": 1218.0,
+    "valueIncumbent": 1083.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharks"
+    ],
+    "name": "Reggie Virgil",
+    "position": "WR",
+    "rankChallenger": null,
+    "rankIncumbent": null,
+    "relMove": 0.09746,
+    "valueChallenger": 1036.0,
+    "valueIncumbent": 944.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "ktcTradesSfTep"
+    ],
+    "droppedIncumbent": [],
+    "name": "Jahdae Walker",
+    "position": "WR",
+    "rankChallenger": null,
+    "rankIncumbent": null,
+    "relMove": 0.09406,
+    "valueChallenger": 1198.0,
+    "valueIncumbent": 1095.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "draftSharks",
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "yahooBoone"
+    ],
+    "name": "Deshaun Watson",
+    "position": "QB",
+    "rankChallenger": 221,
+    "rankIncumbent": 254,
+    "relMove": 0.09065,
+    "valueChallenger": 2647.0,
+    "valueIncumbent": 2427.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [
+     "draftSharks"
+    ],
+    "name": "Josh Cameron",
+    "position": "WR",
+    "rankChallenger": 546,
+    "rankIncumbent": 619,
+    "relMove": 0.08478,
+    "valueChallenger": 1497.0,
+    "valueIncumbent": 1380.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Foster Moreau",
+    "position": "TE",
+    "rankChallenger": 608,
+    "rankIncumbent": 671,
+    "relMove": 0.0834,
+    "valueChallenger": 1403.0,
+    "valueIncumbent": 1295.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Michael Trigg",
+    "position": "TE",
+    "rankChallenger": 352,
+    "rankIncumbent": 404,
+    "relMove": 0.07131,
+    "valueChallenger": 1923.0,
+    "valueIncumbent": 1795.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "ktcCrowdSfTep"
+    ],
+    "droppedIncumbent": [],
+    "name": "Mason Rudolph",
+    "position": "QB",
+    "rankChallenger": null,
+    "rankIncumbent": null,
+    "relMove": 0.06972,
+    "valueChallenger": 1120.0,
+    "valueIncumbent": 1047.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc",
+     "ktcCrowdSfTep"
+    ],
+    "droppedIncumbent": [],
+    "name": "Joe Flacco",
+    "position": "QB",
+    "rankChallenger": 708,
+    "rankIncumbent": null,
+    "relMove": 0.06535,
+    "valueChallenger": 1239.0,
+    "valueIncumbent": 1163.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Gabe Davis",
+    "position": "WR",
+    "rankChallenger": null,
+    "rankIncumbent": null,
+    "relMove": 0.06455,
+    "valueChallenger": 1072.0,
+    "valueIncumbent": 1007.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "draftSharks",
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Kirk Cousins",
+    "position": "QB",
+    "rankChallenger": 235,
+    "rankIncumbent": 258,
+    "relMove": 0.06391,
+    "valueChallenger": 2547.0,
+    "valueIncumbent": 2394.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Efton Chism",
+    "position": "WR",
+    "rankChallenger": 553,
+    "rankIncumbent": 613,
+    "relMove": 0.06169,
+    "valueChallenger": 1480.0,
+    "valueIncumbent": 1394.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Kalel Mullings",
+    "position": "RB",
+    "rankChallenger": null,
+    "rankIncumbent": null,
+    "relMove": 0.05984,
+    "valueChallenger": 1045.0,
+    "valueIncumbent": 986.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "fantasyNavigatorSf",
+     "ktcTradesSfTep"
+    ],
+    "droppedIncumbent": [],
+    "name": "Darius Cooper",
+    "position": "WR",
+    "rankChallenger": 404,
+    "rankIncumbent": 451,
+    "relMove": 0.05879,
+    "valueChallenger": 1801.0,
+    "valueIncumbent": 1701.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Calvin Austin",
+    "position": "WR",
+    "rankChallenger": null,
+    "rankIncumbent": null,
+    "relMove": 0.0582,
+    "valueChallenger": 1200.0,
+    "valueIncumbent": 1134.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Gardner Minshew",
+    "position": "QB",
+    "rankChallenger": null,
+    "rankIncumbent": null,
+    "relMove": 0.05627,
+    "valueChallenger": 1145.0,
+    "valueIncumbent": 1084.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Phil Mafah",
+    "position": "RB",
+    "rankChallenger": null,
+    "rankIncumbent": null,
+    "relMove": 0.05594,
+    "valueChallenger": 1076.0,
+    "valueIncumbent": 1019.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "KaVontae Turpin",
+    "position": "WR",
+    "rankChallenger": 658,
+    "rankIncumbent": 702,
+    "relMove": 0.05524,
+    "valueChallenger": 1318.0,
+    "valueIncumbent": 1249.0
+   },
+   {
+    "assetClass": "offense",
+    "board": "dynasty_export_20261017_185402.zip",
+    "droppedChallenger": [
+     "idpTradeCalc"
+    ],
+    "droppedIncumbent": [],
+    "name": "Nick Westbrook-Ikhine",
+    "position": "WR",
+    "rankChallenger": null,
+    "rankIncumbent": null,
+    "relMove": 0.04985,
+    "valueChallenger": 1053.0,
+    "valueIncumbent": 1003.0
+   }
+  ],
+  "top24MarketRejectionCountsCompleteBoards": [
+   {
+    "boards": 80,
+    "challenger": 76,
+    "champion": 58,
+    "name": "Jayden Daniels",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 72,
+    "challenger": 72,
+    "champion": 60,
+    "name": "Caleb Williams",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 77,
+    "challenger": 77,
+    "champion": 52,
+    "name": "Joe Burrow",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 70,
+    "challenger": 70,
+    "champion": 54,
+    "name": "Puka Nacua",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 52,
+    "challenger": 52,
+    "champion": 35,
+    "name": "Caleb Williams",
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "boards": 51,
+    "challenger": 47,
+    "champion": 25,
+    "name": "Drake Maye",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 61,
+    "challenger": 61,
+    "champion": 0,
+    "name": "Lamar Jackson",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 46,
+    "challenger": 46,
+    "champion": 10,
+    "name": "Amon-Ra St. Brown",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 53,
+    "challenger": 2,
+    "champion": 53,
+    "name": "Patrick Mahomes",
+    "source": "idpTradeCalc"
+   },
+   {
+    "boards": 30,
+    "challenger": 30,
+    "champion": 20,
+    "name": "Patrick Mahomes",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 37,
+    "challenger": 37,
+    "champion": 12,
+    "name": "Puka Nacua",
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "boards": 39,
+    "challenger": 1,
+    "champion": 39,
+    "name": "Jayden Daniels",
+    "source": "idpTradeCalc"
+   },
+   {
+    "boards": 36,
+    "challenger": 36,
+    "champion": 2,
+    "name": "Justin Jefferson",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 29,
+    "challenger": 26,
+    "champion": 10,
+    "name": "Drake Maye",
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "boards": 27,
+    "challenger": 0,
+    "champion": 27,
+    "name": "Puka Nacua",
+    "source": "idpTradeCalc"
+   },
+   {
+    "boards": 14,
+    "challenger": 14,
+    "champion": 9,
+    "name": "Malik Nabers",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 15,
+    "challenger": 1,
+    "champion": 15,
+    "name": "Caleb Williams",
+    "source": "idpTradeCalc"
+   },
+   {
+    "boards": 13,
+    "challenger": 13,
+    "champion": 0,
+    "name": "Jeremiyah Love",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 13,
+    "challenger": 13,
+    "champion": 0,
+    "name": "Josh Allen",
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "boards": 8,
+    "challenger": 3,
+    "champion": 8,
+    "name": "Brock Purdy",
+    "source": "idpTradeCalc"
+   },
+   {
+    "boards": 10,
+    "challenger": 0,
+    "champion": 10,
+    "name": "Drake London",
+    "source": "idpTradeCalc"
+   },
+   {
+    "boards": 8,
+    "challenger": 8,
+    "champion": 0,
+    "name": "Ashton Jeanty",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 8,
+    "challenger": 8,
+    "champion": 0,
+    "name": "CeeDee Lamb",
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "boards": 6,
+    "challenger": 6,
+    "champion": 0,
+    "name": "Amon-Ra St. Brown",
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "boards": 4,
+    "challenger": 1,
+    "champion": 4,
+    "name": "Drake Maye",
+    "source": "idpTradeCalc"
+   },
+   {
+    "boards": 5,
+    "challenger": 1,
+    "champion": 4,
+    "name": "Jayden Daniels",
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "boards": 4,
+    "challenger": 4,
+    "champion": 0,
+    "name": "Joe Burrow",
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "boards": 2,
+    "challenger": 2,
+    "champion": 2,
+    "name": "Justin Jefferson",
+    "source": "idpTradeCalc"
+   },
+   {
+    "boards": 4,
+    "challenger": 4,
+    "champion": 0,
+    "name": "Lamar Jackson",
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "boards": 2,
+    "challenger": 2,
+    "champion": 2,
+    "name": "Trevor Lawrence",
+    "source": "idpTradeCalc"
+   }
+  ],
+  "top24MarketRejectionsNewestBoard": [
+   {
+    "challenger": "drop",
+    "champion": "keep",
+    "name": "Josh Allen",
+    "rankIncumbent": 2,
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "challenger": "keep",
+    "champion": "drop",
+    "name": "Puka Nacua",
+    "rankIncumbent": 8,
+    "source": "idpTradeCalc"
+   },
+   {
+    "challenger": "drop",
+    "champion": "keep",
+    "name": "Puka Nacua",
+    "rankIncumbent": 8,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "keep",
+    "name": "Puka Nacua",
+    "rankIncumbent": 8,
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "drop",
+    "name": "Amon-Ra St. Brown",
+    "rankIncumbent": 9,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "keep",
+    "name": "Amon-Ra St. Brown",
+    "rankIncumbent": 9,
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "drop",
+    "name": "Caleb Williams",
+    "rankIncumbent": 10,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "drop",
+    "name": "Caleb Williams",
+    "rankIncumbent": 10,
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "keep",
+    "name": "Lamar Jackson",
+    "rankIncumbent": 11,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "keep",
+    "name": "Drake Maye",
+    "rankIncumbent": 12,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "keep",
+    "name": "Drake Maye",
+    "rankIncumbent": 12,
+    "source": "ktcTradesSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "keep",
+    "name": "CeeDee Lamb",
+    "rankIncumbent": 13,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "drop",
+    "name": "Joe Burrow",
+    "rankIncumbent": 14,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "drop",
+    "champion": "keep",
+    "name": "Justin Jefferson",
+    "rankIncumbent": 16,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "keep",
+    "champion": "drop",
+    "name": "Patrick Mahomes",
+    "rankIncumbent": 17,
+    "source": "idpTradeCalc"
+   },
+   {
+    "challenger": "drop",
+    "champion": "drop",
+    "name": "Patrick Mahomes",
+    "rankIncumbent": 17,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "keep",
+    "champion": "drop",
+    "name": "Jayden Daniels",
+    "rankIncumbent": 20,
+    "source": "idpTradeCalc"
+   },
+   {
+    "challenger": "drop",
+    "champion": "drop",
+    "name": "Jayden Daniels",
+    "rankIncumbent": 20,
+    "source": "ktcCrowdSfTep"
+   },
+   {
+    "challenger": "keep",
+    "champion": "drop",
+    "name": "Drake London",
+    "rankIncumbent": 22,
+    "source": "idpTradeCalc"
+   }
+  ]
+ },
+ "preregistration": "docs/valuation/evidence/rank-space-hampel-per-vote-2026-10-17/PREREGISTRATION.md",
+ "schema": "joint-filter-shadow/v1/f1-diagnostics"
+}

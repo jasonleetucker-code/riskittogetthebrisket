@@ -55,7 +55,24 @@ box's public IP, so run a large one-shot backfill (``--formats-only
 (discovery 04:20, records 04:50, rosters 05:50, and this transaction
 timer itself) -- check ``systemctl list-timers 'dynasty-sharp-*'`` first.
 
-Exit codes: 0 success, 1 failure, 2 budget exhausted with leagues left.
+A league whose ``/rosters`` answers HTTP 404 is GONE -- recorded in
+``sharp_league_gone`` with a timestamp (not deleted, not "no trades", not a
+failure), left out of the queue for a week, then re-checked in a small capped
+trickle (transactions.GONE_RECHECK_MAX_PER_RUN per run). Sleeper's own 404
+(empty / JSON ``null`` body) is an answer, not an outage: it does not count
+toward the shared ``sleeper_api`` circuit breaker (src/api/sleeper_overlay.py),
+and is not reported to it at all. A 404 with any OTHER body (HTML, a gateway or
+WAF message) is not Sleeper's and does count. A gone mark is written only when
+this run's own ``/state/nfl`` call answered with a dict; otherwise the 404s are
+counted in ``leaguesNotFoundUnconfirmed`` (and logged), marked nothing, and asked
+again next run. If the breaker DOES open (a real Sleeper outage), the pass stops
+at once instead of fast-failing the rest of the queue, and the JSON says
+``"stoppedReason": "sleeper_breaker_open"``.
+
+Exit codes: 0 success, 1 failure, 2 leagues left unattempted (transaction or
+format pass). 2 covers BOTH an exhausted budget and a breaker stop; read
+``stoppedReason`` in the JSON (and the ``sharp transaction crawl:`` log line) to
+tell them apart. The systemd unit treats 2 as success.
 """
 
 from __future__ import annotations
@@ -195,10 +212,25 @@ def main() -> int:
             kwargs = {}
             if args.budget is not None:
                 kwargs["budget"] = args.budget
-            result = transactions.crawl_transactions(league_ids=args.leagues, **kwargs)
+            # Naming leagues with --league is an explicit request: a league
+            # last seen gone (404) is fetched again rather than skipped.
+            result = transactions.crawl_transactions(
+                league_ids=args.leagues, skip_gone=not args.leagues, **kwargs
+            )
             payload = result.to_dict()
             payload["coverage"] = transactions.crawl_coverage()
             tx_pending = bool(result.leagues_pending)
+            if result.stopped_reason == transactions.STOPPED_BREAKER_OPEN:
+                # Exit code 2 below cannot say this: it reads the same as an
+                # ordinary budget stop.  Say it where an operator will look.
+                log.error(
+                    "transaction pass STOPPED EARLY: the shared sleeper_api circuit "
+                    "breaker is open; fetched=%d of %d leagues, %d not attempted "
+                    "(exit 2 here means 'stopped, leagues remain', not 'budget spent')",
+                    result.leagues_fetched,
+                    result.leagues_considered,
+                    result.leagues_pending,
+                )
 
         format_pending = False
         sharp_stopped: str | None = None

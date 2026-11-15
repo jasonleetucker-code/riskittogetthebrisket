@@ -665,6 +665,11 @@ NOT_HILL_BOARDS: dict[str, str] = {
     "dlfRookieSf": "rank-only rookie board: contributes order, never spacing",
     "dlfIdp": "rank-only IDP board: contributes order, never spacing",
     "dlfRookieIdp": "rank-only IDP rookie board: contributes order, never spacing",
+    "dlfValuesSfTep": (
+        "rank from the published value order (owner decision D4, 2026-10-18): its native "
+        "values are rejected as a scale (raw/max Hampel drop ~0.9), so it contributes "
+        "order, never spacing"
+    ),
     "idpShowCombined": "rank-only (trade value is pick-equivalent text): order, never spacing",
     "fantasyProsSf": "rank-only consensus board: contributes order, never spacing",
     "fantasyProsIdp": "rank-only consensus board: contributes order, never spacing",

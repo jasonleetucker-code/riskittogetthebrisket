@@ -20,7 +20,9 @@ import pytest
 from src.api import feature_flags
 from src.api import sparse_evidence as se
 from src.api import sparse_evidence_shadow as shadow
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 #: Field names a served contract row carries.  A ledger line must never use
 #: them, so it can never be read back as (or mistaken for) a served row.
@@ -50,7 +52,7 @@ def _keys(obj, out=None):
 
 @pytest.fixture(scope="module")
 def recorded(tmp_path_factory):
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape")
     base = tmp_path_factory.mktemp("shadow")
@@ -131,7 +133,8 @@ def test_the_recorder_never_writes_a_served_field(recorded):
 
 def test_the_module_has_no_write_path_but_the_ledger_append():
     """Structural: the only file-writing call -- in this module and in the shared
-    append-only owner it delegates to -- is in ``append_record``."""
+    append-only owner it delegates to -- is in ``append_records`` and its index
+    writer ``_append_index`` (``append_record`` is the one-record form)."""
     from src.utils import append_ledger  # noqa: PLC0415
 
     writers = {"write_text", "write_bytes", "replace", "rename", "unlink", "dump"}
@@ -144,7 +147,11 @@ def test_the_module_has_no_write_path_but_the_ledger_append():
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                     if node.func.attr in writers:
                         raise AssertionError(f"{fn.name} calls {node.func.attr}")
-                    if node.func.attr == "open" and fn.name != "append_record":
+                    if node.func.attr == "open" and fn.name not in (
+                        "append_record",
+                        "append_records",
+                        "_append_index",
+                    ):
                         mode = node.args[0] if node.args else None
                         assert isinstance(mode, ast.Constant) and mode.value in ("r", "rb"), fn.name
     source = inspect.getsource(shadow)

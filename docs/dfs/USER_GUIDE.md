@@ -18,12 +18,22 @@ Open **DFS → DFS Workspace** (`/dfs`). Sign-in required.
    ruled Out / IR are left unprojected so no lineup can include them; nobody is ever scored 0 for
    missing data. **One limit:** automatic slates use our own player IDs, so they build, simulate and
    late-swap normally but cannot produce a DraftKings / FanDuel upload file.
+   **NBA and NHL** are built but wait for your approval of their schedule source (ESPN's public
+   scoreboard — see `config/dfs/auto_sources.json`); until then the panel says "awaiting owner
+   approval of the schedule source" and the platform file under *Advanced* is the path. Once
+   approved they work the same way with one difference: each platform's slate is the dated
+   slate Daily Fantasy Fuel lists (usually that night's main slate), timed from the league
+   schedule — other same-day slates are not available to us. NHL slates also carry each skater's
+   projected line and power-play unit, and say how many goalies are not yet confirmed starters
+   (a goalie who does not start scores nothing — confirm yours before lock). When no slate is
+   listed (an off day, or before the regular season starts) the panel says so and checks again
+   hourly.
    **Advanced · Data overrides / manual import** (optional) is where the old path lives: the
    platform's salary / player-list CSV (which IS upload-ready — the page tells you what the file is,
    e.g. *Detected: FanDuel · NFL · Classic*, and offers to switch if it does not match), your own
    projection CSV (`ID` or `Name` + `Team` + `Projection`; rows that match two players, nobody, or
    disagree are listed and not applied), ownership, and the licensed-feed loader (not connected).
-   NBA, NHL and MMA still need the platform file here for now. Optionally tick *use the platform
+   MMA still needs the platform file here for now. Optionally tick *use the platform
    season average* for players you have no projection for — it is labelled "avg" and is
    not a forecast. Players with no projection are never counted as 0; they are left out.
 3. **Describe the contest (optional today).** In *Contest*, enter the fee, capacity, current

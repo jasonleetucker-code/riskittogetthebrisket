@@ -234,6 +234,9 @@ export const SOURCE_FRESHNESS_STATE_LABELS = {
   STALE: "Stale",
   SEVERELY_STALE: "Severely stale",
   QUARANTINED: "Not voting — too stale",
+  // A first observation (or no dataset state) can prove staleness but never
+  // freshness: the publication time is unknown (freshness D1).
+  UNMEASURED: "Not yet measured",
 };
 
 export const ROW_WEIGHT_STATE_LABELS = {
@@ -294,6 +297,33 @@ function subsetFor(row, sourceEntry) {
   return subsets.players || null;
 }
 
+/** Machine reason an observation did not vote; null when none was published. */
+function exclusionReasonFor(key, m, excludedSet) {
+  if (m?.excludedReason) return String(m.excludedReason);
+  if (m?.supersededBy) return "superseded_by_family";
+  if (excludedSet.has(key)) return "freshness_or_health_zero_weight";
+  return null;
+}
+
+/**
+ * Display text for a not-voting source, keyed by the backend reason.
+ * An unrecognised or absent reason says so rather than borrowing one.
+ */
+export const SOURCE_EXCLUSION_LABELS = {
+  freshness_or_health_zero_weight: "not voting — stale or unhealthy source",
+  superseded_by_family: "not voting — superseded by its provider family",
+};
+
+export function sourceExclusionLabel(item) {
+  const reason = item?.excludedReason || null;
+  if (reason === "superseded_by_family" && item?.supersededBy) {
+    return `not voting — superseded by ${sourceLabel(item.supersededBy)} (same provider family)`;
+  }
+  if (reason && SOURCE_EXCLUSION_LABELS[reason]) return SOURCE_EXCLUSION_LABELS[reason];
+  if (reason) return `not voting — ${reason}`;
+  return "not voting — reason not published";
+}
+
 /**
  * Per-source freshness for ONE row: which sources voted, with how much
  * weight, and the two clocks behind each. Selected from
@@ -340,7 +370,13 @@ export function rowSourceFreshness(row, rawData) {
       label: SOURCE_LABELS[key] || key,
       voting: !excluded && !outlierDropped,
       excluded,
-      excludedReason: excluded ? m?.excludedReason || "freshness_or_health_zero_weight" : null,
+      // The backend's OWN reason, never a default: an observation can stop
+      // voting for more than one reason (zero freshness/health weight, or —
+      // on the family-collapse rollback path — superseded by its family's
+      // head, stamped ``supersededBy`` with no ``excludedReason``). Only
+      // ``freshnessExcludedSources`` itself implies the zero-weight reason.
+      excludedReason: excluded ? exclusionReasonFor(key, m, excludedSet) : null,
+      supersededBy: excluded && m?.supersededBy ? String(m.supersededBy) : null,
       outlierDropped,
       // Family cap: correlated members of one provider family share one
       // provider's vote, so a fresh member can still carry < its base.

@@ -202,10 +202,10 @@ class RollbackWorld:
             ("install", FAKE_INSTALL),
         ):
             p = self.bin / name
-            p.write_text(body)
+            p.write_text(body, encoding="utf-8")
             p.chmod(0o755)
 
-        (self.proc / "limits").write_text(LIMITS)
+        (self.proc / "limits").write_text(LIMITS, encoding="utf-8")
         self._seed_units()
         self.base_rev = ""
         self.new_rev = ""
@@ -223,7 +223,7 @@ class RollbackWorld:
             ),
         ):
             for k, v in props.items():
-                (self.state / "units" / f"{unit}.{k}").write_text(v + "\n")
+                (self.state / "units" / f"{unit}.{k}").write_text(v + "\n", encoding="utf-8")
 
     # ── repository construction ─────────────────────────────────────
     def _git(self, *args):
@@ -253,7 +253,7 @@ class RollbackWorld:
             # A genuinely ancient target: no runtime artifacts at all.
             shutil.rmtree(self.app / "deploy" / "systemd")
             (self.app / "deploy").mkdir(exist_ok=True)
-        (self.app / "app.txt").write_text("old application code\n")
+        (self.app / "app.txt").write_text("old application code\n", encoding="utf-8")
         self._git("add", "-A")
         self._git("commit", "-qm", "base: before the reconciler existed")
         self.base_rev = subprocess.run(
@@ -263,7 +263,7 @@ class RollbackWorld:
         # The newer revision introduces the reconciler (this PR).
         self._copy_systemd()
         shutil.copy2(RECONCILER, self.app / "deploy" / "reconcile-runtime-controls.sh")
-        (self.app / "app.txt").write_text("new application code\n")
+        (self.app / "app.txt").write_text("new application code\n", encoding="utf-8")
         self._git("add", "-A")
         self._git("commit", "-qm", "new: introduces the runtime reconciler")
         self.new_rev = subprocess.run(
@@ -274,18 +274,21 @@ class RollbackWorld:
         """What the failed deploy already did to the host."""
         (self.unit_dir / f"{SERVICE_NAME}.service").write_text(
             "[Unit]\nDescription=NEWER unit from the failed deploy\n"
-            "[Service]\nLimitNOFILE=8192:524288\n"
+            "[Service]\nLimitNOFILE=8192:524288\n",
+            encoding="utf-8",
         )
         for u in ("dynasty-healthcheck.service", "dynasty-healthcheck.timer"):
-            (self.unit_dir / u).write_text(f"# NEWER {u} from the failed deploy\n")
+            (self.unit_dir / u).write_text(
+                f"# NEWER {u} from the failed deploy\n", encoding="utf-8"
+            )
         # The failed deploy installed ITS watchdog, which differs from the
         # target's.  Identical copies would make the reconciler report
         # "up-to-date" and never exercise the install path at all.
-        newer = SYSD.joinpath("dynasty-healthcheck.sh").read_text()
+        newer = SYSD.joinpath("dynasty-healthcheck.sh").read_text(encoding="utf-8")
         newer = newer.replace(
             "#!/usr/bin/env bash", "#!/usr/bin/env bash\n# NEWER watchdog from the failed deploy", 1
         )
-        (self.lib_dir / "dynasty-healthcheck.sh").write_text(newer)
+        (self.lib_dir / "dynasty-healthcheck.sh").write_text(newer, encoding="utf-8")
 
     # ── running the real script ─────────────────────────────────────
     def rollback(self, extra_env: dict[str, str] | None = None):
@@ -319,16 +322,20 @@ class RollbackWorld:
     @property
     def calls(self) -> list[str]:
         log = self.state / "calls.log"
-        return log.read_text().splitlines() if log.exists() else []
+        return log.read_text(encoding="utf-8").splitlines() if log.exists() else []
 
     @property
     def installs(self) -> list[str]:
         """Every `install` the reconciler asked root to perform."""
-        return self.install_log.read_text().splitlines() if self.install_log.exists() else []
+        return (
+            self.install_log.read_text(encoding="utf-8").splitlines()
+            if self.install_log.exists()
+            else []
+        )
 
     def installed_content(self, dest: str) -> str:
         """What WOULD have landed at an absolute destination."""
-        return (self.mirror / dest.lstrip("/")).read_text()
+        return (self.mirror / dest.lstrip("/")).read_text(encoding="utf-8")
 
 
 @pytest.fixture
@@ -566,7 +573,7 @@ class TestProductionCannotBeWeakenedByInheritedEnvironment:
         assert "TEST OVERRIDES ACTIVE" in r.stderr
 
     def test_deploy_scrubs_the_seams_before_it_sources(self):
-        text = (REPO / "deploy" / "deploy.sh").read_text()
+        text = (REPO / "deploy" / "deploy.sh").read_text(encoding="utf-8")
         block = text[text.index("reconcile_runtime_state() {") :]
         block = block[: block.index("\n}\n")]
         assert (
@@ -576,7 +583,7 @@ class TestProductionCannotBeWeakenedByInheritedEnvironment:
 
     def test_neither_script_sets_an_override_itself(self):
         for name in ("deploy.sh", "rollback.sh"):
-            script = (REPO / "deploy" / name).read_text()
+            script = (REPO / "deploy" / name).read_text(encoding="utf-8")
             for var in ("RC_WATCHDOG_OWNER=", "RC_ALLOW_TEST_OVERRIDES="):
                 assignments = [
                     ln

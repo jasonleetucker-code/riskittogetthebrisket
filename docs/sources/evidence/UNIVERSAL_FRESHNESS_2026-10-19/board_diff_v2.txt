@@ -1,0 +1,48 @@
+====================================================================
+BOARD DIFF  golden_main.json -> golden_on.json
+====================================================================
+      rows: 1130 -> 1130
+    ranked: 740 -> 740
+    priced: 1029 -> 1027   <-- CHANGED
+     picks: 162 -> 162
+       idp: 428 -> 428
+
+  VALUES: 918 moved, 1 newly priced, 3 newly unpriced
+    |pct change|  p50=0.9%  p90=3.6%  max=42.9%
+    LaJohntay Wester                       651 ->     930  (+42.9%)
+    Travis Homer                           474 ->     633  (+33.5%)
+    Tyrell Shavers                         820 ->    1024  (+24.9%)
+    Jawhar Jordan                          727 ->     905  (+24.5%)
+    Antonio Gibson                         786 ->     937  (+19.2%)
+    Zamir White                            631 ->     740  (+17.3%)
+    Johnny Wilson                          620 ->     716  (+15.5%)
+    Derius Davis                           718 ->     825  (+14.9%)
+    Devin Duvernay                         482 ->     548  (+13.7%)
+    Adam Trautman                         1188 ->    1339  (+12.7%)
+    Austin Hooper                         1351 ->    1520  (+12.5%)
+    Christian Harris                       870 ->     766  (-12.0%)
+    Odell Beckham                         1201 ->    1340  (+11.6%)
+    Devin White                            863 ->     764  (-11.5%)
+    Josh Oliver                           1326 ->    1463  (+10.3%)
+    DeMarcus Lawrence                     1352 ->    1221  (-9.7%)
+    Josh Cameron                          1601 ->    1453  (-9.2%)
+    Jason Pinnock                          830 ->     757  (-8.8%)
+    Alex Singleton                        1953 ->    1801  (-7.8%)
+    Tyrel Dodson                          1457 ->    1346  (-7.6%)
+    CJ Allen                              3918 ->    4193  (+7.0%)
+    Tyree Wilson                           855 ->     795  (-7.0%)
+    Jacob Rodriguez                       4617 ->    4929  (+6.8%)
+    Roquan Smith                          3337 ->    3117  (-6.6%)
+    Nick Chubb                            1466 ->    1371  (-6.5%)
+    newly UNPRICED: Dee Alford, James Pierre, Kyle Dugger
+
+  RANKS: 673 changed
+
+  LABELS:
+    canonicalTierId            580 flipped   e.g. 2028 Early 1st: 10 -> 12
+    confidenceBucket           152 flipped   e.g. Akeem Davis-Gaither: medium -> low
+    confidenceLabel            292 flipped   e.g. Abdul Carter: Low — limited by agreement -> Low — limited by independence, agreement
+    marketGapDirection          16 flipped   e.g. Bo Melton: retail_premium -> consensus_premium
+    hasSourceDisagreement       65 flipped   e.g. Akeem Davis-Gaither: True -> False
+
+  SOURCE COVERAGE: 622 rows vote differently

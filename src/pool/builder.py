@@ -304,42 +304,6 @@ def extract_ktc_structured(
 # ── Adamidp PDF extraction ──
 
 
-def _reconstruct_split_names(lines: list[str]) -> list[str]:
-    """Reconstruct player names that were split across PDF lines.
-
-    Common patterns:
-    - "Will" + "Anderson" → "Will Anderson"
-    - "Akeem" + "Davis" + "Gaither" → "Akeem Davis Gaither"
-    - "Rueben Bain" + "Jr" → "Rueben Bain Jr"
-    """
-    reconstructed = []
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        if not line:
-            i += 1
-            continue
-
-        # Check if next line looks like a name continuation (no rank number, short text)
-        while (
-            i + 1 < len(lines)
-            and lines[i + 1].strip()
-            and not re.match(r"^\d+\s", lines[i + 1].strip())
-            and len(lines[i + 1].strip().split()) <= 2
-            and re.match(r"^[A-Za-z.\'-]+$", lines[i + 1].strip().split()[0])
-        ):
-            next_part = lines[i + 1].strip()
-            # Don't merge if next line looks like a position tag
-            if re.match(r"^(QB|RB|WR|TE|LB|DL|DB|DE|DT|CB|S|K|EDGE)$", next_part, re.I):
-                break
-            line = line + " " + next_part
-            i += 1
-
-        reconstructed.append(line)
-        i += 1
-    return reconstructed
-
-
 def extract_adamidp_from_artifact(artifact_path: str | Path) -> list[AdamidpRow]:
     """Read a pre-normalized Adamidp JSON artifact.
 

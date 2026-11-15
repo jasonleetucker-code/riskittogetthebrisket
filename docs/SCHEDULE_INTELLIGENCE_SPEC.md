@@ -217,6 +217,11 @@ never takes the Luck section down.
 | Valid schedule-slot swaps, retrospective playoff sensitivity | D | not started |
 | `scheduleNeutralRealizedWAR` → MVP candidate (shadow) | E | blocked on C5-WAR-01 |
 
+> **Corrected 2026-10-26 by the RPA audit:** the E row's "blocked on C5-WAR-01" is stale. C5-WAR-01's
+> deterministic core merged as #1692 on 2026-10-08 (`src/public_league/player_impact.py`; private, read-only
+> route `GET /api/league/player-impact`; xWAR is not computed; no MVP consumer yet), so E's WAR/WAB
+> dependency is met. E stays shadow-only and behind milestones B-remainder, C and D in dependency order.
+
 ## 7. Supported formats and limitations (A)
 
 | League | Teams | Median game | Divisions | Weeks | A support |

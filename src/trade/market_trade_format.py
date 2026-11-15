@@ -483,6 +483,41 @@ def format_from_ktc_settings(settings: Mapping[str, Any] | None) -> TradeMarketF
     )
 
 
+#: ``roster_exclusivity`` bases -- which fact decided the state.
+EXCLUSIVITY_BASIS_SLEEPER_PLATFORM = "sleeper_platform_one_roster_per_player"
+EXCLUSIVITY_BASIS_KTC_VENDOR = "ktc_vendor_rostersPerPlayer"
+EXCLUSIVITY_BASIS_UNSTATED = "not_stated"
+
+
+def roster_exclusivity(
+    fmt: "TradeMarketFormat | None", *, host: str | None = None
+) -> dict[str, Any]:
+    """``{"state", "basis"}`` -- whether the trade's league rosters each player
+    once (G9).  Evidence for the trade-market estimator; it changes no
+    disposition.
+
+    * A Sleeper-hosted league (``host == "sleeper"``, or a Sleeper league
+      capture) is exclusive by PLATFORM: Sleeper has no multiple-copies
+      setting.  The basis names that platform fact so it can be audited.
+    * A KTC vendor row states MyFantasyLeague's ``rostersPerPlayer``; it is
+      read through the shared fail-closed rule
+      (``faab_comparability.roster_exclusivity``) -- 2+ is ``multi_copy``.
+    * Anything else is ``unknown``: an unstated value is not exclusivity.
+    """
+    from src.trade import faab_comparability as fc  # noqa: PLC0415
+
+    if host == "sleeper" or (fmt is not None and fmt.source == SOURCE_SLEEPER):
+        return {"state": fc.EXCLUSIVITY_EXCLUSIVE, "basis": EXCLUSIVITY_BASIS_SLEEPER_PLATFORM}
+    if fmt is not None and fmt.source == SOURCE_KTC:
+        vendor = fmt.vendor or {}
+        if "rostersPerPlayer" in vendor:
+            return {
+                "state": fc.roster_exclusivity(vendor.get("rostersPerPlayer")),
+                "basis": EXCLUSIVITY_BASIS_KTC_VENDOR,
+            }
+    return {"state": fc.EXCLUSIVITY_UNKNOWN, "basis": EXCLUSIVITY_BASIS_UNSTATED}
+
+
 def format_from_registry(
     league_key: str,
     *,

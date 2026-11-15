@@ -142,7 +142,7 @@ def _load_env_dotfile(path: Path) -> None:
     already set.  Inline replacement for ``python-dotenv``."""
     if not path.exists():
         return
-    for raw in path.read_text().splitlines():
+    for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -159,7 +159,7 @@ def _load_session_cookies() -> list[dict]:
     if not SESSION_PATH.exists():
         return []
     try:
-        data = json.loads(SESSION_PATH.read_text())
+        data = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
     except Exception:
         return []
     out: list[dict] = []
@@ -203,7 +203,7 @@ def _save_session_cookies(session) -> None:
         ),
         "cookies": cookies_out,
     }
-    SESSION_PATH.write_text(json.dumps(payload, indent=2) + "\n")
+    SESSION_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     try:
         SESSION_PATH.chmod(0o600)
     except Exception:
@@ -803,7 +803,7 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
     Rank remains the canonical blend signal. Value is preserved for
     vendor-literal trade second opinions and never becomes a second DLF vote.
     """
-    written: list[tuple[str, float, float | None]] = []
+    written: list[tuple[str, float, float | None, str, str]] = []
     seen_names: set[str] = set()
     for r in rows:
         name = (r.get("name") or "").strip()
@@ -817,19 +817,31 @@ def _write_csv(path: Path, rows: list[dict]) -> int:
         # player; skip that kind of accidental duplicate.
         if name in seen_names:
             continue
-        written.append((name, rank_val, _native_value_of(r)))
+        # V2.1 U3 identity evidence: the Pos / Team cells DLF's table shows
+        # for this row, verbatim (blank when the table has no such column).
+        written.append(
+            (
+                name,
+                rank_val,
+                _native_value_of(r),
+                str(r.get("pos") or "").strip().upper(),
+                str(r.get("team") or "").strip().upper(),
+            )
+        )
         seen_names.add(name)
     written.sort(key=lambda t: t[1])
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["name", "rank", "value"])
-        for name, rank_val, native_value in written:
+        w.writerow(["name", "rank", "value", "position", "team"])
+        for name, rank_val, native_value, pos, team in written:
             w.writerow(
                 [
                     name,
                     int(rank_val) if rank_val == int(rank_val) else f"{rank_val:.2f}",
                     "" if native_value is None else _format_number(native_value),
+                    pos,
+                    team,
                 ]
             )
     return len(written)

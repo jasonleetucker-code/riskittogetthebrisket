@@ -130,7 +130,7 @@ class TestFailuresNeverLookFresh:
     def test_failed_scrape_moves_neither_clock(self, tmp_path):
         state_dir = tmp_path / "state"
         csv = tmp_path / "board.csv"
-        csv.write_text(_board(BASE, PICKS))
+        csv.write_text(_board(BASE, PICKS), encoding="utf-8")
         before, _ = record_source_file(
             source_key="dlfSf", csv_path=csv, signal="value", state_dir=state_dir, observed_at=T0
         )
@@ -200,8 +200,10 @@ class TestIdpSubsetsAreIndependent:
         state_dir = tmp_path / "s"
         a = tmp_path / "a.csv"
         b = tmp_path / "b.csv"
-        a.write_text(_board(BASE))
-        b.write_text("name,rank\n" + "".join(f"P{i},{i + 1}\n" for i in range(100)))
+        a.write_text(_board(BASE), encoding="utf-8")
+        b.write_text(
+            "name,rank\n" + "".join(f"P{i},{i + 1}\n" for i in range(100)), encoding="utf-8"
+        )
         record_source_file(
             source_key="idpTradeCalc",
             csv_path=a,
@@ -216,7 +218,7 @@ class TestIdpSubsetsAreIndependent:
             state_dir=state_dir,
             observed_at=T0,
         )
-        a.write_text(_board({k: v + 1 for k, v in BASE.items()}))
+        a.write_text(_board({k: v + 1 for k, v in BASE.items()}), encoding="utf-8")
         idptc, _ = record_source_file(
             source_key="idpTradeCalc",
             csv_path=a,
@@ -240,7 +242,7 @@ class TestIdpSubsetsAreIndependent:
 class TestPersistenceIsQuiet:
     def test_unchanged_refetch_does_not_rewrite_the_file(self, tmp_path):
         csv = tmp_path / "b.csv"
-        csv.write_text(_board(BASE))
+        csv.write_text(_board(BASE), encoding="utf-8")
         _, first = record_source_file(
             source_key="k", csv_path=csv, signal="value", state_dir=tmp_path, observed_at=T0
         )
@@ -269,3 +271,71 @@ def test_refresh_workflow_skips_exactly_the_prod_timer_owned_boards():
     m = re.search(r"record_source_datasets\.py\s*\\\s*\n\s*--skip ([^\n|]+)", wf)
     assert m, "scheduled-refresh.yml no longer records dataset state with --skip"
     assert set(m.group(1).split()) - {"\\"} == set(PROD_TIMER_OWNED_KEYS)
+
+
+# ── PRIVATE SOURCE NOT PRESENT != FAILED (stabilization CLEANUP-3) ────
+# The recorder used to write a FAILED ``<key>_dataset.json`` for a private
+# source whose CSV is absent.  ``private_source_availability`` reads any
+# such file as proof the host IS provisioned, so one recorder call flipped
+# ``not_provisioned`` → ``missing`` and manufactured ``source_missing`` on
+# a host never meant to carry the source.  Only the hand-kept ``--skip``
+# list stood between CI and that state.
+
+
+def _private_key_and_marker():
+    from src.api.data_contract import _SOURCE_CSV_PATHS
+
+    for key, cfg in _SOURCE_CSV_PATHS.items():
+        if isinstance(cfg, dict) and cfg.get("private_marker"):
+            return key, str(cfg["private_marker"])
+    raise AssertionError("precondition: at least one private source is registered")
+
+
+def test_recording_never_manufactures_private_provisioning(tmp_path):
+    import importlib
+    from datetime import datetime, timezone
+
+    from src.api.data_contract import private_source_availability
+
+    rsd = importlib.import_module("scripts.record_source_datasets")
+    key, _marker = _private_key_and_marker()
+    state_dir = tmp_path / "data" / "scrape_state"
+    state_dir.mkdir(parents=True)
+    assert private_source_availability(tmp_path)[key]["state"] == "not_provisioned"
+
+    written, failed = rsd.record_all(
+        state_dir=state_dir,
+        observed_at=datetime(2026, 10, 7, tzinfo=timezone.utc),
+        only={key},
+        repo_root=tmp_path,
+    )
+
+    assert (written, failed) == ([], [])
+    assert not (state_dir / f"{key}_dataset.json").exists()
+    assert private_source_availability(tmp_path)[key]["state"] == "not_provisioned"
+
+
+def test_a_provisioned_host_that_lost_its_private_csv_still_records_the_failure(tmp_path):
+    """The guard is provisioning, not privacy: a box whose collector ran but
+    whose CSV vanished is a real failure and must stay visible."""
+    import importlib
+    from datetime import datetime, timezone
+
+    from src.api.data_contract import private_source_availability
+
+    rsd = importlib.import_module("scripts.record_source_datasets")
+    key, marker = _private_key_and_marker()
+    state_dir = tmp_path / "data" / "scrape_state"
+    state_dir.mkdir(parents=True)
+    (tmp_path / marker).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / marker).write_text("{}", encoding="utf-8")
+
+    rsd.record_all(
+        state_dir=state_dir,
+        observed_at=datetime(2026, 10, 7, tzinfo=timezone.utc),
+        only={key},
+        repo_root=tmp_path,
+    )
+
+    assert (state_dir / f"{key}_dataset.json").exists()
+    assert private_source_availability(tmp_path)[key]["state"] == "missing"

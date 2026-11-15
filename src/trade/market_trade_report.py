@@ -23,7 +23,7 @@ import os
 import sqlite3
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from src.trade import market_trade_archive as archive
 from src.trade import market_trade_eval as ev
@@ -66,6 +66,8 @@ def build_ledger(
     registry: mtf.TranslatorRegistry | None = None,
     lanes: Sequence[str] | None = None,
     target_roster_positions: Sequence[str] | None = None,
+    side_key_secret: bytes | None = None,
+    maturity_resolver: MaturityResolver | None = None,
 ) -> dict[str, Any]:
     built = norm.build_observations(
         archive_path=archive_path,
@@ -74,6 +76,7 @@ def build_ledger(
         league_keys=league_keys,
         ctx=ctx,
         allow_stale_scoring=allow_stale_target_scoring,
+        side_key_secret=side_key_secret,
         **({"lanes": lanes} if lanes is not None else {}),
     )
     observations = built["observations"]
@@ -100,6 +103,9 @@ def build_ledger(
         g["targetPriceAuthority"] = d["targetPriceAuthority"]
         g["broadContextKind"] = d["broadContextKind"]
         g["dispositionReasons"] = d["dispositionReasons"]
+        # Evidence for the trade-market estimator (G9); decides no disposition.
+        g["rosterExclusivity"] = mtf.roster_exclusivity(fmt, host=g.get("host"))
+    attach_league_maturity(grouping.groups, maturity_resolver)
     return {
         "observations": observations,
         "grouping": grouping,
@@ -108,6 +114,66 @@ def build_ledger(
         "targetFormat": tgt,
         "targetLeague": target_league,
     }
+
+
+#: The P3 maturity owner's hook: ``resolver(group) -> mapping | None`` with
+#: ``pointInTime`` / ``asOfBuild`` readings, each
+#: ``{"completedSeasons": int | None, "certainty": "exact" | "lower_bound" |
+#: "unknown"}``, plus optional ``lineageId`` and ``basis``.
+MaturityResolver = Callable[[Mapping[str, Any]], "Mapping[str, Any] | None"]
+
+MATURITY_NOT_RESOLVED = "not_resolved"
+MATURITY_RESOLVED = "resolved"
+MATURITY_RESOLVER_ERROR = "resolver_error"
+MATURITY_NO_RESOLVER = "maturity_resolver_not_provided"
+
+
+def _maturity_reading(raw: Any) -> dict[str, Any]:
+    r = raw if isinstance(raw, Mapping) else {}
+    n = r.get("completedSeasons")
+    n = n if isinstance(n, int) and not isinstance(n, bool) and n >= 0 else None
+    certainty = r.get("certainty")
+    if certainty not in (ev.MATURITY_EXACT, ev.MATURITY_LOWER_BOUND) or n is None:
+        certainty = ev.MATURITY_UNKNOWN
+    return {
+        "completedSeasons": n,
+        "certainty": certainty,
+        "cohort": ev.maturity_cohort(n, certainty),
+    }
+
+
+def attach_league_maturity(
+    groups: Sequence[dict[str, Any]], resolver: MaturityResolver | None
+) -> None:
+    """Stamp ``leagueMaturity`` on every group, under BOTH readings (owner
+    directive V2 §2: three VERIFIED completed seasons via the real
+    ``previous_league_id`` chain).  This module never computes maturity -- the
+    P3 owner (``src.intel.league_filter``) supplies ``resolver``.  Without one,
+    or when it fails or returns nothing, both readings are ``unknown``: never
+    a guessed age, never the existing two-season floor presented as exact."""
+    for g in groups:
+        reason: str | None = MATURITY_NO_RESOLVER
+        state = MATURITY_NOT_RESOLVED
+        raw: Mapping[str, Any] | None = None
+        if resolver is not None:
+            try:
+                raw = resolver(g)
+            except Exception as exc:  # noqa: BLE001 — one failure stays local
+                state, reason = MATURITY_RESOLVER_ERROR, type(exc).__name__
+            else:
+                if isinstance(raw, Mapping):
+                    state, reason = MATURITY_RESOLVED, None
+                else:
+                    reason = "resolver_returned_nothing"
+        raw = raw if isinstance(raw, Mapping) else {}
+        g["leagueMaturity"] = {
+            "state": state,
+            "reason": reason,
+            "pointInTime": _maturity_reading(raw.get("pointInTime")),
+            "asOfBuild": _maturity_reading(raw.get("asOfBuild")),
+            "lineageId": raw.get("lineageId") if isinstance(raw.get("lineageId"), str) else None,
+            "basis": raw.get("basis") if isinstance(raw.get("basis"), str) else None,
+        }
 
 
 def _jsonable_group(g: Mapping[str, Any]) -> dict[str, Any]:
@@ -137,11 +203,12 @@ def persist_canonical_ledger(
         _write_ledger_db(tmp, groups, built_at=built_at, extra_meta=extra_meta)
         os.replace(tmp, target)
     finally:
-        if tmp.exists():
-            try:
-                tmp.unlink()
-            except OSError:  # pragma: no cover
-                pass
+        for leftover in (tmp, *(tmp.with_name(tmp.name + s) for s in ("-journal", "-wal", "-shm"))):
+            if leftover.exists():
+                try:
+                    leftover.unlink()
+                except OSError:  # pragma: no cover
+                    pass
     try:
         os.chmod(target, 0o600)
     except OSError:  # pragma: no cover
@@ -154,14 +221,24 @@ def persist_canonical_ledger(
 STALE_TEMP_AGE_SECONDS = 15 * 60
 
 
+#: A killed build leaves the temp database AND SQLite's companion files for it.
+#: The rollback journal outlived the cleanup on the box (2026-10-24's
+#: ``.underlying_trades.sqlite.<pid>.tmp-journal`` survived the next run),
+#: because only ``*.tmp`` was matched.
+_TEMP_SUFFIXES = (".tmp", ".tmp-journal", ".tmp-wal", ".tmp-shm")
+
+
 def remove_stale_temp_files(directory: Path, *, now: float | None = None) -> list[str]:
-    """Delete ``.underlying_trades.sqlite.<pid>.tmp`` files left by killed runs
-    (older than :data:`STALE_TEMP_AGE_SECONDS`).  Returns the names removed."""
+    """Delete ``.underlying_trades.sqlite.<pid>.tmp`` files -- and their SQLite
+    ``-journal`` / ``-wal`` / ``-shm`` companions -- left by killed runs (older
+    than :data:`STALE_TEMP_AGE_SECONDS`).  Returns the names removed."""
     import time  # noqa: PLC0415
 
     cutoff = (time.time() if now is None else now) - STALE_TEMP_AGE_SECONDS
     removed: list[str] = []
-    for p in Path(directory).glob(f".{LEDGER_FILENAME}.*.tmp"):
+    for p in sorted(Path(directory).glob(f".{LEDGER_FILENAME}.*.tmp*")):
+        if not p.name.endswith(_TEMP_SUFFIXES):
+            continue
         try:
             if p.stat().st_mtime < cutoff:
                 p.unlink()
@@ -206,6 +283,14 @@ def _write_ledger_db(
             CREATE TABLE formats (fingerprint TEXT PRIMARY KEY, format_json TEXT NOT NULL);
             CREATE INDEX idx_ut_date ON underlying_trades(occurred_date);
             CREATE INDEX idx_ut_disp ON underlying_trades(disposition);
+            -- Asset index: every canonical id and cross-source match key on
+            -- any side, so a reader can select the trades that touch an asset
+            -- without parsing every record (read_ledger_trades).
+            CREATE TABLE trade_assets (
+                asset_key TEXT NOT NULL,
+                underlying_trade_id TEXT NOT NULL,
+                PRIMARY KEY (asset_key, underlying_trade_id)
+            ) WITHOUT ROWID;
             """
         )
         for g in groups:
@@ -238,12 +323,170 @@ def _write_ledger_db(
             )
             for m in g["members"]:
                 conn.execute("INSERT INTO trade_members VALUES (?, ?)", (g["underlyingTradeId"], m))
+            asset_keys = {
+                str(k)
+                for side in g.get("sides") or []
+                for a in side
+                for k in (a.get("canonicalId"), a.get("matchKey"))
+                if k
+            }
+            conn.executemany(
+                "INSERT OR IGNORE INTO trade_assets VALUES (?, ?)",
+                [(k, g["underlyingTradeId"]) for k in sorted(asset_keys)],
+            )
         meta = {"builtAt": built_at or datetime.now(timezone.utc).isoformat(), **(extra_meta or {})}
         for k, v in meta.items():
             conn.execute("INSERT INTO meta VALUES (?, ?)", (k, json.dumps(v, default=str)))
         conn.commit()
     finally:
         conn.close()
+
+
+def ledger_file_path(root: Path | None = None) -> Path:
+    """Where the canonical underlying-trade ledger lives (public read)."""
+    return _ledger_path(root)
+
+
+def open_canonical_ledger(root: Path | None = None) -> sqlite3.Connection | None:
+    """A READ-ONLY connection to the persisted ledger, or ``None`` when no
+    ledger has been built on this host (absence is a state, never an empty
+    ledger).  ``mode=ro``: a reader never migrates or locks the store the
+    daily rebuild replaces.  The caller closes it."""
+    target = _ledger_path(root)
+    if not target.exists():
+        return None
+    return sqlite3.connect(f"file:{target.as_posix()}?mode=ro", uri=True)
+
+
+def read_ledger_meta(conn: sqlite3.Connection) -> dict[str, Any]:
+    meta: dict[str, Any] = {}
+    for key, value in conn.execute("SELECT key, value FROM meta").fetchall():
+        try:
+            meta[str(key)] = json.loads(value)
+        except (TypeError, ValueError):
+            meta[str(key)] = None
+    return meta
+
+
+def _has_table(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    ).fetchone()
+    return row is not None
+
+
+#: Above this many asset-index hits, ``read_ledger_trades`` walks the date
+#: index instead of sorting every touching trade (a planning threshold only).
+_SELECTIVE_ASSET_HITS = 2000
+
+
+def read_ledger_trades(
+    conn: sqlite3.Connection,
+    *,
+    asset_keys: Sequence[str],
+    since_date: str,
+    until_date: str | None = None,
+):
+    """Yield ``(group_record, full_format_or_None)`` for the trades dated on or
+    after ``since_date`` (and, when given, on or before ``until_date``) that have an asset whose canonical id or match key is
+    in ``asset_keys`` — NEWEST FIRST (date, then trade id), lazily, so a
+    caller can stop after the rows it needs.  UNDATED trades are never
+    yielded: "recent" cannot be claimed for a trade with no date.
+
+    Uses the ``trade_assets`` index when the ledger has it; a ledger built
+    before that table existed is answered by a JSON scan in SQLite (slower,
+    same rows) until the next daily rebuild.
+    """
+    keys = sorted({str(k) for k in asset_keys if k})
+    if not keys:
+        return
+    marks = ",".join("?" for _ in keys)
+    order = " ORDER BY u.occurred_date DESC, u.underlying_trade_id DESC"
+    dated = "u.occurred_date IS NOT NULL AND u.occurred_date >= ?"
+    bounds: list[Any] = [since_date]
+    if until_date:
+        dated += " AND substr(u.occurred_date, 1, 10) <= ?"
+        bounds.append(until_date)
+    if _has_table(conn, "trade_assets"):
+        (hits,) = conn.execute(
+            f"SELECT COUNT(*) FROM trade_assets WHERE asset_key IN ({marks})", keys
+        ).fetchone()
+        if hits <= _SELECTIVE_ASSET_HITS:
+            # Rare assets: select the few touching trades, then sort them.
+            where = (
+                "u.underlying_trade_id IN (SELECT underlying_trade_id FROM trade_assets "
+                f"WHERE asset_key IN ({marks}))"
+            )
+        else:
+            # Common assets (a 2027 1st touches most trades): walk the date
+            # index newest-first and probe the asset index per trade, so the
+            # caller's early stop ends the scan after a handful of rows.
+            where = (
+                "EXISTS (SELECT 1 FROM trade_assets ta WHERE "
+                "ta.underlying_trade_id = u.underlying_trade_id "
+                f"AND ta.asset_key IN ({marks}))"
+            )
+        params: list[Any] = list(keys)
+    else:
+        where = (
+            "EXISTS (SELECT 1 FROM json_each(u.record_json, '$.sides') s, json_each(s.value) a "
+            f"WHERE json_extract(a.value, '$.canonicalId') IN ({marks}) "
+            f"OR json_extract(a.value, '$.matchKey') IN ({marks}))"
+        )
+        params = list(keys) + list(keys)
+    # Order on the narrow (date, id) columns and fetch each record only when
+    # the caller asks for it: sorting with ``record_json`` in the row would
+    # copy every matching record through SQLite's sorter.
+    ids = conn.cursor().execute(
+        f"SELECT u.underlying_trade_id FROM underlying_trades u WHERE {dated} AND {where}{order}",
+        [*bounds, *params],
+    )
+    fetch = (
+        "SELECT u.record_json, f.format_json FROM underlying_trades u "
+        "LEFT JOIN formats f ON f.fingerprint = u.format_fingerprint "
+        "WHERE u.underlying_trade_id = ?"
+    )
+    for (trade_id,) in ids:
+        row = conn.execute(fetch, (trade_id,)).fetchone()
+        if row is None:  # pragma: no cover - the file is replaced atomically
+            continue
+        record_json, format_json = row
+        yield json.loads(record_json), (json.loads(format_json) if format_json else None)
+
+
+def read_ledger_window(
+    conn: sqlite3.Connection,
+    *,
+    since_date: str,
+    until_date: str | None = None,
+):
+    """Yield ``(group_record, full_format_or_None)`` for every DATED trade in
+    ``[since_date, until_date]`` (inclusive, ISO dates) — NEWEST FIRST, lazily,
+    the same order and record shape as ``read_ledger_trades``.  The browse
+    reader for the trade database (TC-08) when no asset narrows the query.
+    Undated trades are never yielded: a date window cannot claim them."""
+    where = "u.occurred_date IS NOT NULL AND u.occurred_date >= ?"
+    params: list[Any] = [since_date]
+    if until_date:
+        # occurred_date is an ISO date; a timestamp suffix still sorts inside the day.
+        where += " AND substr(u.occurred_date, 1, 10) <= ?"
+        params.append(until_date)
+    ids = conn.cursor().execute(
+        f"SELECT u.underlying_trade_id FROM underlying_trades u WHERE {where}"
+        " ORDER BY u.occurred_date DESC, u.underlying_trade_id DESC",
+        params,
+    )
+    fetch = (
+        "SELECT u.record_json, f.format_json FROM underlying_trades u "
+        "LEFT JOIN formats f ON f.fingerprint = u.format_fingerprint "
+        "WHERE u.underlying_trade_id = ?"
+    )
+    for (trade_id,) in ids:
+        row = conn.execute(fetch, (trade_id,)).fetchone()
+        if row is None:  # pragma: no cover - the file is replaced atomically
+            continue
+        record_json, format_json = row
+        yield json.loads(record_json), (json.loads(format_json) if format_json else None)
 
 
 def _date_range(dates: Sequence[str | None]) -> dict[str, Any]:
@@ -364,7 +607,73 @@ def coverage_report(result: Mapping[str, Any]) -> dict[str, Any]:
         "lanes": result["lanes"],
         "identity": norm.identity_summary(observations),
         "identityDirectory": result.get("identityDirectory"),
+        # chaseTradeMarket P2 evidence (counts only).
+        "crossFeedOverlap": grp.cross_feed_overlap(groups),
+        "collection": collection_summary(observations),
     }
+
+
+def _latency_days(o: Mapping[str, Any]) -> float | None:
+    """Days from the trade to the box first collecting it; ``None`` when either
+    side is unknown.  KTC dates are day-granular, so its latency is too."""
+    try:
+        first = datetime.fromisoformat(str(o.get("firstCollectedAt")))
+    except (TypeError, ValueError):
+        return None
+    if first.tzinfo is None:
+        first = first.replace(tzinfo=timezone.utc)
+    ms = o.get("occurredAtMs")
+    if isinstance(ms, (int, float)) and not isinstance(ms, bool):
+        occurred = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    else:
+        try:
+            occurred = datetime.fromisoformat(str(o.get("occurredDate"))[:10]).replace(
+                tzinfo=timezone.utc
+            )
+        except (TypeError, ValueError):
+            return None
+    return (first - occurred).total_seconds() / 86400.0
+
+
+def collection_summary(observations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Per acquisition channel: how many observations carry the point-in-time
+    collection clock, which crawl wrote the intel-ledger rows, and the
+    collection latency (counts and quantiles only)."""
+    out: dict[str, Any] = {}
+    for o in observations:
+        ch = grp.observation_channel(o) or "unknown"
+        c = out.setdefault(
+            ch,
+            {
+                "observations": 0,
+                "collectedAtKnown": 0,
+                "collectedAtUnknown": 0,
+                "byCollectionPath": {},
+                "_lat": [],
+            },
+        )
+        c["observations"] += 1
+        if o.get("collectedAt"):
+            c["collectedAtKnown"] += 1
+        else:
+            c["collectedAtUnknown"] += 1
+        path = o.get("collectionPath")
+        if path:
+            c["byCollectionPath"][path] = c["byCollectionPath"].get(path, 0) + 1
+        lat = _latency_days(o)
+        if lat is not None:
+            c["_lat"].append(lat)
+    for c in out.values():
+        lat = sorted(c.pop("_lat"))
+
+        def q(p: float, lat: list[float] = lat) -> float | None:
+            if not lat:
+                return None
+            return round(lat[min(len(lat) - 1, int(p * (len(lat) - 1) + 0.5))], 2)
+
+        c["byCollectionPath"] = dict(sorted(c["byCollectionPath"].items()))
+        c["collectionLatencyDays"] = {"n": len(lat), "p50": q(0.5), "p90": q(0.9), "max": q(1.0)}
+    return dict(sorted(out.items()))
 
 
 def evaluation_report(
@@ -377,6 +686,7 @@ def evaluation_report(
     out: dict[str, Any] = {
         "topology": ev.summarize_topology(groups),
         "latentFitReadiness": ev.latent_fit_readiness(groups),
+        "estimatorEvidence": ev.summarize_estimator_evidence(groups),
     }
     if contract is None:
         out["residuals"] = {"available": False, "reason": "no_board_supplied"}

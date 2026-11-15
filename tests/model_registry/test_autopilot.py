@@ -190,7 +190,7 @@ class TestPolicyJsonWiring:
             sentinel_raw[camel] = default_value + 1
 
         fake_policy_path = tmp_path / "hill_autopilot_policy.json"
-        fake_policy_path.write_text(json_module.dumps(sentinel_raw))
+        fake_policy_path.write_text(json_module.dumps(sentinel_raw), encoding="utf-8")
         monkeypatch.setattr(hill_autopilot, "POLICY_PATH", fake_policy_path)
 
         loaded, raw = hill_autopilot._policy()

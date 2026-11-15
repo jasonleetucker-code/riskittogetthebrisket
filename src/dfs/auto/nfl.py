@@ -33,17 +33,24 @@ the schedule.
 
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from statistics import median
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
-from src.dfs.auto import AUTO_ID_PREFIX
-from src.dfs.imports import SlateAthlete, content_hash
+from src.dfs.auto import auto_player_id
+from src.dfs.auto.common import (
+    DISAGREEMENT_FLAG,
+    SAFE_SOURCE_ID,
+    PoolReport,
+    body_hash,  # noqa: F401 - re-exported: ``nfl.body_hash`` is the historical name
+    ensemble,
+    projection_report,
+)
+from src.dfs.imports import SlateAthlete
 from src.dfs.rules import get_ruleset
 from src.dfs.slate import CanonicalSlate, SlateEvent
+from src.identity.athletes import athlete_key, resolve_athlete
 
 ET = ZoneInfo("America/New_York")
 SPORT = "nfl"
@@ -56,9 +63,6 @@ NFLVERSE_TO_DFS_TEAM = {"LA": "LAR"}
 #: Sleeper injury statuses under which a player is not projected at all.  The
 #: projection is WITHHELD (so the optimizer cannot select him), never set to 0.
 WITHHELD_STATUSES = frozenset({"Out", "IR", "PUP", "Suspended", "NA", "COV", "DNR"})
-#: Two families disagreeing by more than this (relative to their mean) is flagged.
-DISAGREEMENT_FLAG = 0.30
-_SAFE_SOURCE_ID = re.compile(r"^[0-9A-Za-z][0-9A-Za-z\-]{0,30}$")
 
 DERIVATION = "derived_from_schedule"
 DERIVATION_NOTE = (
@@ -90,36 +94,6 @@ class SlateDef:
     @property
     def lock_utc(self) -> str:
         return min(g.kickoff_utc for g in self.games)
-
-
-@dataclass
-class PoolReport:
-    rows_read: int = 0
-    used: int = 0
-    rejected: list[dict[str, Any]] = field(default_factory=list)
-    identity: dict[str, int] = field(default_factory=dict)
-    quarantined_identity: list[dict[str, Any]] = field(default_factory=list)
-    families: dict[str, int] = field(default_factory=dict)
-    withheld_for_status: list[str] = field(default_factory=list)
-    disagreements: int = 0
-
-    def reject(self, row: Mapping[str, Any], reason: str) -> None:
-        if len(self.rejected) < 200:
-            self.rejected.append(
-                {"name": str(row.get("name") or "")[:60], "team": row.get("team"), "reason": reason}
-            )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "rowsRead": self.rows_read,
-            "rowsUsed": self.used,
-            "rejected": self.rejected,
-            "identity": dict(sorted(self.identity.items())),
-            "quarantinedIdentity": self.quarantined_identity[:50],
-            "projectionFamilies": dict(sorted(self.families.items())),
-            "withheldForStatus": self.withheld_for_status[:50],
-            "familyDisagreements": self.disagreements,
-        }
 
 
 # ── schedule ─────────────────────────────────────────────────────────────
@@ -210,16 +184,6 @@ def derive_slates(week_games: list[Game]) -> list[SlateDef]:
 # ── the player pool ──────────────────────────────────────────────────────
 
 
-def ensemble(values: list[float]) -> float | None:
-    """Independent projection families → one number.  n=1 passthrough, n=2 mean,
-    n≥3 median — the count-aware ladder the Calculator's blend uses at small n."""
-    if not values:
-        return None
-    if len(values) <= 2:
-        return round(sum(values) / len(values), 2)
-    return round(float(median(values)), 2)
-
-
 def _resolve(
     row: Mapping[str, Any], dst: bool, index: Any, report: PoolReport
 ) -> tuple[str | None, str]:
@@ -232,10 +196,10 @@ def _resolve(
             report.identity.get("directory_unavailable", 0) + 1
         )
         return None, "directory_unavailable"
-    from src.identity.resolution import resolve_canonical_v2
-
-    res = resolve_canonical_v2(
-        index, name=row["name"], position=row["position"] or None, team=row["team"]
+    # Sport-aware entry to the canonical owner (DFS-§9-03): an NFL row is only ever
+    # resolved against an NFL directory.
+    res = resolve_athlete(
+        SPORT, index, name=row["name"], position=row["position"] or None, team=row["team"]
     )
     if res.status == "resolved" and res.sleeper_id and not res.tie_detected:
         report.identity["resolved"] = report.identity.get("resolved", 0) + 1
@@ -277,10 +241,10 @@ def build_pool(
         game = by_team.get(team)
         sid_raw = str(row.get("sourcePlayerId") or "")
         dst = str(row.get("position") or "").upper() in ("DST", "D", "DEF")
-        if not _SAFE_SOURCE_ID.match(sid_raw):
+        if not SAFE_SOURCE_ID.match(sid_raw):
             report.reject(row, "missing_source_player_id")
             continue
-        pid = AUTO_ID_PREFIX + sid_raw
+        pid = auto_player_id(SPORT, sid_raw)
         if pid in seen:
             report.reject(row, "duplicate_source_player_id")
             continue
@@ -331,8 +295,15 @@ def build_pool(
         if sleeper_status in WITHHELD_STATUSES:
             report.withheld_for_status.append(f"{row['name']} ({sleeper_status})")
             value, source = None, f"withheld:status_{sleeper_status}"
+        if dst:
+            key = athlete_key(SPORT, "team_defense", team)
+        elif sleeper_id:
+            key = athlete_key(SPORT, "sleeper", sleeper_id)
+        else:
+            key = athlete_key(SPORT, "dailyfantasyfuel", sid_raw)
         extra = {
             "sourcePlayerId": sid_raw,
+            "athleteKey": key,
             "identity": identity_state,
             "projectionFamilies": ";".join(f"{k}={v:g}" for k, v in sorted(families.items())),
         }
@@ -442,34 +413,21 @@ def slate_body(
             "state": "no_platform_slots",
         },
         "salaryCapCrossCheck": None,
-        # Same shape as a projection-file import (``imports._join_values``): the page
-        # and every consumer read ONE report contract whichever path filled the slate.
-        "projectionReport": {
-            "source": "auto_ensemble",
-            "rowsRead": report.rows_read,
-            "matched": projected,
-            "unmatched": [
-                {"name": q["name"], "reason": f"identity_{q['state']}"}
-                for q in report.quarantined_identity
-                if q["state"] != "ambiguous"
-            ][:200],
-            "ambiguous": [
-                {"name": q["name"], "candidates": q["candidates"], "reason": "ambiguous_identity"}
-                for q in report.quarantined_identity
-                if q["state"] == "ambiguous"
-            ][:200],
-            "invalid": [],
-            "conflicts": [],
-            "athletesWithoutProjection": len(athletes) - projected,
-            "athletesWithoutOwnership": len(athletes),
-            "note": "Automatic: independent projection families, rescored per platform where "
+        "projectionReport": projection_report(
+            report,
+            athletes,
+            projected,
+            "Automatic: independent projection families, rescored per platform where "
             "built from stat lines. Players without a projection are left out, never scored 0. "
             "Unmatched / ambiguous names keep their salary row; only the directory join is refused.",
-        },
+        ),
         "ownershipReport": None,
         "platformAverageApplied": 0,
         "positionsNotInRuleset": sorted({p for a in athletes for p in a.positions} - rs.positions),
         "auto": {
+            "sport": SPORT,
+            "autoKey": f"{platform}:{SPORT}:{season}:w{week}:{slate.key}",
+            "periodKey": week,
             "slateKey": slate.key,
             "slateName": slate.name,
             "week": week,
@@ -489,7 +447,3 @@ def slate_body(
             "platformIds": "unavailable",
         },
     }
-
-
-def body_hash(body: dict[str, Any]) -> str:
-    return content_hash({"ruleset": body["ruleset"], "athletes": body["athletes"]})

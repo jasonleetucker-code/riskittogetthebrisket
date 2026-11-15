@@ -74,6 +74,43 @@ def test_offense_build_without_signals_is_the_champion(box):
     assert shipped["privateSourceAvailability"]["signalsSf"]["votes"] is True
 
 
+def _pin_deployed_commits(monkeypatch, mod, shas):
+    """The fixture app dir is not a git checkout: answer ``git rev-parse
+    HEAD`` with ``shas`` in order (start of run, end of run)."""
+    real_run = mod._run
+    seq = iter(shas)
+
+    def fake_run(cmd, timeout=60):
+        if cmd[:1] == ["git"] and cmd[-2:] == ["rev-parse", "HEAD"]:
+            return 0, next(seq) + "\n"
+        return real_run(cmd, timeout)
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+
+def test_a_deploy_landing_mid_run_makes_the_run_unusable(box, capsys, monkeypatch):
+    """The workflow has its own concurrency group (a queued deploy cancelled a
+    pending run into silence), so overlap with a deploy is DETECTED: a moved
+    HEAD exits non-zero and says so, never a quiet mixed-revision report."""
+    mod = _load_script()
+    monkeypatch.setattr(mod, "check_timer", lambda app_dir: {"timer": "stub"})
+    monkeypatch.setattr(mod, "check_session", lambda: {"state": "connected"})
+    _pin_deployed_commits(monkeypatch, mod, ["a" * 40, "b" * 40])
+    monkeypatch.setattr(sys, "argv", ["verify", "--app-dir", str(box), "--skip-builds"])
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    assert mod.main() == 3
+    public = json.loads(capsys.readouterr().out)
+    assert public["deployIntervened"] is True
+    assert public["deployedCommit"] != public["deployedCommitAtEnd"]
+
+
+def test_the_workflow_does_not_share_the_deploy_queue():
+    text = (REPO / ".github/workflows/signals-onbox-verification.yml").read_text(encoding="utf-8")
+    assert "group: production-deploy" not in text
+    assert "group: signals-onbox-verification" in text
+
+
 def test_what_leaves_the_box_is_aggregates_only(box, capsys, monkeypatch):
     """The repository is public: the workflow log and artifact must carry no
     player name, Signals per-player number or private board value.  The full
@@ -87,7 +124,8 @@ def test_what_leaves_the_box_is_aggregates_only(box, capsys, monkeypatch):
         "check_session",
         lambda: {"state": "connected", "capturedAt": "2026-10-04T00:00:00Z"},
     )
-    monkeypatch.setattr(sys, "argv", ["verify", "--app-dir", str(box)])
+    _pin_deployed_commits(monkeypatch, mod, ["a" * 40, "a" * 40])
+    monkeypatch.setattr(sys, "argv", ["verify", "--app-dir", str(box), "--candidate-f"])
     # main() chdirs into the app dir and prepends it to sys.path, as a
     # script on the box should; pin both so they are restored afterwards
     # (a leaked cwd broke a later subprocess test: `No module named 'src'`).
@@ -111,15 +149,46 @@ def test_what_leaves_the_box_is_aggregates_only(box, capsys, monkeypatch):
         "capturedAt",
     ):
         assert f'"{key}"' not in text, key
+    assert public["deployIntervened"] is False
     assert public["session"] == {"state": "connected"}
     assert public["watchList_outcomes"], "the gate outcomes are still reported"
     assert all("label" in w and "player" not in w for w in public["watchList_outcomes"])
 
     private = box / public["privateReport"]
     assert private.is_file()
-    assert oct(os.stat(private).st_mode & 0o777) == "0o600"
+    if os.name == "posix":  # POSIX permission bits; Windows reports 0o666 (ACLs)
+        assert oct(os.stat(private).st_mode & 0o777) == "0o600"
     full = json.loads(private.read_text(encoding="utf-8"))
     assert full["watchList"] and "player" in full["watchList"][0]
+
+
+def test_candidate_f_statistics_are_quarantined_unless_requested(box, capsys, monkeypatch):
+    """Plan 4.3 (D1 quarantine): no F-promoted build, and so no F movement /
+    family-share / bias statistic, unless ``--candidate-f`` is passed.  The
+    workflow passes nothing, so a dispatch before R1 computes none."""
+    mod = _load_script()
+    seen = {}
+    real = mod.build_three
+
+    def spy(app_dir, *, promote=True):
+        seen["promote"] = promote
+        return real(app_dir, promote=promote)
+
+    monkeypatch.setattr(mod, "build_three", spy)
+    monkeypatch.setattr(mod, "check_timer", lambda app_dir: {"timer": "stub"})
+    monkeypatch.setattr(mod, "check_session", lambda: {"state": "connected"})
+    _pin_deployed_commits(monkeypatch, mod, ["a" * 40, "a" * 40])
+    monkeypatch.setattr(sys, "argv", ["verify", "--app-dir", str(box)])
+    monkeypatch.chdir(REPO)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    assert mod.main() == 0
+    public = json.loads(capsys.readouterr().out)
+    assert seen["promote"] is False
+    assert public["idpPromotedBuild"].startswith("quarantined_until_R1")
+    assert "idp" not in public and "watchList_outcomes" not in public
+    assert "--candidate-f" not in (
+        REPO / ".github/workflows/signals-onbox-verification.yml"
+    ).read_text(encoding="utf-8")
 
 
 def test_the_guard_refuses_a_name_or_a_forbidden_key():

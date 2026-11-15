@@ -104,7 +104,7 @@ def build_resolvers() -> tuple[dict[str, float], dict[str, float]]:
     export_files = sorted((REPO / "exports" / "latest").glob("dynasty_data_*.json"))
     if not export_files:
         raise SystemExit("No dynasty_data_*.json under exports/latest/")
-    with open(export_files[-1]) as f:
+    with open(export_files[-1], encoding="utf-8") as f:
         data = json.load(f)
     # Players are keyed by display name.  Use `ktc` field (1-9999 scale)
     # as the value source — same thing the UI's "Our Value" maps from.
@@ -175,7 +175,7 @@ def iter_trades():
     path = REPO / "data" / "public_league" / "contract.json"
     if not path.exists():
         raise SystemExit(f"Missing {path}")
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         contract = json.load(f)
     feed = (contract.get("sections") or {}).get("activity", {}).get("feed") or []
     for trade in feed:

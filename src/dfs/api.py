@@ -376,11 +376,13 @@ def _auto_freshness(
     replace = {
         "salary": {
             "state": "automatic",
-            "source": f"{sal.get('source')} (platform week pool)",
+            "source": f"{sal.get('source')} ("
+            + ("platform week pool" if prov.get("adapter") == "dfs.auto.nfl" else "listed slate")
+            + ")",
             "asOf": sal.get("publishedAt") or sal.get("fetchedAt"),
             "coverage": f"{len(athletes)} players",
-            "note": "Slate game set derived from the schedule (unverified); platform player IDs "
-            "unavailable, so upload files are refused for this slate.",
+            "note": (prov.get("slateDerivationNote") or "Slate game set derived from the schedule.")
+            + " Platform player IDs unavailable, so upload files are refused for this slate.",
         },
         "projection": {
             "state": "automatic" if projected else "unavailable",
@@ -392,7 +394,8 @@ def _auto_freshness(
         },
         "sportsbook": {
             "state": "context_only",
-            "source": "dailyfantasyfuel spread/total + nflverse lines",
+            "source": "dailyfantasyfuel spread/total"
+            + (" + nflverse lines" if prov.get("adapter") == "dfs.auto.nfl" else ""),
             "asOf": sal.get("publishedAt") or sal.get("fetchedAt"),
             "coverage": None,
             "note": "Shown as game context; not an input to any projection here.",
@@ -402,7 +405,10 @@ def _auto_freshness(
             "source": (src.get("status") or {}).get("source"),
             "asOf": src.get("builtAt"),
             "coverage": f"{statused} flagged",
-            "note": "Injury designations; a player listed Out/IR is withheld from builds.",
+            "note": " ".join(
+                ["Injury designations; a player listed Out/IR is withheld from builds."]
+                + [str(n) for n in prov.get("notes") or []]
+            ),
         },
     }
     return [replace.get(r["class"], r) | {"class": r["class"]} for r in rows]
@@ -1116,27 +1122,41 @@ async def auto_slates(request: Request):
         )
     sport = request.query_params.get("sport") or "nfl"
     platform = request.query_params.get("platform") or None
-    if sport != "nfl":
+    if sport not in auto_refresh.AUTO_SPORTS:
         return _ok(
             {
                 "sport": sport,
                 "state": "UNAVAILABLE",
                 "slates": [],
-                "reason": "Automatic slates are live for NFL only; this sport still needs its "
-                "platform file (Advanced).",
+                "reason": "Automatic slates are live for NFL, NBA and NHL; this sport still needs "
+                "its platform file (Advanced).",
             }
         )
     if platform is not None and platform not in ("draftkings", "fanduel"):
         return _err("INVALID_QUERY", "platform must be draftkings or fanduel.", 400)
+    if not auto_live.sport_approved(sport):
+        from src.dfs.auto import approval
+
+        return _ok(
+            {
+                "sport": sport,
+                "state": "AWAITING_APPROVAL",
+                "slates": [],
+                "reason": approval.awaiting_reason(sport),
+                "pendingDecision": approval.sport_status(sport),
+            }
+        )
     refresh_job = None
-    if await run_in_threadpool(auto_refresh.is_due, "nfl"):
+    if await run_in_threadpool(auto_refresh.is_due, sport):
         try:
             refresh_job = (
-                await run_in_threadpool(dfs_jobs.submit, SYSTEM_OWNER, "dfs_auto_refresh", {})
+                await run_in_threadpool(
+                    dfs_jobs.submit, SYSTEM_OWNER, "dfs_auto_refresh", {"sport": sport}
+                )
             )["state"]
         except dfs_jobs.JobError as exc:
             refresh_job = exc.code  # QUEUE_FULL = one is already running
-    out = await run_in_threadpool(auto_refresh.list_slates, "nfl", platform)
+    out = await run_in_threadpool(auto_refresh.list_slates, sport, platform)
     out["refreshQueued"] = refresh_job
     return _ok(out)
 
@@ -1160,6 +1180,10 @@ async def auto_slate_select(request: Request):
     row = await run_in_threadpool(auto_refresh.get_row, str(body.get("autoSlateId") or ""))
     if row is None:
         return _err("NOT_FOUND", "No such automatic slate.", 404)
+    if not auto_live.sport_approved(row["sport"]):
+        from src.dfs.auto import approval
+
+        return _err("AWAITING_OWNER_APPROVAL", approval.awaiting_reason(row["sport"]), 409)
     src_snap = await run_in_threadpool(store.get_snapshot, SYSTEM_OWNER, row["snapshotId"])
     if src_snap is None:
         return _err("NOT_FOUND", "The automatic slate's data is missing; refresh again.", 404)

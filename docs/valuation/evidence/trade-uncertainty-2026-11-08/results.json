@@ -1,0 +1,4325 @@
+{
+ "study": "trade-monte-carlo-value-uncertainty",
+ "prereg": "docs/valuation/TRADE_UNCERTAINTY_STUDY_PREREG_2026-11-08.md",
+ "dataDates": [
+  "2026-04-16",
+  "2026-11-08"
+ ],
+ "dataDateCount": 207,
+ "evalStart": "2026-06-15",
+ "lastDate": "2026-11-08",
+ "breakDates": {
+  "2026-04-17": [
+   "source_set_changed"
+  ],
+  "2026-04-19": [
+   "source_set_changed"
+  ],
+  "2026-04-20": [
+   "source_set_changed"
+  ],
+  "2026-04-21": [
+   "source_set_changed"
+  ],
+  "2026-04-24": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-04-25": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-04-27": [
+   "source_set_changed",
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-04-28": [
+   "source_set_changed"
+  ],
+  "2026-05-13": [
+   "source_set_changed"
+  ],
+  "2026-05-15": [
+   "source_set_changed"
+  ],
+  "2026-06-02": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-06-03": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-06-04": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-06-05": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-06-29": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-07-01": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-07-21": [
+   "source_set_changed"
+  ],
+  "2026-07-24": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-07-25": [
+   "source_set_changed",
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-08-18": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-08-19": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-08-20": [
+   "source_set_changed"
+  ],
+  "2026-09-09": [
+   "source_set_changed"
+  ],
+  "2026-09-12": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-09-13": [
+   "priced_count_jump_gt_10pct"
+  ],
+  "2026-09-24": [
+   "source_set_changed"
+  ]
+ },
+ "refitLog": [
+  {
+   "refit": "2026-06-15",
+   "skipped": true,
+   "trainDates": 20
+  },
+  {
+   "refit": "2026-06-29",
+   "h": 7,
+   "trainPairs": 31312,
+   "trainDates": 33,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000442
+   },
+   "m4Q10Q90": [
+    -0.0152,
+    0.0108
+   ]
+  },
+  {
+   "refit": "2026-06-29",
+   "h": 14,
+   "trainPairs": 11397,
+   "trainDates": 33,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000442
+   },
+   "m4Q10Q90": [
+    -0.015,
+    0.0117
+   ]
+  },
+  {
+   "refit": "2026-07-13",
+   "h": 7,
+   "trainPairs": 35884,
+   "trainDates": 38,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000453
+   },
+   "m4Q10Q90": [
+    -0.017,
+    0.0131
+   ]
+  },
+  {
+   "refit": "2026-07-13",
+   "h": 14,
+   "trainPairs": 11397,
+   "trainDates": 38,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000453
+   },
+   "m4Q10Q90": [
+    -0.015,
+    0.0117
+   ]
+  },
+  {
+   "refit": "2026-07-27",
+   "h": 7,
+   "trainPairs": 42435,
+   "trainDates": 45,
+   "m3": {
+    "a": 0.0,
+    "b": 0.00092
+   },
+   "m4Q10Q90": [
+    -0.0165,
+    0.0129
+   ]
+  },
+  {
+   "refit": "2026-07-27",
+   "h": 14,
+   "trainPairs": 15965,
+   "trainDates": 45,
+   "m3": {
+    "a": 0.0,
+    "b": 0.00092
+   },
+   "m4Q10Q90": [
+    -0.0212,
+    0.0179
+   ]
+  },
+  {
+   "refit": "2026-08-10",
+   "h": 7,
+   "trainPairs": 50902,
+   "trainDates": 54,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000874
+   },
+   "m4Q10Q90": [
+    -0.0177,
+    0.0133
+   ]
+  },
+  {
+   "refit": "2026-08-10",
+   "h": 14,
+   "trainPairs": 17842,
+   "trainDates": 54,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000874
+   },
+   "m4Q10Q90": [
+    -0.0228,
+    0.0181
+   ]
+  },
+  {
+   "refit": "2026-08-24",
+   "h": 7,
+   "trainPairs": 57576,
+   "trainDates": 61,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000787
+   },
+   "m4Q10Q90": [
+    -0.017,
+    0.013
+   ]
+  },
+  {
+   "refit": "2026-08-24",
+   "h": 14,
+   "trainPairs": 24413,
+   "trainDates": 61,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000787
+   },
+   "m4Q10Q90": [
+    -0.0241,
+    0.0175
+   ]
+  },
+  {
+   "refit": "2026-09-07",
+   "h": 7,
+   "trainPairs": 67892,
+   "trainDates": 72,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000799
+   },
+   "m4Q10Q90": [
+    -0.0176,
+    0.015
+   ]
+  },
+  {
+   "refit": "2026-09-07",
+   "h": 14,
+   "trainPairs": 28078,
+   "trainDates": 72,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000799
+   },
+   "m4Q10Q90": [
+    -0.0248,
+    0.0202
+   ]
+  },
+  {
+   "refit": "2026-09-21",
+   "h": 7,
+   "trainPairs": 69789,
+   "trainDates": 74,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000796
+   },
+   "m4Q10Q90": [
+    -0.0178,
+    0.0151
+   ]
+  },
+  {
+   "refit": "2026-09-21",
+   "h": 14,
+   "trainPairs": 28988,
+   "trainDates": 74,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000796
+   },
+   "m4Q10Q90": [
+    -0.0249,
+    0.0205
+   ]
+  },
+  {
+   "refit": "2026-10-05",
+   "h": 7,
+   "trainPairs": 75759,
+   "trainDates": 80,
+   "m3": {
+    "a": 0.0,
+    "b": 0.00078
+   },
+   "m4Q10Q90": [
+    -0.0193,
+    0.0163
+   ]
+  },
+  {
+   "refit": "2026-10-05",
+   "h": 14,
+   "trainPairs": 28988,
+   "trainDates": 80,
+   "m3": {
+    "a": 0.0,
+    "b": 0.00078
+   },
+   "m4Q10Q90": [
+    -0.0249,
+    0.0205
+   ]
+  },
+  {
+   "refit": "2026-10-19",
+   "h": 7,
+   "trainPairs": 89076,
+   "trainDates": 94,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000674
+   },
+   "m4Q10Q90": [
+    -0.0217,
+    0.0189
+   ]
+  },
+  {
+   "refit": "2026-10-19",
+   "h": 14,
+   "trainPairs": 38984,
+   "trainDates": 94,
+   "m3": {
+    "a": 0.0,
+    "b": 0.000674
+   },
+   "m4Q10Q90": [
+    -0.0341,
+    0.0293
+   ]
+  },
+  {
+   "refit": "2026-11-02",
+   "h": 7,
+   "trainPairs": 103031,
+   "trainDates": 108,
+   "m3": {
+    "a": 0.0,
+    "b": 0.00048
+   },
+   "m4Q10Q90": [
+    -0.0227,
+    0.0202
+   ]
+  },
+  {
+   "refit": "2026-11-02",
+   "h": 14,
+   "trainPairs": 52471,
+   "trainDates": 108,
+   "m3": {
+    "a": 0.0,
+    "b": 0.00048
+   },
+   "m4Q10Q90": [
+    -0.0371,
+    0.0332
+   ]
+  },
+  {
+   "refit": "2026-11-02",
+   "h": 28,
+   "trainPairs": 9855,
+   "trainDates": 108,
+   "m3": {
+    "a": 0.0,
+    "b": 0.00048
+   },
+   "m4Q10Q90": [
+    -0.079,
+    0.098
+   ]
+  }
+ ],
+ "skippedBlocks": 1,
+ "incumbentQuantiles": [
+  -0.225,
+  -0.15,
+  -0.13125,
+  -0.1125,
+  -0.09375,
+  -0.075,
+  -0.05625,
+  -0.0375,
+  -0.01875,
+  0.0,
+  0.01875,
+  0.0375,
+  0.05625,
+  0.075,
+  0.09375,
+  0.1125,
+  0.13125,
+  0.15,
+  0.225
+ ],
+ "taus": [
+  0.05,
+  0.1,
+  0.15,
+  0.2,
+  0.25,
+  0.3,
+  0.35,
+  0.4,
+  0.45,
+  0.5,
+  0.55,
+  0.6,
+  0.65,
+  0.7,
+  0.75,
+  0.8,
+  0.85,
+  0.9,
+  0.95
+ ],
+ "primary": {
+  "byHorizon": {
+   "7": {
+    "models": {
+     "M0": {
+      "cv": {
+       "pairs": 33883,
+       "origins": 81,
+       "cov50": {
+        "est": 0.9758,
+        "lo95": 0.96531,
+        "hi95": 0.98389
+       },
+       "cov80": {
+        "est": 0.99212,
+        "lo95": 0.98898,
+        "hi95": 0.99453
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.0195,
+        "lo95": 0.01894,
+        "hi95": 0.02044
+       },
+       "crpsApprox": 0.038994,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.9921,
+        "pinball": 0.019023
+       }
+      },
+      "all": {
+       "pairs": 77738,
+       "origins": 81,
+       "cov50": {
+        "est": 0.96676,
+        "lo95": 0.95923,
+        "hi95": 0.97832
+       },
+       "cov80": {
+        "est": 0.98257,
+        "lo95": 0.97906,
+        "hi95": 0.98879
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.02309,
+        "lo95": 0.02159,
+        "hi95": 0.02416
+       },
+       "crpsApprox": 0.04617,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.9798,
+        "pinball": 0.022995
+       }
+      }
+     },
+     "M1": {
+      "cv": {
+       "pairs": 33883,
+       "origins": 81,
+       "cov50": {
+        "est": 0.43916,
+        "lo95": 0.39085,
+        "hi95": 0.47479
+       },
+       "cov80": {
+        "est": 0.75855,
+        "lo95": 0.71612,
+        "hi95": 0.79049
+       },
+       "meanWidth50": 0.02442,
+       "meanWidth80": 0.06956,
+       "pinball": {
+        "est": 0.01021,
+        "lo95": 0.00908,
+        "hi95": 0.0116
+       },
+       "crpsApprox": 0.020418,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.7628,
+        "pinball": 0.009603
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00929,
+       "lo95": -0.0103,
+       "hi95": -0.00811
+      },
+      "pinballMinusM4": {
+       "est": -0.00035,
+       "lo95": -0.00056,
+       "hi95": -0.0002
+      }
+     },
+     "M2": {
+      "cv": {
+       "pairs": 33883,
+       "origins": 81,
+       "cov50": {
+        "est": 0.36641,
+        "lo95": 0.30874,
+        "hi95": 0.41022
+       },
+       "cov80": {
+        "est": 0.68887,
+        "lo95": 0.61958,
+        "hi95": 0.74112
+       },
+       "meanWidth50": 0.01875,
+       "meanWidth80": 0.05391,
+       "pinball": {
+        "est": 0.01026,
+        "lo95": 0.00902,
+        "hi95": 0.01181
+       },
+       "crpsApprox": 0.020525,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.6972,
+        "pinball": 0.009665
+       }
+      },
+      "all": {
+       "pairs": 77738,
+       "origins": 81,
+       "cov50": {
+        "est": 0.36153,
+        "lo95": 0.31644,
+        "hi95": 0.41223
+       },
+       "cov80": {
+        "est": 0.65942,
+        "lo95": 0.61494,
+        "hi95": 0.71128
+       },
+       "meanWidth50": 0.01022,
+       "meanWidth80": 0.03473,
+       "pinball": {
+        "est": 0.01228,
+        "lo95": 0.01006,
+        "hi95": 0.01358
+       },
+       "crpsApprox": 0.024564,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.6503,
+        "pinball": 0.012447
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00923,
+       "lo95": -0.01038,
+       "hi95": -0.00789
+      },
+      "pinballMinusM4": {
+       "est": -0.00029,
+       "lo95": -0.00037,
+       "hi95": -0.00024
+      }
+     },
+     "M3": {
+      "cv": {
+       "pairs": 33883,
+       "origins": 81,
+       "cov50": {
+        "est": 0.37916,
+        "lo95": 0.31437,
+        "hi95": 0.42976
+       },
+       "cov80": {
+        "est": 0.7,
+        "lo95": 0.63077,
+        "hi95": 0.75262
+       },
+       "meanWidth50": 0.01781,
+       "meanWidth80": 0.04925,
+       "pinball": {
+        "est": 0.01014,
+        "lo95": 0.00895,
+        "hi95": 0.01162
+       },
+       "crpsApprox": 0.020275,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.7087,
+        "pinball": 0.009504
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00936,
+       "lo95": -0.01038,
+       "hi95": -0.0081
+      },
+      "pinballMinusM4": {
+       "est": -0.00042,
+       "lo95": -0.00053,
+       "hi95": -0.00032
+      }
+     },
+     "M4": {
+      "cv": {
+       "pairs": 33883,
+       "origins": 81,
+       "cov50": {
+        "est": 0.17153,
+        "lo95": 0.14467,
+        "hi95": 0.19495
+       },
+       "cov80": {
+        "est": 0.56483,
+        "lo95": 0.50201,
+        "hi95": 0.61503
+       },
+       "meanWidth50": 0.00711,
+       "meanWidth80": 0.03296,
+       "pinball": {
+        "est": 0.01056,
+        "lo95": 0.00929,
+        "hi95": 0.01212
+       },
+       "crpsApprox": 0.021113,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.5686,
+        "pinball": 0.009911
+       }
+      },
+      "all": {
+       "pairs": 77738,
+       "origins": 81,
+       "cov50": {
+        "est": 0.3595,
+        "lo95": 0.31964,
+        "hi95": 0.41103
+       },
+       "cov80": {
+        "est": 0.70136,
+        "lo95": 0.66217,
+        "hi95": 0.74308
+       },
+       "meanWidth50": 0.00704,
+       "meanWidth80": 0.03276,
+       "pinball": {
+        "est": 0.01252,
+        "lo95": 0.01033,
+        "hi95": 0.01384
+       },
+       "crpsApprox": 0.025045,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.6939,
+        "pinball": 0.012603
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00894,
+       "lo95": -0.01005,
+       "hi95": -0.00757
+      }
+     }
+    },
+    "evalOrigins": 81,
+    "evalSpan": [
+     "2026-07-02",
+     "2026-11-01"
+    ],
+    "disjointBlocks": 17,
+    "decidable": true,
+    "strata": {
+     "M0": {
+      "group": {
+       "offense": {
+        "n": 33883,
+        "dates": 81,
+        "cov50": 0.9758,
+        "cov80": 0.9921
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 5541,
+        "dates": 81,
+        "cov50": 0.9666,
+        "cov80": 0.9881
+       },
+       "RB": {
+        "n": 9238,
+        "dates": 81,
+        "cov50": 0.9754,
+        "cov80": 0.9926
+       },
+       "TE": {
+        "n": 5890,
+        "dates": 81,
+        "cov50": 0.989,
+        "cov80": 0.9963
+       },
+       "WR": {
+        "n": 13214,
+        "dates": 81,
+        "cov50": 0.974,
+        "cov80": 0.9916
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1187,
+        "dates": 77,
+        "cov50": 0.8955,
+        "cov80": 0.9427
+       },
+       "1": {
+        "n": 19581,
+        "dates": 81,
+        "cov50": 0.9698,
+        "cov80": 0.9906
+       },
+       "2": {
+        "n": 8699,
+        "dates": 81,
+        "cov50": 0.9909,
+        "cov80": 0.9984
+       },
+       "3": {
+        "n": 3045,
+        "dates": 81,
+        "cov50": 0.9915,
+        "cov80": 1.0
+       },
+       "4": {
+        "n": 1371,
+        "dates": 81,
+        "cov50": 1.0,
+        "cov80": 1.0
+       }
+      }
+     },
+     "M1": {
+      "group": {
+       "offense": {
+        "n": 33883,
+        "dates": 81,
+        "cov50": 0.4392,
+        "cov80": 0.7586
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 5541,
+        "dates": 81,
+        "cov50": 0.4088,
+        "cov80": 0.754
+       },
+       "RB": {
+        "n": 9238,
+        "dates": 81,
+        "cov50": 0.383,
+        "cov80": 0.7074
+       },
+       "TE": {
+        "n": 5890,
+        "dates": 81,
+        "cov50": 0.6396,
+        "cov80": 0.9419
+       },
+       "WR": {
+        "n": 13214,
+        "dates": 81,
+        "cov50": 0.4018,
+        "cov80": 0.7145
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1187,
+        "dates": 77,
+        "cov50": 0.3901,
+        "cov80": 0.6773
+       },
+       "1": {
+        "n": 19581,
+        "dates": 81,
+        "cov50": 0.4183,
+        "cov80": 0.7421
+       },
+       "2": {
+        "n": 8699,
+        "dates": 81,
+        "cov50": 0.4647,
+        "cov80": 0.7961
+       },
+       "3": {
+        "n": 3045,
+        "dates": 81,
+        "cov50": 0.4279,
+        "cov80": 0.7343
+       },
+       "4": {
+        "n": 1371,
+        "dates": 81,
+        "cov50": 0.6426,
+        "cov80": 0.8789
+       }
+      }
+     },
+     "M2": {
+      "group": {
+       "offense": {
+        "n": 33883,
+        "dates": 81,
+        "cov50": 0.3664,
+        "cov80": 0.6889
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 5541,
+        "dates": 81,
+        "cov50": 0.3916,
+        "cov80": 0.6901
+       },
+       "RB": {
+        "n": 9238,
+        "dates": 81,
+        "cov50": 0.3611,
+        "cov80": 0.6833
+       },
+       "TE": {
+        "n": 5890,
+        "dates": 81,
+        "cov50": 0.436,
+        "cov80": 0.7547
+       },
+       "WR": {
+        "n": 13214,
+        "dates": 81,
+        "cov50": 0.3285,
+        "cov80": 0.6629
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1187,
+        "dates": 77,
+        "cov50": 0.2561,
+        "cov80": 0.7641
+       },
+       "1": {
+        "n": 19581,
+        "dates": 81,
+        "cov50": 0.3851,
+        "cov80": 0.7212
+       },
+       "2": {
+        "n": 8699,
+        "dates": 81,
+        "cov50": 0.3498,
+        "cov80": 0.6347
+       },
+       "3": {
+        "n": 3045,
+        "dates": 81,
+        "cov50": 0.3176,
+        "cov80": 0.5967
+       },
+       "4": {
+        "n": 1371,
+        "dates": 81,
+        "cov50": 0.4092,
+        "cov80": 0.7112
+       }
+      }
+     },
+     "M3": {
+      "group": {
+       "offense": {
+        "n": 33883,
+        "dates": 81,
+        "cov50": 0.3792,
+        "cov80": 0.7
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 5541,
+        "dates": 81,
+        "cov50": 0.3732,
+        "cov80": 0.6715
+       },
+       "RB": {
+        "n": 9238,
+        "dates": 81,
+        "cov50": 0.3664,
+        "cov80": 0.7039
+       },
+       "TE": {
+        "n": 5890,
+        "dates": 81,
+        "cov50": 0.3985,
+        "cov80": 0.7355
+       },
+       "WR": {
+        "n": 13214,
+        "dates": 81,
+        "cov50": 0.3819,
+        "cov80": 0.6934
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1187,
+        "dates": 77,
+        "cov50": 0.3555,
+        "cov80": 0.6529
+       },
+       "1": {
+        "n": 19581,
+        "dates": 81,
+        "cov50": 0.3184,
+        "cov80": 0.6493
+       },
+       "2": {
+        "n": 8699,
+        "dates": 81,
+        "cov50": 0.4276,
+        "cov80": 0.752
+       },
+       "3": {
+        "n": 3045,
+        "dates": 81,
+        "cov50": 0.4926,
+        "cov80": 0.7934
+       },
+       "4": {
+        "n": 1371,
+        "dates": 81,
+        "cov50": 0.7075,
+        "cov80": 0.9278
+       }
+      }
+     },
+     "M4": {
+      "group": {
+       "offense": {
+        "n": 33883,
+        "dates": 81,
+        "cov50": 0.1715,
+        "cov80": 0.5648
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 5541,
+        "dates": 81,
+        "cov50": 0.1736,
+        "cov80": 0.5465
+       },
+       "RB": {
+        "n": 9238,
+        "dates": 81,
+        "cov50": 0.1653,
+        "cov80": 0.5569
+       },
+       "TE": {
+        "n": 5890,
+        "dates": 81,
+        "cov50": 0.1767,
+        "cov80": 0.5886
+       },
+       "WR": {
+        "n": 13214,
+        "dates": 81,
+        "cov50": 0.1727,
+        "cov80": 0.5674
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1187,
+        "dates": 77,
+        "cov50": 0.1786,
+        "cov80": 0.5476
+       },
+       "1": {
+        "n": 19581,
+        "dates": 81,
+        "cov50": 0.133,
+        "cov80": 0.5041
+       },
+       "2": {
+        "n": 8699,
+        "dates": 81,
+        "cov50": 0.1862,
+        "cov80": 0.6179
+       },
+       "3": {
+        "n": 3045,
+        "dates": 81,
+        "cov50": 0.2358,
+        "cov80": 0.6814
+       },
+       "4": {
+        "n": 1371,
+        "dates": 81,
+        "cov50": 0.4792,
+        "cov80": 0.8519
+       }
+      }
+     }
+    },
+    "phase": {
+     "M0|pre": 0.9955,
+     "M1|pre": 0.8159,
+     "M2|pre": 0.7843,
+     "M3|pre": 0.7945,
+     "M4|pre": 0.6511,
+     "M0|in": 0.9893,
+     "M1|in": 0.7101,
+     "M2|in": 0.6083,
+     "M3|in": 0.6202,
+     "M4|in": 0.492
+    },
+    "m2BackoffShare": {
+     "g_pos_tier_age": 0.8389,
+     "g_pos_tier": 0.1362,
+     "g_tier": 0.0206,
+     "g": 0.0043,
+     "pooled": 0.0
+    },
+    "attrition": {
+     "origin": 79605,
+     "matched": 77738,
+     "lostAtTarget": 1867
+    }
+   },
+   "14": {
+    "models": {
+     "M0": {
+      "cv": {
+       "pairs": 21120,
+       "origins": 50,
+       "cov50": {
+        "est": 0.92959,
+        "lo95": 0.89078,
+        "hi95": 0.95753
+       },
+       "cov80": {
+        "est": 0.97637,
+        "lo95": 0.96235,
+        "hi95": 0.98487
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.02128,
+        "lo95": 0.02032,
+        "hi95": 0.02259
+       },
+       "crpsApprox": 0.042552,
+       "disjointOrigins": {
+        "origins": 4,
+        "cov80": 0.985,
+        "pinball": 0.019553
+       }
+      },
+      "all": {
+       "pairs": 47043,
+       "origins": 50,
+       "cov50": {
+        "est": 0.93053,
+        "lo95": 0.90559,
+        "hi95": 0.95347
+       },
+       "cov80": {
+        "est": 0.9676,
+        "lo95": 0.96063,
+        "hi95": 0.97705
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.02613,
+        "lo95": 0.02477,
+        "hi95": 0.02645
+       },
+       "crpsApprox": 0.05226,
+       "disjointOrigins": {
+        "origins": 4,
+        "cov80": 0.9618,
+        "pinball": 0.02733
+       }
+      }
+     },
+     "M1": {
+      "cv": {
+       "pairs": 21120,
+       "origins": 50,
+       "cov50": {
+        "est": 0.38191,
+        "lo95": 0.29479,
+        "hi95": 0.43407
+       },
+       "cov80": {
+        "est": 0.68537,
+        "lo95": 0.59997,
+        "hi95": 0.73153
+       },
+       "meanWidth50": 0.03335,
+       "meanWidth80": 0.08924,
+       "pinball": {
+        "est": 0.01511,
+        "lo95": 0.01212,
+        "hi95": 0.01879
+       },
+       "crpsApprox": 0.030213,
+       "disjointOrigins": {
+        "origins": 4,
+        "cov80": 0.7347,
+        "pinball": 0.012173
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00617,
+       "lo95": -0.00831,
+       "hi95": -0.00371
+      },
+      "pinballMinusM4": {
+       "est": -0.00069,
+       "lo95": -0.00123,
+       "hi95": -0.00045
+      }
+     },
+     "M2": {
+      "cv": {
+       "pairs": 21120,
+       "origins": 50,
+       "cov50": {
+        "est": 0.3044,
+        "lo95": 0.20671,
+        "hi95": 0.3666
+       },
+       "cov80": {
+        "est": 0.60194,
+        "lo95": 0.47407,
+        "hi95": 0.66553
+       },
+       "meanWidth50": 0.02492,
+       "meanWidth80": 0.06996,
+       "pinball": {
+        "est": 0.01542,
+        "lo95": 0.01225,
+        "hi95": 0.01958
+       },
+       "crpsApprox": 0.030842,
+       "disjointOrigins": {
+        "origins": 4,
+        "cov80": 0.6693,
+        "pinball": 0.012366
+       }
+      },
+      "all": {
+       "pairs": 47043,
+       "origins": 50,
+       "cov50": {
+        "est": 0.30625,
+        "lo95": 0.27607,
+        "hi95": 0.31392
+       },
+       "cov80": {
+        "est": 0.5912,
+        "lo95": 0.55045,
+        "hi95": 0.61098
+       },
+       "meanWidth50": 0.01563,
+       "meanWidth80": 0.04833,
+       "pinball": {
+        "est": 0.01817,
+        "lo95": 0.01572,
+        "hi95": 0.0195
+       },
+       "crpsApprox": 0.036339,
+       "disjointOrigins": {
+        "origins": 4,
+        "cov80": 0.6063,
+        "pinball": 0.019265
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00586,
+       "lo95": -0.0082,
+       "hi95": -0.00292
+      },
+      "pinballMinusM4": {
+       "est": -0.00037,
+       "lo95": -0.00045,
+       "hi95": -0.00034
+      }
+     },
+     "M3": {
+      "cv": {
+       "pairs": 21120,
+       "origins": 50,
+       "cov50": {
+        "est": 0.3258,
+        "lo95": 0.22144,
+        "hi95": 0.40632
+       },
+       "cov80": {
+        "est": 0.65308,
+        "lo95": 0.51575,
+        "hi95": 0.74363
+       },
+       "meanWidth50": 0.02526,
+       "meanWidth80": 0.06955,
+       "pinball": {
+        "est": 0.01509,
+        "lo95": 0.01207,
+        "hi95": 0.01904
+       },
+       "crpsApprox": 0.030177,
+       "disjointOrigins": {
+        "origins": 4,
+        "cov80": 0.7263,
+        "pinball": 0.012081
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00619,
+       "lo95": -0.00837,
+       "hi95": -0.00347
+      },
+      "pinballMinusM4": {
+       "est": -0.0007,
+       "lo95": -0.00099,
+       "hi95": -0.00052
+      }
+     },
+     "M4": {
+      "cv": {
+       "pairs": 21120,
+       "origins": 50,
+       "cov50": {
+        "est": 0.15852,
+        "lo95": 0.12049,
+        "hi95": 0.18272
+       },
+       "cov80": {
+        "est": 0.49228,
+        "lo95": 0.37252,
+        "hi95": 0.57071
+       },
+       "meanWidth50": 0.01176,
+       "meanWidth80": 0.04482,
+       "pinball": {
+        "est": 0.01579,
+        "lo95": 0.01258,
+        "hi95": 0.01999
+       },
+       "crpsApprox": 0.031584,
+       "disjointOrigins": {
+        "origins": 4,
+        "cov80": 0.5456,
+        "pinball": 0.012666
+       }
+      },
+      "all": {
+       "pairs": 47043,
+       "origins": 50,
+       "cov50": {
+        "est": 0.29056,
+        "lo95": 0.26645,
+        "hi95": 0.30931
+       },
+       "cov80": {
+        "est": 0.63793,
+        "lo95": 0.56366,
+        "hi95": 0.68768
+       },
+       "meanWidth50": 0.01159,
+       "meanWidth80": 0.0445,
+       "pinball": {
+        "est": 0.01842,
+        "lo95": 0.01582,
+        "hi95": 0.0199
+       },
+       "crpsApprox": 0.036841,
+       "disjointOrigins": {
+        "origins": 4,
+        "cov80": 0.656,
+        "pinball": 0.019369
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00548,
+       "lo95": -0.00785,
+       "hi95": -0.00246
+      }
+     }
+    },
+    "evalOrigins": 50,
+    "evalSpan": [
+     "2026-07-02",
+     "2026-10-25"
+    ],
+    "disjointBlocks": 8,
+    "decidable": true,
+    "strata": {
+     "M0": {
+      "group": {
+       "offense": {
+        "n": 21120,
+        "dates": 50,
+        "cov50": 0.9296,
+        "cov80": 0.9764
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 3419,
+        "dates": 50,
+        "cov50": 0.9181,
+        "cov80": 0.964
+       },
+       "RB": {
+        "n": 5690,
+        "dates": 50,
+        "cov50": 0.9188,
+        "cov80": 0.9766
+       },
+       "TE": {
+        "n": 3676,
+        "dates": 50,
+        "cov50": 0.9703,
+        "cov80": 0.9943
+       },
+       "WR": {
+        "n": 8335,
+        "dates": 50,
+        "cov50": 0.9237,
+        "cov80": 0.9734
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 869,
+        "dates": 44,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 12160,
+        "dates": 50,
+        "cov50": 0.928,
+        "cov80": 0.9729
+       },
+       "2": {
+        "n": 5397,
+        "dates": 50,
+        "cov50": 0.9377,
+        "cov80": 0.9841
+       },
+       "3": {
+        "n": 1881,
+        "dates": 50,
+        "cov50": 0.9309,
+        "cov80": 0.9947
+       },
+       "4": {
+        "n": 813,
+        "dates": 50,
+        "status": "below_floor"
+       }
+      }
+     },
+     "M1": {
+      "group": {
+       "offense": {
+        "n": 21120,
+        "dates": 50,
+        "cov50": 0.3819,
+        "cov80": 0.6854
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 3419,
+        "dates": 50,
+        "cov50": 0.3565,
+        "cov80": 0.6657
+       },
+       "RB": {
+        "n": 5690,
+        "dates": 50,
+        "cov50": 0.3174,
+        "cov80": 0.6204
+       },
+       "TE": {
+        "n": 3676,
+        "dates": 50,
+        "cov50": 0.5865,
+        "cov80": 0.9042
+       },
+       "WR": {
+        "n": 8335,
+        "dates": 50,
+        "cov50": 0.3461,
+        "cov80": 0.6413
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 869,
+        "dates": 44,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 12160,
+        "dates": 50,
+        "cov50": 0.3865,
+        "cov80": 0.6959
+       },
+       "2": {
+        "n": 5397,
+        "dates": 50,
+        "cov50": 0.3495,
+        "cov80": 0.6656
+       },
+       "3": {
+        "n": 1881,
+        "dates": 50,
+        "cov50": 0.3392,
+        "cov80": 0.6098
+       },
+       "4": {
+        "n": 813,
+        "dates": 50,
+        "status": "below_floor"
+       }
+      }
+     },
+     "M2": {
+      "group": {
+       "offense": {
+        "n": 21120,
+        "dates": 50,
+        "cov50": 0.3044,
+        "cov80": 0.6019
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 3419,
+        "dates": 50,
+        "cov50": 0.3153,
+        "cov80": 0.5861
+       },
+       "RB": {
+        "n": 5690,
+        "dates": 50,
+        "cov50": 0.2977,
+        "cov80": 0.5868
+       },
+       "TE": {
+        "n": 3676,
+        "dates": 50,
+        "cov50": 0.3738,
+        "cov80": 0.6755
+       },
+       "WR": {
+        "n": 8335,
+        "dates": 50,
+        "cov50": 0.2739,
+        "cov80": 0.5863
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 869,
+        "dates": 44,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 12160,
+        "dates": 50,
+        "cov50": 0.3401,
+        "cov80": 0.6532
+       },
+       "2": {
+        "n": 5397,
+        "dates": 50,
+        "cov50": 0.2492,
+        "cov80": 0.4929
+       },
+       "3": {
+        "n": 1881,
+        "dates": 50,
+        "cov50": 0.2392,
+        "cov80": 0.4785
+       },
+       "4": {
+        "n": 813,
+        "dates": 50,
+        "status": "below_floor"
+       }
+      }
+     },
+     "M3": {
+      "group": {
+       "offense": {
+        "n": 21120,
+        "dates": 50,
+        "cov50": 0.3258,
+        "cov80": 0.6531
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 3419,
+        "dates": 50,
+        "cov50": 0.3206,
+        "cov80": 0.6174
+       },
+       "RB": {
+        "n": 5690,
+        "dates": 50,
+        "cov50": 0.307,
+        "cov80": 0.6406
+       },
+       "TE": {
+        "n": 3676,
+        "dates": 50,
+        "cov50": 0.3683,
+        "cov80": 0.7111
+       },
+       "WR": {
+        "n": 8335,
+        "dates": 50,
+        "cov50": 0.322,
+        "cov80": 0.6506
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 869,
+        "dates": 44,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 12160,
+        "dates": 50,
+        "cov50": 0.2882,
+        "cov80": 0.6354
+       },
+       "2": {
+        "n": 5397,
+        "dates": 50,
+        "cov50": 0.323,
+        "cov80": 0.6372
+       },
+       "3": {
+        "n": 1881,
+        "dates": 50,
+        "cov50": 0.411,
+        "cov80": 0.7055
+       },
+       "4": {
+        "n": 813,
+        "dates": 50,
+        "status": "below_floor"
+       }
+      }
+     },
+     "M4": {
+      "group": {
+       "offense": {
+        "n": 21120,
+        "dates": 50,
+        "cov50": 0.1585,
+        "cov80": 0.4923
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 3419,
+        "dates": 50,
+        "cov50": 0.1597,
+        "cov80": 0.4689
+       },
+       "RB": {
+        "n": 5690,
+        "dates": 50,
+        "cov50": 0.1436,
+        "cov80": 0.4698
+       },
+       "TE": {
+        "n": 3676,
+        "dates": 50,
+        "cov50": 0.176,
+        "cov80": 0.5427
+       },
+       "WR": {
+        "n": 8335,
+        "dates": 50,
+        "cov50": 0.1605,
+        "cov80": 0.495
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 869,
+        "dates": 44,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 12160,
+        "dates": 50,
+        "cov50": 0.1343,
+        "cov80": 0.4602
+       },
+       "2": {
+        "n": 5397,
+        "dates": 50,
+        "cov50": 0.1503,
+        "cov80": 0.4825
+       },
+       "3": {
+        "n": 1881,
+        "dates": 50,
+        "cov50": 0.1914,
+        "cov80": 0.5673
+       },
+       "4": {
+        "n": 813,
+        "dates": 50,
+        "status": "below_floor"
+       }
+      }
+     }
+    },
+    "phase": {
+     "M0|pre": 0.991,
+     "M1|pre": 0.7743,
+     "M2|pre": 0.7271,
+     "M3|pre": 0.8141,
+     "M4|pre": 0.6099,
+     "M0|in": 0.9688,
+     "M1|in": 0.6393,
+     "M2|in": 0.5372,
+     "M3|in": 0.5698,
+     "M4|in": 0.4314
+    },
+    "m2BackoffShare": {
+     "g_pos_tier_age": 0.6201,
+     "g_pos_tier": 0.2883,
+     "g_tier": 0.0785,
+     "g": 0.0131,
+     "pooled": 0.0
+    },
+    "attrition": {
+     "origin": 49520,
+     "matched": 47043,
+     "lostAtTarget": 2477
+    }
+   },
+   "28": {
+    "note": "no evaluation origins"
+   }
+  }
+ },
+ "decisionRule": {
+  "byHorizon": {
+   "7": {
+    "decidable": true,
+    "models": {
+     "M1": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": true,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": true
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=TE:0.9419",
+       "tier=0:0.6773"
+      ]
+     },
+     "M2": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.6901",
+       "position=RB:0.6833",
+       "position=WR:0.6629",
+       "tier=2:0.6347",
+       "tier=3:0.5967",
+       "group=offense:0.6889"
+      ]
+     },
+     "M3": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.6715",
+       "position=WR:0.6934",
+       "tier=0:0.6529",
+       "tier=1:0.6493",
+       "tier=4:0.9278"
+      ]
+     },
+     "M4": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.5465",
+       "position=RB:0.5569",
+       "position=TE:0.5886",
+       "position=WR:0.5674",
+       "tier=0:0.5476",
+       "tier=1:0.5041",
+       "tier=2:0.6179",
+       "tier=3:0.6814",
+       "group=offense:0.5648"
+      ]
+     }
+    }
+   },
+   "14": {
+    "decidable": true,
+    "models": {
+     "M1": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.6657",
+       "position=RB:0.6204",
+       "position=TE:0.9042",
+       "position=WR:0.6413",
+       "tier=1:0.6959",
+       "tier=2:0.6656",
+       "tier=3:0.6098",
+       "group=offense:0.6854"
+      ]
+     },
+     "M2": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.5861",
+       "position=RB:0.5868",
+       "position=TE:0.6755",
+       "position=WR:0.5863",
+       "tier=1:0.6532",
+       "tier=2:0.4929",
+       "tier=3:0.4785",
+       "group=offense:0.6019"
+      ]
+     },
+     "M3": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.6174",
+       "position=RB:0.6406",
+       "position=WR:0.6506",
+       "tier=1:0.6354",
+       "tier=2:0.6372",
+       "group=offense:0.6531"
+      ]
+     },
+     "M4": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.4689",
+       "position=RB:0.4698",
+       "position=TE:0.5427",
+       "position=WR:0.495",
+       "tier=1:0.4602",
+       "tier=2:0.4825",
+       "tier=3:0.5673",
+       "group=offense:0.4923"
+      ]
+     }
+    }
+   }
+  },
+  "decidableHorizons": [
+   7,
+   14
+  ],
+  "modelsPassingAllDecidable": [],
+  "verdict": "(b) none credible"
+ },
+ "sensitivityNoExclusions": {
+  "byHorizon": {
+   "7": {
+    "models": {
+     "M0": {
+      "cv": {
+       "pairs": 57208,
+       "origins": 140,
+       "cov50": {
+        "est": 0.97846,
+        "lo95": 0.97106,
+        "hi95": 0.98492
+       },
+       "cov80": {
+        "est": 0.99213,
+        "lo95": 0.98936,
+        "hi95": 0.99446
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.02082,
+        "lo95": 0.01907,
+        "hi95": 0.02366
+       },
+       "crpsApprox": 0.04165,
+       "disjointOrigins": {
+        "origins": 20,
+        "cov80": 0.9919,
+        "pinball": 0.021146
+       }
+      },
+      "all": {
+       "pairs": 132474,
+       "origins": 140,
+       "cov50": {
+        "est": 0.95217,
+        "lo95": 0.92837,
+        "hi95": 0.96817
+       },
+       "cov80": {
+        "est": 0.9749,
+        "lo95": 0.96205,
+        "hi95": 0.98353
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.02749,
+        "lo95": 0.02311,
+        "hi95": 0.03427
+       },
+       "crpsApprox": 0.054971,
+       "disjointOrigins": {
+        "origins": 20,
+        "cov80": 0.9756,
+        "pinball": 0.027903
+       }
+      }
+     },
+     "M1": {
+      "cv": {
+       "pairs": 57208,
+       "origins": 140,
+       "cov50": {
+        "est": 0.48203,
+        "lo95": 0.44312,
+        "hi95": 0.51568
+       },
+       "cov80": {
+        "est": 0.79234,
+        "lo95": 0.76105,
+        "hi95": 0.81955
+       },
+       "meanWidth50": 0.02708,
+       "meanWidth80": 0.0762,
+       "pinball": {
+        "est": 0.0113,
+        "lo95": 0.0093,
+        "hi95": 0.01436
+       },
+       "crpsApprox": 0.0226,
+       "disjointOrigins": {
+        "origins": 20,
+        "cov80": 0.7845,
+        "pinball": 0.011633
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00952,
+       "lo95": -0.01026,
+       "hi95": -0.0087
+      },
+      "pinballMinusM4": {
+       "est": -9e-05,
+       "lo95": -0.00018,
+       "hi95": -0.0
+      }
+     },
+     "M2": {
+      "cv": {
+       "pairs": 57208,
+       "origins": 140,
+       "cov50": {
+        "est": 0.43247,
+        "lo95": 0.38386,
+        "hi95": 0.4763
+       },
+       "cov80": {
+        "est": 0.75283,
+        "lo95": 0.70572,
+        "hi95": 0.79455
+       },
+       "meanWidth50": 0.02239,
+       "meanWidth80": 0.10512,
+       "pinball": {
+        "est": 0.01147,
+        "lo95": 0.00943,
+        "hi95": 0.0144
+       },
+       "crpsApprox": 0.022946,
+       "disjointOrigins": {
+        "origins": 20,
+        "cov80": 0.756,
+        "pinball": 0.011781
+       }
+      },
+      "all": {
+       "pairs": 132474,
+       "origins": 140,
+       "cov50": {
+        "est": 0.43139,
+        "lo95": 0.37539,
+        "hi95": 0.47776
+       },
+       "cov80": {
+        "est": 0.74108,
+        "lo95": 0.69108,
+        "hi95": 0.77717
+       },
+       "meanWidth50": 0.01516,
+       "meanWidth80": 0.09635,
+       "pinball": {
+        "est": 0.01795,
+        "lo95": 0.01286,
+        "hi95": 0.02593
+       },
+       "crpsApprox": 0.035896,
+       "disjointOrigins": {
+        "origins": 20,
+        "cov80": 0.7352,
+        "pinball": 0.018265
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00935,
+       "lo95": -0.01028,
+       "hi95": -0.00836
+      },
+      "pinballMinusM4": {
+       "est": 8e-05,
+       "lo95": -0.00023,
+       "hi95": 0.00033
+      }
+     },
+     "M3": {
+      "cv": {
+       "pairs": 57208,
+       "origins": 140,
+       "cov50": {
+        "est": 0.49547,
+        "lo95": 0.44233,
+        "hi95": 0.54331
+       },
+       "cov80": {
+        "est": 0.79213,
+        "lo95": 0.75015,
+        "hi95": 0.82823
+       },
+       "meanWidth50": 0.02613,
+       "meanWidth80": 0.06544,
+       "pinball": {
+        "est": 0.01113,
+        "lo95": 0.00911,
+        "hi95": 0.01419
+       },
+       "crpsApprox": 0.022254,
+       "disjointOrigins": {
+        "origins": 20,
+        "cov80": 0.791,
+        "pinball": 0.011464
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.0097,
+       "lo95": -0.0104,
+       "hi95": -0.00891
+      },
+      "pinballMinusM4": {
+       "est": -0.00027,
+       "lo95": -0.00031,
+       "hi95": -0.00022
+      }
+     },
+     "M4": {
+      "cv": {
+       "pairs": 57208,
+       "origins": 140,
+       "cov50": {
+        "est": 0.26038,
+        "lo95": 0.22751,
+        "hi95": 0.29096
+       },
+       "cov80": {
+        "est": 0.75558,
+        "lo95": 0.70871,
+        "hi95": 0.79612
+       },
+       "meanWidth50": 0.01069,
+       "meanWidth80": 0.05747,
+       "pinball": {
+        "est": 0.01139,
+        "lo95": 0.00937,
+        "hi95": 0.01449
+       },
+       "crpsApprox": 0.02279,
+       "disjointOrigins": {
+        "origins": 20,
+        "cov80": 0.7586,
+        "pinball": 0.011745
+       }
+      },
+      "all": {
+       "pairs": 132474,
+       "origins": 140,
+       "cov50": {
+        "est": 0.42224,
+        "lo95": 0.36787,
+        "hi95": 0.46108
+       },
+       "cov80": {
+        "est": 0.79458,
+        "lo95": 0.7454,
+        "hi95": 0.83287
+       },
+       "meanWidth50": 0.01064,
+       "meanWidth80": 0.05752,
+       "pinball": {
+        "est": 0.01772,
+        "lo95": 0.01263,
+        "hi95": 0.0257
+       },
+       "crpsApprox": 0.03545,
+       "disjointOrigins": {
+        "origins": 20,
+        "cov80": 0.8,
+        "pinball": 0.018062
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00943,
+       "lo95": -0.01016,
+       "hi95": -0.0086
+      }
+     }
+    },
+    "evalOrigins": 140,
+    "evalSpan": [
+     "2026-06-15",
+     "2026-11-01"
+    ],
+    "disjointBlocks": 20,
+    "decidable": true,
+    "strata": {
+     "M0": {
+      "group": {
+       "offense": {
+        "n": 57208,
+        "dates": 140,
+        "cov50": 0.9785,
+        "cov80": 0.9921
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 9525,
+        "dates": 140,
+        "cov50": 0.9701,
+        "cov80": 0.9883
+       },
+       "RB": {
+        "n": 15676,
+        "dates": 140,
+        "cov50": 0.9798,
+        "cov80": 0.9923
+       },
+       "TE": {
+        "n": 10015,
+        "dates": 140,
+        "cov50": 0.9878,
+        "cov80": 0.9965
+       },
+       "WR": {
+        "n": 21992,
+        "dates": 140,
+        "cov50": 0.9769,
+        "cov80": 0.9917
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1572,
+        "dates": 131,
+        "cov50": 0.8556,
+        "cov80": 0.8944
+       },
+       "1": {
+        "n": 33014,
+        "dates": 140,
+        "cov50": 0.9737,
+        "cov80": 0.992
+       },
+       "2": {
+        "n": 14972,
+        "dates": 140,
+        "cov50": 0.9927,
+        "cov80": 0.9986
+       },
+       "3": {
+        "n": 5196,
+        "dates": 140,
+        "cov50": 0.9946,
+        "cov80": 1.0
+       },
+       "4": {
+        "n": 2454,
+        "dates": 140,
+        "cov50": 1.0,
+        "cov80": 1.0
+       }
+      }
+     },
+     "M1": {
+      "group": {
+       "offense": {
+        "n": 57208,
+        "dates": 140,
+        "cov50": 0.482,
+        "cov80": 0.7923
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 9525,
+        "dates": 140,
+        "cov50": 0.4466,
+        "cov80": 0.7812
+       },
+       "RB": {
+        "n": 15676,
+        "dates": 140,
+        "cov50": 0.4316,
+        "cov80": 0.7489
+       },
+       "TE": {
+        "n": 10015,
+        "dates": 140,
+        "cov50": 0.6685,
+        "cov80": 0.9539
+       },
+       "WR": {
+        "n": 21992,
+        "dates": 140,
+        "cov50": 0.4484,
+        "cov80": 0.7545
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1572,
+        "dates": 131,
+        "cov50": 0.4256,
+        "cov80": 0.673
+       },
+       "1": {
+        "n": 33014,
+        "dates": 140,
+        "cov50": 0.4613,
+        "cov80": 0.7767
+       },
+       "2": {
+        "n": 14972,
+        "dates": 140,
+        "cov50": 0.5117,
+        "cov80": 0.8328
+       },
+       "3": {
+        "n": 5196,
+        "dates": 140,
+        "cov50": 0.4802,
+        "cov80": 0.7806
+       },
+       "4": {
+        "n": 2454,
+        "dates": 140,
+        "cov50": 0.6198,
+        "cov80": 0.8566
+       }
+      }
+     },
+     "M2": {
+      "group": {
+       "offense": {
+        "n": 57208,
+        "dates": 140,
+        "cov50": 0.4325,
+        "cov80": 0.7528
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 9525,
+        "dates": 140,
+        "cov50": 0.4363,
+        "cov80": 0.7336
+       },
+       "RB": {
+        "n": 15676,
+        "dates": 140,
+        "cov50": 0.4275,
+        "cov80": 0.7464
+       },
+       "TE": {
+        "n": 10015,
+        "dates": 140,
+        "cov50": 0.4825,
+        "cov80": 0.7979
+       },
+       "WR": {
+        "n": 21992,
+        "dates": 140,
+        "cov50": 0.4116,
+        "cov80": 0.7452
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1572,
+        "dates": 131,
+        "cov50": 0.4109,
+        "cov80": 0.8327
+       },
+       "1": {
+        "n": 33014,
+        "dates": 140,
+        "cov50": 0.4516,
+        "cov80": 0.7803
+       },
+       "2": {
+        "n": 14972,
+        "dates": 140,
+        "cov50": 0.4025,
+        "cov80": 0.7071
+       },
+       "3": {
+        "n": 5196,
+        "dates": 140,
+        "cov50": 0.3865,
+        "cov80": 0.6734
+       },
+       "4": {
+        "n": 2454,
+        "dates": 140,
+        "cov50": 0.4698,
+        "cov80": 0.78
+       }
+      }
+     },
+     "M3": {
+      "group": {
+       "offense": {
+        "n": 57208,
+        "dates": 140,
+        "cov50": 0.4955,
+        "cov80": 0.7921
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 9525,
+        "dates": 140,
+        "cov50": 0.4639,
+        "cov80": 0.7732
+       },
+       "RB": {
+        "n": 15676,
+        "dates": 140,
+        "cov50": 0.4678,
+        "cov80": 0.7785
+       },
+       "TE": {
+        "n": 10015,
+        "dates": 140,
+        "cov50": 0.6058,
+        "cov80": 0.8906
+       },
+       "WR": {
+        "n": 21992,
+        "dates": 140,
+        "cov50": 0.4786,
+        "cov80": 0.7652
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1572,
+        "dates": 131,
+        "cov50": 0.4453,
+        "cov80": 0.6877
+       },
+       "1": {
+        "n": 33014,
+        "dates": 140,
+        "cov50": 0.4533,
+        "cov80": 0.7597
+       },
+       "2": {
+        "n": 14972,
+        "dates": 140,
+        "cov50": 0.5355,
+        "cov80": 0.8366
+       },
+       "3": {
+        "n": 5196,
+        "dates": 140,
+        "cov50": 0.5575,
+        "cov80": 0.8356
+       },
+       "4": {
+        "n": 2454,
+        "dates": 140,
+        "cov50": 0.7196,
+        "cov80": 0.9315
+       }
+      }
+     },
+     "M4": {
+      "group": {
+       "offense": {
+        "n": 57208,
+        "dates": 140,
+        "cov50": 0.2604,
+        "cov80": 0.7556
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 9525,
+        "dates": 140,
+        "cov50": 0.2502,
+        "cov80": 0.7354
+       },
+       "RB": {
+        "n": 15676,
+        "dates": 140,
+        "cov50": 0.2602,
+        "cov80": 0.7683
+       },
+       "TE": {
+        "n": 10015,
+        "dates": 140,
+        "cov50": 0.25,
+        "cov80": 0.7627
+       },
+       "WR": {
+        "n": 21992,
+        "dates": 140,
+        "cov50": 0.2696,
+        "cov80": 0.752
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1572,
+        "dates": 131,
+        "cov50": 0.2665,
+        "cov80": 0.6654
+       },
+       "1": {
+        "n": 33014,
+        "dates": 140,
+        "cov50": 0.2103,
+        "cov80": 0.7045
+       },
+       "2": {
+        "n": 14972,
+        "dates": 140,
+        "cov50": 0.2899,
+        "cov80": 0.8143
+       },
+       "3": {
+        "n": 5196,
+        "dates": 140,
+        "cov50": 0.3522,
+        "cov80": 0.8476
+       },
+       "4": {
+        "n": 2454,
+        "dates": 140,
+        "cov50": 0.5558,
+        "cov80": 0.947
+       }
+      }
+     }
+    },
+    "phase": {
+     "M0|pre": 0.9934,
+     "M1|pre": 0.8234,
+     "M2|pre": 0.8172,
+     "M3|pre": 0.8476,
+     "M4|pre": 0.8176,
+     "M0|in": 0.9904,
+     "M1|in": 0.7478,
+     "M2|in": 0.6603,
+     "M3|in": 0.7124,
+     "M4|in": 0.6664
+    },
+    "m2BackoffShare": {
+     "g_pos_tier_age": 0.9093,
+     "g_pos_tier": 0.0817,
+     "g_tier": 0.008,
+     "g": 0.001,
+     "pooled": 0.0
+    },
+    "attrition": {
+     "origin": 135681,
+     "matched": 132474,
+     "lostAtTarget": 3207
+    }
+   },
+   "14": {
+    "models": {
+     "M0": {
+      "cv": {
+       "pairs": 53660,
+       "origins": 133,
+       "cov50": {
+        "est": 0.9459,
+        "lo95": 0.91987,
+        "hi95": 0.96781
+       },
+       "cov80": {
+        "est": 0.98097,
+        "lo95": 0.9727,
+        "hi95": 0.98783
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.02331,
+        "lo95": 0.02059,
+        "hi95": 0.02802
+       },
+       "crpsApprox": 0.046614,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.9786,
+        "pinball": 0.02343
+       }
+      },
+      "all": {
+       "pairs": 123834,
+       "origins": 133,
+       "cov50": {
+        "est": 0.90373,
+        "lo95": 0.86503,
+        "hi95": 0.92543
+       },
+       "cov80": {
+        "est": 0.95189,
+        "lo95": 0.93002,
+        "hi95": 0.96445
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.03604,
+        "lo95": 0.02791,
+        "hi95": 0.0494
+       },
+       "crpsApprox": 0.072086,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.9519,
+        "pinball": 0.036356
+       }
+      }
+     },
+     "M1": {
+      "cv": {
+       "pairs": 53660,
+       "origins": 133,
+       "cov50": {
+        "est": 0.46329,
+        "lo95": 0.40658,
+        "hi95": 0.50399
+       },
+       "cov80": {
+        "est": 0.76964,
+        "lo95": 0.72395,
+        "hi95": 0.80257
+       },
+       "meanWidth50": 0.03839,
+       "meanWidth80": 0.10104,
+       "pinball": {
+        "est": 0.01615,
+        "lo95": 0.01286,
+        "hi95": 0.02101
+       },
+       "crpsApprox": 0.032297,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.7507,
+        "pinball": 0.016229
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00716,
+       "lo95": -0.00868,
+       "hi95": -0.0055
+      },
+      "pinballMinusM4": {
+       "est": -0.00016,
+       "lo95": -0.00035,
+       "hi95": -0.0
+      }
+     },
+     "M2": {
+      "cv": {
+       "pairs": 53660,
+       "origins": 133,
+       "cov50": {
+        "est": 0.41187,
+        "lo95": 0.33943,
+        "hi95": 0.47288
+       },
+       "cov80": {
+        "est": 0.71491,
+        "lo95": 0.6311,
+        "hi95": 0.7845
+       },
+       "meanWidth50": 0.03316,
+       "meanWidth80": 0.13994,
+       "pinball": {
+        "est": 0.01672,
+        "lo95": 0.01326,
+        "hi95": 0.02143
+       },
+       "crpsApprox": 0.033444,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.7223,
+        "pinball": 0.016914
+       }
+      },
+      "all": {
+       "pairs": 123834,
+       "origins": 133,
+       "cov50": {
+        "est": 0.38745,
+        "lo95": 0.34049,
+        "hi95": 0.40518
+       },
+       "cov80": {
+        "est": 0.69719,
+        "lo95": 0.62779,
+        "hi95": 0.73699
+       },
+       "meanWidth50": 0.02655,
+       "meanWidth80": 0.16332,
+       "pinball": {
+        "est": 0.0299,
+        "lo95": 0.02123,
+        "hi95": 0.04463
+       },
+       "crpsApprox": 0.059793,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.6953,
+        "pinball": 0.03034
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00658,
+       "lo95": -0.00857,
+       "hi95": -0.00449
+      },
+      "pinballMinusM4": {
+       "est": 0.00041,
+       "lo95": -0.00042,
+       "hi95": 0.00105
+      }
+     },
+     "M3": {
+      "cv": {
+       "pairs": 53660,
+       "origins": 133,
+       "cov50": {
+        "est": 0.41806,
+        "lo95": 0.34334,
+        "hi95": 0.48141
+       },
+       "cov80": {
+        "est": 0.72956,
+        "lo95": 0.65148,
+        "hi95": 0.7924
+       },
+       "meanWidth50": 0.03044,
+       "meanWidth80": 0.07622,
+       "pinball": {
+        "est": 0.0159,
+        "lo95": 0.01257,
+        "hi95": 0.02086
+       },
+       "crpsApprox": 0.031808,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.7236,
+        "pinball": 0.015983
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.0074,
+       "lo95": -0.00892,
+       "hi95": -0.00567
+      },
+      "pinballMinusM4": {
+       "est": -0.00041,
+       "lo95": -0.00059,
+       "hi95": -0.00022
+      }
+     },
+     "M4": {
+      "cv": {
+       "pairs": 53660,
+       "origins": 133,
+       "cov50": {
+        "est": 0.30086,
+        "lo95": 0.24956,
+        "hi95": 0.34154
+       },
+       "cov80": {
+        "est": 0.77825,
+        "lo95": 0.71772,
+        "hi95": 0.82647
+       },
+       "meanWidth50": 0.02015,
+       "meanWidth80": 0.09344,
+       "pinball": {
+        "est": 0.01631,
+        "lo95": 0.01307,
+        "hi95": 0.02121
+       },
+       "crpsApprox": 0.032625,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.7767,
+        "pinball": 0.016375
+       }
+      },
+      "all": {
+       "pairs": 123834,
+       "origins": 133,
+       "cov50": {
+        "est": 0.40066,
+        "lo95": 0.34258,
+        "hi95": 0.4258
+       },
+       "cov80": {
+        "est": 0.77477,
+        "lo95": 0.70615,
+        "hi95": 0.81125
+       },
+       "meanWidth50": 0.02003,
+       "meanWidth80": 0.09334,
+       "pinball": {
+        "est": 0.02937,
+        "lo95": 0.02051,
+        "hi95": 0.0444
+       },
+       "crpsApprox": 0.058741,
+       "disjointOrigins": {
+        "origins": 10,
+        "cov80": 0.7752,
+        "pinball": 0.029676
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00699,
+       "lo95": -0.00835,
+       "hi95": -0.00546
+      }
+     }
+    },
+    "evalOrigins": 133,
+    "evalSpan": [
+     "2026-06-15",
+     "2026-10-25"
+    ],
+    "disjointBlocks": 9,
+    "decidable": true,
+    "strata": {
+     "M0": {
+      "group": {
+       "offense": {
+        "n": 53660,
+        "dates": 133,
+        "cov50": 0.9459,
+        "cov80": 0.981
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 8967,
+        "dates": 133,
+        "cov50": 0.9386,
+        "cov80": 0.9737
+       },
+       "RB": {
+        "n": 14675,
+        "dates": 133,
+        "cov50": 0.9418,
+        "cov80": 0.9812
+       },
+       "TE": {
+        "n": 9422,
+        "dates": 133,
+        "cov50": 0.9709,
+        "cov80": 0.9941
+       },
+       "WR": {
+        "n": 20596,
+        "dates": 133,
+        "cov50": 0.9406,
+        "cov80": 0.978
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1334,
+        "dates": 118,
+        "cov50": 0.7609,
+        "cov80": 0.8186
+       },
+       "1": {
+        "n": 30856,
+        "dates": 133,
+        "cov50": 0.9406,
+        "cov80": 0.9798
+       },
+       "2": {
+        "n": 14218,
+        "dates": 133,
+        "cov50": 0.9601,
+        "cov80": 0.9897
+       },
+       "3": {
+        "n": 4910,
+        "dates": 133,
+        "cov50": 0.9652,
+        "cov80": 0.998
+       },
+       "4": {
+        "n": 2342,
+        "dates": 133,
+        "cov50": 0.9953,
+        "cov80": 1.0
+       }
+      }
+     },
+     "M1": {
+      "group": {
+       "offense": {
+        "n": 53660,
+        "dates": 133,
+        "cov50": 0.4633,
+        "cov80": 0.7696
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 8967,
+        "dates": 133,
+        "cov50": 0.4416,
+        "cov80": 0.7582
+       },
+       "RB": {
+        "n": 14675,
+        "dates": 133,
+        "cov50": 0.4084,
+        "cov80": 0.7165
+       },
+       "TE": {
+        "n": 9422,
+        "dates": 133,
+        "cov50": 0.6522,
+        "cov80": 0.9451
+       },
+       "WR": {
+        "n": 20596,
+        "dates": 133,
+        "cov50": 0.4254,
+        "cov80": 0.7322
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1334,
+        "dates": 118,
+        "cov50": 0.41,
+        "cov80": 0.6507
+       },
+       "1": {
+        "n": 30856,
+        "dates": 133,
+        "cov50": 0.4591,
+        "cov80": 0.7695
+       },
+       "2": {
+        "n": 14218,
+        "dates": 133,
+        "cov50": 0.4631,
+        "cov80": 0.7828
+       },
+       "3": {
+        "n": 4910,
+        "dates": 133,
+        "cov50": 0.4407,
+        "cov80": 0.7322
+       },
+       "4": {
+        "n": 2342,
+        "dates": 133,
+        "cov50": 0.5974,
+        "cov80": 0.8373
+       }
+      }
+     },
+     "M2": {
+      "group": {
+       "offense": {
+        "n": 53660,
+        "dates": 133,
+        "cov50": 0.4119,
+        "cov80": 0.7149
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 8967,
+        "dates": 133,
+        "cov50": 0.4141,
+        "cov80": 0.6945
+       },
+       "RB": {
+        "n": 14675,
+        "dates": 133,
+        "cov50": 0.399,
+        "cov80": 0.704
+       },
+       "TE": {
+        "n": 9422,
+        "dates": 133,
+        "cov50": 0.4583,
+        "cov80": 0.7677
+       },
+       "WR": {
+        "n": 20596,
+        "dates": 133,
+        "cov50": 0.3988,
+        "cov80": 0.7074
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1334,
+        "dates": 118,
+        "cov50": 0.4363,
+        "cov80": 0.7939
+       },
+       "1": {
+        "n": 30856,
+        "dates": 133,
+        "cov50": 0.4385,
+        "cov80": 0.7583
+       },
+       "2": {
+        "n": 14218,
+        "dates": 133,
+        "cov50": 0.3687,
+        "cov80": 0.6416
+       },
+       "3": {
+        "n": 4910,
+        "dates": 133,
+        "cov50": 0.3566,
+        "cov80": 0.6198
+       },
+       "4": {
+        "n": 2342,
+        "dates": 133,
+        "cov50": 0.4253,
+        "cov80": 0.7425
+       }
+      }
+     },
+     "M3": {
+      "group": {
+       "offense": {
+        "n": 53660,
+        "dates": 133,
+        "cov50": 0.4181,
+        "cov80": 0.7296
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 8967,
+        "dates": 133,
+        "cov50": 0.4078,
+        "cov80": 0.7093
+       },
+       "RB": {
+        "n": 14675,
+        "dates": 133,
+        "cov50": 0.3925,
+        "cov80": 0.7116
+       },
+       "TE": {
+        "n": 9422,
+        "dates": 133,
+        "cov50": 0.5067,
+        "cov80": 0.83
+       },
+       "WR": {
+        "n": 20596,
+        "dates": 133,
+        "cov50": 0.4002,
+        "cov80": 0.7052
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1334,
+        "dates": 118,
+        "cov50": 0.4033,
+        "cov80": 0.6222
+       },
+       "1": {
+        "n": 30856,
+        "dates": 133,
+        "cov50": 0.3826,
+        "cov80": 0.7074
+       },
+       "2": {
+        "n": 14218,
+        "dates": 133,
+        "cov50": 0.433,
+        "cov80": 0.7394
+       },
+       "3": {
+        "n": 4910,
+        "dates": 133,
+        "cov50": 0.4749,
+        "cov80": 0.7788
+       },
+       "4": {
+        "n": 2342,
+        "dates": 133,
+        "cov50": 0.6827,
+        "cov80": 0.9197
+       }
+      }
+     },
+     "M4": {
+      "group": {
+       "offense": {
+        "n": 53660,
+        "dates": 133,
+        "cov50": 0.3009,
+        "cov80": 0.7783
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 8967,
+        "dates": 133,
+        "cov50": 0.304,
+        "cov80": 0.7669
+       },
+       "RB": {
+        "n": 14675,
+        "dates": 133,
+        "cov50": 0.2949,
+        "cov80": 0.7808
+       },
+       "TE": {
+        "n": 9422,
+        "dates": 133,
+        "cov50": 0.2866,
+        "cov80": 0.7791
+       },
+       "WR": {
+        "n": 20596,
+        "dates": 133,
+        "cov50": 0.3103,
+        "cov80": 0.781
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 1334,
+        "dates": 118,
+        "cov50": 0.3351,
+        "cov80": 0.6612
+       },
+       "1": {
+        "n": 30856,
+        "dates": 133,
+        "cov50": 0.2547,
+        "cov80": 0.7484
+       },
+       "2": {
+        "n": 14218,
+        "dates": 133,
+        "cov50": 0.3166,
+        "cov80": 0.799
+       },
+       "3": {
+        "n": 4910,
+        "dates": 133,
+        "cov50": 0.3927,
+        "cov80": 0.8556
+       },
+       "4": {
+        "n": 2342,
+        "dates": 133,
+        "cov50": 0.6012,
+        "cov80": 0.9496
+       }
+      }
+     }
+    },
+    "phase": {
+     "M0|pre": 0.9878,
+     "M1|pre": 0.8051,
+     "M2|pre": 0.7871,
+     "M3|pre": 0.7969,
+     "M4|pre": 0.8266,
+     "M0|in": 0.9698,
+     "M1|in": 0.7112,
+     "M2|in": 0.5959,
+     "M3|in": 0.6185,
+     "M4|in": 0.6986
+    },
+    "m2BackoffShare": {
+     "g_pos_tier_age": 0.8862,
+     "g_pos_tier": 0.1022,
+     "g_tier": 0.0106,
+     "g": 0.001,
+     "pooled": 0.0
+    },
+    "attrition": {
+     "origin": 128594,
+     "matched": 123834,
+     "lostAtTarget": 4760
+    }
+   },
+   "28": {
+    "models": {
+     "M0": {
+      "cv": {
+       "pairs": 46997,
+       "origins": 119,
+       "cov50": {
+        "est": 0.87046,
+        "lo95": 0.79897,
+        "hi95": 0.93772
+       },
+       "cov80": {
+        "est": 0.94517,
+        "lo95": 0.91482,
+        "hi95": 0.97143
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.02804,
+        "lo95": 0.02526,
+        "hi95": 0.03239
+       },
+       "crpsApprox": 0.05607,
+       "disjointOrigins": {
+        "origins": 5,
+        "cov80": 0.9505,
+        "pinball": 0.027256
+       }
+      },
+      "all": {
+       "pairs": 107775,
+       "origins": 119,
+       "cov50": {
+        "est": 0.81126,
+        "lo95": 0.76884,
+        "hi95": 0.8401
+       },
+       "cov80": {
+        "est": 0.90539,
+        "lo95": 0.88091,
+        "hi95": 0.92549
+       },
+       "meanWidth50": 0.1875,
+       "meanWidth80": 0.3,
+       "pinball": {
+        "est": 0.05089,
+        "lo95": 0.03574,
+        "hi95": 0.07341
+       },
+       "crpsApprox": 0.101786,
+       "disjointOrigins": {
+        "origins": 5,
+        "cov80": 0.9104,
+        "pinball": 0.04956
+       }
+      }
+     },
+     "M1": {
+      "cv": {
+       "pairs": 46997,
+       "origins": 119,
+       "cov50": {
+        "est": 0.42535,
+        "lo95": 0.37812,
+        "hi95": 0.46159
+       },
+       "cov80": {
+        "est": 0.7242,
+        "lo95": 0.67806,
+        "hi95": 0.75968
+       },
+       "meanWidth50": 0.05314,
+       "meanWidth80": 0.13155,
+       "pinball": {
+        "est": 0.02389,
+        "lo95": 0.02036,
+        "hi95": 0.02789
+       },
+       "crpsApprox": 0.047779,
+       "disjointOrigins": {
+        "origins": 5,
+        "cov80": 0.7563,
+        "pinball": 0.022747
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00415,
+       "lo95": -0.00654,
+       "hi95": -0.00177
+      },
+      "pinballMinusM4": {
+       "est": -0.00028,
+       "lo95": -0.00073,
+       "hi95": 0.00024
+      }
+     },
+     "M2": {
+      "cv": {
+       "pairs": 46997,
+       "origins": 119,
+       "cov50": {
+        "est": 0.38843,
+        "lo95": 0.29517,
+        "hi95": 0.46722
+       },
+       "cov80": {
+        "est": 0.66638,
+        "lo95": 0.55044,
+        "hi95": 0.76801
+       },
+       "meanWidth50": 0.06291,
+       "meanWidth80": 0.17898,
+       "pinball": {
+        "est": 0.02513,
+        "lo95": 0.02045,
+        "hi95": 0.02936
+       },
+       "crpsApprox": 0.05026,
+       "disjointOrigins": {
+        "origins": 5,
+        "cov80": 0.6893,
+        "pinball": 0.024666
+       }
+      },
+      "all": {
+       "pairs": 107775,
+       "origins": 119,
+       "cov50": {
+        "est": 0.36891,
+        "lo95": 0.30439,
+        "hi95": 0.41232
+       },
+       "cov80": {
+        "est": 0.62987,
+        "lo95": 0.5452,
+        "hi95": 0.68391
+       },
+       "meanWidth50": 0.06163,
+       "meanWidth80": 0.24397,
+       "pinball": {
+        "est": 0.04884,
+        "lo95": 0.03347,
+        "hi95": 0.07164
+       },
+       "crpsApprox": 0.097683,
+       "disjointOrigins": {
+        "origins": 5,
+        "cov80": 0.6405,
+        "pinball": 0.047671
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00291,
+       "lo95": -0.00678,
+       "hi95": 0.0003
+      },
+      "pinballMinusM4": {
+       "est": 0.00096,
+       "lo95": -0.00101,
+       "hi95": 0.00232
+      }
+     },
+     "M3": {
+      "cv": {
+       "pairs": 46997,
+       "origins": 119,
+       "cov50": {
+        "est": 0.33913,
+        "lo95": 0.26841,
+        "hi95": 0.39595
+       },
+       "cov80": {
+        "est": 0.65696,
+        "lo95": 0.56048,
+        "hi95": 0.73933
+       },
+       "meanWidth50": 0.03654,
+       "meanWidth80": 0.09158,
+       "pinball": {
+        "est": 0.02377,
+        "lo95": 0.02016,
+        "hi95": 0.02797
+       },
+       "crpsApprox": 0.047537,
+       "disjointOrigins": {
+        "origins": 5,
+        "cov80": 0.6873,
+        "pinball": 0.02252
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00427,
+       "lo95": -0.00683,
+       "hi95": -0.00157
+      },
+      "pinballMinusM4": {
+       "est": -0.0004,
+       "lo95": -0.00102,
+       "hi95": 0.00043
+      }
+     },
+     "M4": {
+      "cv": {
+       "pairs": 46997,
+       "origins": 119,
+       "cov50": {
+        "est": 0.33543,
+        "lo95": 0.27801,
+        "hi95": 0.37659
+       },
+       "cov80": {
+        "est": 0.78562,
+        "lo95": 0.71827,
+        "hi95": 0.83721
+       },
+       "meanWidth50": 0.03718,
+       "meanWidth80": 0.16277,
+       "pinball": {
+        "est": 0.02417,
+        "lo95": 0.02083,
+        "hi95": 0.02782
+       },
+       "crpsApprox": 0.048341,
+       "disjointOrigins": {
+        "origins": 5,
+        "cov80": 0.8161,
+        "pinball": 0.023078
+       }
+      },
+      "all": {
+       "pairs": 107775,
+       "origins": 119,
+       "cov50": {
+        "est": 0.37111,
+        "lo95": 0.28225,
+        "hi95": 0.42618
+       },
+       "cov80": {
+        "est": 0.73773,
+        "lo95": 0.63632,
+        "hi95": 0.78695
+       },
+       "meanWidth50": 0.0368,
+       "meanWidth80": 0.16222,
+       "pinball": {
+        "est": 0.04811,
+        "lo95": 0.03186,
+        "hi95": 0.07255
+       },
+       "crpsApprox": 0.096219,
+       "disjointOrigins": {
+        "origins": 5,
+        "cov80": 0.7636,
+        "pinball": 0.046366
+       }
+      },
+      "pinballMinusM0": {
+       "est": -0.00386,
+       "lo95": -0.00589,
+       "hi95": -0.00198
+      }
+     }
+    },
+    "evalOrigins": 119,
+    "evalSpan": [
+     "2026-06-15",
+     "2026-10-11"
+    ],
+    "disjointBlocks": 4,
+    "decidable": false,
+    "strata": {
+     "M0": {
+      "group": {
+       "offense": {
+        "n": 46997,
+        "dates": 119,
+        "cov50": 0.8705,
+        "cov80": 0.9452
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 7915,
+        "dates": 119,
+        "cov50": 0.8513,
+        "cov80": 0.9332
+       },
+       "RB": {
+        "n": 12866,
+        "dates": 119,
+        "cov50": 0.8655,
+        "cov80": 0.9432
+       },
+       "TE": {
+        "n": 8301,
+        "dates": 119,
+        "cov50": 0.9117,
+        "cov80": 0.9808
+       },
+       "WR": {
+        "n": 17915,
+        "dates": 119,
+        "cov50": 0.8634,
+        "cov80": 0.9354
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 909,
+        "dates": 101,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 26911,
+        "dates": 119,
+        "cov50": 0.8709,
+        "cov80": 0.9471
+       },
+       "2": {
+        "n": 12694,
+        "dates": 119,
+        "cov50": 0.8677,
+        "cov80": 0.9479
+       },
+       "3": {
+        "n": 4354,
+        "dates": 119,
+        "cov50": 0.8927,
+        "cov80": 0.9582
+       },
+       "4": {
+        "n": 2129,
+        "dates": 119,
+        "cov50": 0.9662,
+        "cov80": 0.9953
+       }
+      }
+     },
+     "M1": {
+      "group": {
+       "offense": {
+        "n": 46997,
+        "dates": 119,
+        "cov50": 0.4253,
+        "cov80": 0.7242
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 7915,
+        "dates": 119,
+        "cov50": 0.4288,
+        "cov80": 0.7133
+       },
+       "RB": {
+        "n": 12866,
+        "dates": 119,
+        "cov50": 0.3579,
+        "cov80": 0.6537
+       },
+       "TE": {
+        "n": 8301,
+        "dates": 119,
+        "cov50": 0.6152,
+        "cov80": 0.9282
+       },
+       "WR": {
+        "n": 17915,
+        "dates": 119,
+        "cov50": 0.3843,
+        "cov80": 0.6851
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 909,
+        "dates": 101,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 26911,
+        "dates": 119,
+        "cov50": 0.444,
+        "cov80": 0.7468
+       },
+       "2": {
+        "n": 12694,
+        "dates": 119,
+        "cov50": 0.3946,
+        "cov80": 0.7081
+       },
+       "3": {
+        "n": 4354,
+        "dates": 119,
+        "cov50": 0.3654,
+        "cov80": 0.6477
+       },
+       "4": {
+        "n": 2129,
+        "dates": 119,
+        "cov50": 0.5392,
+        "cov80": 0.7858
+       }
+      }
+     },
+     "M2": {
+      "group": {
+       "offense": {
+        "n": 46997,
+        "dates": 119,
+        "cov50": 0.3884,
+        "cov80": 0.6664
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 7915,
+        "dates": 119,
+        "cov50": 0.4073,
+        "cov80": 0.6491
+       },
+       "RB": {
+        "n": 12866,
+        "dates": 119,
+        "cov50": 0.3615,
+        "cov80": 0.6483
+       },
+       "TE": {
+        "n": 8301,
+        "dates": 119,
+        "cov50": 0.4199,
+        "cov80": 0.7082
+       },
+       "WR": {
+        "n": 17915,
+        "dates": 119,
+        "cov50": 0.3848,
+        "cov80": 0.6676
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 909,
+        "dates": 101,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 26911,
+        "dates": 119,
+        "cov50": 0.4154,
+        "cov80": 0.726
+       },
+       "2": {
+        "n": 12694,
+        "dates": 119,
+        "cov50": 0.3554,
+        "cov80": 0.5805
+       },
+       "3": {
+        "n": 4354,
+        "dates": 119,
+        "cov50": 0.2919,
+        "cov80": 0.5179
+       },
+       "4": {
+        "n": 2129,
+        "dates": 119,
+        "cov50": 0.4373,
+        "cov80": 0.7276
+       }
+      }
+     },
+     "M3": {
+      "group": {
+       "offense": {
+        "n": 46997,
+        "dates": 119,
+        "cov50": 0.3391,
+        "cov80": 0.657
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 7915,
+        "dates": 119,
+        "cov50": 0.3563,
+        "cov80": 0.6558
+       },
+       "RB": {
+        "n": 12866,
+        "dates": 119,
+        "cov50": 0.3055,
+        "cov80": 0.621
+       },
+       "TE": {
+        "n": 8301,
+        "dates": 119,
+        "cov50": 0.4002,
+        "cov80": 0.7547
+       },
+       "WR": {
+        "n": 17915,
+        "dates": 119,
+        "cov50": 0.3274,
+        "cov80": 0.638
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 909,
+        "dates": 101,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 26911,
+        "dates": 119,
+        "cov50": 0.3185,
+        "cov80": 0.6471
+       },
+       "2": {
+        "n": 12694,
+        "dates": 119,
+        "cov50": 0.3342,
+        "cov80": 0.6457
+       },
+       "3": {
+        "n": 4354,
+        "dates": 119,
+        "cov50": 0.3661,
+        "cov80": 0.6904
+       },
+       "4": {
+        "n": 2129,
+        "dates": 119,
+        "cov50": 0.62,
+        "cov80": 0.8793
+       }
+      }
+     },
+     "M4": {
+      "group": {
+       "offense": {
+        "n": 46997,
+        "dates": 119,
+        "cov50": 0.3354,
+        "cov80": 0.7856
+       }
+      },
+      "position": {
+       "QB": {
+        "n": 7915,
+        "dates": 119,
+        "cov50": 0.3645,
+        "cov80": 0.7899
+       },
+       "RB": {
+        "n": 12866,
+        "dates": 119,
+        "cov50": 0.3092,
+        "cov80": 0.7808
+       },
+       "TE": {
+        "n": 8301,
+        "dates": 119,
+        "cov50": 0.3229,
+        "cov80": 0.7854
+       },
+       "WR": {
+        "n": 17915,
+        "dates": 119,
+        "cov50": 0.3473,
+        "cov80": 0.7873
+       }
+      },
+      "tier": {
+       "0": {
+        "n": 909,
+        "dates": 101,
+        "status": "below_floor"
+       },
+       "1": {
+        "n": 26911,
+        "dates": 119,
+        "cov50": 0.302,
+        "cov80": 0.7737
+       },
+       "2": {
+        "n": 12694,
+        "dates": 119,
+        "cov50": 0.3399,
+        "cov80": 0.7798
+       },
+       "3": {
+        "n": 4354,
+        "dates": 119,
+        "cov50": 0.3955,
+        "cov80": 0.8434
+       },
+       "4": {
+        "n": 2129,
+        "dates": 119,
+        "cov50": 0.6487,
+        "cov80": 0.9544
+       }
+      }
+     }
+    },
+    "phase": {
+     "M0|pre": 0.9648,
+     "M1|pre": 0.7529,
+     "M2|pre": 0.7321,
+     "M3|pre": 0.7201,
+     "M4|pre": 0.8158,
+     "M0|in": 0.8984,
+     "M1|in": 0.6557,
+     "M2|in": 0.5096,
+     "M3|in": 0.5065,
+     "M4|in": 0.7138
+    },
+    "m2BackoffShare": {
+     "g_pos_tier_age": 0.8168,
+     "g_pos_tier": 0.1618,
+     "g_tier": 0.0198,
+     "g": 0.0016,
+     "pooled": 0.0
+    },
+    "attrition": {
+     "origin": 114510,
+     "matched": 107775,
+     "lostAtTarget": 6735
+    }
+   }
+  }
+ },
+ "sensitivityDecisionRule": {
+  "byHorizon": {
+   "7": {
+    "decidable": true,
+    "models": {
+     "M1": {
+      "criteria": {
+       "1_point_coverage": true,
+       "2_ci_inside_70_90": true,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": true
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=TE:0.9539",
+       "tier=0:0.673"
+      ]
+     },
+     "M2": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": true,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "tier=3:0.6734"
+      ]
+     },
+     "M3": {
+      "criteria": {
+       "1_point_coverage": true,
+       "2_ci_inside_70_90": true,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": true
+      },
+      "passes": false,
+      "strataOutside": [
+       "tier=0:0.6877",
+       "tier=4:0.9315"
+      ]
+     },
+     "M4": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": true,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "tier=0:0.6654",
+       "tier=4:0.947"
+      ]
+     }
+    }
+   },
+   "14": {
+    "decidable": true,
+    "models": {
+     "M1": {
+      "criteria": {
+       "1_point_coverage": true,
+       "2_ci_inside_70_90": true,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": true
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=TE:0.9451",
+       "tier=0:0.6507"
+      ]
+     },
+     "M2": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.6945",
+       "tier=2:0.6416",
+       "tier=3:0.6198"
+      ]
+     },
+     "M3": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "tier=0:0.6222",
+       "tier=4:0.9197"
+      ]
+     },
+     "M4": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": true,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "tier=0:0.6612",
+       "tier=4:0.9496"
+      ]
+     }
+    }
+   },
+   "28": {
+    "decidable": false,
+    "models": {
+     "M1": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=RB:0.6537",
+       "position=TE:0.9282",
+       "position=WR:0.6851",
+       "tier=3:0.6477"
+      ]
+     },
+     "M2": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": false,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.6491",
+       "position=RB:0.6483",
+       "position=WR:0.6676",
+       "tier=2:0.5805",
+       "tier=3:0.5179",
+       "group=offense:0.6664"
+      ]
+     },
+     "M3": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": false,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": false
+      },
+      "passes": false,
+      "strataOutside": [
+       "position=QB:0.6558",
+       "position=RB:0.621",
+       "position=WR:0.638",
+       "tier=1:0.6471",
+       "tier=2:0.6457",
+       "tier=3:0.6904",
+       "group=offense:0.657"
+      ]
+     },
+     "M4": {
+      "criteria": {
+       "1_point_coverage": false,
+       "2_ci_inside_70_90": true,
+       "3_beats_m0": true,
+       "4_not_worse_than_m4": true,
+       "5_strata_in_70_90": false,
+       "6_phases_in_70_90": true
+      },
+      "passes": false,
+      "strataOutside": [
+       "tier=4:0.9544"
+      ]
+     }
+    }
+   }
+  },
+  "decidableHorizons": [
+   7,
+   14
+  ],
+  "modelsPassingAllDecidable": [],
+  "verdict": "(b) none credible"
+ },
+ "verdictPersistence": {
+  "7": {
+   "origins": 88,
+   "byShape": {
+    "1v1": {
+     "0-2%": {
+      "trades": 10458,
+      "est": 0.69153,
+      "lo95": 0.65902,
+      "hi95": 0.71118
+     },
+     "2-5%": {
+      "trades": 15731,
+      "est": 0.88507,
+      "lo95": 0.86249,
+      "hi95": 0.90615
+     },
+     "5-10%": {
+      "trades": 26205,
+      "est": 0.95959,
+      "lo95": 0.94861,
+      "hi95": 0.96981
+     },
+     "10-20%": {
+      "trades": 54298,
+      "est": 0.98764,
+      "lo95": 0.98191,
+      "hi95": 0.99183
+     },
+     "20%+": {
+      "trades": 88000,
+      "est": 0.99711,
+      "lo95": 0.99622,
+      "hi95": 0.99784
+     }
+    },
+    "2v1": {
+     "0-2%": {
+      "trades": 4782,
+      "est": 0.68172,
+      "lo95": 0.65052,
+      "hi95": 0.71013
+     },
+     "2-5%": {
+      "trades": 7590,
+      "est": 0.88287,
+      "lo95": 0.85288,
+      "hi95": 0.90946
+     },
+     "5-10%": {
+      "trades": 13478,
+      "est": 0.95882,
+      "lo95": 0.94733,
+      "hi95": 0.96748
+     },
+     "10-20%": {
+      "trades": 29351,
+      "est": 0.98593,
+      "lo95": 0.98196,
+      "hi95": 0.9886
+     },
+     "20%+": {
+      "trades": 88000,
+      "est": 0.99878,
+      "lo95": 0.99838,
+      "hi95": 0.99907
+     }
+    },
+    "2v2": {
+     "0-2%": {
+      "trades": 11292,
+      "est": 0.68252,
+      "lo95": 0.65295,
+      "hi95": 0.70279
+     },
+     "2-5%": {
+      "trades": 17367,
+      "est": 0.89503,
+      "lo95": 0.87105,
+      "hi95": 0.91769
+     },
+     "5-10%": {
+      "trades": 30137,
+      "est": 0.96904,
+      "lo95": 0.9589,
+      "hi95": 0.97592
+     },
+     "10-20%": {
+      "trades": 62798,
+      "est": 0.98729,
+      "lo95": 0.98321,
+      "hi95": 0.99014
+     },
+     "20%+": {
+      "trades": 88000,
+      "est": 0.99857,
+      "lo95": 0.99804,
+      "hi95": 0.99895
+     }
+    }
+   }
+  },
+  "14": {
+   "origins": 50,
+   "byShape": {
+    "1v1": {
+     "0-2%": {
+      "trades": 6015,
+      "est": 0.6138,
+      "lo95": 0.60027,
+      "hi95": 0.6311
+     },
+     "2-5%": {
+      "trades": 9164,
+      "est": 0.80794,
+      "lo95": 0.75503,
+      "hi95": 0.84136
+     },
+     "5-10%": {
+      "trades": 15122,
+      "est": 0.91774,
+      "lo95": 0.89042,
+      "hi95": 0.94384
+     },
+     "10-20%": {
+      "trades": 31181,
+      "est": 0.97396,
+      "lo95": 0.96333,
+      "hi95": 0.98413
+     },
+     "20%+": {
+      "trades": 50000,
+      "est": 0.99654,
+      "lo95": 0.99535,
+      "hi95": 0.99816
+     }
+    },
+    "2v1": {
+     "0-2%": {
+      "trades": 2801,
+      "est": 0.6005,
+      "lo95": 0.55907,
+      "hi95": 0.64251
+     },
+     "2-5%": {
+      "trades": 4250,
+      "est": 0.80141,
+      "lo95": 0.75282,
+      "hi95": 0.83669
+     },
+     "5-10%": {
+      "trades": 7447,
+      "est": 0.90869,
+      "lo95": 0.88314,
+      "hi95": 0.93337
+     },
+     "10-20%": {
+      "trades": 16614,
+      "est": 0.97117,
+      "lo95": 0.96774,
+      "hi95": 0.97687
+     },
+     "20%+": {
+      "trades": 50000,
+      "est": 0.9988,
+      "lo95": 0.99827,
+      "hi95": 0.99939
+     }
+    },
+    "2v2": {
+     "0-2%": {
+      "trades": 6508,
+      "est": 0.61355,
+      "lo95": 0.59166,
+      "hi95": 0.65345
+     },
+     "2-5%": {
+      "trades": 9852,
+      "est": 0.81892,
+      "lo95": 0.76828,
+      "hi95": 0.85966
+     },
+     "5-10%": {
+      "trades": 17374,
+      "est": 0.93093,
+      "lo95": 0.90878,
+      "hi95": 0.95093
+     },
+     "10-20%": {
+      "trades": 36191,
+      "est": 0.98099,
+      "lo95": 0.97762,
+      "hi95": 0.98582
+     },
+     "20%+": {
+      "trades": 50000,
+      "est": 0.99828,
+      "lo95": 0.99795,
+      "hi95": 0.99883
+     }
+    }
+   }
+  },
+  "28": {
+   "origins": 17,
+   "byShape": {
+    "1v1": {
+     "0-2%": {
+      "trades": 2069,
+      "est": 0.56501,
+      "lo95": 0.56501,
+      "hi95": 0.56501
+     },
+     "2-5%": {
+      "trades": 3235,
+      "est": 0.71499,
+      "lo95": 0.71499,
+      "hi95": 0.71499
+     },
+     "5-10%": {
+      "trades": 5132,
+      "est": 0.83496,
+      "lo95": 0.83496,
+      "hi95": 0.83496
+     },
+     "10-20%": {
+      "trades": 10697,
+      "est": 0.93643,
+      "lo95": 0.93643,
+      "hi95": 0.93643
+     },
+     "20%+": {
+      "trades": 17000,
+      "est": 0.99476,
+      "lo95": 0.99476,
+      "hi95": 0.99476
+     }
+    },
+    "2v1": {
+     "0-2%": {
+      "trades": 893,
+      "est": 0.54199,
+      "lo95": 0.54199,
+      "hi95": 0.54199
+     },
+     "2-5%": {
+      "trades": 1418,
+      "est": 0.68477,
+      "lo95": 0.68477,
+      "hi95": 0.68477
+     },
+     "5-10%": {
+      "trades": 2424,
+      "est": 0.79703,
+      "lo95": 0.79703,
+      "hi95": 0.79703
+     },
+     "10-20%": {
+      "trades": 5542,
+      "est": 0.93125,
+      "lo95": 0.93125,
+      "hi95": 0.93125
+     },
+     "20%+": {
+      "trades": 17000,
+      "est": 0.99812,
+      "lo95": 0.99812,
+      "hi95": 0.99812
+     }
+    },
+    "2v2": {
+     "0-2%": {
+      "trades": 2235,
+      "est": 0.55213,
+      "lo95": 0.55213,
+      "hi95": 0.55213
+     },
+     "2-5%": {
+      "trades": 3472,
+      "est": 0.68894,
+      "lo95": 0.68894,
+      "hi95": 0.68894
+     },
+     "5-10%": {
+      "trades": 5969,
+      "est": 0.84151,
+      "lo95": 0.84151,
+      "hi95": 0.84151
+     },
+     "10-20%": {
+      "trades": 12445,
+      "est": 0.95548,
+      "lo95": 0.95548,
+      "hi95": 0.95548
+     },
+     "20%+": {
+      "trades": 17000,
+      "est": 0.99782,
+      "lo95": 0.99782,
+      "hi95": 0.99782
+     }
+    }
+   }
+  }
+ },
+ "caveats": [
+  "replay_pipeline_is_current: movement is input-driven only; understates as-served movement",
+  "replay runs without scrape_state: freshness/health weighting off, constant across dates",
+  "measures board self-consistency, not common-mode error",
+  "value uncertainty only: says nothing about fairness-verdict uncertainty beyond Q2 descriptive, and nothing about acceptance"
+ ]
+}

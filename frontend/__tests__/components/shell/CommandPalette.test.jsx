@@ -110,7 +110,7 @@ describe("navigation targets", () => {
     const user = userEvent.setup();
     palette();
     await user.keyboard("arbitrage");
-    const opt = screen.getByRole("option", { name: /Arbitrage/ });
+    const opt = screen.getByRole("option", { name: /Market Disagreement/ });
     await user.click(opt);
     expect(push).toHaveBeenCalledWith("/arbitrage");
   });
@@ -161,6 +161,17 @@ describe("combobox semantics", () => {
   it("renders inside a dialog with focus trap semantics (ds Modal)", () => {
     palette();
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
+  });
+
+  it("offers admin-only Ops pages (Model Lab) to admins only", async () => {
+    const user = userEvent.setup();
+    const { unmount } = palette();
+    await user.type(screen.getByRole("combobox"), "model lab");
+    expect(screen.queryByRole("option", { name: /Model Lab/ })).toBeNull();
+    unmount();
+    palette({ isAdmin: true });
+    await user.type(screen.getByRole("combobox"), "model lab");
+    expect(screen.getByRole("option", { name: /Model Lab/ })).toBeInTheDocument();
   });
 
   it("shows an empty state for no matches", async () => {

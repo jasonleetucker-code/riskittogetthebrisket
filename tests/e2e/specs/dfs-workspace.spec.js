@@ -63,24 +63,38 @@ async function openWorkspace(page) {
 
 // Manual files live under Advanced since the zero-upload requirement (DFS-AUTO-13). It opens by
 // itself when no automatic slate exists; otherwise the owner opens it.
+//
+// The <details> is `open={advancedOpen || autoUnavailable}`, so the auto-open can land after the
+// visibility check: a click then TOGGLES an already-open section shut, and React does not re-apply
+// an `open` prop that did not change.  Click only while the element is actually closed, and retry
+// until the textarea shows (mobile CI flaked here on PR #1814, run 39169041656).
 async function openAdvanced(page) {
   const box = page.getByLabel("Salary CSV text");
-  if (!(await box.isVisible())) {
-    await page.getByText("Advanced · Data overrides / manual import").click();
-  }
-  await expect(box).toBeVisible({ timeout: 15_000 });
+  const summary = page.getByText("Advanced · Data overrides / manual import");
+  const details = page.locator("details", { has: summary });
+  await expect(async () => {
+    if (await box.isVisible()) return;
+    if (!(await details.evaluate((el) => el.open))) await summary.click();
+    await expect(box).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 test("the automatic slate panel comes first and always says what it has (DFS-AUTO)", async ({ authedPage: page }, testInfo) => {
   await openWorkspace(page);
   await page.getByRole("radio", { name: "NFL" }).click();
   await page.getByRole("radio", { name: "DraftKings" }).click();
-  // One of the honest states — a slate list, a refresh in progress, or unavailable (with the
-  // manual path offered) — never a blank panel and never an upload prompt first.
+  // One of the honest states AutoSlates renders — a slate list, a refresh in progress, nothing
+  // listed, unavailable, a source error, or awaiting schedule-source approval (each with the
+  // manual path offered) — never a blank panel and never an upload prompt first.  A CI runner
+  // with no route to the slate source lands on "source error", so that state must count.
   await expect(
     page
       .getByRole("list", { name: "DraftKings slates" })
-      .or(page.getByText(/Fetching DraftKings slates now|No automatic DraftKings slates|Automatic slates unavailable/))
+      .or(
+        page.getByText(
+          /Fetching DraftKings slates now|No automatic DraftKings slates|Automatic slates unavailable|Automatic slates: source error|Awaiting owner approval of the schedule source/,
+        ),
+      )
       .first(),
   ).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Advanced · Data overrides / manual import")).toBeVisible();

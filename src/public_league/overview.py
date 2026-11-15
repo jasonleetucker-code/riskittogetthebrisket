@@ -187,6 +187,12 @@ def _hottest_trade(activity_section: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _draft_capital_leader(draft_section: dict[str, Any]) -> dict[str, Any] | None:
+    """Top of the Draft tab's own leaderboard — never a second computation.
+
+    ``None`` when there is no board, including when pick ownership is unknown
+    (the draft section then publishes ``stockpileLeaderboard: None`` with its
+    ``pickOwnershipState``, which ``draftCapitalState`` mirrors).
+    """
     board = draft_section.get("stockpileLeaderboard") or []
     if not board:
         return None
@@ -452,6 +458,10 @@ def build_section(
         "recentTrades": _recent_trades(activity_section),
         "hottestTrade": _hottest_trade(activity_section),
         "draftCapitalLeader": _draft_capital_leader(draft_section),
+        "draftCapitalState": {
+            "pickOwnershipState": draft_section.get("pickOwnershipState"),
+            "pickOwnershipReason": draft_section.get("pickOwnershipReason"),
+        },
         "latestWeeklyRecap": _latest_weekly_recap(weekly_section),
         "mostDecoratedFranchise": _most_decorated_franchise(history_section),
         "hottestRace": awards_section.get("hottestRace"),

@@ -27,6 +27,9 @@ from __future__ import annotations
 
 import re
 import unittest
+import pytest
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 TIERS = ("early", "mid", "late")
 _TIER_ROW = re.compile(r"^(\d{4})\s+(Early|Mid|Late)\s+(\d)(?:st|nd|rd|th)$")
@@ -95,9 +98,9 @@ class TestTheBoardItselfIsOrdered(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        from tests.archive_fixtures import newest_complete_raw_payload
+        from tests.archive_fixtures import pinned_board_payload
 
-        raw, name = newest_complete_raw_payload()
+        raw, name = pinned_board_payload()
         if not raw:
             raise unittest.SkipTest("no complete archived scrape available")
         from src.api.data_contract import build_api_data_contract

@@ -2,22 +2,46 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
+import { useAuthContext } from "@/app/AppShellWrapper";
 import { useTeam } from "@/components/useTeam";
 import { useNews } from "@/components/useNews";
-import { Movement, SegmentedControl } from "@/components/ds";
-import { computeMovers } from "@/lib/market-movers";
+import { useReconciledSignals } from "@/components/useReconciledSignals";
+import { Badge } from "@/components/ds";
+import {
+  lineageText,
+  selectTickerVerdicts,
+  sellScopeText,
+  unobservedEmitters,
+} from "@/lib/signal-ticker";
 import { selectTickerAlerts, timeAgo } from "@/lib/news-service";
 import styles from "./market-ticker.module.css";
 
-const SCOPE_OPTIONS = [
-  { value: "roster", label: "My Roster" },
-  { value: "league", label: "League" },
-  { value: "top150", label: "Top 150" },
-];
+/**
+ * Homepage Buy/Sell ticker (C6-SIG-02, #784, inventory 4.3).
+ *
+ * PRESENTATION ONLY over the one Buy/Sell owner, the C6-SIG-01 reconciler
+ * (`/api/signals/reconciled`).  BUY items are league-wide; SELL items are
+ * limited to the selected team's roster; a conflict renders as a conflict;
+ * withheld players never appear.  Every rule lives in `lib/signal-ticker.js`
+ * and decides no verdict.
+ *
+ * Inventory 4.3 recorded this strip as "existing, wrong source": it used to
+ * show rank movers from a page-local `computeMovers`.  Rank movers still have
+ * their own panel on this page (MoversPanel, `/api/terminal` movers); the
+ * ticker now carries canonical verdicts instead.  News alerts keep their
+ * interleaved slots — they are not verdicts and are labelled as alerts.
+ *
+ * Private: the reconciler 401s without a session, so the lane renders only
+ * for an authenticated private shell and fails closed (no verdicts) on any
+ * auth refusal.
+ */
 
-// Minimum meaningful movers before we'll render the strip at all.
-// Under 3 items the loop looks static; we show the empty state instead.
-const MIN_RENDERABLE = 3;
+// Under this many slots a looping marquee reads as static, so the slots
+// render in place without animation (never hidden — a real verdict is not
+// "quiet").
+const MIN_ANIMATED = 3;
+// Whole-strip cap: roster SELL/CONFLICT first, then BUYs fill the rest.
+const TICKER_LIMIT = 20;
 
 function useLeagueNames(sleeperTeams) {
   return useMemo(() => {
@@ -54,34 +78,69 @@ function useNow(intervalMs = 60000) {
   return now;
 }
 
+function freshnessText(payload, now) {
+  const at = payload?.contract?.generatedAt || payload?.contract?.scrapeTimestamp;
+  const age = typeof at === "string" ? timeAgo(at, now) : null;
+  const market = payload?.contract?.marketFreshness?.state;
+  const base = age && age !== "—" ? `Board ${age} ago` : "Board age unknown";
+  if (market === "stale") return `${base} · market data stale`;
+  if (market !== "fresh") return `${base} · market freshness unknown`;
+  return base;
+}
+
+function quietMessage(status, payload) {
+  if (status === "league_mismatch") {
+    return "Buy/Sell signals unavailable — they were built for a different league.";
+  }
+  if (status === "loading" || status === "idle") return "Loading Buy/Sell signals…";
+  if (status === "unauthorized") return "Sign in to see Buy/Sell signals.";
+  if (status === "unavailable") return "Buy/Sell signals unavailable — board data not ready.";
+  if (status === "error") return "Buy/Sell signals unavailable right now.";
+  const missing = unobservedEmitters(payload).length;
+  return missing > 0
+    ? `No Buy/Sell verdicts to show — ${missing} signal source${missing === 1 ? "" : "s"} did not run.`
+    : "No Buy/Sell verdicts to show.";
+}
+
 export default function MarketTicker() {
-  const { rows, rawData, openPlayerPopup } = useApp();
-  const { selectedTeam } = useTeam();
+  const { rawData, openPlayerPopup, privateDataEnabled } = useApp();
+  const { authenticated } = useAuthContext();
+  const { selectedTeam, selectedLeagueKey, loading: teamLoading } = useTeam();
   const sleeperTeams = rawData?.sleeper?.teams;
   const leagueNames = useLeagueNames(sleeperTeams);
   const reducedMotion = usePrefersReducedMotion();
   const now = useNow();
-
-  const [scope, setScope] = useState("roster");
   const [paused, setPaused] = useState(false);
 
-  // Single shared news fetch via the module-level cache in
-  // useNews — ticker + news feed + signals + scouting all read
-  // from the same 60s-TTL store, so mounting the whole landing
-  // page issues exactly one /api/news request instead of four.
+  // Private verdicts only for a signed-in private shell; wait for team
+  // identity so one request is made for the team actually selected.
+  const enabled = Boolean(privateDataEnabled) && authenticated === true && !teamLoading;
+  const signals = useReconciledSignals({
+    enabled,
+    leagueKey: selectedLeagueKey || "",
+    ownerId: selectedTeam?.ownerId ? String(selectedTeam.ownerId) : "",
+    teamName: selectedTeam?.ownerId ? "" : selectedTeam?.name || "",
+  });
+  const verdictsVisible = signals.status === "ok" && authenticated === true;
+  // Anything short of a signed-in private shell reads as "sign in" — never
+  // as "no verdicts", which would be a claim about the market.
+  const displayStatus =
+    Boolean(privateDataEnabled) && authenticated === true ? signals.status : "unauthorized";
+
+  // Single shared news fetch via the module-level cache in useNews.
   const rosterNames = selectedTeam?.players || [];
   const newsState = useNews({ rosterNames, leagueNames });
 
-  const movers = useMemo(
+  const selection = useMemo(
     () =>
-      computeMovers({
-        rows,
-        selectedTeam,
-        sleeperTeams,
-        scope,
-        limit: 20,
-      }),
-    [rows, selectedTeam, sleeperTeams, scope],
+      verdictsVisible
+        ? selectTickerVerdicts(signals.payload, {
+            selectedTeam,
+            selectedLeagueKey: selectedLeagueKey || "",
+            limit: TICKER_LIMIT,
+          })
+        : null,
+    [verdictsVisible, signals.payload, selectedTeam, selectedLeagueKey],
   );
 
   const alerts = useMemo(() => {
@@ -89,98 +148,86 @@ export default function MarketTicker() {
     return selectTickerAlerts(newsState.scored, { limit: 3 });
   }, [newsState]);
 
-  // Interleave: drop every 5th ticker slot with an alert, so the
-  // strip reads as "moves + moves + moves + moves + alert" visually.
+  // Interleave: every 5th slot is an alert, as before.
   const items = useMemo(() => {
+    const verdicts = selection?.items || [];
     const out = [];
     let a = 0;
-    for (let i = 0; i < movers.length; i++) {
-      out.push({ kind: "mover", data: movers[i], key: `m-${movers[i].key}` });
+    for (let i = 0; i < verdicts.length; i++) {
+      out.push({ kind: "verdict", data: verdicts[i], key: verdicts[i].key });
       if ((i + 1) % 5 === 0 && a < alerts.length) {
-        const al = alerts[a];
-        out.push({ kind: "alert", data: al, key: `a-${al.id}` });
+        out.push({ kind: "alert", data: alerts[a], key: `a-${alerts[a].id}` });
         a += 1;
       }
     }
-    // Append any leftover alerts at the tail so they still get a slot.
-    while (a < alerts.length) {
+    // Leftover alerts only alongside verdicts — a strip of alerts alone
+    // would read as the Buy/Sell ticker having nothing to say.
+    while (verdicts.length > 0 && a < alerts.length) {
       out.push({ kind: "alert", data: alerts[a], key: `a-${alerts[a].id}` });
       a += 1;
     }
     return out;
-  }, [movers, alerts]);
+  }, [selection, alerts]);
 
-  // Backend-stamped freshness, verbatim — never a client-computed
-  // "just now" until a real timestamp is missing.
-  const freshness =
-    typeof rawData?.generatedAt === "string" ? timeAgo(rawData.generatedAt, now) : null;
-
-  const scopeSwitch = (
+  const teamName = selectedTeam?.name || "";
+  const rail = (
     <div className={styles.rail}>
-      <span className={styles.railLabel}>Scope</span>
-      <SegmentedControl
-        label="Ticker scope"
-        value={scope}
-        onChange={setScope}
-        options={SCOPE_OPTIONS}
-      />
-      {freshness ? (
-        <span className={styles.freshness}>Updated {freshness} ago</span>
+      <span className={styles.railLabel}>Buy / Sell</span>
+      {verdictsVisible && selection && !selection.leagueMismatch ? (
+        <>
+          <span className={styles.freshness}>{sellScopeText(selection.sellScope, teamName)}</span>
+          <span className={styles.freshness}>{freshnessText(signals.payload, now)}</span>
+        </>
       ) : null}
     </div>
   );
 
-  if (items.length < MIN_RENDERABLE) {
-    const scopeLabel =
-      SCOPE_OPTIONS.find((o) => o.value === scope)?.label || "Roster";
+  const hasVerdicts = (selection?.items?.length || 0) > 0;
+  if (!hasVerdicts) {
     return (
-      <div className={`${styles.ticker} ${styles.quiet}`} role="region" aria-label="Market ticker">
-        {scopeSwitch}
+      <div
+        className={`${styles.ticker} ${styles.quiet}`}
+        role="region"
+        aria-label="Buy/Sell ticker"
+        aria-busy={displayStatus === "loading" || undefined}
+      >
+        {rail}
         <div className={styles.quietMsg}>
-          Market quiet in {scopeLabel.toLowerCase()} — fewer than {MIN_RENDERABLE} moves since last update.
+          {quietMessage(selection?.leagueMismatch ? "league_mismatch" : displayStatus, signals.payload)}
         </div>
       </div>
     );
   }
 
-  // Duplicate the items once so CSS marquee loops seamlessly.  Setting
-  // ``aria-hidden`` on the clone keeps AT from double-announcing.
-  const animate = !reducedMotion && !paused;
+  const animate = !reducedMotion && !paused && items.length >= MIN_ANIMATED;
+  const onPlayerClick = (name) => {
+    if (typeof openPlayerPopup === "function") openPlayerPopup(name);
+  };
 
   return (
     <div
       className={styles.ticker}
       role="region"
-      aria-label="Market ticker"
+      aria-label="Buy/Sell ticker"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
     >
-      {scopeSwitch}
+      {rail}
       <div className={styles.strip}>
         <ul
           className={`${styles.track}${animate ? ` ${styles.trackAnimated}` : ""}`}
           style={animate ? { animationDuration: `${Math.max(30, items.length * 4)}s` } : undefined}
         >
           {items.map((it) => (
-            <TickerSlot
-              key={it.key}
-              item={it}
-              onPlayerClick={(name) => {
-                if (typeof openPlayerPopup === "function") openPlayerPopup(name);
-              }}
-            />
+            <TickerSlot key={it.key} item={it} onPlayerClick={onPlayerClick} />
           ))}
-          {/* Cloned track for seamless marquee.  Hidden from AT. */}
+          {/* Cloned track for the seamless marquee.  Hidden from AT and
+              out of the tab order. */}
           {animate &&
             items.map((it) => (
-              <TickerSlot
-                key={`clone-${it.key}`}
-                item={it}
-                ariaHidden
-                onPlayerClick={(name) => {
-                  if (typeof openPlayerPopup === "function") openPlayerPopup(name);
-                }}
-              />
+              <TickerSlot key={`clone-${it.key}`} item={it} ariaHidden onPlayerClick={onPlayerClick} />
             ))}
         </ul>
       </div>
@@ -188,27 +235,44 @@ export default function MarketTicker() {
   );
 }
 
+const VERDICT_BADGE = {
+  buy: { tone: "positive", label: "BUY" },
+  sell: { tone: "negative", label: "SELL" },
+  // A conflict is neither direction; outline claims no market state.
+  conflict: { tone: "outline", label: "CONFLICT" },
+};
+
+function lineageTitle(lineage) {
+  if (!lineage) return undefined;
+  const parts = [];
+  if (lineage.sharedAncestry?.length) parts.push(`Shared lineage: ${lineage.sharedAncestry.join(", ")}`);
+  if (lineage.collapsed) parts.push(`${lineage.collapsed} restatement(s) collapsed`);
+  return parts.length ? parts.join(" · ") : undefined;
+}
+
 function TickerSlot({ item, ariaHidden, onPlayerClick }) {
-  if (item.kind === "mover") {
-    const m = item.data;
+  if (item.kind === "verdict") {
+    const v = item.data;
+    const badge = VERDICT_BADGE[v.kind];
+    const lineage = lineageText(v.lineage);
     return (
       <li
-        className={`${styles.item} ${m.onRoster ? styles.itemRoster : ""}`.trim()}
+        className={styles.item}
         aria-hidden={ariaHidden || undefined}
+        data-verdict={v.kind}
       >
         <button
           type="button"
           className={styles.itemTrigger}
-          onClick={() => onPlayerClick?.(m.name)}
+          onClick={() => onPlayerClick?.(v.name)}
+          tabIndex={ariaHidden ? -1 : undefined}
+          aria-label={`${badge.label} ${v.name}${lineage ? `, ${lineage}` : ""}`}
+          title={lineageTitle(v.lineage)}
         >
-          {m.onRoster && (
-            <span className={styles.itemDot} aria-hidden="true">
-              ●
-            </span>
-          )}
-          <span className={styles.itemLabel}>{m.name}</span>
-          <span className={styles.itemPos}>{m.pos}</span>
-          <Movement delta={m.change} confidence={m.confidence} />
+          <Badge tone={badge.tone}>{badge.label}</Badge>
+          <span className={styles.itemLabel}>{v.name}</span>
+          {v.position ? <span className={styles.itemPos}>{v.position}</span> : null}
+          {lineage ? <span className={styles.itemLineage}>{lineage}</span> : null}
         </button>
       </li>
     );
@@ -229,6 +293,7 @@ function TickerSlot({ item, ariaHidden, onPlayerClick }) {
         type="button"
         className={styles.itemTrigger}
         onClick={() => firstPlayer && onPlayerClick?.(firstPlayer)}
+        tabIndex={ariaHidden ? -1 : undefined}
         title={a.headline}
       >
         <span className={`${styles.itemAlertTag} ${sevClass}`.trim()}>

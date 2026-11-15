@@ -66,7 +66,15 @@
 // state; the network-first fallback would otherwise store them at rest
 // and could replay a stale balance offline as if it were current.  The
 // bump evicts anything already stored.
-const CACHE_VERSION = "chaseupside-v9";
+// v10: /api/public/league/trade-advisor added to NEVER_CACHE (review
+// R2-7 / privacy F-2).  The Brisket Trade Advisor's team and asset lists
+// and its analyze answers are served `no-store`, but the public-league
+// network-first branch below put every GET into CacheStorage regardless.
+// Nothing in them is a value, yet "no cache holding" is the advisor's
+// contract and an offline replay of a stale roster list would build a
+// trade against rosters that no longer exist.  The bump evicts anything
+// already stored.
+const CACHE_VERSION = "chaseupside-v10";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;
@@ -97,6 +105,14 @@ const NEVER_CACHE = [
   // reset and email-verification URLs carry one-time tokens.
   "/api/auction/",
   "/auction",
+  // Brisket Trade Advisor (public, value-free, but served no-store and
+  // roster-state dependent): never at rest, never replayed offline.  Must
+  // sit here because the generic `/api/public/league` branch below would
+  // otherwise network-first-and-put it.
+  "/api/public/league/trade-advisor",
+  // Waiver Wire Comparison: live roster ownership, served with its own
+  // freshness stamps — never replayed from CacheStorage.
+  "/api/public/waiver-compare",
 ];
 
 function isNeverCache(url) {

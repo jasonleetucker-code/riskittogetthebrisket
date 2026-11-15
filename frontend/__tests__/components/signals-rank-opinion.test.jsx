@@ -24,7 +24,7 @@ import {
   basesAreCompatible,
   rankOnlyOpinionFor,
   rankOnlyProviderState,
-  summariseSide,
+  opinionCounts,
 } from "@/lib/second-opinions";
 
 const SYNTHETIC_PAYLOAD = {
@@ -66,9 +66,9 @@ describe("rank-only basis", () => {
     expect(op.value).toBeNull();
     expect(op.votes).toBe(false);
     expect(op.entry.positionalRank).toBe(3);
-    const side = summariseSide([op]);
-    expect(side.values).toEqual([]);
-    expect(side.incomplete).toBe(true);
+    // A rank-only opinion is never a package value: an evaluated package
+    // containing it is incomplete, never summed.
+    expect(opinionCounts([[op]]).unpriced).toBe(1);
   });
 });
 

@@ -1,0 +1,2413 @@
+{
+ "provenance": {
+  "generatedAt": "2026-10-26T07:34:46.218318+00:00",
+  "codeSha": "f23d0a2c13dfb054501f8856233513707421d0fe",
+  "archive": "exports/archive/dynasty_export_20261025_120337.zip",
+  "archiveMember": "dynasty_data_2026-10-25.json",
+  "archiveSha256": "50fb251a79bc79abac54bcbcfc98c3018fc6b105115eb6dbd7928e3b6c8dc8f6",
+  "csvTree": {
+   "revisionSha": "503f08581b7cc7e9c3860f10c052734f68d23b5c",
+   "contentSha256": "8df07701efe7e68e6d420bea8bdefb4923d0dbd29cb9c4ec2d307bb4bd6a6367"
+  },
+  "flag": "replacement_level_li5_consolidation",
+  "scarcity": "held inert (1.0) \u2014 box-only question",
+  "network": "every socket connect refused"
+ },
+ "boardValueCheck": {
+  "boardSha256FlagOff": "b21979c30ae40858f16775e81b1c3f24775cc2224c603c52af38117710c25837",
+  "boardSha256FlagOn": "b21979c30ae40858f16775e81b1c3f24775cc2224c603c52af38117710c25837",
+  "identical": true
+ },
+ "requestInputs": {
+  "asOf": "2026-10-25",
+  "rookiesEligible": true,
+  "availabilityContext": true,
+  "availabilityReason": null,
+  "currentWeek": 7
+ },
+ "stepwise": {
+  "table": [
+   {
+    "consumer": "capacity",
+    "position": "DB",
+    "A0_legacyBestUnrostered": 1917.0,
+    "addPoolBest": 1917.0,
+    "healthBest": null,
+    "servedLi5": 1641.0,
+    "bandedOnlyNoAddPool": 1641.0,
+    "lensB_dynastyShadow_addPoolBanded": 1641.0,
+    "delta_served_minus_A0": -276.0,
+    "eligibleFreeAgents": 32,
+    "baseFreeAgents": 37
+   },
+   {
+    "consumer": "capacity",
+    "position": "DL",
+    "A0_legacyBestUnrostered": 1874.0,
+    "addPoolBest": 1874.0,
+    "healthBest": null,
+    "servedLi5": 1811.3,
+    "bandedOnlyNoAddPool": 1811.3,
+    "lensB_dynastyShadow_addPoolBanded": 1811.3,
+    "delta_served_minus_A0": -62.7,
+    "eligibleFreeAgents": 37,
+    "baseFreeAgents": 45
+   },
+   {
+    "consumer": "capacity",
+    "position": "LB",
+    "A0_legacyBestUnrostered": 2160.0,
+    "addPoolBest": 2160.0,
+    "healthBest": null,
+    "servedLi5": 1920.3,
+    "bandedOnlyNoAddPool": 1920.3,
+    "lensB_dynastyShadow_addPoolBanded": 1920.3,
+    "delta_served_minus_A0": -239.7,
+    "eligibleFreeAgents": 24,
+    "baseFreeAgents": 33
+   },
+   {
+    "consumer": "capacity",
+    "position": "QB",
+    "A0_legacyBestUnrostered": 1372.0,
+    "addPoolBest": 1372.0,
+    "healthBest": null,
+    "servedLi5": 1311.7,
+    "bandedOnlyNoAddPool": 1311.7,
+    "lensB_dynastyShadow_addPoolBanded": 1311.7,
+    "delta_served_minus_A0": -60.3,
+    "eligibleFreeAgents": 11,
+    "baseFreeAgents": 12
+   },
+   {
+    "consumer": "capacity",
+    "position": "RB",
+    "A0_legacyBestUnrostered": 1659.0,
+    "addPoolBest": 1659.0,
+    "healthBest": null,
+    "servedLi5": 1580.0,
+    "bandedOnlyNoAddPool": 1580.0,
+    "lensB_dynastyShadow_addPoolBanded": 1580.0,
+    "delta_served_minus_A0": -79.0,
+    "eligibleFreeAgents": 40,
+    "baseFreeAgents": 42
+   },
+   {
+    "consumer": "capacity",
+    "position": "TE",
+    "A0_legacyBestUnrostered": 2093.0,
+    "addPoolBest": 2093.0,
+    "healthBest": null,
+    "servedLi5": 1971.7,
+    "bandedOnlyNoAddPool": 1971.7,
+    "lensB_dynastyShadow_addPoolBanded": 1971.7,
+    "delta_served_minus_A0": -121.3,
+    "eligibleFreeAgents": 19,
+    "baseFreeAgents": 21
+   },
+   {
+    "consumer": "capacity",
+    "position": "WR",
+    "A0_legacyBestUnrostered": 1795.0,
+    "addPoolBest": 1795.0,
+    "healthBest": null,
+    "servedLi5": 1579.7,
+    "bandedOnlyNoAddPool": 1579.7,
+    "lensB_dynastyShadow_addPoolBanded": 1579.7,
+    "delta_served_minus_A0": -215.3,
+    "eligibleFreeAgents": 50,
+    "baseFreeAgents": 55
+   },
+   {
+    "consumer": "perfectDraft",
+    "position": "DB",
+    "A0_legacyBestUnrostered": 1513.0,
+    "addPoolBest": 1513.0,
+    "healthBest": null,
+    "servedLi5": 1487.3,
+    "bandedOnlyNoAddPool": 1487.3,
+    "lensB_dynastyShadow_addPoolBanded": 1487.3,
+    "delta_served_minus_A0": -25.7,
+    "eligibleFreeAgents": 31,
+    "baseFreeAgents": 36
+   },
+   {
+    "consumer": "perfectDraft",
+    "position": "DL",
+    "A0_legacyBestUnrostered": 1874.0,
+    "addPoolBest": 1874.0,
+    "healthBest": null,
+    "servedLi5": 1811.3,
+    "bandedOnlyNoAddPool": 1811.3,
+    "lensB_dynastyShadow_addPoolBanded": 1811.3,
+    "delta_served_minus_A0": -62.7,
+    "eligibleFreeAgents": 36,
+    "baseFreeAgents": 44
+   },
+   {
+    "consumer": "perfectDraft",
+    "position": "LB",
+    "A0_legacyBestUnrostered": 1874.0,
+    "addPoolBest": 1874.0,
+    "healthBest": null,
+    "servedLi5": 1694.7,
+    "bandedOnlyNoAddPool": 1694.7,
+    "lensB_dynastyShadow_addPoolBanded": 1694.7,
+    "delta_served_minus_A0": -179.3,
+    "eligibleFreeAgents": 23,
+    "baseFreeAgents": 32
+   },
+   {
+    "consumer": "perfectDraft",
+    "position": "QB",
+    "A0_legacyBestUnrostered": 1372.0,
+    "addPoolBest": 1372.0,
+    "healthBest": null,
+    "servedLi5": 1311.7,
+    "bandedOnlyNoAddPool": 1311.7,
+    "lensB_dynastyShadow_addPoolBanded": 1311.7,
+    "delta_served_minus_A0": -60.3,
+    "eligibleFreeAgents": 11,
+    "baseFreeAgents": 12
+   },
+   {
+    "consumer": "perfectDraft",
+    "position": "RB",
+    "A0_legacyBestUnrostered": 1659.0,
+    "addPoolBest": 1659.0,
+    "healthBest": null,
+    "servedLi5": 1580.0,
+    "bandedOnlyNoAddPool": 1580.0,
+    "lensB_dynastyShadow_addPoolBanded": 1580.0,
+    "delta_served_minus_A0": -79.0,
+    "eligibleFreeAgents": 40,
+    "baseFreeAgents": 42
+   },
+   {
+    "consumer": "perfectDraft",
+    "position": "TE",
+    "A0_legacyBestUnrostered": 2093.0,
+    "addPoolBest": 2093.0,
+    "healthBest": null,
+    "servedLi5": 1965.7,
+    "bandedOnlyNoAddPool": 1965.7,
+    "lensB_dynastyShadow_addPoolBanded": 1965.7,
+    "delta_served_minus_A0": -127.3,
+    "eligibleFreeAgents": 16,
+    "baseFreeAgents": 18
+   },
+   {
+    "consumer": "perfectDraft",
+    "position": "WR",
+    "A0_legacyBestUnrostered": 1486.0,
+    "addPoolBest": 1486.0,
+    "healthBest": null,
+    "servedLi5": 1458.7,
+    "bandedOnlyNoAddPool": 1458.7,
+    "lensB_dynastyShadow_addPoolBanded": 1458.7,
+    "delta_served_minus_A0": -27.3,
+    "eligibleFreeAgents": 49,
+    "baseFreeAgents": 54
+   }
+  ],
+  "uncertainExcludedSensitivity": "not measured: health evidence_unavailable",
+  "anchorSetters": {
+   "DB": {
+    "legacySetter": {
+     "name": "Keionte Scott",
+     "value": 1917,
+     "rookie": true,
+     "sourceCount": 2,
+     "addPoolExclusion": null,
+     "availability": null,
+     "inAuctionRookieKeys": true
+    },
+    "bandedMembers": [
+     {
+      "name": "Keionte Scott",
+      "value": 1917,
+      "rookie": true,
+      "sourceCount": 2,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": true
+     },
+     {
+      "name": "Kamren Kinchens",
+      "value": 1513,
+      "rookie": false,
+      "sourceCount": 4,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Will Johnson",
+      "value": 1493,
+      "rookie": false,
+      "sourceCount": 3,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     }
+    ]
+   },
+   "DL": {
+    "legacySetter": {
+     "name": "Nic Scourton",
+     "value": 1874,
+     "rookie": false,
+     "sourceCount": 3,
+     "addPoolExclusion": null,
+     "availability": null,
+     "inAuctionRookieKeys": false
+    },
+    "bandedMembers": [
+     {
+      "name": "Nic Scourton",
+      "value": 1874,
+      "rookie": false,
+      "sourceCount": 3,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Derrick Harmon",
+      "value": 1787,
+      "rookie": false,
+      "sourceCount": 4,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Jalen Redmond",
+      "value": 1773,
+      "rookie": false,
+      "sourceCount": 4,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     }
+    ]
+   },
+   "LB": {
+    "legacySetter": {
+     "name": "Kaleb Elarms-Orr",
+     "value": 2160,
+     "rookie": true,
+     "sourceCount": 4,
+     "addPoolExclusion": null,
+     "availability": null,
+     "inAuctionRookieKeys": true
+    },
+    "bandedMembers": [
+     {
+      "name": "Kaleb Elarms-Orr",
+      "value": 2160,
+      "rookie": true,
+      "sourceCount": 4,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": true
+     },
+     {
+      "name": "SirVocea Dennis",
+      "value": 1874,
+      "rookie": false,
+      "sourceCount": 4,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Teddye Buchanan",
+      "value": 1727,
+      "rookie": false,
+      "sourceCount": 4,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     }
+    ]
+   },
+   "QB": {
+    "legacySetter": {
+     "name": "Carson Wentz",
+     "value": 1372,
+     "rookie": false,
+     "sourceCount": 11,
+     "addPoolExclusion": null,
+     "availability": null,
+     "inAuctionRookieKeys": false
+    },
+    "bandedMembers": [
+     {
+      "name": "Carson Wentz",
+      "value": 1372,
+      "rookie": false,
+      "sourceCount": 11,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Garrett Nussmeier",
+      "value": 1289,
+      "rookie": true,
+      "sourceCount": 13,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Will Howard",
+      "value": 1274,
+      "rookie": false,
+      "sourceCount": 12,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     }
+    ]
+   },
+   "RB": {
+    "legacySetter": {
+     "name": "Isiah Pacheco",
+     "value": 1659,
+     "rookie": false,
+     "sourceCount": 16,
+     "addPoolExclusion": null,
+     "availability": null,
+     "inAuctionRookieKeys": false
+    },
+    "bandedMembers": [
+     {
+      "name": "Isiah Pacheco",
+      "value": 1659,
+      "rookie": false,
+      "sourceCount": 16,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Riley Nowakowski",
+      "value": 1600,
+      "rookie": true,
+      "sourceCount": 2,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Trevor Etienne",
+      "value": 1481,
+      "rookie": false,
+      "sourceCount": 13,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     }
+    ]
+   },
+   "TE": {
+    "legacySetter": {
+     "name": "Ja'Tavion Sanders",
+     "value": 2093,
+     "rookie": false,
+     "sourceCount": 11,
+     "addPoolExclusion": null,
+     "availability": null,
+     "inAuctionRookieKeys": false
+    },
+    "bandedMembers": [
+     {
+      "name": "Ja'Tavion Sanders",
+      "value": 2093,
+      "rookie": false,
+      "sourceCount": 11,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Ben Sinnott",
+      "value": 1917,
+      "rookie": false,
+      "sourceCount": 12,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Justin Joly",
+      "value": 1905,
+      "rookie": true,
+      "sourceCount": 14,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": true
+     }
+    ]
+   },
+   "WR": {
+    "legacySetter": {
+     "name": "Chris Brazzell",
+     "value": 1795,
+     "rookie": true,
+     "sourceCount": 17,
+     "addPoolExclusion": null,
+     "availability": null,
+     "inAuctionRookieKeys": true
+    },
+    "bandedMembers": [
+     {
+      "name": "Chris Brazzell",
+      "value": 1795,
+      "rookie": true,
+      "sourceCount": 17,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": true
+     },
+     {
+      "name": "Brenen Thompson",
+      "value": 1486,
+      "rookie": true,
+      "sourceCount": 15,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     },
+     {
+      "name": "Savion Williams",
+      "value": 1458,
+      "rookie": false,
+      "sourceCount": 14,
+      "addPoolExclusion": null,
+      "availability": null,
+      "inAuctionRookieKeys": false
+     }
+    ]
+   }
+  },
+  "populationSizes": {
+   "capacity": {
+    "base": 245,
+    "addPool": 213,
+    "served": 213,
+    "excludedByReason": {
+     "below_min_value": 30,
+     "single_source": 2
+    },
+    "health": {
+     "state": "evidence_unavailable",
+     "reason": "players_db_missing_stale_or_incomplete",
+     "asOf": null
+    },
+    "lens": "banded_without_health"
+   },
+   "perfectDraft": {
+    "base": 238,
+    "addPool": 206,
+    "served": 206,
+    "excludedByReason": {
+     "below_min_value": 30,
+     "single_source": 2
+    },
+    "health": {
+     "state": "evidence_unavailable",
+     "reason": "players_db_missing_stale_or_incomplete",
+     "asOf": null
+    },
+    "lens": "banded_without_health"
+   }
+  },
+  "perfectDraftLadder": {
+   "legacyLength": 90,
+   "li5Length": 90,
+   "legacyTop5": [
+    2093.0,
+    1917.0,
+    1887.0,
+    1874.0,
+    1874.0
+   ],
+   "li5Top5": [
+    2093.0,
+    1917.0,
+    1887.0,
+    1874.0,
+    1874.0
+   ],
+   "legacyTail": 1246.0,
+   "li5Tail": 1246.0
+  }
+ },
+ "consumerEffects": {
+  "perfectDraft": {
+   "waiverValuesOff": {
+    "DB": 1513.0,
+    "DL": 1874.0,
+    "LB": 1874.0,
+    "QB": 1372.0,
+    "RB": 1659.0,
+    "TE": 2093.0,
+    "WR": 1486.0
+   },
+   "waiverValuesOn": {
+    "DB": 1487.3,
+    "DL": 1811.3,
+    "LB": 1694.7,
+    "QB": 1311.7,
+    "RB": 1580.0,
+    "TE": 1965.7,
+    "WR": 1458.7
+   },
+   "positiveSurplusRookiesOff": {
+    "DB": 7,
+    "DL": 4,
+    "LB": 7,
+    "QB": 5,
+    "RB": 11,
+    "TE": 5,
+    "WR": 19
+   },
+   "positiveSurplusRookiesOn": {
+    "DB": 7,
+    "DL": 5,
+    "LB": 8,
+    "QB": 5,
+    "RB": 11,
+    "TE": 6,
+    "WR": 19
+   },
+   "contextVersion": [
+    "2026-08-04.v3",
+    "2026-10-25.v4-li5"
+   ],
+   "perTeam": {
+    "team01": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      5,
+      5
+     ],
+     "undroppable": [
+      6,
+      6
+     ],
+     "top5RungsChanged": false,
+     "rungMembershipChanged": false
+    },
+    "team02": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      1,
+      1
+     ],
+     "undroppable": [
+      3,
+      3
+     ],
+     "top5RungsChanged": true,
+     "rungMembershipChanged": false
+    },
+    "team03": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      6,
+      6
+     ],
+     "undroppable": [
+      6,
+      6
+     ],
+     "top5RungsChanged": true,
+     "rungMembershipChanged": false
+    },
+    "team04": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      4,
+      4
+     ],
+     "undroppable": [
+      1,
+      1
+     ],
+     "top5RungsChanged": false,
+     "rungMembershipChanged": false
+    },
+    "team05": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      0,
+      0
+     ],
+     "undroppable": [
+      4,
+      4
+     ],
+     "top5RungsChanged": false,
+     "rungMembershipChanged": false
+    },
+    "team06": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      3,
+      3
+     ],
+     "undroppable": [
+      1,
+      1
+     ],
+     "top5RungsChanged": false,
+     "rungMembershipChanged": true
+    },
+    "team07": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      1,
+      1
+     ],
+     "undroppable": [
+      4,
+      5
+     ],
+     "top5RungsChanged": false,
+     "rungMembershipChanged": false
+    },
+    "team08": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      7,
+      7
+     ],
+     "undroppable": [
+      7,
+      7
+     ],
+     "top5RungsChanged": false,
+     "rungMembershipChanged": false
+    },
+    "team09": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      1,
+      1
+     ],
+     "undroppable": [
+      2,
+      2
+     ],
+     "top5RungsChanged": false,
+     "rungMembershipChanged": false
+    },
+    "team10": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      2,
+      2
+     ],
+     "undroppable": [
+      3,
+      3
+     ],
+     "top5RungsChanged": true,
+     "rungMembershipChanged": false
+    },
+    "team11": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      7,
+      7
+     ],
+     "undroppable": [
+      7,
+      7
+     ],
+     "top5RungsChanged": true,
+     "rungMembershipChanged": true
+    },
+    "team12": {
+     "cutRungs": [
+      30,
+      30
+     ],
+     "assumedWaiverRungs": [
+      2,
+      2
+     ],
+     "undroppable": [
+      9,
+      9
+     ],
+     "top5RungsChanged": false,
+     "rungMembershipChanged": false
+    }
+   },
+   "teamsWithTop5RungChange": 4,
+   "teamsWithRungMembershipChange": 2
+  },
+  "droppability": {
+   "teamsWithRungMembershipChange": 2,
+   "teamsWithUndroppableOrderChange": 5
+  },
+  "capacity": {
+   "fds0": {
+    "trades": 48,
+    "tradesRequiringDrops": 34,
+    "dropSetChanged": 13,
+    "chargeChanged": 13,
+    "chargeDeltaMean": -250.9,
+    "chargeDeltaMin": -1817.0,
+    "chargeDeltaMax": 0.0,
+    "boundTransitions": [],
+    "stateTransitions": {
+     "exact->lower_bound": 3
+    },
+    "stateTransitionTrades": [
+     {
+      "trade": "team02/2for1",
+      "state": "exact->lower_bound",
+      "chargeOff": 1817.0,
+      "chargeOn": 0.0,
+      "lowerBoundReasonsOff": [],
+      "lowerBoundReasonsOn": [
+       "unpriced_forced_drops_excluded"
+      ]
+     },
+     {
+      "trade": "team08/0for2",
+      "state": "exact->lower_bound",
+      "chargeOff": 1688.0,
+      "chargeOn": 0.0,
+      "lowerBoundReasonsOff": [],
+      "lowerBoundReasonsOn": [
+       "unpriced_forced_drops_excluded"
+      ]
+     },
+     {
+      "trade": "team08/3for1",
+      "state": "exact->lower_bound",
+      "chargeOff": 1688.0,
+      "chargeOn": 0.0,
+      "lowerBoundReasonsOff": [],
+      "lowerBoundReasonsOn": [
+       "unpriced_forced_drops_excluded"
+      ]
+     }
+    ],
+    "rows": [
+     {
+      "trade": "team01/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "lower_bound",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team01/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team01/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1915.0,
+      "chargeOn": 1915.0,
+      "basisOff": {
+       "state": "lower_bound",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team01/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1915.0,
+      "chargeOn": 1915.0,
+      "basisOff": {
+       "state": "lower_bound",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team02/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 1817.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team02/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team02/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 1817.0,
+      "chargeOn": 1247.0,
+      "basisOff": {
+       "state": "lower_bound",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team02/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 1817.0,
+      "chargeOn": 1247.0,
+      "basisOff": {
+       "state": "lower_bound",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team03/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "lower_bound",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team03/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team03/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1458.0,
+      "chargeOn": 1458.0,
+      "basisOff": {
+       "state": "lower_bound",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team03/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1384.0,
+      "chargeOn": 1384.0,
+      "basisOff": {
+       "state": "lower_bound",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team04/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 1876.0,
+      "chargeOn": 1799.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team04/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team04/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 3675.0,
+      "chargeOn": 3244.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team04/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 3675.0,
+      "chargeOn": 3244.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team05/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1529.0,
+      "chargeOn": 1529.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team05/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team05/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 2755.0,
+      "chargeOn": 2755.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team05/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 2974.0,
+      "chargeOn": 2974.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team06/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1084.0,
+      "chargeOn": 1084.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team06/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team06/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1643.0,
+      "chargeOn": 1643.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team06/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1643.0,
+      "chargeOn": 1643.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team07/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 1809.0,
+      "chargeOn": 1449.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team07/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team07/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 3258.0,
+      "chargeOn": 2829.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team07/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 3258.0,
+      "chargeOn": 2829.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team08/2for1",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team08/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team08/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 1688.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team08/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 1688.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team09/2for1",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team09/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team09/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "lower_bound",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "lower_bound",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team09/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1579.0,
+      "chargeOn": 1579.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team10/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1472.0,
+      "chargeOn": 1472.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team10/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team10/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 3289.0,
+      "chargeOn": 3269.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team10/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": true,
+      "chargeOff": 3289.0,
+      "chargeOn": 3269.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team11/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1384.0,
+      "chargeOn": 1384.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team11/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team11/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 2723.0,
+      "chargeOn": 2723.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team11/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 2723.0,
+      "chargeOn": 2723.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team12/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 257.0,
+      "chargeOn": 257.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team12/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team12/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1516.0,
+      "chargeOn": 1516.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team12/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1516.0,
+      "chargeOn": 1516.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     }
+    ]
+   },
+   "fds1": {
+    "trades": 48,
+    "tradesRequiringDrops": 34,
+    "dropSetChanged": 0,
+    "chargeChanged": 0,
+    "chargeDeltaMean": 0.0,
+    "chargeDeltaMin": 0.0,
+    "chargeDeltaMax": 0.0,
+    "boundTransitions": [],
+    "stateTransitions": {},
+    "stateTransitionTrades": [],
+    "rows": [
+     {
+      "trade": "team01/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 273.0,
+      "chargeOn": 273.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team01/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team01/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1262.0,
+      "chargeOn": 1262.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team01/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 696.0,
+      "chargeOn": 696.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team02/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 270.0,
+      "chargeOn": 270.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team02/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team02/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 712.0,
+      "chargeOn": 712.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team02/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 712.0,
+      "chargeOn": 712.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team03/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 268.0,
+      "chargeOn": 268.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team03/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team03/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 714.0,
+      "chargeOn": 714.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team03/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 714.0,
+      "chargeOn": 714.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team04/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 419.0,
+      "chargeOn": 419.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team04/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team04/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1241.0,
+      "chargeOn": 1241.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team04/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1241.0,
+      "chargeOn": 1241.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team05/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 262.0,
+      "chargeOn": 262.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team05/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team05/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1488.0,
+      "chargeOn": 1488.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team05/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1084.0,
+      "chargeOn": 1084.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team06/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 226.0,
+      "chargeOn": 226.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team06/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team06/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 711.0,
+      "chargeOn": 711.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team06/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 711.0,
+      "chargeOn": 711.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team07/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 796.0,
+      "chargeOn": 796.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team07/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team07/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1794.0,
+      "chargeOn": 1794.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team07/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1218.0,
+      "chargeOn": 1218.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team08/2for1",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team08/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team08/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 423.0,
+      "chargeOn": 423.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team08/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 270.0,
+      "chargeOn": 270.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team09/2for1",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team09/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team09/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 422.0,
+      "chargeOn": 422.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team09/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 422.0,
+      "chargeOn": 422.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team10/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 373.0,
+      "chargeOn": 373.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team10/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team10/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 770.0,
+      "chargeOn": 770.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team10/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 770.0,
+      "chargeOn": 770.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team11/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 769.0,
+      "chargeOn": 769.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team11/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team11/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1573.0,
+      "chargeOn": 1573.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team11/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 1573.0,
+      "chargeOn": 1573.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team12/2for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 257.0,
+      "chargeOn": 257.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team12/1for2",
+      "requiresDrops": false,
+      "dropSetChanged": false,
+      "chargeOff": 0.0,
+      "chargeOn": 0.0,
+      "basisOff": {
+       "state": "none",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "none",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team12/0for2",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 644.0,
+      "chargeOn": 644.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     },
+     {
+      "trade": "team12/3for1",
+      "requiresDrops": true,
+      "dropSetChanged": false,
+      "chargeOff": 644.0,
+      "chargeOn": 644.0,
+      "basisOff": {
+       "state": "exact",
+       "bound": null
+      },
+      "basisOn": {
+       "state": "exact",
+       "bound": null,
+       "assumedWaiverBasis": null
+      }
+     }
+    ]
+   }
+  },
+  "scarcityMultipliersServedOn": [
+   1.0
+  ]
+ },
+ "latency": {
+  "buildCapacityContext": {
+   "flagOff": {
+    "p50ms": 2.41,
+    "p95ms": 2.84
+   },
+   "flagOnCold": {
+    "p50ms": 3.79,
+    "p95ms": 4.02
+   },
+   "flagOnCached": {
+    "p50ms": 1.89,
+    "p95ms": 3.09
+   }
+  }
+ },
+ "trades": 48,
+ "teams": 12
+}

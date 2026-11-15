@@ -85,21 +85,42 @@ CENSUS: tuple[Impl, ...] = (
     Impl(
         key="A",
         path="src/league_intel/replacement.py",
-        symbol="compute_replacement_levels / measure_endogenous_starters / compute_scarcity",
+        symbol=(
+            "compute_replacement_levels / measure_endogenous_starters / compute_scarcity"
+            " / waiver_levels"
+        ),
         quantity="four replacement tiers (starter / bestBallStarter / roster / waiver)",
-        unit="rosValue — 0-100 log-rank ROS production index",
-        population="every rostered player in the league, plus free agents",
+        unit=(
+            "caller-selected value field — the four-tier compute_replacement_levels "
+            "/ compute_scarcity path reads rosValue (0-100 log-rank ROS production "
+            "index); waiver_levels reads the field its caller names (value_key), "
+            "rankDerivedValue reserved for the displacement consumers"
+        ),
+        population=(
+            "every rostered player in the league, plus free agents; waiver_levels "
+            "takes a caller-built free-agent population and decides no eligibility"
+        ),
         disposition=OWNER,
         note=(
-            "Canonical for the ROS-production unit. Reads rosValue at :299/:375/"
-            ":386/:567/:618; its own docstring :22 says 'runs the optimizer over "
-            "rosValue'. Its production caller supplies ROS rows "
-            "(gameplan.py:357 loads data/ros/team_strength/)."
+            "Canonical for the ROS-production unit, and the ONE algorithm owner of "
+            "the waiver tier (mean of free-agent ranks 1..1+DEFAULT_BAND) in any "
+            "unit (LI-5 consolidation design 2026-10-21, D3). The four-tier path "
+            "reads rosValue at every value site (measure_endogenous_starters, the "
+            "rostered pools, compute_scarcity) and its waiver tier calls "
+            "waiver_levels(value_key='rosValue'); its own docstring :22 says 'runs "
+            "the optimizer over rosValue'. Its production caller supplies ROS rows "
+            "(gameplan.py loads data/ros/team_strength/) and passes no free agents, "
+            "so no waiver tier is served and scarcity stays inert (D8). Units are "
+            "kept apart by ARGUMENT, not merged: there is no validated rosValue <-> "
+            "rankDerivedValue conversion, and a level is comparable only with values "
+            "read from the same field. Row G stays DISTINCT until its consumers are "
+            "wired onto waiver_levels (design phase P3)."
         ),
         call_names=(
             "compute_replacement_levels",
             "measure_endogenous_starters",
             "compute_scarcity",
+            "waiver_levels",
         ),
     ),
     Impl(
@@ -216,13 +237,23 @@ CENSUS: tuple[Impl, ...] = (
         key="G",
         path="src/draft/displacement.py",
         symbol="waiver_values_by_position",
-        quantity="best available (unrostered) value at each position",
+        quantity="the waiver level at each position (what can I sign instead)",
         unit="rankDerivedValue (1-9999 dynasty)",
-        population="unrostered players on the canonical board",
-        disposition=DISTINCT,
+        population=(
+            "unrostered players on the canonical board, per consumer's own unavailable "
+            "keys; under the LI-5 flag the src/draft/waiver_population.py population "
+            "(add pool + availability owner)"
+        ),
+        disposition=ADAPTER,
         note=(
             "Answers 'what can I sign instead' — the opportunity cost of a roster "
-            "spot. Different question from E even though the unit matches."
+            "spot. Different question from E even though the unit matches. LI-5 "
+            "consolidation phase P3 (design 2026-10-21, D3): a population + thin view "
+            "over the LI-5 waiver tier — with flag replacement_level_li5_consolidation "
+            "ON the level is waiver_levels(value_key='rankDerivedValue') over the "
+            "waiver_population owner's rows; OFF (the default, held by the owner) the "
+            "incumbent best-single-unrostered branch is retained verbatim until P6. "
+            "free_agent_ladder is the ordered, unbanded view of the same population."
         ),
         call_names=("waiver_values_by_position", "free_agent_ladder"),
     ),
@@ -385,20 +416,30 @@ def undeclared_owner_definitions(extra: Path | None = None) -> dict[str, list[st
     return violations
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, extra: Path | None = None) -> int:
+    """Run the census.
+
+    ``extra`` adds one file OUTSIDE the scan roots to the scan — the same
+    seam every scanner above takes.  It is how the positive controls in
+    ``tests/roster_intel/test_replacement_owner.py`` plant a duplicate
+    without writing into ``src/``: a probe written into the tree is seen by
+    every other tree scan running concurrently (pytest-xdist), and turned
+    those scans red.  Not exposed on the CLI — production runs scan the
+    tree and nothing else.
+    """
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--json-out", type=Path, default=None)
     args = ap.parse_args(argv)
 
-    rows = build_census()
+    rows = build_census(extra=extra)
     if not rows:
         print(f"{TAG} census is empty — nothing was measured. exit 2.")
         return EXIT_UNMEASURED
 
     print(
-        f"{TAG} {len(rows)} implementations declared; callers derived by AST over {len(_python_files())} files"
+        f"{TAG} {len(rows)} implementations declared; callers derived by AST over {len(_python_files(extra))} files"
     )
     print("")
     for r in rows:
@@ -416,11 +457,11 @@ def main(argv: list[str] | None = None) -> int:
     failures: list[str] = []
     unconsumed: list[str] = []
 
-    reachable = retired_reachable()
+    reachable = retired_reachable(extra=extra)
     if reachable:
         failures.append(f"retired symbols are reachable again: {reachable}")
 
-    stray_definitions = undeclared_owner_definitions()
+    stray_definitions = undeclared_owner_definitions(extra=extra)
     if stray_definitions:
         failures.append(
             "an OWNER symbol name is DEFINED outside its declared path — an "

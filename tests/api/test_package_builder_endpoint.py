@@ -1,0 +1,151 @@
+"""POST /api/trade/package-builder — private, league-scoped, recommend-only."""
+
+from __future__ import annotations
+
+import pytest
+from fastapi.testclient import TestClient
+
+import server
+from src.league_intel.cross_market import MARKET_IDPTC, MARKET_KTC
+from tests.api.test_trade_protections_endpoint import env  # noqa: F401 — fixture
+
+
+def _contract():
+    rows = [
+        ("Our WR", "WR", 4200, 4600, "CIN", "Us"),
+        ("Our RB", "RB", 3000, 3300, "MIN", "Us"),
+        ("Their QB", "QB", 4400, 4300, "KC", "Them"),
+        ("Their WR", "WR", 4100, 4000, "BUF", "Them"),
+    ]
+    arr = [
+        {
+            "displayName": n,
+            "canonicalName": n,
+            "position": p,
+            "team": t,
+            "rankDerivedValue": b,
+            "canonicalSiteValues": {MARKET_KTC: m, MARKET_IDPTC: m},
+            "assetClass": "player",
+        }
+        for n, p, b, m, t, _o in rows
+    ]
+    return {
+        "meta": {"leagueKey": "main"},
+        "playersArray": arr,
+        "players": {
+            r["displayName"]: {
+                "_canonicalSiteValues": dict(r["canonicalSiteValues"]),
+                "position": r["position"],
+                "team": r["team"],
+                "_sites": 8,
+            }
+            for r in arr
+        },
+        "sleeper": {
+            "teams": [
+                {"name": "Us", "ownerId": "1", "players": ["Our WR", "Our RB"]},
+                {"name": "Them", "ownerId": "2", "players": ["Their QB", "Their WR"]},
+            ]
+        },
+    }
+
+
+URL = "/api/trade/package-builder"
+H = {"x-test-user": "jason"}
+
+
+def test_anonymous_is_401():
+    assert TestClient(server.app).post(URL, json={"myTeam": "Us"}).status_code == 401
+
+
+@pytest.fixture()
+def authed(env, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(server, "_is_authenticated", lambda request: True)
+    monkeypatch.setattr(server, "latest_contract_data", _contract())
+    return env
+
+
+def test_a_target_build_is_recommend_only_and_never_cached(authed):
+    res = authed.client.post(
+        URL,
+        json={"myTeam": "Us", "leagueKey": "main", "target": "Their QB", "useTeamContext": False},
+        headers=H,
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["action"] == "recommend_only"
+    assert res.headers["cache-control"] == "no-store"
+    assert body["request"]["opponent"] == "Them"
+    assert body["packages"]
+    assert all("Their QB" in {a["name"] for a in p["receive"]} for p in body["packages"])
+
+
+@pytest.mark.parametrize(
+    "extra,error",
+    [
+        ({"returnPositions": ["K"]}, "invalid_return_positions"),
+        ({"maxAssetsPerSide": 4}, "invalid_numbers"),
+        ({"evidence": "vibes"}, "invalid_evidence"),
+        ({"opponent": "Us"}, "unknown_opponent"),
+        ({"outgoing": "Our WR"}, "invalid_outgoing"),
+        ({"refinement": {"lock": ["Our WR"], "exclude": ["our wr"]}}, "invalid_refinement"),
+    ],
+)
+def test_bad_requests_are_400(authed, extra, error):
+    res = authed.client.post(URL, json={"myTeam": "Us", "leagueKey": "main", **extra}, headers=H)
+    assert res.status_code == 400
+    assert res.json()["error"] == error
+
+
+def test_each_package_carries_the_opponents_manager_evidence(authed, monkeypatch):
+    from src.intel import manager_scout as ms
+
+    seen = []
+
+    def fake_evidence(scout, *, opponent_owner_id, requester_owner_id, they_receive, they_send):
+        seen.append((opponent_owner_id, requester_owner_id))
+        return {"state": "measured", "tradeCount": 1}
+
+    monkeypatch.setattr(ms, "cached_manager_scout", lambda *a, **k: {"managers": []})
+    monkeypatch.setattr(ms, "offer_evidence", fake_evidence)
+    res = authed.client.post(
+        URL,
+        json={"myTeam": "Us", "leagueKey": "main", "target": "Their QB", "useTeamContext": False},
+        headers=H,
+    )
+    assert res.status_code == 200, res.text
+    pkgs = res.json()["packages"]
+    assert pkgs and all(p["managerEvidence"]["state"] == "measured" for p in pkgs)
+    # Joined through the package's own opponent, from the requester's side.
+    assert set(seen) == {("2", "1")}
+
+
+def test_sell_a_player_view_groups_by_opponent(authed):
+    res = authed.client.post(
+        URL,
+        json={
+            "myTeam": "Us",
+            "leagueKey": "main",
+            "outgoing": ["Our WR"],
+            "perOpponent": True,
+            "useTeamContext": False,
+        },
+        headers=H,
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["request"]["perOpponent"] is True
+    assert body["grouping"] == "best_per_opponent"
+    opps = [p["opponent"] for p in body["packages"]]
+    assert len(opps) == len(set(opps))
+    assert all({a["name"] for a in p["send"]} == {"Our WR"} for p in body["packages"])
+
+
+def test_per_opponent_must_be_a_real_boolean(authed):
+    res = authed.client.post(
+        URL,
+        json={"myTeam": "Us", "leagueKey": "main", "perOpponent": "yes", "useTeamContext": False},
+        headers=H,
+    )
+    assert res.status_code == 200
+    assert res.json()["request"]["perOpponent"] is False
