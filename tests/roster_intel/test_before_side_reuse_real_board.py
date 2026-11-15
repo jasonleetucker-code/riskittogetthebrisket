@@ -1,7 +1,7 @@
 """Before-roster reuse is exact on a REAL board (five-point review, 2026-10-20).
 
 ``test_best_ball_utility_reuse`` proves the reuse on synthetic rosters.  This
-runs the trade simulator's roster utility over the newest complete archived
+runs the trade simulator's roster utility over the pinned complete archived
 board — real 58-man rosters, real starter slots, real IDP — for the scenario
 shapes Analyze Trade serves (a simple 1-for-1, a large multi-asset package,
 several picks, IDP-heavy, cross-position) and asserts the content-addressed
@@ -26,7 +26,9 @@ import pytest
 from src.api import trade_simulator
 from src.roster_intel import best_ball_utility as bbu
 from src.trade import roster_capacity
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 IDP = {"DL", "LB", "DB", "DE", "DT", "CB", "S", "EDGE"}
 _REGISTRY = Path(__file__).resolve().parents[2] / "config" / "leagues" / "registry.json"
@@ -53,7 +55,7 @@ def _league_roster_settings() -> list[tuple[str, dict]]:
 
 @pytest.fixture(scope="module")
 def board():
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived board in exports/archive")
     from src.api.data_contract import build_api_data_contract

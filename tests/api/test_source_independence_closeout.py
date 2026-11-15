@@ -28,7 +28,7 @@ source-voting consensus directive of 2026-10-19.
   ``tests/api/test_dlf_offense_only_vote.py``.  The contract stamps per-source
   eligibility facts (``sourceVotingEligibility``).
 
-Board assertions are all-of / none-of invariants on the newest complete
+Board assertions are all-of / none-of invariants on the pinned complete
 archived scrape, never counts, so a CSV refresh cannot flip them.  The
 measured record is docs/sources/SOURCE_VOTING_CONSENSUS_2026-10-19.md
 (``scripts/source_voting_consensus_evidence.py``).
@@ -43,7 +43,9 @@ import pytest
 import src.api.data_contract as dc
 from src.api import feature_flags
 from src.sources import freshness as fr
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _ENV = {
     "D4": "RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE",
@@ -98,7 +100,7 @@ def _build(raw, **flags) -> dict:
 
 @pytest.fixture(scope="module")
 def raw():
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape available")
     return payload

@@ -33,25 +33,28 @@ from unittest import mock
 
 from src.api import data_contract as dc
 from src.consensus_edge import fair_value as fv
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+import pytest
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 REPO = Path(__file__).resolve().parents[2]
 ARCHIVE = REPO / "exports" / "archive"
 
 
 def _load_latest_raw_payload() -> dict | None:
-    """Newest archived raw scraper payload, or None if the archive is empty.
+    """The pinned board's raw scraper payload (``tests.archive_fixtures``).
 
     These are the tracked daily export bundles.  Using a real payload
     rather than a synthetic fixture is deliberate: the leaks under test
     are properties of how 21 real sources interact, and a three-source
     fixture would pass while the live board still leaked.
     """
-    # The newest COMPLETE scrape, not simply the newest: a single
-    # timed-out source produces a bundle whose thin board fails these
-    # assertions for a data reason (2026-08-16).  See
-    # ``tests/archive_fixtures``.
-    raw, _archive = newest_complete_raw_payload()
+    # The PINNED board, never the newest scrape: a single timed-out source
+    # produces a bundle whose thin board fails these assertions for a data
+    # reason (2026-08-16), and a newest board built against today's CSVs
+    # moves with every refresh.  See ``tests/archive_fixtures``.
+    raw, _archive = pinned_board_payload()
     return raw
 
 

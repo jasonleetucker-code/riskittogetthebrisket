@@ -22,7 +22,7 @@ as a vote (it is derived from the two KTC inputs that already do).
 
 from __future__ import annotations
 
-import json
+import copy
 import pathlib
 
 import pytest
@@ -30,7 +30,6 @@ import pytest
 from src.api.data_contract import (
     _RANKING_SOURCES,
     _compute_market_gap,
-    build_api_data_contract,
     expand_correlation_groups,
 )
 from src.sources.ktc_market import (
@@ -45,10 +44,11 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 
 
 def _contract() -> dict:
-    candidates = sorted((REPO / "exports" / "latest").glob("dynasty_data*.json"), reverse=True)
-    if not candidates:
-        pytest.skip("no export available in this environment")
-    return build_api_data_contract(json.loads(candidates[0].read_text(encoding="utf-8")))
+    """The PINNED real board (``tests.archive_fixtures``), not today's export,
+    so these invariants never move with a data refresh.  A private copy."""
+    from tests.archive_fixtures import pinned_board_contract
+
+    return copy.deepcopy(pinned_board_contract()[0])
 
 
 def _row(name: str, **sites: float) -> dict:

@@ -867,6 +867,19 @@ PRIVATE_SOURCE_MISSING = "missing"
 PRIVATE_SOURCE_NOT_PROVISIONED = "not_provisioned"
 
 
+def _default_input_root() -> Path:
+    """The repo-shaped tree a build reads when no ``csv_root`` is passed.
+
+    The ONE answer to "where are this build's source CSVs
+    (``CSVs/site_raw``) and scrape state (``data/scrape_state``)": the
+    repository.  Every ``csv_root=None`` default in this module resolves
+    through it, so a hermetic test environment can redirect a whole build --
+    whatever entry point reached it -- by replacing this one function
+    (``tests.archive_fixtures.pinned_build_environment``).
+    """
+    return Path(__file__).resolve().parents[2]
+
+
 def private_source_availability(csv_root: "Path | None" = None) -> dict[str, dict[str, Any]]:
     """Availability of every PRIVATE, box-local source on THIS host.
 
@@ -884,7 +897,7 @@ def private_source_availability(csv_root: "Path | None" = None) -> dict[str, dic
     The decision is made from files on this host only, never from an
     environment label.
     """
-    root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
+    root = Path(csv_root) if csv_root is not None else _default_input_root()
     out: dict[str, dict[str, Any]] = {}
     for key, cfg in _SOURCE_CSV_PATHS.items():
         if not isinstance(cfg, dict) or not cfg.get("private_marker"):
@@ -1251,7 +1264,7 @@ def _source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict[str, An
     renaming it would touch every consumer and is a separate change.
     """
     out = _private_source_vote_state(csv_root)
-    root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
+    root = Path(csv_root) if csv_root is not None else _default_input_root()
     for key, hold in _policy_source_vote_holds().items():
         cfg = _SOURCE_CSV_PATHS.get(key)
         rel = cfg if isinstance(cfg, str) else (cfg or {}).get("path")
@@ -1876,7 +1889,7 @@ def _build_source_timestamps(
     (Codex review on PR #532).  The CSV must still exist — a stamp
     without data is reported ``missing``.
     """
-    repo_root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
+    repo_root = Path(csv_root) if csv_root is not None else _default_input_root()
     state_dir = repo_root / "data" / "scrape_state"
     out: dict[str, dict[str, Any]] = {}
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
@@ -5538,7 +5551,7 @@ def _source_weighting_state_dir(csv_root: "Path | None") -> Path:
     none, gets no freshness weighting — never today's state applied to a
     past board.
     """
-    root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
+    root = Path(csv_root) if csv_root is not None else _default_input_root()
     return root / "data" / "scrape_state"
 
 
@@ -6309,7 +6322,7 @@ def _enrich_from_source_csvs(
     """
     from pathlib import Path
 
-    repo = Path(__file__).resolve().parents[2]
+    repo = _default_input_root()
     csv_index: dict[str, dict[str, dict[str, Any]]] = {}
 
     # C1-ID-01 CUTOVER: the canonical owner decides every (row, source)

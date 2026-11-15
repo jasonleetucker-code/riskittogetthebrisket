@@ -24,7 +24,7 @@ These tests pin the behaviour added in the
 Two tiers, decided per class (CLAUDE.md "CI has two lanes").  The
 normalization, canonical-key and expected-source tests are pure, and the two
 structural classes (canonical-key uniqueness, rebuild output sanity) build from
-``tests.archive_fixtures.newest_complete_contract`` -- the newest archived
+``tests.archive_fixtures.pinned_board_contract`` -- the pinned archived
 scrape the contract's own source-health definition calls complete -- so they
 run in the hard gate.  The classes that name specific PLAYERS on today's board
 (target-player audit, the top-board single-source allowlist) keep reading the
@@ -52,7 +52,7 @@ from src.utils.name_clean import (
     normalize_player_name,
     resolve_canonical_name,
 )
-from tests.archive_fixtures import newest_complete_contract
+from tests.archive_fixtures import pinned_board_contract
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -486,7 +486,7 @@ class TestCanonicalIdentityUniqueness(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.contract, _name = newest_complete_contract()
+        cls.contract, _name = pinned_board_contract()
         if cls.contract is None:
             raise unittest.SkipTest("no complete archived board")
 
@@ -586,7 +586,7 @@ class TestRebuildOutputSanity(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.contract, _name = newest_complete_contract()
+        cls.contract, _name = pinned_board_contract()
         if cls.contract is None:
             raise unittest.SkipTest("no complete archived board")
 

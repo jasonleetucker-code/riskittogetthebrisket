@@ -1,7 +1,7 @@
 """Calibration tests — the FAAB model against real anchors.
 
 These are the tests that would catch a recalibration going wrong.  They
-run against a REAL board (the newest complete archived export, see the
+run against a REAL board (the pinned complete archived export, see the
 ``board`` fixture) rather than a synthetic one, and they pin:
 
 * the four human calibration anchors reaching a 100% objective CEILING
@@ -50,10 +50,10 @@ ANCHOR_PLAYERS = {
 
 @pytest.fixture(scope="module")
 def board():
-    """Every rankable non-pick value from the newest COMPLETE archived export.
+    """Every rankable non-pick value from the PINNED complete archived export.
 
-    ``tests.archive_fixtures.newest_complete_contract`` is the repo's one rule
-    for "give me a real board": the newest archived scrape the contract's own
+    ``tests.archive_fixtures.pinned_board_contract`` is the repo's one rule
+    for "give me a real board": the pinned archived scrape the contract's own
     source-health definition calls complete.  Reading ``exports/latest``
     instead made every test below a function of the last scrape's health --
     measured during the 2026-08-16 KTC outage, a 1,000-value player priced at
@@ -61,9 +61,9 @@ def board():
 
     Skips rather than fails when no complete archive is present.
     """
-    from tests.archive_fixtures import newest_complete_contract
+    from tests.archive_fixtures import pinned_board_contract
 
-    contract, _name = newest_complete_contract()
+    contract, _name = pinned_board_contract()
     if contract is None:
         pytest.skip("no complete archived board available")
     rows = [

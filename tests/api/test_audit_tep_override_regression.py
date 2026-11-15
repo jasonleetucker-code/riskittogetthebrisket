@@ -22,12 +22,14 @@ from fastapi.testclient import TestClient
 import server
 from src.api import data_contract
 from tests.api.test_overrides_response_cache import overrides_env  # noqa: F401 - fixture
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 @pytest.fixture(scope="module")
 def raw_board():
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived board available")
     return raw

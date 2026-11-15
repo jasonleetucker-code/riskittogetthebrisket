@@ -1,7 +1,7 @@
 """Sparse-evidence estimator (Batch 3 Unit E, flag ``sparse_evidence_estimator``).
 
 Pure-logic tests over synthetic rows through the REAL ``_compute_unified_rankings``
-plus the pure module, then whole-board invariants on the newest complete
+plus the pure module, then whole-board invariants on the pinned complete
 archived scrape (no live board, no network). Preregistration:
 ``docs/valuation/evidence/sparse-evidence-2026-10-01/PREREGISTRATION.md``.
 """
@@ -18,7 +18,9 @@ from src.api import feature_flags
 from src.api import sparse_evidence as se
 from src.api import value_replay as vr
 from src.sources.freshness import STYLE_SNAPSHOT
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 # ── synthetic fixtures ───────────────────────────────────────────────
 
@@ -556,12 +558,12 @@ def test_the_estimate_is_monotone_in_the_observation():
     assert centrals == sorted(centrals)
 
 
-# ── whole board (newest complete archived scrape) ───────────────────
+# ── whole board (pinned complete archived scrape) ───────────────────
 
 
 @pytest.fixture(scope="module")
 def boards():
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     raw = json.loads(json.dumps(payload))

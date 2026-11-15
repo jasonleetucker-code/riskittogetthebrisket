@@ -46,7 +46,9 @@ import src.api.data_contract as dc
 from scripts import verify_owner_held_flags as checker
 from src.api import feature_flags
 from tests.api import hold_lock_scan as scan
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _FLAG = "dlf_values_rank_hill_vote"
 _ENV = "RISKIT_FEATURE_DLF_VALUES_RANK_HILL_VOTE"
@@ -155,7 +157,7 @@ def test_the_deploy_check_requires_the_flag_off_and_runs_in_verify_deploy():
 
 @pytest.fixture(scope="module")
 def boards():
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available")
     mp = pytest.MonkeyPatch()

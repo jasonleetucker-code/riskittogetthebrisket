@@ -559,9 +559,9 @@ def test_missing_inputs_are_stated_never_zero():
 
 
 def test_invariants_hold_on_the_archived_board(tmp_path):
-    from tests.archive_fixtures import newest_complete_contract
+    from tests.archive_fixtures import pinned_board_contract
 
-    contract, name = newest_complete_contract()
+    contract, name = pinned_board_contract()
     if contract is None:
         pytest.skip("no complete archived board")
     teams = (contract.get("sleeper") or {}).get("teams") or []

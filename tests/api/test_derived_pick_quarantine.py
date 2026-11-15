@@ -36,7 +36,7 @@ import pytest
 from src.api.data_contract import _QUARANTINE_FLAGS, _validate_and_quarantine_rows
 from src.trade import analyze_service as svc
 from src.trade import trade_ledger as tl
-from tests.archive_fixtures import newest_complete_contract
+from tests.archive_fixtures import pinned_board_contract
 from tests.trade import multi_team_support as mts
 
 DERIVED_CLASSES = (
@@ -314,7 +314,7 @@ def test_check_five_is_recomputed_not_sticky():
 
 
 def _board() -> dict[str, Any]:
-    contract, _name = newest_complete_contract()
+    contract, _name = pinned_board_contract()
     if contract is None:
         pytest.skip("no complete archived scrape available")
     return contract

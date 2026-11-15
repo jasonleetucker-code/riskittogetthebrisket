@@ -21,7 +21,11 @@ import unittest
 from typing import Any
 
 from src.api.data_contract import assert_ranking_coherence
-from tests.archive_fixtures import has_published_slot_class, newest_complete_contract
+from tests.archive_fixtures import (
+    has_published_slot_class,
+    pinned_board_contract,
+    pinned_board_payload,
+)
 
 
 # ── TestAnchorPassCore lives in test_pick_rookie_anchor_core.py ──
@@ -34,7 +38,7 @@ from tests.archive_fixtures import has_published_slot_class, newest_complete_con
 # drafted, so five of the six tests skipped forever and checked nothing, and
 # the one that ran read whatever today's scrape happened to be.  The slotted
 # class is now DERIVED from the board (the class whose ``<year> Pick N.NN``
-# rows are present -- the tether population) and the board is the newest
+# rows are present -- the tether population) and the board is the pinned
 # archived scrape the contract's own source-health definition calls complete,
 # taken from the phase in which a vendor publishes slot prices
 # (``has_published_slot_class``).  Hard gate: a provider that does not answer
@@ -61,9 +65,11 @@ class TestAnchorEndToEnd(unittest.TestCase):
     build on a complete archived scrape that carries a slotted class."""
 
     def setUp(self) -> None:
-        contract, _name = newest_complete_contract(require=has_published_slot_class)
-        if contract is None:
-            self.skipTest("No complete archived board with a published slot class")
+        contract, _name = pinned_board_contract()
+        # The pinned board is in the slotted phase; a re-pin that is not must
+        # fail here rather than skip the whole end-to-end class.
+        raw, _ = pinned_board_payload()
+        assert has_published_slot_class(raw), "the pinned board carries no slotted class"
         self.contract = contract
         self.year = _slotted_year(contract["playersArray"])
         if self.year is None:

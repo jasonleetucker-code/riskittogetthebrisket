@@ -5,7 +5,7 @@ Unit level: the per-vote inverse round-trips exactly for every curve family the
 pipeline prices with (OFFENSE / IDP / shared-market GLOBAL masters, TE basis and
 flat transforms, value-direct votes); a vote with no coordinate is never zero and
 never dropped; on a single-curve row the decision is the original challenger's.
-Pipeline level (newest complete archived scrape, no network): the flag ships OFF
+Pipeline level (pinned complete archived scrape, no network): the flag ships OFF
 and OFF never calls the challenger; ON hands the filter each vote's own forward
 map, leaves every pre-filter vote, weight and family untouched, and stays on the
 canonical scale.
@@ -28,6 +28,8 @@ from src.canonical.rank_coordinates import (
     RANK_POOL_SHARED_MARKET,
     curve_for_pool,
 )
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 OFFENSE = curve_for_pool(RANK_POOL_OFFENSE)
 IDP = curve_for_pool(RANK_POOL_IDP)
@@ -202,9 +204,9 @@ def test_flag_ships_off_and_is_declared():
 @pytest.fixture(scope="module")
 def boards():
     from src.api import value_replay as vr
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     off = vr.build(json.loads(json.dumps(payload)))

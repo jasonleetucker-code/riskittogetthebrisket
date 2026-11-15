@@ -57,6 +57,7 @@ a helper invented for the test would prove nothing about the live path.
 
 from __future__ import annotations
 
+import copy
 import contextlib
 import io
 import json
@@ -608,13 +609,12 @@ class TestTranslationProvenanceIsHonest(unittest.TestCase):
 
 
 def _live_contract() -> dict | None:
-    files = sorted((REPO / "exports" / "latest").glob("dynasty_data_*.json"), reverse=True)
-    if not files:
-        return None
-    with files[0].open("r", encoding="utf-8") as fh:
-        raw = json.load(fh)
-    with contextlib.redirect_stdout(io.StringIO()):
-        return build_api_data_contract(raw)
+    """The PINNED real board (``tests.archive_fixtures``), not today's export:
+    the invariant is a property of our code, so it must not move with a data
+    refresh.  A private copy; the shared contract is read-only."""
+    from tests.archive_fixtures import pinned_board_contract
+
+    return copy.deepcopy(pinned_board_contract()[0])
 
 
 class TestLiveBoardHonoursTheCoordinatePool(unittest.TestCase):

@@ -49,12 +49,13 @@ of the seven reasons this one was rejected.
 
 from __future__ import annotations
 
-import json
 import pathlib
 
 import pytest
 
 from src.api.data_contract import build_api_data_contract, build_rankings_delta_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 #: The Hill asymptote.  Not a tunable — it is the numerator of the curve
 #: that defines the scale (``src/canonical/player_valuation.py``).
@@ -65,10 +66,12 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 
 
 def _raw_export() -> dict:
-    candidates = sorted((REPO / "exports" / "latest").glob("dynasty_data*.json"), reverse=True)
-    if not candidates:
-        pytest.skip("no export available in this environment")
-    return json.loads(candidates[0].read_text(encoding="utf-8"))
+    """The PINNED real board's payload (``tests.archive_fixtures``), never
+    today's export.  The module runs under ``pinned_board_inputs``, so every
+    build here reads that board's own CSVs and scrape state too."""
+    from tests.archive_fixtures import pinned_board_payload
+
+    return pinned_board_payload()[0]
 
 
 def _canonical_values(rows) -> list[tuple[str, int]]:
