@@ -83,9 +83,10 @@ def test_fixture_is_intact_complete_and_slotted():
 
 
 def test_fixture_bytes_are_reproducible_from_their_own_manifest(tmp_path):
-    """The zip is deterministic: rewriting its own entries reproduces it byte
-    for byte (sorted entries, fixed timestamps), so a refresh diff is only
-    ever a content change."""
+    """The zip is deterministic: rewriting its own entries reproduces the same
+    entries in the same order with the same timestamps and CRCs, so a refresh
+    diff is only ever a content change.  (Compared per entry, not as raw zip
+    bytes: deflate output may differ between zlib builds.)"""
     with zipfile.ZipFile(af.PINNED_BOARD_ZIP) as zf:
         manifest = json.loads(zf.read("manifest.json"))
         files = {n: zf.read(n) for n in zf.namelist() if n != "manifest.json"}
@@ -94,7 +95,12 @@ def test_fixture_bytes_are_reproducible_from_their_own_manifest(tmp_path):
     assert set(files) == set(manifest["files"])
     out = tmp_path / "board.zip"
     pb.write_zip(files, manifest, out)
-    assert out.read_bytes() == af.PINNED_BOARD_ZIP.read_bytes()
+
+    def entries(path: Path) -> list[tuple]:
+        with zipfile.ZipFile(path) as zf:
+            return [(i.filename, i.date_time, i.CRC, i.file_size) for i in zf.infolist()]
+
+    assert entries(out) == entries(af.PINNED_BOARD_ZIP)
 
 
 def test_fixture_carries_no_real_identifier():
