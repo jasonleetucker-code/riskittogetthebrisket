@@ -1,0 +1,110 @@
+{
+ "inputs": {
+  "A": [
+   {
+    "bandSource": "synthetic_flat_15pct",
+    "name": "Alpha QB",
+    "position": "QB",
+    "rankDerivedValue": 7000,
+    "team": "AAA",
+    "valueBand": {
+     "p10": 5950,
+     "p50": 7000,
+     "p90": 8050
+    }
+   },
+   {
+    "name": "Beta WR",
+    "position": "WR",
+    "rankDerivedValue": 3000,
+    "team": "BBB"
+   }
+  ],
+  "B": [
+   {
+    "bandSource": "synthetic_flat_15pct",
+    "name": "Gamma RB",
+    "position": "RB",
+    "rankDerivedValue": 6000,
+    "team": "CCC",
+    "valueBand": {
+     "p10": 5100,
+     "p50": 6000,
+     "p90": 6900
+    }
+   },
+   {
+    "name": "Delta TE",
+    "position": "TE",
+    "rankDerivedValue": 3500,
+    "team": "DDD"
+   }
+  ],
+  "nSims": 2000,
+  "seed": 7
+ },
+ "raw": {
+  "bandSources": {
+   "synthetic_flat_15pct": 4
+  },
+  "deltaRange": {
+   "p10": -1170.4,
+   "p50": 461.1,
+   "p90": 2170.4
+  },
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  4 of 4 assets used a synthesized \u00b115% band rather than measured source disagreement, so the spread is an assumption, not a measurement.",
+  "labelHint": "consensus_based_win_rate",
+  "meanDelta": 491.9,
+  "method": "consensus_based_win_rate",
+  "nSims": 2000,
+  "sideAMean": 10011.4,
+  "sideBMean": 9519.6,
+  "stdDelta": 1260.8,
+  "vaAdjustment": {
+   "applied": false,
+   "effectiveValue": 0,
+   "side": 0,
+   "value": 0
+  },
+  "winProbA": 0.651,
+  "winProbB": 0.349
+ },
+ "symmetric": {
+  "adjustedDelta": 500.0,
+  "bandSources": {
+   "synthetic_flat_15pct": 4
+  },
+  "decisionSummary": "Side A favored at 65% (\u0394=+500 minor, risk high)",
+  "deltaRange": {
+   "p10": -1119.8,
+   "p50": 472.4,
+   "p90": 2158.0
+  },
+  "disclaimer": "This is the fraction of consensus-band samples where side A's total exceeds side B's \u2014 NOT a real-world win probability.  4 of 4 assets used a synthesized \u00b115% band rather than measured source disagreement, so the spread is an assumption, not a measurement.  Direction-symmetrized to eliminate ordering bias.",
+  "labelHint": "consensus_based_win_rate",
+  "meanDelta": 508.4,
+  "method": "consensus_based_win_rate_symmetrized",
+  "nSims": 4000,
+  "riskLevel": "high",
+  "sideAMean": 10016.3,
+  "sideBMean": 9507.9,
+  "stdDelta": 1250.8,
+  "symmetryCheck": {
+   "drift": 0.007,
+   "enforced": true,
+   "winProbA_AB": 0.651,
+   "winProbA_BA_flipped": 0.658
+  },
+  "tierImpact": "minor",
+  "vaAdjustment": {
+   "applied": false,
+   "effectiveValue": 0,
+   "side": 0,
+   "value": 0
+  },
+  "valueDelta": 500.0,
+  "winPct": 65.5,
+  "winProbA": 0.6545,
+  "winProbB": 0.3455
+ }
+}
