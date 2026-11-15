@@ -22,6 +22,10 @@ from src.api.data_contract import (
     _normalize_for_collision,
     build_api_data_contract,
 )
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

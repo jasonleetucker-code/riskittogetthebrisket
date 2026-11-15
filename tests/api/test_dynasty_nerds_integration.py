@@ -36,6 +36,8 @@ from src.api.data_contract import (
     build_api_data_contract,
 )
 from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_OFFENSE
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DN_CSV = REPO_ROOT / "CSVs" / "site_raw" / "dynastyNerdsSfTep.csv"
@@ -86,6 +88,9 @@ class TestDynastyNerdsRegistry(unittest.TestCase):
         self.assertEqual(cfg.get("signal"), "rank")
 
 
+# A claim about today's scraped file (exists, has rows, ranks monotonic): the advisory
+# lane, like the FantasyPros CSV-shape class.  A scraper outage must not block a deploy.
+@pytest.mark.livedata
 class TestDynastyNerdsCsvShape(unittest.TestCase):
     """Shape of the scraped CSV file on disk."""
 
@@ -165,7 +170,12 @@ class TestDynastyNerdsEnrichment(unittest.TestCase):
             "maxValues": {"ktcCrowdTradesSfTep": 9999},
             "sleeper": {"positions": positions},
         }
-        cls.contract = build_api_data_contract(payload)
+        # No csv_root: the build would read today's scrape state.  This module also holds
+        # a livedata class, so the pin is per call, not the module-wide fixture.
+        from tests.archive_fixtures import pinned_build_environment
+
+        with pinned_build_environment(freeze_clock=False):
+            cls.contract = build_api_data_contract(payload)
 
     def test_contract_rows_receive_dn_values(self):
         if self.contract is None:

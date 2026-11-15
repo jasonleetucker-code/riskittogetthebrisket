@@ -186,6 +186,7 @@ class TestSlotMonotonic(unittest.TestCase):
         self.assertGreaterEqual(val(7), val(9), "2.07 must >= 2.09")
 
 
+@pytest.mark.livedata  # every test below is livedata; setUp reads today's board
 class TestYearDiscount(unittest.TestCase):
     """Future-year picks must be discounted below baseline-year picks."""
 

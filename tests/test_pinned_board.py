@@ -449,16 +449,38 @@ def test_module_wide_pinning_never_covers_a_livedata_test():
     assert users, "no module uses pinned_board_inputs; the scan is stale"
 
 
-# ── The guard: a build from a real archive reads pinned CSVs and state ─────
+# ── The guard: a contract build reads pinned CSVs and state ────────────────
 
-#: Hard-gate modules that build a contract from a real ``exports/archive``
-#: payload WITHOUT the pinned inputs, each with the reason it must.  Empty by
+#: Hard-gate modules that build a contract WITHOUT the pinned inputs and
+#: without an explicit ``csv_root``, each with the reason it must.  Empty by
 #: design: ``build_api_data_contract(raw)`` with no ``csv_root`` reads TODAY's
-#: ``CSVs/site_raw`` and ``data/scrape_state`` beside the archived payload, so
-#: a data refresh changes the result of a "fixed" archive build.
-_UNPINNED_ARCHIVE_BUILD_ALLOWLIST: dict[str, str] = {}
+#: ``CSVs/site_raw`` and ``data/scrape_state`` (freshness weighting, source
+#: health), so a data refresh can change the result of a "fixed" build -- the
+#: archive and the synthetic payload alike.  A new entry needs a measured
+#: reason, e.g. "asserts a property of the live board by design" (that test is
+#: ``livedata`` instead).
+_UNPINNED_BUILD_ALLOWLIST: dict[str, str] = {}
 
-_ARCHIVE_SOURCE = re.compile(r"dynasty_export_|\bARCHIVE\b|\barchive_dir\b|exports[\"'/ ,]+archive")
+#: ``"<module>::<function>"`` -> reason.  Helpers that build from TODAY's board
+#: (``exports/latest``) on purpose.  Unlike a whole-module entry this exempts
+#: one function (and the cached getter chain above it), and
+#: ``test_live_build_helpers_are_reached_only_from_livedata`` fails if any
+#: hard-gate code reaches one, so the exemption cannot leak into a blocking test.
+_LIVE_BUILD_HELPERS: dict[str, str] = {
+    "tests/api/test_launch_readiness.py::_load_contract": "reads exports/latest for the livedata health floors",
+    "tests/api/test_launch_readiness.py::_get": "cached getter over _load_contract, livedata callers only",
+    "tests/api/test_pick_refinement.py::_load_contract": "reads exports/latest for the livedata pick checks",
+    "tests/api/test_pick_refinement.py::_get": "cached getter over _load_contract, livedata callers only",
+    "tests/api/test_picks_end_to_end.py::_load_contract": "reads exports/latest for the livedata pick checks",
+    "tests/api/test_source_monitoring.py::_get_live_contract": "reads exports/latest for the livedata source-health floors",
+}
+
+
+def _live_helpers_for(rel: str) -> frozenset[str]:
+    prefix = rel + "::"
+    return frozenset(k[len(prefix) :] for k in _LIVE_BUILD_HELPERS if k.startswith(prefix))
+
+
 _BUILD_CALLS = {"build_api_data_contract", "build_rankings_delta_payload"}
 _PINNING_NAMES = (
     "pinned_board_inputs",
@@ -468,15 +490,20 @@ _PINNING_NAMES = (
 )
 
 
+def _names_a_pin(node: ast.AST) -> bool:
+    """True when ``node``'s subtree references a pinning helper as CODE."""
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Name) and sub.id in _PINNING_NAMES:
+            return True
+        if isinstance(sub, ast.Attribute) and sub.attr in _PINNING_NAMES:
+            return True
+    return False
+
+
 def _module_really_pins(tree: ast.Module) -> bool:
-    """True only for CODE that pins: a ``pytestmark`` / ``usefixtures`` naming
-    the fixture, or a reference to / call of a pinning helper.  A mention in a
-    docstring or comment does not count."""
+    """True only for a module-level ``pytestmark`` / ``usefixtures`` naming the
+    fixture (a mention in a docstring or comment does not count)."""
     for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and node.id in _PINNING_NAMES:
-            return True
-        if isinstance(node, ast.Attribute) and node.attr in _PINNING_NAMES:
-            return True
         is_marks = isinstance(node, ast.Assign) and any(
             isinstance(t, ast.Name) and t.id == "pytestmark" for t in node.targets
         )
@@ -492,37 +519,68 @@ def _module_really_pins(tree: ast.Module) -> bool:
     return False
 
 
-def _unpinned_archive_builds(path: Path) -> list[int]:
-    """Lines of contract builds with no ``csv_root`` in a module that reads a
-    real archive and does not pin its inputs."""
-    text = path.read_text(encoding="utf-8")
-    tree = ast.parse(text)
-    if not _ARCHIVE_SOURCE.search(text) or _module_really_pins(tree):
+def _own_csv_root(call: ast.Call) -> bool:
+    """An explicit, non-``None`` ``csv_root=``.  ``**kwargs`` does not count (it
+    is how a helper forwards whatever the test passed, usually nothing) and
+    ``csv_root=None`` is the default spelled out."""
+    for kw in call.keywords:
+        if kw.arg == "csv_root":
+            return not (isinstance(kw.value, ast.Constant) and kw.value.value is None)
+    return False
+
+
+def _unpinned_builds(path: Path, live_helpers: frozenset[str] = frozenset()) -> list[int]:
+    """Lines of contract builds that read TODAY's inputs: no own ``csv_root``,
+    not under ``@pytest.mark.livedata``, and not pinned by the module-wide
+    fixture, an enclosing ``with pinned_build_environment()``, or an enclosing
+    function / class that names a pinning helper.  ``live_helpers`` are
+    function names (``_LIVE_BUILD_HELPERS``) whose bodies read today's board by
+    design."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    if _module_really_pins(tree):
         return []
-    hits = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        fn = node.func
-        called = (
-            fn.id
-            if isinstance(fn, ast.Name)
-            else fn.attr
-            if isinstance(fn, ast.Attribute)
-            else None
-        )
-        if called not in _BUILD_CALLS:
-            continue
-        if any(k.arg in ("csv_root", None) for k in node.keywords):
-            continue
-        hits.append(node.lineno)
+    module_live = any(
+        isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in n.targets)
+        and "livedata" in ast.unparse(n.value)
+        for n in tree.body
+    )
+    hits: list[int] = []
+
+    def visit(node: ast.AST, live: bool, pinned: bool) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            live = live or any(_is_livedata_mark(d) for d in node.decorator_list)
+            pinned = pinned or _names_a_pin(node)
+            if getattr(node, "name", None) in live_helpers and not isinstance(node, ast.ClassDef):
+                live = True
+        if isinstance(node, (ast.With, ast.AsyncWith)) and any(
+            _names_a_pin(item.context_expr) for item in node.items
+        ):
+            pinned = True
+        if isinstance(node, ast.Call) and not live and not pinned:
+            fn = node.func
+            called = (
+                fn.id
+                if isinstance(fn, ast.Name)
+                else fn.attr
+                if isinstance(fn, ast.Attribute)
+                else None
+            )
+            if called in _BUILD_CALLS and not _own_csv_root(node):
+                hits.append(node.lineno)
+        for child in ast.iter_child_nodes(node):
+            visit(child, live, pinned)
+
+    visit(tree, module_live, False)
     return sorted(hits)
 
 
-def test_no_hard_gate_archive_build_reads_todays_inputs():
-    """A hard-gate module that builds a contract from a real archive payload
-    pins the build's inputs (``pinned_board_inputs`` / ``build_pinned_contract``)
-    or passes its own ``csv_root``; ``livedata`` modules are exempt."""
+def test_no_hard_gate_build_reads_todays_inputs():
+    """A hard-gate module that builds a contract pins the build's inputs
+    (``pinned_board_inputs`` / ``pinned_build_environment`` /
+    ``build_pinned_contract``) or passes its own ``csv_root``; a ``livedata``
+    scope is exempt.  Archive-sourced and synthetic payloads alike: the build
+    reads today's scrape state either way."""
     live_modules = _livedata_modules()
     offenders = []
     for path in sorted(TESTS.rglob("*.py")):
@@ -533,21 +591,98 @@ def test_no_hard_gate_archive_build_reads_todays_inputs():
             "tests/pinned_board_build.py",
         ):
             continue
-        if path.name in live_modules or rel in _UNPINNED_ARCHIVE_BUILD_ALLOWLIST:
+        if path.name in live_modules or rel in _UNPINNED_BUILD_ALLOWLIST:
             continue
-        lines = _unpinned_archive_builds(path)
+        lines = _unpinned_builds(path, _live_helpers_for(rel))
         if lines:
             offenders.append(f"{rel}:{lines}")
     assert not offenders, (
-        "hard-gate tests build a contract from a real archive with csv_root=None, "
-        f"which reads TODAY's CSVs and scrape state: {offenders}. Add "
-        'pytestmark = pytest.mark.usefixtures("pinned_board_inputs") or use '
-        "build_pinned_contract."
+        "hard-gate tests build a contract with csv_root=None, which reads TODAY's "
+        f"CSVs and scrape state: {offenders}. Add "
+        'pytestmark = pytest.mark.usefixtures("pinned_board_inputs") (a module with '
+        "livedata tests: wrap the call in pinned_build_environment(freeze_clock=False)), "
+        "use build_pinned_contract, or pass your own csv_root."
     )
 
 
-def test_the_unpinned_archive_allowlist_names_real_modules_with_reasons():
-    for rel, reason in _UNPINNED_ARCHIVE_BUILD_ALLOWLIST.items():
+def _helper_uses_outside_livedata(path: Path, helpers: frozenset[str]) -> list[int]:
+    """Lines referencing one of ``helpers`` from code that is neither
+    ``@pytest.mark.livedata`` nor itself one of the helpers (the getter chain)."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    module_live = any(
+        isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in n.targets)
+        and "livedata" in ast.unparse(n.value)
+        for n in tree.body
+    )
+    hits: list[int] = []
+
+    def visit(node: ast.AST, live: bool) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            live = live or any(_is_livedata_mark(d) for d in node.decorator_list)
+            if node.name in helpers:
+                live = True
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            return
+        name = (
+            node.id
+            if isinstance(node, ast.Name)
+            else node.attr
+            if isinstance(node, ast.Attribute)
+            else None
+        )
+        if name in helpers and not live:
+            hits.append(node.lineno)
+        for child in ast.iter_child_nodes(node):
+            visit(child, live)
+
+    visit(tree, module_live)
+    return hits
+
+
+def test_live_build_helpers_are_reached_only_from_livedata():
+    by_module: dict[str, set[str]] = {}
+    for key, reason in _LIVE_BUILD_HELPERS.items():
+        rel, _, func = key.partition("::")
+        assert (REPO / rel).is_file(), rel
+        assert len(reason.strip()) > 20, f"{key}: give the reason it reads today's board"
+        by_module.setdefault(rel, set()).add(func)
+    offenders = []
+    for rel, funcs in by_module.items():
+        path = REPO / rel
+        defined = {
+            n.name
+            for n in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+            if isinstance(n, ast.FunctionDef)
+        }
+        assert funcs <= defined, f"{rel}: {sorted(funcs - defined)} not defined"
+        lines = _helper_uses_outside_livedata(path, frozenset(funcs))
+        if lines:
+            offenders.append(f"{rel}:{lines}")
+    assert not offenders, (
+        f"a today's-board build helper is reached from a hard-gate test: {offenders}. "
+        "Mark that test @pytest.mark.livedata or use the pinned board."
+    )
+
+
+def test_the_live_helper_guard_sees_a_leak(tmp_path):
+    sample = tmp_path / "test_sample.py"
+    sample.write_text(
+        "import pytest\n"
+        "def _load():\n    return build_api_data_contract(raw)\n"
+        "def _get():\n    return _load()\n"
+        "@pytest.mark.livedata\n"
+        "def test_live():\n    _get()\n"
+        "def test_hard():\n    _get()\n",
+        encoding="utf-8",
+    )
+    assert _unpinned_builds(sample) == [3]
+    assert _unpinned_builds(sample, frozenset({"_load"})) == []
+    assert _helper_uses_outside_livedata(sample, frozenset({"_load", "_get"})) == [10]
+
+
+def test_the_unpinned_build_allowlist_names_real_modules_with_reasons():
+    for rel, reason in _UNPINNED_BUILD_ALLOWLIST.items():
         assert (REPO / rel).is_file(), rel
         assert len(reason.strip()) > 20, f"{rel}: give the reason it must read today's inputs"
 
@@ -557,21 +692,53 @@ def test_the_unpinned_archive_allowlist_names_real_modules_with_reasons():
     [
         ('A = "dynasty_export_1.zip"\nbuild_api_data_contract(raw)\n', [2]),
         ('A = "dynasty_export_1.zip"\ndc.build_api_data_contract(raw)\n', [2]),
-        ('A = "dynasty_export_1.zip"\nbuild_api_data_contract(raw, csv_root=r)\n', []),
+        ("build_api_data_contract(synthetic)\n", [1]),
+        ("dc.build_rankings_delta_payload(raw)\n", [1]),
+        ("def _b(**kw):\n    return dc.build_api_data_contract(raw, **kw)\n", [2]),
+        ("build_api_data_contract(raw, csv_root=None)\n", [1]),
+        ("build_api_data_contract(raw, csv_root=tmp)\n", []),
         (
-            'import pytest\nA = "dynasty_export_1.zip"\n'
-            'pytestmark = pytest.mark.usefixtures("pinned_board_inputs")\n'
+            'import pytest\npytestmark = pytest.mark.usefixtures("pinned_board_inputs")\n'
             "build_api_data_contract(raw)\n",
             [],
         ),
-        ("build_api_data_contract(synthetic)\n", []),
+        (
+            "def test_a():\n    with pinned_build_environment():\n"
+            "        build_api_data_contract(raw)\n"
+            "def test_b():\n    build_api_data_contract(raw)\n",
+            [5],
+        ),
+        (
+            "def _b():\n    pinned_board_contract()\n    return build_api_data_contract(raw)\n",
+            [],
+        ),
+        (
+            "import pytest\n@pytest.mark.livedata\nclass T:\n    def test_a(self):\n"
+            "        build_api_data_contract(raw)\n"
+            "def test_b():\n    build_api_data_contract(raw)\n",
+            [7],
+        ),
+        ('"""pinned_board_inputs"""\nbuild_api_data_contract(raw)\n', [2]),
     ],
-    ids=["archive-name", "attribute-call", "own-csv-root", "pinned-module", "synthetic-only"],
+    ids=[
+        "archive-name",
+        "attribute-call",
+        "synthetic",
+        "delta-payload",
+        "kwargs-forwarding",
+        "csv-root-none",
+        "own-csv-root",
+        "pinned-module",
+        "with-pin-covers-only-its-block",
+        "helper-names-a-pin",
+        "livedata-scope-exempt",
+        "docstring-is-not-a-pin",
+    ],
 )
 def test_the_unpinned_build_guard_sees_it(tmp_path, source, expected):
     sample = tmp_path / "test_sample.py"
     sample.write_text(source, encoding="utf-8")
-    assert _unpinned_archive_builds(sample) == expected
+    assert _unpinned_builds(sample) == expected
 
 
 def test_the_audit_board_fixture_carries_no_real_identifier():

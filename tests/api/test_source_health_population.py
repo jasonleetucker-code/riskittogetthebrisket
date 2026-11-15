@@ -25,6 +25,10 @@ from __future__ import annotations
 
 import server as srv
 from src.api.data_contract import get_ranking_source_keys
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _payload_with_anchor_only_sites() -> dict:
