@@ -93,10 +93,12 @@ COMPARABLES_SHOWN = 3
 _UNAVAILABLE_DIMENSIONS = (
     {
         "dimension": "valueUncertainty",
-        "reason": "unaudited_model",
-        "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation "
-        "items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md §A) and are not "
-        "folded into this recommendation until that audit closes.",
+        "reason": "no_empirically_calibrated_band",
+        "notes": "No empirically calibrated value-uncertainty band exists; the Monte Carlo "
+        "band is an assumption and its win share is a simulation fraction, not an "
+        "acceptance probability. Same state as the Monte Carlo response's valueUncertainty "
+        "(docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md).",
+        "evidence": "docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md",
     },
     {
         "dimension": "currentSeasonEquity",

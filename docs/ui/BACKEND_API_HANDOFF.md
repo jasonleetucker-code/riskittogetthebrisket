@@ -89,3 +89,26 @@ Rule `intersection_budget_reallocation`: over the rookies BOTH the vendor lists 
 - **Frontend action:** none known required. Read-only audit found no reader of these asset `value`s that breaks on null (`trade-simulation-panel.jsx` already renders null as "unpriced"; `MultiTeamWarRoom.jsx` keys on `valueState`). If any asset list renders `value`, show "unpriced" for `valueState === "unpriced"`, never 0.
 - `POST /api/trade/suggestions` `metadata.pickGeneration` = `{applied: false, reason: "suggestions_have_no_pick_generator", pickInclusiveReturned: <measured count>}`. Disclosure only: no pick generator runs here, so point to the finder for pick trades. A pick already in the value pool can still appear, and is counted; do not state that suggestions never include picks.
 - `POST /api/waiver/streaming` `streamingBoard` no longer lists free agents who can fill none of the league's started slots (e.g. DL/LB/DB in an offense-only league). An empty board in that league is expected: show "no started IDP slot in this league", not an error.
+
+## Trade Monte Carlo `valueUncertainty` unavailable state (2026-11-08, owner Priority 12)
+
+Route: `POST /api/trade/simulate-mc` (and the underlying `SimResult.to_dict()` / symmetrized payload). New additive field `valueUncertainty`; every existing field and number is unchanged.
+
+```json
+"valueUncertainty": {
+  "state": "unavailable",
+  "reason": "no_empirically_calibrated_band",
+  "bandBasis": "assumed_flat_15pct",
+  "horizonDays": null,
+  "calibratedIntervals": null,
+  "replayCheckOfAssumedBand": {"nominalCoverage": 0.8, "observedCoverage7d": 0.992, "observedCoverage14d": 0.976, "coverageIsUpperBound": true, "basis": "board_self_consistency_replay_2026-04-16_to_2026-11-08"},
+  "evidence": "docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md"
+}
+```
+
+`bandBasis` is `assumed_flat_15pct` when any asset used the synthesized band, `stamped_value_band_uncalibrated` when only stamped bands, else `unknown`. `POST /api/trade/analyze` `unavailableDimensions[]` for `valueUncertainty` now has the same `reason` (previously `unaudited_model`) and an `evidence` path.
+
+**Frontend action (frontend developer):**
+- Present the 10th/90th `deltaRange` as illustrative (assumed band), not measured; show the unavailable state from `valueUncertainty`.
+- `winProbA`/`winPct` stay a simulation fraction (`labelHint`), never an acceptance probability.
+- `TradeWarRoom.jsx` `DIMENSION_REASON_WORDS` has no entry for `no_empirically_calibrated_band` (falls back to a humanized key); add copy, and drop `unaudited_model` once no fixture needs it.
