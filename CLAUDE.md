@@ -565,7 +565,7 @@ Error behavior on endpoints:
     instead of serving the workbook's hand-entered ownership.  Same cache
     too: the refusal is held for the 300 s TTL and is never answered by the
     stale-while-revalidate last-valid board (that answers dollars-generation
-    failures only); `?refresh=1` retries.  Success is byte-identical to the
+    failures only); `?refresh=1` retries (authenticated callers only since 2026-11-15; an anonymous `?refresh=` is ignored so it cannot force a rebuild).  Success is byte-identical to the
     pre-fail-closed reader.  Pinned by
     `tests/api/test_draft_capital_workbook_pick_ownership.py`.
   - **Every owned class is listed — `dynasty_main` only** (owner directive
