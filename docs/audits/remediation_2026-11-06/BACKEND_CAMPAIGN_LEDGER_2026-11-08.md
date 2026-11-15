@@ -36,3 +36,27 @@ merged PR was independently reviewed and passed exact-tree PR Validation (8 shar
 **Rollback (every row):** squash commits revert with `git revert <sha>`. No campaign PR changed a canonical value or activated
 a flag. #2160 changes Terminal `injuryAdjustedValue` for misattributed rows only (a defect fix). #2158 changes the meaning of
 division-title odds to outright-only, with ties reported.
+
+## Checkpoint 2026-11-15: unified directive (MD-116, MD-117)
+
+Owner directive: `docs/owner/UNIFIED_ENGINEERING_FORECASTING_DIRECTIVE_2026-11-08.md`. Rows keep the matrix numbering.
+Every merged PR below was independently reviewed (a separate agent; review-requested changes were applied and re-reviewed)
+and passed exact-head PR Validation before merge.
+
+| P | Work item | State | PR / SHA | Notes |
+|---|---|---|---|---|
+| — | Deploy gate: research test coupled to today's CSVs | MERGED | #2172 `3e79f4156` | invariant kept, magnitudes moved to `livedata` |
+| — | Deploy gate: MCP roster test assumed `teams[0]` held picks; IDPTC seat test vacuous on today's board; heap test read real process RSS | MERGED, deploy pending | #2199 `91d0578f8` | production stayed on `e63d66298` while 2026-11-13 → 15 deploys failed on these three |
+| 1 | MD-97 study two | MERGED (preregistered; first run about 2026-12-22, needs owner approval to run) | #2184 `cfa7a31ab` | holdout weeks 10–14; passing only entitles asking the owner |
+| 4 | MD-100 required checks | PREPARED (owner applies) | #2173 `efe8f951a` | payload requires `Validate PR` + `Receipt check`; brief 12 |
+| 5 | MD-105 / MD-112 unpriced `value: 0`; W-4 streaming; suggestions pick disclosure | MERGED, DEPLOYED (`7017c7126`, 2026-11-09) | #2175 `7017c7126` | trade routes need sign-in, so the null output was not observed in production |
+| 6 | MD-106 source math | RESEARCH_COMPLETE (no change) | `docs/sources/SOURCE_MATH_DIAGNOSIS_2026-11-08.md` | IDP α measures 0.10 as documented; haircut exemption is deliberate but has no expiry (28 rows) |
+| 8 | MD-103 monitoring and recoverability | TESTED_IN_PR, reviewed | #2183 | restore proof and irreplaceable ledgers in `backup_health` v4; timer `OnFailure=` left to the operator (templates self-install) |
+| 9 | MD-104 scorecard and degradation trigger | MERGED | #2178 `3ff0fe3ce` | every family `unavailable` today; rule `forecast_degradation_v1` |
+| 10 | MD-113 TE basis | TESTED_IN_PR, reviewed | #2200 | conversion reduces the TE SELL skew; benchmark is TE++ (inference) |
+| 11 | MD-108 pick evidence | TESTED_IN_PR, reviewed | #2200 | 24 of 138 pick rows directly observed; IDPTC picks unchanged 33.8 days; no third source qualifies |
+| 12 | MD-107 trade uncertainty | RESEARCH_COMPLETE_NOT_PROMOTED | #2182 `59baf0c54` | verdict (b) under the preregistered rule; propose an uncertainty-unavailable contract |
+| 14 | MD-101 safety net | MERGED: #2176 `711761e0e` (E2E, `xfail_strict`), #2177 `3336b4fba` (`--maxfail=10`, advisory audits); TESTED_IN_PR: #2201 (property tests, fixture, skip budget 10 → 7) | | the audit's "19 non-strict xfails" was 1 |
+| 16 | MD-112 / OD-F4 package model | RESEARCH_COMPLETE: insufficient data locally | #2202 | least-squares q fit is biased low on synthetic truth; read q by moment fit; one read-only box run proposed |
+| — | MD-116 forecasting research | MERGED | #2174 `ad3e76b2b` | research only |
+| — | MD-117 owner decision briefs | MERGED | #2173 `efe8f951a` | `docs/owner/DECISION_BRIEFS_2026-11-08.md` |
