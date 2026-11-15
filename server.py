@@ -3654,6 +3654,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     # Old-generation memoized responses go with the old etag.
     _OVERRIDES_RESPONSE_CACHE.clear()
     _DRAFT_CAPITAL_CACHE.clear()
+    _kick_draft_capital_publish_rebuild()
     # A new board generation moves the heavy-section key (``latest_data_etag``);
     # rebuild those entries off the request path.  Never blocks, never raises.
     _schedule_public_sections_warm("publish", wait_for_serving=True)
@@ -15098,6 +15099,199 @@ def _forecast_degradation_health() -> list[dict] | None:
         return None
 
 
+def _compute_draft_capital(league_cfg, is_default_league: bool):
+    """One uncached draft-capital build for ``league_cfg`` (the route's miss
+    path, the stale-while-revalidate job and the post-publish rebuild).
+    Moved verbatim out of ``get_draft_capital``; it reads the module globals
+    (``latest_contract_data``) at call time, exactly as the closure did."""
+    if is_default_league:
+        # Workbook path — rich per-pick values pinned to League A's
+        # rookie pool.
+        return _fetch_draft_capital(league_cfg.key)
+    # Sleeper-derived fallback for non-default leagues.
+    # Uses the canonical contract's pick values (Hill-curve-
+    # calibrated) + Sleeper's traded_picks.  Clearly labeled
+    # in the UI so users see "Sleeper-derived" vs.
+    # "workbook-calibrated".
+    from src.api.draft_capital_fallback import build_sleeper_derived
+
+    # ``draft_rounds`` used to be omitted here, so every non-default league
+    # was built as a 4-round draft while the default runs 6 — and the $1200
+    # budget is normalized across whatever picks that loop produces, so the
+    # wrong count silently redistributed every team's auction dollars.
+    # ``num_teams`` is gone: it was declared, never referenced, and shadowed
+    # by the roster feed's own count, which is exactly what made the missing
+    # parameter next to it look wired.
+    # The rookie board follows the SCORING PROFILE, not the league key
+    # (CLAUDE.md, "Rankings vs league context"), so a league sharing the
+    # loaded contract's profile can be served the same rookies — which is
+    # what stops /draft there falling back to a hardcoded list. A league on
+    # a different profile gets no rookie fields rather than another
+    # profile's board.
+    #
+    # Profile match is necessary but NOT sufficient. Both live leagues are
+    # ``superflex_tep15_ppr1``, yet ``dynasty_main`` starts DL/LB/DB and
+    # ``dynasty_new`` starts none — ``idpEnabled`` and ``rosterSettings``
+    # are leagueKey properties, not profile properties. Serving the shared
+    # board verbatim would put defenders nobody can start onto a non-IDP
+    # league's draft board, at real dollar values, ahead of offensive
+    # rookies it can. So IDP rows are dropped for a league that does not
+    # use them and the dollar ladder is rebuilt over what remains.
+    rookie_rows = None
+    try:
+        loaded_key = ((latest_contract_data or {}).get("meta") or {}).get("leagueKey")
+        # Same scoring-identity question as every other cross-league
+        # gate, so the same owner answers it (W18-F001).  The rookie
+        # pool is a set of VALUES, so serving it for a league whose
+        # scoring was never proven to match is the defect in
+        # miniature — priced rookies under the wrong rules.
+        if loaded_key and _scoring_identity_error(latest_contract_data, league_cfg) is None:
+            from src.trade.angle import _IDP_POSITIONS as _ANGLE_IDP_POSITIONS  # noqa: PLC0415
+
+            pool = _our_rookie_pool(_KTC_TOTAL_PICKS)
+            if pool and not getattr(league_cfg, "idp_enabled", True):
+                pool = [
+                    r
+                    for r in pool
+                    if str(r.get("assetClass") or "").lower() != "idp"
+                    and str(r.get("pos") or "").upper() not in _ANGLE_IDP_POSITIONS
+                ]
+            if pool:
+                dollars = _rookie_dollars_from_values(
+                    [r["value"] for r in pool], DRAFT_TOTAL_BUDGET
+                )
+                ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(pool, DRAFT_TOTAL_BUDGET)
+                rookie_rows = [
+                    {
+                        "name": r["name"],
+                        "pos": r["pos"],
+                        "dollar": d,
+                        "boardValue": r["value"],
+                        "ktcDollar": ktc_by_name.get(r["name"].lower()),
+                        "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
+                        "dispersionCV": r.get("dispersionCV"),
+                        "singleSource": r.get("singleSource"),
+                    }
+                    for r, d in zip(pool, dollars)
+                ]
+    except Exception:  # noqa: BLE001 — a missing rookie board must not 500 the page
+        logging.warning("draft-capital fallback: rookie board unavailable", exc_info=True)
+        rookie_rows = None
+
+    # #1414 + Wave A: the board starts at this league's UPCOMING draft —
+    # the league-scoped canonical answer
+    # (``pick_lifecycle.league_draft_years``), the same one the workbook
+    # path, the Sleeper overlay and the scraper read.  A class the league
+    # has drafted and rostered is no longer draft capital, and the rookie
+    # pool (``years_exp == 0``) IS that class — stapling it onto the next
+    # class's slots would price last draft's rookies as next draft's
+    # picks, so it is withheld when a class was skipped.  No snapshot →
+    # nothing retired → the anchor year.
+    _dc_years = None
+    try:
+        from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
+
+        _dc_years = league_draft_years_for(league_cfg.sleeper_league_id)
+    except Exception:  # noqa: BLE001 — unknown never retires
+        logging.warning("draft-capital fallback: lifecycle unavailable", exc_info=True)
+    _dc_calendar_season = datetime.now(timezone.utc).year
+    _dc_season = _dc_years.upcoming_draft_year if _dc_years else _dc_calendar_season
+    if _dc_season != (_dc_years.anchor_year if _dc_years else _dc_calendar_season):
+        rookie_rows = None
+
+    return build_sleeper_derived(
+        league_cfg.sleeper_league_id,
+        latest_contract_data or {},
+        current_season=_dc_season,
+        declared_draft_rounds=(league_cfg.roster_settings or {}).get("draftRounds"),
+        rookies=rookie_rows,
+        league_draft_years=_dc_years,
+    )
+
+
+# Stale-while-revalidate on TTL expiry (2026-11-15).  A successful board older
+# than ``_DRAFT_CAPITAL_TTL_SEC`` but younger than TTL + ``_DRAFT_CAPITAL_SWR_SEC``
+# is served at once while ONE background job (``_kick_public_memo_refresh``,
+# job ``draft-capital:<league>``: single-flight, failure cooldown, abandoned-job
+# guard) rebuilds it.  Production 2026-11-15: the first request after expiry
+# took 4.29 s, the next two 0.54 / 0.64 s.  The bound keeps every served board
+# inside the 15-minute fresh window of the Sleeper overlay this cache's
+# freshness was set against.  Refusals and other ``error`` payloads are never
+# served past the TTL: they keep blocking exactly as before, so a recovered
+# upstream is seen on the next request.  A publish still clears the cache (old
+# generation); ``_kick_draft_capital_publish_rebuild`` then rebuilds the
+# default league's board off the request path.
+_DRAFT_CAPITAL_SWR_SEC = 600.0
+_DRAFT_CAPITAL_WARM_ENABLED = _env_bool("DRAFT_CAPITAL_WARM_ENABLED", True)
+
+
+def _store_draft_capital_result(league_key: str, result):
+    """File one build's result exactly as the route always did; returns what
+    to serve (the result, or the labelled last valid board on a dollars-
+    generation failure)."""
+    if not isinstance(result, dict):
+        return result
+    result["leagueKey"] = league_key
+    stamp = time.time()
+    if "error" not in result:
+        _DRAFT_CAPITAL_LAST_VALID[league_key] = (stamp, result)
+        _DRAFT_CAPITAL_CACHE[league_key] = (stamp, result)
+        return result
+    stale = _draft_capital_stale_fallback(league_key, result, stamp)
+    if stale is not None:
+        # Served now; the failure is retried once the short revalidation
+        # window lapses (not the full TTL).
+        _DRAFT_CAPITAL_CACHE[league_key] = (
+            stamp - _DRAFT_CAPITAL_TTL_SEC + _DRAFT_CAPITAL_STALE_RETRY_SEC,
+            stale,
+        )
+        return stale
+    _DRAFT_CAPITAL_CACHE[league_key] = (stamp, result)
+    return result
+
+
+def _draft_capital_stale_servable(cache_slot, now: float) -> bool:
+    """An expired SUCCESSFUL entry still inside the stale-while-revalidate bound."""
+    if not cache_slot:
+        return False
+    stamp, cached = cache_slot
+    age = now - stamp
+    return (
+        isinstance(cached, dict)
+        and "error" not in cached
+        and _DRAFT_CAPITAL_TTL_SEC <= age < _DRAFT_CAPITAL_TTL_SEC + _DRAFT_CAPITAL_SWR_SEC
+    )
+
+
+def _kick_draft_capital_refresh(league_cfg, is_default_league: bool) -> bool:
+    """Rebuild one league's board on a daemon thread; never blocks or raises."""
+
+    def _build():
+        _store_draft_capital_result(
+            league_cfg.key, _compute_draft_capital(league_cfg, is_default_league)
+        )
+
+    return _kick_public_memo_refresh(f"draft-capital:{league_cfg.key}", _build)
+
+
+def _kick_draft_capital_publish_rebuild() -> bool:
+    """After a publish clears the cache, rebuild the DEFAULT league's board (the
+    one the public Draft Capital tab, /draft and the auction room read) so the
+    first visitor of the new generation does not pay the build.  Non-default
+    leagues build on demand as before.  ``DRAFT_CAPITAL_WARM_ENABLED=0`` +
+    restart disables it.  Never raises."""
+    if not _DRAFT_CAPITAL_WARM_ENABLED:
+        return False
+    try:
+        default_cfg = _league_registry.get_default_league()
+        if not default_cfg:
+            return False
+        return _kick_draft_capital_refresh(default_cfg, True)
+    except Exception as exc:  # noqa: BLE001 — the request path builds on demand
+        logging.warning("draft-capital publish rebuild not scheduled: %s", exc)
+        return False
+
+
 @app.get("/api/draft-capital")
 async def get_draft_capital(request: Request, refresh: str = ""):
     """Return draft capital breakdown per team using Sleeper pick ownership
@@ -15206,113 +15400,19 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
         )
 
+    if not refresh and _draft_capital_stale_servable(cache_slot, now):
+        _kick_draft_capital_refresh(league_cfg, is_default_league)
+        cached = cache_slot[1]
+        return JSONResponse(
+            content=cached if viewer_is_authed else _redact_draft_capital_for_public(cached),
+            headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},
+        )
+
     if refresh:
         _ktc_cache["fetched_at"] = 0  # invalidate cache
 
     def _compute():
-        if is_default_league:
-            # Workbook path — rich per-pick values pinned to League A's
-            # rookie pool.
-            return _fetch_draft_capital(league_cfg.key)
-        # Sleeper-derived fallback for non-default leagues.
-        # Uses the canonical contract's pick values (Hill-curve-
-        # calibrated) + Sleeper's traded_picks.  Clearly labeled
-        # in the UI so users see "Sleeper-derived" vs.
-        # "workbook-calibrated".
-        from src.api.draft_capital_fallback import build_sleeper_derived
-
-        # ``draft_rounds`` used to be omitted here, so every non-default league
-        # was built as a 4-round draft while the default runs 6 — and the $1200
-        # budget is normalized across whatever picks that loop produces, so the
-        # wrong count silently redistributed every team's auction dollars.
-        # ``num_teams`` is gone: it was declared, never referenced, and shadowed
-        # by the roster feed's own count, which is exactly what made the missing
-        # parameter next to it look wired.
-        # The rookie board follows the SCORING PROFILE, not the league key
-        # (CLAUDE.md, "Rankings vs league context"), so a league sharing the
-        # loaded contract's profile can be served the same rookies — which is
-        # what stops /draft there falling back to a hardcoded list. A league on
-        # a different profile gets no rookie fields rather than another
-        # profile's board.
-        #
-        # Profile match is necessary but NOT sufficient. Both live leagues are
-        # ``superflex_tep15_ppr1``, yet ``dynasty_main`` starts DL/LB/DB and
-        # ``dynasty_new`` starts none — ``idpEnabled`` and ``rosterSettings``
-        # are leagueKey properties, not profile properties. Serving the shared
-        # board verbatim would put defenders nobody can start onto a non-IDP
-        # league's draft board, at real dollar values, ahead of offensive
-        # rookies it can. So IDP rows are dropped for a league that does not
-        # use them and the dollar ladder is rebuilt over what remains.
-        rookie_rows = None
-        try:
-            loaded_key = ((latest_contract_data or {}).get("meta") or {}).get("leagueKey")
-            # Same scoring-identity question as every other cross-league
-            # gate, so the same owner answers it (W18-F001).  The rookie
-            # pool is a set of VALUES, so serving it for a league whose
-            # scoring was never proven to match is the defect in
-            # miniature — priced rookies under the wrong rules.
-            if loaded_key and _scoring_identity_error(latest_contract_data, league_cfg) is None:
-                from src.trade.angle import _IDP_POSITIONS as _ANGLE_IDP_POSITIONS  # noqa: PLC0415
-
-                pool = _our_rookie_pool(_KTC_TOTAL_PICKS)
-                if pool and not getattr(league_cfg, "idp_enabled", True):
-                    pool = [
-                        r
-                        for r in pool
-                        if str(r.get("assetClass") or "").lower() != "idp"
-                        and str(r.get("pos") or "").upper() not in _ANGLE_IDP_POSITIONS
-                    ]
-                if pool:
-                    dollars = _rookie_dollars_from_values(
-                        [r["value"] for r in pool], DRAFT_TOTAL_BUDGET
-                    )
-                    ktc_by_name, idp_by_name = _vendor_dollars_for_rookies(pool, DRAFT_TOTAL_BUDGET)
-                    rookie_rows = [
-                        {
-                            "name": r["name"],
-                            "pos": r["pos"],
-                            "dollar": d,
-                            "boardValue": r["value"],
-                            "ktcDollar": ktc_by_name.get(r["name"].lower()),
-                            "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
-                            "dispersionCV": r.get("dispersionCV"),
-                            "singleSource": r.get("singleSource"),
-                        }
-                        for r, d in zip(pool, dollars)
-                    ]
-        except Exception:  # noqa: BLE001 — a missing rookie board must not 500 the page
-            logging.warning("draft-capital fallback: rookie board unavailable", exc_info=True)
-            rookie_rows = None
-
-        # #1414 + Wave A: the board starts at this league's UPCOMING draft —
-        # the league-scoped canonical answer
-        # (``pick_lifecycle.league_draft_years``), the same one the workbook
-        # path, the Sleeper overlay and the scraper read.  A class the league
-        # has drafted and rostered is no longer draft capital, and the rookie
-        # pool (``years_exp == 0``) IS that class — stapling it onto the next
-        # class's slots would price last draft's rookies as next draft's
-        # picks, so it is withheld when a class was skipped.  No snapshot →
-        # nothing retired → the anchor year.
-        _dc_years = None
-        try:
-            from src.api.draft_class_evidence import league_draft_years_for  # noqa: PLC0415
-
-            _dc_years = league_draft_years_for(league_cfg.sleeper_league_id)
-        except Exception:  # noqa: BLE001 — unknown never retires
-            logging.warning("draft-capital fallback: lifecycle unavailable", exc_info=True)
-        _dc_calendar_season = datetime.now(timezone.utc).year
-        _dc_season = _dc_years.upcoming_draft_year if _dc_years else _dc_calendar_season
-        if _dc_season != (_dc_years.anchor_year if _dc_years else _dc_calendar_season):
-            rookie_rows = None
-
-        return build_sleeper_derived(
-            league_cfg.sleeper_league_id,
-            latest_contract_data or {},
-            current_season=_dc_season,
-            declared_draft_rounds=(league_cfg.roster_settings or {}).get("draftRounds"),
-            rookies=rookie_rows,
-            league_draft_years=_dc_years,
-        )
+        return _compute_draft_capital(league_cfg, is_default_league)
 
     lock = _DRAFT_CAPITAL_LOCKS.get(league_cfg.key)
     if lock is None:
@@ -15330,25 +15430,9 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             ):
                 result = cache_slot[1]
             else:
-                result = await run_in_threadpool(_compute)
-                if isinstance(result, dict):
-                    result["leagueKey"] = league_cfg.key
-                    stamp = time.time()
-                    if "error" not in result:
-                        _DRAFT_CAPITAL_LAST_VALID[league_cfg.key] = (stamp, result)
-                        _DRAFT_CAPITAL_CACHE[league_cfg.key] = (stamp, result)
-                    else:
-                        stale = _draft_capital_stale_fallback(league_cfg.key, result, stamp)
-                        if stale is not None:
-                            # Served now; the failure is retried once the short
-                            # revalidation window lapses (not the full TTL).
-                            result = stale
-                            _DRAFT_CAPITAL_CACHE[league_cfg.key] = (
-                                stamp - _DRAFT_CAPITAL_TTL_SEC + _DRAFT_CAPITAL_STALE_RETRY_SEC,
-                                result,
-                            )
-                        else:
-                            _DRAFT_CAPITAL_CACHE[league_cfg.key] = (stamp, result)
+                result = _store_draft_capital_result(
+                    league_cfg.key, await run_in_threadpool(_compute)
+                )
         return JSONResponse(
             content=result if viewer_is_authed else _redact_draft_capital_for_public(result),
             headers={"Cache-Control": "private, max-age=60, stale-while-revalidate=300"},

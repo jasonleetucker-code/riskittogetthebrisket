@@ -557,7 +557,10 @@ Error behavior on endpoints:
     every `picks` / `teamTotals` number on this board is a function of
     ownership and there is no partial board worth serving.  Success is
     byte-identical.  Known caveat: the route caches error results for its
-    300 s TTL like any other result.  The DEFAULT-league workbook path
+    300 s TTL like any other result.  Successful boards are served up to 600 s
+    past the TTL while one background job rebuilds them, and a publish rebuilds
+    the default league's board off the request path (2026-11-15); refusals are
+    never served past the TTL.  The DEFAULT-league workbook path
     (`server.py::_fetch_draft_capital`) follows the same rule since
     2026-10-17: with `apply_sleeper_trades` on, an unobserved
     `/traded_picks` (failed fetch, non-list body, or Sleeper failing before
