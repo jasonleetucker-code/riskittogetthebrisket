@@ -522,6 +522,10 @@ def _loop_calls(server_mod, monkeypatch, free_mib, threshold, seconds=0.4):
     monkeypatch.setattr(server_mod, "_release_freed_heap", release)
     monkeypatch.setattr(server_mod, "HEAP_REPORT_INTERVAL_SEC", 0.02)
     monkeypatch.setattr(server_mod, "HEAP_RELEASE_FREE_MIB", threshold)
+    # The loop labels a snapshot ``periodic_high_rss`` from the REAL process
+    # RSS; a CI shard's pytest process can pass 1 GiB, which turned "startup"
+    # into "periodic_high_rss" on 2026-11-13.  Pin it, as the cadence test does.
+    monkeypatch.setattr(server_mod, "HEAP_REPORT_HIGH_RSS_MIB", 10**9)
 
     async def run():
         task = asyncio.create_task(server_mod.heap_report_loop())
