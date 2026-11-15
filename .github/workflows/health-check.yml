@@ -302,6 +302,43 @@ jobs:
                     f"see the state-backup root, so this run verified the LEGACY SQLite "
                     f"backup only. Confirm on the box with sudo (read-only): "
                     f"see docs/ops/STATE_BACKUP_TRUTHFULNESS.md.")
+
+          # Irreplaceable stores (backup-health.v4).  ``uncovered`` means a store
+          # that EXISTS on the box is not in the newest generation (or the writer
+          # recorded it as failed / shed): history nothing else can rebuild.
+          # ``unverifiable`` is NOT MEASURED, never an error and never OK.
+          led = sb.get("irreplaceableLedgers")
+          if not isinstance(led, dict):
+              print("Irreplaceable-store coverage: not reported (the deployed build predates backup-health.v4).")
+          elif led.get("coverage") == "uncovered":
+              print(f"::error title=Irreplaceable store not backed up::{led.get('uncoveredCount')} "
+                    f"irreplaceable store(s) are missing from the newest state-backup "
+                    f"generation. Names are operator-only: run "
+                    f"`python -m src.api.backup_health` on the box (stateBackup.irreplaceableLedgers.stores). "
+                    f"See docs/ops/STATE_BACKUP_TRUTHFULNESS.md.")
+              sys.exit(1)
+          elif led.get("coverage") == "covered":
+              print("Irreplaceable-store coverage: covered (measured).")
+          else:
+              print(f"::warning title=Irreplaceable-store coverage {led.get('coverage')}::"
+                    f"partial={led.get('partialCount')} unverifiable={led.get('unverifiableCount')}. "
+                    f"Not a failure, and not a pass.")
+
+          # Restore proof (backup-health.v4): the post-deploy proof's last result.
+          # ``unknown`` and ``stale`` are NOT MEASURED, never healthy.
+          rp = bh.get("restoreProof")
+          if not isinstance(rp, dict):
+              print("Restore proof: not reported (the deployed build predates backup-health.v4).")
+          elif rp.get("result") == "failed":
+              print(f"::error title=Restore proof FAILED::The post-deploy restore proof failed "
+                    f"({rp.get('completedAt')}). A backup that does not restore is not a backup: "
+                    f"read the 'Retention backup + restore proof' workflow run.")
+              sys.exit(1)
+          elif rp.get("result") in ("proven", "proven_with_warnings"):
+              print(f"Restore proof: {rp.get('result')} ({rp.get('ageHours')}h ago).")
+          else:
+              print(f"::warning title=Restore proof {rp.get('result')}::reason={rp.get('reason')}. "
+                    f"Not a pass: a proof nobody has seen complete is not evidence.")
           PY
 
       - name: Open or update the tracking issue on failure

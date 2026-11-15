@@ -127,6 +127,7 @@ def _paths(tmp_path: Path) -> dict:
     return {
         "state_root": str(tmp_path / "state"),
         "state_fallback_root": str(tmp_path / "state_fb"),
+        "data_dir": str(tmp_path / "data"),
         "legacy_dirs": (
             ("primary", str(tmp_path / "legacy_primary")),
             ("fallback", str(tmp_path / "legacy_fallback")),
@@ -511,7 +512,12 @@ def test_server_helper_serves_the_new_block_and_never_raises(monkeypatch):
     monkeypatch.setattr(bh, "build_backup_health_snapshot", boom)
     fallback, fallback_path = server._backup_snapshot_uncached()
     assert fallback_path is None  # no scan, so no file -- not a guess
-    assert fallback["stateBackup"] == {"state": "unverifiable", "reason": "probe_error"}
+    assert fallback["stateBackup"] == {
+        "state": "unverifiable",
+        "reason": "probe_error",
+        "irreplaceableLedgers": {"coverage": "unverifiable"},
+    }
+    assert fallback["restoreProof"] == {"result": "unknown", "reason": "probe_error"}
     assert fallback["newestBackupAgeHours"] is None
     assert fallback["dbCount"] is None
     # The import-failure fallback cannot import the constant, so it repeats it.
@@ -624,6 +630,20 @@ _DETAIL_ONLY_KEYS = frozenset(
         # Filesystem paths: the detail keeps them, the public block never.
         "directoryInspected",
         "newestBackupPath",
+        # v4: which stores are uncovered, and the proof's own bookkeeping.
+        "irreplaceableLedgers_stores",
+        "stores",
+        "storeCount",
+        "writerClass",
+        "writerRecorded",
+        "generationPath",
+        "startedAt",
+        "exitCode",
+        "provenArtifacts",
+        "failures",
+        "optionalWarnings",
+        "runBackup",
+        "generationDate",
     }
 )
 _DETAIL_MARKERS = (
@@ -698,7 +718,9 @@ def test_public_blocks_carry_exactly_the_allowed_keys(tmp_path):
     public = build(tmp_path)
     state_block = public["stateBackup"]
 
-    assert set(state_block) == set(bh.PUBLIC_STATE_KEYS) | {"roots"}
+    assert set(state_block) == set(bh.PUBLIC_STATE_KEYS) | {"roots", "irreplaceableLedgers"}
+    assert set(state_block["irreplaceableLedgers"]) == set(bh.PUBLIC_LEDGER_KEYS)
+    assert set(public["restoreProof"]) == set(bh.PUBLIC_PROOF_KEYS)
     assert state_block["state"] == "healthy"
     assert state_block["ageHours"] == 10.0
     assert state_block["generationCount"] == 2  # a count, nothing more
@@ -714,6 +736,7 @@ def test_public_blocks_carry_exactly_the_allowed_keys(tmp_path):
         "filesystemPaths",
         "legacySqliteBackup",
         "stateBackup",
+        "restoreProof",
     }
 
 
@@ -751,8 +774,10 @@ def test_a_probe_failure_projects_to_the_same_public_shape(tmp_path, monkeypatch
 
     monkeypatch.setattr(bh, "state_backup_health", boom)
     block = build(tmp_path)["stateBackup"]
-    assert set(block) == set(bh.PUBLIC_STATE_KEYS)
+    assert set(block) == set(bh.PUBLIC_STATE_KEYS) | {"irreplaceableLedgers"}
     assert (block["state"], block["reason"]) == ("unverifiable", "probe_error")
+    # No coverage evidence is unknown coverage, never "covered".
+    assert block["irreplaceableLedgers"]["coverage"] == "unverifiable"
 
 
 def _served(monkeypatch, tmp_path, handler):
@@ -977,6 +1002,93 @@ def _sc_fallback_newer(tmp_path, mp):
     make_generation(tmp_path / "state_fb", "2026-10-26", mtime=NOW - 2 * HOUR)
 
 
+def write_proof(
+    tmp_path: Path,
+    state: str,
+    *,
+    completed_ago_h: float | None = 3.0,
+    started_ago_h: float | None = None,
+    **extra,
+) -> None:
+    """Leave the restore proof's result file where ``backup_health`` reads it."""
+
+    def stamp(hours_ago: float | None):
+        if hours_ago is None:
+            return None
+        return datetime.fromtimestamp(NOW - hours_ago * HOUR, tz=timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+
+    doc = {
+        "schema": 1,
+        "state": state,
+        "startedAt": stamp(
+            started_ago_h if started_ago_h is not None else (completed_ago_h or 0) + 0.2
+        ),
+        "completedAt": stamp(completed_ago_h),
+        "exitCode": {"proven": 0, "proven_with_warnings": 0, "failed": 2}.get(state),
+        "runBackup": True,
+        "provenArtifacts": 12,
+        "failures": 1 if state == "failed" else 0,
+        "optionalWarnings": 2 if state == "proven_with_warnings" else 0,
+        "generationDate": "2026-10-26",
+    }
+    doc.update(extra)
+    target = tmp_path / "data" / bh.RESTORE_PROOF_RELATIVE
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(doc), encoding="utf-8")
+
+
+def _sc_proof_proven_and_ledgers_partial(tmp_path, mp):
+    """The post-deploy proof's own generation skips the two large ledgers on
+    purpose (``skipped_requested``): partial coverage, not uncovered."""
+    make_generation(
+        tmp_path / "state",
+        "2026-10-26",
+        mtime=NOW - HOUR,
+        pointer=True,
+        manifest=(
+            "temporal_ledger.sqlite\tskipped_requested\tBACKUP_SKIP_OPTIONAL\n"
+            "intel_ledger.sqlite3\tskipped_requested\tBACKUP_SKIP_OPTIONAL\n"
+        ),
+    )
+    write_proof(tmp_path, "proven")
+
+
+def _sc_proof_proven_with_warnings(tmp_path, mp):
+    write_proof(tmp_path, "proven_with_warnings")
+
+
+def _sc_proof_failed(tmp_path, mp):
+    write_proof(tmp_path, "failed", completed_ago_h=500.0)  # failure never ages out to "stale"
+
+
+def _sc_proof_could_not_run(tmp_path, mp):
+    write_proof(tmp_path, "could_not_run", exitCode=1)
+
+
+def _sc_proof_running(tmp_path, mp):
+    write_proof(tmp_path, "running", completed_ago_h=None, started_ago_h=0.2, completedAt=None)
+
+
+def _sc_proof_interrupted(tmp_path, mp):
+    write_proof(tmp_path, "running", completed_ago_h=None, started_ago_h=5.0, completedAt=None)
+
+
+def _sc_proof_stale(tmp_path, mp):
+    write_proof(tmp_path, "proven", completed_ago_h=bh.RESTORE_PROOF_STALE_AFTER_HOURS + 1)
+
+
+def _sc_proof_clock_skew(tmp_path, mp):
+    write_proof(tmp_path, "proven", completed_ago_h=-48.0)
+
+
+def _sc_proof_unreadable(tmp_path, mp):
+    target = tmp_path / "data" / bh.RESTORE_PROOF_RELATIVE
+    target.parent.mkdir(parents=True)
+    target.write_text("{not json", encoding="utf-8")
+
+
 def _sc_probe_failure(tmp_path, mp):
     mp.setattr(bh, "state_backup_health", _probe_explodes)
     mp.setattr(bh, "legacy_sqlite_backup_health", _probe_explodes)
@@ -998,6 +1110,15 @@ _TREE_SCENARIOS = {
         _sc_canonical_absent_fallback_used,
         _sc_canonical_empty_fallback_used,
         _sc_fallback_newer,
+        _sc_proof_proven_and_ledgers_partial,
+        _sc_proof_proven_with_warnings,
+        _sc_proof_failed,
+        _sc_proof_could_not_run,
+        _sc_proof_running,
+        _sc_proof_interrupted,
+        _sc_proof_stale,
+        _sc_proof_clock_skew,
+        _sc_proof_unreadable,
         _sc_probe_failure,
     )
 }
@@ -1065,6 +1186,12 @@ def _is_count(value) -> bool:
     return value is None or (isinstance(value, int) and not isinstance(value, bool))
 
 
+def _is_utc_stamp(value) -> bool:
+    return value is None or (
+        isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", value)
+    )
+
+
 #: The public fields whose values are NOT enumerated, each with the check its
 #: value must pass.  Numbers only: the public block carries no timestamp today,
 #: and a timestamp field added later is listed here with a parser.  A string is
@@ -1074,6 +1201,10 @@ _NON_ENUMERATED_FIELDS = {
     "newestBackupAgeHours": _is_hours,
     "generationCount": _is_count,
     "dbCount": _is_count,
+    "uncoveredCount": _is_count,
+    "unverifiableCount": _is_count,
+    "partialCount": _is_count,
+    "completedAt": _is_utc_stamp,
 }
 
 
@@ -1193,6 +1324,8 @@ def test_vocabulary_constants_are_the_module_s_own():
     assert vocab["reason"] is bh.PUBLIC_REASONS
     assert vocab["inspectionReason"] is bh.PUBLIC_INSPECTION_REASONS
     assert vocab["evidenceSource"] is bh.PUBLIC_EVIDENCE_SOURCES
+    assert vocab["coverage"] is bh.PUBLIC_LEDGER_COVERAGE
+    assert vocab["result"] is bh.PUBLIC_PROOF_RESULTS
     assert vocab["directoryRole"] is bh.PUBLIC_DIRECTORY_ROLES
     assert vocab["backupDirUsed"] is bh.PUBLIC_LEGACY_DIR_LABELS
     assert vocab["schemaVersion"] == {bh.SCHEMA_VERSION}
@@ -1202,7 +1335,13 @@ def test_vocabulary_constants_are_the_module_s_own():
     assert bh._verdict(None)[1] in bh.PUBLIC_REASONS
     # Every field the public blocks declare is enumerated or a declared
     # number -- never both, never neither.
-    declared = set(bh.PUBLIC_STATE_KEYS) | set(bh.PUBLIC_LEGACY_KEYS) | set(_MONITOR_KEYS)
+    declared = (
+        set(bh.PUBLIC_STATE_KEYS)
+        | set(bh.PUBLIC_LEGACY_KEYS)
+        | set(bh.PUBLIC_LEDGER_KEYS)
+        | set(bh.PUBLIC_PROOF_KEYS)
+        | set(_MONITOR_KEYS)
+    )
     assert not (set(vocab) & set(_NON_ENUMERATED_FIELDS))
     assert declared <= set(vocab) | set(_NON_ENUMERATED_FIELDS)
 
@@ -1282,6 +1421,7 @@ def box(tmp_path, monkeypatch) -> Path:
         bh.LEGACY_FALLBACK_DIR: tmp_path / "legacy_fallback",
         bh.STATE_BACKUP_ROOT: tmp_path / "state",
         bh.STATE_BACKUP_FALLBACK_ROOT: tmp_path / "state_fb",
+        bh.DEFAULT_DATA_DIR: tmp_path / "data",
     }
 
     def remap(path: str) -> str:
