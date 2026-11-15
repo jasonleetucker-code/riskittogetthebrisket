@@ -1,44 +1,34 @@
 {
-  "computedAt": "2026-11-15T10:01:39.832823+00:00",
+  "computedAt": "2026-11-15T17:31:00.235046+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.504,
-      "finalsOdds": 0.9991,
+      "championshipOdds": 0.5611,
+      "finalsOdds": 1.0,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.5,
+      "expectedFinish": 1.44,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.496,
-      "finalsOdds": 0.9998,
+      "championshipOdds": 0.4389,
+      "finalsOdds": 0.9999,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.5,
+      "expectedFinish": 1.56,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "1012114412049731584",
       "displayName": "Joey",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0004,
-      "semifinalOdds": 0.8205,
+      "finalsOdds": 0.0001,
+      "semifinalOdds": 0.7811,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.63,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "1208452010173538304",
-      "displayName": "Kich",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.1195,
-      "playoffOdds": 1.0,
-      "expectedFinish": 5.46,
+      "expectedFinish": 3.8,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -46,9 +36,9 @@
       "displayName": "Eric",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.3041,
+      "semifinalOdds": 0.4126,
       "playoffOdds": 1.0,
-      "expectedFinish": 5.74,
+      "expectedFinish": 5.3,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -56,20 +46,40 @@
       "displayName": "MaKayla",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.0048,
+      "semifinalOdds": 0.0113,
       "playoffOdds": 1.0,
-      "expectedFinish": 5.18,
+      "expectedFinish": 5.22,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "831633191830933504",
       "displayName": "Collin",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0007,
-      "semifinalOdds": 0.7511,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.6855,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.99,
+      "expectedFinish": 4.25,
       "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "1208452010173538304",
+      "displayName": "Kich",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.1095,
+      "playoffOdds": 0.9999,
+      "expectedFinish": 5.43,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "711452264774041600",
+      "displayName": "Ed",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0,
+      "playoffOdds": 0.0001,
+      "expectedFinish": 8.37,
+      "contenderTier": "Rebuilder / Seller"
     },
     {
       "ownerId": "1393410658032177152",
@@ -78,7 +88,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 10.15,
+      "expectedFinish": 10.17,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -98,17 +108,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 8.71,
-      "contenderTier": "Rebuilder / Seller"
-    },
-    {
-      "ownerId": "711452264774041600",
-      "displayName": "Ed",
-      "championshipOdds": 0.0,
-      "finalsOdds": 0.0,
-      "semifinalOdds": 0.0,
-      "playoffOdds": 0.0,
-      "expectedFinish": 8.3,
+      "expectedFinish": 8.63,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -118,7 +118,7 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 10.84,
+      "expectedFinish": 10.83,
       "contenderTier": "Rebuilder / Seller"
     }
   ],
