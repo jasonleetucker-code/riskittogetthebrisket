@@ -20,8 +20,6 @@ TE basis defect in our value or an artifact of KTC TE++ pricing is a methodology
 from __future__ import annotations
 
 import collections
-import json
-import zipfile
 from pathlib import Path
 
 import pytest
@@ -29,22 +27,16 @@ import pytest
 pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 REPO = Path(__file__).resolve().parents[2]
-ARCHIVE = REPO / "exports" / "archive" / "dynasty_export_20261106_194518.zip"
 _MIN_RATIO = 0.05  # frontend/lib/thresholds.js::MARKET_GAP_MIN_VALUE_RATIO
 _cache: dict = {}
 
 
 def _rows() -> list[dict]:
     if "rows" not in _cache:
-        if not ARCHIVE.is_file():
-            pytest.skip("pinned archive bundle absent")
         from src.api.data_contract import build_api_data_contract
+        from tests.archive_fixtures import pinned_board_payload
 
-        with zipfile.ZipFile(ARCHIVE) as zf:
-            name = next(
-                n for n in zf.namelist() if n.startswith("dynasty_data_") and n.endswith(".json")
-            )
-            raw = json.loads(zf.read(name))
+        raw, _label = pinned_board_payload()
         _cache["rows"] = build_api_data_contract(raw)["playersArray"]
     return _cache["rows"]
 

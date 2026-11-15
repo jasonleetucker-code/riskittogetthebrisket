@@ -468,14 +468,39 @@ _PINNING_NAMES = (
 )
 
 
+def _module_really_pins(tree: ast.Module) -> bool:
+    """True only for CODE that pins: a ``pytestmark`` / ``usefixtures`` naming
+    the fixture, or a reference to / call of a pinning helper.  A mention in a
+    docstring or comment does not count."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in _PINNING_NAMES:
+            return True
+        if isinstance(node, ast.Attribute) and node.attr in _PINNING_NAMES:
+            return True
+        is_marks = isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "pytestmark" for t in node.targets
+        )
+        is_use = (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "usefixtures"
+        )
+        if is_marks or is_use:
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Constant) and sub.value in _PINNING_NAMES:
+                    return True
+    return False
+
+
 def _unpinned_archive_builds(path: Path) -> list[int]:
     """Lines of contract builds with no ``csv_root`` in a module that reads a
     real archive and does not pin its inputs."""
     text = path.read_text(encoding="utf-8")
-    if not _ARCHIVE_SOURCE.search(text) or any(n in text for n in _PINNING_NAMES):
+    tree = ast.parse(text)
+    if not _ARCHIVE_SOURCE.search(text) or _module_really_pins(tree):
         return []
     hits = []
-    for node in ast.walk(ast.parse(text)):
+    for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         fn = node.func
@@ -547,3 +572,16 @@ def test_the_unpinned_build_guard_sees_it(tmp_path, source, expected):
     sample = tmp_path / "test_sample.py"
     sample.write_text(source, encoding="utf-8")
     assert _unpinned_archive_builds(sample) == expected
+
+
+def test_the_audit_board_fixture_carries_no_real_identifier():
+    """``audit_board_20261106.zip`` (the cw40 module's board, pseudonymized by
+    ``pinned_board_build.pseudonymize_payload``) holds only synthetic ids/names."""
+    with zipfile.ZipFile(TESTS / "fixtures" / "audit_board_20261106.zip") as zf:
+        payload = json.loads(zf.read("payload.json"))
+    sleeper = payload["sleeper"]
+    assert sleeper["leagueId"] == pb.SYNTHETIC_LEAGUE_ID
+    for team in sleeper["teams"]:
+        assert team["name"] == pb.manager_name(int(team["roster_id"]))
+        assert str(team["ownerId"]).startswith(pb.SYNTHETIC_ID_PREFIX)
+    assert not re.findall(r"[\w.+-]+@[\w-]+\.[a-z]{2,}", json.dumps(payload))

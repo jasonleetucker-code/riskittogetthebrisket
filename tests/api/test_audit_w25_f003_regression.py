@@ -4,7 +4,7 @@ Claim: CLAUDE.md says the rows ``buildRows`` numbers itself are "players past th
 backend's ``OVERALL_RANK_LIMIT`` (800) -- rows the backend deliberately left unranked".
 
 Measured offline on the pinned tracked archive board
-``exports/archive/dynasty_export_20261106_194518.zip`` (raw payload -> real
+the pinned board (``tests/fixtures/pinned_board``) (raw payload -> real
 ``build_api_data_contract``): the unranked non-pick rows are TWO populations, and only one
 is "past the cap".
 
@@ -23,8 +23,6 @@ in this PR.  Exact proposed correction: see CW40_P1_UNADJUDICATED.md section W25
 
 from __future__ import annotations
 
-import json
-import zipfile
 from pathlib import Path
 
 import pytest
@@ -32,21 +30,15 @@ import pytest
 pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 REPO = Path(__file__).resolve().parents[2]
-ARCHIVE = REPO / "exports" / "archive" / "dynasty_export_20261106_194518.zip"
 _cache: dict = {}
 
 
 def _contract() -> dict:
     if "c" not in _cache:
-        if not ARCHIVE.is_file():
-            pytest.skip("pinned archive bundle absent")
         from src.api.data_contract import build_api_data_contract
+        from tests.archive_fixtures import pinned_board_payload
 
-        with zipfile.ZipFile(ARCHIVE) as zf:
-            name = next(
-                n for n in zf.namelist() if n.startswith("dynasty_data_") and n.endswith(".json")
-            )
-            raw = json.loads(zf.read(name))
+        raw, _label = pinned_board_payload()
         _cache["c"] = build_api_data_contract(raw)
     return _cache["c"]
 
