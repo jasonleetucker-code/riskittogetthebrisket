@@ -790,10 +790,6 @@ _LIVE_PATH_SCAN_SKIP = {
 #: refresh-written store by path.  Every entry must still offend (a stale
 #: entry fails ``test_the_live_path_allowlist_is_exact``) and carry a reason.
 _LIVE_PATH_READ_ALLOWLIST: dict[str, str] = {
-    "tests/api/test_hill_alignment_audit.py": (
-        "PR 2213 repoints its KTC CSV copies and DLF probe at the pinned tree; "
-        "delete this entry when it merges"
-    ),
     # The four below assert a property of the PUBLISHED artifacts themselves, not of
     # a value a refresh moves: they stay blocking because a regression in OUR
     # exporter / scraper / privacy redaction must stop a deploy, and a vendor refresh
