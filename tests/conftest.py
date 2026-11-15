@@ -102,6 +102,9 @@ os.environ.setdefault("SCRAPE_SCHEDULER_ENABLED", "0")
 # a test that wants the warm pass sets the server flag itself.  Pinned by
 # ``tests/infra/test_unit_suite_does_not_probe_production.py``.
 os.environ.setdefault("SLEEPER_OVERLAY_WARM_ENABLED", "0")
+# Post-publish public-section warm reads Sleeper (public snapshot) and runs the
+# live Monte Carlo; the suite opts in per test via the server module flag.
+os.environ.setdefault("PUBLIC_SECTIONS_WARM_ENABLED", "0")
 
 # ── Game Day live network feeds OFF for the suite ─────────────────────
 # ``game_day_live_game_state`` (ESPN scoreboard) and
