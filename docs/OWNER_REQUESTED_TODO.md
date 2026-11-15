@@ -73,6 +73,18 @@ Authorized in `docs/EXECUTION_PLAN.md` (same date) inside the same program and i
 | MD-72 | **Execute incrementally (Part 8).** Bounded high-value feature groups, highest-risk first, ≤ 4 workers with separate ownership; continue until done or genuinely blocked; no routine engineering choices sent back to the owner | IN PROGRESS |
 | MD-73 | **Honest, measurable progress (Part 9).** One verification record with the ten states; checkpoint reports with the ten measures and exact commits, PRs, tests, results and evidence paths; never claim the site fully tested without evidence | IN PROGRESS — CW-48 |
 
+## Added 2026-11-15 — Claude Code engineering execution directive
+
+Owner directive 2026-11-15 (chat, "ULTIMATE CLAUDE CODE ENGINEERING EXECUTION DIRECTIVE"). It restates the
+2026-11-08 unified directive as an execution order: deployment reliability first, then backend correctness,
+mathematics, data integrity, operations, documentation, and the research-only forecasting program. Same limits:
+frontend excluded (#2112, #2132, #2171 separately owned), at most 4 concurrent editing workers, owner-reserved
+decisions unchanged. No new denominator: priorities A to F map onto MD-97 … MD-117.
+
+| ID | Requirement | State |
+|---|---|---|
+| MD-118 | **Execution directive 2026-11-15 (priorities A–F, research section 7)** | IN PROGRESS — see the ledger checkpoint of 2026-11-15 |
+
 ## Added 2026-11-08 — Unified engineering, mathematics and forecasting research directive
 
 Owner directive 2026-11-08 (chat, third of the day). Structured record and priority map:

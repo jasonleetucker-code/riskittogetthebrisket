@@ -60,3 +60,22 @@ and passed exact-head PR Validation before merge.
 | 16 | MD-112 / OD-F4 package model | RESEARCH_COMPLETE: insufficient data locally | #2202 | least-squares q fit is biased low on synthetic truth; read q by moment fit; one read-only box run proposed |
 | — | MD-116 forecasting research | MERGED | #2174 `ad3e76b2b` | research only |
 | — | MD-117 owner decision briefs | MERGED | #2173 `efe8f951a` | `docs/owner/DECISION_BRIEFS_2026-11-08.md` |
+
+## Checkpoint 2026-11-15 (evening): execution directive MD-118
+
+Production serves `4fc4b2ac5` (deployed 2026-11-15 17:38Z). The deploys of `f51d7ea2f` and `bfdc3c0b1` failed on one
+board-dependent test, fixed by #2213; the next data refresh deploys #2211 to #2213. Every merged PR below was
+independently reviewed and passed exact-head PR Validation.
+
+| P | Work item | State | PR / SHA | Notes |
+|---|---|---|---|---|
+| 8 | MD-103 backup health v4 | VERIFIED_IN_PRODUCTION | #2183 `5884a3aa5` | `restoreProof.result: proven`; `irreplaceableLedgers.coverage: unverifiable` until the operator re-runs the installer |
+| 10, 11 | MD-113 TE basis, MD-108 pick evidence | MERGED (research) | #2200 `3a757c24a` | |
+| 14 | MD-101 property tests, real-roster fixture, skip budget 10 → 7 | MERGED, DEPLOYED | #2201 `7bb4ffd42` | |
+| 16 | MD-112 / OD-F4 package model | MERGED (research; insufficient data locally) | #2202 `ecb98b1e1` | read-only box run proposed |
+| 19 | MD-115 documentation convergence | MERGED | #2206 `bdaa94956` | inventory CODE-STATE notes; CLAUDE.md counts corrected |
+| 17, 18 | MD-103 / MD-114 public surface census; franchise memo; anonymous `?refresh=` ignored | MERGED, DEPLOYED | #2207 `bcfc9dfe6` | owner-id pseudonymization designed, not applied |
+| 4 | Hermetic board tests (pinned fixture, guards) | MERGED | #2208 `a686e1cf6`, #2209 `21b09ffe0`, #2212 `aa0b3a711`, #2213 `b547e4b7b`; #2214 (live-path guard) TESTED_IN_PR | deploy freezes came from tests reading the latest refresh |
+| 12 | MD-107 Monte Carlo `valueUncertainty: unavailable` | MERGED, DEPLOYED (`4fc4b2ac5`) | #2210 `4fc4b2ac5` | route needs sign-in; output not observed in production |
+| 5 | MD-112 / Part 9A NO TRANSACTION status-quo record | MERGED, deploy pending | #2211 `bfdc3c0b1` | best-alternative opportunity cost needs an owner ranking rule |
+| — | Records | MERGED | #2204 `bf25b3f4d` | |
