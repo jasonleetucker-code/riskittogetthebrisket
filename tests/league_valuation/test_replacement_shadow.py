@@ -32,7 +32,6 @@ from scripts.idp_accuracy.replacement_report import SolverPort  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 EVIDENCE = REPO / "docs/valuation/idp_accuracy/evidence/b_replacement_2026-10-25.json"
-CACHE = REPO / "data/idp_accuracy/cache"
 
 CFG = rs.load_config()
 PORT = SolverPort()
@@ -742,21 +741,23 @@ def test_evidence_consumers_were_only_read_never_flagged(evidence):
     assert ci["scarcityMultiplier"].startswith("inert")
 
 
-# ── the pinned real rosters (skipped when the gitignored cache is absent) ────
-
-needs_cache = pytest.mark.skipif(
-    not CACHE.exists() or not any(CACHE.glob("*.json")),
-    reason="pinned Sleeper cache (data/idp_accuracy/cache) not present",
-)
+# ── the pinned real rosters (a committed, trimmed public-data fixture) ───────
 
 
-@needs_cache
+def _pinned_fetcher():
+    from tests.idp_accuracy.pinned_cache import pinned_cache_dir
+
+    import scripts.idp_accuracy.replacement_report as rr
+
+    return rr.Fetcher(pinned_cache_dir(), offline=True)
+
+
 def test_real_rosters_engine_reproduces_sleepers_best_ball_and_scorer():
     import scripts.idp_accuracy.replacement_report as rr
     from src.api import league_registry
     from src.ros.lineup import resolve_starter_slots
 
-    sl = rr.load_sleeper(rr.Fetcher(offline=True))
+    sl = rr.load_sleeper(_pinned_fetcher())
     pts, check = rr.score_weeks(sl)
     assert check["playerWeeksCompared"] == check["exactWithin0.01"] > 3000
     records = rr.build_records(sl, pts, {}, rr.infer_team_weeks(sl, pts))
@@ -768,13 +769,12 @@ def test_real_rosters_engine_reproduces_sleepers_best_ball_and_scorer():
     assert bb["teamWeeks"] == 72 and bb["withinRounding0.02"] == 72
 
 
-@needs_cache
 def test_real_rosters_aggregate_invariants():
     import scripts.idp_accuracy.replacement_report as rr
     from src.api import league_registry
     from src.ros.lineup import resolve_starter_slots
 
-    sl = rr.load_sleeper(rr.Fetcher(offline=True))
+    sl = rr.load_sleeper(_pinned_fetcher())
     pts, _ = rr.score_weeks(sl)
     records = rr.build_records(sl, pts, {}, rr.infer_team_weeks(sl, pts))
     labels = rr.anonymous_team_labels(sl["rosters"])
