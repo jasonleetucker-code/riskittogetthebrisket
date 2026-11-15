@@ -240,9 +240,14 @@ def test_corrected_patch_keeps_idptc_value_direct_and_ktc_on_its_own_rank(raw, b
 
 def test_identity_csv_override_and_incumbent_threshold_change_nothing(raw, base, tmp_path):
     paths = {}
+    # Copy from the tree this build actually reads (the pinned board under
+    # ``pinned_board_inputs``), never ``audit.CSV_DIR`` -- that is today's
+    # CSVs/site_raw, so the "identity" override silently swapped in the latest
+    # KTC refresh and failed Deploy Production on 2026-11-15.
+    site_raw = dc._default_input_root() / "CSVs" / "site_raw"
     for key in audit.KTC_KEYS:
         dst = tmp_path / f"{key}.csv"
-        audit.write_mapped_csv(audit.CSV_DIR / f"{key}.csv", dst, lambda v: v)
+        audit.write_mapped_csv(site_raw / f"{key}.csv", dst, lambda v: v)
         paths[key] = dst
     before = (dict(dc._SOURCE_CSV_PATHS), dc._hampel_filter_per_player)
     same_csv = vr.build(raw, vr.csv_override_spec(paths))
@@ -276,7 +281,8 @@ def test_a_lower_floor_can_only_exclude_more(raw, base):
 
 
 def test_scale_population_decomposition_is_an_identity(base):
-    obs = audit.scale_population_observations(base, audit.vendor_player_values())
+    site_raw = dc._default_input_root() / "CSVs" / "site_raw"  # the pinned tree, as for base
+    obs = audit.scale_population_observations(base, audit.vendor_player_values(site_raw))
     offense = [o for o in obs if o["assetClass"] == "offense" and o.get("ratioPop")]
     assert offense
     for o in offense:
@@ -349,7 +355,7 @@ def test_c3_vote_is_never_below_hill_at_the_live_rank(raw):
 
 
 def test_dlf_join_probe_stamps_dlf_values_without_moving_the_board(raw, base):
-    if not (audit.REPO_ROOT / audit.DLF_VALUES_CSV_REL).exists():
+    if not (dc._default_input_root() / audit.DLF_VALUES_CSV_REL).exists():
         pytest.skip("no DLF Values CSV")
     before = dict(dc._SOURCE_CSV_PATHS)
     probe = vr.build(raw, audit.dlf_join_probe_spec())
