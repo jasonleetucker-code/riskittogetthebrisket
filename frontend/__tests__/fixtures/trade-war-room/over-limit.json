@@ -1320,6 +1320,75 @@
    "WR Buf Star enters the optimal lineup in 89% of simulated weeks"
   ],
   "recommendation": "MAKE",
+  "statusQuo": {
+   "actionSupported": false,
+   "baseline": {
+    "definition": "Declining moves no asset, adds no roster cut and leaves the lineup unchanged, so both decision components read exactly 0 against it.",
+    "forcedReleaseCost": 0,
+    "objectiveValue": 0,
+    "rosterBenefitPpg": 0
+   },
+   "decisionVersion": "trade_decision_v2",
+   "derivedFrom": {
+    "deciding": "evidenceGate",
+    "headline": "NOT_ENOUGH_EVIDENCE"
+   },
+   "evidence": {
+    "forcedRelease": {
+     "basis": "Declining adds no roster cut. A release owed before the trade is owed either way, so it is charged to neither option.",
+     "chargedToStatusQuo": 0,
+     "chargedToTrade": null,
+     "forcedDrops": [
+      "Ghost Player"
+     ],
+     "state": "overage_unchanged"
+    },
+    "missingEvidence": [
+     "forced_drop_unpriced"
+    ],
+    "objectiveValue": {
+     "evaluated": false,
+     "reason": "evidenceGate"
+    },
+    "posture": {
+     "postureLabel": "PUSH",
+     "reason": null,
+     "role": "selects_strategy_never_votes",
+     "state": "evaluated",
+     "strategySource": "posture",
+     "strategyUsed": "WIN_NOW",
+     "windowFit": 0.0
+    },
+    "rosterBenefit": {
+     "evaluated": false,
+     "reason": "evidenceGate"
+    }
+   },
+   "margin": {
+    "basis": "Distance past each component's own neutral band (the fairness band; the roster lens's neutral band), in that component's units.",
+    "crossComponent": null,
+    "crossComponentReason": "components_are_never_combined",
+    "deciding": "evidenceGate",
+    "objectiveValue": null,
+    "rosterBenefit": null
+   },
+   "opportunityCost": {
+    "comparedAlternatives": [
+     "NO_TRANSACTION"
+    ],
+    "coverageExclusionReason": "not_wired",
+    "reason": "no_owner_approved_alternative_ranking",
+    "state": "unavailable",
+    "text": "Whether a different trade would serve this team better is not evaluated; the only alternative compared is keeping the current roster."
+   },
+   "option": "NO_TRANSACTION",
+   "preferred": null,
+   "preferredOption": null,
+   "reason": "missing_evidence",
+   "state": "insufficient_evidence",
+   "text": "There is not enough evidence to say this trade beats keeping your current roster, so nothing here supports making it.",
+   "version": "status_quo_v1"
+  },
   "teamContext": {
    "applied": true,
    "mode": "team"

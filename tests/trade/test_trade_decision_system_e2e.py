@@ -24,9 +24,12 @@ interprets and never vetoes; no surface presents a model discrepancy as a
 probability of acceptance; picks are real, distinct assets; the same trade has
 the same package-model gap on every surface that claims that quantity.
 
-No surface offers a "do nothing" comparison on ``main`` (the decision's own
-coverage record says ``opportunity_cost`` is not wired); that absence is pinned
-rather than papered over.
+NO TRANSACTION is an explicit option (MD-112): every Analyze body (2-team and
+per team in the N-team route) carries ``analysis.statusQuo``, the decision's
+own comparison with doing nothing, and it is identical on both routes at N = 2.
+The best ALTERNATIVE trade is still not compared (the decision's coverage
+record keeps ``opportunity_cost`` not wired); that gap is pinned rather than
+papered over.
 """
 
 from __future__ import annotations
@@ -806,18 +809,89 @@ def test_finder_with_no_resolvable_counterparty_explains_itself(env):
 # ══ 8. No transaction, acceptance, and picks-in-engines boundaries ═════════
 
 
-def test_no_do_nothing_comparison_is_offered_and_the_gap_is_stated(env):
+def test_status_quo_is_stated_and_the_best_alternative_gap_is_stated(env):
     ana = env.trade("/api/trade/analyze", **SHAPES[0][1])
     cov = ana["analysis"]["decision"]["coverage"]
     records = cov if isinstance(cov, list) else cov.get("dimensions") or cov.get("records") or []
     opp = [r for r in records if r.get("dimension") == "opportunity_cost"]
     assert opp, "decision coverage must name opportunity cost"
     assert opp[0]["state"] == "unavailable" and opp[0]["exclusionReason"] == "not_wired"
+    # Doing nothing IS compared, by name; a different trade is not.
+    sq = ana["analysis"]["statusQuo"]
+    assert sq["option"] == "NO_TRANSACTION"
+    assert sq["opportunityCost"]["state"] == "unavailable"
+    assert sq["opportunityCost"]["comparedAlternatives"] == ["NO_TRANSACTION"]
     # An empty ledger is refused or neutral — never a recommendation to transact.
     res = env.post_raw("/api/trade/analyze", team="owner1", playersOut=[], playersIn=[])
     if res.status_code == 200:
         assert res.json()["analysis"]["decision"]["headline"] not in ("YES", "NO")
         assert res.json()["equity"] == 0
+
+
+# Hand-derived, asset-only (no roster lens, no forced cut): the headline is the
+# fairness band of the adjusted gap alone.  1v1 +400 / 5200 = 7.7% (slight),
+# 2v1 +1440 / 5500 = 26% and 1v2 +740 / 6740 = 11% are trades; 2picks
+# -1208 / 6408 = 18.9% is declining.  Half-width = max(250, 3.5% x larger U).
+_ASSET_ONLY_STATUS_QUO = {"1v1": False, "2v1": False, "1v2": False, "2picks": True}
+
+
+def _legs(body):
+    legs = [{"id": f"p:{_pid(n)}", "from": 1, "to": 2} for n in body.get("playersOut", [])]
+    legs += [{"id": a, "from": 1, "to": 2} for a in body.get("pickAssetIdsOut", [])]
+    legs += [{"id": f"p:{_pid(n)}", "from": 2, "to": 1} for n in body.get("playersIn", [])]
+    return legs
+
+
+@pytest.mark.parametrize(("label", "body", "send", "recv", "raw", "adj"), SHAPES)
+def test_status_quo_is_hand_derived_and_identical_on_both_routes(
+    env, label, body, send, recv, raw, adj
+):
+    two = env.trade("/api/trade/analyze", useTeamContext=False, **body)
+    multi = env.post(
+        "/api/trade/analyze-multi", teams=[1, 2], assets=_legs(body), useTeamContext=False
+    )
+    team1 = next(t for t in multi["teams"] if t["rosterId"] == 1)
+    sq = two["analysis"]["statusQuo"]
+    # N = 2 parity: the same record, byte for byte, on both routes.
+    assert team1["analysis"]["statusQuo"] == sq
+    assert sq["preferred"] is _ASSET_ONLY_STATUS_QUO[label]
+    assert sq["actionSupported"] is (not _ASSET_ONLY_STATUS_QUO[label])
+    m = sq["margin"]["objectiveValue"]
+    assert m["value"] == pytest.approx(adj, abs=1)
+    assert m["neutralBandHalfWidth"] == pytest.approx(max(250, 0.035 * max(U(send), U(recv))))
+    assert m["tradeClearance"] == pytest.approx(m["value"] - m["neutralBandHalfWidth"], abs=0.2)
+    # The counterparty reads its own mirror image of the same trade.
+    team2 = next(t for t in multi["teams"] if t["rosterId"] == 2)
+    m2 = team2["analysis"]["statusQuo"]["margin"]["objectiveValue"]
+    assert m2["value"] == pytest.approx(-adj, abs=1)
+    assert m2["statusQuoClearance"] == pytest.approx(m["tradeClearance"], abs=0.2)
+
+
+@pytest.mark.parametrize(("label", "body", "send", "recv", "raw", "adj"), SHAPES)
+def test_team_context_status_quo_matches_across_routes_and_never_favours_acting(
+    env, label, body, send, recv, raw, adj
+):
+    env.set_postures({1: "PUSH", 2: "REBUILD", 3: "HOLD"})
+    two = env.trade("/api/trade/analyze", **body)
+    multi = env.post("/api/trade/analyze-multi", teams=[1, 2], assets=_legs(body))
+    team1 = next(t for t in multi["teams"] if t["rosterId"] == 1)
+    sq = two["analysis"]["statusQuo"]
+    assert team1["analysis"]["statusQuo"] == sq
+    headline = two["analysis"]["decision"]["headline"]
+    assert (sq["preferred"] is False) == (headline == "YES")
+    if headline != "YES":
+        assert sq["preferred"] in (True, None) and sq["actionSupported"] is False
+    comp = two["analysis"]["decision"]["components"].get("objectiveValue")
+    if comp:
+        # A forced cut (Us is full: the 1-for-2 adds a player) is charged to the
+        # trade, never to declining, and the margin is measured net of it.
+        fr = sq["evidence"]["forcedRelease"]
+        assert fr["chargedToStatusQuo"] == 0
+        assert fr["chargedToTrade"] == comp["forcedReleaseCost"]
+        charged = comp["forcedReleaseCost"] or 0
+        assert sq["margin"]["objectiveValue"]["value"] == pytest.approx(adj - charged, abs=1)
+    if label == "1v2":
+        assert sq["evidence"]["forcedRelease"]["state"] == "cut_required"
 
 
 _ACCEPT = re.compile(r"accept|likel(y|ihood)|chance (they|he|she)|will (say|agree)", re.I)

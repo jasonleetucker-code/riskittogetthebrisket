@@ -835,6 +835,8 @@ class AnalyzeTradeResult:
     dimensions: list[DimensionResult]
     unavailable_dimensions: list[dict[str, str]]
     team_context: dict[str, Any]
+    #: NO TRANSACTION as a named comparator (``trade_decision.status_quo``).
+    status_quo: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         by_name = {d.name: d.to_dict() for d in self.dimensions}
@@ -843,6 +845,9 @@ class AnalyzeTradeResult:
             # The ONE top-line answer (src.trade.trade_decision).  The UI's
             # headline renders this and nothing else.
             "decision": self.decision,
+            # NO TRANSACTION, stated by name (MD-112): a projection of the
+            # decision above, never a second verdict.
+            "statusQuo": self.status_quo,
             # The graded leaning under the headline (v2 field, kept).
             "recommendation": self.recommendation,
             "confidence": self.confidence,
@@ -987,6 +992,15 @@ def analyze_trade(
         provenance={**(provenance or {}), "analyzeConfig": dict(cfg)},
         counterfactuals=counterfactuals,
     )
+    # The explicit status-quo option, from the decision's own components and
+    # thresholds (the owner projects it; nothing is decided here).
+    status_quo = trade_decision.status_quo(
+        decision,
+        market=market,
+        feasibility=feasibility,
+        posture=posture,
+        team_context=team_context,
+    )
 
     return AnalyzeTradeResult(
         decision=decision,
@@ -1002,4 +1016,5 @@ def analyze_trade(
             "applied": team_context,
             "mode": "team" if team_context else "asset_only",
         },
+        status_quo=status_quo,
     ).to_dict()

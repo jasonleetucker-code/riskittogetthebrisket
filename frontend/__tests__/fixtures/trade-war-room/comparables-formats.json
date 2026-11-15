@@ -1539,6 +1539,93 @@
    "Fits without a cut (2 open spots after)"
   ],
   "recommendation": "MAKE",
+  "statusQuo": {
+   "actionSupported": true,
+   "baseline": {
+    "definition": "Declining moves no asset, adds no roster cut and leaves the lineup unchanged, so both decision components read exactly 0 against it.",
+    "forcedReleaseCost": 0,
+    "objectiveValue": 0,
+    "rosterBenefitPpg": 0
+   },
+   "decisionVersion": "trade_decision_v2",
+   "derivedFrom": {
+    "deciding": "both",
+    "headline": "YES"
+   },
+   "evidence": {
+    "forcedRelease": {
+     "basis": "Declining adds no roster cut. A release owed before the trade is owed either way, so it is charged to neither option.",
+     "chargedToStatusQuo": 0,
+     "chargedToTrade": null,
+     "forcedDrops": [],
+     "state": "fits_cleanly"
+    },
+    "missingEvidence": [],
+    "objectiveValue": {
+     "bandLevel": "lopsided",
+     "direction": "favors",
+     "evaluated": true,
+     "forcedReleaseCost": null,
+     "magnitude": "large",
+     "netGap": 1440,
+     "vaAdjustedGap": 1440
+    },
+    "posture": {
+     "postureLabel": "PUSH",
+     "reason": null,
+     "role": "selects_strategy_never_votes",
+     "state": "evaluated",
+     "strategySource": "posture",
+     "strategyUsed": "WIN_NOW",
+     "windowFit": 0.0
+    },
+    "rosterBenefit": {
+     "direction": "favors",
+     "evaluated": true,
+     "magnitude": "modest",
+     "neutralBandPpg": 1.31,
+     "ppg": 1.52
+    }
+   },
+   "margin": {
+    "basis": "Distance past each component's own neutral band (the fairness band; the roster lens's neutral band), in that component's units.",
+    "crossComponent": null,
+    "crossComponentReason": "components_are_never_combined",
+    "deciding": "both",
+    "objectiveValue": {
+     "direction": "favors",
+     "neutralBandHalfWidth": 250.0,
+     "statusQuoClearance": -1690.0,
+     "tradeClearance": 1190.0,
+     "unit": "canonical value points (adjusted package)",
+     "value": 1440.0
+    },
+    "rosterBenefit": {
+     "direction": "favors",
+     "neutralBandHalfWidth": 1.31,
+     "statusQuoClearance": -2.83,
+     "tradeClearance": 0.21,
+     "unit": "best-ball ppg",
+     "value": 1.52
+    }
+   },
+   "opportunityCost": {
+    "comparedAlternatives": [
+     "NO_TRANSACTION"
+    ],
+    "coverageExclusionReason": "not_wired",
+    "reason": "no_owner_approved_alternative_ranking",
+    "state": "unavailable",
+    "text": "Whether a different trade would serve this team better is not evaluated; the only alternative compared is keeping the current roster."
+   },
+   "option": "NO_TRANSACTION",
+   "preferred": false,
+   "preferredOption": "TRADE",
+   "reason": "clears_decision_thresholds",
+   "state": "trade_beats_status_quo",
+   "text": "Making this trade beats keeping your current roster: it clears the decision thresholds.",
+   "version": "status_quo_v1"
+  },
   "teamContext": {
    "applied": true,
    "mode": "team"
