@@ -1,0 +1,72 @@
+{
+ "builds": [
+  {
+   "board": "dynasty_export_20260803_235610.zip",
+   "bytes_full": 13431963,
+   "code": "main",
+   "rows": 967,
+   "sha256_stripped": "eac642ec14dddb3228fa96fccb2f8abf0e27af9a4c5ca38e5ebbc76545e83ae6"
+  },
+  {
+   "board": "dynasty_export_20260803_235610.zip",
+   "bytes_full": 13431963,
+   "code": "branch",
+   "rows": 967,
+   "sha256_stripped": "eac642ec14dddb3228fa96fccb2f8abf0e27af9a4c5ca38e5ebbc76545e83ae6"
+  },
+  {
+   "board": "dynasty_export_20260826_211658.zip",
+   "bytes_full": 15168789,
+   "code": "main",
+   "rows": 1086,
+   "sha256_stripped": "6ad9007ce9bcf09fd87ceaba29d3b3cae0cbca52853ddd4790169ff7a9f70c22"
+  },
+  {
+   "board": "dynasty_export_20260826_211658.zip",
+   "bytes_full": 15168789,
+   "code": "branch",
+   "rows": 1086,
+   "sha256_stripped": "6ad9007ce9bcf09fd87ceaba29d3b3cae0cbca52853ddd4790169ff7a9f70c22"
+  },
+  {
+   "board": "dynasty_export_20260909_211525.zip",
+   "bytes_full": 17111464,
+   "code": "main",
+   "rows": 1067,
+   "sha256_stripped": "bd8ad286bc4b04663fce3b0249da53a65f7087eb9ff66e45a1b3b8b2023f7ab8"
+  },
+  {
+   "board": "dynasty_export_20260909_211525.zip",
+   "bytes_full": 17111464,
+   "code": "branch",
+   "rows": 1067,
+   "sha256_stripped": "bd8ad286bc4b04663fce3b0249da53a65f7087eb9ff66e45a1b3b8b2023f7ab8"
+  },
+  {
+   "board": "dynasty_export_20260930_130404.zip",
+   "bytes_full": 17337110,
+   "code": "main",
+   "rows": 1125,
+   "sha256_stripped": "6a37d904f1fdfe35084481f1d9f58569c4c0418f6852db3a503b02bfbaee2e8a"
+  },
+  {
+   "board": "dynasty_export_20260930_130404.zip",
+   "bytes_full": 17337110,
+   "code": "branch",
+   "rows": 1125,
+   "sha256_stripped": "6a37d904f1fdfe35084481f1d9f58569c4c0418f6852db3a503b02bfbaee2e8a"
+  }
+ ],
+ "codes": {
+  "branch": "bf6ef70e31",
+  "main": "00cdab7d5e"
+ },
+ "identical": {
+  "dynasty_export_20260803_235610.zip": true,
+  "dynasty_export_20260826_211658.zip": true,
+  "dynasty_export_20260909_211525.zip": true,
+  "dynasty_export_20260930_130404.zip": true
+ },
+ "note": "Every new flag OFF (release defaults). Branch code bf6ef70e31 vs origin/main 00cdab7d5e on the same materialized DEV tree; build clock fields stripped (generatedAt, mtime and peers).",
+ "schema": "oiv21-dev-flagoff/v1"
+}

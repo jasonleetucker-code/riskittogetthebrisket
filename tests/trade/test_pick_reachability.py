@@ -50,6 +50,9 @@ import inspect
 from pathlib import Path
 
 from src.trade import finder
+import pytest
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _finder_source() -> str:
@@ -99,7 +102,7 @@ def test_an_owned_pick_never_reaches_a_returned_trade():
     and its per-market top-150 filter are calibrated for the live scale, and a
     hand-built pool either fails them or has to be tuned until it passes, at
     which point it is testing the tuning.  So this runs the finder over the
-    newest COMPLETE archived scrape (``tests/archive_fixtures``) — deterministic,
+    PINNED complete archived scrape (``tests/archive_fixtures``) — deterministic,
     tracked, and it SKIPS rather than passing vacuously when no complete bundle
     exists.
 
@@ -111,9 +114,9 @@ def test_an_owned_pick_never_reaches_a_returned_trade():
     import pytest
 
     from src.api.data_contract import build_api_data_contract
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    raw, label = newest_complete_raw_payload()
+    raw, label = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available")
 

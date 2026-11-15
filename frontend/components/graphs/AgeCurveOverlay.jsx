@@ -73,7 +73,7 @@ export default function AgeCurveOverlay({
 }) {
   const curvesByPos = positions.map((pos, i) => ({
     pos,
-    color: categoricalColor(i),
+    color: categoricalColor(i, { count: positions.length }),
     curve: ageCurveFor(boardRows, pos, ageLo, ageHi),
     roster: (rosterRows || []).filter(
       (r) =>

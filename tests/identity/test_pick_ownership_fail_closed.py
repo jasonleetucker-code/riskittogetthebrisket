@@ -363,17 +363,29 @@ def _strength_rows() -> list[dict[str, Any]]:
     ]
 
 
+def _season_sim() -> dict[str, Any]:
+    """A season simulation under the draft-order rule: o2 finishes worst."""
+    return {
+        "season": 2026,
+        "draftOrderRule": "reverse_record_lower_pf",
+        "playoffOdds": [
+            {"ownerId": "o1", "draftSlotDistribution": [0.1, 0.9]},
+            {"ownerId": "o2", "draftSlotDistribution": [0.9, 0.1]},
+        ],
+    }
+
+
 def test_pick_projector_refuses_unknown_ownership_instead_of_zero_picks():
     from src.ros.pick_projection import build_pick_projections
 
     out = build_pick_projections(
-        [_unknown_team(1), _unknown_team(2)], _strength_rows(), current_season=2026
+        [_unknown_team(1), _unknown_team(2)], _season_sim(), current_season=2026
     )
     assert out["picks"] is None
     assert out["meta"]["pickOwnershipState"] == "unavailable"
     assert out["meta"]["pickOwnershipReason"] == "traded_picks_fetch_failed"
     assert out["meta"]["unprojectablePicks"] is None
-    # the order depends on strength, not ownership — still served
+    # the order depends on the simulation, not ownership — still served
     assert [r["rosterId"] for r in out["projectedOrder"]] == [2, 1]
 
 
@@ -381,7 +393,7 @@ def test_pick_projector_observed_state_still_projects():
     from src.ros.pick_projection import build_pick_projections
 
     teams = _overlay_teams([])
-    out = build_pick_projections(teams, _strength_rows(), current_season=2026)
+    out = build_pick_projections(teams, _season_sim(), current_season=2026)
     assert out["picks"], "observed ownership projects future picks"
     assert out["meta"]["pickOwnershipState"] == "observed"
 
@@ -392,7 +404,7 @@ def test_ros_route_marks_unknown_ownership(monkeypatch):
 
     from src.ros import api as ros_api
 
-    monkeypatch.setattr(ros_api, "load_or_compute_team_strength", lambda _k: _strength_rows())
+    monkeypatch.setattr("src.ros.playoff_sim._load_cached_payload", lambda key=None: _season_sim())
     monkeypatch.setattr(
         "src.api.league_registry.get_league_by_key",
         lambda _k: types.SimpleNamespace(key="lk", sleeper_league_id=LEAGUE_ID),

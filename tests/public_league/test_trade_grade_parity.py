@@ -52,6 +52,7 @@ from pathlib import Path
 from typing import Any
 
 from src.public_league import activity, trade_grading
+from src.valuation_math import package_model
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PATH = REPO_ROOT / "tests" / "fixtures" / "trade_grade_parity_cases.json"
@@ -205,7 +206,13 @@ class PublicFeedUsesTheCanonicalGrade(unittest.TestCase):
 
 
 class VaEngineParity(unittest.TestCase):
-    """The KTC value adjustment, against keeptradecut.com's own numbers."""
+    """The KTC ROLLBACK package model, against keeptradecut.com's own numbers.
+
+    ``vaEngineCases`` are real keeptradecut.com captures — external ground
+    truth for KTC's ``adjustPackage``, not for whichever model is active.
+    Since the owner promoted ``geom_q078_v1`` (2026-10-17) these pin the
+    retained KTC rollback model, selected explicitly.
+    """
 
     def test_va_engine_cases(self) -> None:
         block = FIXTURE["vaEngineCases"]
@@ -215,6 +222,7 @@ class VaEngineParity(unittest.TestCase):
                 got = trade_grading.trade_va_net(
                     trade_grading.sanitize_side_values(case["got"]),
                     trade_grading.sanitize_side_values(case["gave"]),
+                    model_id=package_model.KTC_2026_04,
                 )
                 self.assertLessEqual(
                     abs(got - float(case["vaNet"])),
@@ -225,11 +233,36 @@ class VaEngineParity(unittest.TestCase):
     def test_va_is_antisymmetric(self) -> None:
         # Swapping got and gave has to flip the sign, or a two-team
         # trade would grade both sides as winners.
+        # Holds for the ACTIVE model and the KTC rollback model alike.
+        for model_id in (None, package_model.KTC_2026_04):
+            for case in FIXTURE["vaEngineCases"]["cases"]:
+                with self.subTest(case=case["id"], model=model_id):
+                    forward = trade_grading.trade_va_net(
+                        case["got"], case["gave"], model_id=model_id
+                    )
+                    reverse = trade_grading.trade_va_net(
+                        case["gave"], case["got"], model_id=model_id
+                    )
+                    self.assertAlmostEqual(forward, -reverse, places=9)
+
+    def test_default_is_the_active_package_model(self) -> None:
+        # The default dispatch is the ACTIVE model, and the explicit
+        # model selector only passes through to the canonical owner.
         for case in FIXTURE["vaEngineCases"]["cases"]:
+            got = trade_grading.sanitize_side_values(case["got"])
+            gave = trade_grading.sanitize_side_values(case["gave"])
+            value, side, displayed = package_model.adjust_pair(got, gave)
+            expected = (
+                0.0
+                if not displayed or value <= 0
+                else (float(value) if side == 1 else -float(value))
+            )
             with self.subTest(case=case["id"]):
-                forward = trade_grading.trade_va_net(case["got"], case["gave"])
-                reverse = trade_grading.trade_va_net(case["gave"], case["got"])
-                self.assertAlmostEqual(forward, -reverse, places=9)
+                self.assertEqual(trade_grading.trade_va_net(got, gave), expected)
+                self.assertEqual(
+                    trade_grading.trade_va_net(got, gave, model_id=package_model.active_model_id()),
+                    expected,
+                )
 
 
 if __name__ == "__main__":  # pragma: no cover

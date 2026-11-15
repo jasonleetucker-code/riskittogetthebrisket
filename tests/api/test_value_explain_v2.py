@@ -1,6 +1,6 @@
 """``value-explain/v2`` (#1555 Batch 2 Lane 6): clocks, freshness treatment,
 exclusion reasons, the estimator, honest attribution and a non-additive
-leave-one-out -- built on the newest complete archived scrape (no network).
+leave-one-out -- built on the pinned complete archived scrape (no network).
 """
 
 from __future__ import annotations
@@ -11,12 +11,14 @@ import pytest
 
 from src.api import value_replay as vr
 from src.api.source_weighting_explain import EXPLAIN_VERSION, player_explain
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 @pytest.fixture(scope="module")
 def contract():
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     return vr.build(json.loads(json.dumps(payload)))

@@ -139,6 +139,23 @@ def _extract_player_position(player_obj: Any) -> str:
     return ""
 
 
+def _extract_player_team(player_obj: Any) -> str:
+    """The NFL team FantasyCalc publishes for an entry (``""`` when none).
+
+    Read from recognised keys only (``player.maybeTeam`` / ``team``); an
+    absent key is no evidence, never a guess."""
+    if not isinstance(player_obj, dict):
+        return ""
+    nested = player_obj.get("player")
+    for obj in (nested, player_obj):
+        if isinstance(obj, dict):
+            for key in ("maybeTeam", "team"):
+                val = obj.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val.strip().upper()
+    return ""
+
+
 def _parse_players(data: Any) -> list[dict[str, Any]]:
     """Extract (name, value) from a FantasyCalc API response.
 
@@ -166,10 +183,15 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
             continue
         if value_int <= 0:
             continue
+        # V2.1 U3 identity evidence: the position and team the vendor
+        # published for this row (blank when it did not).  Written as trailing
+        # CSV columns; nothing that ranks or values reads them.
         out.append(
             {
                 "name": name,
                 "value": value_int,
+                "position": pos,
+                "team": _extract_player_team(entry),
             }
         )
     # Sort descending by value so the CSV reads naturally and the
@@ -185,7 +207,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     # as scripts/fetch_otcffb.py).  ``rows`` arrive value-sorted
     # descending from ``_parse_players``.
     path.parent.mkdir(parents=True, exist_ok=True)
-    fields = ["name", "value", "rank"]
+    fields = ["name", "value", "rank", "position", "team"]
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
@@ -200,6 +222,8 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
                     "name": row["name"],
                     "value": row["value"],
                     "rank": rank,
+                    "position": row.get("position", ""),
+                    "team": row.get("team", ""),
                 }
             )
 

@@ -25,7 +25,9 @@ import pytest
 
 from src.api import data_contract as dc
 from src.api import value_replay as vr
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _PINNED_CONTEXT = {"roster_count": 12, "bonus_rec_te": 0.0, "fetched_from_sleeper": False}
 
@@ -39,7 +41,7 @@ def raw():
 
     mp.setattr(socket.socket, "connect", refuse)
     mp.setattr(dc, "_resolve_league_context", lambda *_a, **_k: dict(_PINNED_CONTEXT))
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         mp.undo()
         pytest.skip("no complete archived scrape")

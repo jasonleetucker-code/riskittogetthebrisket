@@ -311,7 +311,11 @@ def owned_pick_forecasts(
         draft_year = int(sim_payload.get("season")) + 1
     except (TypeError, ValueError):
         return {}
-    rows = [r for r in sim_payload.get("playoffOdds") or [] if isinstance(r, Mapping)]
+    from src.ros.playoff_sim import draft_slot_rows  # noqa: PLC0415
+
+    # The playoff rows, or the regular-season rows when only qualifying was
+    # refused — the draft order follows the regular-season record alone.
+    rows = draft_slot_rows(dict(sim_payload))
     teams = ((contract or {}).get("sleeper") or {}).get("teams") or []
     rid_by_owner: dict[str, int] = {}
     for t in teams:

@@ -1,0 +1,24 @@
+{
+  "_comment": "Owner-approval record for the SCHEDULE source behind automatic NBA / NHL DFS slates (DFS-AUTO-19, ADR-DFS-025). NBA and NHL automatic slates are built only when their entry is 'approved' WITH approvedOn (YYYY-MM-DD) and evidence (where the owner's decision is recorded); anything else fails closed and /dfs says 'awaiting owner approval of the schedule source'. NFL automatic slates do not read this file. The pending decision is cross-referenced in docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md. To approve: set approval to 'approved', fill approvedOn and evidence, deploy. Read by src/dfs/auto/approval.py.",
+  "schemaVersion": 1,
+  "sports": {
+    "nba": {
+      "scheduleSource": "espn_scoreboard",
+      "scheduleSourceUrl": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
+      "approval": "pending_owner_decision",
+      "approvedOn": null,
+      "evidence": null,
+      "question": "Does the owner's 2026-09-25 ESPN access attestation cover reading ESPN's public NBA scoreboard for DFS slate start times / lock? (Used today only for NFL live state, injuries and depth charts.)",
+      "decisionRecord": "docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md"
+    },
+    "nhl": {
+      "scheduleSource": "espn_scoreboard",
+      "scheduleSourceUrl": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard",
+      "approval": "pending_owner_decision",
+      "approvedOn": null,
+      "evidence": null,
+      "question": "Does the owner's 2026-09-25 ESPN access attestation cover reading ESPN's public NHL scoreboard for DFS slate start times / lock? (Used today only for NFL live state, injuries and depth charts.)",
+      "decisionRecord": "docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md"
+    }
+  }
+}

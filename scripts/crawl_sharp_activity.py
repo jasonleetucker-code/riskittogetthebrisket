@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any, Sequence
@@ -22,8 +23,12 @@ if str(REPO_ROOT) not in sys.path:
 
 from src.intel import platform_ledger  # noqa: E402
 from src.intel import service as intel_service  # noqa: E402
+from src.intel import store as intel_store  # noqa: E402
 from src.sharp import cohort as sharp_cohort  # noqa: E402
+from src.sharp import pass_coverage  # noqa: E402
 from src.sharp import score as sharp_score  # noqa: E402
+
+log = logging.getLogger("crawl_sharp_activity")
 
 DEFAULT_LEAGUE_KEY = "sharp-tracker"
 DEFAULT_BUDGET = 2_500
@@ -74,6 +79,21 @@ def run_activity_crawl(
     before = platform_ledger.platform_coverage().get("sleeper") or {}
 
     if not selected:
+        # Nothing eligible: a measured zero, reported through the same block as
+        # every other run so an empty cohort is not a missing report.
+        try:
+            empty = pass_coverage.build_activity_coverage(
+                eligible_managers=0,
+                selected_managers=0,
+                call_budget=max(1, int(budget)),
+                refresh=None,
+                state=None,
+                breaker_refused_calls=None,
+            )
+            pass_coverage.log_pass_summary(log, empty)
+        except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+            log.warning("activity crawl: could not build pass coverage", exc_info=True)
+            empty = None
         return {
             "status": "cohort_building",
             "message": "No Sleeper manager has cleared Sharp Score v2 yet; no activity crawl ran.",
@@ -81,15 +101,45 @@ def run_activity_crawl(
             "selectedManagers": 0,
             "coverageBefore": before,
             "coverageAfter": before,
+            "stoppedReason": None if empty is None else empty["stoppedReason"],
+            "passCoverage": empty,
         }
 
+    call_budget = max(1, int(budget))
+    breaker_before = pass_coverage.sleeper_breaker_fast_fails()
     refresh = intel_service.refresh_intel(
         member_ids=selected,
         league_key=league_key,
-        budget=max(1, int(budget)),
+        budget=call_budget,
         sleep_s=max(0.0, float(sleep_seconds)),
     )
+    breaker_refused = pass_coverage.breaker_refusals(
+        breaker_before, pass_coverage.sleeper_breaker_fast_fails()
+    )
     after = platform_ledger.platform_coverage().get("sleeper") or {}
+
+    # Reporting only: where the crawl stands, read back from the snapshot the
+    # refresh just persisted.  A snapshot that cannot be read leaves the
+    # figures that need it ``null`` rather than guessed.
+    try:
+        state = intel_store.load_state(league_key)
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        log.warning("activity crawl: could not read the intel snapshot", exc_info=True)
+        state = None
+    try:
+        coverage = pass_coverage.build_activity_coverage(
+            eligible_managers=len(manager_ids),
+            selected_managers=len(selected),
+            call_budget=call_budget,
+            refresh=refresh,
+            state=state,
+            breaker_refused_calls=breaker_refused,
+        )
+        pass_coverage.log_pass_summary(log, coverage)
+    except Exception:  # noqa: BLE001 -- reporting must never fail the crawl
+        # The refresh already ran and persisted; the coverage fields stay ``null``.
+        log.warning("activity crawl: could not build pass coverage", exc_info=True)
+        coverage = None
     return {
         "status": "success",
         "cohort": cohort,
@@ -98,6 +148,8 @@ def run_activity_crawl(
         "coverageBefore": before,
         "coverageAfter": after,
         "refresh": refresh,
+        "stoppedReason": None if coverage is None else coverage["stoppedReason"],
+        "passCoverage": coverage,
     }
 
 
@@ -117,6 +169,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    # Same logging setup as the other three passes, so the one-line coverage
+    # summary (WARNING when the run stopped short) reaches the journal.
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     if args.stats:
         _ids, cohort = qualified_sleeper_ids()
         payload = {

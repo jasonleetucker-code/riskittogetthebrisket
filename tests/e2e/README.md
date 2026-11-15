@@ -42,6 +42,17 @@ if anything is missing it tells you exactly what to fix.  `npm run e2e`:
 npm run e2e:report                # open the HTML report afterwards
 ```
 
+For a bounded machine-readable record of the same deterministic assertions,
+set `E2E_JOURNEY_EVIDENCE=1` before the run. The configured reporters still
+include the stack-death and flaky-test guards. The extra reporter writes
+`tests/e2e/playwright-report/journey-evidence.json` with per-test spec, project,
+outcome, retry count, duration and artifact-presence flags. It stores only the
+API and page origins, never URL paths, credentials, raw errors, DOM content or
+attachment paths. The report is ignored by Git. The existing E2E workflow
+enables it and includes it in the 14-day Playwright report artifact. A green
+outcome proves the selected assertions against that run's target, not an
+unmerged branch in production.
+
 ### Why `npm ci` and not `npm install`
 
 Both lockfiles are committed.  `npm ci` installs exactly what they
@@ -94,6 +105,19 @@ E2E_BASE_URL=http://127.0.0.1:8000 npm run e2e
 webkit `mobile-390` / `mobile-430` projects, which need
 `npx playwright install webkit`, and enforces pixel snapshots).
 
+**WebKit (iPhone) coverage.** `mobile-390` (iPhone 13) and `mobile-430`
+(iPhone 14 Pro Max) are real WebKit.  The E2E Safety Net workflow installs
+WebKit and runs `mobile-390` after the Chromium projects, in the same job and
+stack.  Locally: `npx playwright install webkit` (on a bare Linux box also
+`npx playwright install-deps webkit`), then
+`npx playwright test -c tests/e2e/playwright.config.js --project=mobile-390 --ignore-snapshots`.
+Measured 2026-10-28 on both phones: 145 passed / 55 skipped / 0 failed
+(skips are the desktop-only journeys, the visual-regression specs under
+`SKIP_VISUAL_REGRESSION=1`, and the real-OCR specs).  Page-error guards must
+use `isNavigationAbortedFetch` (helpers/journey.js): WebKit reports a fetch
+that a navigation cancelled as an uncaught "Fetch API cannot load ... due to
+access control checks" TypeError, which Chromium does not.
+
 ### Env vars the suite understands
 
 | Var | Effect |
@@ -106,6 +130,7 @@ webkit `mobile-390` / `mobile-430` projects, which need
 | `E2E_FRONTEND_CMD` | Override the frontend `webServer` command (default: production build + start) |
 | `E2E_CHROMIUM_PATH` | Launch a pre-installed Chromium binary instead of the revision-pinned download (sandboxes / air-gapped runners) |
 | `SKIP_VISUAL_REGRESSION=1` | Skip the two visual-regression specs entirely |
+| `E2E_ADVISOR_E2E=1` | Register the Brisket Trade Advisor flows that need a stack SERVING the advisor (`league-trade-advisor.spec.js` beyond "landing", all of `advisor-e2e-keyboard-a11y.spec.js`).  Unset, they are not registered at all — never skipped — because no CI stack can serve the advisor: its launch gate needs owner-reserved inputs.  Set, a stack that does not serve the advisor FAILS them.  Serve it only from a throwaway local process (flag on, gate opened in-process), never a committed config change |
 
 ## Spec inventory
 

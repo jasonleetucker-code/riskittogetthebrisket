@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 18,
+  "closed": 24,
   "needs_review": 2,
-  "closed": 22,
+  "open": 16,
   "deferred": 1
  },
  "findings": [
@@ -18,13 +18,13 @@
    "auditId": "D-1",
    "path": "frontend/lib/draft-logic.js",
    "signature": "Math.min(theoreticalMaxBid, winByCompetitor)",
-   "status": "open",
-   "verifiedBy": "Read the clamp: it caps against the richest RIVAL only. Neither myRemaining nor mySlotsRemaining appears in either figure.",
-   "closedBy": null,
+   "status": "closed",
+   "verifiedBy": "CLOSED 2026-11-06 by PR #2074 (re-verified W10-F001). Read computeDraftStats: myWinningBid is now Math.min(theoreticalMaxBid, winByCompetitor, myRemaining), and myMaxBid, bayesianWinningBid and enforceUpTo are capped by myRemaining too; theoreticalMaxBid stays uncapped, is shown only as the labelled 'Theoretical max', and budgetCapped says when the cap bit. bidStatus reads the capped bid, so an unaffordable lot is Pass. Pinned by frontend/__tests__/draft-bid-budget-invariant.test.js. The roster-SLOTS half is retired by design: the rookie draft has no per-team slot limit (CLAUDE.md, Perfect Draft; mySlotsRemaining and slotPressure were deleted). The needle is the old two-argument clamp, so it reappearing means the budget cap was removed.",
+   "closedBy": "PR #2074 (claude/draft-maxbid-and-class-retirement)",
    "measuredEffect": null,
-   "batch": null,
+   "batch": "sitewide-remediation-2026-11-06 / CW-38",
    "probe": {
-    "result": "signature_present",
+    "result": "signature_absent",
     "path": "frontend/lib/draft-logic.js",
     "needle": "Math.min(theoreticalMaxBid, winByCompetitor)"
    }
@@ -95,16 +95,16 @@
    "auditEvidence": "GIVE convention \u2014 frontend/lib/trade-logic.js:1392-1393 `const value = ...effectiveValue(asset...); result[i].given += value;` then `result[dest].received += value`; frontend/app/trade/trade-sections.jsx:808 `<div className={styles.sideGroupLabel}>Giving</div>` over `side.assets`; frontend/components/graphs/MultiTradeFlow.jsx:80 \"Each side appears once on the left (giver)\"; frontend/app/trade/page",
    "auditId": "T-1",
    "path": "frontend/lib/trade-logic.js",
-   "signature": "result[i].given += value",
+   "signature": "given: t.sendAdj,",
    "status": "open",
-   "verifiedBy": "The GIVE convention is live at :1393 while the verdict names the bigger pile the winner. Both conventions still present.",
+   "verifiedBy": "The GIVE convention is live at :1393 while the verdict names the bigger pile the winner. Both conventions still present. Re-pointed 2026-10-20 (PR #1883): computeSideFlows now reads each team from perTeamPackageTotals, and the GIVE convention lives on as `given: t.sendAdj` (what the side SENDS); the old `result[i].given += value` accumulator is gone, not the convention. Status unchanged \u2014 nothing here decided the direction question.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
     "path": "frontend/lib/trade-logic.js",
-    "needle": "result[i].given += value"
+    "needle": "given: t.sendAdj,"
    }
   },
   {
@@ -486,13 +486,13 @@
    "auditId": "T-9",
    "path": "src/trade/suggestions.py",
    "signature": "analyze_roster(roster_names, pool",
-   "status": "open",
-   "verifiedBy": "Still called with a name list the pool can only partly resolve.\n\nSIGNATURE RESPELLED 2026-08-19 (C3-CON-01), STATUS DELIBERATELY UNCHANGED. The call site gained a `constraints=` keyword when the recommendation-constraint owner was wired in, so the old needle `analyze_roster(roster_names, pool, starter_needs)` stopped matching and the probe flipped to signature_absent. That is the case this module's own docstring warns about: an absent signature means the cited MECHANISM changed, not that the defect is fixed. It is not fixed \u2014 C3-CON-01 decides which resolved assets may be OFFERED and does nothing whatever about resolution, which is what T-9 is about. The needle is respelled to the part that IS the defect (the name list reaching `analyze_roster`) rather than to the full argument list, so a further keyword cannot flip it again and invite a second close-on-a-respelling.",
+   "status": "closed",
+   "verifiedBy": "CLOSED 2026-10-14 (trade-discovery Batch 1, claude/trade-constraints-lock-exclude). The roster is now analysed against the WHOLE priced board (`analysis_pool = roster_pool`, built with `ktc_top_n=0` by the route), not the top-150 quality pool that only gates what may be proposed. Measured on the 2026-10-14 archive board: roster visibility 86-97% per team (was 3-36% against the top-150 pool); teams with zero suggestions 10 -> 4 of 12, each with a named `noResultReason`. The remaining 3-14% are players with no board price at all and are published by name in `metadata.rosterUnpriced` rather than dropped. Tripwire: the needle is the retired call shape \u2014 passing the top-N `pool` to `analyze_roster` again would re-open T-9.\n\nHistory: respelled 2026-08-19 (C3-CON-01) while still open; the C3-CON-01 constraints keyword decided what may be OFFERED and did nothing about resolution.",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
-    "result": "signature_present",
+    "result": "signature_absent",
     "path": "src/trade/suggestions.py",
     "needle": "analyze_roster(roster_names, pool"
    }

@@ -1,0 +1,49 @@
+name: Scrape Source Lifecycle Proof (read-only)
+
+# The proof script runs on production over SSH. Only its allowlisted JSON
+# result crosses the SSH channel; raw telemetry stays on the production box.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Checkout proof code without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+      - name: Prove a recent source lifecycle without transferring raw telemetry
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat scripts/scrape_source_lifecycle_proof.py | ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") python3 - --production"

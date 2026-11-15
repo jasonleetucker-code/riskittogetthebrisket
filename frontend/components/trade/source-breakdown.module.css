@@ -1,0 +1,47 @@
+/* Second Opinions per-source table — layout only (owner directive 2026-10-19:
+   Second Opinions stays easy to scan on a phone). PSI Direction A: a ruled
+   table, no cards, tokens only, the canonical 768 breakpoint.
+
+   The opinion (Leader + Margin) must be visible without panning at 1366, 390
+   and 375. Measured before this file: the table was 844 px in a 684 px box at
+   1366 and 831 px in 303-318 px on a phone, so every row's opinion sat past
+   the visible edge. What made it wide: a no-wrap coverage line under each
+   source name and a "raw … + VA …" line under every side total. The coverage
+   line now wraps, the raw / VA breakdown lives in the row's expanded detail,
+   and on a phone the side totals move there too. */
+
+/* Selectors carry one extra element so they outrank the legacy
+   `.source-breakdown-table thead th` / `tbody td` rules in globals.css. */
+.meta {
+  display: block;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-regular);
+  white-space: normal;
+}
+
+/* The expanded detail never adds to the table's intrinsic width: it fills the
+   row's width and any wide asset table scrolls inside it. */
+.detailWrap {
+  contain: inline-size;
+}
+
+@media (max-width: 768px) {
+  /* Side totals move to the expanded row; Source, Leader and Margin stay. */
+  .sideCol {
+    display: none;
+  }
+  .table thead tr th,
+  .table tbody tr td {
+    padding: var(--space-1) var(--space-2);
+    white-space: normal;
+  }
+  /* The opinion column takes only what "Side A (est.)" / "Unavailable" need
+     (it wraps), leaving the width to the source name and its notes. */
+  .table tbody tr td[data-opinion="leader"] {
+    width: 6rem;
+  }
+  .detailWrap table th,
+  .detailWrap table td {
+    white-space: normal;
+  }
+}

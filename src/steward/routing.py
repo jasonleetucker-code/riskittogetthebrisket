@@ -4,13 +4,27 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import math
+import re
+from statistics import median
 
 PROFILES = ("ROUTINE", "STANDARD", "COMPLEX", "CRITICAL")
 METRICS = (
     "input_tokens",
     "output_tokens",
     "cached_tokens",
+    "context_tokens",
+    "context_bytes",
+    "repository_docs_selected",
+    "mandatory_docs_selected",
+    "task_docs_selected",
     "duration_ms",
+    "tool_calls",
+    "tool_definitions_exposed",
+    "tool_definitions_used",
+    "tool_definition_tokens",
+    "compaction_events",
+    "subagent_summary_bytes",
+    "final_evidence_refs",
     "cost_usd",
     "allowance_consumed",
     "retries",
@@ -120,36 +134,155 @@ def measured(receipt: dict, **metrics) -> dict:
 
 
 def retrospective(receipts: list[dict]) -> dict:
-    """Compare like task classes; unknown results are not successful runs."""
+    """Summarize comparable, evidenced executions without changing routing policy."""
     groups = {}
     for row in receipts:
-        key = (row["task_class"], row["profile"])
+        key = (row["task_class"], row["profile"], row.get("model"), row.get("reasoning"))
         groups.setdefault(key, []).append(row)
-    proposals = []
-    for (kind, profile), rows in sorted(groups.items()):
-        accepted = sum(row.get("acceptance") is True for row in rows)
-        rejected = sum(row.get("acceptance") is False for row in rows)
-        costs = [
-            row["metrics"]["cost_usd"] for row in rows if row["metrics"]["cost_usd"] is not None
+    cards = []
+    for (kind, profile, model, reasoning), rows in sorted(
+        groups.items(), key=lambda item: tuple(str(value) for value in item[0])
+    ):
+        executed = [row for row in rows if row.get("execution") == "EXECUTED"]
+        evaluated = [
+            row
+            for row in executed
+            if type(row.get("acceptance")) is bool
+            and row.get("acceptance_evidence") == "VERIFIED_AGAINST_ARTIFACT"
+            and row.get("eval_case_id")
+            and isinstance(row.get("repo_head_end"), str)
+            and re.fullmatch(r"[0-9a-f]{40}", row["repo_head_end"])
         ]
-        proposals.append(
+        accepted_rows = [row for row in evaluated if row["acceptance"] is True]
+        accepted = len(accepted_rows)
+        rejected = len(evaluated) - accepted
+        costs = [
+            row["metrics"]["cost_usd"]
+            for row in evaluated
+            if row.get("metrics", {}).get("cost_usd") is not None
+        ]
+        latencies = [
+            row.get("metrics", {}).get("duration_ms")
+            for row in evaluated
+            if row.get("metrics", {}).get("duration_ms") is not None
+        ]
+        accepted_costs = [
+            row["metrics"]["cost_usd"]
+            for row in accepted_rows
+            if row.get("metrics", {}).get("cost_usd") is not None
+        ]
+        accepted_tokens = [
+            row["metrics"]["input_tokens"] + row["metrics"]["output_tokens"]
+            for row in accepted_rows
+            if row.get("metrics", {}).get("input_tokens") is not None
+            and row.get("metrics", {}).get("output_tokens") is not None
+        ]
+        accepted_retries = [
+            row["metrics"]["retries"]
+            for row in accepted_rows
+            if row.get("metrics", {}).get("retries") is not None
+        ]
+        first_pass = [
+            row["acceptance"] and row["first_pass"]
+            for row in evaluated
+            if type(row.get("first_pass")) is bool
+        ]
+        corrections = [
+            row["metrics"]["reviewer_corrections"]
+            for row in evaluated
+            if row.get("metrics", {}).get("reviewer_corrections") is not None
+        ]
+        false_completions = [
+            row["false_completion"]
+            for row in evaluated
+            if type(row.get("false_completion")) is bool
+        ]
+        coverage_metrics = (
+            "context_tokens",
+            "context_bytes",
+            "repository_docs_selected",
+            "mandatory_docs_selected",
+            "task_docs_selected",
+            "tool_calls",
+            "tool_definitions_exposed",
+            "tool_definitions_used",
+            "tool_definition_tokens",
+            "compaction_events",
+            "subagent_summary_bytes",
+            "final_evidence_refs",
+        )
+        status = (
+            "NO_EXECUTION_EVIDENCE"
+            if not executed
+            else "INSUFFICIENT_EVIDENCE"
+            if len(evaluated) < 5
+            else "CHALLENGER_CANDIDATE"
+        )
+        proposal = None
+        if status == "CHALLENGER_CANDIDATE":
+            proposal = (
+                "evaluate stronger/context challenger"
+                if rejected / len(evaluated) > 0.2
+                else "evaluate cheaper challenger"
+                if len(accepted_costs) >= 3 and len(costs) == len(evaluated)
+                else "collect measured cost before cheaper challenger"
+            )
+        cards.append(
             {
                 "task_class": kind,
                 "profile": profile,
+                "model": model,
+                "reasoning": reasoning,
                 "runs": len(rows),
+                "executed": len(executed),
+                "evaluated": len(evaluated),
                 "accepted": accepted,
                 "rejected": rejected,
-                "unknown": len(rows) - accepted - rejected,
+                "unknown": len(rows) - len(evaluated),
+                "acceptance_rate": accepted / len(evaluated) if evaluated else None,
+                "first_pass_acceptance_rate": sum(first_pass) / len(first_pass)
+                if first_pass
+                else None,
+                "reviewer_correction_rate": sum(value > 0 for value in corrections)
+                / len(corrections)
+                if corrections
+                else None,
+                "false_completion_rate": sum(false_completions) / len(false_completions)
+                if false_completions
+                else None,
+                "median_latency_ms": median(latencies) if latencies else None,
+                "tokens_per_accepted_task": sum(accepted_tokens) / len(accepted_tokens)
+                if accepted_tokens
+                else None,
+                "measured_cost_per_accepted_task_usd": sum(costs) / accepted
+                if accepted and len(costs) == len(evaluated)
+                else None,
+                "retries_per_accepted_task": sum(accepted_retries) / len(accepted_retries)
+                if accepted_retries
+                else None,
                 "mean_measured_cost_usd": sum(costs) / len(costs) if costs else None,
                 "cost_coverage": len(costs),
-                "proposal": "evaluate stronger/context challenger"
-                if rejected
-                else "evaluate cheaper challenger",
-                "status": "PROPOSED_CHALLENGER",
+                "coverage": {
+                    "latency": len(latencies),
+                    "accepted_tokens": len(accepted_tokens),
+                    "accepted_cost": len(accepted_costs),
+                    "accepted_retries": len(accepted_retries),
+                    "first_pass": len(first_pass),
+                    "reviewer_corrections": len(corrections),
+                    "false_completion": len(false_completions),
+                    **{
+                        metric: sum(
+                            row.get("metrics", {}).get(metric) is not None for row in evaluated
+                        )
+                        for metric in coverage_metrics
+                    },
+                },
+                "proposal": proposal,
+                "status": status,
                 "auto_promote": False,
             }
         )
-    return {"groups": proposals, "authority": "A_REPORT_ONLY"}
+    return {"groups": cards, "authority": "A_REPORT_ONLY"}
 
 
 def diagnose_failures(events: list[dict]) -> dict:
@@ -163,8 +296,32 @@ def diagnose_failures(events: list[dict]) -> dict:
         classification = "RECURRING_EXECUTION_FAILURE"
     if len(contexts) > 1 and rule_refs:
         classification = "POSSIBLE_INSTRUCTION_DEFECT"
+    layers = {
+        e.get("failure_layer")
+        for e in failures
+        if e.get("failure_layer") in {"HARNESS", "LOOP", "GRAPH", "DATA", "MODEL", "INFRA"}
+        and e.get("failure_layer_evidence_refs")
+    }
+    attributed = len(layers) == 1 and all(
+        e.get("failure_layer") in layers
+        and isinstance(e.get("failure_layer_evidence_refs"), list)
+        and any(isinstance(ref, str) and ref for ref in e["failure_layer_evidence_refs"])
+        for e in failures
+    )
     return {
         "classification": classification,
+        "engineering_layer": next(iter(layers)) if attributed else "UNKNOWN",
+        "layer_evidence_refs": sorted(
+            {
+                ref
+                for e in failures
+                if e.get("failure_layer") in layers
+                for ref in e.get("failure_layer_evidence_refs", [])
+                if isinstance(ref, str) and ref
+            }
+        )
+        if attributed
+        else [],
         "rule_refs": rule_refs,
         "evidence": failures,
         "next_action": "inspect specification, test and architecture before retry"

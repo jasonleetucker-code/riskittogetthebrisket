@@ -191,9 +191,12 @@ class TestBandEndpointsAreNotClampedToTheBoardCeiling(unittest.TestCase):
                     "lands on."
                 ),
             )
-        # The premium itself is still held to the board scale, and the
-        # honest report of how much of it landed is unchanged.
-        self.assertLessEqual(max(p.p50 for p in new_a + new_b), 9999.0)
+        # TC-A / UX audit P0-1: the premium is NOT held to the per-asset
+        # 9999 scale any more.  It is a side-total quantity (the meter's
+        # ``raw + VA``), and clamping it per asset absorbed most of it on
+        # exactly this shape (meter 5,806 vs Monte Carlo 1,879).  The full
+        # adjustment lands; see tests/trade/test_monte_carlo_meter_parity.py.
+        self.assertEqual(info["effectiveValue"], info["value"])
 
 
 class TestBandProvenanceIsReported(unittest.TestCase):

@@ -90,7 +90,9 @@ def _waiver_archives(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
             roster_ids = tx.get("roster_ids") or []
             primary_rid = int(roster_ids[0]) if roster_ids else None
             owner_id = (
-                metrics.resolve_owner(snapshot.managers, season.league_id, primary_rid)
+                metrics.resolve_owner(
+                    snapshot.managers, season.league_id, primary_rid, metrics.tx_week(tx)
+                )
                 if primary_rid is not None
                 else ""
             )
@@ -142,8 +144,8 @@ def _weekly_matchup_archives(snapshot: PublicLeagueSnapshot) -> list[dict[str, A
                     continue
                 rid_a = metrics.roster_id_of(a)
                 rid_b = metrics.roster_id_of(b)
-                owner_a = metrics.resolve_owner(snapshot.managers, season.league_id, rid_a)
-                owner_b = metrics.resolve_owner(snapshot.managers, season.league_id, rid_b)
+                owner_a = metrics.resolve_owner(snapshot.managers, season.league_id, rid_a, week)
+                owner_b = metrics.resolve_owner(snapshot.managers, season.league_id, rid_b, week)
                 pa = metrics.matchup_points(a)
                 pb = metrics.matchup_points(b)
                 if pa > pb:

@@ -202,9 +202,12 @@ def strength_deltas_from_rosters(
     owner either way.
     """
     if ros_blend is None:
-        from src.ros.playoff_sim import ROS_BLEND  # noqa: PLC0415
+        # The multiplier the simulator applies on top of a PRE-SIM mean:
+        # ROS_BLEND under the incumbent equation, 0.0 when ROS evidence is
+        # counted once (Owner Decision 11) — follow whichever is served.
+        from src.ros.playoff_sim import presim_ros_blend  # noqa: PLC0415
 
-        ros_blend = ROS_BLEND
+        ros_blend = presim_ros_blend()
     z_map = ros_z_by_owner or {}
 
     out = TradeStrengthDeltas(

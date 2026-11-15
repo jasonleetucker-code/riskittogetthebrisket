@@ -315,8 +315,15 @@ class TestVerdictCertainty(unittest.TestCase):
             self.assertIn("market_uncertainty_band", c)
 
     def test_surviving_candidates_publish_their_uncertainty_range(self):
+        # Offense-only offer.  Rebuilt for the geometric active package
+        # model (geom_q078_v1, 2026-10-17): the KTC-era Jefferson + Olave
+        # offer survived only on KTC's stud-side premium for a lone Puka
+        # Nacua, which the geometric model does not grant at that size, so
+        # no candidate survived and the loop below asserted nothing.
+        # Bowers + Jefferson (both offense, both KTC-priced) still yields
+        # surviving offense-only candidates under the active model.
         res = _offer(
-            ["Justin Jefferson", "Chris Olave"],
+            ["Brock Bowers", "Justin Jefferson"],
             per_team_limit=10**6,
             limit=10**6,
         )

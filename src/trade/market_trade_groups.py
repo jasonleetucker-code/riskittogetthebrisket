@@ -63,7 +63,7 @@ rows.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence
 
 CONFIRMED_UNIQUE = "CONFIRMED_UNIQUE"
@@ -104,6 +104,95 @@ _FORMAT_PREFERENCE = (
     "own_league_season_format_missing",
     "ktc_vendor_settings",
 )
+
+
+#: Acquisition channels (chaseTradeMarket P2, owner directive V2 §5): a trade
+#: we read on the host ourselves vs one KTC's trade database showed us.  The
+#: normalizer stamps ``observationChannel``; a row without the stamp falls back
+#: to its source family here.
+#: ``sideEvidence.attribution`` values (owned here, beside the channels, so the
+#: normalizer and the estimator read one definition).  A host record pairs each
+#: received asset with the roster that dropped it; KTC states packages only.
+SIDE_ATTRIBUTION_RECEIVED = "received_per_roster"
+SIDE_ATTRIBUTION_PACKAGES = "package_partition_orientation_unstated"
+
+CHANNEL_SLEEPER = "sleeper_observed"
+CHANNEL_KTC = "ktc_database"
+CHANNEL_BY_SOURCE_FAMILY = {
+    "ktc_trade_database": CHANNEL_KTC,
+    "sleeper_sharp_discovery": CHANNEL_SLEEPER,
+    "own_league_sleeper": CHANNEL_SLEEPER,
+}
+
+#: ``crossFeed.ktcOverlap`` -- what the dedupe owner can say about whether a
+#: group's real trade is ALSO in KTC's trade database.  A lower bound on true
+#: overlap: only a KTC row naming its host league can be matched, and trades
+#: inside KTC's training population that we never captured are invisible here.
+KTC_OVERLAP_SAME_CONFIRMED = "sleeper_and_ktc_same_trade_confirmed"
+KTC_OVERLAP_SAME_PROBABLE = "sleeper_and_ktc_same_trade_probable"
+KTC_OVERLAP_POSSIBLE = "possible_cross_feed_overlap"
+KTC_OVERLAP_KTC_ONLY = "ktc_database_only"
+KTC_OVERLAP_NONE_DETECTED = "sleeper_observed_no_ktc_match_detected"
+KTC_OVERLAP_UNKNOWN = "channel_unknown"
+
+
+def observation_channel(obs: Mapping[str, Any]) -> str | None:
+    ch = obs.get("observationChannel")
+    if ch:
+        return str(ch)
+    return CHANNEL_BY_SOURCE_FAMILY.get(str(obs.get("sourceFamily") or ""))
+
+
+def _parse_ts(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def _earliest(values: Iterable[Any]) -> Any:
+    """The earliest parseable timestamp, returned as it was given."""
+    best: tuple[datetime, Any] | None = None
+    for v in values:
+        dt = _parse_ts(v)
+        if dt is not None and (best is None or dt < best[0]):
+            best = (dt, v)
+    return best[1] if best else None
+
+
+def _collection_evidence(
+    members: Sequence[Mapping[str, Any]], rep: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Group-level point-in-time fields.  ``collectedAt``: the earliest instant
+    SOME member's record was complete on the box (the trade was knowable);
+    ``representativeCollectedAt``: when the record whose ``sides`` / format the
+    group carries was complete -- the key for a fit that uses those sides."""
+    by_channel: dict[str, Any] = {}
+    for m in members:
+        ch = observation_channel(m)
+        if ch and _parse_ts(m.get("collectedAt")) is not None:
+            by_channel[ch] = _earliest([by_channel.get(ch), m.get("collectedAt")])
+    return {
+        "observationChannels": sorted({c for c in map(observation_channel, members) if c}),
+        "collectedAt": _earliest(m.get("collectedAt") for m in members),
+        "firstCollectedAt": _earliest(
+            m.get("firstCollectedAt") or m.get("collectedAt") for m in members
+        ),
+        "representativeCollectedAt": rep.get("collectedAt"),
+        "collectedAtByChannel": dict(sorted(by_channel.items())),
+        "collectedAtUnknownMembers": sum(
+            1 for m in members if _parse_ts(m.get("collectedAt")) is None
+        ),
+        "timeFidelity": rep.get("timeFidelity"),
+        "collectionPaths": sorted(
+            {str(m["collectionPath"]) for m in members if m.get("collectionPath")}
+        ),
+        # Aligned with ``sides`` (both come from the representative).
+        "sideEvidence": rep.get("sideEvidence"),
+    }
 
 
 def underlying_trade_id_for_host_tx(host: str, league_id: str, tx_id: str) -> str:
@@ -533,6 +622,8 @@ def group_observations(
                 ],
                 "caveats": sorted({c for m in members for c in (m.get("caveats") or [])}),
                 "leagueKey": rep.get("leagueKey"),
+                **_collection_evidence(members, rep),
+                "_root": root,
             }
         )
     groups.sort(key=lambda g: g["underlyingTradeId"])
@@ -547,6 +638,7 @@ def group_observations(
     for e in edges:
         widest.union(e["a"], e["b"])
     lower = len({widest.find(i) for i in ids})
+    _attach_cross_feed(groups, widest, root_to_gid)
     states: dict[str, int] = {}
     for g in groups:
         states[g["dedupeState"]] = states.get(g["dedupeState"], 0) + 1
@@ -566,6 +658,119 @@ def group_observations(
             "edgesByRelation": rel_counts,
         },
     )
+
+
+def _attach_cross_feed(
+    groups: list[dict[str, Any]], widest: _UnionFind, root_to_gid: Mapping[str, str]
+) -> None:
+    """``crossFeed`` per group: the id of its widest overlap cluster (every
+    non-distinct edge unioned -- the unit a holdout must keep in ONE fold) and
+    what is known about its overlap with KTC's trade database."""
+    by_gid = {g["underlyingTradeId"]: g for g in groups}
+    cluster_members: dict[str, list[str]] = {}
+    for g in groups:
+        cluster_members.setdefault(widest.find(g["_root"]), []).append(g["underlyingTradeId"])
+    cluster_id = {gid: f"ocluster:{min(gids)}" for gids in cluster_members.values() for gid in gids}
+    for g in groups:
+        channels = set(g.get("observationChannels") or [])
+        linked = {
+            ch
+            for other in g.get("possibleOverlapWith") or []
+            for ch in (by_gid.get(other) or {}).get("observationChannels") or []
+        }
+        if not channels:
+            state = KTC_OVERLAP_UNKNOWN
+        elif {CHANNEL_KTC, CHANNEL_SLEEPER} <= channels:
+            state = (
+                KTC_OVERLAP_SAME_PROBABLE
+                if g["dedupeState"] == PROBABLE_DUPLICATE
+                else KTC_OVERLAP_SAME_CONFIRMED
+            )
+        elif (CHANNEL_KTC in channels and CHANNEL_SLEEPER in linked) or (
+            CHANNEL_SLEEPER in channels and CHANNEL_KTC in linked
+        ):
+            state = KTC_OVERLAP_POSSIBLE
+        elif channels == {CHANNEL_KTC}:
+            state = KTC_OVERLAP_KTC_ONLY
+        else:
+            state = KTC_OVERLAP_NONE_DETECTED
+        g["crossFeed"] = {
+            "overlapClusterId": cluster_id[g["underlyingTradeId"]],
+            "ktcOverlap": state,
+            # True whenever KTC's database holds, or may hold, this trade --
+            # the population KTC Trades is fit on (never independent of it).
+            "ktcLinked": None
+            if state == KTC_OVERLAP_UNKNOWN
+            else state != KTC_OVERLAP_NONE_DETECTED,
+        }
+        g.pop("_root", None)
+
+
+def cross_feed_overlap(groups: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Counts only: how many underlying trades each channel saw, and the
+    MEASURED overlap between the Sleeper-observed and KTC-database channels
+    (owner directive V2 §5 "measure and document this overlap").  Shares are
+    bounds: confirmed only / + probable (the point estimate, as the dedupe
+    counts it) / + possible."""
+    mix: dict[str, int] = {}
+    states: dict[str, int] = {}
+    for g in groups:
+        chans = "+".join(g.get("observationChannels") or []) or KTC_OVERLAP_UNKNOWN
+        mix[chans] = mix.get(chans, 0) + 1
+        st = (g.get("crossFeed") or {}).get("ktcOverlap") or KTC_OVERLAP_UNKNOWN
+        states[st] = states.get(st, 0) + 1
+
+    def share(num: int, den: int) -> float | None:
+        return round(num / den, 4) if den else None
+
+    confirmed = states.get(KTC_OVERLAP_SAME_CONFIRMED, 0)
+    probable = states.get(KTC_OVERLAP_SAME_PROBABLE, 0)
+    possible_sleeper = sum(
+        1
+        for g in groups
+        if (g.get("crossFeed") or {}).get("ktcOverlap") == KTC_OVERLAP_POSSIBLE
+        and CHANNEL_SLEEPER in (g.get("observationChannels") or [])
+    )
+    sleeper_total = sum(
+        1 for g in groups if CHANNEL_SLEEPER in (g.get("observationChannels") or [])
+    )
+    ktc_total = sum(1 for g in groups if CHANNEL_KTC in (g.get("observationChannels") or []))
+    possible_ktc = sum(
+        1
+        for g in groups
+        if (g.get("crossFeed") or {}).get("ktcOverlap") == KTC_OVERLAP_POSSIBLE
+        and CHANNEL_KTC in (g.get("observationChannels") or [])
+    )
+    return {
+        "underlyingTradesByChannelMix": dict(sorted(mix.items())),
+        "underlyingTradesByKtcOverlap": dict(sorted(states.items())),
+        "sleeperObservedUnderlyingTrades": sleeper_total,
+        "ktcDatabaseUnderlyingTrades": ktc_total,
+        "sleeperObservedAlsoInKtcDatabase": {
+            "confirmed": confirmed,
+            "probable": probable,
+            "possible": possible_sleeper,
+            "shareLowerBound": share(confirmed, sleeper_total),
+            "sharePointEstimate": share(confirmed + probable, sleeper_total),
+            "shareUpperBound": share(confirmed + probable + possible_sleeper, sleeper_total),
+        },
+        "ktcDatabaseAlsoSleeperObserved": {
+            "confirmed": confirmed,
+            "probable": probable,
+            "possible": possible_ktc,
+            "shareLowerBound": share(confirmed, ktc_total),
+            "sharePointEstimate": share(confirmed + probable, ktc_total),
+            "shareUpperBound": share(confirmed + probable + possible_ktc, ktc_total),
+        },
+        "notes": [
+            "a trade seen on both channels is ONE underlying trade (counted once)",
+            "detected overlap is a lower bound on KTC inclusion: only KTC rows naming their host "
+            "league can match a Sleeper transaction, and trades inside KTC's training population "
+            "that this box never captured cannot be seen here",
+            "KTC-database observations are the population KTC Trades is fit on: benchmark-only, "
+            "never independent evidence against KTC Trades",
+        ],
+    }
 
 
 def count_independent_events(

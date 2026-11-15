@@ -4,6 +4,18 @@ Covers the hardening pass that added per-source CSV mtimes,
 row-count floors, parse-error surfacing, and partial-run cross-wiring
 to contractHealth.
 
+Two tiers, decided per test (CLAUDE.md "CI has two lanes"):
+
+* The validator's behaviour -- "dropping KTC flips ``contractHealth.ok``",
+  "a missing CSV surfaces a parse error", the partial-run cross-wiring -- is a
+  property of OUR code.  Those tests mutate a copy of a real contract built
+  from ``tests.archive_fixtures`` (the PINNED complete archived scrape) or a
+  synthetic payload, and run in the hard gate.
+* ``*_passes_on_live`` and the freshness-majority check ask whether TODAY'S
+  board and CSV mtimes clear the health floors.  That is a function of which
+  sources answered the last scrape, so they keep reading ``exports/latest``
+  and carry ``@pytest.mark.livedata`` (the non-blocking advisory lane).
+
 Run with: python3 -m pytest tests/api/test_source_monitoring.py -v
 """
 
@@ -16,6 +28,8 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
+import pytest
+
 from src.api.data_contract import (
     _DEFAULT_SOURCE_ROW_FLOORS,
     _DEFAULT_TOP50_COVERAGE_FLOORS,
@@ -27,6 +41,11 @@ from src.api.data_contract import (
     assert_payload_size_floor,
     build_api_data_contract,
     validate_api_data_contract,
+)
+from tests.archive_fixtures import (
+    build_pinned_contract,
+    pinned_board_contract,
+    pinned_board_payload,
 )
 
 
@@ -56,6 +75,26 @@ def _get_live_contract() -> tuple[dict[str, Any], dict[str, Any]] | None:
     return _CACHED_CONTRACT
 
 
+_CACHED_PINNED: tuple[dict[str, Any], dict[str, Any]] | None = None
+
+
+def _get_pinned_contract() -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """(contract, validation report) for the PINNED complete archived scrape."""
+    global _CACHED_PINNED
+    if _CACHED_PINNED is not None:
+        return _CACHED_PINNED
+    contract, _name = pinned_board_contract()
+    if contract is None:
+        return None
+    _CACHED_PINNED = (contract, validate_api_data_contract(contract))
+    return _CACHED_PINNED
+
+
+def _load_pinned_raw() -> dict[str, Any] | None:
+    raw, _name = pinned_board_payload()
+    return raw
+
+
 # ── sourceTimestamps ───────────────────────────────────────────────────
 
 
@@ -63,9 +102,9 @@ class TestSourceTimestamps(unittest.TestCase):
     def test_sourceTimestamps_populated_for_all_csv_sources(self):
         """Every CSV source in _SOURCE_CSV_PATHS has an entry with an ISO
         mtime or an explicit ``missing`` staleness (never an empty string)."""
-        result = _get_live_contract()
+        result = _get_pinned_contract()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         contract, _ = result
         ts = contract.get("dataFreshness", {}).get("sourceTimestamps")
         self.assertIsInstance(ts, dict)
@@ -83,6 +122,7 @@ class TestSourceTimestamps(unittest.TestCase):
             self.assertIn("staleness", entry)
             self.assertIn("maxAgeHours", entry)
 
+    @pytest.mark.livedata
     def test_sourceTimestamps_includes_staleness_flag(self):
         """Every entry has a staleness flag and the majority of sources are
         fresh on a real live build."""
@@ -101,6 +141,7 @@ class TestSourceTimestamps(unittest.TestCase):
 
 
 class TestRowCountFloors(unittest.TestCase):
+    @pytest.mark.livedata
     def test_per_source_row_count_floors_pass_on_live(self):
         """Every source clears its floor on the live build."""
         result = _get_live_contract()
@@ -138,9 +179,9 @@ class TestRowCountFloors(unittest.TestCase):
 
     def test_row_count_floor_fails_on_synthetic_drop(self):
         """Dropping ktc values on a synthetic copy flips contractHealth.ok."""
-        result = _get_live_contract()
+        result = _get_pinned_contract()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         contract, _ = result
         synthetic = copy.deepcopy(contract)
         for row in synthetic.get("playersArray") or []:
@@ -166,14 +207,14 @@ class TestParseErrors(unittest.TestCase):
     def test_parse_errors_surfaced(self):
         """Pointing a CSV path at a missing file surfaces a parse error and
         flips contractHealth.status to degraded."""
-        raw = _load_latest_raw()
+        raw = _load_pinned_raw()
         if raw is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
 
         bogus_paths = dict(_SOURCE_CSV_PATHS)
         bogus_paths["ktc"] = "CSVs/site_raw/nonexistent-ktc.csv"
         with mock.patch("src.api.data_contract._SOURCE_CSV_PATHS", bogus_paths):
-            contract = build_api_data_contract(raw)
+            contract = build_pinned_contract(raw)
         parse_errors = contract.get("sourceParseErrors")
         self.assertIsInstance(parse_errors, list)
         self.assertGreaterEqual(len(parse_errors), 1)
@@ -261,6 +302,7 @@ class TestPartialRunCrossWire(unittest.TestCase):
 
 
 class TestPickCountFloor(unittest.TestCase):
+    @pytest.mark.livedata
     def test_pick_count_floor_passes_on_live(self):
         """Live build meets the floor for ITS phase.
 
@@ -296,9 +338,9 @@ class TestPickCountFloor(unittest.TestCase):
 
     def test_pick_count_floor_fails_on_synthetic_drop(self):
         """Trimming picks below 100 flips contractHealth.ok to False."""
-        result = _get_live_contract()
+        result = _get_pinned_contract()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         contract, _ = result
         synthetic = copy.deepcopy(contract)
         players = synthetic.get("playersArray") or []
@@ -326,9 +368,9 @@ class TestPickCountFloor(unittest.TestCase):
 
     def test_missing_pickAnchors_is_error(self):
         """pickAnchors missing from the payload is an error on full builds."""
-        result = _get_live_contract()
+        result = _get_pinned_contract()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         contract, _ = result
         synthetic = copy.deepcopy(contract)
         synthetic.pop("pickAnchors", None)
@@ -343,6 +385,7 @@ class TestPickCountFloor(unittest.TestCase):
 
 
 class TestPayloadSizeFloor(unittest.TestCase):
+    @pytest.mark.livedata
     def test_payload_size_floor_passes_on_live(self):
         """Live contract serialises to ≥2MB."""
         result = _get_live_contract()
@@ -371,9 +414,9 @@ class TestPayloadSizeFloor(unittest.TestCase):
         """
         import json as _json
 
-        result = _get_live_contract()
+        result = _get_pinned_contract()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         contract, _ = result
         synthetic = copy.deepcopy(contract)
         # Shrink each row to its bare skeleton: drop every auxiliary
@@ -444,6 +487,7 @@ class TestPayloadSizeFloor(unittest.TestCase):
 
 
 class TestTop50Coverage(unittest.TestCase):
+    @pytest.mark.livedata
     def test_top50_offense_coverage_passes_on_live(self):
         """All 4 offense sources meet the top-50 offense coverage floor."""
         result = _get_live_contract()
@@ -459,6 +503,7 @@ class TestTop50Coverage(unittest.TestCase):
                 f"{src} below top-50 offense floor: {report['warnings']}",
             )
 
+    @pytest.mark.livedata
     def test_top50_idp_coverage_passes_on_live(self):
         """Both IDP sources meet the top-50 IDP coverage floor."""
         result = _get_live_contract()
@@ -476,9 +521,9 @@ class TestTop50Coverage(unittest.TestCase):
 
     def test_top50_coverage_fails_on_synthetic_drop(self):
         """Zeroing out canonical KTC combined in top-50 offense trips a warning."""
-        result = _get_live_contract()
+        result = _get_pinned_contract()
         if result is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
         contract, _ = result
         synthetic = copy.deepcopy(contract)
         pa = synthetic.get("playersArray") or []
@@ -514,25 +559,20 @@ class TestDlfSchemaProbe(unittest.TestCase):
         """Pointing dlfSf at a CSV with a bogus header records a schema_mismatch."""
         import tempfile
 
-        raw = _load_latest_raw()
+        raw = _load_pinned_raw()
         if raw is None:
-            self.skipTest("No live data")
+            self.skipTest("No complete archived board")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             bogus = Path(tmpdir) / "dlf_bogus.csv"
             bogus.write_text("totally,unrelated,columns\nfoo,bar,baz\n", encoding="utf-8")
-            # Use a relative path that resolves correctly from repo root.
-            repo_root = Path(__file__).resolve().parents[2]
-            try:
-                rel = str(bogus.resolve().relative_to(repo_root))
-            except ValueError:
-                # tmpdir not under repo root — use absolute path and
-                # monkey-patch the Path join by making cfg path absolute.
-                rel = str(bogus.resolve())
+            # Absolute: the build joins it onto the PINNED input root, and an
+            # absolute path survives that join unchanged.
+            rel = str(bogus.resolve())
             patched_paths = dict(_SOURCE_CSV_PATHS)
             patched_paths["dlfSf"] = {"path": rel, "signal": "rank"}
             with mock.patch("src.api.data_contract._SOURCE_CSV_PATHS", patched_paths):
-                contract = build_api_data_contract(raw)
+                contract = build_pinned_contract(raw)
         parse_errors = contract.get("sourceParseErrors") or []
         schema_errors = [
             pe
@@ -550,6 +590,7 @@ class TestDlfSchemaProbe(unittest.TestCase):
 
 
 class TestLaunchReadinessStillPasses(unittest.TestCase):
+    @pytest.mark.livedata
     def test_launch_readiness_gates_still_pass(self):
         """Running the existing launch readiness gates on the live build
         still succeeds after the monitoring hardening pass.  This test
@@ -561,7 +602,9 @@ class TestLaunchReadinessStillPasses(unittest.TestCase):
 
         loader = unittest.TestLoader()
         suite = loader.loadTestsFromName("tests.api.test_launch_readiness")
-        runner = unittest.TextTestRunner(verbosity=0, stream=open("/dev/null", "w"))
+        runner = unittest.TextTestRunner(
+            verbosity=0, stream=open("/dev/null", "w", encoding="utf-8")
+        )
         result_obj = runner.run(suite)
         self.assertTrue(
             result_obj.wasSuccessful(),

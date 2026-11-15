@@ -70,6 +70,21 @@ cd /home/dynasty/trade-calculator
 sudo /home/dynasty/.venvs/trade-calculator/bin/python -m playwright install-deps chromium
 ```
 
+### Optional: screenshot trade import OCR
+
+`/trade` "Import trade -> From screenshot" reads screenshots with the
+`tesseract` binary. Deploys cannot install system packages (sudo allowlist), so
+install it once:
+
+```bash
+sudo apt-get install -y tesseract-ocr
+tesseract --version
+```
+
+Without it the feature reports itself unavailable (`GET
+/api/trade/import-screenshot/status`) instead of failing. See
+`docs/ops/SCREENSHOT_IMPORT_RUNBOOK.md`.
+
 ## 3) Reverse proxy and TLS
 
 The nginx site config is maintained in `deploy/nginx/chaseupside.com.conf`.

@@ -47,6 +47,8 @@ def _season_to_dict(season: SeasonSnapshot) -> dict[str, Any]:
         "drafts": season.drafts,
         "draftPicksByDraft": season.draft_picks_by_draft,
         "tradedPicks": season.traded_picks,
+        "tradedPicksState": season.traded_picks_state,
+        "tradedPicksReason": season.traded_picks_reason,
         "winnersBracket": season.winners_bracket,
         "losersBracket": season.losers_bracket,
     }
@@ -66,7 +68,33 @@ def _season_from_dict(d: dict[str, Any]) -> SeasonSnapshot:
         traded_picks=d.get("tradedPicks") or [],
         winners_bracket=d.get("winnersBracket") or [],
         losers_bracket=d.get("losersBracket") or [],
+        # A snapshot written before the state was persisted collapsed failed
+        # reads to ``[]`` — its ``tradedPicks`` proves nothing, so it loads as
+        # UNSTATED (unknown), never as "observed, no trades".  The server
+        # refreshes a cold-loaded snapshot on first use, which restates it.
+        **_traded_picks_state_from_dict(d),
     )
+
+
+def _traded_picks_state_from_dict(d: dict[str, Any]) -> dict[str, Any]:
+    from src.identity.picks import (
+        PICK_OWNERSHIP_OBSERVED,
+        PICK_OWNERSHIP_REASON_UNSTATED,
+        PICK_OWNERSHIP_UNAVAILABLE,
+    )
+
+    if "tradedPicksState" not in d or not isinstance(d.get("tradedPicks"), list):
+        return {
+            "traded_picks_state": PICK_OWNERSHIP_UNAVAILABLE,
+            "traded_picks_reason": PICK_OWNERSHIP_REASON_UNSTATED,
+        }
+    state = d.get("tradedPicksState")
+    if state == PICK_OWNERSHIP_OBSERVED:
+        return {"traded_picks_state": PICK_OWNERSHIP_OBSERVED, "traded_picks_reason": None}
+    return {
+        "traded_picks_state": PICK_OWNERSHIP_UNAVAILABLE,
+        "traded_picks_reason": d.get("tradedPicksReason") or PICK_OWNERSHIP_REASON_UNSTATED,
+    }
 
 
 def _manager_to_dict(m: Manager) -> dict[str, Any]:
@@ -133,6 +161,9 @@ def _registry_from_dict(d: dict[str, Any]) -> ManagerRegistry:
             continue
         if lid and owner:
             reg.roster_to_owner[(lid, rid)] = owner
+    # A snapshot persisted before a hand-off was recorded has no entry for
+    # the outgoing owner; re-derive it so a cold start serves their weeks.
+    _identity.register_handed_off_owners(reg)
     return reg
 
 
@@ -144,6 +175,7 @@ def snapshot_to_dict(
         "generatedAt": snapshot.generated_at,
         "seasons": [_season_to_dict(s) for s in snapshot.seasons],
         "managers": _registry_to_dict(snapshot.managers),
+        "historyCoverage": snapshot.history_coverage,
     }
     if include_nfl_players:
         out["nflPlayers"] = snapshot.nfl_players
@@ -157,6 +189,8 @@ def snapshot_from_dict(d: dict[str, Any]) -> PublicLeagueSnapshot:
     )
     snapshot.seasons = [_season_from_dict(s) for s in d.get("seasons") or []]
     snapshot.managers = _registry_from_dict(d.get("managers") or {})
+    coverage = d.get("historyCoverage")
+    snapshot.history_coverage = coverage if isinstance(coverage, dict) else None
     nfl = d.get("nflPlayers")
     if isinstance(nfl, dict):
         snapshot.nfl_players = nfl

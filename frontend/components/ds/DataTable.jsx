@@ -49,6 +49,20 @@
  *              BEFORE the row (tier/group separators). Not interactive.
  *   renderAfterRow (row,i)=>node — caller-authored <tr>(s) rendered
  *              AFTER the row (expansion panels). Not interactive.
+ *   isRowExpanded (row,i)=>boolean — OPT-IN disclosure semantics for a
+ *              table whose `onRowClick` expands/collapses a
+ *              `renderAfterRow` panel. Without it nothing changes. With it,
+ *              each interactive row carries a real <button aria-expanded>
+ *              (visually hidden, in its first visible cell) that is the
+ *              row's single keyboard stop and announces collapsed/expanded;
+ *              the row itself stays the mouse target and paints the focus
+ *              ring while that button holds keyboard focus. Why a button
+ *              and not `aria-expanded` on the <tr>: ARIA supports it on a
+ *              row only inside a treegrid, and axe-core fails it on a plain
+ *              table row (aria-conditional-attr, WCAG 4.1.2).
+ *   rowExpandLabel (row,i)=>string — accessible name of that button
+ *              (default "Details"). Name the row's subject, e.g.
+ *              "Source detail for Josh Allen".
  *   freezeColumnWidths boolean — measure the widths the browser settled
  *              on and pin them with a <colgroup> + table-layout: fixed.
  *   virtualize boolean — mount only the rows near the viewport, with
@@ -178,6 +192,8 @@ export function DataTable({
   renderAfterRow = null,
   freezeColumnWidths = false,
   virtualize = false,
+  isRowExpanded = null,
+  rowExpandLabel = null,
 }) {
   const [internalSort, setInternalSort] = useState(defaultSort);
   const sort = controlledSort !== undefined ? controlledSort : internalSort;
@@ -396,9 +412,44 @@ export function DataTable({
     hasAfter,
   });
 
+  // ── Keyboard reachability of a scrolling wrapper (WCAG 2.1.1) ──────
+  //
+  // ``.ds-table-wrap`` is the table's scroll boundary (horizontal on
+  // narrow screens, vertical under ``maxHeight``).  A scrolling region
+  // with no focusable content cannot be scrolled from the keyboard —
+  // axe ``scrollable-region-focusable`` (#1673, /waivers on mobile, where
+  // the rows carry no links or buttons).  The wrapper therefore becomes a
+  // named, focusable region ONLY while it actually overflows: a table
+  // that fits gains no extra tab stop.  Measured, not assumed, and
+  // re-measured when the wrapper or the table resizes.
+  const [scrolls, setScrolls] = useState(false);
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return undefined;
+    const measure = () => {
+      const next =
+        wrap.scrollWidth > wrap.clientWidth + 1 || wrap.scrollHeight > wrap.clientHeight + 1;
+      setScrolls((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(wrap);
+    if (tableRef.current) ro.observe(tableRef.current);
+    return () => ro.disconnect();
+  }, [rows, columns, maxHeight]);
+
   if (!rows || rows.length === 0) return emptyState;
 
   const activeCol = sort ? columns.find((c) => c.key === sort.key) : null;
+  // Disclosure rows (opt-in): the toggle lives in the first column that is
+  // never responsively hidden — a `display: none` cell would take the
+  // row's only keyboard stop with it.
+  const disclosure =
+    typeof onRowClick === "function" && typeof isRowExpanded === "function";
+  const disclosureKey = disclosure
+    ? (columns.find((c) => !c.hideBelow) || columns[0])?.key
+    : null;
   const visible = rowWindow.windowed
     ? sorted.slice(rowWindow.start, rowWindow.end)
     : sorted;
@@ -409,6 +460,11 @@ export function DataTable({
       ref={wrapRef}
       className="ds-table-wrap"
       style={maxHeight ? { maxHeight, overflowY: "auto" } : undefined}
+      tabIndex={scrolls ? 0 : undefined}
+      role={scrolls ? "region" : undefined}
+      aria-label={
+        scrolls ? (typeof caption === "string" && caption ? caption : "Scrollable table") : undefined
+      }
     >
       <table
         ref={tableRef}
@@ -532,6 +588,7 @@ export function DataTable({
           {visible.map((row, vi) => {
             const i = vi + windowOffset;
             const interactive = typeof onRowClick === "function";
+            const expanded = disclosure ? Boolean(isRowExpanded(row, i)) : false;
             const stableIndex = originalIndex.get(row) ?? i;
             const extraClass = rowClassName ? rowClassName(row, i) : "";
             const beforeNode = renderBeforeRow ? renderBeforeRow(row, i) : null;
@@ -547,7 +604,10 @@ export function DataTable({
                     .filter(Boolean)
                     .join(" ") || undefined
                 }
-                tabIndex={interactive ? 0 : undefined}
+                // A disclosure row's keyboard stop is its toggle button, so
+                // the row itself is not ALSO a tab stop (two stops per row,
+                // one of them stateless).
+                tabIndex={interactive && !disclosure ? 0 : undefined}
                 onClick={
                   interactive
                     ? (e) => {
@@ -579,6 +639,16 @@ export function DataTable({
                     // correct until the day a column appears in front of
                     // it and then silently asserts the wrong column.
                     <td key={col.key} data-col={col.key} className={cellClass(col)}>
+                      {col.key === disclosureKey ? (
+                        <button
+                          type="button"
+                          className="ds-table__disclosure"
+                          aria-expanded={expanded}
+                          onClick={() => onRowClick(row)}
+                        >
+                          {(rowExpandLabel && rowExpandLabel(row, i)) || "Details"}
+                        </button>
+                      ) : null}
                       {col.render ? col.render(row, i) : acc(row)}
                     </td>
                   );

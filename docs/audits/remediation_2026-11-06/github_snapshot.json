@@ -1,0 +1,356 @@
+{
+ "capturedAt": "2026-11-06T12:45:00Z",
+ "source": "GitHub API (open issues 68 / open PRs 19)",
+ "issues": [
+  {
+   "number": 2060,
+   "title": "Production health check failing"
+  },
+  {
+   "number": 2039,
+   "title": "IDP Show 2026 evidence audit"
+  },
+  {
+   "number": 1842,
+   "title": "League-specific intelligence: live scoring/config propagation audit"
+  },
+  {
+   "number": 1807,
+   "title": "Draft valuation state transitions"
+  },
+  {
+   "number": 1727,
+   "title": "Sharp production gate cannot measure: /api/sharp/* has no credential"
+  },
+  {
+   "number": 1628,
+   "title": "Research: reconcile AI-agent ecosystem map with Calculator architecture"
+  },
+  {
+   "number": 1622,
+   "title": "Activity section: serve a prepared, trimmed payload"
+  },
+  {
+   "number": 1555,
+   "title": "Owner direction: valuation advancement \u2014 Coker, freshness, Signals, independent BDVM, trade-derived prices"
+  },
+  {
+   "number": 1530,
+   "title": "Schedule Intelligence"
+  },
+  {
+   "number": 1529,
+   "title": "Draft-capital stack effect rebuild (LATER, NOT AUTHORIZED)"
+  },
+  {
+   "number": 1485,
+   "title": "Scraper-runtime dependency bumps need box-side verification (playwright, curl-cffi)"
+  },
+  {
+   "number": 1473,
+   "title": "V1 Authenticated Production Verification fires inside post-deploy startup window"
+  },
+  {
+   "number": 1467,
+   "title": "Node 22 migration (CI + production)"
+  },
+  {
+   "number": 1428,
+   "title": "OWNER UI DECISION \u2014 categorical chart contrast on PSI surfaces"
+  },
+  {
+   "number": 1423,
+   "title": "24/7 adaptive staggered data-freshness orchestration"
+  },
+  {
+   "number": 1422,
+   "title": "/design faithful PSI implementation reference"
+  },
+  {
+   "number": 1421,
+   "title": "Permanent parallel Premium UI lane / PSI contract"
+  },
+  {
+   "number": 1418,
+   "title": "Brisket Ideas unified completion-portfolio front door"
+  },
+  {
+   "number": 1415,
+   "title": "Trade Calculator duplicate generic assets and pick quantities"
+  },
+  {
+   "number": 1414,
+   "title": "Retire completed rookie-draft pick classes from active surfaces"
+  },
+  {
+   "number": 1412,
+   "title": "Brisket Ideas front door + orderly parallel-work intake"
+  },
+  {
+   "number": 1409,
+   "title": "Failing dynasty-* refresh units: diagnoses and handoff"
+  },
+  {
+   "number": 1368,
+   "title": "W1-28: missing player metadata vs known teamless stash"
+  },
+  {
+   "number": 1362,
+   "title": "W1-28 FINAL verifier: Game Day state assertion excludes FINAL"
+  },
+  {
+   "number": 1340,
+   "title": "Team Strength page stuck on Loading league data"
+  },
+  {
+   "number": 1337,
+   "title": "Universal Player Profile / Player File for every player name"
+  },
+  {
+   "number": 1336,
+   "title": "Owner-intent zero-loss recovery of chat-derived TODOs"
+  },
+  {
+   "number": 1335,
+   "title": "Game Day UX overhaul"
+  },
+  {
+   "number": 1334,
+   "title": "Global selected-team context + Game Day matchup filtering"
+  },
+  {
+   "number": 1322,
+   "title": "Hill Autopilot: board-impact gate is blocking promotion"
+  },
+  {
+   "number": 1214,
+   "title": "V1-125: rebase W30 census truth before duplicate-owner retirement"
+  },
+  {
+   "number": 1173,
+   "title": "Roster-conditional best-ball utility in Analyze Trade"
+  },
+  {
+   "number": 1166,
+   "title": "Public /league SSR missing OpenGraph title/description"
+  },
+  {
+   "number": 1157,
+   "title": "V1-61: roster-percentage production timeout"
+  },
+  {
+   "number": 1153,
+   "title": "V1-131: mobile drawer fails after #1150"
+  },
+  {
+   "number": 1152,
+   "title": "V1-45: remaining truthful production states"
+  },
+  {
+   "number": 1065,
+   "title": "IDPTradeCalc vendor content stale"
+  },
+  {
+   "number": 1005,
+   "title": "Advisory DLF/bridge integrity drift"
+  },
+  {
+   "number": 985,
+   "title": "DynastyStats audit \u2014 league hub, asset map, transaction intelligence"
+  },
+  {
+   "number": 967,
+   "title": "Dispatch registry missing lanes 8 and 9-13"
+  },
+  {
+   "number": 899,
+   "title": "FLEX starters assigned before Team Strength reserve depth"
+  },
+  {
+   "number": 898,
+   "title": "Rank-form curve drift: reconstruction constants stale"
+  },
+  {
+   "number": 854,
+   "title": "Multi-source projection ensemble \u2014 weekly/ROS/season, offense+IDP"
+  },
+  {
+   "number": 843,
+   "title": "Canonical Roster Capacity + Forced-Drop Impact for Trade Analysis"
+  },
+  {
+   "number": 842,
+   "title": "Use Team Context toggle, default ON"
+  },
+  {
+   "number": 841,
+   "title": "Trade Finder posture-aware draft-pick generation"
+  },
+  {
+   "number": 840,
+   "title": "Canonical Competitive Posture Engine"
+  },
+  {
+   "number": 839,
+   "title": "Meaningful roster value = ceil(1.5x starter demand)"
+  },
+  {
+   "number": 838,
+   "title": "Roster Age-Value Portfolio + Young Core Index"
+  },
+  {
+   "number": 830,
+   "title": "FAAB market layer: Sleeper heat + Sharp-league bids"
+  },
+  {
+   "number": 829,
+   "title": "Manual-external-AI Weekly Report Studio"
+  },
+  {
+   "number": 804,
+   "title": "Correlated-source / shared-lineage anomaly protection"
+  },
+  {
+   "number": 803,
+   "title": "Player-specific league scoring fit + college-to-league translation"
+  },
+  {
+   "number": 802,
+   "title": "Individual special-teams scoring"
+  },
+  {
+   "number": 801,
+   "title": "Establish The Run dynasty rankings as a source"
+  },
+  {
+   "number": 800,
+   "title": "Trade equalizer must account for Value Adjustment"
+  },
+  {
+   "number": 792,
+   "title": "Canonical Analyze Trade recommendation without double counting"
+  },
+  {
+   "number": 791,
+   "title": "Second Opinions winner tally"
+  },
+  {
+   "number": 790,
+   "title": "Re-audit Monte Carlo trade math"
+  },
+  {
+   "number": 789,
+   "title": "Game Day Command Center: best-ball projections + live win probability"
+  },
+  {
+   "number": 788,
+   "title": "Cost-gated Dynasty Analyst X feed"
+  },
+  {
+   "number": 786,
+   "title": "Value-weighted NFL team exposure before/after"
+  },
+  {
+   "number": 785,
+   "title": "2-TE tight-end-premium valuation calibration"
+  },
+  {
+   "number": 784,
+   "title": "Homepage Consensus Edge stock ticker"
+  },
+  {
+   "number": 783,
+   "title": "Unified player-profile intelligence feed (podcasts/YouTube/news)"
+  },
+  {
+   "number": 782,
+   "title": "YouTube dynasty-intelligence ingestion"
+  },
+  {
+   "number": 781,
+   "title": "Trade Calculator overrides visually silent + reset semantics"
+  },
+  {
+   "number": 738,
+   "title": "FAAB redesign: remaining prod action + four follow-ups"
+  }
+ ],
+ "pulls": [
+  {
+   "number": 2056,
+   "title": "jsdom 25 -> 30.1.3"
+  },
+  {
+   "number": 2055,
+   "title": "next 16.4.2 -> 16.4.3"
+  },
+  {
+   "number": 2034,
+   "title": "GitHub Actions group (4 updates)"
+  },
+  {
+   "number": 2033,
+   "title": "e2e-harness group (3 updates)"
+  },
+  {
+   "number": 1938,
+   "title": "IDP scorer defects 01/02/03 on nflverse path \u2014 CHANGES BDVM in-season values (draft)"
+  },
+  {
+   "number": 1920,
+   "title": "setuptools 84.0.0 -> 84.1.0"
+  },
+  {
+   "number": 1884,
+   "title": "Outlier integrity V2 (default OFF) \u2014 MORE RESEARCH REQUIRED"
+  },
+  {
+   "number": 1873,
+   "title": "Package-model market-ledger evaluation on-box job"
+  },
+  {
+   "number": 1852,
+   "title": "Chase Trade Market P1+P3 league maturity"
+  },
+  {
+   "number": 1755,
+   "title": "docs: park League Tycoon transition features"
+  },
+  {
+   "number": 1688,
+   "title": "sharp 0.35.4 -> 0.35.5"
+  },
+  {
+   "number": 1687,
+   "title": "source-map-js 1.2.1 -> 1.2.2"
+  },
+  {
+   "number": 1663,
+   "title": "fastapi ~=0.141.1 -> ~=0.142.2"
+  },
+  {
+   "number": 1662,
+   "title": "anthropic ~=1.8.0 -> ~=1.11.0"
+  },
+  {
+   "number": 1661,
+   "title": "numpy ~=2.0 -> ~=2.5"
+  },
+  {
+   "number": 1660,
+   "title": "vitest 4.1.12 -> 5.0.5"
+  },
+  {
+   "number": 1513,
+   "title": "Unified Manager of the Year \u2014 VALIDATION TRACK, NOT PROMOTED"
+  },
+  {
+   "number": 1508,
+   "title": "uvicorn ~=0.53 -> ~=0.54"
+  },
+  {
+   "number": 1506,
+   "title": "tzdata ~=2026.1 -> ~=2026.4"
+  }
+ ]
+}

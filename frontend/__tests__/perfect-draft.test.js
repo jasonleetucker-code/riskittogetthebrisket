@@ -1240,6 +1240,42 @@ describe("positional balance is reported, not optimized", () => {
     expect(needs).toEqual({});
   });
 
+  // LI1842-DEFECT-11: the flex vocabulary is the backend's
+  // (`src/ros/lineup.py::_FLEX_SLOT_ELIGIBILITY` + `_SLOT_ALIASES`), held in
+  // lockstep by tests/lineup/test_single_owner.py.  A flex slot missing from
+  // the frontend set read as a position nobody can fill.
+  it.each([
+    "WR_RB_FLEX",
+    "WRRB_FLEX",
+    "DL_LB",
+    "DB_LB",
+    "DL_DB",
+    "REC_FLEX",
+    "IDP_FLEX",
+    "SFLEX",
+    "SUPERFLEX",
+    "WRT",
+    "FLEX",
+    "SUPER_FLEX",
+  ])("never counts the flex slot %s as a position nobody can fill", (slot) => {
+    const { needs, requirements } = positionalNeeds({
+      rosterByPosition: { QB: 3, RB: 4, WR: 5, TE: 2, DL: 4, LB: 4, DB: 4 },
+      startersByPosition: { QB: 1, RB: 2, [slot]: 2 },
+    });
+    expect(requirements[slot]).toBeUndefined();
+    expect(requirements).toEqual({ QB: 1, RB: 2 });
+    expect(needs).toEqual({});
+  });
+
+  it("still counts real positions, including a kicker slot, as requirements", () => {
+    const { needs, requirements } = positionalNeeds({
+      rosterByPosition: { RB: 1 },
+      startersByPosition: { RB: 2, K: 1, WR_RB_FLEX: 1 },
+    });
+    expect(requirements).toEqual({ RB: 2, K: 1 });
+    expect(needs).toEqual({ RB: 1, K: 1 });
+  });
+
   it("reports which needs a plan fills and which it leaves open", () => {
     const plan = { players: [rookie("a", 5000, 10), { ...rookie("b", 4000, 10), pos: "RB" }] };
     const out = planPositionBalance(plan, ctx);

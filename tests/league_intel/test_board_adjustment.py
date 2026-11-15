@@ -230,7 +230,7 @@ class TestRealBoardNoOp:
         path = Path(__file__).resolve().parents[2] / "audit" / "baseline" / "api_data.json"
         if not path.exists():
             pytest.skip("baseline contract snapshot not present")
-        return json.loads(path.read_text())["playersArray"]
+        return json.loads(path.read_text(encoding="utf-8"))["playersArray"]
 
     def test_real_board_is_exactly_a_noop(self):
         rows = self._rows()

@@ -427,14 +427,19 @@ class TestCollection:
             assert [int(r["rank"]) for r in rows] == list(range(1, len(rows) + 1))
         # freshness clocks: success stamp + dataset state with the VENDOR clock
         state = tmp / "state"
-        assert (state / "signalsSf_last_success").read_text().strip() == str(int(T0.timestamp()))
+        assert (state / "signalsSf_last_success").read_text(encoding="utf-8").strip() == str(
+            int(T0.timestamp())
+        )
         for key in IDP_KEYS:
             ds = json.loads((state / f"{key}_dataset.json").read_text(encoding="utf-8"))
             assert ds["health"]["state"] == "HEALTHY"
             assert (state / f"{key}_last_success").is_file()
         assert not (state / "signalsIdp_dataset.json").exists()
         latest = json.loads((store / "values" / "idp" / "latest.json").read_text(encoding="utf-8"))
-        assert latest["metadata"]["votes"] is True
+        # ``votes`` is DERIVED from the vote-state owner (owner directive
+        # 2026-10-19): the IDP families are held (shadow) by default.
+        assert latest["metadata"]["votes"] is False
+        assert set(latest["metadata"]["votesByKey"]) == set(IDP_KEYS)
         assert latest["observations"][0]["format"]["gameType"] == "DYNASTY"
 
     def test_the_offense_format_is_superflex_and_not_te_premium(self):
@@ -462,7 +467,7 @@ class TestCollection:
         tmp, uni, snaps, idp = world
         _run(tmp, FakeAppSync(snapshots=snaps, idp_pages=[idp]))
         csv_before = S.board_csv_path(tmp / "store", "signalsSf").read_bytes()
-        stamp_before = (tmp / "state" / "signalsSf_last_success").read_text()
+        stamp_before = (tmp / "state" / "signalsSf_last_success").read_text(encoding="utf-8")
         fake = FakeAppSync(snapshots=snaps, idp_pages=[idp])
         later = datetime(2026, 10, 4, 14, tzinfo=timezone.utc)
         out = S.collect_values(
@@ -479,8 +484,12 @@ class TestCollection:
         assert fake.requests == []
         assert S.board_csv_path(tmp / "store", "signalsSf").read_bytes() == csv_before
         # No clock is refreshed from a cached copy: stale stays stale.
-        assert (tmp / "state" / "signalsSf_last_success").read_text() == stamp_before
-        marker = json.loads((tmp / "store" / "values" / S.PROVISIONED_MARKER).read_text())
+        assert (tmp / "state" / "signalsSf_last_success").read_text(
+            encoding="utf-8"
+        ) == stamp_before
+        marker = json.loads(
+            (tmp / "store" / "values" / S.PROVISIONED_MARKER).read_text(encoding="utf-8")
+        )
         assert marker["lastRunOk"] is False
 
     def test_401_renews_once_then_succeeds(self, world):

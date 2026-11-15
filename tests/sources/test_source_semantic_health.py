@@ -208,6 +208,38 @@ def test_registered_source_integrity_distinguishes_schema_and_coverage(tmp_path)
     assert any("below floor" in msg for msg in report["badRank"]["errors"])
 
 
+def test_value_order_rank_source_is_measured_on_its_value_column(tmp_path):
+    """``rank_from: value_order`` (DLF Values, owner decision D4) votes as rank
+    but derives the rank from the value order, so its CSV has no rank column.
+    The strict release gate read that as a broken rank source."""
+    (tmp_path / "values.csv").write_text(
+        "name,pos,team,value\nElite,QB,BUF,98.5\nMiddle,WR,KC,60\nDeep,RB,NYJ,12\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "novalue.csv").write_text("name,pos\nOnly,QB\n", encoding="utf-8")
+    source = {
+        "scope": "overall_offense",
+        "correlation_group": "dlf",
+        "game_type": "DYNASTY",
+        "game_type_evidence": "fixture dynasty source",
+        "is_tep_premium": False,
+    }
+    report = measure_registered_source_integrity(
+        tmp_path,
+        sources=[{**source, "key": "valueOrder"}, {**source, "key": "noValue"}],
+        source_paths={
+            "valueOrder": {"path": "values.csv", "signal": "rank", "rank_from": "value_order"},
+            "noValue": {"path": "novalue.csv", "signal": "rank", "rank_from": "value_order"},
+        },
+        floors={},
+    )
+
+    assert report["valueOrder"]["state"] == "HEALTHY", report["valueOrder"]["errors"]
+    assert report["valueOrder"]["numericSignalRows"] == 3
+    assert report["noValue"]["state"] == "DEGRADED"
+    assert any("value column" in msg for msg in report["noValue"]["errors"])
+
+
 def test_registered_source_integrity_catches_wrong_game_type_and_missing_file(tmp_path):
     report = measure_registered_source_integrity(
         tmp_path,

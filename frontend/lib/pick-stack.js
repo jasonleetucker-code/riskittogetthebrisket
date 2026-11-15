@@ -31,6 +31,8 @@
 // owner-attributed draft-capital payload (the authority for assigned
 // slots); future-year picks come from Sleeper roster ownership.
 
+import { draftCapitalBudgetsUnavailableReason } from "./draft-capital-budgets";
+
 const TIER_RE = /^(20\d{2})\s+(Early|Mid|Late)\s+([1-9])(?:st|nd|rd|th)\b/i;
 const SLOT_RE = /^(20\d{2})\s+Pick\s+(\d+)\.(\d+)\b/i;
 const ROUND_RE = /^(20\d{2})\s+(?:Pick\s+)?(\d+)(?:st|nd|rd|th)\b/i;
@@ -413,6 +415,9 @@ export function pickAuctionDollars(name, ctx) {
 // ids, and duplicates), valued via the tier/slot-average rule.
 // `pickRowsByTeam` maps team key -> array of pick board-row names.
 export function buildLeagueStacks(draftCapital, pickRowsByTeam, ctx) {
+  // Unavailable budgets (``teamTotalsState: "unavailable"``) are UNKNOWN, not
+  // $0: no stack can be built on them (MISSING IS NEVER ZERO).
+  if (draftCapitalBudgetsUnavailableReason(draftCapital)) return null;
   const stacks = {};
   for (const t of draftCapital?.teamTotals || []) {
     const team = teamStackKey(t);

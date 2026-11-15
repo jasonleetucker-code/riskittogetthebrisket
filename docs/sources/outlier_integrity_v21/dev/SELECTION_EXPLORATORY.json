@@ -1,0 +1,6960 @@
+{
+ "b3": null,
+ "b3Status": "FAILED_SELECTION",
+ "b3Status_b4Abstaining": "FAILED_SELECTION",
+ "b3_b4Abstaining": null,
+ "boardsRead": [
+  "dynasty_export_20260714_233659.zip",
+  "dynasty_export_20260715_234323.zip",
+  "dynasty_export_20260716_234047.zip",
+  "dynasty_export_20260717_233701.zip",
+  "dynasty_export_20260718_233845.zip",
+  "dynasty_export_20260719_234246.zip",
+  "dynasty_export_20260720_234315.zip",
+  "dynasty_export_20260721_234338.zip",
+  "dynasty_export_20260722_234350.zip",
+  "dynasty_export_20260723_234119.zip",
+  "dynasty_export_20260724_234602.zip",
+  "dynasty_export_20260725_174518.zip",
+  "dynasty_export_20260726_234351.zip",
+  "dynasty_export_20260727_234712.zip",
+  "dynasty_export_20260728_234257.zip",
+  "dynasty_export_20260729_234404.zip",
+  "dynasty_export_20260730_234456.zip",
+  "dynasty_export_20260731_234435.zip",
+  "dynasty_export_20260801_234420.zip",
+  "dynasty_export_20260802_234410.zip",
+  "dynasty_export_20260803_235610.zip",
+  "dynasty_export_20260804_234442.zip",
+  "dynasty_export_20260805_234032.zip",
+  "dynasty_export_20260806_150742.zip",
+  "dynasty_export_20260807_231948.zip",
+  "dynasty_export_20260808_230641.zip",
+  "dynasty_export_20260809_230755.zip",
+  "dynasty_export_20260810_232112.zip",
+  "dynasty_export_20260811_232600.zip",
+  "dynasty_export_20260812_232543.zip",
+  "dynasty_export_20260813_232644.zip",
+  "dynasty_export_20260814_230212.zip",
+  "dynasty_export_20260815_230043.zip",
+  "dynasty_export_20260816_225946.zip",
+  "dynasty_export_20260817_230203.zip",
+  "dynasty_export_20260818_230211.zip",
+  "dynasty_export_20260819_230341.zip",
+  "dynasty_export_20260820_230504.zip",
+  "dynasty_export_20260821_230238.zip",
+  "dynasty_export_20260822_230108.zip",
+  "dynasty_export_20260823_230044.zip",
+  "dynasty_export_20260824_230400.zip",
+  "dynasty_export_20260825_230528.zip",
+  "dynasty_export_20260826_211658.zip",
+  "dynasty_export_20260827_153424.zip",
+  "dynasty_export_20260828_234428.zip",
+  "dynasty_export_20260829_211720.zip",
+  "dynasty_export_20260830_213746.zip",
+  "dynasty_export_20260831_230447.zip",
+  "dynasty_export_20260901_212308.zip",
+  "dynasty_export_20260902_212027.zip",
+  "dynasty_export_20260903_225148.zip",
+  "dynasty_export_20260904_223450.zip",
+  "dynasty_export_20260905_204615.zip",
+  "dynasty_export_20260906_205400.zip",
+  "dynasty_export_20260907_230241.zip",
+  "dynasty_export_20260908_212819.zip",
+  "dynasty_export_20260909_211525.zip",
+  "dynasty_export_20260910_224947.zip",
+  "dynasty_export_20260911_212200.zip",
+  "dynasty_export_20260912_223716.zip",
+  "dynasty_export_20260913_223956.zip",
+  "dynasty_export_20260914_233241.zip",
+  "dynasty_export_20260915_214858.zip",
+  "dynasty_export_20260916_214700.zip",
+  "dynasty_export_20260917_214927.zip",
+  "dynasty_export_20260918_211845.zip",
+  "dynasty_export_20260919_223220.zip",
+  "dynasty_export_20260920_224450.zip",
+  "dynasty_export_20260921_234150.zip",
+  "dynasty_export_20260922_214329.zip",
+  "dynasty_export_20260923_215107.zip",
+  "dynasty_export_20260924_232149.zip",
+  "dynasty_export_20260925_233646.zip",
+  "dynasty_export_20260926_164906.zip",
+  "dynasty_export_20260927_214140.zip",
+  "dynasty_export_20260928_233322.zip",
+  "dynasty_export_20260929_194208.zip",
+  "dynasty_export_20260930_130404.zip"
+ ],
+ "devContinuation": {
+  "note": "not a selection: FAILED_SELECTION",
+  "tau_C": "ln 6"
+ },
+ "epsilon_b2": 0.01,
+ "evidence": {
+  "b3": {
+   "selected": null,
+   "settings": [
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.4797,
+     "injections": 1132,
+     "injectionsCaught": 543,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 269,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.4797,
+     "injections": 1132,
+     "injectionsCaught": 543,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 269,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.4797,
+     "injections": 1132,
+     "injectionsCaught": 543,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 269,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.4797,
+     "injections": 1132,
+     "injectionsCaught": 543,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 269,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    }
+   ],
+   "status": "FAILED_SELECTION"
+  },
+  "b3_b4Abstaining": {
+   "selected": null,
+   "settings": [
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.9973,
+     "injections": 1132,
+     "injectionsCaught": 1129,
+     "missedByKind": {
+      "ranks_x2": 1,
+      "ranks_x5": 1,
+      "values_x0.01": 1
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x2",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "ranks_x5",
+       "source": "ktcCrowdSfTep"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260909_211525.zip",
+       "kind": "values_x0.01",
+       "source": "ktcCrowdSfTep"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    }
+   ],
+   "status": "FAILED_SELECTION"
+  },
+  "b3_b4Active": {
+   "selected": null,
+   "settings": [
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.4797,
+     "injections": 1132,
+     "injectionsCaught": 543,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 269,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.4797,
+     "injections": 1132,
+     "injectionsCaught": 543,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 269,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.4797,
+     "injections": 1132,
+     "injectionsCaught": 543,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 269,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.4797,
+     "injections": 1132,
+     "injectionsCaught": 543,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 269,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      }
+     ],
+     "n_min": 10,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 20,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.0,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.0,
+     "tau_gross": "ln 4"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.3,
+     "tau_gross": "ln 3"
+    },
+    {
+     "cleanHardFlagSample": [],
+     "cleanHardFlags": 0,
+     "feasible": false,
+     "injectionCatchRate": 0.477,
+     "injections": 1132,
+     "injectionsCaught": 540,
+     "missedByKind": {
+      "ranks_x2": 39,
+      "ranks_x5": 272,
+      "values_x0.01": 281
+     },
+     "missedSample": [
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260818_230211.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharksIdp"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "idp",
+       "board": "dynasty_export_20260819_230341.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "dlfSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "draftSharks"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "fantasyProsSf"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "ranks_x5",
+       "source": "idpTradeCalc"
+      },
+      {
+       "assetClass": "offense",
+       "board": "dynasty_export_20260820_230504.zip",
+       "kind": "values_x0.01",
+       "source": "idpTradeCalc"
+      }
+     ],
+     "n_min": 30,
+     "rho_min": 0.3,
+     "tau_gross": "ln 4"
+    }
+   ],
+   "status": "FAILED_SELECTION"
+  },
+  "epsilon_b2": {
+   "boardProofCountsByGrid": {
+    "0.01": 0,
+    "0.02": 0,
+    "0.05": 0
+   },
+   "boardProofsByGrid": {
+    "0.01": [],
+    "0.02": [],
+    "0.05": []
+   },
+   "boards": 77,
+   "feasible": true,
+   "selected": 0.01
+  },
+  "k_c": {
+   "byKc": {
+    "4.0": {
+     "boards": 22,
+     "feasible": true,
+     "maxRate": 0.0004,
+     "totalHolds": 9,
+     "worst": [
+      {
+       "board": "dynasty_export_20260924_232149.zip",
+       "holds": 3,
+       "rate": 0.0004,
+       "votes": 7495
+      },
+      {
+       "board": "dynasty_export_20260915_214858.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6908
+      },
+      {
+       "board": "dynasty_export_20260917_214927.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6914
+      },
+      {
+       "board": "dynasty_export_20260923_215107.zip",
+       "holds": 1,
+       "rate": 0.000139,
+       "votes": 7197
+      },
+      {
+       "board": "dynasty_export_20260926_164906.zip",
+       "holds": 1,
+       "rate": 0.000133,
+       "votes": 7498
+      }
+     ]
+    },
+    "6.0": {
+     "boards": 22,
+     "feasible": true,
+     "maxRate": 0.0004,
+     "totalHolds": 9,
+     "worst": [
+      {
+       "board": "dynasty_export_20260924_232149.zip",
+       "holds": 3,
+       "rate": 0.0004,
+       "votes": 7495
+      },
+      {
+       "board": "dynasty_export_20260915_214858.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6908
+      },
+      {
+       "board": "dynasty_export_20260917_214927.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6914
+      },
+      {
+       "board": "dynasty_export_20260923_215107.zip",
+       "holds": 1,
+       "rate": 0.000139,
+       "votes": 7197
+      },
+      {
+       "board": "dynasty_export_20260926_164906.zip",
+       "holds": 1,
+       "rate": 0.000133,
+       "votes": 7498
+      }
+     ]
+    },
+    "8.0": {
+     "boards": 22,
+     "feasible": true,
+     "maxRate": 0.0004,
+     "totalHolds": 9,
+     "worst": [
+      {
+       "board": "dynasty_export_20260924_232149.zip",
+       "holds": 3,
+       "rate": 0.0004,
+       "votes": 7495
+      },
+      {
+       "board": "dynasty_export_20260915_214858.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6908
+      },
+      {
+       "board": "dynasty_export_20260917_214927.zip",
+       "holds": 1,
+       "rate": 0.000145,
+       "votes": 6914
+      },
+      {
+       "board": "dynasty_export_20260923_215107.zip",
+       "holds": 1,
+       "rate": 0.000139,
+       "votes": 7197
+      },
+      {
+       "board": "dynasty_export_20260926_164906.zip",
+       "holds": 1,
+       "rate": 0.000133,
+       "votes": 7498
+      }
+     ]
+    }
+   },
+   "feasible": true,
+   "selected": 4.0
+  },
+  "tau_C": {
+   "boards": [
+    "dynasty_export_20260818_230211.zip",
+    "dynasty_export_20260901_212308.zip",
+    "dynasty_export_20260916_214700.zip",
+    "dynasty_export_20260930_130404.zip"
+   ],
+   "byGrid": {
+    "ln 4": {
+     "AD1a": {
+      "bar": 0.9,
+      "material": 1189,
+      "passed": 1160,
+      "rate": 0.9756
+     },
+     "AD1b": {
+      "bar": 0.9,
+      "material": 1081,
+      "passed": 1053,
+      "rate": 0.9741
+     },
+     "AD1c": {
+      "bar": 0.95,
+      "material": 1227,
+      "passed": 1224,
+      "rate": 0.9976
+     },
+     "AD1d": {
+      "bar": 0.95,
+      "material": 1099,
+      "passed": 1099,
+      "rate": 1.0
+     },
+     "AD4": {
+      "bar": 0.95,
+      "material": 395,
+      "passed": 395,
+      "rate": 1.0
+     },
+     "feasible": false,
+     "l4Boards": 18,
+     "l4Dropped": 726,
+     "l4DropsByLayer": {
+      "refused:identity_contradicted:age": 57,
+      "refused:identity_contradicted:position_family": 18,
+      "refused:identity_contradicted:sleeper_id": 82,
+      "refused:identity_unresolved:ambiguous_in_source": 53,
+      "rejected_tail:extreme_uncorroborated_tail": 11,
+      "withheld:normalization_untranslated": 505
+     },
+     "l4Votes": 113480
+    },
+    "ln 5": {
+     "AD1a": {
+      "bar": 0.9,
+      "material": 1189,
+      "passed": 1160,
+      "rate": 0.9756
+     },
+     "AD1b": {
+      "bar": 0.9,
+      "material": 1081,
+      "passed": 1053,
+      "rate": 0.9741
+     },
+     "AD1c": {
+      "bar": 0.95,
+      "material": 1227,
+      "passed": 1224,
+      "rate": 0.9976
+     },
+     "AD1d": {
+      "bar": 0.95,
+      "material": 1099,
+      "passed": 1099,
+      "rate": 1.0
+     },
+     "AD4": {
+      "bar": 0.95,
+      "material": 395,
+      "passed": 395,
+      "rate": 1.0
+     },
+     "feasible": false,
+     "l4Boards": 18,
+     "l4Dropped": 716,
+     "l4DropsByLayer": {
+      "refused:identity_contradicted:age": 57,
+      "refused:identity_contradicted:position_family": 18,
+      "refused:identity_contradicted:sleeper_id": 82,
+      "refused:identity_unresolved:ambiguous_in_source": 53,
+      "rejected_tail:extreme_uncorroborated_tail": 1,
+      "withheld:normalization_untranslated": 505
+     },
+     "l4Votes": 113480
+    },
+    "ln 6": {
+     "AD1a": {
+      "bar": 0.9,
+      "material": 1189,
+      "passed": 1160,
+      "rate": 0.9756
+     },
+     "AD1b": {
+      "bar": 0.9,
+      "material": 1081,
+      "passed": 1053,
+      "rate": 0.9741
+     },
+     "AD1c": {
+      "bar": 0.95,
+      "material": 1227,
+      "passed": 1224,
+      "rate": 0.9976
+     },
+     "AD1d": {
+      "bar": 0.95,
+      "material": 1099,
+      "passed": 1099,
+      "rate": 1.0
+     },
+     "AD4": {
+      "bar": 0.95,
+      "material": 395,
+      "passed": 395,
+      "rate": 1.0
+     },
+     "feasible": false,
+     "l4Boards": 18,
+     "l4Dropped": 716,
+     "l4DropsByLayer": {
+      "refused:identity_contradicted:age": 57,
+      "refused:identity_contradicted:position_family": 18,
+      "refused:identity_contradicted:sleeper_id": 82,
+      "refused:identity_unresolved:ambiguous_in_source": 53,
+      "rejected_tail:extreme_uncorroborated_tail": 1,
+      "withheld:normalization_untranslated": 505
+     },
+     "l4Votes": 113480
+    }
+   },
+   "feasible": false,
+   "l4Boards": [
+    "dynasty_export_20260803_235610.zip",
+    "dynasty_export_20260804_234442.zip",
+    "dynasty_export_20260805_234032.zip",
+    "dynasty_export_20260806_150742.zip",
+    "dynasty_export_20260819_230341.zip",
+    "dynasty_export_20260820_230504.zip",
+    "dynasty_export_20260825_230528.zip",
+    "dynasty_export_20260826_211658.zip",
+    "dynasty_export_20260827_153424.zip",
+    "dynasty_export_20260829_211720.zip",
+    "dynasty_export_20260830_213746.zip",
+    "dynasty_export_20260924_232149.zip",
+    "dynasty_export_20260925_233646.zip",
+    "dynasty_export_20260926_164906.zip",
+    "dynasty_export_20260927_214140.zip",
+    "dynasty_export_20260928_233322.zip",
+    "dynasty_export_20260929_194208.zip",
+    "dynasty_export_20260930_130404.zip"
+   ],
+   "selected": null
+  },
+  "tau_board": {
+   "boardsPerCell": {
+    "dlfRookieSf|offense": 22,
+    "dlfSf|offense": 41,
+    "draftSharksIdp|idp": 44,
+    "draftSharks|offense": 44,
+    "dynastyDaddySf|offense": 44,
+    "dynastyNerdsSfTep|offense": 44,
+    "fantasyCalc|offense": 44,
+    "fantasyNavigatorSf|offense": 10,
+    "fantasyProsFitzmaurice|offense": 44,
+    "fantasyProsIdp|idp": 44,
+    "fantasyProsSf|offense": 44,
+    "flockFantasySfRookies|offense": 22,
+    "flockFantasySf|offense": 44,
+    "idpShowCombined|idp": 41,
+    "idpShowCombined|offense": 41,
+    "idpTradeCalc|idp": 44,
+    "idpTradeCalc|offense": 44,
+    "ktcCrowdSfTep|offense": 22,
+    "ktcTradesSfTep|offense": 22,
+    "otcffbSf|offense": 44,
+    "pfkDynasty|offense": 44,
+    "yahooBoone|offense": 44
+   },
+   "selected": {
+    "dlfRookieSf|offense": 0.051852,
+    "dlfSf|offense": 0.006541,
+    "draftSharksIdp|idp": 0.027361,
+    "draftSharks|offense": 0.010698,
+    "dynastyDaddySf|offense": 0.009563,
+    "dynastyNerdsSfTep|offense": 0.008449,
+    "fantasyCalc|offense": 0.013967,
+    "fantasyNavigatorSf|offense": 0.004766,
+    "fantasyProsFitzmaurice|offense": 0.007717,
+    "fantasyProsIdp|idp": 0.028915,
+    "fantasyProsSf|offense": 0.007552,
+    "flockFantasySfRookies|offense": 0.049039,
+    "flockFantasySf|offense": 0.010929,
+    "idpShowCombined|idp": 0.005701,
+    "idpShowCombined|offense": 0.008164,
+    "idpTradeCalc|idp": 0.060488,
+    "idpTradeCalc|offense": 0.014999,
+    "ktcCrowdSfTep|offense": 0.019092,
+    "ktcTradesSfTep|offense": 0.010025,
+    "otcffbSf|offense": 0.010636,
+    "pfkDynasty|offense": 0.011672,
+    "yahooBoone|offense": 0.009705
+   }
+  },
+  "tau_c_mad": {
+   "dlfRookieSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.032087305141526024,
+      "n": 114
+     },
+     "51_150": {
+      "mad": 0.02241167306315628,
+      "n": 52
+     },
+     "gt400": {
+      "mad": 0.02898037417713173,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.02898037417713173,
+      "n": 3,
+      "pooled": true
+     }
+    },
+    "pooledMad": 0.02898037417713173,
+    "pooledN": 169
+   },
+   "dlfSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0033887176058167157,
+      "n": 3165
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 2783
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 1368
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 7316
+   },
+   "draftSharks": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0014516634327046418,
+      "n": 8349
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 9555
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 2476
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 20380
+   },
+   "draftSharksIdp": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0017328126033282487,
+      "n": 8801
+     },
+     "51_150": {
+      "mad": 0.001917208100072898,
+      "n": 3249
+     },
+     "gt400": {
+      "mad": 0.0017356867091979922,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 386
+     }
+    },
+    "pooledMad": 0.0017356867091979922,
+    "pooledN": 12436
+   },
+   "dynastyDaddySf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.014657313734713906,
+      "n": 14644
+     },
+     "51_150": {
+      "mad": 0.008977527377907357,
+      "n": 8551
+     },
+     "gt400": {
+      "mad": 0.01087017576724314,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 4063
+     }
+    },
+    "pooledMad": 0.01087017576724314,
+    "pooledN": 27258
+   },
+   "dynastyNerdsSfTep": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 1615
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 1199
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 609
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 3423
+   },
+   "fantasyCalc": {
+    "bands": {
+     "151_400": {
+      "mad": 0.019611821567181664,
+      "n": 16589
+     },
+     "51_150": {
+      "mad": 0.016851330757990723,
+      "n": 8371
+     },
+     "gt400": {
+      "mad": 0.01891784807976027,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.019058285232544492,
+      "n": 4014
+     }
+    },
+    "pooledMad": 0.01891784807976027,
+    "pooledN": 28974
+   },
+   "fantasyNavigatorSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0028516140760093123,
+      "n": 3811
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 1764
+     },
+     "gt400": {
+      "mad": 0.003370547451342798,
+      "n": 320
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 846
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 6741
+   },
+   "fantasyProsFitzmaurice": {
+    "bands": {
+     "151_400": {
+      "mad": 0.014524467771270366,
+      "n": 682
+     },
+     "51_150": {
+      "mad": 0.014545318149098208,
+      "n": 510
+     },
+     "gt400": {
+      "mad": 0.015019429196501566,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0193430979983642,
+      "n": 276
+     }
+    },
+    "pooledMad": 0.015019429196501566,
+    "pooledN": 1468
+   },
+   "fantasyProsIdp": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0017271106296901095,
+      "n": 2054
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 1263
+     },
+     "gt400": {
+      "mad": 0.0016554965526314191,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 149
+     }
+    },
+    "pooledMad": 0.0016554965526314191,
+    "pooledN": 3466
+   },
+   "fantasyProsSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.009425977320497658,
+      "n": 13733
+     },
+     "51_150": {
+      "mad": 0.009585868308232826,
+      "n": 6612
+     },
+     "gt400": {
+      "mad": 0.004101735786700367,
+      "n": 867
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 3182
+     }
+    },
+    "pooledMad": 0.008929699835952931,
+    "pooledN": 24394
+   },
+   "flockFantasySf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 14535
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 7412
+     },
+     "gt400": {
+      "mad": 0.001976466673237809,
+      "n": 53
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 3434
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 25434
+   },
+   "idpShowCombined": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 1242
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 1164
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 212
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 2618
+   },
+   "idpTradeCalc": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 32537
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 19029
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 1168
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 5032
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 57766
+   },
+   "ktcCrowdSfTep": {
+    "bands": {
+     "151_400": {
+      "mad": 0.006555687374055097,
+      "n": 3969
+     },
+     "51_150": {
+      "mad": 0.006651033799141004,
+      "n": 3219
+     },
+     "gt400": {
+      "mad": 0.012033333889772457,
+      "n": 781
+     },
+     "le50": {
+      "mad": 0.007770816111635215,
+      "n": 1126
+     }
+    },
+    "pooledMad": 0.007101438608182242,
+    "pooledN": 9095
+   },
+   "ktcTradesSfTep": {
+    "bands": {
+     "151_400": {
+      "mad": 0.002330576009650809,
+      "n": 4132
+     },
+     "51_150": {
+      "mad": 0.00581881597104994,
+      "n": 3274
+     },
+     "gt400": {
+      "mad": 0.0027160152906917645,
+      "n": 341
+     },
+     "le50": {
+      "mad": 0.008723942786931893,
+      "n": 1348
+     }
+    },
+    "pooledMad": 0.003609705337701996,
+    "pooledN": 9095
+   },
+   "otcffbSf": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0130752484852108,
+      "n": 15720
+     },
+     "51_150": {
+      "mad": 0.00652170742264957,
+      "n": 8233
+     },
+     "gt400": {
+      "mad": 0.014667610181038349,
+      "n": 25
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 3667
+     }
+    },
+    "pooledMad": 0.008867298711251692,
+    "pooledN": 27645
+   },
+   "pfkDynasty": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 13819
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 6445
+     },
+     "gt400": {
+      "mad": 0.003093049443158691,
+      "n": 1086
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 2975
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 24325
+   },
+   "yahooBoone": {
+    "bands": {
+     "151_400": {
+      "mad": 0.0,
+      "n": 11006
+     },
+     "51_150": {
+      "mad": 0.0,
+      "n": 5522
+     },
+     "gt400": {
+      "mad": 0.0,
+      "n": 0,
+      "pooled": true
+     },
+     "le50": {
+      "mad": 0.0,
+      "n": 2499
+     }
+    },
+    "pooledMad": 0.0,
+    "pooledN": 19027
+   }
+  }
+ },
+ "failedSelection": [
+  "b3",
+  "tau_C"
+ ],
+ "k_c": 4.0,
+ "rpcModel": {
+  "cells": {
+   "*|idp|*": {
+    "mu": -0.007451,
+    "n": 8163,
+    "sigma": 0.325952
+   },
+   "*|offense|*": {
+    "mu": 0.0,
+    "n": 132241,
+    "sigma": 0.129382
+   },
+   "dlf|offense|*": {
+    "mu": -0.040766,
+    "n": 7787,
+    "sigma": 0.21649
+   },
+   "dlf|offense|b1": {
+    "mu": -0.01236,
+    "n": 1625,
+    "sigma": 0.208237
+   },
+   "dlf|offense|b2": {
+    "mu": 0.045458,
+    "n": 2903,
+    "sigma": 0.238494
+   },
+   "dlf|offense|b3": {
+    "mu": -0.081884,
+    "n": 3203,
+    "sigma": 0.182381
+   },
+   "dlf|offense|b4": {
+    "mu": -0.273784,
+    "n": 56,
+    "sigma": 0.066352
+   },
+   "draftSharks|idp|*": {
+    "mu": 0.095638,
+    "n": 2721,
+    "sigma": 0.29254
+   },
+   "draftSharks|idp|b1": {
+    "mu": 1.290622,
+    "n": 51,
+    "sigma": 0.117956
+   },
+   "draftSharks|idp|b2": {
+    "mu": 0.368767,
+    "n": 891,
+    "sigma": 0.364924
+   },
+   "draftSharks|idp|b3": {
+    "mu": 0.055869,
+    "n": 1729,
+    "sigma": 0.190264
+   },
+   "draftSharks|idp|b4": {
+    "mu": -0.25625,
+    "n": 50,
+    "sigma": 0.057847
+   },
+   "draftSharks|offense|*": {
+    "mu": -0.226739,
+    "n": 6186,
+    "sigma": 0.278589
+   },
+   "draftSharks|offense|b1": {
+    "mu": 0.231859,
+    "n": 987,
+    "sigma": 0.340719
+   },
+   "draftSharks|offense|b2": {
+    "mu": -0.118011,
+    "n": 1765,
+    "sigma": 0.125623
+   },
+   "draftSharks|offense|b3": {
+    "mu": -0.37618,
+    "n": 3056,
+    "sigma": 0.160973
+   },
+   "draftSharks|offense|b4": {
+    "mu": -0.593095,
+    "n": 378,
+    "sigma": 0.139826
+   },
+   "dynastyDaddySf|offense|*": {
+    "mu": 0.007135,
+    "n": 11687,
+    "sigma": 0.095197
+   },
+   "dynastyDaddySf|offense|b1": {
+    "mu": 0.0,
+    "n": 2012,
+    "sigma": 0.091356
+   },
+   "dynastyDaddySf|offense|b2": {
+    "mu": 0.010324,
+    "n": 3615,
+    "sigma": 0.083021
+   },
+   "dynastyDaddySf|offense|b3": {
+    "mu": 0.022498,
+    "n": 5677,
+    "sigma": 0.101897
+   },
+   "dynastyDaddySf|offense|b4": {
+    "mu": -0.143322,
+    "n": 383,
+    "sigma": 0.116013
+   },
+   "dynastyNerdsSfTep|offense|*": {
+    "mu": 0.029427,
+    "n": 10062,
+    "sigma": 0.139444
+   },
+   "dynastyNerdsSfTep|offense|b1": {
+    "mu": 0.0,
+    "n": 2021,
+    "sigma": 0.122004
+   },
+   "dynastyNerdsSfTep|offense|b2": {
+    "mu": 0.05199,
+    "n": 3587,
+    "sigma": 0.133012
+   },
+   "dynastyNerdsSfTep|offense|b3": {
+    "mu": 0.030115,
+    "n": 4346,
+    "sigma": 0.139008
+   },
+   "dynastyNerdsSfTep|offense|b4": {
+    "mu": -0.397679,
+    "n": 108,
+    "sigma": 0.158544
+   },
+   "fantasyCalc|offense|*": {
+    "mu": 0.010905,
+    "n": 12962,
+    "sigma": 0.08287
+   },
+   "fantasyCalc|offense|b1": {
+    "mu": 0.0,
+    "n": 2009,
+    "sigma": 0.095722
+   },
+   "fantasyCalc|offense|b2": {
+    "mu": 0.006522,
+    "n": 3624,
+    "sigma": 0.083248
+   },
+   "fantasyCalc|offense|b3": {
+    "mu": 0.024111,
+    "n": 6683,
+    "sigma": 0.082872
+   },
+   "fantasyCalc|offense|b4": {
+    "mu": -0.012869,
+    "n": 646,
+    "sigma": 0.057624
+   },
+   "fantasyPros|idp|*": {
+    "mu": -0.069565,
+    "n": 2721,
+    "sigma": 0.274594
+   },
+   "fantasyPros|idp|b1": {
+    "mu": 0.714647,
+    "n": 44,
+    "sigma": 0.682239
+   },
+   "fantasyPros|idp|b2": {
+    "mu": 0.064926,
+    "n": 720,
+    "sigma": 0.462015
+   },
+   "fantasyPros|idp|b3": {
+    "mu": -0.101418,
+    "n": 1894,
+    "sigma": 0.223434
+   },
+   "fantasyPros|idp|b4": {
+    "mu": -0.311679,
+    "n": 63,
+    "sigma": 0.051388
+   },
+   "fantasyPros|offense|*": {
+    "mu": 0.019803,
+    "n": 19428,
+    "sigma": 0.123596
+   },
+   "fantasyPros|offense|b1": {
+    "mu": 0.0,
+    "n": 3269,
+    "sigma": 0.18593
+   },
+   "fantasyPros|offense|b2": {
+    "mu": 0.025276,
+    "n": 6047,
+    "sigma": 0.12071
+   },
+   "fantasyPros|offense|b3": {
+    "mu": 0.020834,
+    "n": 9231,
+    "sigma": 0.11295
+   },
+   "fantasyPros|offense|b4": {
+    "mu": 0.047678,
+    "n": 881,
+    "sigma": 0.097079
+   },
+   "flockFantasy|offense|*": {
+    "mu": 0.006202,
+    "n": 12328,
+    "sigma": 0.106256
+   },
+   "flockFantasy|offense|b1": {
+    "mu": 0.0,
+    "n": 1932,
+    "sigma": 0.14187
+   },
+   "flockFantasy|offense|b2": {
+    "mu": 0.011682,
+    "n": 3433,
+    "sigma": 0.087841
+   },
+   "flockFantasy|offense|b3": {
+    "mu": 0.019103,
+    "n": 6146,
+    "sigma": 0.111332
+   },
+   "flockFantasy|offense|b4": {
+    "mu": -0.049515,
+    "n": 817,
+    "sigma": 0.121803
+   },
+   "idpTradeCalc|idp|*": {
+    "mu": -0.02009,
+    "n": 2721,
+    "sigma": 0.356448
+   },
+   "idpTradeCalc|idp|b2": {
+    "mu": -0.04258,
+    "n": 661,
+    "sigma": 0.418517
+   },
+   "idpTradeCalc|idp|b3": {
+    "mu": -0.0002,
+    "n": 2043,
+    "sigma": 0.335333
+   },
+   "idpTradeCalc|offense|*": {
+    "mu": -0.125133,
+    "n": 13238,
+    "sigma": 0.17095
+   },
+   "idpTradeCalc|offense|b1": {
+    "mu": 0.10345,
+    "n": 1997,
+    "sigma": 0.130915
+   },
+   "idpTradeCalc|offense|b2": {
+    "mu": -0.118861,
+    "n": 3580,
+    "sigma": 0.070878
+   },
+   "idpTradeCalc|offense|b3": {
+    "mu": -0.211457,
+    "n": 6780,
+    "sigma": 0.140598
+   },
+   "idpTradeCalc|offense|b4": {
+    "mu": -0.023264,
+    "n": 881,
+    "sigma": 0.147267
+   },
+   "ktcCrowd|offense|*": {
+    "mu": -0.04239,
+    "n": 2670,
+    "sigma": 0.081376
+   },
+   "ktcCrowd|offense|b1": {
+    "mu": -0.08965,
+    "n": 383,
+    "sigma": 0.133154
+   },
+   "ktcCrowd|offense|b2": {
+    "mu": -0.05092,
+    "n": 663,
+    "sigma": 0.08347
+   },
+   "ktcCrowd|offense|b3": {
+    "mu": -0.026971,
+    "n": 1319,
+    "sigma": 0.083081
+   },
+   "ktcCrowd|offense|b4": {
+    "mu": -0.039889,
+    "n": 305,
+    "sigma": 0.059668
+   },
+   "otcffbSf|offense|*": {
+    "mu": 0.004783,
+    "n": 13385,
+    "sigma": 0.088101
+   },
+   "otcffbSf|offense|b1": {
+    "mu": 0.0,
+    "n": 2024,
+    "sigma": 0.109223
+   },
+   "otcffbSf|offense|b2": {
+    "mu": 0.012003,
+    "n": 3645,
+    "sigma": 0.076428
+   },
+   "otcffbSf|offense|b3": {
+    "mu": 0.006648,
+    "n": 6789,
+    "sigma": 0.09521
+   },
+   "otcffbSf|offense|b4": {
+    "mu": -0.017034,
+    "n": 927,
+    "sigma": 0.05253
+   },
+   "pfkDynasty|offense|*": {
+    "mu": 0.024617,
+    "n": 9256,
+    "sigma": 0.102107
+   },
+   "pfkDynasty|offense|b1": {
+    "mu": -0.024042,
+    "n": 1323,
+    "sigma": 0.133332
+   },
+   "pfkDynasty|offense|b2": {
+    "mu": 0.013262,
+    "n": 2362,
+    "sigma": 0.119998
+   },
+   "pfkDynasty|offense|b3": {
+    "mu": 0.026374,
+    "n": 4730,
+    "sigma": 0.097883
+   },
+   "pfkDynasty|offense|b4": {
+    "mu": 0.048879,
+    "n": 841,
+    "sigma": 0.042328
+   },
+   "yahooBoone|offense|*": {
+    "mu": 0.041189,
+    "n": 13252,
+    "sigma": 0.159671
+   },
+   "yahooBoone|offense|b1": {
+    "mu": 0.019343,
+    "n": 1999,
+    "sigma": 0.290416
+   },
+   "yahooBoone|offense|b2": {
+    "mu": 0.023921,
+    "n": 3662,
+    "sigma": 0.125268
+   },
+   "yahooBoone|offense|b3": {
+    "mu": 0.073883,
+    "n": 6749,
+    "sigma": 0.163369
+   },
+   "yahooBoone|offense|b4": {
+    "mu": -0.056595,
+    "n": 842,
+    "sigma": 0.091778
+   }
+  },
+  "corr": 0.22314355131420976,
+  "dMin": 0.9162907318741551,
+  "minN": 25,
+  "schema": "oiv21-rpc-model/v1",
+  "z": 5.0
+ },
+ "schema": "oiv21-dev-selection/v1",
+ "seed": 20261021,
+ "status": "EXPLORATORY_DEV_NOT_FROZEN",
+ "tau_C": null,
+ "tau_board": {
+  "dlfRookieSf|offense": 0.051852,
+  "dlfSf|offense": 0.006541,
+  "draftSharksIdp|idp": 0.027361,
+  "draftSharks|offense": 0.010698,
+  "dynastyDaddySf|offense": 0.009563,
+  "dynastyNerdsSfTep|offense": 0.008449,
+  "fantasyCalc|offense": 0.013967,
+  "fantasyNavigatorSf|offense": 0.004766,
+  "fantasyProsFitzmaurice|offense": 0.007717,
+  "fantasyProsIdp|idp": 0.028915,
+  "fantasyProsSf|offense": 0.007552,
+  "flockFantasySfRookies|offense": 0.049039,
+  "flockFantasySf|offense": 0.010929,
+  "idpShowCombined|idp": 0.005701,
+  "idpShowCombined|offense": 0.008164,
+  "idpTradeCalc|idp": 0.060488,
+  "idpTradeCalc|offense": 0.014999,
+  "ktcCrowdSfTep|offense": 0.019092,
+  "ktcTradesSfTep|offense": 0.010025,
+  "otcffbSf|offense": 0.010636,
+  "pfkDynasty|offense": 0.011672,
+  "yahooBoone|offense": 0.009705
+ },
+ "tau_c": {
+  "dlfRookieSf": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "dlfSf": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "draftSharks": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "draftSharksIdp": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "dynastyDaddySf": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "dynastyNerdsSfTep": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "fantasyCalc": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "fantasyNavigatorSf": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "fantasyProsFitzmaurice": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "fantasyProsIdp": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "fantasyProsSf": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "flockFantasySf": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "idpShowCombined": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "idpTradeCalc": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "ktcCrowdSfTep": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "ktcTradesSfTep": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "otcffbSf": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "pfkDynasty": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  },
+  "yahooBoone": {
+   "151_400": 0.405465,
+   "51_150": 0.405465,
+   "gt400": 0.405465,
+   "le50": 0.405465
+  }
+ },
+ "tau_c_tables": {
+  "4": {
+   "dlfRookieSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dlfSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "draftSharks": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "draftSharksIdp": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dynastyDaddySf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dynastyNerdsSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyCalc": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyNavigatorSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsFitzmaurice": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsIdp": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "flockFantasySf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "idpShowCombined": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "idpTradeCalc": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "ktcCrowdSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "ktcTradesSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "otcffbSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "pfkDynasty": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "yahooBoone": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   }
+  },
+  "6": {
+   "dlfRookieSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dlfSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "draftSharks": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "draftSharksIdp": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dynastyDaddySf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dynastyNerdsSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyCalc": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyNavigatorSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsFitzmaurice": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsIdp": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "flockFantasySf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "idpShowCombined": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "idpTradeCalc": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "ktcCrowdSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "ktcTradesSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "otcffbSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "pfkDynasty": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "yahooBoone": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   }
+  },
+  "8": {
+   "dlfRookieSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dlfSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "draftSharks": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "draftSharksIdp": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dynastyDaddySf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "dynastyNerdsSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyCalc": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyNavigatorSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsFitzmaurice": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsIdp": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "fantasyProsSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "flockFantasySf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "idpShowCombined": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "idpTradeCalc": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "ktcCrowdSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "ktcTradesSfTep": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "otcffbSf": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "pfkDynasty": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   },
+   "yahooBoone": {
+    "151_400": 0.405465,
+    "51_150": 0.405465,
+    "gt400": 0.405465,
+    "le50": 0.405465
+   }
+  }
+ }
+}

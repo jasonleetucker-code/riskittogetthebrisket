@@ -45,16 +45,24 @@ def test_it_is_seeded_only_with_what_the_adapted_producers_consume():
         SPARSE_FAMILY,
         SPARSE_FEATURES,
     )
+    from src.sources.chase_trade_market import FEATURE_MANIFEST as CTM_FEATURES
+    from src.sources.chase_trade_market import MODEL_FAMILY as CTM_FAMILY
 
     declared = {
         (f["name"], f["version"])
-        for f in (*HILL_FEATURES, *SQ_FEATURES, *SPARSE_FEATURES, *ROBUST_FEATURES)
+        for f in (
+            *HILL_FEATURES,
+            *SQ_FEATURES,
+            *SPARSE_FEATURES,
+            *ROBUST_FEATURES,
+            *CTM_FEATURES,
+        )
     }
     # provider_family v1 stays defined (and locked) for the AL-0 consumers that pin
     # it; AL-1a's consumers use v2, the same definition with the wider consumer list.
     assert set(fd.load_dictionary().features) == declared
     consumers = {c for f in DOC["features"] for c in f["allowedConsumers"]}
-    assert consumers == {HILL_FAMILY, SQ_FAMILY, SPARSE_FAMILY, ROBUST_FAMILY}
+    assert consumers == {HILL_FAMILY, SQ_FAMILY, SPARSE_FAMILY, ROBUST_FAMILY, CTM_FAMILY}
 
 
 def test_al1a_rows_were_appended_and_no_earlier_row_moved():

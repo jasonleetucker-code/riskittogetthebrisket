@@ -24,12 +24,14 @@ import pytest
 
 from src.api import data_contract as dc
 from src.api import value_replay as vr
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 @pytest.fixture(scope="module")
 def raw_payload(tmp_path_factory):
-    payload, name = newest_complete_raw_payload()
+    payload, name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     path = tmp_path_factory.mktemp("replay") / f"{name}.json"

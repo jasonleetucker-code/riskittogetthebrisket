@@ -17,25 +17,8 @@ from typing import Any
 
 from . import metrics
 from .rivalries import build_section as build_rivalries
-from .draft import weighted_stockpile_for_owner
-from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
-
-
-def _roster_count_for(season: SeasonSnapshot, owner_id: str) -> dict[str, Any] | None:
-    """Return {rosterId, teamName, settings} for the owner this season."""
-    rid = None
-    for r in season.rosters:
-        if str(r.get("owner_id") or "") == owner_id:
-            try:
-                rid = int(r.get("roster_id"))
-            except (TypeError, ValueError):
-                rid = None
-            break
-    if rid is None:
-        return None
-    return {
-        "rosterId": rid,
-    }
+from .draft import pick_inventory, weighted_stockpile_for_owner
+from .snapshot import PublicLeagueSnapshot
 
 
 def _top_rival_for(owner_id: str, rivalries_section: dict[str, Any]) -> dict[str, Any] | None:
@@ -63,14 +46,18 @@ def _trade_waiver_counts(snapshot: PublicLeagueSnapshot) -> dict[str, dict[str, 
     for season in snapshot.seasons:
         for tx in season.trades():
             for rid in tx.get("roster_ids") or []:
-                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                owner_id = metrics.resolve_owner(
+                    snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+                )
                 if not owner_id:
                     continue
                 counts.setdefault(owner_id, {"trades": 0, "waivers": 0})
                 counts[owner_id]["trades"] += 1
         for tx in season.waivers():
             for rid in tx.get("roster_ids") or []:
-                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                owner_id = metrics.resolve_owner(
+                    snapshot.managers, season.league_id, rid, metrics.tx_week(tx)
+                )
                 if not owner_id:
                     continue
                 counts.setdefault(owner_id, {"trades": 0, "waivers": 0})
@@ -96,7 +83,7 @@ def _weekly_scoring_by_owner(
         roster_id = metrics.roster_id_of(entry)
         if roster_id is None:
             continue
-        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, roster_id)
+        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, roster_id, wk)
         if not owner_id:
             continue
         out.setdefault(owner_id, []).append(
@@ -248,9 +235,12 @@ def build_section(
     detail: dict[str, dict[str, Any]] = {}
     index: list[dict[str, Any]] = []
 
+    # One canonical fold for every franchise — the same inventory the Draft
+    # tab publishes, so the two can never disagree.
+    inventory = pick_inventory(snapshot)
     for owner_id, manager in snapshot.managers.by_owner_id.items():
         cum = cumulative.get(owner_id, {})
-        capital = weighted_stockpile_for_owner(snapshot, owner_id)
+        capital = weighted_stockpile_for_owner(snapshot, owner_id, inventory=inventory)
         fr = {
             **manager.to_public_dict(),
             "cumulative": {

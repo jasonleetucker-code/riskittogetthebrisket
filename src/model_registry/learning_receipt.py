@@ -163,8 +163,32 @@ NATIVE_STORES: Mapping[str, str] = {
     "sparse_evidence_shadow_ledger": "src.api.sparse_evidence_shadow",
     # Source dataset state clocks
     "dataset_state": "src.sources.dataset_state",
+    # Game Day league-week generations: the append-only ``generations.jsonl``
+    # index (as-known win / beat-median probabilities) and the latest
+    # ``generation.json`` (host finals once final) (AL-4a)
+    "game_day_generations": "src.ros.game_day_live (generations.jsonl + generation.json)",
+    # the pregame weekly-projection archive, or the raw weekly observation log
+    # it is built from before the prune (AL-3b)
+    "game_day_pregame_projections": "src.ros.game_day_live.build_pregame_projection_archive",
+    # Sleeper's own weekly stat dump, persisted by the projection scorecard (AL-3b)
+    "sleeper_weekly_stats": "src.league_comparison.sleeper_stats.fetch_week_stats_response",
+    # nflverse weekly stats scored through the BDVM actuals owner (AL-3b)
+    "nflverse_weekly_stats": "src.bdvm.actuals.weekly_points_from_rows",
+    # immutable BDVM season projection snapshots (AL-3b)
+    "bdvm_projection_snapshot": "src.bdvm.projections (data/bdvm/projections snapshots)",
     # a producer's preregistration document, pinned by sha256 (and commit) by that producer
     "preregistration": "the producer's own preregistration pin (e.g. source-quality pins.preregistration)",
+    # Best Trade to Send Each Team: the box-local append-only run log, one line per
+    # served run (AL-P5)
+    "best_offers_run_log": "src.trade.best_offers.record_run (data/trade/best_offers/runs-YYYY-MM.jsonl)",
+    # The canonical trade decision (TC-C): the box-local append-only run log, one
+    # line per served /api/trade/analyze decision (same AL-P5 arrangement)
+    "trade_decision_log": "src.trade.trade_decision_log.record_decision (data/trade/decisions/runs-YYYY-MM.jsonl)",
+    # chaseTradeMarket (P5 scaffolding): the box-local, content-addressed model
+    # snapshots and run records under data/market_trades/model/ (0600, gitignored).
+    # Registered now so an evaluation receipt can point at its own run; the
+    # writer lands with the estimator (P6/P7).
+    "chase_trade_market_model": "src.sources.chase_trade_market (box-local data/market_trades/model/)",
 }
 
 #: Stores that hold a PRODUCER'S OWN OUTPUT (plan §19.1: the model registry,
@@ -183,6 +207,9 @@ ARTIFACT_STORES: frozenset[str] = frozenset(
         "robust_filter_shadow_ledger",
         "sparse_evidence_shadow_ledger",
         "preregistration",
+        "best_offers_run_log",
+        "trade_decision_log",
+        "chase_trade_market_model",
     }
 )
 
@@ -203,6 +230,9 @@ ARTIFACT_STORE_WRITERS: Mapping[str, frozenset[str]] = {
     "robust_filter_shadow_ledger": frozenset({"robust_filter_shadow"}),
     "sparse_evidence_shadow_ledger": frozenset({"sparse_evidence_shadow"}),
     "preregistration": frozenset(),
+    "best_offers_run_log": frozenset({"best_offers"}),
+    "trade_decision_log": frozenset({"trade_decision"}),
+    "chase_trade_market_model": frozenset({"chase_trade_market"}),
 }
 
 #: Kinds whose refs describe what FED a model; every ref must be ``input``.

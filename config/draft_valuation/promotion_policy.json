@@ -1,0 +1,53 @@
+{
+ "schema": "draft_valuation_promotion_policy_v1",
+ "version": "batch_d_policy_v1",
+ "status": "OWNER_APPROVED_2026-10-18",
+ "approvedBy": "owner",
+ "approvedOn": "2026-10-18",
+ "approvalText": "Approve Draft Valuation Batch D with your recommended thresholds.",
+ "leagueKey": "dynasty_main",
+ "preregistration": "docs/draft/BATCH_D_PREREGISTRATION_2026-10-18.md",
+ "promotionMode": "dry_run",
+ "promotionModeNote": "dry_run computes and records states and alerts but never switches a generation. Changing this one value to \"live\" enables automatic promotion; it is outside the thresholds checksum on purpose, so the flip touches no preregistered number.",
+ "thresholds": {
+  "classWindow": {
+   "nflDraftCompleteOn": {
+    "2027": "2027-05-01"
+   },
+   "rule": "a class Y candidate is evaluated only at or after 00:00 UTC on nflDraftCompleteOn[Y]; before that, or with no date configured for Y, the state stays FALLBACK_VERIFIED with the reason named"
+  },
+  "sourceFreshness": {
+   "requireContractHealthOk": true,
+   "contractMaxAgeHours": 6,
+   "contractMaxAgeSource": "src.api.league_registry.SCORING_SNAPSHOT_MAX_AGE_HOURS (SCRAPE_INTERVAL_HOURS x 3); the loader refuses this file if the two differ",
+   "forbidQuarantinedEntries": true,
+   "requirePositiveRankDerivedValue": true,
+   "confidenceTopPicks": 24,
+   "confidenceAllowedBuckets": [
+    "high",
+    "medium"
+   ]
+  },
+  "stability": {
+   "windowHours": 24,
+   "maxGapHours": 6,
+   "pickBandDollars": 3,
+   "totalAbsChangeDollars": 30
+  },
+  "reviewBand": {
+   "slotAbsDollars": 15,
+   "slotRelativeOfFallback": "0.5",
+   "firstRoundPicks": 12,
+   "firstRoundTotalRelative": "0.25"
+  },
+  "promotion": {
+   "promotableHoldHours": 48,
+   "includesFirstSwitchFromFrozenFallback": true
+  }
+ },
+ "thresholdsChecksum": {
+  "algorithm": "sha256",
+  "scope": "canonical JSON (sort_keys, separators (',',':'), UTF-8) of the 'thresholds' object",
+  "value": "c90de3ea8d0603b6d1a265dc4625327d9b248ab28b31c885cfa4ac840a95d818"
+ }
+}

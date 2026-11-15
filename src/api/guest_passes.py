@@ -19,7 +19,20 @@ on creation and is never recoverable from the DB.
 Lifecycle:
     create()      → pass exists with future ``expires_at_epoch``
     validate(t)   → returns the pass row when fresh; None otherwise
-    revoke(id)    → marks ``revoked_at_epoch``; subsequent validate fails
+    revoke(id)    → marks ``revoked_at_epoch``; subsequent validate fails,
+                    and every session minted from the pass is evicted
+                    from the persistent session store
+    session_authority(id) → may a session minted from this pass still
+                    authenticate?  ``server._get_auth_session`` asks on
+                    EVERY guest-session request, so a revoke made by
+                    another process (the verification workflow revokes
+                    over SSH, not through the server) takes effect on the
+                    very next request, whatever the in-memory cache holds
+    session_authority_state(id) → the same question with the unreadable
+                    case kept apart: ``active`` / ``inactive`` /
+                    ``unknown``.  Both ``inactive`` and ``unknown`` refuse
+                    the request; only ``inactive`` (revoked, expired,
+                    unknown/purged id) ends the session for good
     list_passes() → all rows, owner-visible (notes + status, never
                     plaintext tokens)
     purge_expired() → opportunistic GC; called on validate.
@@ -101,8 +114,23 @@ class GuestPass:
 # ── DB helpers ──────────────────────────────────────────────────────
 
 
+#: Seconds a connection waits on another connection's lock before raising
+#: ``database is locked``.  Explicit (it equals ``sqlite3.connect``'s own
+#: default) because ``server._get_auth_session`` reads the pass row on every
+#: guest request, and the CLI / verification workflow mint and revoke from a
+#: different process: the wait is part of the contract, not an accident of a
+#: library default.  A read that still fails is ``unknown`` authority, which
+#: refuses the request without ending the session (``session_authority_state``).
+_BUSY_TIMEOUT_SECONDS = 5.0
+
+
 def _connect(path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(path), isolation_level=None, check_same_thread=False)
+    conn = sqlite3.connect(
+        str(path),
+        timeout=_BUSY_TIMEOUT_SECONDS,
+        isolation_level=None,
+        check_same_thread=False,
+    )
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     return conn
@@ -279,10 +307,21 @@ def revoke(
     pass_id: int,
     *,
     db_path: Path | None = None,
+    session_db_path: Path | None = None,
 ) -> bool:
-    """Mark the pass revoked.  Returns True iff a row was updated.
-    Idempotent — re-revoking an already-revoked pass returns False
-    without raising.
+    """Mark the pass revoked AND evict every session minted from it.
+
+    Returns True iff the pass row was newly marked.  Idempotent —
+    re-revoking an already-revoked pass returns False without raising
+    (the session eviction still runs: it is a cleanup, not a state
+    change, and a previous eviction may have been interrupted).
+
+    Revoking used to only flip ``validate`` — a session minted from the
+    pass kept authenticating until the pass's own expiry, so a leaked
+    session cookie stayed live for the pass's whole window.  The pass
+    row is the authority now (``session_authority``, checked on every
+    guest request); deleting the persisted rows here is the
+    belt-and-braces half, so a restart cannot rehydrate them either.
     """
     path = db_path or _DEFAULT_DB_PATH
     if not _ensure_setup(path):
@@ -296,9 +335,136 @@ def revoke(
                 f"WHERE id = ? AND revoked_at_epoch IS NULL",
                 (now, int(pass_id)),
             )
-            return cur.rowcount > 0
+            changed = cur.rowcount > 0
         finally:
             conn.close()
+    try:
+        from src.api import session_store  # noqa: PLC0415 — avoid an import cycle
+
+        session_store.evict_guest_pass(int(pass_id), db_path=session_db_path)
+    except Exception as exc:  # noqa: BLE001 — the pass row is the authority
+        _LOGGER.warning("guest_passes revoke: session eviction failed: %s", exc)
+    return changed
+
+
+def get(pass_id: int, *, db_path: Path | None = None) -> GuestPass | None:
+    """The pass row by id, or ``None`` (unknown, purged, or unreadable)."""
+    path = db_path or _DEFAULT_DB_PATH
+    if not _ensure_setup(path):
+        return None
+    with _db_lock:
+        conn = _connect(path)
+        try:
+            row = conn.execute(
+                f"SELECT id, note, created_by, created_at_epoch, "
+                f"expires_at_epoch, revoked_at_epoch FROM {_TABLE} "
+                f"WHERE id = ? LIMIT 1",
+                (int(pass_id),),
+            ).fetchone()
+        finally:
+            conn.close()
+    return _row_to_pass(row) if row else None
+
+
+#: ``session_authority_state`` answers.  Only ``active`` authenticates.
+AUTHORITY_ACTIVE = "active"
+#: The pass definitively cannot authorize a session: revoked, expired, an id
+#: the store does not hold (never minted, or purged), or an id that is not a
+#: positive integer.  Permanent — the caller ends the session.
+AUTHORITY_INACTIVE = "inactive"
+#: The pass store could not be read (locked past the busy timeout, missing
+#: schema, I/O error).  Says nothing about the pass, so it refuses THIS
+#: request (fail closed) but must not be treated as a revoke: a transient
+#: read error ending the session for good turns a blip into a logout.
+AUTHORITY_UNKNOWN = "unknown"
+
+
+def session_authority_state(pass_id: Any, *, db_path: Path | None = None) -> str:
+    """Whether a session minted from pass ``pass_id`` may authenticate.
+
+    ``active`` only for a pass that EXISTS, is not revoked and has not
+    expired.  ``inactive`` for a pass that definitively cannot: revoked,
+    expired, unknown or purged, or a non-integer / non-positive id.
+    ``unknown`` when the store cannot be read at all — missing authority is
+    not authority, so ``unknown`` refuses exactly like ``inactive``; the two
+    differ only in whether the session may be asked again later.
+    """
+    if isinstance(pass_id, bool) or not isinstance(pass_id, int) or pass_id <= 0:
+        return AUTHORITY_INACTIVE
+    path = db_path or _DEFAULT_DB_PATH
+    # ``get`` folds an unreachable schema into "no such pass"; that is the
+    # wrong answer here, so the setup outcome is asked separately.
+    if not _ensure_setup(path):
+        _LOGGER.warning(
+            "guest_passes session_authority: pass store unavailable (pass id %d)", pass_id
+        )
+        return AUTHORITY_UNKNOWN
+    try:
+        row = get(pass_id, db_path=path)
+    except Exception as exc:  # noqa: BLE001 — unreadable is unknown, never active
+        _LOGGER.warning("guest_passes session_authority read failed (pass id %d): %s", pass_id, exc)
+        return AUTHORITY_UNKNOWN
+    if row is None or not row.is_active:
+        return AUTHORITY_INACTIVE
+    return AUTHORITY_ACTIVE
+
+
+def session_authority(pass_id: Any, *, db_path: Path | None = None) -> bool:
+    """May a session minted from pass ``pass_id`` still authenticate?
+
+    True only for a pass that EXISTS, is not revoked and has not expired.
+    Fails closed on everything else: an unknown or purged pass, a
+    non-integer id, an unreadable store.  Missing authority is not
+    authority.  (``session_authority_state`` tells the unreadable case
+    apart; this boolean form is what the verification workflow's revoke
+    step asks over SSH.)
+    """
+    return session_authority_state(pass_id, db_path=db_path) == AUTHORITY_ACTIVE
+
+
+def read_only_pass_states(
+    pass_ids: Any,
+    *,
+    db_path: Path | None = None,
+) -> dict[int, str] | None:
+    """``{pass_id: "active" | "revoked" | "expired"}`` for every requested id
+    the store holds — content read-only (sqlite ``mode=ro``; may create
+    ``-wal``/``-shm``), never creating the store or migrating its schema.
+
+    For the verification census (``session_store.guest_session_census``),
+    which must observe production without changing it.  An id the store
+    does not hold is ABSENT from the result (purged or never minted) —
+    never defaulted to a state.  Returns ``None`` when the store cannot be
+    read at all: an unreadable authority is unknown, not "no passes".  The
+    store is read even for an empty id list, so ``{}`` means "readable,
+    nothing asked" and ``None`` always means "unreadable".
+    Revocation wins over expiry, matching ``GuestPass.is_active``.
+    """
+    from src.api.session_store import ro_sqlite_uri  # noqa: PLC0415 — no import cycle
+
+    ids = sorted({int(i) for i in pass_ids if isinstance(i, int) and not isinstance(i, bool)})
+    path = db_path or _DEFAULT_DB_PATH
+    if not path.exists():
+        return None
+    try:
+        conn = sqlite3.connect(ro_sqlite_uri(path), uri=True)
+        try:
+            marks = ",".join("?" for _ in ids)
+            rows = conn.execute(
+                f"SELECT id, note, created_by, created_at_epoch, "
+                f"expires_at_epoch, revoked_at_epoch FROM {_TABLE} WHERE id IN ({marks})",
+                ids,
+            ).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        _LOGGER.warning("guest_passes read_only_pass_states failed: %s", exc)
+        return None
+    out: dict[int, str] = {}
+    for row in rows:
+        gp = _row_to_pass(row)
+        out[gp.id] = "revoked" if gp.is_revoked else ("expired" if gp.is_expired else "active")
+    return out
 
 
 def list_passes(

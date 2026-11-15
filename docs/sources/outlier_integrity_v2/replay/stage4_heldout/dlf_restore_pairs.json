@@ -1,0 +1,1460 @@
+{
+ "boards": [
+  {
+   "archive": "dynasty_export_20261002_193506.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 13,
+    "retainedByV2": 13,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 29,
+    "retainedByV2": 29,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261003_214933.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 10,
+    "retainedByV2": 10,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 26,
+    "retainedByV2": 26,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261004_085141.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 9,
+    "retainedByV2": 9,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 26,
+    "retainedByV2": 26,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261004_153351.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 33,
+    "retainedByV2": 33,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261004_195148.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 11,
+    "retainedByV2": 11,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 28,
+    "retainedByV2": 28,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261004_233916.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 12,
+    "retainedByV2": 12,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 28,
+    "retainedByV2": 28,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261005_061740.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 10,
+    "retainedByV2": 10,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 26,
+    "retainedByV2": 26,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261005_152048.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 14,
+    "retainedByV2": 14,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 30,
+    "retainedByV2": 30,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261005_225803.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 13,
+    "retainedByV2": 13,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 12,
+    "retainedByV2": 12,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 25,
+    "retainedByV2": 25,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261006_065546.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 15,
+    "retainedByV2": 15,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 15,
+    "retainedByV2": 10,
+    "notRetained": [
+     [
+      "Caleb Williams",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Drake Maye",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Kenyon Sadiq",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Omarion Hampton",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Puka Nacua",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ]
+    ]
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 30,
+    "retainedByV2": 25,
+    "notRetained": [
+     [
+      "Caleb Williams",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Drake Maye",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Kenyon Sadiq",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Omarion Hampton",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Puka Nacua",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ]
+    ]
+   }
+  },
+  {
+   "archive": "dynasty_export_20261006_153039.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 14,
+    "retainedByV2": 14,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 15,
+    "retainedByV2": 15,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 29,
+    "retainedByV2": 29,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261006_211735.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 14,
+    "retainedByV2": 14,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 14,
+    "retainedByV2": 14,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 28,
+    "retainedByV2": 28,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261007_015227.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 14,
+    "retainedByV2": 14,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 30,
+    "retainedByV2": 30,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261007_092552.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 15,
+    "retainedByV2": 15,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 14,
+    "retainedByV2": 13,
+    "notRetained": [
+     [
+      "Bryce Young",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ]
+    ]
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 29,
+    "retainedByV2": 28,
+    "notRetained": [
+     [
+      "Bryce Young",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ]
+    ]
+   }
+  },
+  {
+   "archive": "dynasty_export_20261007_173609.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 13,
+    "retainedByV2": 13,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 21,
+    "retainedByV2": 21,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 34,
+    "retainedByV2": 34,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261007_232213.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 13,
+    "retainedByV2": 13,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 23,
+    "retainedByV2": 23,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 36,
+    "retainedByV2": 36,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261008_064316.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 13,
+    "retainedByV2": 13,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 30,
+    "retainedByV2": 30,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 43,
+    "retainedByV2": 43,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261008_141213.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 15,
+    "retainedByV2": 15,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 35,
+    "retainedByV2": 35,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 50,
+    "retainedByV2": 50,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261008_201231.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 13,
+    "retainedByV2": 13,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 20,
+    "retainedByV2": 20,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 33,
+    "retainedByV2": 33,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261009_004358.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 18,
+    "retainedByV2": 18,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 34,
+    "retainedByV2": 34,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261009_065001.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 18,
+    "retainedByV2": 18,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 35,
+    "retainedByV2": 35,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261009_153734.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 19,
+    "retainedByV2": 17,
+    "notRetained": [
+     [
+      "Drake Maye",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Matthew Golden",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ]
+    ]
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 36,
+    "retainedByV2": 34,
+    "notRetained": [
+     [
+      "Drake Maye",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Matthew Golden",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ]
+    ]
+   }
+  },
+  {
+   "archive": "dynasty_export_20261009_212133.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 15,
+    "retainedByV2": 15,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261010_015826.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 33,
+    "retainedByV2": 33,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261010_090501.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 18,
+    "retainedByV2": 18,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 35,
+    "retainedByV2": 35,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261010_160048.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 34,
+    "retainedByV2": 34,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261010_202220.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 24,
+    "retainedByV2": 22,
+    "notRetained": [
+     [
+      "Justin Jefferson",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Mike Washington",
+      "flockFantasySfRookies",
+      "integrity:normalization_dependency_unavailable"
+     ]
+    ]
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 40,
+    "retainedByV2": 38,
+    "notRetained": [
+     [
+      "Justin Jefferson",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Mike Washington",
+      "flockFantasySfRookies",
+      "integrity:normalization_dependency_unavailable"
+     ]
+    ]
+   }
+  },
+  {
+   "archive": "dynasty_export_20261010_235341.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 23,
+    "retainedByV2": 23,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 39,
+    "retainedByV2": 39,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261011_063103.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 22,
+    "retainedByV2": 22,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 38,
+    "retainedByV2": 38,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261011_133520.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 19,
+    "retainedByV2": 19,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 35,
+    "retainedByV2": 35,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261011_191416.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 16,
+    "retainedByV2": 16,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 8,
+    "retainedByV2": 8,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 24,
+    "retainedByV2": 24,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261012_000240.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 8,
+    "retainedByV2": 8,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 25,
+    "retainedByV2": 25,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261012_063618.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 11,
+    "retainedByV2": 11,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 28,
+    "retainedByV2": 28,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261012_161108.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 31,
+    "retainedByV2": 31,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 11,
+    "retainedByV2": 11,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 42,
+    "retainedByV2": 42,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261012_231649.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 33,
+    "retainedByV2": 33,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 14,
+    "retainedByV2": 14,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 47,
+    "retainedByV2": 47,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261013_071003.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 33,
+    "retainedByV2": 33,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 15,
+    "retainedByV2": 15,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 48,
+    "retainedByV2": 48,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261013_163029.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 33,
+    "retainedByV2": 33,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 12,
+    "retainedByV2": 12,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 45,
+    "retainedByV2": 45,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261013_213606.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 33,
+    "retainedByV2": 33,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 15,
+    "retainedByV2": 15,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 48,
+    "retainedByV2": 48,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261014_012731.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 49,
+    "retainedByV2": 49,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261014_080442.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 14,
+    "retainedByV2": 9,
+    "notRetained": [
+     [
+      "Denzel Boston",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Drake Maye",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Jayden Daniels",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Matthew Golden",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Mike Washington",
+      "flockFantasySfRookies",
+      "integrity:normalization_dependency_unavailable"
+     ]
+    ]
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 46,
+    "retainedByV2": 41,
+    "notRetained": [
+     [
+      "Denzel Boston",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Drake Maye",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Jayden Daniels",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Matthew Golden",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Mike Washington",
+      "flockFantasySfRookies",
+      "integrity:normalization_dependency_unavailable"
+     ]
+    ]
+   }
+  },
+  {
+   "archive": "dynasty_export_20261014_140605.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 14,
+    "retainedByV2": 14,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 46,
+    "retainedByV2": 46,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261014_185726.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 25,
+    "retainedByV2": 25,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 57,
+    "retainedByV2": 57,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261014_233024.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 22,
+    "retainedByV2": 22,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 54,
+    "retainedByV2": 54,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261015_051650.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 19,
+    "retainedByV2": 19,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 51,
+    "retainedByV2": 51,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261015_121138.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 49,
+    "retainedByV2": 49,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261015_172516.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 25,
+    "retainedByV2": 25,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 57,
+    "retainedByV2": 57,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261015_215027.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 26,
+    "retainedByV2": 26,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 58,
+    "retainedByV2": 58,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261016_004906.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 49,
+    "retainedByV2": 49,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261016_073446.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 20,
+    "retainedByV2": 20,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 52,
+    "retainedByV2": 52,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261016_134010.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 25,
+    "retainedByV2": 25,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 57,
+    "retainedByV2": 57,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261016_182508.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 49,
+    "retainedByV2": 49,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261016_214642.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 21,
+    "retainedByV2": 21,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 53,
+    "retainedByV2": 53,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261017_004948.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 15,
+    "retainedByV2": 15,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 47,
+    "retainedByV2": 47,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261017_071509.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 11,
+    "retainedByV2": 11,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 43,
+    "retainedByV2": 43,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261017_122823.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 8,
+    "retainedByV2": 7,
+    "notRetained": [
+     [
+      "Mike Washington",
+      "flockFantasySfRookies",
+      "integrity:normalization_dependency_unavailable"
+     ]
+    ]
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 40,
+    "retainedByV2": 39,
+    "notRetained": [
+     [
+      "Mike Washington",
+      "flockFantasySfRookies",
+      "integrity:normalization_dependency_unavailable"
+     ]
+    ]
+   }
+  },
+  {
+   "archive": "dynasty_export_20261017_160007.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 12,
+    "retainedByV2": 12,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 44,
+    "retainedByV2": 44,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261017_185402.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 10,
+    "retainedByV2": 10,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 42,
+    "retainedByV2": 42,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261017_224340.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 13,
+    "retainedByV2": 13,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 45,
+    "retainedByV2": 45,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261018_002736.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 11,
+    "retainedByV2": 11,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 43,
+    "retainedByV2": 43,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261018_051224.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 32,
+    "retainedByV2": 32,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 9,
+    "retainedByV2": 9,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 41,
+    "retainedByV2": 41,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261018_114711.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 31,
+    "retainedByV2": 31,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 11,
+    "retainedByV2": 11,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 42,
+    "retainedByV2": 42,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261018_161125.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 31,
+    "retainedByV2": 31,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 7,
+    "retainedByV2": 7,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 38,
+    "retainedByV2": 38,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261018_185952.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 31,
+    "retainedByV2": 31,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 18,
+    "retainedByV2": 18,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 49,
+    "retainedByV2": 49,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261018_223931.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 31,
+    "retainedByV2": 31,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 21,
+    "retainedByV2": 21,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 52,
+    "retainedByV2": 52,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261019_003315.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 31,
+    "retainedByV2": 31,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 22,
+    "retainedByV2": 22,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 53,
+    "retainedByV2": 53,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261019_140049.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 31,
+    "retainedByV2": 31,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 19,
+    "retainedByV2": 19,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 50,
+    "retainedByV2": 50,
+    "notRetained": []
+   }
+  },
+  {
+   "archive": "dynasty_export_20261019_235843.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 31,
+    "retainedByV2": 31,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 20,
+    "retainedByV2": 15,
+    "notRetained": [
+     [
+      "Ashton Jeanty",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Isaiah Likely",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Jalen Coker",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Joe Burrow",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Patrick Mahomes",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ]
+    ]
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 51,
+    "retainedByV2": 46,
+    "notRetained": [
+     [
+      "Ashton Jeanty",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Isaiah Likely",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Jalen Coker",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Joe Burrow",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ],
+     [
+      "Patrick Mahomes",
+      "ktcCrowdSfTep",
+      "integrity:source_format_error:vendor_rank_value_inconsistent"
+     ]
+    ]
+   }
+  },
+  {
+   "archive": "dynasty_export_20261020_052241.zip",
+   "dlfIdp": {
+    "newlyDroppedByIncumbent": 31,
+    "retainedByV2": 31,
+    "notRetained": []
+   },
+   "d4": {
+    "newlyDroppedByIncumbent": 17,
+    "retainedByV2": 17,
+    "notRetained": []
+   },
+   "both": {
+    "newlyDroppedByIncumbent": 48,
+    "retainedByV2": 48,
+    "notRetained": []
+   }
+  }
+ ],
+ "totals": {
+  "dlfIdp_pairs": 1623,
+  "dlfIdp_kept": 1623,
+  "d4_pairs": 1123,
+  "d4_kept": 1102,
+  "both_pairs": 2746,
+  "both_kept": 2725
+ }
+}

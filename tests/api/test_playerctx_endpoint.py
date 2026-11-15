@@ -152,13 +152,15 @@ class TestPlayerctxEndpoint:
         assert timer.exists(), "player-context refresh timer template missing"
 
         # The unit must actually invoke the refresh script.
-        assert "scripts/refresh_playerctx.py" in service.read_text()
+        assert "scripts/refresh_playerctx.py" in service.read_text(encoding="utf-8")
         # …and the timer must be on a real schedule.
-        assert "OnCalendar=" in timer.read_text()
+        assert "OnCalendar=" in timer.read_text(encoding="utf-8")
 
         # The installer must render AND enable it, or the templates are
         # inert files that never reach /etc/systemd/system.
-        installer = (REPO_ROOT / "deploy" / "install-systemd-service.sh").read_text()
+        installer = (REPO_ROOT / "deploy" / "install-systemd-service.sh").read_text(
+            encoding="utf-8"
+        )
         assert "dynasty-playerctx-refresh.service.template" in installer
         assert "dynasty-playerctx-refresh.timer.template" in installer
         assert "playerctx_needs_install" in installer

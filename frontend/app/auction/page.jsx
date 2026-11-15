@@ -52,33 +52,48 @@ function SignIn({ siteOwnerAvailable, onDone }) {
   };
 
   return (
-    <Panel title="Sign in to the auction room" className={styles.narrow}>
-      <form onSubmit={submit} className={styles.col}>
-        <Field label="Handle" hint="Usually your Sleeper username. It is only a login name — never enter your Sleeper password here.">
-          <Input autoComplete="username" value={handle} onChange={(e) => setHandle(e.target.value)} required />
-        </Field>
-        <Field label="Chase Upside auction password">
-          <Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        </Field>
-        {err ? <Banner tone="negative">{err}</Banner> : null}
+    <div className={styles.col}>
+      <Panel title="Site owner / commissioner" className={styles.narrow}>
+        <p className={styles.muted}>
+          Your regular Chase Upside login is the way into the auction. Site-owner
+          accounts do not have a separate auction password.
+        </p>
         <div className={styles.row}>
-          <Button type="submit" variant="primary" loading={busy}>
-            Sign in
-          </Button>
           {siteOwnerAvailable ? (
-            <Button type="button" onClick={owner} disabled={busy}>
+            <Button type="button" variant="primary" onClick={owner} disabled={busy}>
               Continue as site owner
             </Button>
-          ) : null}
+          ) : (
+            <Button as={Link} href="/login?next=%2Fauction" variant="primary">
+              Sign in to Chase Upside
+            </Button>
+          )}
         </div>
+      </Panel>
+      <Panel title="Invited league member sign-in" className={styles.narrow}>
         <p className={styles.muted}>
-          New here? Open the invitation link your commissioner sent you to set up your account and claim your seat.
+          This separate login is only for league members who created an auction
+          password through their invitation. Never enter a Sleeper password.
         </p>
-        <p className={styles.muted}>
-          Site owner? <Link href="/login?next=%2Fauction">Sign in to Chase Upside</Link> first, then use Continue as site owner.
-        </p>
-      </form>
-    </Panel>
+        <form onSubmit={submit} className={styles.col}>
+          <Field label="Handle" hint="Usually your Sleeper username. It is only a login name.">
+            <Input autoComplete="username" value={handle} onChange={(e) => setHandle(e.target.value)} required />
+          </Field>
+          <Field label="Chase Upside auction password">
+            <Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </Field>
+          {err ? <Banner tone="negative">{err}</Banner> : null}
+          <div className={styles.row}>
+            <Button type="submit" loading={busy}>
+              Sign in as league member
+            </Button>
+          </div>
+          <p className={styles.muted}>
+            New here? Open the invitation link your commissioner sent you to set up your account and claim your seat.
+          </p>
+        </form>
+      </Panel>
+    </div>
   );
 }
 

@@ -11,7 +11,12 @@ import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { meterVerdict, ktcAdjustPackage } from "@/lib/trade-logic";
+import {
+  ACTIVE_PACKAGE_MODEL_ID,
+  meterVerdict,
+  packageAdjustPair,
+  PACKAGE_MODEL_IDS,
+} from "@/lib/trade-logic";
 import TradeMeter from "@/components/trade/TradeMeter";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
 import {
@@ -27,7 +32,9 @@ import {
 } from "@/components/help/GameDayHelp";
 import { AwardsHowItWorks } from "@/components/help/AwardsHelp";
 import { _renderPlainSummary } from "@/components/ui/MonteCarloButton";
-import { SimulationPanel, confidenceMeta, SUGGESTION_RAIL_LABELS } from "@/app/trade/trade-sections";
+import { SUGGESTION_RAIL_LABELS } from "@/app/trade/trade-sections";
+import { SimulationPanel } from "@/app/trade/trade-simulation-panel";
+import { confidenceMeta } from "@/app/trade/trade-suggestions-desk";
 
 async function openHelp(user, buttonName, dialogName) {
   await user.click(screen.getByRole("button", { name: buttonName }));
@@ -40,10 +47,14 @@ async function openHelp(user, buttonName, dialogName) {
   return dialog;
 }
 
+// Priced assets on both sides: an EMPTY trade renders no verdict at all
+// (TC-A / UX audit P0-6), so the wording tests need a real trade.
 const sides = [
-  { id: 0, label: "A", assets: [] },
-  { id: 1, label: "B", assets: [] },
+  { id: 0, label: "A", assets: [{ name: "Alpha", rankDerivedValue: 5000, values: { full: 5000 } }] },
+  { id: 1, label: "B", assets: [{ name: "Beta", rankDerivedValue: 4000, values: { full: 4000 } }] },
 ];
+
+const MEASURED = { stamped_value_band: 3 };
 
 describe("trade verdict wording follows the side model", () => {
   it("on /trade names the bigger PACKAGE and the team that receives it", () => {
@@ -52,7 +63,7 @@ describe("trade verdict wording follows the side model", () => {
     render(
       <TradeMeter
         sides={sides}
-        sideTotals={[{ adjusted: 5000 }, { adjusted: 4000 }]}
+        sideTotals={[{ adjusted: 5000, utility: 5000 }, { adjusted: 4000, utility: 4000 }]}
         sidesSend
       />,
     );
@@ -63,7 +74,7 @@ describe("trade verdict wording follows the side model", () => {
   });
 
   it("keeps the original wording where sides are not an exchange (/waivers)", () => {
-    render(<TradeMeter sides={sides} sideTotals={[{ adjusted: 4000 }, { adjusted: 5000 }]} />);
+    render(<TradeMeter sides={sides} sideTotals={[{ adjusted: 4000, utility: 4000 }, { adjusted: 5000, utility: 5000 }]} />);
     expect(screen.getByText("Side B wins by 20%")).toBeInTheDocument();
   });
 
@@ -73,7 +84,7 @@ describe("trade verdict wording follows the side model", () => {
     render(
       <TradeFairnessExplanation
         sides={[{ label: "A", assets: [a] }, { label: "B", assets: [b] }]}
-        sideTotals={[{ adjusted: 5000 }, { adjusted: 4000 }]}
+        sideTotals={[{ adjusted: 5000, utility: 5000 }, { adjusted: 4000, utility: 4000 }]}
       />,
     );
     const note = screen.getByRole("note");
@@ -83,16 +94,25 @@ describe("trade verdict wording follows the side model", () => {
   });
 });
 
-describe("Monte Carlo summary on /trade names the package, not a winner", () => {
-  it("a bigger Side A package means Side B receives more", () => {
-    const s = _renderPlainSummary({ winProbA: 0.9, nSims: 2000 }, sides, true);
-    expect(s.headline).toBe("Side A's package is clearly worth more.");
-    expect(s.subline).toContain("Side B would receive more value");
-    expect(s.tone).toBe("strong");
+describe("Monte Carlo summary on /trade is a value-sensitivity check, never a verdict", () => {
+  // TC-D2 (decision-engine audit §7.8, V5): no winner / favored / clearly /
+  // probably headline and no strong tone; the War Room owns the one YES / NO.
+  it.each([0.9, 0.7, 0.5, 0.3, 0.05])("winProbA %s reads as a count, not a verdict", (p) => {
+    const s = _renderPlainSummary({ winProbA: p, nSims: 2000, meanDelta: 900, bandSources: MEASURED }, sides, true);
+    expect(s.headline).toBe("Value-sensitivity check");
+    expect(s.tone).toBe("even");
+    const text = `${s.headline} ${s.subline} ${s.deltaLine}`;
+    expect(text).not.toMatch(/winner|favou?red|clearly|probably|beat|wins?\b/i);
+    expect(s.subline).toMatch(/came out bigger in \d+% of 2,000 simulations/);
+  });
+  it("names the bigger package and its share", () => {
+    const s = _renderPlainSummary({ winProbA: 0.9, nSims: 2000, meanDelta: -1200, bandSources: MEASURED }, sides, true);
+    expect(s.subline).toBe("Side A's package came out bigger in 90% of 2,000 simulations.");
+    expect(s.deltaLine).toBe("On average, Side B's package was 1,200 points bigger.");
   });
   it("keeps the original wording off /trade", () => {
-    expect(_renderPlainSummary({ winProbA: 0.9, nSims: 2000 }, sides).headline).toBe(
-      "Side A is the clear winner.",
+    expect(_renderPlainSummary({ winProbA: 0.9, nSims: 2000, bandSources: MEASURED }, sides).headline).toBe(
+      "Side A led in most simulations.",
     );
   });
 });
@@ -103,20 +123,23 @@ describe("TradeVerdictHelp — one explanation, matching the code", () => {
     render(<TradeVerdictHelp />);
     const dialog = await openHelp(user, /How the verdict works/, "How the trade verdict works");
     const text = dialog.textContent;
-    // Boundaries named in the copy are exactly where meterVerdict changes.
-    for (const [below, label, at, next] of [
-      [349, "FAIR", 350, "SLIGHT EDGE"],
-      [899, "SLIGHT EDGE", 900, "UNFAIR"],
-      [1799, "UNFAIR", 1800, "LOPSIDED"],
+    // Boundaries named in the copy are exactly where meterVerdict changes
+    // (the ONE fairness-band owner: % of the larger adjusted side).
+    for (const [belowPct, label, atPct, next] of [
+      [3.49, "FAIR", 3.5, "SLIGHT EDGE"],
+      [8.99, "SLIGHT EDGE", 9, "UNFAIR"],
+      [17.99, "UNFAIR", 18, "LOPSIDED"],
     ]) {
-      expect(meterVerdict(below).label).toBe(label);
-      expect(meterVerdict(at).label).toBe(next);
+      expect(meterVerdict(belowPct * 100, 10000).label).toBe(label);
+      expect(meterVerdict(atPct * 100, 10000).label).toBe(next);
       expect(text).toContain(label);
     }
-    expect(text).toContain("FAIR under 350");
-    expect(text).toContain("SLIGHT EDGE under 900");
-    expect(text).toContain("UNFAIR under 1,800");
-    expect(text).toContain("under 3%");
+    // The absolute minimum named in the copy.
+    expect(meterVerdict(249, 1000).label).toBe("FAIR");
+    expect(meterVerdict(250, 1000).label).toBe("LOPSIDED");
+    expect(text).toContain("FAIR under 3.5% (or under 250 points)");
+    expect(text).toContain("SLIGHT EDGE under 9%");
+    expect(text).toContain("UNFAIR under 18%");
     expect(text).toContain(RECOMMENDATION_ONLY_TEXT);
   });
 
@@ -125,7 +148,13 @@ describe("TradeVerdictHelp — one explanation, matching the code", () => {
     render(<TradeVerdictHelp />);
     const dialog = await openHelp(user, /How the verdict works/, "How the trade verdict works");
     expect(within(dialog).getByText(/Each side lists what that team/)).toBeInTheDocument();
-    expect(dialog.textContent).toMatch(/Not included yet: competitive posture/);
+    // Posture and comparable trades ARE in the analysis now (posture sets the
+    // strategy, comparables are reference only); only the season-odds change
+    // and value-uncertainty ranges are still left out.
+    expect(dialog.textContent).toMatch(/competitive direction .* sets the strategy but is never counted as a vote/);
+    expect(dialog.textContent).toMatch(/comparable real trades are shown for reference/);
+    expect(dialog.textContent).toMatch(/Not included yet: the change in this season's playoff and title odds/);
+    expect(dialog.textContent).not.toMatch(/Not included yet: competitive posture/);
   });
 
   it("never implies the site executes a trade", async () => {
@@ -138,17 +167,21 @@ describe("TradeVerdictHelp — one explanation, matching the code", () => {
 });
 
 describe("ValueAdjustmentTip", () => {
-  it("describes the gates ktcAdjustPackage applies, not a roster-spot bonus", async () => {
+  it("describes the ACTIVE (geometric) package model, not a roster-spot bonus", async () => {
     const user = userEvent.setup();
     render(<ValueAdjustmentTip />);
     await user.click(screen.getByRole("button", { name: "What is Value Adjustment (VA)?" }));
     const region = screen.getByRole("region", { name: "Value Adjustment (VA)" });
+    expect(ACTIVE_PACKAGE_MODEL_ID).toBe(PACKAGE_MODEL_IDS.GEOM_Q078_V1);
     expect(region.textContent).toContain("Never applied to a 1-for-1");
-    expect(region.textContent).toContain("3.3%");
+    expect(region.textContent).toContain("q = 0.78");
+    // The 3.3% display gate is KTC's (the rollback model); the active
+    // geometric model has none, so the copy must not claim it.
+    expect(region.textContent).not.toContain("3.3%");
     expect(region.textContent).not.toMatch(/roster spot/i);
-    // The gates are real: 1-for-1 never adjusts; a 2-for-1 can.
-    expect(ktcAdjustPackage([8000], [4000]).displayed).toBe(false);
-    expect(ktcAdjustPackage([8000], [4000, 4000]).displayed).toBe(true);
+    // The statements are real: 1-for-1 never adjusts; a 2-for-1 can.
+    expect(packageAdjustPair([8000], [4000]).displayed).toBe(false);
+    expect(packageAdjustPair([8000], [4000, 4000]).displayed).toBe(true);
   });
 });
 

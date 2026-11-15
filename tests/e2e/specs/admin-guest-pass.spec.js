@@ -40,7 +40,7 @@
  * `docs/master-site-audit/evidence/V1-101/L4_PRODUCTION_RECIPE.md`.
  */
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled, isNavigationAbortedFetch } = require("../helpers/journey");
 
 // Fixed epochs so the rendered strings are deterministic.
 const HOUR = 3600;
@@ -93,7 +93,9 @@ test.describe("signed-in: /admin guest passes", () => {
     authedPage,
   }) => {
     const clientErrors = [];
-    authedPage.on("pageerror", (err) => clientErrors.push(String(err)));
+    authedPage.on("pageerror", (err) => {
+      if (!isNavigationAbortedFetch(err, authedPage)) clientErrors.push(String(err));
+    });
 
     // A URL PREDICATE, not a glob. This context sets `baseURL` to the
     // API origin while pages are served from `E2E_PAGE_ORIGIN`, and a

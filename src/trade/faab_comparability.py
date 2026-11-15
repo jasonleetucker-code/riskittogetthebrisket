@@ -167,6 +167,36 @@ class SourceFormat:
         return self.tep_level > 0
 
 
+#: Roster-exclusivity states (:func:`roster_exclusivity`).  Shared with the
+#: completed-trade ledger (``market_trade_format.roster_exclusivity``) so the
+#: FAAB crowd market and the trade-market estimator read MyFantasyLeague's
+#: ``rostersPerPlayer`` through ONE rule.
+EXCLUSIVITY_EXCLUSIVE = "exclusive"
+EXCLUSIVITY_MULTI_COPY = "multi_copy"
+EXCLUSIVITY_UNKNOWN = "unknown"
+
+
+def roster_exclusivity(rosters_per_player: Any) -> str:
+    """Whether a league rosters each player once, FAIL CLOSED.
+
+    ``rostersPerPlayer`` 1 is exclusive; 2+ is a multi-copy league (the same
+    player on several rosters at once -- no scarcity, so neither its waiver
+    prices nor its trades measure the same market).  A missing, non-numeric or
+    non-positive value is UNKNOWN: an unstated value is not evidence of
+    exclusivity.
+
+    ``classify`` below predates this helper and is deliberately NOT routed
+    through it yet: it treats a non-positive ``rostersPerPlayer`` as exclusive
+    (only ``None`` and ``> 1`` exclude), and switching it would change served
+    FAAB crowd evidence on such a row.  That migration is a named follow-up;
+    every NEW reader uses this rule.
+    """
+    rpp = _as_int(rosters_per_player)
+    if rpp is None or rpp < 1:
+        return EXCLUSIVITY_UNKNOWN
+    return EXCLUSIVITY_EXCLUSIVE if rpp == 1 else EXCLUSIVITY_MULTI_COPY
+
+
 def _as_int(value: Any) -> int | None:
     try:
         return int(value)

@@ -1,5 +1,6 @@
 "use client";
 
+import { DERIVED_PICK_DESCRIPTIONS } from "@/lib/pick-provenance-text";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getPlayerEdge } from "@/lib/trade-logic";
@@ -19,7 +20,7 @@ import { useTerminal } from "@/components/useTerminal";
 import { useUserState } from "@/components/useUserState";
 import { useSettings } from "@/components/useSettings";
 import { PlayerImage } from "@/components/ui";
-import { Badge, Button, Drawer, Icon, Movement, StatTile } from "@/components/ds";
+import { Badge, Button, Drawer, Icon, Movement, StatTile, playerProfileHref } from "@/components/ds";
 import styles from "./player-card.module.css";
 
 // ── PLAYER PROFILE DRAWER (Redesign R2) ──────────────────────────────
@@ -721,16 +722,9 @@ export function computeValueChain(row) {
   return stages;
 }
 
-// pickValueProvenance classes that carry a DERIVED value (C1-U6); see
-// src/api/data_contract.py::_complete_future_pick_values.
-const DERIVED_PICK_DESCRIPTIONS = {
-  derived_year_step:
-    "No market prices this year yet; derived from the nearest priced year using the measured year-to-year step.",
-  derived_round_step:
-    "No market prices this round; derived from the same year's nearest priced round using the board's own round step.",
-  derived_uniform_tier_ev:
-    "A pick whose slot is not yet known; the average of that year and round's early, mid and late values.",
-};
+// pickValueProvenance classes that carry a DERIVED value (C1-U6): the
+// wording has ONE owner, lib/pick-provenance-text.js (labels for /trade:
+// lib/pick-provenance.js).
 
 /**
  * Ownership: which team holds this player + their depth-chart slot.
@@ -1019,19 +1013,24 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
                 PR B) — this popup stays the quick-view; the full page
                 reuses its exact data plumbing (computeOwnership/
                 computeSiteDetails/computeValueChain/the section
-                components below) rather than duplicating it. Sleeper
-                playerId first (matches the page's own lookup order),
-                name fallback for a row with no id. */}
-            <Button
-              as={Link}
-              href={`/players/${encodeURIComponent(String(row.raw?.playerId || row.playerId || row.name))}`}
-              size="sm"
-              variant="ghost"
-              onClick={() => onClose?.()}
-              aria-label={`Open full profile for ${row.name}`}
-            >
-              Full profile
-            </Button>
+                components below) rather than duplicating it.
+                IDENTITY RULE (#1337): the destination is built ONLY from a
+                canonical Sleeper id, through the primitive's own href
+                builder. A row without one (a pick, an unmatched name) gets
+                no launcher — a display name is never an id, and a link to
+                the wrong player is worse than no link. */}
+            {playerProfileHref(row) ? (
+              <Button
+                as={Link}
+                href={playerProfileHref(row)}
+                size="sm"
+                variant="ghost"
+                onClick={() => onClose?.()}
+                aria-label={`Open full profile for ${row.name}`}
+              >
+                Full profile
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant={onWatchlist ? "secondary" : "ghost"}
@@ -1187,8 +1186,8 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
               </span>
               <span className={styles.signalBody}>
                 {edge.signal === "BUY"
-                  ? `Consensus values this player ${edge.valueGapPct}% above KTC — market is cheap`
-                  : `KTC values this player ${edge.valueGapPct}% above consensus — market overvalues`}
+                  ? `Our consensus is ${edge.valueGapPct}% above KTC — a gap, not proof of mispricing`
+                  : `KTC is ${edge.valueGapPct}% above our consensus — a gap, not proof of mispricing`}
                 {edge.edgePct > 0 && <> · ~{edge.edgePct}% value gap</>}
               </span>
             </div>

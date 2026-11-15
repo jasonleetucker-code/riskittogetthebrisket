@@ -311,8 +311,15 @@ class DraftTests(_BaseFixture):
 
     def test_pick_movement_trail_has_sources(self) -> None:
         section = draft.build_section(self.snapshot)
-        # Three traded picks in the fixture.
-        self.assertEqual(len(section["pickMovementTrail"]), 3)
+        # The trail is completed-trade EVIDENCE: the fixture's one 2025 trade
+        # moves two picks.  The third ``traded_picks`` row (2027 R3) has no
+        # trade transaction behind it, and a state row is not a movement.
+        trail = section["pickMovementTrail"]
+        self.assertEqual(len(trail), 2)
+        self.assertEqual(
+            {(t["season"], t["round"], t["fromOwnerId"], t["toOwnerId"]) for t in trail},
+            {("2026", 2, "owner-A", "owner-B"), ("2026", 4, "owner-B", "owner-A")},
+        )
 
 
 # ── Weekly recap ──────────────────────────────────────────────────────────

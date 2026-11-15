@@ -32,7 +32,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 class TestTheBacktestRunsTheMeasuredConfiguration(unittest.TestCase):
     def test_the_backtest_does_not_apply_scoring_fit(self):
-        source = (REPO / "scripts" / "run_consensus_edge_backtest.py").read_text()
+        source = (REPO / "scripts" / "run_consensus_edge_backtest.py").read_text(encoding="utf-8")
         # The call itself, not the word: the comment explaining WHY the
         # fit is omitted legitimately names it.
         self.assertNotIn(
@@ -47,7 +47,7 @@ class TestTheBacktestRunsTheMeasuredConfiguration(unittest.TestCase):
     def test_the_service_does_apply_it(self):
         # The other half of the divergence. If this ever stops being
         # true the scope block is measuring nothing.
-        source = (REPO / "src" / "consensus_edge" / "service.py").read_text()
+        source = (REPO / "src" / "consensus_edge" / "service.py").read_text(encoding="utf-8")
         self.assertIn("scoring_fit_board=fit_board", source)
 
     def test_the_measured_configuration_says_scoring_fit_was_inert(self):

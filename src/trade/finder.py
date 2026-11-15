@@ -253,6 +253,10 @@ class TradeCandidate:
     #: The opponent team this package was generated against (Wave B): the
     #: counterparty whose roster capacity is reported beside the requester's.
     counterparty: str | None = None
+    #: Discovery metrics (owner directive 2026-10-18, ``src/trade/discovery``)
+    #: — set only when a request asked for a discovery ordering, so a legacy
+    #: payload is unchanged.
+    discovery: dict | None = None
 
     def markets_used(self) -> list[str]:
         """Which retail markets priced the assets in this trade.
@@ -330,6 +334,14 @@ class TradeCandidate:
             # wrapper installed over this method at import time; they are part
             # of the payload now, so the shape is readable here.
             **value_adjustment_payload(self),
+            **(
+                {
+                    "discovery": self.discovery,
+                    "whyItMatters": self.discovery.get("whyItMatters"),
+                }
+                if self.discovery is not None
+                else {}
+            ),
         }
 
 
@@ -671,6 +683,42 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     return score_with_value_adjustment(give, receive, _score_trade_on_values)
 
 
+def plausibility_check(give: list[Asset], receive: list[Asset]) -> tuple[bool, list[str]]:
+    """The finder's structural plausibility gates, ``(ok, flags)``.
+
+    Shared by this module's scorer and by the Best-Trade consumer
+    (``src/trade/best_offers``) so "is this a package a manager would take
+    seriously" has one definition.  Canonical values only; no market reads.
+
+    * Multi-for-one fire sale guard — when giving more PLAYERS than receiving
+      (C3-TOPO-01: a pick added to a 1-for-1 is not "two fillers for an
+      elite"), the give side's total must be a meaningful fraction of the
+      receive side; tighter against an elite target; and at least one give
+      piece must be a real starter-quality anchor.
+    * Junk filter — at least one meaningful asset on each side.
+    """
+    flags: list[str] = []
+    give_model = sum(a.model_value for a in give)
+    recv_model = sum(a.model_value for a in receive)
+    if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):
+        if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
+            return False, flags
+        max_recv = max(a.model_value for a in receive)
+        if max_recv >= ELITE_THRESHOLD:
+            if give_model < recv_model * ELITE_MULTI_MIN_RATIO:
+                return False, flags
+            flags.append("elite_target")
+        max_give = max(a.model_value for a in give)
+        if max_give < max_recv * PACKAGE_ANCHOR_MIN_PCT:
+            return False, flags
+        flags.append("anchor_verified")
+    if all(a.model_value < JUNK_THRESHOLD for a in give):
+        return False, flags
+    if all(a.model_value < JUNK_THRESHOLD for a in receive):
+        return False, flags
+    return True, flags
+
+
 def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCandidate | None:
     """Score a candidate trade on the values passed in, with no package
     adjustment of its own.  Callers want :func:`_score_trade`."""
@@ -734,31 +782,9 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     if board_delta < MAX_BOARD_LOSS:
         return None
 
-    # ── Multi-for-one fire sale guard ────────────────────────────────
-    # Prevent suggesting two roster fillers for an elite target.
-    # When giving more pieces than receiving, the give side's total model
-    # value must be a meaningful fraction of the receive side.
-    flags: list[str] = []
-
-    # Counted in PLAYERS (C3-TOPO-01): a pick added to a 1-for-1 is not a
-    # "two fillers for an elite" package.  The simplicity penalty below still
-    # counts every asset — a pick is one more piece to negotiate.
-    if sum(1 for a in give if not a.is_pick) > sum(1 for a in receive if not a.is_pick):
-        if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
-            return None
-        # ── Elite target protection (tighter ratio) ──────────────────
-        max_recv = max(_mv(a) for a in receive)
-        if max_recv >= ELITE_THRESHOLD:
-            if give_model < recv_model * ELITE_MULTI_MIN_RATIO:
-                return None
-            flags.append("elite_target")
-        # ── Package anchor quality ───────────────────────────────────
-        # At least one give piece must be a real starter-quality asset,
-        # not just two bench stashes that happen to sum high enough.
-        max_give = max(_mv(a) for a in give)
-        if max_give < max_recv * PACKAGE_ANCHOR_MIN_PCT:
-            return None
-        flags.append("anchor_verified")
+    plausible, flags = plausibility_check(give, receive)
+    if not plausible:
+        return None
 
     # KTC scoring
     give_market_assets = [a for a in give if a.has_market]
@@ -791,12 +817,6 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
 
     # The opponent must STRICTLY WIN on KTC — no break-even, no loss.
     if opp_appeal <= 0:
-        return None
-
-    # Filter out junk trades: at least one meaningful asset on each side
-    if all(_mv(a) < JUNK_THRESHOLD for a in give):
-        return None
-    if all(_mv(a) < JUNK_THRESHOLD for a in receive):
         return None
 
     # Arbitrage score: how much we gain on our board while the opponent
@@ -920,6 +940,13 @@ def _generate_packages(
     outgoing_policy: Any,
     *,
     equal_count_only: bool = False,
+    required_send: list[Asset] | tuple[Asset, ...] = (),
+    score: Any = None,
+    one_for_one_only: bool = False,
+    required_receive: list[Asset] | tuple[Asset, ...] = (),
+    max_per_side: int | None = None,
+    max_packages: int | None = None,
+    receive_anchor: Callable[[Any], bool] | None = None,
 ) -> tuple[list[TradeCandidate], dict[str, Any]]:
     """Enumerate and score every shape this engine offers.
 
@@ -935,10 +962,41 @@ def _generate_packages(
     ``/arbitrage`` explicitly requests ``equal_count_only`` and gets exactly
     1-for-1 + 2-for-2.  That keeps this UX policy scoped to the surface that
     asked for it instead of silently changing other internal callers.
+
+    ``required_send`` is the C3-CON-03 LOCK: every emitted package sends those
+    assets (the substrate forces them; shapes too small to hold them are
+    skipped and reported, never widened).
+
+    ``score`` replaces the arbitrage objective for a CONSUMER that keeps this
+    enumeration but asks a different question (the Best-Trade owner rule,
+    ``src/trade/best_offers``).  ``None`` is this module's own scorer.
+
+    ``one_for_one_only`` stops after the 1-for-1 shape, for a consumer whose
+    question is a single swap (Golden Upgrades) — enumerating 2-for-2 only to
+    reject every package would cost seconds and answer nothing.
+
+    ``required_receive`` is the receive-side mirror of ``required_send`` (a
+    Package Builder's desired incoming asset); the arbitrage finder never sets
+    it, so its output is unchanged.
+
+    ``max_per_side`` drops every shape with more assets than that on either
+    side BEFORE enumeration (a size limit applied during generation, not by
+    rejecting packages afterwards); ``max_packages`` is a per-shape-group
+    emission budget, reported as ``budgetExhausted``.  Both unset by the
+    finder itself.
+
+    ``receive_anchor`` (owner directive 2026-10-18, Target Quality) is the
+    substrate's per-asset receive-side requirement: every package must bring
+    back at least one asset it admits, checked during enumeration before any
+    scorer runs (``src/trade/discovery.quality_anchor``).  Unset = unchanged.
     """
     results: list[TradeCandidate] = []
 
     def _run(shapes: list[substrate.PackageShape], pool_limit: int | None):
+        if max_per_side is not None:
+            shapes = [s for s in shapes if s.send <= max_per_side and s.receive <= max_per_side]
+            if not shapes:
+                return substrate.EnumerationReport()
         packages, report = substrate.enumerate_packages(
             my_assets,
             opp_assets,
@@ -961,15 +1019,23 @@ def _generate_packages(
             shapes=shapes,
             pool_limit=pool_limit,
             rank_key=substrate.by_value_desc,
+            required_send=required_send,
+            **({"required_receive": required_receive} if required_receive else {}),
+            **({"max_packages": max_packages} if max_packages is not None else {}),
+            **({"receive_anchor": receive_anchor} if receive_anchor is not None else {}),
         )
         for pair in packages:
             give, receive = pair.sources()
-            tc = _score_trade(give, receive)
+            # The default path names ``_score_trade`` explicitly: the VA guard
+            # (tests/trade/test_finder_va_is_not_bypassable.py) parses this.
+            tc = _score_trade(give, receive) if score is None else score(give, receive)
             if tc is not None:
                 results.append(tc)
         return report
 
     one_for_one = _run([substrate.PackageShape(1, 1)], None)
+    if one_for_one_only:
+        return results, {"mode": "one_for_one_only", "oneForOne": one_for_one.to_dict()}
     if equal_count_only:
         two_for_two = _run(
             [substrate.PackageShape(2, 2)],
@@ -1018,18 +1084,26 @@ def _deduplicate(trades: list[TradeCandidate]) -> list[TradeCandidate]:
 
 def _parse_arbitrage_controls(
     opponent_items: list[Any],
-) -> tuple[list[str], bool, set[str], list[str]]:
+) -> tuple[list[str], bool, set[str], list[str], set[str]]:
     """Split real opponent names from the /arbitrage control envelope.
 
     The public route already passes ``opponentTeams`` through after validating
     it is a list.  Ordinary callers send only strings and get byte-for-byte the
     old semantics.  The arbitrage page may append one reserved mapping with
-    equal-count policy and session-local player exclusions.
+    equal-count policy, legacy session-local player exclusions
+    (``excludePlayers``, both sides — kept for one release while clients move to
+    the constraint owner's ``refinement``), and ``skipTargets``.
+
+    ``skipTargets`` is INCOMING-only: "don't show me packages that bring this
+    player back".  It is a search filter on the opponent's pool, not a trade
+    constraint — constraints are outgoing-only (spec §3), which is why it does
+    not go through ``src/trade/constraints``.
     """
     opponents: list[str] = []
     equal_count_only = False
     excluded_keys: set[str] = set()
     excluded_display: list[str] = []
+    skip_target_keys: set[str] = set()
 
     for item in opponent_items:
         if isinstance(item, str):
@@ -1042,6 +1116,11 @@ def _parse_arbitrage_controls(
             continue
         if raw_control.get("equalCountOnly") is True:
             equal_count_only = True
+        raw_skip = raw_control.get("skipTargets")
+        if isinstance(raw_skip, (list, tuple, set)):
+            skip_target_keys.update(
+                str(n or "").strip().casefold() for n in raw_skip if str(n or "").strip()
+            )
         raw_excluded = raw_control.get("excludePlayers")
         if not isinstance(raw_excluded, (list, tuple, set)):
             continue
@@ -1053,7 +1132,7 @@ def _parse_arbitrage_controls(
             excluded_keys.add(key)
             excluded_display.append(name)
 
-    return opponents, equal_count_only, excluded_keys, excluded_display
+    return opponents, equal_count_only, excluded_keys, excluded_display, skip_target_keys
 
 
 def _forced_drop_factor(tc: TradeCandidate, capacity: Any) -> float:
@@ -1084,6 +1163,15 @@ def _forced_drop_factor(tc: TradeCandidate, capacity: Any) -> float:
         tc.flags.append("forced_drop_cost")
         tc.summary += " Score is net of the release this trade forces."
     return factor
+
+
+def _board_package(tc: TradeCandidate) -> Any:
+    """The candidate's board-value package for the roster-capacity owner's
+    package-consistent release (flag ``forced_drop_cheapest_legal`` only;
+    ``None`` otherwise) — ``forced_drop_selection.board_package``."""
+    from src.trade import forced_drop_selection as fds  # noqa: PLC0415
+
+    return fds.board_package(tc.give, tc.receive)
 
 
 def _rerank_with_forced_drop_cost(
@@ -1258,6 +1346,9 @@ def _posture_pick_packages(
     outgoing_policy: Any,
     *,
     equal_count_only: bool,
+    required_send: list[Asset] | tuple[Asset, ...] = (),
+    score: Any = None,
+    receive_anchor: Callable[[Any], bool] | None = None,
 ) -> tuple[list[TradeCandidate], str | None]:
     """Pick-inclusive packages for a COMPLEMENTARY posture pair only.
 
@@ -1302,15 +1393,20 @@ def _posture_pick_packages(
         shapes=shapes,
         pool_limit=_PICK_CORE_POOL_LIMIT,
         rank_key=substrate.by_value_desc,
+        required_send=required_send,
+        # Target Quality: the CORE must already bring back a qualifying
+        # player — a received pick is not a player and never satisfies it.
+        **({"receive_anchor": receive_anchor} if receive_anchor is not None else {}),
     )
+    score_fn = score or _score_trade
     out: list[TradeCandidate] = []
     for pair_ in cores:
         give, receive = pair_.sources()
-        core = _score_trade(give, receive)
+        core = score_fn(give, receive)
         best: TradeCandidate | None = None
         for pick in picks[:_PICKS_TRIED_PER_TEAM]:
             g, r = (give + [pick], receive) if side == "give" else (give, receive + [pick])
-            tc = _score_trade(g, r)
+            tc = score_fn(g, r)
             if tc is None:
                 continue
             if core is not None and tc.arbitrage_score <= core.arbitrage_score:
@@ -1345,6 +1441,8 @@ def find_trades(
     use_team_context: bool = True,
     postures: dict[str, str] | None = None,
     pick_forecasts: dict[int, tuple[int, Any]] | None = None,
+    discovery: Any | None = None,
+    lineup_delta: Callable[..., dict[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -1364,6 +1462,17 @@ def find_trades(
         ``pick_market.owned_pick_forecasts`` (route-resolved).  Moves an
         unknown-slot pick's market side from the plain KTC tier average
         toward its forecast tier distribution, by confidence.
+    discovery : DiscoveryFilters | None
+        Owner directive 2026-10-18 (``src/trade/discovery``).  Players to
+        target narrows every opponent's pool BEFORE enumeration; Target
+        Quality rides the substrate's receive anchor (at least one incoming
+        player meets it, per asset); ``sort`` orders the qualified trades by
+        the shared discovery orderings instead of the arbitrage score.  The
+        finder's own gates (per-market top-N, plausibility, opponent appeal,
+        ``board_delta > 0``) are unchanged.  ``None`` = legacy behaviour.
+    lineup_delta : callable | None
+        The canonical lineup solver seam (``best_offers.lineup_delta_from_bundle``),
+        read only for the discovery head under Team Context.
     use_team_context : bool
         V1-41 / ``C3-CTX-01``.  ON (default) makes the roster-fit bonus's
         "fills a need" arm consult the canonical Team Weakness owner
@@ -1396,9 +1505,13 @@ def find_trades(
     -------
     dict with trades, metadata, and any warnings.
     """
-    opponent_teams, equal_count_only, excluded_player_keys, excluded_player_names = (
-        _parse_arbitrage_controls(opponent_teams)
-    )
+    (
+        opponent_teams,
+        equal_count_only,
+        excluded_player_keys,
+        excluded_player_names,
+        skip_target_keys,
+    ) = _parse_arbitrage_controls(opponent_teams)
 
     if market_top_n is None:
         market_top_n = MARKET_TOP_N_FILTER if ktc_top_n is None else ktc_top_n
@@ -1443,6 +1556,12 @@ def find_trades(
     for a in pool:
         pool_by_name[a.name] = a
 
+    from src.trade import discovery as _disc  # noqa: PLC0415
+
+    disc_index = _disc.CanonicalIndex(contract) if discovery is not None else None
+    disc_report = _disc.DiscoveryReport()
+    disc_anchor = _disc.quality_anchor(discovery, disc_index) if disc_index is not None else None
+
     my_roster = _resolve_roster(my_team, sleeper_teams, pool_by_name)
     if not my_roster:
         return {
@@ -1472,7 +1591,7 @@ def find_trades(
                     "sessionExcludedCount": len(excluded_player_names),
                     "noResultReason": "all_outgoing_assets_session_excluded",
                 },
-                "warnings": ["Every asset on your roster was excluded from this arbitrage scan."],
+                "warnings": ["Every asset on your roster was excluded from this package scan."],
             }
 
     # V1-41 / C3-CTX-01 — the canonical Team Weakness owner, resolved ONCE
@@ -1563,6 +1682,53 @@ def find_trades(
                 "recommendations, so no trade could be generated."
             ],
         }
+
+    # C3-CON-03 — temporary LOCK.  Resolved against the full outgoing roster
+    # BEFORE enumeration; a lock that cannot be honoured (protected, excluded,
+    # NFL-team rule, or not on this roster) is an honest no-result under
+    # current constraints, never a silently unlocked list (spec §4).
+    from src.trade.constraints import resolve_locked_outgoing  # noqa: PLC0415
+
+    lock = resolve_locked_outgoing(my_roster, constraints)
+    # The search pool is the per-market top-N, so a rostered player outside it
+    # (or one the board does not price) is "outside this scan", not "not on
+    # your roster" — the two are different sentences.
+    me_raw = next((t for t in sleeper_teams if t.get("name") == my_team), None) or {}
+    raw_names = {str(n).strip().lower() for n in (me_raw.get("players") or [])}
+    outside_pool = [k for k in lock.missing if k in raw_names]
+    max_send = 2 if equal_count_only else 3
+    lock_reason = lock.no_result_reason
+    if lock_reason == "locked_player_unavailable" and outside_pool:
+        lock_reason = "locked_player_outside_market_pool"
+    elif lock.satisfiable and len(lock.required) > max_send:
+        lock_reason = "locked_players_exceed_package_size"
+    if lock_reason is not None:
+        return {
+            "trades": [],
+            "metadata": {
+                "myTeam": my_team,
+                "packageMode": "equal_count_only" if equal_count_only else "default",
+                "refinement": constraints.to_dict() if constraints is not None else None,
+                "lockedOutgoing": lock.to_dict(),
+                "noResultReason": lock_reason,
+                "noResultLabel": "No qualifying trade found under current constraints",
+            },
+            "warnings": [
+                f"More players are locked than this scan's largest package sends ({max_send})."
+                if lock_reason == "locked_players_exceed_package_size"
+                else "A locked player cannot be included: "
+                + "; ".join(
+                    [f"{k} ({r})" for k, r in lock.conflicts]
+                    + [
+                        f"{k} (outside this scan's market pool)"
+                        if k in raw_names
+                        else f"{k} (not on your roster)"
+                        for k in lock.missing
+                    ]
+                )
+            ],
+        }
+    locked_assets = list(lock.required)
 
     all_trades: list[TradeCandidate] = []
     enumeration_reports: dict[str, dict[str, Any]] = {}
@@ -1674,8 +1840,13 @@ def find_trades(
         opp_filtered = [
             a
             for a in opp_roster
-            if a.name not in owned_names and a.name.strip().casefold() not in excluded_player_keys
+            if a.name not in owned_names
+            and a.name.strip().casefold() not in excluded_player_keys
+            and a.name.strip().casefold() not in skip_target_keys
         ]
+        if disc_index is not None:
+            # Players to target, BEFORE enumeration (src/trade/discovery).
+            opp_filtered = _disc.filter_incoming(opp_filtered, discovery, disc_index, disc_report)
         if not opp_filtered:
             continue
         opponents_analyzed += 1
@@ -1687,7 +1858,13 @@ def find_trades(
             opp_filtered,
             outgoing_policy,
             equal_count_only=equal_count_only,
+            # Only when a lock is set, so an unrefined call keeps the exact
+            # pre-LOCK call shape (test seams stub this signature).
+            **({"required_send": locked_assets} if locked_assets else {}),
+            **({"receive_anchor": disc_anchor} if disc_anchor is not None else {}),
         )
+        if disc_anchor is not None:
+            disc_report.anchor_rejected += _disc.anchor_rejections(enum_report)
         if pick_generation_on:
             # The opponent's picks are only ever ASKED for when we tilt future
             # and they PUSH; resolve them only then.
@@ -1699,7 +1876,10 @@ def find_trades(
                     opp_team, contract, players, pool_by_name, pick_forecasts, unfiltered_pool
                 )
                 opp_picks = [
-                    a for a in opp_picks if a.name.strip().casefold() not in excluded_player_keys
+                    a
+                    for a in opp_picks
+                    if a.name.strip().casefold() not in excluded_player_keys
+                    and a.name.strip().casefold() not in skip_target_keys
                 ]
             with_picks, pair = _posture_pick_packages(
                 my_roster,
@@ -1710,6 +1890,8 @@ def find_trades(
                 postures.get(opp_name),
                 outgoing_policy,
                 equal_count_only=equal_count_only,
+                **({"required_send": locked_assets} if locked_assets else {}),
+                **({"receive_anchor": disc_anchor} if disc_anchor is not None else {}),
             )
             shaped.extend(with_picks)
             pick_generation["pairs"][opp_name] = {
@@ -1800,12 +1982,37 @@ def find_trades(
                     capacity_context,
                     incoming_players=player_names_only(tc.receive),
                     outgoing_players=player_names_only(tc.give),
+                    package=_board_package(tc),
                 )
             except Exception:  # noqa: BLE001 — an annotation never drops a trade
                 capacity_by_trade[key] = None
         return capacity_by_trade[key]
 
-    if use_team_context and capacity_context is not None:
+    disc_sort = getattr(discovery, "sort", None) if discovery is not None else None
+    if disc_sort is not None:
+        capped = _order_by_discovery(
+            ranked,
+            max_results=max_results,
+            sort=disc_sort,
+            filters=discovery,
+            index=disc_index,
+            needs=(
+                {
+                    pos
+                    for pos, n in weakness_by_position.items()
+                    if n.get("level") in ("critical", "high")
+                }
+                if team_context.get("applied")
+                else None
+            ),
+            capacity_for=(
+                _capacity_for if use_team_context and capacity_context is not None else None
+            ),
+            lineup_delta=lineup_delta if use_team_context else None,
+            owner_of={str(t.get("name") or ""): str(t.get("ownerId") or "") for t in sleeper_teams},
+            my_team=my_team,
+        )
+    elif use_team_context and capacity_context is not None:
         capped = _rerank_with_forced_drop_cost(ranked, max_results, _capacity_for)
     else:
         capped = ranked[:max_results]
@@ -1866,6 +2073,18 @@ def find_trades(
             # must not render identically.
             "constraintsBlockedOutgoing": len(blocked_outgoing),
             "constraintsBlockedReasons": sorted({r for _, r in blocked_outgoing}),
+            # C3-CON-03: published only when a refinement is active, so an
+            # unrefined response is unchanged.
+            **(
+                {
+                    "refinement": constraints.to_dict(),
+                    "lockedOutgoing": lock.to_dict(),
+                }
+                if constraints is not None
+                and (constraints.locked_outgoing or constraints.excluded_outgoing)
+                else {}
+            ),
+            **({"skipTargets": sorted(skip_target_keys)} if skip_target_keys else {}),
             "totalCandidatesEvaluated": len(all_trades),
             "totalQualified": len(ranked),
             "returned": len(capped),
@@ -1888,6 +2107,171 @@ def find_trades(
             # Deprecated aliases — the gate is per-market now.
             "ktcTopNFilter": market_top_n,
             "ktcCoveragePercent": round(market_coverage_pct * 100, 1),
+            **(
+                {
+                    "discovery": _discovery_metadata(
+                        discovery, disc_report, returned=len(capped), qualified=len(ranked)
+                    )
+                }
+                if discovery is not None
+                else {}
+            ),
         },
         "warnings": warnings,
     }
+
+
+def _discovery_metadata(
+    discovery: Any, report: Any, *, returned: int, qualified: int
+) -> dict[str, Any]:
+    """What the discovery filters did, and — on an empty result — which one
+    emptied it (never "no trades exist" when a filter is the cause)."""
+    from src.trade import discovery as _disc  # noqa: PLC0415
+
+    prior = _disc.load_impact_prior()
+    out: dict[str, Any] = {
+        "version": _disc.DISCOVERY_VERSION,
+        "filters": discovery.to_dict(),
+        "report": report.to_dict(),
+        "impactPrior": {
+            "id": prior.get("id"),
+            "status": prior.get("status"),
+            "configPath": "config/trade/discovery_impact_prior.json",
+        },
+        "broaderQualityLevels": _disc.broader_quality_levels(discovery.quality),
+    }
+    if returned == 0:
+        if discovery.scope_active and report.targets_considered == 0:
+            out["emptyReason"] = "no_target_in_players_to_target"
+            out["emptyDetail"] = (
+                f"No opponent rosters a {discovery.scope} player in this market pool."
+            )
+        elif discovery.quality_active and report.targets_meeting_quality == 0:
+            out["emptyReason"] = "no_target_meets_quality"
+            out["emptyDetail"] = (
+                "No opponent player in this scan meets the Target Quality filter. "
+                "Broaden Target Quality to search deeper."
+            )
+        elif discovery.quality_active and report.anchor_rejected:
+            out["emptyReason"] = "no_package_within_target_quality"
+            out["emptyDetail"] = (
+                "Packages that bring back a player inside Target Quality all failed the "
+                "plausibility, board-gain or market-appeal rules. Broaden Target Quality to "
+                "search deeper."
+            )
+    return out
+
+
+def _order_by_discovery(
+    ranked: list[TradeCandidate],
+    *,
+    max_results: int,
+    sort: str,
+    filters: Any,
+    index: Any,
+    needs: set[str] | None,
+    capacity_for: Callable[[TradeCandidate], Any] | None,
+    lineup_delta: Callable[..., dict[str, Any] | None] | None,
+    owner_of: dict[str, str],
+    my_team: str,
+) -> list[TradeCandidate]:
+    """Order qualified trades by the shared discovery orderings.
+
+    Two passes over the same declared prior: every qualified trade is scored
+    on what is free to read (VA-adjusted canonical gain, the incoming player,
+    the finder's own opponent appeal through the Best Offers comfort plateau,
+    the Team Weakness need share); then a bounded head
+    (``_FORCED_DROP_RERANK_WINDOW_MULT x max_results``) adds what costs a
+    solve — the forced-release cost (the same ``_forced_drop_factor`` the
+    legacy order charges) and the canonical lineup delta, which replaces the
+    need share as ``rosterFit`` when available (never both).  Full market
+    coverage still sorts ahead of partial.  Ordering only: the qualified set
+    is unchanged.
+    """
+    from src.trade import best_offers as _bo  # noqa: PLC0415
+    from src.trade import discovery as _disc  # noqa: PLC0415
+
+    prior = _disc.load_impact_prior()
+    scales = _bo.load_ranking_prior().get("scales") or {}
+
+    def _metrics(tc: TradeCandidate, *, lineup=None, forced=None) -> dict[str, Any]:
+        fit_lineup = _disc.lineup_fit(lineup, prior)
+        fit_need = _disc.need_fit(tc.receive, needs)
+        return _disc.candidate_metrics(
+            tc.give,
+            tc.receive,
+            index=index,
+            prior=prior,
+            filters=filters,
+            roster_fit=fit_lineup if fit_lineup is not None else fit_need,
+            roster_fit_basis=(
+                "lineup"
+                if fit_lineup is not None
+                else ("team_weakness" if fit_need is not None else None)
+            ),
+            counterparty=_bo._comfort(float(tc.opponent_ktc_appeal) * 100.0, scales),
+            counterparty_basis="finder opponent market appeal (Best Offers comfort plateau)",
+            forced_drop=forced,
+            lineup=lineup,
+        )
+
+    def _key(tc: TradeCandidate) -> tuple:
+        return (
+            0 if tc.ktc_coverage == "full" else 1,
+            *_disc.sort_key(sort, tc.discovery or {}, _trade_key(tc)),
+        )
+
+    for tc in ranked:
+        tc.discovery = _metrics(tc)
+    _disc.score_impact([tc.discovery for tc in ranked], prior)
+    ranked = sorted(ranked, key=_key)
+    head = ranked[: max(1, max_results) * _FORCED_DROP_RERANK_WINDOW_MULT]
+    if capacity_for is not None or lineup_delta is not None:
+        for tc in head:
+            forced = None
+            if capacity_for is not None:
+                factor = _forced_drop_factor(tc, capacity_for(tc))
+                if tc.ranking_factors.get("forcedDropCost") is not None:
+                    forced = -factor / _BOARD_EDGE_WEIGHT
+            lineup = (
+                lineup_delta(
+                    owner_of.get(my_team, ""),
+                    owner_of.get(tc.counterparty or "", ""),
+                    [a.name for a in tc.give if not a.is_pick],
+                    [a.name for a in tc.receive if not a.is_pick],
+                )
+                if lineup_delta is not None
+                else None
+            )
+            tc.discovery = _metrics(tc, lineup=lineup, forced=forced)
+        _disc.score_impact([tc.discovery for tc in head], prior)
+        head = sorted(head, key=_key)
+    out = head[:max_results]
+    for tc in out:
+        tc.discovery["whyItMatters"] = _disc.why_it_matters(
+            tc.discovery, need_positions=needs or ()
+        )
+        if not tc.discovery.get("lineupImpact"):
+            tc.discovery.pop("lineupImpact", None)
+    return out
+
+
+def _trade_key(tc: TradeCandidate) -> tuple:
+    return (
+        tc.counterparty or "",
+        tuple(sorted(a.asset_id or a.name for a in tc.give)),
+        tuple(sorted(a.asset_id or a.name for a in tc.receive)),
+    )
+
+
+# ── Public seams for consumers of this enumeration (C7-BEST-TRADE) ────────
+#
+# The Best-Trade consumer (``src/trade/best_offers``) reuses this module's
+# pool, roster resolution, owned-pick resolution, package enumeration and
+# posture-aware pick path — it is a different OBJECTIVE over the same
+# candidates, never a second generator.
+resolve_roster = _resolve_roster
+owned_pick_assets = _owned_pick_assets
+generate_packages = _generate_packages
+posture_pick_packages = _posture_pick_packages
+FUTURE_TILTING_POSTURES = _FUTURE_TILTING

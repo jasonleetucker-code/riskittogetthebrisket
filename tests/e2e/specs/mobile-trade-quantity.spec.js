@@ -4,8 +4,10 @@
  *
  *   1. Searching a future year shows that year's Early / Mid / Late 1st
  *      market references in the first (market) group, ahead of any owned
- *      picks, inside a bounded scrollable dropdown — the defect was owned
- *      picks crowding them out on an iPhone with the keyboard up.  Add
+ *      picks, inside the side's bottom-sheet search (TC-D2: one sheet per
+ *      side on phones) whose result list scrolls inside the viewport — the
+ *      defect was owned picks crowding them out on an iPhone with the
+ *      keyboard up.  Add
  *      Mid, increment to 5 with "+", and the side's raw total is exactly
  *      5x one copy.
  *   2. Search a player, add, increment to 5, same exact-multiple check.
@@ -20,6 +22,7 @@
  */
 const { test, expect } = require("../helpers/auth-fixture");
 const { pageUrl, awaitStreamSettled, contractFixture } = require("../helpers/journey");
+const { closeTradeSheet, openTradeSearch } = require("../helpers/trade-builder");
 
 test.use({ serviceWorkers: "block" });
 
@@ -96,17 +99,21 @@ test.describe("mobile /trade: repeatable assets and market picks", () => {
     test.skip(year == null, "seeded contract carries no priced future tier rows");
 
     await openTrade(page);
-    const input = page.getByLabel("Search to add a player to Side A");
-    await input.click();
+    // Phones build through one bottom sheet per side (TC-D2).
+    await expect(page.getByRole("button", { name: "Add to Side A", exact: true })).toBeVisible();
+    const input = await openTradeSearch(page, "A");
     await input.fill(String(year));
 
     const box = page.locator(".trade-side-search-results");
     await expect(box).toBeVisible({ timeout: 15_000 });
-    // The dropdown is bounded and scrolls, so it cannot run off under the keyboard.
+    // The result list scrolls inside the sheet, which stays inside the
+    // viewport, so it cannot run off under the keyboard.
     const overflowY = await box.evaluate((el) => getComputedStyle(el).overflowY);
     expect(overflowY).toBe("auto");
-    const boxHeight = await box.evaluate((el) => el.getBoundingClientRect().height);
-    expect(boxHeight).toBeLessThanOrEqual(322);
+    const sheet = await page.getByRole("dialog", { name: "Add to Side A" }).boundingBox();
+    const viewport = page.viewportSize();
+    expect(sheet.y).toBeGreaterThanOrEqual(0);
+    expect(sheet.y + sheet.height).toBeLessThanOrEqual(viewport.height + 1);
 
     // Early / Mid / Late 1st are in the FIRST group and visible without scrolling.
     const firstGroup = box.getByRole("group").first();
@@ -120,6 +127,7 @@ test.describe("mobile /trade: repeatable assets and market picks", () => {
 
     const mid = `${year} Mid 1st`;
     await resultNamed(page, mid).click();
+    await closeTradeSheet(page);
     await expect(page.getByRole("button", { name: `Remove ${mid} from Side A` })).toBeVisible();
     const one = await sideARaw(page);
     expect(one).toBeGreaterThan(0);
@@ -138,19 +146,21 @@ test.describe("mobile /trade: repeatable assets and market picks", () => {
     test.skip(!player, "seeded contract carries no priced player");
 
     await openTrade(page);
-    const input = page.getByLabel("Search to add a player to Side A");
-    await input.click();
+    const input = await openTradeSearch(page, "A");
     await input.fill(player);
     await expect(resultNamed(page, player)).toBeVisible({ timeout: 15_000 });
     await resultNamed(page, player).click();
-    await expect(page.getByRole("button", { name: `Remove ${player} from Side A` })).toBeVisible();
-    const one = await sideARaw(page);
-    expect(one).toBeGreaterThan(0);
-
-    // The same player stays searchable after the first add.
+    // The sheet stays open between adds and the same player stays searchable.
+    await expect(page.getByRole("dialog", { name: "Add to Side A" }).getByRole("status")).toHaveText(
+      new RegExp(`Added ${player.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
+    );
     await input.fill(player);
     await expect(resultNamed(page, player)).toBeVisible({ timeout: 15_000 });
     await input.fill("");
+    await closeTradeSheet(page);
+    await expect(page.getByRole("button", { name: `Remove ${player} from Side A` })).toBeVisible();
+    const one = await sideARaw(page);
+    expect(one).toBeGreaterThan(0);
 
     await incrementTo(page, player, 5);
     await expect.poll(() => sideARaw(page)).toBe(5 * one);

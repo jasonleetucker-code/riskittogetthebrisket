@@ -14,6 +14,9 @@ from datetime import date
 from pathlib import Path
 
 from src.consensus_edge import snapshot
+import pytest
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _board(model="ce.test.v1", params="abc123", n=3, score=50.0):
@@ -462,9 +465,9 @@ class TestRealBoardRoundTrip(unittest.TestCase):
         # Newest COMPLETE scrape (2026-08-16): `zips[-1]` made this a
         # function of the last scrape's health.  See
         # ``tests/archive_fixtures``.
-        from tests.archive_fixtures import newest_complete_raw_payload
+        from tests.archive_fixtures import pinned_board_payload
 
-        raw, _archive = newest_complete_raw_payload()
+        raw, _archive = pinned_board_payload()
         if raw is None:
             self.skipTest("no complete archived payload")
 

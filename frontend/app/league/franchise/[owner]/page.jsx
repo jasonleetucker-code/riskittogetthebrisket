@@ -8,8 +8,15 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtNumber } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { leagueHomeHref } from "@/app/league/advisor-bootstrap";
 import ShareButton from "../../ShareButton.jsx";
 import RosterComparePanel from "@/components/RosterComparePanel";
+import {
+  PickChips,
+  PickChipsLegend,
+  PickOwnershipUnavailableNote,
+  draftOwnershipUnavailableReason,
+} from "../../pick-chips.jsx";
 import { ImpactValue, ScheduleImpactSummary } from "@/components/league/ScheduleImpact";
 import { teamRowFor } from "@/lib/schedule-impact";
 import { fetchBackendJson } from "@/lib/server-backend";
@@ -81,7 +88,11 @@ export async function generateMetadata({ params }) {
 export default async function FranchisePage({ params }) {
   const { owner } = await params;
   const ownerId = decodeURIComponent(String(owner || ""));
-  const [data, schedule] = await Promise.all([fetchFranchise(ownerId), fetchScheduleBlock()]);
+  const [data, schedule, leagueHome] = await Promise.all([
+    fetchFranchise(ownerId),
+    fetchScheduleBlock(),
+    leagueHomeHref(),
+  ]);
   const fr = data?.franchiseDetail || data?.data?.detail?.[ownerId] || null;
   const managers = buildManagerLookup(data?.league);
   const scheduleSeason = schedule?.currentSeason || null;
@@ -102,7 +113,7 @@ export default async function FranchisePage({ params }) {
         <div className="card">
           <EmptyState title="Franchise not found" message={`No public franchise record for owner ${ownerId}.`} />
           <div style={{ marginTop: 10 }}>
-            <Link href="/league" style={{ color: "var(--cyan)" }}>← Back to league</Link>
+            <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← Back to league</Link>
           </div>
         </div>
       </section>
@@ -113,7 +124,7 @@ export default async function FranchisePage({ params }) {
     <section>
       <div className="card">
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
+          <Link href={leagueHome} style={{ color: "var(--cyan)" }}>← League home</Link>
           {" · "}
           <Link href="/league?tab=franchise" style={{ color: "var(--cyan)" }}>All franchises</Link>
         </div>
@@ -134,8 +145,11 @@ export default async function FranchisePage({ params }) {
             {fr.topRival && (
               <div>
                 Top rival:{" "}
+                {/* In-prose link: underlined (ds-link) so it is not told
+                    apart from the sentence by colour alone (WCAG 1.4.1). */}
                 <Link
                   href={`/league/franchise/${encodeURIComponent(fr.topRival.ownerId)}`}
+                  className="ds-link"
                   style={{ color: "var(--cyan)" }}
                 >
                   {fr.topRival.displayName}
@@ -189,39 +203,37 @@ export default async function FranchisePage({ params }) {
 
       {fr.draftCapital && (
         <Card title="Draft capital">
-          <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 6 }}>
-            Weighted score {fr.draftCapital.weightedScore} · {fr.draftCapital.totalPicks} owned picks
-          </div>
-          {(fr.draftCapital.picks || []).length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {(fr.draftCapital.picks || []).map((p, i) => (
-                <span
-                  key={i}
-                  style={{
-                    fontFamily: "var(--mono)",
-                    fontSize: "0.7rem",
-                    border: "1px solid var(--border)",
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                    color: p.isTraded ? "var(--amber)" : "var(--text)",
-                  }}
-                >
-                  {p.label}{p.isTraded ? "*" : ""}
-                </span>
-              ))}
-            </div>
+          {draftOwnershipUnavailableReason(fr.draftCapital) ? (
+            <PickOwnershipUnavailableNote reason={draftOwnershipUnavailableReason(fr.draftCapital)} />
+          ) : (
+            <>
+              <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 6 }}>
+                Weighted score {fr.draftCapital.weightedScore} · {fr.draftCapital.totalPicks} owned picks
+              </div>
+              {(fr.draftCapital.picks || []).length > 0 && (
+                <PickChips picks={fr.draftCapital.picks} size="sm" />
+              )}
+            </>
           )}
-          <div style={{ fontSize: "0.66rem", color: "var(--subtext)", marginTop: 6 }}>
-            * acquired via trade ·{" "}
-            <Link href="/league?tab=draft" style={{ color: "var(--cyan)" }}>
+          <PickChipsLegend>
+            {" "}·{" "}
+            <Link href="/league?tab=draft" className="ds-link" style={{ color: "var(--cyan)" }}>
               Full draft center →
             </Link>
-          </div>
+          </PickChipsLegend>
         </Card>
       )}
 
       <Card title="Season results">
-        <div className="table-wrap">
+        {/* Sideways-scrolling on narrow viewports: a keyboard tab stop
+            (axe scrollable-region-focusable), named so it is not an
+            unlabelled stop — the /rosters pattern. */}
+        <div
+          className="table-wrap"
+          tabIndex={0}
+          role="group"
+          aria-label="Season results table, scrolls horizontally"
+        >
           <table>
             <thead>
               <tr>

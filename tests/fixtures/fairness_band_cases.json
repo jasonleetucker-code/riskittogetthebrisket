@@ -1,0 +1,491 @@
+{
+ "_comment": [
+  "Fairness-band validation cases for fairness_bands_v2 (owner decisions 2026-10-20). Expected",
+  "levels are derived from config/trade/fairness_bands.json's STATED formula by an independent",
+  "implementation (scratch generator: q**i weights, math.fsum), never captured from either",
+  "implementation: |gap| relative to the LARGER PACKAGE UTILITY (geom_q078_v1, q = 0.78), absolute",
+  "minimum 250. gap = adjusted A - adjusted B (unchanged from v1). Gap-only cases are 1-for-1 shapes",
+  "or a stated base, where package utility equals the adjusted total. v1Level / v1LargerAdjusted keep",
+  "the retired fairness_bands_v1 reading (larger ADJUSTED side) so each change is visible per case;",
+  "ktcEraMeterLevel is the retired absolute 350/900/1800 meter band. Asserted by",
+  "tests/valuation_math/test_fairness_bands.py and frontend/__tests__/fairness-bands.test.js."
+ ],
+ "bands": "fairness_bands_v2",
+ "cases": [
+  {
+   "id": "one_for_one",
+   "assetMix": "offense",
+   "sideA": [
+    7200
+   ],
+   "sideB": [
+    6000
+   ],
+   "gap": 1200,
+   "largerUtility": 7200.0,
+   "v1LargerAdjusted": 7200,
+   "expectedLevel": "unfair",
+   "v1Level": "unfair",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "stud_for_two",
+   "assetMix": "offense",
+   "sideA": [
+    8200
+   ],
+   "sideB": [
+    5500,
+    4900
+   ],
+   "gap": -1122,
+   "largerUtility": 9322.0,
+   "v1LargerAdjusted": 10400,
+   "expectedLevel": "unfair",
+   "v1Level": "unfair",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "stud_for_pile",
+   "assetMix": "offense consolidation",
+   "sideA": [
+    9000
+   ],
+   "sideB": [
+    2000,
+    2000,
+    2000,
+    2000
+   ],
+   "gap": 3274,
+   "largerUtility": 9000.0,
+   "v1LargerAdjusted": 11274,
+   "expectedLevel": "lopsided",
+   "v1Level": "lopsided",
+   "ktcEraMeterLevel": "lopsided"
+  },
+  {
+   "id": "two_for_three_offense",
+   "assetMix": "offense",
+   "sideA": [
+    6500,
+    3100
+   ],
+   "sideB": [
+    4200,
+    3900,
+    2600
+   ],
+   "gap": 94,
+   "largerUtility": 8918.0,
+   "v1LargerAdjusted": 10794,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "idp_consolidation",
+   "assetMix": "idp consolidation",
+   "sideA": [
+    4100
+   ],
+   "sideB": [
+    2300,
+    1900,
+    900
+   ],
+   "gap": -230,
+   "largerUtility": 4329.56,
+   "v1LargerAdjusted": 5100,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "picks_and_player",
+   "assetMix": "picks",
+   "sideA": [
+    5200,
+    3400
+   ],
+   "sideB": [
+    4800,
+    2700,
+    1500
+   ],
+   "gap": 33,
+   "largerUtility": 7852.0,
+   "v1LargerAdjusted": 9033,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "large_packages_5v6",
+   "assetMix": "large packages",
+   "sideA": [
+    3000,
+    2800,
+    2500,
+    2100,
+    1800
+   ],
+   "sideB": [
+    3300,
+    2600,
+    2400,
+    2000,
+    1500,
+    1200
+   ],
+   "gap": -271,
+   "largerUtility": 8638.951,
+   "v1LargerAdjusted": 13000,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "near_even_2v1",
+   "assetMix": "offense",
+   "sideA": [
+    6000,
+    300
+   ],
+   "sideB": [
+    6100
+   ],
+   "gap": 134,
+   "largerUtility": 6234.0,
+   "v1LargerAdjusted": 6300,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "star_1for1_3pct",
+   "assetMix": "offense",
+   "gap": 300,
+   "largerUtility": 9300,
+   "v1LargerAdjusted": 9300,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "star_1for1_5pct",
+   "assetMix": "offense",
+   "gap": 450,
+   "largerUtility": 9000,
+   "v1LargerAdjusted": 9000,
+   "expectedLevel": "slight",
+   "v1Level": "slight",
+   "ktcEraMeterLevel": "slight"
+  },
+  {
+   "id": "bench_1for1_300",
+   "assetMix": "offense bench",
+   "gap": 300,
+   "largerUtility": 1500,
+   "v1LargerAdjusted": 1500,
+   "expectedLevel": "lopsided",
+   "v1Level": "lopsided",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "bench_1for1_200",
+   "assetMix": "offense bench",
+   "gap": 200,
+   "largerUtility": 1200,
+   "v1LargerAdjusted": 1200,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "idp_1for1_12pct",
+   "assetMix": "idp",
+   "gap": 400,
+   "largerUtility": 3300,
+   "v1LargerAdjusted": 3300,
+   "expectedLevel": "unfair",
+   "v1Level": "unfair",
+   "ktcEraMeterLevel": "slight"
+  },
+  {
+   "id": "pick_round1_vs_round2",
+   "assetMix": "picks",
+   "gap": 1400,
+   "largerUtility": 3200,
+   "v1LargerAdjusted": 3200,
+   "expectedLevel": "lopsided",
+   "v1Level": "lopsided",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "pick_slots_close",
+   "assetMix": "picks",
+   "gap": 120,
+   "largerUtility": 3100,
+   "v1LargerAdjusted": 3100,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "consolidation_10pct",
+   "assetMix": "consolidation",
+   "gap": 1100,
+   "largerUtility": 11000,
+   "v1LargerAdjusted": 11000,
+   "expectedLevel": "unfair",
+   "v1Level": "unfair",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "large_30k_2pct",
+   "assetMix": "large packages",
+   "gap": 600,
+   "largerUtility": 30000,
+   "v1LargerAdjusted": 30000,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "slight"
+  },
+  {
+   "id": "large_30k_20pct",
+   "assetMix": "large packages",
+   "gap": 6000,
+   "largerUtility": 30000,
+   "v1LargerAdjusted": 30000,
+   "expectedLevel": "lopsided",
+   "v1Level": "lopsided",
+   "ktcEraMeterLevel": "lopsided"
+  },
+  {
+   "id": "boundary_slight",
+   "assetMix": "boundary",
+   "gap": 350,
+   "largerUtility": 10000,
+   "v1LargerAdjusted": 10000,
+   "expectedLevel": "slight",
+   "v1Level": "slight",
+   "ktcEraMeterLevel": "slight"
+  },
+  {
+   "id": "boundary_unfair",
+   "assetMix": "boundary",
+   "gap": 900,
+   "largerUtility": 10000,
+   "v1LargerAdjusted": 10000,
+   "expectedLevel": "unfair",
+   "v1Level": "unfair",
+   "ktcEraMeterLevel": "unfair"
+  },
+  {
+   "id": "boundary_lopsided",
+   "assetMix": "boundary",
+   "gap": 1800,
+   "largerUtility": 10000,
+   "v1LargerAdjusted": 10000,
+   "expectedLevel": "lopsided",
+   "v1Level": "lopsided",
+   "ktcEraMeterLevel": "lopsided"
+  },
+  {
+   "id": "below_absolute_minimum",
+   "assetMix": "boundary",
+   "gap": 249,
+   "largerUtility": 1000,
+   "v1LargerAdjusted": 1000,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "at_absolute_minimum",
+   "assetMix": "boundary",
+   "gap": 250,
+   "largerUtility": 1000,
+   "v1LargerAdjusted": 1000,
+   "expectedLevel": "lopsided",
+   "v1Level": "lopsided",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "empty",
+   "assetMix": "boundary",
+   "gap": 0,
+   "largerUtility": 0,
+   "v1LargerAdjusted": 0,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": "fair"
+  },
+  {
+   "id": "stud_for_12_8pct_short",
+   "assetMix": "offense deep package",
+   "sideA": [
+    9000
+   ],
+   "sideB": [
+    1918.92,
+    1918.92,
+    1918.92,
+    1918.92,
+    1918.92,
+    1918.92,
+    1918.92,
+    1918.92,
+    1918.92,
+    1918.92,
+    1918.92,
+    1918.92
+   ],
+   "gap": 720,
+   "largerUtility": 9000.0,
+   "v1LargerAdjusted": 23747,
+   "expectedLevel": "slight",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": null
+  },
+  {
+   "id": "stud_for_6_5pct_short",
+   "assetMix": "offense deep package",
+   "sideA": [
+    6000
+   ],
+   "sideB": [
+    1618.48,
+    1618.48,
+    1618.48,
+    1618.48,
+    1618.48,
+    1618.48
+   ],
+   "gap": 300,
+   "largerUtility": 6000.0,
+   "v1LargerAdjusted": 10011,
+   "expectedLevel": "slight",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": null
+  },
+  {
+   "id": "picks_r4_for_r6",
+   "assetMix": "picks R4-R6",
+   "sideA": [
+    1676
+   ],
+   "sideB": [
+    1426
+   ],
+   "gap": 250,
+   "largerUtility": 1676.0,
+   "v1LargerAdjusted": 1676,
+   "expectedLevel": "unfair",
+   "v1Level": "unfair",
+   "ktcEraMeterLevel": null
+  },
+  {
+   "id": "picks_r5_r6_for_r4",
+   "assetMix": "picks R4-R6",
+   "sideA": [
+    1557,
+    1426
+   ],
+   "sideB": [
+    1676,
+    300
+   ],
+   "gap": 759,
+   "largerUtility": 2669.28,
+   "v1LargerAdjusted": 2983,
+   "expectedLevel": "lopsided",
+   "v1Level": "lopsided",
+   "ktcEraMeterLevel": null
+  },
+  {
+   "id": "picks_r1_for_three_late",
+   "assetMix": "picks R4-R6 deep",
+   "sideA": [
+    4747
+   ],
+   "sideB": [
+    1676,
+    1557,
+    1426,
+    1426
+   ],
+   "gap": 312,
+   "largerUtility": 4747.0,
+   "v1LargerAdjusted": 6397,
+   "expectedLevel": "slight",
+   "v1Level": "slight",
+   "ktcEraMeterLevel": null
+  },
+  {
+   "id": "idp_stud_for_three",
+   "assetMix": "idp deep package",
+   "sideA": [
+    4737
+   ],
+   "sideB": [
+    2000,
+    1900,
+    1800
+   ],
+   "gap": 160,
+   "largerUtility": 4737.0,
+   "v1LargerAdjusted": 5860,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": null
+  },
+  {
+   "id": "idp_two_for_two",
+   "assetMix": "idp",
+   "sideA": [
+    3309,
+    2979
+   ],
+   "sideB": [
+    3998,
+    2265
+   ],
+   "gap": -132,
+   "largerUtility": 5764.7,
+   "v1LargerAdjusted": 6420,
+   "expectedLevel": "fair",
+   "v1Level": "fair",
+   "ktcEraMeterLevel": null
+  },
+  {
+   "id": "real_9_for_5_shape",
+   "assetMix": "large packages deep",
+   "sideA": [
+    5400,
+    4800,
+    4300,
+    3900,
+    3500,
+    3100,
+    2800,
+    2400,
+    2000
+   ],
+   "sideB": [
+    9300,
+    7900,
+    6200,
+    4800,
+    3800
+   ],
+   "gap": -5791,
+   "largerUtility": 22918.502,
+   "v1LargerAdjusted": 37991,
+   "expectedLevel": "lopsided",
+   "v1Level": "unfair",
+   "ktcEraMeterLevel": null
+  }
+ ]
+}

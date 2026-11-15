@@ -195,7 +195,13 @@ def parse_csv(text: str, spec: SourceSpec) -> tuple[list[Row], dict[str, int]]:
     ncol = next((c for c in _NAME_COLUMNS if c in cols), None)
     rcol = next((c for c in _RANK_COLUMNS if c in cols), None)
     vcol = next((c for c in _VALUE_COLUMNS if c in cols), None)
-    pcol = next((c for c in _POSITION_COLUMNS if c in cols), None)
+    # The identity columns U3 appended (outlier-integrity V2.1) are not part of
+    # this panel's registered inputs: a board that published no position before
+    # U3 is read exactly as before, so the methodology does not switch silently.
+    from src.identity.capture_evidence import u3_added_columns  # noqa: PLC0415
+
+    u3_cols = u3_added_columns(Path(spec.csv_file).stem)
+    pcol = next((c for c in _POSITION_COLUMNS if c in cols and c.lower() not in u3_cols), None)
     # The registry's signal decides which column carries the published order;
     # an old version missing that column falls back to the other one (counted).
     use_rank = (spec.signal == "rank" and rcol is not None) or (vcol is None and rcol is not None)

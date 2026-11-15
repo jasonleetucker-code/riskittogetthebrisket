@@ -159,3 +159,22 @@ class TestEscalationConfig(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMissingAgeIsNotZero(unittest.TestCase):
+    """An entry with no numeric ``ageHours`` has no known age.  It used to
+    default to 0.0 and land in ``fresh`` — "unknown" read as "fetched just
+    now".  Missing is never zero: it must fail closed (stabilization
+    CLEANUP-3, audit D11)."""
+
+    def test_entry_without_age_is_not_fresh(self):
+        hard, soft, fresh = classify_freshness(
+            {"x": {"lastFetched": "2026-10-07T00:00:00Z"}}, {"default": 6}, set()
+        )
+        self.assertNotIn("x", [row[0] for row in fresh])
+        self.assertIn("x", [row[0] for row in hard])
+
+    def test_non_numeric_age_is_not_fresh(self):
+        hard, _soft, fresh = classify_freshness({"x": {"ageHours": None}}, {"default": 6}, set())
+        self.assertEqual(fresh, [])
+        self.assertEqual([row[0] for row in hard], ["x"])

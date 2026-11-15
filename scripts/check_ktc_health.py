@@ -14,6 +14,10 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.sources.ktc_identity import extract_embedded_array  # noqa: E402
 
 
 def _detect_proxy():
@@ -117,32 +121,27 @@ async def check_ktc(full=False):
         content = await page.content()
         print(f"Page content: {len(content)} bytes")
 
-        # Strategy 1: Check for inline playersArray (current KTC format as of 2026-03)
-        pa_match = re.search(
-            r"var\s+playersArray\s*=\s*(\[.*?\]);\s*(?:var\s|\n)",
-            content,
-            re.DOTALL,
-        )
-        if pa_match:
-            try:
-                players = json.loads(pa_match.group(1))
-                if isinstance(players, list) and len(players) > 100:
-                    sample = players[0]
-                    name = sample.get("playerName", "?")
-                    sf_vals = sample.get("superflexValues", {})
-                    val = sf_vals.get("value") if isinstance(sf_vals, dict) else sample.get("value")
-                    print(f"playersArray: {len(players)} players")
-                    print(f"  Sample keys: {list(sample.keys())[:8]}")
-                    print(f"  Sample: {name} = {val}")
-                    print(f"OK: KTC data extraction confirmed ({len(players)} players)")
-                    await browser.close()
-                    return True
-                elif isinstance(players, list):
-                    print(f"WARNING: playersArray has only {len(players)} players (expected 400+)")
-            except json.JSONDecodeError as e:
-                print(f"  playersArray JSON parse error: {e}")
+        # Strategy 1: playersArray via the one KTC embed reader — inline
+        # ``var playersArray = [...]`` OR the ``<script id="ktc-players">``
+        # element KTC moved to in 2026-10 (the inline-only regex this used to
+        # carry reported a healthy page as broken).
+        players = extract_embedded_array(content, "playersArray")
+        if players is not None:
+            if len(players) > 100:
+                sample = players[0]
+                name = sample.get("playerName", "?")
+                sf_vals = sample.get("superflexValues", {})
+                val = sf_vals.get("value") if isinstance(sf_vals, dict) else sample.get("value")
+                print(f"playersArray: {len(players)} players")
+                print(f"  Sample keys: {list(sample.keys())[:8]}")
+                print(f"  Sample: {name} = {val}")
+                print(f"OK: KTC data extraction confirmed ({len(players)} players)")
+                await browser.close()
+                return True
+            else:
+                print(f"WARNING: playersArray has only {len(players)} players (expected 400+)")
         else:
-            print("playersArray not found in page source")
+            print("playersArray not found in page source (neither embed form)")
 
         # Strategy 2: Check __NEXT_DATA__ (legacy KTC format)
         next_match = re.search(

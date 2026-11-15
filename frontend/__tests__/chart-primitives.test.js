@@ -6,6 +6,7 @@ import {
   ticks,
   formatNumber,
   categoricalColor,
+  CATEGORICAL_OTHER,
   chartBox,
   linePath,
   histogram,
@@ -80,16 +81,42 @@ describe("formatNumber", () => {
   });
 });
 
+// The palette every chart used before Owner Decision 14.  Charts with more
+// than six categories must keep exactly these colours until a fold design
+// is approved, so this list is pinned verbatim.
+const PRE_D14_PALETTE = [
+  "#38bdf8", "#f472b6", "#a3e635", "#fb923c", "#c084fc",
+  "#14b8a6", "#fbbf24", "#f87171", "#60a5fa", "#4ade80",
+  "#e879f9", "#fb7185",
+];
+
 describe("categoricalColor", () => {
-  it("returns a palette color for each index", () => {
-    const c0 = categoricalColor(0);
-    expect(CHART_COLORS.categorical).toContain(c0);
+  it("maps a chart of at most six categories onto --chart-1..6 in fixed order", () => {
+    expect(CHART_COLORS.categorical).toEqual([1, 2, 3, 4, 5, 6].map((i) => `var(--chart-${i})`));
+    for (let n = 1; n <= 6; n++) {
+      for (let i = 0; i < n; i++) expect(categoricalColor(i, { count: n })).toBe(`var(--chart-${i + 1})`);
+    }
   });
 
-  it("wraps around for out-of-range indices", () => {
-    const n = CHART_COLORS.categorical.length;
-    expect(categoricalColor(0)).toBe(categoricalColor(n));
-    expect(categoricalColor(-1)).toBe(categoricalColor(n - 1));
+  it("leaves a chart of more than six categories exactly as it was (13 teams)", () => {
+    expect(CHART_COLORS.legacyCategorical).toEqual(PRE_D14_PALETTE);
+    for (let i = 0; i < 13; i++) expect(categoricalColor(i, { count: 13 })).toBe(PRE_D14_PALETTE[i % 12]);
+  });
+
+  it("an unknown count keeps the previous palette (no silent repaint)", () => {
+    expect(categoricalColor(0)).toBe(PRE_D14_PALETTE[0]);
+    expect(categoricalColor(12)).toBe(PRE_D14_PALETTE[0]);
+    expect(categoricalColor(-1)).toBe(PRE_D14_PALETTE[11]);
+  });
+
+  it("folds to the neutral Other ink only when a caller opts in", () => {
+    expect(categoricalColor(2, { fold: true })).toBe("var(--chart-3)");
+    expect(categoricalColor(6, { fold: true })).toBe(CATEGORICAL_OTHER);
+    expect(categoricalColor(6, { count: 13 })).not.toBe(CATEGORICAL_OTHER);
+  });
+
+  it("the six slots carry no hex literal — values live once, in app/tokens.css", () => {
+    for (const c of CHART_COLORS.categorical) expect(c).not.toMatch(/#[0-9a-f]{3,6}/i);
   });
 });
 

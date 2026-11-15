@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import server
-from src.api.build_identity import PROCESS_BUILD, resolve_build_identity
+from src.api.build_identity import PROCESS_BUILD, PROCESS_RELEASE, resolve_build_identity
 
 ROOT = Path(__file__).resolve().parents[2]
 SHA = "0123456789abcdef0123456789abcdef01234567"
@@ -95,9 +95,10 @@ def test_status_serves_the_import_time_identity():
     response = TestClient(server.app).get("/api/status")
     assert response.status_code == 200
     build = response.json()["build"]
-    assert build == PROCESS_BUILD
+    assert build == {**PROCESS_BUILD, "release": PROCESS_RELEASE}
     assert build["process_started_at"]
     assert build["commit"] is None or len(build["commit"]) == 40
+    assert build["release"]["backend_artifact_sha256"] is None
 
 
 def test_deploy_workflow_verifies_the_served_build():
@@ -111,3 +112,5 @@ def test_deploy_workflow_verifies_the_served_build():
     assert "jq -c '.build // empty'" in smoke
     assert '"${_served}" == "${DEPLOY_TARGET_SHA}"' in smoke
     assert "Served build mismatch" in smoke and "unavailable_reason" in smoke
+    assert ".release.frontend_artifact_id // empty" in smoke
+    assert '"${_artifact}" == "${EXPECTED_ARTIFACT_ID}"' in smoke

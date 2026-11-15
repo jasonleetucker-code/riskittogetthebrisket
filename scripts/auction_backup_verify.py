@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import os
 import shutil
 import sqlite3
 import sys
@@ -49,6 +50,8 @@ def run(db: Path, dest: Path, keep: int) -> int:
         print(f"auction store unavailable: {exc}", file=sys.stderr)
         return 2
     dest.mkdir(parents=True, exist_ok=True)
+    for stale in dest.glob("auction-*.sqlite.gz.partial"):
+        stale.unlink(missing_ok=True)  # a previous run died mid-write
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     with tempfile.TemporaryDirectory() as tmp:
         copy = Path(tmp) / "auction" / "auction.sqlite"
@@ -71,6 +74,7 @@ def run(db: Path, dest: Path, keep: int) -> int:
                     failures.append((rid, rep))
             except Exception as exc:  # noqa: BLE001 - report every room
                 failures.append((rid, repr(exc)))
+        restored.close()  # release the scratch copy before it is archived/removed
         target = dest / f"auction-{stamp}.sqlite.gz"
         if failures:
             bad = dest / f"auction-{stamp}.sqlite.FAILED"
@@ -80,8 +84,16 @@ def run(db: Path, dest: Path, keep: int) -> int:
                 file=sys.stderr,
             )
             return 1
-        with open(copy, "rb") as fin, gzip.open(target, "wb") as fout:
-            shutil.copyfileobj(fin, fout)
+        # Write under a temporary name and rename only after the archive is
+        # complete and on disk: a run killed mid-write (or by the unit's
+        # timeout) must never leave a truncated file under a verified name.
+        partial = target.with_name(target.name + ".partial")
+        with open(copy, "rb") as fin, open(partial, "wb") as raw:
+            with gzip.GzipFile(filename=target.name[:-3], mode="wb", fileobj=raw) as fout:
+                shutil.copyfileobj(fin, fout)
+            raw.flush()
+            os.fsync(raw.fileno())
+        os.replace(partial, target)
     with live.write() as conn:
         conn.execute(
             "INSERT INTO meta (key, value) VALUES ('last_verified_backup', ?)"

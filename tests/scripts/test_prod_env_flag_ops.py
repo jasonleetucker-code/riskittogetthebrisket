@@ -42,16 +42,16 @@ def test_set_on_missing_file_creates_it_and_prior_is_absent(tmp_path):
     env_file = tmp_path / ".env"
     prior = _mod.apply_set(env_file, KEY, "1")
     assert prior == ABSENT
-    assert env_file.read_text() == f"{KEY}=1\n"
+    assert env_file.read_text(encoding="utf-8") == f"{KEY}=1\n"
 
 
 def test_set_is_idempotent(tmp_path):
     env_file = tmp_path / ".env"
-    env_file.write_text("OTHER_KEY=unchanged\n")
+    env_file.write_text("OTHER_KEY=unchanged\n", encoding="utf-8")
     _mod.apply_set(env_file, KEY, "1")
-    first = env_file.read_text()
+    first = env_file.read_text(encoding="utf-8")
     prior_second = _mod.apply_set(env_file, KEY, "1")
-    second = env_file.read_text()
+    second = env_file.read_text(encoding="utf-8")
     assert first == second
     assert prior_second == "1"
     assert first.count(f"{KEY}=") == 1
@@ -59,10 +59,10 @@ def test_set_is_idempotent(tmp_path):
 
 def test_set_captures_prior_real_value_and_preserves_other_lines(tmp_path):
     env_file = tmp_path / ".env"
-    env_file.write_text(f"BEFORE=1\n{KEY}=0\nAFTER=2\n")
+    env_file.write_text(f"BEFORE=1\n{KEY}=0\nAFTER=2\n", encoding="utf-8")
     prior = _mod.apply_set(env_file, KEY, "1")
     assert prior == "0"
-    content = env_file.read_text()
+    content = env_file.read_text(encoding="utf-8")
     assert "BEFORE=1" in content
     assert "AFTER=2" in content
     assert f"{KEY}=1" in content
@@ -71,9 +71,9 @@ def test_set_captures_prior_real_value_and_preserves_other_lines(tmp_path):
 
 def test_restore_to_absent_removes_the_key(tmp_path):
     env_file = tmp_path / ".env"
-    env_file.write_text(f"BEFORE=1\n{KEY}=1\nAFTER=2\n")
+    env_file.write_text(f"BEFORE=1\n{KEY}=1\nAFTER=2\n", encoding="utf-8")
     _mod.apply_restore(env_file, KEY, ABSENT)
-    content = env_file.read_text()
+    content = env_file.read_text(encoding="utf-8")
     assert KEY not in content
     assert "BEFORE=1" in content
     assert "AFTER=2" in content
@@ -81,20 +81,20 @@ def test_restore_to_absent_removes_the_key(tmp_path):
 
 def test_restore_to_absent_is_idempotent_when_key_already_gone(tmp_path):
     env_file = tmp_path / ".env"
-    env_file.write_text("BEFORE=1\nAFTER=2\n")
+    env_file.write_text("BEFORE=1\nAFTER=2\n", encoding="utf-8")
     _mod.apply_restore(env_file, KEY, ABSENT)
-    content = env_file.read_text()
+    content = env_file.read_text(encoding="utf-8")
     assert content == "BEFORE=1\nAFTER=2\n"
 
 
 def test_restore_to_prior_real_value_round_trips_exactly(tmp_path):
     env_file = tmp_path / ".env"
     original = f"BEFORE=1\n{KEY}=0\nAFTER=2\n"
-    env_file.write_text(original)
+    env_file.write_text(original, encoding="utf-8")
     prior = _mod.apply_set(env_file, KEY, "1")
-    assert env_file.read_text() != original
+    assert env_file.read_text(encoding="utf-8") != original
     _mod.apply_restore(env_file, KEY, prior)
-    assert env_file.read_text() == original
+    assert env_file.read_text(encoding="utf-8") == original
 
 
 def test_capture_then_restore_round_trip_survives_an_intervening_set(tmp_path):
@@ -103,17 +103,17 @@ def test_capture_then_restore_round_trip_survives_an_intervening_set(tmp_path):
     and restore still lands on the ORIGINAL captured value.
     """
     env_file = tmp_path / ".env"
-    env_file.write_text(f"{KEY}=0\n")
+    env_file.write_text(f"{KEY}=0\n", encoding="utf-8")
     prior = _mod.apply_set(env_file, KEY, "1")
     assert prior == "0"
     _mod.apply_set(env_file, KEY, "1")  # idempotent re-set, e.g. a retry
     _mod.apply_restore(env_file, KEY, prior)
-    assert env_file.read_text() == f"{KEY}=0\n"
+    assert env_file.read_text(encoding="utf-8") == f"{KEY}=0\n"
 
 
 def test_show_reports_absent_for_missing_key(tmp_path):
     env_file = tmp_path / ".env"
-    env_file.write_text("OTHER=1\n")
+    env_file.write_text("OTHER=1\n", encoding="utf-8")
     lines = _mod.read_env_lines(env_file)
     assert _mod.read_current_value(lines, KEY) == ABSENT
 
@@ -126,9 +126,9 @@ def test_show_reports_absent_for_missing_file(tmp_path):
 
 def test_set_appends_trailing_newline_before_new_key_if_missing(tmp_path):
     env_file = tmp_path / ".env"
-    env_file.write_text("NO_TRAILING_NEWLINE=1")
+    env_file.write_text("NO_TRAILING_NEWLINE=1", encoding="utf-8")
     _mod.apply_set(env_file, KEY, "1")
-    content = env_file.read_text()
+    content = env_file.read_text(encoding="utf-8")
     assert content == f"NO_TRAILING_NEWLINE=1\n{KEY}=1\n"
 
 
@@ -159,22 +159,22 @@ def test_atomic_write_leaves_no_temp_file_behind(tmp_path):
 
 def test_cli_set_then_restore_round_trips(tmp_path, capsys):
     env_file = tmp_path / ".env"
-    env_file.write_text(f"{KEY}=0\n")
+    env_file.write_text(f"{KEY}=0\n", encoding="utf-8")
 
     rc = _mod.main(["set", "--env-file", str(env_file), "--key", KEY, "--value", "1"])
     assert rc == 0
     out = capsys.readouterr().out
     assert '"prior_state": "0"' in out
-    assert env_file.read_text() == f"{KEY}=1\n"
+    assert env_file.read_text(encoding="utf-8") == f"{KEY}=1\n"
 
     rc = _mod.main(["restore", "--env-file", str(env_file), "--key", KEY, "--prior-state", "0"])
     assert rc == 0
-    assert env_file.read_text() == f"{KEY}=0\n"
+    assert env_file.read_text(encoding="utf-8") == f"{KEY}=0\n"
 
 
 def test_cli_show(tmp_path, capsys):
     env_file = tmp_path / ".env"
-    env_file.write_text(f"{KEY}=1\n")
+    env_file.write_text(f"{KEY}=1\n", encoding="utf-8")
     rc = _mod.main(["show", "--env-file", str(env_file), "--key", KEY])
     assert rc == 0
     out = capsys.readouterr().out

@@ -217,6 +217,19 @@
   margin-top: 0;
   border-top: 0;
 }
+/* A section run (nav-model sectionRuns) is a labelled group; its heading
+   is the group's first child, so the divider rule keys on the GROUP's
+   position instead — the first run in a menu/drawer list has no divider,
+   every later one keeps it. */
+.shell-menu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.shell-menu-group:not(:first-child) > .shell-menu-section:first-child {
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--border-subtle);
+}
 .shell-menu-item {
   display: flex;
   flex-direction: column;
@@ -411,6 +424,41 @@
 }
 .shell-sitemap-panel {
   margin-bottom: var(--space-4);
+}
+
+/* ── Contextual related-page links (components/shell/RelatedLinks) ─────── */
+.shell-related {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+.shell-related--pending {
+  min-height: 24px;
+}
+.shell-related-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* WCAG 2.5.8: each link is at least 24px tall to hit, without changing
+   how the row reads. Underlined (.ds-link) so it is not colour-only. */
+.shell-related-list a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--accent);
+}
+.shell-related-list a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-1);
 }
 
 /* ── Responsive split (canonical breakpoint: 768) ──────────────────────── */

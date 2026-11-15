@@ -1,0 +1,90 @@
+.view {
+  display: grid;
+  gap: 10px;
+  /* .psi-editorial scopes the editorial tokens on this view but does not
+     repaint it; without its own canvas the editorial ink (--text-primary
+     #1c1712) sat on the terminal Panel (#131519) at 1.03:1 — axe
+     color-contrast on /arbitrage once Golden Upgrades became the default
+     view.  Same full-bleed paint as /managers and /market/trade-database:
+     on --surface-1 primary 16.48:1, secondary 9.26:1, tertiary 5.63:1. */
+  background: var(--surface-1);
+  color: var(--text-primary);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.muted {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-tertiary);
+}
+
+.caution {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+
+.row {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.head,
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.label {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.assets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .pair {
+    grid-template-columns: 1fr;
+  }
+}

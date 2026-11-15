@@ -9,6 +9,15 @@ import path from "path";
 // (and never pay the jsdom cost in the logic pass).
 const alias = { "@": path.resolve(__dirname) };
 
+// Date fixtures are written as UTC instants (``Date.UTC(...)``) and the
+// helpers under test render them with ``toLocaleDateString`` in the
+// process's local zone.  CI runners are UTC, so the expectations are UTC
+// dates; a developer machine in, say, America/Chicago renders midnight
+// UTC as the previous day and fails tests that pass in CI.  Pin the zone
+// so local runs match CI.  An explicitly set ``TZ`` is respected, so a
+// deliberate non-UTC run is still possible.  Worker processes inherit it.
+if (!process.env.TZ) process.env.TZ = "UTC";
+
 export default defineConfig({
   resolve: { alias },
   test: {

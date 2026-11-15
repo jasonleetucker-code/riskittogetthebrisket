@@ -37,9 +37,9 @@ const MAX_PLAYERS = 12;
 const MAX_NAV = 6;
 const EMPTY_QUERY_NAV = 8;
 
-function matchNavTargets(query, capabilities) {
+function matchNavTargets(query, capabilities, isAdmin) {
   const q = query.trim().toLowerCase();
-  const targets = paletteTargets({ capabilities });
+  const targets = paletteTargets({ capabilities, isAdmin });
   if (!q) return targets.slice(0, EMPTY_QUERY_NAV);
   // token grammar (pos:/owner:/team:) is always a player search
   if (q.includes(":")) return [];
@@ -58,6 +58,9 @@ export default function CommandPalette({
   rows = [],
   teamByPlayer = null,
   capabilities = null,
+  // Admin-only Ops destinations are offered only when true (same filter
+  // as the System menu); absent fails closed.
+  isAdmin = false,
   isOpen,
   onClose,
   onSelect,
@@ -93,7 +96,7 @@ export default function CommandPalette({
     return matched.slice(0, MAX_PLAYERS).map((m) => m[2]);
   }, [rows, q, teamByPlayer]);
 
-  const navResults = useMemo(() => matchNavTargets(q, capabilities), [q, capabilities]);
+  const navResults = useMemo(() => matchNavTargets(q, capabilities, isAdmin), [q, capabilities, isAdmin]);
 
   // Flat option list: players first (dominant use), then navigation.
   const options = useMemo(

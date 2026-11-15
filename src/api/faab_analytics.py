@@ -38,6 +38,7 @@ from __future__ import annotations
 import statistics
 from typing import Any
 
+from src.public_league import ownership
 from src.public_league.snapshot import PublicLeagueSnapshot
 
 
@@ -186,23 +187,29 @@ def _walk_waivers(
                     "bidPct": (bid / season_budget) if season_budget else None,
                     "adds": adds if isinstance(adds, dict) else {},
                     "rosterId": roster_id,
-                    "ownerId": _owner_for_roster(season, roster_id),
+                    "ownerId": _owner_for_roster(season, roster_id, tx.get("leg")),
                     "createdAt": int(tx.get("status_updated") or tx.get("created") or 0),
                 }
             )
     return out
 
 
-def _owner_for_roster(season: Any, roster_id: Any) -> str | None:
+def _owner_for_roster(season: Any, roster_id: Any, week: Any = None) -> str | None:
     """Lookup owner_id for a roster_id within a SeasonSnapshot.
-    Defensive — returns None when the roster isn't found (mid-
-    season ownership swaps shouldn't crash the analytics)."""
+    Defensive — returns None when the roster isn't found.  ``week``
+    attributes a recorded mid-season hand-off (``public_league.ownership``)
+    to the owner who held the roster that week."""
     if roster_id is None:
         return None
     rosters = getattr(season, "rosters", None) or []
     for r in rosters:
         if r.get("roster_id") == roster_id or r.get("roster_id") == int(roster_id or 0):
-            return r.get("owner_id")
+            current = r.get("owner_id")
+            if not current:
+                return current
+            return ownership.owner_at(
+                getattr(season, "league_id", ""), roster_id, str(current), week
+            )
     return None
 
 

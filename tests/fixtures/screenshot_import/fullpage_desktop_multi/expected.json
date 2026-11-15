@@ -1,0 +1,65 @@
+{
+  "forbiddenWarnings": [
+    "missing_side",
+    "trade_region_not_detected"
+  ],
+  "layoutKind": "two_column",
+  "mustBeIgnored": [
+    "Chris Jones",
+    "Kenneth Walker",
+    "Brian Thomas",
+    "Josh Allen"
+  ],
+  "sides": [
+    {
+      "assets": [
+        {
+          "boardName": "Patrick Mahomes",
+          "text": "Patrick Mahomes"
+        },
+        {
+          "boardName": "Quay Walker",
+          "text": "Quay Walker"
+        },
+        {
+          "boardName": "Jaxon Smith-Njigba",
+          "text": "Jaxon Smith-Njigba"
+        },
+        {
+          "boardName": "2027 Early 1st",
+          "text": "2027 Early 1st"
+        },
+        {
+          "boardName": "2028 Round 2",
+          "text": "2028 2nd"
+        }
+      ],
+      "label": "Team A gets"
+    },
+    {
+      "assets": [
+        {
+          "boardName": "Bijan Robinson",
+          "text": "Bijan Robinson"
+        },
+        {
+          "boardName": "Travis Hunter",
+          "text": "Travis Hunter"
+        },
+        {
+          "boardName": "Jordan Davis",
+          "text": "Jordan Davis"
+        },
+        {
+          "boardName": "2027 Mid 1st",
+          "text": "2027 Mid 1st"
+        },
+        {
+          "boardName": "2029 Round 3",
+          "text": "2029 3rd"
+        }
+      ],
+      "label": "Team B gets"
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 
 from src.trade.angle import (
     _value_adjustment,
@@ -9,6 +10,7 @@ from src.trade.angle import (
     find_angle_packages,
     find_angles,
 )
+from src.valuation_math import package_model
 
 
 def _player(name, my_val, ktc_val, *, position="QB"):
@@ -1046,18 +1048,30 @@ def test_packages_player_rows_expose_package_market_source():
 # ─── Value Adjustment (consolidation premium) ────────────────────────
 
 
+_KTC = package_model.KTC_2026_04
+
+
 def test_value_adjustment_matches_js_calibration_point_case_a():
-    """Parity check against the KTC-native algorithm.
+    """Parity check against the KTC-native algorithm (KTC rollback model).
 
     For [9999] vs [7846,5717], KTC.com displays VA = 3712 (captured).
     Both the JS port (frontend/lib/trade-logic.js::ktcAdjustPackage)
     and this Python port (src/trade/ktc_va.py) reproduce KTC's number
     exactly.  Pre-2026-04-27 the angle module used a V2 regression
     fit that returned 3748 here; now :func:`_value_adjustment` thin-
-    wraps the native algorithm.
+    wraps the package-model dispatch, so KTC is selected explicitly
+    since the owner promoted the geometric model (2026-10-17).
     """
-    va = _value_adjustment([9999], [7846, 5717])
+    va = _value_adjustment([9999], [7846, 5717], model_id=_KTC)
     assert round(va) == 3712
+
+
+def test_value_adjustment_case_a_under_the_active_geometric_model():
+    # geom_q078_v1: the lone stud is credited the depth the pair discards,
+    # 5717 x (1 - 0.78) = 1258 (geom q=0.78) — read from the canonical owner.
+    value, side, displayed = package_model.adjust_pair([9999], [7846, 5717])
+    assert displayed and side == 1
+    assert _value_adjustment([9999], [7846, 5717]) == float(value) == 1258.0
 
 
 def test_value_adjustment_zero_when_sides_truly_equal():
@@ -1067,8 +1081,25 @@ def test_value_adjustment_zero_when_sides_truly_equal():
     # fires when totals AND raw_adj are both within KTC's 5% variance
     # threshold AND the algorithm's display gates trigger — easiest
     # way to construct that is identical sides.
-    assert _value_adjustment([8000, 7000], [8000, 7000]) == 0.0
-    assert _value_adjustment([8000, 7000], [7900, 7100]) == 0.0
+    for model_id in (None, _KTC):
+        assert _value_adjustment([8000, 7000], [8000, 7000], model_id=model_id) == 0.0
+    # KTC rollback model: a near-identical pair sits inside KTC's
+    # fair-trade band and is suppressed.
+    assert _value_adjustment([8000, 7000], [7900, 7100], model_id=_KTC) == 0.0
+
+
+def test_value_adjustment_near_equal_sides_under_the_active_geometric_model():
+    # The geometric model has no suppression band: [8000, 7000] discards
+    # 1540 of depth, [7900, 7100] discards 1562, so the side that
+    # discarded less receives the 22 difference — a positive-only
+    # adjustment equal to the utility difference (geom q=0.78).
+    va = _value_adjustment([8000, 7000], [7900, 7100])
+    assert va == 22.0
+    raw_gap = (8000 + 7000) - (7900 + 7100)
+    assert raw_gap + va == pytest.approx(
+        package_model.geom_utility([8000, 7000]) - package_model.geom_utility([7900, 7100]),
+        abs=0.5,
+    )
 
 
 def test_value_adjustment_positive_for_smaller_side_with_top_gap():
@@ -1079,11 +1110,20 @@ def test_value_adjustment_positive_for_smaller_side_with_top_gap():
 
 
 def test_value_adjustment_grows_with_top_gap():
-    # A bigger gap between the consolidated star and the best piece
-    # on the longer side should produce a larger VA.
-    low_gap = _value_adjustment([8000], [7500, 5000])
-    high_gap = _value_adjustment([9999], [6000, 4000])
+    # KTC rollback model: a bigger gap between the consolidated star and
+    # the best piece on the longer side should produce a larger VA.
+    low_gap = _value_adjustment([8000], [7500, 5000], model_id=_KTC)
+    high_gap = _value_adjustment([9999], [6000, 4000], model_id=_KTC)
     assert high_gap > low_gap
+
+
+def test_value_adjustment_under_the_active_geometric_model_is_the_discarded_depth():
+    # The geometric model does not grow with the top gap: a lone star
+    # discards nothing, so it receives exactly the depth the longer side
+    # discards — 0.22 x its second piece (geom q=0.78), whatever the star.
+    assert _value_adjustment([8000], [7500, 5000]) == 1100.0
+    assert _value_adjustment([9999], [6000, 4000]) == 880.0
+    assert _value_adjustment([6000], [6000, 4000]) == 880.0
 
 
 def test_packages_consolidation_trade_is_filtered_by_va():

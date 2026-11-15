@@ -41,7 +41,7 @@ function routeFiles(dir) {
   return out;
 }
 
-const PROXY_CALL = /\bproxy(?:Get|Post)\s*\(/;
+const PROXY_CALL = /\bproxy(?:Get|Post|Delete)\s*\(/;
 
 describe("Next bridge routes", () => {
   const files = routeFiles(API_DIR);

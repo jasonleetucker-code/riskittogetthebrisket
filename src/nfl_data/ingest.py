@@ -660,14 +660,3 @@ def provider_status() -> dict[str, Any]:
         "nflverse_direct_available": direct_available,
         "cache_dir_exists": (_cache._default_cache_dir()).exists(),  # noqa: SLF001
     }
-
-
-def _provider_status_orig() -> dict[str, Any]:
-    """[deprecated] Old shape kept for backward compat in case
-    /api/status consumers expect it.  No callers today."""
-    installed = _nfl_data_py_or_none() is not None
-    return {
-        "feature_flag": feature_flags.is_enabled("nfl_data_ingest"),
-        "nfl_data_py_installed": installed,
-        "cache_dir_exists": (_cache._default_cache_dir()).exists(),  # noqa: SLF001
-    }

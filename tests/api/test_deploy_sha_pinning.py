@@ -181,7 +181,9 @@ def test_validate_and_deploy_check_out_the_resolved_sha(workflow):
     assert validate["needs"] == "resolve"
     assert _step(validate, "Checkout")["with"]["ref"] == sha
     assert "git rev-parse HEAD" in _step(validate, "Assert the validated tree")["run"]
-    assert deploy["needs"] == ["resolve", "validate"]
+    # hard-gate-complete: the sharded (or serial-fallback) unit suite plus its
+    # completeness proof, run on the same resolved target.
+    assert deploy["needs"] == ["resolve", "validate", "hard-gate-complete"]
     assert deploy["env"]["DEPLOY_TARGET_SHA"] == sha
     # The deploy job runs the workflow commit's helpers (rollback-safe) and only
     # asserts the target commit exists; it consumes the target as an id.
@@ -190,6 +192,19 @@ def test_validate_and_deploy_check_out_the_resolved_sha(workflow):
         'cat-file -e "${DEPLOY_TARGET_SHA}^{commit}"'
         in _step(deploy, "Assert the resolved target is present")["run"]
     )
+
+
+def test_every_hard_gate_job_tests_the_resolved_sha(workflow):
+    """The sharded gate must test what ships: every job that reads the target
+    tree checks out the ONE resolved SHA, and the shards assert it."""
+    parsed, _ = workflow
+    sha = "${{ needs.resolve.outputs.sha }}"
+    for name in ("test-plan", "hard-gate", "hard-gate-complete"):
+        job = parsed["jobs"][name]
+        assert "resolve" in job["needs"], name
+        assert _step(job, "Checkout")["with"]["ref"] == sha, name
+    gate = parsed["jobs"]["hard-gate"]
+    assert "git rev-parse HEAD" in _step(gate, "Assert the tested tree")["run"]
 
 
 def test_guard_and_box_command_never_re_resolve_the_raw_input(workflow):

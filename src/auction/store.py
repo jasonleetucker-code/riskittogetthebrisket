@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import queue
 import os
 import secrets
 import sqlite3
@@ -162,6 +163,17 @@ CREATE TABLE IF NOT EXISTS awards (
     PRIMARY KEY (room_id, player_id)
 );
 
+CREATE TABLE IF NOT EXISTS route_receipts (
+    user_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    status INTEGER NOT NULL,
+    body_json TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    PRIMARY KEY (user_id, key)
+);
+
 CREATE TABLE IF NOT EXISTS audit (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     at REAL NOT NULL,
@@ -177,6 +189,9 @@ class StoreUnavailable(RuntimeError):
     """Storage is missing or unreadable after having existed — fail closed."""
 
 
+_READ_POOL_MAX = 8
+
+
 class Store:
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -184,6 +199,14 @@ class Store:
         self._revisions: dict[str, int] = {}
         self._listeners: list = []
         self._outage_checked: set[str] = set()
+        self._wconn: sqlite3.Connection | None = None
+        self._rev_lock = threading.Lock()
+        self._pool: queue.SimpleQueue[sqlite3.Connection] = queue.SimpleQueue()
+        # Changes with every process that opens the store (a restart, or a
+        # restore from backup).  Revisions can go BACKWARDS across a restore;
+        # clients compare this epoch so they adopt the restored snapshot
+        # instead of discarding it as "older".
+        self.epoch = secrets.token_hex(6)
 
     # -- connection -------------------------------------------------------
 
@@ -198,34 +221,83 @@ class Store:
         conn.execute("PRAGMA busy_timeout=15000")
         return conn
 
+    # Connections are reused rather than opened per call: opening one (plus
+    # its PRAGMAs) cost ~7 ms p50 / ~35 ms p95 under a 12-manager burst, on
+    # every session lookup, view and long-poll wake.  One writer connection
+    # (only ever used under ``_lock``) and one autocommit reader per thread;
+    # an autocommit SELECT always sees the latest committed revision.
+
     @contextmanager
     def write(self) -> Iterator[sqlite3.Connection]:
         with self._lock:
-            conn = self.connect()
+            conn = self._wconn
+            if conn is None:
+                conn = self._wconn = self.connect()
+            conn.execute("BEGIN IMMEDIATE")
             try:
-                conn.execute("BEGIN IMMEDIATE")
+                yield conn
+            except BaseException:
                 try:
-                    yield conn
-                except BaseException:
                     conn.execute("ROLLBACK")
-                    raise
+                except sqlite3.Error:
+                    # A connection that cannot roll back is not reused.
+                    self._wconn = None
+                    conn.close()
+                raise
+            try:
                 conn.execute("COMMIT")
-            finally:
+            except sqlite3.Error:
+                self._wconn = None
                 conn.close()
+                raise
 
     @contextmanager
     def read(self) -> Iterator[sqlite3.Connection]:
-        conn = self.connect()
+        # A small pool, not one per thread: the ASGI threadpool retires idle
+        # workers, and per-thread connections would outlive them.
+        try:
+            conn = self._pool.get_nowait()
+        except queue.Empty:
+            conn = self.connect()
         try:
             yield conn
         finally:
-            conn.close()
+            if conn.in_transaction:  # never hand out a connection mid-read-txn
+                conn.close()
+            elif self._pool.qsize() < _READ_POOL_MAX:
+                self._pool.put(conn)
+            else:
+                conn.close()
+
+    def close(self) -> None:
+        """Release every cached connection (scratch/restored stores, tests)."""
+        with self._lock:
+            conns = [self._wconn] if self._wconn is not None else []
+            self._wconn = None
+            while True:
+                try:
+                    conns.append(self._pool.get_nowait())
+                except queue.Empty:
+                    break
+        for c in conns:
+            try:
+                c.close()
+            except sqlite3.Error:
+                pass
 
     def on_commit(self, fn) -> None:
         self._listeners.append(fn)
 
     def _notify(self, room_id: str, revision: int) -> None:
-        self._revisions[room_id] = revision
+        # Monotonic: listeners run after the lock is released, so a slower
+        # thread may announce an OLDER revision after a newer one.  Letting it
+        # overwrite would make long-polls answer instantly in a spin until the
+        # next commit.  (A restore starts a new process: the map starts empty.)
+        with self._rev_lock:
+            prev = self._revisions.get(room_id)
+            if prev is not None and revision <= prev:
+                return
+            self._revisions[room_id] = revision
         for fn in list(self._listeners):
             try:
                 fn(room_id, revision)
@@ -340,6 +412,15 @@ class Store:
                     }
             state = json.loads(row["state_json"])
             now = self.room_now(row, now_real)
+            # The request's clock was read before it waited for this lock; the
+            # command log must never run backwards, so a request that was
+            # overtaken is applied at the moment the room had already reached.
+            last = conn.execute(
+                "SELECT room_now FROM commands WHERE room_id=? ORDER BY revision DESC LIMIT 1",
+                (room_id,),
+            ).fetchone()
+            if last is not None and float(last["room_now"]) > now:
+                now = float(last["room_now"])
             if at_real is not None and "at" not in cmd:
                 cmd = {**cmd, "at": self.room_now(row, at_real)}
             revision = int(row["revision"])
@@ -482,6 +563,15 @@ class Store:
                 return False
             state = json.loads(row["state_json"])
             hb = row["last_heartbeat"]
+            # A committed command is proof the service was reachable at that
+            # moment too: a heartbeat lagging behind a busy worker must not
+            # make a restart "outage-pause" a room that was taking bids.
+            with self.read() as conn:
+                last_cmd = conn.execute(
+                    "SELECT MAX(created_at) FROM commands WHERE room_id=?", (room_id,)
+                ).fetchone()[0]
+            if hb is not None and last_cmd is not None:
+                hb = max(float(hb), float(last_cmd))
             threshold = float(state["rules"].get("outage_threshold_seconds") or 300)
             paused = False
             if (
@@ -740,6 +830,9 @@ def open_store(path: Path | None = None) -> Store:
         from src.auction import recovery
 
         recovery.ensure_schema(conn)
+        from src.auction import feedback
+
+        feedback.ensure_schema(conn)
         conn.execute(
             "INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', ?)",
             (str(SCHEMA_VERSION),),

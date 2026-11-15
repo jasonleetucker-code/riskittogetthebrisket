@@ -14,6 +14,10 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.canonical.player_valuation import percentile_to_value, rank_to_value  # noqa: F401
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _minimal_raw_payload():

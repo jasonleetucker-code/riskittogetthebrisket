@@ -27,7 +27,7 @@ defect classes, reproduced on this same payload before the repair).
 
 from __future__ import annotations
 
-import json
+import copy
 import math
 import unittest
 from pathlib import Path
@@ -36,7 +36,6 @@ from typing import Any
 from src.api.data_contract import (
     _canonical_match_key,
     _complete_future_pick_values,
-    build_api_data_contract,
     current_rookie_draft_year,
     validate_api_data_contract,
 )
@@ -58,13 +57,13 @@ def _load_contract() -> dict[str, Any] | None:
     global _contract_cache
     if _contract_cache is not None:
         return _contract_cache
-    data_dir = _REPO / "exports" / "latest"
-    json_files = sorted(data_dir.glob("dynasty_data_*.json"), reverse=True)
-    if not json_files:
-        return None
-    with json_files[0].open() as f:
-        raw = json.load(f)
-    _contract_cache = build_api_data_contract(raw)
+    # The PINNED real board (``tests.archive_fixtures``), not today's export:
+    # every assertion here is an invariant of the pick pipeline, so it must
+    # not move with a data refresh.  A private copy; the shared one is
+    # read-only.
+    from tests.archive_fixtures import pinned_board_contract
+
+    _contract_cache = copy.deepcopy(pinned_board_contract()[0])
     return _contract_cache
 
 
@@ -108,9 +107,11 @@ class TestPickCompletenessCensus(unittest.TestCase):
     def test_every_valid_ref_through_the_horizon_resolves_finite(self) -> None:
         _earliest, board_future = _board_years(self.contract)
         # The horizon is anchored on the contract's own current draft year
-        # (C1-U6: current + 3), which retiring a class does not advance
-        # (owner decision on #1442).  The earliest class still on the board
-        # is a different quantity once the current class has retired.
+        # and ENDS three seasons after the latest completed rookie draft —
+        # the contract's own ``pickClassLifecycle.horizon`` (owner decision
+        # 2026-10-19; it replaced C1-U6's self-rolling current + 3).  The
+        # earliest class still on the board is a different quantity once the
+        # current class has retired.
         anchor = self.contract.get("currentDraftYear")
         self.assertIsInstance(anchor, int, "the contract no longer stamps currentDraftYear")
         board_years = sorted({_earliest, *board_future})
@@ -131,16 +132,23 @@ class TestPickCompletenessCensus(unittest.TestCase):
         #
         # So: no published future year at all is a SOURCE condition and
         # is reported as such.  One or more, and the horizon requirement
-        # is fully in force — the injection must fill through current+3,
-        # and that IS a claim about our code.
+        # is fully in force — the board must carry exactly the stamped
+        # horizon, and that IS a claim about our code.
         if not future_years:
             self.skipTest(
                 "no future pick years on this board — no template for the horizon "
                 "derivation; this is a source-coverage condition, reported by "
                 "scripts/check_source_health.py, not a code regression"
             )
-        self.assertGreaterEqual(
-            len(future_years), 3, f"horizon must reach current+3 (got {future_years})"
+        horizon_end = ((self.contract.get("pickClassLifecycle") or {}).get("horizon") or {}).get(
+            "endYear"
+        )
+        self.assertIsInstance(horizon_end, int, "the contract no longer stamps its horizon")
+        self.assertIn(horizon_end, (anchor + 2, anchor + 3), "latest completed draft + 3")
+        self.assertEqual(
+            future_years,
+            [y for y in range(anchor + 1, horizon_end + 1) if y not in retired],
+            f"the board must carry exactly the horizon through {horizon_end}",
         )
         failures: list[str] = []
         for year in future_years:
@@ -459,33 +467,6 @@ class TestConsumerRepairs(unittest.TestCase):
             self.assertGreater(hit2["value"], 0)
         # Garbage still refuses — identity never guesses.
         self.assertIsNone(_resolve_asset("certainly not a pick", row_index=idx))
-
-
-class TestExportParity(unittest.TestCase):
-    """API == export: the CSV export carries the same canonical value."""
-
-    def setUp(self) -> None:
-        self.contract = _load_contract()
-        if self.contract is None:
-            self.skipTest("no scraper export available")
-
-    def test_pick_values_in_export_match_contract(self) -> None:
-        import csv
-        import io
-
-        try:
-            from src.api.export_builder import build_values_csv  # type: ignore
-        except ImportError:
-            self.skipTest("no export builder module — export served from contract directly")
-        buf = io.StringIO(build_values_csv(self.contract))
-        rows = {r["name"]: r for r in csv.DictReader(buf)}
-        for r in self.contract["playersArray"]:
-            if r.get("assetClass") != "pick" or not _finite(r.get("rankDerivedValue")):
-                continue
-            row = rows.get(str(r.get("canonicalName")))
-            if row is None:
-                continue
-            self.assertEqual(int(float(row["value"])), int(r["rankDerivedValue"]))
 
 
 if __name__ == "__main__":

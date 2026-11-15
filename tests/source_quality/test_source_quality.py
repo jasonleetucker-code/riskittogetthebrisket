@@ -22,6 +22,8 @@ from src.source_quality import panel as pn
 from src.source_quality.bootstrap import block_ids, bootstrap
 from tests.source_quality.synthetic import START, build_panel, spec
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 FAST = mt.Config(n_boot=60, splits=4)
 
 
@@ -403,9 +405,9 @@ def test_walk_forward_learns_only_before_each_fold(synth):
 
 @pytest.fixture(scope="module")
 def raw_payload():
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    payload, _ = newest_complete_raw_payload()
+    payload, _ = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     return payload

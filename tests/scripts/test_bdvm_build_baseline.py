@@ -80,7 +80,9 @@ class TestCarryForward(unittest.TestCase):
 class TestSameDayNoOp(unittest.TestCase):
     def _contract(self, tmp: Path) -> Path:
         path = tmp / "dynasty_data_2026-07-28.json"
-        path.write_text(json.dumps({"sleeper": {"scoringSettings": {"rec": 1.0}}}))
+        path.write_text(
+            json.dumps({"sleeper": {"scoringSettings": {"rec": 1.0}}}), encoding="utf-8"
+        )
         return path
 
     def test_existing_target_short_circuits_before_the_fetch(self):
@@ -94,7 +96,7 @@ class TestSameDayNoOp(unittest.TestCase):
             from datetime import datetime, timezone
 
             today = datetime.now(timezone.utc).date().isoformat()
-            (season_dir / f"projections_{today}_baseline.json").write_text("{}")
+            (season_dir / f"projections_{today}_baseline.json").write_text("{}", encoding="utf-8")
             fetch = mock.MagicMock(side_effect=AssertionError("fetch must not run"))
             with (
                 mock.patch.object(_mod._proj, "SNAPSHOT_DIR", tmp),

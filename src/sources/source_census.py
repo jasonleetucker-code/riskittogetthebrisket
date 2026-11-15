@@ -510,6 +510,45 @@ def load_lineage(path: Path | None = None) -> dict[str, Any]:
     return json.loads(Path(path or LINEAGE_PATH).read_text(encoding="utf-8"))
 
 
+_PROVIDER_CACHE: dict[str, Any] = {}
+
+
+def provider_of(source_key: str) -> str | None:
+    """The recorded PROVIDER behind one source key, or ``None`` (lineage gap).
+
+    The provider is the non-derivable identity this registry exists to hold
+    (``sources.<key>.provider``): KTC Crowd, KTC Trades and KTC Market are
+    three keys of ONE provider (``keepTradeCut``) whatever their B10 family
+    split.  Read-only and decides nothing about a value or a weight; the
+    confidence owner uses it to count independent PROVIDERS where a family
+    count would mistake one provider's two value modes for two markets.
+
+    Cached per lineage-file mtime so an edit is picked up without a restart.
+    ``None`` is returned — never a guess — for a key the registry does not
+    name; the caller decides how an unknown provider fails closed.
+    """
+    try:
+        mtime = LINEAGE_PATH.stat().st_mtime_ns
+    except OSError:
+        return None
+    cached = _PROVIDER_CACHE.get("entry")
+    if cached is None or cached[0] != mtime:
+        try:
+            sources = load_lineage().get("sources") or {}
+        except (OSError, ValueError):
+            return None
+        provider_map = {
+            str(k): str(v["provider"])
+            for k, v in sources.items()
+            if isinstance(v, Mapping) and v.get("provider")
+        }
+        # One assignment publishes mtime and map together: a concurrent first
+        # call can never see a matching mtime without its map.
+        cached = (mtime, provider_map)
+        _PROVIDER_CACHE["entry"] = cached
+    return cached[1].get(str(source_key))
+
+
 def validate_lineage(lineage: Mapping[str, Any], repo_root: Path = REPO_ROOT) -> list[str]:
     """Structural errors in the lineage registry (empty list = valid)."""
     errors: list[str] = []

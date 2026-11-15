@@ -33,6 +33,9 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping
 
 from src.roster_intel.engine import RosterIntel, analyze_roster
+import pytest
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 REPO = Path(__file__).resolve().parents[2]
 ROSTER_INTEL = REPO / "src" / "roster_intel"
@@ -108,9 +111,9 @@ def test_roster_intelligence_publishes_no_generic_team_score():
     real payload, so "no collapsed field found" cannot mean "found
     nothing at all".
     """
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    raw, _archive = newest_complete_raw_payload()
+    raw, _archive = pinned_board_payload()
     if raw is None:
         import pytest
 
@@ -486,15 +489,15 @@ def test_metrics_genuinely_diverge_on_a_representative_real_board():
     `V1-33`'s own validation proved genuinely separate from Strength on
     this same board) are the two fields this endpoint actually populates
     for every team, so this is a real measurement rather than a fixture
-    contrived to differ.  Measured on the newest complete archived
+    contrived to differ.  Measured on the pinned complete archived
     board: a team can be the single STRONGEST roster in the league by
     value while ranking near the BOTTOM on youth (or the reverse) —
     exactly the divergence decision 69 exists to keep visible rather
     than average into one number.
     """
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    raw, _archive = newest_complete_raw_payload()
+    raw, _archive = pinned_board_payload()
     if raw is None:
         import pytest
 

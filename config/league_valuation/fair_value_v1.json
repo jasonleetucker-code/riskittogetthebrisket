@@ -1,0 +1,74 @@
+{
+  "_comment": [
+    "Brisket League Fair Value challenger, v1 (SHADOW ONLY). Read by",
+    "src/league_valuation/ and nothing else; no route, contract field, cache,",
+    "engine or page reads it.",
+    "",
+    "PROVENANCE OF EVERY NUMBER IN THIS FILE: every constant is a PRIOR - a",
+    "starting value chosen for a stated reason, NEVER fitted on the current",
+    "board (fitting the shrinkage on the board it shrinks would be circular).",
+    "A later version may fit k only inside chronological evaluation folds",
+    "against held-out outcomes, under a new preregistration.",
+    "",
+    "There is deliberately NO centring constant here: the population's",
+    "level is preserved structurally (quantile matching permutes observed",
+    "in-population canonical values), so no reference value decides the",
+    "sign of any adjustment.",
+    "",
+    "paramSetId is the content hash of everything except itself",
+    "(src.league_valuation.contracts.param_set_id_for); a test refuses a",
+    "file whose id does not match its content."
+  ],
+  "modelVersion": "league_fair_value_v1_shadow",
+  "utilityStrategy": "balanced",
+  "kMax": {
+    "value": 0.25,
+    "classification": "PRIOR",
+    "why": "A strong market prior: the best-evidenced row moves at most a quarter of the log distance toward its matched value. Unvalidated; not fitted."
+  },
+  "quality": {
+    "classification": "PRIOR",
+    "why": "Evidence quality from the UTILITY evidence only (real projection families behind the BDVM record). It never reads the market row's confidence, so a low-confidence or policy-discounted market row is never amplified.",
+    "byProjectionFamilies": {
+      "0": 0.0,
+      "1": 0.4,
+      "2": 0.7,
+      "3": 1.0
+    },
+    "familiesCap": 3,
+    "proxy": 0.0,
+    "stale": 0.0
+  },
+  "freshness": {
+    "classification": "PRIOR",
+    "why": "BDVM projection snapshots refresh weekly (dynasty-bdvm-refresh, Tue). Seven days of cadence plus three days of grace; an unknown snapshot date is missing freshness, not fresh.",
+    "maxSnapshotAgeDays": 10
+  },
+  "scopes": {
+    "OFFENSE": ["QB", "RB", "WR", "TE"],
+    "IDP": ["DL", "LB", "DB"]
+  },
+  "idpFanOut": {
+    "classification": "REUSED",
+    "why": "The per-player IDP component is admitted only when the utility-vs-market disagreement is stable across pool depth - scoring_fit's depth fan-out test, reused read-only (DEPTH_PROBES, MAX_DEPTH_DRIFT, MIN_COHORT_SIZE). Failing it forces k = 0 for the whole IDP scope.",
+    "spreadQuantiles": [0.1, 0.9]
+  },
+  "exclusions": [
+    "pick",
+    "unsupported_position",
+    "no_asset_key",
+    "duplicate_asset_key",
+    "no_market_value",
+    "quarantined",
+    "blend_integrity_violation",
+    "single_source_haircut",
+    "two_way_player",
+    "off_cap_value_only",
+    "no_utility_evidence",
+    "evidence_partial",
+    "evidence_stale",
+    "evidence_unavailable",
+    "scope_mismatch"
+  ],
+  "paramSetId": "league_fair_value_v1:1ba0dfff046b"
+}

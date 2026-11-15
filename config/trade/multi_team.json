@@ -1,0 +1,7 @@
+{
+  "_comment": "N-team trade engine (owner directive 2026-10-20; spec docs/trade/NTEAM_TRADE_ENGINE_SPEC.md §6.2). Private calculator bounds only. maxTeams is also capped at the league's team count; raising it above 4 needs the directive §11 validation matrix at the new size and is an owner-visible change. An unreadable file fails closed to maxTeams 2.",
+  "version": "multi_team_v1",
+  "maxTeams": 4,
+  "maxLegs": 128,
+  "participation": "any_leg"
+}

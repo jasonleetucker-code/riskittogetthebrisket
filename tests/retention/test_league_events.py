@@ -175,11 +175,31 @@ def test_coverage_never_echoes_a_payload(db):
     """A health surface that leaked private trade contents would move
     the privacy boundary every time someone checked liveness."""
     league_events.record_transactions("999", [_tx("a")], league_key="main", path=db)
-    blob = json.dumps(league_events.transaction_coverage(path=db))
+    coverage = league_events.transaction_coverage(path=db)
 
+    # Walk the structure rather than substring-matching the JSON: a raw
+    # ``"4034" in blob`` also matched a generated timestamp that happened
+    # to end in ``.764034`` (it failed a release check on 2026-10-17).
+    keys: set[str] = set()
+    leaves: list = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                keys.add(str(k))
+                walk(v)
+        elif isinstance(node, (list, tuple)):
+            for v in node:
+                walk(v)
+        else:
+            leaves.append(node)
+
+    walk(coverage)
+    assert not keys & {"roster_ids", "adds", "drops", "4034"}
+    assert "4034" not in leaves and 4034 not in leaves
+    blob = json.dumps(coverage)
     assert "roster_ids" not in blob
-    assert "adds" not in blob
-    assert "4034" not in blob
+    assert '"adds"' not in blob
 
 
 def test_the_private_store_is_a_separate_file_from_the_internal_one():

@@ -1,0 +1,94 @@
+/* LOCK / EXCLUDE / Skip — PSI Direction A: thin rules, small radii, text
+   labels, state shown by fill AND aria-pressed (never colour alone). */
+
+.group {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.toggle {
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary, var(--text-muted));
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 5px 7px;
+  min-height: 26px;
+  cursor: pointer;
+}
+
+.toggle:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-strong, var(--border-subtle));
+}
+
+.toggle[aria-pressed="true"] {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--surface-1, var(--bg-primary, #fff));
+}
+
+.toggle:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.toggle:focus-visible,
+.chip:focus-visible,
+.clear:focus-visible {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 2px;
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 8px) var(--space-3, 12px);
+  margin-top: var(--space-3, 12px);
+  padding-top: var(--space-3, 12px);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.barGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.barLabel {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.chip,
+.clear {
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.clear {
+  color: var(--text-secondary, var(--text-muted));
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .group {
+    margin-left: 0;
+  }
+
+  .clear {
+    margin-left: 0;
+  }
+}

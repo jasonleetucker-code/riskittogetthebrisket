@@ -1,0 +1,2116 @@
+{
+ "schema": "idp-rehab-eval/v1",
+ "pins": {
+  "codeRevision": "16bdd113700e3c4fd04e01df906f7b3e419d7da0",
+  "workingTreeDirty": false,
+  "payload": {
+   "path": "exports/latest/dynasty_data_2026-10-18.json",
+   "sha256": "01e141f7cbe69ac9e1027e8c218ca8c995d589b66cf74ec19e4d15decd920380",
+   "scrapeTimestamp": "2026-10-18T11:47:11.644766+00:00"
+  },
+  "idpSourceCsvs": {
+   "idpTradeCalc": "3107d841335b8612f8874b861c1d292d1d275b0dfa4262a5746a1bdb1d1fa9bf",
+   "draftSharksIdp": "cd8e55b4ee4060f2abffe225dedc24e4bd358ac5073283fddb7b7e542bf786ea",
+   "fantasyProsIdp": "383c766087b1c691585e6de13f726143efcfe996112a9a49239f4dde95b58cfc",
+   "dlfIdp": "f03099581c175d10a1e8ed2bc8b2681bca4e1c83dee767e0f263b5c34113d71d",
+   "dlfRookieIdp": "2bf1829801806877d9cfe3a8bd0d4cb4789f25a80b55cd8fa960584422fee23d",
+   "idpShowCombined": "1d7c30daecb24d62dfcc5e991d190888bad908262a44a661f817f73db0f15ba4",
+   "idpShow": "15378365e2a0e929dbe9b4c0af3cf38901b5e1e996d14ace6b5d126b17d17d2b",
+   "dlfSf": "9a61d55c32f1b31f4825cdef15176fd66e7d50f8de15323f36477a5e6c1f4893"
+  },
+  "flags": {
+   "dlf_offense_only_vote": true,
+   "source_freshness_weighting": true,
+   "source_family_cap": true
+  },
+  "hampel": {
+   "k": 2.75,
+   "minN": 4,
+   "minThreshold": 1000.0
+  },
+  "contractVersion": "2026-03-10.v2",
+  "boardHashHoldInForce": "5ef6b8fe4f5d5579b2d157de41ce742ebfb4a7cb85ead181efe704217102a60c",
+  "boardHashHoldOff": "77fd86d7b4ca558a94706f35aaa51f0c690adfb0f40afad0dd91cff9d32dc1e1"
+ },
+ "dlfIdpCounterfactual": {
+  "dlfIdpObservationsOnIdpRows": 200,
+  "dlfIdpObservationsRejectedByHampel": 1,
+  "rejected": [
+   {
+    "player": "Jared Verse",
+    "source": "dlfIdp"
+   }
+  ],
+  "rankedIdpRows": 290,
+  "rankedIdpRowsCoveredByDlf": 182,
+  "idpRowsCompared": 396,
+  "idpRowsValueMoved": 180,
+  "relativeMove": {
+   "median": 0.0,
+   "p90": 0.0306,
+   "max": 0.4825
+  },
+  "relativeMoveP90ByFamily": {
+   "DB": 0.0095,
+   "DL": 0.0306,
+   "LB": 0.0711
+  },
+  "consensusRankMove": {
+   "median": 3,
+   "p90": 21
+  },
+  "idpRowsGainingIndependentFamily": 151,
+  "idpRowsWithAtMostTwoFamiliesGainingOne": 32,
+  "rankedIdpFamilyCountHistogram": {
+   "holdInForce": {
+    "1": 13,
+    "2": 61,
+    "3": 216
+   },
+   "holdOff": {
+    "1": 11,
+    "2": 34,
+    "3": 126,
+    "4": 119
+   }
+  },
+  "confidenceBucketChanges": 58,
+  "confidenceTransitions": {
+   "low->medium": 38,
+   "medium->low": 20
+  },
+  "dlfVotesWithin15pctOfPublished": 127,
+  "dlfVotesOutside15pctOfPublished": 72,
+  "dlfSignedLogRatioVsOtherVotersByFamily": {
+   "DB": {
+    "n": 40,
+    "median": -0.0456,
+    "mean": -0.0753
+   },
+   "DL": {
+    "n": 90,
+    "median": 0.074,
+    "mean": 0.081
+   },
+   "LB": {
+    "n": 69,
+    "median": -0.0116,
+    "mean": -0.0364
+   }
+  },
+  "topIdpMembershipSwaps": {
+   "24": 4,
+   "50": 3,
+   "100": 4
+  },
+  "offenseRowsMoved": 1,
+  "pickRowsMoved": 41,
+  "largestIdpMoves": [
+   {
+    "player": "Trevin Wallace",
+    "family": "LB",
+    "before": 1710,
+    "after": 885,
+    "relative": 0.4825
+   },
+   {
+    "player": "CJ Allen",
+    "family": "LB",
+    "before": 3564,
+    "after": 2161,
+    "relative": 0.3937
+   },
+   {
+    "player": "Myles Garrett",
+    "family": "DL",
+    "before": 3938,
+    "after": 5268,
+    "relative": 0.3377
+   },
+   {
+    "player": "Trey Hendrickson",
+    "family": "DL",
+    "before": 2247,
+    "after": 1515,
+    "relative": 0.3258
+   },
+   {
+    "player": "Josiah Trotter",
+    "family": "LB",
+    "before": 2558,
+    "after": 3379,
+    "relative": 0.321
+   },
+   {
+    "player": "T.J. Watt",
+    "family": "DL",
+    "before": 2615,
+    "after": 3431,
+    "relative": 0.312
+   },
+   {
+    "player": "Nick Herbig",
+    "family": "DL",
+    "before": 2321,
+    "after": 1635,
+    "relative": 0.2956
+   },
+   {
+    "player": "Will Anderson",
+    "family": "DL",
+    "before": 4694,
+    "after": 5966,
+    "relative": 0.271
+   },
+   {
+    "player": "Aidan Hutchinson",
+    "family": "DL",
+    "before": 5122,
+    "after": 6422,
+    "relative": 0.2538
+   },
+   {
+    "player": "Barrett Carter",
+    "family": "LB",
+    "before": 2695,
+    "after": 2044,
+    "relative": 0.2416
+   },
+   {
+    "player": "Danielle Hunter",
+    "family": "DL",
+    "before": 2490,
+    "after": 3041,
+    "relative": 0.2213
+   },
+   {
+    "player": "DeMarvion Overshown",
+    "family": "LB",
+    "before": 2618,
+    "after": 2055,
+    "relative": 0.215
+   }
+  ],
+  "boardDiff": {
+   "rowsCompared": 1130,
+   "rowsChanged": 222,
+   "byGroup": {
+    "IDP": {
+     "changed": 180,
+     "medianAbs": 24.0,
+     "p90Abs": 464,
+     "maxAbs": 1403
+    },
+    "PICK": {
+     "changed": 41,
+     "medianAbs": 17,
+     "p90Abs": 127,
+     "maxAbs": 286
+    },
+    "WR": {
+     "changed": 1,
+     "medianAbs": 290,
+     "p90Abs": 290,
+     "maxAbs": 290
+    }
+   },
+   "top200MembershipChanges": 8,
+   "largestMoves": [
+    {
+     "asset": "CJ Allen",
+     "group": "IDP",
+     "delta": -1403,
+     "rankBefore": 132,
+     "rankAfter": 293
+    },
+    {
+     "asset": "Myles Garrett",
+     "group": "IDP",
+     "delta": 1330,
+     "rankBefore": 108,
+     "rankAfter": 60
+    },
+    {
+     "asset": "Aidan Hutchinson",
+     "group": "IDP",
+     "delta": 1300,
+     "rankBefore": 62,
+     "rankAfter": 34
+    },
+    {
+     "asset": "Will Anderson",
+     "group": "IDP",
+     "delta": 1272,
+     "rankBefore": 75,
+     "rankAfter": 38
+    },
+    {
+     "asset": "Trevin Wallace",
+     "group": "IDP",
+     "delta": -825,
+     "rankBefore": 448,
+     "rankAfter": null
+    },
+    {
+     "asset": "Josiah Trotter",
+     "group": "IDP",
+     "delta": 821,
+     "rankBefore": 232,
+     "rankAfter": 144
+    },
+    {
+     "asset": "T.J. Watt",
+     "group": "IDP",
+     "delta": 816,
+     "rankBefore": 225,
+     "rankAfter": 137
+    },
+    {
+     "asset": "Trey Hendrickson",
+     "group": "IDP",
+     "delta": -732,
+     "rankBefore": 285,
+     "rankAfter": 517
+    },
+    {
+     "asset": "Nick Herbig",
+     "group": "IDP",
+     "delta": -686,
+     "rankBefore": 275,
+     "rankAfter": 474
+    },
+    {
+     "asset": "Barrett Carter",
+     "group": "IDP",
+     "delta": -651,
+     "rankBefore": 215,
+     "rankAfter": 317
+    }
+   ]
+  }
+ },
+ "outlierFilterOnIdpRows": {
+  "holdInForce": {
+   "hampelMinN": 4,
+   "idpRowsReachingFilter": 0,
+   "idpRowsByWeightedVoterCount": {
+    "0": 31,
+    "1": 72,
+    "2": 99,
+    "3": 225
+   },
+   "idpDropsBySource": {}
+  },
+  "holdOff": {
+   "hampelMinN": 4,
+   "idpRowsReachingFilter": 158,
+   "idpRowsByWeightedVoterCount": {
+    "0": 31,
+    "1": 70,
+    "2": 71,
+    "3": 97,
+    "4": 148,
+    "5": 10
+   },
+   "idpDropsBySource": {
+    "draftSharksIdp": 18,
+    "fantasyProsIdp": 10,
+    "idpTradeCalc": 3,
+    "dlfIdp": 1
+   }
+  },
+  "holdInForceFilterOffIdpIdentical": true
+ },
+ "dlfReversalDecomposition": {
+  "dlfVoteOnly_holdOn_vs_holdOffFilterOff": {
+   "rowsMoved": 180,
+   "median": 0.0,
+   "p90": 0.0206,
+   "max": 0.0519
+  },
+  "filterReactivation_holdOffFilterOff_vs_holdOff": {
+   "rowsMoved": 31,
+   "median": 0.0,
+   "p90": 0.0,
+   "max": 0.4819
+  },
+  "total_holdOn_vs_holdOff": {
+   "rowsMoved": 180,
+   "median": 0.0,
+   "p90": 0.0306,
+   "max": 0.4825
+  }
+ },
+ "independence": {
+  "csvBoards": {
+   "idpTradeCalc": {
+    "rows": 900,
+    "identities": 898,
+    "onBoardIdpIdentities": 375,
+    "duplicateIdentities": 2,
+    "csvSha256": "3107d841335b8612f8874b861c1d292d1d275b0dfa4262a5746a1bdb1d1fa9bf"
+   },
+   "draftSharksIdp": {
+    "rows": 409,
+    "identities": 408,
+    "onBoardIdpIdentities": 319,
+    "duplicateIdentities": 1,
+    "csvSha256": "cd8e55b4ee4060f2abffe225dedc24e4bd358ac5073283fddb7b7e542bf786ea"
+   },
+   "fantasyProsIdp": {
+    "rows": 299,
+    "identities": 283,
+    "onBoardIdpIdentities": 255,
+    "duplicateIdentities": 16,
+    "csvSha256": "383c766087b1c691585e6de13f726143efcfe996112a9a49239f4dde95b58cfc"
+   },
+   "dlfIdp": {
+    "rows": 175,
+    "identities": 175,
+    "onBoardIdpIdentities": 174,
+    "duplicateIdentities": 0,
+    "csvSha256": "f03099581c175d10a1e8ed2bc8b2681bca4e1c83dee767e0f263b5c34113d71d"
+   },
+   "dlfRookieIdp": {
+    "rows": 29,
+    "identities": 29,
+    "onBoardIdpIdentities": 29,
+    "duplicateIdentities": 0,
+    "csvSha256": "2bf1829801806877d9cfe3a8bd0d4cb4789f25a80b55cd8fa960584422fee23d"
+   },
+   "idpShowCombined": {
+    "rows": 665,
+    "identities": 662,
+    "onBoardIdpIdentities": 301,
+    "duplicateIdentities": 3,
+    "csvSha256": "1d7c30daecb24d62dfcc5e991d190888bad908262a44a661f817f73db0f15ba4"
+   },
+   "idpShow": {
+    "rows": 350,
+    "identities": 349,
+    "onBoardIdpIdentities": 346,
+    "duplicateIdentities": 1,
+    "csvSha256": "15378365e2a0e929dbe9b4c0af3cf38901b5e1e996d14ace6b5d126b17d17d2b"
+   }
+  },
+  "b10Family": {
+   "idpTradeCalc": "idpTradeCalc",
+   "draftSharksIdp": "draftSharks",
+   "fantasyProsIdp": "fantasyPros",
+   "dlfIdp": "dlf",
+   "dlfRookieIdp": "dlf",
+   "idpShowCombined": "idpShow",
+   "idpShow": null,
+   "signalsIdpDl": "fantasyCalc",
+   "signalsIdpLb": "fantasyCalc",
+   "signalsIdpDb": "fantasyCalc"
+  },
+  "registered": {
+   "idpTradeCalc": true,
+   "draftSharksIdp": true,
+   "fantasyProsIdp": true,
+   "dlfIdp": true,
+   "dlfRookieIdp": true,
+   "idpShowCombined": true,
+   "idpShow": false,
+   "signalsIdpDl": true,
+   "signalsIdpLb": true,
+   "signalsIdpDb": true
+  },
+  "signalsIdpBoards": "not_provisioned (private, box-local data/sources/signals/board/ absent here)",
+  "csvOrderingDependence": [
+   {
+    "universe": "IDP",
+    "a": "idpTradeCalc",
+    "b": "draftSharksIdp",
+    "spearman": 0.6457,
+    "n": 303,
+    "leavePairOutResidual": 0.094,
+    "nResidual": 231
+   },
+   {
+    "universe": "IDP",
+    "a": "idpTradeCalc",
+    "b": "fantasyProsIdp",
+    "spearman": 0.6095,
+    "n": 247,
+    "leavePairOutResidual": -0.1199,
+    "nResidual": 226
+   },
+   {
+    "universe": "IDP",
+    "a": "idpTradeCalc",
+    "b": "dlfIdp",
+    "spearman": 0.8685,
+    "n": 174,
+    "leavePairOutResidual": 0.285,
+    "nResidual": 172
+   },
+   {
+    "universe": "IDP",
+    "a": "idpTradeCalc",
+    "b": "idpShowCombined",
+    "spearman": 0.8979,
+    "n": 301,
+    "leavePairOutResidual": 0.5889,
+    "nResidual": 237
+   },
+   {
+    "universe": "IDP",
+    "a": "idpTradeCalc",
+    "b": "idpShow",
+    "spearman": 0.9999,
+    "n": 346,
+    "leavePairOutResidual": 0.9926,
+    "nResidual": 238
+   },
+   {
+    "universe": "IDP",
+    "a": "draftSharksIdp",
+    "b": "fantasyProsIdp",
+    "spearman": 0.5339,
+    "n": 236,
+    "leavePairOutResidual": 0.2462,
+    "nResidual": 219
+   },
+   {
+    "universe": "IDP",
+    "a": "draftSharksIdp",
+    "b": "dlfIdp",
+    "spearman": 0.6039,
+    "n": 166,
+    "leavePairOutResidual": 0.1164,
+    "nResidual": 165
+   },
+   {
+    "universe": "IDP",
+    "a": "draftSharksIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.6564,
+    "n": 258,
+    "leavePairOutResidual": 0.131,
+    "nResidual": 230
+   },
+   {
+    "universe": "IDP",
+    "a": "draftSharksIdp",
+    "b": "idpShow",
+    "spearman": 0.6323,
+    "n": 290,
+    "leavePairOutResidual": 0.0286,
+    "nResidual": 231
+   },
+   {
+    "universe": "IDP",
+    "a": "fantasyProsIdp",
+    "b": "dlfIdp",
+    "spearman": 0.659,
+    "n": 160,
+    "leavePairOutResidual": 0.1928,
+    "nResidual": 160
+   },
+   {
+    "universe": "IDP",
+    "a": "fantasyProsIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.7087,
+    "n": 231,
+    "leavePairOutResidual": 0.3414,
+    "nResidual": 225
+   },
+   {
+    "universe": "IDP",
+    "a": "fantasyProsIdp",
+    "b": "idpShow",
+    "spearman": 0.6013,
+    "n": 243,
+    "leavePairOutResidual": -0.1447,
+    "nResidual": 226
+   },
+   {
+    "universe": "IDP",
+    "a": "dlfIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.819,
+    "n": 172,
+    "leavePairOutResidual": 0.1682,
+    "nResidual": 171
+   },
+   {
+    "universe": "IDP",
+    "a": "dlfIdp",
+    "b": "idpShow",
+    "spearman": 0.869,
+    "n": 174,
+    "leavePairOutResidual": 0.3557,
+    "nResidual": 172
+   },
+   {
+    "universe": "IDP",
+    "a": "idpShowCombined",
+    "b": "idpShow",
+    "spearman": 0.8948,
+    "n": 295,
+    "leavePairOutResidual": 0.6268,
+    "nResidual": 237
+   },
+   {
+    "universe": "DL",
+    "a": "idpTradeCalc",
+    "b": "draftSharksIdp",
+    "spearman": 0.6522,
+    "n": 125,
+    "leavePairOutResidual": 0.2496,
+    "nResidual": 92
+   },
+   {
+    "universe": "DL",
+    "a": "idpTradeCalc",
+    "b": "fantasyProsIdp",
+    "spearman": 0.7114,
+    "n": 95,
+    "leavePairOutResidual": 0.2023,
+    "nResidual": 85
+   },
+   {
+    "universe": "DL",
+    "a": "idpTradeCalc",
+    "b": "dlfIdp",
+    "spearman": 0.8942,
+    "n": 80,
+    "leavePairOutResidual": 0.2797,
+    "nResidual": 79
+   },
+   {
+    "universe": "DL",
+    "a": "idpTradeCalc",
+    "b": "idpShowCombined",
+    "spearman": 0.921,
+    "n": 103,
+    "leavePairOutResidual": 0.5577,
+    "nResidual": 92
+   },
+   {
+    "universe": "DL",
+    "a": "idpTradeCalc",
+    "b": "idpShow",
+    "spearman": 0.9999,
+    "n": 137,
+    "leavePairOutResidual": 0.995,
+    "nResidual": 93
+   },
+   {
+    "universe": "DL",
+    "a": "draftSharksIdp",
+    "b": "fantasyProsIdp",
+    "spearman": 0.4606,
+    "n": 94,
+    "leavePairOutResidual": 0.0308,
+    "nResidual": 84
+   },
+   {
+    "universe": "DL",
+    "a": "draftSharksIdp",
+    "b": "dlfIdp",
+    "spearman": 0.6028,
+    "n": 79,
+    "leavePairOutResidual": 0.1392,
+    "nResidual": 78
+   },
+   {
+    "universe": "DL",
+    "a": "draftSharksIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.6084,
+    "n": 97,
+    "leavePairOutResidual": 0.0989,
+    "nResidual": 91
+   },
+   {
+    "universe": "DL",
+    "a": "draftSharksIdp",
+    "b": "idpShow",
+    "spearman": 0.6404,
+    "n": 121,
+    "leavePairOutResidual": 0.1843,
+    "nResidual": 92
+   },
+   {
+    "universe": "DL",
+    "a": "fantasyProsIdp",
+    "b": "dlfIdp",
+    "spearman": 0.7225,
+    "n": 71,
+    "leavePairOutResidual": 0.2585,
+    "nResidual": 71
+   },
+   {
+    "universe": "DL",
+    "a": "fantasyProsIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.7679,
+    "n": 85,
+    "leavePairOutResidual": 0.3317,
+    "nResidual": 84
+   },
+   {
+    "universe": "DL",
+    "a": "fantasyProsIdp",
+    "b": "idpShow",
+    "spearman": 0.7048,
+    "n": 93,
+    "leavePairOutResidual": 0.2041,
+    "nResidual": 85
+   },
+   {
+    "universe": "DL",
+    "a": "dlfIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.8606,
+    "n": 78,
+    "leavePairOutResidual": 0.3734,
+    "nResidual": 78
+   },
+   {
+    "universe": "DL",
+    "a": "dlfIdp",
+    "b": "idpShow",
+    "spearman": 0.8943,
+    "n": 80,
+    "leavePairOutResidual": 0.335,
+    "nResidual": 79
+   },
+   {
+    "universe": "DL",
+    "a": "idpShowCombined",
+    "b": "idpShow",
+    "spearman": 0.9209,
+    "n": 103,
+    "leavePairOutResidual": 0.5971,
+    "nResidual": 92
+   },
+   {
+    "universe": "LB",
+    "a": "idpTradeCalc",
+    "b": "draftSharksIdp",
+    "spearman": 0.7642,
+    "n": 75,
+    "leavePairOutResidual": -0.0614,
+    "nResidual": 64
+   },
+   {
+    "universe": "LB",
+    "a": "idpTradeCalc",
+    "b": "fantasyProsIdp",
+    "spearman": 0.6705,
+    "n": 71,
+    "leavePairOutResidual": -0.069,
+    "nResidual": 65
+   },
+   {
+    "universe": "LB",
+    "a": "idpTradeCalc",
+    "b": "dlfIdp",
+    "spearman": 0.9281,
+    "n": 58,
+    "leavePairOutResidual": 0.2822,
+    "nResidual": 57
+   },
+   {
+    "universe": "LB",
+    "a": "idpTradeCalc",
+    "b": "idpShowCombined",
+    "spearman": 0.923,
+    "n": 95,
+    "leavePairOutResidual": 0.5284,
+    "nResidual": 68
+   },
+   {
+    "universe": "LB",
+    "a": "idpTradeCalc",
+    "b": "idpShow",
+    "spearman": 0.9999,
+    "n": 100,
+    "leavePairOutResidual": 0.9907,
+    "nResidual": 68
+   },
+   {
+    "universe": "LB",
+    "a": "draftSharksIdp",
+    "b": "fantasyProsIdp",
+    "spearman": 0.6444,
+    "n": 61,
+    "leavePairOutResidual": 0.2888,
+    "nResidual": 61
+   },
+   {
+    "universe": "LB",
+    "a": "draftSharksIdp",
+    "b": "dlfIdp",
+    "spearman": 0.7403,
+    "n": 53,
+    "leavePairOutResidual": 0.1502,
+    "nResidual": 53
+   },
+   {
+    "universe": "LB",
+    "a": "draftSharksIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.8276,
+    "n": 71,
+    "leavePairOutResidual": 0.3783,
+    "nResidual": 64
+   },
+   {
+    "universe": "LB",
+    "a": "draftSharksIdp",
+    "b": "idpShow",
+    "spearman": 0.7621,
+    "n": 74,
+    "leavePairOutResidual": -0.0891,
+    "nResidual": 64
+   },
+   {
+    "universe": "LB",
+    "a": "fantasyProsIdp",
+    "b": "dlfIdp",
+    "spearman": 0.6605,
+    "n": 54,
+    "leavePairOutResidual": 0.1276,
+    "nResidual": 54
+   },
+   {
+    "universe": "LB",
+    "a": "fantasyProsIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.734,
+    "n": 69,
+    "leavePairOutResidual": 0.2576,
+    "nResidual": 65
+   },
+   {
+    "universe": "LB",
+    "a": "fantasyProsIdp",
+    "b": "idpShow",
+    "spearman": 0.6732,
+    "n": 71,
+    "leavePairOutResidual": -0.0938,
+    "nResidual": 65
+   },
+   {
+    "universe": "LB",
+    "a": "dlfIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.9116,
+    "n": 58,
+    "leavePairOutResidual": 0.2971,
+    "nResidual": 57
+   },
+   {
+    "universe": "LB",
+    "a": "dlfIdp",
+    "b": "idpShow",
+    "spearman": 0.9288,
+    "n": 58,
+    "leavePairOutResidual": 0.3867,
+    "nResidual": 57
+   },
+   {
+    "universe": "LB",
+    "a": "idpShowCombined",
+    "b": "idpShow",
+    "spearman": 0.9191,
+    "n": 92,
+    "leavePairOutResidual": 0.5263,
+    "nResidual": 68
+   },
+   {
+    "universe": "DB",
+    "a": "idpTradeCalc",
+    "b": "draftSharksIdp",
+    "spearman": 0.5284,
+    "n": 103,
+    "leavePairOutResidual": 0.2336,
+    "nResidual": 75
+   },
+   {
+    "universe": "DB",
+    "a": "idpTradeCalc",
+    "b": "fantasyProsIdp",
+    "spearman": 0.5992,
+    "n": 81,
+    "leavePairOutResidual": 0.0396,
+    "nResidual": 76
+   },
+   {
+    "universe": "DB",
+    "a": "idpTradeCalc",
+    "b": "dlfIdp",
+    "spearman": 0.7279,
+    "n": 36,
+    "leavePairOutResidual": -0.0083,
+    "nResidual": 36
+   },
+   {
+    "universe": "DB",
+    "a": "idpTradeCalc",
+    "b": "idpShowCombined",
+    "spearman": 0.8971,
+    "n": 103,
+    "leavePairOutResidual": 0.7322,
+    "nResidual": 77
+   },
+   {
+    "universe": "DB",
+    "a": "idpTradeCalc",
+    "b": "idpShow",
+    "spearman": 0.9995,
+    "n": 109,
+    "leavePairOutResidual": 0.9852,
+    "nResidual": 77
+   },
+   {
+    "universe": "DB",
+    "a": "draftSharksIdp",
+    "b": "fantasyProsIdp",
+    "spearman": 0.3741,
+    "n": 81,
+    "leavePairOutResidual": 0.2089,
+    "nResidual": 74
+   },
+   {
+    "universe": "DB",
+    "a": "draftSharksIdp",
+    "b": "dlfIdp",
+    "spearman": 0.3128,
+    "n": 34,
+    "leavePairOutResidual": -0.1444,
+    "nResidual": 34
+   },
+   {
+    "universe": "DB",
+    "a": "draftSharksIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.4658,
+    "n": 90,
+    "leavePairOutResidual": 0.0167,
+    "nResidual": 75
+   },
+   {
+    "universe": "DB",
+    "a": "draftSharksIdp",
+    "b": "idpShow",
+    "spearman": 0.5062,
+    "n": 95,
+    "leavePairOutResidual": 0.1191,
+    "nResidual": 75
+   },
+   {
+    "universe": "DB",
+    "a": "fantasyProsIdp",
+    "b": "dlfIdp",
+    "spearman": 0.7129,
+    "n": 35,
+    "leavePairOutResidual": 0.5096,
+    "nResidual": 35
+   },
+   {
+    "universe": "DB",
+    "a": "fantasyProsIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.6123,
+    "n": 77,
+    "leavePairOutResidual": 0.2454,
+    "nResidual": 76
+   },
+   {
+    "universe": "DB",
+    "a": "fantasyProsIdp",
+    "b": "idpShow",
+    "spearman": 0.5874,
+    "n": 79,
+    "leavePairOutResidual": 0.0261,
+    "nResidual": 76
+   },
+   {
+    "universe": "DB",
+    "a": "dlfIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.7282,
+    "n": 36,
+    "leavePairOutResidual": 0.0794,
+    "nResidual": 36
+   },
+   {
+    "universe": "DB",
+    "a": "dlfIdp",
+    "b": "idpShow",
+    "spearman": 0.7279,
+    "n": 36,
+    "leavePairOutResidual": 0.0849,
+    "nResidual": 36
+   },
+   {
+    "universe": "DB",
+    "a": "idpShowCombined",
+    "b": "idpShow",
+    "spearman": 0.8939,
+    "n": 100,
+    "leavePairOutResidual": 0.7571,
+    "nResidual": 77
+   }
+  ],
+  "csvOrderingDependenceVoterPool": {
+   "pool": [
+    "idpTradeCalc",
+    "draftSharksIdp",
+    "fantasyProsIdp",
+    "dlfIdp",
+    "idpShowCombined"
+   ],
+   "rows": [
+    {
+     "universe": "IDP",
+     "a": "idpTradeCalc",
+     "b": "draftSharksIdp",
+     "spearman": 0.6457,
+     "n": 303,
+     "leavePairOutResidual": 0.3619,
+     "nResidual": 152
+    },
+    {
+     "universe": "IDP",
+     "a": "idpTradeCalc",
+     "b": "fantasyProsIdp",
+     "spearman": 0.6095,
+     "n": 247,
+     "leavePairOutResidual": 0.0146,
+     "nResidual": 152
+    },
+    {
+     "universe": "IDP",
+     "a": "idpTradeCalc",
+     "b": "dlfIdp",
+     "spearman": 0.8685,
+     "n": 174,
+     "leavePairOutResidual": 0.4458,
+     "nResidual": 152
+    },
+    {
+     "universe": "IDP",
+     "a": "idpTradeCalc",
+     "b": "idpShowCombined",
+     "spearman": 0.8979,
+     "n": 301,
+     "leavePairOutResidual": 0.7703,
+     "nResidual": 152
+    },
+    {
+     "universe": "IDP",
+     "a": "draftSharksIdp",
+     "b": "fantasyProsIdp",
+     "spearman": 0.5339,
+     "n": 236,
+     "leavePairOutResidual": 0.1122,
+     "nResidual": 152
+    },
+    {
+     "universe": "IDP",
+     "a": "draftSharksIdp",
+     "b": "dlfIdp",
+     "spearman": 0.6039,
+     "n": 166,
+     "leavePairOutResidual": 0.1246,
+     "nResidual": 152
+    },
+    {
+     "universe": "IDP",
+     "a": "draftSharksIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.6564,
+     "n": 258,
+     "leavePairOutResidual": 0.3349,
+     "nResidual": 152
+    },
+    {
+     "universe": "IDP",
+     "a": "fantasyProsIdp",
+     "b": "dlfIdp",
+     "spearman": 0.659,
+     "n": 160,
+     "leavePairOutResidual": 0.2107,
+     "nResidual": 152
+    },
+    {
+     "universe": "IDP",
+     "a": "fantasyProsIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.7087,
+     "n": 231,
+     "leavePairOutResidual": 0.4086,
+     "nResidual": 152
+    },
+    {
+     "universe": "IDP",
+     "a": "dlfIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.819,
+     "n": 172,
+     "leavePairOutResidual": 0.3261,
+     "nResidual": 152
+    },
+    {
+     "universe": "DL",
+     "a": "idpTradeCalc",
+     "b": "draftSharksIdp",
+     "spearman": 0.6522,
+     "n": 125,
+     "leavePairOutResidual": 0.4229,
+     "nResidual": 69
+    },
+    {
+     "universe": "DL",
+     "a": "idpTradeCalc",
+     "b": "fantasyProsIdp",
+     "spearman": 0.7114,
+     "n": 95,
+     "leavePairOutResidual": 0.264,
+     "nResidual": 69
+    },
+    {
+     "universe": "DL",
+     "a": "idpTradeCalc",
+     "b": "dlfIdp",
+     "spearman": 0.8942,
+     "n": 80,
+     "leavePairOutResidual": 0.4451,
+     "nResidual": 69
+    },
+    {
+     "universe": "DL",
+     "a": "idpTradeCalc",
+     "b": "idpShowCombined",
+     "spearman": 0.921,
+     "n": 103,
+     "leavePairOutResidual": 0.7436,
+     "nResidual": 69
+    },
+    {
+     "universe": "DL",
+     "a": "draftSharksIdp",
+     "b": "fantasyProsIdp",
+     "spearman": 0.4606,
+     "n": 94,
+     "leavePairOutResidual": -0.0142,
+     "nResidual": 69
+    },
+    {
+     "universe": "DL",
+     "a": "draftSharksIdp",
+     "b": "dlfIdp",
+     "spearman": 0.6028,
+     "n": 79,
+     "leavePairOutResidual": 0.1517,
+     "nResidual": 69
+    },
+    {
+     "universe": "DL",
+     "a": "draftSharksIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.6084,
+     "n": 97,
+     "leavePairOutResidual": 0.2003,
+     "nResidual": 69
+    },
+    {
+     "universe": "DL",
+     "a": "fantasyProsIdp",
+     "b": "dlfIdp",
+     "spearman": 0.7225,
+     "n": 71,
+     "leavePairOutResidual": 0.291,
+     "nResidual": 69
+    },
+    {
+     "universe": "DL",
+     "a": "fantasyProsIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.7679,
+     "n": 85,
+     "leavePairOutResidual": 0.402,
+     "nResidual": 69
+    },
+    {
+     "universe": "DL",
+     "a": "dlfIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.8606,
+     "n": 78,
+     "leavePairOutResidual": 0.4815,
+     "nResidual": 69
+    },
+    {
+     "universe": "LB",
+     "a": "idpTradeCalc",
+     "b": "draftSharksIdp",
+     "spearman": 0.7642,
+     "n": 75,
+     "leavePairOutResidual": 0.1427,
+     "nResidual": 50
+    },
+    {
+     "universe": "LB",
+     "a": "idpTradeCalc",
+     "b": "fantasyProsIdp",
+     "spearman": 0.6705,
+     "n": 71,
+     "leavePairOutResidual": 0.0398,
+     "nResidual": 50
+    },
+    {
+     "universe": "LB",
+     "a": "idpTradeCalc",
+     "b": "dlfIdp",
+     "spearman": 0.9281,
+     "n": 58,
+     "leavePairOutResidual": 0.4704,
+     "nResidual": 50
+    },
+    {
+     "universe": "LB",
+     "a": "idpTradeCalc",
+     "b": "idpShowCombined",
+     "spearman": 0.923,
+     "n": 95,
+     "leavePairOutResidual": 0.8915,
+     "nResidual": 50
+    },
+    {
+     "universe": "LB",
+     "a": "draftSharksIdp",
+     "b": "fantasyProsIdp",
+     "spearman": 0.6444,
+     "n": 61,
+     "leavePairOutResidual": 0.2404,
+     "nResidual": 50
+    },
+    {
+     "universe": "LB",
+     "a": "draftSharksIdp",
+     "b": "dlfIdp",
+     "spearman": 0.7403,
+     "n": 53,
+     "leavePairOutResidual": 0.1507,
+     "nResidual": 50
+    },
+    {
+     "universe": "LB",
+     "a": "draftSharksIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.8276,
+     "n": 71,
+     "leavePairOutResidual": 0.4847,
+     "nResidual": 50
+    },
+    {
+     "universe": "LB",
+     "a": "fantasyProsIdp",
+     "b": "dlfIdp",
+     "spearman": 0.6605,
+     "n": 54,
+     "leavePairOutResidual": 0.1441,
+     "nResidual": 50
+    },
+    {
+     "universe": "LB",
+     "a": "fantasyProsIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.734,
+     "n": 69,
+     "leavePairOutResidual": 0.1379,
+     "nResidual": 50
+    },
+    {
+     "universe": "LB",
+     "a": "dlfIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.9116,
+     "n": 58,
+     "leavePairOutResidual": 0.5069,
+     "nResidual": 50
+    },
+    {
+     "universe": "DB",
+     "a": "idpTradeCalc",
+     "b": "draftSharksIdp",
+     "spearman": 0.5284,
+     "n": 103,
+     "leavePairOutResidual": 0.6193,
+     "nResidual": 33
+    },
+    {
+     "universe": "DB",
+     "a": "idpTradeCalc",
+     "b": "fantasyProsIdp",
+     "spearman": 0.5992,
+     "n": 81,
+     "leavePairOutResidual": 0.1086,
+     "nResidual": 33
+    },
+    {
+     "universe": "DB",
+     "a": "idpTradeCalc",
+     "b": "dlfIdp",
+     "spearman": 0.7279,
+     "n": 36,
+     "leavePairOutResidual": 0.1296,
+     "nResidual": 33
+    },
+    {
+     "universe": "DB",
+     "a": "idpTradeCalc",
+     "b": "idpShowCombined",
+     "spearman": 0.8971,
+     "n": 103,
+     "leavePairOutResidual": 0.7882,
+     "nResidual": 33
+    },
+    {
+     "universe": "DB",
+     "a": "draftSharksIdp",
+     "b": "fantasyProsIdp",
+     "spearman": 0.3741,
+     "n": 81,
+     "leavePairOutResidual": -0.1256,
+     "nResidual": 33
+    },
+    {
+     "universe": "DB",
+     "a": "draftSharksIdp",
+     "b": "dlfIdp",
+     "spearman": 0.3128,
+     "n": 34,
+     "leavePairOutResidual": -0.1111,
+     "nResidual": 33
+    },
+    {
+     "universe": "DB",
+     "a": "draftSharksIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.4658,
+     "n": 90,
+     "leavePairOutResidual": 0.5079,
+     "nResidual": 33
+    },
+    {
+     "universe": "DB",
+     "a": "fantasyProsIdp",
+     "b": "dlfIdp",
+     "spearman": 0.7129,
+     "n": 35,
+     "leavePairOutResidual": 0.5268,
+     "nResidual": 33
+    },
+    {
+     "universe": "DB",
+     "a": "fantasyProsIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.6123,
+     "n": 77,
+     "leavePairOutResidual": 0.2496,
+     "nResidual": 33
+    },
+    {
+     "universe": "DB",
+     "a": "dlfIdp",
+     "b": "idpShowCombined",
+     "spearman": 0.7282,
+     "n": 36,
+     "leavePairOutResidual": 0.2063,
+     "nResidual": 33
+    }
+   ]
+  },
+  "idpTradeCalcVsIdpShowLeadLag": {
+   "since": "2026-09-15T00:00:00+00:00",
+   "idpShowCaptures": 2,
+   "versions": [
+    {
+     "idpTradeCalcVersion": "70509583c8",
+     "at": "2026-09-15T05:29:00+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0049
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 342,
+       "discordantShare": 0.0808
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "dff6ac14aa",
+     "at": "2026-09-15T17:22:46+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0092
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 342,
+       "discordantShare": 0.0785
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "907dfee4df",
+     "at": "2026-09-16T21:49:28+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0092
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 342,
+       "discordantShare": 0.0785
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "d75f4461de",
+     "at": "2026-09-22T17:24:29+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0092
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 342,
+       "discordantShare": 0.0785
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "c577cabf0f",
+     "at": "2026-09-22T21:46:09+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0092
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 342,
+       "discordantShare": 0.0785
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "4aa5ac4005",
+     "at": "2026-09-23T08:04:05+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0092
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 342,
+       "discordantShare": 0.0785
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "36bace4197",
+     "at": "2026-09-23T21:54:29+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0093
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 342,
+       "discordantShare": 0.0784
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "157e901551",
+     "at": "2026-10-05T15:24:16+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0136
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 342,
+       "discordantShare": 0.0753
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "87008850d3",
+     "at": "2026-10-08T20:15:58+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0136
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 342,
+       "discordantShare": 0.0753
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "df15c88b0f",
+     "at": "2026-10-09T00:47:18+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.07
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 344,
+       "discordantShare": 0.0215
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "3b07081346",
+     "at": "2026-10-09T06:53:10+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.081
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 345,
+       "discordantShare": 0.0028
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "f55b4f6626",
+     "at": "2026-10-10T02:01:46+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0812
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 346,
+       "discordantShare": 0.0
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "1b4f9393d2",
+     "at": "2026-10-10T20:25:35+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0812
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 346,
+       "discordantShare": 0.0
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "7a7ac6d152",
+     "at": "2026-10-14T08:08:02+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0812
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 346,
+       "discordantShare": 0.0
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "4a220bec3f",
+     "at": "2026-10-15T12:15:02+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0812
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 346,
+       "discordantShare": 0.0
+      }
+     }
+    },
+    {
+     "idpTradeCalcVersion": "f623436aea",
+     "at": "2026-10-16T07:38:08+00:00",
+     "vsIdpShow": {
+      "a791bc8513": {
+       "idpShowCapturedAt": "2026-08-26T16:32:25+00:00",
+       "n": 345,
+       "discordantShare": 0.0812
+      },
+      "cd0fd9b73e": {
+       "idpShowCapturedAt": "2026-10-17T20:32:13+00:00",
+       "n": 346,
+       "discordantShare": 0.0
+      }
+     }
+    }
+   ]
+  },
+  "pipelineEffectiveRankSpearman": [
+   {
+    "a": "dlfIdp",
+    "b": "draftSharksIdp",
+    "spearman": 0.5973,
+    "n": 163
+   },
+   {
+    "a": "dlfIdp",
+    "b": "fantasyProsIdp",
+    "spearman": 0.6589,
+    "n": 157
+   },
+   {
+    "a": "dlfIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.8267,
+    "n": 169
+   },
+   {
+    "a": "dlfIdp",
+    "b": "idpTradeCalc",
+    "spearman": 0.8788,
+    "n": 171
+   },
+   {
+    "a": "draftSharksIdp",
+    "b": "fantasyProsIdp",
+    "spearman": 0.5222,
+    "n": 230
+   },
+   {
+    "a": "draftSharksIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.6594,
+    "n": 258
+   },
+   {
+    "a": "draftSharksIdp",
+    "b": "idpTradeCalc",
+    "spearman": 0.6471,
+    "n": 303
+   },
+   {
+    "a": "fantasyProsIdp",
+    "b": "idpShowCombined",
+    "spearman": 0.7299,
+    "n": 226
+   },
+   {
+    "a": "fantasyProsIdp",
+    "b": "idpTradeCalc",
+    "spearman": 0.6299,
+    "n": 241
+   },
+   {
+    "a": "idpShowCombined",
+    "b": "idpTradeCalc",
+    "spearman": 0.8979,
+    "n": 301
+   }
+  ]
+ },
+ "normalization": {
+  "idpTradeCalcNativeValueVsHillAtOwnEffectiveRank": {
+   "band:1-100": {
+    "n": 10,
+    "medianLogRatio": 0.119,
+    "p10": 0.0623,
+    "p90": 0.14
+   },
+   "band:101-250": {
+    "n": 50,
+    "medianLogRatio": 0.1177,
+    "p10": 0.0698,
+    "p90": 0.1443
+   },
+   "band:251-500": {
+    "n": 85,
+    "medianLogRatio": 0.0481,
+    "p10": 0.029,
+    "p90": 0.0845
+   },
+   "band:501+": {
+    "n": 232,
+    "medianLogRatio": -0.336,
+    "p10": -0.4501,
+    "p90": -0.125
+   },
+   "family:DB": {
+    "n": 123,
+    "medianLogRatio": -0.1415,
+    "p10": -0.4483,
+    "p90": 0.0759
+   },
+   "family:DL": {
+    "n": 146,
+    "medianLogRatio": -0.127,
+    "p10": -0.4443,
+    "p90": 0.1252
+   },
+   "family:LB": {
+    "n": 108,
+    "medianLogRatio": -0.1177,
+    "p10": -0.4479,
+    "p90": 0.1018
+   }
+  },
+  "signedLogRatioVsLeaveOneOutMean": {
+   "dlfIdp": {
+    "DB": {
+     "n": 35,
+     "median": -0.0593,
+     "p10": -0.3112,
+     "p90": 0.1015
+    },
+    "DL": {
+     "n": 77,
+     "median": 0.08,
+     "p10": -0.1071,
+     "p90": 0.2317
+    },
+    "LB": {
+     "n": 57,
+     "median": -0.033,
+     "p10": -0.2443,
+     "p90": 0.1322
+    }
+   },
+   "dlfRookieIdp": {
+    "DB": {
+     "n": 4,
+     "median": -0.0059,
+     "p10": -0.0456,
+     "p90": 0.1303
+    },
+    "DL": {
+     "n": 13,
+     "median": 0.0514,
+     "p10": 0.0233,
+     "p90": 0.2194
+    },
+    "LB": {
+     "n": 11,
+     "median": 0.0233,
+     "p10": -0.1353,
+     "p90": 0.0829
+    }
+   },
+   "draftSharksIdp": {
+    "DB": {
+     "n": 76,
+     "median": 0.1464,
+     "p10": -0.1068,
+     "p90": 0.3951
+    },
+    "DL": {
+     "n": 98,
+     "median": 0.0084,
+     "p10": -0.2978,
+     "p90": 0.2531
+    },
+    "LB": {
+     "n": 56,
+     "median": 0.1115,
+     "p10": -0.1664,
+     "p90": 0.4337
+    }
+   },
+   "fantasyProsIdp": {
+    "DB": {
+     "n": 78,
+     "median": 0.0696,
+     "p10": -0.096,
+     "p90": 0.2679
+    },
+    "DL": {
+     "n": 88,
+     "median": -0.0503,
+     "p10": -0.3578,
+     "p90": 0.1931
+    },
+    "LB": {
+     "n": 56,
+     "median": 0.1146,
+     "p10": -0.1459,
+     "p90": 0.2903
+    }
+   },
+   "idpTradeCalc": {
+    "DB": {
+     "n": 80,
+     "median": -0.223,
+     "p10": -0.636,
+     "p90": 0.16
+    },
+    "DL": {
+     "n": 101,
+     "median": 0.0496,
+     "p10": -0.3927,
+     "p90": 0.3345
+    },
+    "LB": {
+     "n": 71,
+     "median": -0.1182,
+     "p10": -0.5306,
+     "p90": 0.1223
+    }
+   }
+  },
+  "votesPastPercentileReference": {
+   "dlfIdp": {
+    "pastReference": 26,
+    "stamped": 171
+   },
+   "dlfRookieIdp": {
+    "pastReference": 5,
+    "stamped": 29
+   },
+   "draftSharksIdp": {
+    "pastReference": 158,
+    "stamped": 319
+   },
+   "fantasyProsIdp": {
+    "pastReference": 103,
+    "stamped": 249
+   },
+   "idpShowCombined": {
+    "pastReference": 82,
+    "stamped": 301
+   },
+   "idpTradeCalc": {
+    "pastReference": 232,
+    "stamped": 377
+   }
+  },
+  "rankCoordinatePool": {
+   "dlfIdp": {
+    "shared_market": 171
+   },
+   "dlfRookieIdp": {
+    "shared_market": 29
+   },
+   "draftSharksIdp": {
+    "shared_market": 319
+   },
+   "fantasyProsIdp": {
+    "shared_market": 249
+   },
+   "idpShowCombined": {
+    "shared_market": 301
+   },
+   "idpTradeCalc": {
+    "shared_market": 377
+   }
+  }
+ },
+ "dlfValuesPublicationHistory": {
+  "commitsTouchingCsv": 29,
+  "distinctContentVersions": [
+   {
+    "commit": "b6a962e969",
+    "at": "2026-09-25T00:28:08+00:00",
+    "rows": 322
+   },
+   {
+    "commit": "744ca99b82",
+    "at": "2026-09-25T12:27:33+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9998,
+    "nCommon": 322,
+    "valuesChangedShare": 0.8075,
+    "added": 1,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "ebc28b5363",
+    "at": "2026-09-26T14:27:40+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 1.0,
+    "nCommon": 323,
+    "valuesChangedShare": 0.6409,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "ccfd7a49f8",
+    "at": "2026-09-27T12:27:34+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 1.0,
+    "nCommon": 323,
+    "valuesChangedShare": 0.6285,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "41842561eb",
+    "at": "2026-09-28T12:27:36+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9999,
+    "nCommon": 323,
+    "valuesChangedShare": 0.8266,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 23
+   },
+   {
+    "commit": "e1acee1898",
+    "at": "2026-09-29T12:27:34+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 1.0,
+    "nCommon": 323,
+    "valuesChangedShare": 0.7121,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "a546c0af00",
+    "at": "2026-10-01T14:27:30+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9983,
+    "nCommon": 323,
+    "valuesChangedShare": 0.9319,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "59210a7cfb",
+    "at": "2026-10-01T20:27:31+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 1.0,
+    "nCommon": 323,
+    "valuesChangedShare": 0.418,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "d1f7da04ee",
+    "at": "2026-10-03T12:27:33+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9999,
+    "nCommon": 323,
+    "valuesChangedShare": 0.8978,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "80354f1d59",
+    "at": "2026-10-04T12:27:34+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9984,
+    "nCommon": 323,
+    "valuesChangedShare": 0.9164,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "79f15b98fe",
+    "at": "2026-10-05T12:27:38+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.998,
+    "nCommon": 323,
+    "valuesChangedShare": 0.9474,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "2f823024ab",
+    "at": "2026-10-06T12:27:38+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9864,
+    "nCommon": 319,
+    "valuesChangedShare": 0.9624,
+    "added": 4,
+    "removed": 4,
+    "top24OverlapVsPrevious": 22
+   },
+   {
+    "commit": "1eec690fa3",
+    "at": "2026-10-07T12:27:42+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9999,
+    "nCommon": 323,
+    "valuesChangedShare": 0.9288,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "e8e9540a19",
+    "at": "2026-10-08T12:27:38+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9998,
+    "nCommon": 323,
+    "valuesChangedShare": 0.9536,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "69887623e7",
+    "at": "2026-10-09T12:27:37+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9998,
+    "nCommon": 323,
+    "valuesChangedShare": 0.9474,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "96a62ed01d",
+    "at": "2026-10-10T12:27:41+00:00",
+    "rows": 323,
+    "spearmanVsPrevious": 0.9995,
+    "nCommon": 323,
+    "valuesChangedShare": 0.9721,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "7e3c72e6d9",
+    "at": "2026-10-11T12:27:33+00:00",
+    "rows": 320,
+    "spearmanVsPrevious": 0.9931,
+    "nCommon": 312,
+    "valuesChangedShare": 0.9583,
+    "added": 8,
+    "removed": 11,
+    "top24OverlapVsPrevious": 23
+   },
+   {
+    "commit": "22e0dd27e2",
+    "at": "2026-10-12T12:27:38+00:00",
+    "rows": 320,
+    "spearmanVsPrevious": 0.9999,
+    "nCommon": 320,
+    "valuesChangedShare": 0.9219,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "fff03800cd",
+    "at": "2026-10-13T12:27:45+00:00",
+    "rows": 320,
+    "spearmanVsPrevious": 0.9998,
+    "nCommon": 320,
+    "valuesChangedShare": 0.9,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "baab4aeb69",
+    "at": "2026-10-14T12:27:40+00:00",
+    "rows": 319,
+    "spearmanVsPrevious": 0.9989,
+    "nCommon": 319,
+    "valuesChangedShare": 0.9498,
+    "added": 0,
+    "removed": 1,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "f4d481f2a2",
+    "at": "2026-10-15T12:27:44+00:00",
+    "rows": 319,
+    "spearmanVsPrevious": 0.9991,
+    "nCommon": 319,
+    "valuesChangedShare": 0.9687,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "e54a695383",
+    "at": "2026-10-16T12:27:37+00:00",
+    "rows": 320,
+    "spearmanVsPrevious": 0.9986,
+    "nCommon": 319,
+    "valuesChangedShare": 0.9592,
+    "added": 1,
+    "removed": 0,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "fce064224c",
+    "at": "2026-10-17T12:27:36+00:00",
+    "rows": 319,
+    "spearmanVsPrevious": 0.9997,
+    "nCommon": 319,
+    "valuesChangedShare": 0.8997,
+    "added": 0,
+    "removed": 1,
+    "top24OverlapVsPrevious": 24
+   },
+   {
+    "commit": "4b2982aa07",
+    "at": "2026-10-18T12:27:40+00:00",
+    "rows": 319,
+    "spearmanVsPrevious": 0.9996,
+    "nCommon": 319,
+    "valuesChangedShare": 0.9154,
+    "added": 0,
+    "removed": 0,
+    "top24OverlapVsPrevious": 23
+   }
+  ]
+ }
+}

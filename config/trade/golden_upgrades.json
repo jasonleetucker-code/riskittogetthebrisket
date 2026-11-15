@@ -1,0 +1,13 @@
+{
+  "id": "golden_upgrades_v1",
+  "status": "PRIOR_UNVALIDATED",
+  "owner": "src/trade/golden_upgrades.py",
+  "decided": "2026-10-14 — owner trade-discovery directive; criteria are the owner inventory row 2.5 list, thresholds are declared priors (no validation target exists yet).",
+  "note": "A Golden Upgrade is a SAME-POSITION 1-for-1 where our canonical board prefers the target and the target's own market prefers the player we own. The two minimums below define 'meaningful enough to act on'; they are presentation thresholds, never values. Raise or lower them here — never in code. exploitBandPct / exploitZeroPct: an inversion whose board gain plus market inversion exceeds the band is flagged exploitRisk and its ranking strength decays to 0 at the zero point — a huge inversion usually means the two boards disagree about the players, not a clean upgrade (declared prior, same rule as Best Offers).",
+  "minBoardGainPct": 5.0,
+  "minMarketInversionPct": 3.0,
+  "maxResults": 25,
+  "perOpponentLimit": 5,
+  "exploitBandPct": 50.0,
+  "exploitZeroPct": 100.0
+}

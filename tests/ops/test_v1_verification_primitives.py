@@ -328,7 +328,9 @@ def test_onbox_exit_precedence():
 
 
 def test_workflow_masks_token_before_use():
-    wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text()
+    wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text(
+        encoding="utf-8"
+    )
     # The mint capture must use command substitution (MINT_JSON=$(...)),
     # and add-mask must appear on the token.
     assert "MINT_JSON=$(" in wf
@@ -340,7 +342,9 @@ def test_workflow_masks_token_before_use():
 
 
 def test_workflow_declares_read_only_posture():
-    wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text()
+    wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text(
+        encoding="utf-8"
+    )
     assert "permissions:\n  contents: read" in wf
     # Serialises with deploys at JOB level (a skipped run must not queue in
     # the group — see tests/deploy/test_production_deploy_concurrency.py).
@@ -367,7 +371,7 @@ def test_every_suite_verdict_is_consumed_by_the_one_verdict_step():
     not be conditioned away for any suite.
     """
     wf_path = REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml"
-    wf = yaml.safe_load(wf_path.read_text())
+    wf = yaml.safe_load(wf_path.read_text(encoding="utf-8"))
     steps = wf["jobs"]["v1-authenticated"]["steps"]
 
     published = set()
@@ -406,18 +410,27 @@ def test_prod_auth_config_reports_annotations_as_evidence():
     tick proves a spec passed but not WHICH state production produced —
     which is precisely what V1-45's L4 bar asks.
     """
-    cfg = (REPO_ROOT / "tests" / "e2e" / "prod-auth.config.js").read_text()
-    assert '["json"' in cfg, "no json reporter: annotations never leave the runner"
-    assert "prod-auth-results.json" in cfg
+    cfg = (REPO_ROOT / "tests" / "e2e" / "prod-auth.config.js").read_text(encoding="utf-8")
+    # The structured report is the sanitized one (security S3): the raw
+    # Playwright ``json`` reporter would publish Received values.
+    assert "prod-auth-safe-reporter.js" in cfg, "no structured report: annotations never leave"
+    reporter = (REPO_ROOT / "tests" / "e2e" / "prod-auth-safe-reporter.js").read_text(
+        encoding="utf-8"
+    )
+    assert "prod-auth-results.json" in reporter and "annotations" in reporter
 
-    wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text()
+    wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text(
+        encoding="utf-8"
+    )
     assert (
         "tests/e2e/prod-auth-results.json" in wf
     ), "the json report is produced but never uploaded"
 
 
 def test_onbox_workflow_gates_the_only_write_behind_a_flag():
-    wf = (REPO_ROOT / ".github" / "workflows" / "v1-onbox-checklists.yml").read_text()
+    wf = (REPO_ROOT / ".github" / "workflows" / "v1-onbox-checklists.yml").read_text(
+        encoding="utf-8"
+    )
     # The write path (--allow-writes) is only produced when run_live_builder
     # is true.
     assert "run_live_builder && '--allow-writes' || ''" in wf
@@ -623,7 +636,8 @@ def _signals_contract(*, sf_votes=True, idp_state="shadow", contributing=150, le
     for i, key in enumerate(("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")):
         row = {"sourceNativeValues": {key: 1.0}, "sourceShadowMeta": {key: {}}}
         if idp_state == "active":
-            row["sourceRankMeta"] = {key: {}}
+            row["sourceRankMeta"] = {key: {"appliedWeight": 1.0, "valueContribution": 3000}}
+            row.pop("sourceShadowMeta")
         rows[f"I{i}"] = row
     avail = {"signalsSf": {"state": "present", "votes": sf_votes, "voteState": "active"}}
     for key in ("signalsIdpDl", "signalsIdpLb", "signalsIdpDb"):
@@ -664,9 +678,37 @@ def test_signals_offense_present_but_not_contributing_fails():
 def test_signals_idp_state_must_match_what_rows_carry():
     auth.CHECKS.clear()
     contract = _signals_contract(idp_state="shadow")
-    contract["players"]["I0"]["sourceRankMeta"] = {"signalsIdpDl": {}}  # votes while "shadow"
+    # A weighted, contributing vote while the state says "shadow".
+    contract["players"]["I0"]["sourceRankMeta"] = {
+        "signalsIdpDl": {"appliedWeight": 1.0, "valueContribution": 3000}
+    }
     auth.check_signals(contract)
     assert _signals_checks()["SIG-IDP"].status == "fail"
+
+
+def test_signals_idp_a_non_contributing_meta_is_not_a_vote():
+    """A freshness-excluded observation is not a vote (weighted, contributing
+    observations only — owner directive 2026-10-19)."""
+    auth.CHECKS.clear()
+    contract = _signals_contract(idp_state="shadow")
+    contract["players"]["I0"]["sourceRankMeta"] = {
+        "signalsIdpDl": {"appliedWeight": 0.0, "contributedToBlend": False}
+    }
+    auth.check_signals(contract)
+    assert _signals_checks()["SIG-IDP"].status == "pass"
+
+
+def test_signals_idp_active_family_must_contribute():
+    auth.CHECKS.clear()
+    auth.check_signals(_signals_contract(idp_state="active"))
+    assert _signals_checks()["SIG-IDP"].status == "pass"
+
+
+def test_signals_idp_held_without_a_qualified_translation_passes_as_shadow():
+    """``held: no_qualified_translation`` keeps the shadow stamp, casts no vote."""
+    auth.CHECKS.clear()
+    auth.check_signals(_signals_contract(idp_state="held"))
+    assert _signals_checks()["SIG-IDP"].status == "pass"
 
 
 def test_signals_without_a_contract_is_unmeasurable():

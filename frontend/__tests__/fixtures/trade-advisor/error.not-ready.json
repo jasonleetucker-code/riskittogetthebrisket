@@ -1,0 +1,5 @@
+{
+  "error": "advisor_unavailable",
+  "message": "The trade advisor is not ready yet. Try again shortly.",
+  "reason": "not_ready"
+}

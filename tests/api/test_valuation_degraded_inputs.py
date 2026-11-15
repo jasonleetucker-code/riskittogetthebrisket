@@ -27,6 +27,10 @@ import math
 from typing import Any
 
 from src.api import data_contract as dc
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 IDP_POSITIONS = ("DL", "LB", "DB")

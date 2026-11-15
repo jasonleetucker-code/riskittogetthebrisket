@@ -1,0 +1,12 @@
+{
+  "basis": "src.ros.playoff_sim (rosValue presim) \u2014 not consumed",
+  "ciHigh": null,
+  "ciLow": null,
+  "delta": null,
+  "horizon": "current_season",
+  "ownerId": "owner01",
+  "reason": "basis_mismatch: playoff presim on rosValue index; owner decision 11 pending",
+  "state": "unavailable",
+  "titleProbAfter": null,
+  "titleProbBefore": null
+}

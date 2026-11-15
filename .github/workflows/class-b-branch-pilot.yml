@@ -1,0 +1,61 @@
+name: Class B Branch Pilot
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/class-b-branch-pilot.yml'
+      - 'scripts/class_b_branch_worker.py'
+      - 'scripts/class_b_branch_verify.py'
+      - 'tests/scripts/test_class_b_branch_pilot.py'
+      - 'docs/master-site-audit/PERFORMANCE_AUDIT.md'
+
+permissions:
+  contents: read
+
+jobs:
+  fixed-document-task:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run credential-free worker and independently verify exact output
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -Eeuo pipefail
+          fixture_dir="$(mktemp -d)"
+          output_dir="$(mktemp -d)"
+          chmod 755 "$fixture_dir"
+          sudo mount -t tmpfs -o size=1m,mode=1777 tmpfs "$output_dir"
+          trap 'sudo umount "$output_dir" || true' EXIT
+          git show "${BASE_SHA}:docs/master-site-audit/PERFORMANCE_AUDIT.md" > "$fixture_dir/PERFORMANCE_AUDIT.md"
+          chmod 444 "$fixture_dir/PERFORMANCE_AUDIT.md"
+          if ! grep -Fq '[Optimisations that serve a different answer](#optimisations-that-serve-a-different-answer)' "$fixture_dir/PERFORMANCE_AUDIT.md"; then
+            # The one-time repair has landed. Future changes to this document or
+            # pilot code still must preserve the resolved anchor.
+            python -I -B scripts/class_b_branch_worker.py --check "$fixture_dir/PERFORMANCE_AUDIT.md"
+            python -I -B scripts/class_b_branch_worker.py --check docs/master-site-audit/PERFORMANCE_AUDIT.md
+            git diff --check "${BASE_SHA}" HEAD -- docs/master-site-audit/PERFORMANCE_AUDIT.md
+            echo 'Fixed Class B pilot anchor remains valid; original container proof is recorded on the pilot PR.'
+            exit 0
+          fi
+          timeout 90s docker run --rm --pull=always \
+            --network=none --read-only --cap-drop=ALL \
+            --security-opt=no-new-privileges --user=65534:65534 \
+            --pids-limit=32 --memory=256m --cpus=1 --shm-size=8m \
+            --tmpfs=/tmp:rw,noexec,nosuid,nodev,size=8m,mode=1777 \
+            --mount "type=bind,source=${fixture_dir},target=/input,readonly" \
+            --mount "type=bind,source=${output_dir},target=/output" \
+            --mount "type=bind,source=${PWD}/scripts/class_b_branch_worker.py,target=/worker.py,readonly" \
+            python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 \
+            python -I -B /worker.py --source /input/PERFORMANCE_AUDIT.md --output /output --probe-network
+          python scripts/class_b_branch_verify.py \
+            --source "$fixture_dir/PERFORMANCE_AUDIT.md" \
+            --output "$output_dir" --require-network-probe
+          cmp "$output_dir/PERFORMANCE_AUDIT.md" docs/master-site-audit/PERFORMANCE_AUDIT.md
+          git diff --check "${BASE_SHA}" HEAD -- docs/master-site-audit/PERFORMANCE_AUDIT.md

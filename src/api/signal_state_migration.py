@@ -46,36 +46,61 @@ def migrate_user(
       "keys_moved": int,
     }
     """
-    state = user_kv.get_user_state(username, path=path)
-    legacy = state.get("signalAlertState")
-    by_league = state.get("signalAlertStateByLeague") or {}
-    if not isinstance(by_league, dict):
-        by_league = {}
-
-    if not isinstance(legacy, dict) or not legacy:
+    # Cheap unlocked pre-check so a user with nothing to migrate is never
+    # written; the decision that writes is re-made under the lock below.
+    if _plan(user_kv.get_user_state(username, path=path), default_league_key)[0] == "noop":
         return {
             "username": username,
             "action": "noop",
             "reason": "no_legacy_state",
             "keys_moved": 0,
         }
+
+    outcome: list[tuple[str, str, int]] = []
+
+    # Re-plan and apply on the CURRENT state inside the user_kv write lock:
+    # rewriting ``signalAlertStateByLeague`` from a copy read earlier
+    # discarded a league bucket a concurrent alert sweep had just written.
+    def _apply(state: dict[str, Any]) -> None:
+        outcome.clear()
+        action, reason, keys_moved, next_by_league = _plan(state, default_league_key)
+        if next_by_league is not None:
+            state["signalAlertStateByLeague"] = next_by_league
+        if action != "noop":
+            # Drop legacy field — we've captured everything useful.
+            state["signalAlertState"] = {}
+        outcome.append((action, reason, keys_moved))
+
+    user_kv.mutate_user_state(username, _apply, path=path)
+    action, reason, keys_moved = outcome[0]
+    return {
+        "username": username,
+        "action": action,
+        "reason": reason,
+        "keys_moved": keys_moved,
+    }
+
+
+def _plan(
+    state: dict[str, Any], default_league_key: str
+) -> tuple[str, str, int, dict[str, Any] | None]:
+    """Pure: ``(action, reason, keys_moved, next signalAlertStateByLeague)``.
+
+    ``next`` is ``None`` when the per-league map is left untouched."""
+    legacy = state.get("signalAlertState")
+    by_league = state.get("signalAlertStateByLeague") or {}
+    if not isinstance(by_league, dict):
+        by_league = {}
+
+    if not isinstance(legacy, dict) or not legacy:
+        return "noop", "no_legacy_state", 0, None
     if (
         default_league_key in by_league
         and isinstance(by_league[default_league_key], dict)
         and by_league[default_league_key]
     ):
         # Already migrated — just drop the legacy field.
-        user_kv.merge_user_state(
-            username,
-            {"signalAlertState": {}},
-            path=path,
-        )
-        return {
-            "username": username,
-            "action": "skipped",
-            "reason": "already_migrated",
-            "keys_moved": 0,
-        }
+        return "skipped", "already_migrated", 0, None
 
     # Merge legacy into default-league bucket.  If the league bucket
     # already exists, prefer the newer entries per-key (by ``notifiedAt``).
@@ -92,23 +117,7 @@ def migrate_user(
             existing[sig_key] = legacy_entry
 
     keys_moved = len(existing) - len(by_league.get(default_league_key) or {})
-    next_by_league = {**by_league, default_league_key: existing}
-
-    user_kv.merge_user_state(
-        username,
-        {
-            "signalAlertStateByLeague": next_by_league,
-            # Drop legacy field — we've captured everything useful.
-            "signalAlertState": {},
-        },
-        path=path,
-    )
-    return {
-        "username": username,
-        "action": "migrated",
-        "reason": "ok",
-        "keys_moved": keys_moved,
-    }
+    return "migrated", "ok", keys_moved, {**by_league, default_league_key: existing}
 
 
 def migrate_all(

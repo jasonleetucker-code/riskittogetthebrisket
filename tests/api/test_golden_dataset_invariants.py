@@ -42,6 +42,9 @@ from src.api.data_contract import (
     build_api_data_contract,
 )
 
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 # ── The golden dataset ──────────────────────────────────────────────────
 # (name, position, {source: raw site value})
 #
