@@ -629,7 +629,12 @@ def compute_playoff_odds(
         }
 
     registry = snapshot.managers
-    structure = resolve_playoff_structure(season)
+    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+    # The league's recorded playoff rules are part of its structure
+    # (``config/leagues/playoff_rules.json``) — the same structure the engine
+    # simulated, so the two never describe different leagues.
+    structure = resolve_playoff_structure(season, resolve_snapshot_league_key(snapshot))
     spots = structure.teams
     if spots is None:
         return _unknown_bracket(snapshot, season, structure)
@@ -705,12 +710,35 @@ def compute_playoff_odds(
     n_sims = _simulation_count(forecast)
     simulated = bool(by_owner) and not unsimulable and bool(n_sims)
 
+    # Division titles (owner 2026-11-08) are a separate question from
+    # qualifying and are published even when qualifying is withheld, because
+    # they depend on the regular-season record alone.
+    from src.ros.playoff_sim import draft_slot_rows  # noqa: PLC0415
+
+    division_odds = forecast.get("divisionOdds")
+    divisions_available = (
+        isinstance(division_odds, dict) and division_odds.get("state") == "available"
+    )
+    season_rows = {str(r.get("ownerId")): r for r in draft_slot_rows(forecast) if r.get("ownerId")}
+
     owners: list[dict[str, Any]] = []
     for o in owners_in_league:
         probability = _probability(by_owner.get(o)) if simulated else None
         row = _row(o, probability)
         if simulated and probability is None:
             row["unavailableReason"] = "owner_absent_from_canonical_forecast"
+        season_row = season_rows.get(o) or {}
+        if divisions_available and "divisionChampionOdds" in season_row:
+            row["division"] = season_row.get("division")
+            row["divisionName"] = season_row.get("divisionName")
+            row["divisionChampionProbability"] = _probability(
+                {"playoffOdds": season_row.get("divisionChampionOdds")}
+            )
+            row["divisionTitleBasis"] = season_row.get("divisionTitleBasis")
+            if "divisionTitleTieOdds" in season_row:
+                row["divisionTitleTieProbability"] = _probability(
+                    {"playoffOdds": season_row.get("divisionTitleTieOdds")}
+                )
         owners.append(row)
 
     out: dict[str, Any] = {
@@ -732,6 +760,8 @@ def compute_playoff_odds(
         "standingsRule": standings_rule,
         "owners": owners,
     }
+    if isinstance(division_odds, dict):
+        out["divisionOdds"] = division_odds
     if unposted:
         out["unpostedWeeks"] = unposted
     if unsimulable:

@@ -23,6 +23,10 @@ StandardError=append:/var/log/riskit-state-backup.log
 Environment="APP_DIR=/home/dynasty/trade-calculator"
 Environment="BACKUP_ROOT=/var/backups/riskit-state"
 Environment="KEEP_DAILY=14"
+# Group that may LIST (not read) the 0700 root so the backend's /api/status can
+# verify generations instead of reporting `unverifiable / permission_denied`.
+# Listing only: artifacts stay root-only 0600 and sessions/ stays 0700.
+Environment="BACKUP_READ_GROUP=dynasty"
 # Optional off-box mirror — set via drop-in
 # (`systemctl edit riskit-state-backup.service`):
 #   Environment="OFFBOX_RSYNC_DEST=backup@host:riskit-state/"

@@ -627,6 +627,7 @@ def build_section_payload(
     *,
     activity_valuation: activity._ResolverFactory | None = None,
     team_assignment_contract: dict[str, Any] | None = None,
+    awards_section: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a single public-section payload, wrapped in the standard header.
 
@@ -645,6 +646,15 @@ def build_section_payload(
     ``teamAssignment`` needs the canonical Meaningful Core / player-value
     pipeline, which the public snapshot alone cannot supply.  Ignored for
     every other section.
+
+    ``awards_section`` (optional) is an already-built ``awards`` section body,
+    reused by ``franchise`` exactly as ``build_public_contract`` does, so the
+    section route does not recompute awards on every franchise request.  It
+    is read-only input; ``franchise`` reads only ``bySeason`` /
+    ``seasonStatus`` / ``season`` / ``awards[].ownerId|key|label`` from it,
+    none of which ``public_payload`` projects away, so the projected body the
+    server memoizes yields the same franchise bytes as a fresh build.  Ignored
+    for every other section.
 
     Raises ``KeyError`` if ``section`` is unknown.
     """
@@ -665,6 +675,8 @@ def build_section_payload(
         section_body = _build_overview(snapshot, sections)
     elif section == "activity":
         section_body = _build_activity_section(snapshot, activity_valuation)
+    elif section == "franchise" and awards_section is not None:
+        section_body = franchise.build_section(snapshot, awards_section=awards_section)
     elif section in _SECTION_BUILDERS:
         section_body = _SECTION_BUILDERS[section](snapshot)
     elif section == "teamAssignment":

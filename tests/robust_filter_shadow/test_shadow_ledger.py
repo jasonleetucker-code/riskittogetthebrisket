@@ -23,6 +23,8 @@ from src.robust_filter_shadow import ledger as L
 from src.robust_filter_shadow import outcomes as O
 from src.robust_filter_shadow import record as R
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 REPO = Path(__file__).resolve().parents[2]
 SYSTEMD = REPO / "deploy" / "systemd"
 
@@ -301,9 +303,9 @@ def test_pipeline_fingerprint_moves_when_a_weight_config_changes(tmp_path):
 def test_flag_off_shadow_build_is_the_default_board():
     from src.api import feature_flags
     from src.api import value_replay as vr
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    raw, name = newest_complete_raw_payload()
+    raw, name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape")
     assert feature_flags.snapshot().get(R.CHALLENGER_FLAG) is False

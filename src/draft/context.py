@@ -34,8 +34,10 @@ from src.draft.displacement import (
     build_cut_ladder,
     count_free_agents,
     free_agent_ladder,
+    replacement_level_provenance,
     waiver_values_by_position,
 )
+from src.draft import waiver_population
 from src.draft.rookie_pool import auction_rookie_keys
 
 __all__ = [
@@ -45,6 +47,8 @@ __all__ = [
     "contract_teams",
     "index_contract_rows",
     "league_rostered_keys",
+    "LeagueHolderIndex",
+    "league_holder_index",
     "list_draft_teams",
     "match_team",
 ]
@@ -57,6 +61,13 @@ __all__ = [
 #: v3 (2026-08-04) adds ``rosterByPosition`` / ``startersByPosition`` so the
 #: client can say whether a plan leaves a starting slot unfilled.
 CONTEXT_VERSION = "2026-08-04.v3"
+
+#: Served ONLY with flag ``replacement_level_li5_consolidation`` ON, because
+#: there ``waiverValues`` changes MEANING (best free agent -> LI-5's mean of
+#: free-agent ranks 1-3 over the add-pool / health population) and the payload
+#: gains ``replacementPopulation``.  Flag OFF keeps :data:`CONTEXT_VERSION`
+#: (design §4.6).
+CONTEXT_VERSION_LI5 = "2026-10-25.v4-li5"
 
 
 def _norm(s: Any) -> str:
@@ -104,6 +115,14 @@ def index_contract_rows(
     return by_id, by_name
 
 
+def _row_name_keys(row: Mapping[str, Any]) -> frozenset[str]:
+    """Every normalised name a board row answers to - the three fields
+    :func:`index_contract_rows` indexes by name."""
+    return frozenset(
+        k for k in (_norm(row.get(f)) for f in ("legacyRef", "canonicalName", "displayName")) if k
+    )
+
+
 def league_rostered_keys(contract: Mapping[str, Any] | None) -> set[str]:
     """Every key that identifies a player owned by SOME team in the league.
 
@@ -127,6 +146,56 @@ def league_rostered_keys(contract: Mapping[str, Any] | None) -> set[str]:
             if _norm(name):
                 keys.add(_norm(name))
     return keys
+
+
+class LeagueHolderIndex:
+    """Which team holds a player — id first, the canonical name fallback second.
+
+    ``league_rostered_keys`` answers "is this key rostered by someone"; this
+    answers "WHICH team", with the same identity rule the waiver surfaces share
+    (the player-identity owner's: a Sleeper id is proof, a name is the fallback
+    only where the roster carries no ids, since two distinct players can share a
+    display name).  A free agent who shares a name with a rostered player is
+    therefore NOT held, on every surface that asks.  Unresolved identity is
+    never a guess: a row with no id is matched by name alone.
+    """
+
+    def __init__(self, teams: Sequence[Mapping[str, Any]]) -> None:
+        self._by_id: dict[str, Mapping[str, Any]] = {}
+        self._by_name_all: dict[str, Mapping[str, Any]] = {}
+        self._by_name_idless: dict[str, Mapping[str, Any]] = {}
+        for team in teams:
+            ids = [_norm(x) for x in (team.get("playerIds") or []) if _norm(x)]
+            names = [_norm(n) for n in (team.get("players") or []) if _norm(n)]
+            for pid in ids:
+                self._by_id.setdefault(pid, team)
+            for nm in names:
+                self._by_name_all.setdefault(nm, team)
+                if not ids:
+                    self._by_name_idless.setdefault(nm, team)
+
+    def holder(self, player_id: Any, name: Any) -> tuple[Mapping[str, Any] | None, str | None]:
+        """``(team, matched_by)``; ``(None, None)`` when nobody holds him."""
+        pid = _norm(player_id)
+        nm = _norm(name)
+        if pid:
+            if pid in self._by_id:
+                return self._by_id[pid], "playerId"
+            if nm and nm in self._by_name_idless:
+                return self._by_name_idless[nm], "name"
+            return None, None
+        if nm and nm in self._by_name_all:
+            return self._by_name_all[nm], "name"
+        return None, None
+
+
+def league_holder_index(contract: Mapping[str, Any] | None) -> LeagueHolderIndex:
+    """The one "which team holds this player" index over a contract's teams.
+
+    Beside :func:`league_rostered_keys`, which answers the set question.  The bid
+    desk and the waiver list both resolve availability through it.
+    """
+    return LeagueHolderIndex(contract_teams(contract))
 
 
 def _roster_size_for(league_key: str | None) -> int | None:
@@ -219,7 +288,49 @@ def match_team(
         for t in teams:
             if _norm(t.get("name")) == _norm(team_name):
                 return t
+        # The /draft workspace's teams come from /api/draft-capital, which names
+        # them by their Sleeper TEAM name ("Medical Murrayjuana"), not the
+        # manager's display name ("Jason"): the same team in a second name
+        # space.  Display name keeps precedence.  Measured 2026-11-12 (website
+        # audit): 11 of 12 dynasty_main draft-capital names were unknown_team,
+        # so Perfect Draft vanished for every team but the one whose two names
+        # coincide.
+        # Sleeper allows two teams the same team name: then the name decides
+        # nothing, and the caller is told so rather than handed the first.
+        by_team_name = [t for t in teams if _norm(t.get("sleeperTeamName")) == _norm(team_name)]
+        if len(by_team_name) == 1:
+            return by_team_name[0]
     return None
+
+
+def _ids_parallel_to_names(
+    names: Sequence[str],
+    ids: Sequence[str],
+    by_id: Mapping[str, Mapping[str, Any]],
+) -> bool:
+    """Are ``ids`` VERIFIABLY the parallel list of ``names`` (``ids[i]`` is
+    ``names[i]``'s Sleeper id)?
+
+    Equal lengths, at least one id that resolves to a board row, and EVERY id
+    that resolves sits at an index whose name that row answers to.  Positional
+    pairing is never assumed: it is the ``sleeper_overlay`` shape, the scraper
+    sorts the two lists independently (8 of 696 entries line up on the
+    2026-10-25 board), and neither shape carries a marker saying which it is.
+    A sorted pair of lists can pass only by agreeing at every resolvable index,
+    in which case the pairing it implies is the true one for those entries.
+    Pure.
+    """
+    if not names or len(names) != len(ids):
+        return False
+    verified = 0
+    for name, pid in zip(names, ids):
+        row = by_id.get(_norm(pid))
+        if row is None:
+            continue
+        if _norm(name) not in _row_name_keys(row):
+            return False
+        verified += 1
+    return verified > 0
 
 
 def build_roster_assets(
@@ -235,25 +346,94 @@ def build_roster_assets(
     anything asking "what would this lineup actually be?" needs the players.
     Duplicating the join in a script would be a second definition of who is on
     a roster, which is exactly the kind of parallel system this repo avoids.
+
+    **Identity first, name only as the fallback** (B0-b; the N-team engine's
+    I9, ``LANE-E-DEFECT-I9-DUPNAME``).  The roster's Sleeper ids say WHICH board
+    rows are this roster's own players; a roster name is then joined to one of
+    THOSE rows, each used once.  Only a name that none of the roster's own rows
+    carries falls back to the league-wide name index - and a row that index
+    returns for ANOTHER player (stamped with a ``playerId`` this roster does not
+    hold, or one already used) is a name collision, not a match.  The join used
+    to be name-first, so two players sharing a display name - on one roster or
+    across the league - collapsed onto one board row and one ``player_id``,
+    which the cut ladder (keyed on ``player_id``) then read as one player.
+
+    ``players`` and ``playerIds`` are NOT parallel lists in the live contract
+    (names sorted alphabetically, ids by id: 8 of 696 entries line up on the
+    2026-10-25 board), so the ids are used as a SET to scope who a name can mean,
+    never positionally to JOIN.  The one positional read is an unmatched entry's
+    own id, and only for rosters whose lists are VERIFIED parallel (the
+    ``sleeper_overlay`` shape; :func:`_ids_parallel_to_names`).  The assets come
+    back one per name, in name order; an entry the board has no row for is
+    ``on_board=False`` - the join's own fact, not a guess from empty fields.
     """
     names = [str(n) for n in (team.get("players") or []) if str(n or "").strip()]
     ids = [str(i) for i in (team.get("playerIds") or []) if str(i or "").strip()]
+    own_ids = {_norm(i) for i in ids}
+    # The roster's OWN board rows, in id order, each consumable once.
+    own_rows: list[tuple[str, Mapping[str, Any], frozenset[str]]] = []
+    for pid in ids:
+        own = by_id.get(_norm(pid))
+        if own is not None:
+            own_rows.append((_norm(pid), own, _row_name_keys(own)))
+    used_own: set[int] = set()
+    consumed_ids: set[str] = set()
+    joined: list[tuple[str, Mapping[str, Any] | None]] = []
+    for name in names:
+        key = _norm(name)
+        row: Mapping[str, Any] | None = None
+        for j, (pid, own, own_keys) in enumerate(own_rows):
+            if j not in used_own and key in own_keys:
+                used_own.add(j)
+                consumed_ids.add(pid)
+                row = own
+                break
+        if row is None:
+            row = by_name.get(key)
+            if row is not None and own_ids:
+                rid = _norm(row.get("playerId"))
+                if rid and (rid not in own_ids or rid in consumed_ids):
+                    row = None
+            if row is not None and _norm(row.get("playerId")) in own_ids:
+                consumed_ids.add(_norm(row.get("playerId")))
+        joined.append((name, row))
+    # An unmatched entry's own Sleeper id.  Two producer shapes, told apart by
+    # what the board can VERIFY (:func:`_ids_parallel_to_names`):
+    #
+    # * ``sleeper_overlay`` rosters (every non-default league) publish ``players``
+    #   and ``playerIds`` as PARALLEL lists - ``playerIds[i]`` is entry ``i``'s
+    #   id.  When every id that resolves to a board row sits at an index whose
+    #   name that row answers to, the pairing is verified and an unmatched entry
+    #   keeps its positional id (what this join always gave it).
+    # * the scraper's rosters (the default league) sort the two lists
+    #   independently, so no index means anything.  An unmatched entry's id is
+    #   then known only when it is the single one left over; with several,
+    #   which id is whose cannot be told, so none is guessed.
+    #
+    # A roster whose pairing cannot be verified (nothing resolves, or one pair
+    # contradicts) reads as the scraper shape - the safe reading: it can
+    # withhold an id, never assign another entry's.
+    parallel = _ids_parallel_to_names(names, ids, by_id)
+    leftover_ids = [i for i in ids if _norm(i) not in consumed_ids]
+    only_unmatched_id = (
+        leftover_ids[0]
+        if len(leftover_ids) == 1 and sum(r is None for _n, r in joined) == 1
+        else None
+    )
     assets: list[RosterAsset] = []
     unmatched: list[str] = []
-    for idx, name in enumerate(names):
-        row = by_name.get(_norm(name))
-        if row is None and idx < len(ids):
-            row = by_id.get(_norm(ids[idx]))
+    for idx, (name, row) in enumerate(joined):
         if row is None:
             unmatched.append(name)
             # Still occupies a roster spot, and is a legitimate cut candidate —
             # dropping him from the model would understate roster pressure.
             assets.append(
                 RosterAsset(
-                    player_id=ids[idx] if idx < len(ids) else name,
+                    player_id=(ids[idx] if parallel else only_unmatched_id) or name,
                     name=name,
                     position="",
                     board_value=None,
+                    on_board=False,
                 )
             )
             continue
@@ -314,14 +494,31 @@ def build_roster_context(
     # end was lot number one (see src/draft/rookie_pool.py), which suppressed
     # every rookie TE's surplus by comparing him against himself.
     auction_keys = auction_rookie_keys(contract)
+    # LI-5 consolidation (design phase P3), flag OFF by default: ``None`` keeps
+    # every measurement below on the incumbent best-single-player code path.
+    # ON, the population keeps THIS consumer's own unavailable keys — the
+    # auction rookies (D6) — and adds the add-pool and health steps.
+    population = (
+        waiver_population.consumer_population(contract, rostered_keys, auction_keys)
+        if waiver_population.enabled()
+        else None
+    )
     # The size of the defect this exclusion fixes, measured rather than
     # asserted: the difference between the free-agent universe with the auction
     # in it and without.  Counted this way and not by "auction rookies nobody
     # rosters", which overstates it — a rookie with no position never reached
-    # the free-agent pool to begin with.
-    free_agents_total = count_free_agents(contract, rostered_keys, auction_keys)
-    auction_rookies_excluded = count_free_agents(contract, rostered_keys) - free_agents_total
-    waiver_values = waiver_values_by_position(contract, rostered_keys, auction_keys)
+    # the free-agent pool to begin with.  Always measured on the legacy
+    # free-agent set: it answers what the AUCTION exclusion removes.
+    legacy_free_agents = count_free_agents(contract, rostered_keys, auction_keys)
+    auction_rookies_excluded = count_free_agents(contract, rostered_keys) - legacy_free_agents
+    free_agents_total = (
+        legacy_free_agents
+        if population is None
+        else count_free_agents(contract, rostered_keys, auction_keys, population=population)
+    )
+    waiver_values = waiver_values_by_position(
+        contract, rostered_keys, auction_keys, population=population
+    )
     if not waiver_values:
         notes.append("no waiver-level values available — cut costs fall back to raw board value")
 
@@ -329,7 +526,9 @@ def build_roster_context(
     # free agents, not the single best one k times over.  The cap is generous
     # relative to any plan the optimizer will produce (open spots plus at most
     # MAX_LADDER_RUNGS cuts) so the client never runs off the end of it.
-    waiver_ladder = free_agent_ladder(contract, rostered_keys, auction_keys, limit=90)
+    waiver_ladder = free_agent_ladder(
+        contract, rostered_keys, auction_keys, limit=90, population=population
+    )
     if not waiver_ladder:
         notes.append(
             "no free agents available — replacement level is unmeasurable and "
@@ -382,8 +581,8 @@ def build_roster_context(
         if key:
             starters_by_position[key] = starters_by_position.get(key, 0) + 1
 
-    return {
-        "contextVersion": CONTEXT_VERSION,
+    payload = {
+        "contextVersion": CONTEXT_VERSION if population is None else CONTEXT_VERSION_LI5,
         "leagueKey": league_key,
         "valueScale": "rankDerivedValue",
         "team": {
@@ -421,3 +620,9 @@ def build_roster_context(
         "unmatchedRosterPlayers": unmatched[:25],
         "notes": notes,
     }
+    if population is not None:
+        # Additive, flag-ON only: who counted as a free agent, which lens is
+        # served (``banded_without_health`` in the pre-season — design F4),
+        # and how each positional level was formed.
+        payload["replacementPopulation"] = replacement_level_provenance(population)
+    return payload

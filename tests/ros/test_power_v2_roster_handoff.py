@@ -204,7 +204,8 @@ def _publish_baseline(root: Path, week: int, ranks: dict[str, int]) -> None:
                     for oid, rank in ranks.items()
                 ],
             }
-        )
+        ),
+        encoding="utf-8",
     )
 
 
@@ -264,7 +265,7 @@ def test_the_published_week_freezes_the_franchise_movement_and_its_baseline_owne
         expected_owner_ids={"o1", "o2", "o3", JOHN},
     )
     assert created
-    published = {r["ownerId"]: r for r in json.loads(path.read_text())["ranking"]}
+    published = {r["ownerId"]: r for r in json.loads(path.read_text(encoding="utf-8"))["ranking"]}
     assert published[JOHN]["priorRank"] == 3
     assert published[JOHN]["rankDelta"] == 2
     assert published[JOHN]["priorOwnerId"] == JOEL

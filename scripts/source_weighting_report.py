@@ -195,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         rows = state_only_rows(args.state_dir, as_of)
         print_state_only(rows, as_of, feature_flags.is_enabled("source_freshness_weighting"))
         if args.json:
-            args.json.write_text(json.dumps(rows, indent=1))
+            args.json.write_text(json.dumps(rows, indent=1), encoding="utf-8")
         return 0
 
     from src.api.data_contract import build_api_data_contract  # noqa: PLC0415
@@ -219,7 +219,9 @@ def main(argv: list[str] | None = None) -> int:
         explained.append(ex)
         print_player(ex)
     if args.json:
-        args.json.write_text(json.dumps({"table": table, "players": explained}, indent=1))
+        args.json.write_text(
+            json.dumps({"table": table, "players": explained}, indent=1), encoding="utf-8"
+        )
     return 0
 
 

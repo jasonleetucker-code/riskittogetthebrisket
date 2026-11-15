@@ -3,13 +3,14 @@
 
 * :func:`synthetic_league` — a LABELLED synthetic 4-team league whose board
   values reproduce the spec's worked examples (I14);
-* :func:`real_board` — the newest COMPLETE archived scrape built into a real
-  contract (``tests/archive_fixtures``), with its rosters stamped ``live`` at a
-  pinned clock so ownership is provable; SKIPS when no archive exists;
+* :func:`real_board` — the PINNED real board (``tests/archive_fixtures``
+  ``pinned_board_contract``: one complete archived scrape with its own CSVs and
+  scrape state, frozen in a committed fixture), with its rosters stamped
+  ``live`` at a pinned clock so ownership is provable;
 * :func:`random_ledger` — a seeded generator of valid routed ledgers over a
   snapshot (players and owned picks, 2..4 teams, every team participating);
-* :func:`reverse_replays` — real recorded own-league trades
-  (``data/sleeper_last_good.json``) replayed in REVERSE on the archived board:
+* :func:`reverse_replays` — real recorded own-league trades (the pinned
+  payload's own ``sleeper.trades``) replayed in REVERSE on the pinned board:
   each side sends back what it got, which is exactly what it holds today when
   nothing moved since.  Real structures, real assets, current ownership.
 """
@@ -153,18 +154,15 @@ def synthetic_snapshot(contract: dict[str, Any] | None = None, **kw: Any) -> tl.
     )
 
 
-# ── Real archived board ────────────────────────────────────────────────────
+# ── Real (pinned) board ────────────────────────────────────────────────────
 
 
 @lru_cache(maxsize=1)
 def _real_contract() -> tuple[dict[str, Any] | None, str | None]:
-    from src.api.data_contract import build_api_data_contract
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_contract
 
-    raw, label = newest_complete_raw_payload()
-    if raw is None:
-        return None, None
-    contract = build_api_data_contract(raw)
+    shared, label = pinned_board_contract()
+    contract = copy.deepcopy(shared)
     teams = (contract.get("sleeper") or {}).get("teams") or []
     if len(teams) < 4:
         return None, label
@@ -198,6 +196,21 @@ def _dynasty_main_settings() -> dict[str, Any]:
         if league.get("key") == "dynasty_main":
             return dict(league.get("rosterSettings") or {})
     return {}
+
+
+def _pinned_trades() -> list[dict[str, Any]]:
+    """The pinned board's own recorded league trades (``sleeper.trades``).
+
+    Taken from the SAME frozen payload as the rosters they replay on, so a
+    replay is a fact about one board rather than about whichever trades the
+    latest refresh wrote to ``data/sleeper_last_good.json``.  Manager names
+    in the pinned payload are pseudonymized consistently with its pick
+    labels, so ``(from X)`` labels still join.
+    """
+    from tests.archive_fixtures import pinned_board_payload
+
+    payload, _label = pinned_board_payload()
+    return list((payload.get("sleeper") or {}).get("trades") or [])
 
 
 # ── Generators ─────────────────────────────────────────────────────────────
@@ -257,12 +270,7 @@ def reverse_replays(snap: tl.TradeSnapshot, *, sides: int | None = None) -> list
     what it got, to the side that gave it) is a REAL structure that validates
     against current ownership.  Trades whose assets moved on are dropped.
     """
-    path = REPO / "data" / "sleeper_last_good.json"
-    if not path.exists():
-        return []
-    trades = (json.loads(path.read_text(encoding="utf-8")).get("rosterData") or {}).get(
-        "trades"
-    ) or []
+    trades = _pinned_trades()
     name_to_ids: dict[str, set[str]] = {}
     for pid, name in snap.id_to_player.items():
         name_to_ids.setdefault(str(name).strip().lower(), set()).add(pid)
@@ -324,12 +332,7 @@ def structure_replays(snap: tl.TradeSnapshot, *, sides: int) -> list[dict[str, A
     giver's first not-yet-used asset of the same kind (deterministic).  The
     routing — who sends how many players and picks to whom — is the real one.
     """
-    path = REPO / "data" / "sleeper_last_good.json"
-    if not path.exists():
-        return []
-    trades = (json.loads(path.read_text(encoding="utf-8")).get("rosterData") or {}).get(
-        "trades"
-    ) or []
+    trades = _pinned_trades()
     name_to_ids: dict[str, set[str]] = {}
     for pid, name in snap.id_to_player.items():
         name_to_ids.setdefault(str(name).strip().lower(), set()).add(pid)

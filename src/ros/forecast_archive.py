@@ -27,6 +27,21 @@ elsewhere) is pinned by the code SHA, not by ``simParams``. A field that cannot
 be established is ``None`` with its reason in ``nullReasons``; nothing is
 guessed.
 
+**Two ``inputs`` fields that are legitimately ``None`` in production, and how
+each is identified instead.** ``pointsModelFileSha256`` is the hash of
+``data/league_intel/sim_points_model.json``, which is gitignored, so the refresh
+runner (where forecasts are produced) never has it and the run uses the
+documented fallback constants: the record names that explicitly
+(``pointsModelSource: "fallback-constants"``) and pins the constants with
+``pointsModelFallbackSha256`` (the hash of ``simParams.pointsModel``). A missing
+file is never the hash of empty input. ``contractGeneration`` is ``None`` by
+design: the simulators read the ROS aggregate and team strength -- pinned by
+``rosAggregateSha256`` / ``rosAggregatedAt`` / ``teamStrengthFileSha256`` -- and
+never the dynasty board, which the runner does not even load. (Tripwire + scan
+in ``tests/ros/test_forecast_archive.py``: every canonical contract getter is
+armed and the real forecast path is run, and the simulator-path modules are
+scanned for a spelled-out read.)
+
 **Why the store is not under ``data/ros/``**: the scheduled-refresh workflow
 ``git add -f``s the whole of ``data/ros/`` (``.github/workflows/scheduled-refresh.yml``),
 which overrides ``.gitignore``. An archive there would be committed to a public
@@ -158,11 +173,30 @@ def _code_identity(nulls: dict[str, str]) -> dict[str, Any]:
     }
 
 
-def _sim_params(best_ball: bool | None, nulls: dict[str, str]) -> dict[str, Any] | None:
+def _loaded_points_model() -> Any | None:
+    """The points model the simulators load, read ONCE per context.
+
+    ``simParams.pointsModel`` and ``inputs.pointsModelSource`` /
+    ``pointsModelFallbackSha256`` must describe the same model, so
+    :func:`collect_context` loads it a single time and hands it to both. ``None``
+    when it cannot be loaded; each consumer then records its own reason.
+    """
+    try:
+        from src.league_intel import sim_calibration  # noqa: PLC0415
+
+        return sim_calibration.load_points_model()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _sim_params(
+    best_ball: bool | None, nulls: dict[str, str], points_model: Any | None = None
+) -> dict[str, Any] | None:
     try:
         from src.league_intel import sim_calibration  # noqa: PLC0415
         from src.ros import championship, playoff_sim  # noqa: PLC0415
 
+        model = points_model if points_model is not None else sim_calibration.load_points_model()
         return {
             "bestBall": best_ball,
             "playoffSim": _module_constants(playoff_sim),
@@ -170,7 +204,7 @@ def _sim_params(best_ball: bool | None, nulls: dict[str, str]) -> dict[str, Any]
             # constant, so name it — two equations are two models.
             "rosEvidenceMethod": playoff_sim.ros_evidence_method(),
             "championship": _module_constants(championship),
-            "pointsModel": sim_calibration.load_points_model().to_dict(),
+            "pointsModel": model.to_dict(),
         }
     except Exception as exc:  # noqa: BLE001
         nulls["model.simParams"] = f"error:{type(exc).__name__}"
@@ -262,7 +296,17 @@ def _hash_file(path: Path, field: str, nulls: dict[str, str]) -> str | None:
         return None
 
 
-def _inputs(snapshot: Any, nulls: dict[str, str]) -> dict[str, Any]:
+#: ``inputs`` entries that are identity annotations rather than input hashes.
+#: They are excluded from ``inputsSha256`` so that fingerprint is byte-for-byte
+#: what it was before they existed (records stay comparable across the change).
+#: ``pointsModelFallbackSha256`` is already pinned by ``simParamsSha256``: it is
+#: the hash of ``simParams.pointsModel``, which that fingerprint contains.
+FINGERPRINT_EXCLUDED_INPUTS = ("pointsModelFallbackSha256",)
+
+
+def _inputs(
+    snapshot: Any, nulls: dict[str, str], points_model: Any | None = None
+) -> dict[str, Any]:
     from src.ros import ROS_DATA_DIR  # noqa: PLC0415
 
     out: dict[str, Any] = {
@@ -273,10 +317,22 @@ def _inputs(snapshot: Any, nulls: dict[str, str]) -> dict[str, Any]:
         "teamStrengthFileFresh": None,
         "rosAggregateSha256": None,
         "rosAggregatedAt": None,
+        # The points model, three facts (see ``_points_model_identity``): the
+        # artifact's bytes when one exists, which model the run actually used,
+        # and -- for the documented fallback constants, which have no file --
+        # the hash of those constants.
         "pointsModelFileSha256": None,
+        "pointsModelSource": None,
+        "pointsModelFallbackSha256": None,
         # The playoff / championship engines read the ROS aggregate and team
         # strength, never the canonical dynasty contract. Recording a board
-        # generation here would claim an input the forecast did not use.
+        # generation here would claim an input the forecast did not use. The
+        # inputs they DO read are pinned above: ``rosAggregateSha256`` +
+        # ``rosAggregatedAt`` (the ROS projection snapshot) and
+        # ``teamStrengthFileSha256``. If a simulator ever starts reading the
+        # contract, stamp ``trade_analyze_runtime.contract_generation`` here;
+        # the tripwire + scan tests (``test_forecast_production_path_reads_no_contract``,
+        # ``test_simulators_do_not_read_the_dynasty_contract``) fail first.
         "contractGeneration": None,
     }
     nulls["inputs.contractGeneration"] = "not_an_input_of_the_playoff_or_title_simulators"
@@ -302,14 +358,58 @@ def _inputs(snapshot: Any, nulls: dict[str, str]) -> dict[str, Any]:
             nulls["inputs.rosAggregatedAt"] = "aggregate_has_no_aggregatedAt"
     else:
         nulls["inputs.rosAggregatedAt"] = "aggregate_absent"
+    out.update(_points_model_identity(points_model, nulls))
+    return out
+
+
+def _points_model_identity(points_model: Any | None, nulls: dict[str, str]) -> dict[str, Any]:
+    """Which points model produced the forecast, as three separate facts.
+
+    * ``pointsModelFileSha256`` -- the bytes of ``sim_points_model.json`` when
+      that file exists. A missing file is ``None`` (never the hash of empty
+      input); the reason is in ``nullReasons``. The file is gitignored
+      (``data/``), so the refresh runner -- where forecasts are produced --
+      never has one: every runner-produced record is the fallback.
+    * ``pointsModelSource`` -- what ``load_points_model`` ACTUALLY used:
+      ``"calibrated"`` or ``"fallback-constants"``. Not inferred from the file's
+      presence: a file that is present but rejected (schema mismatch, no usable
+      scale) still yields the fallback, and then BOTH the file hash and
+      ``fallback-constants`` are recorded -- two true facts, not a guess.
+    * ``pointsModelFallbackSha256`` -- when (and only when) the fallback
+      constants are in use, the hash of that model's own ``to_dict()``, i.e.
+      ``canonical_sha256(simParams["pointsModel"])``. The constants have no file
+      to hash, so this is what lets a reader tell two fallback generations
+      apart. ``None`` for a calibrated model (the file hash is its identity).
+    """
+    out: dict[str, Any] = {
+        "pointsModelFileSha256": None,
+        "pointsModelSource": None,
+        "pointsModelFallbackSha256": None,
+    }
     try:
         from src.league_intel import sim_calibration  # noqa: PLC0415
 
         out["pointsModelFileSha256"] = _hash_file(
             sim_calibration.MODEL_PATH, "inputs.pointsModelFileSha256", nulls
         )
+        model = points_model if points_model is not None else sim_calibration.load_points_model()
+        source = str(model.source)
+        out["pointsModelSource"] = source
+        if source == sim_calibration.DEFAULT_POINTS_MODEL.source:
+            out["pointsModelFallbackSha256"] = canonical_sha256(model.to_dict())
+            if out["pointsModelFileSha256"] is None:
+                # Say WHY there is no file hash instead of leaving a bare
+                # ``file_absent``: the run used the documented constants.
+                nulls["inputs.pointsModelFileSha256"] = (
+                    f"fallback_constants_in_use:{nulls.get('inputs.pointsModelFileSha256', 'file_absent')}"
+                )
+        else:
+            nulls["inputs.pointsModelFallbackSha256"] = "points_model_is_not_the_fallback"
     except Exception as exc:  # noqa: BLE001
-        nulls["inputs.pointsModelFileSha256"] = f"error:{type(exc).__name__}"
+        reason = f"error:{type(exc).__name__}"
+        for field in ("pointsModelFileSha256", "pointsModelSource", "pointsModelFallbackSha256"):
+            if out[field] is None:
+                nulls.setdefault(f"inputs.{field}", reason)
     return out
 
 
@@ -322,7 +422,8 @@ def collect_context(snapshot: Any, *, best_ball: bool | None) -> dict[str, Any]:
         reason = f"error:{type(exc).__name__}"
         nulls.update(season=reason, week=reason, lastScoredWeek=reason)
         season_week = {"season": None, "week": None, "lastScoredWeek": None}
-    params = _sim_params(best_ball, nulls)
+    points_model = _loaded_points_model()
+    params = _sim_params(best_ball, nulls, points_model)
     model = {
         **_code_identity(nulls),
         "simParamsSha256": None if params is None else canonical_sha256(params),
@@ -331,11 +432,15 @@ def collect_context(snapshot: Any, *, best_ball: bool | None) -> dict[str, Any]:
     if params is None:
         nulls["model.simParamsSha256"] = nulls.get("model.simParams", "unknown")
     try:
-        inputs = _inputs(snapshot, nulls)
+        inputs = _inputs(snapshot, nulls, points_model)
     except Exception as exc:  # noqa: BLE001
         nulls["inputs"] = f"error:{type(exc).__name__}"
         inputs = {}
-    hashed = {k: v for k, v in inputs.items() if k.endswith("Sha256") or k == "rosAggregatedAt"}
+    hashed = {
+        k: v
+        for k, v in inputs.items()
+        if (k.endswith("Sha256") or k == "rosAggregatedAt") and k not in FINGERPRINT_EXCLUDED_INPUTS
+    }
     if any(v is not None for v in hashed.values()):
         # A partial fingerprint still pins what WAS known; which components
         # are missing is in ``nullReasons``.

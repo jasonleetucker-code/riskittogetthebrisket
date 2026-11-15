@@ -10,6 +10,17 @@ Evidence labels used throughout: **[M]** measured on the production host (quoted
 log or unit file), **[D]** arithmetic on measured values, **[I]** inference, **[E]** estimate,
 **[U]** unmeasured.
 
+> **Addendum 2026-10-25 — `dynasty-market-trade-ledger` limits changed (PR #1926).** The ledger rebuild was
+> stalling under its own `MemoryHigh=768M` (the throttle failure mode of §4.3, on a batch job): a read-only probe
+> of `build_ledger()` on the live stores peaked at **858 MiB RSS** [M] at 36,637 observations, growing ~27 MiB/day
+> [D], and the 2026-10-24 and 2026-10-25 runs ended `Result=timeout` after 15 min with 71 s of CPU [M]. The unit
+> now has **no `MemoryHigh`, `MemoryMax=2G`, `OOMScoreAdjust=500`** (a host OOM takes this batch job before the
+> backend). Every number below that includes the ledger's 1,024 MiB ceiling is updated inline and marked
+> *(2026-10-25)*. The one that changes a conclusion: under this package's recommendation (backend 3,584M,
+> frontend 1G) the **declared-ceiling sum becomes 8,704 MiB, 763 MiB over host RAM**, not 7,680 under it (§5.1),
+> and the all-ceilings co-resident margin becomes **−466 MiB** instead of +558 (§4.1). The owner's pending backend
+> decision should read those, not the originals.
+
 ---
 
 ## 1. Bottom line
@@ -92,7 +103,7 @@ Source runs: diagnostics `39241251979` (2026-10-19 window), `39403489430` (2026-
 | `dynasty.service` (backend + in-process scrape + Chromium) | 2560M (2,684,354,560 B live) | 3G (3,221,225,472 B live) | `OOMPolicy=stop`, `MemorySwapMax=infinity`, swap total 0; `ManagedOOMMemoryPressure=auto` (no oomd action observed) |
 | `dynasty-frontend.service` | 1536M | 2G | measured peaks 93.9 MiB (journal, 2026-10-21), 105.7 MiB (inventory, 2026-09-26), **137.3 MiB** (journal, 2026-10-19 10:04Z, run 39403489430) |
 | `dynasty-ktc-trades` | - | 512M | timer :07/:37 |
-| `dynasty-market-trade-ledger` | 768M | 1G | daily 08:52 UTC |
+| `dynasty-market-trade-ledger` | ~~768M~~ none *(2026-10-25)* | ~~1G~~ 2G *(2026-10-25)* | daily 08:52 UTC; `OOMScoreAdjust=500`; measured peak 858 MiB at 36,637 observations (see addendum) |
 | `dynasty-pick-forecast-snapshot` | - | 1536M | weekly Tue/Wed/Thu |
 | DLF / IDPShow / FFPC / sharp / signals / game-day / edgelab timers | none | none | unbounded and **[U]** (no memory figure recorded) |
 
@@ -102,6 +113,7 @@ Host: 8,326,946,816 B (7,941 MiB), 4 vCPU, swap 0 [M — `docs/performance/evide
 Declared-ceiling arithmetic [D, `scripts/memory_ceiling_budget.py`]: today the bounded units' `MemoryMax` values
 sum to **8,192 MiB, 251 MiB above host RAM** before the kernel, nginx or any unbounded timer. The ceilings are
 already oversubscribed; that is a statement about what the limits permit, not about use.
+*(2026-10-25: with the ledger at `MemoryMax=2G` the sum is **9,216 MiB, 1,275 MiB above host RAM**.)*
 
 ### 3.2 The two stalls
 
@@ -262,12 +274,16 @@ nginx, kernel, other processes). Still one sample, so an estimate:
 |---|---|---|
 | Backend at the 3,430 estimate + non-backend 727 | 4,157 MiB | **+3,784 MiB** |
 | Backend at proposed ceiling 3,584 + 727 + `ktc-trades` 512 + `market-ledger` 1,024 + `pick-forecast` 1,536 (every bounded timer at its ceiling at once; never observed) | 7,383 MiB | **+558 MiB** |
+| *(2026-10-25)* Same, with `market-ledger` at its new 2,048 ceiling | 8,407 MiB | **−466 MiB** |
 | Same absurd case at today's 3,072 ceiling | 6,871 MiB | +1,070 MiB |
 | Observed at the wedge: host `MemAvailable` | - | 4,550 MiB free with the backend at 2,618 MiB |
 
 So **simultaneous-load margin is not negative** on measured usage, and stays positive (+558 MiB) even in an
 unrealistic all-ceilings case. The one place it *is* negative is the **sum of declared ceilings**: +251 MiB over
-RAM today, +763 MiB if the backend ceiling were raised to 3,584M with the frontend left at 2G. That is why the
+RAM today, +763 MiB if the backend ceiling were raised to 3,584M with the frontend left at 2G *(2026-10-25,
+ledger at 2G: +1,275 today, +1,787 with the backend at 3,584M and the frontend at 2G; and the all-ceilings
+co-resident margin above turns negative, −466 MiB — still a never-observed case, but no longer a positive one;
+`OOMScoreAdjust=500` on the ledger makes it the host OOM killer's first choice over the backend)*. That is why the
 frontend change in B belongs in the same package, and why the unbounded timers (unmeasured) are the residual
 risk on the margin.
 
@@ -346,7 +362,8 @@ Adopt **C+D** (`MemoryMax=3584M`, no `MemoryHigh` on the backend) and the **fron
 (`MemoryHigh=768M`, `MemoryMax=1G`), rolled out in stages, with the watchdog and `OOMPolicy` unchanged.
 Reasons: the throttle is the measured failure mode; the host has 4.5 GiB free at the stall; a hard kill recovers
 in ~30 s, the throttle did not recover in 3-15 min; and the declared-ceiling sum stays under host RAM
-(7,680 vs 7,941 MiB).
+(7,680 vs 7,941 MiB). *(2026-10-25: no longer true — with the ledger at `MemoryMax=2G` this package's sum is
+8,704 MiB, 763 MiB over host RAM. Ceilings are not usage, but this reason no longer holds as written.)*
 
 Confidence: **high** that the throttle must go; **medium-low** on 3,584M as the right number (it is 154 MiB above
 the 3,430 estimate, which is a sum of non-co-occurring maxima, and only ~230-480 MiB above a fast-regrown heap

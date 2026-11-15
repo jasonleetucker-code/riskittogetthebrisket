@@ -1,6 +1,6 @@
 """Brisket Trade Advisor ⇄ private engine parity on a REAL archived board.
 
-Same claim as ``test_public_advisor_parity.py`` (spec I11), on the newest
+Same claim as ``test_public_advisor_parity.py`` (spec I11), on the pinned
 complete archived scrape: real rosters, IDP families, owned picks with
 canonical asset ids, and 2-, 3- and 4-team trades built from them.  For every
 trade and every participating team:
@@ -24,6 +24,8 @@ import pytest
 from src.trade import analyze_service, public_advisor, trade_ledger
 from tests.api import trade_advisor_support as S
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 _PUBLIC = {"FAIR": "FAIR", "NOT_FAIR": "NOT_FAIR", "UNABLE": "UNABLE_TO_DETERMINE"}
 LEAGUE = "dynasty_main"
 
@@ -31,9 +33,9 @@ LEAGUE = "dynasty_main"
 @pytest.fixture(scope="module")
 def archive():
     from src.api.data_contract import build_api_data_contract
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     contract = build_api_data_contract(copy.deepcopy(payload))
@@ -42,7 +44,7 @@ def archive():
     contract["sleeper"]["rosterFetchedAt"] = (
         datetime.now(timezone.utc) - timedelta(hours=1)
     ).isoformat()
-    reg = json.loads((S.REPO / "config" / "leagues" / "registry.json").read_text())
+    reg = json.loads((S.REPO / "config" / "leagues" / "registry.json").read_text(encoding="utf-8"))
     entry = next(lg for lg in reg["leagues"] if lg["key"] == LEAGUE)
     settings = entry.get("rosterSettings") or {}
     trade_ledger.clear_snapshot_memo()

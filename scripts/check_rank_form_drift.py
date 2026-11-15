@@ -263,7 +263,7 @@ def main() -> int:
 
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
-        args.json_out.write_text(json.dumps(verdict, indent=2) + "\n")
+        args.json_out.write_text(json.dumps(verdict, indent=2) + "\n", encoding="utf-8")
         print(f"\nWrote {args.json_out}")
 
     return 2 if drifted else 0

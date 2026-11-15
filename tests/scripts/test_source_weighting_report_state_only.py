@@ -62,7 +62,7 @@ def _rows(tmp_path: Path) -> dict[tuple[str, str], dict]:
     _write(tmp_path, "fantasyCalc", _state(10))  # KTC-like cadence, 10 days dark
     _write(tmp_path, KTC_MARKET_KEY, _state(0.1))
     # Fetched a minute ago — the content is still ten days old.
-    (tmp_path / "fantasyCalc_last_success").write_text(str((NOW).timestamp()))
+    (tmp_path / "fantasyCalc_last_success").write_text(str((NOW).timestamp()), encoding="utf-8")
     rows = report.state_only_rows(tmp_path, NOW)
     return {(r["source"], r["subset"]): r for r in rows}
 
@@ -99,7 +99,7 @@ def test_stale_source_is_reduced_and_a_refetch_does_not_freshen_it(tmp_path, sch
 
 def test_a_source_dark_past_thirty_days_carries_no_weight(tmp_path, schedule_v2):
     _write(tmp_path, "fantasyCalc", _state(31))
-    (tmp_path / "fantasyCalc_last_success").write_text(str((NOW).timestamp()))
+    (tmp_path / "fantasyCalc_last_success").write_text(str((NOW).timestamp()), encoding="utf-8")
     rows = {(r["source"], r["subset"]): r for r in report.state_only_rows(tmp_path, NOW)}
     assert rows[("fantasyCalc", "players")]["effectiveWeight"] == 0.0
 

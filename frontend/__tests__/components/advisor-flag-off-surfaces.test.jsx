@@ -78,8 +78,12 @@ describe("advisor flag OFF — outside the hub, exactly main", () => {
 
   it("nav: the Hub entry is main's (hint, no advisor keywords)", () => {
     const hub = NAV_MODEL.find((g) => g.key === "league").items.find((i) => i.href === "/league");
-    expect(hub.hint).toBe("Champions, records, power, draft capital, recaps");
-    expect(hub.keywords).toBeUndefined();
+    // Hint + keywords were widened by the UX nav audit (2026-11-01, NAV-07:
+    // playoff odds live in the hub and nothing said so).  What this test
+    // guards is unchanged: no advisor wording reaches the nav while the
+    // advisor is off.
+    expect(hub.hint).toBe("Standings, power, playoff odds, records, draft capital, recaps");
+    expect(JSON.stringify(hub.keywords || [])).not.toMatch(/advisor/i);
     expect(JSON.stringify(paletteTargets())).not.toMatch(/advisor/i);
   });
 

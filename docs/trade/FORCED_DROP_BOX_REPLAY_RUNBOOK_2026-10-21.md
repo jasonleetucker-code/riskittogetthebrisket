@@ -1,4 +1,8 @@
-# Forced-drop fix — production-box replay runbook (PREPARED, NOT RUN)
+# Forced-drop fix — production-box replay runbook (RUN 2026-10-22, exit 0; see §8)
+
+> **Update 2026-10-25:** the owner-authorized full run completed on 2026-10-22 with exit 0. Its evidence and analysis
+> are recorded in §8. The banner below is the pre-run text, kept as history. Any re-run still needs new owner
+> authorization.
 
 > **This replay has NOT been run, and it must not be run without the owner's explicit authorization.** Nothing in this
 > document, the PR it belongs to, or the script it describes has touched production. The flag
@@ -310,6 +314,20 @@ Stop (do not activate the flag; send the finding to the coordinator) if any of t
 * The same pinned command can be re-run later (new board) only by changing the pins together, with the coordinator.
 
 ## 8. Status
+
+**Full box replay, owner-authorized: RUN, exit 0 (report stamped 2026-10-22T03:05:05Z, 4,114.5 s).** It ran on
+deployed `4d5b7ed21`, which contains the dormant merge `408742c99` (#1912), and the seven pinned file hashes matched.
+Every input pin matched (`pinsMatch: true`). `refusedWriteOrProcessAttempts` was 0, and the live inputs were
+byte-identical before and after (sha256 `69d31dd0…af43`). Component B was available on 278 of 278 census trades, and
+scarcity was inert at 1.0 on 8 positions.
+
+The report is committed as `docs/trade/evidence/forced_drop_fix_2026-10-20/box_replay.json` (sha256
+`f10fc997b1ef8c41b6022f97d1efcce4aba9e1eb76f492f9cd43ae7e1da1f2c3`). The §5 / §6 comparison and the activation
+recommendation are in
+[`FORCED_DROP_BOX_REPLAY_ANALYSIS_2026-10-25.md`](FORCED_DROP_BOX_REPLAY_ANALYSIS_2026-10-25.md).
+
+The run is valid. Stop condition §6 item 4 (the single-source tail) is live, and item 2a needs the owner's reading. The
+flag stays OFF. The text below is the pre-run history.
 
 **Box rehearsal, 2026-10-21 (20:08–20:27 UTC), owner-authorized: stopped at the scarcity gate; the full run did NOT execute.** Deployed `408742c99`; all eight pins matched; guard self-test clean; `refusedWriteOrProcessAttempts` 0; Component B available on 70 of 70 census trades; posture on 64 of 70. `scarcityObserved` reported 8 positions, every multiplier 1.0, `inert: true`. The gate's premise (that the box would resolve non-inert scarcity) was wrong: `gameplan.py` calls `compute_scarcity` with no free agents, so `waiver_scarcity` is `None` and `displacement.scarcity_multiplier` returns 1.0 (#1888 had already measured `servedMultiplierByPosition` at 1.0). The owner chose to amend the gate rather than hold the replay; the rehearsal's aggregate report is committed as evidence (`docs/trade/evidence/forced_drop_fix_2026-10-20/box_rehearsal_2026-10-21.json`). The read-only guard, every pin, the Component B gate and the deploy-window checks are unchanged.
 

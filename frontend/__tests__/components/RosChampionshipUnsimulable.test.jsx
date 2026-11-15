@@ -92,7 +92,7 @@ describe("RosChampionshipSection — the team-strength refusal", () => {
       rosStrengthAvailable: true,
     });
     await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
-    expect(screen.getByText("41.0%")).toBeTruthy();
+    expect(screen.getByText("41%")).toBeTruthy();
     expect(screen.queryByText(/rosters could not be priced/i)).toBeNull();
   });
 });
@@ -126,7 +126,7 @@ describe("RosChampionshipSection — withheld title odds (#1699 review F3)", () 
     });
     await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
     expect(screen.getByText(/cannot be played as the host plays it/i)).toBeTruthy();
-    expect(screen.getByText("95.0%")).toBeTruthy();
+    expect(screen.getByText("95%")).toBeTruthy();
   });
 
   it("names a counted median game and an unverified standings rule", async () => {
@@ -159,5 +159,47 @@ describe("RosChampionshipSection — withheld title odds (#1699 review F3)", () 
     });
     await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
     expect(screen.getByText(/may not match the host/i)).toBeTruthy();
+  });
+});
+
+describe("RosChampionshipSection — simulated odds read as estimates (owner 2026-11-08)", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("shows a simulated certainty as >99% / <1% and whole percents, never 100.0%", async () => {
+    await renderWith({
+      championshipOdds: [
+        {
+          ownerId: "o1",
+          displayName: "Alice",
+          championshipOdds: 0.717,
+          finalsOdds: 0.9995,
+          semifinalOdds: 1.0,
+          playoffOdds: 1.0,
+          expectedFinish: 1.3,
+          contenderTier: "Favorite",
+        },
+        {
+          ownerId: "o2",
+          displayName: "Bob",
+          championshipOdds: 0,
+          finalsOdds: 0,
+          semifinalOdds: 0,
+          playoffOdds: 0,
+          expectedFinish: 11.2,
+          contenderTier: "Long Shot",
+        },
+      ],
+      n_simulations: 2000,
+      playoffSeeds: 7,
+      byeSeeds: 1,
+      rosStrengthAvailable: true,
+    });
+    await waitFor(() => expect(screen.getByText("Alice")).toBeTruthy());
+    expect(screen.getByText("72%")).toBeTruthy();
+    expect(screen.getAllByText(">99%").length).toBe(3);
+    expect(screen.getAllByText("<1%").length).toBe(4);
+    expect(screen.queryByText("100.0%")).toBeNull();
+    expect(screen.queryByText("0.0%")).toBeNull();
   });
 });

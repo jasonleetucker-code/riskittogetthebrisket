@@ -20,8 +20,12 @@ Output shape
 ────────────
 ``seasonsCovered``  — passthrough.
 ``weeks``           — list of per-week recap dicts, ordered newest first.
-``byKey``           — flat ``{"<season>:<week>": recap}`` map for
-                      O(1) lookup from the dynamic route.
+``latest``          — the newest entry of ``weeks``.
+
+There is deliberately NO ``byKey`` map: it was an exact duplicate of
+``weeks`` (~246 KB on the live payload).  Consumers derive the
+``"<season>:<week>"`` lookup from ``weeks`` via
+``frontend/lib/weekly-recap.js::indexWeeklyRecaps``.
 """
 
 from __future__ import annotations
@@ -638,7 +642,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     seasons_sorted = sorted(snapshot.seasons, key=lambda s: _season_sort_key(s.season))
 
     weeks_out: list[dict[str, Any]] = []
-    by_key: dict[str, dict[str, Any]] = {}
 
     for season in seasons_sorted:
         # Only FINISHED weeks are recapped: the module's contract is "every
@@ -655,7 +658,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             if avg is not None:
                 prior_side_averages.append(avg)
             weeks_out.append(recap)
-            by_key[f"{season.season}:{wk}"] = recap
 
     weeks_out.sort(
         key=lambda r: (_season_sort_key(r["season"]), r["week"]),
@@ -665,6 +667,5 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     return {
         "seasonsCovered": [s.season for s in snapshot.seasons],
         "weeks": weeks_out,
-        "byKey": by_key,
         "latest": weeks_out[0] if weeks_out else None,
     }

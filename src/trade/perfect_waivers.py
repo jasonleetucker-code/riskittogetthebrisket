@@ -962,6 +962,129 @@ def _round(v: float | None) -> float | None:
     return None if v is None else round(float(v), 1)
 
 
+def free_agent_candidates(
+    contract: Mapping[str, Any] | None,
+    waiver_targets: Mapping[str, Any] | None,
+    *,
+    rostered: set[str] | None = None,
+) -> tuple[list[FreeAgentCandidate], dict[str, int], list[str]]:
+    """The signable, board-priced, FAAB-priced free agents in ``waiver_targets``.
+
+    ``(candidates, excluded counts by reason, up to 25 ambiguous names)``.  The
+    one join from the waiver pool's names to board identities, shared by Perfect
+    Waivers and the weekly streaming composer (``src/waivers/streaming.py``) so
+    the two cannot disagree about who a free agent is or what he costs.
+    """
+    if rostered is None:
+        from src.draft.context import league_rostered_keys  # noqa: PLC0415
+
+        rostered = league_rostered_keys(contract)
+    targets = waiver_targets if isinstance(waiver_targets, Mapping) else {}
+    free_agents: list[FreeAgentCandidate] = []
+    fa_excluded: dict[str, int] = {}
+    seen: set[str] = set()
+
+    ambiguous_names: list[str] = []
+
+    def _exclude(reason: str) -> None:
+        fa_excluded[reason] = fa_excluded.get(reason, 0) + 1
+
+    # The waiver pool hands back NAMES.  A name alone is not an identity: two
+    # players can share one, and ``index_contract_rows`` keeps whichever row
+    # came first.  So the join needs the name AND the position to single out
+    # exactly one board player; anything else is reported, never guessed.
+    rows_by_name: dict[str, list[Mapping[str, Any]]] = {}
+    for brow in (contract or {}).get("playersArray") or []:
+        if not isinstance(brow, Mapping) or str(brow.get("assetClass") or "").lower() == "pick":
+            continue
+        for f in ("displayName", "canonicalName", "legacyRef"):
+            key = _norm(brow.get(f))
+            if key:
+                bucket = rows_by_name.setdefault(key, [])
+                if not any(b is brow for b in bucket):
+                    bucket.append(brow)
+
+    for items in (targets.get("by_position") or {}).values():
+        for cand in items or []:
+            if not isinstance(cand, Mapping):
+                continue
+            named = rows_by_name.get(_norm(cand.get("name"))) or []
+            if not named:
+                _exclude("not_on_board")
+                continue
+            cand_pos = str(cand.get("position") or "").strip().upper()
+            matches = [b for b in named if str(b.get("position") or "").strip().upper() == cand_pos]
+            identities = {str(b.get("playerId") or id(b)) for b in matches}
+            if len(identities) != 1:
+                _exclude("identity_ambiguous")
+                amb = str(cand.get("name") or "")
+                if amb not in ambiguous_names and len(ambiguous_names) < 25:
+                    ambiguous_names.append(amb)
+                continue
+            row = matches[0]
+            keys = {
+                _norm(row.get(f)) for f in ("playerId", "legacyRef", "canonicalName", "displayName")
+            } - {""}
+            if keys & rostered:
+                _exclude("rostered")
+                continue
+            value = row.get("rankDerivedValue")
+            if not isinstance(value, (int, float)) or value <= 0:
+                _exclude("unpriced")
+                continue
+            bid_block = cand.get("bid") if isinstance(cand.get("bid"), Mapping) else None
+            bid = bid_block.get("reasonable") if bid_block else None
+            if not isinstance(bid, (int, float)) or bid < 0:
+                _exclude("no_bid")
+                continue
+            pid = str(row.get("playerId") or cand.get("name"))
+            if pid in seen:
+                continue
+            seen.add(pid)
+            fantasy = row.get("fantasyPositions")
+            free_agents.append(
+                FreeAgentCandidate(
+                    player_id=pid,
+                    name=str(row.get("displayName") or cand.get("name")),
+                    position=str(row.get("position") or cand.get("position") or "").upper(),
+                    value=float(value),
+                    bid=int(bid),
+                    fantasy_positions=tuple(fantasy) if isinstance(fantasy, (list, tuple)) else (),
+                    bid_detail={
+                        "recommended": int(bid),
+                        "aggressive": bid_block.get("aggressive") if bid_block else None,
+                        "conservative": bid_block.get("lowball") if bid_block else None,
+                        "clearing": cand.get("clearing"),
+                        "maxRational": cand.get("maxRational"),
+                        "confidence": cand.get("confidence"),
+                    },
+                )
+            )
+    return free_agents, fa_excluded, ambiguous_names
+
+
+#: Engine bid figures that are bounded by the team's own balance.  ``clearing`` (what the
+#: market will charge) and ``confidence`` do not depend on it.
+_BALANCE_CAPPED_BID_KEYS = ("recommended", "aggressive", "conservative", "maxRational")
+
+
+def balance_scoped_bid_detail(detail: Mapping[str, Any], *, balance_known: bool) -> dict[str, Any]:
+    """A published bid-detail block that never quotes a balance-capped bid for an UNKNOWN balance.
+
+    ``find_waiver_targets`` bounds every bid by ``cap = league budget`` when the team's balance
+    is unknown; publishing those numbers would present the full budget as the team's balance
+    (MISSING IS NEVER ZERO).  Known balance: returned unchanged.
+    """
+    out = dict(detail)
+    if balance_known:
+        return out
+    for key in _BALANCE_CAPPED_BID_KEYS:
+        if key in out:
+            out[key] = None
+    out["balanceState"] = "unknown"
+    return out
+
+
 def build_perfect_waivers(
     contract: Mapping[str, Any] | None,
     *,
@@ -1115,86 +1238,9 @@ def build_perfect_waivers(
     rostered = league_rostered_keys(contract)
     targets = waiver_targets if isinstance(waiver_targets, Mapping) else {}
     bid_methodology = targets.get("bidMethodology")
-    free_agents: list[FreeAgentCandidate] = []
-    fa_excluded: dict[str, int] = {}
-    seen: set[str] = set()
-
-    ambiguous_names: list[str] = []
-
-    def _exclude(reason: str) -> None:
-        fa_excluded[reason] = fa_excluded.get(reason, 0) + 1
-
-    # The waiver pool hands back NAMES.  A name alone is not an identity: two
-    # players can share one, and ``index_contract_rows`` keeps whichever row
-    # came first.  So the join needs the name AND the position to single out
-    # exactly one board player; anything else is reported, never guessed.
-    rows_by_name: dict[str, list[Mapping[str, Any]]] = {}
-    for brow in (contract or {}).get("playersArray") or []:
-        if not isinstance(brow, Mapping) or str(brow.get("assetClass") or "").lower() == "pick":
-            continue
-        for f in ("displayName", "canonicalName", "legacyRef"):
-            key = _norm(brow.get(f))
-            if key:
-                bucket = rows_by_name.setdefault(key, [])
-                if not any(b is brow for b in bucket):
-                    bucket.append(brow)
-
-    for items in (targets.get("by_position") or {}).values():
-        for cand in items or []:
-            if not isinstance(cand, Mapping):
-                continue
-            named = rows_by_name.get(_norm(cand.get("name"))) or []
-            if not named:
-                _exclude("not_on_board")
-                continue
-            cand_pos = str(cand.get("position") or "").strip().upper()
-            matches = [b for b in named if str(b.get("position") or "").strip().upper() == cand_pos]
-            identities = {str(b.get("playerId") or id(b)) for b in matches}
-            if len(identities) != 1:
-                _exclude("identity_ambiguous")
-                amb = str(cand.get("name") or "")
-                if amb not in ambiguous_names and len(ambiguous_names) < 25:
-                    ambiguous_names.append(amb)
-                continue
-            row = matches[0]
-            keys = {
-                _norm(row.get(f)) for f in ("playerId", "legacyRef", "canonicalName", "displayName")
-            } - {""}
-            if keys & rostered:
-                _exclude("rostered")
-                continue
-            value = row.get("rankDerivedValue")
-            if not isinstance(value, (int, float)) or value <= 0:
-                _exclude("unpriced")
-                continue
-            bid_block = cand.get("bid") if isinstance(cand.get("bid"), Mapping) else None
-            bid = bid_block.get("reasonable") if bid_block else None
-            if not isinstance(bid, (int, float)) or bid < 0:
-                _exclude("no_bid")
-                continue
-            pid = str(row.get("playerId") or cand.get("name"))
-            if pid in seen:
-                continue
-            seen.add(pid)
-            fantasy = row.get("fantasyPositions")
-            free_agents.append(
-                FreeAgentCandidate(
-                    player_id=pid,
-                    name=str(row.get("displayName") or cand.get("name")),
-                    position=str(row.get("position") or cand.get("position") or "").upper(),
-                    value=float(value),
-                    bid=int(bid),
-                    fantasy_positions=tuple(fantasy) if isinstance(fantasy, (list, tuple)) else (),
-                    bid_detail={
-                        "recommended": int(bid),
-                        "aggressive": bid_block.get("aggressive") if bid_block else None,
-                        "conservative": bid_block.get("lowball") if bid_block else None,
-                        "clearing": cand.get("clearing"),
-                        "maxRational": cand.get("maxRational"),
-                        "confidence": cand.get("confidence"),
-                    },
-                )
-            )
+    free_agents, fa_excluded, ambiguous_names = free_agent_candidates(
+        contract, targets, rostered=rostered
+    )
 
     # Who the waiver pool's own rules filtered before any of the above, by
     # reason, from the pool's own predicate (``waiver.waiver_candidate_exclusion``)
@@ -1211,7 +1257,9 @@ def build_perfect_waivers(
         )
         & rostered
     ]
-    pool_census = waiver_pool_exclusion_census(unrostered_rows)
+    pool_census = waiver_pool_exclusion_census(
+        unrostered_rows, starter_slots=starter_slots, slot_eligibility=slot_eligibility
+    )
 
     # Unpriced free agents: reported, never valued at zero.
     unpriced_fa = 0
@@ -1236,7 +1284,14 @@ def build_perfect_waivers(
 
     # ── Budget ────────────────────────────────────────────────────
     raw_balance = team.get("faabRemaining")
-    budget = int(raw_balance) if isinstance(raw_balance, int) and raw_balance >= 0 else None
+    # A negative balance (an over-spent roster) is a KNOWN balance with
+    # nothing to spend, not an unknown one (CW-50) — the same split
+    # ``find_waiver_targets`` makes for its cap.
+    budget = (
+        max(0, int(raw_balance))
+        if isinstance(raw_balance, int) and not isinstance(raw_balance, bool)
+        else None
+    )
 
     result = solve_perfect_waivers(
         roster,
@@ -1279,7 +1334,9 @@ def build_perfect_waivers(
                     "name": fa.name,
                     "position": fa.position,
                     "value": _round(fa.value),
-                    "bid": dict(fa.bid_detail),
+                    "bid": balance_scoped_bid_detail(
+                        fa.bid_detail, balance_known=budget is not None
+                    ),
                 },
                 "release": release,
                 "gain": _round(p["gain"]),

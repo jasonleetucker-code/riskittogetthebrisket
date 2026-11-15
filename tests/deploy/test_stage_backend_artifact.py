@@ -107,7 +107,7 @@ def test_installer_checks_layers_and_records_only_successful_offline_install(tmp
     )
     assert (
         observed
-        == json.loads((root / "release-manifest.json").read_text())["identity"][
+        == json.loads((root / "release-manifest.json").read_text(encoding="utf-8"))["identity"][
             "backend_artifact_sha256"
         ]
     )
@@ -116,8 +116,8 @@ def test_installer_checks_layers_and_records_only_successful_offline_install(tmp
     assert "--isolated" in calls[0][0] and calls[1][0][-1] == "check"
     assert "PIP_TARGET" not in calls[0][1]["env"]
     assert "PYTHONPATH" not in calls[0][1]["env"]
-    assert json.loads(receipt.read_text())["pip_check"] == "passed"
-    assert json.loads(receipt.read_text())["installed_wheels_verified"] == 1
+    assert json.loads(receipt.read_text(encoding="utf-8"))["pip_check"] == "passed"
+    assert json.loads(receipt.read_text(encoding="utf-8"))["installed_wheels_verified"] == 1
 
     receipt.unlink()
     with pytest.raises(ValueError, match="release archive SHA-256 mismatch"):

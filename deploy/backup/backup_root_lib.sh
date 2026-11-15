@@ -394,3 +394,44 @@ backup_root_read_generation() {
     printf '%s\n' "${gen}"
     return 0
 }
+
+# Let a NAMED service group LIST (never read) a backup root.
+#
+# Why: the nightly runs as root and the root is chmod 0700, so the backend
+# (user `dynasty`) cannot stat it and /api/status reports the state backup as
+# `unverifiable / permission_denied / canonical_root_unreadable` for a root
+# that is full of healthy generations (observed on production 2026-11-06).
+# backup_health.py correctly refuses to certify what it cannot see; the fix is
+# to make the root observable, not to loosen the reader.
+#
+# What this grants is LISTING and stat, nothing else: directories become
+# 0750 root:<group> and the small status files 0640.  Every artifact stays
+# root-only (umask 077 -> 0600) and `sessions/` (scraper cookies) stays 0700,
+# so the group can see names, sizes and dates but cannot read a single byte of
+# state or any secret.
+#
+#   $1 root  $2 group  $3.. extra paths to open (generation dir, its sqlite/)
+#
+# Best effort and silent on success: a missing group or a failed chgrp leaves
+# the previous (closed) permissions, which is the safe direction, and the
+# caller only warns.  Returns 1 if anything could not be applied.
+backup_root_grant_group_list() {
+    local root="${1:-}" group="${2:-}" rc=0 path
+    shift 2 || return 1
+    [[ -n "${root}" && -n "${group}" ]] || return 0
+    getent group "${group}" >/dev/null 2>&1 || return 1
+    for path in "${root}" "${root%/}/daily" "$@"; do
+        [[ -d "${path}" ]] || continue
+        chgrp "${group}" "${path}" 2>/dev/null && chmod 750 "${path}" 2>/dev/null || rc=1
+    done
+    for path in "$@"; do
+        [[ -f "${path}/optional_stores.tsv" ]] || continue
+        chgrp "${group}" "${path}/optional_stores.tsv" 2>/dev/null \
+            && chmod 640 "${path}/optional_stores.tsv" 2>/dev/null || rc=1
+    done
+    for path in "${root%/}/${BACKUP_ROOT_POINTER_NAME}" "${root%/}/last_mirror"; do
+        [[ -f "${path}" ]] || continue
+        chgrp "${group}" "${path}" 2>/dev/null && chmod 640 "${path}" 2>/dev/null || rc=1
+    done
+    return "${rc}"
+}

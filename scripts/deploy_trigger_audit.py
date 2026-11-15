@@ -138,9 +138,13 @@ def push_starts_deploy(changed: list[str], ignore: list[str]) -> bool:
     return not all(any(c.match(f) for c in compiled) for f in changed)
 
 
-#: Files that never reach the running process: prose and tests.  A commit
-#: touching ONLY these still starts a full deploy (and so a restart) today,
-#: because ``paths-ignore`` lists only ``data/**`` and ``exports/**``.
+#: Prose and tests -- a CLASSIFICATION for the report, not the deploy filter.
+#: Not every file here is unread by production: the server reads
+#: ``docs/valuation/evidence/**``, ``docs/measurements/**``,
+#: ``docs/sources/**`` and ``docs/owner/*.json``, which is why D-3 ignores only
+#: the provably unread subset in ``deploy.yml`` (pinned by
+#: tests/deploy/test_deploy_paths_ignore_runtime_reads.py).  So a commit of
+#: this kind can still start a deploy; ``starts_push_deploy`` says which.
 #: Deliberately conservative: workflows, config, scripts and CSVs are NOT here.
 NON_RUNTIME_PATTERNS = ("docs/**", "**/*.md", "*.md", "tests/**", "frontend/__tests__/**")
 

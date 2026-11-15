@@ -42,6 +42,8 @@ from src.source_archive.store import ArchivedBoard, read_boards
 from src.sources import ktc_format_archive as kfa
 from src.sources import ktc_value_sources as kvs
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 REPO = Path(__file__).resolve().parents[2]
 CAPTURED_AT = "2026-10-01T19:00:00+00:00"
 RUN_ID = f"ktc:{CAPTURED_AT}"
@@ -761,9 +763,9 @@ class TestNoServedValueChange:
         self, projection, tmp_path, monkeypatch
     ):
         from src.api.data_contract import build_api_data_contract
-        from tests.archive_fixtures import newest_complete_raw_payload
+        from tests.archive_fixtures import pinned_board_payload
 
-        raw, archive = newest_complete_raw_payload()
+        raw, archive = pinned_board_payload()
         if raw is None:
             pytest.skip("no complete archived scrape available")
 
@@ -930,7 +932,7 @@ class TestFailureIsolation:
 
     def test_an_unwritable_archive_path_never_raises(self, tmp_path):
         blocker = tmp_path / "file"
-        blocker.write_text("x")
+        blocker.write_text("x", encoding="utf-8")
         out = asyncio.run(
             kfa.archive_variants_safely(
                 _CountingPage(_payload()),

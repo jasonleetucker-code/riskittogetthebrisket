@@ -97,13 +97,21 @@ contract owner's surface, not this module's.  Recorded rather than reached for.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from collections import Counter
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
-from src.draft.context import _league_scarcity, _norm, build_roster_assets, index_contract_rows
+from src.draft import waiver_population
+from src.draft.context import (
+    _league_scarcity,
+    _norm,
+    build_roster_assets,
+    index_contract_rows,
+    league_rostered_keys,
+)
 from src.draft.displacement import (
     RosterAsset,
+    replacement_level_provenance,
     waiver_values_by_position,
 )
 from src.roster_intel import pool_cut_ladder, simulate_roster_change
@@ -123,6 +131,7 @@ __all__ = [
     "forced_drop_cost",
     "league_roster_limit",
     "league_taxi_size",
+    "resolve_roster_limit",
     "outgoing_roster_names",
 ]
 
@@ -199,6 +208,155 @@ def league_taxi_size(
         return max(0, int(raw))
     except (TypeError, ValueError):
         return 0
+
+
+#: Sleeper ``roster_positions`` entries that are NOT active roster spots.
+#: Sleeper keeps taxi and IR in separate settings, so neither normally appears
+#: in the list; excluded anyway so a source that does list them cannot
+#: inflate the cap.  ``BN`` IS a roster spot -- it is not a lineup slot, which
+#: is a different question (``lineup.NON_LINEUP_SLOTS``).
+_NON_ROSTER_SPOT_SLOTS: frozenset[str] = frozenset({"IR", "TAXI"})
+
+#: ``rosterLimitSource`` values.
+LIMIT_FROM_LIVE = "sleeper_roster_positions"
+LIMIT_FROM_SETTINGS = "registry_roster_settings"
+
+
+def live_roster_positions(
+    contract: Mapping[str, Any] | None, league_key: str | None
+) -> list[str] | None:
+    """The host's live slot list for ``league_key``, or ``None``.
+
+    ``sleeper.rosterPositions`` of the contract, used only when that block can
+    be THIS league's: the contract is stamped for ``league_key`` (or carries
+    no league stamp at all, the server's own league).  A contract that
+    declares another league answers ``None`` -- its slot list is that league's.
+    An empty list is ``None`` too: ``[]`` means missing, never "no roster".
+    """
+    if not isinstance(contract, Mapping):
+        return None
+    meta = contract.get("meta") if isinstance(contract.get("meta"), Mapping) else {}
+    stamped = (meta or {}).get("leagueKey")
+    if stamped and league_key and str(stamped) != str(league_key):
+        return None
+    sleeper = contract.get("sleeper") if isinstance(contract.get("sleeper"), Mapping) else {}
+    positions = (sleeper or {}).get("rosterPositions")
+    if not isinstance(positions, (list, tuple)) or not positions:
+        return None
+    return [str(p) for p in positions if str(p or "").strip()]
+
+
+def live_roster_slot_count(positions: Sequence[str] | None) -> int | None:
+    """Active roster spots in a Sleeper ``roster_positions`` list (``None`` if absent)."""
+    if not positions:
+        return None
+    count = sum(1 for p in positions if str(p).strip().upper() not in _NON_ROSTER_SPOT_SLOTS)
+    return count if count > 0 else None
+
+
+@dataclass(frozen=True)
+class RosterLimitReading:
+    """Which roster cap applies, where it came from, and whether sources agree.
+
+    LI1842-DEFECT-07: the cap reads ONLY the configured ``rosterSize``
+    while the lineup ladder (``lineup.resolve_starter_slots``) prefers the
+    host's live slot list, so a host change (``dynasty_new``: registry 27,
+    live 24) was silent.  It is now REPORTED: both readings are kept and a
+    disagreement is published.  The APPLIED cap is unchanged (``limit`` is
+    still the settings' number): switching the cap's source to the live list
+    changes served forced drops for ``dynasty_new`` and for a league whose
+    configured cap is unknown, so it waits for an owner decision (the
+    measured ``dynasty_main`` live list agrees with the registry, 58 = 58).
+    """
+
+    limit: int | None
+    source: str | None
+    settings_limit: int | None
+    live_limit: int | None
+    #: ``None`` when the two agree or one is absent; else the published block.
+    disagreement: Mapping[str, Any] | None = None
+    #: Starter slots: the settings' flattened starters vs the live list's
+    #: lineup slots, as multisets.  Reported only -- the capacity cut ladder
+    #: keeps its slot source (see ``build_capacity_context``).
+    starter_disagreement: Mapping[str, Any] | None = None
+
+
+def resolve_roster_limit(
+    contract: Mapping[str, Any] | None,
+    league_key: str | None,
+    roster_settings: Mapping[str, Any] | None = None,
+) -> RosterLimitReading:
+    """The trade-side roster cap (configured settings) plus the live reading.
+
+    ``limit`` / ``source`` are the APPLIED cap -- the configured settings, as
+    before.  ``live_limit`` is the host's live slot count for THIS league,
+    reported beside it; ``disagreement`` is set only when both are known and
+    differ.
+    """
+    from src.ros.lineup import (  # noqa: PLC0415
+        flatten_starter_slots,
+        starter_slots_from_roster_positions,
+    )
+
+    settings_limit = league_roster_limit(league_key, roster_settings)
+    positions = live_roster_positions(contract, league_key)
+    live_limit = live_roster_slot_count(positions)
+    limit = settings_limit
+    source = LIMIT_FROM_SETTINGS if settings_limit is not None else None
+    disagreement = None
+    if live_limit is not None and settings_limit is not None and live_limit != settings_limit:
+        disagreement = {
+            "registryRosterSize": settings_limit,
+            "liveRosterSlots": live_limit,
+            "liveSource": LIMIT_FROM_LIVE,
+            "appliedFrom": source,
+        }
+
+    starter_disagreement = None
+    settings = roster_settings if isinstance(roster_settings, Mapping) else None
+    if settings is None:
+        settings = _roster_settings_for(league_key)
+    registry_starters = flatten_starter_slots((settings or {}).get("starters"))
+    live_starters = starter_slots_from_roster_positions(positions)
+    if registry_starters and live_starters:
+        reg_c, live_c = Counter(registry_starters), Counter(live_starters)
+        if reg_c != live_c:
+            starter_disagreement = {
+                "registryOnly": dict(sorted((reg_c - live_c).items())),
+                "liveOnly": dict(sorted((live_c - reg_c).items())),
+            }
+    return RosterLimitReading(
+        limit=limit,
+        source=source,
+        settings_limit=settings_limit,
+        live_limit=live_limit,
+        disagreement=disagreement,
+        starter_disagreement=starter_disagreement,
+    )
+
+
+def roster_limit_disagreement_note(reading: RosterLimitReading) -> str | None:
+    """The exact note published for a cap disagreement (``None`` if none)."""
+    d = reading.disagreement
+    if not d:
+        return None
+    return (
+        f"roster cap sources disagree: registry rosterSize {d['registryRosterSize']} vs "
+        f"live host slot list {d['liveRosterSlots']}; the registry cap is still applied "
+        "(switching the cap source awaits an owner decision)"
+    )
+
+
+def starter_slot_disagreement_note(reading: RosterLimitReading) -> str | None:
+    """The exact note published for a starter-slot disagreement (``None`` if none)."""
+    d = reading.starter_disagreement
+    if not d:
+        return None
+    return (
+        "starter slot sources disagree: registry-only "
+        f"{d['registryOnly']} vs live-only {d['liveOnly']}; the cut ladder's lineup "
+        "guard still uses the registry starters"
+    )
 
 
 # ── Result types ─────────────────────────────────────────────────────
@@ -377,6 +535,16 @@ class RosterCapacity:
     #: past the search bound, by player id).  See
     #: ``forced_drop_selection.Selection.tie_break``.  ``None`` otherwise.
     selection_tie_break: dict[str, Any] | None = None
+    #: Flag ``replacement_level_li5_consolidation`` only — ``None`` (and nothing
+    #: published) when OFF.  Which waiver-level rule the cut costs were measured
+    #: against (:func:`_li5_waiver_level`), so a reader can tell the banded
+    #: LI-5 level from the incumbent best-free-agent anchor.
+    waiver_level: Mapping[str, Any] | None = None
+    #: LI1842-DEFECT-07: set ONLY when the roster-cap or starter-slot sources
+    #: disagree (``{"rosterLimit": ..., "starterSlots": ...}``).  ``None`` --
+    #: and nothing published, so an agreeing league's payload is unchanged --
+    #: otherwise.
+    limit_disagreement: Mapping[str, Any] | None = None
 
     @property
     def requires_drops(self) -> bool | None:
@@ -443,7 +611,24 @@ class RosterCapacity:
             "ladderExhausted": self.ladder_exhausted,
             "notes": list(self.notes),
             "valueScale": "rankDerivedValue",
-        } | self._selection_dict()
+        } | self._flagged_dict()
+
+    def _flagged_dict(self) -> dict[str, Any]:
+        """Every flag-gated field; empty (so the payload is unchanged) when the
+        flags are OFF."""
+        return self._selection_dict() | self._waiver_level_dict() | self._limit_dict()
+
+    def _limit_dict(self) -> dict[str, Any]:
+        """The source-disagreement block; empty when the sources agree."""
+        if not self.limit_disagreement:
+            return {}
+        return {"rosterLimitSourceDisagreement": dict(self.limit_disagreement)}
+
+    def _waiver_level_dict(self) -> dict[str, Any]:
+        """The LI-5 flag-ON stamp; empty (so the payload is unchanged) when OFF."""
+        if self.waiver_level is None:
+            return {}
+        return {"replacementPopulation": dict(self.waiver_level)}
 
     def _selection_dict(self) -> dict[str, Any]:
         """The flag-ON fields; empty (so the payload is unchanged) when OFF."""
@@ -523,6 +708,9 @@ class CapacityContext:
     #: use.  ``None`` means nothing configured, NOT nothing eligible.
     slot_eligibility: Mapping[str, Any] | None = None
     notes: tuple[str, ...] = ()
+    #: Where ``roster_limit`` came from and whether its sources agree
+    #: (:func:`resolve_roster_limit`).  ``None`` only for a hand-built context.
+    limit_reading: RosterLimitReading | None = None
     #: The roster settings this context was built under, kept so a context for
     #: ANOTHER team in the same league (the counterparty) resolves the same cap
     #: and slots instead of falling back to a different source.
@@ -534,10 +722,102 @@ class CapacityContext:
     #: ITS roster entry whatever display name the caller used
     #: (:func:`outgoing_roster_names`).  Empty for a context built without it.
     roster_player_ids: tuple[str, ...] = ()
+    #: The roster's assets, one per ``roster_player_names`` entry and in the
+    #: same order (``build_roster_assets`` emits exactly one per name).  Every
+    #: read of "who is this roster entry" goes through :func:`_roster_assets`,
+    #: i.e. by POSITION: ``assets_by_key`` is keyed by player id, so a lookup by
+    #: display name only ever hit when the id happened to equal the name, and
+    #: everything else was silently re-joined to the board by NAME - which hands
+    #: two players sharing a display name one board row between them
+    #: (LANE-E-DEFECT-I9-DUPNAME).  Empty for a context built without it.
+    roster_assets: tuple[RosterAsset, ...] = ()
+    #: Flag ``replacement_level_li5_consolidation`` only — ``None`` when OFF.
+    #: The ``replacementPopulation`` provenance of ``waiver_values``
+    #: (``displacement.replacement_level_provenance``): who counted as a free
+    #: agent, the served lens and each level's band.  When set, an unpriced
+    #: player's ``assumedWaiver`` base is a banded ESTIMATE, not the best free
+    #: agent's value, so it is no longer a ceiling (design F6).
+    replacement_population: Mapping[str, Any] | None = None
 
 
 def _asset_key(asset: RosterAsset) -> str:
     return _norm(asset.player_id) or _norm(asset.name)
+
+
+def _ladder_asset(asset: RosterAsset) -> RosterAsset:
+    """The asset the cut ladder sees for one roster entry.
+
+    A joined entry is the board's own asset - id, position, value, injury,
+    eligibility and all.  An entry the join found NO board row for
+    (``asset.on_board`` is ``False``: the join's explicit fact, not a guess from
+    empty ``position`` / ``board_value``, which a board-matched row on a
+    degraded board can carry too) keeps the identity the ladder has always given
+    it - its normalised NAME, what an unresolved name becomes in
+    :func:`_resolve_incoming` - while ``roster_player_ids`` keeps the roster's
+    own id.  It is never re-joined to a board row by name, which is the
+    collision this module exists to avoid (an unmatched "Byron Murphy" is not the
+    board's other "Byron Murphy").
+    """
+    if asset.on_board:
+        return asset
+    return RosterAsset(
+        player_id=_norm(asset.name),
+        name=asset.name,
+        position="",
+        board_value=None,
+        on_board=False,
+    )
+
+
+def _roster_assets(context: CapacityContext) -> list[RosterAsset]:
+    """One asset per roster entry, in roster order, resolved by POSITION.
+
+    The roster <-> board join was done once, id-first, by ``build_roster_assets``
+    and kept in ``context.roster_assets``; this reads it back entry for entry, so
+    two entries that share a display name stay two assets with their own board
+    rows and ids.  A context built without it (hand-constructed in a test)
+    falls back to the per-name re-join this replaced.
+    """
+    if context.roster_assets and len(context.roster_assets) == len(context.roster_player_names):
+        return list(context.roster_assets)
+    return [
+        context.assets_by_key.get(_norm(name)) or _resolve_incoming(name, context.by_name)
+        for name in context.roster_player_names
+    ]
+
+
+def _li5_waiver_level(context: CapacityContext) -> dict[str, Any] | None:
+    """The compact per-capacity stamp of the LI-5 waiver level, or ``None``.
+
+    ``None`` whenever the context was built with the flag OFF, so every
+    flag-OFF ``RosterCapacity`` — and its ``to_dict`` — is unchanged.  The full
+    provenance stays on the context (``replacement_population``); each
+    capacity answer carries the rule, the served lens and the health state its
+    cut costs rest on, because that is what decides whether an
+    ``assumedWaiver`` charge is a ceiling (design F6).
+    """
+    block = context.replacement_population
+    if block is None:
+        return None
+    health = block.get("health") if isinstance(block.get("health"), Mapping) else {}
+    return {
+        "rule": block.get("rule"),
+        "lens": block.get("lens"),
+        "levelOwner": block.get("levelOwner"),
+        "valueKey": block.get("valueKey"),
+        "band": block.get("band"),
+        "health": {"state": health.get("state"), "reason": health.get("reason")},
+        "positionsWithoutLevel": list(block.get("positionsWithoutLevel") or ()),
+        "assumedWaiverBasis": ASSUMED_WAIVER_BASIS_LI5,
+    }
+
+
+#: Flag ``replacement_level_li5_consolidation`` ON: what an unpriced player's
+#: ``assumedWaiver`` base IS.  The incumbent anchor is the best free agent at
+#: the position, which bounds an unpriced roster player from above; LI-5's
+#: level is the mean of free-agent ranks 1-3, which sits BELOW the best free
+#: agent, so it is an estimate and no longer a ceiling (design F6).
+ASSUMED_WAIVER_BASIS_LI5 = "li5_banded_waiver_estimate"
 
 
 #: ``(scarcity, note)`` as :func:`league_scarcity` returns it.
@@ -581,10 +861,17 @@ def build_capacity_context(
     (the default) reads it here, exactly as before.
     """
     notes: list[str] = []
-    roster_limit = league_roster_limit(league_key, roster_settings)
+    limit_reading = resolve_roster_limit(contract, league_key, roster_settings)
+    roster_limit = limit_reading.limit
     taxi_size = league_taxi_size(league_key, roster_settings)
     if roster_limit is None:
         notes.append("league roster size is not configured — capacity is UNKNOWN, not unlimited")
+    for note in (
+        roster_limit_disagreement_note(limit_reading),
+        starter_slot_disagreement_note(limit_reading),
+    ):
+        if note:
+            notes.append(note)
     # Taxi membership: present only if the caller handed us a roster that
     # carries it.  The canonical contract's team block does not.
     taxi_members = team.get("taxi") if isinstance(team, Mapping) else None
@@ -612,23 +899,22 @@ def build_capacity_context(
         )
 
     # League-wide rostered set: a player on ANY roster is not a waiver option.
-    rostered_keys: set[str] = set()
-    sleeper = contract.get("sleeper") if isinstance(contract, Mapping) else None
-    teams = (sleeper or {}).get("teams") if isinstance(sleeper, Mapping) else None
-    for t in teams if isinstance(teams, list) else []:
-        if not isinstance(t, Mapping):
-            continue
-        for pid in t.get("playerIds") or []:
-            if _norm(pid):
-                rostered_keys.add(_norm(pid))
-        for nm in t.get("players") or []:
-            if _norm(nm):
-                rostered_keys.add(_norm(nm))
+    # The ONE definition (``draft.context.league_rostered_keys``); this used to
+    # be an inline copy of the same loop (LI-5 design §4.4 step 1, folded in
+    # phase P3, parity pinned by ``tests/draft/test_li5_consumer_wiring.py``).
+    rostered_keys = league_rostered_keys(contract)
 
     # NOTE: no auction-rookie exclusion here.  That belongs to Perfect Draft,
     # where the rookies being priced are the lots in the very auction being
-    # optimized.  A trade in August is not bidding against them.
-    waiver_values = waiver_values_by_position(contract, rostered_keys)
+    # optimized.  A trade in August is not bidding against them.  Preserved
+    # under the LI-5 flag too (owner decision D6): capacity's population keeps
+    # unavailable keys ``()``.
+    population = (
+        waiver_population.consumer_population(contract, rostered_keys, ())
+        if waiver_population.enabled()
+        else None
+    )
+    waiver_values = waiver_values_by_position(contract, rostered_keys, population=population)
     if not waiver_values:
         notes.append("no waiver-level values available — cut costs fall back to raw board value")
 
@@ -684,11 +970,82 @@ def build_capacity_context(
         by_name=by_name,
         by_id=by_id,
         notes=tuple(notes),
+        limit_reading=limit_reading,
         roster_settings=roster_settings if isinstance(roster_settings, Mapping) else None,
         roster_player_ids=(
             tuple(str(a.player_id) for a in assets) if len(assets) == len(names) else ()
         ),
+        roster_assets=(
+            tuple(_ladder_asset(a) for a in assets) if len(assets) == len(names) else ()
+        ),
+        replacement_population=(
+            None if population is None else replacement_level_provenance(population)
+        ),
     )
+
+
+class OutgoingRoster(list):
+    """Outgoing roster names that remember WHICH roster entries they are.
+
+    A plain ``list[str]`` of names (every consumer that reads it as one is
+    unchanged), plus ``entry_indexes``: for each name, the index of the roster
+    entry the Sleeper id resolved to, or ``None`` when the name is all there is.
+    The roster owner removes an outgoing player by that entry rather than by
+    name, because two roster players can share one display name and removing
+    "the first entry with that name" can release - or keep - the wrong player
+    (LANE-E-DEFECT-I9-DUPNAME).  A plain list (a caller that never had ids)
+    behaves exactly as before: name multiplicity.
+    """
+
+    entry_indexes: tuple[int | None, ...] = ()
+
+
+def _removal_order(
+    context: CapacityContext, outgoing: Sequence[str]
+) -> tuple[list[int], list[str]]:
+    """``(roster entries a trade removes, in outgoing order; names no entry holds)``.
+
+    An entry the outgoing names pinned by id (:class:`OutgoingRoster`) is removed
+    as that entry; every other name removes the first still-present roster entry
+    of that name, by MULTIPLICITY (two outgoing "A" remove two roster "A"s, one
+    outgoing "A" removes one).  Pinned entries are reserved BEFORE any name is
+    placed, so a name-only "A" can never take the very entry another leg pinned.
+    The one definition ``assess_roster_capacity`` and ``final_legal_roster`` both
+    remove entries by, so the capacity answer and the roster it is simulated on
+    cannot disagree about who left.
+    """
+    names = context.roster_player_names
+    hints = getattr(outgoing, "entry_indexes", ())
+    taken: set[int] = set()
+    placed: dict[int, int] = {}  # outgoing position -> roster entry
+    rest: list[tuple[int, str]] = []
+    for i, name in enumerate(outgoing):
+        if not str(name or "").strip():
+            continue
+        hint = hints[i] if i < len(hints) else None
+        if hint is not None and 0 <= hint < len(names) and hint not in taken:
+            taken.add(hint)
+            placed[i] = hint
+        else:
+            rest.append((i, str(name)))
+    unplaced: list[str] = []
+    for i, name in rest:
+        key = _norm(name)
+        entry = next((k for k, n in enumerate(names) if k not in taken and _norm(n) == key), None)
+        if entry is None:
+            unplaced.append(name)
+        else:
+            taken.add(entry)
+            placed[i] = entry
+    return [placed[i] for i in sorted(placed)], unplaced
+
+
+def _removal_indexes(
+    context: CapacityContext, outgoing: Sequence[str]
+) -> tuple[set[int], list[str]]:
+    """:func:`_removal_order` as a set - ``(entries removed, names no entry holds)``."""
+    order, unplaced = _removal_order(context, outgoing)
+    return set(order), unplaced
 
 
 def outgoing_roster_names(
@@ -705,13 +1062,17 @@ def outgoing_roster_names(
     roster (a board display name, a suffix) still frees the spot he occupies.
     An entry with no id, or whose id is on no roster entry, keeps its name:
     name matching is the fallback only, exactly as before.  Pure.
+
+    The list returned is an :class:`OutgoingRoster`: the same names, plus the
+    roster entry each id resolved to, so the removal is by ENTRY.
     """
     ids = list(ids or [])
     roster_ids = list(context.roster_player_ids)
     if len(roster_ids) != len(context.roster_player_names):
         roster_ids = []
     used: set[int] = set()
-    out: list[str] = []
+    out = OutgoingRoster()
+    entry_indexes: list[int | None] = []
     for i, name in enumerate(names):
         pid = ids[i] if i < len(ids) else None
         key = _norm(pid) if pid else ""
@@ -723,9 +1084,12 @@ def outgoing_roster_names(
             )
         if hit is None:
             out.append(str(name))
+            entry_indexes.append(None)
             continue
         used.add(hit)
         out.append(context.roster_player_names[hit])
+        entry_indexes.append(hit)
+    out.entry_indexes = tuple(entry_indexes)
     return out
 
 
@@ -967,7 +1331,13 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
       ``assumed`` or ``mixed_bound``);
     * no waiver-level values at all, with an ``assumedWaiver`` release on
       either side: ``(None, unknown / waiver_values_unavailable)`` — that
-      release's base would be 0, and missing is never zero.
+      release's base would be 0, and missing is never zero;
+    * with flag ``replacement_level_li5_consolidation`` ON as well, the
+      waiver level is LI-5's banded mean, not the best free agent, so the
+      "ceiling" above no longer holds: a direction that rests on an
+      ``assumedWaiver`` value is published as ``bound: "estimate"`` (``"mixed"``
+      beside a genuine lower-bound reason) with ``assumedWaiverBasis:
+      "li5_banded_waiver_estimate"`` (design F6).  ``state`` is unchanged.
     """
     requires = capacity.requires_drops
     common: dict[str, Any] = {"rule": capacity.selection_rule}
@@ -1065,6 +1435,23 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
         state, bound = "assumed", "upper"
     else:
         state, bound = "exact", None
+    # LI-5 consolidation (flag ``replacement_level_li5_consolidation``), design
+    # F6: the "upper" / "lower" direction an ``assumedWaiver`` value gives the
+    # charge holds only while that value is the BEST free agent's — a ceiling
+    # on an unpriced player.  Under the LI-5 level (mean of free-agent ranks
+    # 1-3) it is an estimate, so a direction resting on it is relabelled
+    # ``estimate`` (or ``mixed`` beside a genuine lower-bound reason).  The
+    # ``state`` vocabulary every consumer reads is unchanged.
+    li5_assumed = False
+    if capacity.waiver_level is not None:
+        assumed_upper = bool(upper) and not upper_reasons
+        if capacity.certainty == "exact":
+            assumed_upper = bool(post_a - pre_a)
+        assumed_lower = "pre_trade_cleanup_assumed_waiver" in lower
+        li5_assumed = assumed_upper or assumed_lower
+        if li5_assumed:
+            genuine_lower = [r for r in lower if r != "pre_trade_cleanup_assumed_waiver"]
+            bound = "mixed" if genuine_lower else "estimate"
     basis: dict[str, Any] = {
         "state": state,
         "addedReleases": (
@@ -1081,6 +1468,8 @@ def _selected_forced_drop_cost(capacity: RosterCapacity) -> tuple[float | None, 
     }
     if bound is not None:
         basis["bound"] = bound
+    if li5_assumed:
+        basis["assumedWaiverBasis"] = ASSUMED_WAIVER_BASIS_LI5
     if lower:
         basis["lowerBoundReasons"] = lower
     if upper_reasons:
@@ -1099,7 +1488,9 @@ def _resolve_incoming(
     """
     row = by_name.get(_norm(name))
     if row is None:
-        return RosterAsset(player_id=_norm(name), name=name, position="", board_value=None)
+        return RosterAsset(
+            player_id=_norm(name), name=name, position="", board_value=None, on_board=False
+        )
     value = row.get("rankDerivedValue")
     fantasy = row.get("fantasyPositions")
     # ``ros_value`` drives LINEUP FEASIBILITY only, never cost arithmetic
@@ -1127,29 +1518,33 @@ def _outgoing_held(
 ) -> tuple[int, list[str]]:
     """How many outgoing names the roster actually holds, and which it does not.
 
-    Matched by MULTIPLICITY, the same rule ``_surviving_keys`` and the roster
-    rebuild use.  Before this existed ``size_after`` subtracted ``len(outgoing)``
-    flat while both of those removed only what was there, so the two definitions
-    of the post-trade roster disagreed whenever a caller named a player the
-    roster did not hold — and they disagreed in the direction that HIDES roster
-    pressure, reporting a spot freed that never existed.
+    Removal is by ROSTER ENTRY - :func:`_removal_indexes`, the one definition
+    ``_surviving_keys``, the post-trade roster rebuild and
+    :func:`final_legal_roster` all remove by - so the count of spots freed, the
+    taxi relief and the roster the ladder is built on cannot disagree about who
+    left, same-named players included.  Before this existed ``size_after``
+    subtracted ``len(outgoing)`` flat while the others removed only what was
+    there, so the definitions of the post-trade roster disagreed whenever a
+    caller named a player the roster did not hold — and they disagreed in the
+    direction that HIDES roster pressure, reporting a spot freed that never
+    existed.  ``outgoing`` may be an :class:`OutgoingRoster` (entries pinned by
+    id); a plain list removes by name multiplicity.
     """
 
-    held = Counter(_norm(n) for n in context.roster_player_names)
-    asked = Counter(_norm(n) for n in outgoing)
-    matched = sum(min(held[key], count) for key, count in asked.items())
+    removed, unplaced = _removal_indexes(context, outgoing)
     # DISTINCT names for the note — asking to send the same player twice when
     # the roster holds one copy is one shortfall, not two names.  The COUNT is
-    # ``len(outgoing) - matched``, which is what the caller publishes.
-    short = {key for key, count in asked.items() if count > held[key]}
+    # ``len(outgoing) - matched``, which is what the caller publishes.  Listed
+    # in the order the trade first named them.
+    short = {_norm(n) for n in unplaced}
     seen: set[str] = set()
     absent: list[str] = []
     for name in outgoing:
         key = _norm(name)
-        if key in short and key not in seen:
+        if key in short and key not in seen and str(name or "").strip():
             seen.add(key)
-            absent.append(name)
-    return matched, absent
+            absent.append(str(name))
+    return len(removed), absent
 
 
 def _surviving_keys(
@@ -1159,18 +1554,15 @@ def _surviving_keys(
 ) -> set[str]:
     """Normalised keys of the roster AFTER the trade.
 
-    Removal is by MULTIPLICITY, matching the roster rebuild below and the rule
-    ``simulate_trade`` had to learn for picks: two entries sharing a key are
-    two assets, and trading one removes one.
+    The entries :func:`_removal_indexes` removes leave (the entry an id pinned,
+    else the first of that name, once per outgoing name): two entries sharing a
+    key are two assets, trading one removes one, and trading both removes both.
+    The old set-of-outgoing-keys form removed a name at most ONCE however many
+    copies were sent, so a taxi member sent in duplicate still read as on the
+    surviving roster.
     """
-    pending = {_norm(n) for n in outgoing}
-    keys: set[str] = set()
-    for name in context.roster_player_names:
-        key = _norm(name)
-        if key in pending:
-            pending.discard(key)
-            continue
-        keys.add(key)
+    removed, _unplaced = _removal_indexes(context, outgoing)
+    keys = {_norm(n) for k, n in enumerate(context.roster_player_names) if k not in removed}
     keys.update(_norm(n) for n in incoming)
     return keys
 
@@ -1235,22 +1627,21 @@ def final_legal_roster(
     spots, and removing one removes exactly one (the rule ``_surviving_keys``
     and ``simulate_trade`` already follow).
     """
-    before = tuple(
-        context.assets_by_key.get(_norm(name)) or _resolve_incoming(name, context.by_name)
-        for name in context.roster_player_names
-    )
+    before = tuple(_roster_assets(context))
     on_roster = {a.player_id for a in before}
     incoming = tuple(_resolve_incoming(n, context.by_name) for n in incoming_players)
     drop_ids = tuple(d.player_id for d in capacity.forced_drops)
     acquired_drop_ids = tuple(d.player_id for d in capacity.forced_drops if d.acquired_in_trade)
-    outgoing_ids = tuple(
-        a.player_id
-        for a in (
-            context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
-            for n in outgoing_players
-        )
-        if a.player_id in on_roster
-    )
+    # The outgoing players are the roster ENTRIES ``assess_roster_capacity``
+    # removed (``_removal_order``: the entry the id pinned, else the first
+    # of that name), so each leaves with the id the before-roster above carries,
+    # in the order the trade named them.  A name no entry holds keeps the
+    # board-name resolution it always had.
+    removed_order, unplaced = _removal_order(context, outgoing_players)
+    outgoing_assets = [before[k] for k in removed_order] + [
+        _resolve_incoming(n, context.by_name) for n in unplaced
+    ]
+    outgoing_ids = tuple(a.player_id for a in outgoing_assets if a.player_id in on_roster)
     removed_ids = tuple(
         sorted(
             set(outgoing_ids) | ({i for i in drop_ids if i in on_roster} - set(acquired_drop_ids))
@@ -1510,6 +1901,36 @@ def assess_roster_capacity(
     outgoing_players: Sequence[str] = (),
     package: fds.PackageSides | None = None,
 ) -> RosterCapacity:
+    """What this trade does to this roster's legality (see :func:`_assess`).
+
+    Carries the context's cap-source disagreement onto the result, so the
+    published block states it (LI1842-DEFECT-07); an agreeing league's result
+    is exactly :func:`_assess`'s.
+    """
+    result = _assess(
+        context,
+        incoming_players=incoming_players,
+        outgoing_players=outgoing_players,
+        package=package,
+    )
+    reading = context.limit_reading
+    block: dict[str, Any] = {}
+    if reading is not None and reading.disagreement:
+        block["rosterLimit"] = dict(reading.disagreement)
+    if reading is not None and reading.starter_disagreement:
+        block["starterSlots"] = dict(reading.starter_disagreement)
+    if not block:
+        return result
+    return replace(result, limit_disagreement=block)
+
+
+def _assess(
+    context: CapacityContext,
+    *,
+    incoming_players: Sequence[str] = (),
+    outgoing_players: Sequence[str] = (),
+    package: fds.PackageSides | None = None,
+) -> RosterCapacity:
     """What this trade does to this roster's legality.
 
     ``incoming_players`` / ``outgoing_players`` are PLAYER names only — picks
@@ -1528,7 +1949,9 @@ def assess_roster_capacity(
     notes = list(context.notes)
 
     size_before = len(context.roster_player_names)
-    held_out, absent_out = _outgoing_held(context, outgoing)
+    # ``outgoing_players`` itself, not the filtered copy: an ``OutgoingRoster``
+    # carries the roster ENTRY each id pinned, which a plain list would lose.
+    held_out, absent_out = _outgoing_held(context, outgoing_players)
     size_after = size_before - held_out + len(incoming)
     unheld_out = len(outgoing) - held_out
     if unheld_out:
@@ -1555,6 +1978,7 @@ def assess_roster_capacity(
             notes=notes,
             selection_rule=rule,
             search_bound_exceeded=False if selecting else None,
+            waiver_level=_li5_waiver_level(context),
         )
 
     # ── Taxi bracket ─────────────────────────────────────────────────
@@ -1568,7 +1992,7 @@ def assess_roster_capacity(
     elif context.taxi_membership_known:
         # Count the taxi members that SURVIVE the trade, capped at the number
         # of slots that exist — a source can list more than the league allows.
-        surviving_keys = _surviving_keys(context, incoming, outgoing)
+        surviving_keys = _surviving_keys(context, incoming, outgoing_players)
         occupied = len(context.taxi_member_keys & surviving_keys)
         taxi_lo = taxi_hi = min(context.taxi_size, occupied)
         certainty = "exact"
@@ -1623,20 +2047,16 @@ def assess_roster_capacity(
             search_bound_exceeded=False if selecting else None,
             **_pre_trade_fields(pre_sel),
             **({"waiver_values_available": bool(context.waiver_values)} if selecting else {}),
+            waiver_level=_li5_waiver_level(context),
         )
 
     # ── The post-trade roster, which is what the ladder must be built on ──
-    outgoing_keys = {_norm(n) for n in outgoing}
-    surviving: list[RosterAsset] = []
-    for name in context.roster_player_names:
-        key = _norm(name)
-        if key in outgoing_keys:
-            outgoing_keys.discard(key)  # by multiplicity, not set membership
-            continue
-        asset = context.assets_by_key.get(key)
-        if asset is None:
-            asset = _resolve_incoming(name, context.by_name)
-        surviving.append(asset)
+    # Entries leave by ENTRY (the one the id pinned, else the first of that
+    # name - multiplicity), never by "every entry with this name".
+    removed_entries, _unplaced = _removal_indexes(context, outgoing_players)
+    surviving: list[RosterAsset] = [
+        asset for k, asset in enumerate(_roster_assets(context)) if k not in removed_entries
+    ]
 
     acquired_keys: set[str] = set()
     for name in incoming:
@@ -1767,6 +2187,7 @@ def assess_roster_capacity(
         unpriced_forced_drops=sum(1 for d in drops if d.value is None),
         ladder_exhausted=exhausted,
         notes=notes,
+        waiver_level=_li5_waiver_level(context),
     )
 
 
@@ -1913,15 +2334,13 @@ def _assess_selected(
         selection_tie_break=sel.tie_break,
         waiver_values_available=bool(context.waiver_values),
         **_pre_trade_fields(pre_sel),
+        waiver_level=_li5_waiver_level(context),
     )
 
 
 def _pre_trade_cleanup(context: CapacityContext, over_before: int) -> fds.Selection:
     """The cheapest legal cleanup the PRE-trade roster owes on its own."""
-    roster_before = [
-        context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
-        for n in context.roster_player_names
-    ]
+    roster_before = _roster_assets(context)
     return fds.cleanup_selection(
         roster_before,
         over_before,

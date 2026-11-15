@@ -34,3 +34,6 @@ mypy~=2.3.1
 # .github/workflows/intel-refresh.yml to exercise the workflow's
 # embedded decision heredocs — test-only, the runtime never reads YAML.
 pyyaml~=6.0
+
+# MCP 2026-07-28 protocol-schema conformance tests (test-only, never production).
+jsonschema==4.26.0

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { pageMetadata } from "@/lib/page-metadata";
 // Direct module import, NOT the ds barrel, from a server component (same
 // reason as /game-day and /dfs: a server import of the barrel makes every
 // "use client" module it re-exports a client reference of this page).
@@ -6,7 +7,7 @@ import { PageHeader } from "@/components/ds/PageHeader";
 import ModelLabWorkspace from "@/components/model-lab/ModelLabWorkspace";
 import styles from "./model-lab-page.module.css";
 
-export const metadata = { title: "Model Lab" };
+export const metadata = pageMetadata("/admin/model-lab");
 
 /**
  * /admin/model-lab — the Model Lab (IC-6, PSI Direction A, Lane 6).

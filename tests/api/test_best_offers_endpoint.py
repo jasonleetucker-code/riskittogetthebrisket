@@ -238,7 +238,7 @@ def test_manager_evidence_is_never_written_to_the_run_log(authed, monkeypatch, t
     lines = [
         line
         for f in bo.BEST_OFFERS_RUN_LOG_DIR.glob("runs-*.jsonl")
-        for line in f.read_text().splitlines()
+        for line in f.read_text(encoding="utf-8").splitlines()
     ]
     assert lines and all(
         "managerEvidence" not in _json.loads(line)["opponents"][0]["offer"] for line in lines

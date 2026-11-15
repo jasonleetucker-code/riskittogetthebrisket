@@ -38,7 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.sharp import roster_collect, roster_percentage, roster_store  # noqa: E402
+from src.sharp import pass_coverage, roster_collect, roster_percentage, roster_store  # noqa: E402
 
 log = logging.getLogger("crawl_sharp_rosters")
 
@@ -106,7 +106,24 @@ def main() -> int:
 
     print(json.dumps(summary, indent=2))
     if summary.get("sleeper", {}).get("budgetExhausted"):
-        log.warning("budget exhausted with leagues still uncollected — re-run to continue")
+        # ``budgetExhausted`` only says the budget is spent NOW, which is also
+        # true of a pass that collected its last league with its last call; the
+        # coverage block says whether leagues were actually left.  The exit
+        # code is unchanged.
+        coverage = summary["sleeper"].get("passCoverage") or {}
+        if coverage.get("stoppedReason") == pass_coverage.STOPPED_COMPLETED:
+            # The last league was collected with the last call: nothing is left
+            # to continue, so do not tell the operator to re-run.
+            log.info(
+                "budget spent, queue drained (stoppedReason=completed remainingUnvisited=%s)",
+                coverage.get("remainingUnvisited"),
+            )
+        else:
+            log.warning(
+                "budget exhausted (stoppedReason=%s remainingUnvisited=%s) — re-run to continue",
+                coverage.get("stoppedReason"),
+                coverage.get("remainingUnvisited"),
+            )
         return 2
     return 0
 

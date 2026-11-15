@@ -188,3 +188,62 @@ describe("MultiTeamSummaryBar says withheld, never a band or a 0", () => {
     expect(bar).not.toMatch(/widest gap/);
   });
 });
+
+// The reported trade (2026-11-12): Side B sends "2029 Mid 5th" and "2029 Mid
+// 6th" to Side A; A and C trade players.  The picks' values are the C1-U6
+// round-step derivation (PRIOR, low confidence).  The browser reads only the
+// board's stamps, so what decides WITHHELD is the backend's `quarantined`
+// verdict, never the low confidence a derivation carries.
+const derivedPick = (name, v, stamps) =>
+  row(name, v, {
+    pos: "PICK",
+    position: "PICK",
+    assetClass: "pick",
+    confidenceBucket: "low",
+    pickValueProvenance: { class: "derived_round_step", classification: "PRIOR" },
+    ...stamps,
+  });
+function reported(stamps) {
+  return [
+    { id: 0, label: "A", assets: [row("A Player", 6000)], destinations: { "A Player": 2 } },
+    {
+      id: 1,
+      label: "B",
+      assets: [derivedPick("2029 Mid 5th", 1471, stamps), derivedPick("2029 Mid 6th", 1347, stamps)],
+      destinations: { "2029 Mid 5th": 0, "2029 Mid 6th": 0 },
+    },
+    { id: 2, label: "C", assets: [row("C Player", 3200)], destinations: { "C Player": 1 } },
+  ];
+}
+
+describe("derived late-round picks: low confidence is not a withheld value", () => {
+  it("as the board now serves them (not quarantined), Sides A and B get a reading", () => {
+    const sides = reported({ quarantined: false, anomalyFlags: [] });
+    const withheld = withheldAssetsBySide(sides);
+    expect(withheld).toEqual([[], [], []]);
+    const flows = computeSideFlows(sides, "full");
+    const s = multiTeamNetSummary(flows, withheld);
+    expect(s.withheld).toEqual([false, false, false]);
+    expect(s.verdict.label).not.toBe("Withheld");
+    // Each pick counted once, on the sender's and the receiver's side.
+    expect(flows[1].rawGiven).toBe(1471 + 1347);
+    expect(flows[0].rawReceived).toBe(1471 + 1347);
+    for (const i of [0, 1, 2]) expect(s.nets[i]).not.toBeNull();
+  });
+
+  it("as the board served them before the fix (quarantined), A and B were withheld", () => {
+    const sides = reported({ quarantined: true, anomalyFlags: ["no_valid_source_values"] });
+    const withheld = withheldAssetsBySide(sides);
+    expect(withheldReasonText(withheld[0])).toBe(
+      "2029 Mid 5th (received, quarantined), 2029 Mid 6th (received, quarantined)",
+    );
+    expect(withheldReasonText(withheld[1])).toBe(
+      "2029 Mid 5th (sent, quarantined), 2029 Mid 6th (sent, quarantined)",
+    );
+    expect(multiTeamNetSummary(computeSideFlows(sides, "full"), withheld).withheld).toEqual([
+      true,
+      true,
+      false,
+    ]);
+  });
+});

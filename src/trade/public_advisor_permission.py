@@ -197,3 +197,79 @@ def record_path_problem(
         provider_of=provider_of,
         today=today or _today(),
     )
+
+
+# ── Owner checklist (read-only; never a record) ─────────────────────────────
+
+
+def permission_checklist(
+    *,
+    voting_sources: Iterable[str] | None = None,
+    provider_of: Callable[[str], str | None] | None = None,
+) -> list[dict[str, Any]]:
+    """What the owner's OD-3 record must answer, one row per PROVIDER, from
+    the live voting-source registry.
+
+    Each row is ``{"provider", "sources", "providerEntry", "orEverySourceEntry"}``:
+    ``sources`` are the voting keys that provider covers; they are approved
+    by the one ``providerEntry`` OR by EVERY entry of ``orEverySourceEntry``
+    (one per key -- approving some keys leaves the rest uncovered).  A
+    ``denied`` / ``unknown`` at either level refuses, so a per-source denial
+    beats a provider approval.  A key with no recorded provider gets its own
+    row with ``provider: None`` and ``providerEntry: None`` -- only its
+    per-source entry can cover it.  This states
+    what is MISSING; it never proposes, writes or infers an approval."""
+    if provider_of is None:
+        from src.sources.source_census import provider_of as _provider_of  # noqa: PLC0415
+
+        provider_of = _provider_of
+    raw = voting_source_keys() if voting_sources is None else voting_sources
+    keys = sorted({str(k) for k in raw if k})
+    by_provider: dict[str | None, list[str]] = {}
+    for key in keys:
+        by_provider.setdefault(provider_of(key), []).append(key)
+    rows: list[dict[str, Any]] = []
+    for provider in sorted(by_provider, key=lambda p: (p is None, p or "")):
+        srcs = by_provider[provider]
+        if provider is None:
+            for key in srcs:
+                rows.append(
+                    {
+                        "provider": None,
+                        "sources": [key],
+                        "providerEntry": None,
+                        "orEverySourceEntry": [f'sources["{key}"]'],
+                    }
+                )
+            continue
+        rows.append(
+            {
+                "provider": provider,
+                "sources": srcs,
+                "providerEntry": f'providers["{provider}"]',
+                "orEverySourceEntry": [f'sources["{k}"]' for k in srcs],
+            }
+        )
+    return rows
+
+
+def unanswered_template(
+    *,
+    voting_sources: Iterable[str] | None = None,
+    provider_of: Callable[[str], str | None] | None = None,
+) -> dict[str, Any]:
+    """A schema-shaped record with EVERY answer left open: no approver, no
+    dates, every provider ``"unknown"``.  It is a form for the owner to fill
+    in, and :func:`record_problem` refuses it as it stands (pinned by test),
+    so committing it unchanged can never open the launch gate."""
+    rows = permission_checklist(voting_sources=voting_sources, provider_of=provider_of)
+    return {
+        "recordType": RECORD_TYPE,
+        "schemaVersion": SCHEMA_VERSION,
+        "scope": SCOPE,
+        "approvedBy": "",
+        "approvedAt": "",
+        "reviewBy": "",
+        "providers": {r["provider"]: "unknown" for r in rows if r["provider"] is not None},
+        "sources": {r["sources"][0]: "unknown" for r in rows if r["provider"] is None},
+    }

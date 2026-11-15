@@ -178,6 +178,12 @@ done
 if [[ -f data/scrape_state/idpShowCombined_last_status.json ]]; then
   ADD_PATHS+=(data/scrape_state/idpShowCombined_last_status.json)
 fi
+# The IDP-only board's own Datawrapper metadata (2026-10-28) - evidence for
+# the owner's decision about which IDP Show board votes; idpShow is
+# unregistered and nothing reads this file.  Existence-checked like the rest.
+if [[ "${DEFAULT_FETCH_OK}" -eq 1 && -f data/scrape_state/idpShow_upstream.json ]]; then
+  ADD_PATHS+=(data/scrape_state/idpShow_upstream.json)
+fi
 
 git add -f -- "${ADD_PATHS[@]}"
 

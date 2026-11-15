@@ -109,16 +109,20 @@ def test_required_check_is_a_job_name_that_exists_on_every_pr():
     # forever (CLAUDE.md "Release discipline — HEAD FREEZE").
     assert params["strict_required_status_checks_policy"] is False
     contexts = [c["context"] for c in params["required_status_checks"]]
-    assert contexts == ["Validate PR"]
+    assert contexts == ["Validate PR", "Receipt check"]
 
-    wf = yaml.safe_load((REPO / ".github" / "workflows" / "pr-validation.yml").read_text("utf-8"))
-    job_names = {job.get("name") for job in wf["jobs"].values()}
-    assert "Validate PR" in job_names, "GitHub matches required checks by JOB name"
-    on = wf.get(True) or wf.get("on")  # PyYAML parses the `on:` key as True
-    pr_trigger = on.get("pull_request") or {}
-    assert not (
-        pr_trigger.get("paths") or pr_trigger.get("paths-ignore")
-    ), "a required check that does not run on every PR blocks the PRs it skips"
+    for job_name, workflow in (
+        ("Validate PR", "pr-validation.yml"),
+        ("Receipt check", "pr-verification-receipt.yml"),
+    ):
+        wf = yaml.safe_load((REPO / ".github" / "workflows" / workflow).read_text("utf-8"))
+        job_names = {job.get("name") for job in wf["jobs"].values()}
+        assert job_name in job_names, "GitHub matches required checks by JOB name"
+        on = wf.get(True) or wf.get("on")  # PyYAML parses the `on:` key as True
+        pr_trigger = on.get("pull_request") or {}
+        assert not (
+            pr_trigger.get("paths") or pr_trigger.get("paths-ignore")
+        ), "a required check that does not run on every PR blocks the PRs it skips"
 
 
 def test_payload_review_count_allows_a_solo_maintainer_to_merge():

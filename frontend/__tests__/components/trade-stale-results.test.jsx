@@ -97,7 +97,7 @@ describe("Monte Carlo result is keyed to its trade", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ winProbA: 0.64, nSims: 40000, meanDelta: 400, deltaRange: {} }),
+      json: async () => ({ winProbA: 0.64, nSims: 40000, meanDelta: 400, deltaRange: {}, bandSources: { stamped_value_band: 2 } }),
     });
     const before = sides([row("Pickens", 6052)], [row("Kyren", 5699)]);
     const { rerender } = render(<MonteCarloButton sides={before} sidesSend />);

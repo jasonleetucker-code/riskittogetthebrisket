@@ -127,7 +127,7 @@ def run(*, board_raw_path: Path, models: dict[str, dict], model_ids: list[str] |
     from src.trade import package_builder as pb  # noqa: PLC0415
 
     raw = json.loads((Path(board_raw_path) if Path(board_raw_path).is_absolute() else
-                      Path(__file__).resolve().parents[1] / board_raw_path).read_text())  # fmt: skip
+                      Path(__file__).resolve().parents[1] / board_raw_path).read_text(encoding="utf-8"))  # fmt: skip
     contract = build_api_data_contract(raw)
     teams = contract["sleeper"]["teams"]
     names = [t["name"] for t in teams]

@@ -346,8 +346,8 @@ export default function PlayerFilePage() {
               dense
             >
               {edge.signal === "BUY"
-                ? `Consensus values this player ${edge.valueGapPct}% above KTC — market is cheap.`
-                : `KTC values this player ${edge.valueGapPct}% above consensus — market overvalues.`}
+                ? `Our consensus is ${edge.valueGapPct}% above KTC — a gap, not proof of mispricing.`
+                : `KTC is ${edge.valueGapPct}% above our consensus — a gap, not proof of mispricing.`}
               {edge.edgePct > 0 && ` ~${edge.edgePct}% value gap.`}
             </Panel>
           )}

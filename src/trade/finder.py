@@ -1591,7 +1591,7 @@ def find_trades(
                     "sessionExcludedCount": len(excluded_player_names),
                     "noResultReason": "all_outgoing_assets_session_excluded",
                 },
-                "warnings": ["Every asset on your roster was excluded from this arbitrage scan."],
+                "warnings": ["Every asset on your roster was excluded from this package scan."],
             }
 
     # V1-41 / C3-CTX-01 — the canonical Team Weakness owner, resolved ONCE

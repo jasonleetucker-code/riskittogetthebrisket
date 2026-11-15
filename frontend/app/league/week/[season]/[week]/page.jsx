@@ -1,7 +1,7 @@
 // Server-rendered weekly-recap page with OG metadata.
 //
 // Fetches the full ``weeklyRecap`` section once, picks the specific
-// week by the ``byKey`` map, and renders a long-form narrative page.
+// week out of ``weeks`` (via the shared lib/weekly-recap helper), and renders a long-form narrative page.
 // Sharable URL pattern: ``/league/week/{season}/{week}``.
 
 import Link from "next/link";
@@ -9,6 +9,7 @@ import { Avatar, Card } from "../../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints, fmtNumber, nameFor } from "../../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
 import ShareButton from "../../../ShareButton.jsx";
+import { findWeeklyRecap } from "@/lib/weekly-recap";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -32,8 +33,7 @@ async function fetchRecap() {
 }
 
 function findRecap(payload, season, week) {
-  const byKey = payload?.data?.byKey || {};
-  return byKey[`${season}:${week}`] || null;
+  return findWeeklyRecap(payload?.data, season, week);
 }
 
 // ── Metadata ────────────────────────────────────────────────────────────

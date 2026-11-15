@@ -73,7 +73,7 @@ def league():
     if not SLEEPER.exists() or not AGGREGATE.exists():
         pytest.skip("live snapshots not present in this checkout")
 
-    agg = json.loads(AGGREGATE.read_text())
+    agg = json.loads(AGGREGATE.read_text(encoding="utf-8"))
     rows = agg if isinstance(agg, list) else (agg.get("players") or list(agg.values())[0])
     # build_value_index applies the WS-E duplicate rule (higher rosValue
     # wins) — the same rule this fixture used to hand-roll.
@@ -85,7 +85,7 @@ def league():
     # leaves the window's trajectory axis inert.
     if not NFL_DUMP.exists():
         pytest.skip("nfl player dump not present in this checkout")
-    dump = json.loads(NFL_DUMP.read_text())
+    dump = json.loads(NFL_DUMP.read_text(encoding="utf-8"))
     eligibility = build_nfl_position_index(dump)
 
     ages: dict[str, dict[str, float]] = {}
@@ -100,7 +100,7 @@ def league():
         if key and age:
             ages.setdefault(key, {"age": float(age)})
 
-    teams = json.loads(SLEEPER.read_text())["rosterData"]["teams"]
+    teams = json.loads(SLEEPER.read_text(encoding="utf-8"))["rosterData"]["teams"]
 
     # Read the registry FILE rather than src.api.league_registry: the
     # module caches a resolved registry and other suites reset it, so
@@ -109,7 +109,7 @@ def league():
     registry_path = REPO / "config" / "leagues" / "registry.json"
     if not registry_path.exists():
         pytest.skip("league registry not present")
-    registry = json.loads(registry_path.read_text())
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
     default_key = registry.get("defaultLeagueKey")
     entry = next(
         (lg for lg in registry.get("leagues") or [] if lg.get("key") == default_key),

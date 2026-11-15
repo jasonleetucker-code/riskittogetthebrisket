@@ -1,0 +1,63 @@
+{
+  "source_key": "fantasyProsRosOverall",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-11-15T17:30:51.174786+00:00",
+  "completed_at": "2026-11-15T17:30:51.390988+00:00",
+  "player_count": 378,
+  "diagnostics": {},
+  "source_id": "fantasyProsRosOverall",
+  "source_name": "FantasyPros ROS Overall (ECR)",
+  "source_url": "https://www.fantasypros.com/nfl/rankings/ros-overall.php",
+  "source_type": "ros",
+  "scoring_format": "ppr",
+  "is_superflex": false,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": true,
+  "is_dynasty": false,
+  "is_projection_source": false,
+  "stale_after_hours": 168,
+  "kept_previous": null,
+  "kept_previous_rows": null,
+  "content_hash": "3e129db84a3e63d8a5a372d478f1b67d1b2825d3bb86ec1f4d6c68d3fa58167a",
+  "content_state": "unchanged",
+  "content_first_observed_at": "2026-10-26T21:17:54.415564+00:00",
+  "last_content_change": "2026-11-15T02:14:06.450502+00:00",
+  "rank_basis": {
+    "basisDeclared": false,
+    "bases": [
+      {
+        "basis": "total_ranked:407",
+        "rows": 378,
+        "totalRanked": [
+          407
+        ],
+        "groups": {
+          "KICKER": 28,
+          "OFFENSE": 350
+        }
+      }
+    ],
+    "groupCoverage": {
+      "KICKER": 28,
+      "OFFENSE": 350
+    },
+    "groupBases": {
+      "KICKER": [
+        "total_ranked:407"
+      ],
+      "OFFENSE": [
+        "total_ranked:407"
+      ]
+    },
+    "mixedRankBasis": false,
+    "groupsSplitAcrossBases": [],
+    "issues": [],
+    "transitionIssues": [],
+    "adapterIssues": [],
+    "baseline": false
+  },
+  "source_mode": null
+}

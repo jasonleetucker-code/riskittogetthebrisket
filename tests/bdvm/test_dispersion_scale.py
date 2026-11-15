@@ -74,7 +74,7 @@ def _params_with_liquidity_threshold(value: float) -> ParamSet:
     ``ParamSet`` is a read-only wrapper, not a mapping, so it cannot be
     spread — rebuild from the JSON through the public constructor.
     """
-    payload = copy.deepcopy(json.loads((PARAMS_DIR / "params_v1.json").read_text()))
+    payload = copy.deepcopy(json.loads((PARAMS_DIR / "params_v1.json").read_text(encoding="utf-8")))
     payload["market"]["signal_thresholds"]["strong_buy_min_liquidity"] = value
     return ParamSet("params_v1_permissive_test", payload)
 

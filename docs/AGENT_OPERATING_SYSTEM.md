@@ -108,6 +108,35 @@ When that contract reaches 30/30, stop the launch-completion campaign and fall b
 
 ## 3. Default operating posture
 
+### Usage efficiency (owner directive 2026-10-25) — supersedes parallelism targets where they conflict
+
+Goal: the most verified progress per unit of model usage, not the most agents. Binding on every model.
+Product requirements, safety rules and owner gates are unchanged; mandatory verification is never skipped to save usage.
+
+1. **Concurrency:** one coordinator plus at most **four** concurrent workers (owner 2026-10-26, raising the
+   2026-10-25 limit of two); coding work done by the coordinator counts toward the four. Four is a ceiling, not a
+   target: each worker must own a distinct, non-overlapping deliverable. Never launch 10–20 simultaneous
+   research or engineering agents or large fan-out workflows. Delegate only a concrete, independently executable
+   deliverable; release the agent when it delivers. Do not delegate what one deterministic command verifies.
+   (Measured 2026-10-25: one fan-out audit workflow spent ~8.8M subagent tokens across 150 agents before a usage
+   limit stopped it with 30 finished; three other workflows spent ~4.7M with zero finished agents.)
+2. **Model routing:** cheapest sufficient model and effort — Haiku for search, classification, extraction and
+   mechanical edits; Sonnet for routine coding, debugging, tests and PR preparation; Opus only for hard
+   architecture, mathematics, security-sensitive reasoning or unresolved complex defects. Low/medium effort by
+   default. Do not have an expensive model re-analyse an already validated decision.
+3. **No repeated rediscovery:** follow the startup procedure, then read targeted ranges and search; reuse
+   committed evidence and the latest session handoff (`docs/agent-operating-system/SESSION_HANDOFF.md`) instead of
+   re-reading whole planning files or re-running audits that have no new input.
+4. **Testing and polling:** targeted tests during development; full validation only at the integration/release
+   gate; deterministic scripts before LLM analysis; no continuous CI polling (one blocking `gh pr checks --watch`
+   per head, or the host's CI monitor); batch status checks.
+5. **Work packages:** each subagent gets exact files, acceptance criteria, dependencies and relevant prior evidence
+   — not the full project history. Prefer finishing open PRs over starting new investigations.
+6. **Context:** keep the session handoff current; recommend `/compact` when context grows large and a fresh session
+   for a genuinely new task once state is saved.
+7. **Measure:** report actual usage data where the runtime exposes it (agent counts, models, token totals from task
+   notifications); never invent cost estimates.
+
 ### Standing owner directive (2026-10-19): parallel implementation and qualified autonomous merging
 
 **Binding process policy for every model/engineer; not product-scope authority.**
@@ -118,8 +147,10 @@ launch, deployment, security, spending, access or destructive-action gates.
 
 1. **Dispatch independent units concurrently.** Inspect main, open PRs,
    current execution authority, `docs/WORK_CLAIMS.md`, active completion
-   contracts, shared-file owners and dependency overlap. Target **3–5 actual
-   implementation agents** where the runtime and resource budget allow, each
+   contracts, shared-file owners and dependency overlap. Run independent
+   units concurrently within the usage limit in "Usage efficiency" above
+   (at most **four** concurrent workers, owner 2026-10-26; the earlier 3–5
+   target is superseded), each
    on its own Git worktree/branch with disjoint file/defect claims. Coordinate
    shared canonical interfaces centrally; never invent agents, have multiple
    writers to one branch/file, or do unauthorized work to occupy a worker.
@@ -208,6 +239,18 @@ Keep this lightweight: a short note in the claim/PR/handoff is enough when there
 
 This check **does not authorize** a reliability workstream, override an active completion contract, or require all twelve priorities on every feature. Current product/implementation authority still wins.
 
+### Permanent feature-intent verification / regression discipline — owner, 2026-11-06
+
+Every material feature, bug fix and meaningful refactor must demonstrate more than “the page renders” or “the tests are green”: link the *latest authorized owner behavior* to its actual live execution path, independent expected-result oracle, positive/negative/edge-case tests, and exact-tree evidence. Apply the detailed cross-model protocol in `docs/engineering/CONTINUOUS_VERIFICATION_STANDARD_2026-11-06.md`.
+
+- Before changing code: inspect the intent/spec and current path, preserve a baseline, define acceptance and missing/stale/failure cases, and select independent oracles for high-stakes numerical outputs.
+- During coding: write reproducing tests for defects where feasible, run L0/L1, and keep tests that prevent repeat regressions. Fix the canonical owner rather than a presentation-only symptom.
+- At PR/integration: run all required L2 gates, verify integration and actual user workflows, document test commands/results and unverified gaps, and obtain independent review. Use L3 and stricter owner-campaign gates for production.
+- Periodically when authorized: reconcile all known features against intended behavior, trace unused/duplicated code before removal, run bounded nonproduction stress/drift/backtest suites, and report evidence-backed status without a second completion ledger.
+- Distinguish `implemented`, `correct against spec`, `predictively effective`, `merged`, `deployed` and `verified in production`. A green test suite alone proves none of the latter claims. Test existence cannot replace independent oracles or out-of-sample evaluation.
+
+This rule changes **verification discipline**, not implementation scope, methodology promotion, worker file claims, integration authority or release gates. Route findings through existing registries and `docs/EXECUTION_PLAN.md`; do not duplicate the already-running 2026-11-06 remediation campaign.
+
 ### Progress visibility on long runs
 
 For work that spans many tool calls or meaningful checkpoints, keep the owner/operator informed without narrating every command.
@@ -278,7 +321,12 @@ governance/planning gates, the runtime import gate and the API contract check
 stay unconditional: they are cheap and are cross-cutting safety nets, not
 per-domain suites that should ever be skipped. Any change-detection failure
 defaults to running everything — this mechanism can only ever widen validation
-on its own error, never narrow it. **Related work should generally land as ONE
+on its own error, never narrow it. The backend hard gate runs as N parallel,
+duration-balanced shards of the identical command (2026-11-07; owner
+`scripts/ci_test_shards.py`, config `config/ci/test_shards.json`), and the
+required `Validate PR` check passes only when the shard manifests prove every
+collected test ran exactly once, the collection floor holds and the skip budget
+is not exceeded — splitting the suite never drops a test. **Related work should generally land as ONE
 integration PR** covering a coherent development phase, not one PR per tiny
 edit — see "Development operating model" below for how this reconciles with
 `ASSISTANT_COORDINATION.md`'s branch rules.
@@ -294,7 +342,13 @@ style gate, while one is active and incomplete). This is
 which this policy does not replace, only names in the L0-L3 vocabulary) and
 `.github/workflows/deploy.yml`. Neither file gained any path-awareness or
 skip logic under this policy — every step in both runs unconditionally, every
-time, exactly as before. Existing owner-approved production acceptance
+time, exactly as before. Since 2026-11-07 `deploy.yml` runs its hard gate as
+parallel shards with the same manifest completeness proof as PR Validation
+(serial on one runner for a target without the shard owner, or on an operator's
+`serial_hard_gate` dispatch), and `release-candidate.yml` likewise (serial only
+for a candidate tree without the shard owner), every shard asserting it tests
+the planned candidate tree; that changes where tests run, never which.
+Existing owner-approved production acceptance
 contracts remain authoritative and are not superseded by the existence of this
 faster development workflow.
 

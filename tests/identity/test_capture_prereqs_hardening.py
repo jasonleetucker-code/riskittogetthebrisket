@@ -324,21 +324,23 @@ def test_recorder_failure_leaves_the_store_untouched(tmp_path):
     site = tmp_path / "site_raw"
     site.mkdir()
     (site / "ktcCrowdSfTep.csv").write_text(
-        "name,value,rank,player_id,position,team\nJahmyr Gibbs,9000,1,1415,RB,DET\n"
+        "name,value,rank,player_id,position,team\nJahmyr Gibbs,9000,1,1415,RB,DET\n",
+        encoding="utf-8",
     )
     store = tmp_path / v.STORE_REL
     v.record_from_site_raw(site, index=index, store_path=store, observed_at=TS)
     before = store.read_bytes()
     # an unreadable CSV in the folder is skipped; a changed board appends only
     (site / "broken.csv").write_bytes(b"\xff\xfe\x00bad")
-    (site / "ktcTradesSfTep.csv").write_text("")  # empty file: no rows, no error
+    (site / "ktcTradesSfTep.csv").write_text("", encoding="utf-8")  # empty file: no rows, no error
     again = v.record_from_site_raw(site, index=index, store_path=store, observed_at=TS)
     assert again["appended"] == 0 and store.read_bytes() == before
     # the store path being unwritable raises to the caller (the scraper wraps it), never corrupts
     blocker = tmp_path / "blocker"
-    blocker.write_text("file, not a directory")
+    blocker.write_text("file, not a directory", encoding="utf-8")
     (site / "ktcCrowdSfTep.csv").write_text(
-        "name,value,rank,player_id,position,team\nJahmyr Gibbs,9100,1,1415,RB,DET\n"
+        "name,value,rank,player_id,position,team\nJahmyr Gibbs,9100,1,1415,RB,DET\n",
+        encoding="utf-8",
     )
     with pytest.raises(OSError):
         v.record_from_site_raw(site, index=index, store_path=blocker / "map.jsonl", observed_at=TS)

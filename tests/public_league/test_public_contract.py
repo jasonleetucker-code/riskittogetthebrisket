@@ -339,8 +339,9 @@ class SectionCoverageTests(unittest.TestCase):
 
     def test_weekly_recap_section(self) -> None:
         s = self.contract["sections"]["weeklyRecap"]
-        for block in ("weeks", "byKey", "latest", "seasonsCovered"):
+        for block in ("weeks", "latest", "seasonsCovered"):
             self.assertIn(block, s)
+        self.assertNotIn("byKey", s)
 
 
 def _const_valuation_factory(value_fn):

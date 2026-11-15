@@ -42,7 +42,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from fastapi import FastAPI, BackgroundTasks, Request
@@ -77,12 +77,15 @@ from src.api.data_contract import (
     normalize_source_overrides,
     normalize_tep_multiplier,
     normalize_tep_native_multiplier,
+    withdrawn_tep_override_note,
     stamp_optimal_lineups as _stamp_optimal_lineups_owner,
     capture_contract_roster_settings,
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
+from src.api import chase_upside_mcp as _chase_upside_mcp
 from src.api.build_identity import PROCESS_BUILD, PROCESS_RELEASE
+from src.api import public_diagnostics as _public_diagnostics
 from src.api import matchup_intel as _matchup_intel
 from src.api import roster_intelligence as _roster_intelligence
 from src.api import guest_passes as _guest_passes
@@ -105,13 +108,53 @@ from src.valuation_math import package_model as _package_model
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
 from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
+from src.diagnostics import heap_report as _heap_report
 from src.diagnostics import proc_probe as _proc_probe
 from src.diagnostics import scrape_telemetry as _scrape_telemetry
+from src.sources import dlf_session as _dlf_session
+
+if __name__ == "__main__":
+    # ``python server.py`` (the systemd ExecStart) runs this file as
+    # ``__main__``, and ``uvicorn.run("server:app")`` then imports it AGAIN as
+    # ``server``: every module-level load below ran twice, and the first
+    # copy was never served.  Measured locally (WA-17, 2026-11-12): the
+    # unused copy held its own 44 MiB public-league snapshot.  Execute the
+    # module once, as ``server`` (the name every ``import server`` and
+    # ``sys.modules.get("server")`` already resolves), and serve that copy.
+    # The imports above are shared through ``sys.modules`` and cost nothing
+    # twice.  Pinned by tests/api/test_server_runs_once.py.
+    import server as _served
+
+    _served.main()
+    raise SystemExit(0)
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
 PORT = 8000
-HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
+# Bind address.  LOOPBACK BY DEFAULT (owner directive 2026-11-01, P0): in
+# production nginx is the only legitimate client and it proxies to
+# ``127.0.0.1:8000`` (deploy/nginx/*.conf ``upstream dynasty_backend``), so a
+# wildcard bind only exposed the raw app port to the internet, bypassing the
+# proxy's TLS, headers and path blocks.  LAN / phone testing in dev opts in
+# explicitly with ``RISKIT_BIND_HOST=0.0.0.0`` (see .env.example).  Pinned by
+# tests/deploy/test_loopback_bind.py.
+DEFAULT_BIND_HOST = "127.0.0.1"
+BIND_HOST_ENV = "RISKIT_BIND_HOST"
+
+
+def _resolve_bind_host(environ: Mapping[str, str] | None = None) -> str:
+    """The address uvicorn binds: ``RISKIT_BIND_HOST`` if set, else loopback.
+
+    A blank or whitespace-only value is treated as unset — an empty
+    ``RISKIT_BIND_HOST=`` line in .env must not become uvicorn's
+    "all interfaces" default by accident.
+    """
+    env = os.environ if environ is None else environ
+    value = (env.get(BIND_HOST_ENV) or "").strip()
+    return value or DEFAULT_BIND_HOST
+
+
+HOST = _resolve_bind_host()
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
 # A single market/source outage must not halve the player universe and become
@@ -128,6 +171,9 @@ SCRAPE_PLAYER_RETENTION_FLOOR = 0.75
 # (Dynasty Scraper.py, pw.chromium.launch) carries --disable-dev-shm-usage
 # / --disable-gpu to reduce the odds of the mid-scrape RSS spike that
 # crosses the systemd MemoryMax cgroup and OOM-kills this whole process.
+# It now ALSO runs before each launch and, besides descendants, sweeps
+# Chromium reparented out of this process but still in the service's own
+# cgroup (see ``_reap_orphan_browsers``).  Same switch.
 SCRAPE_REAP_ORPHAN_BROWSERS = os.getenv("SCRAPE_REAP_ORPHAN_BROWSERS", "1") != "0"
 # /api/trade/simulate-mc is a pure-Python Monte Carlo (no numpy) run
 # twice for A→B/B→A symmetrization.  On this box: 50k≈0.9s, 200k≈3.9s.
@@ -213,6 +259,24 @@ UPTIME_CHECK_URL = os.getenv(
     "https://chaseupside.com/api/health",
 ).strip()
 UPTIME_CHECK_INTERVAL_SEC = int(os.getenv("UPTIME_CHECK_INTERVAL_SEC", "300"))
+# Heap attribution (WA-17): seconds between box-local heap snapshots
+# (``src/diagnostics/heap_report.py``); 0 turns the periodic loop off.  The
+# scrape-point snapshots are not affected.
+HEAP_REPORT_INTERVAL_SEC = int(os.getenv("HEAP_REPORT_INTERVAL_SEC", "900"))
+# Every Nth periodic snapshot also takes the type census, and so does any
+# snapshot taken while process RSS is at or above HEAP_REPORT_HIGH_RSS_MIB.
+# 1024, not 1536: in production the backend is restarted by the data-refresh
+# deploys every 40-60 min, before the hourly tick, and the post-burst plateau
+# sat at 1,060-1,210 MiB (audit §7.12), so neither trigger ever fired there.
+HEAP_REPORT_TYPES_EVERY = 4
+HEAP_REPORT_HIGH_RSS_MIB = int(os.getenv("HEAP_REPORT_HIGH_RSS_MIB", "1024"))
+# Return glibc's freed-but-retained heap from the periodic loop when a
+# snapshot finds at least this many MiB of it (0 disables).  Measured in
+# production 2026-11-12: 206-239 MiB retained after the post-restart burst,
+# and the same release at each scrape returns 80-140 MiB (audit §7.12).
+# The release walks glibc's arenas (about 0.1 s on a fragmented heap), so it
+# runs at most once per tick and only when there is that much to return.
+HEAP_RELEASE_FREE_MIB = int(os.getenv("HEAP_RELEASE_FREE_MIB", "128"))
 UPTIME_CHECK_TIMEOUT_SEC = float(os.getenv("UPTIME_CHECK_TIMEOUT_SEC", "5"))
 UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 
@@ -1599,6 +1663,9 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
     error_text = f"{type(exc).__name__}: {str(exc)[:400]}"
     failed_step = scrape_status.get("current_step")
     failed_source = scrape_status.get("current_source")
+    box = _box_diagnostics()
+    # Own timestamp so a snapshot left behind by a later success is identifiable.
+    box_at_failure = {**box, "capturedAt": _utc_now_iso()}
     scrape_status.update(
         {
             "running": False,
@@ -1609,6 +1676,7 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
             "last_duration_sec": round(elapsed, 1),
             "error": error_text,
             "current_step": "failed",
+            "box_at_failure": box_at_failure,
         }
     )
     _touch_scrape_heartbeat()
@@ -1620,9 +1688,10 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
         failed_step=failed_step,
         failed_source=failed_source,
         duration_sec=round(elapsed, 1),
+        box=box,
     )
     # R-4: Record to rolling history
-    _record_scrape_history("failure", elapsed, error=error_text)
+    _record_scrape_history("failure", elapsed, error=error_text, box=box)
     # R-9: Update metrics counters
     _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
     _metrics["scrape_failures"] = _metrics.get("scrape_failures", 0) + 1
@@ -1676,25 +1745,34 @@ _looks_like_playwright_chromium = _proc_probe.looks_like_playwright_chromium
 _collect_descendant_pids = _proc_probe.collect_descendant_pids
 
 
-def _reap_orphan_browsers(root_pid: int | None = None, match=None) -> int:
-    """SIGKILL orphaned Playwright Chromium descendants of this process.
+def _reap_orphan_browsers(
+    root_pid: int | None = None, match=None, include_service_cgroup: bool = False
+) -> int:
+    """SIGKILL orphaned Playwright Chromium belonging to this service.
 
-    Best-effort; never raises.  Scoped to descendants of ``root_pid``
-    (our own PID) so it can never touch unrelated system processes.
-    The scrape that spawned them already exited (single scrape_run_lock),
-    so a graceful shutdown buys nothing — SIGKILL directly, with no
-    sleep, so this stays safe to call from the async finally path.
+    Best-effort; never raises.  Scope is (a) descendants of ``root_pid`` (our
+    own PID), and -- only when ``include_service_cgroup`` -- (b) members of
+    this process's own dedicated ``*.service`` cgroup that are NOT descendants
+    (Chromium reparented to init after its Playwright driver died, which the
+    descendant walk cannot see).  ``proc_probe.service_cgroup_dir`` returns
+    nothing for non-service cgroups, so a dev shell's scope is never swept.
+    The root pid and this process are never killed, and every candidate must
+    still satisfy the Playwright-Chromium cmdline predicate.  Callers hold
+    ``scrape_run_lock``, so no live scrape of ours owns a browser; SIGKILL
+    directly, no sleep, so this stays safe on the async finally path.
     """
     try:
         root = os.getpid() if root_pid is None else root_pid
         predicate = _looks_like_playwright_chromium if match is None else match
+        if include_service_cgroup:
+            descendants, cgroup_only = _proc_probe.collect_service_pids(root)
+            candidates = descendants | cgroup_only
+        else:
+            candidates = _collect_descendant_pids(root)
+        candidates = candidates - {root, os.getpid(), 0, 1}
         killed = 0
-        for pid in _collect_descendant_pids(root):
-            try:
-                with open(f"/proc/{pid}/cmdline", "rb") as fh:
-                    cmd = fh.read().replace(b"\x00", b" ").decode("utf-8", "replace").strip()
-            except OSError:
-                continue
+        for pid in candidates:
+            cmd = _proc_probe.read_cmdline(pid)
             if not cmd or not predicate(cmd):
                 continue
             try:
@@ -1705,6 +1783,161 @@ def _reap_orphan_browsers(root_pid: int | None = None, match=None) -> int:
         return killed
     except Exception:  # noqa: BLE001 — finalize must never raise
         return 0
+
+
+_BOX_PROBE_TIMEOUT_SEC = 2.0
+_BOX_PROBE_STATUS_TIMEOUT_SEC = 0.5
+
+
+def _box_diagnostics(timeout: float | None = None) -> dict:
+    """Numbers-only service-resource snapshot (public-safe).  Never raises.
+
+    The /proc walk runs in a daemon worker thread and is abandoned after
+    ``timeout`` seconds: a probe that does not answer yields all-null fields
+    instead of blocking the event loop (health/status must never hang on it).
+    """
+    wait = _BOX_PROBE_TIMEOUT_SEC if timeout is None else timeout
+    box: dict = _empty_box_diagnostics()
+    done = threading.Event()
+
+    def _work() -> None:
+        try:
+            box.update(_proc_probe.service_diagnostics(os.getpid()))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            # The last heap snapshot's glibc figures (WA-17), cached: walking
+            # the heap here would hold glibc's arena locks on every probe.
+            box.update(_heap_report.box_fields())
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            done.set()
+
+    try:
+        threading.Thread(target=_work, name="box-probe", daemon=True).start()
+        if not done.wait(wait):
+            return _empty_box_diagnostics()
+        return dict(box)
+    except Exception:  # noqa: BLE001
+        return _empty_box_diagnostics()
+
+
+def _empty_box_diagnostics() -> dict:
+    """Every ``box_resources`` field, unknown (``None``)."""
+    return {**_proc_probe.empty_service_diagnostics(), **_heap_report.empty_box_fields()}
+
+
+_LIBC_MALLOC_TRIM = None  # resolved lazily; False when unavailable (non-glibc)
+
+
+def _release_freed_heap() -> dict:
+    """Hand freed glibc heap back to the OS (``malloc_trim(0)``).  Never raises.
+
+    Each scrape cycle builds and drops several copies of a ~4 MB contract
+    (views, gzip variants, overlays); glibc keeps the freed pages in its
+    arenas, so RSS ratchets toward the peak and the service cgroup creeps
+    up to ``MemoryHigh``, where the kernel throttles everything in it
+    (website audit WA-05: Chromium could no longer launch).  Measured
+    2026-11-12 over 14 replayed publish cycles: live Python objects constant
+    (330,466 every cycle, no leak); RSS plateau 684 MB without a trim, 498 MB
+    with one after each cycle.  A trim is not a substitute for finding a
+    leak, and none was found; it returns memory the process no longer uses.
+
+    Returns ``{"available", "rssBeforeMib", "rssAfterMib"}``; the RSS fields
+    are ``None`` when unreadable.  Call off the event loop.
+    """
+    global _LIBC_MALLOC_TRIM
+    out: dict = {"available": False, "rssBeforeMib": None, "rssAfterMib": None}
+    try:
+        if _LIBC_MALLOC_TRIM is None:
+            try:
+                import ctypes  # noqa: PLC0415
+
+                _LIBC_MALLOC_TRIM = ctypes.CDLL("libc.so.6").malloc_trim
+            except (OSError, AttributeError):
+                _LIBC_MALLOC_TRIM = False
+        if _LIBC_MALLOC_TRIM is False:
+            return out
+        before = _proc_probe.process_rss_kb(os.getpid())
+        _LIBC_MALLOC_TRIM(0)
+        after = _proc_probe.process_rss_kb(os.getpid())
+        out["available"] = True
+        out["rssBeforeMib"] = None if before is None else int(before) // 1024
+        out["rssAfterMib"] = None if after is None else int(after) // 1024
+    except Exception:  # noqa: BLE001 -- best-effort; never break a scrape
+        pass
+    return out
+
+
+def _box_diagnostics_for_status() -> dict:
+    return _box_diagnostics(_BOX_PROBE_STATUS_TIMEOUT_SEC)
+
+
+def _record_heap_snapshot(
+    reason: str, include_types: bool = False, trim: dict | None = None, walk_heap: bool = True
+) -> dict:
+    """Append one heap snapshot to the box-local log and log its headline
+    (WA-17).  ``trim`` is a ``_release_freed_heap`` result, stored as
+    numbers.  ``walk_heap=False`` is the light record (RSS and ``trim``
+    only) for the scrape path: glibc's heap walk stalls the event loop.
+    Call off the event loop.  Never raises."""
+    extra = None
+    if isinstance(trim, dict):
+        extra = {
+            "trimRssBeforeMib": trim.get("rssBeforeMib"),
+            "trimRssAfterMib": trim.get("rssAfterMib"),
+        }
+    try:
+        summary = _heap_report.record(
+            reason, include_types=include_types, walk_heap=walk_heap, extra=extra
+        )
+        log.info("heap snapshot %s: %s", reason, summary)
+        return summary
+    except Exception:  # noqa: BLE001 -- diagnostics never break a caller
+        return {"written": False}
+
+
+async def heap_report_loop() -> None:
+    """Periodic heap snapshots (WA-17): what the backend's memory is made of
+    between scrapes, so a climb toward ``MemoryHigh`` can be attributed from
+    the box-local log instead of inferred.  ``HEAP_REPORT_INTERVAL_SEC=0``
+    disables it.
+
+    One action, after the snapshot: when glibc holds at least
+    ``HEAP_RELEASE_FREE_MIB`` of freed heap, it is returned to the kernel
+    (``_release_freed_heap``, the same release the scrape uses) and a light
+    ``periodic_trim`` record logs RSS before and after.  It frees nothing in
+    use and restarts nothing.
+    """
+    if HEAP_REPORT_INTERVAL_SEC <= 0:
+        log.info("Heap report loop disabled (HEAP_REPORT_INTERVAL_SEC=0)")
+        return
+    tick = 0
+    # A first baseline shortly after start, then the configured cadence.
+    delay = min(60, HEAP_REPORT_INTERVAL_SEC)
+    while True:
+        await asyncio.sleep(delay)
+        delay = HEAP_REPORT_INTERVAL_SEC
+        try:
+            rss_kb = _proc_probe.process_rss_kb(os.getpid())
+            high = rss_kb is not None and int(rss_kb) // 1024 >= HEAP_REPORT_HIGH_RSS_MIB
+            types = tick % HEAP_REPORT_TYPES_EVERY == 0 or high
+            reason = "periodic_high_rss" if high else ("startup" if tick == 0 else "periodic")
+            summary = await run_in_threadpool(_record_heap_snapshot, reason, types)
+            free_mib = summary.get("heapFreeMib") if isinstance(summary, dict) else None
+            if (
+                HEAP_RELEASE_FREE_MIB > 0
+                and isinstance(free_mib, int)
+                and free_mib >= HEAP_RELEASE_FREE_MIB
+            ):
+                trim = await run_in_threadpool(_release_freed_heap)
+                await run_in_threadpool(_record_heap_snapshot, "periodic_trim", False, trim, False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            log.warning("heap report tick failed: %s", exc)
+        tick += 1
 
 
 _scrape_sampler_proc = None
@@ -1770,7 +2003,7 @@ def _finalize_scrape_run(worker_id: str) -> None:
         return
     _stop_resource_sampler()
     if SCRAPE_REAP_ORPHAN_BROWSERS:
-        reaped = _reap_orphan_browsers()
+        reaped = _reap_orphan_browsers(include_service_cgroup=True)
         if reaped:
             log.warning(
                 "reaped %d orphaned Chromium process(es) after scrape "
@@ -2485,7 +2718,7 @@ def _per_source_freshness() -> dict[str, dict]:
             stamp_path = state_dir / f"{src_key}_last_success"
             last_epoch: float | None = None
             try:
-                stamp_text = stamp_path.read_text().strip()
+                stamp_text = stamp_path.read_text(encoding="utf-8").strip()
             except OSError:
                 stamp_text = ""
             if stamp_text:
@@ -2512,63 +2745,109 @@ def _per_source_freshness() -> dict[str, dict]:
 
 
 def _backup_freshness() -> dict:
-    """Age + location of the newest SQLite backup.
+    """Backup health, with the two backups kept apart and named.
 
-    Mirrors deploy/backup_user_kv.sh: the primary dir ``/var/backups/
-    riskit`` needs root; the self-healing script falls back to
-    ``/home/dynasty/backups/riskit`` (owned by the service user).  This
-    surfaces ``newestBackupAgeHours`` so monitoring trips an alert
-    within a day of a silent backup failure — the exact gap that let
-    backups die unnoticed for ~2 weeks before the P0 fix.  Never raises;
-    returns null age when no backup is found.
+    ``stateBackup`` is the nightly state backup (``riskit-state-backup``,
+    written under the root-only ``/var/backups/riskit-state``): a root this
+    process cannot list is reported ``unverifiable`` / ``permission_denied``,
+    never healthy and never missing.  ``legacySqliteBackup`` is the older
+    ``backup_user_kv.sh`` job (``/var/backups/riskit`` or the dynasty-owned
+    ``/home/dynasty/backups/riskit``) under its own name.  The original
+    top-level keys (``newestBackupAgeHours`` / ``backupDirUsed`` /
+    ``dbCount``) still describe the LEGACY backup only — ``health-check.yml``
+    and the stale-backup alert in ``get_health`` read them — and the payload
+    says so (``legacyKeysDescribe``).  Unknown ages and counts are ``None``.
+    The block is served anonymously, so it carries no filesystem path
+    (``filesystemPaths: "withheld"``); the alert e-mail reads the newest file
+    from the private sidecar memoized with it (``_backup_alert_path``).
+    Owner: ``src/api/backup_health.py``.  Never raises.
 
     Memoized 30s (see ``_DISK_PROBE_MEMO``) — treat as read-only.
     """
-    return _disk_probe_memo("backup_freshness", _backup_freshness_uncached)
+    return _backup_snapshot()[0]
 
 
-def _backup_freshness_uncached() -> dict:
-    result = {
-        "newestBackupAgeHours": None,
-        "newestBackupPath": None,
-        "backupDirUsed": "none",
-        "dbCount": 0,
-    }
+def _backup_snapshot() -> tuple[dict, str | None]:
+    """``(public block, private alert path)``: ONE memo entry, ONE timestamp.
+
+    Both halves come from the same uncached pass, so the stale-backup e-mail
+    can never pair one scan's age, directory and count with another scan's
+    file.  Only the block reaches a payload (``_backup_freshness``); the path
+    is read by ``_backup_alert_path`` alone and is never serialized.
+    """
+    return _disk_probe_memo("backup_freshness", _backup_snapshot_uncached)
+
+
+def _backup_snapshot_uncached() -> tuple[dict, str | None]:
     try:
-        now_epoch = time.time()
-        newest_epoch: float | None = None
-        for label, d in (
-            ("primary", Path("/var/backups/riskit/daily")),
-            ("fallback", Path("/home/dynasty/backups/riskit/daily")),
-        ):
-            try:
-                files = list(d.glob("*.sqlite.gz"))
-            except OSError:
-                continue
-            for f in files:
-                try:
-                    mt = f.stat().st_mtime
-                except OSError:
-                    continue
-                if newest_epoch is None or mt > newest_epoch:
-                    newest_epoch = mt
-                    result["newestBackupPath"] = str(f)
-                    result["backupDirUsed"] = label
-        if newest_epoch is not None:
-            result["newestBackupAgeHours"] = round(max(0.0, (now_epoch - newest_epoch) / 3600.0), 2)
-            try:
-                newest = Path(result["newestBackupPath"])
-                parts = newest.name.split(".")
-                stamp = parts[1] if len(parts) >= 3 else ""
-                if stamp:
-                    result["dbCount"] = len(
-                        {f.name.split(".")[0] for f in newest.parent.glob(f"*.{stamp}.sqlite.gz")}
-                    )
-            except OSError:
-                pass
+        from src.api.backup_health import build_backup_health_snapshot
+
+        return build_backup_health_snapshot()
+    except Exception:  # noqa: BLE001 — monitoring helper must never raise
+        return (
+            {
+                "newestBackupAgeHours": None,
+                "backupDirUsed": "none",
+                "dbCount": None,
+                "legacyKeysDescribe": "legacySqliteBackup",
+                "filesystemPaths": "withheld",
+                "legacySqliteBackup": {"state": "unverifiable", "reason": "probe_error"},
+                "stateBackup": {
+                    "state": "unverifiable",
+                    "reason": "probe_error",
+                    "irreplaceableLedgers": {"coverage": "unverifiable"},
+                },
+                "restoreProof": {"result": "unknown", "reason": "probe_error"},
+            },
+            None,
+        )
+
+
+def _backup_coverage_alert_rows() -> dict | None:
+    """Irreplaceable-store coverage + restore-proof findings for the operator's
+    ops-alert sweep.  PRIVATE (it names the stores): one fresh detail pass, never
+    memoized and never served.  ``None`` -- "not checked", never "healthy" --
+    when the pass itself fails.  Owner: ``src/api/backup_health.py``.
+    """
+    try:
+        from src.api import backup_health as _bh
+
+        return _bh.alert_rows_now()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
+
+
+def _failed_systemd_units() -> list[str] | None:
+    """Shipped systemd services currently ``failed`` (``None`` = not checked).
+
+    Owner: ``src/api/systemd_failures.py``.  Never raises.
+    """
+    try:
+        from src.api import systemd_failures as _sf
+
+        return _sf.failed_units()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
+
+
+def _backup_alert_path(block: dict) -> str | None:
+    """The newest legacy backup FILE behind ``block``, for the operator's
+    stale-backup e-mail.
+
+    PRIVATE: never served.  It is the sidecar memoized WITH ``block`` (same
+    pass, same timestamp), so the e-mail's age, dir, dbCount and path describe
+    one scan.  It reads the memo only and makes no lookup of its own: when
+    ``block`` is not the memoized block (the memo was rebuilt since, or the
+    block came from elsewhere) the answer is ``None`` — unknown, never another
+    scan's file.  Never raises.
+    """
+    try:
+        hit = _DISK_PROBE_MEMO.get("backup_freshness")
+        if hit is not None and hit[1][0] is block:
+            return hit[1][1]
     except Exception:  # noqa: BLE001 — monitoring helper must never raise
         pass
-    return result
+    return None
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
@@ -3375,6 +3654,9 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     # Old-generation memoized responses go with the old etag.
     _OVERRIDES_RESPONSE_CACHE.clear()
     _DRAFT_CAPITAL_CACHE.clear()
+    # A new board generation moves the heavy-section key (``latest_data_etag``);
+    # rebuild those entries off the request path.  Never blocks, never raises.
+    _schedule_public_sections_warm("publish", wait_for_serving=True)
 
 
 def _load_cached_payload(path: Path | None) -> dict | None:
@@ -3653,6 +3935,35 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
         _start_resource_sampler(worker_id)
 
         try:
+            if SCRAPE_REAP_ORPHAN_BROWSERS:
+                # Before launch, not just after: Chromium leaked by an earlier
+                # run (reparented away from this process, or left by a launch
+                # that timed out) still counts against the service cgroup's
+                # MemoryMax/TasksMax and starves this run's launch.
+                _pre_box = await run_in_threadpool(_box_diagnostics)
+                _pre_reaped = await run_in_threadpool(
+                    lambda: _reap_orphan_browsers(include_service_cgroup=True)
+                )
+                if _pre_reaped:
+                    log.warning("reaped %d leaked Chromium process(es) before launch", _pre_reaped)
+                _record_scrape_event(
+                    "scrape_prelaunch_box_check",
+                    level="warning" if _pre_reaped else "info",
+                    message=f"reaped={_pre_reaped}",
+                    reaped=_pre_reaped,
+                    box=_pre_box,
+                )
+            # RSS before this cycle (WA-17).  A light record: the glibc walk
+            # and the censuses stall the event loop, and the scrape path must
+            # not (test_run_scraper_*); the periodic loop takes them.
+            await run_in_threadpool(_record_heap_snapshot, "pre_scrape", False, None, False)
+            # Headroom below the cgroup's MemoryHigh before Chromium launches.
+            _record_scrape_event(
+                "scrape_prelaunch_heap_release",
+                level="info",
+                message="malloc_trim before launch",
+                **(await run_in_threadpool(_release_freed_heap)),
+            )
             _update_scrape_progress(
                 step="bootstrap",
                 source="import_scraper",
@@ -4055,6 +4366,12 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # hiccup leaves the last observation in place, never blocks.
             await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
+            # The publish is this cycle's allocation peak; return what it freed
+            # and log RSS before / after (WA-17, light record as above).
+            _post_publish_trim = await run_in_threadpool(_release_freed_heap)
+            await run_in_threadpool(
+                _record_heap_snapshot, "post_trim", False, _post_publish_trim, False
+            )
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 
@@ -4188,16 +4505,77 @@ async def scheduled_scrape():
     ).isoformat()
 
 
-async def schedule_loop():
-    """Simple async loop that runs the scraper on an interval."""
+async def schedule_loop(first_delay_seconds: float | None = None):
+    """Simple async loop that runs the scraper on an interval.
+
+    ``first_delay_seconds`` shortens (never lengthens) the FIRST wait, so a boot
+    that skipped its startup scrape (``_startup_scrape_plan``) scrapes when the
+    loaded board turns one interval old instead of one interval after boot.
+    """
     from datetime import timedelta
 
+    interval_s = SCRAPE_INTERVAL_HOURS * 3600
+    delay_s = interval_s
+    if first_delay_seconds is not None:
+        delay_s = min(interval_s, max(0.0, float(first_delay_seconds)))
     while True:
         scrape_status["next_scrape"] = (
-            datetime.now(timezone.utc) + timedelta(hours=SCRAPE_INTERVAL_HOURS)
+            datetime.now(timezone.utc) + timedelta(seconds=delay_s)
         ).isoformat()
-        await asyncio.sleep(SCRAPE_INTERVAL_HOURS * 3600)
+        await asyncio.sleep(delay_s)
         await scheduled_scrape()
+        delay_s = interval_s
+
+
+def _startup_scrape_plan(
+    board_age_hours: float | None,
+    *,
+    has_contract: bool,
+    contract_ok: bool,
+    enabled: bool,
+    interval_hours: float = SCRAPE_INTERVAL_HOURS,
+) -> dict:
+    """Should this boot scrape now, and when is the first scheduled scrape?
+
+    Every restart used to scrape 3 s after boot (Chromium included) whatever
+    the age of the board it had just loaded, and reset the scheduled loop to
+    ``boot + interval`` (docs/ops/BACKEND_MEMORY_POLICY_2026-10-21.md §6.1,
+    D-2).  A boot may now SKIP that scrape only when the board it serves was
+    produced less than ONE scrape interval ago -- a third of the
+    ``data_stale`` line (``3 x interval``, ``/api/health``) -- and then scrapes
+    at ``produced + interval``, exactly when an uninterrupted process would
+    have.  The age is ``_board_age_hours`` (the one owner, F-19): unknown, a
+    future stamp, no primed contract, a primed contract whose
+    ``contractHealth`` is not ok (a scrape is the recovery attempt), or the
+    flag off (``conditional_startup_scrape``, default OFF) all scrape at boot
+    as before.  So the maximum age of the served board is unchanged; what goes
+    is the redundant scrape of a board that is still within its interval.
+
+    Returns ``{"run_now", "first_delay_seconds", "reason", "board_age_hours"}``.
+    """
+    interval_s = float(interval_hours) * 3600.0
+    plan = {
+        "run_now": True,
+        "first_delay_seconds": interval_s,
+        "board_age_hours": board_age_hours,
+    }
+    if not enabled:
+        return {**plan, "reason": "flag_off"}
+    if not has_contract:
+        return {**plan, "reason": "no_primed_contract"}
+    if not contract_ok:
+        return {**plan, "reason": "contract_unhealthy"}
+    if board_age_hours is None:
+        return {**plan, "reason": "board_age_unknown"}
+    if board_age_hours < 0 or board_age_hours >= float(interval_hours):
+        return {**plan, "reason": "board_due"}
+    remaining = interval_s - board_age_hours * 3600.0
+    return {
+        **plan,
+        "run_now": False,
+        "first_delay_seconds": max(0.0, remaining),
+        "reason": "board_within_interval",
+    }
 
 
 # ── APP LIFECYCLE ───────────────────────────────────────────────────────
@@ -4256,19 +4634,56 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         log.warning("session_store hydrate on startup failed: %s", exc)
 
-    # 2. Start first scrape in background (don't block startup)
+    # 2. Start first scrape in background (don't block startup) -- unless the
+    # board just loaded is still within its scrape interval (D-2,
+    # ``_startup_scrape_plan``); then the schedule scrapes when it comes due.
     async def initial_scrape():
         await asyncio.sleep(3)  # small delay to let server finish booting
         await run_scraper(trigger="startup")
 
     # 3. Start the recurring schedule
     if SCRAPE_SCHEDULER_ENABLED:
-        scrape_task = asyncio.create_task(initial_scrape())
-        scheduler_task = asyncio.create_task(schedule_loop())
+        try:
+            from src.api import feature_flags as _ff  # noqa: PLC0415
+
+            _conditional = _ff.is_enabled("conditional_startup_scrape")
+        except Exception:  # noqa: BLE001 — an unreadable flag keeps the old behaviour
+            _conditional = False
+        plan = _startup_scrape_plan(
+            _board_age_hours(),
+            has_contract=latest_contract_data is not None,
+            contract_ok=bool((contract_health or {}).get("ok")),
+            enabled=_conditional,
+        )
+        if plan["run_now"]:
+            scrape_task = asyncio.create_task(initial_scrape())
+        else:
+            scrape_task = None
+            log.info(
+                "Startup scrape skipped: board is %.2fh old (< %sh interval); "
+                "first scheduled scrape in %.0fs",
+                plan["board_age_hours"],
+                SCRAPE_INTERVAL_HOURS,
+                plan["first_delay_seconds"],
+            )
+        if _conditional:
+            # Flag OFF records nothing new: the default boot is today's boot.
+            _record_scrape_event(
+                "startup_scrape_plan",
+                message="startup scrape " + ("started" if plan["run_now"] else "skipped"),
+                run_now=plan["run_now"],
+                reason=plan["reason"],
+                board_age_hours=plan["board_age_hours"],
+                first_delay_seconds=plan["first_delay_seconds"],
+            )
+        scheduler_task = asyncio.create_task(
+            schedule_loop(plan["first_delay_seconds"] if _conditional else None)
+        )
     else:
         scrape_task = scheduler_task = None
         log.info("Scrape scheduler disabled (SCRAPE_SCHEDULER_ENABLED=false)")
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    heap_report_task = asyncio.create_task(heap_report_loop())
     # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
     # Correctness never depends on it — every command settles what is due
     # first — and a failure here must never block the site from starting.
@@ -4322,6 +4737,7 @@ async def lifespan(app: FastAPI):
         if task is not None:
             task.cancel()
     uptime_task.cancel()
+    heap_report_task.cancel()
     if auction_task is not None:
         auction_task.cancel()
     log.info("Server shutting down")
@@ -4332,6 +4748,7 @@ app = FastAPI(
     title="Dynasty Trade Calculator",
     lifespan=lifespan,
 )
+app.include_router(_chase_upside_mcp.router)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Global exception handler — catches ANY unhandled exception from
@@ -4519,6 +4936,7 @@ _PUBLIC_API_EXACT = frozenset(
 # check runs.
 _SELF_AUTHED_API_EXACT = frozenset(
     {
+        "/api/chase-upside/mcp",
         "/api/signal-alerts/run",
         # Same bearer-auth pattern as signal-alerts.  Bypass session
         # cookie gate so the systemd timer's curl call hits the
@@ -5374,7 +5792,24 @@ async def get_movers(request: Request):
     ``perSourceDelta`` for exactly this reason; this docstring lagged
     the rename and promised a breakdown of "which sources drove the
     move" that was never computed.
+
+    **League scoping (LI1842-DEFECT-03).**  The movers are the LOADED
+    board's rank movement (names, current values, source ranks), so they
+    follow the board's scoring rule exactly: a league whose scoring is not
+    proven identical to the loaded board's gets the same 503
+    ``data_not_ready`` ``/api/data`` returns
+    (``_scoring_identity_error``), not the board's movers under its name.
+    An unknown / inactive ``leagueKey`` is the usual 400.
     """
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    if latest_contract_data:
+        _scoring_err = _scoring_identity_error(latest_contract_data, league_cfg)
+        if _scoring_err is not None:
+            return _scoring_err
+
     try:
         window = int(request.query_params.get("window", 14))
     except (TypeError, ValueError):
@@ -5819,6 +6254,21 @@ async def post_rankings_overrides(request: Request):
     overrides, warnings = normalize_source_overrides(body)
     tep_multiplier = normalize_tep_multiplier(body)
     tep_native_multiplier = normalize_tep_native_multiplier(body)
+    # The MANUAL TE-premium override is withdrawn (DEFECT-02; gate
+    # ``data_contract._TEP_OVERRIDES_DISABLED``): both normalizers answer
+    # ``None`` -- the canonical ADR-015 path -- and a body that still posts
+    # one is answered, never refused, with the reason in ``warnings`` and
+    # ``meta.tepMultiplierNote``.  Joining ``warnings`` also puts the note
+    # in the response-memo key below, so a body with and without the key
+    # cannot share a cached response that says the wrong thing.
+    tep_note = withdrawn_tep_override_note(body)
+    if tep_note:
+        warnings = [*warnings, tep_note]
+    tep_source = (
+        "override"
+        if tep_multiplier is not None or tep_native_multiplier is not None
+        else "canonical"
+    )
 
     view = (request.query_params.get("view") or "").strip().lower()
     delta_view = view in {"delta", "compact", "slim"}
@@ -5933,6 +6383,13 @@ async def post_rankings_overrides(request: Request):
             # Only one board is canonical now, so this is unconditional
             # rather than derived from whether factors were applied.
             meta["valuationMode"] = "market"
+            # Which TE premium produced this board: ``canonical`` (the
+            # league-derived / ADR-015 TE-basis path GET /api/data serves)
+            # unless the withdrawal gate is rolled back and a manual value
+            # was honoured.
+            meta["tepMultiplierSource"] = tep_source
+            if tep_note:
+                meta["tepMultiplierNote"] = tep_note
             if valuation_note:
                 meta["valuationNote"] = valuation_note
                 contract_payload.setdefault("warnings", []).append(valuation_note)
@@ -6298,8 +6755,48 @@ async def get_league_comparison(request: Request):
 
 @app.get("/api/status")
 async def get_status():
-    """Return scraper status info."""
+    """Return scraper status info -- the PUBLIC projection.
+
+    Anonymous (``_PUBLIC_API_EXACT``), so the content built by
+    ``_status_content`` is served through the one public-diagnostics
+    boundary (``src/api/public_diagnostics.py``): no filesystem path, raw
+    Sleeper id, env value or traceback.  The unredacted content is
+    ``GET /api/admin/diagnostics`` (admin-gated).
+
+    The probes run in the threadpool, never on the event loop.  Measured on
+    production 2026-11-12: this handler took 14-18 s per call, and while it
+    ran an unrelated ``/api/leagues`` request (0.45 s alone) waited 15.9 s,
+    so every status poll froze the whole site.  ``_scrape_status_payload``
+    stays on the loop: it is in-memory, and it check-then-sets
+    ``scrape_status`` (the once-only stall event), which every other caller
+    also does from the loop.
+    """
     status_payload = _scrape_status_payload()
+    content = await run_in_threadpool(_public_status_body, status_payload)
+    return JSONResponse(
+        content=content,
+        # Observability payload — the disk-probe helpers behind it are
+        # memoized 30s server-side; let pollers (settings page, tools)
+        # reuse it browser-side for the same window.
+        headers={"Cache-Control": "private, max-age=15, stale-while-revalidate=30"},
+    )
+
+
+def _public_status_body(status_payload: dict) -> dict:
+    """``get_status``'s body: the public projection of ``_status_content``."""
+    return _public_diagnostics.public_status_payload(
+        _status_content(status_payload), base_dir=BASE_DIR
+    )
+
+
+def _status_content(status_payload: dict | None = None) -> dict:
+    """The FULL ``/api/status`` content.  PRIVATE: served unredacted only by
+    ``/api/admin/diagnostics``; ``get_status`` serves its public projection.
+
+    ``status_payload`` is ``_scrape_status_payload()`` taken on the event loop
+    by an async caller that runs the rest of this in the threadpool."""
+    if status_payload is None:
+        status_payload = _scrape_status_payload()
     # Prefer full scrape payload for source-health truth (dlfImport/sourceRunSummary).
     # Contract payload is a compatibility fallback when full payload is unavailable.
     # ``served_source_coverage`` is the per-source contribution to the
@@ -6322,92 +6819,89 @@ async def get_status():
     startup_gzip_bytes = (
         len(latest_startup_data_gzip_bytes) if latest_startup_data_gzip_bytes else 0
     )
-    return JSONResponse(
-        content={
-            **status_payload,
-            # Which commit this process is running, read once at import. Deploy
-            # verification compares it with the commit the workflow shipped.
-            "build": {**PROCESS_BUILD, "release": dict(PROCESS_RELEASE)},
-            "contract": {
-                "version": API_DATA_CONTRACT_VERSION,
-                "health": contract_health,
-                "value_authority": (latest_contract_data or {}).get("valueAuthority"),
-            },
-            "data_runtime": {
-                # The name claims a REFRESH time, so it carries one: when
-                # the board was produced.  It used to carry ``loadedAt`` —
-                # when this process started holding it — which is a different
-                # fact and is published beside it under its own name
-                # (audit F-19).
-                "last_data_refresh_at": latest_data_source.get("producedAt") or None,
-                "last_payload_loaded_at": latest_data_source.get("loadedAt") or None,
-                "active_data_source": latest_data_source,
-                "payload_bytes_full": full_bytes,
-                "payload_bytes_runtime": runtime_bytes,
-                "payload_bytes_startup": startup_bytes,
-                "payload_gzip_bytes_full": full_gzip_bytes,
-                "payload_gzip_bytes_runtime": runtime_gzip_bytes,
-                "payload_gzip_bytes_startup": startup_gzip_bytes,
-                "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
-                "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
-                "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
-                "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
-            },
-            "source_health": source_health,
-            "backup_health": _backup_freshness(),
-            "uptime": uptime_status,
-            "has_data": latest_contract_data is not None,
-            "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
-            "data_date": (latest_contract_data or {}).get("date"),
-            # Real per-source coverage of the served board (see the
-            # ``served_source_coverage`` global).  Monitoring asserts on
-            # this, and it is now also the INPUT ``source_health`` above
-            # counts from — so the two agree by construction rather than
-            # being two answers to one question.  Until 2026-08-18
-            # ``source_health`` took its population from the legacy
-            # ``sites`` list (2 anchor rows, not the 3 this comment
-            # claimed) and so could not detect a degraded board; F-7.
-            "served_source_coverage": served_source_coverage,
-            # The served board's own seasonal-inactive set (see the
-            # ``served_seasonal_inactive`` global): the coverage gate
-            # excuses exactly these, read from the board it is judging.
-            "served_seasonal_inactive": served_seasonal_inactive,
-            # Private sources the served board declares it carries no vote
-            # from by design (see ``served_private_absent_by_design``).
-            "served_private_absent_by_design": served_private_absent_by_design,
-            # R-4: Scrape success rate tracking
-            "scrape_success_rate_24h": _scrape_success_rate_24h(),
-            "last_n_scrapes": scrape_history[-20:],
-            "leagues": _league_status_snapshot(),
-            # 2026-04 upgrade observability — feature-flag state +
-            # unified-mapper coverage.  All flags default off so this
-            # is additive/informational; enabling a flag at runtime is
-            # the operator's decision.
-            "featureFlags": _feature_flag_snapshot_safe(),
-            # The rank-history log is the only record of what the board
-            # said on a past date, and its append is best-effort inside
-            # a try at the contract-rebuild site.  A stall is therefore
-            # silent; surfacing coverage here is what makes it visible
-            # before a study needs the history and finds it absent.
-            "rankHistoryCoverage": _rank_history_coverage_safe(),
-            # The same argument one directory over, and the same defect
-            # the line above exists to prevent.  `store.history_coverage`
-            # was written so a halted retention timer is "visible before
-            # a study needs the data rather than after it produces a
-            # wrong answer" — and was then wired to nothing.  That is
-            # what let the 2026-08-05 deploy install the producer, skip
-            # the pusher, and leave the only symptom in a deploy log
-            # nobody re-reads.
-            "playerctxHistoryCoverage": _playerctx_history_coverage_safe(),
-            "idMappingCoverage": _id_mapping_coverage_safe(),
-            "nflDataProvider": _nfl_data_provider_status_safe(),
-            "normalizationHealth": _normalization_health_safe(),
+    return {
+        **status_payload,
+        # Which commit this process is running, read once at import. Deploy
+        # verification compares it with the commit the workflow shipped.
+        "build": {**PROCESS_BUILD, "release": dict(PROCESS_RELEASE)},
+        # Numbers-only service-resource snapshot (Chromium count, cgroup
+        # memory/pids vs limits, free /dev/shm + temp bytes); memoized 30s.
+        "box_resources": _disk_probe_memo("box_resources", _box_diagnostics_for_status),
+        "contract": {
+            "version": API_DATA_CONTRACT_VERSION,
+            "health": contract_health,
+            "value_authority": (latest_contract_data or {}).get("valueAuthority"),
         },
-        # Observability payload — the disk-probe helpers behind it are
-        # memoized 30s server-side; let pollers (settings page, tools)
-        # reuse it browser-side for the same window.
-        headers={"Cache-Control": "private, max-age=15, stale-while-revalidate=30"},
-    )
+        "data_runtime": {
+            # The name claims a REFRESH time, so it carries one: when
+            # the board was produced.  It used to carry ``loadedAt`` —
+            # when this process started holding it — which is a different
+            # fact and is published beside it under its own name
+            # (audit F-19).
+            "last_data_refresh_at": latest_data_source.get("producedAt") or None,
+            "last_payload_loaded_at": latest_data_source.get("loadedAt") or None,
+            "active_data_source": latest_data_source,
+            "payload_bytes_full": full_bytes,
+            "payload_bytes_runtime": runtime_bytes,
+            "payload_bytes_startup": startup_bytes,
+            "payload_gzip_bytes_full": full_gzip_bytes,
+            "payload_gzip_bytes_runtime": runtime_gzip_bytes,
+            "payload_gzip_bytes_startup": startup_gzip_bytes,
+            "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
+            "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
+            "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
+            "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
+        },
+        "source_health": source_health,
+        "backup_health": _backup_freshness(),
+        "uptime": uptime_status,
+        "has_data": latest_contract_data is not None,
+        "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
+        "data_date": (latest_contract_data or {}).get("date"),
+        # Real per-source coverage of the served board (see the
+        # ``served_source_coverage`` global).  Monitoring asserts on
+        # this, and it is now also the INPUT ``source_health`` above
+        # counts from — so the two agree by construction rather than
+        # being two answers to one question.  Until 2026-08-18
+        # ``source_health`` took its population from the legacy
+        # ``sites`` list (2 anchor rows, not the 3 this comment
+        # claimed) and so could not detect a degraded board; F-7.
+        "served_source_coverage": served_source_coverage,
+        # The served board's own seasonal-inactive set (see the
+        # ``served_seasonal_inactive`` global): the coverage gate
+        # excuses exactly these, read from the board it is judging.
+        "served_seasonal_inactive": served_seasonal_inactive,
+        # Private sources the served board declares it carries no vote
+        # from by design (see ``served_private_absent_by_design``).
+        "served_private_absent_by_design": served_private_absent_by_design,
+        # R-4: Scrape success rate tracking
+        "scrape_success_rate_24h": _scrape_success_rate_24h(),
+        "last_n_scrapes": scrape_history[-20:],
+        "leagues": _league_status_snapshot(),
+        # 2026-04 upgrade observability — feature-flag state +
+        # unified-mapper coverage.  All flags default off so this
+        # is additive/informational; enabling a flag at runtime is
+        # the operator's decision.
+        "featureFlags": _feature_flag_snapshot_safe(),
+        # The rank-history log is the only record of what the board
+        # said on a past date, and its append is best-effort inside
+        # a try at the contract-rebuild site.  A stall is therefore
+        # silent; surfacing coverage here is what makes it visible
+        # before a study needs the history and finds it absent.
+        "rankHistoryCoverage": _rank_history_coverage_safe(),
+        # The same argument one directory over, and the same defect
+        # the line above exists to prevent.  `store.history_coverage`
+        # was written so a halted retention timer is "visible before
+        # a study needs the data rather than after it produces a
+        # wrong answer" — and was then wired to nothing.  That is
+        # what let the 2026-08-05 deploy install the producer, skip
+        # the pusher, and leave the only symptom in a deploy log
+        # nobody re-reads.
+        "playerctxHistoryCoverage": _playerctx_history_coverage_safe(),
+        "idMappingCoverage": _id_mapping_coverage_safe(),
+        "nflDataProvider": _nfl_data_provider_status_safe(),
+        "normalizationHealth": _normalization_health_safe(),
+    }
 
 
 def _feature_flag_snapshot_safe() -> dict:
@@ -6508,7 +7002,14 @@ def _playerctx_history_coverage_safe() -> dict:
 
         coverage = _pcx_store.history_coverage()
         if coverage.get("exists"):
-            coverage.update(_playerctx_pending_push(_pcx_store.HISTORY_DIR))
+            # A ``git`` subprocess with a 10 s timeout: memoized like the
+            # other disk probes, so a poller does not pay it on every call.
+            coverage.update(
+                _disk_probe_memo(
+                    "playerctx_pending_push",
+                    lambda: _playerctx_pending_push(_pcx_store.HISTORY_DIR),
+                )
+            )
         return coverage
     except Exception as exc:  # noqa: BLE001
         log.warning("playerctx history coverage failed: %s", exc)
@@ -6616,7 +7117,26 @@ def _league_status_snapshot() -> list[dict]:
 # ID" warning).  Same handler, same responses; deterministic, unique ids.
 @app.get("/api/health")
 async def get_health():
-    """Basic health endpoint for reverse proxy / uptime probes."""
+    """Basic health endpoint for reverse proxy / uptime probes.
+
+    Anonymous, so the content is served through the public-diagnostics
+    boundary (``src/api/public_diagnostics.py``); the status code and every
+    verdict are computed BEFORE projection and are unchanged by it.  The
+    unredacted content is ``GET /api/admin/diagnostics`` (admin-gated).
+    """
+    status_code, content = _health_content(send_alerts=True)
+    return JSONResponse(
+        status_code=status_code,
+        content=_public_diagnostics.public_health_payload(content, base_dir=BASE_DIR),
+    )
+
+
+def _health_content(*, send_alerts: bool) -> tuple[int, dict]:
+    """``(status code, FULL /api/health content)``.  PRIVATE: see ``get_health``.
+
+    ``send_alerts`` is False for the admin read so looking at the diagnostics
+    never sends the stale-backup e-mail.
+    """
     status_payload = _scrape_status_payload()
 
     # R-1: Data freshness check — flag stale if the BOARD is older than
@@ -6642,6 +7162,8 @@ async def get_health():
     _session_configs = {
         # Scraper POSTs DLF_USERNAME/PASSWORD to wp-login on failure,
         # so this file auto-refreshes.  Tracked for visibility only.
+        # Read from the fetch timer's work dir via ``_dlf_session`` (below),
+        # NOT from BASE_DIR: that copy is a bootstrap seed nothing refreshes.
         "dlf_session.json": {"lifetimeDays": 14, "autoRefresh": True},
         # Scraper POSTs DRAFTSHARKS_EMAIL/PASSWORD on failure.
         "draftsharks_session.json": {"lifetimeDays": 30, "autoRefresh": True},
@@ -6653,9 +7175,12 @@ async def get_health():
     for fname, cfg in _session_configs.items():
         lifetime_days = cfg["lifetimeDays"]
         auto_refresh = cfg["autoRefresh"]
-        fpath = BASE_DIR / fname
+        # One resolver for "where is this session file": DLF resolves the way
+        # the fetch timer's script does; the others stay under BASE_DIR.
+        fpath = _dlf_session.health_session_path(fname, BASE_DIR)
         try:
             if not fpath.exists():
+                # Missing is reported as missing -- never as a zero-day-old file.
                 _session_ages[fname] = {"present": False, "autoRefresh": auto_refresh}
                 continue
             mtime_ts = fpath.stat().st_mtime
@@ -6736,19 +7261,23 @@ async def get_health():
     # does NOT flip the uptime status (the site is still serving).
     backup_health = _backup_freshness()
     _bage = backup_health.get("newestBackupAgeHours")
-    if _bage is None or _bage > 36:
+    if send_alerts and (_bage is None or _bage > 36):
+        # The public block carries no path.  The file is the private sidecar
+        # memoized with THIS block, so age, dir, path and dbCount below all
+        # describe one scan (no backup observed: the sidecar is None).
+        _bpath = _backup_alert_path(backup_health)
         send_alert(
             "Risk It: SQLite backups stale",
             f"Newest backup age: {_bage}h (dir={backup_health.get('backupDirUsed')}, "
-            f"path={backup_health.get('newestBackupPath')}, dbCount="
+            f"path={_bpath}, dbCount="
             f"{backup_health.get('dbCount')}). Expected a fresh backup within 24h "
             f"from riskit-backup.timer (02:00 UTC). Check "
             f"deploy/backup_user_kv.sh and /var/log/riskit-backup.log.",
         )
 
-    return JSONResponse(
-        status_code=200 if is_ok else 503,
-        content={
+    return (
+        200 if is_ok else 503,
+        {
             "status": status,
             "service": "dynasty-server",
             "time_utc": datetime.now(timezone.utc).isoformat(),
@@ -6793,8 +7322,13 @@ app.add_api_route("/api/health", get_health, methods=["HEAD"], name="head_health
 
 @app.get("/api/uptime")
 async def get_uptime_status():
-    """Detailed uptime watchdog state."""
-    return JSONResponse(content=uptime_status)
+    """Detailed uptime watchdog state -- the PUBLIC projection.
+
+    Anonymous (``_PUBLIC_API_EXACT``): the env-derived ``target_url`` becomes
+    ``targetKind`` and ``last_error`` passes the public-diagnostics backstop.
+    The raw global is in ``/api/admin/diagnostics`` (``status.uptime``).
+    """
+    return JSONResponse(content=_public_diagnostics.public_uptime_payload(uptime_status))
 
 
 @app.get("/api/metrics")
@@ -6871,9 +7405,15 @@ async def get_public_waiver_compare():
     status, body = await run_in_threadpool(
         _waiver_compare_service.payload, latest_contract_data, league
     )
+    # The body is UTF-8 (``Dynasty · Crowd+Trades`` goes out as C2 B7).  A bare
+    # ``application/json`` names no charset, and a client that defaults to
+    # ISO-8859-1 when none is declared (Windows PowerShell 5.1's
+    # Invoke-RestMethod / Invoke-WebRequest) renders those two bytes as
+    # ``Â·``.  Say what the body is.
     return JSONResponse(
         status_code=status,
         content=body,
+        media_type="application/json; charset=utf-8",
         headers={
             "Cache-Control": "public, max-age=30" if status == 200 else "no-store",
             "X-Robots-Tag": "noindex, nofollow",
@@ -7266,6 +7806,10 @@ async def post_waiver_suggestions(request: Request):
 
     from src.trade import waiver as _waiver  # noqa: PLC0415
 
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+
     inputs = await _waiver_engine_inputs(league_cfg, team_owner_id)
     if inputs["input_error"] is not None:
         log.error(f"Waiver suggestions failed: {inputs['input_error']}")
@@ -7286,6 +7830,7 @@ async def post_waiver_suggestions(request: Request):
             starters=inputs["starters"],
             roster_size=inputs["roster_size"],
             market_priors=inputs["market_priors"],
+            withhold_bids_when_balance_unknown=True,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Waiver suggestions failed: {exc}")
@@ -7295,6 +7840,27 @@ async def post_waiver_suggestions(request: Request):
         result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
+
+
+def _faab_config_refusal() -> JSONResponse | None:
+    """503 when ``config/trade/faab.json`` is missing or invalid (AMATH-S27).
+
+    Every FAAB-priced route asks this first, so a broken config yields a
+    named refusal instead of a bid computed from silently substituted
+    defaults.  The loader caches a valid config, so this is a dict lookup
+    on the happy path.
+    """
+    from src.trade import faab_engine as _engine  # noqa: PLC0415
+
+    try:
+        _engine.load_faab_config()
+    except _engine.FaabConfigError as exc:
+        log.error(f"FAAB config refused: {exc}")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "faab_config_invalid", "message": str(exc)},
+        )
+    return None
 
 
 async def _waiver_engine_inputs(league_cfg: Any, team_owner_id: str | None) -> dict[str, Any]:
@@ -7445,6 +8011,10 @@ async def post_waiver_perfect(request: Request):
             content={"error": "team_required", "leagueKey": league_cfg.key},
         )
 
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
     )
@@ -7539,6 +8109,263 @@ _PERFECT_WAIVERS_CACHE: dict[str, tuple[float, dict]] = {}
 _PERFECT_WAIVERS_CACHE_TTL_SEC = 120.0
 _PERFECT_WAIVERS_CACHE_MAX = 32
 _PERFECT_WAIVERS_CACHE_LOCK = threading.Lock()
+
+
+@app.post("/api/waiver/advisor")
+async def post_waiver_advisor(request: Request):
+    """Waiver Advisor (Workstream E) — default-OFF composer over existing owners.
+
+    Private and league-scoped, advice only.  The flag check runs FIRST: the
+    page's first request carries no team and is its gate probe.  Everything
+    else mirrors :func:`post_waiver_perfect`; ``src/waivers/advisor.py``
+    computes no value, bid, lineup or legality of its own.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.waivers import advisor as _advisor  # noqa: PLC0415
+
+    if not is_enabled("waiver_advisor"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": _advisor.FLAG}
+        )
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    req = _advisor.parse_advisor_request(body)
+    if not req["teamOwnerId"]:
+        return JSONResponse(
+            status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
+        )
+    # List bids come from the FAAB engine: a broken config is a named refusal,
+    # never a bid from substituted defaults (CW-10 / AMATH-S27).
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    inputs = await _waiver_engine_inputs(league_cfg, req["teamOwnerId"])
+    if inputs["input_error"] is not None:
+        # The exception text stays in the server log; the response carries a
+        # stable code only.
+        logging.error(
+            "Waiver Advisor: league settings unreadable for %s: %r",
+            league_cfg.key,
+            inputs["input_error"],
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "waiver_advisor_unavailable",
+                "reason": "league_settings_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    base = contract if isinstance(contract, dict) else {}
+    sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
+    plan_contract = {**base, "sleeper": {**sleeper_block, "teams": inputs["teams"]}}
+    constraints = _constraints_for_request(
+        request, plan_contract, league_cfg, surface="perfect_waivers"
+    )
+    try:
+        payload = await run_in_threadpool(
+            lambda: _advisor.compute_waiver_advisor(
+                plan_contract,
+                league_key=league_cfg.key,
+                owner_id=req["teamOwnerId"],
+                inputs=inputs,
+                constraints=constraints,
+                position=req["position"],
+                limit=req["limit"],
+            )
+        )
+    except ValueError as exc:
+        code = str(exc) or "bad_request"
+        return JSONResponse(
+            status_code=503 if code == "no_rosters_loaded" else 400,
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception:  # noqa: BLE001
+        logging.exception("Waiver Advisor failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "waiver_advisor_unavailable", "leagueKey": league_cfg.key},
+        )
+    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
+    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    return JSONResponse(content=payload)
+
+
+# Stable error codes the streaming composer raises, and the status each maps
+# to.  Anything else is ``idp_streaming_unavailable`` — never exception text.
+_STREAMING_ERROR_STATUS = {
+    "no_rosters_loaded": 503,
+    "unknown_team": 400,
+    "starter_slots_unknown": 503,
+    "not_in_season": 400,
+    "projections_refused": 503,
+    "drop_policy_unreadable": 503,
+    "league_mismatch": 503,
+}
+
+
+@app.post("/api/waiver/streaming")
+async def post_waiver_streaming(request: Request):
+    """Weekly IDP Streaming (owner directive 2026-10-29) — default-OFF composer.
+
+    Private (the default-deny API auth gate) and league-scoped, advice only:
+    nothing here submits, schedules or drafts a waiver claim.  BOTH flags
+    are checked FIRST — ``waiver_advisor`` (the page this mode lives in) and
+    ``idp_streaming`` — because the page's first request is its gate probe.
+    Everything else mirrors :func:`post_waiver_advisor`;
+    ``src/waivers/streaming.py`` composes the existing owners and this
+    handler only resolves inputs and maps its stable error codes.
+
+    Responses::
+
+        200  the streaming payload (``compute_streaming``)
+        400  team_required / unknown_team / not_in_season / bad_<field>
+             / unknown_league / inactive_league
+        503  feature_disabled (``flag`` names the switch that is off)
+        503  data_not_ready / no_rosters_loaded / starter_slots_unknown
+             / projections_refused / drop_policy_unreadable / league_mismatch
+        503  idp_streaming_unavailable (``reason`` config_unreadable /
+             league_settings_unreadable, or none when the build raised)
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.waivers import streaming as _streaming  # noqa: PLC0415
+
+    # Literal flag names: the reachability guard reads gates by their literal.
+    if not is_enabled("waiver_advisor"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": "waiver_advisor"}
+        )
+    if not is_enabled("idp_streaming"):
+        return JSONResponse(
+            status_code=503, content={"error": "feature_disabled", "flag": _streaming.FLAG}
+        )
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
+    try:
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    try:
+        cfg = _streaming.load_streaming_config()
+    except _streaming.StreamingConfigError:
+        logging.exception("IDP Streaming: config unreadable")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "config_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    try:
+        req = _streaming.parse_streaming_request(body, cfg)
+    except ValueError as exc:
+        code = str(exc)
+        if not code.startswith("bad_"):
+            code = "bad_request"
+        return JSONResponse(status_code=400, content={"error": code, "leagueKey": league_cfg.key})
+    if not req["teamOwnerId"]:
+        return JSONResponse(
+            status_code=400, content={"error": "team_required", "leagueKey": league_cfg.key}
+        )
+    # List bids come from the FAAB engine: a broken config is a named refusal,
+    # never a bid from substituted defaults (CW-10 / AMATH-S27).
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+    contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
+        request, body, league_cfg
+    )
+    inputs = await _waiver_engine_inputs(league_cfg, req["teamOwnerId"])
+    if inputs["input_error"] is not None:
+        logging.error(
+            "IDP Streaming: league settings unreadable for %s: %r",
+            league_cfg.key,
+            inputs["input_error"],
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "league_settings_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    base = contract if isinstance(contract, dict) else {}
+    sleeper_block = base.get("sleeper") if isinstance(base.get("sleeper"), dict) else {}
+    plan_contract = {**base, "sleeper": {**sleeper_block, "teams": inputs["teams"]}}
+    constraints = _constraints_for_request(
+        request, plan_contract, league_cfg, surface="perfect_waivers"
+    )
+    try:
+        payload = await run_in_threadpool(
+            lambda: _streaming.compute_streaming(
+                plan_contract,
+                league_key=league_cfg.key,
+                owner_id=req["teamOwnerId"],
+                inputs=inputs,
+                constraints=constraints,
+                request=req,
+                cfg=cfg,
+            )
+        )
+    except _streaming.StreamingConfigError:
+        logging.exception("IDP Streaming: config unreadable")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "idp_streaming_unavailable",
+                "reason": "config_unreadable",
+                "leagueKey": league_cfg.key,
+            },
+        )
+    except ValueError as exc:
+        code = str(exc)
+        if code not in _STREAMING_ERROR_STATUS:
+            logging.exception("IDP Streaming failed")
+            return JSONResponse(
+                status_code=503,
+                content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
+            )
+        return JSONResponse(
+            status_code=_STREAMING_ERROR_STATUS[code],
+            content={"error": code, "leagueKey": league_cfg.key},
+        )
+    except Exception:  # noqa: BLE001 — surface, never 500-crash the page
+        logging.exception("IDP Streaming failed")
+        return JSONResponse(
+            status_code=503,
+            content={"error": "idp_streaming_unavailable", "leagueKey": league_cfg.key},
+        )
+    payload["advisoryOnly"] = True
+    payload["rosterSource"] = "live_overlay" if inputs["rosters_from_overlay"] else "contract"
+    payload["rostersAsOf"] = inputs["rosters_as_of"]
+    _stamp_valuation_mode(payload, valuation_mode, valuation_note)
+    return JSONResponse(content=payload)
 
 
 def _perfect_waivers_cache_key(
@@ -7727,6 +8554,10 @@ async def post_waiver_faab_recommend(request: Request):
             content={"error": "addPlayerName is required."},
         )
 
+    config_refusal = _faab_config_refusal()
+    if config_refusal is not None:
+        return config_refusal
+
     # Resolve player rows + values from the live contract.
     contract, valuation_mode, valuation_note = await _valuation_scoped_contract(
         request, body, league_cfg
@@ -7762,8 +8593,44 @@ async def post_waiver_faab_recommend(request: Request):
             content={"error": f"Player not found: {add_name!r}"},
         )
 
-    add_value = float(add_row.get("rankDerivedValue") or 0)
-    drop_value = float(drop_row.get("rankDerivedValue") or 0) if drop_row else 0.0
+    # MISSING IS NEVER ZERO (CW-50, 2026-11-07).  Both sides used to read
+    # ``rankDerivedValue or 0``: an add the board does not price was quoted a
+    # real-looking $0 ("worth nothing"), and a named drop that was unpriced —
+    # or not on the board at all — was charged nothing and described as
+    # "replacement level — free", which ODR-SR-UNPRICED forbids ("unpriced
+    # assets in drop logic: never a free drop").  Neither gets a figure now.
+    def _board_value(row: dict | None) -> float | None:
+        v = (row or {}).get("rankDerivedValue")
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+            return None
+        return float(v)
+
+    priced_add_value = _board_value(add_row)
+    # The add's missing price is refused AFTER availability is established
+    # (below): a player already on a roster is a 409 whether or not the board
+    # prices him.
+    add_value = priced_add_value
+    drop_value: float | None = None
+    if not drop_target:
+        drop_value_state = "none"
+    else:
+        drop_value = _board_value(drop_row)
+        drop_value_state = "priced" if drop_value is not None else "unpriced"
+        if drop_value is None:
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": "drop_player_unpriced",
+                    "message": (
+                        f"{drop_name} is "
+                        + ("not on the board" if drop_row is None else "not priced by the board")
+                        + " — what dropping him costs is unknown, and an unpriced drop is "
+                        "never treated as free."
+                    ),
+                    "dropValueState": "not_on_board" if drop_row is None else "unpriced",
+                    "leagueKey": league_cfg.key,
+                },
+            )
     add_position = add_row.get("position") or add_row.get("pos") or None
 
     # Live Waiver Opportunity — SHADOW ONLY (docs/faab-live-opportunity-
@@ -7773,7 +8640,7 @@ async def post_waiver_faab_recommend(request: Request):
     # live bid is a separate, later, human-reviewed step.
     from src.api import feature_flags as _ff  # noqa: PLC0415
 
-    if _ff.is_enabled("waiver_live_opportunity"):
+    if priced_add_value is not None and _ff.is_enabled("waiver_live_opportunity"):
         try:
             from src.trade import faab_opportunity as _opportunity  # noqa: PLC0415
             from src.trade import faab_shadow as _faab_shadow  # noqa: PLC0415
@@ -7842,6 +8709,50 @@ async def post_waiver_faab_recommend(request: Request):
         for n in t.get("players") or []:
             rostered_norms.add(_norm(n))
 
+    # Only a FREE AGENT is a claim (CW-50).  A player already on a roster in
+    # this league — another team's or the requester's own — cannot be bid on,
+    # so no figure is quoted.  Matched by Sleeper id where the roster carries
+    # ids (two distinct players can share a display name); by name only for a
+    # roster that carries none.
+    from src.draft.context import league_holder_index as _league_holder_index  # noqa: PLC0415
+
+    _holder, _matched_by = _league_holder_index({"sleeper": {"teams": sleeper_teams}}).holder(
+        add_row.get("playerId"), add_name
+    )
+    if _holder is not None:
+        _requester = body.get("teamOwnerId") or body.get("ownerId")
+        _own = bool(_requester) and str(_holder.get("ownerId") or "") == str(_requester)
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": "add_player_not_available",
+                "message": (
+                    f"{add_name} is already on "
+                    + ("your roster" if _own else f"{_holder.get('name') or 'a roster'}")
+                    + " in this league — not a waiver claim."
+                ),
+                "rosteredBy": _holder.get("name"),
+                "onYourRoster": _own,
+                "matchedBy": _matched_by,
+                "rostersAsOf": rosters_as_of,
+                "leagueKey": league_cfg.key,
+            },
+        )
+
+    if priced_add_value is None:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "add_player_unpriced",
+                "message": (
+                    f"{add_name} is on the board but not priced — no FAAB figure is quoted "
+                    "for a player whose value is unknown."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+    add_value = priced_add_value
+
     # League FAAB analytics — reuse the cached public-snapshot
     # path so this endpoint doesn't pay the multi-season fetch cost
     # on every recommend request.  When the snapshot isn't loaded
@@ -7890,6 +8801,12 @@ async def post_waiver_faab_recommend(request: Request):
     # specific team, we use that team's remaining; otherwise the
     # endpoint cannot tell which team is asking and falls back to
     # the league budget as a soft cap.
+    from src.trade.waiver import (  # noqa: PLC0415
+        faab_budget_block as _faab_budget_block,
+        observed_faab_balance as _observed_faab_balance,
+        resolve_faab_balance as _resolve_faab_balance,
+    )
+
     team_faab_remaining: int | None = None
     requested_team = body.get("teamOwnerId") or body.get("ownerId")
     requested_team_matched = False
@@ -7897,9 +8814,7 @@ async def post_waiver_faab_recommend(request: Request):
         for t in sleeper_teams:
             if str(t.get("ownerId") or "") == str(requested_team):
                 requested_team_matched = True
-                rem = t.get("faabRemaining")
-                if isinstance(rem, int):
-                    team_faab_remaining = rem
+                team_faab_remaining = _observed_faab_balance(t.get("faabRemaining"))
                 break
 
     # League budget resolution: analytics summary first, then the
@@ -8041,11 +8956,14 @@ async def post_waiver_faab_recommend(request: Request):
             available_values.append(float(value))
 
     current_week, in_season = _faab_engine.current_nfl_week()
-    playoff_week_start = 15
-    for team_row in sleeper_teams:
-        if isinstance(team_row, dict) and isinstance(team_row.get("playoffWeekStart"), int):
-            playoff_week_start = team_row["playoffWeekStart"]
-            break
+    # The loaded contract's league settings are this league's only when the
+    # contract was built for it; otherwise the engine default applies.
+    _desk_contract = (
+        latest_contract_data
+        if (latest_contract_data.get("meta") or {}).get("leagueKey") == league_cfg.key
+        else None
+    )
+    playoff_week_start, _playoff_source = _faab_engine.league_playoff_week_start(_desk_contract)
 
     # Market priors fitted from THIS league's real bid history, when a
     # snapshot exists (scripts/fetch_faab_history.py writes it).
@@ -8146,7 +9064,9 @@ async def post_waiver_faab_recommend(request: Request):
 
     base_kwargs = dict(
         add_player_value=add_value,
-        drop_player_value=drop_value,
+        # ``None`` only when no drop is named (an unknown drop was refused
+        # above); the engine reads an absent drop by its missing NAME.
+        drop_player_value=drop_value if drop_value is not None else 0.0,
         add_player_position=add_position,
         add_player_name=add_name,
         drop_player_name=drop_name or None,
@@ -8377,9 +9297,123 @@ async def post_waiver_faab_recommend(request: Request):
     # answer is that nothing was usable.
     if crowd_market_block is not None:
         rec["crowdMarket"] = crowd_market_block
+    # Roster capacity, from its ONE owner (``src/trade/roster_capacity.py``).
+    # REPORTED, never applied: forced-drop selection is owner-held OFF
+    # (``forced_drop_cheapest_legal``, 2026-10-21), so no figure above moves —
+    # but a claim on a full roster now names the release it forces, with its
+    # value, instead of reading as a free add (CW-50).
+    if selected_team_row is not None:
+        try:
+            from src.trade.roster_capacity import (  # noqa: PLC0415
+                assess_roster_capacity,
+                build_capacity_context,
+            )
+
+            from src.api.gameplan import last_built_league_bundle  # noqa: PLC0415
+
+            _cap_contract = {
+                **(contract or {}),
+                "sleeper": {**((contract or {}).get("sleeper") or {}), "teams": sleeper_teams},
+            }
+            # Warm-only scarcity, the /trade simulate posture: a bid desk must
+            # never pay the league-bundle solve (measured 4-6 s cold on the
+            # 2026-11-07 board) for a REPORT.  Not warm -> scarcity inert, and
+            # the capacity block's notes say so.
+            _bundle = last_built_league_bundle(league_cfg.key)
+            _scarcity = (
+                (_bundle.scarcity, None)
+                if _bundle is not None
+                else (
+                    None,
+                    "league roster-intelligence bundle not built yet — positional "
+                    "scarcity inert for this report",
+                )
+            )
+            _cap = assess_roster_capacity(
+                build_capacity_context(
+                    _cap_contract,
+                    league_cfg.key,
+                    selected_team_row,
+                    roster_settings=roster_settings or None,
+                    scarcity_reading=_scarcity,
+                ),
+                incoming_players=[str(add_row.get("displayName") or add_name)],
+                outgoing_players=(
+                    [str(drop_row.get("displayName") or drop_name)] if drop_row is not None else []
+                ),
+            )
+            rec["rosterCapacity"] = {**_cap.to_dict(), "application": "reported_not_applied"}
+            if _cap.requires_drops is None:
+                rec["warnings"].append(
+                    "Roster capacity is unknown for this team — whether this claim forces "
+                    "a release could not be determined."
+                )
+            elif _cap.requires_drops and not drop_name:
+                _forced = (
+                    ", ".join(
+                        f"{d.name} ({'value unknown' if d.value is None else round(d.value)})"
+                        for d in _cap.forced_drops
+                    )
+                    or "a release the cut ladder could not name"
+                )
+                rec["warnings"].append(
+                    "Your roster is full — this claim forces a release you have not chosen: "
+                    f"{_forced}.  The figures above assume no drop."
+                )
+        except Exception as exc:  # noqa: BLE001 — a report must never break the bid
+            log.warning("faab-recommend roster capacity failed for %s: %s", league_cfg.key, exc)
+            rec["rosterCapacity"] = {
+                "state": "unavailable",
+                "reason": "roster_capacity_failed",
+                "application": "reported_not_applied",
+            }
+    else:
+        rec["rosterCapacity"] = {
+            "state": "unavailable",
+            "reason": "team_not_identified",
+            "application": "reported_not_applied",
+        }
+
+    # MISSING IS NEVER ZERO: the engine caps a bid at the league budget when
+    # the team's balance is unknown, which would publish a "$N bid" as if the
+    # team could spend that.  The SAME ``faabBudget`` block
+    # ``/api/waiver/suggestions`` publishes states the balance, and with it
+    # unknown every balance-capped figure is withheld (``null``).  What the
+    # player is worth (``objective``) and what he will cost (the clearing band)
+    # do not depend on our balance and stay.
+    _balance, _balance_source = _resolve_faab_balance(None, team_faab_remaining)
+    _withhold = _balance is None
+    rec["faabBudget"] = _faab_budget_block(
+        known_balance=_balance,
+        original_budget=int(league_budget),
+        withheld=_withhold,
+        source=_balance_source,
+        requested_balance=None,
+        observed_balance=team_faab_remaining,
+    )
+    if _withhold:
+        for _k in ("recommended", "conservative", "aggressive", "maxRational"):
+            rec["bids"][_k] = None
+        for _k in ("standard", "conservative", "aggressive", "max"):
+            rec[_k] = None
+        for _k in ("pctOfOriginalBudget", "pctOfRemaining", "winProbability", "teamCeilingDollars"):
+            rec[_k] = None
+        rec["warnings"] = [
+            w for w in rec.get("warnings") or [] if "FAAB left" not in w and "has left" not in w
+        ]
+        rec["warnings"].append(
+            "This team's FAAB balance is unknown — no bid is quoted.  What the player is "
+            "worth and what he is likely to cost are shown; a bid needs a known balance."
+        )
+        rec["explanation"] = (
+            "No bid quoted: this team's FAAB balance is unknown.  The objective worth and "
+            "the expected clearing band are still shown."
+        )
+
     rec["leagueKey"] = league_cfg.key
     rec["resolvedAddValue"] = add_value
     rec["resolvedDropValue"] = drop_value
+    rec["dropValueState"] = drop_value_state
     rec["resolvedAddPosition"] = add_position
     # ``resolvedAddValue`` is only interpretable against a named board —
     # the same player is worth a different number under each lens, and a
@@ -12010,6 +13044,8 @@ _DRAFT_CAPITAL_PRIVATE_PICK_FIELDS = (
     "rookieKtcValue",
     "rookieKtcDollar",
     "rookieIdpDollar",
+    "rookieKtcComparableDollar",
+    "rookieIdpComparableDollar",
     # The raw board value the dollar ladder is derived from — the single
     # most proprietary number on the payload, and blocklisted outright by
     # the public-league guard.  Added with the field itself, not after.
@@ -12297,6 +13333,15 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
 
         ktc_raw = _ktc_market_raw(csv)
         idp_raw = csv.get("idpTradeCalc")
+        # Vendors whose observation on THIS row is past its freshness budget
+        # (``freshnessExcludedSources`` holds voting keys; KTC is stale only when
+        # both of its voting boards are).  Read by the vendor comparison layer.
+        _excl = set(p.get("freshnessExcludedSources") or [])
+        _stale_vendors = []
+        if {"ktcCrowdSfTep", "ktcTradesSfTep"} <= _excl:
+            _stale_vendors.append("ktc")
+        if "idpTradeCalc" in _excl:
+            _stale_vendors.append("idpTradeCalc")
         cv = p.get("marketDispersionCV")
         out.append(
             {
@@ -12310,6 +13355,7 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
                 if isinstance(idp_raw, (int, float)) and idp_raw > 0
                 else None,
                 "assetClass": p.get("assetClass"),
+                "staleVendors": _stale_vendors,
                 "dispersionCV": float(cv) if isinstance(cv, (int, float)) and cv > 0 else None,
                 "singleSource": bool(p.get("isSingleSource")),
             }
@@ -13644,6 +14690,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     ktc_by_name: dict[str, float] = {}
     idp_by_name: dict[str, float] = {}
     rookie_ladder_receipt: dict | None = None
+    vendor_comparison: dict | None = None
     if our_rookies:
         raw_values = [r["value"] for r in our_rookies]
         _ladder = _rookie_ladder(
@@ -13666,11 +14713,24 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             our_rookies,
             DRAFT_TOTAL_BUDGET,
         )
+        # Population-safe comparison (MD-108 / W10-F004): ``ktcDollar`` below is
+        # stretched over each vendor's own list and stays for back-compat; these
+        # are the additive, versioned replacements (src/draft/vendor_comparison).
+        from src.draft.vendor_comparison import (  # noqa: PLC0415
+            compare_all_vendors,
+            name_key as _vc_key,
+        )
+
+        _vc_by_vendor, vendor_comparison = compare_all_vendors(our_rookies, rookie_dollar_overrides)
         rookies = [
             {
                 "name": r["name"],
                 "pos": r["pos"],
                 "value": d,
+                "ktcComparableDollar": _vc_by_vendor["ktc"].get(_vc_key(r["name"])),
+                "idpTradeCalcComparableDollar": _vc_by_vendor["idpTradeCalc"].get(
+                    _vc_key(r["name"])
+                ),
                 "ktcDollar": ktc_by_name.get(r["name"].lower()),
                 "idpTradeCalcDollar": idp_by_name.get(r["name"].lower()),
                 # The board value the dollar ladder was derived FROM.
@@ -13728,6 +14788,9 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             if "ktcDollar" in rookies[i]:
                 pick["rookieKtcDollar"] = rookies[i]["ktcDollar"]
                 pick["rookieIdpDollar"] = rookies[i]["idpTradeCalcDollar"]
+            if "ktcComparableDollar" in rookies[i]:
+                pick["rookieKtcComparableDollar"] = rookies[i]["ktcComparableDollar"]
+                pick["rookieIdpComparableDollar"] = rookies[i]["idpTradeCalcComparableDollar"]
             if "boardValue" in rookies[i]:
                 pick["rookieBoardValue"] = rookies[i]["boardValue"]
             if "dispersionCV" in rookies[i]:
@@ -13792,6 +14855,8 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         # How ``rookieKtcValue`` was produced (Batch F): the canonical ladder's
         # receipt — curve version, target class, spine years, or the refusal.
         "rookieDollarLadder": rookie_ladder_receipt,
+        # Per-vendor population / state receipt for ``rookie*ComparableDollar``.
+        "vendorComparison": vendor_comparison,
     }
     # ── Every other class this league owns picks in (owner directive
     # 2026-10-17) ──────────────────────────────────────────────────────
@@ -13963,6 +15028,76 @@ def _draft_valuation_health() -> list[dict] | None:
         return None
 
 
+def _roster_construction_health() -> list[dict] | None:
+    """The current season of the default league when Roster Construction
+    withholds it as lineup-rules-unverified (ops alerts).
+
+    ``[]`` = checked and fine, or the feature is off (nothing is served, so
+    nothing is withheld); ``None`` = could not be checked (unknown, never
+    "recovered").  Reads the same memoized statuses the route serves.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    try:
+        if not is_enabled("roster_construction"):
+            return []
+        cfg = _league_registry.get_default_league()
+        snapshot = _get_public_snapshot()
+        if cfg is None or snapshot is None or not snapshot.seasons:
+            return None
+        if str(cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return None
+        target = snapshot.current_season
+        status = _roster_construction_season_statuses(snapshot, False).get(str(target.season))
+        if status is None:
+            return None
+        if status.get("available"):
+            return []
+        return [
+            {
+                "leagueKey": cfg.key,
+                "season": str(target.season),
+                "reason": status.get("reason"),
+                "contradictions": list(status.get("contradictions") or []),
+                "contradictedWeeks": list(status.get("contradictedWeeks") or []),
+            }
+        ]
+    except Exception as exc:  # noqa: BLE001 — unknown, never a crash of the sweep
+        log.warning("roster construction health check failed: %s", exc)
+        return None
+
+
+def _pregame_archive_health() -> list[dict] | None:
+    """Game Day weeks whose pregame-projections archive build failed (ops alerts).
+
+    Read from the failure markers the collector's prune leaves beside a week
+    whose raw log it is keeping (``game_day_live.pregame_archive_health``).
+    ``None`` -- "not checked", never "healthy" -- when the store is unreadable.
+    """
+    try:
+        from src.ros import game_day_live  # noqa: PLC0415
+
+        return game_day_live.pregame_archive_health()
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("pregame archive health check failed: %s", exc)
+        return None
+
+
+def _forecast_degradation_health() -> list[dict] | None:
+    """Review requests fired by the standing forecast scorecard (ops alerts, MD-104).
+
+    Read from the private scorecard output (``ops_alerts.forecast_degradation_reviews``).
+    ``None`` -- "not checked", never "healthy" -- when that file does not parse.
+    """
+    try:
+        from src.api import ops_alerts  # noqa: PLC0415
+
+        return ops_alerts.forecast_degradation_reviews()
+    except Exception as exc:  # noqa: BLE001 — the alert sweep never raises
+        logging.warning("forecast degradation check failed: %s", exc)
+        return None
+
+
 @app.get("/api/draft-capital")
 async def get_draft_capital(request: Request, refresh: str = ""):
     """Return draft capital breakdown per team using Sleeper pick ownership
@@ -14056,6 +15191,13 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     # anonymous request can never strip the fields from the cached object
     # that the authenticated /draft page reads next.
     viewer_is_authed = _is_authenticated(request)
+    if refresh and not viewer_is_authed:
+        # An anonymous ``?refresh=<anything>`` used to skip the cache and run
+        # a full ~3-4 s build (Sleeper round-trips, dollar generation) per
+        # request, so any caller could keep the worker busy.  Same posture as
+        # ``_authorized_force_refresh`` on the public-league routes: IGNORED,
+        # not refused -- the public tab keeps working and reads the cache.
+        refresh = ""
     cache_slot = _DRAFT_CAPITAL_CACHE.get(league_cfg.key)
     if not refresh and cache_slot and (now - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC:
         cached = cache_slot[1]
@@ -14393,7 +15535,11 @@ async def get_sleeper_draft_picks(
         return err.json_response()
 
     try:
-        snapshot = _sleeper_overlay.fetch_live_draft_picks(
+        # Sleeper round-trips: in the threadpool, never on the event loop.
+        # This route is polled every 2-3 s during a live draft, so a blocking
+        # fetch here stalled every other request for each Sleeper call.
+        snapshot = await run_in_threadpool(
+            _sleeper_overlay.fetch_live_draft_picks,
             league_cfg.sleeper_league_id,
             after_pick_no=int(afterPickNo or 0),
         )
@@ -14627,7 +15773,10 @@ async def post_trades_asof_grades(request: Request):
 #          snapshot rebuilds succeed the snapshot TTL already bounds that;
 #          while they FAIL, ``generated_at`` never moves, so without the
 #          age bound those inputs would freeze.  The age bound keeps them
-#          within two snapshot refresh windows.
+#          within two snapshot refresh windows.  A key or age miss is not
+#          a request-path build: the entry is served stale while ONE
+#          background job rebuilds it (stale-while-revalidate, see
+#          ``_kick_public_memo_refresh``).
 #   order: a store never replaces an entry whose build started later;
 #          eviction drops the oldest builds first.
 #   bound: 4 entries.
@@ -14695,6 +15844,245 @@ def _store_public_contract_bytes(snapshot, contract, key=None, started_at=None) 
     return raw
 
 
+def _stale_public_contract_bytes(snapshot) -> bytes | None:
+    """The newest memoized contract bytes of the snapshot's lineage, whatever
+    their generation, while inside the staleness bound (stale-while-
+    revalidate, below), or ``None``."""
+    key = _public_contract_cache_key(snapshot)
+    with _PUBLIC_CONTRACT_BYTES_LOCK:
+        candidates = [
+            (entry[1], entry_key, entry[0])
+            for entry_key, entry in _PUBLIC_CONTRACT_BYTES_CACHE.items()
+            if _public_memo_same_lineage(entry_key, key)
+        ]
+    if not candidates:
+        return None
+    started_at, entry_key, raw = max(candidates, key=lambda c: c[0])
+    return raw if _public_memo_stale_servable(entry_key, key, started_at) else None
+
+
+# ── Stale-while-revalidate for the per-generation response memos ─────
+# The snapshot cache (``_get_public_snapshot``) has served stale-while-
+# revalidate since it was written: an expired snapshot is returned at once
+# and rebuilt on a daemon thread.  The response memos built FROM it did not.
+# A memo entry stops answering when its generation key moves -- every
+# private-board publish moves ``latest_data_etag`` -- or when it ages past
+# two snapshot windows (the bound that keeps the file-backed overview inputs
+# from freezing while snapshot rebuilds fail), and the next request then
+# built the whole public contract INLINE with every concurrent caller queued
+# behind it.  Measured on production 2026-11-06 (public curl, n=5): /overview
+# p50 0.45 s with one sample at 89.8 s and an earlier probe timing out at
+# 60 s, on a degraded box (stale snapshot, failing scraper) where the age
+# bound fired every ten minutes and every inline build fought for the GIL.
+#
+# Now an entry of the SAME lineage -- same ``root_league_id`` (never another
+# league's payload) and, for the contract-keyed memos, the same VORP calc
+# version -- that no longer matches the requested generation is served as
+# it is, and at most ONE background job per memo rebuilds it:
+#   * ``generation``      -- the full contract, seeding the overview,
+#                            activity and full-contract bytes memos at once
+#                            (the overview / full-contract miss path);
+#   * ``activity``        -- the activity section only (its documented miss
+#                            path), skipped while ``generation`` is in
+#                            flight because that build seeds it too;
+#   * ``heavy:<section>`` -- one heavy section (archives / awards).
+# Jobs run on daemon threads -- off the event loop AND off the AnyIO worker
+# pool -- capture their generation key and start time when they begin, and
+# file results under each memo's existing newer-build-wins rule.  A job in
+# flight longer than ``_PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS`` stops
+# suppressing a replacement (a thread cannot be killed; its late result
+# still cannot displace a newer build) -- but at most ONE such abandoned
+# (timed-out, still alive) job per memo: while it lives, a second timeout
+# starts nothing and the last good entry keeps serving
+# (``memo_refresh_skipped_abandoned``), so a hung build path cannot pile up
+# threads that each hold a whole snapshot.  A failed job keeps the last good
+# entry, logs ``memo_refresh_failed`` and holds retries off for the
+# snapshot's failure cooldown; an error is never filed as data, and a
+# superseded (abandoned) job's late outcome neither sets nor clears that
+# cooldown -- it belongs to the job that replaced it.
+#
+# Staleness is bounded (stale != current): an entry whose build started more
+# than ``_PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS`` ago is never served stale.
+# If every refresh keeps failing, the request falls through to the cold path
+# below and answers exactly as with no entry at all -- a 503 when that build
+# fails too -- instead of serving one old build forever.
+#
+# Only a TRUE cold start -- no servable entry of this lineage -- builds on the
+# request path, single-flighted so concurrent callers wait on one build.  A
+# new VORP calc version is a cold start on purpose: that key part exists so
+# a pre-fix payload is never served after the formula changes.  An
+# authorized ``?refresh`` (B8) still bypasses the stale serve and builds
+# inline.  No staleness marker is added to any response: public payloads are
+# allowlisted, pre-encoded shapes and the snapshot layer's SWR has never
+# marked them either; the ``memo_*`` counters report it instead.
+#
+# Known race, pre-existing and NOT fixed here: newer-build-wins orders builds
+# by START time, not by snapshot generation.  A request handed the previous
+# snapshot (snapshot SWR) can kick a job that starts after the next snapshot's
+# rebuild seeded the memos; that job then files the older generation over the
+# newer one (on main the inline miss build did the same).  It self-heals --
+# the next request's key no longer matches, so it is served stale and
+# revalidated once more -- at the cost of one extra build.
+
+#: How long one background memo job may run before it no longer blocks a
+#: replacement.  Generous: a full contract build is seconds when healthy.
+_PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS: float = float(
+    os.getenv("PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS", "120")
+)
+#: The oldest memo entry (by build start) that may still be served stale.
+#: Reuses the repo's scrape-cadence staleness rule, ``SCRAPE_INTERVAL_HOURS *
+#: 3`` (6 h) -- the same budget as ``/api/status``'s ``data_stale`` and the
+#: draft-capital last-valid-board fallback -- rather than a new number.
+_PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS: float = float(
+    os.getenv("PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS", str(float(SCRAPE_INTERVAL_HOURS) * 3 * 3600))
+)
+# job -> (claim token, monotonic start, worker thread)
+_public_memo_refresh_inflight: dict = {}
+# job -> the worker thread of the ONE timed-out job allowed to still be alive
+_public_memo_refresh_abandoned: dict = {}
+_public_memo_refresh_failed_at: dict = {}  # job -> monotonic time of the last failure
+# Guards the three dicts above AND the ``memo_*`` metric counters.  Never
+# held while calling ``_bump_public_metric`` (it takes the lock itself).
+_public_memo_refresh_lock = threading.Lock()
+
+
+def _public_memo_same_lineage(entry_key, key) -> bool:
+    """May a memo entry filed under ``entry_key`` answer, stale, for ``key``?
+
+    Same league -- ``root_league_id``, element 0 of every memo key, and never
+    empty -- and, for the 4-part contract keys, the same VORP calc version
+    (element 3).  Only the generation (``generated_at`` /
+    ``latest_data_etag``) may differ.  Age is the caller's second test
+    (``_public_memo_stale_servable``).
+    """
+    if not isinstance(entry_key, tuple) or not isinstance(key, tuple):
+        return False
+    if not key or len(entry_key) != len(key) or not key[0] or entry_key[0] != key[0]:
+        return False
+    return len(key) < 4 or entry_key[3] == key[3]
+
+
+def _public_memo_stale_servable(entry_key, key, started_at: float) -> bool:
+    """Same lineage AND built inside the staleness bound: may be served stale."""
+    return (
+        _public_memo_same_lineage(entry_key, key)
+        and (time.monotonic() - started_at) < _PUBLIC_LEAGUE_MEMO_MAX_STALE_SECONDS
+    )
+
+
+def _bump_public_metric(name: str) -> None:
+    with _public_memo_refresh_lock:
+        _public_league_metrics[name] = _public_league_metrics.get(name, 0) + 1
+
+
+def _public_memo_job_running(job: str, now: float) -> bool:
+    """Caller holds ``_public_memo_refresh_lock``."""
+    claim = _public_memo_refresh_inflight.get(job)
+    return claim is not None and (now - claim[1]) < _PUBLIC_LEAGUE_MEMO_REFRESH_TIMEOUT_SECONDS
+
+
+def _kick_public_memo_refresh(job: str, build, *, covered_by: tuple[str, ...] = ()) -> bool:
+    """Start ``build`` on a daemon thread unless ``job`` (or a job in
+    ``covered_by``, whose build refreshes this memo too) is already running,
+    ``job`` failed inside the failure cooldown, or ``job``'s claim timed out
+    while an earlier abandoned ``job`` is still alive.  Never blocks and
+    never raises; returns whether a job started."""
+    token = object()
+
+    def _worker():
+        def _owns_claim() -> bool:
+            # Caller holds the lock.  False once a replacement took over.
+            claim = _public_memo_refresh_inflight.get(job)
+            return claim is not None and claim[0] is token
+
+        started = time.monotonic()
+        try:
+            build()
+        except Exception as exc:  # noqa: BLE001 — the last good entry keeps serving
+            with _public_memo_refresh_lock:
+                if _owns_claim():
+                    _public_memo_refresh_failed_at[job] = time.monotonic()
+            _bump_public_metric("memo_refresh_failures")
+            _log_public_league_event("memo_refresh_failed", job=job, error=str(exc))
+            logging.warning("Background public_league memo refresh %s failed: %s", job, exc)
+        else:
+            with _public_memo_refresh_lock:
+                if _owns_claim():
+                    _public_memo_refresh_failed_at.pop(job, None)
+            _log_public_league_event(
+                "memo_refresh_complete",
+                job=job,
+                elapsed_seconds=round(time.monotonic() - started, 4),
+            )
+        finally:
+            with _public_memo_refresh_lock:
+                if _owns_claim():
+                    del _public_memo_refresh_inflight[job]
+
+    thread = threading.Thread(target=_worker, name=f"public-league-memo-{job}", daemon=True)
+    now = time.monotonic()
+    refused = None
+    with _public_memo_refresh_lock:
+        if any(_public_memo_job_running(name, now) for name in (job, *covered_by)):
+            refused = "memo_refresh_suppressed"
+        else:
+            failed_at = _public_memo_refresh_failed_at.get(job)
+            if (
+                failed_at is not None
+                and (now - failed_at) < _PUBLIC_LEAGUE_FAILURE_COOLDOWN_SECONDS
+            ):
+                refused = "memo_refresh_suppressed"
+        timed_out = None if refused else _public_memo_refresh_inflight.get(job)
+        if timed_out is not None:
+            previous = _public_memo_refresh_abandoned.get(job)
+            if previous is not None and previous.is_alive():
+                refused = "memo_refresh_skipped_abandoned"
+            else:
+                _public_memo_refresh_abandoned[job] = timed_out[2]
+        if refused is None:
+            _public_memo_refresh_inflight[job] = (token, now, thread)
+    if refused is not None:
+        _bump_public_metric(refused)
+        return False
+    if timed_out is not None:
+        _bump_public_metric("memo_refresh_timed_out")
+        _log_public_league_event(
+            "memo_refresh_timed_out", job=job, running_seconds=round(now - timed_out[1], 1)
+        )
+
+    try:
+        thread.start()
+    except Exception as exc:  # noqa: BLE001 — e.g. no thread can be started; stale still serves
+        with _public_memo_refresh_lock:
+            claim = _public_memo_refresh_inflight.get(job)
+            if claim is not None and claim[0] is token:
+                del _public_memo_refresh_inflight[job]
+        logging.warning("Could not start public_league memo refresh %s: %s", job, exc)
+        return False
+    _bump_public_metric("memo_refresh_started")
+    _log_public_league_event("memo_refresh_started", job=job)
+    return True
+
+
+def _kick_public_generation_refresh(snapshot) -> bool:
+    """Background job ``generation``: one full contract for ``snapshot``,
+    filed under every generation memo.  A contract the bytes memo could not
+    take (an unencodable value) counts as a failure, so the cooldown -- not
+    every stale request -- paces the retries."""
+
+    def _build():
+        key = _public_contract_cache_key(snapshot)
+        started_at = time.monotonic()
+        contract = build_public_contract(
+            snapshot, activity_valuation=_build_public_activity_valuation()
+        )
+        _, raw = _seed_public_generation(snapshot, contract, key, started_at)
+        if raw is None:
+            raise RuntimeError("public contract bytes were not memoized")
+
+    return _kick_public_memo_refresh("generation", _build)
+
+
 # ``GET /api/public/league/overview`` — the public /league page's first
 # request — built EVERY public section (awards included, which the heavy
 # cache memoizes everywhere else) and kept only the overview: the full
@@ -14738,6 +16126,15 @@ def _memoized_overview(key):
     return None
 
 
+def _stale_overview(key):
+    """The memoized overview of ``key``'s lineage, whatever its generation,
+    while inside the staleness bound (stale-while-revalidate), or ``None``."""
+    hit = _PUBLIC_OVERVIEW_CACHE.get("overview")
+    if hit is not None and _public_memo_stale_servable(hit[0], key, hit[2]):
+        return hit[1]
+    return None
+
+
 def _seed_public_generation(snapshot, contract, key, started_at: float):
     """File one built contract under every generation memo; returns
     ``(overview_payload, encoded_bytes_or_None)``.  The overview comes
@@ -14755,35 +16152,86 @@ def _seed_public_generation(snapshot, contract, key, started_at: float):
     return overview, raw
 
 
+def _public_generation_async_lock() -> asyncio.Lock:
+    """The ONE request-path single-flight for full-contract builds: the
+    overview and the full-contract routes both wait on it, so concurrent
+    cold misses on either build once.  Only touched from the event loop."""
+    global _public_overview_async_lock
+    if _public_overview_async_lock is None:
+        _public_overview_async_lock = asyncio.Lock()
+    return _public_overview_async_lock
+
+
+async def _build_public_generation_inline(snapshot, key):
+    """Request-path build (cold start or authorized refresh): one full
+    contract filed under every generation memo; returns
+    ``(overview_payload, encoded_bytes_or_None)``.  Callers hold
+    ``_public_generation_async_lock()``.  No ``assert_public_payload_safe``
+    here: ``build_public_contract`` runs the full recursive walk internally,
+    and a second walk over the multi-MB tree is pure duplicate cost."""
+    started_at = time.monotonic()
+
+    def _build():
+        contract = build_public_contract(
+            snapshot, activity_valuation=_build_public_activity_valuation()
+        )
+        return _seed_public_generation(snapshot, contract, key, started_at)
+
+    return await run_in_threadpool(_build)
+
+
 async def _get_public_overview_payload(snapshot, *, bypass_cache: bool = False):
-    """Per-generation memo for the overview section (see above).
+    """Per-generation memo for the overview section (see above), served
+    stale-while-revalidate (see ``_kick_public_memo_refresh``).
 
     ``bypass_cache`` must come from ``_authorized_force_refresh``: an
     anonymous ``?refresh`` never bypasses, or any caller could queue full
     builds behind this lock."""
-    global _public_overview_async_lock
     key = _public_contract_cache_key(snapshot)
     if not bypass_cache:
         hit = _memoized_overview(key)
         if hit is not None:
             return hit
-    if _public_overview_async_lock is None:
-        _public_overview_async_lock = asyncio.Lock()
-    async with _public_overview_async_lock:
+        stale = _stale_overview(key)
+        if stale is not None:
+            _bump_public_metric("memo_stale_served")
+            _kick_public_generation_refresh(snapshot)
+            return stale
+    async with _public_generation_async_lock():
         if not bypass_cache:
             hit = _memoized_overview(key)
             if hit is not None:
                 return hit
-        started_at = time.monotonic()
+        overview, _ = await _build_public_generation_inline(snapshot, key)
+        return overview
 
-        def _build():
-            contract = build_public_contract(
-                snapshot, activity_valuation=_build_public_activity_valuation()
-            )
-            overview, _ = _seed_public_generation(snapshot, contract, key, started_at)
-            return overview
 
-        return await run_in_threadpool(_build)
+async def _get_public_contract_bytes(snapshot, *, bypass_cache: bool = False) -> bytes:
+    """Encoded ``GET /api/public/league`` body for ``snapshot``: the memo
+    (``_PUBLIC_CONTRACT_BYTES_CACHE``), served stale-while-revalidate, and
+    on a true cold start the shared single-flighted generation build.
+    ``bypass_cache`` must come from ``_authorized_force_refresh`` (B8)."""
+    if not bypass_cache:
+        hit = _cached_public_contract_bytes(snapshot)
+        if hit is not None:
+            return hit
+        stale = _stale_public_contract_bytes(snapshot)
+        if stale is not None:
+            _bump_public_metric("memo_stale_served")
+            _kick_public_generation_refresh(snapshot)
+            return stale
+    key = _public_contract_cache_key(snapshot)
+    async with _public_generation_async_lock():
+        if not bypass_cache:
+            hit = _cached_public_contract_bytes(snapshot)
+            if hit is not None:
+                return hit
+        _, raw = await _build_public_generation_inline(snapshot, key)
+    if raw is None:
+        # ``_seed_public_generation`` logged why (an unencodable value);
+        # the route answers 503 exactly as when the encode raised inline.
+        raise RuntimeError("public league contract could not be encoded")
+    return raw
 
 
 # ``GET /api/public/league/activity`` rebuilt the section on EVERY request:
@@ -14833,6 +16281,31 @@ def _memoized_activity(key) -> tuple[bytes, bytes] | None:
     return None
 
 
+def _stale_activity(key) -> tuple[bytes, bytes] | None:
+    """The prepared activity bytes of ``key``'s lineage, whatever their
+    generation, while inside the staleness bound (stale-while-revalidate),
+    or ``None``."""
+    hit = _PUBLIC_ACTIVITY_CACHE.get("activity")
+    if hit is not None and _public_memo_stale_servable(hit[0], key, hit[3]):
+        return hit[1], hit[2]
+    return None
+
+
+def _kick_public_activity_refresh(snapshot) -> bool:
+    """Background job ``activity``: the activity section ONLY (its miss
+    path), skipped while a ``generation`` job -- which seeds it too -- runs."""
+
+    def _build():
+        key = _public_contract_cache_key(snapshot)
+        started_at = time.monotonic()
+        payload = build_activity_serving_payload(
+            snapshot, activity_valuation=_build_public_activity_valuation()
+        )
+        _remember_activity(key, payload, started_at)
+
+    return _kick_public_memo_refresh("activity", _build, covered_by=("generation",))
+
+
 def _seed_public_activity(contract, key, started_at: float) -> None:
     """Seed the activity memo from an already-built full contract.  Never
     raises: a failure here leaves the memo to its miss path and must not
@@ -14852,13 +16325,19 @@ def _seed_public_activity(contract, key, started_at: float) -> None:
 async def _get_public_activity_bytes(snapshot, *, bypass_cache: bool = False):
     """Per-generation prepared activity response (see above); returns
     ``(raw, gzip)``.  ``bypass_cache`` must come from
-    ``_authorized_force_refresh`` (B8), exactly as for the overview."""
+    ``_authorized_force_refresh`` (B8), exactly as for the overview.  Served
+    stale-while-revalidate like the overview."""
     global _public_activity_async_lock
     key = _public_contract_cache_key(snapshot)
     if not bypass_cache:
         hit = _memoized_activity(key)
         if hit is not None:
             return hit
+        stale = _stale_activity(key)
+        if stale is not None:
+            _bump_public_metric("memo_stale_served")
+            _kick_public_activity_refresh(snapshot)
+            return stale
     if _public_activity_async_lock is None:
         _public_activity_async_lock = asyncio.Lock()
     async with _public_activity_async_lock:
@@ -15004,7 +16483,11 @@ class PublicSnapshotUnavailable(RuntimeError):
 # identity would hide fresh results the ROS publisher writes between
 # snapshot refreshes.  They read their artifact fresh on every request.
 _HEAVY_SECTION_KEYS = frozenset({"archives", "awards"})
+# section -> (cache key, payload, build start on the monotonic clock).  Stores
+# come from the event loop AND background refresh threads, so they go
+# through ``_remember_heavy_section`` (newer build wins) under this lock.
 _heavy_section_cache: dict = {}
+_heavy_section_lock = threading.Lock()
 _heavy_section_async_locks: dict = {}
 
 
@@ -15021,7 +16504,57 @@ def _heavy_section_async_lock(section: str) -> asyncio.Lock:
     return lock
 
 
-async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=None):
+def _heavy_section_cache_key(snapshot):
+    return (
+        getattr(snapshot, "root_league_id", ""),
+        getattr(snapshot, "generated_at", ""),
+        # The activity section's current-grade band reads today's board, so
+        # a new contract generation must invalidate it (owner 2026-10-17).
+        latest_data_etag,
+    )
+
+
+def _exact_memoized_awards_body(snapshot):
+    """The memoized ``awards`` section BODY for exactly this snapshot and
+    board generation, else ``None``.
+
+    ``franchise`` lists each manager's awards and used to recompute the whole
+    awards section on every request (the full-contract path already passes
+    the one it built).  Only an EXACT-key hit qualifies -- never a stale-
+    while-revalidate entry -- so the franchise bytes are those a fresh build
+    would produce; any miss falls back to the standalone build."""
+    cached = _heavy_section_cache.get("awards")
+    if cached is None or cached[0] != _heavy_section_cache_key(snapshot):
+        return None
+    payload = cached[1]
+    body = payload.get("data") if isinstance(payload, dict) else None
+    return body if isinstance(body, dict) else None
+
+
+def _remember_heavy_section(section: str, cache_key, payload, started_at: float) -> None:
+    with _heavy_section_lock:
+        current = _heavy_section_cache.get(section)
+        if current is not None and len(current) > 2 and current[2] > started_at:
+            return  # a newer build already landed; never replace it with an older one
+        _heavy_section_cache[section] = (cache_key, payload, started_at)
+
+
+def _kick_heavy_section_refresh(snapshot, section, activity_valuation) -> bool:
+    """Background job ``heavy:<section>`` (stale-while-revalidate, see
+    ``_kick_public_memo_refresh``)."""
+
+    def _build():
+        cache_key = _heavy_section_cache_key(snapshot)
+        started_at = time.monotonic()
+        payload = build_section_payload(snapshot, section, activity_valuation=activity_valuation)
+        _remember_heavy_section(section, cache_key, payload, started_at)
+
+    return _kick_public_memo_refresh(f"heavy:{section}", _build)
+
+
+async def _get_heavy_section_payload(
+    snapshot, section, *, activity_valuation=None, bypass_cache: bool = False
+):
     """Single-flight + per-snapshot memoization for a heavy section,
     coordinated on the event loop.
 
@@ -15032,30 +16565,50 @@ async def _get_heavy_section_payload(snapshot, section, *, activity_valuation=No
     The cached payload is already safety-checked inside
     ``build_section_payload`` and is only ever read by callers, so sharing
     one instance across concurrent requests is safe.
+
+    Stale-while-revalidate: an entry of the same league from an older
+    snapshot / board generation, built inside the staleness bound, is served
+    at once while ONE background job rebuilds it; only a section with no
+    such entry for this league builds here.
+
+    ``bypass_cache`` must come from ``_authorized_force_refresh`` (B8).  It
+    disables the STALE serve only: an authorized ``?refresh`` has just forced
+    a snapshot rebuild, which always moves ``generated_at``, so the entry it
+    would find is the pre-refresh generation.  An exact-key hit is still
+    served -- it IS the requested generation (this section's payload is a
+    pure function of the key's inputs), e.g. another refresher's build.
     """
-    cache_key = (
-        getattr(snapshot, "root_league_id", ""),
-        getattr(snapshot, "generated_at", ""),
-        # The activity section's current-grade band reads today's board, so
-        # a new contract generation must invalidate it (owner 2026-10-17).
-        latest_data_etag,
-    )
-    cached = _heavy_section_cache.get(section)
-    if cached is not None and cached[0] == cache_key:
-        return cached[1]
+    cache_key = _heavy_section_cache_key(snapshot)
+
+    def _serve_cached():
+        cached = _heavy_section_cache.get(section)
+        if cached is None:
+            return None
+        if cached[0] == cache_key:
+            return cached[1]
+        if not bypass_cache and _public_memo_stale_servable(cached[0], cache_key, cached[2]):
+            _bump_public_metric("memo_stale_served")
+            _kick_heavy_section_refresh(snapshot, section, activity_valuation)
+            return cached[1]
+        return None
+
+    hit = _serve_cached()
+    if hit is not None:
+        return hit
     async with _heavy_section_async_lock(section):
         # Re-check: another coroutine may have computed this section for
         # the same snapshot while we were waiting on the lock.
-        cached = _heavy_section_cache.get(section)
-        if cached is not None and cached[0] == cache_key:
-            return cached[1]
+        hit = _serve_cached()
+        if hit is not None:
+            return hit
+        started_at = time.monotonic()
         payload = await run_in_threadpool(
             build_section_payload,
             snapshot,
             section,
             activity_valuation=activity_valuation,
         )
-        _heavy_section_cache[section] = (cache_key, payload)
+        _remember_heavy_section(section, cache_key, payload, started_at)
         return payload
 
 
@@ -15081,6 +16634,18 @@ _public_league_metrics: dict = {
     "rebuild_cooldown_refused": 0,
     "refresh_wait_timeout_served_stale": 0,
     "refresh_wait_timeout_refused": 0,
+    # Response-memo stale-while-revalidate (``_kick_public_memo_refresh``):
+    # a memo entry served past its generation / age while ONE background
+    # job rebuilds it.  ``memo_refresh_failures`` rising means rebuilds fail
+    # and the last good entry is what visitors see.
+    "memo_stale_served": 0,
+    "memo_refresh_started": 0,
+    "memo_refresh_suppressed": 0,
+    "memo_refresh_failures": 0,
+    "memo_refresh_timed_out": 0,
+    # A timed-out job's claim was NOT replaced because the one abandoned
+    # job this memo may have is still alive (a hung build path).
+    "memo_refresh_skipped_abandoned": 0,
     "total_rebuild_seconds": 0.0,
     "last_rebuild_seconds": None,
     "last_rebuild_iso": None,
@@ -15599,6 +17164,9 @@ def _kick_background_refresh(league_id: str, *, trigger: str = "stale-while-reva
             _rebuild_public_snapshot(league_id, trigger=trigger)
         except Exception as exc:  # noqa: BLE001
             logging.warning("Background public_league refresh failed: %s", exc)
+        else:
+            _warm_roster_construction_after_refresh()
+            _schedule_public_sections_warm("snapshot-refresh")
         finally:
             _public_league_cache["refreshing"] = False
 
@@ -15760,39 +17328,16 @@ async def get_public_league(request: Request, refresh: str = "", leagueKey: str 
     if _league_err is not None:
         return _league_err
 
-    def _build():
-        # Snapshot fetch (blocking network I/O) AND contract assembly
-        # (potentially heavy per-section CPU) both run in the worker so
-        # the event loop is never starved — see the ``run_in_threadpool``
-        # note on the section endpoint below.
-        snapshot = _get_public_snapshot(force_refresh=_authorized_force_refresh(request, refresh))
-        # Serve pre-encoded bytes for the current (snapshot, private
-        # contract) generation — see _PUBLIC_CONTRACT_BYTES_CACHE.
-        # ``?refresh=1`` bypasses the read (still repopulates).
-        cached = (
-            None
-            if _authorized_force_refresh(request, refresh)
-            else _cached_public_contract_bytes(snapshot)
-        )
-        if cached is not None:
-            return cached
-        key = _public_contract_cache_key(snapshot)
-        started_at = time.monotonic()
-        payload = build_public_contract(
-            snapshot,
-            activity_valuation=_build_public_activity_valuation(),
-        )
-        # NOTE: no assert_public_payload_safe here — build_public_contract
-        # runs the full recursive walk internally before returning
-        # (public_contract.py); the second walk was pure duplicate cost
-        # over a multi-MB tree.
-        raw = _store_public_contract_bytes(snapshot, payload, key=key, started_at=started_at)
-        _remember_overview(key, _overview_payload_from_contract(payload), started_at)
-        _seed_public_activity(payload, key, started_at)
-        return raw
-
+    force = _authorized_force_refresh(request, refresh)
     try:
-        raw = await run_in_threadpool(_build)
+        # Snapshot fetch (blocking network I/O on a cold start or an
+        # authorized refresh) runs in the worker; contract assembly, when it
+        # is needed at all, runs there too inside ``_get_public_contract_bytes``
+        # (memo -> stale-while-revalidate -> single-flighted cold build), so
+        # the event loop is never starved.  An authorized ``?refresh=1``
+        # bypasses the memo read (still repopulates).
+        snapshot = await run_in_threadpool(_get_public_snapshot, force_refresh=force)
+        raw = await _get_public_contract_bytes(snapshot, bypass_cache=force)
         return Response(
             content=raw,
             media_type="application/json",
@@ -16018,6 +17563,31 @@ _player_impact_cache: dict[tuple[str, str, str], dict] = {}
 _PLAYER_IMPACT_CACHE_MAX = 4
 
 
+def _player_impact_computed(snapshot, target) -> dict:
+    """``player_impact.compute_season`` for one snapshot season, memoized.
+
+    Shared by ``/api/league/player-impact`` and ``/api/roster-construction``
+    (which consumes its ``gameChangerPoints`` as marginal contribution), so the
+    two never compute the same season twice.
+    """
+    from src.public_league import player_impact as _player_impact  # noqa: PLC0415
+
+    key = (snapshot.root_league_id, str(snapshot.generated_at), target.league_id)
+    computed = _player_impact_cache.get(key)
+    if computed is None:
+        computed = _player_impact.compute_season(snapshot, target)
+        # A snapshot refresh moves ``generated_at``, so this league's
+        # entries from an older generation can never be looked up again;
+        # drop them instead of letting them occupy the cap (~8.7 MB each,
+        # memory follow-up 2026-10-20).  Other leagues' entries stay.
+        for stale in [k for k in list(_player_impact_cache) if k[0] == key[0] and k[1] != key[1]]:
+            _player_impact_cache.pop(stale, None)
+        while len(_player_impact_cache) >= _PLAYER_IMPACT_CACHE_MAX:
+            _player_impact_cache.pop(next(iter(_player_impact_cache)))
+        _player_impact_cache[key] = computed
+    return computed
+
+
 @app.get("/api/league/player-impact")
 async def get_league_player_impact(request: Request, season: str = "", playerId: str = ""):
     """Deterministic player-impact contract for one finished-weeks season."""
@@ -16043,21 +17613,7 @@ async def get_league_player_impact(request: Request, season: str = "", playerId:
         target = snapshot.season_by_year(season) if season else snapshot.current_season
         if target is None:
             return 404, {"error": "unknown_season", "season": season}
-        key = (snapshot.root_league_id, str(snapshot.generated_at), target.league_id)
-        computed = _player_impact_cache.get(key)
-        if computed is None:
-            computed = _player_impact.compute_season(snapshot, target)
-            # A snapshot refresh moves ``generated_at``, so this league's
-            # entries from an older generation can never be looked up again;
-            # drop them instead of letting them occupy the cap (~8.7 MB each,
-            # memory follow-up 2026-10-20).  Other leagues' entries stay.
-            for stale in [
-                k for k in list(_player_impact_cache) if k[0] == key[0] and k[1] != key[1]
-            ]:
-                _player_impact_cache.pop(stale, None)
-            while len(_player_impact_cache) >= _PLAYER_IMPACT_CACHE_MAX:
-                _player_impact_cache.pop(next(iter(_player_impact_cache)))
-            _player_impact_cache[key] = computed
+        computed = _player_impact_computed(snapshot, target)
         payload = _player_impact.build_payload(
             snapshot, target, player_id=playerId or None, computed=computed
         )
@@ -16076,6 +17632,475 @@ async def get_league_player_impact(request: Request, season: str = "", playerId:
         content=content,
         headers={"Cache-Control": "private, no-store"},
     )
+
+
+# ── Roster Construction V1 (owner directive 2026-10-30) — PRIVATE ──────────
+# Positional optimal-lineup production vs positional dynasty value, per-player
+# starts while owned / counterfactual / league startability, depth, and
+# evidence-backed diagnoses.  Calculation: ``src/roster_intel/construction.py``;
+# assembly: ``src/api/roster_construction_api.py``.  Reads the league snapshot,
+# the player-impact season (marginal contribution) and the live contract
+# (``rankDerivedValue``, read only).  Changes nothing it reads.
+_roster_construction_cache: dict[tuple, dict] = {}
+_ROSTER_CONSTRUCTION_CACHE_MAX = 6
+_rc_league_cache: dict[tuple, object] = {}
+_RC_LEAGUE_CACHE_MAX = 4
+_rc_snapshot_cache: dict[str, tuple[float, object]] = {}
+_RC_SNAPSHOT_TTL_SECONDS = 1800.0
+_rc_snapshot_lock = threading.Lock()
+
+
+def _roster_construction_snapshot(league_cfg):
+    """The league's snapshot: the public one when it is this league, else a
+    private in-memory build of this league's chain (never persisted, never
+    served publicly)."""
+    league_id = str(league_cfg.sleeper_league_id or "")
+    if league_id and league_id == str(_public_league_id() or ""):
+        return _get_public_snapshot()
+    with _rc_snapshot_lock:
+        hit = _rc_snapshot_cache.get(league_id)
+        if hit is not None and (time.time() - hit[0]) < _RC_SNAPSHOT_TTL_SECONDS:
+            return hit[1]
+        snapshot = build_public_snapshot(league_id)
+        _rc_snapshot_cache[league_id] = (time.time(), snapshot)
+        return snapshot
+
+
+_rc_season_status_cache: dict[tuple, dict] = {}
+_RC_SEASON_STATUS_CACHE_MAX = 8
+
+
+_rc_nfl_state_cache: dict[str, tuple[float, object]] = {}
+_RC_NFL_STATE_TTL_SECONDS = 300.0
+_RC_NFL_STATE_FAILURE_TTL_SECONDS = 60.0
+_rc_nfl_state_lock = threading.Lock()
+
+
+def _rc_nfl_state():
+    """Sleeper ``/state/nfl`` for Roster Construction's week-finality rule,
+    cached (300 s; a failure is retried after 60 s).  ``None`` = unreadable,
+    which the finality rule treats as UNKNOWN (newest week withheld)."""
+    from src.public_league.sleeper_client import fetch_nfl_state  # noqa: PLC0415
+
+    def _fresh():
+        hit = _rc_nfl_state_cache.get("state")
+        if hit is None:
+            return False, None
+        ttl = _RC_NFL_STATE_TTL_SECONDS if hit[1] is not None else _RC_NFL_STATE_FAILURE_TTL_SECONDS
+        return (time.time() - hit[0] < ttl), hit[1]
+
+    ok, state = _fresh()
+    if ok:
+        return state
+    # One fetch per expiry: concurrent requests wait for it instead of each
+    # calling Sleeper (no stampede when the cache expires).
+    with _rc_nfl_state_lock:
+        ok, state = _fresh()
+        if ok:
+            return state
+        try:
+            state = fetch_nfl_state()
+        except Exception as exc:  # noqa: BLE001 — unknown, never a crash
+            logging.warning("Roster construction: /state/nfl unavailable: %s", exc)
+            state = None
+        _rc_nfl_state_cache["state"] = (time.time(), state if isinstance(state, dict) else None)
+        return _rc_nfl_state_cache["state"][1]
+
+
+def _roster_construction_host_finality(snapshot) -> dict:
+    """``{season: (first host-unfinalized week, reason)}`` (production defect
+    2026-11-03: an unfinalized best-ball week is not a rules contradiction)."""
+    from src.public_league import metrics as _metrics  # noqa: PLC0415
+
+    state = None
+    out = {}
+    for s in snapshot.seasons:
+        if str(s.league.get("status") or "").lower() == "complete":
+            out[str(s.season)] = (None, None)
+            continue
+        if state is None:
+            state = _rc_nfl_state() or {}
+        out[str(s.season)] = _metrics.host_lineups_open_from_week(s, state or None)
+    return out
+
+
+def _roster_construction_season_statuses(snapshot, include_playoffs: bool) -> dict:
+    """``{season: lineup_config_status}`` for every season in the snapshot,
+    memoized per snapshot generation and host week-finality (each check solves
+    the season's weeks)."""
+    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+
+    finality = _roster_construction_host_finality(snapshot)
+    key = (
+        snapshot.root_league_id,
+        str(snapshot.generated_at),
+        bool(include_playoffs),
+        tuple(sorted(finality.items())),
+    )
+    hit = _rc_season_status_cache.get(key)
+    if hit is not None:
+        return hit
+    out = {}
+    for s in snapshot.seasons:
+        si = _rc_api.season_input_from_snapshot(
+            snapshot,
+            s,
+            include_playoffs=include_playoffs,
+            host_finality=finality.get(str(s.season)),
+        )
+        out[str(s.season)] = _rc_api.lineup_config_status(
+            si, is_current=s is snapshot.current_season
+        )
+    for stale in [k for k in list(_rc_season_status_cache) if k[0] == key[0] and k[1] != key[1]]:
+        _rc_season_status_cache.pop(stale, None)
+    while len(_rc_season_status_cache) >= _RC_SEASON_STATUS_CACHE_MAX:
+        _rc_season_status_cache.pop(next(iter(_rc_season_status_cache)))
+    _rc_season_status_cache[key] = out
+    return out
+
+
+def _roster_construction_league_season(league_cfg, snapshot, target, include_playoffs: bool):
+    """The solved league-season (every team-week), memoized per snapshot
+    generation.  Shared by the route and the post-refresh warm."""
+    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+    from src.roster_intel import construction as _rc  # noqa: PLC0415
+    from src.trade.roster_capacity import league_roster_limit  # noqa: PLC0415
+
+    finality = _roster_construction_host_finality(snapshot).get(str(target.season))
+    key = (
+        snapshot.root_league_id,
+        str(snapshot.generated_at),
+        target.league_id,
+        include_playoffs,
+        finality,
+    )
+    ls = _rc_league_cache.get(key)
+    if ls is not None:
+        return ls
+    try:
+        impact = _player_impact_computed(snapshot, target)
+    except Exception as exc:  # noqa: BLE001 — marginal degrades, never the page
+        logging.error("Roster construction: player impact unavailable: %s", exc)
+        impact = None
+    limit = league_roster_limit(league_cfg.key) if target is snapshot.current_season else None
+    si_ = _rc_api.season_input_from_snapshot(
+        snapshot,
+        target,
+        include_playoffs=include_playoffs,
+        impact=impact,
+        roster_limit=limit,
+        host_finality=finality,
+    )
+    ls = _rc.compute_league_season(si_, _rc_api.load_priors())
+    for stale in [k for k in list(_rc_league_cache) if k[0] == key[0] and k[1] != key[1]]:
+        _rc_league_cache.pop(stale, None)
+    while len(_rc_league_cache) >= _RC_LEAGUE_CACHE_MAX:
+        _rc_league_cache.pop(next(iter(_rc_league_cache)))
+    _rc_league_cache[key] = ls
+    return ls
+
+
+def _warm_roster_construction_after_refresh() -> None:
+    """Precompute the default Roster Construction view for a fresh snapshot.
+
+    The route's caches are keyed by the snapshot generation, which moves on
+    every public-snapshot refresh (``PUBLIC_LEAGUE_CACHE_TTL``, 300 s), so
+    without this the first signed-in request after each refresh paid the
+    whole cold build (~3-4 s measured on dynasty_main 2026: player impact,
+    every team-week solve, the per-season lineup-rule checks).  Runs on the
+    refresh thread, only while the flag is on; any failure is logged and
+    leaves the route to build on demand exactly as before.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    if not is_enabled("roster_construction"):
+        return
+    try:
+        cfg = _league_registry.get_default_league()
+        snapshot = _get_public_snapshot()
+        if cfg is None or snapshot is None or not snapshot.seasons:
+            return
+        if str(cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return
+        statuses = _roster_construction_season_statuses(snapshot, False)
+        target = snapshot.current_season
+        if (statuses.get(str(target.season)) or {}).get("available"):
+            _roster_construction_league_season(cfg, snapshot, target, False)
+    except Exception as exc:  # noqa: BLE001 — a warm never breaks the refresh
+        logging.warning("Roster construction warm failed: %s", exc)
+
+
+# ── Public sections: warm after a publish / snapshot refresh ─────────
+# The first visitor after a publish used to pay for work no cache held:
+#   * ``awards`` / ``archives`` -- memoized in ``_heavy_section_cache`` under
+#     (root league, snapshot ``generated_at``, board ``latest_data_etag``); a
+#     new publish or snapshot refresh moves the key, so the next request built
+#     it inline.
+#   * ``playoffOdds`` / ``rosPlayoffOdds`` -- ``playoff_sim.canonical_forecast``
+#     serves the scheduled file only while it matches the snapshot and is under
+#     its 6 h mtime TTL; otherwise it runs the live Monte Carlo (5-18 s) memoized
+#     in ``_LIVE_MEMO`` under (root league, ``generated_at``) -- which moves with
+#     every public-snapshot refresh (``PUBLIC_LEAGUE_CACHE_TTL``, 300 s).
+# This pass calls the SAME accessors the routes call, with the same inputs, on a
+# daemon thread, so the entries exist before the visitor.  It adds no cache and
+# no key: a request still computes (or waits on the per-league live lock, or the
+# SWR job) exactly as before, so a result is never one a request would not have
+# produced for its own snapshot.  ``PUBLIC_SECTIONS_WARM_ENABLED=0`` + restart
+# disables it.
+_PUBLIC_SECTIONS_WARM_ENABLED = _env_bool("PUBLIC_SECTIONS_WARM_ENABLED", True)
+_public_sections_warm_guard = threading.Lock()
+_public_sections_warm_state = {"running": False, "pending": False, "wait": False}
+
+
+def _warm_public_sections_once() -> list[str]:
+    """Warm awards, archives and the canonical forecast for the CURRENT snapshot.
+
+    Returns the names warmed.  Each step is isolated, so one failure never
+    skips the next; the caller swallows anything that escapes."""
+    snapshot = _get_public_snapshot()
+    if snapshot is None or not getattr(snapshot, "seasons", None):
+        return []
+    fetched_at = float(_public_league_cache.get("fetched_at") or 0.0)
+    if (time.time() - fetched_at) >= _PUBLIC_LEAGUE_CACHE_TTL_SECONDS:
+        # Stale snapshot: ``_get_public_snapshot`` kicked a refresh whose own
+        # completion re-runs this pass on the fresh generation.  Warming the
+        # old one would only be thrown away.
+        return []
+    warmed: list[str] = []
+    for section in sorted(_HEAVY_SECTION_KEYS):
+        try:
+            cache_key = _heavy_section_cache_key(snapshot)
+            cached = _heavy_section_cache.get(section)
+            if cached is not None and cached[0] == cache_key:
+                continue
+            started_at = time.monotonic()
+            # ``awards`` / ``archives`` never read ``activity_valuation`` (see
+            # the heavy-section notes), so None is the route's own build.
+            payload = build_section_payload(snapshot, section)
+            _remember_heavy_section(section, cache_key, payload, started_at)
+            warmed.append(section)
+        except Exception as exc:  # noqa: BLE001 -- the request path builds on demand
+            logging.warning("Public section warm failed for %s: %s", section, exc)
+    try:
+        from src.ros import playoff_sim as _playoff_sim  # noqa: PLC0415
+
+        _playoff_sim.canonical_forecast(snapshot)
+        warmed.append("canonicalForecast")
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Public canonical forecast warm failed: %s", exc)
+    return warmed
+
+
+def _public_sections_warm_worker() -> None:
+    clean_exit = False
+    try:
+        while True:
+            with _public_sections_warm_guard:
+                if not _public_sections_warm_state["pending"]:
+                    _public_sections_warm_state["running"] = False
+                    clean_exit = True
+                    return
+                _public_sections_warm_state["pending"] = False
+                wait = _public_sections_warm_state["wait"]
+                _public_sections_warm_state["wait"] = False
+            if wait:
+                _SERVING_STARTED.wait(timeout=_ANALYSIS_WARM_BOOT_WAIT_SECONDS)
+            started = time.perf_counter()
+            try:
+                warmed = _warm_public_sections_once()
+                logging.info(
+                    "public sections warm: %s in %.1fs",
+                    ",".join(warmed) or "nothing",
+                    time.perf_counter() - started,
+                )
+            except Exception as exc:  # noqa: BLE001 -- a warm never breaks a refresh
+                logging.warning("Public sections warm failed: %s", exc)
+    finally:
+        if not clean_exit:
+            with _public_sections_warm_guard:
+                _public_sections_warm_state["running"] = False
+
+
+def _schedule_public_sections_warm(reason: str, *, wait_for_serving: bool = False) -> None:
+    """Request a warm pass.  One worker at a time; a request that arrives while
+    one runs sets ``pending`` and is served by one more pass (newest wins).
+    Never blocks, never raises into the scrape / refresh that called it."""
+    if not _PUBLIC_SECTIONS_WARM_ENABLED:
+        return
+    try:
+        with _public_sections_warm_guard:
+            _public_sections_warm_state["pending"] = True
+            if wait_for_serving:
+                _public_sections_warm_state["wait"] = True
+            if _public_sections_warm_state["running"]:
+                return
+            _public_sections_warm_state["running"] = True
+        threading.Thread(
+            target=_public_sections_warm_worker, name="public-sections-warm", daemon=True
+        ).start()
+    except Exception as exc:  # noqa: BLE001
+        with _public_sections_warm_guard:
+            _public_sections_warm_state["running"] = False
+        logging.warning("Public sections warm (%s) not started: %s", reason, exc)
+
+
+def _roster_construction_posture(league_cfg, snapshot, target, owner_by_roster):
+    """Current competitive posture per roster, warm-only; ``{}`` when unavailable."""
+    if target is not snapshot.current_season:
+        return {}, "posture_is_current_season_only"
+    contract = latest_contract_data
+    if not contract or str((contract.get("meta") or {}).get("leagueKey") or "") != league_cfg.key:
+        return {}, "contract_league_mismatch"
+    try:
+        from src.api import gameplan as _gameplan  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001 — an import failure degrades, never 503s
+        logging.warning("Roster construction: posture owner unavailable: %s", exc)
+        return {}, "posture_lookup_failed"
+    try:
+        postures, _meta = _gameplan.league_competitive_postures(
+            league_cfg.key, league_cfg.scoring_profile, contract, build_if_missing=False
+        )
+    except Exception as exc:  # noqa: BLE001 — degrade to a named unavailable
+        # A stable code; the exception detail goes to the log, never the payload.
+        logging.warning("Roster construction: posture lookup failed: %s", exc)
+        if isinstance(exc, _gameplan.GameplanUnavailable) and str(exc.reason).isidentifier():
+            return {}, f"posture_unavailable:{exc.reason}"  # the owner's own stable code
+        return {}, "posture_lookup_failed"
+    out = {}
+    for rid, oid in owner_by_roster.items():
+        p = postures.get(oid)
+        if p is not None:
+            out[rid] = {"label": p.label, "source": "competitive_posture", "asOf": "current"}
+    return out, None
+
+
+#: Every answer of the private route, error or not, is per-user and uncacheable.
+_RC_NO_STORE = {"Cache-Control": "private, no-store"}
+
+
+@app.get("/api/roster-construction")
+async def get_roster_construction(
+    request: Request, season: str = "", rosterId: str = "", includePlayoffs: str = ""
+):
+    """Roster Construction V1 for one league-season (and, with ``rosterId``,
+    one team).  Private, read-only, default-OFF behind ``roster_construction``."""
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+    from src.api import roster_construction_api as _rc_api  # noqa: PLC0415
+    from src.roster_intel import construction as _rc  # noqa: PLC0415
+
+    if not is_enabled("roster_construction"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "feature_disabled", "flag": _rc.FLAG},
+            headers=_RC_NO_STORE,
+        )
+    if not _get_auth_session(request):
+        return JSONResponse(
+            status_code=401, content={"error": "auth_required"}, headers=_RC_NO_STORE
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        resp = err.json_response()
+        resp.headers.update(_RC_NO_STORE)
+        return resp
+    include_playoffs = str(includePlayoffs).strip().lower() in {"1", "true", "yes"}
+    roster_id: int | None = None
+    if str(rosterId).strip():
+        try:
+            roster_id = int(str(rosterId).strip())
+        except ValueError:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_roster_id", "rosterId": rosterId},
+                headers=_RC_NO_STORE,
+            )
+
+    def _build() -> tuple[int, dict]:
+        snapshot = _roster_construction_snapshot(league_cfg)
+        if snapshot is None or not snapshot.seasons:
+            return 503, {"error": "data_not_ready", "reason": "league_snapshot_unavailable"}
+        if str(league_cfg.sleeper_league_id or "") != str(snapshot.root_league_id or ""):
+            return 503, {
+                "error": "data_not_ready",
+                "reason": "league_snapshot_mismatch",
+                "leagueKey": league_cfg.key,
+            }
+        target = snapshot.season_by_year(season) if season else snapshot.current_season
+        if target is None:
+            return 404, {"error": "unknown_season", "season": season}
+        # Owner decision D2 (2026-11-01): a season whose recorded lineup rules
+        # the host's own matchups contradict is served as an explicit
+        # unavailable state — never computed under an inferred configuration.
+        statuses = _roster_construction_season_statuses(snapshot, include_playoffs)
+        status = statuses.get(str(target.season)) or {"available": False}
+        if not status.get("available"):
+            payload = _rc_api.unavailable_payload(
+                league_key=league_cfg.key,
+                season=str(target.season),
+                status=status,
+                statuses=statuses,
+            )
+            payload["generatedAt"] = snapshot.generated_at
+            return 200, payload
+        contract = latest_contract_data
+        contract_gen = str((contract or {}).get("generatedAt") or "")
+        key = (
+            snapshot.root_league_id,
+            str(snapshot.generated_at),
+            target.league_id,
+            include_playoffs,
+            contract_gen,
+            roster_id,
+            _roster_construction_host_finality(snapshot).get(str(target.season)),
+        )
+        cached = _roster_construction_cache.get(key)
+        if cached is not None:
+            return 200, cached
+        ls = _roster_construction_league_season(league_cfg, snapshot, target, include_playoffs)
+        si = ls.si
+        if roster_id is not None and roster_id not in ls.team_ids:
+            return 404, {"error": "unknown_team", "rosterId": roster_id, "season": target.season}
+        owners = {
+            t.roster_id: t.owner_id for wk in sorted(si.weeks) for t in si.weeks[wk] if t.owner_id
+        }
+        postures, posture_reason = _roster_construction_posture(
+            league_cfg, snapshot, target, owners
+        )
+        posture = None
+        if roster_id is not None:
+            posture = postures.get(roster_id) or {
+                "label": None,
+                "reason": posture_reason or "posture_not_found_for_roster",
+            }
+        value = _rc_api.value_input_from_contract(contract, league_cfg.key, snapshot)
+        payload = _rc_api.build_payload(
+            ls, league_key=league_cfg.key, roster_id=roster_id, value=value, posture=posture
+        )
+        payload["generatedAt"] = snapshot.generated_at
+        payload["available"] = True
+        payload.update(_rc_api.season_availability(statuses))
+        for stale in [
+            k
+            for k in list(_roster_construction_cache)
+            if k[0] == key[0] and (k[1] != key[1] or k[4] != key[4])
+        ]:
+            _roster_construction_cache.pop(stale, None)
+        while len(_roster_construction_cache) >= _ROSTER_CONSTRUCTION_CACHE_MAX:
+            _roster_construction_cache.pop(next(iter(_roster_construction_cache)))
+        _roster_construction_cache[key] = payload
+        return 200, payload
+
+    try:
+        status, content = await run_in_threadpool(_build)
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Roster construction build failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": "roster_construction_unavailable"},
+            headers=_RC_NO_STORE,
+        )
+    return JSONResponse(status_code=status, content=content, headers=_RC_NO_STORE)
 
 
 def _public_csv_headers(filename: str, league_key: str | None) -> dict[str, str]:
@@ -16191,7 +18216,9 @@ async def get_public_league_section_csv(
             # though no heavy section reads it today — the predicate should
             # match the stated rule, or the next section added here
             # reintroduces the bug.
-            payload = await _get_heavy_section_payload(snapshot, section)
+            payload = await _get_heavy_section_payload(
+                snapshot, section, bypass_cache=_authorized_force_refresh(request, refresh)
+            )
 
             def _export():
                 assert_public_payload_safe(payload)
@@ -16306,6 +18333,7 @@ async def get_public_league_section(
                 snapshot,
                 section,
                 activity_valuation=_build_public_activity_valuation(),
+                bypass_cache=_authorized_force_refresh(request, refresh),
             )
         elif section == "overview":
             payload = await _get_public_overview_payload(
@@ -16331,6 +18359,9 @@ async def get_public_league_section(
                     section,
                     activity_valuation=_build_public_activity_valuation(),
                     team_assignment_contract=latest_contract_data,
+                    awards_section=(
+                        _exact_memoized_awards_body(snapshot) if section == "franchise" else None
+                    ),
                 )
                 if section == "franchise" and owner:
                     detail_map = payload.get("data", {}).get("detail") or {}
@@ -16525,12 +18556,54 @@ def _manager_intelligence_available() -> bool:
     return is_enabled("manager_intelligence")
 
 
+def _waiver_advisor_available() -> bool:
+    """Offer the private advisor only when its flag and live board are ready.
+
+    The advisor POST refuses feature_disabled first and data_not_ready second.
+    Keep this nav capability aligned with those gates; the IDP mode's own
+    idp_streaming flag remains checked by its dedicated page probe.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("waiver_advisor") and bool(
+        latest_contract_data and latest_contract_data.get("playersArray")
+    )
+
+
+def _idp_streaming_available() -> bool:
+    """Offer the advisor's Weekly IDP Streaming mode only when it can answer.
+
+    ``POST /api/waiver/streaming`` refuses ``feature_disabled`` unless BOTH
+    ``waiver_advisor`` and ``idp_streaming`` are on, and the mode needs the
+    same live board the advisor does.  Fails closed through
+    ``_nav_gated_features`` like every other capability.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return _waiver_advisor_available() and is_enabled("idp_streaming")
+
+
+def _roster_construction_available() -> bool:
+    """Offer Roster Construction only while its route answers.
+
+    ``GET /api/roster-construction`` refuses ``feature_disabled`` first, so
+    the nav entry follows the same flag; the page itself is private
+    (``frontend/middleware.js``) and the route re-checks the session.
+    """
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    return is_enabled("roster_construction")
+
+
 _NAV_GATED_CAPABILITIES: dict[str, Callable[[], bool]] = {
     # consensus_edge defaults OFF (ADR-023), so the DEFAULT state is a
     # nav entry to a page whose every board endpoint refuses — the same
     # thing the adminOnly Ops filter exists to prevent.
     "consensusEdge": _consensus_edge_available,
     "managerIntelligence": _manager_intelligence_available,
+    "waiverAdvisor": _waiver_advisor_available,
+    "idpStreaming": _idp_streaming_available,
+    "rosterConstruction": _roster_construction_available,
 }
 
 
@@ -17416,33 +19489,9 @@ def _apply_custom_alert_sweep(
         ]
 
 
-@app.post("/api/custom-alerts/run")
-async def run_custom_alerts(request: Request):
-    """Cron-driven evaluator.  Walks every user's rules, fires any
-    that hit, delivers via email and/or push, updates cooldown state.
-
-    Same bearer-token auth model as ``/api/signal-alerts/run``.
-    """
-    cron_auth_ok = False
-    if SIGNAL_ALERT_CRON_TOKEN:
-        header = (request.headers.get("authorization") or "").strip()
-        if header.lower().startswith("bearer "):
-            presented = header.split(None, 1)[1].strip()
-            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
-                cron_auth_ok = True
-    if not cron_auth_ok:
-        session = _get_auth_session(request)
-        if not session or session.get("auth_method") != "password":
-            return JSONResponse(
-                status_code=401,
-                content={"error": "admin_auth_required"},
-            )
-
-    if not latest_contract_data:
-        return JSONResponse(status_code=503, content={"error": "no_live_contract"})
-    players_array = (latest_contract_data or {}).get("playersArray") or []
-
-    db = await run_in_threadpool(_user_kv.all_user_states)
+def _custom_alerts_sweep(players_array: list) -> dict[str, dict[str, int]]:
+    """Blocking body of ``run_custom_alerts``: evaluate, deliver, persist state."""
+    db = _user_kv.all_user_states()
     summary: dict[str, dict[str, int]] = {}
 
     for username, state in (db or {}).items():
@@ -17510,8 +19559,7 @@ async def run_custom_alerts(request: Request):
         fired = {k: v for k, v in new_state.items() if cooldown_state.get(k) != v}
         dead = set(endpoints_to_prune)
         if fired or dead:
-            await run_in_threadpool(
-                _user_kv.mutate_user_state,
+            _user_kv.mutate_user_state(
                 username,
                 lambda entry: _apply_custom_alert_sweep(entry, fired=fired, dead_endpoints=dead),
             )
@@ -17521,6 +19569,41 @@ async def run_custom_alerts(request: Request):
             "email": delivered_email,
             "push": delivered_push,
         }
+    return summary
+
+
+@app.post("/api/custom-alerts/run")
+async def run_custom_alerts(request: Request):
+    """Cron-driven evaluator.  Walks every user's rules, fires any
+    that hit, delivers via email and/or push, updates cooldown state.
+
+    Same bearer-token auth model as ``/api/signal-alerts/run``.
+    """
+    cron_auth_ok = False
+    if SIGNAL_ALERT_CRON_TOKEN:
+        header = (request.headers.get("authorization") or "").strip()
+        if header.lower().startswith("bearer "):
+            presented = header.split(None, 1)[1].strip()
+            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
+                cron_auth_ok = True
+    if not cron_auth_ok:
+        session = _get_auth_session(request)
+        if not session or session.get("auth_method") != "password":
+            return JSONResponse(
+                status_code=401,
+                content={"error": "admin_auth_required"},
+            )
+
+    if not latest_contract_data:
+        return JSONResponse(status_code=503, content={"error": "no_live_contract"})
+    players_array = (latest_contract_data or {}).get("playersArray") or []
+
+    # The whole sweep (rule evaluation, SMTP / web-push delivery with their
+    # network timeouts, per-user kv writes) runs in ONE threadpool task, never
+    # on the event loop.  Every kv call opens its own sqlite connection inside
+    # that same worker thread, and mutate_user_state is already serialised by
+    # its own lock, so nothing is shared across threads.
+    summary = await run_in_threadpool(_custom_alerts_sweep, players_array)
 
     return JSONResponse(
         content={"ok": True, "users": summary},
@@ -17827,6 +19910,7 @@ async def get_terminal(request: Request):
                 _live_player_names(),
                 (resolved_team or {}).get("name") if resolved_team else None,
                 player_meta=_live_player_meta(),
+                roster_player_names=_terminal.roster_player_names(resolved_team),
             )
             return _terminal.build_terminal_payload(
                 contract,
@@ -17966,6 +20050,7 @@ async def get_reconciled_signals(request: Request):
                     _live_player_names(),
                     resolved_team.get("name"),
                     player_meta=_live_player_meta(),
+                    roster_player_names=_terminal.roster_player_names(resolved_team),
                 )
             except Exception as exc:  # noqa: BLE001 — reported as unavailable news
                 log.warning("/api/signals/reconciled news gather failed: %s", exc)
@@ -19104,6 +21189,37 @@ async def post_admin_nfl_data_flush(request: Request):
     return JSONResponse(content={"ok": True, "evicted": deleted})
 
 
+@app.get("/api/admin/diagnostics")
+async def get_admin_diagnostics(request: Request):
+    """The UNREDACTED ``/api/status`` + ``/api/health`` content.
+
+    The anonymous endpoints serve the public projection
+    (``src/api/public_diagnostics.py``): no filesystem path, raw Sleeper id,
+    env-derived probe target or traceback.  This is where an operator reads
+    what they withheld, behind the same allowlist as every other
+    ``/api/admin/*`` route.  Read-only: it sends no alert (``send_alerts=False``)
+    and changes no state.  The backup COVERAGE detail is not here either -- it
+    stays on-box (``python -m src.api.backup_health``), per that module.
+    """
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    health_code, health = _health_content(send_alerts=False)
+    # Same split as ``get_status``: the state check on the loop, the probes
+    # in the threadpool.
+    status_payload = _scrape_status_payload()
+    status = await run_in_threadpool(_status_content, status_payload)
+    return JSONResponse(
+        content={
+            "schemaVersion": "private-diagnostics.v1",
+            "redaction": "none",
+            "status": status,
+            "health": {"httpStatus": health_code, **health},
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/api/admin/scrape-telemetry")
 async def get_admin_scrape_telemetry(request: Request, limit: int = 400):
     """Read back the durable scrape telemetry written on this box.
@@ -19321,6 +21437,106 @@ async def post_admin_signal_state_migrate(request: Request):
     return JSONResponse(content=result)
 
 
+def _player_realized_content(sleeper_id: str, league_key: str, scoring_settings: dict) -> dict:
+    """Blocking body of ``get_player_realized`` (nflverse + Sleeper fetches).
+
+    Run via ``run_in_threadpool``; returns the JSON body for every branch."""
+    # Fetch weekly stats via nfl_data_ingest (already flag-gated —
+    # returns [] when nfl_data_ingest is off).  We scope to the
+    # current season for freshness + prior season for comparison.
+    from src.nfl_data import ingest as _ing
+    from src.nfl_data import pbp_weekly as _pbp_weekly
+    from src.nfl_data import realized_points as _rp
+
+    now_year = datetime.now(timezone.utc).year
+    years = [now_year - 1, now_year]
+    weekly = _ing.fetch_weekly_stats(years)
+
+    if not weekly:
+        return {
+            "sleeperId": sleeper_id,
+            "leagueKey": league_key,
+            "reason": "no_stats_available",
+            "weeks": [],
+            "totalPoints": 0.0,
+            "weekCount": 0,
+        }
+
+    # Find this player's GSIS via the unified mapper, then filter.
+    from src.identity import unified_mapper as _um
+
+    # The MASTER Sleeper player directory — ``{player_id: {gsis_id,
+    # full_name, position, ...}}``, which is what ``resolve_player``
+    # indexes.
+    #
+    # This used to read ``sleeper_block["players"]`` / ``["playerDict"]``.
+    # The contract's sleeper block has NEITHER key (it carries
+    # ``idToPlayer`` / ``playerIds`` / ``positions``), so ``players_dir``
+    # was always ``None`` and every request returned
+    # ``reason: "unmapped_player"`` — a well-formed 200 that answered
+    # nothing, for every player, always. ``idToPlayer`` could not have
+    # substituted either: it is ``{id: name}`` and carries no
+    # ``gsis_id``, which is the join key the weekly stat rows use.
+    #
+    # ``fetch_nfl_players`` is the existing process-cached full dump
+    # (~5 MB once per process, ``{}`` on any failure), so this adds no
+    # new download path and no second cache.
+    from src.public_league.sleeper_client import fetch_nfl_players as _fetch_nfl_players
+
+    players_dir = _fetch_nfl_players()
+    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
+    if resolved is None or not resolved.gsis_id:
+        return {
+            "sleeperId": sleeper_id,
+            "leagueKey": league_key,
+            "reason": "unmapped_player",
+            "weeks": [],
+        }
+    # ``player_id``, not ``player_id_gsis``.
+    #
+    # ``player_id_gsis`` is the field name on the WeeklyStatRow
+    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
+    # use ``player_id``. Filtering on the dataclass name matched ZERO
+    # rows for every player, so this endpoint returned a well-formed
+    # 200 with an empty ``weeks`` list — for everyone, always.
+    #
+    # Measured 2026-07-27 on the real 2025 file: the old expression
+    # matched 0 rows for a GSIS id the correct one matched 17.
+    #
+    # It went unnoticed because nothing CALLS this endpoint — the flag
+    # defaults ON, so the route has been live and answering wrongly.
+    # (An earlier version of this comment said the flag was off. It is
+    # not, and believing so made a live defect read as dormant.)
+    #
+    # Both keys are accepted so a caller passing normalized
+    # dataclass-shaped rows still works.
+    target_gsis = str(resolved.gsis_id or "").strip()
+    player_rows = [
+        r
+        for r in weekly
+        if target_gsis
+        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
+    ]
+    # The six reception bands and the player special-teams rules have no
+    # column on the weekly feed; without this the response is a total that
+    # silently omits them.  With it, a season the artifact does not cover
+    # is reported in ``unscored`` rather than scored as zero.
+    _pbp_index = _pbp_weekly.SeasonPbpIndex()
+    cumulative = _rp.compute_cumulative_points(
+        [_pbp_index.attach(r) for r in player_rows],
+        scoring_settings,
+        position=resolved.position,
+    )
+    return {
+        "sleeperId": sleeper_id,
+        "gsisId": resolved.gsis_id,
+        "fullName": resolved.full_name,
+        "position": resolved.position,
+        "leagueKey": league_key,
+        **cumulative,
+    }
+
+
 @app.get("/api/player/{sleeper_id}/realized")
 async def get_player_realized(sleeper_id: str, request: Request):
     """Return realized weekly fantasy points for a player against the
@@ -19390,106 +21606,12 @@ async def get_player_realized(sleeper_id: str, request: Request):
             }
         )
 
-    # Fetch weekly stats via nfl_data_ingest (already flag-gated —
-    # returns [] when nfl_data_ingest is off).  We scope to the
-    # current season for freshness + prior season for comparison.
-    from src.nfl_data import ingest as _ing
-    from src.nfl_data import pbp_weekly as _pbp_weekly
-    from src.nfl_data import realized_points as _rp
-
-    now_year = datetime.now(timezone.utc).year
-    years = [now_year - 1, now_year]
-    weekly = _ing.fetch_weekly_stats(years)
-
-    if not weekly:
-        return JSONResponse(
-            content={
-                "sleeperId": sleeper_id,
-                "leagueKey": league_cfg.key,
-                "reason": "no_stats_available",
-                "weeks": [],
-                "totalPoints": 0.0,
-                "weekCount": 0,
-            }
-        )
-
-    # Find this player's GSIS via the unified mapper, then filter.
-    from src.identity import unified_mapper as _um
-
-    # The MASTER Sleeper player directory — ``{player_id: {gsis_id,
-    # full_name, position, ...}}``, which is what ``resolve_player``
-    # indexes.
-    #
-    # This used to read ``sleeper_block["players"]`` / ``["playerDict"]``.
-    # The contract's sleeper block has NEITHER key (it carries
-    # ``idToPlayer`` / ``playerIds`` / ``positions``), so ``players_dir``
-    # was always ``None`` and every request returned
-    # ``reason: "unmapped_player"`` — a well-formed 200 that answered
-    # nothing, for every player, always. ``idToPlayer`` could not have
-    # substituted either: it is ``{id: name}`` and carries no
-    # ``gsis_id``, which is the join key the weekly stat rows use.
-    #
-    # ``fetch_nfl_players`` is the existing process-cached full dump
-    # (~5 MB once per process, ``{}`` on any failure), so this adds no
-    # new download path and no second cache.
-    from src.public_league.sleeper_client import fetch_nfl_players as _fetch_nfl_players
-
-    players_dir = _fetch_nfl_players()
-    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
-    if resolved is None or not resolved.gsis_id:
-        return JSONResponse(
-            content={
-                "sleeperId": sleeper_id,
-                "leagueKey": league_cfg.key,
-                "reason": "unmapped_player",
-                "weeks": [],
-            }
-        )
-    # ``player_id``, not ``player_id_gsis``.
-    #
-    # ``player_id_gsis`` is the field name on the WeeklyStatRow
-    # DATACLASS; the raw nflverse rows ``fetch_weekly_stats`` returns
-    # use ``player_id``. Filtering on the dataclass name matched ZERO
-    # rows for every player, so this endpoint returned a well-formed
-    # 200 with an empty ``weeks`` list — for everyone, always.
-    #
-    # Measured 2026-07-27 on the real 2025 file: the old expression
-    # matched 0 rows for a GSIS id the correct one matched 17.
-    #
-    # It went unnoticed because nothing CALLS this endpoint — the flag
-    # defaults ON, so the route has been live and answering wrongly.
-    # (An earlier version of this comment said the flag was off. It is
-    # not, and believing so made a live defect read as dormant.)
-    #
-    # Both keys are accepted so a caller passing normalized
-    # dataclass-shaped rows still works.
-    target_gsis = str(resolved.gsis_id or "").strip()
-    player_rows = [
-        r
-        for r in weekly
-        if target_gsis
-        and str(r.get("player_id") or r.get("player_id_gsis") or "").strip() == target_gsis
-    ]
-    # The six reception bands and the player special-teams rules have no
-    # column on the weekly feed; without this the response is a total that
-    # silently omits them.  With it, a season the artifact does not cover
-    # is reported in ``unscored`` rather than scored as zero.
-    _pbp_index = _pbp_weekly.SeasonPbpIndex()
-    cumulative = _rp.compute_cumulative_points(
-        [_pbp_index.attach(r) for r in player_rows],
-        scoring_settings,
-        position=resolved.position,
+    # Network fetch (nflverse + Sleeper directory) and scoring run in the
+    # threadpool, never on the event loop (measured 8.5 s cold).
+    content = await run_in_threadpool(
+        _player_realized_content, sleeper_id, league_cfg.key, scoring_settings
     )
-    return JSONResponse(
-        content={
-            "sleeperId": sleeper_id,
-            "gsisId": resolved.gsis_id,
-            "fullName": resolved.full_name,
-            "position": resolved.position,
-            "leagueKey": league_cfg.key,
-            **cumulative,
-        }
-    )
+    return JSONResponse(content=content)
 
 
 @app.post("/api/trade/simulate-mc")
@@ -19889,6 +22011,9 @@ async def run_signal_alerts(request: Request):
                             email=email,
                             delivery=_deliver_email_smtp,
                             league_key=cfg.key,
+                            # W12-F006: Terminal takes precedence for a player
+                            # its delivered email already covered.
+                            terminal_notified=result.get("notifiedPlayerSignals"),
                         )
                     except Exception as exc:  # noqa: BLE001
                         log.warning(
@@ -19952,6 +22077,11 @@ async def run_signal_alerts(request: Request):
             data_age_hours=data_age_hours,
             scrape_interval_hours=float(SCRAPE_INTERVAL_HOURS),
             draft_valuation=await run_in_threadpool(_draft_valuation_health),
+            pregame_archive=await run_in_threadpool(_pregame_archive_health),
+            roster_construction=await run_in_threadpool(_roster_construction_health),
+            backup_coverage=await run_in_threadpool(_backup_coverage_alert_rows),
+            failed_units=await run_in_threadpool(_failed_systemd_units),
+            forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )
@@ -20282,15 +22412,28 @@ async def get_intel_summary(request: Request):
     return JSONResponse(content=payload, headers=_INTEL_PRIVATE_CACHE_HEADERS)
 
 
-def _intel_contract_context() -> dict:
+def _intel_contract_context(league_key: str | None = None) -> dict:
     """Position, value and team maps from the loaded contract.
 
     Every piece is optional: a missing contract yields empty maps, which
     makes the partner-fit and value-match terms abstain rather than
     taking the whole lead list down with them.
+
+    ``league_key`` is the league the leads are FOR.  The loaded contract
+    is ONE league's rosters and board (``meta.leagueKey``); when it was
+    built for a different league every map here would be that other
+    league's owners and values, so the context abstains instead
+    (LI1842-DEFECT-01).  ``POST /api/intel/leads`` already refuses such a
+    request with the standard 503 before it gets here
+    (``require_loaded_contract=True``); this is the second line so a
+    direct caller cannot reintroduce the leak.  An unstamped contract is
+    treated as "nothing proven to the contrary", as the resolver does.
     """
     try:
         contract = latest_contract_data or {}
+        loaded_key = (contract.get("meta") or {}).get("leagueKey")
+        if league_key and loaded_key and loaded_key != league_key:
+            return {"teams": [], "positions": {}, "values": {}}
         sleeper_block = contract.get("sleeper") or {}
         teams = sleeper_block.get("teams") or []
         positions = {}
@@ -20317,7 +22460,7 @@ def _build_intel_leads(league_cfg, asset_id: str, mode: str) -> dict:
     """Assemble one lead list.  Runs in a threadpool — pure sync."""
     from src.intel import lead_service, roster_shape
 
-    ctx = _intel_contract_context()
+    ctx = _intel_contract_context(league_cfg.key)
     teams = ctx["teams"]
     positions = ctx["positions"]
     values = ctx["values"]
@@ -20379,8 +22522,12 @@ async def post_intel_leads(request: Request):
 
     # Body parsed BEFORE the resolver so a body leagueKey reaches it —
     # the POST convention used by the other league-scoped endpoints.
+    # ``require_loaded_contract``: the roster-fit and value terms read the
+    # loaded contract, which is one league's.  Another league's request is
+    # a 503 ``data_not_ready`` (the ``/api/trade/*`` rule), never that
+    # league's owners and values served as this one's (LI1842-DEFECT-01).
     try:
-        league_cfg = _resolve_league_for_request(request, body=body)
+        league_cfg = _resolve_league_for_request(request, body=body, require_loaded_contract=True)
     except LeagueResolutionError as err:
         return err.json_response()
 
@@ -20923,7 +23070,9 @@ async def get_playerctx_player(request: Request):
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
+def main() -> None:
+    """Serve this module's ``app`` (``python server.py`` lands here through
+    the ``__main__`` guard at the top of the file)."""
     import uvicorn
 
     print()

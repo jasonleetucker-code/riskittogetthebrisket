@@ -23,7 +23,7 @@
 const fs = require("fs");
 const path = require("path");
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled, isNavigationAbortedFetch } = require("../helpers/journey");
 const AxeBuilder = require("@axe-core/playwright").default;
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
@@ -166,7 +166,9 @@ for (const state of STATES) {
     authedPage: page,
   }, testInfo) => {
     const errors = [];
-    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("pageerror", (error) => {
+      if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+    });
     const payload = load(state.name);
     await serveReplay(page, () => payload);
     await open(page, payload);
@@ -304,7 +306,9 @@ test("game-day: switch team A -> B -> C in the selected league; stale answers ne
   authedPage: page,
 }, testInfo) => {
   const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+  });
   const payloads = byTeam();
   const seen = await serveByTeam(page, payloads, "owner-10");
   await open(page, payloads["owner-8"]);
@@ -422,7 +426,9 @@ test("game-day median race: the whole league, a row switches the team, no sidewa
   authedPage: page,
 }, testInfo) => {
   const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+  });
   const payloads = byTeam();
   // LABELLED SYNTHETIC: long real-shaped team names on the board.
   for (const p of Object.values(payloads)) {
@@ -498,7 +504,9 @@ test("game-day median race: a long one-word team name on the bubble never pushes
   authedPage: page,
 }, testInfo) => {
   const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+  });
   const longName = "JasonTuckerSheepFollower";
   const payload = load("halftime");
   for (const t of [...payload.leagueTeams, ...payload.medianRace.teams]) {

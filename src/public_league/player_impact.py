@@ -804,15 +804,24 @@ def _best_ball(season: SeasonSnapshot) -> bool | None:
 
 
 def season_team_weeks(
-    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    include_playoffs: bool = False,
 ) -> tuple[dict[int, list[TeamWeek]], list[int]]:
     """``({finished regular week: [TeamWeek]}, excluded regular weeks)``.
 
     Finished = ``metrics.final_weeks`` (the one owner); an in-progress or
     unproven week is excluded and reported, never partially counted.
+
+    ``include_playoffs`` (Roster Construction, owner directive 2026-10-30)
+    also returns finished PLAYOFF weeks under the same rule.  The default
+    is unchanged: every player-impact metric stays regular-season only.
     """
     final = set(metrics.final_weeks(season))
     regular = season.regular_season_weeks
+    if include_playoffs:
+        regular = sorted(set(regular) | set(season.playoff_weeks))
     included = [w for w in regular if w in final]
     excluded = [w for w in regular if w not in final]
     out: dict[int, list[TeamWeek]] = {}
@@ -869,6 +878,16 @@ def _player_info(snapshot: PublicLeagueSnapshot, pid: str) -> PlayerInfo:
         host_position=str(raw.get("position") or "").upper(),
         fantasy_positions=fps,
     )
+
+
+def best_ball_rule(season: SeasonSnapshot) -> bool | None:
+    """Public name for the tri-state best-ball read (Roster Construction)."""
+    return _best_ball(season)
+
+
+def player_info(snapshot: PublicLeagueSnapshot, pid: str) -> PlayerInfo:
+    """Public name for the host-directory eligibility read (Roster Construction)."""
+    return _player_info(snapshot, pid)
 
 
 def compute_season(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dict[str, Any]:

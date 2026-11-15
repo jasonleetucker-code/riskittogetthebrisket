@@ -97,6 +97,16 @@ _ENTRY_FIELDS = (
     "description",
     "dateReported",
     "returning",
+    # Added 2026-10-26 with the current-shape parser: injury type / detail / side,
+    # the report's own source, how the athlete id was read, and ESPN's report id
+    # (NOT the athlete id).  Identity is deliberately absent -- it is resolved per
+    # snapshot, never part of what the provider said.
+    "injuryType",
+    "injuryDetail",
+    "injurySide",
+    "source",
+    "idSource",
+    "reportId",
 )
 
 PROVIDER_AS_OF_NULL_REASON = "espn_injuries_endpoint_publishes_no_snapshot_timestamp"
@@ -216,6 +226,9 @@ class EspnIdResolver:
         from src.identity.resolution import build_sleeper_index  # noqa: PLC0415
 
         self._index = build_sleeper_index(directory) if directory else None
+        # Kept only so :meth:`espn_id_of` can read a player's OWN ``espn_id`` off
+        # the directory this resolver was built from -- no second table.
+        self._directory = directory
         counts: Counter[str] = Counter()
         for pdata in (directory or {}).values():
             if isinstance(pdata, dict):
@@ -225,6 +238,26 @@ class EspnIdResolver:
         # The owner's index keeps the FIRST player for a shared ESPN id; which
         # one is first is directory order, i.e. a guess.  Refuse those instead.
         self._shared = {k for k, n in counts.items() if n > 1}
+
+    @property
+    def index(self) -> Any:
+        """The canonical owner's directory index (``None`` without a directory),
+        for a consumer that adds its own EXACT rung after the id rung misses
+        (``src.nfl_data.injury_identity``).  Read-only."""
+        return self._index
+
+    def espn_id_of(self, sleeper_id: Any) -> str:
+        """The ESPN athlete id the directory records for ``sleeper_id``, or ``""``
+        when it records none (Sleeper's ``espn_id`` is sparse, so empty is common
+        and means *unknown*, not *different*).
+
+        A consumer that matched a player by something weaker than this id (a name)
+        uses it to refuse a match the directory contradicts.
+        """
+        pdata = (self._directory or {}).get(str(sleeper_id or "").strip())
+        if not isinstance(pdata, dict):
+            return ""
+        return str(pdata.get("espn_id") or "").strip()
 
     def resolve(self, espn_id: Any) -> dict[str, Any]:
         eid = str(espn_id or "").strip()

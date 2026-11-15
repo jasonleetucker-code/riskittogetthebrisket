@@ -56,8 +56,11 @@ PLAYER_PREFIX = "p:"
 LEDGER_VERSION = "trade_ledger_v1"
 
 _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "trade" / "multi_team.json"
-#: Error echoes carry only request-supplied identifiers of this shape.
-_ECHO_RE = re.compile(r"^[A-Za-z0-9:_-]{1,64}$")
+#: Error echoes carry only request-supplied identifiers of this shape.  Anchored
+#: with ``\Z``, not ``$``: in Python ``$`` also matches just BEFORE a trailing
+#: newline, so an id ending in a newline would be echoed
+#: (LANE-E-DEFECT-ECHO-NEWLINE).
+_ECHO_RE = re.compile(r"^[A-Za-z0-9:_-]{1,64}\Z")
 
 Participation = Literal["any_leg", "send_and_receive"]
 RosterState = Literal["current", "stale", "unknown"]

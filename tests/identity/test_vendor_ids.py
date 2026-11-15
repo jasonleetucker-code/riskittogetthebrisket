@@ -147,13 +147,13 @@ def test_namespace_is_the_provider_else_the_source():
 def test_store_appends_only_state_changing_lines_and_never_rewrites(tmp_path):
     store = tmp_path / v.STORE_REL
     assert v.append_observations(store, [_obs("1415", "9221", h="h1")]) == 1
-    first = store.read_text()
+    first = store.read_text(encoding="utf-8")
     # a re-read of the same dataset, then a confirming dataset, then a third
     # dataset that changes nothing
     assert v.append_observations(store, [_obs("1415", "9221", h="h1")]) == 0
     assert v.append_observations(store, [_obs("1415", "9221", h="h2")]) == 1
     assert v.append_observations(store, [_obs("1415", "9221", h="h3")]) == 0
-    assert store.read_text().startswith(first)
+    assert store.read_text(encoding="utf-8").startswith(first)
     # a conflicting player is always recorded
     assert v.append_observations(store, [_obs("1415", "4881", h="h4")]) == 1
     assert v.VendorIdMap.load(store).state(NS, "1415") == v.STATE_CONFLICT
@@ -182,7 +182,7 @@ def test_as_of_reads_only_strictly_earlier_observations(tmp_path):
 def test_a_torn_tail_line_is_skipped_never_guessed(tmp_path):
     store = tmp_path / v.STORE_REL
     v.append_observations(store, [_obs("1415", "9221", h="h1")])
-    with store.open("a") as f:
+    with store.open("a", encoding="utf-8") as f:
         f.write('{"namespace": "provider:keepTradeCut", "vendor_')
     assert v.VendorIdMap.load(store).observation_count == 1
 
@@ -202,9 +202,12 @@ def test_recorder_folds_vendor_id_boards_and_skips_others(tmp_path, index):
     (site / "ktcCrowdSfTep.csv").write_text(
         _ktc_csv(
             [("Jahmyr Gibbs", 9000, 1, 1415, "RB", "DET"), ("Twin Name", 100, 2, 5, "WR", "NYJ")]
-        )
+        ),
+        encoding="utf-8",
     )
-    (site / "fantasyCalc.csv").write_text("name,value,rank\nJahmyr Gibbs,9000,1\n")
+    (site / "fantasyCalc.csv").write_text(
+        "name,value,rank\nJahmyr Gibbs,9000,1\n", encoding="utf-8"
+    )
     store = tmp_path / v.STORE_REL
     out = v.record_from_site_raw(
         site, index=index, store_path=store, observed_at="2026-10-21T00:00:00+00:00"
@@ -214,7 +217,8 @@ def test_recorder_folds_vendor_id_boards_and_skips_others(tmp_path, index):
     assert out["appended"] == 1
     # the same dataset with identity columns reordered is the same dataset
     (site / "ktcCrowdSfTep.csv").write_text(
-        "name,value,rank,player_id,team,position\nTwin Name,100,2,5,NYJ,WR\nJahmyr Gibbs,9000,1,1415,DET,RB\n"
+        "name,value,rank,player_id,team,position\nTwin Name,100,2,5,NYJ,WR\nJahmyr Gibbs,9000,1,1415,DET,RB\n",
+        encoding="utf-8",
     )
     again = v.record_from_site_raw(
         site, index=index, store_path=store, observed_at="2026-10-21T02:00:00+00:00"
@@ -225,7 +229,7 @@ def test_recorder_folds_vendor_id_boards_and_skips_others(tmp_path, index):
     )
     assert again["appended"] == 0
     (site / "ktcCrowdSfTep.csv").write_text(
-        _ktc_csv([("Jahmyr Gibbs", 9050, 1, 1415, "RB", "DET")])
+        _ktc_csv([("Jahmyr Gibbs", 9050, 1, 1415, "RB", "DET")]), encoding="utf-8"
     )
     third = v.record_from_site_raw(
         site, index=index, store_path=store, observed_at="2026-10-21T04:00:00+00:00"

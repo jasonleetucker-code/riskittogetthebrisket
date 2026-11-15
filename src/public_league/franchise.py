@@ -18,24 +18,7 @@ from typing import Any
 from . import metrics
 from .rivalries import build_section as build_rivalries
 from .draft import pick_inventory, weighted_stockpile_for_owner
-from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
-
-
-def _roster_count_for(season: SeasonSnapshot, owner_id: str) -> dict[str, Any] | None:
-    """Return {rosterId, teamName, settings} for the owner this season."""
-    rid = None
-    for r in season.rosters:
-        if str(r.get("owner_id") or "") == owner_id:
-            try:
-                rid = int(r.get("roster_id"))
-            except (TypeError, ValueError):
-                rid = None
-            break
-    if rid is None:
-        return None
-    return {
-        "rosterId": rid,
-    }
+from .snapshot import PublicLeagueSnapshot
 
 
 def _top_rival_for(owner_id: str, rivalries_section: dict[str, Any]) -> dict[str, Any] | None:

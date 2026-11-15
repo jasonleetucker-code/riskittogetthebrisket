@@ -62,6 +62,7 @@ import {
   rosterNoteLines,
   tradeValueSummary,
   weeklyImpact,
+  lineupBasisNotes,
 } from "@/lib/trade-war-room-copy";
 import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
 import { Arguments, BeforeAfter, Disclosure, Methodology, PlayerImpact } from "./TradeWarRoom";
@@ -523,6 +524,11 @@ function TeamResult({ team, nameOf, showStrategy, open, toggleOpen }) {
               <>
                 <p className={styles.glanceAnswer}>{impact.sentence}</p>
                 {impact.note ? <p className={styles.note}>{impact.note}</p> : null}
+                {lineupBasisNotes(rosterDetail).map((n) => (
+                  <p key={n} className={styles.note} data-testid="war-room-impact-basis">
+                    {n}
+                  </p>
+                ))}
               </>
             ) : (
               <p className={styles.muted}>{impact?.unavailable}</p>

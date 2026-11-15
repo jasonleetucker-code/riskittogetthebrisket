@@ -119,6 +119,32 @@ def test_session_exclusions_reduce_both_search_pools_before_generation(monkeypat
     assert result["metadata"]["searchableMyRosterSize"] == 1
 
 
+def test_all_excluded_warning_never_calls_the_scan_arbitrage():
+    """Owner directive 2026-11-07 Part 5: market disagreement is not arbitrage.
+
+    The user-visible warning names the tool the page calls it (Package Scan);
+    "arbitrage" asserts a riskless profit no convergence evidence supports.
+    """
+    players = {"Only Mine": _player(2400), "Their Guy": _player(2300)}
+    teams = [
+        {"name": "Mine", "ownerId": "owner-mine", "players": ["Only Mine"]},
+        {"name": "Opp", "ownerId": "owner-opp", "players": ["Their Guy"]},
+    ]
+
+    result = finder.find_trades(
+        players,
+        "Mine",
+        ["Opp", {finder.ARBITRAGE_CONTROL_KEY: {"excludePlayers": ["Only Mine"]}}],
+        teams,
+        market_top_n=0,
+        use_team_context=False,
+    )
+
+    assert result["metadata"]["noResultReason"] == "all_outgoing_assets_session_excluded"
+    assert result["warnings"] == ["Every asset on your roster was excluded from this package scan."]
+    assert not any("arbitrage" in w.lower() for w in result["warnings"])
+
+
 def test_default_finder_mode_keeps_existing_asymmetric_shapes(monkeypatch):
     """The owner request is scoped to /arbitrage, not a global finder rewrite."""
 

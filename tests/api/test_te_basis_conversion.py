@@ -30,6 +30,9 @@ from src.api import data_contract, feature_flags
 from src.league_intel import te_premium
 
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
+
 @pytest.fixture(autouse=True)
 def _flags():
     feature_flags.reload()

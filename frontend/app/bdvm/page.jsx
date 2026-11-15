@@ -57,11 +57,11 @@ const TABS = [
 ];
 
 const SIGNAL_LABELS = {
-  STRONG_BUY: "Strong buy",
+  STRONG_BUY: "Buy · large gap",
   BUY: "Buy",
   HOLD: "Hold",
   SELL: "Sell",
-  STRONG_SELL: "Strong sell",
+  STRONG_SELL: "Sell · large gap",
   NO_MARKET: "No market",
 };
 

@@ -9,10 +9,18 @@ drive real synthetic fixtures rather than asserting "did not crash".
 from __future__ import annotations
 
 import os
+import sys
 
 import pytest
 
 from src.diagnostics import proc_probe
+
+# These read a LIVE process through ``/proc`` (Linux-only by design: the
+# box is Linux and there is deliberately no psutil).  Windows has no
+# ``/proc``, so they can only fail there.  Never skipped on Linux/CI.
+_LIVE_PROC = pytest.mark.skipif(
+    sys.platform == "win32", reason="reads a live process via /proc (Linux-only)"
+)
 
 
 class TestChromiumPredicate:
@@ -52,10 +60,13 @@ class TestMeminfo:
             "Buffers:           31280 kB\n"
             "SwapTotal:       2097148 kB\n"
             "SwapFree:        1048576 kB\n"
-            "Hugepagesize:       2048 kB\n"
+            "Hugepagesize:       2048 kB\n",
+            encoding="utf-8",
         )
         monkeypatch.setattr(
-            proc_probe, "_read_text", lambda p: meminfo.read_text() if "meminfo" in str(p) else None
+            proc_probe,
+            "_read_text",
+            lambda p: meminfo.read_text(encoding="utf-8") if "meminfo" in str(p) else None,
         )
         out = proc_probe.read_meminfo()
         assert out["MemTotal"] == 4030164
@@ -93,12 +104,15 @@ class TestCgroupMetrics:
     def test_reads_limits_and_the_decisive_oom_counters(self, tmp_path):
         cg = tmp_path / "dynasty.service"
         cg.mkdir()
-        (cg / "memory.current").write_text("2684354560\n")
-        (cg / "memory.max").write_text("3221225472\n")
-        (cg / "memory.peak").write_text("3221225472\n")
-        (cg / "memory.events").write_text("low 0\nhigh 4211\nmax 97\noom 3\noom_kill 2\n")
+        (cg / "memory.current").write_text("2684354560\n", encoding="utf-8")
+        (cg / "memory.max").write_text("3221225472\n", encoding="utf-8")
+        (cg / "memory.peak").write_text("3221225472\n", encoding="utf-8")
+        (cg / "memory.events").write_text(
+            "low 0\nhigh 4211\nmax 97\noom 3\noom_kill 2\n", encoding="utf-8"
+        )
         (cg / "cpu.stat").write_text(
-            "usage_usec 12345\nnr_periods 10\nnr_throttled 4\nthrottled_usec 999\n"
+            "usage_usec 12345\nnr_periods 10\nnr_throttled 4\nthrottled_usec 999\n",
+            encoding="utf-8",
         )
 
         out = proc_probe.read_cgroup_metrics(cg)
@@ -112,7 +126,7 @@ class TestCgroupMetrics:
     def test_unlimited_memory_max_stays_distinguishable_from_a_number(self, tmp_path):
         cg = tmp_path / "unlimited"
         cg.mkdir()
-        (cg / "memory.max").write_text("max\n")
+        (cg / "memory.max").write_text("max\n", encoding="utf-8")
         assert proc_probe.read_cgroup_metrics(cg)["memory.max"] == "max"
 
     def test_no_cgroup_yields_empty(self):
@@ -120,6 +134,7 @@ class TestCgroupMetrics:
 
 
 class TestProcessTree:
+    @_LIVE_PROC
     def test_reads_this_process(self):
         me = os.getpid()
         assert proc_probe.pid_alive(me)
@@ -132,6 +147,7 @@ class TestProcessTree:
         assert proc_probe.process_rss_kb(0) is None
         assert proc_probe.process_cpu_ticks(0) is None
 
+    @_LIVE_PROC
     def test_sample_process_tree_shape_and_self_inclusion(self):
         out = proc_probe.sample_process_tree(os.getpid())
         assert out["pid_alive"] is True
@@ -146,6 +162,7 @@ class TestProcessTree:
         assert out["pid_alive"] is False
         assert out["app_rss_kb"] == 0
 
+    @_LIVE_PROC
     def test_descendant_walk_finds_a_real_child(self):
         import subprocess
         import sys

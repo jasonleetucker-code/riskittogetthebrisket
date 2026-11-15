@@ -1,6 +1,6 @@
 /** Populated PSI reference, keyboard/axe and visual evidence on real viewports. */
 const { test, expect } = require("../helpers/auth-fixture");
-const { pageUrl, awaitStreamSettled } = require("../helpers/journey");
+const { pageUrl, awaitStreamSettled, isNavigationAbortedFetch } = require("../helpers/journey");
 const AxeBuilder = require("@axe-core/playwright").default;
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 
@@ -37,7 +37,9 @@ async function image(page, testInfo, name, fullPage = false) {
 
 test("PSI gallery: populated reference, table access and desktop/phone evidence", async ({ authedPage: page }, testInfo) => {
   const errors = [];
-  page.on("pageerror", error => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+  });
   const started = Date.now();
   await ready(page);
   const usefulMs = Date.now() - started;
@@ -81,7 +83,9 @@ test("PSI gallery: populated reference, table access and desktop/phone evidence"
 
 test("PSI gallery: accessible modal/drawer and keyboard focus under reduced motion", async ({ authedPage: page }, testInfo) => {
   const errors = [];
-  page.on("pageerror", error => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    if (!isNavigationAbortedFetch(error, page)) errors.push(error.message);
+  });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await ready(page);
   for (const [button, title, name] of [

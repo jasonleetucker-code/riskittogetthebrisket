@@ -44,9 +44,13 @@ def _adm(max_concurrent=1, timeout=1.0, route=ca.ROUTE_PUBLIC_ADVISOR):
     return ca.ComputeAdmission(route, spec_provider=lambda: spec)
 
 
-def test_committed_config_matches_the_declared_defaults_and_is_pending_owner():
+def test_committed_config_matches_the_declared_defaults_and_is_owner_confirmed():
+    # Owner decision 6 (2026-11-01): the sizes are confirmed UNCHANGED --
+    # public 2 / 5 s, private 2 / 30 s.  Confirmation changes the label only.
     raw = json.loads(ca._CONFIG_PATH.read_text(encoding="utf-8"))
-    assert raw["status"] == "PENDING_OWNER_CONFIRMATION"
+    assert raw["status"] == "OWNER_CONFIRMED"
+    assert raw["routes"][ca.ROUTE_PUBLIC_ADVISOR] == {"maxConcurrent": 2, "timeoutSeconds": 5}
+    assert raw["routes"][ca.ROUTE_ANALYZE_MULTI] == {"maxConcurrent": 2, "timeoutSeconds": 30}
     ca.reset_for_tests()
     for route, default in ca.DEFAULTS.items():
         assert ca.spec_for(route) == default

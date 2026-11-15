@@ -107,6 +107,10 @@ jobs:
               "deployConclusion": deploy_conclusion,
               "deployRunId": deploy_run,
               "deployHeadSha": deploy_sha,
+              # Whether a credential was PRESENTED, not whether it worked.  A
+              # 401 reads the same either way; this is what separates "the
+              # owner has not provisioned it" from "provisioned and refused".
+              "tokenProvisioned": bool(smoke_token),
               "status": "waiting",
               "attempts": 0,
               "cohort": {},
@@ -235,6 +239,15 @@ jobs:
           )
           rendered = json.dumps(record, indent=2, sort_keys=True) + "\n"
 
+          # What the TRACKED file should hold is not always what THIS run
+          # saw.  A run that probed nothing (superseded / skipped deploy)
+          # leaves the standing record alone; otherwise the push-triggered
+          # and deploy-triggered runs flip the file between two statuses and
+          # commit every flip.  This run's own view stays in ``rendered``,
+          # which the gate grades.
+          persisted = smoke_record.record_to_persist(previous, record)
+          persisted_rendered = json.dumps(persisted, indent=2, sort_keys=True) + "\n"
+
           # THIS RUN's evidence, written where only this run can see it.
           # The gate below reads THIS file and never the tracked artifact.
           #
@@ -256,13 +269,13 @@ jobs:
           # The heartbeat half is not optional: without it the record
           # freezes and a workflow that has stopped firing is
           # indistinguishable from one reporting a stable state.
-          if smoke_record.decide_write(previous, record):
-              output.write_text(rendered)
+          if smoke_record.decide_write(previous, persisted):
+              output.write_text(persisted_rendered)
               print("recording: state changed or the day rolled over")
           else:
               print(
                   "not recording: same state, same day "
-                  f"(since {record['stateSince']}) — the run summary carries this run"
+                  f"(since {persisted['stateSince']}) — the run summary carries this run"
               )
 
           print(rendered)
@@ -275,8 +288,9 @@ jobs:
               with open(summary, "a", encoding="utf-8") as handle:
                   handle.write(
                       "### Sharp production smoke\n\n"
-                      f"`{record['status']}` — measured: {record['measured']} — "
-                      f"in this state since {record['stateSince']}\n\n"
+                      f"This run: `{record['status']}` — measured: {record['measured']}\n\n"
+                      f"Standing record: `{persisted['status']}` since {persisted['stateSince']}"
+                      " (a run that probed nothing leaves it unchanged)\n\n"
                       f"```json\n{rendered}```\n"
                   )
           PY
@@ -340,6 +354,16 @@ jobs:
               (Path(os.environ["RUNNER_TEMP"]) / "sharp-smoke-current.json").read_text()
           )
           status = result.get("status")
+          # This step is its own python process: ``deploy_conclusion`` is
+          # defined in the smoke step above and does not exist here.  The
+          # ``deploy_superseded`` / ``deploy_unmeasured`` branches below
+          # interpolate it, so without this line every superseded run died
+          # with ``NameError`` and concluded FAILURE for a run that was
+          # designed to make no claim at all: 12 of the 15 red
+          # workflow_run runs retained on 2026-10-26 (the other 3 were
+          # genuine ``deploy_failed``).  Read it from the run-scoped
+          # result, where the record builder files it under ``lastRun``.
+          deploy_conclusion = (result.get("lastRun") or {}).get("deployConclusion")
 
           # Published BEFORE any exit branch, so the tracker steps below
           # can run on a failing gate too.  A gate that fails and files
@@ -379,19 +403,72 @@ jobs:
                       "regression, not a standing gap."
                   )
 
-              # Insufficient evidence. Loud, not fatal, and specific
-              # about what would make it a real check.
-              print(
-                  "::warning title=Sharp smoke cannot verify::"
-                  "/api/sharp/* requires a session or the SHARP_SMOKE_TOKEN bearer, "
-                  "and this run presented neither a valid session nor a matching "
-                  "token, so population health was NOT measured. The mechanism "
-                  "exists (src.sharp.service.sharp_smoke_bearer_auth_ok, same "
-                  "bearer pattern as /api/signal-alerts/run) — set the "
-                  "SHARP_SMOKE_TOKEN repo secret AND the matching SHARP_SMOKE_TOKEN "
-                  "value in production's .env (then restart the dynasty service) "
-                  "to turn this into an enforcing gate."
-              )
+              # Insufficient evidence: loud, and green ON PURPOSE.
+              #
+              # The conclusion is a decision, not a leftover.  The
+              # repository's rule for "a credential is missing" is
+              # tests/deploy/test_no_workflow_exits_green_on_missing_secrets.py
+              # -- refuse with ``::error`` + ``exit 1``, because a green tick
+              # for a run that could not look is indistinguishable from a
+              # green tick for a run that looked and found health.  This
+              # branch is outside that guard's mechanical reach (the secret
+              # is read in the smoke step and arrives here as a recorded
+              # fact; there is no shell emptiness test), and it has NOT been
+              # granted an exemption by name.  It is green because
+              # test_unverifiable_is_reported_as_a_warning_not_a_pass_or_a_failure
+              # has pinned "warning, not failure" since 2026-08-20: red on
+              # every push to main for a credential only the owner can issue
+              # is how a gate gets deleted, and the owner may also choose to
+              # accept an unmeasured gate.  What this branch must NOT be is
+              # QUIET: the green is made distinguishable by a warning
+              # annotation, a job-summary banner, the tracker issue and the
+              # record's measured=false.  Turning it red is a one-line change
+              # (replace the final SystemExit(0)) and an owner call.
+              provisioned = result.get("tokenProvisioned")
+              if provisioned is False:
+                  headline = "SHARP_SMOKE_TOKEN is not provisioned — nothing was measured"
+                  cause = (
+                      "The `SHARP_SMOKE_TOKEN` repository secret is empty or unset, so "
+                      "this run called `/api/sharp/*` anonymously and was refused (401)."
+                  )
+              elif provisioned is True:
+                  headline = (
+                      "SHARP_SMOKE_TOKEN is provisioned but /api/sharp/* rejected it "
+                      "— nothing was measured"
+                  )
+                  cause = (
+                      "A `SHARP_SMOKE_TOKEN` was presented and production refused it. "
+                      "The repo secret and production's `.env` value do not match, or "
+                      "the `dynasty` service was not restarted after the change."
+                  )
+              else:
+                  headline = (
+                      "/api/sharp/* refused this run and whether a token was presented "
+                      "was not recorded — nothing was measured"
+                  )
+                  cause = "Whether a `SHARP_SMOKE_TOKEN` was presented is unknown for this run."
+              print(f"::warning title=Sharp smoke UNVERIFIABLE::{headline}")
+
+              summary = os.environ.get("GITHUB_STEP_SUMMARY")
+              if summary:
+                  with open(summary, "a", encoding="utf-8") as handle:
+                      handle.write(
+                          "### :warning: Sharp smoke UNVERIFIABLE\n\n"
+                          f"**{headline}.**\n\n"
+                          f"{cause}\n\n"
+                          "This run is green only because it is not allowed to fail "
+                          "for a credential CI cannot issue. **Green here is not "
+                          "verification.** No Sharp cohort or FFPC market number was "
+                          "read; `measured` is `false`.\n\n"
+                          f"- In this state since: `{result.get('stateSince')}`\n"
+                          "- Last time it could measure: "
+                          f"`{result.get('lastMeasuredOn') or 'never'}`\n\n"
+                          "**To make this a real check:** set the `SHARP_SMOKE_TOKEN` "
+                          "repo secret AND the matching `SHARP_SMOKE_TOKEN` value in "
+                          "production's `.env`, then restart the `dynasty` service "
+                          "(`src.sharp.service.sharp_smoke_bearer_auth_ok`; same bearer "
+                          "pattern as `/api/signal-alerts/run`).\n"
+                      )
               raise SystemExit(0)
 
           if status == "deploy_superseded":

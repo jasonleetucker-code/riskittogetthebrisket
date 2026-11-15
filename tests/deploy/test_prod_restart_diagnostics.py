@@ -15,6 +15,7 @@ both through its filter entry points and through a full run against stubbed
 
 from __future__ import annotations
 
+import sys
 import os
 import re
 import stat
@@ -23,6 +24,11 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+# POSIX executable bit; Windows does not record file modes.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(sys.platform == "win32", reason="Linux-only: POSIX executable bit")
+
 
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "deploy" / "diagnostics" / "prod_restart_diagnostics.sh"
@@ -114,6 +120,7 @@ def test_script_parses():
     subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
 
 
+@_LINUX_ONLY
 def test_script_is_executable():
     assert SCRIPT.stat().st_mode & stat.S_IXUSR
 
@@ -245,11 +252,11 @@ def stub_env(tmp_path):
         ("systemctl", _FAKE_SYSTEMCTL),
     ):
         path = bindir / name
-        path.write_text(body)
+        path.write_text(body, encoding="utf-8")
         path.chmod(0o755)
-    (fixtures / "service.txt").write_text(SERVICE_JOURNAL)
-    (fixtures / "healthcheck.txt").write_text(HEALTHCHECK_JOURNAL)
-    (fixtures / "kernel.txt").write_text(KERNEL_JOURNAL)
+    (fixtures / "service.txt").write_text(SERVICE_JOURNAL, encoding="utf-8")
+    (fixtures / "healthcheck.txt").write_text(HEALTHCHECK_JOURNAL, encoding="utf-8")
+    (fixtures / "kernel.txt").write_text(KERNEL_JOURNAL, encoding="utf-8")
     env = {
         **os.environ,
         "PATH": f"{bindir}:{os.environ['PATH']}",
@@ -389,7 +396,7 @@ def test_full_run_surfaces_the_watchdogs_cgroup_snapshots(stub_env, tmp_path):
         f"snapshot mem reason=pre-restart cur={SECRET}9\n"
     )
     fixtures = Path(stub_env["FIXTURES"])
-    (fixtures / "healthcheck.txt").write_text(HEALTHCHECK_JOURNAL + snap)
+    (fixtures / "healthcheck.txt").write_text(HEALTHCHECK_JOURNAL + snap, encoding="utf-8")
     res = _full_run(stub_env)
     assert res.returncode == 0, res.stderr
     assert SECRET not in res.stdout + res.stderr

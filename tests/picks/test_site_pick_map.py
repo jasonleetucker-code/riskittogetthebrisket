@@ -32,10 +32,8 @@ year is absent can never fire if the year is never absent.
 from __future__ import annotations
 
 import csv
-import glob
 import io
 import os
-import zipfile
 
 import pytest
 
@@ -352,32 +350,20 @@ class TestAgainstRealVendorBoards:
         return out
 
     def _boards(self):
-        """Live raw first; fall back to the newest archive that has
-        ``site_raw/``.  Yields ``(label, parsed_rows)``."""
-        found = False
-        for path in sorted(glob.glob(os.path.join(REPO, "exports/latest/site_raw/*.csv"))):
-            with open(path, encoding="utf-8") as fh:
-                parsed = self._parsed(fh.read())
+        """The PINNED board's vendor CSVs (``CSVs/site_raw``), never today's
+        refresh -- a rule over real rows, on rows a refresh cannot move.
+        Yields ``(label, parsed_rows)``."""
+        from tests.archive_fixtures import pinned_board_root
+
+        site_raw = pinned_board_root() / "CSVs" / "site_raw"
+        for path in sorted(site_raw.glob("*.csv")):
+            parsed = self._parsed(path.read_text(encoding="utf-8"))
             if parsed:
-                found = True
-                yield os.path.basename(path), parsed
-        if found:
-            return
-        for arc in sorted(glob.glob(os.path.join(REPO, "exports/archive/*.zip")), reverse=True):
-            with zipfile.ZipFile(arc) as z:
-                names = [n for n in z.namelist() if "site_raw" in n and n.endswith(".csv")]
-                if not names:
-                    continue
-                for n in names:
-                    parsed = self._parsed(z.read(n).decode("utf-8", "replace"))
-                    if parsed:
-                        yield f"{os.path.basename(arc)}:{os.path.basename(n)}", parsed
-                return
+                yield path.name, parsed
 
     def test_no_source_emits_a_year_it_did_not_publish(self):
         boards = list(self._boards())
-        if not boards:
-            pytest.skip("no site_raw snapshots available in this checkout")
+        assert boards, "the pinned board carries vendor pick rows"
         for label, parsed in boards:
             published = sorted({r["year"] for r in parsed if r.get("year") is not None})
             assert published, f"{label}: no yeared rows to reason about"

@@ -734,7 +734,7 @@ def _price(board: dict, label: str) -> float | None:
 
 
 def trade_rows(max_lag_days: float) -> tuple[list[dict], dict]:
-    trades = json.loads(TRADES.read_text())["rosterData"].get("trades") or []
+    trades = json.loads(TRADES.read_text(encoding="utf-8"))["rosterData"].get("trades") or []
     archives = _archives()
     census = {"trades": len(trades), "notTwoTeam": 0, "noArchiveBefore": 0, "boardTooOld": 0,
               "boardBuildFailed": 0, "unpricedAsset": 0, "graded": 0}  # fmt: skip
@@ -1172,8 +1172,10 @@ def main() -> int:
     out = REPO / args.out
     out.mkdir(parents=True, exist_ok=True)
     suffix = "_quick" if args.quick else ""
-    (out / f"research{suffix}.json").write_text(json.dumps(result, indent=1, default=str) + "\n")
-    (out / f"matrix_cells{suffix}.csv").write_text(matrix_csv(matrix))
+    (out / f"research{suffix}.json").write_text(
+        json.dumps(result, indent=1, default=str) + "\n", encoding="utf-8"
+    )
+    (out / f"matrix_cells{suffix}.csv").write_text(matrix_csv(matrix), encoding="utf-8")
     print(json.dumps({"out": str(out), "trades": census}, indent=1))
     return 0
 

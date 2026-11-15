@@ -1064,7 +1064,7 @@ def gather_inputs(
             if isinstance(d, Mapping)
         ]
         try:
-            inputs.playoff_structure = resolve_playoff_structure(current).to_dict()
+            inputs.playoff_structure = resolve_playoff_structure(current, league_key).to_dict()
         except Exception as exc:  # noqa: BLE001
             inputs.playoff_structure_reason = f"playoff_structure_failed:{_reason(exc)}"
         try:

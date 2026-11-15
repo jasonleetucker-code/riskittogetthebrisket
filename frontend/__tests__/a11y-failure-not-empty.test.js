@@ -49,7 +49,6 @@ const BASELINE = {
   "app/tools/ros-data-health/page.jsx": 1,
   "app/bdvm/page.jsx": 2,
   "app/league/activity/ActivityClient.jsx": 1,
-  "app/league/sections/ros-team-strength.jsx": 1,
   "app/league/sections/ros-championship.jsx": 1,
   "app/league/sections/ros-trade-deadline.jsx": 1,
   "app/league/sections/draft-capital.jsx": 1,

@@ -3,9 +3,9 @@
  "severity": "Critical",
  "total": 43,
  "tally": {
-  "open": 17,
+  "closed": 24,
   "needs_review": 2,
-  "closed": 23,
+  "open": 16,
   "deferred": 1
  },
  "findings": [
@@ -18,13 +18,13 @@
    "auditId": "D-1",
    "path": "frontend/lib/draft-logic.js",
    "signature": "Math.min(theoreticalMaxBid, winByCompetitor)",
-   "status": "open",
-   "verifiedBy": "Read the clamp: it caps against the richest RIVAL only. Neither myRemaining nor mySlotsRemaining appears in either figure.",
-   "closedBy": null,
+   "status": "closed",
+   "verifiedBy": "CLOSED 2026-11-06 by PR #2074 (re-verified W10-F001). Read computeDraftStats: myWinningBid is now Math.min(theoreticalMaxBid, winByCompetitor, myRemaining), and myMaxBid, bayesianWinningBid and enforceUpTo are capped by myRemaining too; theoreticalMaxBid stays uncapped, is shown only as the labelled 'Theoretical max', and budgetCapped says when the cap bit. bidStatus reads the capped bid, so an unaffordable lot is Pass. Pinned by frontend/__tests__/draft-bid-budget-invariant.test.js. The roster-SLOTS half is retired by design: the rookie draft has no per-team slot limit (CLAUDE.md, Perfect Draft; mySlotsRemaining and slotPressure were deleted). The needle is the old two-argument clamp, so it reappearing means the budget cap was removed.",
+   "closedBy": "PR #2074 (claude/draft-maxbid-and-class-retirement)",
    "measuredEffect": null,
-   "batch": null,
+   "batch": "sitewide-remediation-2026-11-06 / CW-38",
    "probe": {
-    "result": "signature_present",
+    "result": "signature_absent",
     "path": "frontend/lib/draft-logic.js",
     "needle": "Math.min(theoreticalMaxBid, winByCompetitor)"
    }

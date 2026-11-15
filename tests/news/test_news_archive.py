@@ -147,7 +147,7 @@ def test_known_at_never_selects_a_later_first_sighting(tmp_path):
 
 def test_archive_safely_never_raises(tmp_path):
     blocker = tmp_path / "file"
-    blocker.write_text("x")
+    blocker.write_text("x", encoding="utf-8")
     assert na.archive_safely([_item("a1")], fetched_at=T1, base=blocker / "sub") is None
 
 

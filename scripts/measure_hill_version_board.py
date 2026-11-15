@@ -59,7 +59,7 @@ REGISTRY = REPO / "config" / "model_registry" / "hill_scope_masters.json"
 
 
 def params_for(version: str) -> dict[str, float]:
-    blob = json.loads(REGISTRY.read_text())
+    blob = json.loads(REGISTRY.read_text(encoding="utf-8"))
     for entry in blob.get("versions") or ():
         if str(entry.get("version")) == str(version):
             return {str(k): float(v) for k, v in (entry.get("params") or {}).items()}
@@ -98,7 +98,7 @@ def main() -> int:
     cap = capture(args.input or DEFAULT_INPUT)
     cap["hillMasterVersion"] = str(args.version)
     cap["hillMasterParams"] = params
-    args.out.write_text(json.dumps(cap, indent=2, sort_keys=True) + "\n")
+    args.out.write_text(json.dumps(cap, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"wrote {args.out}  totals={cap['totals']}", file=sys.stderr)
     return 0
 

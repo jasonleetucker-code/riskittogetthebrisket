@@ -172,7 +172,11 @@ def rule_slot_forecasts(
         return [], None, NO_DRAFT_ORDER_RULE, {}
     if not isinstance(sim_payload, Mapping):
         return [], None, NO_SEASON_SIMULATION, {}
-    unsimulable = sim_payload.get("unsimulable")
+    from src.ros.playoff_sim import draft_slot_rows, run_stopping_refusal  # noqa: PLC0415
+
+    # A qualification-only refusal (a league whose division rule is
+    # unrecorded) still simulated the regular season: its draft order stands.
+    unsimulable = run_stopping_refusal(dict(sim_payload))
     if unsimulable:
         why = unsimulable.get("reason") if isinstance(unsimulable, Mapping) else None
         return [], None, f"{SIMULATION_UNSIMULABLE}:{why or 'unspecified'}", {}
@@ -201,7 +205,7 @@ def rule_slot_forecasts(
         if isinstance(owner, str) and owner:
             rid_by_owner[owner] = rid
 
-    sim_rows = [r for r in sim_payload.get("playoffOdds") or [] if isinstance(r, Mapping)]
+    sim_rows = draft_slot_rows(dict(sim_payload))
     if not sim_rows:
         return [], draft_year, NO_SLOT_DISTRIBUTION, {}
     league_size = len(sim_rows)

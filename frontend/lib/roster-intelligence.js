@@ -65,7 +65,12 @@ export function classifyRosterIntelligenceFailure(status, body) {
   if (status === 401) {
     return { kind: "auth", message: "Sign in to see roster intelligence." };
   }
-  if (code === "team_required") return { kind: "team_required", message };
+  // The backend's `team_required` message is a developer message ("Pass
+  // ?team=<ownerId>. It could not be inferred: this session carries no
+  // Sleeper user id …").  It names an internal id and a query parameter a
+  // user cannot act on, so it is never surfaced: the message is dropped and
+  // each surface renders its own copy for this fixable situation.
+  if (code === "team_required") return { kind: "team_required", message: "" };
   if (code === "team_not_found") return { kind: "team_not_found", message };
   if (code === "unknown_league" || code === "inactive_league" || code === "no_leagues_configured") {
     return { kind: "league", message };

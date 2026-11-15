@@ -39,6 +39,15 @@ from src.model_registry.holdout import HoldoutError, evaluate_offense_master
 REPO = Path(__file__).resolve().parents[2]
 
 
+def _pinned_root() -> Path:
+    """The PINNED board's input tree.  The trainers' source tables name CSVs
+    relative to the repo; resolving them against today's checkout would let a
+    data refresh change a hard-gate result (tests/test_pinned_board.py)."""
+    from tests.archive_fixtures import pinned_board_root
+
+    return pinned_board_root()
+
+
 def _csv_path(source_key: str) -> str:
     cfg = dc._SOURCE_CSV_PATHS[source_key]
     return cfg if isinstance(cfg, str) else cfg["path"]
@@ -72,7 +81,7 @@ class TestPlayersOnlyPopulation:
     def test_fitter_loads_players_only_for_every_trainer(self, scope_table):
         """E3: ``_load_values`` kept every positive row, so KTC base trained with picks."""
         for label, (rel, col) in getattr(fitter, scope_table).items():
-            path = REPO / rel
+            path = _pinned_root() / rel
             if not path.exists():
                 continue
             assert fitter._load_values(path, col) == _players_only_expected(
@@ -82,11 +91,13 @@ class TestPlayersOnlyPopulation:
     def test_ktc_base_top_400_has_no_pick_rows(self):
         """The specific E3 regression: picks inside KTC's top 400 fit window."""
         manifest_mod = pytest.importorskip("src.model_registry.training_manifest")
-        bv = manifest_mod.load_board_values(REPO / _csv_path("ktc"), "value")
+        bv = manifest_mod.load_board_values(_pinned_root() / _csv_path("ktc"), "value")
         assert not any(is_pick_name(n) for n in bv.names[: manifest_mod.FIT_TOP_N])
         raw_picks = sum(
             1
-            for r in csv.DictReader((REPO / _csv_path("ktc")).open(newline="", encoding="utf-8"))
+            for r in csv.DictReader(
+                (_pinned_root() / _csv_path("ktc")).open(newline="", encoding="utf-8")
+            )
             if is_pick_name(r.get("name") or "")
         )
         assert bv.picks_dropped == raw_picks

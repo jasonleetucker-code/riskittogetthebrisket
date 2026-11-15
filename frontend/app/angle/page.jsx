@@ -488,7 +488,7 @@ export default function AnglePage() {
         sortable: true,
         accessor: (c) => c.arb_score,
         render: (c) => <Badge tone="accent">{fmtSignedPct(c.arb_score)}</Badge>,
-        headerInfo: "Arbitrage edge — your gain net of the market gap.",
+        headerInfo: "Disagreement edge — your gain net of the market gap.",
       },
     ],
     // ``refine`` carries the live LOCK / EXCLUDE state and handlers.
@@ -745,7 +745,7 @@ export default function AnglePage() {
           subtitle={`Each package clears +${Number(minMyGainPct)}% on your board and stays within ±${Number(maxMarketGainPct)}% on the market the other side consults.`}
         >
           <DataTable
-            caption="Ranked counter-packages, best arbitrage edge first"
+            caption="Ranked counter-packages, best disagreement edge first"
             columns={packageColumns}
             rows={candidates}
             rowKey={(c, i) =>

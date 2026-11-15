@@ -100,19 +100,14 @@ export const SETTINGS_DEFAULTS = {
   // enabled at weight 1.0, no backend round-trip needed.
   siteWeights: {},
 
-  // Valuation lens (LI-9).  "market" is the consensus board exactly as
-  // the canonical pipeline computes it — today's behaviour and the
-  // deliberate default, so nothing moves until this is switched on.
-  //
-  // "leagueAdjusted" overlays GET /api/valuation/league-adjusted, which
-  // reprices by positional scarcity measured from THIS league's twelve
-  // rosters.  It is a per-league overlay rather than contract fields
-  // because the contract is shared across leagues with the same
-  // scoring profile — see src/league_intel/publish.py.
-  //
-  // Starts "market" on every device and is never auto-flipped: a value
-  // lens that turned itself on would silently change every number on
-  // the site, including in trade evaluation.
+  // Valuation lens (LI-9) — WITHDRAWN 2026-08-14.  There is one board, the
+  // market board, so this is no longer a user choice: /settings shows it
+  // read-only, the server ignores any other value, and
+  // ``lib/valuation-mode.js::readValuationMode`` always answers market.
+  // The key survives only so a device with "leagueAdjusted" already in
+  // localStorage keeps converging to market with no migration step, and so
+  // the few fetch hooks that list it as a dependency keep a stable input.
+  // Do not re-thread a selector for it.
   valuationMode: "market",
 
   // FAAB bid risk posture — how far up the engine's bid curve the

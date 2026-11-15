@@ -577,25 +577,42 @@ def _archive_evidence(league_key: str, season: int, week: int) -> dict[str, Any]
     does not prove the week was unplayed when it did; `capture_kind` is
     what carries that claim, and it travels here unchanged.
     """
+    bad: list[dict[str, Any]] = []
     try:
         from src.ros.game_day_archive import load_snapshots_for_week
 
-        snaps = load_snapshots_for_week(league_key, int(season), int(week))
+        snaps = load_snapshots_for_week(league_key, int(season), int(week), unreadable=bad)
     except Exception as exc:  # noqa: BLE001 — optional evidence, never fatal
         return {"state": "unreadable", "reason": f"{type(exc).__name__}: {exc}"}
+    if not snaps and bad:
+        # Files exist but none reads back: that is not "nothing captured".
+        return {
+            "state": "unreadable",
+            "reason": f"{len(bad)} archived file(s) could not be read back",
+            "unreadableFiles": len(bad),
+        }
     if not snaps:
         # NOT an error: a week before the capture unit was deployed, or
         # before this week's capture window, genuinely has none.
         return {"state": "not_captured", "teamsCaptured": 0}
     kinds = sorted({s.capture_kind for s in snaps})
+    by_kind: dict[str, set[str]] = {}
+    for s in snaps:
+        by_kind.setdefault(s.capture_kind, set()).add(str(s.team_id))
     return {
         "state": "captured",
-        "teamsCaptured": len(snaps),
+        # TEAMS, not files: since 2026-11-07 a team carries both a `pregame`
+        # and a `pregame_late` snapshot, and counting files would report a
+        # 12-team league as 24 teams captured.
+        "teamsCaptured": len(set().union(*by_kind.values())),
+        "teamsCapturedByKind": {k: len(v) for k, v in sorted(by_kind.items())},
         "captureKinds": kinds,
         # The EARLIEST capture is the pregame evidence; a later one is a
         # different observation, not a fresher version of the same one.
         "capturedAt": min(s.captured_at for s in snaps),
         "latestCapturedAt": max(s.captured_at for s in snaps),
+        # A damaged file is counted, never silently dropped from the evidence.
+        "unreadableFiles": len(bad),
     }
 
 

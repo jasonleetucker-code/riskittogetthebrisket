@@ -3136,7 +3136,11 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 .trade-meter-verdict-unfair {
-  color: #fb923c;
+  /* The validated orange TEXT token, so the pill follows the scope it sits
+     in like its three siblings: the literal #fb923c it replaced read 1.9:1
+     on /trade's cream surface (axe color-contrast, #1918).  Pinned by
+     __tests__/trade-meter-verdict-contrast.test.js. */
+  color: var(--data-down-text);
   background: rgba(251, 146, 60, 0.12);
   border: 1px solid rgba(251, 146, 60, 0.35);
 }

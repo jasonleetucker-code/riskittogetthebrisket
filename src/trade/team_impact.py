@@ -252,15 +252,25 @@ def _aggregate_state(
 def _starter_identity(asset: dict[str, Any]) -> str:
     """Identity for the before/after starter diff.
 
-    Board display name, lowercased.  Picks never reach here — ``project_starters``
-    keeps only ``_BASE_POSITIONS`` — which matters, because a pick is the one
-    asset class where two roster entries legitimately share a board row
-    ("2027 Mid 1st" own vs acquired) and a name key would collapse them.  For
-    PLAYERS the canonical board carries one row per identity, so the name is a
-    sound key; :func:`lineup_displacement` refuses rather than guesses if that
-    ever stops being true.
+    The Sleeper ``playerId`` the resolver stamps on every board-resolved player
+    (``trade_simulator._resolve_asset``), else the board display name,
+    lowercased.  Picks never reach here — ``project_starters`` keeps only
+    ``_BASE_POSITIONS`` — which matters, because a pick is the one asset class
+    where two roster entries legitimately share a board row ("2027 Mid 1st"
+    own vs acquired) and a name key would collapse them.
+
+    Names are the fallback ONLY (B0-b).  Two different players can share a
+    display name: keyed by name, a player sent away and a same-named player
+    received read as the same starter (neither ``arrived`` nor ``departed``),
+    and two same-named starters on one roster made the diff refuse
+    (LANE-E-DEFECT-I9-DUPNAME).  :func:`lineup_displacement` still refuses
+    rather than guesses when two starters share one identity.  The ``id:``
+    prefix keeps an id key apart from a name key.
     """
 
+    pid = str(asset.get("playerId") or "").strip()
+    if pid:
+        return f"id:{pid}"
     return str(asset.get("name") or asset.get("sourceLabel") or "").strip().lower()
 
 

@@ -19,6 +19,9 @@ import pytest
 import src.api.data_contract as dc
 from src.sources.freshness import SourceWeighting
 
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 _WITHHELD = "idpTradeCalc"
 
 

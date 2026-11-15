@@ -19,7 +19,7 @@ voting, and picks rest on KTC Crowd + KTC Trades.  What must hold then:
 7. IDPTC's stale observations stay on the record.
 
 Two halves.  The confidence-owner properties are synthetic and exact.  The
-SIMULATION builds the newest complete archived scrape twice — once against
+SIMULATION builds the pinned complete archived scrape twice — once against
 the committed dataset states, once with IDP Trade Calculator's data clocks
 aged by exactly the time the freshness owner says it takes its pick
 observations to cross ``quarantineBelow`` (plus an hour).  Only the CLOCKS
@@ -58,10 +58,20 @@ from src.api.source_health_alerts import detect_content_alerts
 from src.sources import freshness as F
 from src.sources.dataset_state import load_state, parse_iso, state_path
 from src.sources.source_census import provider_of
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import (
+    pinned_board_payload,
+    pinned_board_root,
+    pinned_build_environment,
+)
 
-_REPO = Path(__file__).resolve().parents[2]
-_STATE_DIR = _REPO / "data" / "scrape_state"
+
+def _state_dir() -> Path:
+    """The PINNED board's scrape state (never today's ``data/scrape_state``):
+    the simulation ages IDPTC's dataset state from the same frozen refresh
+    the payload and CSVs come from, so its outcome is a fact about one board."""
+    return pinned_board_root() / "data" / "scrape_state"
+
+
 _IDPTC = "idpTradeCalc"
 _LEVEL = {name: i for i, name in enumerate(CONFIDENCE_LEVELS)}
 _KTC_KEYS = ("ktcCrowdSfTep", "ktcTradesSfTep", "ktcCrowdTradesSfTep")
@@ -371,11 +381,11 @@ _SIM: dict[str, Any] = {}
 def _simulation(tmp_root: Path) -> dict[str, Any]:
     if _SIM:
         return _SIM
-    raw, archive = newest_complete_raw_payload()
+    raw, archive = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape to build a contract from")
     as_of = dc._payload_as_of(raw)
-    state = load_state(state_path(_STATE_DIR, _IDPTC))
+    state = load_state(state_path(_state_dir(), _IDPTC))
     if as_of is None or not state:
         pytest.skip("no as-of or no committed IDP Trade Calculator dataset state")
     delay = _picks_quarantine_delay(state, as_of)
@@ -384,13 +394,13 @@ def _simulation(tmp_root: Path) -> dict[str, Any]:
     delta = delay + timedelta(hours=1)
 
     base_dir, cut_dir = tmp_root / "base", tmp_root / "cut"
-    shutil.copytree(_STATE_DIR, base_dir)
-    shutil.copytree(_STATE_DIR, cut_dir)
+    shutil.copytree(_state_dir(), base_dir)
+    shutil.copytree(_state_dir(), cut_dir)
     (cut_dir / f"{_IDPTC}_dataset.json").write_text(
         json.dumps(_aged(state, delta)), encoding="utf-8"
     )
     state_files = {
-        "committed": state_path(_STATE_DIR, _IDPTC),
+        "committed": state_path(_state_dir(), _IDPTC),
         "base": state_path(base_dir, _IDPTC),
         "cut": state_path(cut_dir, _IDPTC),
     }
@@ -412,10 +422,11 @@ def _simulation(tmp_root: Path) -> dict[str, Any]:
     original_datetime = dc.datetime
     try:
         dc.datetime = _AtBoardTime
-        dc._source_weighting_state_dir = lambda csv_root=None: base_dir  # noqa: ARG005
-        before = dc.build_api_data_contract(copy.deepcopy(raw))
-        dc._source_weighting_state_dir = lambda csv_root=None: cut_dir  # noqa: ARG005
-        after = dc.build_api_data_contract(copy.deepcopy(raw))
+        with pinned_build_environment():
+            dc._source_weighting_state_dir = lambda csv_root=None: base_dir  # noqa: ARG005
+            before = dc.build_api_data_contract(copy.deepcopy(raw))
+            dc._source_weighting_state_dir = lambda csv_root=None: cut_dir  # noqa: ARG005
+            after = dc.build_api_data_contract(copy.deepcopy(raw))
     finally:
         dc._source_weighting_state_dir = original
         dc.datetime = original_datetime
@@ -578,7 +589,17 @@ def test_seats_never_penalise_a_rejection_the_cutoff_did_not_cause(sim) -> None:
     Comparing such rows made this hard-gate test flip on one provider's
     staleness with our code byte-identical (measured: Chris Olave, untouched
     by the cutoff, failed it).  On the comparable rows the property is
-    exactly the one #1697 measured."""
+    exactly the one #1697 measured.
+
+    Back in the hard gate (2026-11-15).  It was moved to the live-data lane on
+    2026-11-13 because whether any comparable seated row exists depended on
+    which providers the latest refresh left stale (that day the cutoff reached
+    only pick rows, the test skipped and broke the skip budget).  The
+    simulation now runs on the PINNED board, where comparable seated rows
+    exist, so the population is a fixed fact and an empty one FAILS (a re-pin
+    must keep this test meaningful) rather than skipping.  The synthetic
+    coverage of the same rule stays in
+    ``tests/api/test_confidence_cured_rejection_guard.py``."""
     before, after = _rows(sim["before"]), _rows(sim["after"])
     compared = 0
     for key, a in after.items():
@@ -597,8 +618,10 @@ def test_seats_never_penalise_a_rejection_the_cutoff_did_not_cause(sim) -> None:
         }
         compared += 1
         assert not (seated & (families - voting_before)), (key, seated, already)
-    if not compared:
-        pytest.skip("no row on this board carries a seat the cutoff alone could have caused")
+    assert compared, (
+        "no row on the pinned board carries a seat the cutoff alone could have caused; "
+        "the test would check nothing (re-pin onto a board that has one)"
+    )
 
 
 def test_3_4_ktc_crowd_and_trades_never_two_providers_on_the_board(sim) -> None:
@@ -718,7 +741,7 @@ def test_7_idptc_observations_stay_on_the_record(sim) -> None:
     # change history (the stale evidence is kept, only its authority ended).
     assert sim["state_bytes_after"] == sim["state_bytes_before"]
     cut_state = load_state(state_path(sim["state_dir"], _IDPTC))
-    committed = load_state(state_path(_STATE_DIR, _IDPTC))
+    committed = load_state(state_path(_state_dir(), _IDPTC))
     for subset in ("players", "picks"):
         assert (cut_state["subsets"][subset].get("changeHistory") or []) == (
             committed["subsets"][subset].get("changeHistory") or []

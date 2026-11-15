@@ -252,18 +252,25 @@ def test_waiver_levels_is_a_guarded_owner_symbol_of_row_a():
     assert f"{LI5_PATH}::waiver_levels" in built.intra
 
 
-def test_displacement_stays_distinct_until_it_is_wired():
-    """Row G becomes an ADAPTER only when its consumers actually call
-    ``waiver_levels`` (design phase P3, gated on #1890).  Declaring it
-    before then would be a census claim the code does not back."""
+def test_displacement_is_an_adapter_over_the_li5_waiver_tier():
+    """Row G became an ADAPTER in design phase P3 (after #1890 merged): its
+    flag-ON branch calls ``waiver_levels`` and reads the population owner.
+    The census claim is backed only while the code does both, and while
+    displacement keeps no banding of its own."""
     row_g = next(r for r in CENSUS if r.key == "G")
-    assert row_g.disposition == DISTINCT
-    src = (REPO / row_g.path).read_text(encoding="utf-8")
-    assert "waiver_levels" not in {
+    assert row_g.disposition == ADAPTER
+    tree = ast.parse((REPO / row_g.path).read_text(encoding="utf-8"))
+    called = {
         n.func.id if isinstance(n.func, ast.Name) else getattr(n.func, "attr", "")
-        for n in ast.walk(ast.parse(src))
+        for n in ast.walk(tree)
         if isinstance(n, ast.Call)
-    }, "displacement now calls waiver_levels: re-declare row G as ADAPTER in the same PR"
+    }
+    assert "waiver_levels" in called, "row G is ADAPTER but displacement no longer delegates"
+    assert "base_free_agent_rows" in called, "the free-agent set must come from its one owner"
+    # Design §8 item 7: no second level implementation in the adapter.
+    assert "_banded_value" not in called
+    imported = {n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
+    assert "statistics" not in imported
 
 
 def test_the_waiver_tier_is_computed_in_exactly_one_function():

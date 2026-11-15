@@ -5,6 +5,9 @@
 // landing card reads exactly as main (no browser request is involved).
 import HomeClient from "./HomeClient.jsx";
 import { advisorConfirmedServed } from "./league/advisor-bootstrap.js";
+import { pageMetadata } from "@/lib/page-metadata";
+
+export const metadata = pageMetadata("/");
 
 export default async function HomePage() {
   return <HomeClient advisorServed={await advisorConfirmedServed()} />;

@@ -259,5 +259,5 @@ def test_find_decision_run_reads_the_server_log(tmp_path):
     assert log.find_decision_run("", log_dir=tmp_path) is None
     assert log.find_decision_run(run, log_dir=tmp_path / "missing") is None
     # A torn line is skipped, never fatal.
-    (tmp_path / "runs-2099-01.jsonl").write_text('{"runId": "' + run + '"\n')
+    (tmp_path / "runs-2099-01.jsonl").write_text('{"runId": "' + run + '"\n', encoding="utf-8")
     assert log.find_decision_run(run, log_dir=tmp_path)["runId"] == run

@@ -62,7 +62,8 @@ const ENGINE_LINKS = [
   {
     tool: "golden",
     label: "Golden Upgrades",
-    note: "Same-position upgrades your league's markets undervalue.",
+    // Part 5 (owner directive 2026-11-07): disagreement, not proven mispricing.
+    note: "Same-position upgrades your league's markets price below our board.",
   },
 ];
 

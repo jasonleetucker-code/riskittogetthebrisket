@@ -103,7 +103,7 @@ def main() -> int:
         },
     }
     meta_path = seed_dir / "README.json"
-    meta_path.write_text(json.dumps(meta, indent=2) + "\n")
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     print(f"[generate_test_seeds] Metadata: {meta_path}")
 
     return 0

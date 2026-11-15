@@ -223,7 +223,7 @@ class TestRosterLoaderFeedsTheOptimizerProperly(unittest.TestCase):
         )
         if not path.exists():
             self.skipTest("league pool fixture not present")
-        pool = json.loads(path.read_text())
+        pool = json.loads(path.read_text(encoding="utf-8"))
         slots = ["DL", "DL", "LB", "LB", "FLEX", "WR", "RB"]
 
         team = max(

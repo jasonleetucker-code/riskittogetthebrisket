@@ -34,7 +34,7 @@ def _clean(name: str) -> str:
 
 
 def _ktc_capture():
-    rows = json.loads(FIXTURE.read_text())["playersArray"]
+    rows = json.loads(FIXTURE.read_text(encoding="utf-8"))["playersArray"]
     obs = kvs.observations_from_players_array(rows, kvs.KTC_CROWD)
 
     class _Cap:
@@ -50,11 +50,13 @@ def _ktc_capture():
 
 
 def test_fixture_identity_fields_match_the_committed_ktc_capture():
-    html = (REPO / "tests/fixtures/ktc/trade_calculator_2026-10-13.html").read_text()
+    html = (REPO / "tests/fixtures/ktc/trade_calculator_2026-10-13.html").read_text(
+        encoding="utf-8"
+    )
     from src.sources.ktc_identity import extract_embedded_array
 
     committed = {r_["playerID"]: r_ for r_ in extract_embedded_array(html, "playersArray") or []}
-    rows = json.loads(FIXTURE.read_text())["playersArray"]
+    rows = json.loads(FIXTURE.read_text(encoding="utf-8"))["playersArray"]
     assert rows
     for row in rows:
         src = committed[row["playerID"]]
@@ -63,7 +65,7 @@ def test_fixture_identity_fields_match_the_committed_ktc_capture():
 
 
 def test_ktc_observation_carries_team_and_age_but_not_in_the_content_hash():
-    rows = json.loads(FIXTURE.read_text())["playersArray"]
+    rows = json.loads(FIXTURE.read_text(encoding="utf-8"))["playersArray"]
     obs = kvs.observations_from_players_array(rows, kvs.KTC_CROWD)
     gibbs = next(o for o in obs if o.name == "Jahmyr Gibbs")
     assert (gibbs.position, gibbs.team, gibbs.age, gibbs.player_id) == ("RB", "DET", 24.6, 1415)
@@ -285,9 +287,9 @@ def test_sidecar_binds_only_to_its_own_payload(tmp_path):
 def test_sidecar_schema_and_garbage_are_not_evidence(tmp_path):
     path = tmp_path / ce.MANIFEST_REL
     path.parent.mkdir(parents=True)
-    path.write_text("{not json")
+    path.write_text("{not json", encoding="utf-8")
     assert ce.load_capture_evidence(tmp_path, TS)[1] == ce.STATE_UNREADABLE
-    path.write_text(json.dumps({"schema": "other", "scrapeTimestamp": TS}))
+    path.write_text(json.dumps({"schema": "other", "scrapeTimestamp": TS}), encoding="utf-8")
     assert ce.load_capture_evidence(tmp_path, TS)[1] == ce.STATE_SCHEMA_MISMATCH
 
 
@@ -296,7 +298,7 @@ def test_archive_manifest_is_read_from_the_bundle(tmp_path):
     manifest = ce.write_evidence(col.build_sidecar({}, scrape_timestamp=TS), tmp_path)
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr(ce.MANIFEST_FILENAME, (tmp_path / ce.MANIFEST_REL).read_text())
+        zf.writestr(ce.MANIFEST_FILENAME, (tmp_path / ce.MANIFEST_REL).read_text(encoding="utf-8"))
     assert ce.manifest_from_archive(buf.getvalue()) == manifest
     assert ce.load_capture_evidence(tmp_path, TS, manifest)[1] == ce.STATE_BOUND
     empty = io.BytesIO()

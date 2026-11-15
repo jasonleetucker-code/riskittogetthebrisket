@@ -49,6 +49,16 @@ A third was added with Game Day U5 (2026-09-25):
   the same league-week would otherwise replace a test's fixtures with the
   box's (or a developer's) live answer.
 
+A sixth, measured 2026-11-12:
+* ``data/nfl_data_cache/`` — the nflverse read-through cache
+  (``src/nfl_data/cache.py``).  ``build_matchup_intel`` reads the cached
+  season schedule (``cache_only=True``), so once a local server had cached
+  the real 2026 schedule, its week 1 was over and 8 of 29
+  ``tests/api/test_matchup_intel.py`` tests read ``final`` where their
+  fixtures are ``pregame`` (29 of 29 pass on a clean checkout).  Redirected
+  only: it is a cache, not production state, and a running server writes
+  it legitimately, so it is not on the watch list.
+
 Two TRACKED scraper artifacts are WATCHED, never redirected (2026-10-18):
 ``data/scrape_state/`` and ``data/sleeper_last_good.json``.  They are
 production state the scheduled refresh commits and deploy dispatch keys on
@@ -85,7 +95,9 @@ import time
 from pathlib import Path
 from typing import Iterable, Iterator
 
+from src.diagnostics import heap_report
 from src.draft.rookie_auction import published as draft_published
+from src.nfl_data import cache as nfl_cache
 from src.public_league import snapshot_store
 from src.ros import game_day_live, team_strength
 
@@ -97,6 +109,7 @@ REAL_TEAM_STRENGTH_DIR: Path = team_strength.ROS_DATA_DIR / "team_strength"
 REAL_GAME_DAY_LIVE_DIR: Path = game_day_live.LIVE_ROOT
 REAL_DRAFT_ALLOCATION_DIR: Path = draft_published.BOX_STORE
 REAL_DRAFT_PROMOTION_ROOT: Path = draft_published.PROMOTION_ROOT
+REAL_NFL_DATA_CACHE_DIR: Path = nfl_cache._default_cache_dir()  # noqa: SLF001
 #: Batch D's repo-tracked stores — watched, never written by a test.
 DRAFT_VALUATION_BATCH_D_STORES: tuple[Path, ...] = tuple(
     REAL_DRAFT_PROMOTION_ROOT / name
@@ -145,7 +158,20 @@ _LOCK_PATH = Path(tempfile.gettempdir()) / (
 LOCK_TIMEOUT_S = 900.0
 
 _ORIGINAL_TEAM_STRENGTH_PATH = team_strength._team_strength_path
+_ORIGINAL_NFL_CACHE_DIR = nfl_cache._default_cache_dir  # noqa: SLF001
 _state: dict[str, Path | None] = {"root": None}
+
+
+def _isolated_nfl_cache_dir() -> Path:
+    """The nflverse read-through cache, under the active root when one is set.
+
+    Redirected, not watched: unlike the stores above it is not production
+    state, and a running local server writes the real directory legitimately.
+    """
+    root = _state["root"]
+    if root is None:
+        return _ORIGINAL_NFL_CACHE_DIR()
+    return root / "nfl_data_cache"
 
 
 def _isolated_team_strength_path(league_key: str | None = None) -> Path:
@@ -162,8 +188,10 @@ def _isolated_team_strength_path(league_key: str | None = None) -> Path:
 
 
 def install() -> None:
-    """Route team-strength snapshot paths through the remapper (idempotent)."""
+    """Route team-strength snapshot paths and the nflverse cache directory
+    through the remappers (idempotent)."""
     team_strength._team_strength_path = _isolated_team_strength_path
+    nfl_cache._default_cache_dir = _isolated_nfl_cache_dir  # noqa: SLF001
 
 
 def activate(root: Path) -> None:
@@ -189,6 +217,9 @@ def activate(root: Path) -> None:
     game_day_live.LIVE_ROOT = root / "game_day" / "live"
     draft_published.BOX_STORE = root / "draft_valuation" / "published_allocations"
     draft_published.PROMOTION_ROOT = root / "draft_valuation" / "promotion_root"
+    # Heap snapshots (WA-17): redirected, not watched, like the nflverse
+    # cache, because a running local server appends to the real log.
+    heap_report.REPORT_PATH = root / "diagnostics" / "heap_reports.jsonl"
 
 
 @contextlib.contextmanager

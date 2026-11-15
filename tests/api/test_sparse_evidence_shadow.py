@@ -20,7 +20,9 @@ import pytest
 from src.api import feature_flags
 from src.api import sparse_evidence as se
 from src.api import sparse_evidence_shadow as shadow
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 #: Field names a served contract row carries.  A ledger line must never use
 #: them, so it can never be read back as (or mistaken for) a served row.
@@ -50,7 +52,7 @@ def _keys(obj, out=None):
 
 @pytest.fixture(scope="module")
 def recorded(tmp_path_factory):
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape")
     base = tmp_path_factory.mktemp("shadow")

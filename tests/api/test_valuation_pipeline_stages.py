@@ -566,7 +566,12 @@ def _synthetic_contract() -> dict[str, Any]:
             "_sites": 2,
             "_canonicalSiteValues": {"ktcCrowdSfTep": value, "idpTradeCalc": value},
         }
-    return dc.build_api_data_contract({"players": players})
+    # No csv_root: the build would read TODAY's scrape state.  This module also holds
+    # livedata tests, so the pin is per call, not the module-wide fixture.
+    from tests.archive_fixtures import pinned_build_environment
+
+    with pinned_build_environment(freeze_clock=False):
+        return dc.build_api_data_contract({"players": players})
 
 
 class TestRetiredPassesStayRetired:

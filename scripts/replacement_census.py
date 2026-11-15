@@ -237,13 +237,23 @@ CENSUS: tuple[Impl, ...] = (
         key="G",
         path="src/draft/displacement.py",
         symbol="waiver_values_by_position",
-        quantity="best available (unrostered) value at each position",
+        quantity="the waiver level at each position (what can I sign instead)",
         unit="rankDerivedValue (1-9999 dynasty)",
-        population="unrostered players on the canonical board",
-        disposition=DISTINCT,
+        population=(
+            "unrostered players on the canonical board, per consumer's own unavailable "
+            "keys; under the LI-5 flag the src/draft/waiver_population.py population "
+            "(add pool + availability owner)"
+        ),
+        disposition=ADAPTER,
         note=(
             "Answers 'what can I sign instead' — the opportunity cost of a roster "
-            "spot. Different question from E even though the unit matches."
+            "spot. Different question from E even though the unit matches. LI-5 "
+            "consolidation phase P3 (design 2026-10-21, D3): a population + thin view "
+            "over the LI-5 waiver tier — with flag replacement_level_li5_consolidation "
+            "ON the level is waiver_levels(value_key='rankDerivedValue') over the "
+            "waiver_population owner's rows; OFF (the default, held by the owner) the "
+            "incumbent best-single-unrostered branch is retained verbatim until P6. "
+            "free_agent_ladder is the ordered, unbanded view of the same population."
         ),
         call_names=("waiver_values_by_position", "free_agent_ladder"),
     ),

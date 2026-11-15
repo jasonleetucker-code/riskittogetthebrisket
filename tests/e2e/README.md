@@ -105,6 +105,19 @@ E2E_BASE_URL=http://127.0.0.1:8000 npm run e2e
 webkit `mobile-390` / `mobile-430` projects, which need
 `npx playwright install webkit`, and enforces pixel snapshots).
 
+**WebKit (iPhone) coverage.** `mobile-390` (iPhone 13) and `mobile-430`
+(iPhone 14 Pro Max) are real WebKit.  The E2E Safety Net workflow installs
+WebKit and runs `mobile-390` after the Chromium projects, in the same job and
+stack.  Locally: `npx playwright install webkit` (on a bare Linux box also
+`npx playwright install-deps webkit`), then
+`npx playwright test -c tests/e2e/playwright.config.js --project=mobile-390 --ignore-snapshots`.
+Measured 2026-10-28 on both phones: 145 passed / 55 skipped / 0 failed
+(skips are the desktop-only journeys, the visual-regression specs under
+`SKIP_VISUAL_REGRESSION=1`, and the real-OCR specs).  Page-error guards must
+use `isNavigationAbortedFetch` (helpers/journey.js): WebKit reports a fetch
+that a navigation cancelled as an uncaught "Fetch API cannot load ... due to
+access control checks" TypeError, which Chromium does not.
+
 ### Env vars the suite understands
 
 | Var | Effect |

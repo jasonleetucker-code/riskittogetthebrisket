@@ -43,7 +43,7 @@ def build_player_map(legacy_path: Path) -> dict:
     - nickname_lookup: dict of nickname-expanded name → position
     - stats: summary counts
     """
-    data = json.loads(legacy_path.read_text())
+    data = json.loads(legacy_path.read_text(encoding="utf-8"))
     players = data.get("players", {})
 
     entries = []
@@ -138,7 +138,7 @@ def main() -> int:
         "stats": player_map["stats"],
         "entries": player_map["entries"],
     }
-    out_path.write_text(json.dumps(payload, indent=2) + "\n")
+    out_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     print(f"[player_map] Exported {player_map['stats']['total_entries']} players → {out_path}")
     print(

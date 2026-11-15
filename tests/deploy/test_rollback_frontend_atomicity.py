@@ -40,6 +40,7 @@ invariant under test is the one the incident violated:
 
 from __future__ import annotations
 
+import sys
 import json
 import os
 import shlex
@@ -49,6 +50,14 @@ import textwrap
 from pathlib import Path
 
 import pytest
+
+# sources the production rollback shell script by POSIX path; Git Bash on Windows mangles the Windows path.
+# Never skipped on Linux/CI.
+_LINUX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Linux-only: sources the production rollback shell script by POSIX path",
+)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ROLLBACK_SH = REPO_ROOT / "deploy" / "rollback.sh"
@@ -72,18 +81,20 @@ def _write_dist(dist: Path, *, marker: str, omit: tuple[str, ...] = ()) -> None:
     """Write a build output that looks like a real one."""
     dist.mkdir(parents=True, exist_ok=True)
     (dist / "static").mkdir(exist_ok=True)
-    (dist / "static" / "app.js").write_text("//js\n")
-    (dist / "MARKER").write_text(marker)
+    (dist / "static" / "app.js").write_text("//js\n", encoding="utf-8")
+    (dist / "MARKER").write_text(marker, encoding="utf-8")
     for name in RUNTIME_ARTIFACTS:
         if name in omit:
             continue
         if name == "BUILD_ID":
-            (dist / name).write_text("build-id\n")
+            (dist / name).write_text("build-id\n", encoding="utf-8")
         elif name == "build-manifest.json":
             # One real reference so the asset walk has something to do.
-            (dist / name).write_text(json.dumps({"pages": {"/": ["static/app.js"]}}))
+            (dist / name).write_text(
+                json.dumps({"pages": {"/": ["static/app.js"]}}), encoding="utf-8"
+            )
         else:
-            (dist / name).write_text("{}")
+            (dist / name).write_text("{}", encoding="utf-8")
 
 
 @pytest.fixture
@@ -92,7 +103,7 @@ def frontend(tmp_path: Path) -> Path:
     app_dir = tmp_path / "app"
     fe = app_dir / "frontend"
     fe.mkdir(parents=True)
-    (fe / "package.json").write_text(json.dumps({"name": "fixture"}))
+    (fe / "package.json").write_text(json.dumps({"name": "fixture"}), encoding="utf-8")
     _write_dist(fe / ".next", marker=KNOWN_GOOD_MARKER)
     return app_dir
 
@@ -126,7 +137,7 @@ def _stub_npm(bin_dir: Path, *, build_exit: int, produce: str) -> None:
         exit {build_exit}
         """)
     npm = bin_dir / "npm"
-    npm.write_text(script)
+    npm.write_text(script, encoding="utf-8")
     npm.chmod(0o755)
 
 
@@ -169,7 +180,7 @@ def _run_rebuild(app_dir: Path, bin_dir: Path) -> subprocess.CompletedProcess:
 
 def _live_marker(app_dir: Path) -> str | None:
     p = app_dir / "frontend" / ".next" / "MARKER"
-    return p.read_text().strip() if p.exists() else None
+    return p.read_text(encoding="utf-8").strip() if p.exists() else None
 
 
 def _live_is_serviceable(app_dir: Path) -> bool:
@@ -232,6 +243,7 @@ class TestASuccessfulBuildStillSwaps:
     swaps anything — which would be a different outage.
     """
 
+    @_LINUX_ONLY
     def test_a_complete_build_replaces_the_live_directory(self, frontend, tmp_path):
         bin_dir = tmp_path / "bin"
         _stub_npm(bin_dir, build_exit=0, produce="complete")
@@ -254,12 +266,12 @@ class TestBothScriptsAgree:
 
     @pytest.mark.parametrize("script", ["deploy.sh", "rollback.sh"])
     def test_each_requires_the_runtime_artifacts(self, script):
-        text = (REPO_ROOT / "deploy" / script).read_text()
+        text = (REPO_ROOT / "deploy" / script).read_text(encoding="utf-8")
         for name in RUNTIME_ARTIFACTS:
             assert f'"{name}"' in text, f"{script} does not require {name}"
 
     def test_the_rollback_build_status_is_read(self):
-        text = ROLLBACK_SH.read_text()
+        text = ROLLBACK_SH.read_text(encoding="utf-8")
         assert "build_rc" in text, "rollback.sh no longer captures its frontend build's exit status"
 
 

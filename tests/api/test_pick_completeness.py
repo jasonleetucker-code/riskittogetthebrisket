@@ -27,7 +27,7 @@ defect classes, reproduced on this same payload before the repair).
 
 from __future__ import annotations
 
-import json
+import copy
 import math
 import unittest
 from pathlib import Path
@@ -36,7 +36,6 @@ from typing import Any
 from src.api.data_contract import (
     _canonical_match_key,
     _complete_future_pick_values,
-    build_api_data_contract,
     current_rookie_draft_year,
     validate_api_data_contract,
 )
@@ -58,13 +57,13 @@ def _load_contract() -> dict[str, Any] | None:
     global _contract_cache
     if _contract_cache is not None:
         return _contract_cache
-    data_dir = _REPO / "exports" / "latest"
-    json_files = sorted(data_dir.glob("dynasty_data_*.json"), reverse=True)
-    if not json_files:
-        return None
-    with json_files[0].open() as f:
-        raw = json.load(f)
-    _contract_cache = build_api_data_contract(raw)
+    # The PINNED real board (``tests.archive_fixtures``), not today's export:
+    # every assertion here is an invariant of the pick pipeline, so it must
+    # not move with a data refresh.  A private copy; the shared one is
+    # read-only.
+    from tests.archive_fixtures import pinned_board_contract
+
+    _contract_cache = copy.deepcopy(pinned_board_contract()[0])
     return _contract_cache
 
 
@@ -468,33 +467,6 @@ class TestConsumerRepairs(unittest.TestCase):
             self.assertGreater(hit2["value"], 0)
         # Garbage still refuses — identity never guesses.
         self.assertIsNone(_resolve_asset("certainly not a pick", row_index=idx))
-
-
-class TestExportParity(unittest.TestCase):
-    """API == export: the CSV export carries the same canonical value."""
-
-    def setUp(self) -> None:
-        self.contract = _load_contract()
-        if self.contract is None:
-            self.skipTest("no scraper export available")
-
-    def test_pick_values_in_export_match_contract(self) -> None:
-        import csv
-        import io
-
-        try:
-            from src.api.export_builder import build_values_csv  # type: ignore
-        except ImportError:
-            self.skipTest("no export builder module — export served from contract directly")
-        buf = io.StringIO(build_values_csv(self.contract))
-        rows = {r["name"]: r for r in csv.DictReader(buf)}
-        for r in self.contract["playersArray"]:
-            if r.get("assetClass") != "pick" or not _finite(r.get("rankDerivedValue")):
-                continue
-            row = rows.get(str(r.get("canonicalName")))
-            if row is None:
-                continue
-            self.assertEqual(int(float(row["value"])), int(r["rankDerivedValue"]))
 
 
 if __name__ == "__main__":

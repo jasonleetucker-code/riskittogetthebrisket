@@ -477,7 +477,10 @@ def test_trade_values_csv_is_players_only_with_published_text(dlf_module, tmp_pa
     assert lines[0] == "name,pos,team,value"
     assert lines[1] == "Brock Bowers,TE,LV,1044.9830"
     assert "Ryan Flournoy,WR,DAL,0.7000" in lines
-    assert not any(n in out.read_text() for n in ("Blank Guy", "Junk Guy", "Zero Guy", "2026 3.09"))
+    assert not any(
+        n in out.read_text(encoding="utf-8")
+        for n in ("Blank Guy", "Junk Guy", "Zero Guy", "2026 3.09")
+    )
     picks = tmp_path / "p.csv"
     assert dlf_module._write_value_picks_csv(picks, rows) == 1
     assert "2026 3.09 (33),2026,3,9,33,10.0000" in picks.read_text(encoding="utf-8")

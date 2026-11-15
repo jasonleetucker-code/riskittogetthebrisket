@@ -79,16 +79,14 @@ describe("/draft loader — draftCapitalBudgetRows", () => {
     expect(draftCapitalBudgetRows(AVAILABLE)).toBe(AVAILABLE.teamTotals);
   });
 
-  it("is the guard that matters: the merge itself would coerce null to $0", () => {
-    // Pinning WHY the loader must ask first: mergeDraftCapitalTeams reads a
-    // null budget as 0.  The loader never reaches it with unavailable rows.
-    const { workspace } = mergeDraftCapitalTeams(
+  it("the merge itself never coerces a null budget to $0", () => {
+    const { workspace, unavailable } = mergeDraftCapitalTeams(
       { teams: [] },
       UNAVAILABLE.teamTotals,
       { mode: "force" },
     );
-    const budgets = (workspace.teams || []).map((t) => t.budget ?? t.initialBudget);
-    expect(budgets).toEqual([0, 0]);
+    expect(workspace.teams || []).toEqual([]);
+    expect(unavailable.length).toBe(UNAVAILABLE.teamTotals.length);
   });
 });
 

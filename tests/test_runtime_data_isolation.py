@@ -179,6 +179,32 @@ def test_loaders_do_not_see_files_at_the_real_paths():
         assert snapshot_store.load_contract() is None
 
 
+def test_the_nflverse_cache_at_the_real_path_is_not_read():
+    """A cached real schedule must not reach a deterministic test (2026-11-12:
+    a cached 2026 schedule turned matchup-intel fixtures from pregame to final).
+
+    The plant is a valid entry written by the cache's own ``put``; reading it
+    back from the REAL directory explicitly is the discrimination control.
+    """
+    from src.nfl_data import cache as nfl_cache
+    from src.nfl_data import ingest
+
+    key = ingest.cache_key("schedules", [2026])
+    rows = [{"season": 2026, "week": 1, "game_type": "REG", "plantedByTest": True}]
+    with tempfile.TemporaryDirectory() as tmp:
+        nfl_cache.put(key, rows, cache_dir=Path(tmp))
+        data_path, meta_path = nfl_cache._entry_paths(Path(tmp), key)  # noqa: SLF001
+        planted_bytes = {
+            isolation.REAL_NFL_DATA_CACHE_DIR / data_path.name: data_path.read_bytes(),
+            isolation.REAL_NFL_DATA_CACHE_DIR / meta_path.name: meta_path.read_bytes(),
+        }
+    with _planted_at_real_paths(planted_bytes):
+        real = isolation.REAL_NFL_DATA_CACHE_DIR
+        assert nfl_cache.get(key, ttl_seconds=3600, cache_dir=real) == rows
+        assert nfl_cache._default_cache_dir() != real  # noqa: SLF001
+        assert nfl_cache.get(key, ttl_seconds=3600) is None
+
+
 def test_isolation_moves_only_the_real_team_strength_directory():
     """Tracked ROS inputs stay visible; a test's own redirect is honoured."""
     remapped = team_strength._team_strength_path()
@@ -195,14 +221,14 @@ def test_isolation_moves_only_the_real_team_strength_directory():
 def test_the_guard_detects_added_modified_and_removed_files():
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
-        (base / ".gitkeep").write_text("")
-        (base / "kept.json").write_text("{}")
-        (base / "gone.json").write_text("{}")
+        (base / ".gitkeep").write_text("", encoding="utf-8")
+        (base / "kept.json").write_text("{}", encoding="utf-8")
+        (base / "gone.json").write_text("{}", encoding="utf-8")
         before = isolation.fingerprint([base])
         assert set(before) == {str(base / "kept.json"), str(base / "gone.json")}
 
         (base / "gone.json").unlink()
-        (base / "new.json").write_text("{}")
+        (base / "new.json").write_text("{}", encoding="utf-8")
         os.utime(base / "kept.json", ns=(1, 1))
         after = isolation.fingerprint([base])
 
@@ -225,7 +251,7 @@ def test_the_guard_watches_the_tracked_scraper_artifacts():
 def test_the_guard_fingerprints_a_file_entry_directly():
     with tempfile.TemporaryDirectory() as tmp:
         artifact = Path(tmp) / "sleeper_last_good.json"
-        artifact.write_text("{}")
+        artifact.write_text("{}", encoding="utf-8")
         before = isolation.fingerprint([artifact])
         assert set(before) == {str(artifact)}
         os.utime(artifact, ns=(1, 1))

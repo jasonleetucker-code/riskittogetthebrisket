@@ -82,9 +82,19 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
         "D-1",
         "frontend/lib/draft-logic.js",
         "Math.min(theoreticalMaxBid, winByCompetitor)",
-        OPEN,
-        "Read the clamp: it caps against the richest RIVAL only. Neither "
-        "myRemaining nor mySlotsRemaining appears in either figure.",
+        CLOSED,
+        "CLOSED 2026-11-06 by PR #2074 (re-verified W10-F001). Read "
+        "computeDraftStats: myWinningBid is now "
+        "Math.min(theoreticalMaxBid, winByCompetitor, myRemaining), and "
+        "myMaxBid, bayesianWinningBid and enforceUpTo are capped by "
+        "myRemaining too; theoreticalMaxBid stays uncapped, is shown only "
+        "as the labelled 'Theoretical max', and budgetCapped says when the "
+        "cap bit. bidStatus reads the capped bid, so an unaffordable lot is "
+        "Pass. Pinned by frontend/__tests__/draft-bid-budget-invariant.test.js. "
+        "The roster-SLOTS half is retired by design: the rookie draft has no "
+        "per-team slot limit (CLAUDE.md, Perfect Draft; mySlotsRemaining and "
+        "slotPressure were deleted). The needle is the old two-argument "
+        "clamp, so it reappearing means the budget cap was removed.",
     ),
     "C02": (
         "D-2",

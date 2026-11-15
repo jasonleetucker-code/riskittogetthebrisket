@@ -1,0 +1,85 @@
+{
+ "preregistration": "idp_accuracy_G_v1",
+ "promotes": false,
+ "label": "retrospective_point_in_time",
+ "what": "section 9.3 level diagnostic for the champion, with an interval from the same resamples",
+ "deviation": "D7",
+ "reproducesCommittedResult": {
+  "championCrossConcordance": true,
+  "championOverShare": true,
+  "AOverShare": true,
+  "COverShare": true,
+  "DOverShare": true
+ },
+ "idpOverShareOfWrongPairs": {
+  "champion": {
+   "point": 0.1497,
+   "lo": 0.1124,
+   "hi": 0.194,
+   "nValid": 2000
+  },
+  "A": {
+   "point": 0.3943,
+   "lo": 0.3301,
+   "hi": 0.4588,
+   "nValid": 2000
+  },
+  "C": {
+   "point": 0.5836,
+   "lo": 0.5133,
+   "hi": 0.6496,
+   "nValid": 2000
+  },
+  "D": {
+   "point": 0.5226,
+   "lo": 0.4504,
+   "hi": 0.5924,
+   "nValid": 2000
+  }
+ },
+ "crossConcordance": {
+  "champion": {
+   "point": 0.6504,
+   "lo": 0.6187,
+   "hi": 0.6805,
+   "nValid": 2000
+  },
+  "A": {
+   "point": 0.6094,
+   "lo": 0.582,
+   "hi": 0.637,
+   "nValid": 2000
+  },
+  "C": {
+   "point": 0.6795,
+   "lo": 0.6538,
+   "hi": 0.7029,
+   "nValid": 2000
+  },
+  "D": {
+   "point": 0.7003,
+   "lo": 0.6777,
+   "hi": 0.7248,
+   "nValid": 2000
+  }
+ },
+ "pairCounts": {
+  "champion": {
+   "offenseVsIdpPairsWithADifferentOutcome": 104238,
+   "orderedWrongly": 36428
+  },
+  "A": {
+   "offenseVsIdpPairsWithADifferentOutcome": 104238,
+   "orderedWrongly": 40713
+  },
+  "C": {
+   "offenseVsIdpPairsWithADifferentOutcome": 104238,
+   "orderedWrongly": 33409
+  },
+  "D": {
+   "offenseVsIdpPairsWithADifferentOutcome": 104238,
+   "orderedWrongly": 31236
+  }
+ },
+ "note": "idpOverShareOfWrongPairs is the share of wrongly ordered offense-vs-IDP pairs in which the candidate put the defender above the offensive player; 0.5 is no level bias, below 0.5 means it undervalued defenders relative to near-term lineup contribution"
+}

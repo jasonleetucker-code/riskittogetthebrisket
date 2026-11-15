@@ -15,13 +15,17 @@ States: IMPLEMENTED → MOCK READY → HUMAN REHEARSAL PASSED → LIVE-READY →
       at least one overnight pause (verify nothing binding happens 9 PM–8 AM ET, held alerts arrive after 8 AM and
       obsolete ones do not). *(owner + league-mates)*
 - [ ] **User-guided rehearsal** — invite league-mates to a mock; everyone claims a seat, bids, nominates, trades. *(owner)*
+      Step-by-step scripts for all three rehearsal kinds: `REHEARSAL_GUIDE.md`. Every problem goes through the room's
+      **Report a problem** panel (pinned to revision, rules, pool and deployed commit).
 
 ## B. Owner decisions (recorded, not invented)
 
 - [ ] Confirm every proposed rule on the room's rule screen (`src/auction/rules.py::PROPOSED_RULE_KEYS`):
       65 active-hour lot clock, 1 active-hour extension, 13 active-hour nomination timeout + audited pass,
       earliest-accepted tie rule, withdrawal policy, outage policy (pause + fair window), money-spent and
-      rights-exhausted endings, six rounds = six nomination turns, commissioner corrections.
+      rights-exhausted endings, six rounds = six nomination turns, commissioner corrections, and whether open
+      trade offers reserve money (`open_trade_offers`; decided 2026-10-18, owner directive D20: they do not,
+      settlement re-checks — still confirmed on the rule screen like every other proposed rule).
 - [ ] Supply/confirm the official **points-for nomination order** (the room's preview reads Sleeper and says
       whether the season is final; ties are flagged for you to decide).
 - [ ] Approve the **official 2027 rookie pool** (no official class exists in the data yet; mocks use a labelled

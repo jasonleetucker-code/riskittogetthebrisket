@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.waiver_compare.values import build_value_index, combine, source_values
+from src.waiver_compare.values import SOURCE_SETTINGS, build_value_index, combine, source_values
 
 
 def _row(pid, name, *, ktc=None, idptc=None, pos="WR", asset="offense", **extra):
@@ -87,3 +87,16 @@ def test_conflicting_rows_for_one_id_are_withheld():
     idx = build_value_index([a, b])
     assert "7" not in idx.by_player_id
     assert idx.conflicting_ids == ["7"]
+
+
+def test_source_setting_labels_are_not_mojibake():
+    """The labels are written with a real U+00B7 (UTF-8 bytes C2 B7 in the
+    file); a double-encoded copy would carry U+00C2 before the dot."""
+    for key, meta in SOURCE_SETTINGS.items():
+        for field in ("label", "settings"):
+            text = meta[field]
+            assert "\u00c2" not in text, (key, field, text)
+            assert "\u00c3" not in text, (key, field, text)
+            assert "\ufffd" not in text, (key, field, text)
+    assert "\u00b7" in SOURCE_SETTINGS["ktc"]["settings"]
+    assert "\u00b7" in SOURCE_SETTINGS["idptc"]["settings"]

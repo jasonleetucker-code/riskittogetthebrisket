@@ -1,0 +1,3489 @@
+{
+  "assumptions": [
+    "Production ranks cover the selected season's weekly rosters as the host recorded them; value ranks cover the CURRENT rosters on the live board. They are different rosters at different times and are ranked separately.",
+    "Each starter's points count once, at his own position: a WR in FLEX is WR production. FLEX is an allocation, not a position.",
+    "The league starter standard for a position-week is the score of the N-th best rostered player at that position, where N is how many players at that position the league's optimal lineups actually started that week. Free agents are not in the pool.",
+    "The host records a bye, an inactive week and a scoreless game as the same 0.0.",
+    "Positional dynasty value counts players only (no picks) and never includes an unpriced player as zero.",
+    "Production ranks compare points per valid week; total points are shown beside them with each team's valid-week count. Teams can have different counts (excluded weeks, playoff weeks), and the payload says when they do."
+  ],
+  "coverage": {
+    "contradictedWeeks": [],
+    "marginalUnavailableReason": null,
+    "weeksExcluded": [],
+    "weeksIncluded": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ]
+  },
+  "diagnoses": [
+    {
+      "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "valueRank": [
+          2,
+          6
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "QB",
+      "rule": "RC-D1",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "dedicatedHoles": 0,
+        "depthInsuranceRatio": 0.9,
+        "holeWeeks": [],
+        "leagueP25": 0.6563,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "QB",
+      "rule": "RC-D2",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueTopQuartileValue": 3738.0,
+        "players": [
+          {
+            "benchedStartableWeeks": 8,
+            "dynastyValue": 9500.0,
+            "marginalPerOwnedWeek": 0.0,
+            "playerId": "t1-qb4"
+          }
+        ]
+      },
+      "explanation": "Valuable in trade but adds little to THIS roster's optimal lineup: his good weeks were usually covered by teammates. His dynasty value is unchanged; any trade is a Trade Desk question.",
+      "notEvaluatedReason": null,
+      "position": "QB",
+      "rule": "RC-D6",
+      "status": "fired",
+      "verdict": "REVIEW"
+    },
+    {
+      "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "valueRank": [
+          6,
+          6
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "RB",
+      "rule": "RC-D1",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "dedicatedHoles": 4,
+        "depthInsuranceRatio": 0.0,
+        "holeWeeks": [
+          2,
+          3,
+          5,
+          6
+        ],
+        "leagueP25": 0.5035,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
+      },
+      "explanation": "RB starters rank 1/6 (points per counted week) but backups replace little of a lost starter (ratio 0.0 vs league P25 0.5035) and 4 starter-slot weeks went empty or scoreless. Cheaper depth may help; the Waiver Advisor decides whether any move is worth its dynasty cost.",
+      "notEvaluatedReason": null,
+      "position": "RB",
+      "rule": "RC-D2",
+      "status": "fired",
+      "verdict": "REVIEW"
+    },
+    {
+      "evidence": {
+        "leagueTopQuartileValue": 3849.0
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "RB",
+      "rule": "RC-D6",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "valueRank": [
+          4,
+          6
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "WR",
+      "rule": "RC-D1",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "dedicatedHoles": 0,
+        "depthInsuranceRatio": 0.3242,
+        "holeWeeks": [],
+        "leagueP25": 0.5072,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "WR",
+      "rule": "RC-D2",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueTopQuartileValue": 3512.0
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "WR",
+      "rule": "RC-D6",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "explainedBy": [
+          "injured",
+          "developmental"
+        ],
+        "holders": [
+          {
+            "dynastyValue": 9000.0,
+            "playerId": "t1-te9",
+            "starts": {
+              "of": 8,
+              "value": 0
+            },
+            "tags": [
+              "injured",
+              "low_contribution",
+              "developmental"
+            ]
+          },
+          {
+            "dynastyValue": 1777.0,
+            "playerId": "t1-te3",
+            "starts": {
+              "of": 8,
+              "value": 0
+            },
+            "tags": [
+              "low_contribution"
+            ]
+          },
+          {
+            "dynastyValue": 1740.0,
+            "playerId": "t1-te2",
+            "starts": {
+              "of": 8,
+              "value": 8
+            },
+            "tags": []
+          }
+        ],
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          6,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          6,
+          6
+        ],
+        "validWeeks": 8,
+        "valueRank": [
+          1,
+          6
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
+      },
+      "explanation": "TE value rank 1/6 but production rank 6/6 (points per counted week): the top TE value holder is injured and developmental. This gap is expected and needs no action.",
+      "notEvaluatedReason": null,
+      "position": "TE",
+      "rule": "RC-D1",
+      "status": "fired",
+      "verdict": "NO_ACTION"
+    },
+    {
+      "evidence": {
+        "dedicatedHoles": 0,
+        "depthInsuranceRatio": 1.0,
+        "holeWeeks": [],
+        "leagueP25": 0.6515,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          6,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          6,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "TE",
+      "rule": "RC-D2",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueTopQuartileValue": 3364.0
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "TE",
+      "rule": "RC-D6",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "valueRank": [
+          5,
+          5
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "K",
+      "rule": "RC-D1",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "dedicatedHoles": 0,
+        "depthInsuranceRatio": 0.0,
+        "holeWeeks": [],
+        "leagueP25": 0.0,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "K",
+      "rule": "RC-D2",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueTopQuartileValue": 3479.0
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "K",
+      "rule": "RC-D6",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "valueRank": [
+          6,
+          6
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "DL",
+      "rule": "RC-D1",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "dedicatedHoles": 0,
+        "depthInsuranceRatio": 0.5294,
+        "holeWeeks": [],
+        "leagueP25": 0.5294,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "DL",
+      "rule": "RC-D2",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueTopQuartileValue": 3405.0
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "DL",
+      "rule": "RC-D6",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "valueRank": [
+          6,
+          6
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "LB",
+      "rule": "RC-D1",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "dedicatedHoles": 0,
+        "depthInsuranceRatio": 0.5296,
+        "holeWeeks": [],
+        "leagueP25": 0.5295,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "LB",
+      "rule": "RC-D2",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueTopQuartileValue": 3590.0
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "LB",
+      "rule": "RC-D6",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "valueRank": [
+          6,
+          6
+        ],
+        "valueRankPartial": false,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "DB",
+      "rule": "RC-D1",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "dedicatedHoles": 0,
+        "depthInsuranceRatio": 0.5294,
+        "holeWeeks": [],
+        "leagueP25": 0.5294,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "productionRank": [
+          1,
+          6
+        ],
+        "productionRankBasis": "points_per_valid_week",
+        "productionTotalRank": [
+          1,
+          6
+        ],
+        "validWeeks": 8,
+        "weekCountsDiffer": false
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "DB",
+      "rule": "RC-D2",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "leagueTopQuartileValue": 3257.0
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": "DB",
+      "rule": "RC-D6",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "idleOwnedPlayers": [
+          "t1-te9",
+          "t1-wr6"
+        ],
+        "posture": "PUSH"
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": null,
+      "rule": "RC-D3",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {
+        "ageAsOf": "2026-10-30T00:00:00+00:00",
+        "oldestRank": [
+          4,
+          6
+        ],
+        "pointsWeightedStarterAge": 27.35
+      },
+      "explanation": "",
+      "notEvaluatedReason": null,
+      "position": null,
+      "rule": "RC-D4",
+      "status": "not_fired",
+      "verdict": null
+    },
+    {
+      "evidence": {},
+      "explanation": "",
+      "notEvaluatedReason": "requires_forward_projection",
+      "position": null,
+      "rule": "RC-D5",
+      "status": "not_evaluated",
+      "verdict": null
+    },
+    {
+      "evidence": {},
+      "explanation": "",
+      "notEvaluatedReason": "trade_desk_dependency",
+      "position": null,
+      "rule": "RC-D7",
+      "status": "not_evaluated",
+      "verdict": null
+    }
+  ],
+  "generatedAt": "2026-10-30T00:00:00+00:00",
+  "hypotheticalScenario": {
+    "assumptions": [
+      "The team's roster in its last included week is replayed across every included week, plus the player being asked about.",
+      "Uses realized points (ex post): this is not a decision evaluation.",
+      "No roster cap, transaction cost or waiver competition is modelled.",
+      "A replayed teammate with no recorded points that week is unknown, not zero; a week counts only when the answer is the same whatever he would have scored."
+    ],
+    "endRosterWeek": 8,
+    "expost": true,
+    "scenario": "end_roster_plus_player",
+    "weeksWithUnknownTeammates": []
+  },
+  "leagueKey": "dynasty_main",
+  "lineupBasis": "host_best_ball_optimal",
+  "methodVersion": "rc_v1",
+  "notComputed": {
+    "freeAgentPoints": "Weeks a player was on no league roster are not sourced in V1.",
+    "lineupEntryProbability": "Forward-looking LEP is owned by src/roster_intel/best_ball_utility.py and is not part of V1."
+  },
+  "overall": {
+    "note": "Diagnoses are evidence for review. None of them is a transaction.",
+    "reviewCount": 2,
+    "rulesNotEvaluated": [
+      "RC-D5:requires_forward_projection",
+      "RC-D7:trade_desk_dependency"
+    ],
+    "verdict": "REVIEW"
+  },
+  "players": [
+    {
+      "age": 22.0,
+      "dynastyValue": 1000.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 23.61
+      },
+      "name": "t1-db1",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-db1",
+      "position": "DB",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 52.54,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 27.0,
+      "dynastyValue": 1037.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 15.16
+      },
+      "name": "t1-db2",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-db2",
+      "position": "DB",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 44.09,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 32.0,
+      "dynastyValue": 1074.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 5
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 9.24
+      },
+      "name": "t1-db3",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-db3",
+      "position": "DB",
+      "redundantStartableWeeks": 3,
+      "startRate": 0.625,
+      "startedPoints": 26.07,
+      "starts": {
+        "of": 8,
+        "value": 5
+      },
+      "tags": [
+        "productive_veteran"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 25.0,
+      "dynastyValue": 1111.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 3
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.7
+      },
+      "name": "t1-db4",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-db4",
+      "position": "DB",
+      "redundantStartableWeeks": 0,
+      "startRate": 0.375,
+      "startedPoints": 12.8,
+      "starts": {
+        "of": 8,
+        "value": 3
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 30.0,
+      "dynastyValue": 1148.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 26.98
+      },
+      "name": "t1-dl1",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-dl1",
+      "position": "DL",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 60.04,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [
+        "productive_veteran"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 23.0,
+      "dynastyValue": 1185.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 17.33
+      },
+      "name": "t1-dl2",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-dl2",
+      "position": "DL",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 50.39,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 28.0,
+      "dynastyValue": 1222.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 5
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 10.56
+      },
+      "name": "t1-dl3",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-dl3",
+      "position": "DL",
+      "redundantStartableWeeks": 3,
+      "startRate": 0.625,
+      "startedPoints": 29.78,
+      "starts": {
+        "of": 8,
+        "value": 5
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 33.0,
+      "dynastyValue": 1259.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 3
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.8
+      },
+      "name": "t1-dl4",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-dl4",
+      "position": "DL",
+      "redundantStartableWeeks": 0,
+      "startRate": 0.375,
+      "startedPoints": 14.64,
+      "starts": {
+        "of": 8,
+        "value": 3
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 26.0,
+      "dynastyValue": 1296.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 0,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {
+          "counterfactual_lineup_infeasible": 8
+        },
+        "value": null
+      },
+      "name": "t1-k1",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-k1",
+      "position": "K",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 60.8,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 31.0,
+      "dynastyValue": 1333.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 30.34
+      },
+      "name": "t1-lb1",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-lb1",
+      "position": "LB",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 67.53,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [
+        "productive_veteran"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 24.0,
+      "dynastyValue": 1370.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 19.48
+      },
+      "name": "t1-lb2",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-lb2",
+      "position": "LB",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 56.67,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 29.0,
+      "dynastyValue": 1407.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 5
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 11.88
+      },
+      "name": "t1-lb3",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-lb3",
+      "position": "LB",
+      "redundantStartableWeeks": 3,
+      "startRate": 0.625,
+      "startedPoints": 33.5,
+      "starts": {
+        "of": 8,
+        "value": 5
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 22.0,
+      "dynastyValue": 1444.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 3
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.88
+      },
+      "name": "t1-lb4",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-lb4",
+      "position": "LB",
+      "redundantStartableWeeks": 0,
+      "startRate": 0.375,
+      "startedPoints": 16.45,
+      "starts": {
+        "of": 8,
+        "value": 3
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 27.0,
+      "dynastyValue": 1481.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 32.0
+      },
+      "name": "t1-qb1",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-qb1",
+      "position": "QB",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 320.0,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 32.0,
+      "dynastyValue": 1518.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 16.0
+      },
+      "name": "t1-qb2",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-qb2",
+      "position": "QB",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 304.0,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 25.0,
+      "dynastyValue": 100.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 0
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.0
+      },
+      "name": "t1-qb3",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-qb3",
+      "position": "QB",
+      "redundantStartableWeeks": 8,
+      "startRate": 0.0,
+      "startedPoints": 0.0,
+      "starts": {
+        "of": 8,
+        "value": 0
+      },
+      "tags": [
+        "low_contribution",
+        "developmental"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 30.0,
+      "dynastyValue": 9500.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 0
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.0
+      },
+      "name": "t1-qb4",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-qb4",
+      "position": "QB",
+      "redundantStartableWeeks": 8,
+      "startRate": 0.0,
+      "startedPoints": 0.0,
+      "starts": {
+        "of": 8,
+        "value": 0
+      },
+      "tags": [
+        "low_contribution"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 23.0,
+      "dynastyValue": 1629.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 6
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 6
+      },
+      "marginalPoints": {
+        "knownWeeks": 0,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {
+          "counterfactual_lineup_infeasible": 8
+        },
+        "value": null
+      },
+      "name": "t1-rbx",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-rbx",
+      "position": "RB",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 240.0,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 2
+    },
+    {
+      "age": 28.0,
+      "dynastyValue": 1666.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 6
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 6
+      },
+      "marginalPoints": {
+        "knownWeeks": 0,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {
+          "counterfactual_lineup_infeasible": 8
+        },
+        "value": null
+      },
+      "name": "t1-rby",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-rby",
+      "position": "RB",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 240.0,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [
+        "productive_veteran"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 2
+    },
+    {
+      "age": 33.0,
+      "dynastyValue": 1703.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 1
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 1
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.0
+      },
+      "name": "t1-te1",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-te1",
+      "position": "TE",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 16.0,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [
+        "productive_veteran"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 26.0,
+      "dynastyValue": 1740.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 1
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 1
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.0
+      },
+      "name": "t1-te2",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-te2",
+      "position": "TE",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 16.0,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 31.0,
+      "dynastyValue": 1777.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 0
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 1
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 1
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.0
+      },
+      "name": "t1-te3",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-te3",
+      "position": "TE",
+      "redundantStartableWeeks": 1,
+      "startRate": 0.0,
+      "startedPoints": 0.0,
+      "starts": {
+        "of": 8,
+        "value": 0
+      },
+      "tags": [
+        "low_contribution"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 24.0,
+      "dynastyValue": 9000.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 0
+      },
+      "injuryStatus": "IR",
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 0
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 0
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.0
+      },
+      "name": "t1-te9",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-te9",
+      "position": "TE",
+      "redundantStartableWeeks": 0,
+      "startRate": 0.0,
+      "startedPoints": 0.0,
+      "starts": {
+        "of": 8,
+        "value": 0
+      },
+      "tags": [
+        "injured",
+        "low_contribution",
+        "developmental"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 8
+    },
+    {
+      "age": 29.0,
+      "dynastyValue": 1851.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 59.68
+      },
+      "name": "t1-wr1",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-wr1",
+      "position": "WR",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 90.06,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 22.0,
+      "dynastyValue": 1888.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 45.2
+      },
+      "name": "t1-wr2",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-wr2",
+      "position": "WR",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 75.58,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 27.0,
+      "dynastyValue": 1925.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 35.06
+      },
+      "name": "t1-wr3",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-wr3",
+      "position": "WR",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 65.44,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 32.0,
+      "dynastyValue": 1962.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 20.4
+      },
+      "name": "t1-wr4",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-wr4",
+      "position": "WR",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 50.78,
+      "starts": {
+        "of": 8,
+        "value": 8
+      },
+      "tags": [
+        "productive_veteran"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 25.0,
+      "dynastyValue": 1999.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 0
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 3
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 6.1
+      },
+      "name": "t1-wr5",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-wr5",
+      "position": "WR",
+      "redundantStartableWeeks": 2,
+      "startRate": 0.5,
+      "startedPoints": 17.78,
+      "starts": {
+        "of": 8,
+        "value": 4
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 30.0,
+      "dynastyValue": 2036.0,
+      "eligibleOwnedWeeks": 8,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 0
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 0
+      },
+      "leagueStartableWhileOwned": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 0
+      },
+      "marginalPoints": {
+        "knownWeeks": 8,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 0.0
+      },
+      "name": "t1-wr6",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 8,
+      "ownershipSpells": [
+        {
+          "fromWeek": 1,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t1-wr6",
+      "position": "WR",
+      "redundantStartableWeeks": 0,
+      "startRate": 0.0,
+      "startedPoints": 0.0,
+      "starts": {
+        "of": 8,
+        "value": 0
+      },
+      "tags": [
+        "low_contribution"
+      ],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    },
+    {
+      "age": 23.0,
+      "dynastyValue": 2961.0,
+      "eligibleOwnedWeeks": 4,
+      "excludedTeamWeeks": 0,
+      "hypotheticalStarts": {
+        "of": 8,
+        "scenario": "end_roster_plus_player",
+        "undeterminedWeeksExcluded": 0,
+        "unobservedWeeksExcluded": 0,
+        "value": 8
+      },
+      "injuryStatus": null,
+      "leagueStartable": {
+        "of": 8,
+        "poolScope": "rostered",
+        "value": 8
+      },
+      "leagueStartableWhileOwned": {
+        "of": 4,
+        "poolScope": "rostered",
+        "value": 4
+      },
+      "marginalPoints": {
+        "knownWeeks": 4,
+        "source": "player_impact.gameChangerPoints",
+        "unavailableWeeks": {},
+        "value": 22.34
+      },
+      "name": "t2-wr1",
+      "onCurrentRoster": true,
+      "onSeasonRoster": true,
+      "ownedWeeks": 4,
+      "ownershipSpells": [
+        {
+          "fromWeek": 5,
+          "toWeek": 8
+        }
+      ],
+      "playerId": "t2-wr1",
+      "position": "WR",
+      "redundantStartableWeeks": 0,
+      "startRate": 1.0,
+      "startedPoints": 41.04,
+      "starts": {
+        "of": 4,
+        "value": 4
+      },
+      "tags": [],
+      "unobservedWeeks": 0,
+      "zeroPointWeeks": 0
+    }
+  ],
+  "positions": [
+    {
+      "depth": {
+        "depthInsurance": {
+          "leagueP25": 0.6563,
+          "meanRatio": 0.9,
+          "n": 8
+        },
+        "holes": {
+          "dedicated": 0,
+          "weeks": [],
+          "zeroPointFlexStarts": 0
+        },
+        "positionLeaveOutPoints": 593.62,
+        "redundantPoints": 460.0,
+        "redundantStartableWeeks": 16,
+        "rosteredPerStartingSlot": 4.0
+      },
+      "position": "QB",
+      "production": {
+        "appearances": 16,
+        "distinctContributors": 2,
+        "leagueMean": 37.77,
+        "leagueMedian": 30.65,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "observedSubmittedPoints": null,
+        "of": 6,
+        "percentile": 1.0,
+        "points": 624.0,
+        "ppg": 78.0,
+        "rank": 1,
+        "rankBasis": "points_per_valid_week",
+        "slotAllocation": {
+          "QB": {
+            "points": 320.0,
+            "starts": 8
+          },
+          "SUPER_FLEX": {
+            "points": 304.0,
+            "starts": 8
+          }
+        },
+        "tiedWith": 0,
+        "topContributors": [
+          {
+            "playerId": "t1-qb1",
+            "points": 320.0,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-qb2",
+            "points": 304.0,
+            "starts": 8
+          }
+        ],
+        "totalLeagueMean": 302.14,
+        "totalLeagueMedian": 245.19,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
+        "weekly": [
+          {
+            "points": 78.0,
+            "week": 1
+          },
+          {
+            "points": 78.0,
+            "week": 2
+          },
+          {
+            "points": 78.0,
+            "week": 3
+          },
+          {
+            "points": 78.0,
+            "week": 4
+          },
+          {
+            "points": 78.0,
+            "week": 5
+          },
+          {
+            "points": 78.0,
+            "week": 6
+          },
+          {
+            "points": 78.0,
+            "week": 7
+          },
+          {
+            "points": 78.0,
+            "week": 8
+          }
+        ]
+      },
+      "value": {
+        "asOf": "2026-10-30T00:00:00+00:00",
+        "hhi": 0.597,
+        "leagueMean": 10127.33,
+        "leagueMedian": 10098.0,
+        "of": 6,
+        "partial": false,
+        "percentile": 0.8,
+        "pricedCount": 4,
+        "rank": 2,
+        "rankPartial": false,
+        "top1Share": 0.754,
+        "total": 12599.0,
+        "unpricedCount": 0,
+        "unpricedIds": []
+      }
+    },
+    {
+      "depth": {
+        "depthInsurance": {
+          "leagueP25": 0.5035,
+          "meanRatio": 0.0,
+          "n": 8
+        },
+        "holes": {
+          "dedicated": 4,
+          "weeks": [
+            2,
+            3,
+            5,
+            6
+          ],
+          "zeroPointFlexStarts": 0
+        },
+        "positionLeaveOutPoints": 480.0,
+        "redundantPoints": 0.0,
+        "redundantStartableWeeks": 0,
+        "rosteredPerStartingSlot": 1.0
+      },
+      "position": "RB",
+      "production": {
+        "appearances": 16,
+        "distinctContributors": 2,
+        "leagueMean": 34.29,
+        "leagueMedian": 30.05,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "observedSubmittedPoints": null,
+        "of": 6,
+        "percentile": 1.0,
+        "points": 480.0,
+        "ppg": 60.0,
+        "rank": 1,
+        "rankBasis": "points_per_valid_week",
+        "slotAllocation": {
+          "RB": {
+            "points": 480.0,
+            "starts": 16
+          }
+        },
+        "tiedWith": 0,
+        "topContributors": [
+          {
+            "playerId": "t1-rbx",
+            "points": 240.0,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-rby",
+            "points": 240.0,
+            "starts": 8
+          }
+        ],
+        "totalLeagueMean": 274.28,
+        "totalLeagueMedian": 240.43,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
+        "weekly": [
+          {
+            "points": 80.0,
+            "week": 1
+          },
+          {
+            "points": 40.0,
+            "week": 2
+          },
+          {
+            "points": 40.0,
+            "week": 3
+          },
+          {
+            "points": 80.0,
+            "week": 4
+          },
+          {
+            "points": 40.0,
+            "week": 5
+          },
+          {
+            "points": 40.0,
+            "week": 6
+          },
+          {
+            "points": 80.0,
+            "week": 7
+          },
+          {
+            "points": 80.0,
+            "week": 8
+          }
+        ]
+      },
+      "value": {
+        "asOf": "2026-10-30T00:00:00+00:00",
+        "hhi": 0.5001,
+        "leagueMean": 13878.33,
+        "leagueMedian": 14795.0,
+        "of": 6,
+        "partial": false,
+        "percentile": 0.0,
+        "pricedCount": 2,
+        "rank": 6,
+        "rankPartial": false,
+        "top1Share": 0.5056,
+        "total": 3295.0,
+        "unpricedCount": 0,
+        "unpricedIds": []
+      }
+    },
+    {
+      "depth": {
+        "depthInsurance": {
+          "leagueP25": 0.5072,
+          "meanRatio": 0.3242,
+          "n": 8
+        },
+        "holes": {
+          "dedicated": 0,
+          "weeks": [],
+          "zeroPointFlexStarts": 0
+        },
+        "positionLeaveOutPoints": 324.68,
+        "redundantPoints": 41.2,
+        "redundantStartableWeeks": 2,
+        "rosteredPerStartingSlot": 2.167
+      },
+      "position": "WR",
+      "production": {
+        "appearances": 40,
+        "distinctContributors": 6,
+        "leagueMean": 27.09,
+        "leagueMedian": 24.84,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "observedSubmittedPoints": null,
+        "of": 6,
+        "percentile": 1.0,
+        "points": 340.68,
+        "ppg": 42.58,
+        "rank": 1,
+        "rankBasis": "points_per_valid_week",
+        "slotAllocation": {
+          "FLEX": {
+            "points": 99.33,
+            "starts": 16
+          },
+          "WR": {
+            "points": 241.35,
+            "starts": 24
+          }
+        },
+        "tiedWith": 0,
+        "topContributors": [
+          {
+            "playerId": "t1-wr1",
+            "points": 90.06,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-wr2",
+            "points": 75.58,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-wr3",
+            "points": 65.44,
+            "starts": 8
+          }
+        ],
+        "totalLeagueMean": 216.75,
+        "totalLeagueMedian": 198.72,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
+        "weekly": [
+          {
+            "points": 40.76,
+            "week": 1
+          },
+          {
+            "points": 39.04,
+            "week": 2
+          },
+          {
+            "points": 39.04,
+            "week": 3
+          },
+          {
+            "points": 40.75,
+            "week": 4
+          },
+          {
+            "points": 44.61,
+            "week": 5
+          },
+          {
+            "points": 48.99,
+            "week": 6
+          },
+          {
+            "points": 43.12,
+            "week": 7
+          },
+          {
+            "points": 44.37,
+            "week": 8
+          }
+        ]
+      },
+      "value": {
+        "asOf": "2026-10-30T00:00:00+00:00",
+        "hhi": 0.1471,
+        "leagueMean": 16311.0,
+        "leagueMedian": 14991.0,
+        "of": 6,
+        "partial": false,
+        "percentile": 0.4,
+        "pricedCount": 7,
+        "rank": 4,
+        "rankPartial": false,
+        "top1Share": 0.2025,
+        "total": 14622.0,
+        "unpricedCount": 0,
+        "unpricedIds": []
+      }
+    },
+    {
+      "depth": {
+        "depthInsurance": {
+          "leagueP25": 0.6515,
+          "meanRatio": 1.0,
+          "n": 8
+        },
+        "holes": {
+          "dedicated": 0,
+          "weeks": [],
+          "zeroPointFlexStarts": 0
+        },
+        "positionLeaveOutPoints": 32.0,
+        "redundantPoints": 16.0,
+        "redundantStartableWeeks": 1,
+        "rosteredPerStartingSlot": 2.0
+      },
+      "position": "TE",
+      "production": {
+        "appearances": 16,
+        "distinctContributors": 2,
+        "leagueMean": 11.04,
+        "leagueMedian": 12.06,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "observedSubmittedPoints": null,
+        "of": 6,
+        "percentile": 0.0,
+        "points": 32.0,
+        "ppg": 4.0,
+        "rank": 6,
+        "rankBasis": "points_per_valid_week",
+        "slotAllocation": {
+          "TE": {
+            "points": 32.0,
+            "starts": 16
+          }
+        },
+        "tiedWith": 0,
+        "topContributors": [
+          {
+            "playerId": "t1-te1",
+            "points": 16.0,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-te2",
+            "points": 16.0,
+            "starts": 8
+          }
+        ],
+        "totalLeagueMean": 88.32,
+        "totalLeagueMedian": 96.47,
+        "totalRank": 6,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
+        "weekly": [
+          {
+            "points": 4.0,
+            "week": 1
+          },
+          {
+            "points": 4.0,
+            "week": 2
+          },
+          {
+            "points": 4.0,
+            "week": 3
+          },
+          {
+            "points": 4.0,
+            "week": 4
+          },
+          {
+            "points": 4.0,
+            "week": 5
+          },
+          {
+            "points": 4.0,
+            "week": 6
+          },
+          {
+            "points": 4.0,
+            "week": 7
+          },
+          {
+            "points": 4.0,
+            "week": 8
+          }
+        ]
+      },
+      "value": {
+        "asOf": "2026-10-30T00:00:00+00:00",
+        "hhi": 0.4455,
+        "leagueMean": 9137.5,
+        "leagueMedian": 9321.0,
+        "of": 6,
+        "partial": false,
+        "percentile": 1.0,
+        "pricedCount": 4,
+        "rank": 1,
+        "rankPartial": false,
+        "top1Share": 0.6329,
+        "total": 14220.0,
+        "unpricedCount": 0,
+        "unpricedIds": []
+      }
+    },
+    {
+      "depth": {
+        "depthInsurance": {
+          "leagueP25": 0.0,
+          "meanRatio": 0.0,
+          "n": 8
+        },
+        "holes": {
+          "dedicated": 0,
+          "weeks": [],
+          "zeroPointFlexStarts": 0
+        },
+        "positionLeaveOutPoints": 60.8,
+        "redundantPoints": 0.0,
+        "redundantStartableWeeks": 0,
+        "rosteredPerStartingSlot": 1.0
+      },
+      "position": "K",
+      "production": {
+        "appearances": 8,
+        "distinctContributors": 1,
+        "leagueMean": 6.6,
+        "leagueMedian": 6.6,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "observedSubmittedPoints": null,
+        "of": 6,
+        "percentile": 1.0,
+        "points": 60.8,
+        "ppg": 7.6,
+        "rank": 1,
+        "rankBasis": "points_per_valid_week",
+        "slotAllocation": {
+          "K": {
+            "points": 60.8,
+            "starts": 8
+          }
+        },
+        "tiedWith": 0,
+        "topContributors": [
+          {
+            "playerId": "t1-k1",
+            "points": 60.8,
+            "starts": 8
+          }
+        ],
+        "totalLeagueMean": 52.8,
+        "totalLeagueMedian": 52.8,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
+        "weekly": [
+          {
+            "points": 6.08,
+            "week": 1
+          },
+          {
+            "points": 7.6,
+            "week": 2
+          },
+          {
+            "points": 9.12,
+            "week": 3
+          },
+          {
+            "points": 6.84,
+            "week": 4
+          },
+          {
+            "points": 8.36,
+            "week": 5
+          },
+          {
+            "points": 6.08,
+            "week": 6
+          },
+          {
+            "points": 7.6,
+            "week": 7
+          },
+          {
+            "points": 9.12,
+            "week": 8
+          }
+        ]
+      },
+      "value": {
+        "asOf": "2026-10-30T00:00:00+00:00",
+        "hhi": 1.0,
+        "leagueMean": 2686.4,
+        "leagueMedian": 2369.0,
+        "of": 5,
+        "partial": false,
+        "percentile": 0.0,
+        "pricedCount": 1,
+        "rank": 5,
+        "rankPartial": false,
+        "top1Share": 1.0,
+        "total": 1296.0,
+        "unpricedCount": 0,
+        "unpricedIds": []
+      }
+    },
+    {
+      "depth": {
+        "depthInsurance": {
+          "leagueP25": 0.5294,
+          "meanRatio": 0.5294,
+          "n": 8
+        },
+        "holes": {
+          "dedicated": 0,
+          "weeks": [],
+          "zeroPointFlexStarts": 0
+        },
+        "positionLeaveOutPoints": 154.85,
+        "redundantPoints": 33.06,
+        "redundantStartableWeeks": 3,
+        "rosteredPerStartingSlot": 1.333
+      },
+      "position": "DL",
+      "production": {
+        "appearances": 24,
+        "distinctContributors": 4,
+        "leagueMean": 16.81,
+        "leagueMedian": 16.81,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "observedSubmittedPoints": null,
+        "of": 6,
+        "percentile": 1.0,
+        "points": 154.85,
+        "ppg": 19.36,
+        "rank": 1,
+        "rankBasis": "points_per_valid_week",
+        "slotAllocation": {
+          "DL": {
+            "points": 154.85,
+            "starts": 24
+          }
+        },
+        "tiedWith": 0,
+        "topContributors": [
+          {
+            "playerId": "t1-dl1",
+            "points": 60.04,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-dl2",
+            "points": 50.39,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-dl3",
+            "points": 29.78,
+            "starts": 5
+          }
+        ],
+        "totalLeagueMean": 134.47,
+        "totalLeagueMedian": 134.48,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
+        "weekly": [
+          {
+            "points": 20.55,
+            "week": 1
+          },
+          {
+            "points": 18.21,
+            "week": 2
+          },
+          {
+            "points": 18.62,
+            "week": 3
+          },
+          {
+            "points": 20.18,
+            "week": 4
+          },
+          {
+            "points": 19.91,
+            "week": 5
+          },
+          {
+            "points": 20.55,
+            "week": 6
+          },
+          {
+            "points": 18.21,
+            "week": 7
+          },
+          {
+            "points": 18.62,
+            "week": 8
+          }
+        ]
+      },
+      "value": {
+        "asOf": "2026-10-30T00:00:00+00:00",
+        "hhi": 0.2503,
+        "leagueMean": 10457.33,
+        "leagueMedian": 9986.0,
+        "of": 6,
+        "partial": false,
+        "percentile": 0.0,
+        "pricedCount": 4,
+        "rank": 6,
+        "rankPartial": false,
+        "top1Share": 0.2615,
+        "total": 4814.0,
+        "unpricedCount": 0,
+        "unpricedIds": []
+      }
+    },
+    {
+      "depth": {
+        "depthInsurance": {
+          "leagueP25": 0.5295,
+          "meanRatio": 0.5296,
+          "n": 8
+        },
+        "holes": {
+          "dedicated": 0,
+          "weeks": [],
+          "zeroPointFlexStarts": 0
+        },
+        "positionLeaveOutPoints": 174.15,
+        "redundantPoints": 37.19,
+        "redundantStartableWeeks": 3,
+        "rosteredPerStartingSlot": 1.333
+      },
+      "position": "LB",
+      "production": {
+        "appearances": 24,
+        "distinctContributors": 4,
+        "leagueMean": 18.91,
+        "leagueMedian": 18.91,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "observedSubmittedPoints": null,
+        "of": 6,
+        "percentile": 1.0,
+        "points": 174.15,
+        "ppg": 21.77,
+        "rank": 1,
+        "rankBasis": "points_per_valid_week",
+        "slotAllocation": {
+          "LB": {
+            "points": 174.15,
+            "starts": 24
+          }
+        },
+        "tiedWith": 0,
+        "topContributors": [
+          {
+            "playerId": "t1-lb1",
+            "points": 67.53,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-lb2",
+            "points": 56.67,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-lb3",
+            "points": 33.5,
+            "starts": 5
+          }
+        ],
+        "totalLeagueMean": 151.27,
+        "totalLeagueMedian": 151.28,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
+        "weekly": [
+          {
+            "points": 23.12,
+            "week": 1
+          },
+          {
+            "points": 20.47,
+            "week": 2
+          },
+          {
+            "points": 20.94,
+            "week": 3
+          },
+          {
+            "points": 22.7,
+            "week": 4
+          },
+          {
+            "points": 22.39,
+            "week": 5
+          },
+          {
+            "points": 23.12,
+            "week": 6
+          },
+          {
+            "points": 20.47,
+            "week": 7
+          },
+          {
+            "points": 20.94,
+            "week": 8
+          }
+        ]
+      },
+      "value": {
+        "asOf": "2026-10-30T00:00:00+00:00",
+        "hhi": 0.2502,
+        "leagueMean": 11197.33,
+        "leagueMedian": 10726.0,
+        "of": 6,
+        "partial": false,
+        "percentile": 0.0,
+        "pricedCount": 4,
+        "rank": 6,
+        "rankPartial": false,
+        "top1Share": 0.26,
+        "total": 5554.0,
+        "unpricedCount": 0,
+        "unpricedIds": []
+      }
+    },
+    {
+      "depth": {
+        "depthInsurance": {
+          "leagueP25": 0.5294,
+          "meanRatio": 0.5294,
+          "n": 8
+        },
+        "holes": {
+          "dedicated": 0,
+          "weeks": [],
+          "zeroPointFlexStarts": 0
+        },
+        "positionLeaveOutPoints": 135.5,
+        "redundantPoints": 28.93,
+        "redundantStartableWeeks": 3,
+        "rosteredPerStartingSlot": 1.333
+      },
+      "position": "DB",
+      "production": {
+        "appearances": 24,
+        "distinctContributors": 4,
+        "leagueMean": 14.71,
+        "leagueMedian": 14.71,
+        "leagueValidWeekCounts": {
+          "max": 8,
+          "min": 8
+        },
+        "observedSubmittedPoints": null,
+        "of": 6,
+        "percentile": 1.0,
+        "points": 135.5,
+        "ppg": 16.94,
+        "rank": 1,
+        "rankBasis": "points_per_valid_week",
+        "slotAllocation": {
+          "DB": {
+            "points": 135.5,
+            "starts": 24
+          }
+        },
+        "tiedWith": 0,
+        "topContributors": [
+          {
+            "playerId": "t1-db1",
+            "points": 52.54,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-db2",
+            "points": 44.09,
+            "starts": 8
+          },
+          {
+            "playerId": "t1-db3",
+            "points": 26.07,
+            "starts": 5
+          }
+        ],
+        "totalLeagueMean": 117.67,
+        "totalLeagueMedian": 117.68,
+        "totalRank": 1,
+        "validWeeks": 8,
+        "weekCountsDiffer": false,
+        "weekly": [
+          {
+            "points": 18.0,
+            "week": 1
+          },
+          {
+            "points": 15.93,
+            "week": 2
+          },
+          {
+            "points": 16.29,
+            "week": 3
+          },
+          {
+            "points": 17.65,
+            "week": 4
+          },
+          {
+            "points": 17.41,
+            "week": 5
+          },
+          {
+            "points": 18.0,
+            "week": 6
+          },
+          {
+            "points": 15.93,
+            "week": 7
+          },
+          {
+            "points": 16.29,
+            "week": 8
+          }
+        ]
+      },
+      "value": {
+        "asOf": "2026-10-30T00:00:00+00:00",
+        "hhi": 0.2504,
+        "leagueMean": 9865.33,
+        "leagueMedian": 9394.0,
+        "of": 6,
+        "partial": false,
+        "percentile": 0.0,
+        "pricedCount": 4,
+        "rank": 6,
+        "rankPartial": false,
+        "top1Share": 0.2631,
+        "total": 4222.0,
+        "unpricedCount": 0,
+        "unpricedIds": []
+      }
+    }
+  ],
+  "priors": {
+    "contenderBenchMinCount": 5,
+    "developmentalMaxAge": {
+      "DB": 24,
+      "DL": 24,
+      "K": 26,
+      "LB": 24,
+      "QB": 25,
+      "RB": 23,
+      "TE": 25,
+      "WR": 24
+    },
+    "hostScoreTolerance": 0.011,
+    "lowContributionStartRate": 0.25,
+    "minOwnedWeeks": 4,
+    "productiveStartRate": 0.5,
+    "quartileFraction": 0.25,
+    "redundantMarginalPerOwnedWeekMax": 1.0,
+    "status": "labelled PRIORS, not calibrated. Every threshold below decides only whether a diagnosis is shown for review. None of them changes a value, a rank, a lineup or a recommendation to transact.",
+    "thinCoverageMinHoles": 2,
+    "topContributors": 3,
+    "version": "rc_priors_v1",
+    "veteranMinAge": {
+      "DB": 30,
+      "DL": 30,
+      "K": 35,
+      "LB": 30,
+      "QB": 33,
+      "RB": 28,
+      "TE": 30,
+      "WR": 30
+    },
+    "why": {
+      "contenderBenchMinCount": "Count of never-started, never-league-startable owned players at or above which a PUSH team's bench is flagged for review.",
+      "developmentalMaxAge": "Age at or below which a low-start player is read as developmental rather than redundant. Per-position prior, not an age cliff.",
+      "lowContributionStartRate": "Below this share of eligible owned weeks in the optimal lineup a player is tagged low_contribution (descriptive only).",
+      "minOwnedWeeks": "Fewer owned weeks is too small a sample to call a player low-contribution.",
+      "quartileFraction": "A 'top' or 'bottom' position rank is the league's top or bottom quarter, ceil(n x 0.25), so it scales with team count instead of a fixed rank.",
+      "redundantMarginalPerOwnedWeekMax": "Marginal optimal-lineup points per eligible owned week at or below which a top-quartile-value player is called lineup-redundant on THIS roster.",
+      "thinCoverageMinHoles": "Dedicated-slot holes (unfilled or 0-point starter weeks) at or above which thin coverage is considered.",
+      "veteranMinAge": "Age at or above which a starting player is tagged productive_veteran. Per-position prior, not an age cliff."
+    }
+  },
+  "rules": {
+    "includePlayoffs": false,
+    "lineupBasis": "host_best_ball_optimal",
+    "lineupMode": "best_ball",
+    "positionGroups": [
+      "QB",
+      "RB",
+      "WR",
+      "TE",
+      "K",
+      "DL",
+      "LB",
+      "DB"
+    ],
+    "rosterLimit": 58,
+    "slotSource": "sleeper_roster_positions",
+    "starterSlots": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+      "TE",
+      "FLEX",
+      "FLEX",
+      "SUPER_FLEX",
+      "K",
+      "DL",
+      "DL",
+      "DL",
+      "LB",
+      "LB",
+      "LB",
+      "DB",
+      "DB",
+      "DB"
+    ],
+    "teamCount": 6
+  },
+  "schemaVersion": "roster_construction.v1",
+  "season": "2025",
+  "team": {
+    "excludedWeeks": [],
+    "flexUnfilledSlotWeeks": 0,
+    "label": "Team 1",
+    "lineupParity": {
+      "host_score_reproduced": 8
+    },
+    "observedSubmittedWeeks": 0,
+    "posture": {
+      "asOf": "current",
+      "label": "PUSH",
+      "source": "competitive_posture"
+    },
+    "rosterId": 1,
+    "rosterOverLimitWeeks": [],
+    "validWeeks": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ]
+  },
+  "teams": [
+    {
+      "label": "Team 1",
+      "points": {
+        "DB": 135.5,
+        "DL": 154.85,
+        "K": 60.8,
+        "LB": 174.15,
+        "QB": 624.0,
+        "RB": 480.0,
+        "TE": 32.0,
+        "WR": 340.68
+      },
+      "ppg": {
+        "DB": 16.94,
+        "DL": 19.36,
+        "K": 7.6,
+        "LB": 21.77,
+        "QB": 78.0,
+        "RB": 60.0,
+        "TE": 4.0,
+        "WR": 42.58
+      },
+      "rosterId": 1,
+      "validWeeks": 8
+    },
+    {
+      "label": "Team 2",
+      "points": {
+        "DB": 128.35,
+        "DL": 146.7,
+        "K": 57.6,
+        "LB": 165.04,
+        "QB": 267.48,
+        "RB": 262.28,
+        "TE": 112.02,
+        "WR": 201.85
+      },
+      "ppg": {
+        "DB": 16.04,
+        "DL": 18.34,
+        "K": 7.2,
+        "LB": 20.63,
+        "QB": 33.44,
+        "RB": 32.79,
+        "TE": 14.0,
+        "WR": 25.23
+      },
+      "rosterId": 2,
+      "validWeeks": 8
+    },
+    {
+      "label": "Team 3",
+      "points": {
+        "DB": 121.26,
+        "DL": 138.55,
+        "K": 54.4,
+        "LB": 155.86,
+        "QB": 252.63,
+        "RB": 247.71,
+        "TE": 105.82,
+        "WR": 207.82
+      },
+      "ppg": {
+        "DB": 15.16,
+        "DL": 17.32,
+        "K": 6.8,
+        "LB": 19.48,
+        "QB": 31.58,
+        "RB": 30.96,
+        "TE": 13.23,
+        "WR": 25.98
+      },
+      "rosterId": 3,
+      "validWeeks": 8
+    },
+    {
+      "label": "Team 4",
+      "points": {
+        "DB": 114.1,
+        "DL": 130.4,
+        "K": 51.2,
+        "LB": 146.7,
+        "QB": 237.76,
+        "RB": 233.14,
+        "TE": 99.59,
+        "WR": 195.6
+      },
+      "ppg": {
+        "DB": 14.26,
+        "DL": 16.3,
+        "K": 6.4,
+        "LB": 18.34,
+        "QB": 29.72,
+        "RB": 29.14,
+        "TE": 12.45,
+        "WR": 24.45
+      },
+      "rosterId": 4,
+      "validWeeks": 8
+    },
+    {
+      "label": "Team 5",
+      "points": {
+        "DB": 106.99,
+        "DL": 122.25,
+        "K": 48.0,
+        "LB": 137.54,
+        "QB": 222.91,
+        "RB": 218.58,
+        "TE": 93.36,
+        "WR": 183.38
+      },
+      "ppg": {
+        "DB": 13.37,
+        "DL": 15.28,
+        "K": 6.0,
+        "LB": 17.19,
+        "QB": 27.86,
+        "RB": 27.32,
+        "TE": 11.67,
+        "WR": 22.92
+      },
+      "rosterId": 5,
+      "validWeeks": 8
+    },
+    {
+      "label": "Team 6",
+      "points": {
+        "DB": 99.82,
+        "DL": 114.1,
+        "K": 44.8,
+        "LB": 128.35,
+        "QB": 208.04,
+        "RB": 203.99,
+        "TE": 87.13,
+        "WR": 171.15
+      },
+      "ppg": {
+        "DB": 12.48,
+        "DL": 14.26,
+        "K": 5.6,
+        "LB": 16.04,
+        "QB": 26.0,
+        "RB": 25.5,
+        "TE": 10.89,
+        "WR": 21.39
+      },
+      "rosterId": 6,
+      "validWeeks": 8
+    }
+  ],
+  "valueBlock": {
+    "asOf": "2026-10-30T00:00:00+00:00",
+    "available": true,
+    "reason": null
+  }
+}

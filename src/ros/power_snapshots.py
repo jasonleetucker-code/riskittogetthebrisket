@@ -60,7 +60,7 @@ def load_snapshot(league_key: str, season: str | int, week: int) -> dict[str, An
     if not path.exists():
         return None
     try:
-        payload = json.loads(path.read_text())
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
@@ -93,7 +93,7 @@ def latest_snapshot(
         return None
     _, _, path = max(candidates, key=lambda item: (item[0], item[1]))
     try:
-        payload = json.loads(path.read_text())
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
@@ -116,7 +116,7 @@ def season_snapshots(league_key: str, season: str | int) -> list[dict[str, Any]]
         except (ValueError, IndexError):
             continue
         try:
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
         if isinstance(payload, dict):

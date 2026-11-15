@@ -274,7 +274,7 @@ class TestGreedyEnginesWereMeasurablyWrong:
 
     @staticmethod
     def _cases():
-        return json.loads((FIXTURES / "golden_bestball_lineups.json").read_text())
+        return json.loads((FIXTURES / "golden_bestball_lineups.json").read_text(encoding="utf-8"))
 
     @staticmethod
     def _pool(players):

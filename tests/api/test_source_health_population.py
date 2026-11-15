@@ -25,6 +25,10 @@ from __future__ import annotations
 
 import server as srv
 from src.api.data_contract import get_ranking_source_keys
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _payload_with_anchor_only_sites() -> dict:
@@ -218,6 +222,11 @@ class TestDeclaredAbsenceIsNotMissing:
         declarations; a correct helper nobody calls fixes nothing."""
         import inspect
 
-        src = inspect.getsource(srv.get_status)
+        # ``get_status`` serves the public projection of ``_status_content``
+        # (built in the threadpool by ``_public_status_body``), which is where
+        # the snapshot is built.
+        src = inspect.getsource(srv._status_content)
+        assert "_public_status_body" in inspect.getsource(srv.get_status)
+        assert "_status_content(status_payload)" in inspect.getsource(srv._public_status_body)
         assert "seasonal_inactive=served_seasonal_inactive" in src
         assert "private_absent_by_design=served_private_absent_by_design" in src

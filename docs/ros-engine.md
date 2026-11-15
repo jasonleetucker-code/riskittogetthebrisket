@@ -149,6 +149,29 @@ still dominates per the spec.
 
 `tests/ros/test_scrape_failure_resilience.py` pins this guarantee.
 
+### Fetch clock vs content clock (reporting only)
+
+`status` and `completed_at` in a run record are the **fetch clock**: they
+say we retrieved something, not that the vendor published anything new.
+`freshness_multiplier` reads this clock (as `scraped_at`) and is unchanged.
+Two honest additions sit beside it in the run record and in
+`data/ros/runs/index.json` (so `/api/ros/status` and `/api/ros/health` carry
+them, additively):
+
+- `kept_previous` (`"zero_rows"` or `null`) + `kept_previous_rows` -- the
+  adapter returned no usable rows, so the previous CSV was left in place.
+  The row count says whether the kept file actually has data (a header-only
+  file reports `0`).  A zero-row fetch is never `status: ok`.
+- `content_hash`, `content_state` (`baseline` / `unchanged` / `changed` /
+  `no_file`), `content_first_observed_at`, `last_content_change` -- a hash of
+  each source CSV (line endings normalized) and when it was last observed to
+  change.  `last_content_change` is `null` until a change has been observed;
+  that is UNKNOWN, not "never changed" and not "changed now" (the first
+  observation is a baseline).  The ledger is `data/ros/content_clock.json`,
+  rewritten only when a hash changes.
+
+Neither is an input to any weight, multiplier, threshold or value.
+
 ## How to add a new source
 
 1. Implement `src/ros/sources/<key>.py` exposing
@@ -191,6 +214,7 @@ data/ros/
   sources/<key>.csv                    # latest scrape per source
   runs/<key>__<iso>.json               # per-run metadata
   runs/index.json                      # most-recent-run pointer
+  content_clock.json                   # per-source content hash + last_content_change
   aggregate/latest.json                # aggregated player values
   aggregate/history/<iso>.json         # rolling 30-day archive
   team_strength/latest.json            # per-team snapshot

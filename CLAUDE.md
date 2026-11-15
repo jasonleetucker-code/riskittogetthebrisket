@@ -206,22 +206,22 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ## Directory Structure
 
 ```
-├── server.py                  # FastAPI backend entry point (~100 routes)
+├── server.py                  # FastAPI backend entry point (~120 direct `@app` handlers plus included routers; counted 2026-11-15)
 ├── Dynasty Scraper.py         # THE PRODUCTION SCRAPER (Selenium/requests).
 │                              #   Not legacy despite its age: server.py
 │                              #   imports it via importlib for /api/scrape,
 │                              #   the scheduled loop and startup, and
-│                              #   scheduled-refresh.yml runs it every 2h.
+│                              #   scheduled-refresh.yml runs it (cron declared every 2h; measured ~3.6 runs/day, docs/ops/SCRAPE_CADENCE_MEASUREMENT_2026-11-09.md).
 ├── .github/workflows/         # GitHub Actions CI/CD pipelines
 │
-├── frontend/                  # Next.js app (App Router) — 38 pages
+├── frontend/                  # Next.js app (App Router) — 61 pages (counted 2026-11-15)
 │   ├── app/                   # rankings/, trade/, draft/, bdvm/, waivers/,
 │   │   │                      #   terminal/, news/, settings/, login/, …
-│   │   └── api/               # 28 backend bridge routes
+│   │   └── api/               # 88 backend bridge routes (counted 2026-11-15)
 │   ├── components/            # React components + hooks
 │   └── lib/                   # Data utilities (pure materializers)
 │
-├── src/                       # Modular canonical engine (~250 modules)
+├── src/                       # Modular canonical engine (~700 Python files, counted 2026-11-15)
 │   ├── adapters/              # base.py (frozen contract), scraper bridge,
 │   │                          #   sleeper_trending
 │   ├── api/                   # API data contract (versioned) + endpoints
@@ -247,17 +247,17 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ├── scripts/                   # Pipeline helper scripts (source fetches, fit, etc.)
 ├── deploy/                    # Deployment configs (nginx, systemd, deploy scripts)
 ├── tests/                     # pytest unit/integration + Playwright E2E
-├── data/                      # Pipeline outputs. MOSTLY gitignored, but 8,825
+├── data/                      # Pipeline outputs. MOSTLY gitignored, but ~11,900
 │                              #   files ARE tracked (data/ros/ is re-included by
 │                              #   .gitignore, and refresh workflows `git add -f`).
 │                              #   The tracking is DELIBERATE, not an accident:
 │                              #   scheduled-refresh.yml force-adds
-│                              #   data/scrape_state/ every 2h even when the
+│                              #   data/scrape_state/ on every run (declared 2h) even when the
 │                              #   scrape fails, and deploy dispatch keys on
 │                              #   those commit subjects — so `git rm --cached`
 │                              #   freezes prod's source_health. See W31-F001 in
 │                              #   docs/master-site-audit/REBASELINE_2026-08-11.md
-├── exports/                   # Release artifacts (latest/ + archive/) — 168 tracked
+├── exports/                   # Release artifacts (latest/ + archive/) — 182 tracked
 └── docs/                      # Architecture blueprints, status docs, ADRs, audits
 ```
 
@@ -320,6 +320,14 @@ npm run regression                   # Full pipeline: preflight + tests
 | `/api/sharp/roster-percentage` | GET | Sharp Roster Percentage board (global cohort — takes no `leagueKey`) |
 | `/api/sharp/roster-percentage/audit` | GET | Every roster behind one player's count, for manual verification |
 | `/api/draft/roster-context` | GET | Perfect Draft roster context — rosters at board value, waiver levels, cut ladder (flag `perfect_draft`) |
+| `/api/roster/intelligence` | GET | Canonical roster intelligence: meaningful core, Team Strength, Team Weakness, age-value portfolio (`src/roster_intel/`) |
+| `/api/roster-construction` | GET | Roster Construction V1, private (flag `roster_construction`, default on; `src/roster_intel/construction.py`) |
+| `/api/waiver/advisor` | POST | Weekly Waiver Advisor, private (flag `waiver_advisor`, default on); siblings `/api/waiver/perfect`, `/streaming`, `/best-available-idp`, `/faab-recommend` |
+| `/api/trade/analyze`, `/api/trade/analyze-multi` | POST | Analyze Trade (2-team) and the N-team engine (`src/trade/analyze_service.py`; `analyze-multi` flag `trade_multi_team_analysis`, default OFF) |
+| `/api/public/league/trade-advisor/*` | GET/POST | Public fairness-only Brisket Trade Advisor (`src/trade/public_advisor.py`; flag `brisket_trade_advisor`, default OFF) |
+| `/api/user/trade-protections` | GET/PUT | Persistent personal trade protections (`src/trade/constraints.py`) |
+
+*Table additions dated 2026-11-15 (docs convergence, MD-115): routes verified in `server.py` / `src/api/`; league playoff-bracket rules live in `src/public_league/playoff_structure.py`, consumed by `src/ros/playoff_sim.py`. Not exhaustive; the live OpenAPI schema is.*
 
 ### Rankings vs. league context — the core split
 
@@ -472,6 +480,7 @@ Error behavior on endpoints:
   PROVEN identical (different fingerprints, or either side unverifiable).
   When it is proven and sleeper is for a different league, serve shared
   rankings with `sleeper: null` + `sleeperDataReady: false`.
+- `/api/movers` — 503 `data_not_ready` when scoring is not PROVEN identical to the loaded board's, the same rule as `/api/data`.
 - `/api/terminal`, `/api/trade/*`, `/api/angle/*` — 503 whenever the
   loaded contract's `leagueKey` doesn't match the request.  These
   endpoints can't meaningfully work without the specific league's
@@ -556,7 +565,7 @@ Error behavior on endpoints:
     instead of serving the workbook's hand-entered ownership.  Same cache
     too: the refusal is held for the 300 s TTL and is never answered by the
     stale-while-revalidate last-valid board (that answers dollars-generation
-    failures only); `?refresh=1` retries.  Success is byte-identical to the
+    failures only); `?refresh=1` retries (authenticated callers only since 2026-11-15; an anonymous `?refresh=` is ignored so it cannot force a rebuild).  Success is byte-identical to the
     pre-fail-closed reader.  Pinned by
     `tests/api/test_draft_capital_workbook_pick_ownership.py`.
   - **Every owned class is listed — `dynasty_main` only** (owner directive
@@ -1961,11 +1970,19 @@ test-pinned (``tests/bdvm/``):
   adapter — else the §8.3 reconstructed baseline built by
   ``scripts/bdvm_build_baseline.py`` (realized nflverse PPG under the
   league's exact scoring + rookie draft-slot priors, all flagged
-  ``is_proxy``; carries real records forward on rebuild).  All real
+  ``is_proxy``; carries real records forward on rebuild).  Real
   sources merge via the shared ``supersede_merge_into_snapshot``
   policy: each replaces its own prior run wholesale and supersedes
   proxies per player while other real sources carry through, so a
-  defender covered by Clay AND IDP Show gets a two-source consensus.
+  defender covered by Clay AND IDP Show gets a two-source consensus
+  once the IDP Show merge is on.  **IDP Show records are SHADOWED by
+  default** (#1959, owner gate): the fetcher parses them to
+  ``data/bdvm/shadow/idpshow_projections/<season>/idpshow_<date>.json``
+  — a tree no BDVM reader opens — and touches no snapshot.  Merging
+  them into snapshots changes the fundamental values BDVM serves, so
+  it is owner-reserved behind ``BDVM_IDPSHOW_MERGE_INTO_SNAPSHOT=1``
+  (``--merge-idpshow`` on the refresh script, ``--merge-into-snapshot``
+  on the fetcher; ``src/bdvm/idpshow_switch.py``), default OFF.
   The consensus is **vocabulary-aware**: a stat-line record whose
   league-scored IDP categories are a strict subset of a peer's (Clay
   publishes no TFL/PD — categories this league pays 4.25/5.32 for) is
@@ -2015,10 +2032,19 @@ Operational surfaces (post-merge additions):
 - **Snapshot cadence**: ``scripts/refresh_bdvm_projections.py`` (weekly
   ``dynasty-bdvm-refresh`` systemd timer, Tue 06:10 UTC) rebuilds the
   reconstructed baseline, then merges Mike Clay's guide (self-skips
-  without poppler-utils or on a CDN 404), then The IDP Show real
-  projections (session jar shared with the rankings fetch timer; stage
-  self-skips without it). Exit codes 0/1/2 in the playerctx style; runs
-  on prod because the endpoints read local gitignored ``data/``.
+  without poppler-utils or on a CDN 404), then The IDP Show stage
+  (session jar shared with the rankings fetch timer; stage self-skips
+  without it), which writes the shadow tree and merges nothing unless
+  the owner switch above is on. Exit codes 0/1/2 in the playerctx
+  style; runs on prod because the endpoints read local gitignored
+  ``data/``. **Exit 0 means a snapshot was written, not that every
+  source landed** (#1959): the final summary line names every stage
+  that failed, hard-errored or could not run (with its exit code),
+  lists the real sources actually in the snapshot and any shadowed
+  stage, and the run writes ``data/bdvm/refresh_status.json`` (latest
+  run only, ``$BDVM_REFRESH_STATUS_PATH`` overrides; per-stage status
+  plus ``result`` ``ok`` / ``proxy_only`` / ``degraded`` / ``failed``;
+  nothing reads it yet).
 - **Rankings gap column**: /rankings grows a "Fund gap" column
   (fundamental balanced minus market, tinted by BDVM signal) joined
   onto board rows AT RENDER TIME from ``/api/bdvm/values`` —
@@ -2254,7 +2280,16 @@ second blend (``_lost_evidence_seats``): the unweighted outlier test is re-run
 on the OBSERVED panel (voting + withheld values), which reproduces the verdict
 from while the source still voted — so a withheld source the panel would have
 rejected anyway is not a loss, and a Hampel rejection is seated only when the
-lost vote CAUSED it.  Exact at a fixed published value; the one accepted
+lost vote CAUSED it.  The mirror case — a rejection the lost vote CURED (kept
+now, rejected by the observed panel; measured: IDPTC's own rejected vote was
+what rejected Yahoo/Boone and Draft Sharks on Patrick Mahomes) — earns the gate
+nothing: no head, and a seat for a family left with no credited member, so it
+cannot promote a row by leaving the share denominators
+(``_lost_evidence_replay``, flag ``confidence_cured_rejection_guard``,
+default ON, rollback ``RISKIT_FEATURE_CONFIDENCE_CURED_REJECTION_GUARD=0`` +
+restart; stamped ``sourceRankMeta[src].confidenceUncredited``; its value vote is
+untouched).  Not identifiable under the default-off joint / rank-space filter
+challengers.  Exact at a fixed published value; the one accepted
 residual (coordinator, 2026-10-07) is the agreement axis re-measured against a
 value that itself moved (1 row on the simulated cutoff).  Validator warnings
 ``source_votes_withheld:*`` / ``pick_evidence_reduced_to_single_provider:*`` /
@@ -2286,12 +2321,25 @@ Flow:
 One precise nuance on ranks (documented 2026-07-29 audit — the line
 above used to read "never recomputes ranks", which overstated it):
 `buildRows` assigns a display ordinal `computedConsensusRank = i + 1`
-after sorting (`dynasty-data.js:1366`) and uses it for `r.rank`
-(`:1378`) **only** when the backend stamped no `canonicalConsensusRank`
-on that row. In practice that is players past the backend's
-`OVERALL_RANK_LIMIT` (800) — rows the backend deliberately left
-unranked — and it is suppressed for picks and whenever a valuation
-overlay is active. A backend-stamped rank always wins.
+after sorting (`dynasty-data.js:1600`) and uses it for `r.rank`
+(`:1612`) **only** when the backend stamped no `canonicalConsensusRank`
+on that row. The backend leaves two populations of non-pick rows
+unranked (audit W25-F003: 175 priced off-cap + 76 unpriced of 251 on the
+pinned archive), and only the first gets the ordinal:
+
+* players PRICED but past the rank limit (`OVERALL_RANK_LIMIT` = 800
+  counts pick rows too, so the highest stamped player rank is lower — 740
+  on the 2026-11-06 board; these carry `offCapPlayerValue: true` and a
+  real `rankDerivedValue`) — numbered;
+* players the board could NOT price at all (`rankDerivedValue: null`,
+  mostly single-source K/DL/DB — not "past a cutoff") — **unpriced rows
+  get no ordinal** (W25-F003 / W07-F003 / W07-F004): `rank` and
+  `computedConsensusRank` are `null`, `resolvedRank` is `Infinity`,
+  `tierLabel` reads "Unranked" and the /rankings positional rank skips
+  them.  Missing is never a number.
+
+The ordinal is also suppressed for picks and whenever a valuation overlay
+is active. A backend-stamped rank always wins.
 
 This is a display ordinal for otherwise-unnumbered rows, not a ranking
 engine: no value is recomputed and the sort key is the backend's
@@ -2566,6 +2614,13 @@ around:
   league id meant a budget-capped run re-collected the same prefix
   forever and never reached the tail.
 
+**A Sleeper 404 is an answer, not an outage** (#1957). The shared
+`sleeper_api` breaker does not count a Sleeper 404 with an empty or `null`
+body (a 404 with any other body still counts), so deleted leagues cannot
+open it. The transaction crawl marks such a league in `sharp_league_gone`
+only when this run's `/state/nfl` answered, skips gone leagues for 168 h,
+then rechecks at most 20 per run.
+
 **League FORMAT captures for the completed-trade ledger** live in
 `src/sharp/league_format_capture.py` — the one owner of "what format was this
 Sharp league in, and when did we see it".  Append-only, dated, hashed rows
@@ -2738,9 +2793,13 @@ attaches a `pickOwnership` note (outgoing picks still count on both sides, so
 `observed`.  The frontend's one reader is `frontend/lib/pick-ownership.js`
 (constants pinned to the Python owner by test); `/bdvm`, `/rosters`, the
 TeamSwitcher, the Terminal portfolio and the Pick Projector render the unknown
-state.  **`/trade` does not yet** (`app/trade/page.jsx`, `lib/trade-assets.js`
-still read `team.picks || []`) — named follow-up, held off while the
-trade-calculator quantity rework owns those files.  **`sleeperDataReady` is deliberately NOT flipped** by it:
+state.  **`/trade` joined them 2026-10-17** (TC-A, `ad927d0fe`): `app/trade/page.jsx` and
+`lib/trade-assets.js` (`teamPickLabels` / `teamPickInventory`) read the state through
+`lib/pick-ownership.js` and render an unknown inventory as "pick ownership unavailable", never `[]`.
+*(Corrected 2026-10-26 by the RPA audit: this sentence used to say `/trade` did not yet, and that
+those two files still read `team.picks || []`.  The one remaining place that maps an unavailable
+inventory to an empty list is `lib/pick-stack.js::entriesOf`, the informational-only draft-capital
+stack note.)*  **`sleeperDataReady` is deliberately NOT flipped** by it:
 readiness is about whether the block belongs to the requested league and its
 league CONFIG is complete; the rosters are still real, and the pick fields
 carry their own explicit unknown — degrading the one field rather than
@@ -2947,6 +3006,12 @@ archives: `ktcSfTep` content changes on 164 of them; `idpTradeCalc` on 6, and it
 PICK rows have not moved since 2026-07-14 — while it is one of only two families
 that price picks. Budget in `config/source_staleness.json::contentStaleness`
 (observability only; it decides what gets reported, never what anything is worth).
+
+**A kept CSV is signalled, not silent** (#1953). `scheduled-refresh.yml` now
+warns (`Source not stamped` / `Browser sources preserved`) when a browser-scraped
+CSV is kept instead of rewritten; the stamp and exit status are unchanged. The
+job is pinned to `ubuntu-24.04` because Python Playwright 1.58.0 cannot run
+Chromium on 26.04 (#1939).
 
 ### Release discipline — HEAD FREEZE (2026-08-16)
 

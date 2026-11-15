@@ -133,11 +133,15 @@ if BOX:
                 return f"allowed:{type(exc).__name__}"
 
         def _write_outside():
-            with open(os.path.join(os.path.dirname(GUARD._STATE["scratch"]), ".fdr_selftest"), "w"):
+            with open(
+                os.path.join(os.path.dirname(GUARD._STATE["scratch"]), ".fdr_selftest"),
+                "w",
+                encoding="utf-8",
+            ):
                 pass
 
         def _write_scratch():
-            with open(os.path.join(GUARD._STATE["scratch"], "ok.txt"), "w") as fh:
+            with open(os.path.join(GUARD._STATE["scratch"], "ok.txt"), "w", encoding="utf-8") as fh:
                 fh.write("x")
 
         def _connect():
@@ -1743,7 +1747,7 @@ def main() -> int:
     S.P2.assert_aggregate_only({k: v for k, v in result.items() if k not in ("board", "codeSha")})
     out = REPO / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, indent=1, default=str) + "\n")
+    out.write_text(json.dumps(result, indent=1, default=str) + "\n", encoding="utf-8")
     print(json.dumps({"out": str(out), "reproduction": wr["reproduction"],
                       "flagOn": wr["variants"]["FLAG_ON_measured"],
                       "flagOnR": wr["variants"]["FLAG_ON_measured_rosterRational"],
