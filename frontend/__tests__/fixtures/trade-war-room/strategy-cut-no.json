@@ -1582,6 +1582,7 @@
     "deciding": "strategy",
     "objectiveValue": {
      "direction": "opposes",
+     "insideBand": false,
      "neutralBandHalfWidth": 335.1,
      "statusQuoClearance": 1090.9,
      "tradeClearance": -1761.1,
@@ -1590,6 +1591,7 @@
     },
     "rosterBenefit": {
      "direction": "favors",
+     "insideBand": false,
      "neutralBandHalfWidth": 1.17,
      "statusQuoClearance": -8.05,
      "tradeClearance": 5.71,
@@ -1609,9 +1611,9 @@
    "option": "NO_TRANSACTION",
    "preferred": true,
    "preferredOption": "NO_TRANSACTION",
-   "reason": "decision_rule_prefers_status_quo",
+   "reason": "strategy_declines",
    "state": "status_quo_preferred",
-   "text": "Keeping your current roster is preferred: the decision rule does not find this trade better than doing nothing.",
+   "text": "Keeping your current roster is preferred: part of this trade is a gain, but the team's strategy does not count that gain as enough.",
    "version": "status_quo_v1"
   },
   "teamContext": {

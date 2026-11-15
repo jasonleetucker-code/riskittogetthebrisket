@@ -872,6 +872,7 @@
       "deciding": "objectiveValue",
       "objectiveValue": {
        "direction": "opposes",
+       "insideBand": false,
        "neutralBandHalfWidth": 250.0,
        "statusQuoClearance": 3250.0,
        "tradeClearance": -3750.0,

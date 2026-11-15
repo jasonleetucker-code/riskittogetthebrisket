@@ -107,7 +107,7 @@ routes (pinned by test).
 | `preferred` | is declining preferred? `false` only when `decision.headline` is YES; `true` for NO and NO — TOO CLOSE; `null` when evidence is insufficient (unknown, not either answer) |
 | `preferredOption` | `"TRADE"` / `"NO_TRANSACTION"` / `null` |
 | `actionSupported` | `true` only for YES |
-| `reason` | `clears_decision_thresholds`, `near_tie`, `decision_rule_prefers_status_quo`, `trade_not_executable` (no legal cleanup), `missing_evidence`, `decision_unrecognized` (malformed decision; fails closed) |
+| `reason` | `clears_decision_thresholds`; `near_tie` (every evaluated component inside its band); `strategy_declines` (one component favours the trade, but the team's strategy does not count that gain as enough: NO or NO — TOO CLOSE decided by `strategy`); `decision_rule_prefers_status_quo`; `trade_not_executable` (no legal cleanup); `missing_evidence`; `decision_unrecognized` (malformed decision, e.g. a headline without a decided-path `deciding`: `preferred: null`, fails closed) |
 | `text` | fixed user-facing sentence for `reason` |
 | `derivedFrom` | `{headline, deciding}` of the decision it projects |
 | `baseline` | `{objectiveValue: 0, rosterBenefitPpg: 0, forcedReleaseCost: 0, definition}` — what declining reads as |
@@ -116,12 +116,12 @@ routes (pinned by test).
 | `evidence.forcedRelease` | `state` (feasibility state, `excluded_by_mode` or `unavailable`), `chargedToTrade`, `chargedToStatusQuo` (always 0: declining adds no cut; a release owed before the trade is charged to neither), `forcedDrops` (names) |
 | `evidence.posture` | `strategyUsed`, `strategySource`, `postureLabel`, `windowFit`; role `selects_strategy_never_votes`; `{state: "excluded_by_mode"}` in asset-only |
 | `evidence.missingEvidence` | the decision's missing-evidence codes |
-| `margin.objectiveValue` / `margin.rosterBenefit` | per component, in its own units: `value`, `neutralBandHalfWidth` (fairness band: `max(250, 3.5% x larger package utility)`; roster: the lens's `neutralBandPpg`), `tradeClearance = value - halfWidth`, `statusQuoClearance = -value - halfWidth`, `direction`. `>= 0` means that side is past the band; both negative means inside it. `null` when the component was not evaluated. |
+| `margin.objectiveValue` / `margin.rosterBenefit` | per component, in its own units: `value`, `neutralBandHalfWidth` (fairness band: `max(250, 3.5% x larger package utility)`; roster: the lens's `neutralBandPpg`), `tradeClearance = value - halfWidth`, `statusQuoClearance = -value - halfWidth`, `direction`, `insideBand`. **`insideBand` decides** (it is the component's own classification, `direction === "neutral"`); the clearances are rounded display numbers with no signed zero, so a net a hair inside the band can show a clearance of `0.0` while `insideBand` is `true`. `null` when the component was not evaluated. |
 | `margin.crossComponent` | always `null` (`crossComponentReason: "components_are_never_combined"`) |
 | `opportunityCost` | `{state: "unavailable", reason: "no_owner_approved_alternative_ranking", coverageExclusionReason: "not_wired", comparedAlternatives: ["NO_TRANSACTION"], text}` |
 
 **Frontend action:** none required. If the War Room shows it: render `text`; show the two margins separately with
-their units; when `preferred` is `null`, say the evidence is insufficient (never "keep" or "trade"). The decision's
+their units and read inside / outside the band from `insideBand`, never from the clearance's sign; when `preferred` is `null`, say the evidence is insufficient (never "keep" or "trade"). The decision's
 coverage record still reads `opportunity_cost: unavailable / not_wired` (label unchanged).
 
 **Not done, owner decision needed (opportunity cost):** comparing a trade with the best DIFFERENT trade needs an

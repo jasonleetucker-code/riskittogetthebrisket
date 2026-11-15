@@ -1614,6 +1614,8 @@ _STATUS_QUO_TEXT = {
     "the decision thresholds.",
     "near_tie": "Keeping your current roster is preferred: the decision reads this trade as too "
     "close to call, so making it gains nothing the evidence can tell apart from doing nothing.",
+    "strategy_declines": "Keeping your current roster is preferred: part of this trade is a gain, "
+    "but the team's strategy does not count that gain as enough.",
     "decision_rule_prefers_status_quo": "Keeping your current roster is preferred: the decision "
     "rule does not find this trade better than doing nothing.",
     "trade_not_executable": "Keeping your current roster is the only option: no legal roster "
@@ -1625,23 +1627,38 @@ _STATUS_QUO_TEXT = {
 }
 
 
+#: The ``deciding`` values ``decide`` emits on the decided path (not a gate).
+_DECIDED_BY = ("objectiveValue", "rosterBenefit", "both", "strategy")
+
+
+def _rounded(x: float, digits: int) -> float:
+    """``round`` without a signed zero: ``-0.0`` would read as a sign."""
+    r = round(x, digits)
+    return 0.0 if r == 0 else r
+
+
 def _clearance(
     value: float, half_width: float, *, unit: str, direction: Any, digits: int
 ) -> dict[str, Any]:
     """One component's distance past its OWN neutral band, both ways.
 
-    ``tradeClearance >= 0``: the component favours the trade over the status
-    quo; ``statusQuoClearance >= 0``: it favours declining; both negative: it
-    is inside the band.  ``direction`` (the component's own classification) is
-    authoritative at a rounding boundary.
+    ``insideBand`` is the component's own classification (its ``direction``
+    is ``neutral``), so it decides; the clearances are rounded display
+    numbers.  Outside the band, ``tradeClearance`` (favours the trade) or
+    ``statusQuoClearance`` (favours declining) is the positive one.  A net a
+    hair inside the band can round to a clearance of ``0.0``; ``insideBand``
+    still says inside.
     """
     return {
         "unit": unit,
-        "value": round(value, digits),
-        "neutralBandHalfWidth": round(half_width, digits),
-        "tradeClearance": round(value - half_width, digits),
-        "statusQuoClearance": round(-value - half_width, digits),
+        "value": _rounded(value, digits),
+        "neutralBandHalfWidth": _rounded(half_width, digits),
+        "tradeClearance": _rounded(value - half_width, digits),
+        "statusQuoClearance": _rounded(-value - half_width, digits),
         "direction": direction,
+        "insideBand": (direction == "neutral")
+        if direction in ("favors", "opposes", "neutral")
+        else None,
     }
 
 
@@ -1667,20 +1684,26 @@ def status_quo(
 
     ``preferred`` answers "is declining preferred?": ``False`` only when the
     headline is YES; ``True`` for NO and NO — TOO CLOSE (a near tie never
-    favours acting); ``None`` when the evidence is insufficient.
+    favours acting, and a gain the strategy does not count as enough is
+    ``strategy_declines``); ``None`` when the evidence is insufficient or the
+    decision is malformed (a headline without a decided-path ``deciding``).
     ``actionSupported`` is ``True`` only for YES.  The roster component is
     read from the decision itself; ``market`` / ``feasibility`` only re-derive
     the unrounded net gap the band classified (:func:`_objective_net`).
     """
     headline = decision.get("headline")
     deciding = decision.get("deciding")
-    if headline == "YES" and deciding not in ("executionGate", "evidenceGate"):
+    if headline == "YES" and deciding in _DECIDED_BY:
         state, preferred, reason = "trade_beats_status_quo", False, "clears_decision_thresholds"
-    elif headline == "NO_TOO_CLOSE" and deciding not in ("executionGate", "evidenceGate"):
+    elif headline in ("NO", "NO_TOO_CLOSE") and deciding == "strategy":
+        # One component favours the trade and the strategy decided against it
+        # (``_rule``): not a near tie, so it is never described as one.
+        state, preferred, reason = "status_quo_preferred", True, "strategy_declines"
+    elif headline == "NO_TOO_CLOSE" and deciding in _DECIDED_BY:
         state, preferred, reason = "status_quo_preferred", True, "near_tie"
     elif headline == "NO" and deciding == "executionGate":
         state, preferred, reason = "status_quo_preferred", True, "trade_not_executable"
-    elif headline == "NO" and deciding != "evidenceGate":
+    elif headline == "NO" and deciding in _DECIDED_BY:
         state, preferred, reason = "status_quo_preferred", True, "decision_rule_prefers_status_quo"
     elif headline == "NOT_ENOUGH_EVIDENCE" and deciding == "evidenceGate":
         state, preferred, reason = "insufficient_evidence", None, "missing_evidence"
@@ -1689,6 +1712,7 @@ def status_quo(
     decided = reason in (
         "clears_decision_thresholds",
         "near_tie",
+        "strategy_declines",
         "decision_rule_prefers_status_quo",
     )
 

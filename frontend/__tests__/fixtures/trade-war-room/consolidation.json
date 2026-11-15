@@ -1477,6 +1477,7 @@
     "deciding": "both",
     "objectiveValue": {
      "direction": "favors",
+     "insideBand": false,
      "neutralBandHalfWidth": 250.0,
      "statusQuoClearance": -1690.0,
      "tradeClearance": 1190.0,
@@ -1485,6 +1486,7 @@
     },
     "rosterBenefit": {
      "direction": "favors",
+     "insideBand": false,
      "neutralBandHalfWidth": 1.31,
      "statusQuoClearance": -2.83,
      "tradeClearance": 0.21,

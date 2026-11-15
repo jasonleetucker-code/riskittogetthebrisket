@@ -1403,6 +1403,7 @@
     "deciding": "objectiveValue",
     "objectiveValue": {
      "direction": "favors",
+     "insideBand": false,
      "neutralBandHalfWidth": 250.0,
      "statusQuoClearance": -3250.0,
      "tradeClearance": 2750.0,

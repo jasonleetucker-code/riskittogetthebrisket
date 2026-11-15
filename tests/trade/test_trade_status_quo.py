@@ -31,6 +31,13 @@ Worked cases (Team Context ON unless noted; posture PUSH -> WIN_NOW):
   = 250 -> trade clears by 1190.
 * relative band  asset-only, recv 9000 / send 8700: gap +300, half-width
   max(250, 315) = 315 -> 15 short of clearing: declining.
+* hair inside    recv 6000 / send 5000 with a 750.04 forced-release charge:
+  net 249.96 against a 250 half-width is INSIDE the band (fair), although the
+  clearance rounds to 0.0 at one decimal; ``insideBand`` says so.
+* strategy       the War Room ``too-close-strategy`` scenario: the roster gain
+  (+1.23 ppg against a 1.0 band) is outside its band, and a LONG_TERM strategy
+  does not count a modest roster gain as enough: ``strategy_declines``, never
+  ``near_tie``.
 """
 
 from __future__ import annotations
@@ -212,8 +219,17 @@ def test_declining_is_preferred_unless_the_headline_is_yes(team, goal, ppg):
             if m is not None:
                 # The margin agrees with the component's own classification.
                 direction = d["components"]["objectiveValue"]["direction"]
+                assert m["insideBand"] is (direction == "neutral")
                 assert (m["tradeClearance"] >= 0) == (direction == "favors")
                 assert (m["statusQuoClearance"] >= 0) == (direction == "opposes")
+            r = sq["margin"]["rosterBenefit"]
+            if r is not None:
+                assert r["insideBand"] is (r["direction"] == "neutral")
+            if sq["reason"] == "near_tie":
+                # A near tie means every evaluated component is inside its band.
+                assert all(x["insideBand"] for x in (m, r) if x is not None)
+            if d["deciding"] == "strategy" and d["headline"] != "YES":
+                assert sq["reason"] == "strategy_declines" and sq["preferred"] is True
             assert sq["margin"]["crossComponent"] is None
 
 
@@ -261,6 +277,11 @@ def test_status_quo_is_pure_and_does_not_mutate_the_decision():
         {"headline": "YES", "deciding": "executionGate"},
         {"headline": "YES", "deciding": "evidenceGate"},
         {"headline": "NOT_ENOUGH_EVIDENCE", "deciding": "objectiveValue"},
+        {"headline": "NO"},
+        {"headline": "NO", "deciding": "bogus"},
+        {"headline": "YES"},
+        {"headline": "NO_TOO_CLOSE"},
+        {"headline": "NO_TOO_CLOSE", "deciding": "executionGate"},
     ],
 )
 def test_a_malformed_decision_fails_closed(decision):
@@ -270,3 +291,60 @@ def test_a_malformed_decision_fails_closed(decision):
     assert sq["state"] == "insufficient_evidence" and sq["reason"] == "decision_unrecognized"
     assert sq["preferred"] is None and sq["actionSupported"] is False
     assert sq["margin"]["objectiveValue"] is None
+
+
+def test_a_net_a_hair_inside_the_band_is_inside_never_a_signed_zero():
+    # Direct: 249.96 against 250 rounds to a clearance of 0.0 (never -0.0) and
+    # is reported inside the band by the component's own classification.
+    m = trade_decision._clearance(
+        249.96,
+        250.0,
+        unit="canonical value points (adjusted package)",
+        direction="neutral",
+        digits=1,
+    )
+    assert m["insideBand"] is True
+    assert m["tradeClearance"] == 0.0 and str(m["tradeClearance"]) == "0.0"
+    assert m["statusQuoClearance"] == -500.0
+    # Through the decision: a 750.04 forced-release charge on a +1000 gap.
+    cap = _capacity(
+        sizeAfter=59,
+        requiresDrops=True,
+        overLimitAfter=1,
+        forcedDropReleaseCost=750.04,
+        forcedDrops=[{"name": "Bench Guy", "value": 750.04}],
+        forcedDropCharge=750.04,
+        forcedDropChargeBasis={"state": "exact"},
+    )
+    d, sq = _sq(_sim([6000], [5000], ppg=0.0, capacity=cap))
+    assert d["components"]["objectiveValue"]["band"]["level"] == "fair"
+    assert d["headline"] == "NO_TOO_CLOSE" and sq["reason"] == "near_tie"
+    m = sq["margin"]["objectiveValue"]
+    assert m["value"] == 250.0 and m["neutralBandHalfWidth"] == 250.0
+    assert m["insideBand"] is True and m["direction"] == "neutral"
+    assert str(m["tradeClearance"]) == "0.0"
+
+
+def test_strategy_decided_too_close_is_strategy_declines_not_a_near_tie():
+    from tests.trade import war_room_ui_payloads as wr
+
+    body = wr.build("too-close-strategy")
+    d, sq = body["analysis"]["decision"], body["analysis"]["statusQuo"]
+    assert d["headline"] == "NO_TOO_CLOSE" and d["deciding"] == "strategy"
+    assert d["strategy"]["used"] == "LONG_TERM"
+    assert sq["reason"] == "strategy_declines" and sq["preferred"] is True
+    assert sq["actionSupported"] is False
+    r = sq["margin"]["rosterBenefit"]
+    # The roster gain is OUTSIDE its band; the strategy, not a tie, declines it.
+    assert r["insideBand"] is False and r["tradeClearance"] > 0
+    assert sq["margin"]["objectiveValue"]["insideBand"] is True
+    assert "near" not in sq["text"] and "strategy" in sq["text"]
+
+
+def test_strategy_decided_no_is_strategy_declines():
+    # Value up modestly (+400 / 5400 = 7.4%, the slight band), lineup down
+    # modestly (-1.5 ppg against a 1.0 band), WIN_NOW: _rule says NO by strategy.
+    d, sq = _sq(_sim([5400], [5000], ppg=-1.5), team_goal="WIN_NOW")
+    assert d["headline"] == "NO" and d["deciding"] == "strategy"
+    assert sq["reason"] == "strategy_declines" and sq["preferred"] is True
+    assert sq["margin"]["objectiveValue"]["insideBand"] is False
