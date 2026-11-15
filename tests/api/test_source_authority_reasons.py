@@ -9,7 +9,7 @@ Two layers:
 
 * unit tests of ``_source_authority_reasons`` on synthetic stamps (every
   reason code, and the "full authority is absent" rule);
-* invariants on a real board built from the newest complete archive — never a
+* invariants on a real board built from the pinned complete archive — never a
   count of the live board: every source the row's ``retainedAuthority``
   counts below full strength is named, every named stale date agrees with the
   row's own freshness stamp, and a policy-held source is named only when it
@@ -25,7 +25,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from src.api import data_contract as dc
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 AS_OF = datetime(2026, 10, 28, 9, 2, 26, tzinfo=timezone.utc)
 
@@ -127,7 +129,7 @@ class TestReasonCodes:
 
 @pytest.fixture(scope="module")
 def board() -> dict:
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape to build a contract from")
     return dc.build_api_data_contract(copy.deepcopy(raw))

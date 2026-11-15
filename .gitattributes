@@ -6,3 +6,6 @@
 tests/fixtures/draft_valuation/package_goldens_2026_10_17.json -text
 docs/valuation/evidence/signals-idp-v2-2026-10-19/PREREGISTRATION.md -text
 docs/valuation/evidence/signals-idp-v2-2026-10-19/gates.json -text
+
+# The pinned-board fixture is compared byte-for-byte against its manifest.
+tests/fixtures/pinned_board/board.zip -text

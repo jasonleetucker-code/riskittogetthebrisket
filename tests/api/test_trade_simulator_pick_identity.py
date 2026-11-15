@@ -26,6 +26,8 @@ from src.api.pick_value_resolution import (
 from src.api.terminal import _build_row_index, _players_array
 from src.identity.picks import format_pick_label_overlay, parse_league_pick_id
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 # ── synthetic board (no archive dependency) ───────────────────────────────
 
 CDY = 2027  # the active draft year these synthetic rows are laid out for
@@ -341,9 +343,9 @@ def test_resolver_is_none_only_for_a_non_canonical_id():
 
 @pytest.fixture(scope="module")
 def archive_contract():
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape")
     from src.api.data_contract import build_api_data_contract

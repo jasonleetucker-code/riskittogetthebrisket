@@ -4,7 +4,7 @@ docs/valuation/evidence/idp-deep-tail-native-2026-10-18/PREREGISTRATION.md.
 
 Unit level: the native ladder is non-increasing, interpolates linearly, answers
 nothing outside its covered range (never zero, never an extrapolation) and prices
-only the 500 < r <= 904 band.  Pipeline level (newest complete archived scrape, no
+only the 500 < r <= 904 band.  Pipeline level (pinned complete archived scrape, no
 network): OFF is byte-identical; ON reprices only IDP shared-market rank votes in
 the band, stamps every repriced vote, and moves no rank, pool, weight or Hill
 constant.
@@ -21,6 +21,8 @@ from src.api import feature_flags
 from src.canonical import deep_tail_native as dtn
 from src.canonical import player_valuation as pv
 from src.canonical import tail_policy
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 FLAG = "idp_deep_tail_native_challenger"
 
@@ -67,9 +69,9 @@ def test_non_observations_are_ignored():
 @pytest.fixture(scope="module")
 def boards():
     from src.api import value_replay as vr
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     off = vr.build(json.loads(json.dumps(payload)))

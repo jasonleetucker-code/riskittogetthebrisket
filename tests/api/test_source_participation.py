@@ -6,8 +6,8 @@ model-source contributions — and when it does not vote, the row must say WHY.
 This protects against the failure mode where a source is scraped and stored
 for months while contributing nothing to the value.
 
-Built from the newest COMPLETE archived scrape
-(``tests/archive_fixtures.newest_complete_raw_payload``), never the live board,
+Built from the PINNED complete archived scrape
+(``tests/archive_fixtures.pinned_board_payload``), never the live board,
 so it is deterministic in the hard gate.  Each assertion is an invariant over
 every row — no counts, no floors.
 """
@@ -20,14 +20,16 @@ import pytest
 
 from src.api import data_contract as dc
 from src.sources.ktc_market import KTC_MARKET_KEY
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 REGISTERED = {s["key"] for s in dc._RANKING_SOURCES}
 
 
 @pytest.fixture(scope="module")
 def rows() -> list[dict]:
-    raw, name = newest_complete_raw_payload()
+    raw, name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available")
     return dc.build_api_data_contract(raw)["playersArray"]

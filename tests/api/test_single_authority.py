@@ -11,9 +11,9 @@ canonicalTierId, sourceRanks, confidenceBucket, anomalyFlags,
 isSingleSource, or hasSourceDisagreement AFTER build_api_data_contract()
 has produced the playersArray.
 
-The contract-shaped tests read the newest archived scrape the contract's own
+The contract-shaped tests read the pinned archived scrape the contract's own
 source-health definition calls complete
-(``tests.archive_fixtures.newest_complete_contract``) rather than today's
+(``tests.archive_fixtures.pinned_board_contract``) rather than today's
 ``exports/latest``: they pin properties of our code, so a provider that did
 not answer must not fail them, and they run in the hard gate (CLAUDE.md "CI has
 two lanes").
@@ -25,7 +25,7 @@ import unittest
 from typing import Any
 
 from src.api.data_contract import assert_ranking_coherence
-from tests.archive_fixtures import newest_complete_contract
+from tests.archive_fixtures import pinned_board_contract
 
 
 # ── Authoritative fields that MUST be present on ranked rows ────────────
@@ -48,8 +48,8 @@ AUTHORITATIVE_FIELDS = (
 
 
 def _load_live_contract() -> dict[str, Any] | None:
-    """The newest COMPLETE archived board (read-only, shared across modules)."""
-    contract, _name = newest_complete_contract()
+    """The PINNED complete archived board (read-only, shared across modules)."""
+    contract, _name = pinned_board_contract()
     return contract
 
 

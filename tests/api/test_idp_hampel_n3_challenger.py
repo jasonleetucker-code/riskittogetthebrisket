@@ -5,7 +5,7 @@ docs/valuation/evidence/idp-outlier-n3-2026-10-18/PREREGISTRATION.md.
 Unit level: the challenger is the incumbent function with ``min_n = 3``; at
 n = 3 it drops an outer vote only on a strongly asymmetric triple above the
 1,000-point floor, exactly as PREREGISTRATION §1 states in advance.
-Pipeline level (newest complete archived scrape, no network): the flag ships
+Pipeline level (pinned complete archived scrape, no network): the flag ships
 OFF and OFF is byte-identical; ON changes the drop decision only on IDP rows
 with exactly three voters, and leaves every vote, weight and exclusion alone.
 """
@@ -18,6 +18,8 @@ import pytest
 
 from src.api import data_contract as dc
 from src.api import feature_flags
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 FLAG = "idp_hampel_n3_challenger"
 
@@ -56,9 +58,9 @@ def test_n3_drops_only_a_strongly_asymmetric_triple_above_the_floor():
 @pytest.fixture(scope="module")
 def boards():
     from src.api import value_replay as vr
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     off = vr.build(json.loads(json.dumps(payload)))

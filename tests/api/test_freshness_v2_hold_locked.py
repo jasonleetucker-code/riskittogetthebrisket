@@ -48,7 +48,9 @@ from scripts import verify_owner_held_flags as checker
 from src.api import feature_flags
 from src.sources import freshness
 from tests.api import hold_lock_scan as scan
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _FLAG = "source_freshness_schedule_v2"
 _ENV = "RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2"
@@ -170,7 +172,7 @@ def test_the_deploy_check_requires_the_flag_off_and_runs_in_verify_deploy():
 
 @pytest.fixture(scope="module")
 def boards():
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available")
     mp = pytest.MonkeyPatch()
@@ -231,7 +233,7 @@ def test_default_board_is_the_explicit_flag_off_board(boards):
 
 def test_a_failing_shadow_is_stamped_and_moves_nothing(boards, monkeypatch):
     """The non-voting v2 shadow can never break or reprice a build."""
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     monkeypatch.delenv(_ENV, raising=False)
     feature_flags.reload()
 

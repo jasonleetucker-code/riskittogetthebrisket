@@ -51,14 +51,13 @@ same style as ``tests/identity/test_pick_identity_red.py`` /
 
 from __future__ import annotations
 
-import json
+import copy
 import math
 import unittest
 
 from pathlib import Path
 from typing import Any
 
-from src.api.data_contract import build_api_data_contract
 from src.identity.picks import parse_board_tier_name
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -98,13 +97,11 @@ def _load_contract() -> dict[str, Any] | None:
     global _contract_cache
     if _contract_cache is not None:
         return _contract_cache
-    data_dir = _REPO / "exports" / "latest"
-    json_files = sorted(data_dir.glob("dynasty_data_*.json"), reverse=True)
-    if not json_files:
-        return None
-    with json_files[0].open() as f:
-        raw = json.load(f)
-    _contract_cache = build_api_data_contract(raw)
+    # The PINNED real board (``tests.archive_fixtures``), never today's
+    # export.  A private copy; the shared contract is read-only.
+    from tests.archive_fixtures import pinned_board_contract
+
+    _contract_cache = copy.deepcopy(pinned_board_contract()[0])
     return _contract_cache
 
 
@@ -277,9 +274,10 @@ class TestTheFabricationCannotReturnThroughTheArtifact(unittest.TestCase):
         from src.identity.picks import is_pick_name
         from src.picks.site_pick_map import parse_pick_label, pick_value
 
-        site_raw = _REPO / "exports" / "latest" / "site_raw"
-        if not site_raw.is_dir():
-            self.skipTest("no site_raw snapshots in this checkout")
+        from tests.archive_fixtures import pinned_board_root
+
+        # The SAME CSVs the pinned contract below was built from.
+        site_raw = pinned_board_root() / "CSVs" / "site_raw"
         published: set[int] = set()
         for path in sorted(site_raw.glob("*.csv")):
             for row in csv.DictReader(io.StringIO(path.read_text(encoding="utf-8"))):

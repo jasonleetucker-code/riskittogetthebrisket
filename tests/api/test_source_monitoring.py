@@ -9,7 +9,7 @@ Two tiers, decided per test (CLAUDE.md "CI has two lanes"):
 * The validator's behaviour -- "dropping KTC flips ``contractHealth.ok``",
   "a missing CSV surfaces a parse error", the partial-run cross-wiring -- is a
   property of OUR code.  Those tests mutate a copy of a real contract built
-  from ``tests.archive_fixtures`` (the newest COMPLETE archived scrape) or a
+  from ``tests.archive_fixtures`` (the PINNED complete archived scrape) or a
   synthetic payload, and run in the hard gate.
 * ``*_passes_on_live`` and the freshness-majority check ask whether TODAY'S
   board and CSV mtimes clear the health floors.  That is a function of which
@@ -42,7 +42,11 @@ from src.api.data_contract import (
     build_api_data_contract,
     validate_api_data_contract,
 )
-from tests.archive_fixtures import newest_complete_contract, newest_complete_raw_payload
+from tests.archive_fixtures import (
+    build_pinned_contract,
+    pinned_board_contract,
+    pinned_board_payload,
+)
 
 
 def _load_latest_raw() -> dict[str, Any] | None:
@@ -75,11 +79,11 @@ _CACHED_PINNED: tuple[dict[str, Any], dict[str, Any]] | None = None
 
 
 def _get_pinned_contract() -> tuple[dict[str, Any], dict[str, Any]] | None:
-    """(contract, validation report) for the newest COMPLETE archived scrape."""
+    """(contract, validation report) for the PINNED complete archived scrape."""
     global _CACHED_PINNED
     if _CACHED_PINNED is not None:
         return _CACHED_PINNED
-    contract, _name = newest_complete_contract()
+    contract, _name = pinned_board_contract()
     if contract is None:
         return None
     _CACHED_PINNED = (contract, validate_api_data_contract(contract))
@@ -87,7 +91,7 @@ def _get_pinned_contract() -> tuple[dict[str, Any], dict[str, Any]] | None:
 
 
 def _load_pinned_raw() -> dict[str, Any] | None:
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     return raw
 
 
@@ -210,7 +214,7 @@ class TestParseErrors(unittest.TestCase):
         bogus_paths = dict(_SOURCE_CSV_PATHS)
         bogus_paths["ktc"] = "CSVs/site_raw/nonexistent-ktc.csv"
         with mock.patch("src.api.data_contract._SOURCE_CSV_PATHS", bogus_paths):
-            contract = build_api_data_contract(raw)
+            contract = build_pinned_contract(raw)
         parse_errors = contract.get("sourceParseErrors")
         self.assertIsInstance(parse_errors, list)
         self.assertGreaterEqual(len(parse_errors), 1)
@@ -562,18 +566,13 @@ class TestDlfSchemaProbe(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             bogus = Path(tmpdir) / "dlf_bogus.csv"
             bogus.write_text("totally,unrelated,columns\nfoo,bar,baz\n", encoding="utf-8")
-            # Use a relative path that resolves correctly from repo root.
-            repo_root = Path(__file__).resolve().parents[2]
-            try:
-                rel = str(bogus.resolve().relative_to(repo_root))
-            except ValueError:
-                # tmpdir not under repo root — use absolute path and
-                # monkey-patch the Path join by making cfg path absolute.
-                rel = str(bogus.resolve())
+            # Absolute: the build joins it onto the PINNED input root, and an
+            # absolute path survives that join unchanged.
+            rel = str(bogus.resolve())
             patched_paths = dict(_SOURCE_CSV_PATHS)
             patched_paths["dlfSf"] = {"path": rel, "signal": "rank"}
             with mock.patch("src.api.data_contract._SOURCE_CSV_PATHS", patched_paths):
-                contract = build_api_data_contract(raw)
+                contract = build_pinned_contract(raw)
         parse_errors = contract.get("sourceParseErrors") or []
         schema_errors = [
             pe

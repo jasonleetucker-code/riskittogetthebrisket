@@ -25,9 +25,9 @@ regress:
    are present with positive values
 
 Two tiers, decided per class (CLAUDE.md "CI has two lanes"): the structural
-invariants build from ``tests.archive_fixtures.newest_complete_contract`` (the
-newest archived scrape the contract's own source-health definition calls
-complete) and run in the hard gate; the checks that compare against today's
+invariants build from ``tests.archive_fixtures.pinned_board_contract`` (one
+complete archived scrape with its own CSVs and scrape state, frozen in a
+committed fixture) and run in the hard gate; the checks that compare against today's
 ``CSVs/site_raw`` snapshot or an allowlist keyed to today's board keep reading
 ``exports/latest`` and carry ``@pytest.mark.livedata``.
 
@@ -51,7 +51,7 @@ from src.api.data_contract import (
     assert_ranking_coherence,
     build_api_data_contract,
 )
-from tests.archive_fixtures import newest_complete_contract
+from tests.archive_fixtures import pinned_board_contract
 
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -69,8 +69,8 @@ def _load_contract() -> dict[str, Any] | None:
 
 
 def _load_pinned_contract() -> dict[str, Any] | None:
-    """The newest COMPLETE archived board, built through the contract."""
-    contract, _name = newest_complete_contract()
+    """The PINNED complete archived board, built through the contract."""
+    contract, _name = pinned_board_contract()
     return contract
 
 

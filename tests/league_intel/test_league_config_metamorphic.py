@@ -43,6 +43,8 @@ import pytest
 from src.api import league_registry as lr
 from src.league_comparison.sleeper_scoring import scoring_fingerprint
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 ROOT = Path(__file__).resolve().parents[2]
 
 #: One hand-typed label shared by two leagues that do NOT score alike -- the
@@ -719,9 +721,9 @@ def test_f01_intel_leads_do_not_borrow_another_leagues_rosters_or_values(world, 
 # LI1842-DEFECT-02 -- REPAIRED (held for owner approval): the overrides route's TEP normalizers ignore a manual value (data_contract._TEP_OVERRIDES_DISABLED), so a posted tep_multiplier / tep_native_multiplier serves the canonical board; stamped meta.tepMultiplierNote.
 def test_f02_a_manual_tep_multiplier_cannot_move_the_canonical_board():
     from src.api import data_contract
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available")
 

@@ -5,7 +5,7 @@ docs/valuation/evidence/outlier-disagreement-2026-10-19/PREREGISTRATION.md.
 Unit level: the policy keeps valid disagreement (the owner's example: three sites
 near 5,000 and Draft Sharks at 3,000 keeps Draft Sharks), and rejects only a
 gross, uncorroborated vote or a mis-scaled board, under the preregistered guards.
-Pipeline level (newest complete archived scrape, no network): the flag ships OFF
+Pipeline level (pinned complete archived scrape, no network): the flag ships OFF
 and OFF never calls the policy; ON changes only the drop decision and leaves
 every vote alone.
 """
@@ -20,6 +20,8 @@ import pytest
 from src.api import data_contract as dc
 from src.api import feature_flags
 from src.api import outlier_policy as op
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 FLAG = "outlier_disagreement_policy"
 OFFENSE = op.scope_curve("offense")
@@ -280,9 +282,9 @@ def test_policy_yields_to_every_other_filter_challenger(monkeypatch):
 @pytest.fixture(scope="module")
 def boards():
     from src.api import value_replay as vr
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     pins = [("dlf_offense_only_vote", False)]
@@ -301,9 +303,9 @@ def _votes(row: dict) -> dict:
 
 def test_off_never_calls_the_policy(monkeypatch):
     from src.api import value_replay as vr
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
 

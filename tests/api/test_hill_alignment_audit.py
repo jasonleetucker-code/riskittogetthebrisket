@@ -2,7 +2,7 @@
 
 No network: every build here runs with sockets refused and the Sleeper league
 context pinned. No assertion depends on which sources answered the last scrape;
-real-board tests use the newest COMPLETE archived payload and assert properties
+real-board tests use the PINNED complete archived payload and assert properties
 (identities, restorations, populations), never counts.
 """
 
@@ -19,7 +19,9 @@ from scripts import hill_alignment_audit as audit
 from src.api import data_contract as dc
 from src.api import value_replay as vr
 from src.canonical.rank_coordinates import curve_for_pool
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _PINNED_CONTEXT = {"roster_count": 12, "bonus_rec_te": 0.0, "fetched_from_sleeper": False}
 
@@ -39,7 +41,7 @@ def offline():
 
 @pytest.fixture(scope="module")
 def raw(offline):
-    payload, _name = newest_complete_raw_payload()
+    payload, _name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     return payload

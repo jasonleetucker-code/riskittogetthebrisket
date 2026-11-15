@@ -34,7 +34,9 @@ import pytest
 import src.api.data_contract as dc
 from src.api import feature_flags
 from src.api.confidence import CONFIDENCE_LEVELS, FamilyEvidence
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _LEVEL = {name: i for i, name in enumerate(CONFIDENCE_LEVELS)}
 _FLAG = "confidence_cured_rejection_guard"
@@ -228,7 +230,7 @@ _BOARDS: dict[bool, dict[str, Any]] = {}
 
 def _board(guard: bool, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     if guard not in _BOARDS:
-        raw, _archive = newest_complete_raw_payload()
+        raw, _archive = pinned_board_payload()
         if raw is None:
             pytest.skip("no complete archived scrape to build a contract from")
         monkeypatch.setenv(_ENV, "1" if guard else "0")

@@ -12,7 +12,7 @@ re-verified CLOSED on current main.
 Record: docs/audits/remediation_2026-11-06/CW40_P1_BATCH_t1.md
 
 Boards come from the tracked export archive via
-``tests.archive_fixtures.newest_complete_contract`` -- never the network.
+``tests.archive_fixtures.pinned_board_contract`` -- never the network.
 Assertions are invariants, not absolute counts over the live board.
 """
 
@@ -32,14 +32,14 @@ from tests.api.test_league_routing import (  # noqa: F401  (fixture re-use)
     _install_contract_for_league,
     two_league_registry,
 )
-from tests.archive_fixtures import newest_complete_contract
+from tests.archive_fixtures import pinned_board_contract
 
 REPO = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture(scope="module")
 def board():
-    contract, name = newest_complete_contract()
+    contract, name = pinned_board_contract()
     if contract is None:
         pytest.skip("no complete archived board available")
     teams = (contract.get("sleeper") or {}).get("teams") or []

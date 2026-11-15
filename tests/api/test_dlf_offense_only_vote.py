@@ -23,7 +23,7 @@ seasonal inactivity and the private holds use) with the flag
 lifts the hold: the approved restore).
 
 Two halves: declaration / surface properties that need no board, and
-invariants on the newest complete archived scrape built twice (flag ON and
+invariants on the pinned complete archived scrape built twice (flag ON and
 OFF) — every board assertion is all-of / none-of, never a count, so a refresh
 of the archive or the CSVs cannot flip it.
 """
@@ -36,7 +36,9 @@ import pytest
 
 import src.api.data_contract as dc
 from src.api import feature_flags
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _HELD = ("dlfIdp", "dlfRookieIdp")
 _DLF_OFFENSE = ("dlfSf", "dlfRookieSf")
@@ -135,7 +137,7 @@ def test_vote_state_stamp_marks_held_public_sources(flag):
 
 @pytest.fixture(scope="module")
 def boards():
-    raw, name = newest_complete_raw_payload()
+    raw, name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available")
     mp = pytest.MonkeyPatch()

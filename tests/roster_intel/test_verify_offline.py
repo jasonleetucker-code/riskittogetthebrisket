@@ -2,16 +2,16 @@
 
 ``V1_ROSTER_VERIFICATION_PACK.md`` §3's real-board results table ("216
 rungs", "215 rung credits", ...) was produced by hand against
-``newest_complete_raw_payload()``, and the doc's own documented offline
+``pinned_board_payload()``, and the doc's own documented offline
 reproduction command — ``pytest tests/roster_intel/test_verification_pack.py``
 — only drives the checks from a synthetic fixture, so it proves the
 checks are LIVE, never that they hold on a real board. ``--offline``
 closes that gap: a committed, re-runnable command that rebuilds a real
-contract from the newest COMPLETE archive and reports EVIDENCE-L2, the
+contract from the PINNED complete archive and reports EVIDENCE-L2, the
 same evidence class the hand-run produced.
 
-NOT ``livedata`` (changed from the original marking).  It reads the newest
-COMPLETE archived scrape through ``tests.archive_fixtures`` -- the repo's one
+NOT ``livedata`` (changed from the original marking).  It reads the PINNED
+complete archived scrape through ``tests.archive_fixtures`` -- the repo's one
 rule for "a real board" -- so it is a function of the tracked archive, not of
 whichever sources answered the last scrape, and a provider that did not answer
 cannot fail it.  Verified green on boards spanning August-October 2026.  The
@@ -31,11 +31,13 @@ from scripts.verify_roster_intelligence import (
     build_bundle_offline,
     run_checks,
 )
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _skip_if_no_archive():
-    raw, _ = newest_complete_raw_payload()
+    raw, _ = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available in this environment")
 

@@ -21,9 +21,9 @@ outright.
 
 These tests are invariant-band style (PR #154): they assert the
 structural chain holds for a board, not specific values.  Despite the file
-name they therefore read no live data: the board is the newest archived scrape
+name they therefore read no live data: the board is the pinned archived scrape
 the contract's own source-health definition calls complete
-(``tests.archive_fixtures.newest_complete_contract``), so they run in the hard
+(``tests.archive_fixtures.pinned_board_contract``), so they run in the hard
 gate and a provider that did not answer cannot fail them (CLAUDE.md "CI has two
 lanes").  They used to read ``exports/latest`` in the advisory tier, which left
 the single-curve guarantee unable to fail a PR.
@@ -35,7 +35,7 @@ import unittest
 from typing import Any
 
 from src.api.data_contract import _DISPLAY_SCALE_MAX
-from tests.archive_fixtures import newest_complete_contract
+from tests.archive_fixtures import pinned_board_contract
 
 
 _IDP_POSITIONS = {"DL", "LB", "DB"}
@@ -43,8 +43,8 @@ _OFFENSE_POSITIONS = {"QB", "RB", "WR", "TE"}
 
 
 def _get() -> dict[str, Any] | None:
-    """The newest COMPLETE archived board (read-only, shared across modules)."""
-    contract, _name = newest_complete_contract()
+    """The PINNED complete archived board (read-only, shared across modules)."""
+    contract, _name = pinned_board_contract()
     return contract
 
 
