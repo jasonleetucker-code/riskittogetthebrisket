@@ -38,8 +38,7 @@ pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 def _skip_if_no_archive():
     raw, _ = pinned_board_payload()
-    if raw is None:
-        pytest.skip("no complete archived scrape available in this environment")
+    assert raw is not None, "the pinned board is committed and never absent"
 
 
 def test_offline_bundle_rebuilds_a_real_board_not_a_synthetic_one():

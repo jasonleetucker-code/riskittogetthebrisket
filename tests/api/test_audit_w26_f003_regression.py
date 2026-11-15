@@ -23,6 +23,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 REPO = Path(__file__).resolve().parents[2]
 PAGE = REPO / "frontend" / "app" / "draft" / "page.jsx"
 ARCHIVE = REPO / "exports" / "archive" / "dynasty_export_20261106_194518.zip"
