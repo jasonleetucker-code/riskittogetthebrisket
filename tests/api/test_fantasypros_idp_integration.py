@@ -30,14 +30,19 @@ from src.api.data_contract import (
 from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_IDP
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FP_CSV = REPO_ROOT / "CSVs" / "site_raw" / "fantasyProsIdp.csv"
 LIVE_API_JSON = REPO_ROOT / "tests" / "api" / "_live_api_fixture.json"
 
 
+def _live_fp_csv() -> Path:
+    """TODAY's scraped CSV.  Every user is a ``livedata`` class."""
+    return REPO_ROOT / "CSVs" / "site_raw" / "fantasyProsIdp.csv"
+
+
 def _fp_csv_rows() -> list[dict[str, str]]:
-    if not FP_CSV.exists():
+    fp_csv = _live_fp_csv()
+    if not fp_csv.exists():
         return []
-    with FP_CSV.open("r", encoding="utf-8-sig") as f:
+    with fp_csv.open("r", encoding="utf-8-sig") as f:
         return list(csv.DictReader(f))
 
 
@@ -110,7 +115,7 @@ class TestFantasyProsIdpCsvShape(unittest.TestCase):
     """Shape + algorithmic invariants of the scraped CSV file on disk."""
 
     def test_csv_exists(self):
-        self.assertTrue(FP_CSV.exists(), f"{FP_CSV} missing")
+        self.assertTrue(_live_fp_csv().exists(), f"{_live_fp_csv()} missing")
 
     def test_csv_has_required_columns(self):
         rows = _fp_csv_rows()

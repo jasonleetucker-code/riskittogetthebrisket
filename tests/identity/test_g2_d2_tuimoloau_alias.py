@@ -61,13 +61,14 @@ def test_alias_does_not_reach_other_players():
 @pytest.mark.parametrize("csv_name", ["draftSharksIdp.csv", "idpTradeCalc.csv"])
 def test_every_tracked_spelling_resolves_to_the_board_key(csv_name):
     """Any Tuimoloau a tracked IDP board publishes lands on the one board key."""
-    path = REPO / "CSVs" / "site_raw" / csv_name
-    if not path.is_file():
-        pytest.skip(f"{csv_name} not present")
+    from tests.archive_fixtures import pinned_board_root
+
+    # The PINNED board's CSV (it lists Tuimoloau), never today's refresh.
+    path = pinned_board_root() / "CSVs" / "site_raw" / csv_name
+    assert path.is_file(), f"the pinned board carries {csv_name}"
     with path.open(newline="", encoding="utf-8-sig") as fh:
         reader = csv.DictReader(fh)
         col = "Player" if "Player" in (reader.fieldnames or []) else "name"
         names = [r[col] for r in reader if "tuimoloau" in (r.get(col) or "").lower()]
-    if not names:
-        pytest.skip(f"{csv_name} lists no Tuimoloau this refresh")
+    assert names, f"the pinned {csv_name} lists a Tuimoloau spelling"
     assert {resolve_canonical_name(n) for n in names} == {"jaylahn tuimoloau"}

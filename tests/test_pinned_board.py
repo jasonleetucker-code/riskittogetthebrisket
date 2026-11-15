@@ -473,6 +473,11 @@ _LIVE_BUILD_HELPERS: dict[str, str] = {
     "tests/api/test_pick_refinement.py::_get": "cached getter over _load_contract, livedata callers only",
     "tests/api/test_picks_end_to_end.py::_load_contract": "reads exports/latest for the livedata pick checks",
     "tests/api/test_source_monitoring.py::_get_live_contract": "reads exports/latest for the livedata source-health floors",
+    "tests/api/test_source_monitoring.py::_load_latest_raw": "reads exports/latest for the livedata source-health floors",
+    "tests/api/test_player_identity_regression.py::_latest_dynasty_payload": "reads exports/latest for the livedata player-presence checks",
+    "tests/api/test_dynasty_nerds_integration.py::_live_dn_csv": "today's scraped CSV, read only by the livedata shape class",
+    "tests/api/test_fantasypros_idp_integration.py::_live_fp_csv": "today's scraped CSV, read only by the livedata classes",
+    "tests/api/test_fantasypros_idp_integration.py::_fp_csv_rows": "rows of today's scraped CSV, livedata classes only",
 }
 
 
@@ -752,3 +757,354 @@ def test_the_audit_board_fixture_carries_no_real_identifier():
         assert team["name"] == pb.manager_name(int(team["roster_id"]))
         assert str(team["ownerId"]).startswith(pb.SYNTHETIC_ID_PREFIX)
     assert not re.findall(r"[\w.+-]+@[\w-]+\.[a-z]{2,}", json.dumps(payload))
+
+
+# ── The guard: no hard-gate test reads today's refresh-written inputs by PATH ─
+#
+# The guards above see helper calls and contract builds.  Neither sees a test
+# that opens ``CSVs/site_raw`` (or a script's ``CSV_DIR`` constant that
+# resolves there) directly: PR 2213 -- ``test_hill_alignment_audit`` built its
+# base board from the pinned tree but copied its KTC CSVs from
+# ``scripts.hill_alignment_audit.CSV_DIR``, so the next KTC refresh failed
+# Deploy Production with the code byte-identical.  This scan closes that gap.
+
+#: A path component naming a refresh-written store.  ``exports`` + ``latest``
+#: is matched as an adjacent pair (neither word is a store alone).
+_REFRESH_TOKENS = {"site_raw", "scrape_state", "sleeper_last_good.json", "sleeper_last_good"}
+
+#: Upper-case only: ``REPO`` / ``REPO_ROOT`` / ``_REPO`` are the module constants
+#: the real checkout hangs off; a lower-case ``repo`` is a tmp git repo fixture.
+_REPO_ROOT_NAME = re.compile(r"^_*(REPO|REPO_ROOT|PROJECT_ROOT|REPO_DIR|PROJECT_DIR)$")
+
+#: Infrastructure that names these stores on purpose: the pin itself, the
+#: runtime-data redirect and its watch list, the conftest, and this guard.
+_LIVE_PATH_SCAN_SKIP = {
+    "tests/archive_fixtures.py",
+    "tests/pinned_board_build.py",
+    "tests/runtime_data_isolation.py",
+    "tests/conftest.py",
+    "tests/test_pinned_board.py",
+}
+
+#: ``"<module>"`` -> reason.  Hard-gate modules that may still name a
+#: refresh-written store by path.  Every entry must still offend (a stale
+#: entry fails ``test_the_live_path_allowlist_is_exact``) and carry a reason.
+_LIVE_PATH_READ_ALLOWLIST: dict[str, str] = {
+    # The four below assert a property of the PUBLISHED artifacts themselves, not of
+    # a value a refresh moves: they stay blocking because a regression in OUR
+    # exporter / scraper / privacy redaction must stop a deploy, and a vendor refresh
+    # cannot turn them red with the code byte-identical.
+    "tests/api/test_export_leg_is_raw_evidence.py": (
+        "asserts the committed export CSV headers / raw payload carry no canonical field"
+        " name; a structural property of the export leg, independent of any value"
+    ),
+    "tests/api/test_tracked_artifacts_privacy.py": (
+        "scans what the refresh commits for private-intelligence fields; the privacy"
+        " gate must read the real tracked artifacts by definition"
+    ),
+    "tests/deploy/test_scheduled_refresh_playwright_runner.py": (
+        "asserts a committed CSV exists for every declared browser source (is_file only,"
+        " no content); a refresh rewrites these files, never removes them"
+    ),
+    "tests/model_registry/test_learning_boundary.py": (
+        "hashes the served board and facts before and after running the substrate to prove"
+        " it wrote nothing; compares the file with itself, so no refresh can change it"
+    ),
+}
+
+
+def _string_tokens(node: ast.AST) -> list[str]:
+    """Every path component spelled by a string constant under ``node``, in
+    source order (so ``"exports" / "latest"`` yields adjacent tokens)."""
+    consts = sorted(
+        (n for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str)),
+        key=lambda n: (n.lineno, n.col_offset),
+    )
+    tokens: list[str] = []
+    for c in consts:
+        tokens.extend(t for t in re.split(r"[\\/]+", c.value) if t)
+    return tokens
+
+
+def _names_refresh_store(tokens: list[str]) -> bool:
+    if any(t in _REFRESH_TOKENS for t in tokens):
+        return True
+    return any(a == "exports" and b == "latest" for a, b in zip(tokens, tokens[1:]))
+
+
+def _is_repo_anchor(node: ast.AST, modules: frozenset[str] | None = None) -> bool:
+    """True when ``node`` is a repo-root name or ``__file__``.  An attribute
+    (``audit.REPO_ROOT``) counts only on an IMPORTED module (``modules``; ``None``
+    = any base): ``jfs = run.jfs`` / ``self.REPO`` are locals a test routinely
+    monkeypatches to a tmp tree."""
+    if isinstance(node, ast.Name):
+        return bool(_REPO_ROOT_NAME.match(node.id)) or node.id == "__file__"
+    if isinstance(node, ast.Attribute) and _REPO_ROOT_NAME.match(node.attr):
+        return modules is None or ast.unparse(node.value) in modules
+    return False
+
+
+def _module_file(dotted: str) -> Path | None:
+    base = REPO.joinpath(*dotted.split("."))
+    for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+_CONSTANT_CACHE: dict[str, tuple[frozenset[str], frozenset[str]]] = {}
+
+
+def _refresh_constants(dotted: str) -> tuple[frozenset[str], frozenset[str]]:
+    """``(names, anchored)``: module-level constants of ``dotted`` whose value
+    names a refresh-written store (directly or through another such constant),
+    and the subset whose value is also rooted at the repo (an absolute path --
+    ``CSV_DIR = REPO_ROOT / "CSVs" / "site_raw"``).  The rest are relative
+    (``DLF_VALUES_CSV_REL = "CSVs/site_raw/..."``) and only offend when joined
+    to a repo root."""
+    if dotted in _CONSTANT_CACHE:
+        return _CONSTANT_CACHE[dotted]
+    path = _module_file(dotted) if dotted.split(".")[0] in {"scripts", "src"} else None
+    names: set[str] = set()
+    anchored: set[str] = set()
+    if path is not None:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        assigns = []
+        for stmt in tree.body:
+            if isinstance(stmt, ast.Assign):
+                targets = [t.id for t in stmt.targets if isinstance(t, ast.Name)]
+            elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                targets = [stmt.target.id]
+            else:
+                continue
+            if stmt.value is not None:
+                assigns.append((targets, stmt.value))
+        changed = True
+        while changed:
+            changed = False
+            for targets, value in assigns:
+                refs = {n.id for n in ast.walk(value) if isinstance(n, ast.Name)}
+                if not (_names_refresh_store(_string_tokens(value)) or refs & names):
+                    continue
+                rooted = any(_is_repo_anchor(n) for n in ast.walk(value)) or bool(refs & anchored)
+                for t in targets:
+                    if t not in names:
+                        names.add(t)
+                        changed = True
+                    if rooted and t not in anchored:
+                        anchored.add(t)
+                        changed = True
+    result = (frozenset(names), frozenset(anchored))
+    _CONSTANT_CACHE[dotted] = result
+    return result
+
+
+def _import_bindings(tree: ast.Module) -> tuple[dict[str, str], dict[str, tuple[str, str]]]:
+    """``(modules, constants)``: local name -> dotted module, and local name ->
+    ``(dotted module, attribute)`` for ``from scripts.x import NAME``."""
+    modules: dict[str, str] = {}
+    constants: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for item in node.names:
+                modules[item.asname or item.name] = item.name
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            for item in node.names:
+                local = item.asname or item.name
+                if _module_file(f"{node.module}.{item.name}") is not None:
+                    modules[local] = f"{node.module}.{item.name}"
+                else:
+                    constants[local] = (node.module, item.name)
+    return modules, constants
+
+
+def _live_path_reads(path: Path, live_helpers: frozenset[str] = frozenset()) -> list[int]:
+    """Lines where ``path`` (outside a ``livedata`` scope, and outside the
+    ``_LIVE_BUILD_HELPERS`` functions that only livedata callers reach) builds a path that
+    is rooted at the repo AND names a refresh-written store -- either spelled
+    out (``REPO / "CSVs" / "site_raw"``) or reached through a ``scripts`` /
+    ``src`` module constant (``audit.CSV_DIR``).  A path rooted at the pinned
+    tree (``dc._default_input_root() / "CSVs" / "site_raw"``) or a tmp dir is
+    not repo-anchored and is fine."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    modules, constants = _import_bindings(tree)
+    imported = frozenset(modules)
+
+    def const_ref(node: ast.AST) -> tuple[bool, bool]:
+        """``(names a store, absolute)`` for a reference to a module constant."""
+        if isinstance(node, ast.Name) and node.id in constants:
+            mod, attr = constants[node.id]
+        elif isinstance(node, ast.Attribute):
+            mod = modules.get(ast.unparse(node.value))
+            attr = node.attr
+            if mod is None:
+                return False, False
+        else:
+            return False, False
+        names, anchored = _refresh_constants(mod)
+        return attr in names, attr in anchored
+
+    def examine(node: ast.AST) -> bool:
+        stores = _names_refresh_store(_string_tokens(node))
+        anchored = False
+        for sub in ast.walk(node):
+            ref_store, ref_abs = const_ref(sub)
+            stores = stores or ref_store
+            anchored = anchored or ref_abs or _is_repo_anchor(sub, imported)
+        return stores and anchored
+
+    module_live = any(
+        isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in n.targets)
+        and "livedata" in ast.unparse(n.value)
+        for n in tree.body
+    )
+    hits: list[int] = []
+
+    def visit(node: ast.AST, live: bool) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            live = live or any(_is_livedata_mark(d) for d in node.decorator_list)
+            if getattr(node, "name", None) in live_helpers and not isinstance(node, ast.ClassDef):
+                live = True
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            return
+        if (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            return  # a docstring or bare string is prose, not a read
+        if isinstance(node, ast.expr) and not live and examine(node):
+            hits.append(node.lineno)
+            return
+        for child in ast.iter_child_nodes(node):
+            visit(child, live)
+
+    visit(tree, module_live)
+    return sorted(hits)
+
+
+def _hard_gate_live_path_offenders() -> dict[str, list[int]]:
+    live_modules = _livedata_modules()
+    found: dict[str, list[int]] = {}
+    for path in sorted(TESTS.rglob("*.py")):
+        rel = path.relative_to(REPO).as_posix()
+        if rel in _LIVE_PATH_SCAN_SKIP or path.name in live_modules:
+            continue
+        lines = _live_path_reads(path, _live_helpers_for(rel))
+        if lines:
+            found[rel] = lines
+    return found
+
+
+def test_no_hard_gate_test_reads_todays_inputs_by_path():
+    """A hard-gate test that needs the board's CSVs, scrape state, last-good
+    Sleeper snapshot or ``exports/latest`` reads them from the PINNED tree
+    (``dc._default_input_root()`` under ``pinned_board_inputs``) or builds its
+    own under ``tmp_path``.  A test that is about the latest refresh is
+    ``livedata``.  Anything else is how a data refresh freezes a deploy."""
+    offenders = {
+        rel: lines
+        for rel, lines in _hard_gate_live_path_offenders().items()
+        if rel not in _LIVE_PATH_READ_ALLOWLIST
+    }
+    assert not offenders, (
+        "hard-gate tests name a refresh-written store (CSVs/site_raw, data/scrape_state, "
+        f"exports/latest, data/sleeper_last_good.json) rooted at the repo: {offenders}. "
+        "Read it from dc._default_input_root() under the pinned_board_inputs fixture, build "
+        "it under tmp_path, or mark the test @pytest.mark.livedata."
+    )
+
+
+def test_the_live_path_allowlist_is_exact():
+    """Every entry names a real module with a reason and STILL offends: when the
+    fix it waits for lands, the entry must go (the allowlist is a debt list)."""
+    offenders = _hard_gate_live_path_offenders()
+    for rel, reason in _LIVE_PATH_READ_ALLOWLIST.items():
+        assert (REPO / rel).is_file(), rel
+        assert len(reason.strip()) > 20, f"{rel}: give the reason it must name a live store"
+        assert rel in offenders, f"{rel} no longer reads a live store by path: delete its entry"
+
+
+def test_the_live_path_allowlist_check_fails_on_a_stale_entry(monkeypatch):
+    """Guard on the stale-entry check: an entry for a module that does not
+    offend makes ``test_the_live_path_allowlist_is_exact`` fail."""
+    monkeypatch.setitem(
+        _LIVE_PATH_READ_ALLOWLIST,
+        "tests/test_livedata_policy.py",
+        "a module that names no refresh-written store by path",
+    )
+    with pytest.raises(AssertionError, match="delete its entry"):
+        test_the_live_path_allowlist_is_exact()
+
+
+def _scan(tmp_path, source: str) -> list[int]:
+    sample = tmp_path / "test_sample.py"
+    sample.write_text(source, encoding="utf-8")
+    return _live_path_reads(sample)
+
+
+@pytest.mark.parametrize(
+    "source, expected",
+    [
+        ('p = REPO / "CSVs" / "site_raw" / "ktc.csv"\n', [1]),
+        ('p = REPO_ROOT / "data" / "scrape_state"\n', [1]),
+        ('p = _REPO / "exports" / "latest"\n', [1]),
+        ('import json\nj = json.loads((REPO / "data/sleeper_last_good.json").read_text())\n', [2]),
+        ('g = glob.glob(os.path.join(REPO, "exports/latest/site_raw/*.csv"))\n', [1]),
+        # a scripts constant that resolves to today's CSVs (the 2213 shape)
+        ("from scripts import hill_alignment_audit as audit\nx = audit.CSV_DIR / 'k.csv'\n", [2]),
+        ("from scripts.hill_alignment_audit import CSV_DIR\nx = CSV_DIR / 'k.csv'\n", [2]),
+        ("import scripts.hill_alignment_audit as a\nx = a.CSV_DIR\n", [2]),
+        # a relative constant only offends when joined to a repo root
+        (
+            "from scripts import hill_alignment_audit as audit\n"
+            "x = audit.REPO_ROOT / audit.DLF_VALUES_CSV_REL\n",
+            [2],
+        ),
+        (
+            "from scripts import hill_alignment_audit as audit\n"
+            "x = dc._default_input_root() / audit.DLF_VALUES_CSV_REL\n",
+            [],
+        ),
+        # the pinned tree, a tmp tree and prose are fine
+        ('p = dc._default_input_root() / "CSVs" / "site_raw" / "ktc.csv"\n', []),
+        ('p = tmp_path / "CSVs" / "site_raw"\n', []),
+        ('"""reads REPO / "CSVs" / "site_raw"."""\nx = 1\n', []),
+        ('assert "site_raw" in text\n', []),
+        # a livedata scope is exempt, the rest of the module is not
+        (
+            "import pytest\n@pytest.mark.livedata\ndef test_a():\n"
+            '    p = REPO / "CSVs" / "site_raw"\n'
+            'def test_b():\n    p = REPO / "CSVs" / "site_raw"\n',
+            [6],
+        ),
+        (
+            'import pytest\npytestmark = pytest.mark.livedata\np = REPO / "exports" / "latest"\n',
+            [],
+        ),
+        # "exports" and "latest" are only a store as an adjacent pair
+        ('p = REPO / "exports" / "archive"\nq = REPO / "latest"\n', []),
+    ],
+    ids=[
+        "site-raw",
+        "scrape-state",
+        "exports-latest",
+        "sleeper-last-good",
+        "glob-join",
+        "script-constant-attribute",
+        "script-constant-import",
+        "script-constant-module-alias",
+        "relative-constant-with-repo-root",
+        "relative-constant-with-pinned-root",
+        "pinned-tree",
+        "tmp-tree",
+        "docstring",
+        "mere-mention",
+        "livedata-function-exempt",
+        "livedata-module-exempt",
+        "adjacent-pair-only",
+    ],
+)
+def test_the_live_path_guard_sees_it(tmp_path, source, expected):
+    assert _scan(tmp_path, source) == expected

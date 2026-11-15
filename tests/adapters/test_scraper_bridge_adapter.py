@@ -205,11 +205,12 @@ class TestRealKtcExport:
 
     @pytest.fixture
     def real_csv(self):
-        from pathlib import Path
+        # The PINNED board's KTC CSV, not today's: a refresh must not change a
+        # hard-gate result (tests/test_pinned_board.py guards the path).
+        from tests.archive_fixtures import pinned_board_root
 
-        p = Path(__file__).resolve().parent.parent.parent / "CSVs" / "site_raw" / "ktc.csv"
-        if not p.exists():
-            pytest.skip("KTC export not available")
+        p = pinned_board_root() / "CSVs" / "site_raw" / "ktc.csv"
+        assert p.is_file(), "the pinned board carries ktc.csv"
         return p
 
     def test_loads_real_export(self, value_adapter, real_csv):

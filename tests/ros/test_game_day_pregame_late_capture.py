@@ -502,10 +502,11 @@ def test_a_tampered_injury_copy_is_recorded_unverified_not_repaired(tmp_path):
     assert block["state"] == "known" and block["contentVerified"] is False
 
 
-def test_board_context_is_the_existing_payload_identity_and_not_an_input():
+def test_board_context_is_the_existing_payload_identity_and_not_an_input(tmp_path):
     data = b'{"scrapeTimestamp": "2026-11-15T06:05:00+00:00"}'
-    found = (_REPO / "exports/latest/dynasty_data_2026-11-15.json", json.loads(data), 1.9, data)
-    block = board_context_from_payload(found, stale_budget_hours=6, repo_root=_REPO)
+    # A synthetic repo root: the block only names the path relative to it.
+    found = (tmp_path / "exports/latest/dynasty_data_2026-11-15.json", json.loads(data), 1.9, data)
+    block = board_context_from_payload(found, stale_budget_hours=6, repo_root=tmp_path)
     assert block["state"] == "known"
     assert block["payloadSha256"] == hashlib.sha256(data).hexdigest()
     assert block["source"] == "exports/latest/dynasty_data_2026-11-15.json"
