@@ -15220,34 +15220,62 @@ def _compute_draft_capital(league_cfg, is_default_league: bool):
 # served past the TTL: they keep blocking exactly as before, so a recovered
 # upstream is seen on the next request.  A publish still clears the cache (old
 # generation); ``_kick_draft_capital_publish_rebuild`` then rebuilds the
-# default league's board off the request path.
+# default league's board off the request path once the server is serving.
+# Filing is guarded: a build files only if the board generation it read
+# (``latest_data_etag`` at its start) is still current and no build that
+# started later has already filed, so a build racing a publish or an
+# authorized ``?refresh=1`` can never file an older board.  The jobs share the
+# public-league job machinery, so the ``memo_refresh_*`` counters and
+# ``public-league-memo-*`` thread names include ``draft-capital:<league>``.
 _DRAFT_CAPITAL_SWR_SEC = 600.0
 _DRAFT_CAPITAL_WARM_ENABLED = _env_bool("DRAFT_CAPITAL_WARM_ENABLED", True)
+_DRAFT_CAPITAL_STORE_LOCK = threading.Lock()
+#: league key -> start time (``time.time()``) of the build whose board is filed.
+_DRAFT_CAPITAL_FILED_STARTED: dict[str, float] = {}
+_DRAFT_CAPITAL_ANY_GENERATION = object()
 
 
-def _store_draft_capital_result(league_key: str, result):
-    """File one build's result exactly as the route always did; returns what
-    to serve (the result, or the labelled last valid board on a dollars-
-    generation failure)."""
+def _store_draft_capital_result(
+    league_key: str,
+    result,
+    *,
+    started_at: float | None = None,
+    generation=_DRAFT_CAPITAL_ANY_GENERATION,
+):
+    """File one build's result as the route always did; returns what to serve
+    (the result, or the labelled last valid board on a dollars-generation
+    failure).  Not filed -- but still returned to its own caller -- when the
+    board generation moved since the build read it, or when a build that
+    started later already filed."""
     if not isinstance(result, dict):
         return result
     result["leagueKey"] = league_key
     stamp = time.time()
-    if "error" not in result:
-        _DRAFT_CAPITAL_LAST_VALID[league_key] = (stamp, result)
-        _DRAFT_CAPITAL_CACHE[league_key] = (stamp, result)
-        return result
-    stale = _draft_capital_stale_fallback(league_key, result, stamp)
-    if stale is not None:
-        # Served now; the failure is retried once the short revalidation
-        # window lapses (not the full TTL).
-        _DRAFT_CAPITAL_CACHE[league_key] = (
-            stamp - _DRAFT_CAPITAL_TTL_SEC + _DRAFT_CAPITAL_STALE_RETRY_SEC,
-            stale,
-        )
-        return stale
-    _DRAFT_CAPITAL_CACHE[league_key] = (stamp, result)
-    return result
+    stale = (
+        None if "error" not in result else _draft_capital_stale_fallback(league_key, result, stamp)
+    )
+    served = stale if stale is not None else result
+    with _DRAFT_CAPITAL_STORE_LOCK:
+        if generation is not _DRAFT_CAPITAL_ANY_GENERATION and generation != latest_data_etag:
+            return served
+        if started_at is not None:
+            filed = _DRAFT_CAPITAL_FILED_STARTED.get(league_key)
+            if filed is not None and filed > started_at:
+                return served
+            _DRAFT_CAPITAL_FILED_STARTED[league_key] = started_at
+        if "error" not in result:
+            _DRAFT_CAPITAL_LAST_VALID[league_key] = (stamp, result)
+            _DRAFT_CAPITAL_CACHE[league_key] = (stamp, result)
+        elif stale is not None:
+            # Served now; the failure is retried once the short revalidation
+            # window lapses (not the full TTL).
+            _DRAFT_CAPITAL_CACHE[league_key] = (
+                stamp - _DRAFT_CAPITAL_TTL_SEC + _DRAFT_CAPITAL_STALE_RETRY_SEC,
+                stale,
+            )
+        else:
+            _DRAFT_CAPITAL_CACHE[league_key] = (stamp, result)
+    return served
 
 
 def _draft_capital_stale_servable(cache_slot, now: float) -> bool:
@@ -15259,6 +15287,8 @@ def _draft_capital_stale_servable(cache_slot, now: float) -> bool:
     return (
         isinstance(cached, dict)
         and "error" not in cached
+        # A labelled last valid board keeps its own short retry rule.
+        and "staleWhileRevalidate" not in cached
         and _DRAFT_CAPITAL_TTL_SEC <= age < _DRAFT_CAPITAL_TTL_SEC + _DRAFT_CAPITAL_SWR_SEC
     )
 
@@ -15267,9 +15297,18 @@ def _kick_draft_capital_refresh(league_cfg, is_default_league: bool) -> bool:
     """Rebuild one league's board on a daemon thread; never blocks or raises."""
 
     def _build():
-        _store_draft_capital_result(
-            league_cfg.key, _compute_draft_capital(league_cfg, is_default_league)
-        )
+        # A publish during the build supersedes it, and the publish's own
+        # rebuild is refused while this job holds the claim, so build once more
+        # on the new generation.
+        for _attempt in range(2):
+            generation = latest_data_etag
+            started_at = time.time()
+            result = _compute_draft_capital(league_cfg, is_default_league)
+            if generation == latest_data_etag:
+                _store_draft_capital_result(
+                    league_cfg.key, result, started_at=started_at, generation=generation
+                )
+                return
 
     return _kick_public_memo_refresh(f"draft-capital:{league_cfg.key}", _build)
 
@@ -15286,7 +15325,20 @@ def _kick_draft_capital_publish_rebuild() -> bool:
         default_cfg = _league_registry.get_default_league()
         if not default_cfg:
             return False
-        return _kick_draft_capital_refresh(default_cfg, True)
+        if _SERVING_STARTED.is_set():
+            return _kick_draft_capital_refresh(default_cfg, True)
+
+        # Boot: the first prime publishes before the server serves.  Wait, as
+        # the public-sections warm does, BEFORE claiming a job, so the wait is
+        # never mistaken for a hung build.
+        def _after_serving():
+            _SERVING_STARTED.wait(timeout=_ANALYSIS_WARM_BOOT_WAIT_SECONDS)
+            _kick_draft_capital_refresh(default_cfg, True)
+
+        threading.Thread(
+            target=_after_serving, name="draft-capital-boot-rebuild", daemon=True
+        ).start()
+        return True
     except Exception as exc:  # noqa: BLE001 — the request path builds on demand
         logging.warning("draft-capital publish rebuild not scheduled: %s", exc)
         return False
@@ -15430,8 +15482,13 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             ):
                 result = cache_slot[1]
             else:
+                generation = latest_data_etag
+                started_at = time.time()
                 result = _store_draft_capital_result(
-                    league_cfg.key, await run_in_threadpool(_compute)
+                    league_cfg.key,
+                    await run_in_threadpool(_compute),
+                    started_at=started_at,
+                    generation=generation,
                 )
         return JSONResponse(
             content=result if viewer_is_authed else _redact_draft_capital_for_public(result),

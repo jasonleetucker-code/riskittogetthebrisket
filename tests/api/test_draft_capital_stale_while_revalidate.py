@@ -42,8 +42,16 @@ REFUSAL = {"error": "pick_ownership_unavailable", "message": "x", "draftYear": 2
 def srv(monkeypatch):
     server = pytest.importorskip("server")
     wait_for_public_memo_refreshes(server)
-    for name in ("_DRAFT_CAPITAL_CACHE", "_DRAFT_CAPITAL_LAST_VALID", "_DRAFT_CAPITAL_LOCKS"):
+    for name in (
+        "_DRAFT_CAPITAL_CACHE",
+        "_DRAFT_CAPITAL_LAST_VALID",
+        "_DRAFT_CAPITAL_LOCKS",
+        "_DRAFT_CAPITAL_FILED_STARTED",
+    ):
         monkeypatch.setattr(server, name, {})
+    serving = threading.Event()
+    serving.set()
+    monkeypatch.setattr(server, "_SERVING_STARTED", serving)
     monkeypatch.setattr(server, "_public_memo_refresh_inflight", {})
     monkeypatch.setattr(server, "_public_memo_refresh_failed_at", {})
     monkeypatch.setattr(server, "_public_memo_refresh_abandoned", {})
@@ -139,7 +147,8 @@ def test_authorized_refresh_blocks_even_with_a_stale_entry(srv, monkeypatch):
 
 
 def test_anonymous_stale_answer_is_redacted_and_the_cache_untouched(srv, monkeypatch):
-    _builder(srv, monkeypatch, GOOD_NEW, gate=threading.Event())
+    gate = threading.Event()
+    _builder(srv, monkeypatch, GOOD_NEW, gate=gate)
     board = {
         "season": 2027,
         "picks": [
@@ -153,6 +162,7 @@ def test_anonymous_stale_answer_is_redacted_and_the_cache_untouched(srv, monkeyp
     assert "rookieName" not in out["picks"][0] and "rookieBoardValue" not in out["picks"][0]
     cached = srv._DRAFT_CAPITAL_CACHE[_League.key][1]
     assert cached["picks"][0]["rookieName"] == "Private"
+    gate.set()
 
 
 def test_background_refusal_is_filed_like_the_request_path(srv, monkeypatch):
@@ -221,3 +231,90 @@ def test_publish_clears_then_rebuilds():
     src = inspect.getsource(server)
     clear_then_kick = "_DRAFT_CAPITAL_CACHE.clear()\n    _kick_draft_capital_publish_rebuild()"
     assert clear_then_kick in src.replace("\r\n", "\n")
+
+
+def test_labelled_last_valid_board_keeps_its_short_retry_rule(srv, monkeypatch):
+    builds = _builder(srv, monkeypatch, GOOD_NEW)
+    labelled = {**GOOD_OLD, "staleWhileRevalidate": {"state": "serving_last_valid_board"}}
+    _seed(srv, labelled, age=srv._DRAFT_CAPITAL_TTL_SEC + 5)
+    out = _get(srv)
+    assert "staleWhileRevalidate" not in out and out["picks"] == GOOD_NEW["picks"]
+    assert builds == [1]
+
+
+def test_background_build_superseded_by_a_publish_is_not_filed_and_reruns(srv, monkeypatch):
+    monkeypatch.setattr(srv, "latest_data_etag", "gen-1")
+    calls: list[str] = []
+
+    def build(*_a, **_k):
+        calls.append(srv.latest_data_etag)
+        if len(calls) == 1:
+            # A publish lands while the first build runs.
+            srv.latest_data_etag = "gen-2"
+            return json.loads(json.dumps(GOOD_OLD))
+        return json.loads(json.dumps(GOOD_NEW))
+
+    monkeypatch.setattr(srv, "_fetch_draft_capital", build)
+    _seed(srv, GOOD_OLD, age=srv._DRAFT_CAPITAL_TTL_SEC + 5)
+    _get(srv)
+    wait_for_public_memo_refreshes(srv)
+    assert calls == ["gen-1", "gen-2"]
+    cached = srv._DRAFT_CAPITAL_CACHE[_League.key][1]
+    assert cached["picks"] == GOOD_NEW["picks"]
+    assert srv._DRAFT_CAPITAL_LAST_VALID[_League.key][1]["picks"] == GOOD_NEW["picks"]
+
+
+def test_request_build_superseded_by_a_publish_is_served_but_not_filed(srv, monkeypatch):
+    monkeypatch.setattr(srv, "latest_data_etag", "gen-1")
+
+    def build(*_a, **_k):
+        srv.latest_data_etag = "gen-2"
+        return json.loads(json.dumps(GOOD_OLD))
+
+    monkeypatch.setattr(srv, "_fetch_draft_capital", build)
+    out = _get(srv, refresh="1")
+    assert out["picks"] == GOOD_OLD["picks"]
+    assert _League.key not in srv._DRAFT_CAPITAL_CACHE
+    assert _League.key not in srv._DRAFT_CAPITAL_LAST_VALID
+
+
+def test_an_older_background_build_never_overwrites_a_newer_refresh(srv, monkeypatch):
+    gate = threading.Event()
+    calls: list[int] = []
+
+    def build(*_a, **_k):
+        calls.append(1)
+        if len(calls) == 1:
+            gate.wait(10)  # the background build started first and finishes last
+            return json.loads(json.dumps(GOOD_OLD))
+        return json.loads(json.dumps(GOOD_NEW))
+
+    monkeypatch.setattr(srv, "_fetch_draft_capital", build)
+    _seed(srv, GOOD_OLD, age=srv._DRAFT_CAPITAL_TTL_SEC + 5)
+    _get(srv)  # stale answer; background build 1 starts and blocks
+    deadline = time.time() + 5
+    while not calls and time.time() < deadline:
+        time.sleep(0.01)
+    assert calls == [1]
+    assert _get(srv, refresh="1")["picks"] == GOOD_NEW["picks"]  # build 2 files
+    gate.set()
+    wait_for_public_memo_refreshes(srv)
+    assert len(calls) == 2
+    assert srv._DRAFT_CAPITAL_CACHE[_League.key][1]["picks"] == GOOD_NEW["picks"]
+
+
+def test_boot_publish_rebuild_waits_for_serving(srv, monkeypatch):
+    builds = _builder(srv, monkeypatch, GOOD_NEW)
+    monkeypatch.setattr(srv, "_DRAFT_CAPITAL_WARM_ENABLED", True)
+    not_yet = threading.Event()
+    monkeypatch.setattr(srv, "_SERVING_STARTED", not_yet)
+    assert srv._kick_draft_capital_publish_rebuild() is True
+    time.sleep(0.2)
+    assert builds == [] and _League.key not in srv._DRAFT_CAPITAL_CACHE
+    not_yet.set()
+    deadline = time.time() + 10
+    while _League.key not in srv._DRAFT_CAPITAL_CACHE and time.time() < deadline:
+        time.sleep(0.02)
+    wait_for_public_memo_refreshes(srv)
+    assert builds == [1]
+    assert srv._DRAFT_CAPITAL_CACHE[_League.key][1]["picks"] == GOOD_NEW["picks"]
