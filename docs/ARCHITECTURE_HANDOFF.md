@@ -1,5 +1,16 @@
 # Architecture Handoff
 
+> **STATUS LINE 2026-11-15 (docs convergence, MD-115).** This file is a B-series-era (2026-08) architecture snapshot and
+> is NOT current state. For what is current: authorization = `docs/EXECUTION_PLAN.md`; canonical owners and their
+> evidence = `docs/C_SERIES_SCOPE_MANIFEST.md` and the technical runbook `CLAUDE.md`; the 2026-11-06 remediation
+> campaign = `docs/audits/remediation_2026-11-06/BACKEND_CAMPAIGN_LEDGER_2026-11-08.md`; document classification =
+> `docs/PLANNING_DOCUMENT_STATUS.md`. Owners created after this snapshot (for example `src/roster_intel/`,
+> `src/trade/constraints.py`, `src/trade/roster_capacity.py`, `src/trade/analyze_service.py`, `src/acquisition/`,
+> `src/auction/`) are not described below. The calculator completion dashboard
+> (`docs/completion/CALCULATOR_COMPLETION_DASHBOARD.md`) was last regenerated 2026-10-18 and is likewise stale. History below
+> is preserved unchanged.
+
+
 > **PHASE STATUS IS STALE — CORRECTED 2026-08-14.** Any statement in this file that Phase B has not started, or
 > that pins HEAD at B3, is wrong. **B4–B11 are merged and the B-Series Completion Audit passed** (#837,
 > `79f47ff`, 20/20 executable checks). Per this repository's own precedence rule, `docs/EXECUTION_PLAN.md`

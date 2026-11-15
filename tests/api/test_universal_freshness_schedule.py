@@ -1,6 +1,6 @@
 """The owner's freshness schedule on a real board (owner directive 2026-10-19 §9).
 
-Built from the newest complete archived scrape (``tests/archive_fixtures``)
+Built from the pinned complete archived scrape (``tests/archive_fixtures``)
 with this checkout's dataset state.  Invariants only — never a count or a
 health status of the live board, which depend on which sources answered the
 last scrape:
@@ -24,7 +24,9 @@ from src.api import data_contract as dc
 from src.api import feature_flags
 from src.api.source_weighting_explain import source_table
 from src.sources.voting_status import ACTIVE_STATUSES
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 STEPS = (1.0, 0.75, 0.5, 0.25)
 FLAG_ENV = "RISKIT_FEATURE_SOURCE_FRESHNESS_SCHEDULE_V2"
@@ -34,7 +36,7 @@ _cache: dict[str, dict] = {}
 def _build(v2: bool) -> dict:
     key = "on" if v2 else "off"
     if key not in _cache:
-        raw, _archive = newest_complete_raw_payload()
+        raw, _archive = pinned_board_payload()
         if raw is None:
             pytest.skip("no complete archived scrape to build a contract from")
         prior = os.environ.get(FLAG_ENV)

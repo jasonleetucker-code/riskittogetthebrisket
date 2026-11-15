@@ -22,7 +22,8 @@ Fifteen modules (350 tests) were listed whole.  Most asserted invariants of OUR
 code -- rank coherence, tier alignment, single-curve, pick passes, FAAB
 calibration -- over ``exports/latest``, so the advisory tier held checks that
 could not fail a PR while a health floor beside them was the thing it was meant
-to isolate.  They now build from ``tests.archive_fixtures`` (the newest archived
+to isolate.  They now build from ``tests.archive_fixtures`` (since 2026-11-15 the
+PINNED board -- see ``tests/test_pinned_board.py``; before that the newest archived
 scrape the contract's own source-health definition calls complete) and block;
 the genuinely live remainder is marked per class/test with
 ``@pytest.mark.livedata`` and the list below keeps only wholly-live modules.
@@ -122,7 +123,7 @@ def test_the_anchor_end_to_end_half_now_blocks_too():
     assert "class TestAnchorEndToEnd" in src
     assert not _opens_todays_scrape(src), (
         "the end-to-end class reads today's scrape again; use "
-        "tests.archive_fixtures.newest_complete_contract"
+        "tests.archive_fixtures.pinned_board_contract"
     )
 
 
@@ -183,14 +184,13 @@ def test_wholly_pinned_modules_never_read_todays_scrape():
 
 
 def test_the_archive_fixture_finds_a_complete_board():
-    """Every pinned test SKIPS (not fails) when no complete archived board
-    exists, so a vanished archive would turn them all into silent no-ops.
-    That must be loud: this is the one place it fails."""
-    from tests.archive_fixtures import newest_complete_raw_payload
+    """The hard-gate board tests build from the PINNED board, which never
+    skips; this is the one place that proves it is a complete board (a
+    re-pin onto a source-degraded scrape would test a degraded board)."""
+    from tests.archive_fixtures import _degraded_critical_sources, pinned_board_payload
 
-    payload, name = newest_complete_raw_payload()
-    assert payload is not None, (
-        "no complete archived scrape in exports/archive -- the archive-pinned "
-        "hard-gate tests would all skip"
-    )
-    assert name
+    payload, name = pinned_board_payload()
+    assert payload is not None and name
+    assert not _degraded_critical_sources(
+        payload
+    ), "the pinned board is source-degraded; re-pin a complete scrape"

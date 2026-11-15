@@ -41,14 +41,17 @@ _mod = _load_module()
 
 class TestAutoSeason(unittest.TestCase):
     def test_prefers_contract_current_draft_year(self):
-        # The repo's committed export carries currentDraftYear; whatever
-        # it says is the answer (no date math involved).
-        exports = sorted((REPO / "exports" / "latest").glob("dynasty_data_*.json"))
-        if not exports:
-            self.skipTest("no contract export in tree")
-        season = _mod._auto_season()
-        self.assertIsInstance(season, int)
-        self.assertGreater(season, 2000)
+        # A contract export carrying currentDraftYear: whatever it says is the
+        # answer (no date math involved).  A synthetic tree, not today's
+        # exports/latest, so a refresh cannot change the result.
+        with tempfile.TemporaryDirectory() as tmp:
+            latest = Path(tmp) / "exports" / "latest"
+            latest.mkdir(parents=True)
+            (latest / "dynasty_data_2031-01-01.json").write_text(
+                json.dumps({"currentDraftYear": 2031}), encoding="utf-8"
+            )
+            with mock.patch.object(_mod, "REPO", Path(tmp)):
+                self.assertEqual(_mod._auto_season(), 2031)
 
     def test_date_rule_fallback(self):
         with mock.patch.object(_mod, "REPO", Path("/nonexistent")):

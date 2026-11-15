@@ -18,12 +18,14 @@ import pytest
 
 from src.bridges import CARDINAL, QUALIFIED, BridgeDescriptor, measure_capability
 from src.canonical.idp_backbone import build_backbone_from_rows
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 @pytest.fixture(scope="module")
 def board_rows() -> list[dict]:
-    payload, _label = newest_complete_raw_payload()
+    payload, _label = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete raw payload available")
     from src.api.data_contract import build_api_data_contract

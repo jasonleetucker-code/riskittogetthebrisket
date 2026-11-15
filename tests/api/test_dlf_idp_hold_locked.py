@@ -35,7 +35,7 @@ DECISION, NOT A TEST FIX.  Do it only in a reviewed PR that carries the
 owner's explicit approval, after outlier-filter Version 2 has passed every
 mandatory gate (``docs/EXECUTION_PLAN.md`` §0, 2026-10-20 entry).
 
-Board assertions are all-of / none-of over the newest complete archived
+Board assertions are all-of / none-of over the pinned complete archived
 scrape, never a count, so an archive or CSV refresh cannot flip them.
 ``tests/api/test_dlf_offense_only_vote.py`` keeps pinning the restore path
 itself (flag forced OFF in-process) -- that is evidence tooling, not
@@ -52,7 +52,9 @@ import pytest
 import src.api.data_contract as dc
 from src.api import feature_flags
 from tests.api import hold_lock_scan as scan
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _FLAG = "dlf_offense_only_vote"
 _ENV = "RISKIT_FEATURE_DLF_OFFENSE_ONLY_VOTE"
@@ -196,7 +198,7 @@ def test_the_scan_reaches_src_server_and_frontend():
 
 @pytest.fixture(scope="module")
 def boards():
-    raw, _name = newest_complete_raw_payload()
+    raw, _name = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available")
     mp = pytest.MonkeyPatch()

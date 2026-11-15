@@ -1387,6 +1387,95 @@
    "Fits without a cut (1 open spot after)"
   ],
   "recommendation": "LEAN_MAKE",
+  "statusQuo": {
+   "actionSupported": false,
+   "baseline": {
+    "definition": "Declining moves no asset, adds no roster cut and leaves the lineup unchanged, so both decision components read exactly 0 against it.",
+    "forcedReleaseCost": 0,
+    "objectiveValue": 0,
+    "rosterBenefitPpg": 0
+   },
+   "decisionVersion": "trade_decision_v2",
+   "derivedFrom": {
+    "deciding": "strategy",
+    "headline": "NO_TOO_CLOSE"
+   },
+   "evidence": {
+    "forcedRelease": {
+     "basis": "Declining adds no roster cut. A release owed before the trade is owed either way, so it is charged to neither option.",
+     "chargedToStatusQuo": 0,
+     "chargedToTrade": null,
+     "forcedDrops": [],
+     "state": "fits_cleanly"
+    },
+    "missingEvidence": [],
+    "objectiveValue": {
+     "bandLevel": "fair",
+     "direction": "neutral",
+     "evaluated": true,
+     "forcedReleaseCost": null,
+     "magnitude": null,
+     "netGap": 50,
+     "vaAdjustedGap": 50
+    },
+    "posture": {
+     "postureLabel": "PUSH",
+     "reason": null,
+     "role": "selects_strategy_never_votes",
+     "state": "evaluated",
+     "strategySource": "user",
+     "strategyUsed": "LONG_TERM",
+     "windowFit": 0.0
+    },
+    "rosterBenefit": {
+     "direction": "favors",
+     "evaluated": true,
+     "magnitude": "modest",
+     "neutralBandPpg": 1.0,
+     "ppg": 1.23
+    }
+   },
+   "margin": {
+    "basis": "Distance past each component's own neutral band (the fairness band; the roster lens's neutral band), in that component's units.",
+    "crossComponent": null,
+    "crossComponentReason": "components_are_never_combined",
+    "deciding": "strategy",
+    "objectiveValue": {
+     "direction": "neutral",
+     "insideBand": true,
+     "neutralBandHalfWidth": 250.0,
+     "statusQuoClearance": -300.0,
+     "tradeClearance": -200.0,
+     "unit": "canonical value points (adjusted package)",
+     "value": 50.0
+    },
+    "rosterBenefit": {
+     "direction": "favors",
+     "insideBand": false,
+     "neutralBandHalfWidth": 1.0,
+     "statusQuoClearance": -2.23,
+     "tradeClearance": 0.23,
+     "unit": "best-ball ppg",
+     "value": 1.23
+    }
+   },
+   "opportunityCost": {
+    "comparedAlternatives": [
+     "NO_TRANSACTION"
+    ],
+    "coverageExclusionReason": "not_wired",
+    "reason": "no_owner_approved_alternative_ranking",
+    "state": "unavailable",
+    "text": "Whether a different trade would serve this team better is not evaluated; the only alternative compared is keeping the current roster."
+   },
+   "option": "NO_TRANSACTION",
+   "preferred": true,
+   "preferredOption": "NO_TRANSACTION",
+   "reason": "strategy_declines",
+   "state": "status_quo_preferred",
+   "text": "Keeping your current roster is preferred: part of this trade is a gain, but the team's strategy does not count that gain as enough.",
+   "version": "status_quo_v1"
+  },
   "teamContext": {
    "applied": true,
    "mode": "team"
@@ -1395,8 +1484,9 @@
   "unavailableDimensions": [
    {
     "dimension": "valueUncertainty",
-    "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
-    "reason": "unaudited_model"
+    "evidence": "docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md",
+    "notes": "No empirically calibrated value-uncertainty band exists; the Monte Carlo band is an assumption and its win share is only a simulation fraction, not the chance a manager agrees. Same state as the Monte Carlo response's valueUncertainty (docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md).",
+    "reason": "no_empirically_calibrated_band"
    },
    {
     "dimension": "currentSeasonEquity",

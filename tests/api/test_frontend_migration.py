@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import pathlib
 import unittest
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]

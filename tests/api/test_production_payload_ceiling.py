@@ -61,7 +61,9 @@ import json
 import pytest
 
 from src.api.data_contract import build_api_data_contract
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 # Headroom over the bytes/row measured 2026-08-20. Wide on purpose: this
 # must absorb organic per-row growth (a new source, a new stamped field)
@@ -78,7 +80,7 @@ _cache: dict | None = None
 def _contract() -> dict:
     global _cache
     if _cache is None:
-        raw, _archive = newest_complete_raw_payload()
+        raw, _archive = pinned_board_payload()
         if raw is None:
             pytest.skip("no complete archived scrape to build a contract from")
         _cache = build_api_data_contract(raw)

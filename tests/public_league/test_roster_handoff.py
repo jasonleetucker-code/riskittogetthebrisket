@@ -74,6 +74,12 @@ def test_the_jstudle_typo_key_is_gone():
     assert all(k.isdigit() for k in by_id)
 
 
+# The two snapshot tests below read data/sleeper_last_good.json, which the box
+# scrape rewrites: a manager joining or leaving Sleeper changes their result
+# with the code byte-identical.  They are data-health checks (advisory lane);
+# the deterministic statement of the same rules is
+# ``test_the_overlay_names_a_configured_owner_and_an_ownerless_roster``.
+@pytest.mark.livedata
 def test_every_current_owner_in_the_committed_snapshot_has_a_configured_name():
     """Catches a display-name key that no longer matches anyone (``jstudle``)."""
     teams = json.loads((REPO / "data/sleeper_last_good.json").read_text(encoding="utf-8"))[
@@ -93,6 +99,37 @@ def test_every_current_owner_in_the_committed_snapshot_has_a_configured_name():
     assert unnamed == []
 
 
+def test_the_overlay_names_a_configured_owner_and_an_ownerless_roster(monkeypatch):
+    """Deterministic twin of the two snapshot checks: through the overlay's own
+    team builder, a configured owner is published by the configured name, and a
+    roster with no owner is ``Team <roster_id>`` -- never another manager's name
+    and never blank."""
+    from src.api import sleeper_overlay
+
+    league = "L-handoff"
+    responses = {
+        f"/league/{league}": {"settings": {}},
+        f"/league/{league}/rosters": [
+            {"roster_id": 1, "owner_id": JOHN, "players": []},
+            {"roster_id": 5, "owner_id": None, "players": []},
+        ],
+        f"/league/{league}/users": [{"user_id": JOHN, "display_name": "jnesselhauf"}],
+        f"/league/{league}/traded_picks": [],
+    }
+
+    def getter(url, *args, **kwargs):
+        return responses[url.split("api.sleeper.app/v1", 1)[1]]
+
+    teams = sleeper_overlay._build_teams_block(league, {}, getter=getter)
+    assert teams is not None
+    by_roster = {t["roster_id"]: t for t in teams}
+    configured = set(owner_names._load_mapping().values())
+    assert by_roster[1]["name"] == "John"
+    assert by_roster[5]["name"] == "Team 5"
+    assert by_roster[5]["name"] not in configured
+
+
+@pytest.mark.livedata
 def test_an_ownerless_roster_in_the_committed_snapshot_keeps_its_roster_name():
     """A roster with no owner is published as ``Team <roster_id>``, never as
     another manager's name and never blank."""

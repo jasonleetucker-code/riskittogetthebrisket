@@ -50,6 +50,10 @@ from src.api.data_contract import (
     normalize_tep_multiplier,
     normalize_tep_native_multiplier,
 )
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 def _fixture_raw_payload() -> dict[str, Any]:

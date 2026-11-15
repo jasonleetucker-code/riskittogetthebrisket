@@ -288,20 +288,11 @@ class TestTheContractPublishesOneCanonicalBoard:
     """
 
     def test_no_row_carries_a_second_disagreeing_board_value(self):
-        from src.api.data_contract import build_api_data_contract
+        # The PINNED real board, never today's export: the invariant is a
+        # property of our code and must not move with a data refresh.
+        from tests.archive_fixtures import pinned_board_contract
 
-        import json
-        import pathlib
-
-        export = pathlib.Path("exports/latest")
-        candidates = sorted(export.glob("dynasty_data*.json"), reverse=True)
-        if not candidates:
-            import pytest
-
-            pytest.skip("no export available in this environment")
-
-        raw = json.loads(candidates[0].read_text(encoding="utf-8"))
-        contract = build_api_data_contract(raw)
+        contract, _label = pinned_board_contract()
 
         disagreeing = []
         for row in contract["playersArray"]:

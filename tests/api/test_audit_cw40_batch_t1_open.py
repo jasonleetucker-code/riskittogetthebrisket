@@ -23,7 +23,7 @@ import server
 from src.bdvm.params import load_param_set
 from src.bdvm.roster import analyze_rosters
 from src.trade import monte_carlo
-from tests.archive_fixtures import newest_complete_contract
+from tests.archive_fixtures import pinned_board_contract
 from tests.bdvm.test_roster import build_fixture
 
 REPO = Path(__file__).resolve().parents[2]
@@ -89,7 +89,7 @@ def test_w10_f004_characterization_partial_vendor_list_is_stretched_to_the_full_
 
 
 def test_w10_f004_characterization_on_the_archived_board_ktc_overrates_most_covered_rookies():
-    contract, _ = newest_complete_contract()
+    contract, _ = pinned_board_contract()
     if contract is None:
         pytest.skip("no complete archived board")
     prior = server.latest_contract_data

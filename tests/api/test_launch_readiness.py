@@ -5,7 +5,7 @@ TWO TIERS, decided per test (CLAUDE.md "CI has two lanes"):
 * STRUCTURAL invariants of ``build_api_data_contract`` -- coherent ranks,
   tiers, value range, audit fields, no duplicate names -- are properties of
   our code given ANY complete board.  They build from
-  ``tests.archive_fixtures.newest_complete_contract`` (the newest archived
+  ``tests.archive_fixtures.pinned_board_contract`` (the pinned archived
   scrape the contract's own source-health definition calls complete) and run
   in the hard gate.  One KTC timeout cannot fail them.
 * HEALTH FLOORS over TODAY'S board -- quarantine ceiling, multi-source share,
@@ -40,7 +40,7 @@ from src.api.data_contract import (
     assert_ranking_coherence,
     assert_no_unexplained_single_source,
 )
-from tests.archive_fixtures import newest_complete_contract
+from tests.archive_fixtures import pinned_board_contract
 
 
 def _load_contract() -> tuple[dict[str, Any], list[dict[str, Any]], float] | None:
@@ -80,13 +80,13 @@ def _ranked(contract: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _get_pinned():
-    """The newest COMPLETE archived board -- for the structural invariants.
+    """The PINNED complete archived board -- for the structural invariants.
 
     Same ``(contract, ranked, build_time)`` shape as :func:`_get`; the build
     time is not measured here (it is cached across modules), so it is 0.0 and
     only the live ``test_build_under_5_seconds`` reads it.
     """
-    contract, _name = newest_complete_contract()
+    contract, _name = pinned_board_contract()
     if contract is None:
         return None
     return contract, _ranked(contract), 0.0

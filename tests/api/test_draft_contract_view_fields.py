@@ -2,7 +2,7 @@
 
 The field list lives in ONE place, ``frontend/lib/draft-contract-fields.json``,
 cited by ``frontend/lib/draft-feed.js::draftContractUrl`` and the /draft page.
-This test builds the real contract from the newest complete archived scrape,
+This test builds the real contract from the pinned complete archived scrape,
 derives the view exactly as ``server.py`` / ``compact_view`` do, and asserts:
 
 * every listed path present on a full-contract row is present, with an
@@ -23,7 +23,9 @@ import pytest
 
 from src.api.compact_view import compact_contract
 from src.api.data_contract import build_api_data_contract
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import pinned_board_payload
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 _SPEC = json.loads(
     (Path(__file__).resolve().parents[2] / "frontend/lib/draft-contract-fields.json").read_text(
@@ -37,7 +39,7 @@ _cache: dict | None = None
 def _contract() -> dict:
     global _cache
     if _cache is None:
-        raw, _archive = newest_complete_raw_payload()
+        raw, _archive = pinned_board_payload()
         if raw is None:
             pytest.skip("no complete archived scrape to build a contract from")
         _cache = build_api_data_contract(raw)

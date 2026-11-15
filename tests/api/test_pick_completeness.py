@@ -27,7 +27,7 @@ defect classes, reproduced on this same payload before the repair).
 
 from __future__ import annotations
 
-import json
+import copy
 import math
 import unittest
 from pathlib import Path
@@ -36,7 +36,6 @@ from typing import Any
 from src.api.data_contract import (
     _canonical_match_key,
     _complete_future_pick_values,
-    build_api_data_contract,
     current_rookie_draft_year,
     validate_api_data_contract,
 )
@@ -58,13 +57,13 @@ def _load_contract() -> dict[str, Any] | None:
     global _contract_cache
     if _contract_cache is not None:
         return _contract_cache
-    data_dir = _REPO / "exports" / "latest"
-    json_files = sorted(data_dir.glob("dynasty_data_*.json"), reverse=True)
-    if not json_files:
-        return None
-    with json_files[0].open() as f:
-        raw = json.load(f)
-    _contract_cache = build_api_data_contract(raw)
+    # The PINNED real board (``tests.archive_fixtures``), not today's export:
+    # every assertion here is an invariant of the pick pipeline, so it must
+    # not move with a data refresh.  A private copy; the shared one is
+    # read-only.
+    from tests.archive_fixtures import pinned_board_contract
+
+    _contract_cache = copy.deepcopy(pinned_board_contract()[0])
     return _contract_cache
 
 

@@ -17,7 +17,7 @@ merged PR was independently reviewed and passed exact-tree PR Validation (8 shar
 | 2 | MD-98 / #1938 | nflverse path 91.6% within 0.01 of host. 137 implementation-error rows (IDP gate at `realized_points.py:696`, ST tackle double count at `:708`), all fixed by #1938 (96.2%). New strict finding F1: special-teams assists paid as defensive assists. | RESEARCH_COMPLETE + 127 category tests | #2162 `73320356e` MERGED | `src/nfl_data/realized_points.py`, `src/league_intel/scorer.py` | **Owner:** #1938 merge decision (brief in `docs/league-intelligence/SCORING_PARITY_TAXONOMY_2026-11-08.md`) |
 | 3 | MD-99 / W05-F003, W05-F004 | Header probe covered 4 / 27 sources; header-only CSVs silent; 9 sources had no floor | TESTED_IN_PR, reviewed. All 27 probed; named `source_ingest_failure`; evidence-derived floors; healthy-board parity 1102 / 1102 | #2159 (CI re-running after the skip-budget catch) | `src/api/data_contract.py` ingestion contract | authorized |
 | 4 | MD-100 | No required status checks on main (ruleset has deletion + non-fast-forward only) | MERGED: protected-methodology detection in the receipt check (21 protected files) | #2157 `e239245c0` | `scripts/check_pr_verification_receipt.py`, `config/ci/protected_methodology_paths.json` | **Owner:** add required checks (`Validate PR`, `Receipt check`) with scoped automation bypass |
-| 5 | MD-101 / W24-F001 | Forced-drop sweeps ran whatever share of seeds applied (taxi 76 / 240) | MERGED: every sweep at its full applicable target (+241 real cases); the skip budget caught a new skip on #2159 and the test was restored | #2156 `658ca7d17`, #2151 `486b4da21` (DEPLOYED) | `tests/trade/test_forced_drop_selection.py`, `scripts/ci_test_shards.py` | 3 real-roster skips need a trimmed fixture (the cache is 33 MB) |
+| 5 | MD-101 / W24-F001 | Forced-drop sweeps ran whatever share of seeds applied (taxi 76 / 240) | MERGED: every sweep at its full applicable target (+241 real cases); the skip budget caught a new skip on #2159 and the test was restored | #2156 `658ca7d17`, #2151 `486b4da21` (DEPLOYED) | `tests/trade/test_forced_drop_selection.py`, `scripts/ci_test_shards.py` | the 3 real-roster skips are resolved by a committed trimmed fixture (`tests/fixtures/idp_accuracy/pinned_cache.zip`, 2.7 MB, public data only); skip budget 10 -> 7 |
 | 6 | MD-102 | #2149 resolved division-title ties with an assumed tiebreaker | MERGED: tiebreaker unconfirmed, so ties are reported and never resolved; draft-order basis marked provisional | #2158 `b6878891e`; #2149 VERIFIED_IN_PRODUCTION | `src/public_league/playoff_structure.py`, `config/leagues/playoff_rules.json` | **Owner:** payout tiebreaker; median games in draft order (#1712) |
 | 7 | MD-103 | — | VERIFIED: `retention-backup-proof.yml` runs the real backup and restores after each deploy (successes 10:46Z, 11:11Z). Production backup health shows 14 generations in each root. External probe: private / admin endpoints return 401, no foreign CORS, HSTS / nosniff / frame-ancestors / referrer-policy present. | `src/api/backup_health.py`, `deploy/backup/` | **Gap:** backup health does not surface the restore-proof result (follow-up) |
 | 8 | MD-104 | Forecast families evaluated piecemeal | NOT STARTED this checkpoint | — | `src/ros/forecast_archive.py` et al. | outcomes accrue |
@@ -36,3 +36,60 @@ merged PR was independently reviewed and passed exact-tree PR Validation (8 shar
 **Rollback (every row):** squash commits revert with `git revert <sha>`. No campaign PR changed a canonical value or activated
 a flag. #2160 changes Terminal `injuryAdjustedValue` for misattributed rows only (a defect fix). #2158 changes the meaning of
 division-title odds to outright-only, with ties reported.
+
+## Checkpoint 2026-11-15: unified directive (MD-116, MD-117)
+
+Owner directive: `docs/owner/UNIFIED_ENGINEERING_FORECASTING_DIRECTIVE_2026-11-08.md`. Rows keep the matrix numbering.
+Every merged PR below was independently reviewed (a separate agent; review-requested changes were applied and re-reviewed)
+and passed exact-head PR Validation before merge.
+
+| P | Work item | State | PR / SHA | Notes |
+|---|---|---|---|---|
+| — | Deploy gate: research test coupled to today's CSVs | MERGED | #2172 `3e79f4156` | invariant kept, magnitudes moved to `livedata` |
+| — | Deploy gate: MCP roster test assumed `teams[0]` held picks; IDPTC seat test vacuous on today's board; heap test read real process RSS | MERGED, deploy pending | #2199 `91d0578f8` | production stayed on `e63d66298` while 2026-11-13 → 15 deploys failed on these three |
+| 1 | MD-97 study two | MERGED (preregistered; first run about 2026-12-22, needs owner approval to run) | #2184 `cfa7a31ab` | holdout weeks 10–14; passing only entitles asking the owner |
+| 4 | MD-100 required checks | PREPARED (owner applies) | #2173 `efe8f951a` | payload requires `Validate PR` + `Receipt check`; brief 12 |
+| 5 | MD-105 / MD-112 unpriced `value: 0`; W-4 streaming; suggestions pick disclosure | MERGED, DEPLOYED (`7017c7126`, 2026-11-09) | #2175 `7017c7126` | trade routes need sign-in, so the null output was not observed in production |
+| 6 | MD-106 source math | RESEARCH_COMPLETE (no change) | `docs/sources/SOURCE_MATH_DIAGNOSIS_2026-11-08.md` | IDP α measures 0.10 as documented; haircut exemption is deliberate but has no expiry (28 rows) |
+| 8 | MD-103 monitoring and recoverability | TESTED_IN_PR, reviewed | #2183 | restore proof and irreplaceable ledgers in `backup_health` v4; timer `OnFailure=` left to the operator (templates self-install) |
+| 9 | MD-104 scorecard and degradation trigger | MERGED | #2178 `3ff0fe3ce` | every family `unavailable` today; rule `forecast_degradation_v1` |
+| 10 | MD-113 TE basis | TESTED_IN_PR, reviewed | #2200 | conversion reduces the TE SELL skew; benchmark is TE++ (inference) |
+| 11 | MD-108 pick evidence | TESTED_IN_PR, reviewed | #2200 | 24 of 138 pick rows directly observed; IDPTC picks unchanged 33.8 days; no third source qualifies |
+| 12 | MD-107 trade uncertainty | RESEARCH_COMPLETE_NOT_PROMOTED | #2182 `59baf0c54` | verdict (b) under the preregistered rule; propose an uncertainty-unavailable contract |
+| 14 | MD-101 safety net | MERGED: #2176 `711761e0e` (E2E, `xfail_strict`), #2177 `3336b4fba` (`--maxfail=10`, advisory audits); TESTED_IN_PR: #2201 (property tests, fixture, skip budget 10 → 7) | | the audit's "19 non-strict xfails" was 1 |
+| 16 | MD-112 / OD-F4 package model | RESEARCH_COMPLETE: insufficient data locally | #2202 | least-squares q fit is biased low on synthetic truth; read q by moment fit; one read-only box run proposed |
+| — | MD-116 forecasting research | MERGED | #2174 `ad3e76b2b` | research only |
+| — | MD-117 owner decision briefs | MERGED | #2173 `efe8f951a` | `docs/owner/DECISION_BRIEFS_2026-11-08.md` |
+
+## Checkpoint 2026-11-15 (evening): execution directive MD-118
+
+Production serves `4fc4b2ac5` (deployed 2026-11-15 17:38Z). The deploys of `f51d7ea2f` and `bfdc3c0b1` failed on one
+board-dependent test, fixed by #2213; the next data refresh deploys #2211 to #2213. Every merged PR below was
+independently reviewed and passed exact-head PR Validation.
+
+| P | Work item | State | PR / SHA | Notes |
+|---|---|---|---|---|
+| 8 | MD-103 backup health v4 | VERIFIED_IN_PRODUCTION | #2183 `5884a3aa5` | `restoreProof.result: proven`; `irreplaceableLedgers.coverage: unverifiable` until the operator re-runs the installer |
+| 10, 11 | MD-113 TE basis, MD-108 pick evidence | MERGED (research) | #2200 `3a757c24a` | |
+| 14 | MD-101 property tests, real-roster fixture, skip budget 10 → 7 | MERGED, DEPLOYED | #2201 `7bb4ffd42` | |
+| 16 | MD-112 / OD-F4 package model | MERGED (research; insufficient data locally) | #2202 `ecb98b1e1` | read-only box run proposed |
+| 19 | MD-115 documentation convergence | MERGED | #2206 `bdaa94956` | inventory CODE-STATE notes; CLAUDE.md counts corrected |
+| 17, 18 | MD-103 / MD-114 public surface census; franchise memo; anonymous `?refresh=` ignored | MERGED, DEPLOYED | #2207 `bcfc9dfe6` | owner-id pseudonymization designed, not applied |
+| 4 | Hermetic board tests (pinned fixture, guards) | MERGED | #2208 `a686e1cf6`, #2209 `21b09ffe0`, #2212 `aa0b3a711`, #2213 `b547e4b7b`; #2214 (live-path guard) TESTED_IN_PR | deploy freezes came from tests reading the latest refresh |
+| 12 | MD-107 Monte Carlo `valueUncertainty: unavailable` | MERGED, DEPLOYED (`4fc4b2ac5`) | #2210 `4fc4b2ac5` | route needs sign-in; output not observed in production |
+| 5 | MD-112 / Part 9A NO TRANSACTION status-quo record | MERGED, deploy pending | #2211 `bfdc3c0b1` | best-alternative opportunity cost needs an owner ranking rule |
+| — | Records | MERGED | #2204 `bf25b3f4d` | |
+
+## Checkpoint 2026-11-15 (night): deploy of `4b93f334c`
+
+Deploy Production run 43765683235 passed (8 hard-gate shards, deploy) and production serves `4b93f334c` from
+2026-11-15 22:16Z, health ok, board published 22:15:49Z. This deploy carries #2211 to #2216; the two failed deploys
+before it are cleared. Both PRs below were independently reviewed and passed exact-head PR Validation.
+
+| P | Work item | State | PR / SHA | Notes |
+|---|---|---|---|---|
+| 4 | Guard: no hard-gate test reads today's refresh-written inputs by path; 17 modules repointed | MERGED | #2214 `c345a4962` | test-only, so no deploy of its own |
+| 17, 18 | MD-114 public sections warmed after a publish or snapshot refresh | MERGED, DEPLOYED | #2216 `4b93f334c` | first `playoffOdds` hit 9.6 s on `4fc4b2ac5`; 0.41 s on `4b93f334c` just after the publish; 0.42 s at 22:23Z, past the 300 s snapshot TTL (whether the snapshot changed in that window was not observed) |
+| 5 | MD-112 / Part 9A status-quo record | MERGED, DEPLOYED (`4b93f334c`) | #2211 `bfdc3c0b1` | trade routes answer 401 without sign-in, so the field is not observed in production |
+| 12 | MD-107 `valueUncertainty: unavailable` | MERGED, DEPLOYED | #2210 `4fc4b2ac5` | same sign-in limit |
+| 4 | Hill identity CSV copy from the pinned root | MERGED, DEPLOYED | #2212 `aa0b3a711`, #2213 `b547e4b7b` | the gate that froze the two earlier deploys |

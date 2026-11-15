@@ -1,6 +1,6 @@
 """Source trust census (Batch 3 Unit A) — ``src/sources/source_census.py``.
 
-Invariants, not counts: the board under test is the newest COMPLETE archived
+Invariants, not counts: the board under test is the PINNED complete archived
 scrape (``tests.archive_fixtures``), so nothing here depends on which sources
 answered the last live refresh.
 """
@@ -22,21 +22,24 @@ from src.sources import ktc_market
 from src.sources import source_census as sc
 from src.sources.signals import BOARDS as SIGNALS_BOARDS
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 REPO = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture(scope="module")
 def built(tmp_path_factory):
     from scripts import source_census as cli
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    payload, name = newest_complete_raw_payload()
+    payload, name = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape to build a census from")
     path = tmp_path_factory.mktemp("census") / f"{Path(str(name)).stem}.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
     args = argparse.Namespace(
-        state_dir=REPO / "data" / "scrape_state",
+        # the scrape state the pinned build reads (module is pinned), not today's
+        state_dir=dc._default_input_root() / "data" / "scrape_state",
         ledger=tmp_path_factory.mktemp("noledger") / "absent.sqlite",
         no_git=True,
         label="TEST",
@@ -353,9 +356,9 @@ def test_synthetic_census_marks_unregistered_unreasoned_files_unclassified():
 
 def test_cli_writes_json_and_markdown_and_exits_clean(tmp_path):
     from scripts import source_census as cli
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    payload, _ = newest_complete_raw_payload()
+    payload, _ = pinned_board_payload()
     if payload is None:
         pytest.skip("no complete archived scrape")
     raw = tmp_path / "raw.json"

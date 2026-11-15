@@ -93,10 +93,12 @@ COMPARABLES_SHOWN = 3
 _UNAVAILABLE_DIMENSIONS = (
     {
         "dimension": "valueUncertainty",
-        "reason": "unaudited_model",
-        "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation "
-        "items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md §A) and are not "
-        "folded into this recommendation until that audit closes.",
+        "reason": "no_empirically_calibrated_band",
+        "notes": "No empirically calibrated value-uncertainty band exists; the Monte Carlo "
+        "band is an assumption and its win share is only a simulation fraction, not the "
+        "chance a manager agrees. Same state as the Monte Carlo response's valueUncertainty "
+        "(docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md).",
+        "evidence": "docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md",
     },
     {
         "dimension": "currentSeasonEquity",
@@ -835,6 +837,8 @@ class AnalyzeTradeResult:
     dimensions: list[DimensionResult]
     unavailable_dimensions: list[dict[str, str]]
     team_context: dict[str, Any]
+    #: NO TRANSACTION as a named comparator (``trade_decision.status_quo``).
+    status_quo: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         by_name = {d.name: d.to_dict() for d in self.dimensions}
@@ -843,6 +847,9 @@ class AnalyzeTradeResult:
             # The ONE top-line answer (src.trade.trade_decision).  The UI's
             # headline renders this and nothing else.
             "decision": self.decision,
+            # NO TRANSACTION, stated by name (MD-112): a projection of the
+            # decision above, never a second verdict.
+            "statusQuo": self.status_quo,
             # The graded leaning under the headline (v2 field, kept).
             "recommendation": self.recommendation,
             "confidence": self.confidence,
@@ -987,6 +994,15 @@ def analyze_trade(
         provenance={**(provenance or {}), "analyzeConfig": dict(cfg)},
         counterfactuals=counterfactuals,
     )
+    # The explicit status-quo option, from the decision's own components and
+    # thresholds (the owner projects it; nothing is decided here).
+    status_quo = trade_decision.status_quo(
+        decision,
+        market=market,
+        feasibility=feasibility,
+        posture=posture,
+        team_context=team_context,
+    )
 
     return AnalyzeTradeResult(
         decision=decision,
@@ -1002,4 +1018,5 @@ def analyze_trade(
             "applied": team_context,
             "mode": "team" if team_context else "asset_only",
         },
+        status_quo=status_quo,
     ).to_dict()

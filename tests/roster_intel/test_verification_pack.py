@@ -58,6 +58,8 @@ from scripts.verify_roster_intelligence import (
     run_checks,
 )
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 # ---------------------------------------------------------------------------
 # A minimal payload that satisfies every check, and helpers to break it.
 # ---------------------------------------------------------------------------
@@ -560,17 +562,15 @@ def test_mutation_specificity_is_recorded_not_assumed():
 
 @pytest.fixture(scope="module")
 def real_league_bundle() -> Bundle:
-    """One league's roster intelligence, rebuilt from the newest COMPLETE
+    """One league's roster intelligence, rebuilt from the PINNED complete
     archived scrape.
 
-    Skips rather than fails when the archive is absent — a CI clone
-    without ``exports/archive`` should not report a red verification for
-    a missing fixture.  ``newest_complete_raw_payload`` refuses a
-    source-degraded bundle, so this is a real board or nothing.
+    The pinned board is a committed fixture (one complete scrape's payload,
+    CSVs and scrape state), so this is the same real board on every run.
     """
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    raw, archive = newest_complete_raw_payload()
+    raw, archive = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived payload available in this environment")
 

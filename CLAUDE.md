@@ -206,22 +206,22 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ## Directory Structure
 
 ```
-├── server.py                  # FastAPI backend entry point (~100 routes)
+├── server.py                  # FastAPI backend entry point (~120 direct `@app` handlers plus included routers; counted 2026-11-15)
 ├── Dynasty Scraper.py         # THE PRODUCTION SCRAPER (Selenium/requests).
 │                              #   Not legacy despite its age: server.py
 │                              #   imports it via importlib for /api/scrape,
 │                              #   the scheduled loop and startup, and
-│                              #   scheduled-refresh.yml runs it every 2h.
+│                              #   scheduled-refresh.yml runs it (cron declared every 2h; measured ~3.6 runs/day, docs/ops/SCRAPE_CADENCE_MEASUREMENT_2026-11-09.md).
 ├── .github/workflows/         # GitHub Actions CI/CD pipelines
 │
-├── frontend/                  # Next.js app (App Router) — 38 pages
+├── frontend/                  # Next.js app (App Router) — 61 pages (counted 2026-11-15)
 │   ├── app/                   # rankings/, trade/, draft/, bdvm/, waivers/,
 │   │   │                      #   terminal/, news/, settings/, login/, …
-│   │   └── api/               # 28 backend bridge routes
+│   │   └── api/               # 88 backend bridge routes (counted 2026-11-15)
 │   ├── components/            # React components + hooks
 │   └── lib/                   # Data utilities (pure materializers)
 │
-├── src/                       # Modular canonical engine (~250 modules)
+├── src/                       # Modular canonical engine (~700 Python files, counted 2026-11-15)
 │   ├── adapters/              # base.py (frozen contract), scraper bridge,
 │   │                          #   sleeper_trending
 │   ├── api/                   # API data contract (versioned) + endpoints
@@ -247,17 +247,17 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ├── scripts/                   # Pipeline helper scripts (source fetches, fit, etc.)
 ├── deploy/                    # Deployment configs (nginx, systemd, deploy scripts)
 ├── tests/                     # pytest unit/integration + Playwright E2E
-├── data/                      # Pipeline outputs. MOSTLY gitignored, but 8,825
+├── data/                      # Pipeline outputs. MOSTLY gitignored, but ~11,900
 │                              #   files ARE tracked (data/ros/ is re-included by
 │                              #   .gitignore, and refresh workflows `git add -f`).
 │                              #   The tracking is DELIBERATE, not an accident:
 │                              #   scheduled-refresh.yml force-adds
-│                              #   data/scrape_state/ every 2h even when the
+│                              #   data/scrape_state/ on every run (declared 2h) even when the
 │                              #   scrape fails, and deploy dispatch keys on
 │                              #   those commit subjects — so `git rm --cached`
 │                              #   freezes prod's source_health. See W31-F001 in
 │                              #   docs/master-site-audit/REBASELINE_2026-08-11.md
-├── exports/                   # Release artifacts (latest/ + archive/) — 168 tracked
+├── exports/                   # Release artifacts (latest/ + archive/) — 182 tracked
 └── docs/                      # Architecture blueprints, status docs, ADRs, audits
 ```
 
@@ -320,6 +320,14 @@ npm run regression                   # Full pipeline: preflight + tests
 | `/api/sharp/roster-percentage` | GET | Sharp Roster Percentage board (global cohort — takes no `leagueKey`) |
 | `/api/sharp/roster-percentage/audit` | GET | Every roster behind one player's count, for manual verification |
 | `/api/draft/roster-context` | GET | Perfect Draft roster context — rosters at board value, waiver levels, cut ladder (flag `perfect_draft`) |
+| `/api/roster/intelligence` | GET | Canonical roster intelligence: meaningful core, Team Strength, Team Weakness, age-value portfolio (`src/roster_intel/`) |
+| `/api/roster-construction` | GET | Roster Construction V1, private (flag `roster_construction`, default on; `src/roster_intel/construction.py`) |
+| `/api/waiver/advisor` | POST | Weekly Waiver Advisor, private (flag `waiver_advisor`, default on); siblings `/api/waiver/perfect`, `/streaming`, `/best-available-idp`, `/faab-recommend` |
+| `/api/trade/analyze`, `/api/trade/analyze-multi` | POST | Analyze Trade (2-team) and the N-team engine (`src/trade/analyze_service.py`; `analyze-multi` flag `trade_multi_team_analysis`, default OFF) |
+| `/api/public/league/trade-advisor/*` | GET/POST | Public fairness-only Brisket Trade Advisor (`src/trade/public_advisor.py`; flag `brisket_trade_advisor`, default OFF) |
+| `/api/user/trade-protections` | GET/PUT | Persistent personal trade protections (`src/trade/constraints.py`) |
+
+*Table additions dated 2026-11-15 (docs convergence, MD-115): routes verified in `server.py` / `src/api/`; league playoff-bracket rules live in `src/public_league/playoff_structure.py`, consumed by `src/ros/playoff_sim.py`. Not exhaustive; the live OpenAPI schema is.*
 
 ### Rankings vs. league context — the core split
 
@@ -557,7 +565,7 @@ Error behavior on endpoints:
     instead of serving the workbook's hand-entered ownership.  Same cache
     too: the refusal is held for the 300 s TTL and is never answered by the
     stale-while-revalidate last-valid board (that answers dollars-generation
-    failures only); `?refresh=1` retries.  Success is byte-identical to the
+    failures only); `?refresh=1` retries (authenticated callers only since 2026-11-15; an anonymous `?refresh=` is ignored so it cannot force a rebuild).  Success is byte-identical to the
     pre-fail-closed reader.  Pinned by
     `tests/api/test_draft_capital_workbook_pick_ownership.py`.
   - **Every owned class is listed — `dynasty_main` only** (owner directive

@@ -21,6 +21,10 @@ from src.api.data_contract import (
     build_api_data_contract,
 )
 from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_OFFENSE
+import pytest
+
+
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

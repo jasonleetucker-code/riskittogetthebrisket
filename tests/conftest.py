@@ -102,6 +102,9 @@ os.environ.setdefault("SCRAPE_SCHEDULER_ENABLED", "0")
 # a test that wants the warm pass sets the server flag itself.  Pinned by
 # ``tests/infra/test_unit_suite_does_not_probe_production.py``.
 os.environ.setdefault("SLEEPER_OVERLAY_WARM_ENABLED", "0")
+# Post-publish public-section warm reads Sleeper (public snapshot) and runs the
+# live Monte Carlo; the suite opts in per test via the server module flag.
+os.environ.setdefault("PUBLIC_SECTIONS_WARM_ENABLED", "0")
 
 # ── Game Day live network feeds OFF for the suite ─────────────────────
 # ``game_day_live_game_state`` (ESPN scoreboard) and
@@ -267,9 +270,11 @@ def pytest_sessionfinish(session, exitstatus):
 # The rule for what may stay in the hard gate is CLAUDE.md "CI has two lanes",
 # "Rule for new tests": a hard-gate test must not assert an absolute count, a
 # floor or a health status over the LIVE board.  A test of an invariant of
-# OUR code builds its board with ``tests.archive_fixtures`` (the newest
-# archived scrape the contract's own source-health definition calls
-# complete) instead of ``exports/latest``.  Each remaining entry below is
+# OUR code builds its board with ``tests.archive_fixtures``'s PINNED board
+# (``pinned_board_contract`` / ``build_pinned_contract``: one complete scrape's
+# payload, CSVs and scrape state frozen in a committed fixture) instead of
+# ``exports/latest`` or the newest archive, which both move with every data
+# refresh (``tests/test_pinned_board.py`` guards it).  Each remaining entry below is
 # whole-module live for the reason given.
 # (test_source_floor_invariant.py is intentionally NOT here -- it is the
 # pure static pre-merge guard and must keep blocking.)
@@ -347,6 +352,27 @@ def _real_nfl_week_evidence_when_marked(
     from src.public_league import metrics
 
     monkeypatch.setattr(metrics, "nfl_week_games_final", _synthetic_seasons_have_finished_nfl_weeks)
+
+
+@pytest.fixture(scope="module")
+def pinned_board_inputs():
+    """Run a whole module's builds against the PINNED board's inputs.
+
+    Opt in with ``pytestmark = pytest.mark.usefixtures("pinned_board_inputs")``
+    in a module whose tests build boards through an entry point other than
+    ``tests.archive_fixtures.build_pinned_contract`` (``value_replay.build``,
+    a research script, ``build_rankings_delta_payload``): every
+    ``csv_root=None`` default resolves to the pinned tree and the temporal
+    ledger is absent, for the module's lifetime.  The clock is NOT frozen
+    module-wide (see ``pinned_build_environment``).  Module-scoped, so it is
+    in force before the module's own module-scoped board fixtures and
+    ``setUpClass``.  Never in a module with ``livedata`` tests: those must
+    read today's tree (``tests/test_pinned_board.py`` enforces both).
+    """
+    from tests.archive_fixtures import pinned_build_environment
+
+    with pinned_build_environment(freeze_clock=False) as root:
+        yield root
 
 
 def pytest_collection_modifyitems(config, items):

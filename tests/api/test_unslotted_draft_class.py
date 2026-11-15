@@ -32,6 +32,8 @@ from src.api import data_contract as dc
 from src.api.pick_value_resolution import resolve_pick_value
 from src.identity.picks import MarketPickRef
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 _ARCHIVE = Path(__file__).resolve().parents[1] / "fixtures" / "pick_rollover"
 _PRE_ROLLOVER = "pre_rollover_20260924_005628.zip"  # 2026 slots published (IDPTC)
 _POST_ROLLOVER = "post_rollover_20260924_075735.zip"  # 2027 slots only derived

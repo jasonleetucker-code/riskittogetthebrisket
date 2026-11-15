@@ -34,6 +34,12 @@ The decision is computed in four steps, never by a weighted sum:
    their OWN units; the strategy only chooses which one decides when they
    disagree.  A near tie with complete evidence is **NO — TOO CLOSE**.
 
+Both components are already measured against doing nothing (A is the trade's
+package gap, B is lineup points after minus before), so NO TRANSACTION is the
+zero of each.  :func:`status_quo` states that comparison as a named record
+(MD-112, Part 9A): declining is preferred unless the headline is YES, and
+unknown when the evidence is insufficient.  It adds no threshold or weight.
+
 Confidence is a label (HIGH / MEDIUM / LOW) from the weakest of five axes --
 never a probability.  This module computes no value, calls no engine, writes
 nothing and executes nothing: a recommendation is never an action.
@@ -544,9 +550,11 @@ def _forced_drop_evidence_extra(fd: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
-    """Component A: the adjusted package gap, net of the dynasty value released
-    by cuts this trade ADDS (charged once here; their lineup effect is in B)."""
+def _objective_net(market: Any, feasibility: Any) -> dict[str, Any]:
+    """The inputs of component A, unrounded: the adjusted package gap, the
+    charge for cuts this trade ADDS, and the band's base.  One computation for
+    :func:`_objective_value` and :func:`status_quo`, so the status-quo margin
+    is measured on exactly the number the band classified."""
     md = market.detail or {}
     gap = float(md["vaAdjustedGap"])
     larger = max(float(md["sendingAdjusted"]), float(md["receivingAdjusted"]))
@@ -584,6 +592,22 @@ def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
     ):
         charged = float(release)
     net = gap - charged if charged is not None else gap
+    return {
+        "gap": gap,
+        "larger": larger,
+        "largerUtility": larger_utility,
+        "charged": charged,
+        "chargeMeta": charge_meta,
+        "net": net,
+    }
+
+
+def _objective_value(market: Any, feasibility: Any) -> dict[str, Any]:
+    """Component A: the adjusted package gap, net of the dynasty value released
+    by cuts this trade ADDS (charged once here; their lineup effect is in B)."""
+    inputs = _objective_net(market, feasibility)
+    gap, larger, larger_utility = inputs["gap"], inputs["larger"], inputs["largerUtility"]
+    charged, charge_meta, net = inputs["charged"], inputs["chargeMeta"], inputs["net"]
     band = fairness_bands.classify(net, larger_utility)
     if band["level"] == "fair":
         direction, magnitude = "neutral", None
@@ -1566,3 +1590,268 @@ def decide(
         coverage=_cover(a, b),
         confidence=confidence,
     )
+
+
+# ── NO TRANSACTION: the explicit status-quo comparator (MD-112, Part 9A) ───
+
+STATUS_QUO_VERSION = "status_quo_v1"
+#: The option the comparator stands for: decline this trade, keep the roster.
+NO_TRANSACTION = "NO_TRANSACTION"
+STATUS_QUO_STATES = ("trade_beats_status_quo", "status_quo_preferred", "insufficient_evidence")
+
+#: Why best-alternative opportunity cost stays unavailable.  The status quo is
+#: the one alternative this decision can compare a trade against, because it
+#: is the zero of BOTH components in their own units.  Ranking one trade
+#: against a DIFFERENT trade needs an ordering over (package value, lineup
+#: points) pairs that the owner has not chosen, and the only generator of
+#: alternatives for the same team (the Trade Finder) ranks on its own
+#: arbitrage score, not on this decision.  The coverage record keeps its
+#: ``exclusionReason: "not_wired"``; this is the specific reason.
+OPPORTUNITY_COST_UNAVAILABLE_REASON = "no_owner_approved_alternative_ranking"
+
+_STATUS_QUO_TEXT = {
+    "clears_decision_thresholds": "Making this trade beats keeping your current roster: it clears "
+    "the decision thresholds.",
+    "near_tie": "Keeping your current roster is preferred: the decision reads this trade as too "
+    "close to call, so making it gains nothing the evidence can tell apart from doing nothing.",
+    "strategy_declines": "Keeping your current roster is preferred: part of this trade is a gain, "
+    "but the team's strategy does not count that gain as enough.",
+    "decision_rule_prefers_status_quo": "Keeping your current roster is preferred: the decision "
+    "rule does not find this trade better than doing nothing.",
+    "trade_not_executable": "Keeping your current roster is the only option: no legal roster "
+    "cleanup exists for this trade.",
+    "missing_evidence": "There is not enough evidence to say this trade beats keeping your "
+    "current roster, so nothing here supports making it.",
+    "decision_unrecognized": "The decision could not be read, so nothing here supports making "
+    "this trade.",
+}
+
+
+#: The ``deciding`` values ``decide`` emits on the decided path (not a gate).
+_DECIDED_BY = ("objectiveValue", "rosterBenefit", "both", "strategy")
+
+
+def _rounded(x: float, digits: int) -> float:
+    """``round`` without a signed zero: ``-0.0`` would read as a sign."""
+    r = round(x, digits)
+    return 0.0 if r == 0 else r
+
+
+def _clearance(
+    value: float, half_width: float, *, unit: str, direction: Any, digits: int
+) -> dict[str, Any]:
+    """One component's distance past its OWN neutral band, both ways.
+
+    ``insideBand`` is the component's own classification (its ``direction``
+    is ``neutral``), so it decides; the clearances are rounded display
+    numbers.  Outside the band, ``tradeClearance`` (favours the trade) or
+    ``statusQuoClearance`` (favours declining) is the positive one.  A net a
+    hair inside the band can round to a clearance of ``0.0``; ``insideBand``
+    still says inside.
+    """
+    return {
+        "unit": unit,
+        "value": _rounded(value, digits),
+        "neutralBandHalfWidth": _rounded(half_width, digits),
+        "tradeClearance": _rounded(value - half_width, digits),
+        "statusQuoClearance": _rounded(-value - half_width, digits),
+        "direction": direction,
+        "insideBand": (direction == "neutral")
+        if direction in ("favors", "opposes", "neutral")
+        else None,
+    }
+
+
+def status_quo(
+    decision: Mapping[str, Any],
+    *,
+    market: Any,
+    feasibility: Any,
+    posture: Any,
+    team_context: bool,
+) -> dict[str, Any]:
+    """The explicit NO TRANSACTION option for one decided trade (pure).
+
+    Declining moves no asset, adds no roster cut and leaves the lineup as it
+    is, so against it both decision components read exactly 0: component A
+    (the adjusted package gap net of forced releases) is already
+    ``trade - nothing`` and component B (best-ball points per week) is already
+    ``after - before``.  The decision therefore compares every trade with the
+    status quo implicitly; this record states that comparison by name, from
+    the decision's own headline, components and thresholds.  It computes no
+    value and adds no threshold, weight or utility: ``preferred`` is a
+    projection of the headline, so it can never disagree with it.
+
+    ``preferred`` answers "is declining preferred?": ``False`` only when the
+    headline is YES; ``True`` for NO and NO — TOO CLOSE (a near tie never
+    favours acting, and a gain the strategy does not count as enough is
+    ``strategy_declines``); ``None`` when the evidence is insufficient or the
+    decision is malformed (a headline without a decided-path ``deciding``).
+    ``actionSupported`` is ``True`` only for YES.  The roster component is
+    read from the decision itself; ``market`` / ``feasibility`` only re-derive
+    the unrounded net gap the band classified (:func:`_objective_net`).
+    """
+    headline = decision.get("headline")
+    deciding = decision.get("deciding")
+    if headline == "YES" and deciding in _DECIDED_BY:
+        state, preferred, reason = "trade_beats_status_quo", False, "clears_decision_thresholds"
+    elif headline in ("NO", "NO_TOO_CLOSE") and deciding == "strategy":
+        # One component favours the trade and the strategy decided against it
+        # (``_rule``): not a near tie, so it is never described as one.
+        state, preferred, reason = "status_quo_preferred", True, "strategy_declines"
+    elif headline == "NO_TOO_CLOSE" and deciding in _DECIDED_BY:
+        state, preferred, reason = "status_quo_preferred", True, "near_tie"
+    elif headline == "NO" and deciding == "executionGate":
+        state, preferred, reason = "status_quo_preferred", True, "trade_not_executable"
+    elif headline == "NO" and deciding in _DECIDED_BY:
+        state, preferred, reason = "status_quo_preferred", True, "decision_rule_prefers_status_quo"
+    elif headline == "NOT_ENOUGH_EVIDENCE" and deciding == "evidenceGate":
+        state, preferred, reason = "insufficient_evidence", None, "missing_evidence"
+    else:  # malformed: fail closed, never towards acting
+        state, preferred, reason = "insufficient_evidence", None, "decision_unrecognized"
+    decided = reason in (
+        "clears_decision_thresholds",
+        "near_tie",
+        "strategy_declines",
+        "decision_rule_prefers_status_quo",
+    )
+
+    comps = decision.get("components") if decided else None
+    comps = comps if isinstance(comps, Mapping) else {}
+    a = comps.get("objectiveValue")
+    b = comps.get("rosterBenefit")
+    a = a if isinstance(a, Mapping) and a.get("evaluated") else None
+    b_eval = b if isinstance(b, Mapping) and b.get("evaluated") else None
+    not_decided = None if decided else (deciding or "decision_unrecognized")
+
+    objective_margin = None
+    if a is not None:
+        inputs = _objective_net(market, feasibility)
+        objective_margin = _clearance(
+            inputs["net"],
+            fairness_bands.fair_threshold(inputs["largerUtility"]),
+            unit="canonical value points (adjusted package)",
+            direction=a.get("direction"),
+            digits=1,
+        )
+    roster_margin = None
+    if (
+        b_eval is not None
+        and isinstance(b_eval.get("ppg"), (int, float))
+        and isinstance(b_eval.get("neutralBandPpg"), (int, float))
+    ):
+        roster_margin = _clearance(
+            float(b_eval["ppg"]),
+            float(b_eval["neutralBandPpg"]),
+            unit="best-ball ppg",
+            direction=b_eval.get("direction"),
+            digits=2,
+        )
+
+    if a is not None:
+        objective_ev: dict[str, Any] = {
+            "evaluated": True,
+            "direction": a.get("direction"),
+            "magnitude": a.get("magnitude"),
+            "bandLevel": (a.get("band") or {}).get("level"),
+            "vaAdjustedGap": a.get("vaAdjustedGap"),
+            "forcedReleaseCost": a.get("forcedReleaseCost"),
+            "netGap": a.get("netGap"),
+        }
+    else:
+        objective_ev = {"evaluated": False, "reason": not_decided}
+    if b_eval is not None:
+        roster_ev: dict[str, Any] = {
+            "evaluated": True,
+            "direction": b_eval.get("direction"),
+            "magnitude": b_eval.get("magnitude"),
+            "ppg": b_eval.get("ppg"),
+            "neutralBandPpg": b_eval.get("neutralBandPpg"),
+        }
+    elif decided and isinstance(b, Mapping):
+        roster_ev = {"evaluated": False, "state": b.get("state"), "reason": b.get("reason")}
+    else:
+        roster_ev = {"evaluated": False, "reason": not_decided}
+
+    fd = feasibility.detail or {}
+    if not team_context:
+        release_state = "excluded_by_mode"
+    elif feasibility.available:
+        release_state = fd.get("state")
+    else:
+        release_state = "unavailable"
+    forced_release = {
+        "state": release_state,
+        "chargedToTrade": a.get("forcedReleaseCost") if a is not None else None,
+        "chargedToStatusQuo": 0,
+        "forcedDrops": [str(d.get("name")) for d in fd.get("forcedDrops") or []]
+        if team_context
+        else [],
+        "basis": "Declining adds no roster cut. A release owed before the trade is owed either "
+        "way, so it is charged to neither option.",
+    }
+
+    strategy = decision.get("strategy") or {}
+    if not team_context:
+        posture_ev: dict[str, Any] = {"state": "excluded_by_mode"}
+    else:
+        pd = (posture.detail or {}) if posture.available else {}
+        posture_ev = {
+            "state": "evaluated" if posture.available else "unavailable",
+            "reason": None if posture.available else posture.unavailable_reason,
+            "strategyUsed": strategy.get("used"),
+            "strategySource": strategy.get("source"),
+            "postureLabel": pd.get("label"),
+            "windowFit": pd.get("windowFit"),
+            "role": "selects_strategy_never_votes",
+        }
+
+    return {
+        "version": STATUS_QUO_VERSION,
+        "decisionVersion": DECISION_VERSION,
+        "option": NO_TRANSACTION,
+        "state": state,
+        "preferred": preferred,
+        "preferredOption": None
+        if preferred is None
+        else (NO_TRANSACTION if preferred else "TRADE"),
+        "actionSupported": state == "trade_beats_status_quo",
+        "reason": reason,
+        "text": _STATUS_QUO_TEXT[reason],
+        "derivedFrom": {"headline": headline, "deciding": deciding},
+        "baseline": {
+            "objectiveValue": 0,
+            "rosterBenefitPpg": 0,
+            "forcedReleaseCost": 0,
+            "definition": "Declining moves no asset, adds no roster cut and leaves the lineup "
+            "unchanged, so both decision components read exactly 0 against it.",
+        },
+        "evidence": {
+            "objectiveValue": objective_ev,
+            "rosterBenefit": roster_ev,
+            "forcedRelease": forced_release,
+            "posture": posture_ev,
+            "missingEvidence": [
+                g.get("code")
+                for g in decision.get("missingEvidence") or []
+                if isinstance(g, Mapping)
+            ],
+        },
+        "margin": {
+            "deciding": deciding,
+            "objectiveValue": objective_margin,
+            "rosterBenefit": roster_margin,
+            "crossComponent": None,
+            "crossComponentReason": "components_are_never_combined",
+            "basis": "Distance past each component's own neutral band (the fairness band; the "
+            "roster lens's neutral band), in that component's units.",
+        },
+        "opportunityCost": {
+            "state": "unavailable",
+            "reason": OPPORTUNITY_COST_UNAVAILABLE_REASON,
+            "coverageExclusionReason": "not_wired",
+            "comparedAlternatives": [NO_TRANSACTION],
+            "text": "Whether a different trade would serve this team better is not evaluated; "
+            "the only alternative compared is keeping the current roster.",
+        },
+    }

@@ -18,6 +18,7 @@ Decision record: `docs/owner/OWNER_DECISION_CLOSEOUT_2026-10-18.md`. Live status
 | 4 | ~~Install Tesseract on the VPS~~ **done** (owner reported 5.3.4 installed, 2026-10-18); keep the post-install recognition checks | D19 | No longer blocking; recognition quality tracked by the full-page fix lane |
 | 5 | Off-host encrypted backup for the official rookie auction | D20 | Not for mocks; required (or a documented risk acceptance) before the official auction |
 | 6 | Re-enable authenticated production verification | Part 9 item 9 | Yes for proof: many rows stay DEPLOYED_NOT_PRODUCTION_VERIFIED until it runs |
+| 7 | Immediate failure notice for the 38 `dynasty-*` timers (`OnFailure=`) | MD-103 / Priority 8 | No; the daily ops sweep already reports failed units (below). This makes it immediate |
 
 ---
 
@@ -258,3 +259,96 @@ gh api repos/jasonleetucker-code/riskittogetthebrisket/actions/workflows \
 ```
 
 Enabling a workflow is a repository action reserved for the owner. Agents only read the state.
+
+---
+
+## 7. Immediate failure notice for the `dynasty-*` timers (`OnFailure=`) (MD-103)
+
+**Status:** not applied. It is a production infrastructure change, so it is written up here and kept out of the
+engineering PR (owner directive 2026-11-08, Priorities 8 and 18: root-level infrastructure is owner-reserved).
+
+### Why this is not a repository change
+
+None of the 38 `dynasty-*` timers has `OnFailure=` (40 shipped `*.service.template` files, none carries it). The
+natural fix, adding `OnFailure=` to the service templates, would reach production **by itself** on the next deploy:
+
+- `deploy/deploy.sh::ensure_systemd_service` runs `deploy/install-systemd-service.sh` on every deploy whenever any
+  `*.timer.template` ships (it always does), without `FORCE_SERVICE_INSTALL`, so no service is restarted by that step;
+- the installer (`reconcile_timer_units`) renders each service and timer template, compares it with the installed
+  unit, **rewrites it on any content difference** and runs `daemon-reload`.
+
+So an edit to a service template is a live change to 38 production units the moment it merges. A new notifier
+template would not install at all, because the installer only pairs `dynasty-<stem>.service.template` with
+`dynasty-<stem>.timer.template`; a template that references a unit nobody installed would be worse than nothing.
+
+### What the repository already does without any operator action
+
+After the next deploy the daily ops-alert sweep (`dynasty-signal-alerts.timer`, 15:00 UTC, the existing SMTP path with
+a per-category 4 h cooldown and a recovery notice) reads `systemctl list-units --failed` (an unprivileged read) and
+emails one alert per shipped `dynasty-*` / `riskit-*` service whose **latest run failed** (`src/api/systemd_failures.py`,
+`src/api/ops_alerts.py::_check_failed_units`). It also alerts on an irreplaceable store missing from the newest backup
+generation and on a failed post-deploy restore proof (`src/api/backup_health.py::alert_rows`). Worst-case latency is
+one sweep interval (up to 24 h). If `systemctl` cannot be asked from the backend's sandbox the check reads *not
+checked*, never *no failures*; confirm it can:
+
+```bash
+sudo -u dynasty systemctl list-units --failed --type=service --plain --no-legend --no-pager
+# Expect: exit 0 (an empty list is fine). A "Failed to connect to bus" error means the check cannot see failures here.
+```
+
+The sweep needs `ALERT_TO` / SMTP configured (`.env.example`) and `SIGNAL_ALERT_CRON_TOKEN`; without them it sends
+nothing and says so (`opsAlerts.deliveryConfigured: false` in the sweep result).
+
+### Optional: make it immediate (one prefix drop-in, no template edits)
+
+This reuses the existing alert path by starting the existing sweep right after a unit fails. It touches no repository
+template, so the deploy installer cannot overwrite it, and it is one file rather than 38.
+
+**Read first.** Starting `dynasty-signal-alerts.service` runs the whole sweep (per-user signal digests plus the ops
+checks), not only the ops checks. Confirm the user digests are idempotent within a day (they record a per-signal
+`notifiedAt`; read the `POST /api/signal-alerts/run` handler in `server.py`) before you accept extra sweeps. If you would rather not run
+them more than once a day, skip this section: the daily sweep above already reports every failed unit.
+
+```bash
+# 1. The notifier. Root, a FIXED command, and a name that does NOT start with "dynasty-", so the drop-in below
+#    cannot attach OnFailure= to the notifier itself (a notifier that fails must not trigger itself).
+sudo tee /etc/systemd/system/riskit-failure-notify.service >/dev/null <<'EOF'
+[Unit]
+Description=Start the ops-alert sweep after a dynasty-* unit failed
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl start --no-block dynasty-signal-alerts.service
+EOF
+
+# 2. One prefix drop-in: applies to every dynasty-*.service (not to dynasty.service, which has no dash; the backend is
+#    covered by dynasty-healthcheck.timer).
+sudo install -d -m 0755 /etc/systemd/system/dynasty-.service.d
+sudo tee /etc/systemd/system/dynasty-.service.d/10-onfailure.conf >/dev/null <<'EOF'
+[Unit]
+OnFailure=riskit-failure-notify.service
+EOF
+
+sudo systemctl daemon-reload
+```
+
+### Verify
+
+```bash
+systemctl show dynasty-ktc-trades.service -p OnFailure                  # expect riskit-failure-notify.service
+systemctl show riskit-failure-notify.service -p OnFailure               # expect empty (no self-trigger)
+# Harmless end-to-end probe: a transient unit that fails on purpose, under the dynasty- prefix.
+sudo systemd-run --unit=dynasty-zz-onfailure-probe --wait /bin/false || true
+journalctl -u riskit-failure-notify.service -n 5 --no-pager             # expect one start
+sudo systemctl reset-failed dynasty-zz-onfailure-probe.service
+```
+
+The ops alert is rate-limited, so one probe may be the only email in 4 h.
+
+### Rollback
+
+```bash
+sudo rm -f /etc/systemd/system/dynasty-.service.d/10-onfailure.conf /etc/systemd/system/riskit-failure-notify.service
+sudo rmdir /etc/systemd/system/dynasty-.service.d 2>/dev/null || true
+sudo systemctl daemon-reload
+```

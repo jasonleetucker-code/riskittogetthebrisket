@@ -780,19 +780,19 @@ class TestValuationInertness(unittest.TestCase):
     def test_ledger_presence_never_moves_values_or_ranks(self):
         import os
         import tempfile
-        import zipfile
         from datetime import date as _date, timedelta
         from unittest import mock
 
-        archive_dir = Path(__file__).resolve().parents[2] / "exports" / "archive"
-        zips = sorted(archive_dir.glob("dynasty_export_*.zip"))
-        if not zips:
-            self.skipTest("no archive bundles in this checkout")
-        with zipfile.ZipFile(zips[-1]) as z:
-            data_name = next(
-                n for n in z.namelist() if n.startswith("dynasty_data_") and n.endswith(".json")
-            )
-            raw = json.load(z.open(data_name))
+        from tests.archive_fixtures import pinned_board_payload, pinned_build_environment
+
+        # The PINNED board (never the newest archive): inputs a data refresh
+        # cannot move.
+        raw, _label = pinned_board_payload()
+        # Both builds read the pinned CSVs / scrape state and an absent
+        # ledger (the seeded one is patched in below), never today's.
+        env = pinned_build_environment(freeze_clock=False)
+        env.__enter__()
+        self.addCleanup(env.__exit__, None, None, None)
 
         def snapshot(contract):
             return [

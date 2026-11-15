@@ -2792,10 +2792,42 @@ def _backup_snapshot_uncached() -> tuple[dict, str | None]:
                 "legacyKeysDescribe": "legacySqliteBackup",
                 "filesystemPaths": "withheld",
                 "legacySqliteBackup": {"state": "unverifiable", "reason": "probe_error"},
-                "stateBackup": {"state": "unverifiable", "reason": "probe_error"},
+                "stateBackup": {
+                    "state": "unverifiable",
+                    "reason": "probe_error",
+                    "irreplaceableLedgers": {"coverage": "unverifiable"},
+                },
+                "restoreProof": {"result": "unknown", "reason": "probe_error"},
             },
             None,
         )
+
+
+def _backup_coverage_alert_rows() -> dict | None:
+    """Irreplaceable-store coverage + restore-proof findings for the operator's
+    ops-alert sweep.  PRIVATE (it names the stores): one fresh detail pass, never
+    memoized and never served.  ``None`` -- "not checked", never "healthy" --
+    when the pass itself fails.  Owner: ``src/api/backup_health.py``.
+    """
+    try:
+        from src.api import backup_health as _bh
+
+        return _bh.alert_rows_now()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
+
+
+def _failed_systemd_units() -> list[str] | None:
+    """Shipped systemd services currently ``failed`` (``None`` = not checked).
+
+    Owner: ``src/api/systemd_failures.py``.  Never raises.
+    """
+    try:
+        from src.api import systemd_failures as _sf
+
+        return _sf.failed_units()
+    except Exception:  # noqa: BLE001 -- the sweep must never fail on a probe
+        return None
 
 
 def _backup_alert_path(block: dict) -> str | None:
@@ -3622,6 +3654,9 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     # Old-generation memoized responses go with the old etag.
     _OVERRIDES_RESPONSE_CACHE.clear()
     _DRAFT_CAPITAL_CACHE.clear()
+    # A new board generation moves the heavy-section key (``latest_data_etag``);
+    # rebuild those entries off the request path.  Never blocks, never raises.
+    _schedule_public_sections_warm("publish", wait_for_serving=True)
 
 
 def _load_cached_payload(path: Path | None) -> dict | None:
@@ -15156,6 +15191,13 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     # anonymous request can never strip the fields from the cached object
     # that the authenticated /draft page reads next.
     viewer_is_authed = _is_authenticated(request)
+    if refresh and not viewer_is_authed:
+        # An anonymous ``?refresh=<anything>`` used to skip the cache and run
+        # a full ~3-4 s build (Sleeper round-trips, dollar generation) per
+        # request, so any caller could keep the worker busy.  Same posture as
+        # ``_authorized_force_refresh`` on the public-league routes: IGNORED,
+        # not refused -- the public tab keeps working and reads the cache.
+        refresh = ""
     cache_slot = _DRAFT_CAPITAL_CACHE.get(league_cfg.key)
     if not refresh and cache_slot and (now - cache_slot[0]) < _DRAFT_CAPITAL_TTL_SEC:
         cached = cache_slot[1]
@@ -16472,6 +16514,23 @@ def _heavy_section_cache_key(snapshot):
     )
 
 
+def _exact_memoized_awards_body(snapshot):
+    """The memoized ``awards`` section BODY for exactly this snapshot and
+    board generation, else ``None``.
+
+    ``franchise`` lists each manager's awards and used to recompute the whole
+    awards section on every request (the full-contract path already passes
+    the one it built).  Only an EXACT-key hit qualifies -- never a stale-
+    while-revalidate entry -- so the franchise bytes are those a fresh build
+    would produce; any miss falls back to the standalone build."""
+    cached = _heavy_section_cache.get("awards")
+    if cached is None or cached[0] != _heavy_section_cache_key(snapshot):
+        return None
+    payload = cached[1]
+    body = payload.get("data") if isinstance(payload, dict) else None
+    return body if isinstance(body, dict) else None
+
+
 def _remember_heavy_section(section: str, cache_key, payload, started_at: float) -> None:
     with _heavy_section_lock:
         current = _heavy_section_cache.get(section)
@@ -17107,6 +17166,7 @@ def _kick_background_refresh(league_id: str, *, trigger: str = "stale-while-reva
             logging.warning("Background public_league refresh failed: %s", exc)
         else:
             _warm_roster_construction_after_refresh()
+            _schedule_public_sections_warm("snapshot-refresh")
         finally:
             _public_league_cache["refreshing"] = False
 
@@ -17770,6 +17830,120 @@ def _warm_roster_construction_after_refresh() -> None:
         logging.warning("Roster construction warm failed: %s", exc)
 
 
+# ── Public sections: warm after a publish / snapshot refresh ─────────
+# The first visitor after a publish used to pay for work no cache held:
+#   * ``awards`` / ``archives`` -- memoized in ``_heavy_section_cache`` under
+#     (root league, snapshot ``generated_at``, board ``latest_data_etag``); a
+#     new publish or snapshot refresh moves the key, so the next request built
+#     it inline.
+#   * ``playoffOdds`` / ``rosPlayoffOdds`` -- ``playoff_sim.canonical_forecast``
+#     serves the scheduled file only while it matches the snapshot and is under
+#     its 6 h mtime TTL; otherwise it runs the live Monte Carlo (5-18 s) memoized
+#     in ``_LIVE_MEMO`` under (root league, ``generated_at``) -- which moves with
+#     every public-snapshot refresh (``PUBLIC_LEAGUE_CACHE_TTL``, 300 s).
+# This pass calls the SAME accessors the routes call, with the same inputs, on a
+# daemon thread, so the entries exist before the visitor.  It adds no cache and
+# no key: a request still computes (or waits on the per-league live lock, or the
+# SWR job) exactly as before, so a result is never one a request would not have
+# produced for its own snapshot.  ``PUBLIC_SECTIONS_WARM_ENABLED=0`` + restart
+# disables it.
+_PUBLIC_SECTIONS_WARM_ENABLED = _env_bool("PUBLIC_SECTIONS_WARM_ENABLED", True)
+_public_sections_warm_guard = threading.Lock()
+_public_sections_warm_state = {"running": False, "pending": False, "wait": False}
+
+
+def _warm_public_sections_once() -> list[str]:
+    """Warm awards, archives and the canonical forecast for the CURRENT snapshot.
+
+    Returns the names warmed.  Each step is isolated, so one failure never
+    skips the next; the caller swallows anything that escapes."""
+    snapshot = _get_public_snapshot()
+    if snapshot is None or not getattr(snapshot, "seasons", None):
+        return []
+    fetched_at = float(_public_league_cache.get("fetched_at") or 0.0)
+    if (time.time() - fetched_at) >= _PUBLIC_LEAGUE_CACHE_TTL_SECONDS:
+        # Stale snapshot: ``_get_public_snapshot`` kicked a refresh whose own
+        # completion re-runs this pass on the fresh generation.  Warming the
+        # old one would only be thrown away.
+        return []
+    warmed: list[str] = []
+    for section in sorted(_HEAVY_SECTION_KEYS):
+        try:
+            cache_key = _heavy_section_cache_key(snapshot)
+            cached = _heavy_section_cache.get(section)
+            if cached is not None and cached[0] == cache_key:
+                continue
+            started_at = time.monotonic()
+            # ``awards`` / ``archives`` never read ``activity_valuation`` (see
+            # the heavy-section notes), so None is the route's own build.
+            payload = build_section_payload(snapshot, section)
+            _remember_heavy_section(section, cache_key, payload, started_at)
+            warmed.append(section)
+        except Exception as exc:  # noqa: BLE001 -- the request path builds on demand
+            logging.warning("Public section warm failed for %s: %s", section, exc)
+    try:
+        from src.ros import playoff_sim as _playoff_sim  # noqa: PLC0415
+
+        _playoff_sim.canonical_forecast(snapshot)
+        warmed.append("canonicalForecast")
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Public canonical forecast warm failed: %s", exc)
+    return warmed
+
+
+def _public_sections_warm_worker() -> None:
+    clean_exit = False
+    try:
+        while True:
+            with _public_sections_warm_guard:
+                if not _public_sections_warm_state["pending"]:
+                    _public_sections_warm_state["running"] = False
+                    clean_exit = True
+                    return
+                _public_sections_warm_state["pending"] = False
+                wait = _public_sections_warm_state["wait"]
+                _public_sections_warm_state["wait"] = False
+            if wait:
+                _SERVING_STARTED.wait(timeout=_ANALYSIS_WARM_BOOT_WAIT_SECONDS)
+            started = time.perf_counter()
+            try:
+                warmed = _warm_public_sections_once()
+                logging.info(
+                    "public sections warm: %s in %.1fs",
+                    ",".join(warmed) or "nothing",
+                    time.perf_counter() - started,
+                )
+            except Exception as exc:  # noqa: BLE001 -- a warm never breaks a refresh
+                logging.warning("Public sections warm failed: %s", exc)
+    finally:
+        if not clean_exit:
+            with _public_sections_warm_guard:
+                _public_sections_warm_state["running"] = False
+
+
+def _schedule_public_sections_warm(reason: str, *, wait_for_serving: bool = False) -> None:
+    """Request a warm pass.  One worker at a time; a request that arrives while
+    one runs sets ``pending`` and is served by one more pass (newest wins).
+    Never blocks, never raises into the scrape / refresh that called it."""
+    if not _PUBLIC_SECTIONS_WARM_ENABLED:
+        return
+    try:
+        with _public_sections_warm_guard:
+            _public_sections_warm_state["pending"] = True
+            if wait_for_serving:
+                _public_sections_warm_state["wait"] = True
+            if _public_sections_warm_state["running"]:
+                return
+            _public_sections_warm_state["running"] = True
+        threading.Thread(
+            target=_public_sections_warm_worker, name="public-sections-warm", daemon=True
+        ).start()
+    except Exception as exc:  # noqa: BLE001
+        with _public_sections_warm_guard:
+            _public_sections_warm_state["running"] = False
+        logging.warning("Public sections warm (%s) not started: %s", reason, exc)
+
+
 def _roster_construction_posture(league_cfg, snapshot, target, owner_by_roster):
     """Current competitive posture per roster, warm-only; ``{}`` when unavailable."""
     if target is not snapshot.current_season:
@@ -18185,6 +18359,9 @@ async def get_public_league_section(
                     section,
                     activity_valuation=_build_public_activity_valuation(),
                     team_assignment_contract=latest_contract_data,
+                    awards_section=(
+                        _exact_memoized_awards_body(snapshot) if section == "franchise" else None
+                    ),
                 )
                 if section == "franchise" and owner:
                     detail_map = payload.get("data", {}).get("detail") or {}
@@ -21902,6 +22079,8 @@ async def run_signal_alerts(request: Request):
             draft_valuation=await run_in_threadpool(_draft_valuation_health),
             pregame_archive=await run_in_threadpool(_pregame_archive_health),
             roster_construction=await run_in_threadpool(_roster_construction_health),
+            backup_coverage=await run_in_threadpool(_backup_coverage_alert_rows),
+            failed_units=await run_in_threadpool(_failed_systemd_units),
             forecast_degradation=await run_in_threadpool(_forecast_degradation_health),
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,

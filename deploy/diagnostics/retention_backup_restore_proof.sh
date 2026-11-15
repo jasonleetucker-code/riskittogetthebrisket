@@ -77,6 +77,25 @@
 # Exit codes: 0 proven (possibly with optional-store warnings) · 1 could
 # not run · 2 an artifact that exists on the source is missing from the
 # backup, or a restored artifact failed verification.
+#
+# THE RESULT IS RECORDED WHERE THE APP CAN READ IT
+# ────────────────────────────────────────────────
+# A proof whose only record is a CI log cannot be seen from `/api/health`.
+# Every run therefore leaves a small machine-readable result at
+# PROOF_RESULT_FILE (default: ${DATA_DIR}/diagnostics/backup_restore_proof.json
+# — the untracked diagnostics tree, which a deploy's `git reset --hard` does
+# not touch; this script runs as the same user that owns DATA_DIR and needs no
+# new privilege).  `src/api/backup_health.py` reads it and reports
+# `restoreProof`.  The file carries enumerated states and integers only —
+# never a path, a payload or a log line:
+#
+#   state  running | proven | proven_with_warnings | failed | could_not_run
+#
+# `running` is written FIRST, so a run that is killed mid-way (SIGKILL, a
+# dropped ssh session) leaves `running`, which the reader reports as
+# `interrupted` once past the job budget — never the previous run's `proven`.
+# The write is best-effort and never changes this script's exit status; a
+# host where it cannot be written simply reads `unknown`.
 
 set -Eeuo pipefail
 
@@ -109,6 +128,32 @@ note_proven() { PROVEN=$((PROVEN + 1)); }
 
 RESTORE_DIR=""
 RESULT_FILE=""
+
+# ── The proof's own result record (see the header) ────────────────────
+PROOF_RESULT_FILE="${PROOF_RESULT_FILE:-${DATA_DIR}/diagnostics/backup_restore_proof.json}"
+PROOF_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+PROOF_GEN_DATE=""
+# $1 state · $2 exit code ("null" while running) · $3 completed-at ("null" while running)
+write_proof_result() {
+    local state="$1" code="$2" completed="$3" dir tmp gen_json="null"
+    case "${PROOF_RESULT_FILE}" in /*) ;; *) return 0 ;; esac
+    if [[ "${PROOF_GEN_DATE}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+        gen_json="\"${PROOF_GEN_DATE}\""
+    fi
+    [[ "${completed}" == "null" ]] || completed="\"${completed}\""
+    dir="$(dirname "${PROOF_RESULT_FILE}")"
+    mkdir -p "${dir}" 2>/dev/null || { warn "could not create ${dir}; the proof result is not recorded for backup_health"; return 0; }
+    tmp="${PROOF_RESULT_FILE}.tmp.$$"
+    {
+        printf '{"schema": 1, "state": "%s", "startedAt": "%s", "completedAt": %s, ' \
+            "${state}" "${PROOF_STARTED_AT}" "${completed}"
+        printf '"exitCode": %s, "runBackup": %s, "provenArtifacts": %s, "failures": %s, ' \
+            "${code}" "$([[ "${RUN_BACKUP}" == "1" ]] && echo true || echo false)" "${PROVEN:-0}" "${FAILURES:-0}"
+        printf '"optionalWarnings": %s, "generationDate": %s}\n' "${OPTIONAL_WARNINGS:-0}" "${gen_json}"
+    } > "${tmp}" 2>/dev/null && mv -f "${tmp}" "${PROOF_RESULT_FILE}" 2>/dev/null \
+        || { rm -f "${tmp}" 2>/dev/null; warn "could not record the proof result at ${PROOF_RESULT_FILE}"; }
+    return 0
+}
 # Each step guarded INDEPENDENTLY. Under `set -Eeuo pipefail` a failing
 # `rm -rf` inside an EXIT trap aborts the trap: the pending exit status is
 # replaced by 1 and every later step is skipped. That turns a real artifact
@@ -116,6 +161,18 @@ RESULT_FILE=""
 # infrastructure breakage, and a fully green proof into a red one — while
 # also leaking the result file it never got to remove.
 cleanup() {
+    local rc=$?
+    # Record the verdict from the exit status this run is ABOUT to report;
+    # guarded so that failing to record can never rewrite it.
+    if [[ -n "${PROOF_RUNNING_WRITTEN:-}" ]]; then
+        local ps
+        case "${rc}" in
+            0) if (( ${OPTIONAL_WARNINGS:-0} > 0 )); then ps="proven_with_warnings"; else ps="proven"; fi ;;
+            2) ps="failed" ;;
+            *) ps="could_not_run" ;;
+        esac
+        write_proof_result "${ps}" "${rc}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" || true
+    fi
     [[ -z "${RESTORE_DIR}" ]] || rm -rf "${RESTORE_DIR}" || true
     [[ -z "${RESULT_FILE}" ]] || rm -f "${RESULT_FILE}" || true
     return 0
@@ -123,6 +180,10 @@ cleanup() {
 trap cleanup EXIT
 
 [[ -d "${APP_DIR}" ]] || fail "app dir not found: ${APP_DIR}"
+# From here on a verdict is recorded (the cleanup trap above); `running` goes
+# first so a killed run cannot leave the PREVIOUS run's result standing.
+write_proof_result running null null
+PROOF_RUNNING_WRITTEN=1
 [[ -x "${PYTHON_BIN}" ]] || PYTHON_BIN="$(command -v python3 || true)"
 [[ -x "${PYTHON_BIN}" ]] || fail "no usable python interpreter"
 
@@ -346,6 +407,7 @@ else
     [[ -n "${GEN}" ]] || fail "no backup generation in any readable candidate root ($(backup_root_candidates | tr '\n' ' ')) — run with RUN_BACKUP=1"
 fi
 
+PROOF_GEN_DATE="$(basename "${GEN}")"
 [[ -d "${GEN}" ]] || fail "recorded generation does not exist on disk: ${GEN}"
 # "effective backup root: X" must never be printed for a generation that is
 # not under X. Belt-and-braces behind the library's pointer containment check.

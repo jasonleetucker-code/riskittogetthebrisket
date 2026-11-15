@@ -1,6 +1,6 @@
 """Trade discovery on a REAL dynasty_main board (owner directive 2026-10-18).
 
-Read-only over the newest COMPLETE archived scrape (``tests/archive_fixtures``)
+Read-only over the PINNED complete archived scrape (``tests/archive_fixtures``)
 — deterministic, tracked, and it SKIPS rather than passing vacuously.  Every
 assertion is an INVARIANT, never a count of the live board (CI two-lane rule):
 the default discovery results are never led by a deep bench player, every
@@ -16,13 +16,15 @@ from src.trade import discovery as disc
 from src.trade import finder
 from src.trade import golden_upgrades as gu
 
+pytestmark = pytest.mark.usefixtures("pinned_board_inputs")
+
 
 @pytest.fixture(scope="module")
 def board():
     from src.api.data_contract import build_api_data_contract
-    from tests.archive_fixtures import newest_complete_raw_payload
+    from tests.archive_fixtures import pinned_board_payload
 
-    raw, label = newest_complete_raw_payload()
+    raw, label = pinned_board_payload()
     if raw is None:
         pytest.skip("no complete archived scrape available")
     contract = build_api_data_contract(raw)

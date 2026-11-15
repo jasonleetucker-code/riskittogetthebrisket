@@ -16,7 +16,7 @@ April 2026 (see audit dated 2026-04-14):
 Two tiers, decided per class (CLAUDE.md "CI has two lanes").  Properties of
 OUR pick passes -- slot monotonicity, tier suppression and aliasing, pick
 confidence phrasing, the anchor-band helpers -- build from
-``tests.archive_fixtures.newest_complete_contract`` (the newest archived scrape
+``tests.archive_fixtures.pinned_board_contract`` (the pinned archived scrape
 the contract's own source-health definition calls complete) and run in the hard
 gate.  Claims about what TODAY'S MARKETS say (year ordering, tracking the
 current KTC CSV, named-player rank bands) keep reading ``exports/latest`` /
@@ -36,7 +36,7 @@ from typing import Any
 import pytest
 
 from src.api.data_contract import build_api_data_contract
-from tests.archive_fixtures import newest_complete_contract
+from tests.archive_fixtures import pinned_board_contract
 
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -63,8 +63,8 @@ def _get() -> dict[str, Any] | None:
 
 
 def _get_pinned() -> dict[str, Any] | None:
-    """The newest COMPLETE archived board (read-only, shared across modules)."""
-    contract, _name = newest_complete_contract()
+    """The PINNED complete archived board (read-only, shared across modules)."""
+    contract, _name = pinned_board_contract()
     return contract
 
 
@@ -186,6 +186,7 @@ class TestSlotMonotonic(unittest.TestCase):
         self.assertGreaterEqual(val(7), val(9), "2.07 must >= 2.09")
 
 
+@pytest.mark.livedata  # every test below is livedata; setUp reads today's board
 class TestYearDiscount(unittest.TestCase):
     """Future-year picks must be discounted below baseline-year picks."""
 

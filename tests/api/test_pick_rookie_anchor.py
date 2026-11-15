@@ -21,7 +21,11 @@ import unittest
 from typing import Any
 
 from src.api.data_contract import assert_ranking_coherence
-from tests.archive_fixtures import has_published_slot_class, newest_complete_contract
+from tests.archive_fixtures import (
+    has_published_slot_class,
+    pinned_board_contract,
+    pinned_board_payload,
+)
 
 
 # ── TestAnchorPassCore lives in test_pick_rookie_anchor_core.py ──
@@ -34,7 +38,7 @@ from tests.archive_fixtures import has_published_slot_class, newest_complete_con
 # drafted, so five of the six tests skipped forever and checked nothing, and
 # the one that ran read whatever today's scrape happened to be.  The slotted
 # class is now DERIVED from the board (the class whose ``<year> Pick N.NN``
-# rows are present -- the tether population) and the board is the newest
+# rows are present -- the tether population) and the board is the pinned
 # archived scrape the contract's own source-health definition calls complete,
 # taken from the phase in which a vendor publishes slot prices
 # (``has_published_slot_class``).  Hard gate: a provider that does not answer
@@ -61,13 +65,14 @@ class TestAnchorEndToEnd(unittest.TestCase):
     build on a complete archived scrape that carries a slotted class."""
 
     def setUp(self) -> None:
-        contract, _name = newest_complete_contract(require=has_published_slot_class)
-        if contract is None:
-            self.skipTest("No complete archived board with a published slot class")
+        contract, _name = pinned_board_contract()
+        # The pinned board is in the slotted phase; a re-pin that is not must
+        # fail here rather than skip the whole end-to-end class.
+        raw, _ = pinned_board_payload()
+        assert has_published_slot_class(raw), "the pinned board carries no slotted class"
         self.contract = contract
         self.year = _slotted_year(contract["playersArray"])
-        if self.year is None:
-            self.skipTest("No slot picks on the board -- between drafts (C1-U6-D2)")
+        assert self.year is not None, "the pinned board has a slotted class but no slot picks"
         self.prefix = f"{self.year} Pick "
         self.slot_picks = [
             r
@@ -89,8 +94,7 @@ class TestAnchorEndToEnd(unittest.TestCase):
             ],
             key=lambda r: -int(r["rankDerivedValue"]),
         )
-        if not rookies:
-            self.skipTest("No rookies in contract")
+        assert rookies, "the pinned board carries priced rookies"
 
         pick_101 = next(
             (r for r in rows if r.get("canonicalName") == f"{self.year} Pick 1.01"),
@@ -151,8 +155,7 @@ class TestAnchorEndToEnd(unittest.TestCase):
         rookies that fell off the Phase 4 cap.
         """
         picks = self.slot_picks
-        if len(picks) < 72:
-            self.skipTest(f"Only {len(picks)} {self.year} slot picks in contract")
+        assert len(picks) >= 72, f"the pinned board carries a full slot class, got {len(picks)}"
         untethered = [p.get("canonicalName") for p in picks if not p.get("pickRookieAnchor")]
         self.assertEqual(
             untethered,
