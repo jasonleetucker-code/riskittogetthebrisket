@@ -14,6 +14,25 @@ import { fmtSimulatedShare } from "@/lib/odds-disclosure";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
 
+// Where a signed-out visitor is sent to sign in, and where they land after.
+export const ROS_TRADE_DEADLINE_LOGIN_HREF = `/login?next=${encodeURIComponent(
+  "/league?tab=rosTradeDeadline",
+)}`;
+
+// The section is private intelligence (buyer/seller labels per manager): a
+// 401 is the expected answer for a signed-out visitor and a 403 for a
+// signed-in non-member, not a fault.  The error is the HTTP status string.
+export function isTradeDeadlineAuthError(error) {
+  return error === "401" || error === "403";
+}
+
+export function _resetRosTradeDeadlineCache() {
+  _cache.data = null;
+  _cache.error = null;
+  _cache.inflight = null;
+  _cache.fetchedAt = 0;
+}
+
 async function _fetchOnce() {
   const fresh = _cache.data && Date.now() - _cache.fetchedAt < CACHE_TTL_MS;
   if (fresh) return { data: _cache.data, error: null };
@@ -89,9 +108,27 @@ export default function RosTradeDeadlineSection() {
     return <LoadingState message="Loading trade-deadline dashboard..." />;
   }
   if (error && !data) {
+    if (isTradeDeadlineAuthError(error)) {
+      return (
+        <Card>
+          <div role="status" data-testid="ros-trade-deadline-auth-required">
+            <EmptyState
+              title="The trade-deadline dashboard is available to signed-in league members"
+              message="It labels each manager a buyer or seller from their playoff odds, roster strength and age, so it is not shown publicly."
+            />
+            <p style={{ textAlign: "center", marginTop: 8 }}>
+              <a href={ROS_TRADE_DEADLINE_LOGIN_HREF}>Sign in to view the trade-deadline dashboard</a>
+            </p>
+          </div>
+        </Card>
+      );
+    }
     return (
       <Card>
-        <EmptyState title="Trade deadline unavailable" message={error} />
+        <EmptyState
+          title="Trade deadline unavailable"
+          message={`The dashboard could not be loaded right now. Try again later. (HTTP ${error})`}
+        />
       </Card>
     );
   }

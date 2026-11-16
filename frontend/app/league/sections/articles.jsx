@@ -97,8 +97,11 @@ export default function ArticlesSection({ mode, currentSeason = null, currentWee
   const isCurrentWeek =
     clockKnown && String(latest.season) === String(currentSeason) && latest.week === Number(currentWeek);
   const isOlderSlate = clockKnown && !isCurrentWeek;
+  // No clock supplied (the Recaps tab): currency is unknown, so the slate is
+  // named for what it is, the most recent on file, never "this week's".
+  const currencyUnknown = !clockKnown;
 
-  const heading = isOlderSlate
+  const heading = isOlderSlate || currencyUnknown
     ? mode === "preview"
       ? `Most recent previews · ${latest.season} Week ${latest.week}`
       : `Most recent recaps · ${latest.season} Week ${latest.week}`
@@ -107,7 +110,9 @@ export default function ArticlesSection({ mode, currentSeason = null, currentWee
       : `Week ${latest.week} recaps · ${latest.season}`;
   const subhead = isOlderSlate
     ? `No ${mode === "preview" ? "previews" : "recaps"} written yet for ${currentSeason} Week ${currentWeek} — these are the most recent on file.`
-    : mode === "preview"
+    : currencyUnknown
+      ? `The most recent ${mode === "preview" ? "previews" : "recaps"} on file. Tap a card for the full article.`
+      : mode === "preview"
       ? "Wednesday-morning previews. Tap a card for the full article."
       : "Tuesday-morning recaps. Tap a card for the full article.";
 
