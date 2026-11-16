@@ -126,6 +126,9 @@ export default function SharpTrackerPage() {
   const [market, setMarket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [marketError, setMarketError] = useState(null);
+  // The window the last market error belongs to.  A failed refresh of the
+  // HELD window is not a failure of a newly selected one that is still loading.
+  const [marketErrorWindow, setMarketErrorWindow] = useState(null);
   const [cohortError, setCohortError] = useState(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -164,10 +167,12 @@ export default function SharpTrackerPage() {
       if (requestId !== marketRequestRef.current) return;
       setMarket(payload);
       setMarketError(null);
+      setMarketErrorWindow(null);
       setLastRefreshedAt(Date.now());
     } catch (error) {
       if (requestId !== marketRequestRef.current) return;
       setMarketError(apiErrorMessage(error));
+      setMarketErrorWindow(windowName);
     } finally {
       if (requestId === marketRequestRef.current) setLoading(false);
     }
@@ -190,6 +195,7 @@ export default function SharpTrackerPage() {
   // not the selected window while a new one is loading (or failed to load).
   const marketWindow = market?.query?.window || null;
   const windowPending = Boolean(market) && marketWindow !== windowName;
+  const selectedWindowFailed = Boolean(marketError) && marketErrorWindow === windowName;
   const assets = (market?.assets || []).filter(
     (asset) =>
       asset?.assetType !== "pick" &&
@@ -426,12 +432,12 @@ export default function SharpTrackerPage() {
         </div>
       </Panel>
 
-      {marketError && market && windowPending ? (
+      {selectedWindowFailed && market && windowPending ? (
         <Banner tone="warning" title={`The ${windowName} window did not load`}>
           {marketError}. The table below still shows the {marketWindow || "previous"} window, labelled as such, and the{" "}
           {windowName} window is retrying automatically.
         </Banner>
-      ) : marketError && market ? (
+      ) : selectedWindowFailed && market && !windowPending ? (
         <Banner tone="warning" title="Latest refresh failed">
           {marketError}. Showing the last successful result and retrying automatically.
         </Banner>
@@ -448,7 +454,7 @@ export default function SharpTrackerPage() {
         </Banner>
       ) : loading && !market ? (
         <LoadingState message="Loading unified Sharp market…" />
-      ) : windowPending && loading && !marketError ? (
+      ) : windowPending && loading && !selectedWindowFailed ? (
         <LoadingState message={`Loading the ${windowName} window…`} />
       ) : (
         <Panel

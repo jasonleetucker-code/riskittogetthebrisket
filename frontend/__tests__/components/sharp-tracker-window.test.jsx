@@ -109,6 +109,34 @@ describe("Sharp Tracker: a window the table does not hold is never shown as 0", 
     expect(cells).not.toContain("0");
   });
 
+  it(
+    "a failed refresh of the HELD window does not make a newly selected window read as failed",
+    { timeout: 15000 },
+    async () => {
+      let calls30d = 0;
+      marketByWindow["30d"] = () => {
+        calls30d += 1;
+        return calls30d === 1
+          ? Promise.resolve(json(200, marketFor("30d", STATS_30D)))
+          : Promise.resolve(json(500, { error: "boom" }));
+      };
+      marketByWindow["7d"] = () => new Promise(() => {}); // still in flight
+      render(<SharpTrackerPage />);
+      await screen.findByText("Jeremiyah Love");
+
+      // Refresh the held 30d window; it fails (after fetchFreshJson's retries).
+      fireEvent.click(screen.getByRole("button", { name: /Refresh now/ }));
+      expect(await screen.findByText("Latest refresh failed", {}, { timeout: 6000 })).toBeInTheDocument();
+
+      chooseWindow("7d");
+
+      // 7d is loading, not failed: the 30d error is not attributed to it.
+      expect(await screen.findByText("Loading the 7d window…")).toBeInTheDocument();
+      expect(screen.queryByText("The 7d window did not load")).not.toBeInTheDocument();
+      expect(screen.queryByText("Latest refresh failed")).not.toBeInTheDocument();
+    },
+  );
+
   it("switches to the new window's counts once they arrive", async () => {
     marketByWindow["30d"] = () => Promise.resolve(json(200, marketFor("30d", STATS_30D)));
     marketByWindow["7d"] = () =>
