@@ -139,7 +139,7 @@ export default function GoldenUpgradesView({
         );
       if (mine === seq.current) setResult(data);
     } catch (err) {
-      if (mine === seq.current) setError(failureFromError(err));
+      if (mine === seq.current) setError(failureFromError(err, { tool: "Golden Upgrades" }));
     } finally {
       if (mine === seq.current) setRunning(false);
     }

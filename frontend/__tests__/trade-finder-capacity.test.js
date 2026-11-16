@@ -119,6 +119,114 @@ describe("forcedReleaseSummary", () => {
     }
   });
 
+  it("no priced drop is 'released value unknown', never the backend's empty-sum 0", () => {
+    // roster_capacity.py publishes forcedDropValue 0.0 when no drop is priced
+    // (`float(sum(priced)) if priced else 0.0`): an empty sum, not a value.
+    const unpricedDrops = [
+      { playerId: "a", name: "Unknown A", position: "DL", value: null },
+      { playerId: "b", name: "Unknown B", position: "DB", value: null },
+    ];
+    const all = forcedReleaseSummary({
+      ...REQUIRES,
+      forcedDrops: unpricedDrops,
+      forcedDropValue: 0.0,
+      unpricedForcedDrops: 2,
+    });
+    expect(all.headline).toBe(
+      "Forces 2 releases to fit the 58-man limit — released value unknown (no release is priced).",
+    );
+    expect(all.headline).not.toMatch(/0 value/);
+
+    // The backend's count alone says so, even if a listed drop looked priced.
+    const byCount = forcedReleaseSummary({
+      ...REQUIRES,
+      forcedDrops: [REQUIRES.forcedDrops[0]],
+      forcedDropValue: 0.0,
+      unpricedForcedDrops: 1,
+    });
+    expect(byCount.headline).toContain("released value unknown (the release is not priced)");
+    expect(byCount.headline).not.toMatch(/0 value released/);
+
+    // Every listed drop unpriced, count not reported: still unknown.
+    const byDrops = forcedReleaseSummary({
+      ...REQUIRES,
+      forcedDrops: unpricedDrops,
+      forcedDropValue: 0.0,
+      unpricedForcedDrops: undefined,
+    });
+    expect(byDrops.headline).toContain("released value unknown");
+    expect(byDrops.headline).not.toMatch(/0 value released/);
+  });
+
+  it("a required release with no named drop and a 0.0 total is unknown, not 0 released", () => {
+    const s = forcedReleaseSummary({
+      ...REQUIRES,
+      forcedDrops: [],
+      forcedDropValue: 0.0,
+      unpricedForcedDrops: 0,
+      ladderExhausted: true,
+    });
+    expect(s.headline).toBe(
+      "Forces a release to fit the 58-man limit — released value unknown — no fully legal cleanup found — who goes is not determined.",
+    );
+  });
+
+  it("an overage owed before the trade is not blamed on the trade", () => {
+    const s = forcedReleaseSummary({
+      ...REQUIRES,
+      forcedDrops: [
+        ...REQUIRES.forcedDrops,
+        { playerId: "789", name: "Spare TE", position: "TE", value: 300 },
+      ],
+      forcedDropValue: 2553.0,
+      overLimitBefore: 2,
+      overLimitAfter: 3,
+    });
+    expect(s.headline).toMatch(/^Needs 3 releases to fit the 58-man limit/);
+    expect(s.headline).not.toMatch(/^Forces/);
+    // Both counts are the backend's own fields, never a browser subtraction.
+    expect(s.context).toBe(
+      "Your roster is already 2 over the 58-man limit before this trade — 2 releases owed with or without it; after it, 3 over.",
+    );
+  });
+
+  it("an overage under unknown taxi occupancy is stated as a bound", () => {
+    const s = forcedReleaseSummary({
+      ...REQUIRES,
+      certainty: "partial",
+      forcedDropsAreUpperBound: true,
+      overLimitBefore: 1,
+      overLimitAfter: null,
+      overLimitAfterMin: 0,
+      overLimitAfterMax: 2,
+    });
+    expect(s.headline).toMatch(/^Needs at most 2 releases/);
+    expect(s.context).toBe(
+      "Your roster may already be up to 1 over the 58-man limit before this trade (taxi occupancy unknown) — up to 1 release owed with or without it; after it, up to 2 over.",
+    );
+  });
+
+  it("no overage before the trade adds no context and keeps 'Forces'", () => {
+    for (const before of [0, null, undefined]) {
+      const s = forcedReleaseSummary({ ...REQUIRES, overLimitBefore: before });
+      expect(s.context).toBeNull();
+      expect(s.headline).toMatch(/^Forces 2 releases/);
+    }
+  });
+
+  it("words a counterparty's roster as theirs", () => {
+    const fits = forcedReleaseSummary(
+      { ...REQUIRES, requiresDrops: false, forcedDrops: [], forcedDropValue: 0 },
+      { team: "Other Team" },
+    );
+    expect(fits.headline).toBe("Fits Other Team's roster — no release needed.");
+    const over = forcedReleaseSummary(
+      { ...REQUIRES, overLimitBefore: 1, overLimitAfter: 2 },
+      { team: "Other Team" },
+    );
+    expect(over.context).toMatch(/^Other Team's roster is already 1 over/);
+  });
+
   it("a required release with no named drop says who goes is undetermined", () => {
     const s = forcedReleaseSummary({ ...REQUIRES, forcedDrops: [], forcedDropValue: null, ladderExhausted: true });
     expect(s.headline).toBe(

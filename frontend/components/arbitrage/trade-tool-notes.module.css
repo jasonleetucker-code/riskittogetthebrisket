@@ -15,6 +15,25 @@
   margin: 0;
 }
 
+.lead {
+  font-weight: var(--font-weight-medium, 500);
+  color: var(--text-primary);
+}
+
+/* The overage a roster already owed before the trade. */
+.context {
+  margin: 2px 0 0;
+}
+
+/* "Released" / "Worst case": visible, because they qualify the list. */
+.dropsLabel {
+  margin: 2px 0 0;
+  font-weight: var(--font-weight-medium, 500);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: var(--font-size-2xs, 0.7rem);
+}
+
 .drops {
   margin: 2px 0 0;
   padding-left: 1.1em;

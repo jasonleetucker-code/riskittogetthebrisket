@@ -368,7 +368,7 @@ export default function BestOffersView({
         loaded[o.team] = refinementFor(o.team);
       setRefinements(loaded);
     } catch (err) {
-      if (mine === seq.current) setError(failureFromError(err));
+      if (mine === seq.current) setError(failureFromError(err, { tool: "Best Offers" }));
     } finally {
       if (mine === seq.current) setRunning(false);
     }
@@ -392,7 +392,7 @@ export default function BestOffersView({
       });
       if (current()) setResult((prev) => mergeCards(prev, data));
     } catch (err) {
-      if (current()) setError(failureFromError(err));
+      if (current()) setError(failureFromError(err, { tool: "Best Offers" }));
     } finally {
       if (current())
         setRegenerating((prev) => {

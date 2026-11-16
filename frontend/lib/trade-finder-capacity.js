@@ -1,6 +1,7 @@
-// What a generated trade does to YOUR roster, as words — for the generated
-// trade surfaces (Package Builder at /angle, Best Offers, the /arbitrage
-// Package Builder view).
+// What a generated trade does to a roster, as words — for every generated
+// trade surface: Package Builder at /angle, and on /arbitrage the Package
+// Scan cards, Best Offers and the Package Builder view.  ONE display rule for
+// all of them (Package Scan's own `rosterCapacityLine` is retired).
 //
 // Labels only.  Every count, flag and value is the backend's: the one owner is
 // src/trade/roster_capacity.py, which attaches `rosterCapacity` to each
@@ -14,12 +15,20 @@
 //   * `requiresDrops === null`   -> "may require a release" (unknown), never "fits"
 //   * a drop with `value: null`  -> "value unknown", never 0
 //   * `forcedDropValue: null`    -> "released value unknown", never 0
+//   * NO PRICED DROP             -> "released value unknown", never 0.  The
+//     backend sums only priced drops and publishes `forcedDropValue: 0.0`
+//     when there are none (roster_capacity.py, `... if priced else 0.0`), so
+//     on the real payload a 0 total beside no priced drop is an EMPTY SUM,
+//     not a released value of zero.
 
 function fmtValue(v) {
   return Math.round(Number(v)).toLocaleString("en-US");
 }
 
 const isNum = (v) => typeof v === "number" && Number.isFinite(v);
+const isCount = (v) => Number.isInteger(v) && v >= 0;
+const plural = (n, one, many) => (n === 1 ? one : many);
+const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function dropLines(capacity) {
   const drops = Array.isArray(capacity?.forcedDrops) ? capacity.forcedDrops : [];
@@ -38,22 +47,61 @@ function dropLines(capacity) {
 }
 
 /**
+ * The overage the roster ALREADY owed before this trade, as a sentence — or
+ * null when it owed none (or the backend did not say).
+ *
+ * Both numbers are read straight off the backend: `overLimitBefore`, and
+ * `overLimitAfter` (`overLimitAfterMax` when taxi occupancy is unknown).
+ * Nothing here subtracts them: "how many releases the trade adds" has its own
+ * backend definition (`roster_capacity.forced_drop_cost`), and a second one
+ * in the browser would be a second owner.  "Already N over before, M over
+ * after" says it with the backend's own numbers.
+ */
+function preexistingOverage(capacity, whose) {
+  const before = capacity.overLimitBefore;
+  if (!isCount(before) || before === 0) return null;
+  const limit = isNum(capacity.rosterLimit) ? ` ${capacity.rosterLimit}-man` : "";
+  const releases = `${before} ${plural(before, "release", "releases")}`;
+  const partial = capacity.certainty === "partial" || capacity.forcedDropsAreUpperBound === true;
+  if (partial) {
+    const afterMax = capacity.overLimitAfterMax;
+    const after = isCount(afterMax) ? `; after it, up to ${afterMax} over` : "";
+    return (
+      `${capitalize(whose)} may already be up to ${before} over the${limit} limit before ` +
+      `this trade (taxi occupancy unknown) — up to ${releases} owed with or without it${after}.`
+    );
+  }
+  const afterExact = capacity.overLimitAfter;
+  const after = isCount(afterExact) ? `; after it, ${afterExact} over` : "";
+  return (
+    `${capitalize(whose)} is already ${before} over the${limit} limit before this trade — ` +
+    `${releases} owed with or without it${after}.`
+  );
+}
+
+/**
  * Summarise one `rosterCapacity` block.
  *
+ * @param {object|null|undefined} capacity the backend's block.
+ * @param {{team?: string|null}} [opts] `team` names whose roster this is (a
+ *   counterparty's); omitted means the user's own roster.
  * @returns {{
  *   state: "not_checked"|"unavailable"|"unknown_limit"|"maybe"|"fits"|"requires",
  *   tone: "neutral"|"warning",
  *   headline: string,
+ *   context: string|null,
  *   drops: Array<{key: string, label: string, valueText: string, priced: boolean}>,
  *   dropsLabel: string|null,
  * }}
  */
-export function forcedReleaseSummary(capacity) {
+export function forcedReleaseSummary(capacity, { team = null } = {}) {
+  const whose = team ? `${team}'s roster` : "your roster";
   if (!capacity || typeof capacity !== "object") {
     return {
       state: "not_checked",
       tone: "neutral",
       headline: "Roster capacity not checked for this trade — any forced release is unknown, not zero.",
+      context: null,
       drops: [],
       dropsLabel: null,
     };
@@ -64,12 +112,14 @@ export function forcedReleaseSummary(capacity) {
       tone: "neutral",
       headline:
         "Roster capacity could not be checked for this trade — any forced release is unknown, not zero.",
+      context: null,
       drops: [],
       dropsLabel: null,
     };
   }
 
   const drops = dropLines(capacity);
+  const context = preexistingOverage(capacity, whose);
 
   if (capacity.requiresDrops === null || capacity.requiresDrops === undefined) {
     if (capacity.rosterLimit == null) {
@@ -77,6 +127,7 @@ export function forcedReleaseSummary(capacity) {
         state: "unknown_limit",
         tone: "neutral",
         headline: "Roster limit unknown — this trade may require a release.",
+        context: null,
         drops: [],
         dropsLabel: null,
       };
@@ -85,6 +136,7 @@ export function forcedReleaseSummary(capacity) {
       state: "maybe",
       tone: "warning",
       headline: "May require a release (taxi occupancy unknown).",
+      context,
       // When the backend names the worst case, show it as the worst case.
       drops,
       dropsLabel: drops.length ? "Worst case" : null,
@@ -95,7 +147,8 @@ export function forcedReleaseSummary(capacity) {
     return {
       state: "fits",
       tone: "neutral",
-      headline: "Fits your roster — no release needed.",
+      headline: `Fits ${whose} — no release needed.`,
+      context: null,
       drops: [],
       dropsLabel: null,
     };
@@ -104,22 +157,35 @@ export function forcedReleaseSummary(capacity) {
   // requiresDrops === true
   const n = drops.length;
   const upper = capacity.forcedDropsAreUpperBound === true;
+  // A roster already over the limit owes releases whatever it trades, so the
+  // headline does not say this trade FORCES them; `context` says how many
+  // were owed before it.
+  const verb = context ? "Needs" : "Forces";
   let headline =
     n > 0
-      ? `Forces ${upper ? "at most " : ""}${n} release${n === 1 ? "" : "s"}`
-      : "Forces a release";
+      ? `${verb} ${upper ? "at most " : ""}${n} ${plural(n, "release", "releases")}`
+      : `${verb} a release`;
   if (isNum(capacity.rosterLimit)) headline += ` to fit the ${capacity.rosterLimit}-man limit`;
-  headline += isNum(capacity.forcedDropValue)
-    ? ` — ${fmtValue(capacity.forcedDropValue)} value released`
-    : " — released value unknown";
-  // MISSING IS NEVER ZERO: an unreported count must not read as "every
-  // release is priced".
-  if (isNum(capacity.forcedDropValue)) {
-    if (!isNum(capacity.unpricedForcedDrops)) {
+
+  // MISSING IS NEVER ZERO: with no priced drop the backend's total is an
+  // empty sum (0.0), not a released value of zero.
+  const pricedCount = drops.filter((d) => d.priced).length;
+  const unpriced = capacity.unpricedForcedDrops;
+  const noPricedDrop = pricedCount === 0 || (isCount(unpriced) && unpriced === n);
+  if (noPricedDrop) {
+    headline += " — released value unknown";
+    if (n === 1) headline += " (the release is not priced)";
+    else if (n > 1) headline += " (no release is priced)";
+  } else if (isNum(capacity.forcedDropValue)) {
+    headline += ` — ${fmtValue(capacity.forcedDropValue)} value released`;
+    // An unreported count must not read as "every release is priced".
+    if (!isCount(unpriced)) {
       headline += " (whether every release is priced is not reported)";
-    } else if (capacity.unpricedForcedDrops > 0) {
-      headline += ` (plus ${capacity.unpricedForcedDrops} with value unknown, not counted)`;
+    } else if (unpriced > 0) {
+      headline += ` (plus ${unpriced} with value unknown, not counted)`;
     }
+  } else {
+    headline += " — released value unknown";
   }
   if (upper) headline += " (taxi occupancy unknown)";
   if (capacity.ladderExhausted === true) headline += " — no fully legal cleanup found";
@@ -129,6 +195,7 @@ export function forcedReleaseSummary(capacity) {
     state: "requires",
     tone: "warning",
     headline,
+    context,
     drops,
     dropsLabel: n ? (upper ? "Worst case" : "Released") : null,
   };

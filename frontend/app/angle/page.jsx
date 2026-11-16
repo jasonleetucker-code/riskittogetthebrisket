@@ -30,7 +30,7 @@ import {
 import { OutgoingRefinement, RefinementBar } from "@/components/trade/RefinementControls";
 import ForcedReleaseNote from "@/components/arbitrage/ForcedReleaseNote";
 import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
-import { tradeToolFailure } from "@/lib/trade-finder-errors";
+import { failureFromError, tradeToolFailure } from "@/lib/trade-finder-errors";
 import { angleNoResultDescription, angleResultsSubtitle } from "@/lib/trade-finder-angle";
 import styles from "./angle.module.css";
 
@@ -380,7 +380,7 @@ export default function AnglePage() {
         setResult(data);
       }
     } catch (e) {
-      setErr({ message: e?.message || "Network error", code: "" });
+      setErr(failureFromError(e, { tool: "Package Builder" }));
       setResult(null);
     } finally {
       setLoading(false);

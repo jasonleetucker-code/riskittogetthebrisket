@@ -155,6 +155,114 @@ describe("forced roster releases on generated trades", () => {
     expect(within(note).getByText("Nobody (DB) — value unknown")).toBeInTheDocument();
   });
 
+  it("Best Offers: no priced release (forcedDropValue 0.0) is 'released value unknown', never 0", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(
+      ok({
+        opponents: [
+          bestOffer({
+            ...FORCED,
+            forcedDrops: [FORCED.forcedDrops[1]],
+            forcedDropValue: 0.0,
+            unpricedForcedDrops: 1,
+          }),
+        ],
+      }),
+    );
+    render(<BestOffersView myTeam="Us" leagueKey="lg" ownerKey="me" opponentNames={["Them"]} />);
+    await user.click(screen.getByRole("button", { name: "Find the best offer for each team" }));
+    const note = await screen.findByRole("note", { name: "Roster capacity" });
+    expect(note).toHaveTextContent(
+      "Forces 1 release to fit the 58-man limit — released value unknown (the release is not priced).",
+    );
+    expect(note).not.toHaveTextContent(/\b0 value released/);
+    expect(within(note).getByText("Released")).toBeVisible();
+  });
+
+  it("Package Builder: an existing overage is stated, not blamed on the trade", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(
+      ok({
+        packages: [
+          {
+            ...PKG,
+            rosterCapacity: { ...FORCED, certainty: "exact", overLimitBefore: 1, overLimitAfter: 2 },
+          },
+        ],
+      }),
+    );
+    render(
+      <PackageBuilderView
+        myTeam="Us"
+        leagueKey="lg"
+        ownerKey="me"
+        teams={[{ name: "Us", players: ["Our WR"] }, { name: "Them", players: ["Their QB", "Their TE"] }]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Build packages" }));
+    const note = await screen.findByRole("note", { name: "Roster capacity" });
+    expect(note).toHaveTextContent(/^Needs 2 releases to fit the 58-man limit/);
+    expect(note).toHaveTextContent(
+      "Your roster is already 1 over the 58-man limit before this trade — 1 release owed with or without it; after it, 2 over.",
+    );
+  });
+
+  it("Package Scan cards use the same rule, with each release's value", async () => {
+    const user = userEvent.setup();
+    const trade = {
+      give: [{ name: "Send Alpha", position: "WR", modelValue: 3000, ktcValue: 3200 }],
+      receive: [
+        { name: "Target Bob", position: "RB", modelValue: 2000, ktcValue: 1900 },
+        { name: "Target Cy", position: "TE", modelValue: 1500, ktcValue: 1400 },
+      ],
+      boardDelta: 500,
+      ktcDelta: 100,
+      arbitrageScore: 9,
+      packageSize: "1-for-2",
+      marketsUsed: ["ktc"],
+      mixedMarket: false,
+      counterparty: "Other Team",
+      rosterCapacity: FORCED,
+      counterpartyRosterCapacity: { rosterLimit: 58, requiresDrops: false, forcedDrops: [], forcedDropValue: 0 },
+    };
+    global.fetch = vi.fn().mockResolvedValue(ok({ trades: [trade], warnings: [], metadata: {} }));
+    render(<ArbitragePage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Package Scan" }));
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    const mine = await screen.findByRole("note", { name: "Your roster capacity" });
+    expect(mine).toHaveTextContent(
+      "Your roster: Forces 2 releases to fit the 58-man limit — 1,210 value released (plus 1 with value unknown, not counted).",
+    );
+    expect(within(mine).getByText("Bench RB (RB) — 1,210 value")).toBeInTheDocument();
+    expect(within(mine).getByText("Nobody (DB) — value unknown")).toBeInTheDocument();
+    expect(screen.getByRole("note", { name: "Other Team's roster capacity" })).toHaveTextContent(
+      "Other Team's roster: Fits Other Team's roster — no release needed.",
+    );
+    // The retired wording ("must release N: names") is gone.
+    expect(screen.queryByText(/must release/)).toBeNull();
+  });
+
+  it("Package Scan: a missing capacity block reads 'not checked', never silence", async () => {
+    const user = userEvent.setup();
+    const trade = {
+      give: [{ name: "Send Alpha", position: "WR", modelValue: 3000, ktcValue: 3200 }],
+      receive: [{ name: "Target Bob", position: "RB", modelValue: 3400, ktcValue: 3000 }],
+      boardDelta: 400,
+      ktcDelta: 200,
+      arbitrageScore: 12,
+      packageSize: "1-for-1",
+      marketsUsed: ["ktc"],
+      mixedMarket: false,
+    };
+    global.fetch = vi.fn().mockResolvedValue(ok({ trades: [trade], warnings: [], metadata: {} }));
+    render(<ArbitragePage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Package Scan" }));
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    const mine = await screen.findByRole("note", { name: "Your roster capacity" });
+    expect(mine).toHaveTextContent(/not checked/);
+    expect(mine).not.toHaveTextContent(/no release needed/);
+  });
+
   it("Package Builder: an unavailable capacity read is said, never 'fits'", async () => {
     const user = userEvent.setup();
     global.fetch = vi.fn().mockResolvedValue(
@@ -218,6 +326,72 @@ describe("trade-tool request failures read as sentences", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Package Scan" }));
     await user.click(screen.getByRole("button", { name: "Find trade packages" }));
     await expectSentence("auth_required", "Sign in to use the trade tools.");
+  });
+
+  it("Best Offers: a bridge 503 reads temporarily unavailable, transport text only as detail", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(
+      failure(503, { error: "Best-offers service unavailable", detail: "This operation was aborted" }),
+    );
+    render(<BestOffersView myTeam="Us" leagueKey="lg" ownerKey="me" opponentNames={["Them"]} />);
+    await user.click(screen.getByRole("button", { name: "Find the best offer for each team" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Best Offers is temporarily unavailable — the server is restarting or did not answer in time. Try again shortly.",
+    );
+    expect(within(alert).getByTestId("trade-tool-error-detail")).toHaveTextContent(
+      "Best-offers service unavailable: This operation was aborted",
+    );
+  });
+
+  it("Package Scan: a bridge 503 reads temporarily unavailable", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(
+      failure(503, { error: "Trade finder service unavailable", detail: "fetch failed" }),
+    );
+    render(<ArbitragePage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Package Scan" }));
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Package Scan is temporarily unavailable");
+    expect(within(alert).getByTestId("trade-tool-error-detail")).toHaveTextContent("fetch failed");
+  });
+
+  it("Golden Upgrades: a request the browser could not send reads unreachable", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    render(<GoldenUpgradesView myTeam="Us" leagueKey="lg" ownerKey="me" />);
+    await user.click(screen.getByRole("button", { name: "Find Golden Upgrades" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Golden Upgrades could not reach the server. Check your connection and try again shortly.",
+    );
+    expect(within(alert).getByTestId("trade-tool-error-detail")).toHaveTextContent("Failed to fetch");
+  });
+
+  it.each(["invalid_refinement", "invalid_numbers"])(
+    "Best Offers: an unrecognised 4xx %s says not accepted, never 'Try again'",
+    async (code) => {
+      const user = userEvent.setup();
+      global.fetch = vi.fn().mockResolvedValue(failure(400, { error: code }));
+      render(<BestOffersView myTeam="Us" leagueKey="lg" ownerKey="me" opponentNames={["Them"]} />);
+      await user.click(screen.getByRole("button", { name: "Find the best offer for each team" }));
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Best Offers did not accept this request (HTTP 400).");
+      expect(alert).not.toHaveTextContent(/try again/i);
+      expect(within(alert).getByText(code).tagName).toBe("CODE");
+    },
+  );
+
+  it("Package Scan: an unrecognised 4xx says not accepted, never 'Try again'", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(failure(400, { error: "invalid_refinement" }));
+    render(<ArbitragePage />);
+    fireEvent.click(screen.getByRole("tab", { name: "Package Scan" }));
+    await user.click(screen.getByRole("button", { name: "Find trade packages" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Package Scan did not accept this request (HTTP 400).");
+    expect(alert).not.toHaveTextContent(/try again/i);
   });
 
   it("a server sentence is shown as-is with no code detail", async () => {

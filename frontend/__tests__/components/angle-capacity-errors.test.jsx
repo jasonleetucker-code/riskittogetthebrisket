@@ -123,6 +123,90 @@ describe("/angle — forced roster releases per candidate", () => {
     expect(text.some((t) => /no release needed/.test(t))).toBe(false);
   });
 
+  it("labels the release list visibly: 'Released' for a determined set, 'Worst case' for a bound", async () => {
+    const user = userEvent.setup();
+    const drops = [{ playerId: "1", name: "Bench WR", position: "WR", value: 812.4 }];
+    global.fetch = vi.fn().mockResolvedValue(
+      offerResponse([
+        candidate("Want Zed", {
+          rosterLimit: 58,
+          requiresDrops: true,
+          forcedDropsAreUpperBound: false,
+          forcedDrops: drops,
+          forcedDropValue: 812.4,
+          unpricedForcedDrops: 0,
+        }),
+        {
+          ...candidate("Want Zed", {
+            rosterLimit: 58,
+            requiresDrops: null,
+            certainty: "partial",
+            forcedDropsAreUpperBound: true,
+            forcedDrops: drops,
+          }),
+          players: [{ name: "Other Guy", position: "RB", my_value: 3400, market_value: 3200 }],
+        },
+      ]),
+    );
+    await search(user);
+    const notes = await screen.findAllByRole("note", { name: "Roster capacity" });
+    // Visible text, not only an accessible name.
+    expect(within(notes[0]).getByText("Released")).toBeVisible();
+    expect(within(notes[0]).getByRole("list", { name: "Released" })).toBeInTheDocument();
+    expect(within(notes[1]).getByText("Worst case")).toBeVisible();
+    expect(within(notes[1]).getByRole("list", { name: "Worst case" })).toBeInTheDocument();
+  });
+
+  it("no priced release on the real payload (forcedDropValue 0.0) reads 'released value unknown', never 0", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(
+      offerResponse([
+        candidate("Want Zed", {
+          rosterLimit: 58,
+          requiresDrops: true,
+          forcedDropsAreUpperBound: false,
+          forcedDrops: [{ playerId: "Mystery DL", name: "Mystery DL", position: "DL", value: null }],
+          // roster_capacity.py: `float(sum(priced)) if priced else 0.0`
+          forcedDropValue: 0.0,
+          unpricedForcedDrops: 1,
+        }),
+      ]),
+    );
+    await search(user);
+    const note = await screen.findByRole("note", { name: "Roster capacity" });
+    expect(note).toHaveTextContent("released value unknown (the release is not priced)");
+    expect(note).not.toHaveTextContent(/0 value released/);
+  });
+
+  it("an overage the roster owed before the trade is stated, not blamed on the trade", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(
+      offerResponse([
+        candidate("Want Zed", {
+          rosterLimit: 58,
+          requiresDrops: true,
+          certainty: "exact",
+          forcedDropsAreUpperBound: false,
+          overLimitBefore: 1,
+          overLimitAfter: 2,
+          forcedDrops: [
+            { playerId: "1", name: "Bench WR", position: "WR", value: 812.4 },
+            { playerId: "2", name: "Bench TE", position: "TE", value: 400 },
+          ],
+          forcedDropValue: 1212.4,
+          unpricedForcedDrops: 0,
+        }),
+      ]),
+    );
+    await search(user);
+    const note = await screen.findByRole("note", { name: "Roster capacity" });
+    expect(note).toHaveTextContent("Needs 2 releases to fit the 58-man limit — 1,212 value released.");
+    expect(note).toHaveTextContent(
+      "Your roster is already 1 over the 58-man limit before this trade — 1 release owed with or without it; after it, 2 over.",
+    );
+    expect(note).not.toHaveTextContent(/Forces 2 releases/);
+  });
+
   it("a trade that fits says so", async () => {
     const user = userEvent.setup();
     global.fetch = vi.fn().mockResolvedValue(
@@ -159,6 +243,43 @@ describe("/angle — request failures read as sentences", () => {
     expect(alert).toHaveTextContent(text);
     // The code survives only inside the detail element, never as the message.
     expect(within(alert).getByText(code).tagName).toBe("CODE");
+  });
+
+  it("a bridge 503 (backend restarting / timed out) reads temporarily unavailable, transport text as detail", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(
+      failure(503, { error: "Angle packages service unavailable", detail: "fetch failed" }),
+    );
+    await search(user);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Package Builder is temporarily unavailable — the server is restarting or did not answer in time. Try again shortly.",
+    );
+    // The technical text survives only as the detail.
+    expect(within(alert).getByTestId("trade-tool-error-detail")).toHaveTextContent(
+      "(details: Angle packages service unavailable: fetch failed)",
+    );
+  });
+
+  it("a request the browser could not send reads unreachable, not 'Failed to fetch'", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    await search(user);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Package Builder could not reach the server. Check your connection and try again shortly.",
+    );
+    expect(within(alert).getByTestId("trade-tool-error-detail")).toHaveTextContent("Failed to fetch");
+  });
+
+  it("an unrecognised deterministic 4xx says the request was not accepted, never 'Try again'", async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockResolvedValue(failure(400, { error: "invalid_numbers" }));
+    await search(user);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Package Builder did not accept this request (HTTP 400).");
+    expect(alert).not.toHaveTextContent(/try again/i);
+    expect(within(alert).getByText("invalid_numbers").tagName).toBe("CODE");
   });
 
   it("the server's own sentence is shown as-is", async () => {
