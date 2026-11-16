@@ -462,7 +462,7 @@ jobs:
 
       - name: Upload shard manifest
         if: ${{ always() && needs.plan.outputs.mode == 'sharded' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rc-hard-gate-a${{ needs.plan.outputs.attempt }}-${{ needs.plan.outputs.candidate_tree }}-shard-${{ matrix.shard }}
           path: ${{ runner.temp }}/shard-manifest/shard-${{ matrix.shard }}.json
@@ -526,7 +526,7 @@ jobs:
 
       - name: Download shard manifests
         if: ${{ needs.plan.outputs.mode == 'sharded' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: rc-hard-gate-a${{ needs.plan.outputs.attempt }}-${{ needs.plan.outputs.candidate_tree }}-shard-*
           path: shard-manifests
