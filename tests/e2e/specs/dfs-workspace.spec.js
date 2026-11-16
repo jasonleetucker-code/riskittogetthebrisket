@@ -137,7 +137,7 @@ test("import a slate, build the optimal lineup, and keep the page accessible", a
   const lock = page.getByRole("button", { name: /^Lock Syn / }).first();
   await lock.focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("button", { name: /^Unlock Syn / }).first()).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: /^Lock Syn / }).first()).toHaveAttribute("aria-pressed", "true");
 
   if (isMobileProject(testInfo)) {
     const report = await page.evaluate(() => {

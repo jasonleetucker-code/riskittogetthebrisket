@@ -186,3 +186,13 @@
   line-height: 1.45;
   color: var(--text-tertiary);
 }
+
+/* Where a trade card's link goes: read, not shown. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

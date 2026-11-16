@@ -560,9 +560,11 @@ function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", mode
         // (the share-link format is frozen, owner closeout 2026-10-18).
         onClick={() => rememberHistoryOrigin(shareEncoded, a.combined ? null : a.date)}
         className={`${entryClass} ${styles.entryLink}`}
-        aria-label={`Open the ${a.sides.map((s) => s.team).join(" / ")} trade in the calculator`}
       >
         {body}
+        {/* The card's visible text names the link (WCAG 2.5.3); this says
+            where it goes.  An aria-label used to replace all of it. */}
+        <span className={styles.srOnly}> Open this trade in the calculator.</span>
       </Panel>
     );
   }

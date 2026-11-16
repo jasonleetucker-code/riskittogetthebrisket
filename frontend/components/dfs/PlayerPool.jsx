@@ -171,7 +171,9 @@ export default function PlayerPool({
               size="sm"
               variant={locked ? "primary" : "ghost"}
               aria-pressed={locked}
-              aria-label={`${locked ? "Unlock" : "Lock"} ${a.name}`}
+              // The visible text is always "Lock": the name stays "Lock <player>" and
+              // aria-pressed says whether it is on (WCAG 2.5.3, toggle-button pattern).
+              aria-label={`Lock ${a.name}`}
               disabled={unprojected && !locked}
               title={unprojected ? "A player needs a projection before they can be locked" : undefined}
               onClick={() => setRules((r) => setPlayerRule(r, a.player_id, locked ? null : "lock"))}
@@ -182,7 +184,7 @@ export default function PlayerPool({
               size="sm"
               variant={excluded ? "primary" : "ghost"}
               aria-pressed={excluded}
-              aria-label={`${excluded ? "Include" : "Exclude"} ${a.name}`}
+              aria-label={`Exclude ${a.name}`}
               onClick={() => setRules((r) => setPlayerRule(r, a.player_id, excluded ? null : "exclude"))}
             >
               Exclude
