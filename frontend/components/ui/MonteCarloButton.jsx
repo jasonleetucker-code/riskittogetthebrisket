@@ -107,6 +107,43 @@ export function _usesSyntheticBand(result) {
   return !(measured > 0 && synthetic === 0);
 }
 
+const BAND_BASIS_WORDS = {
+  assumed_flat_15pct: "an assumed ±15% band",
+  stamped_value_band_uncalibrated: "value bands that have not been calibrated",
+};
+
+function _signedPoints(n) {
+  const r = Math.round(n);
+  if (r === 0) return "0";
+  return `${r > 0 ? "+" : "−"}${Math.abs(r).toLocaleString("en-US")}`;
+}
+
+/**
+ * Owner Priority 12 (2026-11-08): `valueUncertainty.state === "unavailable"`
+ * means no empirically calibrated band exists, so the 10th/90th `deltaRange`
+ * is ILLUSTRATIVE (it comes from the band named by `bandBasis`), never a
+ * measured range.  Returns null when the response does not carry the field
+ * (older payloads render exactly as before) or the state is not
+ * "unavailable".  A missing p10/p90 yields no range line -- never 0.
+ */
+export function _valueUncertaintyNote(result) {
+  const vu = result?.valueUncertainty;
+  if (!vu || typeof vu !== "object" || vu.state !== "unavailable") return null;
+  const basis = BAND_BASIS_WORDS[vu.bandBasis] || "a band whose basis was not reported";
+  const r = result?.deltaRange || {};
+  const finite = (x) => typeof x === "number" && Number.isFinite(x);
+  // Same condition as the delta line: a VA-adjusted gap never reads as raw.
+  const gap = result?.vaAdjustment?.applied ? "package-adjusted gap" : "gap";
+  const rangeLine =
+    finite(r.p10) && finite(r.p90)
+      ? `Illustrative 10th–90th percentile ${gap} (Side A minus Side B): ${_signedPoints(r.p10)} to ${_signedPoints(r.p90)} points, from ${basis}, not measured.`
+      : null;
+  return {
+    rangeLine,
+    note: "No measured uncertainty band exists yet, so this range shows how the gap reacts to an assumption, not how far values are likely to move.",
+  };
+}
+
 export function _renderPlainSummary(result, sides, sidesSend = false) {
   const meanDeltaRaw = Math.round(result.meanDelta || result.valueDelta || 0);
   if (_usesSyntheticBand(result)) {
@@ -203,7 +240,16 @@ export function _renderPlainSummary(result, sides, sidesSend = false) {
   let rangeLine;
   if (typeof r.p10 === "number" && typeof r.p90 === "number") {
     const tightness = r.p90 - r.p10;
-    if (tightness < 1500) {
+    if (_valueUncertaintyNote(result)) {
+      // The bands were stamped but never calibrated: describe the spread as
+      // illustrative, not as measured uncertainty.
+      rangeLine =
+        tightness < 1500
+          ? "The size of the gap barely moves across this illustrative range."
+          : tightness < 4000
+            ? "The size of the gap moves moderately across this illustrative range."
+            : "The size of the gap moves a lot across this illustrative range.";
+    } else if (tightness < 1500) {
       rangeLine = "Range of outcomes is narrow — the result is consistent across simulations.";
     } else if (tightness < 4000) {
       rangeLine = "Moderate range of outcomes — some scenarios swing the other way.";
@@ -310,6 +356,8 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
   const summary =
     state === "ok" && result && !stale ? _renderPlainSummary(result, sides, sidesSend) : null;
   const synthetic = result && _usesSyntheticBand(result) ? 1 : 0;
+  // Absent on older payloads: everything below renders exactly as before.
+  const uncertainty = summary ? _valueUncertaintyNote(result) : null;
   const va = result?.vaAdjustment;
   const vaText =
     va?.applied && Number(va.value) > 0 && (va.side === 1 || va.side === 2)
@@ -376,13 +424,26 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
           >
             {synthetic > 0
               ? "Assumed ±15% range, not measured — not the chance the trade works out."
-              : "Value-uncertainty check — not the chance the trade works out."}
+              : uncertainty
+                ? "Share of simulations on uncalibrated ranges — not the chance the trade works out."
+                : "Value-uncertainty check — not the chance the trade works out."}
           </div>
           {summary.rangeLine && (
             <div style={{ fontSize: "0.85rem", color: "var(--subtext)" }}>
               {summary.rangeLine}
             </div>
           )}
+          {uncertainty ? (
+            <div
+              data-testid="mc-uncertainty-unavailable"
+              style={{ fontSize: "0.75rem", color: "var(--subtext)", marginTop: 2 }}
+            >
+              {uncertainty.rangeLine ? (
+                <div data-testid="mc-range-illustrative">{uncertainty.rangeLine}</div>
+              ) : null}
+              <div>{uncertainty.note}</div>
+            </div>
+          ) : null}
           <details
             style={{
               marginTop: 10, paddingTop: 8,
@@ -399,7 +460,9 @@ export default function MonteCarloButton({ sides, valueMode = "full", sidesSend 
               summed.
               {synthetic > 0
                 ? " That range is an assumed ±15% — we don't yet measure how uncertain each player's value is — so this is an illustration of sensitivity, not a probability, and we show no win rate."
-                : " We count how often one side comes out ahead under that value uncertainty."}
+                : uncertainty
+                  ? " We count how often one side comes out ahead across those ranges. They are not calibrated, so that count is a share of simulations only."
+                  : " We count how often one side comes out ahead under that value uncertainty."}
               {vaText ? ` ${vaText}` : ""} This is NOT the
               chance the trade works out.
             </div>

@@ -282,6 +282,45 @@ describe("/waiver-advisor — Weekly IDP streaming mode", () => {
     expect(streamingCalls().length).toBe(before);
   });
 
+  // W-4 (backend handoff): the board lists only free agents who can fill a
+  // started slot, so in a league that starts no defender an empty board is
+  // expected — stated as such, never an error or a blank table.
+  it("says the league starts no IDP slot when the board is empty for that reason", async () => {
+    const offenseOnly = {
+      ...noMove,
+      lineup: { slots: ["QB", "TE", "FLEX"], source: "sleeper_roster_positions" },
+      streamingBoard: [],
+    };
+    mockFetch(() => respond(200, offenseOnly));
+    await openStreaming();
+    const board = await screen.findByTestId("streaming-board");
+    expect(within(board).getByText("No started IDP slot in this league")).toBeInTheDocument();
+    expect(board).toHaveTextContent("This is expected, not an error.");
+    expect(within(board).queryByText("No projected defenders available")).toBeNull();
+    expect(within(board).queryByRole("row", { name: /0/ })).toBeNull();
+    // A success, not a failure state: no failure code, and the rest of the
+    // answer (the no-move decision) still renders.
+    expect(screen.queryByTestId("failure-code")).toBeNull();
+    expect(screen.getByTestId("streaming-no-move")).toBeInTheDocument();
+  });
+
+  it("keeps the no-projection empty state in a league that does start defenders", async () => {
+    mockFetch(() => respond(200, { ...noMove, streamingBoard: [] }));
+    await openStreaming();
+    const board = await screen.findByTestId("streaming-board");
+    expect(within(board).getByText("No projected defenders available")).toBeInTheDocument();
+    expect(within(board).queryByText("No started IDP slot in this league")).toBeNull();
+  });
+
+  it("says nothing about the lineup when the payload does not state its slots", async () => {
+    const { lineup: _omit, ...unstated } = noMove;
+    mockFetch(() => respond(200, { ...unstated, streamingBoard: [] }));
+    await openStreaming();
+    const board = await screen.findByTestId("streaming-board");
+    expect(within(board).getByText("No projected defenders available")).toBeInTheDocument();
+    expect(within(board).queryByText("No started IDP slot in this league")).toBeNull();
+  });
+
   it.each([
     [503, { error: "projections_refused" }, /Weekly projections are unavailable/],
     [400, { error: "not_in_season" }, /not the NFL season/],

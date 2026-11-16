@@ -82,6 +82,7 @@ import {
   rosterFit,
   rosterNoteLines,
   simulationExplanation,
+  statusQuoSummary,
   strategySentence,
   tradeValueSummary,
   uncertaintyLine,
@@ -119,6 +120,9 @@ const DIMENSION_WORDS = {
   marketCorroboration: "Comparable real trades",
 };
 const DIMENSION_REASON_WORDS = {
+  no_empirically_calibrated_band:
+    "no measured range exists yet: the simulation's spread is an assumed band, not a calibrated one, so it is left out",
+  // Older payloads (and the multi-team fixtures) still carry this reason.
   unaudited_model: "its model has not passed review yet, so it is left out",
   counterfactual_not_wired: "not connected to the analysis yet",
 };
@@ -152,6 +156,43 @@ export function Disclosure({ id, title, open, onToggle, children }) {
     >
       {open ? children : null}
     </Panel>
+  );
+}
+
+/**
+ * "Compared with no transaction" (`analysis.statusQuo`, status_quo_v1): the
+ * comparison the decision already makes, named.  Read-only: the backend's
+ * own sentence, which option is preferred (null reads as not enough
+ * evidence, never as either answer), and each component's margin in its own
+ * units -- never combined.  Renders nothing when the packet has no record.
+ */
+export function StatusQuo({ statusQuo }) {
+  const headingId = useId();
+  const sq = statusQuoSummary(statusQuo);
+  if (!sq) return null;
+  return (
+    <section className={styles.why} aria-labelledby={headingId} data-testid="war-room-status-quo">
+      <h3 id={headingId} className={styles.sectionTitle}>
+        Compared with no transaction
+      </h3>
+      {sq.text ? <p data-testid="status-quo-text">{sq.text}</p> : null}
+      <p data-testid="status-quo-preferred" data-insufficient={sq.insufficient || undefined}>
+        <strong>Better option:</strong> {sq.preferred}.
+      </p>
+      <ul className={styles.whyList} aria-label="Each part against no transaction">
+        {sq.components.map((c) => (
+          <li key={c.key} data-component={c.key}>
+            <span className={styles.whyRole}>{c.label}:</span> {c.sentence}
+          </li>
+        ))}
+      </ul>
+      <p className={styles.note}>{sq.note}</p>
+      {sq.opportunityText ? (
+        <p className={styles.note} data-testid="status-quo-opportunity">
+          {sq.opportunityText}
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -1010,6 +1051,9 @@ export default function TradeWarRoom({
           </ul>
         </div>
       ) : null}
+
+      {/* ── Compared with keeping the current roster (No transaction) ── */}
+      {analysis ? <StatusQuo statusQuo={analysis.statusQuo} /> : null}
 
       {/* ── Am I gaining or losing value / does it help my lineup / does it fit? ── */}
       <h3 className="ds-visually-hidden">This trade at a glance</h3>

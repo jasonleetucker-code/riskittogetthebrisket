@@ -60,6 +60,7 @@ import {
   recommendedCapacityText,
   releaseCostBasisText,
   solverStatusText,
+  startsNoIdpSlot,
   streamingLimits,
   weekCellText,
   weekRuleText,
@@ -667,10 +668,17 @@ function StreamingBoard({ payload }) {
             ) : null
           }
           emptyState={
-            <EmptyState
-              title="No projected defenders available"
-              description="No available player at this filter has a weekly projection."
-            />
+            startsNoIdpSlot(payload) ? (
+              <EmptyState
+                title="No started IDP slot in this league"
+                description="This league's lineup starts no defensive player, so there is no defender to stream. This is expected, not an error."
+              />
+            ) : (
+              <EmptyState
+                title="No projected defenders available"
+                description="No available player at this filter has a weekly projection."
+              />
+            )
           }
         />
       </div>

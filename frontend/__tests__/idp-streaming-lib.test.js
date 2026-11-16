@@ -31,6 +31,7 @@ import {
   recommendedCapacityText,
   postureContextText,
   solverStatusText,
+  startsNoIdpSlot,
   weekCellText,
 } from "@/lib/idp-streaming";
 import recommend from "./fixtures/idp-streaming/recommend.json";
@@ -279,5 +280,26 @@ describe("composer 042423f4f0: search_incomplete and capacity copy", () => {
     expect(recommendedCapacityText(recommend)).toBe(
       "2 spots recommended — the fewest spots whose gain is itself at least 1.0 points and within 1.0 of the best gain found",
     );
+  });
+});
+
+describe("startsNoIdpSlot", () => {
+  it("is true only when the stated lineup starts no defender", () => {
+    expect(startsNoIdpSlot({ lineup: { slots: ["QB", "TE", "FLEX"] } })).toBe(true);
+    expect(startsNoIdpSlot({ lineup: { slots: ["QB", "RB", "WR", "SUPER_FLEX", "K", "DEF"] } })).toBe(
+      true,
+    );
+    expect(startsNoIdpSlot(recommend)).toBe(false);
+    for (const slot of ["DL", "lb", "DB", "IDP_FLEX", "DEF_FLEX", "DL_LB", "CB", "NT"]) {
+      expect(startsNoIdpSlot({ lineup: { slots: ["QB", slot] } }), slot).toBe(false);
+    }
+  });
+
+  it("unknown slots are not read as an offense-only league", () => {
+    expect(startsNoIdpSlot(null)).toBe(false);
+    expect(startsNoIdpSlot({})).toBe(false);
+    expect(startsNoIdpSlot({ lineup: null })).toBe(false);
+    expect(startsNoIdpSlot({ lineup: { slots: [] } })).toBe(false);
+    expect(startsNoIdpSlot({ lineup: { slots: "QB" } })).toBe(false);
   });
 });
