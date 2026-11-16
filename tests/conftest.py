@@ -105,6 +105,9 @@ os.environ.setdefault("SLEEPER_OVERLAY_WARM_ENABLED", "0")
 # Post-publish public-section warm reads Sleeper (public snapshot) and runs the
 # live Monte Carlo; the suite opts in per test via the server module flag.
 os.environ.setdefault("PUBLIC_SECTIONS_WARM_ENABLED", "0")
+# The post-publish draft-capital rebuild reads Sleeper; tests opt in via the
+# server module flag.
+os.environ.setdefault("DRAFT_CAPITAL_WARM_ENABLED", "0")
 
 # ── Game Day live network feeds OFF for the suite ─────────────────────
 # ``game_day_live_game_state`` (ESPN scoreboard) and

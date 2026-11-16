@@ -236,9 +236,15 @@ def test_every_league_scoped_surface_agrees_on_the_upcoming_draft():
 
 def test_fallback_route_reads_the_canonical_resolver_not_a_local_rule():
     src = (REPO / "server.py").read_text(encoding="utf-8")
+    # The route's uncached build lives in ``_compute_draft_capital`` (shared with
+    # the stale-while-revalidate job), so the slice starts there and still
+    # contains the route itself.
     body = src[
-        src.index("def get_draft_capital(") : src.index('@app.get("/api/draft/roster-context")')
+        src.index("def _compute_draft_capital(") : src.index(
+            '@app.get("/api/draft/roster-context")'
+        )
     ]
+    assert "def get_draft_capital(" in body
     assert "league_draft_years_for(" in body
     assert "active_seasons_for_league(" not in body
     assert "range(_dc_calendar_season" not in body
