@@ -1,0 +1,58 @@
+{
+  "source_key": "fantasyProsRosIdp",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-11-16T19:01:44.039809+00:00",
+  "completed_at": "2026-11-16T19:01:44.040809+00:00",
+  "player_count": 319,
+  "diagnostics": {},
+  "source_id": "fantasyProsRosIdp",
+  "source_name": "FantasyPros Dynasty IDP (ROS proxy)",
+  "source_url": "https://www.fantasypros.com/nfl/rankings/dynasty-idp.php",
+  "source_type": "dynasty_proxy",
+  "scoring_format": "ppr",
+  "is_superflex": false,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": true,
+  "is_ros": false,
+  "is_dynasty": true,
+  "is_projection_source": false,
+  "stale_after_hours": 168,
+  "kept_previous": null,
+  "kept_previous_rows": null,
+  "content_hash": "2f7f8afb9cfcca348b4a8ac202739b1798c1cc1e0c4f96e21c2f53c9f8cd1518",
+  "content_state": "unchanged",
+  "content_first_observed_at": "2026-10-26T21:17:54.226391+00:00",
+  "last_content_change": "2026-11-16T07:23:24.100937+00:00",
+  "rank_basis": {
+    "basisDeclared": false,
+    "bases": [
+      {
+        "basis": "total_ranked:319",
+        "rows": 319,
+        "totalRanked": [
+          319
+        ],
+        "groups": {
+          "IDP": 319
+        }
+      }
+    ],
+    "groupCoverage": {
+      "IDP": 319
+    },
+    "groupBases": {
+      "IDP": [
+        "total_ranked:319"
+      ]
+    },
+    "mixedRankBasis": false,
+    "groupsSplitAcrossBases": [],
+    "issues": [],
+    "transitionIssues": [],
+    "adapterIssues": [],
+    "baseline": false
+  },
+  "source_mode": null
+}
