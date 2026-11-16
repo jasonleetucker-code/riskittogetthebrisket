@@ -111,6 +111,11 @@ on:
       - "frontend/package.json"
       - "frontend/next.config.*"
       # The suite and its harness — a change here should prove itself.
+      # The harness's own dependencies (Playwright, axe-core) live in the
+      # ROOT manifest: a browser or accessibility-rule bump changes what
+      # every spec sees, so it runs the suite too.
+      - "package.json"
+      - "package-lock.json"
       - "tests/e2e/**"
       - ".github/workflows/e2e.yml"
 
