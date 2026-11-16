@@ -353,6 +353,36 @@ class TestFrontendIsNotAnOptimizer:
         for slot in js_slots:
             assert owner.normalize_slot(slot) in canonical, slot
 
+    def test_idp_streaming_slots_are_held_in_lockstep_with_python(self):
+        """``idp-streaming.js::IDP_STARTER_SLOTS`` decides whether a league
+        starts a defender, so an empty streaming board reads "no started IDP
+        slot in this league" instead of an error.  It is a mirror of the
+        owner's defensive slot vocabulary, diffed in BOTH directions: every
+        DL / LB / DB family position, every flex whose eligibility is purely
+        defensive, and every spelling ``normalize_slot`` folds into one."""
+        text = (FRONTEND_LIB / "idp-streaming.js").read_text(encoding="utf-8")
+        match = re.search(r"const IDP_STARTER_SLOTS = new Set\(\[([^\]]*)\]\)", text)
+        assert match, "IDP_STARTER_SLOTS not found in idp-streaming.js"
+        js_slots = {m.strip().strip("\"'") for m in match.group(1).split(",") if m.strip()}
+
+        defensive = {"DL", "LB", "DB"}
+        positions = {pos for pos, fam in owner._LINEUP_FAMILY.items() if fam in defensive}
+        flex = {
+            slot
+            for slot, eligible in owner._FLEX_SLOT_ELIGIBILITY.items()
+            if eligible and all(owner._LINEUP_FAMILY.get(p) in defensive for p in eligible)
+        }
+        spellings = {alias for alias, target in owner._SLOT_ALIASES.items() if target in flex}
+        expected = positions | flex | spellings
+        assert js_slots == expected, (
+            f"missing from JS: {sorted(expected - js_slots)}; "
+            f"unknown to Python: {sorted(js_slots - expected)}"
+        )
+        # ...and every member really starts only defenders to the owner.
+        for slot in js_slots:
+            eligible = owner.slot_eligible_positions(slot)
+            assert eligible and all(owner.lineup_position(p) in defensive for p in eligible), slot
+
 
 class TestSlotDemandHasOneOwner:
     def test_no_module_re_derives_the_even_split(self):

@@ -26,6 +26,7 @@
 import {
   availabilityNote,
   formatPctPoint,
+  formatSignedPpg,
   formatSignedValue,
   formatValue,
   roundTenth,
@@ -1561,4 +1562,98 @@ export function analysisErrorText(error) {
   if (/^HTTP 4\d\d$/.test(e)) return "the server refused the request";
   if (/failed to fetch|network|load failed/i.test(e)) return "the connection failed";
   return "something went wrong";
+}
+
+// ── Compared with no transaction (`analysis.statusQuo`, status_quo_v1) ─────
+
+/**
+ * The two decision components, each in its OWN units.  They are worded side
+ * by side and never added together (`margin.crossComponent` is always null:
+ * the backend never combines them, and neither does the page).
+ */
+const STATUS_QUO_COMPONENTS = [
+  {
+    key: "objectiveValue",
+    label: "Trade value",
+    unit: "value points",
+    magnitude: (v) => formatValue(Math.abs(v)),
+    signed: (v) => formatSignedValue(v),
+  },
+  {
+    key: "rosterBenefit",
+    label: "Weekly lineup",
+    unit: "points per week",
+    magnitude: (v) => tenth(v),
+    signed: (v) => formatSignedPpg(v),
+  },
+];
+
+/** Whether declining is preferred, in words.  `preferred: null` (or absent)
+ *  is "not enough evidence" -- never read as either answer. */
+export function statusQuoPreferredWords(preferred) {
+  if (preferred === true) return "Keeping your current roster";
+  if (preferred === false) return "Making the trade";
+  return "Not enough evidence to say either way";
+}
+
+function statusQuoComponentSentence(c, margin, evidence) {
+  if (!margin || typeof margin !== "object") {
+    if (evidence?.state === "excluded_by_mode") return "not part of an asset-only analysis.";
+    return "not evaluated — not enough evidence (unknown, not zero).";
+  }
+  const half = isNum(margin.neutralBandHalfWidth) ? c.magnitude(margin.neutralBandHalfWidth) : null;
+  const band = half ? `its neutral band of ±${half} ${c.unit}` : "its neutral band";
+  // Inside / outside is read from `insideBand` -- the component's own
+  // classification -- never from a clearance's sign (a rounded clearance can
+  // read 0.0 on either side of the band edge).
+  if (margin.insideBand === true) {
+    const net = isNum(margin.value) ? c.signed(margin.value) : null;
+    return `inside ${band}${net ? ` (net ${net} ${c.unit})` : ""}, so it favours neither option.`;
+  }
+  if (margin.insideBand !== false) return `its position against ${band} was not reported.`;
+  const toward =
+    margin.direction === "favors"
+      ? { clearance: margin.tradeClearance, words: "toward making the trade" }
+      : margin.direction === "opposes"
+        ? { clearance: margin.statusQuoClearance, words: "toward keeping your current roster" }
+        : null;
+  if (!toward) return `outside ${band}.`;
+  const past = isNum(toward.clearance) ? c.magnitude(toward.clearance) : null;
+  const amount =
+    past == null ? "past it" : Number(past.replace(/,/g, "")) === 0 ? "just past it" : `${past} ${c.unit} past it`;
+  return `outside ${band}: ${amount} ${toward.words}.`;
+}
+
+/**
+ * `analysis.statusQuo` worded for the War Room, or null when the packet has
+ * none (older payloads render nothing).  Display only: the backend's own
+ * `text`, which option is preferred, and each component's margin in its own
+ * units.  Nothing is summed, re-thresholded or re-decided here.
+ */
+export function statusQuoSummary(statusQuo) {
+  if (!statusQuo || typeof statusQuo !== "object") return null;
+  const text =
+    typeof statusQuo.text === "string" && statusQuo.text.trim() && !isRawCode(statusQuo.text)
+      ? statusQuo.text.trim()
+      : null;
+  const margin = statusQuo.margin || {};
+  const evidence = statusQuo.evidence || {};
+  const components = STATUS_QUO_COMPONENTS.map((c) => ({
+    key: c.key,
+    label: c.label,
+    sentence: statusQuoComponentSentence(c, margin[c.key], evidence[c.key]),
+  }));
+  const opp = statusQuo.opportunityCost;
+  const opportunityText =
+    opp?.state === "unavailable" && typeof opp.text === "string" && opp.text.trim()
+      ? opp.text.trim()
+      : null;
+  return {
+    text,
+    preferred: statusQuoPreferredWords(statusQuo.preferred),
+    insufficient: statusQuo.preferred !== true && statusQuo.preferred !== false,
+    components,
+    note: "Each part is measured in its own units against its own neutral band; the two are never added together.",
+    opportunityText,
+  };
 }

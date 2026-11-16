@@ -404,6 +404,53 @@ export function coverageText(w) {
   }`;
 }
 
+/**
+ * Lineup slot names that start a defender (IDP).  MIRROR of the backend slot
+ * vocabulary, not a second owner: every defensive position slot of
+ * `src/ros/lineup.py` (`_LINEUP_FAMILY` DL / LB / DB members), every
+ * defensive flex of `_FLEX_SLOT_ELIGIBILITY`, and every spelling
+ * `_SLOT_ALIASES` folds into one.  Held in lockstep, both directions, by
+ * `tests/lineup/test_single_owner.py::
+ * test_idp_streaming_slots_are_held_in_lockstep_with_python`.
+ */
+const IDP_STARTER_SLOTS = new Set([
+  "DL",
+  "DE",
+  "DT",
+  "EDGE",
+  "NT",
+  "LB",
+  "OLB",
+  "ILB",
+  "MLB",
+  "DB",
+  "CB",
+  "S",
+  "FS",
+  "SS",
+  "IDP_FLEX",
+  "IDP_FL",
+  "IDPFLX",
+  "DEF_FLEX",
+  "DL_LB",
+  "DB_LB",
+  "DL_DB",
+]);
+
+/**
+ * True only when the payload states the league's started slots
+ * (`lineup.slots`, the backend's resolved lineup) and none of them starts a
+ * defender.  The backend's streaming board lists only free agents who can fill
+ * a started slot (W-4), so in such a league an empty board is expected, not a
+ * failure.  Unknown slots (absent or empty `lineup.slots`) return false: the
+ * page then says nothing about the league's lineup.
+ */
+export function startsNoIdpSlot(payload) {
+  const slots = payload?.lineup?.slots;
+  if (!Array.isArray(slots) || slots.length === 0) return false;
+  return !slots.some((s) => IDP_STARTER_SLOTS.has(String(s || "").trim().toUpperCase()));
+}
+
 /** Display names keyed by player id, joined from the payload's own boards. */
 export function playerNameIndex(payload) {
   const idx = new Map();

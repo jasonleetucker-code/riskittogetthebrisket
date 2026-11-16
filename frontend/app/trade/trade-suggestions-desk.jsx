@@ -260,6 +260,18 @@ export function SuggestionsDesk({
           ) : null}
         </div>
 
+        {/* `metadata.pickGeneration.applied === false`: no draft-pick
+            generator runs for suggestions (backend handoff, MD-105).  A pick
+            already in the value pool can still appear, so this never says
+            suggestions exclude picks. */}
+        {suggestions?.metadata?.pickGeneration?.applied === false ? (
+          <p className={styles.suggestMeta} data-testid="suggestions-pick-disclosure">
+            Suggestions are not generated with draft picks; a pick can appear only when it is
+            already in the value pool. For trades built around picks, use the trade finder in{" "}
+            <a href="/arbitrage">Market Disagreement</a>.
+          </p>
+        ) : null}
+
         {error ? (
           <Banner tone="negative" title="Suggestions failed">
             {error}

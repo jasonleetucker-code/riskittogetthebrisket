@@ -144,3 +144,126 @@ describe("the result states what it is", () => {
     expect(document.body.textContent).not.toMatch(/82%/);
   });
 });
+
+// Owner Priority 12 (2026-11-08): `valueUncertainty` says no empirically
+// calibrated band exists.  The 10th/90th `deltaRange` is then ILLUSTRATIVE
+// (it comes from the band named by `bandBasis`), and the win share stays a
+// simulation fraction.  Absent on older payloads: rendering is unchanged.
+describe("valueUncertainty unavailable — the range is illustrative", () => {
+  const UNAVAILABLE = (bandBasis) => ({
+    state: "unavailable",
+    reason: "no_empirically_calibrated_band",
+    bandBasis,
+    horizonDays: null,
+    calibratedIntervals: null,
+    evidence: "docs/valuation/TRADE_UNCERTAINTY_STUDY_2026-11-08.md",
+  });
+
+  function mockResult(extra) {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        winProbA: 0.82,
+        winProbB: 0.18,
+        meanDelta: 900,
+        deltaRange: { p10: -1250.4, p50: 900, p90: 1700 },
+        nSims: 40000,
+        bandSources: { synthetic_flat_15pct: 2 },
+        labelHint: "consensus_based_win_rate",
+        vaAdjustment: { side: 1, value: 0, effectiveValue: 0, applied: false },
+        ...extra,
+      }),
+    });
+  }
+
+  async function run() {
+    render(
+      <MonteCarloButton
+        sides={sides([{ name: "A1", rankDerivedValue: 6000 }], [{ name: "B1", rankDerivedValue: 5000 }])}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Simulate/ }));
+    await waitFor(() => screen.getByTestId("mc-scope-note"));
+  }
+
+  it("labels the 10th/90th range as illustrative from the assumed band", async () => {
+    mockResult({ valueUncertainty: UNAVAILABLE("assumed_flat_15pct") });
+    await run();
+    expect(screen.getByTestId("mc-range-illustrative").textContent).toBe(
+      "Illustrative 10th–90th percentile gap (Side A minus Side B): −1,250 to +1,700 points, from an assumed ±15% band, not measured.",
+    );
+    expect(screen.getByTestId("mc-uncertainty-unavailable").textContent).toMatch(
+      /No measured uncertainty band exists yet/,
+    );
+    // Still the sensitivity framing: no percentage, no winner.
+    const body = document.body.textContent;
+    expect(body).toMatch(/Illustrative sensitivity only/);
+    expect(body).not.toMatch(/82%|18%/);
+    expect(body).not.toMatch(/acceptance|chance (?:a|the) manager/i);
+  });
+
+  it("keeps the measured-band win share as a simulation fraction, and names the bands uncalibrated", async () => {
+    mockResult({
+      bandSources: { stamped_value_band: 2 },
+      valueUncertainty: UNAVAILABLE("stamped_value_band_uncalibrated"),
+    });
+    await run();
+    const body = document.body.textContent;
+    expect(body).toMatch(/82% of 40,000 simulations/);
+    expect(screen.getByTestId("mc-scope-note").textContent).toBe(
+      "Share of simulations on uncalibrated ranges — not the chance the trade works out.",
+    );
+    expect(screen.getByTestId("mc-range-illustrative").textContent).toMatch(
+      /from value bands that have not been calibrated, not measured\./,
+    );
+    // The qualitative range line no longer reads as measured uncertainty.
+    expect(body).toMatch(/across this illustrative range/);
+    expect(body).not.toMatch(/high uncertainty|result is consistent across simulations/);
+    expect(body).toMatch(/They are not calibrated, so that count is a share of simulations only/);
+  });
+
+  it("an unreported band basis is said, not guessed", async () => {
+    mockResult({ valueUncertainty: UNAVAILABLE("unknown") });
+    await run();
+    expect(screen.getByTestId("mc-range-illustrative").textContent).toMatch(
+      /from a band whose basis was not reported, not measured\./,
+    );
+  });
+
+  it("a missing p10/p90 shows no range numbers — never 0", async () => {
+    mockResult({
+      deltaRange: { p50: 900 },
+      valueUncertainty: UNAVAILABLE("assumed_flat_15pct"),
+    });
+    await run();
+    expect(screen.queryByTestId("mc-range-illustrative")).toBeNull();
+    const note = screen.getByTestId("mc-uncertainty-unavailable").textContent;
+    expect(note).toMatch(/No measured uncertainty band exists yet/);
+    expect(note).not.toMatch(/\b0\b/);
+  });
+
+  it("absent valueUncertainty (older payload) renders exactly as before", async () => {
+    mockResult({ bandSources: { stamped_value_band: 2 } });
+    await run();
+    expect(screen.queryByTestId("mc-uncertainty-unavailable")).toBeNull();
+    expect(screen.queryByTestId("mc-range-illustrative")).toBeNull();
+    expect(screen.getByTestId("mc-scope-note").textContent).toBe(
+      "Value-uncertainty check — not the chance the trade works out.",
+    );
+    expect(document.body.textContent).toMatch(/Range of outcomes is narrow|Moderate range|Wide range/);
+  });
+
+  it("_valueUncertaintyNote is null unless the state is unavailable", async () => {
+    const { _valueUncertaintyNote } = await import("@/components/ui/MonteCarloButton");
+    expect(_valueUncertaintyNote({})).toBeNull();
+    expect(_valueUncertaintyNote({ valueUncertainty: null })).toBeNull();
+    expect(_valueUncertaintyNote({ valueUncertainty: { state: "available" } })).toBeNull();
+    const n = _valueUncertaintyNote({
+      valueUncertainty: UNAVAILABLE("assumed_flat_15pct"),
+      deltaRange: { p10: 0, p90: 12 },
+    });
+    // A real (computed) zero is a value, shown as such; only MISSING is withheld.
+    expect(n.rangeLine).toMatch(/: 0 to \+12 points/);
+  });
+});
