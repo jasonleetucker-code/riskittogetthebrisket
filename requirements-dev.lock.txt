@@ -189,9 +189,9 @@ annotated-types==0.8.0 \
     # via
     #   -c requirements.lock.txt
     #   pydantic
-anthropic==1.8.0 \
-    --hash=sha256:79a4516a21e64fd7b15be1a49ebf544bd6376c96a971a77365358823a2717bc6 \
-    --hash=sha256:9c1783ed90f409617749a61c5ab98e20624a572626f2e0a15cea03ed8e1401e5
+anthropic==1.11.0 \
+    --hash=sha256:3906fabac7ad7b5b46c6186040398fc7826885c77ce34e4dd7849de16fc8d0f8 \
+    --hash=sha256:52f97b2c485cca7ac66058374f5073a3febb7e6849b16989c145d602a3efee21
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -269,6 +269,8 @@ attrs==26.1.0 \
     # via
     #   -c requirements.lock.txt
     #   aiohttp
+    #   jsonschema
+    #   referencing
 beautifulsoup4==4.15.0 \
     --hash=sha256:288e3ca7d54b06f2ac191970bc275c1939cb46d450b255bf6718b04aa37ab4f7 \
     --hash=sha256:d6f88de62e1d4e38ecb1077eb9724cd0eff29d2a08ca16a401e9b9e93f117cf9
@@ -677,9 +679,9 @@ et-xmlfile==2.0.0 \
     # via
     #   -c requirements.lock.txt
     #   openpyxl
-fastapi==0.141.1 \
-    --hash=sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3 \
-    --hash=sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1
+fastapi==0.142.4 \
+    --hash=sha256:7fe2e254a0a948b88f432b02b8f627463285248233bba0998ed9640191e2ff57 \
+    --hash=sha256:8a651aa071a9f92c8217cca1d0b044bf9c326f336578be0a728a1a1f22ec52d2
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
@@ -1080,7 +1082,7 @@ jiter==0.17.0 \
 jsonschema==4.26.0 \
     --hash=sha256:0c26707e2efad8aa1bfc5b7ce170f3fccc2e4918ff85989ba9ffa9facb2be326 \
     --hash=sha256:d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce
-    # via -r requirements.in
+    # via -r requirements-dev.txt
 jsonschema-specifications==2025.9.1 \
     --hash=sha256:98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe \
     --hash=sha256:b540987f239e745613c7a9176f3edb72b832a4ac465cf02712288397832b5e8d
@@ -1547,6 +1549,12 @@ openpyxl==3.1.5 \
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
+opentelemetry-api==1.45.2 \
+    --hash=sha256:2cbd737377e710ee740d261c94e93fa0f08e6d037c18f17513cc0a2d94479a34 \
+    --hash=sha256:d7b0008e21e5fd61cbe7a7f34ca3b6905a78ab677d9bc395e299359c75cda6b4
+    # via
+    #   -c requirements.lock.txt
+    #   fastapi
 packaging==26.3 \
     --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
     --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
@@ -2303,9 +2311,11 @@ typing-extensions==4.16.0 \
     #   fastapi
     #   httpx2
     #   mypy
+    #   opentelemetry-api
     #   pydantic
     #   pydantic-core
     #   pyee
+    #   referencing
     #   starlette
     #   typing-inspection
 typing-inspection==0.4.4 \
@@ -2327,9 +2337,9 @@ urllib3==2.8.0 \
     # via
     #   -c requirements.lock.txt
     #   requests
-uvicorn==0.53.0 \
-    --hash=sha256:a9356f0cb89b3b8621529c5d5eebd69bfe154f4c3f68b4cf2de47e45fa855c2e \
-    --hash=sha256:e8dca71ec86dce5f04e333f0d56cdedf942446e6643b9cea1af0d6d3a02cb03e
+uvicorn==0.54.0 \
+    --hash=sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf \
+    --hash=sha256:a2e33cbfaa0306f8e6b0c13e0cb89d7d7a2da3e62b90c66e18c33d9807b28620
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
