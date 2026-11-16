@@ -50,6 +50,16 @@ describe("forcedReleaseSummary", () => {
     expect(s.headline).toContain("(plus 1 with value unknown, not counted)");
   });
 
+  it("an unreported unpriced-drop count is unknown, never 'every release priced'", () => {
+    for (const missing of [undefined, null, "2"]) {
+      const s = forcedReleaseSummary({ ...REQUIRES, unpricedForcedDrops: missing });
+      expect(s.headline).toContain("whether every release is priced is not reported");
+      expect(s.headline).not.toContain("with value unknown, not counted");
+    }
+    const priced = forcedReleaseSummary(REQUIRES);
+    expect(priced.headline).not.toContain("not reported");
+  });
+
   it("an unknown released total reads 'released value unknown', never 0", () => {
     const s = forcedReleaseSummary({ ...REQUIRES, forcedDropValue: null });
     expect(s.headline).toContain("released value unknown");

@@ -112,9 +112,14 @@ export function forcedReleaseSummary(capacity) {
   headline += isNum(capacity.forcedDropValue)
     ? ` — ${fmtValue(capacity.forcedDropValue)} value released`
     : " — released value unknown";
-  const unpriced = Number(capacity.unpricedForcedDrops) || 0;
-  if (unpriced > 0 && isNum(capacity.forcedDropValue)) {
-    headline += ` (plus ${unpriced} with value unknown, not counted)`;
+  // MISSING IS NEVER ZERO: an unreported count must not read as "every
+  // release is priced".
+  if (isNum(capacity.forcedDropValue)) {
+    if (!isNum(capacity.unpricedForcedDrops)) {
+      headline += " (whether every release is priced is not reported)";
+    } else if (capacity.unpricedForcedDrops > 0) {
+      headline += ` (plus ${capacity.unpricedForcedDrops} with value unknown, not counted)`;
+    }
   }
   if (upper) headline += " (taxi occupancy unknown)";
   if (capacity.ladderExhausted === true) headline += " — no fully legal cleanup found";
