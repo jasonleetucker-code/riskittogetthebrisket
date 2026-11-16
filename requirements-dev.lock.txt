@@ -1952,9 +1952,9 @@ pydantic-core==2.46.5 \
     # via
     #   -c requirements.lock.txt
     #   pydantic
-pyee==13.0.1 \
-    --hash=sha256:0b931f7c14535667ed4c7e0d531716368715e860b988770fc7eb8578d1f67fc8 \
-    --hash=sha256:af2f8fede4171ef667dfded53f96e2ed0d6e6bd7ee3bb46437f77e3b57689228
+pyee==16.0.2 \
+    --hash=sha256:31cb31131df7757f2a54fbd98ea5d37e736dc8a9f41ec4bdce40892a32474ec8 \
+    --hash=sha256:b3221f531a85818fbcf4d5ba7d8620680036381e79ca312334a512077870ba60
     # via
     #   -c requirements.lock.txt
     #   playwright
