@@ -561,10 +561,9 @@ function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", mode
         onClick={() => rememberHistoryOrigin(shareEncoded, a.combined ? null : a.date)}
         className={`${entryClass} ${styles.entryLink}`}
       >
+        {/* No aria-label: the card's visible text names the link (WCAG
+            2.5.3), and it already ends with "Open in the trade calculator". */}
         {body}
-        {/* The card's visible text names the link (WCAG 2.5.3); this says
-            where it goes.  An aria-label used to replace all of it. */}
-        <span className={styles.srOnly}> Open this trade in the calculator.</span>
       </Panel>
     );
   }

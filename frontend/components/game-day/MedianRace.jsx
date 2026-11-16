@@ -189,7 +189,9 @@ function Row({ t, selected, final, onSelect }) {
           >
             {cells}
           </button>
-          <span id={descId} className={styles.srOnly}>
+          {/* hidden: read once, as the button's description, not again in
+              browse mode (aria-describedby resolves hidden referents). */}
+          <span id={descId} hidden>
             {accessible}
           </span>
         </>
