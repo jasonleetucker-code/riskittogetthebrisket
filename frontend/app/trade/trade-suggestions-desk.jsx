@@ -9,6 +9,7 @@
  * Pure presentation, moved verbatim — no trade math lives here.
  */
 
+import { arbitrageHref } from "@/lib/arbitrage-links";
 import { PICK_OWNERSHIP_UNAVAILABLE_LABEL } from "@/lib/pick-ownership";
 import { teamPickLabels } from "@/lib/trade-assets";
 import { Badge, Banner, Button, Field, Panel, Select } from "@/components/ds";
@@ -262,13 +263,17 @@ export function SuggestionsDesk({
 
         {/* `metadata.pickGeneration.applied === false`: no draft-pick
             generator runs for suggestions (backend handoff, MD-105).  A pick
-            already in the value pool can still appear, so this never says
-            suggestions exclude picks. */}
+            among the assets considered can still appear, so this never says
+            suggestions exclude picks.  The link goes to the pick-capable
+            Package Builder (one owner: lib/arbitrage-links). */}
         {suggestions?.metadata?.pickGeneration?.applied === false ? (
           <p className={styles.suggestMeta} data-testid="suggestions-pick-disclosure">
-            Suggestions are not generated with draft picks; a pick can appear only when it is
-            already in the value pool. For trades built around picks, use the trade finder in{" "}
-            <a href="/arbitrage">Market Disagreement</a>.
+            Suggestions are not generated with draft picks; a pick can still appear when it is one
+            of the assets being considered. For trades built around picks, use the{" "}
+            <a href={arbitrageHref("builder")} className={styles.inlineLink}>
+              Package Builder (turn on Allow draft picks)
+            </a>
+            .
           </p>
         ) : null}
 

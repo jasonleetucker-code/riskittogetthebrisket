@@ -358,8 +358,10 @@ class TestFrontendIsNotAnOptimizer:
         starts a defender, so an empty streaming board reads "no started IDP
         slot in this league" instead of an error.  It is a mirror of the
         owner's defensive slot vocabulary, diffed in BOTH directions: every
-        DL / LB / DB family position, every flex whose eligibility is purely
-        defensive, and every spelling ``normalize_slot`` folds into one."""
+        DL / LB / DB family position, every flex that accepts at least one
+        defender (so a future mixed offense / IDP flex cannot pass silently:
+        it starts a defender, and the JS set must name it), and every
+        spelling ``normalize_slot`` folds into one."""
         text = (FRONTEND_LIB / "idp-streaming.js").read_text(encoding="utf-8")
         match = re.search(r"const IDP_STARTER_SLOTS = new Set\(\[([^\]]*)\]\)", text)
         assert match, "IDP_STARTER_SLOTS not found in idp-streaming.js"
@@ -370,7 +372,7 @@ class TestFrontendIsNotAnOptimizer:
         flex = {
             slot
             for slot, eligible in owner._FLEX_SLOT_ELIGIBILITY.items()
-            if eligible and all(owner._LINEUP_FAMILY.get(p) in defensive for p in eligible)
+            if any(owner._LINEUP_FAMILY.get(p) in defensive for p in eligible)
         }
         spellings = {alias for alias, target in owner._SLOT_ALIASES.items() if target in flex}
         expected = positions | flex | spellings
@@ -378,10 +380,10 @@ class TestFrontendIsNotAnOptimizer:
             f"missing from JS: {sorted(expected - js_slots)}; "
             f"unknown to Python: {sorted(js_slots - expected)}"
         )
-        # ...and every member really starts only defenders to the owner.
+        # ...and every member really can start a defender to the owner.
         for slot in js_slots:
             eligible = owner.slot_eligible_positions(slot)
-            assert eligible and all(owner.lineup_position(p) in defensive for p in eligible), slot
+            assert any(owner.lineup_position(p) in defensive for p in eligible), slot
 
 
 class TestSlotDemandHasOneOwner:

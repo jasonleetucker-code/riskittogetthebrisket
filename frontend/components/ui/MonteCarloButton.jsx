@@ -132,9 +132,11 @@ export function _valueUncertaintyNote(result) {
   const basis = BAND_BASIS_WORDS[vu.bandBasis] || "a band whose basis was not reported";
   const r = result?.deltaRange || {};
   const finite = (x) => typeof x === "number" && Number.isFinite(x);
+  // Same condition as the delta line: a VA-adjusted gap never reads as raw.
+  const gap = result?.vaAdjustment?.applied ? "package-adjusted gap" : "gap";
   const rangeLine =
     finite(r.p10) && finite(r.p90)
-      ? `Illustrative 10th–90th percentile gap (Side A minus Side B): ${_signedPoints(r.p10)} to ${_signedPoints(r.p90)} points, from ${basis}, not measured.`
+      ? `Illustrative 10th–90th percentile ${gap} (Side A minus Side B): ${_signedPoints(r.p10)} to ${_signedPoints(r.p90)} points, from ${basis}, not measured.`
       : null;
   return {
     rangeLine,

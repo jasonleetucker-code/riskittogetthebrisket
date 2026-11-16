@@ -19,6 +19,7 @@ import CONSOLIDATION from "../fixtures/trade-war-room/consolidation.json";
 import FORCED from "../fixtures/trade-war-room/forced-cut.json";
 import ASSET_ONLY from "../fixtures/trade-war-room/asset-only.json";
 import STRATEGY_CUT_NO from "../fixtures/trade-war-room/strategy-cut-no.json";
+import PARTIAL_LONG_TERM from "../fixtures/trade-war-room/partial-long-term.json";
 import TOO_CLOSE from "../fixtures/trade-war-room/too-close-strategy.json";
 import AJ_BROWN from "../fixtures/trade-war-room-mock/aj-brown-herbert.json";
 
@@ -86,10 +87,10 @@ describe("Compared with no transaction", () => {
     );
     // tradeClearance 1190 value points; 0.21 ppg -> 0.2 points per week.
     expect(componentText("objectiveValue")).toBe(
-      "Trade value: outside its neutral band of ±250 value points: 1,190 value points past it toward making the trade.",
+      "Trade value after any forced cut: outside the fair band of ±250 value points: 1,190 value points past it toward making the trade.",
     );
     expect(componentText("rosterBenefit")).toBe(
-      "Weekly lineup: outside its neutral band of ±1.3 points per week: 0.2 points per week past it toward making the trade.",
+      "Weekly lineup: outside its too-close range of ±1.3 points per week: 0.2 points per week past it toward making the trade.",
     );
     expect(region.textContent).toMatch(/the two are never added together/);
     expect(screen.getByTestId("status-quo-opportunity")).toHaveTextContent(
@@ -116,13 +117,15 @@ describe("Compared with no transaction", () => {
     expect(screen.getByTestId("status-quo-preferred")).toHaveTextContent(
       "Better option: Keeping your current roster.",
     );
-    // value -1426 opposes: statusQuoClearance 1090.9 -> 1,091.
+    // value -1426 opposes: statusQuoClearance 1090.9 -> 1,091.  The forced
+    // cut is read from evidence.forcedRelease.chargedToTrade (3000).
+    expect(STRATEGY_CUT_NO.analysis.statusQuo.evidence.forcedRelease.chargedToTrade).toBe(3000);
     expect(componentText("objectiveValue")).toBe(
-      "Trade value: outside its neutral band of ±335 value points: 1,091 value points past it toward keeping your current roster.",
+      "Trade value after any forced cut: outside the fair band of ±335 value points: 1,091 value points past it toward keeping your current roster. It includes a forced cut costing 3,000 value points.",
     );
     // 6.88 ppg favours the trade: tradeClearance 5.71 -> 5.7.
     expect(componentText("rosterBenefit")).toBe(
-      "Weekly lineup: outside its neutral band of ±1.2 points per week: 5.7 points per week past it toward making the trade.",
+      "Weekly lineup: outside its too-close range of ±1.2 points per week: 5.7 points per week past it toward making the trade.",
     );
   });
 
@@ -130,7 +133,7 @@ describe("Compared with no transaction", () => {
     await renderWith(TOO_CLOSE);
     const text = componentText("objectiveValue");
     expect(text).toBe(
-      "Trade value: inside its neutral band of ±250 value points (net +50 value points), so it favours neither option.",
+      "Trade value after any forced cut: within the fair band of ±250 value points (net +50 value points), so it favours neither option.",
     );
     expect(text).not.toMatch(/200|300/);
   });
@@ -163,10 +166,10 @@ describe("Compared with no transaction", () => {
     }));
     await renderWith(fixture);
     expect(componentText("objectiveValue")).toMatch(
-      /inside its neutral band .* favours neither option/,
+      /within the fair band .* favours neither option/,
     );
     expect(componentText("rosterBenefit")).toBe(
-      "Weekly lineup: outside its neutral band of ±1.0 points per week: just past it toward making the trade.",
+      "Weekly lineup: outside its too-close range of ±1.0 points per week: just past it toward making the trade.",
     );
   });
 
@@ -183,6 +186,97 @@ describe("Compared with no transaction", () => {
     }
     // No number at all is invented for a component that was not evaluated.
     expect(block().querySelector("ul").textContent).not.toMatch(/\d/);
+  });
+
+  it("no forced-cut clause when the trade is charged no cut", async () => {
+    await renderWith(CONSOLIDATION);
+    const charged = CONSOLIDATION.analysis.statusQuo.evidence.forcedRelease.chargedToTrade;
+    expect(charged == null || charged <= 0).toBe(true);
+    expect(componentText("objectiveValue")).not.toMatch(/forced cut costing/);
+  });
+
+  it("a component whose band position is not reported says so — no inside/outside claim", async () => {
+    const fixture = withStatusQuo(CONSOLIDATION, (sq) => {
+      const { insideBand: _omit, ...rest } = sq.margin.objectiveValue;
+      return { ...sq, margin: { ...sq.margin, objectiveValue: rest } };
+    });
+    await renderWith(fixture);
+    expect(componentText("objectiveValue")).toBe(
+      "Trade value after any forced cut: its position against the fair band of ±250 value points was not reported.",
+    );
+  });
+
+  it("outside the band with no stated direction names no side and no clearance", async () => {
+    const fixture = withStatusQuo(CONSOLIDATION, (sq) => ({
+      ...sq,
+      margin: {
+        ...sq.margin,
+        objectiveValue: { ...sq.margin.objectiveValue, direction: "neutral", insideBand: false },
+      },
+    }));
+    await renderWith(fixture);
+    const text = componentText("objectiveValue");
+    expect(text).toBe("Trade value after any forced cut: outside the fair band of ±250 value points.");
+    // Neither clearance (1,190 / 1,690) is shown.
+    expect(text).not.toMatch(/1,190|1,690|toward/);
+  });
+
+  it("a lineup effect that does not apply is worded from its reason, not as missing evidence", async () => {
+    await renderWith(PARTIAL_LONG_TERM);
+    const ev = PARTIAL_LONG_TERM.analysis.statusQuo.evidence.rosterBenefit;
+    expect(PARTIAL_LONG_TERM.analysis.decision.headline).toBe("YES");
+    expect(ev).toMatchObject({ state: "not_applicable", reason: "partial_projection_coverage" });
+    const text = componentText("rosterBenefit");
+    expect(text).toBe(
+      "Weekly lineup: not applicable: some traded players have no league-scored projection, so the lineup effect is left out rather than counted as zero.",
+    );
+    expect(text).not.toMatch(/not enough evidence/);
+  });
+
+  it.each([
+    ["no_remaining_fantasy_weeks", "not applicable: no fantasy weeks remain this season."],
+    ["season_unresolved", "not applicable: no current-season projection applies."],
+  ])("not applicable (%s) is worded from the reason", async (reason, words) => {
+    const fixture = withStatusQuo(PARTIAL_LONG_TERM, (sq) => ({
+      ...sq,
+      evidence: {
+        ...sq.evidence,
+        rosterBenefit: { evaluated: false, state: "not_applicable", reason },
+      },
+    }));
+    await renderWith(fixture);
+    expect(componentText("rosterBenefit")).toBe(`Weekly lineup: ${words}`);
+  });
+
+  it("an execution gate reads as not compared, not as missing evidence", async () => {
+    const fixture = withStatusQuo(FORCED, (sq) => ({
+      ...sq,
+      derivedFrom: { headline: "NO", deciding: "executionGate" },
+      evidence: {
+        ...sq.evidence,
+        objectiveValue: { evaluated: false, reason: "executionGate" },
+        rosterBenefit: { evaluated: false, reason: "executionGate" },
+      },
+    }));
+    await renderWith(fixture);
+    for (const key of ["objectiveValue", "rosterBenefit"]) {
+      expect(componentText(key)).toMatch(/not compared: the trade cannot be executed\.$/);
+      expect(componentText(key)).not.toMatch(/not enough evidence/);
+    }
+  });
+
+  it.each([
+    [{ evaluated: false, reason: "decision_unrecognized" }],
+    [{ evaluated: false, state: "unavailable", reason: "impact_missing" }],
+  ])("%o stays not enough evidence", async (rosterEvidence) => {
+    const fixture = withStatusQuo(PARTIAL_LONG_TERM, (sq) => ({
+      ...sq,
+      evidence: { ...sq.evidence, rosterBenefit: rosterEvidence },
+    }));
+    await renderWith(fixture);
+    expect(componentText("rosterBenefit")).toBe(
+      "Weekly lineup: not evaluated — not enough evidence (unknown, not zero).",
+    );
   });
 
   it("an absent preferred field is also not enough evidence", () => {

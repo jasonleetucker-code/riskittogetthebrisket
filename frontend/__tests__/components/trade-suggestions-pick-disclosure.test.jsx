@@ -4,14 +4,16 @@
  * `POST /api/trade/suggestions` stamps `metadata.pickGeneration =
  * {applied: false, reason: "suggestions_have_no_pick_generator",
  * pickInclusiveReturned}`: no pick generator runs for suggestions, but a pick
- * already in the value pool can still appear.  The desk says so in one line
- * and points to the trade finder; it never claims suggestions exclude picks.
+ * among the assets considered can still appear.  The desk says so in one line
+ * and links to the Package Builder; it never claims suggestions exclude picks.
  */
 import { describe, expect, it, vi } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 
 import { SuggestionsDesk } from "@/app/trade/trade-suggestions-desk";
+import styles from "@/app/trade/trade.module.css";
+import { arbitrageHref } from "@/lib/arbitrage-links";
 
 function suggestionsWith(metadata) {
   return {
@@ -55,7 +57,7 @@ function renderDesk(suggestions) {
 }
 
 describe("suggestions draft-pick disclosure", () => {
-  it("says suggestions are not generated with picks, and points to the trade finder", () => {
+  it("says suggestions are not generated with picks, and links to the Package Builder", () => {
     renderDesk(
       suggestionsWith({
         pickGeneration: {
@@ -67,12 +69,16 @@ describe("suggestions draft-pick disclosure", () => {
     );
     const line = screen.getByTestId("suggestions-pick-disclosure");
     expect(line).toHaveTextContent(
-      "Suggestions are not generated with draft picks; a pick can appear only when it is already in the value pool. For trades built around picks, use the trade finder in Market Disagreement.",
+      "Suggestions are not generated with draft picks; a pick can still appear when it is one of the assets being considered. For trades built around picks, use the Package Builder (turn on Allow draft picks).",
     );
-    expect(screen.getByRole("link", { name: "Market Disagreement" })).toHaveAttribute(
-      "href",
-      "/arbitrage",
-    );
+    const link = screen.getByRole("link", { name: "Package Builder (turn on Allow draft picks)" });
+    // The pick-capable tool, through the one link owner.
+    expect(link).toHaveAttribute("href", arbitrageHref("builder"));
+    expect(link.getAttribute("href")).toBe("/arbitrage?tool=builder");
+    // Visibly a link (underlined class, mobile touch height), not colour alone.
+    expect(link).toHaveClass(styles.inlineLink);
+    expect(styles.inlineLink).toBeTruthy();
+    expect(line.textContent).not.toMatch(/value pool/);
     // Never claims suggestions exclude picks, and shows no count of zero.
     expect(line.textContent).not.toMatch(/never include|no picks|without any pick|\b0\b/i);
     expect(line.textContent).not.toMatch(/_/);

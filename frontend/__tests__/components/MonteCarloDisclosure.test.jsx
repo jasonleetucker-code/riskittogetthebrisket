@@ -223,6 +223,25 @@ describe("valueUncertainty unavailable — the range is illustrative", () => {
     expect(body).toMatch(/They are not calibrated, so that count is a share of simulations only/);
   });
 
+  it("names the range a package-adjusted gap when the adjustment was applied", async () => {
+    mockResult({
+      valueUncertainty: UNAVAILABLE("assumed_flat_15pct"),
+      vaAdjustment: { side: 1, value: 1234, effectiveValue: 1234, applied: true },
+    });
+    await run();
+    expect(screen.getByTestId("mc-range-illustrative").textContent).toMatch(
+      /^Illustrative 10th–90th percentile package-adjusted gap \(Side A minus Side B\)/,
+    );
+    // The delta line uses the same condition.
+    expect(document.body.textContent).toMatch(/package-adjusted total/);
+  });
+
+  it("calls it a plain gap when no adjustment was applied", async () => {
+    mockResult({ valueUncertainty: UNAVAILABLE("assumed_flat_15pct") });
+    await run();
+    expect(screen.getByTestId("mc-range-illustrative").textContent).not.toMatch(/package-adjusted/);
+  });
+
   it("an unreported band basis is said, not guessed", async () => {
     mockResult({ valueUncertainty: UNAVAILABLE("unknown") });
     await run();

@@ -14,10 +14,15 @@
  * adds, Escape clears), and the toolbar's More group returns focus to its
  * trigger on Escape.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import {
+  COLD_LAZY_REVEAL,
+  PREWARM_TIMEOUT_MS,
+  prewarmTradeSections,
+} from "../setup/trade-lazy-sections";
 
 const ROWS = [
   {
@@ -114,6 +119,12 @@ function savedSides() {
 }
 
 let TradePage;
+// The suggestions desk and the KTC import row sit behind cold React.lazy
+// boundaries; compile them before any timed wait (setup/trade-lazy-sections).
+beforeAll(async () => {
+  await prewarmTradeSections();
+}, PREWARM_TIMEOUT_MS);
+
 beforeEach(async () => {
   window.localStorage.clear();
   window.history.replaceState({}, "", "/trade");
@@ -184,7 +195,7 @@ describe("suggestions: an older roster's answer never replaces the newer one", (
   it("resolves the new roster first and the old one last", async () => {
     const { pending } = controlledFetch((u) => u.includes("/api/trade/suggestions"));
     render(<TradePage />);
-    const roster = await screen.findByLabelText("Roster");
+    const roster = await screen.findByLabelText("Roster", {}, COLD_LAZY_REVEAL);
     fireEvent.change(roster, { target: { value: "Bijan Robinson, Puka Nacua, Puka Two" } });
     await waitFor(() => expect(pending.length).toBe(1), { timeout: 3000 });
     fireEvent.change(roster, { target: { value: "Puka Nacua, Puka Two, Bijan Robinson, X" } });

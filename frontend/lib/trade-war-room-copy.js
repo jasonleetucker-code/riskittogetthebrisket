@@ -177,14 +177,20 @@ function unprojectedCount(rosterLens) {
  * and is shown, labelled, at a glance; it is only left out of the decision)
  * or a season with no fantasy weeks to measure.
  */
+/** Why there is no current-season lineup effect, for the two roster reasons
+ *  that are facts about the season rather than evidence gaps.  Shared by the
+ *  confidence clause and the status-quo comparison. */
+const NO_LINEUP_EFFECT_WORDS = {
+  no_remaining_fantasy_weeks: "no fantasy weeks remain this season",
+  season_unresolved: "no current-season projection applies",
+};
+
 function rosterEffectClause(rosterLens) {
   const reason = rosterLens?.unavailableReason;
   if (reason === "partial_projection_coverage")
     return unprojectedClause(unprojectedCount(rosterLens));
-  if (reason === "no_remaining_fantasy_weeks")
-    return "no fantasy weeks remain this season, so there is no lineup effect to measure";
-  if (reason === "season_unresolved")
-    return "no current-season projection applies, so there is no lineup effect to measure";
+  if (Object.prototype.hasOwnProperty.call(NO_LINEUP_EFFECT_WORDS, reason))
+    return `${NO_LINEUP_EFFECT_WORDS[reason]}, so there is no lineup effect to measure`;
   return "there is no current-season lineup effect to measure";
 }
 
@@ -1567,15 +1573,23 @@ export function analysisErrorText(error) {
 // ── Compared with no transaction (`analysis.statusQuo`, status_quo_v1) ─────
 
 /**
- * The two decision components, each in its OWN units.  They are worded side
- * by side and never added together (`margin.crossComponent` is always null:
- * the backend never combines them, and neither does the page).
+ * The two decision components, each in its OWN units and against its OWN
+ * range.  They are worded side by side and never added together
+ * (`margin.crossComponent` is always null: the backend never combines them,
+ * and neither does the page).
+ *
+ * Component A is the adjusted package gap AFTER any forced-release cost, so it
+ * is not labelled plain "Trade value" (the at-a-glance row's gap before any
+ * cut).  Its range is the fairness lens's fair band; component B's is the
+ * roster lens's too-close range.
  */
 const STATUS_QUO_COMPONENTS = [
   {
     key: "objectiveValue",
-    label: "Trade value",
+    label: "Trade value after any forced cut",
     unit: "value points",
+    range: (half) => (half ? `the fair band of ±${half} value points` : "the fair band"),
+    inside: "within",
     magnitude: (v) => formatValue(Math.abs(v)),
     signed: (v) => formatSignedValue(v),
   },
@@ -1583,6 +1597,9 @@ const STATUS_QUO_COMPONENTS = [
     key: "rosterBenefit",
     label: "Weekly lineup",
     unit: "points per week",
+    range: (half) =>
+      half ? `its too-close range of ±${half} points per week` : "its too-close range",
+    inside: "inside",
     magnitude: (v) => tenth(v),
     signed: (v) => formatSignedPpg(v),
   },
@@ -1596,32 +1613,67 @@ export function statusQuoPreferredWords(preferred) {
   return "Not enough evidence to say either way";
 }
 
-function statusQuoComponentSentence(c, margin, evidence) {
-  if (!margin || typeof margin !== "object") {
-    if (evidence?.state === "excluded_by_mode") return "not part of an asset-only analysis.";
-    return "not evaluated — not enough evidence (unknown, not zero).";
+/**
+ * A component the comparison did not measure, worded from the backend's own
+ * `evidence.<component>` state and reason (`trade_decision.status_quo`):
+ *   excluded_by_mode            asset-only analysis
+ *   not_applicable + reason     a fact about the season, not an evidence gap
+ *                               (`trade_decision.py` keeps these out of the
+ *                               missing-evidence gaps)
+ *   reason executionGate        the trade cannot be executed, so nothing was
+ *                               compared
+ *   anything else               evidenceGate, decision_unrecognized,
+ *                               state "unavailable": not enough evidence
+ */
+function statusQuoNotComparedSentence(evidence) {
+  const state = evidence?.state;
+  const reason = evidence?.reason;
+  if (state === "excluded_by_mode") return "not part of an asset-only analysis.";
+  if (state === "not_applicable") {
+    if (reason === "partial_projection_coverage") return `not applicable: ${unprojectedClause(null)}.`;
+    if (Object.prototype.hasOwnProperty.call(NO_LINEUP_EFFECT_WORDS, reason))
+      return `not applicable: ${NO_LINEUP_EFFECT_WORDS[reason]}.`;
+    return "not applicable to this decision.";
   }
+  if (reason === "executionGate") return "not compared: the trade cannot be executed.";
+  return "not evaluated — not enough evidence (unknown, not zero).";
+}
+
+function statusQuoComponentSentence(c, margin, evidence) {
+  if (!margin || typeof margin !== "object") return statusQuoNotComparedSentence(evidence);
   const half = isNum(margin.neutralBandHalfWidth) ? c.magnitude(margin.neutralBandHalfWidth) : null;
-  const band = half ? `its neutral band of ±${half} ${c.unit}` : "its neutral band";
+  const range = c.range(half);
   // Inside / outside is read from `insideBand` -- the component's own
   // classification -- never from a clearance's sign (a rounded clearance can
   // read 0.0 on either side of the band edge).
   if (margin.insideBand === true) {
     const net = isNum(margin.value) ? c.signed(margin.value) : null;
-    return `inside ${band}${net ? ` (net ${net} ${c.unit})` : ""}, so it favours neither option.`;
+    return `${c.inside} ${range}${net ? ` (net ${net} ${c.unit})` : ""}, so it favours neither option.`;
   }
-  if (margin.insideBand !== false) return `its position against ${band} was not reported.`;
+  if (margin.insideBand !== false) return `its position against ${range} was not reported.`;
   const toward =
     margin.direction === "favors"
       ? { clearance: margin.tradeClearance, words: "toward making the trade" }
       : margin.direction === "opposes"
         ? { clearance: margin.statusQuoClearance, words: "toward keeping your current roster" }
         : null;
-  if (!toward) return `outside ${band}.`;
+  if (!toward) return `outside ${range}.`;
   const past = isNum(toward.clearance) ? c.magnitude(toward.clearance) : null;
   const amount =
-    past == null ? "past it" : Number(past.replace(/,/g, "")) === 0 ? "just past it" : `${past} ${c.unit} past it`;
-  return `outside ${band}: ${amount} ${toward.words}.`;
+    past == null
+      ? "past it"
+      : Number(past.replace(/,/g, "")) === 0
+        ? "just past it"
+        : `${past} ${c.unit} past it`;
+  return `outside ${range}: ${amount} ${toward.words}.`;
+}
+
+/** "It includes a forced cut costing N value points." -- read from
+ *  `evidence.forcedRelease.chargedToTrade`, only when it is a positive cost. */
+function forcedCutClause(forcedRelease) {
+  const cost = forcedRelease?.chargedToTrade;
+  if (!isNum(cost) || cost <= 0) return null;
+  return `It includes a forced cut costing ${formatValue(cost)} value points.`;
 }
 
 /**
@@ -1638,11 +1690,15 @@ export function statusQuoSummary(statusQuo) {
       : null;
   const margin = statusQuo.margin || {};
   const evidence = statusQuo.evidence || {};
-  const components = STATUS_QUO_COMPONENTS.map((c) => ({
-    key: c.key,
-    label: c.label,
-    sentence: statusQuoComponentSentence(c, margin[c.key], evidence[c.key]),
-  }));
+  const cutClause = forcedCutClause(evidence.forcedRelease);
+  const components = STATUS_QUO_COMPONENTS.map((c) => {
+    const sentence = statusQuoComponentSentence(c, margin[c.key], evidence[c.key]);
+    return {
+      key: c.key,
+      label: c.label,
+      sentence: c.key === "objectiveValue" && cutClause ? `${sentence} ${cutClause}` : sentence,
+    };
+  });
   const opp = statusQuo.opportunityCost;
   const opportunityText =
     opp?.state === "unavailable" && typeof opp.text === "string" && opp.text.trim()
@@ -1653,7 +1709,7 @@ export function statusQuoSummary(statusQuo) {
     preferred: statusQuoPreferredWords(statusQuo.preferred),
     insufficient: statusQuo.preferred !== true && statusQuo.preferred !== false,
     components,
-    note: "Each part is measured in its own units against its own neutral band; the two are never added together.",
+    note: "Each part is measured in its own units against its own range; the two are never added together.",
     opportunityText,
   };
 }
