@@ -120,7 +120,15 @@ function TeamScoresPanel({ teamScores, alpha, modelLabel }) {
         header: "W-L",
         align: "center",
         accessor: (r) => r.won,
-        render: (r) => `${r.won}-${r.lost}`,
+        render: (r) => (
+          // Same convention as Net value: a trade with an asset today's
+          // board cannot price is graded over an incomplete package, so
+          // the record carries the asterisk rather than reading as firm.
+          <span title={r.incompleteTrades ? `${r.incompleteTrades} trade(s) include an asset today's board cannot price; the record may count them as incomplete wins or losses` : undefined}>
+            {`${r.won}-${r.lost}`}
+            {r.incompleteTrades ? "*" : ""}
+          </span>
+        ),
       },
       {
         key: "netValue",
@@ -388,13 +396,23 @@ function AssetPill({ item }) {
   );
 }
 
+// Missing is never zero: a group with no priced item has no total, and a
+// group with some unpriced items says its total is partial.
+function assetGroupTotalText(items, total) {
+  const unpriced = items.filter((it) => typeof it?.val !== "number").length;
+  const priced = items.length - unpriced;
+  if (unpriced === 0) return `(${Math.round(total).toLocaleString()})`;
+  if (priced === 0) return "(unpriced)";
+  return `(partial: ${Math.round(total).toLocaleString()} + ${unpriced} unpriced)`;
+}
+
 function AssetGroup({ label, items, total }) {
   return (
     <div className={styles.assetGroup}>
       <span className={styles.assetLabel}>
         {label}{" "}
         <span className={styles.assetLabelTotal}>
-          ({Math.round(total).toLocaleString()})
+          {assetGroupTotalText(items, total)}
         </span>
       </span>
       {items.length === 0 ? (
@@ -410,11 +428,13 @@ function AssetGroup({ label, items, total }) {
   );
 }
 
-function GradeLine({ when, grade, testId }) {
+function GradeLine({ when, grade, testId, unpricedCount = 0 }) {
   return (
     <span className={styles.entryDate} data-testid={testId} title={historyGradeBasisText()}>
       {when}:{" "}
-      {grade && grade.grade ? (
+      {unpricedCount > 0 ? (
+        <em>incomplete — {unpricedCount} unpriced</em>
+      ) : grade && grade.grade ? (
         <>
           <span className={styles.sideGrade}>{grade.grade}</span> {grade.label}
         </>
@@ -432,7 +452,11 @@ function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", mode
   // Headline reflects the largest grievance — winner OR loser, whichever
   // has the biggest magnitude pctGap.  Under HISTORY_EVEN_PCT the trade reads
   // evenly valued (OD-F6 option A: a value-balance word, never "fair").
-  const showBadge = a.pctGap >= HISTORY_EVEN_PCT && a.headlineSide;
+  // A trade with any asset today's board cannot price has an incomplete
+  // total on at least one side, so its percentage gap is not a verdict:
+  // it is shown as incomplete, never as a won / overpaid headline.
+  const incomplete = (a.sides || []).some((s) => Number(s?.unresolvedAssets) > 0);
+  const showBadge = !incomplete && a.pctGap >= HISTORY_EVEN_PCT && a.headlineSide;
   const isLoserHeadline = showBadge && a.headlineDirection === "overpaid";
 
   // Build a /trade?share=... href so clicking pre-loads the calculator.
@@ -464,7 +488,14 @@ function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", mode
             ? `${a.teamA} ↔ ${a.teamB} · ${a.tradeCount} trade${a.tradeCount === 1 ? "" : "s"} combined`
             : `Week ${a.trade.week} · ${a.date}`}
         </span>
-        {showBadge ? (
+        {incomplete ? (
+          <span
+            data-testid="trade-incomplete-badge"
+            title="At least one asset in this trade has no value on today's board, so it is not graded as a win or a loss."
+          >
+            <Badge tone="neutral">Incomplete</Badge>
+          </span>
+        ) : showBadge ? (
           <Badge tone={isLoserHeadline ? "negative" : "positive"}>
             {a.headlineSide.team}{" "}
             {isLoserHeadline ? "overpaid by" : "won by"} {a.pctGap.toFixed(1)}%
@@ -500,7 +531,12 @@ function TradeEntry({ analysis: a, atTimeSides = null, asofStatus = "idle", mode
               <div className={styles.sideHead}>
                 <span className={styles.sideTeam}>{side.team}</span>
                 {side.grade ? (
-                  <GradeLine when="Today" grade={side.grade} testId="trade-grade-today" />
+                  <GradeLine
+                    when="Today"
+                    grade={side.grade}
+                    testId="trade-grade-today"
+                    unpricedCount={Number(side.unresolvedAssets) || 0}
+                  />
                 ) : null}
                 {atTimeSides ? (
                   <GradeLine when="When traded" grade={atTimeGrade} testId="trade-grade-at-trade" />
