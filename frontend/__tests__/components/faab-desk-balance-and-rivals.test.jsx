@@ -215,6 +215,55 @@ describe("rival contention — the backend's contest probability and order", () 
     expect(within(tile).getByText("highest bid if they bid, of 3 rivals")).toBeInTheDocument();
   });
 
+  it("the top-rival tile names the known-balance population when a balance is unknown", async () => {
+    // server.py takes topRival over rivals with a KNOWN balance only, so a
+    // balance-unknown rival can show a larger Est. bid in the table than the
+    // tile's "highest" figure.  The tile must say whom it was taken over.
+    mockDesk(
+      contention([
+        ...THREAT_ORDERED,
+        rival({
+          ownerId: "u",
+          teamName: "Unknown Balance",
+          expBid: 90,
+          contestProbability: 0.5,
+          faabRemaining: null,
+          balanceUnknown: true,
+        }),
+      ]),
+    );
+    renderDesk();
+    await rivalTable();
+    const tile = screen.getByText("Projected top rival").closest(".ds-stat");
+    expect(within(tile).getByText("$60")).toBeInTheDocument();
+    expect(
+      within(tile).getByText("highest bid if they bid, among rivals with a known balance (3 of 4)"),
+    ).toBeInTheDocument();
+  });
+
+  it("with no rival balance known, the tile shows '—', never the backend's empty-max $0", async () => {
+    mockDesk({
+      ...BASE,
+      contention: {
+        clearing: 5,
+        topRival: 0,
+        perOpponent: [
+          rival({ ownerId: "u1", teamName: "U1", expBid: 15, contestProbability: 0.4, faabRemaining: null, balanceUnknown: true }),
+          rival({ ownerId: "u2", teamName: "U2", expBid: 9, contestProbability: 0.6, faabRemaining: null, balanceUnknown: true }),
+        ],
+        estimateOnly: true,
+        notes: [],
+        skipped: false,
+      },
+    });
+    renderDesk();
+    await rivalTable();
+    const tile = screen.getByText("Projected top rival").closest(".ds-stat");
+    expect(within(tile).queryByText("$0")).toBeNull();
+    expect(within(tile).getByText("—")).toBeInTheDocument();
+    expect(within(tile).getByText("no rival has a known balance (of 2)")).toBeInTheDocument();
+  });
+
   it("a row missing its probability shows '—', never 0%", async () => {
     mockDesk(
       contention([

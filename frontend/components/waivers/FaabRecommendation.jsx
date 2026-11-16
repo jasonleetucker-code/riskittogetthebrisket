@@ -290,6 +290,28 @@ function rivalColumns(threatOrdered) {
   return [RIVAL_NAME_COLUMN, expBid, contest, ...RIVAL_TAIL_COLUMNS];
 }
 
+/**
+ * The "Projected top rival" tile's meta line.  It names the population the
+ * figure was taken over and computes nothing: the backend's ``topRival`` is
+ * the highest ``expBid`` among rivals whose balance is KNOWN
+ * (``server.py``, ``if not r["balanceUnknown"]``), while the table lists
+ * every rival.  So when some balances are unknown the tile says so — a
+ * balance-unknown rival's larger Est. bid in the table must not read as a
+ * contradiction of a "highest" figure.  The count is of the backend's own
+ * ``balanceUnknown`` flags.
+ */
+export function topRivalMeta(rivals, threatOrdered) {
+  const list = Array.isArray(rivals) ? rivals : [];
+  if (!list.length) return "no rivals modeled";
+  const known = list.filter((r) => r?.balanceUnknown !== true).length;
+  if (known === 0) return `no rival has a known balance (of ${list.length})`;
+  const lead = threatOrdered ? "highest bid if they bid, " : "highest bid ";
+  if (known === list.length) {
+    return threatOrdered ? `${lead}of ${list.length} rivals` : `of ${list.length} rivals`;
+  }
+  return `${lead}among rivals with a known balance (${known} of ${list.length})`;
+}
+
 function ContentionSection({ contention }) {
   const rivals = Array.isArray(contention?.perOpponent) ? contention.perOpponent : [];
   const notes = Array.isArray(contention?.notes) ? contention.notes : [];
@@ -299,6 +321,11 @@ function ContentionSection({ contention }) {
   // threat).  The legacy shape has no such order to keep.
   const threatOrdered = rivalsCarryContestProbability(rivals);
   const columns = useMemo(() => rivalColumns(threatOrdered), [threatOrdered]);
+  // The backend takes ``topRival`` over rivals with a KNOWN balance only
+  // (``max(..., default=0)`` in server.py), so with none of those its 0 is
+  // an empty population, not a $0 rival.
+  const noKnownBalanceRival =
+    rivals.length > 0 && rivals.every((r) => r?.balanceUnknown === true);
 
   if (contention?.skipped) {
     return (
@@ -322,17 +349,8 @@ function ContentionSection({ contention }) {
         />
         <StatTile
           label="Projected top rival"
-          value={fmtBid(contention?.topRival)}
-          meta={
-            !rivals.length
-              ? "no rivals modeled"
-              : threatOrdered
-                ? // ``topRival`` is the highest estimated bid among rivals
-                  // with a known balance — a bid IF they bid, not the
-                  // likeliest bidder.  The table's order says who that is.
-                  `highest bid if they bid, of ${rivals.length} rivals`
-                : `of ${rivals.length} rivals`
-          }
+          value={noKnownBalanceRival ? "—" : fmtBid(contention?.topRival)}
+          meta={topRivalMeta(rivals, threatOrdered)}
         />
         <StatTile
           label="FAAB bid predictor"

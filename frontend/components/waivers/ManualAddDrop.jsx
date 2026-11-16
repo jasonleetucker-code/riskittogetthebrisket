@@ -394,13 +394,14 @@ function SidePicker({
                       e.preventDefault();
                       choose(r);
                     }}
-                    onTouchStart={(e) => {
-                      e.preventDefault();
-                      choose(r);
-                    }}
-                    // Keyboard and assistive-technology activation arrive
-                    // as a click with no mouse-down.  Picking the same row
-                    // twice is idempotent.
+                    // Keyboard, assistive-technology AND touch activation
+                    // arrive as a click.  There is deliberately no
+                    // ``onTouchStart`` pick: React attaches touchstart as a
+                    // passive listener, so its preventDefault was ignored —
+                    // starting to scroll the list by touch picked the row
+                    // under the finger, and the tap's compatibility click
+                    // then landed on whatever replaced the list.  Picking
+                    // the same row twice is idempotent.
                     onClick={() => choose(r)}
                   >
                     <PlayerImage

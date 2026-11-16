@@ -234,15 +234,15 @@ function SummaryTiles({ summary, includeRookies, dropState }) {
  *      actually fires today — ``computeWaiverAnalysis`` builds its
  *      rows from contract rows, which carry no bid at all.
  */
-function backendBid(move, faabIndex, bidFeed) {
+function backendBid(move, faabIndex) {
   const stamped = move?.bid || move?.add?.bid || move?.add?.raw?.bid;
   if (stamped && typeof stamped === "object" && Number.isFinite(Number(stamped.reasonable))) {
     return { state: "priced", bid: stamped, label: "", reason: "" };
   }
-  return waiverBidStateForRow(faabIndex, move?.add, bidFeed);
+  return waiverBidStateForRow(faabIndex, move?.add);
 }
 
-function BestMovesPanel({ moves, faabIndex, bidFeed = null, dropState }) {
+function BestMovesPanel({ moves, faabIndex, dropState }) {
   const columns = useMemo(
     () => [
       {
@@ -265,7 +265,7 @@ function BestMovesPanel({ moves, faabIndex, bidFeed = null, dropState }) {
         render: (m) => (
           <>
             <PlayerCell row={m.add} isRookie={m.isRookie} />
-            <WaiverBidFigure entry={backendBid(m, faabIndex, bidFeed)} inline />
+            <WaiverBidFigure entry={backendBid(m, faabIndex)} inline />
           </>
         ),
       },
@@ -289,10 +289,10 @@ function BestMovesPanel({ moves, faabIndex, bidFeed = null, dropState }) {
         numeric: true,
         hideBelow: "md",
         accessor: (m) => {
-          const v = Number(backendBid(m, faabIndex, bidFeed)?.bid?.reasonable);
+          const v = Number(backendBid(m, faabIndex)?.bid?.reasonable);
           return Number.isFinite(v) ? v : null;
         },
-        render: (m) => <WaiverBidFigure entry={backendBid(m, faabIndex, bidFeed)} />,
+        render: (m) => <WaiverBidFigure entry={backendBid(m, faabIndex)} />,
         headerInfo:
           "The FAAB engine's bid ladder for this player, stamped by the backend: the headline is the reasonable rung, with the lowball and aggressive ends alongside. It is derived from the player's objective ceiling — what he is WORTH as a share of the league's original budget — and is not team-specific. For a recommendation that accounts for your balance, your drop side and your bid posture, use the bid desk above; posture shapes that answer, not this ladder. A row with no figure says why instead of going blank.",
       },
@@ -307,7 +307,7 @@ function BestMovesPanel({ moves, faabIndex, bidFeed = null, dropState }) {
         ),
       },
     ],
-    [faabIndex, bidFeed],
+    [faabIndex],
   );
 
   return (
@@ -744,10 +744,14 @@ export default function WaiversPage() {
         <BestMovesPanel
           moves={analysis.bestMoves}
           faabIndex={faabIndex}
-          // The body only reaches here with a team selected; the cause
-          // of a missing index beyond that (still loading vs failed) is
-          // not reported by useWaiverAnalysis, so none is claimed.
-          bidFeed={hasTeam ? null : "no_team"}
+          // No cause is stated for a missing index.  The body only renders
+          // with a team selected (the ``!hasTeam`` branch above returns
+          // first), so ``no_team`` can never apply here, and
+          // useWaiverAnalysis does not report whether the bid request is
+          // still in flight or failed — so every missing bid reads the
+          // cause-less "Bids not loaded", true in both cases.  Telling the
+          // two apart, and a Retry, needs the hook to report that status
+          // (``waiverBidStateForRow`` already accepts it); OPEN.
           dropState={analysis.dropState}
         />
         <UniqueUpgradePanel set={analysis.bestUniqueUpgradeSet} />

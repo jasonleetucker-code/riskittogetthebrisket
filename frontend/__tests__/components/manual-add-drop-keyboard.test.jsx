@@ -189,6 +189,31 @@ describe("activation and focus are not mouse-only", () => {
   });
 });
 
+describe("touch: a touch that starts on a row does not pick it", () => {
+  // React attaches touchstart as a PASSIVE listener, so a touchstart pick
+  // could not cancel the scroll it began: starting to scroll the list picked
+  // the row under the finger.  The tap's click is what picks.
+  it("touchStart alone (the start of a scroll) leaves the list open and picks nothing", () => {
+    renderManual();
+    fireEvent.focus(dropInput());
+    fireEvent.touchStart(screen.getByRole("option", { name: /Josh Allen/ }));
+    expect(screen.queryByRole("button", { name: "Clear drop selection" })).toBeNull();
+    expect(screen.getByRole("listbox", { name: "Drop candidates" })).toBeInTheDocument();
+    expect(dropInput()).toBeInTheDocument();
+  });
+
+  it("the tap's click picks the row", () => {
+    renderManual();
+    fireEvent.focus(dropInput());
+    const option = screen.getByRole("option", { name: /Josh Allen/ });
+    fireEvent.touchStart(option);
+    fireEvent.touchEnd(option);
+    fireEvent.click(option);
+    const clear = screen.getByRole("button", { name: "Clear drop selection" });
+    expect(clear.closest("div").parentElement.textContent).toContain("Josh Allen");
+  });
+});
+
 describe("the two clear buttons have distinct names", () => {
   it("names each side, and clearing returns focus to that side's search", async () => {
     const user = userEvent.setup();
