@@ -4,6 +4,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import {
   Badge,
   Banner,
+  Button,
   DataTable,
   EmptyState,
   Field,
@@ -233,16 +234,20 @@ function SummaryTiles({ summary, includeRookies, dropState }) {
  *      response (``lib/waiver-faab.js``).  This is the one that
  *      actually fires today — ``computeWaiverAnalysis`` builds its
  *      rows from contract rows, which carry no bid at all.
+ *
+ * ``bidFeed`` is the hook's statement of the bid request's status
+ * (``"loading"`` / ``"failed"`` / null).  It is read only when there is
+ * no index, so a pending request and a failed one say different things.
  */
-function backendBid(move, faabIndex) {
+function backendBid(move, faabIndex, bidFeed) {
   const stamped = move?.bid || move?.add?.bid || move?.add?.raw?.bid;
   if (stamped && typeof stamped === "object" && Number.isFinite(Number(stamped.reasonable))) {
     return { state: "priced", bid: stamped, label: "", reason: "" };
   }
-  return waiverBidStateForRow(faabIndex, move?.add);
+  return waiverBidStateForRow(faabIndex, move?.add, bidFeed);
 }
 
-function BestMovesPanel({ moves, faabIndex, dropState }) {
+function BestMovesPanel({ moves, faabIndex, bidFeed, dropState }) {
   const columns = useMemo(
     () => [
       {
@@ -265,7 +270,7 @@ function BestMovesPanel({ moves, faabIndex, dropState }) {
         render: (m) => (
           <>
             <PlayerCell row={m.add} isRookie={m.isRookie} />
-            <WaiverBidFigure entry={backendBid(m, faabIndex)} inline />
+            <WaiverBidFigure entry={backendBid(m, faabIndex, bidFeed)} inline />
           </>
         ),
       },
@@ -289,10 +294,10 @@ function BestMovesPanel({ moves, faabIndex, dropState }) {
         numeric: true,
         hideBelow: "md",
         accessor: (m) => {
-          const v = Number(backendBid(m, faabIndex)?.bid?.reasonable);
+          const v = Number(backendBid(m, faabIndex, bidFeed)?.bid?.reasonable);
           return Number.isFinite(v) ? v : null;
         },
-        render: (m) => <WaiverBidFigure entry={backendBid(m, faabIndex)} />,
+        render: (m) => <WaiverBidFigure entry={backendBid(m, faabIndex, bidFeed)} />,
         headerInfo:
           "The FAAB engine's bid ladder for this player, stamped by the backend: the headline is the reasonable rung, with the lowball and aggressive ends alongside. It is derived from the player's objective ceiling — what he is WORTH as a share of the league's original budget — and is not team-specific. For a recommendation that accounts for your balance, your drop side and your bid posture, use the bid desk above; posture shapes that answer, not this ladder. A row with no figure says why instead of going blank.",
       },
@@ -307,7 +312,7 @@ function BestMovesPanel({ moves, faabIndex, dropState }) {
         ),
       },
     ],
-    [faabIndex],
+    [faabIndex, bidFeed],
   );
 
   return (
@@ -630,6 +635,10 @@ export default function WaiversPage() {
     // Optional render-time enrichment — null until (and unless) the
     // backend suggestions endpoint answers.  See useWaiverAnalysis.
     faabIndex,
+    // Why there is no index yet: "loading" / "failed" / null, and the
+    // refetch a "failed" feed must offer.
+    bidFeed,
+    retryBids,
     loading,
     error,
     leagueMismatch,
@@ -741,17 +750,29 @@ export default function WaiversPage() {
             </Suspense>
           </ResilientSection>
         ) : null}
+        {bidFeed === "failed" ? (
+          // ``waiverBidStateForRow``'s "failed" copy tells the user to
+          // retry, so stating "failed" obliges a Retry control.  The bid
+          // column is optional enrichment, so this is a warning beside a
+          // working board, not the page's error state.
+          <Banner tone="warning" title="FAAB bids failed to load">
+            The bid request for your team failed, so the moves below show no FAAB
+            bid. Nothing is estimated in its place.{" "}
+            <Button size="sm" variant="secondary" onClick={retryBids}>
+              Retry
+            </Button>
+          </Banner>
+        ) : null}
         <BestMovesPanel
           moves={analysis.bestMoves}
           faabIndex={faabIndex}
-          // No cause is stated for a missing index.  The body only renders
-          // with a team selected (the ``!hasTeam`` branch above returns
-          // first), so ``no_team`` can never apply here, and
-          // useWaiverAnalysis does not report whether the bid request is
-          // still in flight or failed — so every missing bid reads the
-          // cause-less "Bids not loaded", true in both cases.  Telling the
-          // two apart, and a Retry, needs the hook to report that status
-          // (``waiverBidStateForRow`` already accepts it); OPEN.
+          // The cause of a missing index, as the hook reports it: a bid
+          // request still in flight reads "Loading bid…", a failed one
+          // "Bids failed to load" (with the Retry above).  ``no_team`` is
+          // never passed: the body only renders with a team selected (the
+          // ``!hasTeam`` branch above returns first).  A request that
+          // settled with a usable board stays ``null`` → per-row states.
+          bidFeed={bidFeed}
           dropState={analysis.dropState}
         />
         <UniqueUpgradePanel set={analysis.bestUniqueUpgradeSet} />

@@ -187,10 +187,11 @@ export function waiverBidForRow(index, row) {
  *                         copy tells the user to retry, so a caller that
  *                         states `failed` MUST render a Retry control.
  *
- *   The three causes above have no production caller yet: /waivers'
- *   bid fetch lives in `components/useWaiverAnalysis.js`, which does not
- *   report its request status or offer a refetch, so the page states no
- *   cause and every missing bid is the cause-less `unavailable`.
+ *   /waivers states `loading` and `failed` from its bid fetch
+ *   (`components/useWaiverAnalysis.js` reports them as `bidFeed` and
+ *   offers `retryBids`, which the page renders as a Retry banner).
+ *   `no_team` has no production caller: that page's board only renders
+ *   once a team is selected.
  *   `unavailable`         no index and no stated cause. Deliberately
  *                         names none: it used to tell a user who HAD a
  *                         team selected to "pick your team" while the
