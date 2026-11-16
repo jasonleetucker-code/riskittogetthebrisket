@@ -16,7 +16,6 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Badge,
-  Banner,
   Button,
   EmptyState,
   SegmentedControl,
@@ -26,6 +25,12 @@ import { withValuationMode } from "@/lib/valuation-mode";
 import { buildShareUrl } from "@/lib/trade-share";
 import { deskBodyFromOffer } from "@/lib/trade-desk";
 import SaveToDeskButton from "@/components/trade/SaveToDeskButton";
+import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
+import {
+  TradeToolRequestError,
+  failureFromError,
+  tradeToolFailure,
+} from "@/lib/trade-finder-errors";
 import { goldenRows, noResultText } from "@/lib/golden-upgrades";
 import {
   broaderQualityOptions,
@@ -74,7 +79,8 @@ export default function GoldenUpgradesView({
 }) {
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState("");
+  // A classified failure ({message, code}) or null — never a bare code.
+  const [error, setError] = useState(null);
   const [useTeamContext, setUseTeamContext] = useState(true);
   const storageKey = refinementKey({
     owner: ownerKey,
@@ -110,7 +116,7 @@ export default function GoldenUpgradesView({
     if (!myTeam) return;
     const mine = ++seq.current;
     setRunning(true);
-    setError("");
+    setError(null);
     try {
       const res = await fetch("/api/trade/golden-upgrades", {
         method: "POST",
@@ -128,10 +134,12 @@ export default function GoldenUpgradesView({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok)
-        throw new Error(data?.error || `Request failed (${res.status})`);
+        throw new TradeToolRequestError(
+          tradeToolFailure(res.status, data, { tool: "Golden Upgrades" }),
+        );
       if (mine === seq.current) setResult(data);
     } catch (err) {
-      if (mine === seq.current) setError(err?.message || "Request failed");
+      if (mine === seq.current) setError(failureFromError(err));
     } finally {
       if (mine === seq.current) setRunning(false);
     }
@@ -190,7 +198,7 @@ export default function GoldenUpgradesView({
           {result.criteria.marketPrefersOwned} ({result.criteria.status}).
         </p>
       ) : null}
-      {error ? <Banner tone="negative">{error}</Banner> : null}
+      <TradeToolErrorBanner failure={error} />
       {running ? <SkeletonTable rows={4} /> : null}
       {!running && result ? (
         <p className={styles.count} role="status">

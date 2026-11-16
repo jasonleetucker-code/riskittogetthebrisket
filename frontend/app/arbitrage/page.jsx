@@ -44,6 +44,8 @@ import {
   RefinementBar,
 } from "@/components/trade/RefinementControls";
 import DiscoveryControls from "@/components/trade/DiscoveryControls";
+import TradeToolErrorBanner from "@/components/arbitrage/TradeToolErrorBanner";
+import { tradeToolFailure } from "@/lib/trade-finder-errors";
 import {
   DEFAULT_TABLE_SORT,
   PLAYER_SCOPE_OPTIONS,
@@ -426,7 +428,8 @@ export default function ArbitragePage() {
   const [opponent, setOpponent] = useState("all");
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
-  const [error, setError] = useState("");
+  // A classified failure ({message, code}) or null — never a bare code.
+  const [error, setError] = useState(null);
   // C3-CON-03 LOCK / EXCLUDE (+ the incoming-only "Skip target").  Kept per
   // (team, league, scan context) in localStorage until cleared — never in the
   // persistent trade-protection store.
@@ -493,7 +496,7 @@ export default function ArbitragePage() {
 
     const seq = ++scanSeq.current;
     setRunning(true);
-    setError("");
+    setError(null);
     try {
       const body = {
         myTeam: effectiveTeam,
@@ -526,14 +529,14 @@ export default function ArbitragePage() {
       const data = await res.json().catch(() => ({}));
       if (seq !== scanSeq.current) return;
       if (!res.ok) {
-        setError(data?.error || `Request failed (${res.status})`);
+        setError(tradeToolFailure(res.status, data, { tool: "Package Scan" }));
         setResult(null);
       } else {
         setResult(data);
       }
     } catch (err) {
       if (seq !== scanSeq.current) return;
-      setError(err?.message || "Request failed");
+      setError({ message: err?.message || "Request failed", code: "" });
       setResult(null);
     } finally {
       if (seq === scanSeq.current) setRunning(false);
@@ -586,7 +589,7 @@ export default function ArbitragePage() {
     // The refinement for the new (team, opponent) context is loaded from
     // storage by the effect above; only the stale result is cleared here.
     setResult(null);
-    setError("");
+    setError(null);
   }
 
   // A discovery change re-runs an existing Package Scan result (the other
@@ -761,7 +764,7 @@ export default function ArbitragePage() {
               />
             </Panel>
 
-            {error ? <Banner tone="negative">{error}</Banner> : null}
+            <TradeToolErrorBanner failure={error} />
 
             {result?.warnings?.map((w, i) => (
               <Banner key={i} tone="warning">

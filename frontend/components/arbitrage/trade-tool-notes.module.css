@@ -1,0 +1,27 @@
+/* Roster-capacity note on a generated trade.  Inherits the host surface's
+   canvas (terminal on /angle, editorial on /arbitrage); tokens only. */
+.note {
+  margin: var(--space-1, 4px) 0 0;
+  font-size: var(--font-size-xs, 0.8rem);
+  color: var(--text-secondary, var(--text-tertiary));
+}
+
+.warning .headline {
+  color: var(--warning-text, var(--text-primary));
+  font-weight: var(--font-weight-medium, 500);
+}
+
+.headline {
+  margin: 0;
+}
+
+.drops {
+  margin: 2px 0 0;
+  padding-left: 1.1em;
+}
+
+/* The backend's machine code on a failed request: a detail, never the message. */
+.errorCode {
+  font-size: var(--font-size-xs, 0.8rem);
+  color: var(--text-secondary, var(--text-tertiary));
+}

@@ -25,6 +25,7 @@ import { buildShareUrl } from "@/lib/trade-share";
 import { deskBodyFromOffer } from "@/lib/trade-desk";
 import SaveToDeskButton from "@/components/trade/SaveToDeskButton";
 import ManagerEvidence from "@/components/trade/ManagerEvidence";
+import ForcedReleaseNote from "@/components/arbitrage/ForcedReleaseNote";
 import {
   UNKNOWN,
   fmtSignedInt,
@@ -529,6 +530,9 @@ export default function PackageBuilderView({
                     <li>{lineupLine(pkg.lineupImpact)}</li>
                   ) : null}
                 </ul>
+                {/* The release(s) this package forces on YOUR roster and their
+                    value (roster_capacity); a missing block reads "not checked". */}
+                <ForcedReleaseNote capacity={pkg.rosterCapacity} />
                 <SaveToDeskButton
                   body={deskBodyFromOffer(pkg, {
                     leagueKey,
