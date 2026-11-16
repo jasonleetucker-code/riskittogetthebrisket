@@ -182,38 +182,47 @@ function relativeAge(iso) {
 
 // ── Contention (FAAB v2) ─────────────────────────────────────────
 
-const RIVAL_COLUMNS = [
-  {
-    key: "teamName",
-    header: "Rival",
-    accessor: (r) => r.teamName || r.ownerId,
-    // Flags are self-describing labels, not tooltip triggers: a tooltip
-    // needs a focusable child, and three per row across a full league
-    // would add ~30 tab stops to a read-only table.  The prose
-    // explanation lives in the notes list below, which the recommender
-    // generates for exactly these conditions.
-    render: (r) => (
-      <span className={styles.rivalName}>
-        <span className={styles.playerName}>{r.teamName || r.ownerId}</span>
-        <span className={styles.rivalFlags}>
-          {r.balanceUnknown ? <Badge tone="outline">no balance</Badge> : null}
-          {r.lowSample ? <Badge tone="outline">thin history</Badge> : null}
-          {r.intelLevel && r.intelLevel !== "none" ? (
-            <Badge tone="accent">intel</Badge>
-          ) : null}
-        </span>
+/** A finite number the backend stamped, else null (never a coerced 0). */
+function finiteOrNull(v) {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/**
+ * Did the backend stamp ``contestProbability`` on its rivals?  The live
+ * desk does: ``src/trade/faab_engine.py::rival_expected_bids`` reports each
+ * rival's MEDIAN bid IF they bid plus the chance they bid at all, and
+ * returns the rows already in its own threat order (estimated bid weighted
+ * by that chance).  Older payloads (``faab_contention.py``) carry neither
+ * and arrive highest-bid first.
+ */
+export function rivalsCarryContestProbability(rivals) {
+  return Array.isArray(rivals) && rivals.some((r) => finiteOrNull(r?.contestProbability) != null);
+}
+
+const RIVAL_NAME_COLUMN = {
+  key: "teamName",
+  header: "Rival",
+  accessor: (r) => r.teamName || r.ownerId,
+  // Flags are self-describing labels, not tooltip triggers: a tooltip
+  // needs a focusable child, and three per row across a full league
+  // would add ~30 tab stops to a read-only table.  The prose
+  // explanation lives in the notes list below, which the recommender
+  // generates for exactly these conditions.
+  render: (r) => (
+    <span className={styles.rivalName}>
+      <span className={styles.playerName}>{r.teamName || r.ownerId}</span>
+      <span className={styles.rivalFlags}>
+        {r.balanceUnknown ? <Badge tone="outline">no balance</Badge> : null}
+        {r.lowSample ? <Badge tone="outline">thin history</Badge> : null}
+        {r.intelLevel && r.intelLevel !== "none" ? (
+          <Badge tone="accent">intel</Badge>
+        ) : null}
       </span>
-    ),
-  },
-  {
-    key: "expBid",
-    header: "Est. bid",
-    numeric: true,
-    sortable: true,
-    accessor: (r) => r.expBid,
-    render: (r) => fmtBid(r.expBid),
-    headerInfo: "Estimated bid: their value read × aggression × need × intel, capped by their remaining FAAB.",
-  },
+    </span>
+  ),
+};
+
+const RIVAL_TAIL_COLUMNS = [
   {
     key: "faabRemaining",
     header: "Their FAAB",
@@ -239,15 +248,57 @@ const RIVAL_COLUMNS = [
     numeric: true,
     sortable: true,
     hideBelow: "lg",
-    accessor: (r) => r.aggression,
-    render: (r) => `${Number(r.aggression ?? 1).toFixed(2)}×`,
+    accessor: (r) => finiteOrNull(r.aggression),
+    // An unstated aggression is unknown, not the neutral 1.00x.
+    render: (r) => {
+      const a = finiteOrNull(r.aggression);
+      return a == null ? "—" : `${a.toFixed(2)}×`;
+    },
     headerInfo: "Historical waiver-bid tendency from resolved attempts when available; older history falls back to winning bids. Clamped to 0.5–2.0×.",
   },
 ];
 
+/**
+ * The rival table's columns.  With ``contestProbability`` on the rows the
+ * table shows it beside the estimated bid — a rival who bids $40 one time
+ * in five is not the threat one who bids $40 every time is, and without
+ * the chance on screen the big-but-rare bidder read as the top threat.
+ */
+function rivalColumns(threatOrdered) {
+  const expBid = {
+    key: "expBid",
+    header: "Est. bid",
+    numeric: true,
+    sortable: true,
+    accessor: (r) => r.expBid,
+    render: (r) => fmtBid(r.expBid),
+    headerInfo: threatOrdered
+      ? "The middle of their modelled bid IF they bid (the chance they bid is the next column), capped by their remaining FAAB."
+      : "Estimated bid: their value read × aggression × need × intel, capped by their remaining FAAB.",
+  };
+  if (!threatOrdered) return [RIVAL_NAME_COLUMN, expBid, ...RIVAL_TAIL_COLUMNS];
+  const contest = {
+    key: "contestProbability",
+    header: "Chance they bid",
+    numeric: true,
+    sortable: true,
+    accessor: (r) => finiteOrNull(r.contestProbability),
+    render: (r) => fmtProbability(r.contestProbability) ?? "—",
+    headerInfo:
+      "The recommender's modelled chance this rival bids on the player at all (not calibrated against realized claims). The table keeps the recommender's own threat order: estimated bid weighted by this chance.",
+  };
+  return [RIVAL_NAME_COLUMN, expBid, contest, ...RIVAL_TAIL_COLUMNS];
+}
+
 function ContentionSection({ contention }) {
   const rivals = Array.isArray(contention?.perOpponent) ? contention.perOpponent : [];
   const notes = Array.isArray(contention?.notes) ? contention.notes : [];
+  // The live engine's rows carry the chance each rival bids and arrive in
+  // its threat order; that order is kept, never re-sorted here by the bid
+  // alone (which is what made a rarely-bidding rival read as the top
+  // threat).  The legacy shape has no such order to keep.
+  const threatOrdered = rivalsCarryContestProbability(rivals);
+  const columns = useMemo(() => rivalColumns(threatOrdered), [threatOrdered]);
 
   if (contention?.skipped) {
     return (
@@ -272,7 +323,16 @@ function ContentionSection({ contention }) {
         <StatTile
           label="Projected top rival"
           value={fmtBid(contention?.topRival)}
-          meta={rivals.length ? `of ${rivals.length} rivals` : "no rivals modeled"}
+          meta={
+            !rivals.length
+              ? "no rivals modeled"
+              : threatOrdered
+                ? // ``topRival`` is the highest estimated bid among rivals
+                  // with a known balance — a bid IF they bid, not the
+                  // likeliest bidder.  The table's order says who that is.
+                  `highest bid if they bid, of ${rivals.length} rivals`
+                : `of ${rivals.length} rivals`
+          }
         />
         <StatTile
           label="FAAB bid predictor"
@@ -283,12 +343,19 @@ function ContentionSection({ contention }) {
 
       {rivals.length > 0 ? (
         <DataTable
-          caption="Estimated rival bids for this player, highest first"
-          columns={RIVAL_COLUMNS}
+          // defaultSort is read once, at mount: a payload of the other
+          // shape gets a fresh table rather than the previous ordering.
+          key={threatOrdered ? "threat-order" : "bid-order"}
+          caption={
+            threatOrdered
+              ? "Estimated rival bids for this player, in the recommender's threat order (estimated bid weighted by the chance they bid)"
+              : "Estimated rival bids for this player, highest first"
+          }
+          columns={columns}
           rows={rivals}
           rowKey={(r) => r.ownerId}
           density="compact"
-          defaultSort={{ key: "expBid", direction: "desc" }}
+          defaultSort={threatOrdered ? null : { key: "expBid", direction: "desc" }}
           rowClassName={(r) => (r.balanceUnknown ? styles.rosteredRow : "")}
         />
       ) : null}
@@ -341,10 +408,61 @@ function FactorDisclosure({ factors }) {
   );
 }
 
+/** A balance as a number: a finite number, or a numeric string from an
+ *  older roster row; anything else is unknown (null), never 0. */
+function balanceOrNull(v) {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) return Number(v);
+  return null;
+}
+
+/**
+ * The "Your remaining FAAB" tile's display parts, ``{ value, meta }``.
+ *
+ * The desk's own ``faabBudget`` block wins when the response carries one:
+ * it is the balance the backend capped every bid at
+ * (``src/trade/waiver.py::faab_budget_block`` — the lower of the request
+ * and roster observations), and it says outright when that balance is
+ * unknown.  Without the block, the selected team's roster row.
+ *
+ * An unknown balance is "—" + "balance not reported" — the rule
+ * ``FaabHeaderStat`` already follows — never the league budget (this tile
+ * used to print the budget in the balance's place, reading as "you have
+ * $100 left") and never $0.  Display only: the one division is the
+ * percentage label, unit formatting of two backend numbers.
+ */
+export function yourFaabTile({ faabBudget, selectedTeam, leagueBudget }) {
+  const block =
+    faabBudget &&
+    typeof faabBudget === "object" &&
+    (faabBudget.state === "known" || faabBudget.state === "unknown")
+      ? faabBudget
+      : null;
+  if (!block && !selectedTeam) return { value: "—", meta: "select a team" };
+  const balance = block
+    ? block.state === "known"
+      ? balanceOrNull(block.balance)
+      : null
+    : balanceOrNull(selectedTeam?.faabRemaining);
+  if (balance == null) return { value: "—", meta: "balance not reported" };
+  const original = balanceOrNull(block?.originalBudget) ?? balanceOrNull(leagueBudget);
+  return {
+    value: fmtBid(balance),
+    meta:
+      original != null && original > 0
+        ? `${Math.round((balance / original) * 100)}% of ${fmtBid(original)}`
+        : null,
+  };
+}
+
 function LeagueFaabContext({ analytics, addPlayer, selectedTeam, recommendation }) {
   const [open, setOpen] = useState(true);
   const budget = analytics?.leagueBudget;
-  const remaining = selectedTeam?.faabRemaining;
+  const yours = yourFaabTile({
+    faabBudget: recommendation?.faabBudget,
+    selectedTeam,
+    leagueBudget: budget,
+  });
   const avg = analytics?.leagueAvgWinningBid;
   const median = analytics?.leagueMedianWinningBid;
   const totalBids = analytics?.totalBidsAnalyzed || 0;
@@ -384,17 +502,7 @@ function LeagueFaabContext({ analytics, addPlayer, selectedTeam, recommendation 
       </Button>
       {open ? (
         <div className={styles.contextGrid} style={{ marginTop: "var(--space-2)" }}>
-          <StatTile
-            label="Your remaining FAAB"
-            value={remaining != null ? fmtBid(remaining) : fmtBid(budget)}
-            meta={
-              budget > 0 && remaining != null
-                ? `${Math.round((remaining / budget) * 100)}% of ${fmtBid(budget)}`
-                : remaining == null
-                  ? "league budget"
-                  : null
-            }
-          />
+          <StatTile label="Your remaining FAAB" value={yours.value} meta={yours.meta} />
           <StatTile
             label="League average bid"
             value={avg ? fmtBid(avg) : "—"}

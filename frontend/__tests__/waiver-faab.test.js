@@ -300,3 +300,54 @@ describe("unknown team FAAB balance", () => {
     ).toBeNull();
   });
 });
+
+// Verified sweep 2026-11-16 (error/empty/loading state): with no index the
+// board told a user who HAD a team selected to "Pick your team above" — while
+// the bids were merely loading, or after the request failed.  The caller owns
+// the fetch, so the caller states the cause; the state never invents one.
+describe("waiverBidStateForRow with no index — the caller states the cause", () => {
+  const ROW = { name: "Emeka Egbuka", pos: "WR" };
+
+  it("no stated cause: 'unavailable', and it does NOT tell the user to pick a team", () => {
+    const entry = waiverBidStateForRow(null, ROW);
+    expect(entry.state).toBe("unavailable");
+    expect(entry.bid).toBeNull();
+    expect(entry.label).toBe("Bids not loaded");
+    expect(`${entry.label} ${entry.reason}`).not.toMatch(/pick your team/i);
+    // Missing is never a $0 bid.
+    expect(entry.reason).toMatch(/not a \$0 bid/);
+  });
+
+  it("no_team: says to pick a team", () => {
+    const entry = waiverBidStateForRow(null, ROW, "no_team");
+    expect(entry.state).toBe("no_team");
+    expect(entry.label).toBe("No team selected");
+    expect(entry.reason).toMatch(/Pick your team above/);
+  });
+
+  it("loading: says the bids are loading, not that a team is missing", () => {
+    const entry = waiverBidStateForRow(null, ROW, "loading");
+    expect(entry.state).toBe("loading");
+    expect(entry.label).toMatch(/Loading/);
+    expect(entry.reason).not.toMatch(/pick your team/i);
+  });
+
+  it("failed: says the request failed and that a retry is the way back", () => {
+    const entry = waiverBidStateForRow(null, ROW, "failed");
+    expect(entry.state).toBe("failed");
+    expect(entry.label).toBe("Bids failed to load");
+    expect(entry.reason).toMatch(/retry/i);
+    expect(entry.reason).not.toMatch(/pick your team/i);
+  });
+
+  it("an unrecognised cause is not trusted: plain 'unavailable'", () => {
+    expect(waiverBidStateForRow(null, ROW, "whatever").state).toBe("unavailable");
+  });
+
+  it("an index that exists is the answer, whatever the caller says about its fetch", () => {
+    const index = buildWaiverBidIndex(payload({ bidMethodology: "market_aware" }));
+    expect(waiverBidStateForRow(index, ROW, "loading").state).toBe("priced");
+    expect(waiverBidStateForRow(index, ROW, "failed").state).toBe("priced");
+    expect(waiverBidStateForRow(index, ROW, "no_team").state).toBe("priced");
+  });
+});

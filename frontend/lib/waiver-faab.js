@@ -172,12 +172,23 @@ export function waiverBidForRow(index, row) {
 
 /**
  * Why a row has no bid. Reported, never inferred by the caller from a
- * null — the four situations below are genuinely different and the
+ * null — the situations below are genuinely different and the
  * board used to render all of them as one `—`.
  *
- *   `unavailable`         no index at all: no team picked, a league
- *                         mismatch, or the suggestions endpoint did
- *                         not answer. Nothing is wrong with the player.
+ * With no index at all, the CALLER knows why (it owns the fetch); it says
+ * so with the optional `bidFeed` argument, and the state names that cause:
+ *
+ *   `no_team`             no team is selected, so no bid can be scaled
+ *                         to a manager's budget.
+ *   `loading`             a team is selected and its bid request is in
+ *                         flight.
+ *   `failed`              the bid request for the selected team failed
+ *                         (non-OK status, malformed body, network). The
+ *                         caller offers the retry.
+ *   `unavailable`         no index and no stated cause. Deliberately
+ *                         names none: it used to tell a user who HAD a
+ *                         team selected to "pick your team" while the
+ *                         bids were merely loading or had failed.
  *   `team_context_missing`  a team WAS selected (the fetch only runs
  *                         then) but the backend could not resolve it
  *                         to a roster and fell back to
@@ -202,12 +213,27 @@ export function waiverBidForRow(index, row) {
  * once `_entryFor` has dropped both).
  */
 const BID_STATE_COPY = {
-  unavailable: {
-    label: "No bids",
+  no_team: {
+    label: "No team selected",
     reason:
-      "FAAB bids have not loaded for this board. Pick your team above — bids are " +
-      "scaled to a specific manager's budget, so there is nothing to show until one " +
-      "is selected.",
+      "Pick your team above — bids are scaled to a specific manager's budget, so " +
+      "there is nothing to show until one is selected.",
+  },
+  loading: {
+    label: "Loading bid…",
+    reason: "FAAB bids for your team are still loading.",
+  },
+  failed: {
+    label: "Bids failed to load",
+    reason:
+      "The FAAB bid request for your team failed, so no bid is shown. Nothing is " +
+      "estimated in its place — retry to request the bids again.",
+  },
+  unavailable: {
+    label: "Bids not loaded",
+    reason:
+      "No FAAB bids have arrived for this board. Nothing is estimated in their " +
+      "place — a missing bid is not a $0 bid.",
   },
   team_context_missing: {
     label: "Recommendation unavailable: team context missing",
@@ -237,16 +263,27 @@ const BID_STATE_COPY = {
   },
 };
 
+/** The causes a caller may state for a missing index (see above). */
+export const BID_FEED_STATES = Object.freeze(["no_team", "loading", "failed"]);
+
 /**
  * Like :func:`waiverBidForRow`, but says WHY when there is no bid.
+ *
+ * ``bidFeed`` (optional) is the caller's statement of why it has no index
+ * — one of ``BID_FEED_STATES``.  It is read ONLY when ``index`` is null:
+ * an index that exists is the answer, whatever the caller believes about
+ * its fetch.  Anything else (or nothing) is the cause-less
+ * ``unavailable``.
  *
  * Returns ``{state, bid, label, reason}``. Computes nothing: the bid
  * object is the backend's, and every other field is a fixed string
  * chosen by ``state``.
  */
-export function waiverBidStateForRow(index, row) {
+export function waiverBidStateForRow(index, row, bidFeed = null) {
   const withCopy = (state) => ({ state, bid: null, ...BID_STATE_COPY[state] });
-  if (!index) return withCopy("unavailable");
+  if (!index) {
+    return withCopy(BID_FEED_STATES.includes(bidFeed) ? bidFeed : "unavailable");
+  }
   // A team was selected (the fetch that built this index only runs
   // then), but the backend fell back to the ceiling-only estimate — no
   // rival model ran, so nothing here is a recommendation. This check

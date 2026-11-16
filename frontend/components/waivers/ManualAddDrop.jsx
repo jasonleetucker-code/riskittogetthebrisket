@@ -27,7 +27,7 @@
  * and still lives in lib/trade-logic + lib/waiver-logic.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { adjustedSideTotals, effectiveValue } from "@/lib/trade-logic";
 import {
@@ -196,7 +196,29 @@ function FaabHeaderStat({ selectedTeam, leagueFaab, feed }) {
 }
 
 /**
- * Lightweight typeahead picker.  Single-asset selection.
+ * Typeahead picker — a WAI-ARIA combobox + listbox.  Single-asset selection.
+ *
+ * Why not the ds ``Combobox``: its options are a text label + one line of
+ * description, while a pick here has to show the headshot, the position
+ * badge, the source rank and the board value the meter will use; and it
+ * lists every option, where the add pool runs past fifty.  So this mirrors
+ * the calculator's own inline search (app/trade/trade-sections.jsx, TC-E)
+ * and its ``.trade-side-search-*`` styles, ``[data-active]`` ring included.
+ *
+ * Keyboard (the defect this fixed: results answered only mouse-down and
+ * touch, and the list closed 120 ms after focus left the INPUT, so a
+ * keyboard user could neither reach nor activate a result):
+ *   - focus stays in the input and points at the active option with
+ *     ``aria-activedescendant``; ArrowDown / ArrowUp move it (Home / End
+ *     stay with the text caret, as on /trade), Enter picks it, Escape
+ *     closes the list;
+ *   - every option also answers a plain ``click`` (keyboard activation and
+ *     screen-reader virtual-cursor activation send a click with no
+ *     mouse-down);
+ *   - the list closes only when focus leaves the WHOLE picker, never on a
+ *     timer, so moving focus onto an option cannot unmount it;
+ *   - after a pick focus moves to that side's clear button, and after a
+ *     clear it returns to the search input — it is never dropped on <body>.
  */
 function SidePicker({
   label,
@@ -211,7 +233,18 @@ function SidePicker({
   settings,
 }) {
   const [q, setQ] = useState("");
-  const [focused, setFocused] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const pickerRef = useRef(null);
+  // Where focus goes after the next selection change: the clear button
+  // after a pick, the search input after a clear.  Null when the change
+  // did not come from this picker (e.g. the parent resetting it).
+  const focusAfterChange = useRef(null);
+  const baseId = useId();
+  const listId = `${baseId}-list`;
+  const optionId = (i) => `${baseId}-opt-${i}`;
+  const sideName = String(label || "").toLowerCase();
+  const sideTitle = sideName.charAt(0).toUpperCase() + sideName.slice(1);
 
   const results = useMemo(() => {
     const term = normalizeNameCompact(q);
@@ -221,10 +254,67 @@ function SidePicker({
       .slice(0, 8);
   }, [q, pool]);
 
-  const showResults = focused && !selected;
+  const showResults = open && !selected;
+  const hasOptions = showResults && results.length > 0;
+  const activeIndex = hasOptions && active >= 0 && active < results.length ? active : -1;
+
+  useEffect(() => {
+    const target = focusAfterChange.current;
+    if (!target) return;
+    focusAfterChange.current = null;
+    const el = pickerRef.current?.querySelector(
+      target === "clear" ? "[data-picker-clear]" : "input",
+    );
+    el?.focus();
+  }, [selected]);
+
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    // Optional call: jsdom has no scrollIntoView.
+    document
+      .getElementById(`${baseId}-opt-${activeIndex}`)
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIndex, baseId]);
+
+  const choose = (r) => {
+    if (!r) return;
+    focusAfterChange.current = "clear";
+    onSelect(r);
+    setQ("");
+    setOpen(false);
+    setActive(-1);
+  };
+
+  const clear = () => {
+    focusAfterChange.current = "input";
+    onClear();
+  };
+
+  const onKeyDown = (e) => {
+    const n = results.length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (!n) return;
+      e.preventDefault();
+      if (!showResults) {
+        setOpen(true);
+        setActive(e.key === "ArrowDown" ? 0 : n - 1);
+        return;
+      }
+      if (e.key === "ArrowDown") setActive(activeIndex < 0 ? 0 : Math.min(activeIndex + 1, n - 1));
+      else setActive(activeIndex <= 0 ? n - 1 : activeIndex - 1);
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      e.preventDefault();
+      choose(results[activeIndex]);
+    } else if (e.key === "Escape" && showResults) {
+      e.preventDefault();
+      setOpen(false);
+      setActive(-1);
+    }
+  };
 
   return (
     <div
+      ref={pickerRef}
       className={`${styles.side} ${
         variant === "drop" ? styles.sideDrop : styles.sideAdd
       }`}
@@ -236,46 +326,82 @@ function SidePicker({
           row={selected}
           valueMode={valueMode}
           settings={settings}
-          onClear={onClear}
+          onClear={clear}
+          clearLabel={`Clear ${sideName} selection`}
         />
       ) : (
-        <div className={`${styles.sideSearch} trade-side-search`}>
+        <div
+          className={`${styles.sideSearch} trade-side-search`}
+          onBlur={(e) => {
+            // Close only when focus leaves the whole picker (input AND
+            // list).  A press on an option keeps focus in the input
+            // (mouse-down is prevented), and focus that does land on an
+            // option stays inside this container — neither closes it.
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+              setOpen(false);
+              setActive(-1);
+            }
+          }}
+        >
           <Input
             className="trade-side-search-input"
             type="text"
             value={q}
             placeholder={placeholder}
-            aria-label={`Search ${label.toLowerCase()} candidates`}
-            onChange={(e) => setQ(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => {
-              // Slight delay so a tap/click on a result registers before
-              // the dropdown collapses.
-              setTimeout(() => setFocused(false), 120);
+            aria-label={`Search ${sideName} candidates`}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={hasOptions}
+            aria-controls={hasOptions ? listId : undefined}
+            aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+            autoComplete="off"
+            onChange={(e) => {
+              setQ(e.target.value);
+              setOpen(true);
+              setActive(-1);
             }}
+            onFocus={() => setOpen(true)}
+            onClick={() => setOpen(true)}
+            onKeyDown={onKeyDown}
           />
           {showResults && (
-            <div className="trade-side-search-results">
-              {pool.length === 0 ? (
-                <div className="trade-side-search-empty muted">{emptyMsg}</div>
-              ) : results.length === 0 ? (
-                <div className="trade-side-search-empty muted">No matches.</div>
-              ) : (
-                results.map((r) => (
+            pool.length === 0 || results.length === 0 ? (
+              <div className="trade-side-search-results">
+                <div className="trade-side-search-empty muted" role="status">
+                  {pool.length === 0 ? emptyMsg : "No matches."}
+                </div>
+              </div>
+            ) : (
+              <div
+                className="trade-side-search-results"
+                role="listbox"
+                id={listId}
+                aria-label={`${sideTitle} candidates`}
+              >
+                {results.map((r, i) => (
                   <button
                     key={`pick-${label}-${r.name}`}
+                    id={optionId(i)}
                     type="button"
+                    role="option"
+                    aria-selected={i === activeIndex}
+                    tabIndex={-1}
+                    data-active={i === activeIndex || undefined}
                     className="trade-side-search-result button-reset"
                     onMouseDown={(e) => {
+                      // Keep focus in the input so the list stays put
+                      // under the pointer, and pick on the press.
                       e.preventDefault();
-                      onSelect(r);
-                      setQ("");
+                      choose(r);
                     }}
                     onTouchStart={(e) => {
                       e.preventDefault();
-                      onSelect(r);
-                      setQ("");
+                      choose(r);
                     }}
+                    // Keyboard and assistive-technology activation arrive
+                    // as a click with no mouse-down.  Picking the same row
+                    // twice is idempotent.
+                    onClick={() => choose(r)}
                   >
                     <PlayerImage
                       playerId={r.raw?.playerId}
@@ -300,9 +426,9 @@ function SidePicker({
                       </div>
                     </div>
                   </button>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )
           )}
         </div>
       )}
@@ -310,7 +436,7 @@ function SidePicker({
   );
 }
 
-function SelectedCard({ row, valueMode, settings, onClear }) {
+function SelectedCard({ row, valueMode, settings, onClear, clearLabel = "Clear selection" }) {
   const v = Math.round(effectiveValue(row, valueMode, settings) || 0);
   return (
     <div className={styles.selectedCard}>
@@ -335,8 +461,18 @@ function SelectedCard({ row, valueMode, settings, onClear }) {
           </div>
         </div>
       </div>
-      <Button variant="ghost" size="sm" onClick={onClear} aria-label="Clear selection">
-        Remove
+      {/* One name per side ("Clear drop selection" / "Clear add selection"):
+          two identical "Clear selection" buttons were indistinguishable in a
+          screen reader's button list.  The visible word is part of the name
+          (WCAG 2.5.3, label in name), so voice control can say "Clear". */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onClear}
+        aria-label={clearLabel}
+        data-picker-clear="true"
+      >
+        Clear
       </Button>
     </div>
   );
