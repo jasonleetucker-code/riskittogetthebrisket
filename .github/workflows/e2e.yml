@@ -111,6 +111,11 @@ on:
       - "frontend/package.json"
       - "frontend/next.config.*"
       # The suite and its harness — a change here should prove itself.
+      # The harness's own dependencies (Playwright, axe-core) live in the
+      # ROOT manifest: a browser or accessibility-rule bump changes what
+      # every spec sees, so it runs the suite too.
+      - "package.json"
+      - "package-lock.json"
       - "tests/e2e/**"
       - ".github/workflows/e2e.yml"
 
@@ -160,6 +165,12 @@ jobs:
           python scripts/python_lock.py check
           pip install --require-hashes -r requirements.lock.txt
 
+      # Node 20 is the production runtime this job builds and serves the app
+      # on.  @axe-core/playwright 4.14 declares engines node >=22.12 (npm
+      # prints EBADENGINE); it is plain CommonJS needing only `assert` and
+      # axe-core, and its scans run correctly here.  Accepted on purpose:
+      # moving this job to Node 22 would test a runtime production does not
+      # run.  Revisit when production moves off Node 20.
       - name: Use Node 20
         uses: actions/setup-node@v7
         with:

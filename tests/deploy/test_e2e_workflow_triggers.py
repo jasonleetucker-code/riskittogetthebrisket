@@ -59,6 +59,8 @@ _EXPECTED_PR_PATHS = [
     "frontend/lib/public-routes.js",
     "frontend/package.json",
     "frontend/next.config.*",
+    "package.json",
+    "package-lock.json",
     "tests/e2e/**",
     ".github/workflows/e2e.yml",
 ]
@@ -107,6 +109,15 @@ def test_pr_trigger_still_exercises_itself() -> None:
     # rules proves them in the same PR that makes it.
     pr = _triggers(_workflow())["pull_request"]
     assert ".github/workflows/e2e.yml" in pr["paths"]
+
+
+def test_harness_dependency_bumps_run_the_suite() -> None:
+    """Playwright and axe-core live in the ROOT manifest.  A bump there
+    changes the browser and the accessibility rules every spec runs under,
+    so it must prove itself on the PR rather than first on the nightly."""
+    pr = _triggers(_workflow())["pull_request"]
+    assert "package.json" in pr["paths"]
+    assert "package-lock.json" in pr["paths"]
 
 
 def test_design_system_is_deliberately_not_a_pr_trigger() -> None:

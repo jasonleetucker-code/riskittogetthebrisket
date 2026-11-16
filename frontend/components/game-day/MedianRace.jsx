@@ -131,32 +131,46 @@ function Row({ t, selected, final, onSelect }) {
   ]
     .filter(Boolean)
     .join(", ");
+  // A selectable row is a button named by what it shows (WCAG 2.5.3: a speech
+  // user says the visible text); the full sentence is its description.  A
+  // read-only row keeps the group label with hidden cells.
+  const selectable = Boolean(t.ownerId && onSelect);
+  const hide = selectable ? undefined : "true";
+  const descId = `median-race-desc-${t.rosterId}`;
   const cells = (
     <>
-      <span className={styles.rank} aria-hidden="true">
+      <span className={styles.rank} aria-hidden={hide}>
         {t.rank}
-      </span>
-      <span className={styles.team} aria-hidden="true">
+      </span>{" "}
+      <span className={styles.team} aria-hidden={hide}>
         <span className={styles.teamName}>{label}</span>
         {t.displayName && t.displayName !== label ? (
-          <span className={styles.manager}>{t.displayName}</span>
+          <>
+            {" "}
+            <span className={styles.manager}>{t.displayName}</span>
+          </>
         ) : null}
-        {selected ? <span className={styles.viewing}>Viewing</span> : null}
-      </span>
-      <span className={styles.num} aria-hidden="true" data-col="now">
+        {selected ? (
+          <>
+            {" "}
+            <span className={styles.viewing}>Viewing</span>
+          </>
+        ) : null}
+      </span>{" "}
+      <span className={styles.num} aria-hidden={hide} data-col="now">
         {formatPoints(final ? t.finalScore : t.scoreNow) ?? "—"}
-      </span>
+      </span>{" "}
       {!final ? (
         <>
-          <span className={styles.num} aria-hidden="true" data-col="projected">
+          <span className={styles.num} aria-hidden={hide} data-col="projected">
             {formatPoints(t.projectedMean) ?? "—"}
-          </span>
-          <span className={styles.num} aria-hidden="true" data-col="edge">
+          </span>{" "}
+          <span className={styles.num} aria-hidden={hide} data-col="edge">
             {formatSignedPoints(t.medianMarginMean) ?? "—"}
-          </span>
+          </span>{" "}
         </>
       ) : null}
-      <span className={styles.pct} aria-hidden="true" data-col="beat">
+      <span className={styles.pct} aria-hidden={hide} data-col="beat">
         {outcome}
         {!final ? movementNode(t.movementPp) : null}
       </span>
@@ -164,16 +178,23 @@ function Row({ t, selected, final, onSelect }) {
   );
   return (
     <li className={`${styles.row} ${selected ? styles.selected : ""}`.trim()} data-roster-id={t.rosterId}>
-      {t.ownerId && onSelect ? (
-        <button
-          type="button"
-          className={styles.rowButton}
-          aria-label={accessible}
-          aria-current={selected ? "true" : undefined}
-          onClick={() => onSelect(t.ownerId)}
-        >
-          {cells}
-        </button>
+      {selectable ? (
+        <>
+          <button
+            type="button"
+            className={styles.rowButton}
+            aria-describedby={descId}
+            aria-current={selected ? "true" : undefined}
+            onClick={() => onSelect(t.ownerId)}
+          >
+            {cells}
+          </button>
+          {/* hidden: read once, as the button's description, not again in
+              browse mode (aria-describedby resolves hidden referents). */}
+          <span id={descId} hidden>
+            {accessible}
+          </span>
+        </>
       ) : (
         <div className={styles.rowButton} role="group" aria-label={accessible}>
           {cells}

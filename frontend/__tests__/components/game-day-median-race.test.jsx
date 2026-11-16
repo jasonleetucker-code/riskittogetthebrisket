@@ -124,22 +124,25 @@ describe("Live Median Race — the board is the backend's", () => {
     expect(within(heroRow).getByText(heroPct)).toBeInTheDocument();
   });
 
-  it("gives each row an accessible name with rank and chance", async () => {
+  it("names each row by what it shows and describes rank and chance in full (WCAG 2.5.3)", async () => {
     await show(HALFTIME);
     const t = HALFTIME.medianRace.teams[0];
-    expect(
-      screen.getByRole("button", {
-        name: new RegExp(`^Rank 1, ${t.teamName}, ${formatPct(t.beatMedianPct).replace(".", "\\.")} to beat the median`),
-      }),
-    ).toBeInTheDocument();
+    const esc = (v) => String(v).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // A speech user can say the visible text: the name IS the visible cells,
+    // words separated, never an aria-label that replaces them.
+    const row = screen.getByRole("button", { name: new RegExp(`^1 ${esc(t.teamName)}( |$)`) });
+    expect(row).not.toHaveAttribute("aria-label");
+    expect(row).toHaveAccessibleDescription(
+      new RegExp(`^Rank 1, ${esc(t.teamName)}, ${esc(formatPct(t.beatMedianPct))} to beat the median`),
+    );
   });
 
   it("shows movement only where a comparable generation exists", async () => {
     await show(HALFTIME);
     const moved = HALFTIME.medianRace.teams.find((t) => typeof t.movementPp === "number" && t.movementPp > 0);
-    // The arrow is visual; its meaning is in the row's accessible name.
+    // The arrow is visual; its meaning is in the row's accessible description.
     const button = within(rowFor(moved.rosterId)).getByRole("button");
-    expect(button.getAttribute("aria-label")).toMatch(
+    expect(button).toHaveAccessibleDescription(
       new RegExp(`up ${moved.movementPp.toFixed(1)}pp since the last update`),
     );
     expect(rowFor(moved.rosterId).querySelector(".ds-movement--up")).not.toBeNull();
@@ -149,7 +152,7 @@ describe("Live Median Race — the board is the backend's", () => {
     await show(PREGAME);
     expect(board().querySelectorAll(".ds-movement")).toHaveLength(0);
     for (const b of within(board()).getAllByRole("button")) {
-      expect(b.getAttribute("aria-label")).not.toMatch(/since the last update/);
+      expect(b).not.toHaveAccessibleDescription(/since the last update/);
     }
   });
 });
@@ -261,6 +264,6 @@ describe("Live Median Race — switching and updates", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     await act(async () => poll.resolve(ok(gen2)));
     expect(rows()[0].getAttribute("data-roster-id")).toBe(y.rosterId);
-    expect(within(rows()[0]).getByRole("button").getAttribute("aria-label")).toMatch(/up 12\.0pp/);
+    expect(within(rows()[0]).getByRole("button")).toHaveAccessibleDescription(/up 12\.0pp/);
   });
 });
