@@ -123,6 +123,7 @@ const ALLOWED_RAW = {
     "r.name": [3, NO_CANONICAL_ID, "rookie pool rows are draft-slug keyed; roster-context playerId falls back to the name (src/draft/context.py `playerId or name`)"],
     "r.cut.name": [1, NO_CANONICAL_ID, "cut ladder playerId falls back to the name (src/draft/context.py)"],
     "t.name": [1, NOT_A_PLAYER, "team selector option"],
+    "optimizedTeam.name": [2, NOT_A_PLAYER, "the fantasy team being optimized (budget-unknown notice + other-team bought-so-far label)"],
   },
   "app/angle/page.jsx": {
     "p.name": [1, NO_CANONICAL_ID, "/api/angle/* package players carry name/position only (src/trade/angle.py)"],

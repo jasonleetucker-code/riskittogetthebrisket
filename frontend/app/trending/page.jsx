@@ -125,7 +125,7 @@ export default function TrendingPage() {
       ) : (
         <div className="card">
           <div className="muted" style={{ fontSize: "0.7rem", marginBottom: 6 }}>
-            {movers.length} player{movers.length === 1 ? "" : "s"} · sorted by absolute rank change
+            {movers.length} player{movers.length === 1 ? "" : "s"} · sorted by absolute rank change · players no longer on the board are not listed
           </div>
           <div className="table-wrap">
             <table>
@@ -167,7 +167,7 @@ export default function TrendingPage() {
                         {fmtDelta(m.delta)}
                       </td>
                       <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
-                        {Math.round(m.value).toLocaleString()}
+                        {m.value == null ? "—" : Math.round(m.value).toLocaleString()}
                       </td>
                     </tr>
                   );

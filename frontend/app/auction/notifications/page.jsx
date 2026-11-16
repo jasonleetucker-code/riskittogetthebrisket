@@ -23,6 +23,7 @@ import {
   refreshBinding,
 } from "@/lib/auction-notify";
 import styles from "../auction.module.css";
+import { findThisDevice, thisDeviceId } from "./this-device";
 
 function SetupSteps({ platform }) {
   if (platform.kind === "ios-browser") {
@@ -86,6 +87,11 @@ function NotificationsInner() {
   const [platform, setPlatform] = useState({ kind: "unknown", pushCapable: false });
   const [perm, setPerm] = useState("default");
   const [hereSub, setHereSub] = useState(null);
+  // THIS browser's device id, as the server answered when this browser's own
+  // subscription was registered (`POST /notify/devices` → {deviceId}).  The
+  // device list carries no endpoint, so this id is the only way to tell this
+  // device from the account's other phones — "any live device" is not it.
+  const [hereDeviceId, setHereDeviceId] = useState(null);
   const [state, setState] = useState(null);
   const [err, setErr] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -106,7 +112,10 @@ function NotificationsInner() {
 
   useEffect(() => {
     setPlatform(detectPlatform());
-    refreshBinding().finally(load);
+    refreshBinding()
+      .then((out) => setHereDeviceId(thisDeviceId(out)))
+      .catch(() => setHereDeviceId(null))
+      .finally(load);
   }, [load]);
 
   useEffect(() => {
@@ -137,7 +146,8 @@ function NotificationsInner() {
     }
   };
 
-  const hereDevice = state?.devices?.find((d) => d.live && hereSub);
+  const hereDevice = findThisDevice(state?.devices, hereDeviceId, hereSub);
+  const hereLinked = Boolean(hereDevice?.live);
   const prefsOrder = state ? Object.keys(state.labels) : [];
 
   return (
@@ -170,23 +180,33 @@ function NotificationsInner() {
               <dt>Permission</dt>
               <dd>{{ granted: "Allowed", denied: "Blocked", default: "Not asked yet", unsupported: "Not supported here" }[perm]}</dd>
               <dt>Subscribed</dt>
-              <dd>{hereSub ? (hereDevice ? "Yes — linked to your account" : "Browser subscribed, not linked") : "No"}</dd>
+              <dd>{hereSub ? (hereLinked ? "Yes — linked to your account" : "Browser subscribed, not linked") : "No"}</dd>
             </dl>
             <SetupSteps platform={platform} />
             <div className={styles.row}>
               <Button
                 variant="primary"
                 disabled={busy || !platform.pushCapable || platform.kind === "ios-browser"}
-                onClick={() => run(() => enablePush(state?.publicKey), "Notifications are on for this device. Send a test to check it.")}
+                onClick={() =>
+                  run(async () => {
+                    const out = await enablePush(state?.publicKey);
+                    setHereDeviceId(thisDeviceId(out));
+                    return out;
+                  }, "Notifications are on for this device. Send a test to check it.")
+                }
               >
                 Turn on notifications
               </Button>
               <Button
-                disabled={busy || !state?.devices?.some((d) => d.live)}
+                disabled={busy || !hereLinked}
+                title={hereLinked ? undefined : "Turn on notifications on this device first."}
                 onClick={() =>
                   run(
                     async () => {
-                      const out = await notifyApi.test(hereDevice?.id);
+                      // Only ever this device: an id-less test goes to every
+                      // live device on the account, i.e. possibly another phone.
+                      if (!hereLinked) throw new Error("This device is not linked yet — turn on notifications here first.");
+                      const out = await notifyApi.test(hereDevice.id);
                       setLastTest(out.outboxIds?.[0] ?? null);
                       return out;
                     },
@@ -197,7 +217,16 @@ function NotificationsInner() {
                 Send a test
               </Button>
               {hereSub ? (
-                <Button variant="ghost" disabled={busy} onClick={() => run(disablePushHere, "Alerts are off on this device.")}>
+                <Button
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      await disablePushHere();
+                      setHereDeviceId(null);
+                    }, "Alerts are off on this device.")
+                  }
+                >
                   Turn off here
                 </Button>
               ) : null}
@@ -260,7 +289,10 @@ function NotificationsInner() {
                 <tbody>
                   {(state?.devices || []).map((d) => (
                     <tr key={d.id}>
-                      <td>{d.label || d.platform || `Device ${d.id}`}</td>
+                      <td>
+                        {d.label || d.platform || `Device ${d.id}`}
+                        {hereDevice && d.id === hereDevice.id ? <span className={styles.sub}>This device</span> : null}
+                      </td>
                       <td>{d.live ? <Badge tone="positive">Active</Badge> : <Badge>{d.disabled_reason || "signed out"}</Badge>}</td>
                       <td>{d.last_ok_at ? formatRoomTime(d.last_ok_at) : "—"}</td>
                     </tr>

@@ -8,7 +8,8 @@
  *  - budget   = the seat's `spendable` from the server's ledger (AUC-001:
  *               leading prices are already reserved) — the SAME number the
  *               room shows, never a client recomputation;
- *  - held     = lots this seat currently leads + lots it has won.  They are
+ *  - held     = lots this seat currently leads + closed lots it currently OWNS
+ *               (the public `owner`, which follows in-room trades).  They are
  *               commitments/purchases, not candidates, and they occupy
  *               roster room via `applyDraftProgress`;
  *  - candidates = every other unsold rookie in the room's frozen pool:
@@ -60,13 +61,24 @@ export function buildAdviceInput({ view, pool, adviceCtx, strategy = "balanced",
   const estimate = (v) => (denom > 0 ? Math.round((roomMoney * v) / denom) : null);
 
   const byPlayer = new Map(pub.auctions.map((a) => [a.player, a]));
+  // A won lot belongs to its CURRENT owner.  An in-room trade moves it
+  // (`engine.lot_owner`: `owner`, set by the trade, else the winner), and the
+  // public projection stamps that answer as `owner` on every closed lot.
+  // Reading `winner` kept a traded-away rookie on the seller's roster and left
+  // a traded-for one off the buyer's.  A closed lot whose owner the server did
+  // not state is UNKNOWN roster occupancy — advice is withheld, never guessed.
+  for (const a of pub.auctions) {
+    if (a?.status === "closed" && (a.owner === undefined || a.owner === null || a.owner === "")) {
+      return { input: null, reason: "lot_owner_unknown" };
+    }
+  }
   const held = [];
   const candidates = [];
   let unpriced = 0;
   for (const [pid, p] of Object.entries(pool)) {
     const a = byPlayer.get(pid);
     if (a && a.status === "closed") {
-      if (a.winner === seat) held.push({ id: pid, name: p.name, price: a.price, state: "won" });
+      if (a.owner === seat) held.push({ id: pid, name: p.name, price: a.price, state: "won" });
       continue;
     }
     if (a && a.status === "open" && a.leader === seat) {
